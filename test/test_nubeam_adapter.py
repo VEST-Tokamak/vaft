@@ -490,3 +490,25 @@ def test_power_balance_stops_at_the_end_of_the_block():
 
 def test_a_log_without_a_balance_yields_nothing():
     assert nubeam.parse_power_balance("nubeam STEP completed:  normal exit.\n") == ()
+
+
+def test_profiles_exclude_plasma_state_bookkeeping(tmp_path):
+    """`ps_partial_update` is a flag, not something a caller can plot."""
+    import numpy as np
+    import xarray as xr
+
+    xr.Dataset(
+        {
+            "pbe": (("rho",), np.linspace(10.0, 1.0, 8)),
+            "ps_partial_update": ((), np.int32(1)),
+            "frac_full": (("one",), np.array([1.0])),
+            "version_id": (("c",), np.array(["2.055"], dtype="U8")),
+        }
+    ).to_netcdf(tmp_path / "state_changes.cdf")
+
+    profiles = nubeam.collect_nubeam_outputs(tmp_path).outputs_native.profiles
+
+    assert "pbe" in profiles
+    assert "ps_partial_update" not in profiles  # a scalar flag
+    assert "frac_full" not in profiles  # one point is not a profile
+    assert "version_id" not in profiles  # a character array

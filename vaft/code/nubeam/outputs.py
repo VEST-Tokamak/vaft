@@ -306,17 +306,29 @@ def _open_dataset(path: Path):
         return xr.open_dataset(path, decode_times=False)
 
 
-def _read_variables(path: Path) -> dict[str, Any]:
+def _read_variables(path: Path, *, profiles_only: bool = False) -> dict[str, Any]:
+    """Numeric variables from a NUBEAM netCDF file.
+
+    ``profiles_only`` keeps just the radial profiles: real-valued and more than
+    one point across. Without it the Plasma State's own bookkeeping --
+    ``ps_partial_update``, ``sc0_to_sgas`` and similar integer flags -- would be
+    offered to a caller asking what profiles a run produced, and counted among
+    them.
+    """
     import numpy as np
 
     values: dict[str, Any] = {}
     with _open_dataset(path) as dataset:
         for name, variable in dataset.variables.items():
-            data = variable.values
+            data = np.asarray(variable.values)
             if data.dtype.kind in "SU":
                 # Character arrays are Plasma State bookkeeping, not physics.
                 continue
-            values[str(name)] = np.asarray(data)
+            if profiles_only and (
+                data.dtype.kind not in "fc" or data.ndim == 0 or data.shape[-1] < 2
+            ):
+                continue
+            values[str(name)] = data
     return values
 
 
@@ -408,7 +420,11 @@ def collect_nubeam_outputs(
         raise FileNotFoundError(f"NUBEAM work directory does not exist: {directory}")
 
     state_changes = directory / STATE_CHANGES
-    profiles = _read_variables(state_changes) if state_changes.is_file() else {}
+    profiles = (
+        _read_variables(state_changes, profiles_only=True)
+        if state_changes.is_file()
+        else {}
+    )
 
     runid = config.runid
     runid_file = directory / "nubeam_comp_exec.RUNID"

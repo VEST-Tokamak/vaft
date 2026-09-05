@@ -66,6 +66,7 @@ The newly added pipeline notebooks are documentation shells only. They should be
 - `linear_ideal_stability_analysis_with_dcon.ipynb`: Planned linear ideal MHD stability analysis using DCON from the GPEC package.
 - `linear_resistive_stability_analysis_with_rdcon.ipynb`: Planned linear resistive MHD stability analysis using RDCON from the GPEC package.
 - `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`: Planned perturbed equilibrium and 3D response analysis using GPEC.
+- `vest_nbi_analysis_with_nubeam.ipynb`: Neutral-beam deposition, heating, current drive and loss accounting for VEST with NUBEAM. Needs a completed NUBEAM run, named by `VAFT_NUBEAM_RUN_DIR`; without one each section reports what it would show and skips.
 
 ### Analysis, Visualization, Reporting, and Comparison
 
@@ -97,13 +98,14 @@ Use the following order as the main technical path through the notebooks. Existi
 14. `linear_ideal_stability_analysis_with_dcon.ipynb`
 15. `linear_resistive_stability_analysis_with_rdcon.ipynb`
 16. `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`
-17. `plotting_sample_using_vaft_plot_module.ipynb`
-18. `shot_characteristics_classification.ipynb`
-19. `vest_daily_monitoring.ipynb`
-20. `fast_camera_video_analysis.ipynb`
-21. `confinement_time_scaling.ipynb`
-22. `multiple_tokamak_comparison.ipynb`
-23. `publication_figures.ipynb`
+17. `vest_nbi_analysis_with_nubeam.ipynb`
+18. `plotting_sample_using_vaft_plot_module.ipynb`
+19. `shot_characteristics_classification.ipynb`
+20. `vest_daily_monitoring.ipynb`
+21. `fast_camera_video_analysis.ipynb`
+22. `confinement_time_scaling.ipynb`
+23. `multiple_tokamak_comparison.ipynb`
+24. `publication_figures.ipynb`
 
 For a shorter review focused only on the planned Snakemake pipeline shells, read:
 
