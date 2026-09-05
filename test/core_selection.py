@@ -69,10 +69,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_api_layer_boundaries.py",
     "test_no_bare_downsample.py",
     "test_no_pyplot_outside_plot.py",
-    "test_plot_backend_access.py",
     "test_plot_backend_boundaries.py",
     "test_validation_architecture.py",
-    "test_vest_yaml_boundaries.py",
     # Registry, taxonomy and display policy: the vocabulary the rest of the
     # package indexes itself by.
     "test_diagnostic_registry.py",
@@ -102,6 +100,25 @@ CORE_MODULES: tuple[str, ...] = (
     # The gate's own contract.
     "test_core_selection.py",
 )
+
+
+# Measured and deliberately left out, recorded so they are not re-added by
+# someone reading only the group headings:
+#
+#   test_plot_backend_access.py    loads a sample shot and sweeps every
+#                                  registered plot spec against it. A real
+#                                  contract, but it was 29% of this gate on its
+#                                  own, and it is a conformance sweep rather
+#                                  than a cheap boundary check. The import-time
+#                                  half of the same contract is
+#                                  test_plot_backend_boundaries.py, which is
+#                                  here.
+#   test_vest_yaml_boundaries.py   despite the name, revision-overlap checks
+#                                  across shot ranges -- shot-data validation,
+#                                  not an architectural boundary, and 18% of
+#                                  the gate. It belongs to the full suite.
+#
+# Both still run on the main gate and on the push to develop.
 
 
 def core_paths() -> tuple[Path, ...]:

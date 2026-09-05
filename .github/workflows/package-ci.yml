@@ -87,7 +87,11 @@ jobs:
         # They are release-confidence measurements and run on the main gate.
         #
         # Serial for the same reason test-matrix is: see the note there.
-        run: python -m pytest -q -m "core and not perf"
+        #
+        # --durations keeps the gate's own cost visible in its log: this job
+        # has a budget, and the way a fast gate stops being fast is one test at
+        # a time with nobody watching.
+        run: python -m pytest -q -m "core and not perf" --durations=25
 
   test-matrix:
     name: test (${{ matrix.label }})
