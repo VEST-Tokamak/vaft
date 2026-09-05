@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>54421bf</code>. What is described
+  <code>42df96a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -467,21 +467,17 @@ instant. It raises <code class="language-plaintext highlighter-rouge">ValueError
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">print_info</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="sh">'</span><span class="s">magnetics</span><span class="sh">'</span><span class="p">)</span>    <span class="c1"># channel counts inside one IDS
 </span></code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">vaft.omas.classify_shot(ods)</code> is <em>intended</em> to label a shot <code class="language-plaintext highlighter-rouge">'Plasma'</code>, <code class="language-plaintext highlighter-rouge">'BD failure'</code> or <code class="language-plaintext highlighter-rouge">'Vacuum'</code> from the
-barometry, H-alpha and Ip signals.</p>
+<p><code class="language-plaintext highlighter-rouge">vaft.omas.classify_shot(ods)</code> labels a shot <code class="language-plaintext highlighter-rouge">'Plasma'</code>, <code class="language-plaintext highlighter-rouge">'BD failure'</code> or <code class="language-plaintext highlighter-rouge">'Vacuum'</code> from the
+barometry, H-alpha and Ip signals. It needs a <code class="language-plaintext highlighter-rouge">barometry</code> IDS; on the packaged sample (shot 39915)
+it returns <code class="language-plaintext highlighter-rouge">'Plasma'</code>. Its <code class="language-plaintext highlighter-rouge">pressure_threshold</code> and <code class="language-plaintext highlighter-rouge">halpha_threshold</code> are the variance-ratio
+thresholds of the primitive below; an IDS it cannot find is caught and reported as <code class="language-plaintext highlighter-rouge">'Vacuum'</code>,
+so guard the IDSs yourself when that default is not what you want.</p>
 
-<blockquote>
-  <p><strong>Do not rely on it as it stands.</strong> On <code class="language-plaintext highlighter-rouge">main</code> it calls <code class="language-plaintext highlighter-rouge">vaft.process.is_signal_active(data, threshold=...)</code>,
-but that function’s signature is <code class="language-plaintext highlighter-rouge">is_signal_active(data, var_ratio_thresh=1e-2, change_ratio_thresh=1e-2,
-verbose=False)</code> — there is no <code class="language-plaintext highlighter-rouge">threshold</code> argument. The resulting <code class="language-plaintext highlighter-rouge">TypeError</code> is swallowed by a bare
-<code class="language-plaintext highlighter-rouge">except</code>, so the call prints
-<code class="language-plaintext highlighter-rouge">Error in find_shotclass: is_signal_active() got an unexpected keyword argument 'threshold'</code>
-and returns <code class="language-plaintext highlighter-rouge">'Vacuum'</code> for <strong>every</strong> shot. It also needs a <code class="language-plaintext highlighter-rouge">barometry</code> IDS, which the packaged sample
-(shot 39915) does not carry.</p>
-</blockquote>
-
-<p>The underlying primitive does work, and it is scale-invariant — it compares a variance ratio and a mean-|Δx|
-ratio against relative thresholds, so it needs no knowledge of the signal’s units:</p>
+<p>The underlying primitive is scale-free: it compares the trace’s variance and its mean |Δx|, both
+divided by the trace’s mean absolute level, against relative thresholds, so it needs no knowledge
+of the signal’s units. A trace held at any non-zero level with noise far below that level is
+inactive; the converse caveat is that a zero-mean noise trace has no level to be small against
+and reads active at any amplitude, so apply a known noise floor before asking (issue #463).</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
@@ -489,8 +485,8 @@ ratio against relative thresholds, so it needs no knowledge of the signal’s un
 
 <span class="n">halpha</span> <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">spectrometer_uv.channel.0.processed_line.0.intensity.data</span><span class="sh">'</span><span class="p">]</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">is_signal_active</span><span class="p">(</span><span class="n">halpha</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>   <span class="c1"># -&gt; True  (H-alpha fired: breakdown occurred)
-# Variance ratio: 1.000e+00 (thresh=1.000e-02)
-# Mean |Δx| ratio: 1.976e-01 (thresh=1.000e-02)
+# Variance ratio: 2.918e+00 (thresh=1.000e-02)
+# Mean |Δx| ratio: 2.276e-01 (thresh=1.000e-02)
 </span></code></pre></div></div>
 
 <p>Compose your own classifier on top of it, guarding each IDS before you index it:</p>
@@ -1399,7 +1395,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-05 06:33:01 +0000"
+        "time": "2026-09-05 07:05:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

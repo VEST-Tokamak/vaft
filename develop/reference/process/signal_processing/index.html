@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>54421bf</code>. What is described
+  <code>42df96a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1004,12 +1004,15 @@ unresolved, which the caller must handle rather than assume.</p>
 
 <p>Decide whether a trace carries a signal or is flat.</p>
 
+<p>Both tests are relative to the trace’s own level, so the verdict does not
+depend on the signal’s units or gain.</p>
+
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
   <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>The waveform; fewer than two samples is never active.</p>
 </td></tr>
-  <tr><td><code>var_ratio_thresh</code></td><td>float, optional</td><td>-</td><td><p>Threshold on the variance ratio described below.</p>
+  <tr><td><code>var_ratio_thresh</code></td><td>float, optional</td><td>-</td><td><p>Threshold on the variance divided by the squared mean absolute level, the squared coefficient of variation.</p>
 </td></tr>
   <tr><td><code>change_ratio_thresh</code></td><td>float, optional</td><td>-</td><td><p>Threshold on the mean absolute sample-to-sample change divided by the mean absolute level.</p>
 </td></tr>
@@ -1037,13 +1040,12 @@ is recorded.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>The variance test is a tautology: the variance is divided by itself plus
-<code class="language-plaintext highlighter-rouge">1e-12</code>, so the ratio is 1 for any trace whose variance exceeds about
-1e-10, and the <code class="language-plaintext highlighter-rouge">var_ratio_thresh</code> branch can only fire for a trace that
-is constant to twelve decimal places.  The decision is therefore made by
-<code class="language-plaintext highlighter-rouge">change_ratio</code> alone, and a trace flat to one part in a million is
-reported active.  Tracked in #463; this docstring describes the code as it
-is, not as it was meant to be.</p>
+<p>A trace held at a non-zero level with noise far below that level is
+inactive, whatever the level.  The converse is the caveat: the test is
+scale-free by design and has no absolute floor, so a zero-mean noise
+trace scores near 1 on both ratios and is reported active at any
+amplitude.  A caller that knows a noise floor must apply it before
+asking.  An identically zero trace is inactive.</p>
 
 <h3 id="line_average_density"><code class="language-plaintext highlighter-rouge">line_average_density</code></h3>
 
@@ -1985,7 +1987,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-05 06:33:01 +0000"
+        "time": "2026-09-05 07:05:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

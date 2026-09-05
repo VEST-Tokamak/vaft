@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>54421bf</code>. What is described
+  <code>42df96a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -528,8 +528,10 @@ anything else raises <code class="language-plaintext highlighter-rouge">ValueErr
 
 <p><code class="language-plaintext highlighter-rouge">signal_on_offset</code> applies a Savitzky–Golay smooth (polyorder 3) and returns the contiguous
 above-threshold window <strong>containing the global maximum</strong>; <code class="language-plaintext highlighter-rouge">vfit_signal_start_end</code> does the same without
-the smoothing stage. <code class="language-plaintext highlighter-rouge">is_signal_active</code> is a scale-invariant “is this channel alive?” test
-(<code class="language-plaintext highlighter-rouge">var_ratio_thresh=1e-2</code>, <code class="language-plaintext highlighter-rouge">change_ratio_thresh=1e-2</code>) that returns <code class="language-plaintext highlighter-rouge">False</code> for arrays shorter than 2.</p>
+the smoothing stage. <code class="language-plaintext highlighter-rouge">is_signal_active</code> is a scale-free “is this channel alive?” test: the variance and
+the mean |Δx| are each divided by the trace’s mean absolute level (the first is the squared coefficient
+of variation) and compared with <code class="language-plaintext highlighter-rouge">var_ratio_thresh=1e-2</code> and <code class="language-plaintext highlighter-rouge">change_ratio_thresh=1e-2</code>; a trace is
+inactive only when both fall below threshold, and arrays shorter than 2 are never active.</p>
 
 <p>These are what the ODS-level event finders are built on — <code class="language-plaintext highlighter-rouge">vaft.omas.find_breakdown_onset</code>,
 <code class="language-plaintext highlighter-rouge">find_ip_onset</code>, <code class="language-plaintext highlighter-rouge">find_pf_active_onset</code> and <code class="language-plaintext highlighter-rouge">find_pulse_duration</code> all call <code class="language-plaintext highlighter-rouge">signal_on_offset</code>
@@ -1388,7 +1390,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-05 06:33:01 +0000"
+        "time": "2026-09-05 07:05:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
