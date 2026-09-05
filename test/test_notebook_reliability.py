@@ -118,6 +118,46 @@ def test_parametric_equilibrium_notebooks_execute_offline(name, monkeypatch):
     ).execute()
 
 
+def test_nubeam_notebook_explains_itself_without_a_run(monkeypatch, capsys):
+    """The NUBEAM notebook cannot execute in CI, so cover the path that can.
+
+    It needs a completed NUBEAM run, and CI has neither NUBEAM nor a run
+    directory. What must hold regardless is that the notebook says so and
+    stops, rather than raising -- so the setup cell is executed here with
+    VAFT_NUBEAM_RUN_DIR unset.
+    """
+    book = nbformat.read(NOTEBOOKS / "vest_nbi_analysis_with_nubeam.ipynb", as_version=4)
+    monkeypatch.delenv("VAFT_NUBEAM_RUN_DIR", raising=False)
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+
+    # Located by content, not by index.
+    def cell_containing(marker):
+        for cell in book.cells:
+            if cell.cell_type == "code" and marker in cell.source:
+                return cell.source
+        raise AssertionError(f"no code cell contains {marker!r}")
+
+    namespace: dict = {}
+    exec(
+        compile(cell_containing("VAFT_NUBEAM_RUN_DIR"), "nubeam-setup", "exec"),
+        namespace,
+    )
+
+    assert namespace["HAVE_RUN"] is False
+    assert namespace["RUN_DIR"] is None
+    assert "VAFT_NUBEAM_RUN_DIR" in capsys.readouterr().out
+
+    # Every later cell must be guarded, or it would raise on that False.
+    guardless = [
+        cell.source
+        for cell in book.cells
+        if cell.cell_type == "code"
+        and "nbplot." in cell.source
+        and "HAVE_RUN" not in cell.source
+    ]
+    assert not guardless, guardless
+
+
 def test_fluctuation_notebook_configured_ods_branch(monkeypatch, tmp_path):
     notebook_path = NOTEBOOKS / "fluctuation_diagnostics_analysis.ipynb"
     book = nbformat.read(notebook_path, as_version=4)

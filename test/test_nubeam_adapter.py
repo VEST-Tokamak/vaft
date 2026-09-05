@@ -298,3 +298,217 @@ def test_installed_nubeam_resolves():
         )
     )
     assert executable is not None and executable.is_file()
+
+
+# --------------------------------------------------------------------------
+# LOST_ORBIT decoding
+# --------------------------------------------------------------------------
+
+LOST_FIELDS = nubeam.LOST_PARTICLE_FIELDS
+
+
+def _write_xplasma_out(path: Path, columns: dict[str, list[float]]) -> Path:
+    """Write the three LOST_ORBIT variables the way xplasma packs them.
+
+    Columns are laid end to end in ``r8work``; ``iwork`` carries the marker
+    count and one 1-based start offset per column. The trailing zero after the
+    offsets is xplasma's, and is what makes the reference reader drop a value.
+    """
+    import numpy as np
+    import xarray as xr
+
+    count = len(next(iter(columns.values())))
+    flat: list[float] = []
+    offsets: list[int] = []
+    for name in LOST_FIELDS:
+        offsets.append(len(flat) + 1)  # 1-based
+        flat.extend(columns[name])
+    iwork = [40, count, *offsets, 0]
+
+    xr.Dataset(
+        {
+            "LOST_ORBIT_type": ((), np.int32(900)),
+            "LOST_ORBIT_iwork": (("ni",), np.asarray(iwork, dtype="int32")),
+            "LOST_ORBIT_r8work": (("nr",), np.asarray(flat, dtype=float)),
+        }
+    ).to_netcdf(path)
+    return path
+
+
+def _lost_columns(count: int = 3) -> dict[str, list[float]]:
+    values = {
+        "time": [1e-5, 2e-5, 3e-5],
+        "beam": [1.0, 1.0, 1.0],
+        "efrac": [1.0, 1.0, 2.0],
+        "ptcl": [5.0e14, 4.0e14, 3.0e14],
+        "rlost": [0.51, 0.60, 0.69],
+        "zlost": [-0.01, 0.20, 0.44],
+        "energy": [9.6, 9.8, 10.0],
+        "vfrac": [0.2, 0.5, 0.9],
+        "lstype": [1.0, 1.0, 2.0],
+        "spec": [1.0, 1.0, 1.0],
+    }
+    return {k: v[:count] for k, v in values.items()}
+
+
+def test_lost_particles_decode_every_column_to_full_length(tmp_path):
+    """The reference reader truncates the last column; this must not."""
+    _write_xplasma_out(tmp_path / "RUN_xplasma_out.cdf", _lost_columns())
+    (tmp_path / "nubeam_comp_exec.RUNID").write_text("RUN\n", encoding="utf-8")
+
+    result = nubeam.collect_nubeam_outputs(tmp_path)
+    lost = result.outputs_native.lost
+
+    assert lost is not None
+    assert lost.count == 3
+    assert sorted(lost.columns) == sorted(LOST_FIELDS)
+    # `spec` is the column the reference reader returns one short.
+    assert all(len(lost.columns[name]) == 3 for name in LOST_FIELDS)
+    assert list(lost.columns["spec"]) == [1.0, 1.0, 1.0]
+
+
+def test_lost_particles_keep_native_metres_and_kev(tmp_path):
+    _write_xplasma_out(tmp_path / "RUN_xplasma_out.cdf", _lost_columns())
+    (tmp_path / "nubeam_comp_exec.RUNID").write_text("RUN\n", encoding="utf-8")
+
+    lost = nubeam.collect_nubeam_outputs(tmp_path).outputs_native.lost
+
+    # Metres, unlike the birth file's centimetres. No conversion here.
+    assert list(lost.columns["rlost"]) == [0.51, 0.60, 0.69]
+    assert list(lost.columns["energy"]) == [9.6, 9.8, 10.0]
+
+
+def test_lost_particles_split_prompt_from_orbit(tmp_path):
+    _write_xplasma_out(tmp_path / "RUN_xplasma_out.cdf", _lost_columns())
+    (tmp_path / "nubeam_comp_exec.RUNID").write_text("RUN\n", encoding="utf-8")
+
+    lost = nubeam.collect_nubeam_outputs(tmp_path).outputs_native.lost
+
+    assert lost.channel_counts() == {"prompt": 2, "orbit": 1}
+    assert list(lost.prompt) == [True, True, False]
+
+
+def test_a_run_that_lost_nothing_is_an_empty_record_not_a_missing_one(tmp_path):
+    import numpy as np
+    import xarray as xr
+
+    xr.Dataset(
+        {
+            "LOST_ORBIT_iwork": (
+                ("ni",),
+                np.asarray([40, 0, *([1] * len(LOST_FIELDS)), 0], dtype="int32"),
+            ),
+            "LOST_ORBIT_r8work": (("nr",), np.zeros(1)),
+        }
+    ).to_netcdf(tmp_path / "RUN_xplasma_out.cdf")
+    (tmp_path / "nubeam_comp_exec.RUNID").write_text("RUN\n", encoding="utf-8")
+
+    lost = nubeam.collect_nubeam_outputs(tmp_path).outputs_native.lost
+
+    assert lost is not None and lost.count == 0
+    assert lost.channel_counts() == {"prompt": 0, "orbit": 0}
+
+
+def test_an_xplasma_file_without_the_record_yields_none(tmp_path):
+    import numpy as np
+    import xarray as xr
+
+    xr.Dataset({"something_else": (("n",), np.zeros(3))}).to_netcdf(
+        tmp_path / "RUN_xplasma_out.cdf"
+    )
+    (tmp_path / "nubeam_comp_exec.RUNID").write_text("RUN\n", encoding="utf-8")
+
+    assert nubeam.collect_nubeam_outputs(tmp_path).outputs_native.lost is None
+
+
+def test_no_xplasma_file_is_not_an_error(tmp_path):
+    assert nubeam.collect_nubeam_outputs(tmp_path).outputs_native.lost is None
+
+
+# --------------------------------------------------------------------------
+# Power balance, parsed from the step log
+# --------------------------------------------------------------------------
+
+STEP_LOG = """\
+ ... rough power balance ...
+
+ H beam ion:
+    +injected power (W):   2.000D+05
+    +OH -> beam ions:      0.000D+00
+    -electron heating:     1.138D+05
+    -ion heating:          5.713D+03
+    -"internal" cx loss:   1.325D+02
+    -shine-through:        3.852D+04
+    -bad orbit loss:       2.309D+04
+    -ripple loss:          0.000D+00
+    -d/dt(f.i. energy):    1.970D+04
+       ->residual:        -1.468D+03
+
+ NUBEAM 2d output sampled at [R,Z] = [ 4.934D+01, 9.045D+00] cm
+"""
+
+
+def test_power_balance_reads_fortran_exponents():
+    (balance,) = nubeam.parse_power_balance(STEP_LOG)
+    assert balance.species == "H beam ion"
+    # 2.000D+05, which Python will not parse as written.
+    assert balance.injected == pytest.approx(2.0e5)
+
+
+def test_power_balance_signs_sources_and_sinks_as_the_log_does():
+    (balance,) = nubeam.parse_power_balance(STEP_LOG)
+    assert balance.entries["injected power (W)"] > 0
+    assert balance.entries["electron heating"] < 0
+    assert balance.sinks()["electron heating"] == pytest.approx(1.138e5)
+
+
+def test_power_balance_keeps_the_residual_separate_from_the_channels():
+    """`->residual:` must not be read as a channel called '>residual'."""
+    (balance,) = nubeam.parse_power_balance(STEP_LOG)
+    assert balance.residual == pytest.approx(-1468.0)
+    assert not any("residual" in name for name in balance.entries)
+
+
+def test_power_balance_fractions_match_the_run():
+    (balance,) = nubeam.parse_power_balance(STEP_LOG)
+    fractions = balance.fractions()
+    assert fractions["electron heating"] == pytest.approx(0.569, abs=5e-4)
+    assert fractions["shine-through"] == pytest.approx(0.1926, abs=5e-4)
+    assert fractions["bad orbit loss"] == pytest.approx(0.11545, abs=5e-4)
+
+
+def test_power_balance_strips_the_quotes_nubeam_writes():
+    (balance,) = nubeam.parse_power_balance(STEP_LOG)
+    assert "internal cx loss" in balance.entries
+    assert not any('"' in name for name in balance.entries)
+
+
+def test_power_balance_stops_at_the_end_of_the_block():
+    (balance,) = nubeam.parse_power_balance(STEP_LOG)
+    assert not any("sampled at" in name for name in balance.entries)
+
+
+def test_a_log_without_a_balance_yields_nothing():
+    assert nubeam.parse_power_balance("nubeam STEP completed:  normal exit.\n") == ()
+
+
+def test_profiles_exclude_plasma_state_bookkeeping(tmp_path):
+    """`ps_partial_update` is a flag, not something a caller can plot."""
+    import numpy as np
+    import xarray as xr
+
+    xr.Dataset(
+        {
+            "pbe": (("rho",), np.linspace(10.0, 1.0, 8)),
+            "ps_partial_update": ((), np.int32(1)),
+            "frac_full": (("one",), np.array([1.0])),
+            "version_id": (("c",), np.array(["2.055"], dtype="U8")),
+        }
+    ).to_netcdf(tmp_path / "state_changes.cdf")
+
+    profiles = nubeam.collect_nubeam_outputs(tmp_path).outputs_native.profiles
+
+    assert "pbe" in profiles
+    assert "ps_partial_update" not in profiles  # a scalar flag
+    assert "frac_full" not in profiles  # one point is not a profile
+    assert "version_id" not in profiles  # a character array
