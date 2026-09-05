@@ -2407,11 +2407,13 @@ def _build_vacuum_psi(ods: Any, *, time: float | None = None, **_: Any) -> Field
     """Vacuum poloidal flux from the PF coils, via the OMAS null-field helper."""
     from vaft.omas import compute_null_ods, find_breakdown_onset
 
-    # The null-field helper reads with plain subscripts; give it a private copy
-    # of what this plot declares so the caller's ODS is left untouched.
-    ods = _isolated_copy(ods, required_ids("equilibrium_field_psi_vacuum") + ("dataset_description",))
+    # The plasma onset is read from the caller's ODS through the non-mutating
+    # accessors (it needs magnetics and spectrometer_uv); the null-field helper
+    # then reads with plain subscripts, so it gets a private copy of what this
+    # plot declares and the caller's ODS is left untouched.
     if time is None:
         time = find_breakdown_onset(ods)
+    ods = _isolated_copy(ods, required_ids("equilibrium_field_psi_vacuum") + ("dataset_description",))
     psi, r_grid, z_grid = compute_null_ods(ods, time)
     r_axis = np.asarray(r_grid)[0, :] if np.ndim(r_grid) == 2 else np.asarray(r_grid)
     z_axis = np.asarray(z_grid)[:, 0] if np.ndim(z_grid) == 2 else np.asarray(z_grid)

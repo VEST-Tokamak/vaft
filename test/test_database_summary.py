@@ -357,25 +357,38 @@ def test_split_reliability_summary_injects_database_source(monkeypatch):
     pd.testing.assert_frame_equal(alias, magnetic)
 
 
-def test_shot_overview_extractor_uses_diagnostic_signals(monkeypatch):
+def test_shot_overview_extractor_uses_the_shared_plasma_timing(monkeypatch):
+    from types import SimpleNamespace
+
     ods = {
-        "spectrometer_uv.time": [0.0, 0.1, 0.2, 0.3],
-        "spectrometer_uv.channel.0.processed_line.0.intensity.data": [0, 1, 1, 0],
         "magnetics.ip.0.data": [0, 10_000, 20_000, 0],
         "tf.time": [0.0, 0.1, 0.2, 0.3],
         "tf.b_field_tor_vacuum_r.data": [0.0, 0.04, 0.08, 0.0],
         "tf.r0": 0.4,
     }
     monkeypatch.setattr(
-        "vaft.process.signal_on_offset", lambda *_args, **_kwargs: (0.1, 0.2)
+        summary_module,
+        "_plasma_timing",
+        lambda _ods: SimpleNamespace(found=True, onset=0.1, offset=0.2, source="h_alpha_primary"),
     )
 
     rows = summary_module.extract_shot_overview(ods, 42)
 
     assert set(rows[0]) == set(summary_module.SHOT_OVERVIEW_COLUMNS)
+    assert rows[0]["plasma_onset_time_s"] == pytest.approx(0.1)
+    assert rows[0]["plasma_onset_source"] == "h_alpha_primary"
     assert rows[0]["pulse_duration_s"] == pytest.approx(0.1)
     assert rows[0]["max_ip_kA"] == 10.0
     assert rows[0]["mean_b_t_T"] == pytest.approx(0.15)
+
+    monkeypatch.setattr(
+        summary_module,
+        "_plasma_timing",
+        lambda _ods: SimpleNamespace(found=False, onset=None, offset=None, source=None,
+                                     fallback_reason="h_alpha_primary: dark; ip_principal: no window"),
+    )
+    with pytest.raises(ValueError, match="no plasma window: h_alpha_primary: dark"):
+        summary_module.extract_shot_overview(ods, 42)
 
 
 def test_export_replace_preserves_frame_and_column_order(tmp_path):

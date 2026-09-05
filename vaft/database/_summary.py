@@ -181,6 +181,7 @@ EFIT_KINETIC_FAMILIES = (
 SHOT_OVERVIEW_COLUMNS = (
     "shot",
     "plasma_onset_time_s",
+    "plasma_onset_source",
     "pulse_duration_s",
     "max_ip_kA",
     "mean_b_t_T",
@@ -897,16 +898,26 @@ def extract_efit_reliability(ods, shot: int) -> list[dict]:
     return extract_efit_magnetic_reliability(ods, shot)
 
 
+def _plasma_timing(ods):
+    """The shared plasma timing (lazy: ``vaft.database`` does not import ``vaft.omas`` at load)."""
+    from vaft.omas.plasma_timing import plasma_timing
+
+    return plasma_timing(ods)
+
+
 def extract_shot_overview(ods, shot: int) -> list[dict]:
-    """Extract one operational overview row from canonical diagnostic signals."""
+    """Extract one operational overview row from canonical diagnostic signals.
+
+    The plasma window comes from ``vaft.omas.plasma_timing`` (H-alpha by
+    label, the current as fallback) and its source is a column; a product
+    with no plasma raises rather than reporting the analysis range.
+    """
     from scipy.signal import medfilt
 
-    uv_time = np.asarray(ods["spectrometer_uv.time"], dtype=float)
-    uv_intensity = np.asarray(
-        ods["spectrometer_uv.channel.0.processed_line.0.intensity.data"],
-        dtype=float,
-    )
-    onset, offset = vaft.process.signal_on_offset(uv_time, uv_intensity, threshold=0.05)
+    timing = _plasma_timing(ods)
+    if not timing.found:
+        raise ValueError(f"no plasma window: {timing.fallback_reason}")
+    onset, offset = float(timing.onset), float(timing.offset)
     ip = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
     if not ip.size:
         raise ValueError("magnetics.ip.0.data is empty")
@@ -924,8 +935,9 @@ def extract_shot_overview(ods, shot: int) -> list[dict]:
     return [
         {
             "shot": int(shot),
-            "plasma_onset_time_s": float(onset),
-            "pulse_duration_s": float(offset - onset),
+            "plasma_onset_time_s": onset,
+            "plasma_onset_source": str(timing.source),
+            "pulse_duration_s": offset - onset,
             "max_ip_kA": float(np.nanmax(filtered_ip)) / 1e3,
             "mean_b_t_T": float(np.nanmean(field_at_reference[in_pulse])),
         }

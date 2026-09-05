@@ -47,6 +47,28 @@ def handle_labels(odc, label_param, default_opt='key'):
         print(f"Invalid label: {label_param}, using {default_opt} as label.")
         return extract_labels_from_odc(odc, opt=default_opt)
 
+def _plasma_xlim(ods):
+    """``[onset, offset]`` of the shared plasma window, or ``None`` with a warning.
+
+    ``vaft.omas.plasma_timing`` decides which signal answers for the plasma
+    (H-alpha by label, the current as fallback); a product with no plasma
+    gets no limits rather than the analysis range.
+    """
+    import warnings
+
+    from vaft.omas.plasma_timing import PlasmaTimingError, plasma_timing
+
+    try:
+        timing = plasma_timing(ods)
+    except PlasmaTimingError as exc:
+        warnings.warn(f"xlim='plasma': no plasma window ({exc})", stacklevel=3)
+        return None
+    if not timing.found:
+        warnings.warn(f"xlim='plasma': no plasma window ({timing.fallback_reason})", stacklevel=3)
+        return None
+    return list(timing.window)
+
+
 def set_xlim_time(odc, type='plasma'):
     """
     Set time limits for x-axis of plot.
@@ -61,13 +83,12 @@ def set_xlim_time(odc, type='plasma'):
     for key in odc.keys():
         ods = odc[key]
         try:
-            if type == 'plasma' and 'magnetics.ip' in ods:
-                time = ods['magnetics.ip.0.time']
-                data = ods['magnetics.ip.0.data']
-                onset, offset = signal_on_offset(time, data)
-                onsets.append(onset)
-                offsets.append(offset)
-                
+            if type == 'plasma':
+                window = _plasma_xlim(ods)
+                if window is not None:
+                    onsets.append(window[0])
+                    offsets.append(window[1])
+
             elif type == 'coil' and 'pf_active.coil' in ods:
                 num_coils = len(ods['pf_active.coil'])
                 for i in range(num_coils):
@@ -1750,19 +1771,12 @@ def time_electromagnetics_current(ods: ODS, label='shot', xunit='s', xlim='plasm
     # Handle xlim
     # Simplified handle_xlim for single ODS context, or adapt existing one
     if xlim == 'plasma':
-        # Attempt to get plasma time limits
-        try:
-            time_ip = ods['magnetics.ip.0.time']
-            data_ip = ods['magnetics.ip.0.data']
-            onset_ip, offset_ip = signal_on_offset(time_ip, data_ip)
-            xlim_processed = [onset_ip, offset_ip]
+        xlim_processed = _plasma_xlim(ods)
+        if xlim_processed is not None:
             if onset is not None:
-                 xlim_processed = [onset_ip - onset, offset_ip - onset]
+                xlim_processed = [t - onset for t in xlim_processed]
             if xunit == 'ms':
                 xlim_processed = [t * 1000 for t in xlim_processed]
-        except KeyError:
-            xlim_processed = None
-            print("Warning: Could not determine xlim='plasma' due to missing IP data. Using default.")
     elif xlim == 'coil':
         # Attempt to get coil time limits (simplified)
         try:
