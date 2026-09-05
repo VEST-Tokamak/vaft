@@ -39,14 +39,17 @@ OFFLINE_NOTEBOOKS: dict[str, dict[str, str]] = {
     "magnetic_diagnostics_processing.ipynb": {},
     "verification_and_validation.ipynb": {},
     "database_initialization_and_load.ipynb": {"VAFT_DOCS_READ_ONLY": "1"},
-    # The issue-65 equilibrium examples: packaged data or none at all, and the
-    # only notebooks the pytest suite already executes end to end
-    # (test_notebook_reliability.py::test_parametric_equilibrium_notebooks_execute_offline).
-    "parametric_equilibrium_descriptors.ipynb": {},
-    "analytic_solovev_equilibrium.ipynb": {},
-    "edge_and_boundary_representation.ipynb": {},
+    # The one issue-65 example that draws: this tool's verdict is "did a figure
+    # reach a frontend", so a text-only notebook listed here would be reported
+    # as a failure for having nothing to render. The other three, and
+    # initialize_external_fusion_codes, print rather than plot and are executed
+    # end to end by
+    # test_notebook_reliability.py::test_parametric_equilibrium_notebooks_execute_offline
+    # instead.
     "local_miller_equilibrium_fitting.ipynb": {},
-    "initialize_external_fusion_codes.ipynb": {},
+    "mhd_equilibrium_analysis.ipynb": {},
+    "eddy_current_calculation_and_startup_analysis.ipynb": {},
+    "shot_characteristics_classification.ipynb": {},
 }
 
 
