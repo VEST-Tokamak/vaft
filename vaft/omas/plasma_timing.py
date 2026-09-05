@@ -52,6 +52,7 @@ from vaft.machine_mapping.spectrometer_uv import (
 from vaft.machine_mapping.utils import (
     MIN_BASELINE_S,
     CroppedRecord,
+    DischargeTimingPolicy,
     PlasmaTimingPolicy,
     crop_to_span,
     resolve_plasma_timing_policy,
@@ -170,8 +171,13 @@ def _resolved(
     return policy, span
 
 
-def analysis_span(policy: PlasmaTimingPolicy | None = None) -> AnalysisSpan:
-    """The :class:`AnalysisSpan` the configured policy prescribes."""
+def analysis_span(policy: PlasmaTimingPolicy | DischargeTimingPolicy | None = None) -> AnalysisSpan:
+    """The :class:`AnalysisSpan` the configured policy prescribes.
+
+    Accepts the plasma policy or the discharge-timing one: both carry a
+    ``window`` and a ``baseline_start``, and the two are configured on the
+    same window so the actuator events and the plasma are judged on one span.
+    """
     if policy is None:
         policy = resolve_plasma_timing_policy()
     window = policy.window

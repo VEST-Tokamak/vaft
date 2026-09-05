@@ -1697,6 +1697,44 @@ plasma_timing:
     lag_tolerance_s: 1.0e-2      # Ip later than this  -> halpha_leads_ip_large
     offset_tolerance_s: 3.0e-3   # |offset delta| above -> offset_disagreement
 
+# Discharge-timing policy (issue #409): actuator and drive events, independent
+# of the plasma hierarchy above -- measured onsets, never a trigger unless a
+# command timestamp exists (none is mapped today). `vaft.omas.discharge_timing`
+# composes them: per-coil onsets, the ohmic (solenoid) onset that anchors the
+# loop-voltage excursion, and the loop-voltage zero crossing that is the
+# 'vloop' time convention.
+discharge_timing:
+  window: plasma_analysis        # searched inside; same window as plasma_timing
+  baseline_lead_s: 0.02          # baseline = [tstart - lead, tstart)
+  ohmic_coil: PF1                # pf_active.coil.{i}.name (identifier as fallback) of the solenoid drive
+  loop_voltage:
+    selection: inboard_midplane  # inboard_flux_loop family (probe_family), nearest |z| with a finite record
+    prefer_measured_voltage: true  # flux_loop.{i}.voltage.data when stored, else -d(flux)/dt
+  # Per-coil onset rule on |I - baseline| (keyword arguments of active_window):
+  # the principal pulse of the coil current with a 3x pickup floor. An idle coil
+  # is flat and yields no onset (reference_flat); a bipolar coil is judged on
+  # its magnitude.
+  coil:
+    principal_only: true
+    pickup_floor: 3.0
+    fraction: 0.02
+    sigma: 5.0
+    hold_s: 5.0e-4
+  # Loop-voltage event rule (keyword arguments of zero_crossing_after_excursion):
+  # the sustained |V| run starting within 0.5 ms of the ohmic onset is the
+  # solenoid excursion; the event is the first sign change of V after its
+  # extremum. |V| dipping under 10 % of the extremum and climbing back above
+  # 20 % before crossing is approached_without_crossing. Packaged products
+  # (-dflux/dt on Flux Loop #10): 39915 extremum -5.4 V at 293.1 ms, crossing
+  # 302.2 ms; 41524/41672 extremum -6.5 V at 294.2 ms, approach 0.1-0.2 V at
+  # 307.0 ms, second dip, crossing 311.5 / 311.1 ms.
+  vloop:
+    fraction: 0.05
+    sigma: 5.0
+    hold_s: 5.0e-4
+    anchor_tolerance_s: 5.0e-4
+    approach_fraction: 0.10
+
 # Canonical ownership and availability registry. This top-level namespace is
 # intentionally not part of the `0:` / shot-override runtime configuration.
 diagnostic_registry:
