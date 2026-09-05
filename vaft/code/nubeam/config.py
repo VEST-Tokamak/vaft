@@ -65,8 +65,10 @@ def workdir_budget(
 class NUBEAMConfig(CodeConfig):
     """Runtime configuration for a NUBEAM run.
 
-    ``workdir`` is subject to :func:`workdir_budget`. Leave it as ``None`` to
-    have the adapter allocate a scratch directory short enough to satisfy it.
+    The work directory is passed to :func:`prepare_nubeam_inputs`, not carried
+    here, and is subject to :func:`workdir_budget`. For a scratch run, wrap the
+    call in :func:`vaft.compat.short_temporary_directory` with
+    ``max_length=config.workdir_budget``.
     """
 
     #: Run identifier. NUBEAM derives every output filename from it, so it

@@ -107,12 +107,25 @@ shopt -u nullglob
   die "no mdescr_*.dat / sconfig_*.dat machine description in $INPUT_DIR"
 
 WORK_DIR="$BUILD_DIR/$RUN_NAME"
-# nubeam_comp_exec holds file paths in fixed-length CHARACTER buffers and
-# silently truncates past roughly 140 characters, which shows up as an
-# unrelated-looking "file open failure" on the input state. Fail here with the
-# real reason instead.
-((${#WORK_DIR} < 100)) ||
-  die "work directory path is too long for NUBEAM's fixed-length path buffers (${#WORK_DIR} chars): $WORK_DIR"
+# nubeam_comp_exec composes every filename in a `character*140` buffer (`zfile`
+# in `subroutine echo`, nubeam_comp_exec.F90), so what must fit is
+#
+#     len(workdir) + 1 + len(runid) + 32  <=  140
+#
+# where 32 is the longest suffix it appends, from the debug particle state
+# written whenever nltest_output = 1. A longer path is truncated with no
+# diagnostic and surfaces later as an unrelated-looking "file open failure" on
+# the input state, so fail here with the real reason.
+#
+# The run id is on line 6 of inputf, which has not been staged yet at this
+# point, so budget against a generous 24-character id here; vaft.code.nubeam
+# applies the exact rule once the id is known.
+NUBEAM_PATH_BUFFER=140
+NUBEAM_LONGEST_SUFFIX=32
+NUBEAM_ASSUMED_RUNID=24
+max_workdir=$((NUBEAM_PATH_BUFFER - 1 - NUBEAM_ASSUMED_RUNID - NUBEAM_LONGEST_SUFFIX))
+((${#WORK_DIR} <= max_workdir)) ||
+  die "work directory is ${#WORK_DIR} characters; NUBEAM's ${NUBEAM_PATH_BUFFER}-character filename buffer leaves at most $max_workdir. Use --run-name or NUBEAM_WORK_ROOT to shorten it: $WORK_DIR"
 
 rm -rf "$WORK_DIR"
 mkdir -p "$WORK_DIR"

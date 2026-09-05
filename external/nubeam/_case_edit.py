@@ -25,9 +25,10 @@ import argparse
 from pathlib import Path
 import re
 import sys
+from typing import NoReturn
 
 
-def _die(message: str) -> "None":
+def _die(message: str) -> NoReturn:
     print(f"_case_edit.py: {message}", file=sys.stderr)
     raise SystemExit(1)
 
