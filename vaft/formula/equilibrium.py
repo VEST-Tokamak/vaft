@@ -2205,7 +2205,7 @@ def virial_beta_p_lao_from_S_mu_rt(
 ) -> float:
     r"""Poloidal beta, Lao large-aspect-ratio virial closure.
 
-    $$\beta_p = \frac{S_1}{2} + \frac{S_2}{2}\left(1 + \frac{R_T}{R_0}\right) + \mu_i$$
+    $$\beta_p = \frac{S_1}{2} + \frac{S_2}{2}\left(1 - \frac{R_T}{R_0}\right) + \mu_i$$
 
     Parameters
     ----------
@@ -2223,6 +2223,16 @@ def virial_beta_p_lao_from_S_mu_rt(
     float
         Poloidal beta [-].
 
+    Convention
+    ----------
+    The $R_T/R_0$ term carries a **minus** sign: this is $\tfrac{1}{2}(E_1-E_2)$
+    of the three virial relations solved by
+    :func:`virial_bp_li_lihat_from_S123`, which fixes $\beta_p - \mu_i$ from
+    $E_1$ and $E_2$ alone. A plus sign belongs to the other combination,
+    $E_1+E_2$, which eliminates $\mu_i$ in favour of $l_i$ and is what
+    :func:`virial_beta_p_from_S_li` evaluates at $R_T/R_0 = 1$. The two are not
+    interchangeable, and confusing them is what this function did until #546.
+
     Validity
     --------
     Large aspect ratio; at VEST aspect ratio the neglected $\epsilon$ terms
@@ -2233,7 +2243,7 @@ def virial_beta_p_lao_from_S_mu_rt(
     .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion
            25 (1985) 1421, Sec. 3.
     """
-    return 0.5 * S1 + 0.5 * S2 * (1.0 + RT_over_R0) + mui
+    return 0.5 * S1 + 0.5 * S2 * (1.0 - RT_over_R0) + mui
 
 
 def virial_li_from_S_alpha_rt(
@@ -2649,8 +2659,10 @@ def virial_bp_li_lihat_from_S123(S1: float,
 
     Numerical notes
     ---------------
-    Direct solve of the 3x3 linear system with ``numpy.linalg.solve``; singular
-    when $\alpha = 1/3$ (rows become dependent).
+    Direct solve of the 3x3 linear system with ``numpy.linalg.solve``. The
+    determinant is $4(\alpha-1)$, so the system is singular at $\alpha = 1$ --
+    the same limit that makes the historical Lao $l_i$ blow up, because
+    $E_1$ and $E_2$ fix $\beta_p - \mu_i$ and only $E_3$ separates $l_i$ from it.
 
     References
     ----------

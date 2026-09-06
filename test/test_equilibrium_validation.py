@@ -285,8 +285,20 @@ def test_pressure_consistency_names_both_definitions(report):
 
 def test_the_reconstructed_diamagnetic_flux_disagrees_with_the_measurement_in_sign(report):
     """A finding on shot 39915 the report surfaces: the reconstructed flux is
-    paramagnetic where the loop measures diamagnetic, while the *measured*
-    flux closes the virial energy balance to half a percent."""
+    paramagnetic where the loop measures diamagnetic.
+
+    This test used to also assert that the measured flux closed the virial
+    energy balance to half a percent. It did not: that agreement was the Lao
+    ``beta_p`` sign error (#546) cancelling the very sign disagreement this test
+    exists to record. ``W_kin`` is built on the equilibrium-derived ``mu_i``
+    (+0.75 here) and ``W_diamagnetic`` on the measured one (-0.63), so the two
+    cannot agree to half a percent while the measurement and the reconstruction
+    disagree about which way the plasma diamagnetism points. The old
+    ``beta_p`` carried a spurious ``+r*S2 = -0.128`` that offset
+    ``-(mu_i + mu_i_measured) = -0.120`` to within 0.008. With the sign
+    corrected the balance closes to ~8%, which is the honest size of the
+    disagreement and still well inside the check's own tolerance.
+    """
     flux = _slice(report, "physical_validity", "diamagnetic_flux", LIVE)
     assert flux["status"] == FAIL
     assert flux["sign_agreement"] is False
@@ -294,8 +306,9 @@ def test_the_reconstructed_diamagnetic_flux_disagrees_with_the_measurement_in_si
     energy = _slice(report, "independent_validation", "diamagnetic_energy", LIVE)
     assert energy["status"] == PASS
     assert energy["mui_measured"] < 0
-    assert abs(energy["log_ratio"]) < 0.02
-    assert energy["W_diamagnetic"] == pytest.approx(energy["W_kin_virial"], rel=0.02)
+    # The residual is the mu_i disagreement, not a coincidence: it must be far
+    # enough from zero to be the real thing and inside the registry tolerance.
+    assert 0.02 < abs(energy["log_ratio"]) < describe("independent_validation.diamagnetic_energy").tolerance[0]
 
 
 def test_measurements_can_arrive_on_a_separate_diagnostics_ods(sample):
