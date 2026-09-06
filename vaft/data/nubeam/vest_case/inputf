@@ -1,0 +1,9 @@
+0.0 0.005					! init/end timeq
+chease_g026537.031000			! EQDSK file
+mdescr_VEST_190307.dat		! mdeescr file
+sconfig_VEST_190307.dat		    	! sconfig file
+FUSMA_NUBEAM.cdf		! final plasma state file
+FUSMA_NUBEAM	! runID
+1				! fprofil
+profiles				! profile file:
+

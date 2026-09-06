@@ -1,0 +1,7 @@
+  !! nbi_ctrl_update_write -- this file contains
+  !!   non-default values of time step update inputs
+  !!   to NUBEAM, in namelist format.
+  !!      LOGICAL variables mapped to INTEGER: 1=TRUE; 0=FALSE
+  
+ &NBI_UPDATE
+ /

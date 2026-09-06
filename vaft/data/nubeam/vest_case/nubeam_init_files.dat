@@ -1,0 +1,5 @@
+ &NUBEAM_FILES
+  input_plasma_state = "FUSMA_NUBEAM.cdf"
+  plasma_state_update = "state_changes.cdf"
+  init_namelist = "nubeam_init.dat"
+ /
