@@ -124,6 +124,12 @@ class PlotCapability:
     #: Public function behind an interaction mode that is not itself a plot.
     interaction_entry_points: Mapping[str, str] = field(default_factory=dict)
     projection: Mapping[str, Any] = field(default_factory=dict)
+    #: The stored equilibrium slices a slice-indexed plot can draw (instance
+    #: level, issue #480): ``total``, ``usable``, ``times``, ``selected``.
+    slices: Mapping[str, Any] = field(default_factory=dict)
+    #: The controls ``plot_*(..., interactive=True)`` offers for this input
+    #: (instance level, issue #480), in offer order.
+    controls: tuple[str, ...] = ()
 
     # The old ``available_plots`` rows were plain dictionaries; keep that
     # access so ``row["name"]`` and friends still work on a record.
@@ -521,6 +527,8 @@ def _compact_notes(record: PlotCapability) -> list[str]:
         notes.append(_synthetic_note(record.synthetic))
     if record.interaction:
         notes.append("interaction: " + " | ".join(record.interaction))
+    if record.controls:
+        notes.append("controls: " + ", ".join(record.controls))
     flags = []
     if record.uncertainty.get("available"):
         flags.append("uncertainty")

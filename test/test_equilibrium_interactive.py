@@ -145,8 +145,11 @@ def test_static_plotting_never_imports_a_widget_toolkit():
 
 def test_discovery_names_the_entry_point_as_an_interaction_mode(shot):
     record = vaft.omas.available_plots(shot, query="equilibrium", view="overview").find("equilibrium_overview")
-    assert record.interaction == ("static", "time-navigable")
-    assert record.interaction_entry_points == {"time-navigable": "plot_equilibrium_interactive()"}
+    assert record.interaction == ("static", "time-navigable", "controls")
+    assert record.interaction_entry_points == {
+        "time-navigable": "plot_equilibrium_interactive()",
+        "controls": "plot_equilibrium_overview(..., interactive=True)",
+    }
     text = str(vaft.omas.available_plots(query="equilibrium", view="overview"))
     assert "interaction: static | time-navigable" in text
     detailed = str(vaft.omas.available_plots(query="equilibrium", view="overview", detail=True))
