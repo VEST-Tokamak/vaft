@@ -70,9 +70,10 @@ A non-diagonal or non-positive resistance, an inductance block that is not
 positive definite, a condition number above 1e12, an inductance asymmetric by
 more than 1e-6 (relative), and a near-degenerate pair of decay times inside a
 segment (relative gap below 1e-6; pass `on_cluster="warn"` to record instead).
-The packaged coupling asset is asymmetric by 1.27e-3 (#347); the mapper
-symmetrizes it on read, and an artifact materialized before that must be
-re-mapped: `compute_wall_mode_basis_ods(ods, remap_em_coupling=True)`.
+The packaged coupling asset has been exactly reciprocal since #373 (its
+`provenance` record names the repair); an artifact materialized before that
+carries a 1.27e-3 asymmetry and must be re-mapped:
+`compute_wall_mode_basis_ods(ods, remap_em_coupling=True)`.
 
 ## Provenance
 

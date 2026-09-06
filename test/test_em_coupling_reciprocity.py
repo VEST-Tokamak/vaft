@@ -1,10 +1,12 @@
-"""Reciprocity of the passive-passive coupling matrix (issue #347).
+"""Reciprocity of the passive-passive coupling matrix (issues #347, #373).
 
 A mutual-inductance matrix must satisfy M_ij == M_ji exactly. The packaged
-asset does not: 35% of its entries are asymmetric, up to 4% on the worst pair,
-and it was loaded verbatim into every eddy-current solve. `em_coupling()` now
-symmetrizes on load and records how far off the input was, rather than
-applying the correction silently.
+asset did not: 35% of its entries were asymmetric, up to 4% on the worst pair
+-- the donor applied its SUS material factor from one side only -- and it was
+loaded verbatim into every eddy-current solve. #347 made `em_coupling()`
+symmetrize on load and record how far off the input was; #373 repaired the
+asset itself, with provenance, so the fold is now a silent no-op on the
+packaged matrix and still guards a caller-supplied one.
 """
 
 from __future__ import annotations
@@ -31,50 +33,76 @@ def _machine_ods() -> ODS:
 
 def test_the_loaded_passive_coupling_is_exactly_symmetric():
     ods = _machine_ods()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
-        em.em_coupling(ods, shot=SHOT)
+    em.em_coupling(ods, shot=SHOT)
     M = np.asarray(ods["em_coupling.mutual_passive_passive"], dtype=float)
     assert M.shape == (950, 950)
     assert np.array_equal(M, M.T)
 
 
-def test_the_packaged_asset_is_known_to_violate_reciprocity_and_says_so():
-    """This pins the defect, so a regenerated asset that fixes it is noticed.
+def test_the_packaged_asset_is_symmetric_and_carries_provenance():
+    """The #373 repair: every reciprocity-bound matrix in the asset is exact,
+    the asset says who repaired it and how, and loading it is silent."""
+    with np.load(em.DEFAULT_VERSIONED_COUPLING, allow_pickle=False) as versioned:
+        keys = set(versioned.files)
+        for key in ("mutual_passive_passive", "mutual_active_active_1906", "mutual_active_active_2507"):
+            raw = np.asarray(versioned[key], dtype=float)
+            assert float(np.max(np.abs(raw - raw.T)) / np.max(np.abs(raw))) <= 1e-13, key
+    assert em.COUPLING_PROVENANCE_KEY in keys
+    provenance = em.load_versioned_coupling_provenance()
+    assert provenance["passive_material_factor"] == 1.04
+    assert provenance["convention"] == "sus_side"
+    assert provenance["generator"].endswith("regenerate_passive_coupling.py")
+    assert len(provenance["source_sha256"]) == 64
+    assert provenance["input_asymmetry"] == pytest.approx(1.27e-3, rel=0.05)
+    assert provenance["output_asymmetry"] == 0.0
 
-    If the asset is ever replaced by a symmetric one, this test fails on the
-    warning count -- which is the right outcome: delete the expectation, and
-    the warn path stays covered by the synthetic test below.
-    """
+    ods = _machine_ods()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        em.em_coupling(ods, shot=SHOT)
+    params = ods["em_coupling.code.parameters"]
+    assert "passive_passive_symmetrized=false" in params
+    assert "passive_passive_input_asymmetry=0.000000e+00" in params
+    assert "coupling_asset_passive_material_factor=1.04" in params
+    assert "coupling_asset_source_sha256=" in params
+    comment = ods["em_coupling.ids_properties.comment"]
+    assert "reciprocity exact" in comment and "issue #373" in comment
+    assert "symmetrized to" not in comment
+
+
+def test_the_loaded_matrix_is_the_asset_bit_for_bit():
+    """A symmetric input is its own average: the fold must change nothing."""
     with np.load(em.DEFAULT_VERSIONED_COUPLING, allow_pickle=False) as versioned:
         raw = np.asarray(versioned["mutual_passive_passive"], dtype=float)
-    asymmetry = float(np.max(np.abs(raw - raw.T)) / np.max(np.abs(raw)))
-    assert asymmetry == pytest.approx(1.27e-3, rel=0.05)
+    ods = _machine_ods()
+    em.em_coupling(ods, shot=SHOT)
+    loaded = np.asarray(ods["em_coupling.mutual_passive_passive"], dtype=float)
+    np.testing.assert_array_equal(loaded, raw)
+    np.testing.assert_array_equal(loaded, (raw + raw.T) / 2.0)
+
+
+def test_a_legacy_asset_without_provenance_still_loads_and_says_symmetrized(tmp_path, monkeypatch):
+    """An asset written before #373 has no provenance key and a lopsided
+    matrix; it loads with the #347 warning and an honest record."""
+    with np.load(em.DEFAULT_VERSIONED_COUPLING, allow_pickle=False) as versioned:
+        arrays = {k: np.asarray(versioned[k], dtype=float) for k in versioned.files if k != em.COUPLING_PROVENANCE_KEY}
+    lopsided = arrays["mutual_passive_passive"].copy()
+    lopsided[720:, :720] /= 1.04  # the donor defect, re-created
+    arrays["mutual_passive_passive"] = lopsided
+    legacy = tmp_path / "legacy.npz"
+    np.savez_compressed(legacy, **arrays)
+    monkeypatch.setattr(em, "DEFAULT_VERSIONED_COUPLING", legacy)
 
     ods = _machine_ods()
     with pytest.warns(RuntimeWarning, match="violates reciprocity"):
         em.em_coupling(ods, shot=SHOT)
-
-    # Provenance carries the measured number, in both DD-sanctioned homes.
     params = ods["em_coupling.code.parameters"]
     assert "passive_passive_symmetrized=true" in params
+    assert "coupling_asset_provenance=absent" in params
     recorded = float(params.split("passive_passive_input_asymmetry=")[1].split()[0])
-    assert recorded == pytest.approx(asymmetry, rel=1e-6)
+    assert recorded == pytest.approx(1.27e-3, rel=0.05)
     assert "symmetrized to (M + M^T)/2" in ods["em_coupling.ids_properties.comment"]
-
-
-def test_symmetrization_is_the_exact_average_not_something_else():
-    """(M + M^T)/2, bit for bit -- no rounding, scaling or reordering."""
-    with np.load(em.DEFAULT_VERSIONED_COUPLING, allow_pickle=False) as versioned:
-        raw = np.asarray(versioned["mutual_passive_passive"], dtype=float)
-    ods = _machine_ods()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
-        em.em_coupling(ods, shot=SHOT)
-    np.testing.assert_array_equal(
-        np.asarray(ods["em_coupling.mutual_passive_passive"], dtype=float),
-        (raw + raw.T) / 2.0,
-    )
+    assert em.load_versioned_coupling_provenance(legacy) is None
 
 
 @pytest.mark.parametrize(
@@ -119,9 +147,7 @@ def test_a_caller_supplied_reference_matrix_is_also_held_to_reciprocity(tmp_path
     from omas import save_omas_json
 
     reference = _machine_ods()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
-        em.em_coupling(reference, shot=SHOT)
+    em.em_coupling(reference, shot=SHOT)
     M = np.asarray(reference["em_coupling.mutual_passive_passive"], dtype=float)
     lopsided = M.copy()
     lopsided[0, 1] *= 1.02  # 2% on one pair: warn regime, not reject
