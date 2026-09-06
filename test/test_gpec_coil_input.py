@@ -247,3 +247,136 @@ def test_namelist_quoting_keeps_the_repository_delimiter():
     assert _quote_namelist_string(r"C:\vaft\coil") == r'"C:\vaft\coil"'
     # The delimiter is the only in-string metacharacter Fortran recognises.
     assert _quote_namelist_string('say "hi"') == '"say ""hi"""'
+
+
+# ---------------------------------------------------------------------------
+# A second machine: geometry supplied by the caller, direction words explicit
+# ---------------------------------------------------------------------------
+
+from vaft.machine_mapping.coils_non_axisymmetric_geometry import (  # noqa: E402
+    GPEC_COIL_DAT_HEADER,
+    coil_set_from_dat,
+    coil_set_from_xyz_loops,
+)
+from vaft.machine_mapping.conventions import VEST_GPEC_COIL_DIRECTIONS  # noqa: E402
+
+SYNTHETIC_SETS = {"rmpu": 4, "rmpl": 8, "efcc": 4, "pf_n1": 16}
+
+
+def _tiny_loop(phi_deg: float, radius: float = 1.4, half_height: float = 0.1) -> np.ndarray:
+    """A closed five-point rectangle centred at toroidal angle ``phi_deg``."""
+    phi = np.deg2rad(phi_deg)
+    r_in, r_out = radius - 0.05, radius + 0.05
+    corners = [(r_in, -half_height), (r_out, -half_height), (r_out, half_height), (r_in, half_height), (r_in, -half_height)]
+    return np.array([[r * np.cos(phi), r * np.sin(phi), z] for r, z in corners])
+
+
+def _synthetic_machine():
+    config = {}
+    for name, count in SYNTHETIC_SETS.items():
+        loops = [_tiny_loop(360.0 * k / count) for k in range(count)]
+        config[name] = coil_set_from_xyz_loops(name, loops, turns=2.0, description=f"synthetic {name}")
+    return config
+
+
+def test_coil_set_from_xyz_loops_validates_and_records_sector_angles():
+    config = _synthetic_machine()
+    assert config["rmpl"].sector_angles_deg == pytest.approx(tuple(45.0 * k for k in range(8)))
+    assert config["rmpl"].dat_path is None
+    with pytest.raises(ValueError, match="turns must be positive"):
+        coil_set_from_xyz_loops("x", [_tiny_loop(0.0)], turns=0.0)
+    with pytest.raises(ValueError, match="not closed"):
+        coil_set_from_xyz_loops("x", [_tiny_loop(0.0)[:-1]], turns=1.0)
+    with pytest.raises(ValueError, match="one point count per set"):
+        coil_set_from_xyz_loops("x", [_tiny_loop(0.0), _tiny_loop(90.0)[:3]], turns=1.0)
+
+
+def test_in_memory_sets_round_trip_through_dat_with_the_canonical_header(tmp_path):
+    config = _synthetic_machine()
+    staged = stage_coil_data([config["rmpl"], config["pf_n1"]], tmp_path / "coil", machine="synth")
+    assert [p.name for p in staged] == ["synth_rmpl.dat", "synth_pf_n1.dat"]
+    header = staged[0].read_text(encoding="utf-8").splitlines()[0].split()
+    assert GPEC_COIL_DAT_HEADER == ("ncoil", "nsec", "npts", "nw")
+    assert [int(float(h)) for h in header] == [8, 1, 5, 2]  # ncoil nsec npts nw, not the legacy swap
+    ncoil, nsec, npts, nw, points = parse_gpec_coil_dat(staged[0])
+    assert (ncoil, nsec, npts, nw) == (8, 1, 5, 2.0)
+    for k, filament in enumerate(config["rmpl"].filaments):
+        assert np.allclose(points[k], filament.points_xyz, atol=1e-6)
+    reread = coil_set_from_dat(staged[0], "rmpl")
+    assert len(reread.filaments) == 8 and reread.turns == 2.0 and reread.dat_path == staged[0]
+
+
+def test_second_machine_coil_in_carries_explicit_directions_and_all_sets(tmp_path):
+    config = _synthetic_machine()
+    specs = [
+        CoilInputSpec("rmpu", tuple(float(k) for k in range(4))),
+        CoilInputSpec("rmpl", tuple(float(k) for k in range(8))),
+        CoilInputSpec("efcc", (1.0, -1.0, 1.0, -1.0)),
+        CoilInputSpec("pf_n1", tuple([0.5] * 16)),
+    ]
+    out = tmp_path / "coil.in"
+    write_coil_in(
+        package_vest_dir() / "coil.in",
+        out,
+        data_dir=tmp_path / "coil",
+        specs=specs,
+        machine="synth",
+        coil_config=config,
+        ip_direction="positive",
+        bt_direction="negative",
+    )
+    scalars, names, currents = _parse_coil_control(out.read_text(encoding="utf-8"))
+    assert scalars["machine"] == "synth"
+    assert int(scalars["coil_num"]) == 4
+    assert scalars["ip_direction"] == "positive" and scalars["bt_direction"] == "negative"
+    assert names == {1: "rmpu", 2: "rmpl", 3: "efcc", 4: "pf_n1"}
+    assert currents[2] == pytest.approx([float(k) for k in range(8)])
+    assert [spec.name for spec in gpec.read_coil_in(out)] == ["rmpu", "rmpl", "efcc", "pf_n1"]
+
+
+def test_second_machine_refuses_to_inherit_geometry_or_directions(tmp_path):
+    config = _synthetic_machine()
+    common = dict(data_dir=tmp_path / "coil", specs=[CoilInputSpec("rmpu", (1.0, 0.0, -1.0, 0.0))])
+    with pytest.raises(ValueError, match="coil_config .* is required"):
+        write_coil_in(package_vest_dir() / "coil.in", tmp_path / "a.in", machine="synth", **common)
+    with pytest.raises(ValueError, match="ip_direction and bt_direction must be given"):
+        write_coil_in(package_vest_dir() / "coil.in", tmp_path / "b.in", machine="synth", coil_config=config, **common)
+    with pytest.raises(ValueError, match="must be one of"):
+        write_coil_in(
+            package_vest_dir() / "coil.in", tmp_path / "c.in", machine="synth", coil_config=config,
+            ip_direction="ccw", bt_direction="negative", **common,
+        )
+
+
+def test_vest_defaults_are_the_documented_direction_words(generated):
+    scalars, _, _ = _parse_coil_control(generated.read_text(encoding="utf-8"))
+    assert scalars["machine"] == "vest"
+    assert scalars["ip_direction"] == VEST_GPEC_COIL_DIRECTIONS["ip_direction"]
+    assert scalars["bt_direction"] == VEST_GPEC_COIL_DIRECTIONS["bt_direction"]
+
+
+def test_prepare_for_a_second_machine_stages_generated_dat_files(no_gpec_env, case):
+    config = _synthetic_machine()
+    options = gpec.IdealGPECOptions(
+        coil_specs=(CoilInputSpec("rmpl", tuple(float(k) for k in range(8))),),
+        machine="synth",
+        coil_config=config,
+        ip_direction="positive",
+        bt_direction="negative",
+    )
+    result = gpec.prepare_gpec_suite_case(
+        case, gpec.GPECSuiteConfig(modules=("gpec",), modes=(1,), gpec=options)
+    )
+    assert result.ok
+    run_dir = case.workdir / "00300" / "gpec" / "nn=1"
+    assert (run_dir / "coil" / "synth_rmpl.dat").exists()
+    scalars, names, _ = _parse_coil_control((run_dir / "coil.in").read_text(encoding="utf-8"))
+    assert scalars["machine"] == "synth" and names == {1: "rmpl"}
+
+
+def test_prepare_for_a_second_machine_without_specs_is_refused(no_gpec_env, case):
+    config = gpec.GPECSuiteConfig(
+        modules=("gpec",), modes=(1,), gpec=gpec.IdealGPECOptions(machine="synth")
+    )
+    with pytest.raises(ValueError, match="VEST-only"):
+        gpec.prepare_gpec_suite_case(case, config)

@@ -251,22 +251,40 @@ class IdealGPECSolver:
         if ctx.inputs.coil_in:
             shutil.copy2(Path(ctx.inputs.coil_in).expanduser(), ctx.run_dir / "coil.in")
         elif ctx.config.gpec.coil_specs:
-            from ._coil_input import stage_coil_data, write_coil_in
-            from vaft.machine_mapping.coils_non_axisymmetric_geometry import load_vest_3d_coil_config
+            from ._coil_input import resolve_coil_inputs, stage_coil_data, write_coil_in
 
-            specs = tuple(ctx.config.gpec.coil_specs)
-            config = load_vest_3d_coil_config(coil_sets=[spec.name for spec in specs])
+            options = ctx.config.gpec
+            specs = tuple(options.coil_specs)
+            coil_config, ip_direction, bt_direction = resolve_coil_inputs(
+                options.machine,
+                options.coil_config,
+                options.ip_direction,
+                options.bt_direction,
+                [spec.name for spec in specs],
+            )
             coil_dir = ctx.run_dir / "coil"
             stage_coil_data(
-                [config[spec.name] for spec in specs], coil_dir
+                [coil_config[spec.name] for spec in specs], coil_dir, machine=options.machine
             )
             write_coil_in(
                 ctx.template_dir / "coil.in",
                 ctx.run_dir / "coil.in",
                 data_dir=coil_dir.resolve(),
                 specs=specs,
+                machine=options.machine,
+                coil_config=coil_config,
+                ip_direction=ip_direction,
+                bt_direction=bt_direction,
             )
         else:
+            # The packaged template is VEST's; copying it verbatim for another
+            # machine would silently run VEST coils under that machine's name.
+            if ctx.config.gpec.machine != "vest":
+                raise ValueError(
+                    f"machine {ctx.config.gpec.machine!r}: pass coil_specs (with coil_config, "
+                    "ip_direction, bt_direction) or an explicit coil_in; the packaged coil.in "
+                    "template is VEST-only"
+                )
             rt.write_template(
                 ctx.template_dir / "coil.in",
                 ctx.run_dir / "coil.in",

@@ -1,12 +1,18 @@
-"""GPEC-native coil input generation from the canonical VEST configuration.
+"""GPEC-native coil input generation for any machine's 3-D coil sets.
 
-The canonical VEST 3D coil geometry lives in
-:mod:`vaft.machine_mapping.coils_non_axisymmetric_geometry` (three packaged GPEC-format
-``.dat`` files plus set metadata).  This module owns the GPEC-specific
-serialization: staging the ``.dat`` files into a run's coil data directory
-and writing a ``coil.in`` whose ``coil_name``/``coil_cur`` block expresses a
-run-specific excitation.  The machine-mapping layer never emits GPEC files;
-only this adapter does.
+Coil geometry is a :class:`~vaft.machine_mapping.coils_non_axisymmetric_geometry.CoilSet3D`
+mapping supplied by the caller (VEST's packaged configuration is the default
+when ``machine == "vest"``).  This module owns the GPEC-specific
+serialization: staging ``.dat`` files into a run's coil data directory as
+``<machine>_<set>.dat`` and writing a ``coil.in`` whose ``coil_name``/
+``coil_cur`` block expresses a run-specific excitation.  The machine-mapping
+layer never emits GPEC files; only this adapter does.
+
+``ip_direction``/``bt_direction`` (GPEC: "positive for CCW or negative for CW
+from a top down view") are machine facts.  VEST's pair is
+:data:`vaft.machine_mapping.conventions.VEST_GPEC_COIL_DIRECTIONS`; any other
+machine must pass its own explicitly -- the adapter never inherits a
+template's or another machine's words.
 """
 
 from __future__ import annotations
@@ -19,23 +25,66 @@ from typing import Sequence
 
 import numpy as np
 
+from typing import Mapping
+
 from vaft.machine_mapping.coils_non_axisymmetric_geometry import (
     CoilExcitation,
     CoilSet3D,
     load_vest_3d_coil_config,
 )
+from vaft.machine_mapping.conventions import VEST_GPEC_COIL_DIRECTIONS
 
 from . import _runtime as rt
 
 __all__ = [
     "CoilInputSpec",
+    "resolve_coil_inputs",
     "stage_coil_data",
     "emit_coil_dat",
     "read_coil_in",
     "write_coil_in",
 ]
 
-_GPEC_MACHINE = "vest"
+DEFAULT_MACHINE = "vest"
+_DIRECTION_WORDS = ("positive", "negative")
+
+
+def resolve_coil_inputs(
+    machine: str,
+    coil_config: Mapping[str, CoilSet3D] | None,
+    ip_direction: str | None,
+    bt_direction: str | None,
+    names: Sequence[str],
+) -> tuple[Mapping[str, CoilSet3D], str, str]:
+    """Resolve geometry and direction words for ``machine``; refuse to guess.
+
+    For ``"vest"`` the packaged configuration and
+    :data:`VEST_GPEC_COIL_DIRECTIONS` fill whatever is not given.  For any
+    other machine ``coil_config``, ``ip_direction`` and ``bt_direction`` are
+    all required (``ValueError`` otherwise).
+    """
+    if coil_config is None:
+        if machine != DEFAULT_MACHINE:
+            raise ValueError(
+                f"machine {machine!r}: coil_config (name -> CoilSet3D) is required; only "
+                f"{DEFAULT_MACHINE!r} has packaged coil geometry"
+            )
+        coil_config = load_vest_3d_coil_config(coil_sets=list(names)).coil_sets
+    missing = [name for name in names if name not in coil_config]
+    if missing:
+        raise ValueError(f"machine {machine!r}: coil set(s) {missing} not in coil_config {sorted(coil_config)}")
+    if ip_direction is None or bt_direction is None:
+        if machine != DEFAULT_MACHINE:
+            raise ValueError(
+                f"machine {machine!r}: ip_direction and bt_direction must be given explicitly "
+                f"({_DIRECTION_WORDS}); they are machine facts and are never inherited"
+            )
+        ip_direction = ip_direction or VEST_GPEC_COIL_DIRECTIONS["ip_direction"]
+        bt_direction = bt_direction or VEST_GPEC_COIL_DIRECTIONS["bt_direction"]
+    for label, value in (("ip_direction", ip_direction), ("bt_direction", bt_direction)):
+        if value not in _DIRECTION_WORDS:
+            raise ValueError(f"{label} must be one of {_DIRECTION_WORDS}, got {value!r}")
+    return coil_config, ip_direction, bt_direction
 
 
 @dataclass(frozen=True)
@@ -50,18 +99,25 @@ class CoilInputSpec:
         return cls(name=excitation.coil_set, currents_a=tuple(excitation.currents_a))
 
 
-def stage_coil_data(coil_sets: Sequence[CoilSet3D], data_dir: Path) -> tuple[Path, ...]:
-    """Copy each set's packaged ``.dat`` byte-identical into ``data_dir``.
+def stage_coil_data(
+    coil_sets: Sequence[CoilSet3D], data_dir: Path, *, machine: str = DEFAULT_MACHINE
+) -> tuple[Path, ...]:
+    """Stage each set as ``<data_dir>/<machine>_<coil_name>.dat``.
 
-    GPEC resolves ``<data_dir>/<machine>_<coil_name>.dat``, so the staged name
-    is derived from the canonical set name.
+    A set backed by a file (``dat_path``) is copied byte-identical; a set
+    built in memory (:func:`coil_set_from_xyz_loops`) is emitted with
+    :func:`emit_coil_dat`.  GPEC resolves the file from the ``machine`` word
+    written to ``coil.in``, so the two must agree.
     """
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
     staged = []
     for coil_set in coil_sets:
-        target = data_dir / f"{_GPEC_MACHINE}_{coil_set.name}.dat"
-        shutil.copy2(coil_set.dat_path, target)
+        target = data_dir / f"{machine}_{coil_set.name}.dat"
+        if coil_set.dat_path is not None and Path(coil_set.dat_path).exists():
+            shutil.copy2(coil_set.dat_path, target)
+        else:
+            emit_coil_dat(coil_set, target)
         staged.append(target)
     return tuple(staged)
 
@@ -141,18 +197,25 @@ def write_coil_in(
     *,
     data_dir: Path,
     specs: Sequence[CoilInputSpec],
-    ip_direction: str = "positive",
-    bt_direction: str = "negative",
+    machine: str = DEFAULT_MACHINE,
+    coil_config: Mapping[str, CoilSet3D] | None = None,
+    ip_direction: str | None = None,
+    bt_direction: str | None = None,
 ) -> Path:
-    """Write a GPEC ``coil.in`` activating exactly ``specs``.
+    """Write a GPEC ``coil.in`` activating exactly ``specs`` for ``machine``.
 
-    Scalar keys are patched through the packaged template; the template's
-    fixed ``coil_name``/``coil_cur`` block is replaced wholesale because it
-    cannot express a variable number of activated sets.
+    Scalar keys (``data_dir``, ``machine``, ``coil_num``, ``ip_direction``,
+    ``bt_direction``) are patched through the template; the template's fixed
+    ``coil_name``/``coil_cur`` block is replaced wholesale because it cannot
+    express a variable number of activated sets.  ``coil_num`` is always the
+    number of ``specs``.  See :func:`resolve_coil_inputs` for what may be
+    omitted for VEST and what is mandatory for every other machine.
     """
     if not specs:
         raise ValueError("write_coil_in requires at least one CoilInputSpec")
-    known = load_vest_3d_coil_config(coil_sets=[spec.name for spec in specs])
+    known, ip_direction, bt_direction = resolve_coil_inputs(
+        machine, coil_config, ip_direction, bt_direction, [spec.name for spec in specs]
+    )
     for spec in specs:
         expected = len(known[spec.name].filaments)
         if len(spec.currents_a) != expected:
@@ -166,7 +229,7 @@ def write_coil_in(
         Path(out_path),
         {
             "data_dir": str(Path(data_dir)),
-            "machine": _GPEC_MACHINE,
+            "machine": machine,
             "coil_num": len(specs),
             "ip_direction": ip_direction,
             "bt_direction": bt_direction,

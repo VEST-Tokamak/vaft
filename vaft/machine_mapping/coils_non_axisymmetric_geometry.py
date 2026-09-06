@@ -35,7 +35,11 @@ from vaft.data.resources import data_path
 from .utils import VestConfigurationError
 
 __all__ = [
+    "GPEC_COIL_DAT_HEADER",
     "VEST_3D_COIL_SETS",
+    "coil_set_from_dat",
+    "coil_set_from_xyz_loops",
+    "sector_angles_from_filaments",
     "CoilSetSpec",
     "CoilFilament",
     "CoilSet3D",
@@ -44,6 +48,12 @@ __all__ = [
     "parse_gpec_coil_dat",
     "load_vest_3d_coil_config",
 ]
+
+#: Header fields of a GPEC coil ``.dat`` file, in file order: number of
+#: coils (toroidal sectors), sections per coil, points per coil, winding
+#: turns.  The legacy hsyun_GPEC writer emitted fields 2 and 3 swapped; this
+#: tuple is the contract every VAFT reader and writer follows.
+GPEC_COIL_DAT_HEADER = ("ncoil", "nsec", "npts", "nw")
 
 _SECTOR_ANGLES_DEG = (0.0, 60.0, 120.0, 180.0, 240.0, 300.0)
 # UP/LOW saddle filaments span 0-30 deg per sector, so their centroids sit at
@@ -121,9 +131,90 @@ class CoilSet3D:
     turns: float
     filaments: tuple[CoilFilament, ...]
     sector_angles_deg: tuple[float, ...]
-    dat_path: Path
+    dat_path: Path | None
     description: str
     provenance: str
+
+
+def sector_angles_from_filaments(filaments: Sequence[CoilFilament]) -> tuple[float, ...]:
+    """Centroid toroidal angle of each filament, degrees in ``[0, 360)``."""
+    return tuple(float(f.centroid_angle_deg) for f in filaments)
+
+
+def coil_set_from_xyz_loops(
+    name: str,
+    loops: Sequence[np.ndarray],
+    *,
+    turns: float,
+    identifier: str | None = None,
+    sector_angles_deg: Sequence[float] | None = None,
+    description: str = "",
+    provenance: str = "",
+    dat_path: str | Path | None = None,
+) -> CoilSet3D:
+    """Build a :class:`CoilSet3D` from Cartesian loops of any machine.
+
+    ``loops`` holds one ``(npts, 3)`` array in metres per toroidal sector,
+    all with the same point count and each closed (first point equals last,
+    as GPEC requires).  ``turns`` is the winding multiplier written to the
+    ``.dat`` header (``nw``): currents in ``coil.in`` are amperes per turn and
+    GPEC multiplies by ``turns``; there is deliberately no default.  Sector
+    angles default to the filament centroids.
+    """
+    if not loops:
+        raise ValueError(f"coil set {name!r}: at least one loop is required")
+    arrays = [np.asarray(loop, dtype=float) for loop in loops]
+    npts = arrays[0].shape[0]
+    for k, arr in enumerate(arrays):
+        if arr.ndim != 2 or arr.shape[1] != 3:
+            raise ValueError(f"coil set {name!r}: loop {k} must be (npts, 3), got {arr.shape}")
+        if arr.shape[0] != npts:
+            raise ValueError(
+                f"coil set {name!r}: GPEC needs one point count per set; loop {k} has "
+                f"{arr.shape[0]} points, loop 0 has {npts}"
+            )
+        if not np.allclose(arr[0], arr[-1]):
+            raise ValueError(f"coil set {name!r}: loop {k} is not closed (first point != last point)")
+    if not turns > 0:
+        raise ValueError(f"coil set {name!r}: turns must be positive, got {turns}")
+    filaments = tuple(CoilFilament(arr.copy()) for arr in arrays)
+    angles = tuple(float(a) for a in sector_angles_deg) if sector_angles_deg is not None else sector_angles_from_filaments(filaments)
+    if len(angles) != len(filaments):
+        raise ValueError(f"coil set {name!r}: {len(angles)} sector angles for {len(filaments)} loops")
+    return CoilSet3D(
+        name=name,
+        identifier=identifier or name,
+        turns=float(turns),
+        filaments=filaments,
+        sector_angles_deg=angles,
+        dat_path=Path(dat_path) if dat_path is not None else None,
+        description=description,
+        provenance=provenance,
+    )
+
+
+def coil_set_from_dat(
+    path: str | Path,
+    name: str,
+    *,
+    identifier: str | None = None,
+    sector_angles_deg: Sequence[float] | None = None,
+    description: str = "",
+    provenance: str = "",
+) -> CoilSet3D:
+    """Read a GPEC ``.dat`` file (header :data:`GPEC_COIL_DAT_HEADER`) as a :class:`CoilSet3D`."""
+    path = Path(path)
+    ncoil, _nsec, _npts, nw, points = parse_gpec_coil_dat(path)
+    return coil_set_from_xyz_loops(
+        name,
+        [points[k] for k in range(ncoil)],
+        turns=nw,
+        identifier=identifier,
+        sector_angles_deg=sector_angles_deg,
+        description=description,
+        provenance=provenance or f"GPEC coil file {path.name}",
+        dat_path=path,
+    )
 
 
 @dataclass(frozen=True)
