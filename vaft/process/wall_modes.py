@@ -134,7 +134,9 @@ def symmetrize_inductance(
     Raises
     ------
     WallModeError
-        When the asymmetry exceeds ``reject``.
+        When the asymmetry exceeds ``reject``, and before that when the
+        matrix is not square, carries a non-finite entry, or is identically
+        zero.
 
     Warnings
     --------
@@ -294,7 +296,7 @@ def segment_eigenmodes(
         Local decay times, descending, ``(n_g,)`` [s].
     V : numpy.ndarray
         R-orthonormal, sign-canonical modes as columns, ``(n_g, n_g)``
-        [A/sqrt(Ohm)].
+        [Ohm**-0.5].
     residual : float
         ``max|R V - L V / tau| / max|R V|`` [-].
 
@@ -373,7 +375,11 @@ class SegmentModes:
     tau: np.ndarray
     """Local decay times [s], descending, ``(n_g,)``."""
     V: np.ndarray
-    """R-orthonormal modes as columns [A/sqrt(Ohm)], ``(n_g, n_g)``."""
+    """R-orthonormal modes as columns [Ohm**-0.5], ``(n_g, n_g)``.
+
+    ``v^T R v = 1`` fixes the unit: a mode carries ``Ohm**-0.5`` so that an
+    amplitude ``a = V^T R I_w`` carries ``sqrt(W)`` and ``I_w = V a`` comes
+    back in amperes."""
     residual: float
     min_relative_gap: float
     """``min_k (tau_k - tau_{k+1}) / tau_k``; small means a near-degenerate pair."""
@@ -1062,7 +1068,7 @@ def select_tau_range(basis: WallModeBasis, tau_min: float, tau_max: float = np.i
     basis : WallModeBasis
         The eigenbasis [-].
     tau_min : float
-        Slowest excluded bound from below; modes at or above it are kept [s].
+        Lower bound, inclusive [s].
     tau_max : float, optional
         Upper bound, inclusive [s].
 
@@ -1204,9 +1210,9 @@ def subspace_angles_r(V_a: np.ndarray, V_b: np.ndarray, R_mat: np.ndarray) -> np
     Parameters
     ----------
     V_a : numpy.ndarray
-        First set of modes as columns, ``(N, m_a)`` [A/sqrt(Ohm)].
+        First set of modes as columns, ``(N, m_a)`` [Ohm**-0.5].
     V_b : numpy.ndarray
-        Second set, ``(N, m_b)`` [A/sqrt(Ohm)].
+        Second set, ``(N, m_b)`` [Ohm**-0.5].
     R_mat : numpy.ndarray
         Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
 
@@ -1280,7 +1286,7 @@ def solve_reduced_eddy(
         Time grid of the drive [s].
     V : numpy.ndarray or None, optional
         The retained modes, ``(N, M_tot)``; when given, the wall current is
-        reconstructed too [A/sqrt(Ohm)].
+        reconstructed too [Ohm**-0.5].
     dt_sub : float, optional
         Sub-step of the integrator [s].
     method : str, optional
@@ -1682,7 +1688,7 @@ def orthonormalize_r(X: np.ndarray, R_mat: np.ndarray, *, rtol: float = 1e-10) -
     -------
     numpy.ndarray
         R-orthonormal, sign-canonical basis, ``(N, m')`` with ``m' <= m``
-        [A/sqrt(Ohm)].
+        [Ohm**-0.5].
 
     Defaults
     --------
@@ -1751,7 +1757,7 @@ def moment_patterns(R_mat: np.ndarray, M_mat: np.ndarray, L_mat: np.ndarray, ord
     -------
     numpy.ndarray
         R-orthonormal patterns as columns, ``(N, m)`` with
-        ``m <= order * n_src`` [A/sqrt(Ohm)].
+        ``m <= order * n_src`` [Ohm**-0.5].
 
     Convention
     ----------
@@ -1827,7 +1833,7 @@ def combined_operators(
     Parameters
     ----------
     V : numpy.ndarray
-        R-orthonormal basis as columns, ``(N, m)`` [A/sqrt(Ohm)].
+        R-orthonormal basis as columns, ``(N, m)`` [Ohm**-0.5].
     R_mat : numpy.ndarray
         Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
     M_mat : numpy.ndarray
