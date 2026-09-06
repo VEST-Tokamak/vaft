@@ -18,7 +18,7 @@ import vaft.omas
 from vaft.omas.general import classify_shot
 from vaft.process import is_signal_active
 
-from _plasma_timing_fixtures import current, grid, light, pickup_only, pipeline_ods, synthetic_ods
+from _plasma_timing_fixtures import classified_shot, grid, light, pipeline_ods, synthetic_ods
 
 
 def _rng():
@@ -62,20 +62,7 @@ def test_the_verdict_does_not_depend_on_units():
     assert is_signal_active(trace) == is_signal_active(1e6 * trace) == is_signal_active(1e-6 * trace)
 
 
-def _shot(pressure_active: bool, halpha_active: bool, ip_pulse: bool = True, *, barometry: bool = True) -> ODS:
-    """A shot on the analysis grid: a gas puff (or a flat gauge), light (or a dark line), a current pulse (or pickup)."""
-    t = grid()
-    rng = _rng()
-    dark = 0.002 * rng.standard_normal(t.size)
-    ods = synthetic_ods(slow=light(t) if halpha_active else dark,
-                        ip=current(t) if ip_pulse else pickup_only(t), t=t)
-    if barometry:
-        flat = 1.0 + 1e-6 * rng.standard_normal(t.size)
-        puff = 1.0 + np.exp(-((t - 0.29) / 0.01) ** 2)
-        ods["barometry.ids_properties.homogeneous_time"] = 0
-        ods["barometry.gauge.0.pressure.time"] = t
-        ods["barometry.gauge.0.pressure.data"] = puff if pressure_active else flat
-    return ods
+_shot = classified_shot
 
 
 @pytest.mark.parametrize(
@@ -134,12 +121,13 @@ def test_a_product_without_plasma_current_cannot_be_classified():
         classify_shot(synthetic_ods(slow=light(t), t=t))
 
 
-def test_the_old_entry_points_warn_and_agree():
+def test_the_lenient_form_agrees_and_answers_none_when_it_cannot_classify():
     ods = _shot(True, True, True)
-    with pytest.warns(DeprecationWarning, match="find_shotclass is deprecated"):
-        assert vaft.omas.find_shotclass(ods) == "Plasma"
+    assert vaft.omas.find_shotclass(ods) == classify_shot(ods) == "Plasma"
     with pytest.warns(DeprecationWarning, match="halpha_threshold is ignored"):
         assert classify_shot(ods, halpha_threshold=0.5) == "Plasma"
+    t = grid()
+    assert vaft.omas.find_shotclass(synthetic_ods(slow=light(t), t=t)) is None   # no plasma current at all
 
 
 # ---------------------------------------------------------------------------

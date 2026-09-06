@@ -24,7 +24,7 @@ from ..navigation import SliceNavigator
 from .lines import render_line_series
 from .panels import render_panels, slice_grid_axes, visual_rows
 
-__all__ = ["BACKENDS", "SliceAxes", "render_slice_navigation", "resolve_backend"]
+__all__ = ["BACKENDS", "Interactive", "SliceAxes", "render_controls", "render_slice_navigation", "resolve_backend"]
 
 
 class SliceAxes:
@@ -289,3 +289,261 @@ def _ipywidgets_slider(figure: Any, navigator: SliceNavigator, *, live: bool) ->
         display(VBox([slider, output]))
     slider.vaft_output = output
     return slider
+
+
+# ---------------------------------------------------------------------------
+# Controls for one plot (issue #480)
+# ---------------------------------------------------------------------------
+
+class Interactive:
+    """What ``plot_*(..., interactive=True)`` returns.
+
+    ``figure`` and ``axes`` are the current drawing (``axes`` is replaced when
+    a redraw lays the panels out differently); ``state`` holds every control's
+    value and notifies the redraw; ``controls`` are the specs behind the
+    widgets; ``widget`` is the toolkit's object, or ``None`` for
+    ``backend="none"``.  Unpacks as ``(figure, axes, state)``.
+    """
+
+    def __init__(self, figure: Any, axes: Any, state: Any, controls: tuple[Any, ...], widget: Any = None) -> None:
+        self.figure = figure
+        self.axes = axes
+        self.state = state
+        self.controls = controls
+        self.widget = widget
+        self._keep: list[Any] = []  # Matplotlib widgets die when garbage collected
+
+    def __iter__(self):
+        yield self.figure
+        yield self.axes
+        yield self.state
+
+
+def render_controls(
+    build: Callable[[dict], Any],
+    state: Any,
+    *,
+    draw: Callable[..., Any],
+    backend: str = "auto",
+    render_backend: str = "matplotlib",
+    show: bool = False,
+    figsize: tuple[float, float] | None = None,
+) -> Interactive:
+    """Draw ``build(options)`` with controls that rebuild and redraw it.
+
+    ``build`` turns the state's options into a view model; ``draw(model, ax=...)``
+    renders it (the Matplotlib renderer of the spec) or, for
+    ``render_backend="plotly"``, ``draw(model)`` returns a Plotly figure.
+    ``backend`` is one of :data:`BACKENDS`: the Matplotlib window carries a
+    widget column beside the plot; the ipywidgets box redraws a static
+    figure -- or re-displays a Plotly figure -- into its own output; ``none``
+    draws once and leaves the state to code.
+    """
+    backend = resolve_backend(backend)
+    if render_backend == "plotly" and backend == "matplotlib":
+        raise ValueError(
+            "backend='plotly' figures cannot host Matplotlib window widgets; "
+            "use backend='ipywidgets' (or 'auto' under Jupyter) for controls"
+        )
+    if render_backend == "plotly":
+        return _plotly_controls(build, state, draw=draw, backend=backend, show=show)
+    if backend == "ipywidgets":
+        from matplotlib.figure import Figure
+
+        figure = Figure(figsize=figsize)
+    else:
+        figure = plt.figure(figsize=figsize)
+    with_strip = backend == "matplotlib" and state.controls
+    grid = figure.add_gridspec(1, 2 if with_strip else 1, width_ratios=[1, 0.28] if with_strip else [1])
+    canvas = figure.add_subfigure(grid[0, 0])
+    result = Interactive(figure, None, state, tuple(state.controls))
+
+    def redraw(_: Any = None) -> None:
+        canvas.clear()
+        model = build(state.as_options())
+        result.axes = _draw_into(canvas, model, draw, state.as_style())
+        figure.canvas.draw_idle()
+
+    redraw()
+    state.subscribe(redraw)
+    if with_strip:
+        strip = figure.add_subfigure(grid[0, 1])
+        result._keep.extend(_matplotlib_controls(strip, state))
+        result.widget = result._keep
+    elif backend == "ipywidgets":
+        result.widget = _ipywidgets_controls(state, figure=figure, live=detect_environment().live_figures)
+    if show and backend != "ipywidgets":
+        plt.show()
+    return result
+
+
+def _draw_into(canvas: Any, model: Any, draw: Callable[..., Any], style: dict | None = None) -> Any:
+    """Render ``model`` into ``canvas`` (a SubFigure); returns the axes."""
+    style = dict(style or {})
+    if isinstance(model, Panels):
+        from ..models import Field2D
+        from .panels import render_panels, slice_grid_axes
+
+        # The panels renderer lays a Panels model out on a figure of its own
+        # making; here it gets the sub-figure's axes in the model's shape, with
+        # a colorbar cell beside the first 2-D field so a redraw never shrinks
+        # the panel (the arrangement render_slice_navigation uses).
+        field_slot = next((i for i, m in enumerate(model.models) if isinstance(m, Field2D)), None)
+        grid = canvas.add_gridspec(model.nrows, model.ncols)
+        axes, colorbar = slice_grid_axes(canvas, grid, model, top=0, colorbar_slot=field_slot)
+        styles = [dict(s) for s in (model.member_styles or ({},) * len(model.models))]
+        if colorbar is not None and field_slot is not None:
+            styles[field_slot]["colorbar_ax"] = colorbar
+        model = replace(model, member_styles=tuple(styles))
+        render_panels(model, ax=axes, show=False, **style)
+        return axes
+    axis = canvas.add_subplot(1, 1, 1)
+    draw(model, ax=axis, show=False, **style)
+    return axis
+
+
+def _matplotlib_controls(strip: Any, state: Any) -> list[Any]:
+    """One widget per control, stacked in the strip; returns the widgets."""
+    from matplotlib.widgets import CheckButtons, RadioButtons, Slider
+
+    controls = list(state.controls)
+    weights = [max(2, len(c.options)) if c.kind in ("choice", "multi") else 1 for c in controls]
+    grid = strip.add_gridspec(len(controls), 1, height_ratios=weights, hspace=0.6)
+    widgets: list[Any] = []
+    guards = {"busy": False}
+
+    def setter(name: str):
+        def apply(value: Any) -> None:
+            if guards["busy"]:
+                return
+            guards["busy"] = True
+            try:
+                state.set(name, value)
+            finally:
+                guards["busy"] = False
+        return apply
+
+    for row, control in enumerate(controls):
+        axis = strip.add_subplot(grid[row, 0])
+        axis.set_title(control.label, fontsize=9, loc="left")
+        if control.kind == "choice":
+            labels = control.labels or tuple(map(str, control.options))
+            active = list(control.options).index(state[control.name]) if state[control.name] in control.options else 0
+            widget = RadioButtons(axis, labels, active=active)
+            widget.on_clicked(lambda label, c=control, l=labels: setter(c.name)(c.options[list(l).index(label)]))
+        elif control.kind == "multi":
+            labels = control.labels or tuple(map(str, control.options))
+            actives = [option in tuple(state[control.name] or ()) for option in control.options]
+            widget = CheckButtons(axis, labels, actives)
+
+            def on_check(_label: str, c=control, ws=widgets, index=len(widgets)) -> None:
+                chosen = [option for option, on in zip(c.options, ws[index].get_status()) if on]
+                setter(c.name)(chosen)
+
+            widget.on_clicked(on_check)
+        elif control.kind == "toggle":
+            widget = CheckButtons(axis, [control.label], [bool(state[control.name])])
+            widget.on_clicked(lambda _label, c=control, ws=widgets, index=len(widgets): setter(c.name)(ws[index].get_status()[0]))
+        elif control.kind == "range":
+            low, high, step = control.options
+            widget = Slider(axis, "", low, high, valinit=state[control.name], valstep=step, valfmt="%d")
+            widget.on_changed(lambda value, c=control: setter(c.name)(int(round(value))))
+        else:
+            axis.set_axis_off()
+            axis.text(0, 0.5, f"{control.label}: {state[control.name]!r}", fontsize=8)
+            widget = None
+        widgets.append(widget)
+    return widgets
+
+
+def _ipywidgets_controls(state: Any, *, figure: Any = None, live: bool = False, plotly_figure: Any = None, redraw_plotly: Callable[[], Any] | None = None) -> Any:
+    """An ipywidgets box over the state; the figure is redrawn beneath it."""
+    import io
+
+    from ipywidgets import Checkbox, Dropdown, IntSlider, Output, SelectMultiple, Text, VBox
+    from IPython.display import Image, clear_output, display
+
+    output = Output()
+    widgets = []
+    guards = {"busy": False}
+
+    def on_change(name: str):
+        def observer(change: dict) -> None:
+            if change.get("name") != "value" or guards["busy"]:
+                return
+            guards["busy"] = True
+            try:
+                state.set(name, change["new"])
+            finally:
+                guards["busy"] = False
+        return observer
+
+    for control in state.controls:
+        labels = control.labels or tuple(map(str, control.options))
+        if control.kind == "choice":
+            widget = Dropdown(options=list(zip(labels, control.options)), value=state[control.name], description=control.label)
+        elif control.kind == "multi":
+            widget = SelectMultiple(options=list(zip(labels, control.options)), value=tuple(state[control.name] or ()), description=control.label)
+        elif control.kind == "toggle":
+            widget = Checkbox(value=bool(state[control.name]), description=control.label)
+        elif control.kind == "range":
+            low, high, step = control.options
+            widget = IntSlider(value=state[control.name], min=low, max=high, step=step, description=control.label, continuous_update=False)
+        else:
+            widget = Text(value=str(state[control.name] or ""), description=control.label)
+        widget.observe(on_change(control.name), names="value")
+        widget.vaft_control = control.name
+        widgets.append(widget)
+
+    def follow(current: Any) -> None:
+        # The state changed from code: the widgets follow without re-firing.
+        guards["busy"] = True
+        try:
+            for widget in widgets:
+                value = current[widget.vaft_control]
+                if widget.value != value:
+                    widget.value = tuple(value) if isinstance(widget, SelectMultiple) else value
+        finally:
+            guards["busy"] = False
+
+    state.subscribe(follow)
+
+    def refresh(_: Any = None) -> None:
+        with output:
+            clear_output(wait=True)
+            if redraw_plotly is not None:
+                display(redraw_plotly())
+            else:
+                buffer = io.BytesIO()
+                figure.savefig(buffer, format="png", dpi=figure.dpi)
+                display(Image(data=buffer.getvalue()))
+
+    box = VBox([*widgets, output])
+    if live and redraw_plotly is None:
+        box = VBox(widgets)
+        display(box)
+    else:
+        state.subscribe(refresh)
+        refresh()
+        display(box)
+    box.vaft_output = output
+    box.vaft_widgets = widgets
+    return box
+
+
+def _plotly_controls(build: Callable[[dict], Any], state: Any, *, draw: Callable[..., Any], backend: str, show: bool) -> Interactive:
+    """Plotly figures are rebuilt and re-displayed; no in-place update."""
+    result = Interactive(None, None, state, tuple(state.controls))
+
+    def rebuild() -> Any:
+        result.figure = draw(build(state.as_options()), show=False, **state.as_style())
+        return result.figure
+
+    rebuild()
+    if backend == "ipywidgets":
+        result.widget = _ipywidgets_controls(state, redraw_plotly=rebuild)
+    else:
+        state.subscribe(lambda _: rebuild())
+        if show:
+            result.figure.show()
+    return result

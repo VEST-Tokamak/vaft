@@ -97,7 +97,12 @@ class ShotClass:
 
 
 def pressure_response(ods: Any, *, var_ratio_thresh: float = 1e-2) -> bool | None:
-    """Whether the barometry pressure responded, or ``None`` when the product carries none."""
+    """Whether the barometry pressure responded, or ``None`` when the product carries none.
+
+    ``var_ratio_thresh`` is handed to both of :func:`is_signal_active`'s
+    ratio thresholds, so a trace is flat only when its variance and its
+    sample-to-sample change are both below it relative to its own level.
+    """
     data = path_value(ods, f"{PRESSURE_BASE}.data")
     if data is None:
         return None
@@ -105,7 +110,9 @@ def pressure_response(ods: Any, *, var_ratio_thresh: float = 1e-2) -> bool | Non
     values = values[np.isfinite(values)]   # a NaN would make the activity ratios NaN and read as active
     if values.size < 2:
         return None
-    return bool(is_signal_active(values, var_ratio_thresh=float(var_ratio_thresh)))
+    # both ratios relative to the trace's own level, as the classifier always passed them
+    threshold = float(var_ratio_thresh)
+    return bool(is_signal_active(values, var_ratio_thresh=threshold, change_ratio_thresh=threshold))
 
 
 def shot_class(

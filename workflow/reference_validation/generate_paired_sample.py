@@ -165,8 +165,29 @@ def _materialize_compact(canonical: ODS, manifest: dict) -> ODS:
     if "equilibrium.time" in compact:
         compact["equilibrium.ids_properties.homogeneous_time"] = 1
     _normalize_magnetics(compact)
+    _normalize_equilibrium_flux(compact, manifest)
     _project_signal_quality(compact, manifest)
     return compact
+
+
+def _normalize_equilibrium_flux(compact: ODS, manifest: dict) -> None:
+    """Store psi in the DD's full weber and declare COCOS 11 (issue #478).
+
+    The canonical pipeline product predates the writer fix of issue #236 and
+    holds the g-file's Wb/rad verbatim, undeclared.  Converting here rather
+    than rerunning the pipeline keeps the stage hashes truthful: nothing
+    upstream of this normalization changes.  The manifest records it under
+    ``generation.normalizations`` and ``generation.equilibrium_cocos`` so a
+    reader can tell a normalized artifact from an older one.
+    """
+    generation = manifest.setdefault("generation", {})
+    normalizations = list(generation.get("normalizations", []))
+    if "equilibrium_psi_weber" not in normalizations:
+        return
+    vaft.omas.equilibrium_psi_to_weber(
+        compact, source="generate_paired_sample: legacy Wb/rad canonical source"
+    )
+    generation["equilibrium_cocos"] = vaft.omas.ods_cocos(compact)
 
 
 def _write_artifacts(

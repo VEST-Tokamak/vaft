@@ -13,8 +13,8 @@ from typing import Any, Sequence
 from vaft.plot.backends import renderer_for, resolve_render_backend
 from vaft.plot.registry import get_spec
 
+from .options import split_options, validate_options
 from .recipes import (
-    EXTRACTION_OPTIONS,
     build_model,
     diagnoses_itself,
     missing_required_path,
@@ -32,6 +32,9 @@ def render_entries(
     backend: str | None = None,
     namespace: str = "vaft.omas",
     subject: str = "ods",
+    interactive: bool = False,
+    controls: str | Sequence[str] = "auto",
+    interaction_backend: str = "auto",
     **options: Any,
 ) -> Any:
     """Build the view model for ``name`` from ``entries`` and render it.
@@ -42,18 +45,30 @@ def render_entries(
     default, returning ``(Figure, Axes)``; ``"plotly"`` returns a
     :class:`plotly.graph_objects.Figure` and takes no ``ax=``.  The model is
     built the same way whichever draws it.
+
+    ``interactive=True`` (issue #480) draws the same plot with the controls
+    its capability record supports -- ``controls`` names a subset, or
+    ``"auto"`` for all of them -- and returns a
+    :class:`vaft.plot.renderers.interactive.Interactive` whose ``state``
+    rebuilds and redraws the plot; ``interaction_backend`` is one of
+    :data:`vaft.plot.renderers.interactive.BACKENDS`.  Every option given
+    here is the control's starting value.
     """
     backend = resolve_render_backend(backend)
     spec = get_spec(name)
+    validate_options(name, options)
     refuse_when_unsupported(name, entries, namespace=namespace, subject=subject)
+    if interactive:
+        return _render_interactive(
+            spec, entries, options, backend=backend, controls=controls,
+            interaction_backend=interaction_backend, show=show, ax=ax,
+        )
     model = build_model(name, entries, **options)
     # A layout other than overlay arranges the same traces into a Panels model;
     # renderer_for hands such a model to the panels renderer, so the return
     # shape follows the layout (issue #260) and no renderer knows about layouts.
     renderer = renderer_for(spec, model, backend)
-    style = {
-        key: value for key, value in options.items() if key not in EXTRACTION_OPTIONS
-    }
+    _, style = split_options(options)
     if backend == "plotly":
         if ax is not None:
             raise TypeError(
@@ -62,6 +77,55 @@ def render_entries(
             )
         return renderer(model, show=show, **style)
     return renderer(model, ax=ax, show=show, **style)
+
+
+def _render_interactive(
+    spec: Any,
+    entries: Sequence[tuple[str, Any]],
+    options: dict[str, Any],
+    *,
+    backend: str,
+    controls: str | Sequence[str],
+    interaction_backend: str,
+    show: bool,
+    ax: Any,
+) -> Any:
+    """The controls of ``spec`` over ``entries``, from the capability record."""
+    from vaft.plot.controls import controls_for
+    from vaft.plot.navigation import ControlState
+    from vaft.plot.renderers.interactive import render_controls
+
+    from .discovery import describe_one
+
+    if ax is not None:
+        raise TypeError("interactive=True draws its own figure and takes no ax=")
+    record = describe_one(spec.name, entries)
+    offered = controls_for(record)
+    if controls != "auto":
+        wanted = [controls] if isinstance(controls, str) else list(controls)
+        unknown = [name for name in wanted if name not in {c.name for c in offered}]
+        if unknown:
+            raise ValueError(
+                f"plot_{spec.stem} offers no control named {', '.join(map(repr, unknown))}; "
+                f"offered: {', '.join(c.name for c in offered) or 'none'}"
+            )
+        offered = tuple(c for c in offered if c.name in wanted)
+    extraction, style = split_options(options)
+    names = {c.name for c in offered}
+    initial = {k: v for k, v in {**extraction, **style}.items() if k in names}
+    fixed = {k: v for k, v in extraction.items() if k not in names}
+    fixed_style = {k: v for k, v in style.items() if k not in names}
+    state = ControlState(offered, initial)
+
+    def build(chosen: dict[str, Any]) -> Any:
+        return build_model(spec.name, entries, **{**fixed, **chosen})
+
+    def draw(model: Any, **kwargs: Any) -> Any:
+        return renderer_for(spec, model, backend)(model, **{**fixed_style, **kwargs})
+
+    return render_controls(
+        build, state, draw=draw, backend=interaction_backend, render_backend=backend, show=show,
+    )
 
 
 def refuse_when_unsupported(

@@ -154,7 +154,7 @@ geq = vaft.omas.sample_gfile()  # packaged g-file as a GEQDSK object
 
 ```python
 vaft.omas.find_shotnumber(ods)
-vaft.omas.find_shotclass(ods)             # deprecated: classify_shot
+vaft.omas.find_shotclass(ods)             # lenient classify_shot: None when the ODS cannot be classified
 vaft.omas.find_chamber_boundary(ods)
 vaft.omas.find_breakdown_onset(ods)       # plasma onset from vaft.omas.plasma_timing
 vaft.omas.find_vloop_onset(ods)           # loop-voltage zero crossing from vaft.omas.discharge_timing
