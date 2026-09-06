@@ -25,6 +25,9 @@ The policy this module implements is documented in
 
 from __future__ import annotations
 
+import math
+import warnings
+
 from dataclasses import dataclass
 from types import MappingProxyType
 import re
@@ -65,6 +68,21 @@ NOTATIONS = ("auto", "plain", "scientific", "scaled_axis", "percent")
 #: Torr in pascal.
 _PA_PER_TORR = 133.322368
 
+_TWO_PI = 2.0 * math.pi
+
+#: The two poloidal-flux storage families, spelled as canonical unit tokens
+#: (issue #478).  A backend resolves which one an equilibrium stores; the
+#: display policy only converts between them.
+FLUX_CONVENTIONS = ("Wb", "Wb/rad")
+
+#: Display units that exist only for a subject: the per-radian flux units
+#: describe an equilibrium's psi, never a flux loop's or the diamagnetic
+#: loop's measured weber.
+_SUBJECT_ONLY_UNITS: dict[str, frozenset[str]] = {
+    "Wb/rad": frozenset({"equilibrium"}),
+    "mWb/rad": frozenset({"equilibrium"}),
+}
+
 
 @dataclass(frozen=True)
 class QuantityDisplay:
@@ -101,7 +119,22 @@ _QUANTITIES = (
     ),
     QuantityDisplay("voltage", "V", {"V": 1.0, "mV": 1e3}, "V"),
     QuantityDisplay("magnetic_field", "T", {"T": 1.0, "mT": 1e3}, "mT"),
-    QuantityDisplay("magnetic_flux", "Wb", {"Wb": 1.0, "mWb": 1e3}, "mWb"),
+    QuantityDisplay(
+        "magnetic_flux",
+        "Wb",
+        {"Wb": 1.0, "mWb": 1e3, "Wb/rad": 1.0 / _TWO_PI, "mWb/rad": 1e3 / _TWO_PI},
+        "mWb",
+    ),
+    # Poloidal flux stored per radian (COCOS 1-8, g-files, legacy VAFT
+    # artifacts).  A distinct canonical token keeps the conversion exact and
+    # one-directional per call; the per-radian units are offered only where
+    # the equilibrium is the subject (see :func:`allowed_units`).
+    QuantityDisplay(
+        "poloidal_flux",
+        "Wb/rad",
+        {"Wb/rad": 1.0, "mWb/rad": 1e3, "Wb": _TWO_PI, "mWb": 1e3 * _TWO_PI},
+        "mWb/rad",
+    ),
     QuantityDisplay("temperature", "eV", {"eV": 1.0, "keV": 1e-3}, "eV"),
     QuantityDisplay(
         "density",
@@ -208,6 +241,24 @@ def _auto_unit(quantity: QuantityDisplay, data: Any) -> str:
     return quantity.default
 
 
+def allowed_units(quantity_name: str, subject: str | None = None) -> tuple[str, ...]:
+    """The display units of ``quantity_name`` a subject may show, in table order.
+
+    Per-radian flux is an equilibrium's business only; every other subject
+    sees the quantity's remaining units.
+    """
+    quantity = QUANTITIES[quantity_name]
+    return tuple(
+        unit
+        for unit in quantity.units
+        if unit not in _SUBJECT_ONLY_UNITS or subject in _SUBJECT_ONLY_UNITS[unit]
+    )
+
+
+def _is_display_unit(unit: str) -> bool:
+    return any(unit in quantity.units for quantity in QUANTITIES.values())
+
+
 def resolve_display(
     canonical_unit: str,
     *,
@@ -244,7 +295,15 @@ def resolve_display(
             return DisplaySpec(
                 quantity=quantity, unit=label, scale=factor, notation=notation
             )
-        # Pass-through: no conversion table for this unit.
+        # Pass-through: no conversion table for this unit.  A token that is a
+        # display unit of some quantity (``"mWb"``, ``"kA"``) is almost
+        # certainly a recipe declaring its display unit as canonical, so say so.
+        if _is_display_unit(canonical_unit):
+            warnings.warn(
+                f"{canonical_unit!r} is a display unit, not a canonical storage "
+                f"unit; declare the canonical unit and pass unit={canonical_unit!r}",
+                stacklevel=2,
+            )
         if unit not in (None, "auto", canonical_unit):
             raise ValueError(
                 f"no display conversions exist for unit {canonical_unit!r}; "
@@ -270,11 +329,13 @@ def resolve_display(
         chosen = _auto_unit(quantity, data)
     else:
         chosen = unit
-    if chosen not in quantity.units:
+    permitted = allowed_units(quantity_name, subject)
+    if chosen not in permitted:
         raise ValueError(
             f"unsupported display unit {chosen!r} for {quantity_name} "
-            f"[{canonical_unit}]; supported units: "
-            f"{', '.join(sorted(quantity.units))}"
+            f"[{canonical_unit}]"
+            + (f" on subject {subject!r}" if subject and chosen in quantity.units else "")
+            + f"; supported units: {', '.join(sorted(permitted))}"
         )
     return DisplaySpec(
         quantity=quantity_name,
