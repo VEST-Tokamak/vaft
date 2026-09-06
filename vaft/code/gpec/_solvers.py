@@ -252,7 +252,7 @@ class IdealGPECSolver:
             shutil.copy2(Path(ctx.inputs.coil_in).expanduser(), ctx.run_dir / "coil.in")
         elif ctx.config.gpec.coil_specs:
             from ._coil_input import stage_coil_data, write_coil_in
-            from vaft.machine_mapping.coil_geometry_3d import load_vest_3d_coil_config
+            from vaft.machine_mapping.coils_non_axisymmetric_geometry import load_vest_3d_coil_config
 
             specs = tuple(ctx.config.gpec.coil_specs)
             config = load_vest_3d_coil_config(coil_sets=[spec.name for spec in specs])

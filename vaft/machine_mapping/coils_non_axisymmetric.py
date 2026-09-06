@@ -23,7 +23,7 @@ from xml.sax.saxutils import escape, quoteattr
 import numpy as np
 from omas import ODS
 
-from .coil_geometry_3d import (
+from .coils_non_axisymmetric_geometry import (
     CoilExcitation,
     CoilSet3D,
     Vest3DCoilConfig,
@@ -86,7 +86,7 @@ def _set_provenance(ods: ODS, config: Vest3DCoilConfig) -> None:
         ods,
         f"{_IDS}.ids_properties.comment",
         "VEST non-axisymmetric 3D coil geometry from the canonical packaged "
-        "GPEC-format coil data (vaft.machine_mapping.coil_geometry_3d).",
+        "GPEC-format coil data (vaft.machine_mapping.coils_non_axisymmetric_geometry).",
     )
 
 
