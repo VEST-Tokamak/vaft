@@ -131,6 +131,15 @@ targets `refs/heads/main`, and requires `package`, `test` and `tutorial`. It
 carries **no** bypass actors: unlike `develop`, an admin cannot push a release
 past a red build.
 
+It also requires a **pull request**, with zero approving reviews. The rule is
+there to close direct pushes, not to add a review gate: required status checks
+do not apply to a push, so without it the three checks above gated only the
+route nobody was forced to take. Requiring an *approval* on top would be a
+different thing — GitHub will not let an author approve their own pull request,
+and releases here are routinely solo-authored, so every release would need a
+bypass that `main` deliberately does not have. The gate that binds is a green
+build.
+
 It predates the develop ruleset and was for a long time described here as
 disabled and targeting `~ALL` refs. That has not been true since it was
 retargeted; the file is now the record, and it is applied and verified exactly
