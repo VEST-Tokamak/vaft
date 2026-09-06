@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>fb56a04</code>. What is described
+  <code>d5d100d</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -499,6 +499,11 @@ by the <code class="language-plaintext highlighter-rouge">Snakefile</code>.</li>
 projected validity), on top of the explicit <code class="language-plaintext highlighter-rouge">constraints.broken</code> list of 1-based channel indices; a
 product that carries no assessment falls back to the 12-MAD amplitude detector.</li>
 </ul>
+
+<p>Each constraint is the box average of the diagnostic samples inside <code class="language-plaintext highlighter-rouge">[t_i − w, t_i + w]</code> — every
+sample once, equal weights, no interpolation grid of its own (issue #433) — with <code class="language-plaintext highlighter-rouge">w =
+constraints.average_window</code> (0.5 ms by default). The window and the reconstruction cadence <code class="language-plaintext highlighter-rouge">tstep</code> are
+two separate controls; qualifying them together is issue #468.</p>
 
 <p>Constraint time selection is worth spelling out, because <code class="language-plaintext highlighter-rouge">timeset: auto</code> is the default and it is not
 obvious. The script takes the shared plasma-analysis range — <code class="language-plaintext highlighter-rouge">diagnostics_time_policies.windows.plasma_analysis</code>
@@ -1148,7 +1153,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-06 16:54:07 +0000"
+        "time": "2026-09-06 18:00:47 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
