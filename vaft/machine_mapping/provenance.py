@@ -114,6 +114,26 @@ def _equilibrium_magnetics_provenance(shot: int) -> dict[str, Any]:
     }
 
 
+def _core_profiles_provenance(shot: int) -> dict[str, Any]:
+    from .core_profiles import vest_core_profiles_policy
+
+    policy = vest_core_profiles_policy(shot)
+    return {
+        "coordinate": policy.coordinate,
+        "ti_te_ratio": {
+            "value": policy.ti_te_ratio,
+            "sigma": policy.ti_te_ratio_sigma,
+            "status": policy.ti_te_ratio_status,
+        },
+        "impurities": {
+            species: {"fraction": policy.impurity_fractions[species], "status": policy.impurity_status[species]}
+            for species in policy.impurity_species
+        },
+        "revision": policy.provenance["revision"],
+        "source": policy.source,
+    }
+
+
 def vest_processing_provenance(shot: int) -> dict[str, Any]:
     """Return the effective processing era for *shot*, per diagnostic.
 
@@ -126,4 +146,5 @@ def vest_processing_provenance(shot: int) -> dict[str, Any]:
         "plasma_current": _plasma_current_provenance(numeric_shot),
         "pf_active": _pf_active_provenance(numeric_shot),
         "equilibrium_magnetics": _equilibrium_magnetics_provenance(numeric_shot),
+        "core_profiles": _core_profiles_provenance(numeric_shot),
     }

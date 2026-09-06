@@ -997,6 +997,19 @@ def _compute_bremsstrahlung_power_series(
     return P_Br
 
 
+def _core_profiles_policy_for(ods):
+    """The VEST kinetic-profile policy for this ODS's shot, or ``None`` without a shot."""
+    from vaft.machine_mapping.core_profiles import vest_core_profiles_policy
+
+    for path in ("dataset_description.data_entry.pulse", "summary.global_quantities.pulse"):
+        try:
+            shot = int(ods[path])
+        except Exception:
+            continue
+        return vest_core_profiles_policy(shot)
+    return None
+
+
 def compute_power_balance(
     ods: ODS,
     include_line_radiation: bool = True,
@@ -1020,7 +1033,14 @@ def compute_power_balance(
     - Uses impurity density profiles from ODS if present, else impurity_fractions,
       else (single-species case only) Z_eff-based scalar estimate, else zero.
     - Priority per species: ODS ion profile > impurity_fractions > Z_eff (single species) > 0.
-    - Default species/fractions: C and O with n_imp/n_e = 0.01 each.
+    - With ``impurity_fractions=None`` the VEST policy is resolved for the ODS's
+      shot from ``vest.yaml`` (``diagnostics.core_profiles.impurities``; C and
+      O at n_imp/n_e = 0.01, status ``assumed``) through
+      :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`;
+      an ODS with no shot number gets no assumption and zero line radiation
+      with a warning. ``line_radiation_species=None`` follows the same policy.
+    - The returned dict carries ``assumptions``: which fractions were used,
+      their status, where each species' density came from, and ``Z_eff``.
     - Atomic-data download or parsing failures set the affected species'
       contribution to zero and emit a warning, preserving offline operation.
     - Total radiation used in balance is:
@@ -1155,8 +1175,33 @@ def compute_power_balance(
             dWdt[finite_idx] = dWdt_finite
 
     line_rad_requested = bool(include_line_radiation)
+    assumptions: Dict[str, Any] = {
+        "z_eff": {"value": Z_eff, "source": "argument"},
+        "impurity_fractions": {},
+        "impurity_status": {},
+        "impurity_source": {},
+        "species": [],
+        "policy": None,
+    }
     if line_rad_requested:
-        P_rad_line = compute_line_radiation_power_series(
+        if impurity_fractions is None or line_radiation_species is None:
+            policy = _core_profiles_policy_for(ods)
+            if policy is not None:
+                assumptions["policy"] = policy.source
+                if impurity_fractions is None:
+                    impurity_fractions = dict(policy.impurity_fractions)
+                    assumptions["impurity_status"] = dict(policy.impurity_status)
+                if line_radiation_species is None:
+                    line_radiation_species = list(policy.impurity_species)
+            else:
+                logger.warning(
+                    "no shot number in the ODS: no impurity fractions resolved from the "
+                    "VEST policy; line radiation is zero unless the ODS carries ion profiles"
+                )
+        if impurity_fractions is not None:
+            for species, value in impurity_fractions.items():
+                assumptions["impurity_status"].setdefault(species, "argument")
+        P_rad_line, line_assumptions = compute_line_radiation_power_series(
             ods=ods,
             eq_indices=idxs,
             eq_times=t,
@@ -1164,7 +1209,11 @@ def compute_power_balance(
             line_radiation_species=line_radiation_species,
             impurity_fractions=impurity_fractions,
             Z_eff=Z_eff,
+            return_assumptions=True,
         )
+        assumptions["species"] = line_assumptions["species"]
+        assumptions["impurity_source"] = line_assumptions["impurity_source"]
+        assumptions["impurity_fractions"] = line_assumptions["impurity_fraction"]
     else:
         P_rad_line = np.zeros_like(P_ohm_diss)
 
@@ -1219,6 +1268,7 @@ def compute_power_balance(
         'P_loss_total': P_loss_total[common_mask],
         'dWdt': dWdt[common_mask],
         'P_loss': P_loss[common_mask],
+        'assumptions': assumptions,
     }
 
 def compute_confiment_time_paramters(

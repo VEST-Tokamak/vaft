@@ -35,13 +35,13 @@ Design rules honoured here:
   keeps the *largest* converging scale.  When the EFIT executable cannot be
   resolved it returns a ``status='skipped'`` result instead of raising.
 * Thomson-only shots (no IDS/charge_exchange ion data) fall back to the
-  statistical ``Ti = TI_TE_RATIO_VEST * Te``
-  (:data:`vaft.process.profile.TI_TE_RATIO_VEST`, fitted on the shots that
-  carry both diagnostics), so the kinetic pressure becomes
-  ``p = e*ne*(1+ratio)*Te`` with the ratio scatter propagated into SIGPRE.
+  statistical ``Ti = ratio * Te``, where the ratio is VEST policy resolved
+  from ``vest.yaml`` (``diagnostics.core_profiles.ti_te_ratio``, fitted on the
+  shots that carry both diagnostics) by
+  :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`.
   Control it via ``ti_te_ratio`` (``'auto'`` default / float / ``None`` =
-  strict) on :func:`kinetic_pressure_points`,
-  :func:`build_kinetic_core_profiles` and :class:`KineticEFITConfig`.
+  strict).  The radial coordinate the profiles are fitted in is resolved the
+  same way (``coordinate='auto'``; ``rho_tor_norm`` on VEST).
 
 Heavy dependencies (omas, vaft.process.profile, vaft.code.chease) are imported
 lazily inside the functions that need them. ``vaft.code.efit.magnetic`` and
@@ -97,32 +97,53 @@ SPLINE_SIG_FRAC = 0.15   # SIGPRE = SIG_FRAC * p_kin(axis), constant in Pa
 
 #: Descending PLASMA-scale sweep; first (largest) converging scale wins.
 DEFAULT_SCALES = (1.0, 0.94, 0.90, 0.85, 0.80, 0.75, 0.70, 0.60, 0.50, 0.40)
-def _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma=None):
+def _core_profiles_policy(ods=None, shot=None, policy=None):
+    """The VEST kinetic-profile policy for this ODS, resolved once.
+
+    ``shot`` wins; otherwise it is inferred from the ODS; an ODS with no shot
+    number resolves the base revision (shot 0), which the policy's provenance
+    records as ``revision_index: None``.
+    """
+    if policy is not None:
+        return policy
+    from vaft.machine_mapping.core_profiles import vest_core_profiles_policy
+
+    if shot is None and ods is not None:
+        try:
+            shot = _infer_shot(ods)
+        except Exception:  # noqa: BLE001 -- a test ODS without dataset_description
+            shot = None
+    return vest_core_profiles_policy(0 if shot is None else int(shot))
+
+
+def _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma=None, *, ods=None, shot=None, policy=None):
     """Resolve the statistical Ti/Te fallback coefficient to (ratio, sigma).
 
-    ``'auto'`` / ``'vest'`` -> :data:`vaft.process.profile.TI_TE_RATIO_VEST`
-    (fitted on the VEST shots that carry BOTH Thomson and IDS/charge_exchange
-    profiles; see ``vaft.process.profile.fit_ti_te_ratio`` for provenance and
-    the estimator). A float is used as-is. ``ti_te_ratio_sigma=None`` falls
-    back to ``TI_TE_RATIO_VEST_SIGMA`` (the slice-to-slice scatter).
+    ``'auto'`` / ``'vest'`` -> the VEST policy value
+    (``vest.yaml`` ``diagnostics.core_profiles.ti_te_ratio``, fitted on the
+    VEST shots that carry BOTH Thomson and IDS/charge_exchange profiles; see
+    ``vaft.process.profile.fit_ti_te_ratio`` for the estimator).  A float is
+    used as-is.  ``ti_te_ratio_sigma=None`` falls back to the policy sigma
+    (the slice-to-slice scatter).
 
-    vaft.process.profile is imported lazily (module keeps heavy deps optional).
+    The policy is read through :mod:`vaft.machine_mapping`; the processing
+    layer holds no VEST number (issue #420).
     """
-    from vaft.process import profile as _profile
-
+    resolved = None
     if isinstance(ti_te_ratio, str):
         if ti_te_ratio.lower() not in ("auto", "vest"):
             raise ValueError(
                 f"ti_te_ratio={ti_te_ratio!r}: expected 'auto'/'vest', a float, or None"
             )
-        ratio = float(_profile.TI_TE_RATIO_VEST)
+        resolved = _core_profiles_policy(ods, shot, policy)
+        ratio = float(resolved.ti_te_ratio)
     else:
         ratio = float(ti_te_ratio)
-    sigma = (
-        float(_profile.TI_TE_RATIO_VEST_SIGMA)
-        if ti_te_ratio_sigma is None
-        else float(ti_te_ratio_sigma)
-    )
+    if ti_te_ratio_sigma is None:
+        resolved = resolved or _core_profiles_policy(ods, shot, policy)
+        sigma = float(resolved.ti_te_ratio_sigma)
+    else:
+        sigma = float(ti_te_ratio_sigma)
     if not np.isfinite(ratio) or ratio < 0.0:
         raise ValueError(f"ti_te_ratio must be finite and non-negative, got {ratio!r}")
     if not np.isfinite(sigma) or sigma < 0.0:
@@ -130,6 +151,13 @@ def _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma=None):
             f"ti_te_ratio_sigma must be finite and non-negative, got {sigma!r}"
         )
     return ratio, sigma
+
+
+def _ti_te_ratio_record(ti_te_ratio, ratio, sigma, policy):
+    """The provenance text stored beside a ratio-derived ion temperature."""
+    if isinstance(ti_te_ratio, str):
+        return policy.ti_te_ratio_text()
+    return f"ti_te_ratio={ratio:g}; sigma={sigma:g}; status=assumed; source=caller argument"
 
 
 # --------------------------------------------------------------------------- #
@@ -189,8 +217,8 @@ class KineticEFITConfig:
     scales: Sequence[float] = DEFAULT_SCALES
     grid_size: int = 129  # EFIT grid dimension, passed as the `efit <n>` argument
     # Thomson-only fallback: Ti = ratio*Te when the ODS has no ion (IDS/CES)
-    # data. 'auto' -> vaft.process.profile.TI_TE_RATIO_VEST; float -> forced;
-    # None -> strict (raise). sigma None -> TI_TE_RATIO_VEST_SIGMA.
+    # data. 'auto' -> the VEST policy ratio in vest.yaml; float -> forced;
+    # None -> strict (raise). sigma None -> the policy sigma.
     ti_te_ratio: Any = "auto"
     ti_te_ratio_sigma: Optional[float] = None
     base_kfile: Optional[str] = None  # path to a base magnetic kfile (e.g. filedb);
@@ -293,7 +321,7 @@ def _psin_of_r(geq: Any, r_query, z: float = 0.0) -> np.ndarray:
     simag = float(geq["SIMAG"])
     sibry = float(geq["SIBRY"])
     # VAFT GEQDSK PSIRZ is stored as (nw, nh): psi[iR, iZ] (see
-    # vaft.process.profile._rho_from_equilibrium_points).
+    # vaft.process.profile._psi_norm_from_equilibrium_points).
     psirz = np.asarray(geq["PSIRZ"], dtype=float).reshape(nw, nh)
     r_grid = rleft + np.arange(nw) / (nw - 1) * rdim
     z_grid = (zmid - zdim / 2.0) + np.arange(nh) / (nh - 1) * zdim
@@ -379,7 +407,7 @@ def _raw_ne_te_ti(
     as ``Ti = ratio * Te`` with
     ``sTi = sqrt((ratio*sTe)^2 + (sigma_ratio*Te)^2)`` so the ratio uncertainty
     propagates honestly into SIGPRE.  ``ti_te_ratio='auto'`` (default) resolves
-    to :data:`vaft.process.profile.TI_TE_RATIO_VEST`; a float forces that
+    to the VEST policy value in ``vest.yaml``; a float forces that
     coefficient; ``None`` restores the strict behaviour (raise when ion data is
     missing).  Slices WITH ion data are never affected.
 
@@ -485,7 +513,7 @@ def _raw_ne_te_ti(
             raise RuntimeError(
                 f"no valid CX Ti channels in ODS at {time_ms} ms"
             )
-        ratio, rsig = _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma)
+        ratio, rsig = _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma, ods=ods)
         print(
             f"[INFO] kinetic pressure at {time_ms} ms: no usable ion "
             f"(IDS/charge_exchange) data; statistical fallback "
@@ -568,7 +596,7 @@ def kinetic_pressure_points(
 
     Thomson-only shots (no IDS/charge_exchange ion data): with the default
     ``ti_te_ratio='auto'`` the raw encodings substitute the statistical
-    ``Ti = TI_TE_RATIO_VEST * Te`` (see :func:`_raw_ne_te_ti`), i.e.
+    ``Ti = ratio * Te`` with the VEST policy ratio (see :func:`_raw_ne_te_ti`), i.e.
     ``p = e*ne*(1+ratio)*Te`` with the ratio uncertainty propagated into
     SIGPRE and the shared Te error counted once. Pass ``ti_te_ratio=None`` to
     restore the strict behaviour
@@ -737,6 +765,8 @@ def build_kinetic_core_profiles(
     require_ion: bool = False,
     ti_te_fallback: bool = True,
     ti_te_ratio: Any = "auto",
+    coordinate: str = "auto",
+    shot: Optional[int] = None,
 ) -> Any:
     """Fit whatever kinetic diagnostics are present and write ``core_profiles.profiles_1d``.
 
@@ -753,11 +783,21 @@ def build_kinetic_core_profiles(
     required (or set ``require_thomson`` / ``require_ion`` to fail loudly when
     one is missing).
 
+    This is where VEST policy meets the machine-independent fitters.  With
+    ``coordinate='auto'`` the radial coordinate the profiles are fitted in is
+    taken from ``vest.yaml`` (``diagnostics.core_profiles.coordinate``,
+    ``rho_tor_norm``); pass ``'rho_tor_norm'``, ``'rho_pol_norm'`` or
+    ``'psi_norm'`` to override.  ``shot`` selects the policy era; it is
+    inferred from the ODS when omitted.  The fitted coordinate and the ratio
+    provenance are written beside the profile (``*_fit.parameters``,
+    ``core_profiles.code.parameters``).
+
     Thomson-only slices (``ti_te_fallback=True`` and no usable ion fit): the ion
     temperature falls back to ``Ti = ti_te_ratio * Te``. The default
-    ``ti_te_ratio='auto'`` resolves to the statistical
-    :data:`vaft.process.profile.TI_TE_RATIO_VEST` (fitted on the shots carrying
-    both diagnostics) and -- unlike the legacy ``Ti=Te`` fallback -- also writes
+    ``ti_te_ratio='auto'`` resolves to the statistical VEST policy value in
+    ``vest.yaml`` (fitted on the shots carrying both diagnostics; see
+    :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`) and
+    -- unlike the legacy ``Ti=Te`` fallback -- also writes
     ``pressure_thermal = e*ne*(1+ratio)*Te``, so the kinetic-EFIT spline
     encoding works for TS-only shots. Pass ``ti_te_ratio=None`` to restore the
     legacy ``Ti=Te`` fallback (no pressure written), or a float to force a
@@ -771,6 +811,11 @@ def build_kinetic_core_profiles(
     """
     from vaft.process import profile as _profile
 
+    policy = None
+    if coordinate == "auto" or isinstance(ti_te_ratio, str):
+        policy = _core_profiles_policy(ods, shot)
+    coord = policy.coordinate if coordinate == "auto" else str(coordinate)
+
     n_e_function = T_e_function = T_i_function = V_tor_function = None
     rho_ts = rho_cx = None
 
@@ -781,6 +826,7 @@ def build_kinetic_core_profiles(
             n_e_function, T_e_function, *_ = _profile.profile_fitting_thomson_scattering(
                 ods, time_ms, rho_ts,
                 fitting_function_te=te_mode, fitting_function_ne=ne_mode,
+                coordinate=coord,
             )
         except Exception as exc:  # noqa: BLE001
             if require_thomson:
@@ -798,6 +844,7 @@ def build_kinetic_core_profiles(
                 ods, time_ms, rho_cx,
                 fitting_function_ti=ti_mode, fitting_function_vtor=vtor_mode,
                 ion_index=ion_index,
+                coordinate=coord,
             )
         except Exception as exc:  # noqa: BLE001
             if require_ion:
@@ -815,8 +862,10 @@ def build_kinetic_core_profiles(
     # Resolve the statistical fallback coefficient only when it can be used
     # (Thomson-only slice with the fallback enabled); None keeps legacy Ti=Te.
     ratio = None
+    record = None
     if ti_te_ratio is not None and T_i_function is None and ti_te_fallback:
-        ratio, _ = _resolve_ti_te_ratio(ti_te_ratio)
+        ratio, sigma = _resolve_ti_te_ratio(ti_te_ratio, ods=ods, shot=shot, policy=policy)
+        record = _ti_te_ratio_record(ti_te_ratio, ratio, sigma, policy)
 
     _profile.core_profiles(
         ods,
@@ -826,11 +875,12 @@ def build_kinetic_core_profiles(
         T_e_function,
         T_i_function=T_i_function,
         V_tor_function=V_tor_function,
-        ti_mapped_rho_position=rho_cx,
+        ti_mapped_positions=rho_cx,
         time_tolerance_ms=time_tolerance_ms,
         geq=geq,
         ti_te_fallback=ti_te_fallback,
         ti_te_ratio=ratio,
+        ti_te_ratio_record=record,
     )
     return ods
 

@@ -897,6 +897,47 @@
               flux_baseline_samples: 1750
               daq_mode: native_daq
 
+    # Kinetic-profile construction policy (issue #420): the VEST decisions a
+    # pipeline hands to the machine-independent vaft.process.profile and
+    # vaft.process.atomic routines. Those routines hold no VEST number; this
+    # block is the only place these values live. Every value carries a
+    # `status` -- assumed | measured | inferred -- so a stored profile can say
+    # whether the number that shaped it was known or guessed.
+    core_profiles:
+      # Radial coordinate the kinetic profiles are fitted in. rho_tor_norm is
+      # the IMAS convention; psi_norm is what every fit used before #420.
+      coordinate: rho_tor_norm
+      # Statistical Ti/Te coefficient for Thomson-only slices (no
+      # IDS/charge_exchange). Fitted on the 9 kinetic slices that carry both
+      # diagnostics, then applied to shots that do not: `inferred`.
+      ti_te_ratio:
+        value: 0.17
+        sigma: 0.08                       # slice-to-slice std of the fitted-profile coefficient
+        status: inferred
+        shots: [48224, 48226, 48233]
+        time_window_ms: [299, 301]
+        estimator: >-
+          pressure-matching coefficient a = sum(ne^2 Te Ti) / sum(ne^2 Te^2) on
+          psi_N <= 1, per slice, on the FITTED 129-point core_profiles curves
+          (the profiles the spline pressure encoding consumes); the alpha that
+          preserves the kinetic pressure when Ti is replaced by a*Te
+        slice_statistics: {mean: 0.190, median: 0.155}
+        cross_check: >-
+          0.170 +/- 0.010 from an independent raw-point pairing (measured
+          Thomson Te against the weighted charge-exchange Ti fit,
+          effective-variance through-origin regression:
+          vaft.process.profile.fit_ti_te_ratio); 0.163-0.171 across mapping
+          gfile, fit degree and pairing direction
+        known_trend: the early 299 ms slices sit high (~0.28) against the 300/301 ms cluster (~0.14)
+        derivation_script: ids_test/fit_ti_te_ratio.py   # cited by the original derivation; not in the repository
+      # Impurity content for line-radiation estimates when the ODS carries no
+      # ion density profile. Assumed, not measured; no derivation recorded.
+      impurities:
+        species: [C, O]
+        fractions:
+          C: {value: 1.0e-2, status: assumed}
+          O: {value: 1.0e-2, status: assumed}
+
     # Triple Langmuir probes (issue #152). Deliberately no unconditional
     # default block below `revisions:` -- a shot that matches no era has no
     # valid bias voltage / tip geometry, and `resolve_vest_diagnostic` must

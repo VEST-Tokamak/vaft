@@ -6,7 +6,7 @@ import pytest
 pytest.importorskip("omas")
 from omas import ODS
 
-from vaft.process.profile import core_profiles
+from vaft.process.profile import MappedPositions, core_profiles
 
 E_CHARGE = 1.602176634e-19
 
@@ -52,9 +52,10 @@ def _make_ods(with_eq=True, n_grid=33):
 
 def test_kinetic_core_profiles_on_equilibrium_grid():
     ods, psi_n_ch = _make_ods()
+    # the synthetic fits are functions of psi_N, and say so
     core_profiles(
         ods, 300.0, psi_n_ch, _ne, _te,
-        T_i_function=_ti, V_tor_function=_vtor,
+        T_i_function=_ti, V_tor_function=_vtor, coordinate="psi_norm",
     )
     base = "core_profiles.profiles_1d.0"
     rho_tor = np.linspace(0.0, 1.0, 33)
@@ -83,14 +84,14 @@ def test_kinetic_core_profiles_on_equilibrium_grid():
 
 def test_duplicate_time_replaced():
     ods, psi_n_ch = _make_ods()
-    core_profiles(ods, 300.0, psi_n_ch, _ne, _te, T_i_function=_ti)
-    core_profiles(ods, 300.0, psi_n_ch, _ne, _te, T_i_function=_ti)
+    core_profiles(ods, 300.0, psi_n_ch, _ne, _te, T_i_function=_ti, coordinate="psi_norm")
+    core_profiles(ods, 300.0, psi_n_ch, _ne, _te, T_i_function=_ti, coordinate="psi_norm")
     assert len(ods["core_profiles.profiles_1d"]) == 1
 
 
 def test_fallback_grid_is_not_labeled_rho_tor_norm():
     ods, psi_n_ch = _make_ods(with_eq=False)
-    core_profiles(ods, 300.0, psi_n_ch, _ne, _te)
+    core_profiles(ods, 300.0, psi_n_ch, _ne, _te, coordinate="psi_norm")
     base = "core_profiles.profiles_1d.0"
     # psi_N-based fallback grid must be stored as rho_pol_norm = sqrt(psi_N)
     assert f"{base}.grid.rho_pol_norm" in ods
@@ -102,8 +103,34 @@ def test_fallback_grid_is_not_labeled_rho_tor_norm():
 
 def test_legacy_call_without_ti_uses_te():
     ods, psi_n_ch = _make_ods()
-    core_profiles(ods, 300.0, psi_n_ch, _ne, _te)
+    core_profiles(ods, 300.0, psi_n_ch, _ne, _te, coordinate="psi_norm")
     base = "core_profiles.profiles_1d.0"
     np.testing.assert_allclose(
         ods[f"{base}.ion.0.temperature"], ods[f"{base}.electrons.temperature"]
     )
+
+
+def test_default_path_evaluates_a_rho_tor_fit_on_the_rho_tor_grid():
+    """The same synthetic slice through the new default: fits in rho_tor_norm.
+
+    In this synthetic equilibrium psi_N = rho_tor^2, so a fit of T(rho_tor)
+    evaluated on the grid must reproduce T(psi_N) exactly -- and the record
+    must say the fit was made in rho_tor_norm.
+    """
+    ods, psi_n_ch = _make_ods()
+    rho_tor_ch = np.sqrt(psi_n_ch)
+    mapped = MappedPositions(psi_n_ch, np.sqrt(psi_n_ch), rho_tor_ch, None, "test")
+
+    def _te_rt(rt):
+        return _te(np.asarray(rt, float) ** 2)
+
+    def _ne_rt(rt):
+        return _ne(np.asarray(rt, float) ** 2)
+
+    core_profiles(ods, 300.0, mapped, _ne_rt, _te_rt, coordinate="rho_tor_norm")
+    base = "core_profiles.profiles_1d.0"
+    psin = np.linspace(0.0, 1.0, 33) ** 2
+    np.testing.assert_allclose(ods[f"{base}.electrons.temperature"], _te(psin), rtol=1e-10)
+    np.testing.assert_allclose(ods[f"{base}.grid.rho_pol_norm"], np.sqrt(psin))
+    assert "coordinate=rho_tor_norm" in str(ods[f"{base}.electrons.temperature_fit.parameters"])
+    np.testing.assert_allclose(ods[f"{base}.electrons.temperature_fit.rho_tor_norm"], rho_tor_ch)

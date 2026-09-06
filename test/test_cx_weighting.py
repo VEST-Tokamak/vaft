@@ -100,12 +100,12 @@ def test_cx_fit_downweights_high_sigma_outlier():
 
     # weighted: real .data_error_upper is used as 1/sigma weights
     _, ti_fn_w, *_ = profile.profile_fitting_charge_exchange(
-        ods, TIME_MS, RHO_CX,
+        ods, TIME_MS, RHO_CX, coordinate="psi_norm",
         fitting_function_ti="polynomial", Ti_order=3, uncertainty_option=1,
     )
     # unweighted reference: identical data/model, weights off
     _, ti_fn_u, *_ = profile.profile_fitting_charge_exchange(
-        ods, TIME_MS, RHO_CX,
+        ods, TIME_MS, RHO_CX, coordinate="psi_norm",
         fitting_function_ti="polynomial", Ti_order=3, uncertainty_option=0,
     )
 
@@ -144,7 +144,7 @@ def test_core_profiles_stores_measured_error_upper():
     rho_ts = _add_ts_and_equilibrium(ods)
 
     _, ti_fn, *_ = profile.profile_fitting_charge_exchange(
-        ods, TIME_MS, RHO_CX,
+        ods, TIME_MS, RHO_CX, coordinate="psi_norm",
         fitting_function_ti="polynomial", Ti_order=3, uncertainty_option=1,
     )
 
@@ -153,7 +153,7 @@ def test_core_profiles_stores_measured_error_upper():
 
     profile.core_profiles(
         ods, TIME_MS, rho_ts, n_e_fn, t_e_fn,
-        T_i_function=ti_fn, ti_mapped_rho_position=RHO_CX,
+        T_i_function=ti_fn, ti_mapped_positions=RHO_CX, coordinate="psi_norm",
     )
 
     key = "core_profiles.profiles_1d.0.ion.0.temperature_fit.measured_error_upper"
@@ -175,7 +175,7 @@ def test_core_profiles_ti_equals_te_fallback():
     t_e_fn = lambda r: 300.0 * (1.0 - np.clip(np.asarray(r, float), 0, 1))
 
     # no T_i_function -> ion.0.temperature falls back to Te, no CX metadata
-    profile.core_profiles(ods, TIME_MS, rho_ts, n_e_fn, t_e_fn)
+    profile.core_profiles(ods, TIME_MS, rho_ts, n_e_fn, t_e_fn, coordinate="psi_norm")
 
     te = np.asarray(ods["core_profiles.profiles_1d.0.electrons.temperature"], float)
     ti = np.asarray(ods["core_profiles.profiles_1d.0.ion.0.temperature"], float)

@@ -1,18 +1,78 @@
-import vaft
+"""Kinetic profiles: from diagnostic points to a stored ``core_profiles`` slice.
+
+The chain, and where each step's state changes::
+
+    measured diagnostic points (R, Z, value)
+    -> equilibrium-mapped coordinates: psi_norm, rho_pol_norm = sqrt(psi_norm),
+       rho_tor_norm from the equilibrium's own Phi(psi)          [MappedPositions]
+    -> coordinate-selected profile points (default rho_tor_norm)
+    -> fitted callable in that coordinate                          [FittedProfile]
+    -> equilibrium-grid profile, stored on grid.rho_tor_norm / psi /
+       rho_pol_norm with the fit's provenance beside it           [core_profiles]
+
+Everything here is machine-independent.  The radial coordinate to fit in,
+the statistical Ti/Te ratio for a Thomson-only slice, and their provenance
+are *arguments*; on VEST the pipeline
+(:func:`vaft.code.efit.build_kinetic_core_profiles`) resolves them from
+``vest.yaml`` through
+:func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`.  This
+module holds no VEST number (issue #420).
+
+Notation
+--------
+psi_norm      : normalized poloidal flux, (psi - psi_axis)/(psi_boundary - psi_axis)   [-]
+rho_pol_norm  : sqrt(psi_norm)                                                          [-]
+rho_tor_norm  : normalized toroidal-flux radius, sqrt(Phi/Phi_boundary), Phi = int q dpsi [-]
+T_e, T_i      : electron, ion temperature                                              [eV]
+n_e           : electron density                                                       [m^-3]
+V_tor         : toroidal ion velocity                                                  [m/s]
+p             : thermal pressure, e n_e (T_e + T_i)                                     [Pa]
+
+Conventions
+-----------
+Three radial coordinates, never interchangeable: ``rho_tor_norm`` is not
+``sqrt(psi_norm)`` except for a flat-``q`` cylinder.  A fit is a function
+of exactly one of them and carries which; :func:`core_profiles` evaluates it
+on the equilibrium grid expressed in that coordinate.  Parameter names that
+still say ``rho`` (``rho_points``, the deprecated ``mapped_rho_position``)
+predate the choice and mean "the fit coordinate".  Quasi-neutral single
+main ion H+ with ``n_i = n_e``; all electrons thermal.
+
+Provenance
+----------
+.. [FIT] :func:`vaft.formula.utils.fit_profile`, the 1-D fitting kernel every
+   fitter here delegates to (polynomial, exponential, core-poly-edge-exp,
+   linear, Gaussian process).
+.. [TITE] ``vest.yaml`` ``diagnostics.core_profiles.ti_te_ratio``: the VEST
+   statistical Ti/Te coefficient and its derivation record, resolved by
+   :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`;
+   :func:`fit_ti_te_ratio` is the estimator it was derived with.
+"""
+
 import os
+import warnings
+from dataclasses import dataclass
+
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 from scipy.io import loadmat
 from uncertainties import unumpy
+
+import vaft
 from vaft.formula import fit_profile
 
 
 __all__ = [
+    "COORDINATES",
+    "CoordinateUnavailableError",
+    "FittedProfile",
+    "LEGACY_COORDINATE",
+    "MappedPositions",
     "NE_DYNAMIC_RANGE_MAX",
+    "PHYSICAL_EDGE_MAX",
     "PHYSICAL_PSIN_MAX",
+    "TE_POSITIVE_EDGE_MAX",
     "TE_POSITIVE_PSIN_MAX",
-    "TI_TE_RATIO_VEST",
-    "TI_TE_RATIO_VEST_SIGMA",
     "core_profiles",
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
@@ -25,51 +85,234 @@ __all__ = [
 ]
 
 
-# Statistical Ti/Te coefficient for VEST slices WITHOUT an ion-temperature
-# measurement (no IDS/charge_exchange). Derived from the 9 kinetic slices that
-# carry both diagnostics (shots 48224/48226/48233 @ 299-301 ms) using the
-# FITTED 129-pt core_profiles curves (the same profiles the spline pressure
-# encoding consumes): per slice, the pressure-matching coefficient
-# a = sum(ne^2*Te*Ti)/sum(ne^2*Te^2) on psi_N <= 1 -- i.e. the alpha that
-# preserves the kinetic pressure when Ti is replaced by a*Te. Slice-level
-# mean 0.190 / median 0.155; an independent raw-point pairing (measured TS Te
-# vs the weighted CX Ti fit, effective-variance through-origin regression)
-# cross-checks at 0.170 +/- 0.010, robust to mapping gfile / fit degree /
-# pairing direction (0.163-0.171). The sigma is the fitted-profile
-# slice-to-slice std -- the honest predictive uncertainty for a NEW shot.
-# Known trend: the early 299 ms slices sit high (~0.28) vs the 300/301 ms
-# cluster (~0.14). Derivation: ids_test/fit_ti_te_ratio.py.
-TI_TE_RATIO_VEST = 0.17
-TI_TE_RATIO_VEST_SIGMA = 0.08
+#: The radial coordinates a profile can be fitted in, in order of preference.
+#: ``rho_tor_norm`` is the IMAS convention and the default; ``rho_pol_norm``
+#: is ``sqrt(psi_norm)``; ``psi_norm`` is what the mappers computed and every
+#: fit consumed before the coordinate became a choice (issue #420).
+COORDINATES = ("rho_tor_norm", "rho_pol_norm", "psi_norm")
+
+#: The coordinate every fit used before issue #420, and the only meaning a
+#: bare array of mapped positions can have.
+LEGACY_COORDINATE = "psi_norm"
+
+
+class CoordinateUnavailableError(ValueError):
+    """The requested radial coordinate cannot be derived from this equilibrium.
+
+    ``rho_tor_norm`` needs a finite, monotonic ``q`` profile on the flux grid;
+    a legacy ``fluxSurfaces`` mapping carries none, and so does a GEQDSK whose
+    ``QPSI`` is missing or unusable.  The message carries the reason recorded
+    at mapping time, so the caller can choose ``rho_pol_norm`` knowingly rather
+    than have ``psi_norm`` substituted in silence.
+    """
+
+
+@dataclass(frozen=True)
+class MappedPositions:
+    """Diagnostic channel positions in every radial coordinate the equilibrium supports.
+
+    One entry per channel, ``NaN`` for a channel outside the last closed flux
+    surface.  ``psi_norm`` and ``rho_pol_norm`` are always present;
+    ``rho_tor_norm`` is ``None`` when the equilibrium cannot supply it, and
+    ``rho_tor_norm_unavailable`` then says why.  :meth:`select` is how a fitter
+    asks for one coordinate and is refused with that reason.
+    """
+
+    psi_norm: np.ndarray
+    rho_pol_norm: np.ndarray
+    rho_tor_norm: np.ndarray | None
+    rho_tor_norm_unavailable: str | None
+    source: str
+
+    @property
+    def n_channels(self) -> int:
+        return int(np.asarray(self.psi_norm).size)
+
+    def available(self) -> tuple[str, ...]:
+        """The coordinates this mapping can hand out, in preference order."""
+        return tuple(c for c in COORDINATES if getattr(self, c) is not None)
+
+    def select(self, coordinate: str) -> np.ndarray:
+        """The channel positions in ``coordinate``, or a refusal saying why not."""
+        if coordinate not in COORDINATES:
+            raise ValueError(
+                f"coordinate must be one of {COORDINATES}, got {coordinate!r}"
+            )
+        values = getattr(self, coordinate)
+        if values is None:
+            raise CoordinateUnavailableError(
+                f"{coordinate} is not available from this equilibrium "
+                f"({self.source}): {self.rho_tor_norm_unavailable}. "
+                f"Available: {', '.join(self.available())}. Pass coordinate="
+                f"{self.available()[0]!r} explicitly to fit in that coordinate."
+            )
+        return np.asarray(values, dtype=float).reshape(-1)
+
+
+def _positions_for_fit(mapped, coordinate, *, legacy_name="mapped_rho_position"):
+    """Resolve what a fitter was handed into ``(positions, coordinate)``.
+
+    A :class:`MappedPositions` yields the requested coordinate.  A bare array
+    is the pre-#420 calling convention: it was always ``psi_norm``, so it is
+    accepted only when the caller says ``coordinate="psi_norm"`` -- making
+    the meaning explicit -- and with a :class:`DeprecationWarning`; without
+    that it is refused, because guessing would repeat the confusion this
+    change removes.
+    """
+    if coordinate not in COORDINATES:
+        raise ValueError(f"coordinate must be one of {COORDINATES}, got {coordinate!r}")
+    if isinstance(mapped, MappedPositions):
+        return mapped.select(coordinate), coordinate
+    if mapped is None:
+        raise ValueError("mapped positions are required")
+    if coordinate != LEGACY_COORDINATE:
+        raise TypeError(
+            f"{legacy_name} is a bare array; the mappers now return MappedPositions, "
+            f"which carries every coordinate. A bare array can only mean "
+            f"{LEGACY_COORDINATE!r} (what the mappers always computed), so pass "
+            f"coordinate={LEGACY_COORDINATE!r} to say so, or pass the MappedPositions "
+            f"record to fit in {coordinate!r}."
+        )
+    warnings.warn(
+        f"passing {legacy_name} as a bare array is deprecated; it is treated as "
+        f"{LEGACY_COORDINATE}. Pass the MappedPositions record from "
+        "equilibrium_mapping_* and select the coordinate explicitly.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    return np.asarray(mapped, dtype=float).reshape(-1), coordinate
+
+
+@dataclass(frozen=True)
+class FittedProfile:
+    """A fitted 1-D profile that knows which radial coordinate it is a function of.
+
+    Callable exactly like the plain function it wraps, so tuple-unpacking
+    call sites keep working; ``coordinate`` is what :func:`core_profiles`
+    reads to evaluate it on the matching equilibrium-grid array and to record
+    the fit's provenance.  ``coefficients`` is ``None`` for methods without a
+    closed form (Gaussian process, linear interpolation).
+    """
+
+    function: object
+    coordinate: str
+    method: str
+    order: int | None
+    coefficients: object = None
+    span: tuple[float, float] | None = None
+
+    def __call__(self, x):
+        return self.function(x)
+
+    def parameters_text(self) -> str:
+        """The ``*_fit.parameters`` record: what produced this curve."""
+        parts = [f"coordinate={self.coordinate}", f"method={self.method}"]
+        if self.order is not None:
+            parts.append(f"order={self.order}")
+        if self.span is not None:
+            parts.append(f"measured_span={self.span[0]:.4f}:{self.span[1]:.4f}")
+        return "; ".join(parts)
+
+
+def _fit_coordinate(fit, coordinate, name):
+    """The coordinate a fit object is a function of, checked against ``coordinate``."""
+    if isinstance(fit, FittedProfile):
+        if coordinate is not None and fit.coordinate != coordinate:
+            raise ValueError(
+                f"{name} is a function of {fit.coordinate} but coordinate="
+                f"{coordinate!r} was requested; a fit cannot be re-labelled"
+            )
+        return fit.coordinate
+    if coordinate is None:
+        raise TypeError(
+            f"{name} is a plain callable; pass coordinate= to say which radial "
+            "coordinate it is a function of (a FittedProfile carries its own)"
+        )
+    if coordinate not in COORDINATES:
+        raise ValueError(f"coordinate must be one of {COORDINATES}, got {coordinate!r}")
+    return coordinate
+
+
+def _fit_parameters_text(fit, coordinate):
+    return fit.parameters_text() if isinstance(fit, FittedProfile) else f"coordinate={coordinate}; method=external"
 
 
 def fit_ti_te_ratio(te, ti, te_std=None, ti_std=None, max_iter=200, tol=1e-12):
-    """Fit the proportionality coefficient alpha of ``Ti = alpha * Te``.
+    """Fit the proportionality coefficient ``alpha`` of ``Ti = alpha * Te``.
 
     Effective-variance weighted through-origin regression with errors in BOTH
     variables: minimizes ``sum_k (Ti_k - a*Te_k)^2 / (sTi_k^2 + a^2*sTe_k^2)``
-    by iterating the weights. This is the estimator used to derive
-    :data:`TI_TE_RATIO_VEST` from the shots that carry both electron (Thomson)
-    and ion (IDS/charge_exchange) profiles; use it to re-derive the coefficient
-    as more two-diagnostic shots become available.
+    by iterating the weights.  This is the estimator the VEST statistical
+    coefficient was derived with [TITE]_ (paired Thomson ``Te`` and fitted
+    charge-exchange ``Ti`` at the same radial position, on the shots that carry
+    both diagnostics); use it to re-derive the coefficient as more
+    two-diagnostic shots become available.
 
-    Args:
-        te, ti: paired temperature samples [eV] (same length, e.g. Te measured
-            at the TS points and the fitted Ti evaluated at the same psi_N).
-        te_std, ti_std: optional 1-sigma uncertainties. ``None`` -> 0 for
-            ``te_std`` / 1 for ``ti_std`` (plain least squares).
-        max_iter, tol: iteration controls for the weight update.
+    Parameters
+    ----------
+    te : array_like
+        Electron temperature samples [eV].
+    ti : array_like
+        Ion temperature samples, paired with ``te`` [eV].
+    te_std : array_like, optional
+        1-sigma uncertainties of ``te``; ``None`` for zero [eV].
+    ti_std : array_like, optional
+        1-sigma uncertainties of ``ti``; ``None`` for unit weights, a plain
+        least-squares fit [eV].
+    max_iter : int, optional
+        Iterations of the weight update [-].
+    tol : float, optional
+        Change in ``alpha`` below which the iteration stops [-].
 
-    Returns:
-        dict with
-        - ``alpha``: fitted ratio;
-        - ``alpha_se``: formal standard error, scaled by sqrt(chi2_red) when
-          chi2_red > 1 (conservative);
-        - ``alpha_scatter``: error-weighted scatter of the per-point ratios
-          around their weighted mean -- the *predictive* per-point sigma.
-          For a machine coefficient, combine with the slice-to-slice std;
-        - ``chi2_red``: reduced chi-square of the through-origin model;
-        - ``n_points``: pairs used after non-finite / Te<=0 filtering.
+    Returns
+    -------
+    dict
+        ``alpha`` the fitted ratio; ``alpha_se`` its formal standard error,
+        scaled by ``sqrt(chi2_red)`` when ``chi2_red > 1``; ``alpha_scatter``
+        the error-weighted scatter of the per-point ratios, the predictive
+        per-point sigma; ``chi2_red``; ``n_points`` the pairs used [-].
+
+    Raises
+    ------
+    ValueError
+        Mismatched lengths, or fewer than two valid pairs.
+
+    Processing steps
+    ----------------
+    1. Drop pairs with a non-finite value, a non-finite or negative sigma, or
+       ``Te <= 0``.
+    2. Start from the unweighted through-origin estimate.
+    3. Iterate ``w = 1 / (sTi^2 + a^2 sTe^2)``, ``a = sum(w Te Ti)/sum(w Te^2)``
+       to convergence.
+    4. Standard error, reduced chi-square, and the weighted scatter of
+       ``Ti/Te``.
+
+    Defaults
+    --------
+    ``max_iter = 200`` and ``tol = 1e-12`` are numerical conveniences.  A
+    uniformly zero ``ti_std`` is replaced by unit weights, a numerical
+    convenience that keeps the effective variance finite.
+
+    Assumptions
+    -----------
+    ``Ti`` is proportional to ``Te`` with no offset, across the whole sample.
+
+    Applicability
+    -------------
+    Machine-independent.  The VEST value it produced (0.17, sigma 0.08) lives in
+    ``vest.yaml``, not here.
+
+    Limitations
+    -----------
+    The derivation script cited by the VEST record, ``ids_test/fit_ti_te_ratio.py``,
+    is not in the repository; the value is reproducible from this estimator and
+    the three shots named there, but the script that did it is not tracked.
+
+    Provenance
+    ----------
+    .. [1] The VEST Ti/Te policy record [TITE]_: shots 48224, 48226, 48233 at
+       299-301 ms; pressure-matching estimator on the fitted 129-point profiles,
+       cross-checked at 0.170 +/- 0.010 by this regression.
     """
     te = np.asarray(te, dtype=float).reshape(-1)
     ti = np.asarray(ti, dtype=float).reshape(-1)
@@ -147,11 +390,12 @@ def _outermost_surface_path(geq):
     return _MplPath(np.column_stack([R, Z]))
 
 
-def _rho_from_equilibrium_points(geq, r_points, z_points):
-    """Map R/Z points to normalized poloidal flux using VAFT GEQDSK/ODS data.
+def _psi_norm_from_equilibrium_points(geq, r_points, z_points):
+    """Map R/Z points to normalized poloidal flux; returns ``(psi_norm, source)``.
 
     Points outside the last closed flux surface are returned as NaN rather than
-    pinned to the edge psi_N level.
+    pinned to the edge psi_N level.  ``source`` names which kind of equilibrium
+    answered: ``legacy_flux_surfaces``, ``geqdsk`` or ``omas``.
     """
     # Compatibility with legacy precomputed flux-surface dictionaries. This is
     # keyed on the mapping actually carrying 'fluxSurfaces' rather than on a
@@ -176,8 +420,9 @@ def _rho_from_equilibrium_points(geq, r_points, z_points):
                     min_dist = min_flux_dist
                     closest_rho = flux_levels[i]
             mapped.append(closest_rho)
-        return np.clip(np.asarray(mapped, dtype=float), 0.0, 1.0)
+        return np.clip(np.asarray(mapped, dtype=float), 0.0, 1.0), "legacy_flux_surfaces"
 
+    source = "geqdsk"
     try:
         nw = int(geq['NW'])
         nh = int(geq['NH'])
@@ -187,6 +432,7 @@ def _rho_from_equilibrium_points(geq, r_points, z_points):
         psi_axis = float(geq['SIMAG'])
         psi_boundary = float(geq['SIBRY'])
     except Exception:
+        source = "omas"
         try:
             ts = geq['equilibrium.time_slice.0'] if 'equilibrium.time_slice.0' in geq else geq['equilibrium.time_slice'][0]
             prof2d = ts['profiles_2d.0']
@@ -209,34 +455,119 @@ def _rho_from_equilibrium_points(geq, r_points, z_points):
     points = np.column_stack([np.asarray(r_points, dtype=float), np.asarray(z_points, dtype=float)])
     psi_points = interp(points)
     rho = (psi_points - psi_axis) / (psi_boundary - psi_axis) if psi_boundary != psi_axis else np.zeros_like(psi_points)
-    # Outside the LCFS (rho > 1) → NaN rather than pinning to the edge psi_N level.
+    # Outside the LCFS (rho > 1) -> NaN rather than pinning to the edge psi_N level.
     rho = np.where(rho > 1.0, np.nan, rho)
-    return np.clip(rho, 0.0, 1.0)
+    return np.clip(rho, 0.0, 1.0), source
+
+
+#: Kept for one cycle for anything that reached in for the private helper.
+def _rho_from_equilibrium_points(geq, r_points, z_points):
+    return _psi_norm_from_equilibrium_points(geq, r_points, z_points)[0]
+
+
+def _coordinates_from_psi_norm(geq, psi_norm, source):
+    """Every radial coordinate for channel ``psi_norm`` values, from the same equilibrium.
+
+    ``rho_pol_norm = sqrt(psi_norm)`` by definition.  ``rho_tor_norm`` is
+    interpolated from the equilibrium's own ``rho_tor_norm(psi_norm)`` table,
+    derived by :func:`vaft.process._equilibrium_parametric.derive_radial_coordinates`
+    from the ``q`` profile (``Phi = int q dpsi``); when that derivation cannot
+    be made the record says why instead of substituting ``sqrt(psi_norm)``,
+    which is a different coordinate.
+    """
+    psi_norm = np.asarray(psi_norm, dtype=float).reshape(-1)
+    rho_pol = np.sqrt(np.clip(psi_norm, 0.0, 1.0))
+    rho_pol = np.where(np.isfinite(psi_norm), rho_pol, np.nan)
+    rho_tor = None
+    reason = None
+    if source == "legacy_flux_surfaces":
+        reason = "a legacy fluxSurfaces mapping carries no q profile"
+    else:
+        try:
+            from ._equilibrium_parametric import derive_radial_coordinates
+
+            derived = derive_radial_coordinates(geq)
+        except Exception as exc:  # noqa: BLE001 -- the reason is what matters
+            reason = f"the equilibrium could not be adapted for rho_tor_norm ({exc})"
+        else:
+            table = derived["rho_tor_n"]
+            if table.value is None:
+                reason = str(getattr(table, "reason", None) or "rho_tor_norm could not be derived")
+            else:
+                x = np.asarray(derived["psi_n"].value, dtype=float).reshape(-1)
+                y = np.asarray(table.value, dtype=float).reshape(-1)
+                order = np.argsort(x)
+                finite = np.isfinite(psi_norm)
+                rho_tor = np.full(psi_norm.shape, np.nan)
+                rho_tor[finite] = np.interp(psi_norm[finite], x[order], y[order])
+    return MappedPositions(psi_norm, rho_pol, rho_tor, reason, source)
 
 
 def equilibrium_mapping_thomson_scattering(ods, geq):
+    """Map Thomson scattering channel positions into the equilibrium's radial coordinates.
+
+    Parameters
+    ----------
+    ods : ODS
+        Carries ``thomson_scattering.channel[:].position.r`` and ``.z`` [-].
+    geq : GEQDSK, ODS or mapping
+        A ``vaft.data.GEQDSK``, an OMAS equilibrium ODS (first time slice), or
+        a legacy ``fluxSurfaces`` mapping [-].
+
+    Returns
+    -------
+    MappedPositions
+        ``psi_norm``, ``rho_pol_norm`` and, when the equilibrium carries a
+        usable ``q``, ``rho_tor_norm`` for every channel; NaN outside the LCFS
+        [-].
+
+    Processing steps
+    ----------------
+    1. Interpolate ``psi(R, Z)`` at each channel and normalize to
+       ``psi_norm = (psi - psi_axis)/(psi_boundary - psi_axis)``; a channel
+       with ``psi_norm > 1`` is outside the plasma and becomes NaN.
+    2. ``rho_pol_norm = sqrt(psi_norm)``.
+    3. ``rho_tor_norm`` from the equilibrium's ``rho_tor_norm(psi_norm)``
+       table (``Phi = int q dpsi``), interpolated at each channel; recorded
+       as unavailable, with the reason, when ``q`` cannot supply it.
+
+    Input semantics
+    ---------------
+    Measured: diagnostic-native ``(R, Z)`` channel positions.
+
+    Output semantics
+    ----------------
+    Equilibrium-mapped, in three coordinates at once; the fitter selects one.
+
+    Convention
+    ----------
+    ``psi_norm`` is normalized *poloidal* flux; ``rho_tor_norm`` is the
+    normalized toroidal-flux radius and is **not** ``sqrt(psi_norm)`` except
+    for a flat-``q`` cylinder.  Before issue #420 this function returned a
+    bare ``psi_norm`` array under the name "rho".
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    ``rho_tor_norm`` is unavailable for a legacy ``fluxSurfaces`` mapping and
+    for a GEQDSK or ODS whose ``q`` is missing, non-finite or gives a
+    non-monotonic toroidal flux; a fit requested in that coordinate then
+    raises :class:`CoordinateUnavailableError` rather than falling back.
+    Only the first equilibrium time slice of an ODS is used.
     """
-    Map Thomson scattering positions to normalized poloidal flux coordinates (rho).
-
-    This function finds the closest flux surface for each Thomson scattering measurement point
-    and maps it to the corresponding normalized poloidal flux value (rho) in the equilibrium data.
-
-    Parameters:
-        ods (ODS): The OMAS data structure containing Thomson scattering positions.
-        geq (dict): The equilibrium data containing flux surfaces and levels.
-
-    Returns:
-        numpy.ndarray: An array of mapped rho positions for each Thomson scattering point.
-    """
-    # Extract Thomson scattering positions
     r_t = ods['thomson_scattering.channel.:.position.r']
     z_t = ods['thomson_scattering.channel.:.position.z']
-    return _rho_from_equilibrium_points(geq, r_t, z_t)
+    psi_norm, source = _psi_norm_from_equilibrium_points(geq, r_t, z_t)
+    return _coordinates_from_psi_norm(geq, psi_norm, source)
+
 
 def profile_fitting_thomson_scattering(
     ods,
     time_ms,
-    mapped_rho_position,
+    mapped_positions=None,
     Te_order=3,
     Ne_order=3,
     uncertainty_option=1,
@@ -245,49 +576,150 @@ def profile_fitting_thomson_scattering(
     fitting_function_ne='polynomial',
     time_tolerance_ms=1.0,
     enforce_physical=True,
+    *,
+    coordinate="rho_tor_norm",
+    mapped_rho_position=None,
     ):
+    """Fit Thomson-scattering ``T_e`` and ``n_e`` profiles in a chosen radial coordinate.
+
+    Extracts the channel values at the nearest Thomson time, drops unusable
+    channels, and fits ``T_e(x)`` and ``n_e(x)`` on ``x in [0, 1]`` with the
+    selected model, where ``x`` is the radial coordinate chosen from the mapping
+    -- ``rho_tor_norm`` by default.  With ``enforce_physical`` a fit that goes
+    non-positive or collapses inside the LCFS is retried at lower order.
+
+    Parameters
+    ----------
+    ods : ODS
+        Carries ``thomson_scattering.time`` and per-channel ``t_e`` / ``n_e``
+        data with ``data_error_upper`` [-].
+    time_ms : float
+        Time to fit at; the nearest Thomson sample within ``time_tolerance_ms``
+        [ms].
+    mapped_positions : MappedPositions or np.ndarray, optional
+        Channel positions from :func:`equilibrium_mapping_thomson_scattering`.  A
+        bare array is the deprecated pre-#420 form, accepted only with
+        ``coordinate="psi_norm"`` [-].
+    Te_order : int, optional
+        Polynomial order for ``T_e`` [-].
+    Ne_order : int, optional
+        Polynomial order for ``n_e`` [-].
+    uncertainty_option : int, optional
+        ``1`` weights the fit by the per-channel uncertainties [-].
+    rho_points : int, optional
+        Points of the uniform evaluation grid the sampled returns are on [-].
+    fitting_function_te : str, optional
+        ``'polynomial'``, ``'exponential'``, ``'core_poly_edge_exp'``,
+        ``'linear'`` or ``'gp'`` for ``T_e`` [-].
+    fitting_function_ne : str, optional
+        The same choice for ``n_e`` [-].
+    time_tolerance_ms : float, optional
+        Largest distance to the nearest Thomson sample [ms].
+    enforce_physical : bool, optional
+        Retry at lower order until the profile is physical inside the LCFS [-].
+    coordinate : str, optional
+        Which coordinate of the mapping to fit in: ``rho_tor_norm``,
+        ``rho_pol_norm`` or ``psi_norm`` [-].
+    mapped_rho_position : MappedPositions or np.ndarray, optional
+        Deprecated name for ``mapped_positions`` [-].
+
+    Returns
+    -------
+    n_e_function : FittedProfile
+        ``n_e(x)``, clipped non-negative, with its coordinate and method [m^-3].
+    T_e_function : FittedProfile
+        ``T_e(x)``, clipped non-negative [eV].
+    coeffs_ne : np.ndarray or None
+        Fit coefficients; ``None`` for the Gaussian-process and linear methods [-].
+    coeffs_te : np.ndarray or None
+        As ``coeffs_ne`` [-].
+    n_e_rho : np.ndarray
+        ``n_e`` sampled on ``rho_points`` uniform points of ``x`` [m^-3].
+    T_e_rho : np.ndarray
+        ``T_e`` sampled on the same grid [eV].
+
+    Raises
+    ------
+    ValueError
+        No Thomson sample within tolerance; an unknown ``coordinate``.
+    TypeError
+        A bare position array without ``coordinate="psi_norm"``.
+    CoordinateUnavailableError
+        The mapping cannot supply ``coordinate``.
+
+    Processing steps
+    ----------------
+    1. Select the channel positions in ``coordinate`` from the mapping.
+    2. Read ``T_e``, ``n_e`` and their uncertainties at the nearest time.
+    3. Drop channels with a non-finite value, a non-finite or zero sigma, or an
+       unmapped (NaN) position; floor the surviving sigmas at ``1e-3`` of the
+       largest value.
+    4. Fit ``T_e(x)`` with ``fitting_function_te``; with ``enforce_physical``,
+       reduce the order until ``T_e > 0`` for ``x < PHYSICAL_EDGE_MAX``.
+    5. Fit ``n_e(x)`` on ``n_e / 1e18``; with ``enforce_physical``, reduce the
+       order until ``n_e > 0`` and its dynamic range inside the LCFS is below
+       ``NE_DYNAMIC_RANGE_MAX``.
+    6. Wrap both as :class:`FittedProfile` carrying ``coordinate``, method and
+       the order actually used.
+
+    Input semantics
+    ---------------
+    Measured, at diagnostic-native channels; equilibrium-mapped positions in
+    the selected coordinate.
+
+    Output semantics
+    ----------------
+    Fitted: a continuous function of the selected coordinate, plus its sampled
+    form.  Not yet on an equilibrium grid -- that is :func:`core_profiles`.
+
+    Defaults
+    --------
+    ``coordinate = "rho_tor_norm"`` is the IMAS convention; a VEST pipeline
+    takes it from ``vest.yaml``.  ``Te_order = Ne_order = 3`` are legacy
+    compatibility values.  ``uncertainty_option = 1`` and
+    ``enforce_physical = True`` are validated-workflow defaults; the guard's
+    ``PHYSICAL_EDGE_MAX = 0.98`` and ``NE_DYNAMIC_RANGE_MAX = 1e3`` are empirical
+    estimates from shot 48224 at 299 ms, where a cubic extrapolated from five
+    channels inside ``psi_N <= 0.27`` crossed zero at ``psi_N = 0.87`` and
+    collapsed ``n_e`` by ``5e6``.  ``rho_points = 100`` and
+    ``time_tolerance_ms = 1.0`` are numerical conveniences.
+
+    Convention
+    ----------
+    The fit, its ``(1 - x)`` edge factor in the polynomial and exponential
+    bases, and the physicality checks are all in the selected coordinate; a
+    cubic in ``psi_norm`` is not a cubic in ``rho_tor_norm``, and the edge
+    factor lands at a different physical radius.  Before issue #420 every fit
+    was in ``psi_norm`` while the docstring said ``rho_tor_norm``.
+
+    Assumptions
+    -----------
+    The profile is a smooth function of one radial coordinate: channel
+    positions inside the LCFS are on flux surfaces and ``T_e``, ``n_e`` are
+    flux functions.
+
+    Applicability
+    -------------
+    Machine-independent.  The coordinate convention is the pipeline's to
+    supply; for VEST it is resolved from ``vest.yaml``.
+
+    Limitations
+    -----------
+    Thomson often covers only the inner part of the profile; every model
+    extrapolates over the rest and the guard can only catch the gross failures.
+    ``'gp'`` imports scikit-learn on first use (#426).  A slice with fewer
+    channels than the order plus one cannot be fitted at that order and the
+    guard steps down; with ``enforce_physical=False`` it raises from the
+    kernel.
+
+    Provenance
+    ----------
+    .. [1] The fitting kernel [FIT]_; the physicality guard and its constants
+       from the 48224 failures (:data:`PHYSICAL_EDGE_MAX`).
     """
-    Fit Thomson scattering Te and ne profiles with selectable 1D methods.
+    mapped_positions = _legacy_keyword(mapped_positions, mapped_rho_position, "mapped_rho_position")
+    rho_flat, coordinate = _positions_for_fit(mapped_positions, coordinate)
 
-    Supported modes:
-    - fitting_function_te, fitting_function_ne ∈ {'gp', 'polynomial', 'exponential', 'linear', 'core_poly_edge_exp'}
-
-    Behavior:
-    - Extracts Thomson data (Te, ne) at the requested time.
-    - Fits Te(ρ) and ne(ρ) on ρ_tor_norm ∈ [0, 1] using the selected model for each.
-    - If uncertainty_option == 1 and per-channel uncertainties are available, they are used as weights.
-    - Edge behavior:
-      - Polynomial/exponential basis includes a (1 - ρ) factor so the fitted profile tends toward 0 at ρ=1.
-      - core_poly_edge_exp blends a core polynomial with an edge exponential using tanh(ρ) transition.
-    - Returns callable fit functions for evaluating Te and ne on arbitrary ρ in [0, 1],
-      plus the fitted mean profiles on a uniform evaluation grid.
-
-    ## Arguments:
-    - ods: OMAS data structure
-    - time_ms: time in milliseconds
-    - mapped_rho_position: list/array of mapped rho_tor_norm positions for Thomson channels
-    - Te_order, Ne_order: polynomial order (used for polynomial/exponential/core_poly_edge_exp)
-    - uncertainty_option: use uncertainties when fitting (1 = enabled)
-    - rho_points: number of evaluation points on ρ in [0, 1]
-    - fitting_function_te, fitting_function_ne: fit method selection for Te and ne
-    - enforce_physical: when True (default) a fit whose profile is unphysical over
-      [0, 1] -- Te <= 0 inside the LCFS, or an ne dynamic range above
-      NE_DYNAMIC_RANGE_MAX -- is retried at successively lower order. Thomson
-      often covers only the inner half of psi_N, and a high-order fit
-      extrapolated over the rest can cross zero or collapse by orders of
-      magnitude. Set False for the raw (unguarded) legacy behaviour.
-
-    ## Returns:
-    - n_e_function, T_e_function: callable fit functions
-    - coeffs_ne, coeffs_te: fit coefficients (None for GP/linear)
-    - n_e_rho, T_e_rho: fitted profiles evaluated on rho_eval
-
-    ## Example:
-    - profile_fitting_thomson_scattering(ods, time_ms, mapped_rho_position, fitting_function_te='gp', fitting_function_ne='gp')
-    - profile_fitting_thomson_scattering(ods, time_ms, mapped_rho_position, fitting_function_te='polynomial', fitting_function_ne='exponential')
-    - profile_fitting_thomson_scattering(ods, time_ms, mapped_rho_position, fitting_function_te='linear', fitting_function_ne='linear')
-    - profile_fitting_thomson_scattering(ods, time_ms, mapped_rho_position, fitting_function_te='core_poly_edge_exp', fitting_function_ne='core_poly_edge_exp')
-    """
     # --- Extract Thomson data (nearest time within tolerance) ---
     times = np.asarray(ods['thomson_scattering.time'], dtype=float)
     target_s = time_ms / 1e3
@@ -312,8 +744,6 @@ def profile_fitting_thomson_scattering(
     n_e = np.array(n_e, dtype=float)
     t_e_std = np.array(t_e_std, dtype=float)
     n_e_std = np.array(n_e_std, dtype=float)
-    rho_flat = np.asarray(mapped_rho_position, dtype=float).reshape(-1)
-
     # --- drop invalid channels: non-finite values/sigmas, zero sigma, unmapped rho ---
     valid = (
         np.isfinite(rho_flat)
@@ -351,12 +781,12 @@ def profile_fitting_thomson_scattering(
 
     def _te_unphysical(fn):
         y = np.asarray(fn(guard_grid), dtype=float)
-        inside = guard_grid < PHYSICAL_PSIN_MAX
+        inside = guard_grid < PHYSICAL_EDGE_MAX
         if not np.all(np.isfinite(y)):
             return "non-finite Te"
         if np.any(y[inside] <= 0.0):
             first = float(guard_grid[inside][np.argmax(y[inside] <= 0.0)])
-            return f"Te<=0 inside the LCFS (first at psi_N={first:.2f})"
+            return f"Te<=0 inside the LCFS (first at {coordinate}={first:.2f})"
         return None
 
     T_e_rho, T_e_std, T_e_function_raw, coeffs_te, Te_order_used = (
@@ -394,7 +824,7 @@ def profile_fitting_thomson_scattering(
         y = np.asarray(fn(guard_grid), dtype=float)
         if not np.all(np.isfinite(y)):
             return "non-finite ne"
-        inside = y[guard_grid < PHYSICAL_PSIN_MAX]
+        inside = y[guard_grid < PHYSICAL_EDGE_MAX]
         lo, hi = float(np.min(inside)), float(np.max(inside))
         if lo <= 0.0:
             return "ne<=0 inside the LCFS"
@@ -429,22 +859,59 @@ def profile_fitting_thomson_scattering(
         y_norm = n_e_function_raw(x)
         return np.maximum(y_norm, 0.0) * n_e_scale
 
-    return n_e_function, T_e_function, coeffs_ne, coeffs_te, n_e_rho, T_e_rho
+    n_e_fit = FittedProfile(n_e_function, coordinate, str(fitting_function_ne), int(Ne_order_used), coeffs_ne)
+    T_e_fit = FittedProfile(T_e_function, coordinate, str(fitting_function_te), int(Te_order_used), coeffs_te)
+    return n_e_fit, T_e_fit, coeffs_ne, coeffs_te, n_e_rho, T_e_rho
 
 
 def equilibrium_mapping_charge_exchange(ods, geq):
-    """
-    Map charge_exchange (CES) channel positions to normalized poloidal flux (rho).
+    """Map charge-exchange channel positions into the equilibrium's radial coordinates.
 
-    This is analogous to equilibrium_mapping_thomson_scattering but uses
-    charge_exchange.channel[:].position.(r,z) as the measurement points.
+    The charge-exchange twin of :func:`equilibrium_mapping_thomson_scattering`:
+    the same mapping, from ``charge_exchange.channel[:].position.(r, z)``.
 
-    Args:
-        ods: OMAS data structure containing charge_exchange positions.
-        geq: Equilibrium data (same structure as used for Thomson mapping).
+    Parameters
+    ----------
+    ods : ODS
+        Carries the channel positions, as ``.data`` leaves (what the VEST
+        mapper writes) or as bare values [-].
+    geq : GEQDSK, ODS or mapping
+        A ``vaft.data.GEQDSK``, an OMAS equilibrium ODS (first time slice), or
+        a legacy ``fluxSurfaces`` mapping [-].
 
-    Returns:
-        numpy.ndarray: mapped rho positions for each charge_exchange channel.
+    Returns
+    -------
+    MappedPositions
+        ``psi_norm``, ``rho_pol_norm`` and, when derivable, ``rho_tor_norm``
+        per channel; NaN outside the LCFS [-].
+
+    Processing steps
+    ----------------
+    1. Read each channel's ``(R, Z)``, taking the nominal value of an
+       uncertainty-carrying leaf and the first sample of a time series.
+    2. As :func:`equilibrium_mapping_thomson_scattering`.
+
+    Input semantics
+    ---------------
+    Measured: diagnostic-native ``(R, Z)`` channel positions.
+
+    Output semantics
+    ----------------
+    Equilibrium-mapped, in three coordinates at once.
+
+    Convention
+    ----------
+    As :func:`equilibrium_mapping_thomson_scattering`: ``psi_norm`` is
+    normalized poloidal flux and ``rho_tor_norm`` is not its square root.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    As :func:`equilibrium_mapping_thomson_scattering`.  A channel whose
+    position is a time series is mapped at its first sample only.
     """
     def _to_float_scalar(x):
         try:
@@ -476,24 +943,45 @@ def equilibrium_mapping_charge_exchange(ods, geq):
 
     r_vals = [_to_float_scalar(value) for value in R_ce]
     z_vals = [_to_float_scalar(value) for value in Z_ce]
-    return _rho_from_equilibrium_points(geq, r_vals, z_vals)
+    psi_norm, source = _psi_norm_from_equilibrium_points(geq, r_vals, z_vals)
+    return _coordinates_from_psi_norm(geq, psi_norm, source)
 
 
 #: A fitted electron profile is rejected when it goes non-positive, or when the
 #: density spans more than :data:`NE_DYNAMIC_RANGE_MAX`, anywhere *inside* the
 #: LCFS. Both signal a polynomial/exponential extrapolated far outside the
-#: measured psi_N span -- e.g. shot 48224 @ 299 ms, where Thomson covers only
+#: measured span -- e.g. shot 48224 @ 299 ms, where Thomson covers only
 #: psi_N <= 0.27 and the quadratic crossed zero at psi_N = 0.87 with ne
 #: collapsing by 5e6.
 #:
-#: The checks stop at :data:`PHYSICAL_PSIN_MAX` because the 'polynomial' and
-#: 'exponential' bases carry a ``(1 - psi_N)`` factor that drives the profile to
-#: exactly 0 at psi_N = 1 by construction. That endpoint zero is intended, and
-#: including it would reject every such fit (and make any dynamic-range ratio
-#: meaningless).
-PHYSICAL_PSIN_MAX = 0.98
-TE_POSITIVE_PSIN_MAX = PHYSICAL_PSIN_MAX   # backwards-compatible alias
+#: The checks stop at :data:`PHYSICAL_EDGE_MAX` because the 'polynomial' and
+#: 'exponential' bases carry a ``(1 - x)`` factor that drives the profile to
+#: exactly 0 at ``x = 1`` by construction, in whichever radial coordinate
+#: ``x`` the fit is made. That endpoint zero is intended, and including it
+#: would reject every such fit (and make any dynamic-range ratio
+#: meaningless). The value 0.98 was chosen with the fits in psi_N (issue
+#: #420 made the coordinate a choice); it is a cut on the normalized radius
+#: the fit is in, not a physical location.
+PHYSICAL_EDGE_MAX = 0.98
+TE_POSITIVE_EDGE_MAX = PHYSICAL_EDGE_MAX
+PHYSICAL_PSIN_MAX = PHYSICAL_EDGE_MAX          # pre-#420 name, kept as an alias
+TE_POSITIVE_PSIN_MAX = PHYSICAL_EDGE_MAX       # pre-#420 name, kept as an alias
 NE_DYNAMIC_RANGE_MAX = 1.0e3
+
+
+def _legacy_keyword(value, legacy_value, legacy_name):
+    """Accept a renamed keyword for one cycle, with a warning."""
+    if legacy_value is None:
+        return value
+    if value is not None:
+        raise TypeError(f"pass either the new keyword or {legacy_name}, not both")
+    warnings.warn(
+        f"{legacy_name}= is deprecated; the parameter is now named without 'rho' "
+        "because the coordinate is a choice, not always psi_N",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    return legacy_value
 
 
 def _fit_profile_until_physical(fit_call, order, is_unphysical, label, time_ms,
@@ -652,7 +1140,7 @@ def _sanitize_std(sigmas):
 def profile_fitting_charge_exchange(
     ods,
     time_ms,
-    mapped_rho_position,
+    mapped_positions=None,
     Ti_order=3,
     Vtor_order=3,
     uncertainty_option=1,
@@ -662,32 +1150,136 @@ def profile_fitting_charge_exchange(
     ion_index=0,
     time_tolerance_ms=1.0,
     clamp_to_measured_span=True,
+    *,
+    coordinate="rho_tor_norm",
+    mapped_rho_position=None,
 ):
+    """Fit charge-exchange ``T_i`` and ``V_tor`` profiles in a chosen radial coordinate.
+
+    The ion twin of :func:`profile_fitting_thomson_scattering`, reading
+    ``charge_exchange.channel[:].ion[ion_index].t_i`` and ``velocity_tor``.  By
+    default the fitted curves are held at their value at the innermost and
+    outermost measured positions rather than extrapolated beyond them.
+
+    Parameters
+    ----------
+    ods : ODS
+        Carries ``charge_exchange.time`` and per-channel ion ``t_i`` and
+        ``velocity_tor`` data with ``data_error_upper`` [-].
+    time_ms : float
+        Time to fit at [ms].
+    mapped_positions : MappedPositions or np.ndarray, optional
+        Channel positions from :func:`equilibrium_mapping_charge_exchange`; a
+        bare array only with ``coordinate="psi_norm"`` [-].
+    Ti_order : int, optional
+        Polynomial order for ``T_i`` [-].
+    Vtor_order : int, optional
+        Polynomial order for ``V_tor`` [-].
+    uncertainty_option : int, optional
+        ``1`` weights the fit by the per-channel uncertainties [-].
+    rho_points : int, optional
+        Points of the uniform evaluation grid the sampled returns are on [-].
+    fitting_function_ti : str, optional
+        Model for ``T_i``, as the Thomson fitter's choices [-].
+    fitting_function_vtor : str, optional
+        Model for ``V_tor`` [-].
+    ion_index : int, optional
+        Which ion of each channel [-].
+    time_tolerance_ms : float, optional
+        Largest distance to the nearest charge-exchange sample [ms].
+    clamp_to_measured_span : bool, optional
+        Hold the fit at its end values outside the measured span [-].
+    coordinate : str, optional
+        Which coordinate of the mapping to fit in [-].
+    mapped_rho_position : MappedPositions or np.ndarray, optional
+        Deprecated name for ``mapped_positions`` [-].
+
+    Returns
+    -------
+    Vtor_function : FittedProfile
+        ``V_tor(x)`` [m/s].
+    Ti_function : FittedProfile
+        ``T_i(x)``, clipped non-negative [eV].
+    coeffs_vtor : np.ndarray or None
+        Fit coefficients, ``None`` for methods without them [-].
+    coeffs_ti : np.ndarray or None
+        As ``coeffs_vtor`` [-].
+    Vtor_rho : np.ndarray
+        ``V_tor`` sampled on ``rho_points`` uniform points of ``x`` [m/s].
+    Ti_rho : np.ndarray
+        ``T_i`` sampled on the same grid [eV].
+
+    Raises
+    ------
+    ValueError
+        No charge-exchange sample within tolerance; a non-1-D time axis; an
+        unknown ``coordinate``.
+    TypeError
+        A bare position array without ``coordinate="psi_norm"``.
+    CoordinateUnavailableError
+        The mapping cannot supply ``coordinate``.
+
+    Processing steps
+    ----------------
+    1. Select the channel positions in ``coordinate``.
+    2. Read ``T_i`` and ``V_tor`` with their real per-channel sigmas from the
+       ``data_error_upper`` leaves (OMAS strips the uncertainty from the re-read
+       ``.data``).
+    3. Drop channels with a non-finite value or position; replace zero or
+       non-finite sigmas by the median valid sigma so no channel's weight
+       explodes.
+    4. Fit each with its model; clip ``T_i`` non-negative.
+    5. With ``clamp_to_measured_span``, hold each fit at its value on the
+       nearest measured end outside the span the channels cover.
+
+    Input semantics
+    ---------------
+    Measured, at diagnostic-native channels; equilibrium-mapped positions in
+    the selected coordinate.
+
+    Output semantics
+    ----------------
+    Fitted: continuous functions of the selected coordinate, span-clamped.
+
+    Defaults
+    --------
+    ``coordinate = "rho_tor_norm"`` is the IMAS convention.  ``Ti_order =
+    Vtor_order = 3`` are legacy compatibility values; ``uncertainty_option = 1``
+    and ``clamp_to_measured_span = True`` are validated-workflow defaults --
+    the clamp was added after shot 48224 at 298 ms, where only 8 of 40 channels
+    mapped inside the LCFS and the unclamped cubic gave ``T_i(axis) = 54`` eV
+    against a 21 eV largest measurement.  ``ion_index = 0`` selects the first
+    ion; ``rho_points = 100`` and ``time_tolerance_ms = 1.0`` are numerical
+    conveniences.
+
+    Convention
+    ----------
+    As :func:`profile_fitting_thomson_scattering`: the fit and its span are in
+    the selected coordinate.  ``V_tor`` keeps the sign the diagnostic mapping
+    gave it.
+
+    Assumptions
+    -----------
+    ``T_i`` and ``V_tor`` are flux functions; the channel's ``(R, Z)`` is where
+    the measurement is local.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    With the clamp off, a polynomial through a poorly covered span runs away
+    toward the axis.  Every channel's ``ion[ion_index]`` must exist.
+
+    Provenance
+    ----------
+    .. [1] The fitting kernel [FIT]_; the span clamp from the 48224 @ 298 ms
+       failure, mirroring ``vaft.code.efit._ti_weighted_fit_psin``.
     """
-    Fit charge_exchange (CES) ion temperature and toroidal velocity profiles.
+    mapped_positions = _legacy_keyword(mapped_positions, mapped_rho_position, "mapped_rho_position")
+    rho_flat, coordinate = _positions_for_fit(mapped_positions, coordinate)
 
-    This mirrors profile_fitting_thomson_scattering, but for:
-    - T_i(ρ): ion temperature from charge_exchange.channel[:].ion[ion_index].t_i.data
-    - V_tor(ρ): toroidal ion velocity from charge_exchange.channel[:].ion[ion_index].velocity_tor.data
-
-    Args:
-        ods: OMAS data structure containing charge_exchange.
-        time_ms: time in milliseconds (matched to charge_exchange.time).
-        mapped_rho_position: mapped rho_tor_norm positions for CES channels.
-        Ti_order, Vtor_order: polynomial order for respective fits.
-        uncertainty_option: passed through to fit_profile.
-        rho_points: number of evaluation points on ρ ∈ [0, 1].
-        fitting_function_ti, fitting_function_vtor: fit methods for T_i and V_tor.
-        ion_index: ion index within charge_exchange.channel[i].ion.
-        clamp_to_measured_span: when True (default) the returned functions are
-            evaluated on the fitted curve only within the psi_N span the CX
-            channels actually cover, holding the endpoint value outside it (no
-            blind extrapolation). Set False for the legacy free-polynomial
-            behaviour.
-
-    Returns:
-        (Vtor_function, Ti_function, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho)
-    """
     # --- time index ---
     times = np.asarray(ods['charge_exchange.time'], dtype=float)
     if times.ndim != 1:
@@ -719,7 +1311,6 @@ def profile_fitting_charge_exchange(
         Vtor.append(v_val)
         Vtor_std.append(v_err)
 
-    rho_flat = np.asarray(mapped_rho_position, dtype=float).reshape(-1)
     Ti, Ti_std, rho_ti = _filter_channels_for_fit(Ti, Ti_std, rho_flat, "CES T_i", time_ms)
     Vtor, Vtor_std, rho_v = _filter_channels_for_fit(Vtor, Vtor_std, rho_flat, "CES V_tor", time_ms)
 
@@ -787,7 +1378,11 @@ def profile_fitting_charge_exchange(
     Ti_rho = np.asarray(Ti_function(rho_eval), dtype=float)
     Vtor_rho = np.asarray(Vtor_function(rho_eval), dtype=float)
 
-    return Vtor_function, Ti_function, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho
+    ti_span = (ti_lo, ti_hi) if clamp_to_measured_span else None
+    v_span = (v_lo, v_hi) if clamp_to_measured_span else None
+    Vtor_fit = FittedProfile(Vtor_function, coordinate, str(fitting_function_vtor), int(Vtor_order), coeffs_vtor, v_span)
+    Ti_fit = FittedProfile(Ti_function, coordinate, str(fitting_function_ti), int(Ti_order), coeffs_ti, ti_span)
+    return Vtor_fit, Ti_fit, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho
 def _grid_from_geq(geq):
     """Return (rho_tor_norm, psi, psi_N) 1D grid from a geqdsk, or None.
 
@@ -840,62 +1435,212 @@ def _equilibrium_grid_at_time(ods, target_s, tol_s):
     return rho, psi, psi_n
 
 
+def _channel_rho_tor_norm(mapped, positions, coordinate, eq_grid):
+    """Channel positions as ``rho_tor_norm`` for the ``*_fit`` metadata, or ``None``.
+
+    Straight from the mapping when it carries ``rho_tor_norm``; otherwise
+    converted through the equilibrium grid's ``rho_tor_norm(psi_norm)`` table
+    when there is one; otherwise unknown.
+    """
+    if isinstance(mapped, MappedPositions) and mapped.rho_tor_norm is not None:
+        return np.asarray(mapped.rho_tor_norm, dtype=float).reshape(-1)
+    if coordinate == "rho_tor_norm":
+        return np.asarray(positions, dtype=float).reshape(-1)
+    if eq_grid is None:
+        return None
+    rho_tor_grid, _, psi_n_grid = eq_grid
+    psi_n = positions if coordinate == "psi_norm" else np.asarray(positions, dtype=float) ** 2
+    out = np.full(np.shape(positions), np.nan)
+    finite = np.isfinite(psi_n)
+    out[finite] = np.interp(np.clip(psi_n[finite], 0.0, 1.0), psi_n_grid, rho_tor_grid)
+    return out
+
+
+def _append_code_parameters(ods, ids, line, *, replace_key=None):
+    """Append one provenance line to ``<ids>.code.parameters``, dropping a superseded one."""
+    path = f"{ids}.code.parameters"
+    existing = ""
+    if ids in ods:
+        try:
+            existing = str(ods[path] or "")
+        except Exception:
+            existing = ""
+    kept = [
+        item for item in existing.splitlines()
+        if item.strip() and not (replace_key and replace_key in item)
+    ]
+    ods[path] = "\n".join(kept + [line]) + "\n"
+
+
 def core_profiles(
     ods,
     time_ms,
-    mapped_rho_position=None,
+    mapped_positions=None,
     n_e_function=None,
     T_e_function=None,
     tol_ms=0.1,
     T_i_function=None,
     V_tor_function=None,
-    ti_mapped_rho_position=None,
+    ti_mapped_positions=None,
     rho_points=100,
     time_tolerance_ms=1.0,
     geq=None,
     ti_te_fallback=True,
     ti_te_ratio=None,
+    *,
+    coordinate=None,
+    ti_te_ratio_record=None,
+    mapped_rho_position=None,
+    ti_mapped_rho_position=None,
 ):
+    """Evaluate fitted kinetic profiles on the equilibrium grid and store them as a ``profiles_1d`` slice.
+
+    The fits are functions of one radial coordinate -- the one they were made
+    in, carried by :class:`FittedProfile` or named by ``coordinate`` for a
+    plain callable -- and are evaluated on the equilibrium's grid expressed in
+    that same coordinate, so a fit in ``rho_tor_norm`` is never evaluated at a
+    ``psi_norm`` value.  What was fitted, in which coordinate, and where any
+    assumed number came from is written beside the profile.
+
+    Parameters
+    ----------
+    ods : ODS
+        Mutated in place: gains or replaces the ``core_profiles.profiles_1d``
+        slice at ``time_ms`` [-].
+    time_ms : float
+        Time of the slice [ms].
+    mapped_positions : MappedPositions or np.ndarray, optional
+        Thomson channel positions from :func:`equilibrium_mapping_thomson_scattering`;
+        required with an electron fit.  A bare array is the deprecated
+        pre-#420 form and is accepted only with ``coordinate="psi_norm"`` [-].
+    n_e_function : FittedProfile or callable, optional
+        Electron density fit [m^-3].
+    T_e_function : FittedProfile or callable, optional
+        Electron temperature fit [eV].
+    tol_ms : float, optional
+        An existing slice within this of ``time_ms`` is replaced [ms].
+    T_i_function : FittedProfile or callable, optional
+        Ion temperature fit from the charge-exchange fitter; when given, the
+        ion block carries the real ``T_i`` and ``pressure_thermal`` is
+        written [eV].
+    V_tor_function : FittedProfile or callable, optional
+        Toroidal ion velocity fit [m/s].
+    ti_mapped_positions : MappedPositions or np.ndarray, optional
+        Charge-exchange channel positions, for the ion fit metadata [-].
+    rho_points : int, optional
+        Size of the uniform fallback grid when no equilibrium slice matches [-].
+    time_tolerance_ms : float, optional
+        Tolerance for matching the Thomson and equilibrium times [ms].
+    geq : GEQDSK, optional
+        The equilibrium the mapping used; its 1-D grid is preferred over the
+        ODS equilibrium so the profile lands on the same surfaces [-].
+    ti_te_fallback : bool, optional
+        With no ion fit, still write an ion temperature from ``T_e`` [-].
+    ti_te_ratio : float, optional
+        Coefficient for that fallback: ``T_i = ratio * T_e`` and
+        ``pressure_thermal = e n_e (1 + ratio) T_e``; ``None`` keeps the
+        legacy ``T_i = T_e`` and writes no pressure.  Resolved by the
+        pipeline from the machine policy; this function holds no value [-].
+    coordinate : str, optional
+        Required when the fits are plain callables; must agree with every
+        :class:`FittedProfile` given [-].
+    ti_te_ratio_record : str, optional
+        Provenance text for the ratio (value, status, source), stored beside
+        the ion temperature; the pipeline passes the policy's own record [-].
+    mapped_rho_position : MappedPositions or np.ndarray, optional
+        Deprecated name for mapped_positions [-].
+    ti_mapped_rho_position : MappedPositions or np.ndarray, optional
+        Deprecated name for ti_mapped_positions [-].
+
+    Returns
+    -------
+    ODS
+        The same object, updated [-].
+
+    Raises
+    ------
+    ValueError
+        No electron and no ion fit; an electron fit without positions; fits in
+        different coordinates; a ratio that is not finite and non-negative;
+        no Thomson time within tolerance.
+    TypeError
+        A plain callable without ``coordinate``, or a bare position array
+        without ``coordinate="psi_norm"``.
+    CoordinateUnavailableError
+        The mapping cannot supply the fit's coordinate.
+
+    Processing steps
+    ----------------
+    1. Establish the fit coordinate from the fit objects (or ``coordinate``)
+       and check they agree.
+    2. Read the measured Thomson values at the nearest time.
+    3. Take the equilibrium 1-D grid -- from ``geq``, else the ODS slice at
+       this time -- as ``(rho_tor_norm, psi, psi_norm)``; express it in the
+       fit coordinate; without one, use a uniform grid in that coordinate.
+    4. Evaluate every fit on that grid; apply the ion fallback if needed.
+    5. Replace any slice at the same time, write grid, electrons, ions,
+       pressure, per-channel fit metadata and provenance.
+
+    Input semantics
+    ---------------
+    Fitted: callables of one radial coordinate, from
+    :func:`profile_fitting_thomson_scattering` /
+    :func:`profile_fitting_charge_exchange`, plus the measured channel
+    values and their equilibrium-mapped positions.
+
+    Output semantics
+    ----------------
+    Stored, on the equilibrium grid: ``grid.rho_tor_norm``, ``grid.psi`` and
+    ``grid.rho_pol_norm`` when an equilibrium slice exists, else only the
+    coordinate the fit is actually in.  ``*_fit.measured`` are measured,
+    ``*_fit.reconstructed`` are the fit at the measured points; a
+    ratio-derived ion temperature is inferred and says so.
+
+    Defaults
+    --------
+    ``ti_te_ratio = None`` is a legacy compatibility value: the pre-#420
+    behaviour writes ``T_i = T_e`` and no pressure.  The VEST value is
+    resolved by :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`
+    and passed in by :func:`vaft.code.efit.build_kinetic_core_profiles`.
+    ``tol_ms = 0.1`` and ``time_tolerance_ms = 1.0`` are numerical
+    conveniences.
+
+    Convention
+    ----------
+    The fit coordinate is one of ``rho_tor_norm``, ``rho_pol_norm``,
+    ``psi_norm``; the equilibrium grid supplies all three (``rho_pol_norm =
+    sqrt(psi_norm)``; ``rho_tor_norm`` from the equilibrium, never from
+    ``psi_norm``).  Quasi-neutral single main ion H+, ``n_i = n_e``.
+    ``pressure_thermal = e n_e (T_e + T_i)`` [Pa] with temperatures in eV.
+
+    Assumptions
+    -----------
+    All electrons are thermal (an ohmic plasma); one hydrogenic main ion with
+    no impurity dilution; the equilibrium at ``time_ms`` is the one the
+    channels were mapped through.
+
+    Applicability
+    -------------
+    Machine-independent.  Every machine-specific number -- the coordinate
+    convention, the Ti/Te ratio, its provenance -- arrives as an argument;
+    for VEST the pipeline resolves them from ``vest.yaml``.
+
+    Limitations
+    -----------
+    Only the first equilibrium time slice of ``geq`` is used.  The
+    charge-exchange ``*_fit`` metadata is best-effort and its failure is
+    reported, not raised.  A slice produced before #420 has no
+    ``*_fit.parameters``; that absence is the signature of a legacy product
+    fitted in ``psi_norm``.
+
+    Provenance
+    ----------
+    .. [1] Per-slice fit records in ``electrons.{density,temperature}_fit.parameters``
+       and ``ion.0.temperature_fit.parameters``, and one line per slice in
+       ``core_profiles.code.parameters``; issue #420.
     """
-    Construct and store core_profiles.profiles_1d from fitted kinetic profiles.
-
-    The fit functions are functions of psi_N (normalized poloidal flux — the
-    coordinate produced by the equilibrium mappers). When the ODS carries an
-    equilibrium slice at the same time, profiles are evaluated at the psi_N of
-    each equilibrium grid point and stored on the equilibrium's rho_tor_norm/psi
-    grid; otherwise a uniform psi_N grid is stored honestly as
-    grid.rho_pol_norm = sqrt(psi_N).
-
-    If a profile already exists for the same time (within tol_ms), it is replaced.
-
-    ## Arguments:
-    - ods: OMAS data structure (mutable)
-    - time_ms: time in milliseconds
-    - mapped_rho_position: mapped psi_N positions of the Thomson channels
-    - n_e_function, T_e_function: callable fit functions of psi_N for ne, Te
-    - tol_ms: tolerance in milliseconds for duplicate time detection
-    - T_i_function: optional callable Ti(psi_N) from the charge_exchange fit;
-      when given, ion.0.temperature uses real Ti (instead of Ti=Te) and
-      pressure_thermal = e*ne*(Te+Ti) is written (n_i ~= n_e)
-    - V_tor_function: optional callable Vtor(psi_N) -> ion.0.velocity.toroidal
-    - ti_mapped_rho_position: mapped psi_N positions of the charge_exchange
-      channels (for the ion temperature_fit measurement metadata)
-    - rho_points: evaluation points for the no-equilibrium fallback grid
-    - time_tolerance_ms: tolerance for matching thomson/equilibrium times
-    - ti_te_fallback: when True (default) and no T_i_function is given, an ion
-      temperature is still written from Te (see ti_te_ratio); when False a slice
-      without an ion measurement stays electron-only (no phantom ion block)
-    - ti_te_ratio: optional statistical coefficient for the Thomson-only
-      fallback. None (default) keeps the legacy Ti = Te fallback and writes NO
-      pressure_thermal. A float alpha writes Ti = alpha*Te AND
-      pressure_thermal = e*ne*(1+alpha)*Te -- the TS-only kinetic pressure.
-      Use TI_TE_RATIO_VEST (fitted on the shots with both diagnostics; see
-      fit_ti_te_ratio) unless you have a shot-specific value. Ignored whenever
-      a real T_i_function is provided or ti_te_fallback=False.
-
-    ## Returns:
-    - Updated ods with replaced or appended core_profiles.profiles_1d entry.
-    """
+    mapped_positions = _legacy_keyword(mapped_positions, mapped_rho_position, "mapped_rho_position")
+    ti_mapped_positions = _legacy_keyword(ti_mapped_positions, ti_mapped_rho_position, "ti_mapped_rho_position")
     e_J_per_eV = 1.602176634e-19
     target_s = time_ms / 1e3
     tol_s = time_tolerance_ms / 1e3
@@ -909,13 +1654,31 @@ def core_profiles(
             "core_profiles needs at least an electron (n_e_function + T_e_function) "
             "or an ion (T_i_function) fit"
         )
-    if have_e and mapped_rho_position is None:
+    if have_e and mapped_positions is None:
         raise ValueError(
-            "core_profiles: mapped_rho_position is required when an electron "
+            "core_profiles: mapped_positions is required when an electron "
             "(n_e_function + T_e_function) fit is provided"
         )
 
-    # --- measured TS points (nearest time within tolerance) — electron path only ---
+    # --- the fit coordinate: every fit must be a function of the same one ---
+    coord = None
+    for fit, name in (
+        (n_e_function, "n_e_function"),
+        (T_e_function, "T_e_function"),
+        (T_i_function, "T_i_function"),
+        (V_tor_function, "V_tor_function"),
+    ):
+        if fit is None:
+            continue
+        this = _fit_coordinate(fit, coordinate, name)
+        if coord is None:
+            coord = this
+        elif this != coord:
+            raise ValueError(
+                f"{name} is a function of {this} but the other fits are functions of {coord}"
+            )
+
+    # --- measured TS points (nearest time within tolerance) -- electron path only ---
     n_e_meas = T_e_meas = rho_meas = None
     if have_e:
         ts_times = np.asarray(ods['thomson_scattering.time'], dtype=float)
@@ -934,26 +1697,32 @@ def core_profiles(
             [ods[f'thomson_scattering.channel.{i}.t_e.data'][t_idx] for i in range(num_channels)],
             dtype=float,
         )
-        rho_meas = np.asarray(mapped_rho_position, dtype=float).reshape(-1)
+        rho_meas, _ = _positions_for_fit(mapped_positions, coord, legacy_name="mapped_rho_position")
 
     # --- evaluation grid: prefer the mapping geqdsk, then the ODS equilibrium,
-    #     else a uniform psi_N grid ---
+    #     else a uniform grid in the fit coordinate ---
     eq_grid = _grid_from_geq(geq)
     if eq_grid is None:
         eq_grid = _equilibrium_grid_at_time(ods, target_s, tol_s)
     if eq_grid is not None:
         rho_tor_grid, psi_grid, psi_n_grid = eq_grid
+        rho_pol_grid = np.sqrt(np.clip(psi_n_grid, 0.0, None))
+        x_grid = {
+            "rho_tor_norm": rho_tor_grid,
+            "rho_pol_norm": rho_pol_grid,
+            "psi_norm": psi_n_grid,
+        }[coord]
     else:
-        rho_tor_grid = psi_grid = None
-        psi_n_grid = np.linspace(0.0, 1.0, rho_points)
+        rho_tor_grid = psi_grid = psi_n_grid = rho_pol_grid = None
+        x_grid = np.linspace(0.0, 1.0, rho_points)
 
-    n_e_recon = np.asarray(n_e_function(psi_n_grid), dtype=float) if have_e else None
-    T_e_recon = np.asarray(T_e_function(psi_n_grid), dtype=float) if have_e else None
+    n_e_recon = np.asarray(n_e_function(x_grid), dtype=float) if have_e else None
+    T_e_recon = np.asarray(T_e_function(x_grid), dtype=float) if have_e else None
     # Ti falls back to Te (or the statistical ratio*Te) only when electrons are
     # present but no ion fit was given.
     ratio_fallback = False
     if have_i:
-        T_i_recon = np.asarray(T_i_function(psi_n_grid), dtype=float)
+        T_i_recon = np.asarray(T_i_function(x_grid), dtype=float)
     elif have_e and ti_te_fallback:
         if ti_te_ratio is not None:
             ratio = float(ti_te_ratio)
@@ -973,7 +1742,7 @@ def core_profiles(
     else:
         T_i_recon = None
     V_tor_recon = (
-        np.asarray(V_tor_function(psi_n_grid), dtype=float)
+        np.asarray(V_tor_function(x_grid), dtype=float)
         if V_tor_function is not None
         else None
     )
@@ -1003,9 +1772,14 @@ def core_profiles(
     if eq_grid is not None:
         ods[f'{base}.grid.rho_tor_norm'] = rho_tor_grid
         ods[f'{base}.grid.psi'] = psi_grid
+        ods[f'{base}.grid.rho_pol_norm'] = rho_pol_grid
+    elif coord == "rho_tor_norm":
+        ods[f'{base}.grid.rho_tor_norm'] = x_grid
+    elif coord == "rho_pol_norm":
+        ods[f'{base}.grid.rho_pol_norm'] = x_grid
     else:
-        # psi_N-based grid: rho_pol_norm = sqrt(psi_N); do NOT mislabel as rho_tor_norm
-        ods[f'{base}.grid.rho_pol_norm'] = np.sqrt(psi_n_grid)
+        # a psi_norm grid is stored as rho_pol_norm = sqrt(psi_norm); never as rho_tor_norm
+        ods[f'{base}.grid.rho_pol_norm'] = np.sqrt(x_grid)
 
     # We assume all electrons are thermal electrons (because VEST is ohmically heated plasma)
     if have_e:
@@ -1039,26 +1813,31 @@ def core_profiles(
 
     # --- measurement/fit metadata (per IMAS DD, measured/reconstructed/rho all
     # have one entry per measurement point; reconstructed = fit AT those points) ---
-    if eq_grid is not None:
-        if have_e:
-            finite_meas = np.isfinite(rho_meas)
-            rho_meas_psin = np.clip(rho_meas[finite_meas], 0, 1)
-            rho_meas_tor = np.interp(rho_meas_psin, psi_n_grid, rho_tor_grid)
-
+    electron_record = ion_record = None
+    if have_e:
+        electron_record = f"ne[{_fit_parameters_text(n_e_function, coord)}] Te[{_fit_parameters_text(T_e_function, coord)}]"
+        rho_meas_tor = _channel_rho_tor_norm(mapped_positions, rho_meas, coord, eq_grid)
+        if rho_meas_tor is not None:
+            finite_meas = np.isfinite(rho_meas) & np.isfinite(rho_meas_tor)
+            x_meas = np.clip(rho_meas[finite_meas], 0, 1)
             fit_base_n = f'{base}.electrons.density_fit'
             fit_base_t = f'{base}.electrons.temperature_fit'
-            ods[f'{fit_base_n}.rho_tor_norm'] = rho_meas_tor
+            ods[f'{fit_base_n}.rho_tor_norm'] = rho_meas_tor[finite_meas]
             ods[f'{fit_base_n}.measured'] = n_e_meas[finite_meas]
-            ods[f'{fit_base_n}.reconstructed'] = np.asarray(
-                n_e_function(rho_meas_psin), dtype=float
-            )
-            ods[f'{fit_base_t}.rho_tor_norm'] = rho_meas_tor
+            ods[f'{fit_base_n}.reconstructed'] = np.asarray(n_e_function(x_meas), dtype=float)
+            ods[f'{fit_base_n}.parameters'] = _fit_parameters_text(n_e_function, coord)
+            ods[f'{fit_base_t}.rho_tor_norm'] = rho_meas_tor[finite_meas]
             ods[f'{fit_base_t}.measured'] = T_e_meas[finite_meas]
-            ods[f'{fit_base_t}.reconstructed'] = np.asarray(
-                T_e_function(rho_meas_psin), dtype=float
-            )
+            ods[f'{fit_base_t}.reconstructed'] = np.asarray(T_e_function(x_meas), dtype=float)
+            ods[f'{fit_base_t}.parameters'] = _fit_parameters_text(T_e_function, coord)
 
-        if T_i_function is not None and ti_mapped_rho_position is not None:
+    if T_i_function is not None:
+        ion_record = f"Ti[{_fit_parameters_text(T_i_function, coord)}]"
+        if V_tor_function is not None:
+            ion_record += f" Vtor[{_fit_parameters_text(V_tor_function, coord)}]"
+        fit_base_ti = f'{base}.ion.0.temperature_fit'
+        ods[f'{fit_base_ti}.parameters'] = _fit_parameters_text(T_i_function, coord)
+        if ti_mapped_positions is not None:
             try:
                 ce_times = np.asarray(ods['charge_exchange.time'], dtype=float)
                 ce_idx = int(np.argmin(np.abs(ce_times - target_s)))
@@ -1075,30 +1854,44 @@ def core_profiles(
                     ti_meas_err.append(err)
                 ti_meas = np.asarray(ti_meas, dtype=float)
                 ti_meas_err = np.asarray(ti_meas_err, dtype=float)
-                ti_rho = np.asarray(ti_mapped_rho_position, dtype=float).reshape(-1)
-                finite_ti = np.isfinite(ti_rho)
-                ti_rho_psin = np.clip(ti_rho[finite_ti], 0, 1)
-                fit_base_ti = f'{base}.ion.0.temperature_fit'
-                ods[f'{fit_base_ti}.rho_tor_norm'] = np.interp(
-                    ti_rho_psin, psi_n_grid, rho_tor_grid
-                )
-                ods[f'{fit_base_ti}.measured'] = ti_meas[finite_ti]
-                ods[f'{fit_base_ti}.measured_error_upper'] = ti_meas_err[finite_ti]
-                ods[f'{fit_base_ti}.reconstructed'] = np.asarray(
-                    T_i_function(ti_rho_psin), dtype=float
-                )
+                ti_rho, _ = _positions_for_fit(ti_mapped_positions, coord, legacy_name="ti_mapped_rho_position")
+                ti_rho_tor = _channel_rho_tor_norm(ti_mapped_positions, ti_rho, coord, eq_grid)
+                if ti_rho_tor is not None:
+                    finite_ti = np.isfinite(ti_rho) & np.isfinite(ti_rho_tor)
+                    ods[f'{fit_base_ti}.rho_tor_norm'] = ti_rho_tor[finite_ti]
+                    ods[f'{fit_base_ti}.measured'] = ti_meas[finite_ti]
+                    ods[f'{fit_base_ti}.measured_error_upper'] = ti_meas_err[finite_ti]
+                    ods[f'{fit_base_ti}.reconstructed'] = np.asarray(
+                        T_i_function(np.clip(ti_rho[finite_ti], 0, 1)), dtype=float
+                    )
             except Exception as exc:
                 print(f"[WARN] could not attach ion temperature_fit metadata: {exc}")
+    elif ratio_fallback:
+        record = ti_te_ratio_record or f"ti_te_ratio={float(ti_te_ratio):g}; status=unspecified"
+        ods[f'{base}.ion.0.temperature_fit.parameters'] = record
+        ion_record = f"Ti[{record}]"
+    elif write_ion and have_e:
+        ods[f'{base}.ion.0.temperature_fit.parameters'] = "ti_te_ratio=1; status=assumed; source=legacy Ti=Te fallback"
+        ion_record = "Ti[legacy Ti=Te]"
 
-    # --- IDS bookkeeping: homogeneous time base matching profiles_1d order ---
+    # --- IDS bookkeeping: producer and per-slice provenance, then the time base ---
+    ods['core_profiles.code.name'] = 'vaft.process.profile'
+    _append_code_parameters(
+        ods,
+        'core_profiles',
+        f"profiles_1d time={target_s:.6f} coordinate={coord} "
+        f"grid={'equilibrium' if eq_grid is not None else 'uniform'} "
+        f"electrons={electron_record or 'none'} ions={ion_record or 'none'}",
+        replace_key=f"time={target_s:.6f} ",
+    )
     ods['core_profiles.ids_properties.homogeneous_time'] = 1
     n_profiles = len(ods['core_profiles.profiles_1d'])
-    ods['core_profiles.time'] = np.array(
+    ods['core_profiles.time'] = np.asarray(
         [float(ods[f'core_profiles.profiles_1d.{i}.time']) for i in range(n_profiles)]
     )
-
     print(f"[UPDATED] core_profile at {time_ms:.3f} ms (index {next_idx})")
     return ods
+
 
 def core_profiles_from_eq(
     ods,
@@ -1107,22 +1900,64 @@ def core_profiles_from_eq(
     tol_ms=0.1,
     eq_time_index=0,
     ):
-    """
-    Build synthetic core_profiles.profiles_1d from equilibrium pressure with:
-        P(Pa) = 2 * ne(m^-3) * Te(eV) * e(J/eV)
+    """Build a synthetic ``core_profiles`` slice from the equilibrium pressure and an axis ``T_e``.
 
-    Assumptions:
-      - same shape: ne = ne0*g, Te = Te0*g
-      - g(rho) = sqrt(P(rho)/P(0))
-      - Ti = Te is implicitly absorbed in factor 2
-      - No Zeff / impurity modeling
+    Parameters
+    ----------
+    ods : ODS
+        Carries the equilibrium slice; gains the ``core_profiles`` slice [-].
+    Te0_eV : float
+        Electron temperature on axis [eV].
+    rho_fit : array_like, optional
+        ``rho_tor_norm`` grid to write on; ``None`` for 100 uniform points [-].
+    tol_ms : float, optional
+        An existing slice within this of the equilibrium time is replaced [ms].
+    eq_time_index : int, optional
+        Which equilibrium time slice [-].
 
-    Reads:
-      rho_src = ods['equilibrium.time_slice.<idx>.profiles_1d.rho_tor_norm']
-      p_src   = ods['equilibrium.time_slice.<idx>.profiles_1d.pressure']   # Pa
+    Returns
+    -------
+    ODS
+        The same object, updated [-].
 
-    Writes:
-      ods['core_profiles.profiles_1d.<next_idx>.*']
+    Raises
+    ------
+    ValueError
+        Non-1-D or non-finite equilibrium profiles, or non-positive axis
+        pressure.
+
+    Processing steps
+    ----------------
+    1. Interpolate the equilibrium ``pressure(rho_tor_norm)`` onto ``rho_fit``.
+    2. ``g = sqrt(p / p(0))``; ``T_e = Te0 g``; ``n_e = p(0) / (2 e Te0) g``.
+    3. Write electrons and a quasi-neutral H+ ion with ``T_i = T_e``.
+
+    Input semantics
+    ---------------
+    Reconstructed: the equilibrium pressure profile.
+
+    Output semantics
+    ----------------
+    Synthetic: profiles consistent with that pressure under an assumed shape,
+    not measured.
+
+    Convention
+    ----------
+    ``p = 2 n_e T_e e`` [Pa]: ``T_i = T_e`` and ``n_i = n_e`` are absorbed in
+    the factor 2.  The grid is the equilibrium's ``rho_tor_norm``, read directly.
+
+    Assumptions
+    -----------
+    ``n_e`` and ``T_e`` share one shape, ``sqrt(p/p(0))``; no impurities.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Any split of the pressure between density and temperature is consistent
+    with the equilibrium; this one is a convention, and ``Te0_eV`` fixes it.
     """
     e_J_per_eV = 1.602176634e-19
 
@@ -1205,18 +2040,62 @@ def core_profiles_from_eq_ratio(
     tol_ms=0.1,
     eq_time_index=0,
     ):
-    """
-    Build synthetic core_profiles from equilibrium pressure using:
-        n_e = C * sqrt(f)
-        T_e = sqrt(f)
-        P(Pa) = 2 * n_e * T_e * e
-
-    where f(rho) = P(rho) / P(0)
+    """Build a synthetic ``core_profiles`` slice from the equilibrium pressure and a fixed ``n_e/T_e``.
 
     Parameters
     ----------
+    ods : ODS
+        Carries the equilibrium slice; gains the ``core_profiles`` slice [-].
     C_ne_over_Te : float
-        Density / temperature ratio (m^-3 / eV)
+        Density-to-temperature ratio held constant across the profile [m^-3/eV].
+    rho_fit : array_like, optional
+        ``rho_tor_norm`` grid to write on; ``None`` for 100 uniform points [-].
+    tol_ms : float, optional
+        An existing slice within this of the equilibrium time is replaced [ms].
+    eq_time_index : int, optional
+        Which equilibrium time slice [-].
+
+    Returns
+    -------
+    ODS
+        The same object, updated [-].
+
+    Raises
+    ------
+    ValueError
+        Non-positive axis pressure.
+
+    Processing steps
+    ----------------
+    1. Interpolate the equilibrium ``pressure(rho_tor_norm)`` onto ``rho_fit``.
+    2. ``f = p / p(0)``; ``T_e = sqrt(f)``, ``n_e = C sqrt(f)``, then scale both
+       by ``sqrt(p(0) / (2 C e))`` so that ``p = 2 n_e T_e e``.
+    3. Write electrons and a quasi-neutral H+ ion with ``T_i = T_e``.
+
+    Input semantics
+    ---------------
+    Reconstructed: the equilibrium pressure profile.
+
+    Output semantics
+    ----------------
+    Synthetic.
+
+    Convention
+    ----------
+    ``p = 2 n_e T_e e`` [Pa] with ``T_i = T_e``; grid is the equilibrium's
+    ``rho_tor_norm``.
+
+    Assumptions
+    -----------
+    ``n_e / T_e`` is constant across the profile; no impurities.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A constant ratio is a modelling choice, not an observation.
     """
 
     e_J = 1.602176634e-19
@@ -1288,25 +2167,44 @@ def export_electron_profile_txt(
     rho_points=100,
     filename='electron_profiles.txt',
     ):
-    """
-    Export the fitted electron temperature and density profiles to a text file.
+    """Write fitted electron profiles, sampled on a uniform grid, to a text file.
 
-    This function evaluates the fitted electron temperature and density profiles at
-    a specified number of rho points and exports the results to a text file.
+    Parameters
+    ----------
+    n_e_function : FittedProfile or callable
+        ``n_e(x)`` [m^-3].
+    T_e_function : FittedProfile or callable
+        ``T_e(x)`` [eV].
+    n_e_coeff : np.ndarray or None
+        Fit coefficients; not written, kept for the legacy signature [-].
+    T_e_coeff : np.ndarray or None
+        As ``n_e_coeff`` [-].
+    rho_points : int, optional
+        Points of the uniform grid on ``[0, 1]`` [-].
+    filename : str, optional
+        Output path [-].
 
-    Parameters:
-        n_e_function (callable): Function to compute fitted electron density at any rho.
-        T_e_function (callable): Function to compute fitted electron temperature at any rho.
-        n_e_coeff (numpy.ndarray): Coefficients of the fitted Ne function.
-        T_e_coeff (numpy.ndarray): Coefficients of the fitted Te function.
-        rho_points (int, optional): Number of rho points to evaluate the fitted profiles.
-        filename (str, optional): The name of the text file to save the profiles to.
+    Returns
+    -------
+    None
+        The file is the result [-].
+
+    Convention
+    ----------
+    The first column is labelled with the fit's coordinate when a
+    :class:`FittedProfile` is given, else ``x``; a plain callable's coordinate
+    is unknown here.
+
+    Applicability
+    -------------
+    Machine-independent.
     """
     rho_eval = np.linspace(0, 1, rho_points)
     n_e_rho = n_e_function(rho_eval)
     T_e_rho = T_e_function(rho_eval)
 
     with open(filename, 'w', encoding='utf-8') as f:
-        f.write('psi_N, T_e [eV], n_e [m-3]\n')
+        label = n_e_function.coordinate if isinstance(n_e_function, FittedProfile) else 'x'
+        f.write(f'{label}, T_e [eV], n_e [m-3]\n')
         for rho, T_e, n_e in zip(rho_eval, T_e_rho, n_e_rho):
             f.write(f'{rho}, {T_e}, {n_e}\n')
