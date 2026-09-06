@@ -44,6 +44,26 @@ _EFIT_CONSTRAINT_FAMILY = {
 }
 
 
+#: Positions, in the 26-channel legacy coil list of
+#: ``legacy.vfit_pf_active_efit26``, of the sixteen groups EFIT's VEST tables
+#: carry: PF1-1..PF1-8, PF5U/L, PF6U/L, PF9U/L, PF10U/L.
+EFIT16_GROUP_POSITIONS: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16, 17, 22, 23, 24, 25)
+
+
+def efit16_group_indices(count: int, target: int) -> list[int]:
+    """Indices of the coil channels the k-file writes for an ``nfsum``-group table.
+
+    The routine VEST table has sixteen groups and the constraints ODS carries
+    the twenty-six legacy channels, so the sixteen are picked by position.
+    Any other pairing takes the leading channels.  The same selection defines
+    the F-coil groups ``vaft.machine_mapping.efund_geometry`` projects for
+    EFUND, so table and k-file cannot disagree about which coils exist.
+    """
+    if target == 16 and count >= 26:
+        return list(EFIT16_GROUP_POSITIONS)
+    return list(range(min(count, target)))
+
+
 def _condemned_channels(ods, nbprobe: int) -> set[int]:
     """Legacy-style broken indices for channels with no usable sample at all.
 
@@ -872,11 +892,6 @@ def generate_kfile(
                 chunks.append("\n ")
         return "".join(chunks).rstrip(" \n,") + "\n"
 
-    def _efit16_indices(count: int, target: int) -> list[int]:
-        if target == 16 and count >= 26:
-            return [0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16, 17, 22, 23, 24, 25]
-        return list(range(min(count, target)))
-
     def _weight(cstr, path: str, group: str) -> float:
         original = float(cstr[f"{path}.weight"])
         if original == 0.0:
@@ -910,7 +925,7 @@ def generate_kfile(
 
         ## (1) PF Coil currents with weight
         nfsum = _machine_count("nfsum", len(CSTR["pf_current"]))
-        pf_indices = _efit16_indices(len(CSTR["pf_current"]), nfsum)
+        pf_indices = efit16_group_indices(len(CSTR["pf_current"]), nfsum)
         nbcoil = len(pf_indices)
         matrix = constraint_config.coil_constraint_matrix
         if len(matrix) != nbcoil:

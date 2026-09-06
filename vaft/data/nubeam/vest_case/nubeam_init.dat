@@ -1,0 +1,56 @@
+  !! This file contains non-default values of initialization inputs
+  !! to NUBEAM, in namelist format.
+  !!      LOGICAL variables mapped to INTEGER: 1=TRUE; 0=FALSE
+  
+ &NBI_INIT
+  
+  ! NOTE: driver may want option to automatically reset RNG seed on each run **
+
+  nseed = 1094088621
+      !! random number seed; default not recommended!
+  
+  nzones = 100
+      !! number of radial zones (equally spaced in sqrt(tor.flux))
+      !! this determines the grid for calculation of 1d outputs
+      !! such as Pbe and Pbi.
+      !! NOTE: not included in Plasma_State_Input, because this
+      !! value is used to **set** the plasma state rho_nbi grid.
+  
+  nzone_fb = 20
+      !! number of radial zones in 4d fast ion distributions
+      !! (r,theta,E,vpll/v).  nzones should be an integer multiple
+      !! of nzone_fb; if not, nzone_fb is increased until this
+      !! condition is satisfied, or if this is not possible,
+      !! nzone_fb=nzones is imposed.
+  
+  nptcls = 50000
+      !! number of Monte Carlo particles per (normal) beam ion specie
+      !! affects statistics of slowing down calculation
+  
+  nptclf = 5000
+      !! number of Monte Carlo particles per fusion product specie
+      !! affects statistics of slowing down calculation
+
+  nltrk_dep0 = 1
+
+  ndep0 = 3000
+      !! number of Monte Carlo deposition tracks gathered
+    
+  wghta = 1.d0
+      !! Monte Carlo control -- > 1.0 for more particles of lesser weight
+      !! near magnetic axis, to reduce profile variance there
+
+  nltest_output = 1
+      !! =0 to suppress nubeam_test interim state file output 
+      !!    (improve MPI scaling).
+      !! =1 to generate this output (may be used to debug a failed time step).
+
+  nsigexc = 0
+      !! set =1 to turn on approximate excited states correction model
+      !! Janev/Boley/Post article, Nucl. Fusion Vol.29, No. 12 (1989).
+
+  nlbgflr = 1
+!  goocon = 20.d0
+!  cxpcon=40.d0
+!  fppcon=16.d0
+ /

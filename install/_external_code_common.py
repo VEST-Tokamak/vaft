@@ -371,8 +371,10 @@ def check_executables_load(
     bare PATH is what proves the prefix is self-contained.
     """
     label = f"{project} executables load"
-    if os.name != "nt" or not prefix:
+    if os.name != "nt":
         return CheckResult(label, SKIP, "native Windows only")
+    if not prefix:
+        return CheckResult(label, SKIP, "no install prefix")
     bin_directory = Path(prefix).expanduser() / "bin"
     environment = {
         "SystemRoot": os.environ.get("SystemRoot", "C:/Windows"),

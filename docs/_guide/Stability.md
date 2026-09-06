@@ -192,6 +192,22 @@ mapping merged into the subprocess environment.
 | `"prepare_only"` | Write the input decks and stop |
 | `"strict"` | A missing or failing executable is an error |
 
+### 3-D coil input for any machine
+
+By default the ideal-GPEC stage copies the packaged VEST `coil.in` template. Passing
+`IdealGPECOptions(coil_specs=[CoilInputSpec(name, currents_a), ...])` instead generates `coil.in`
+and stages one `<machine>_<set>.dat` per activated set (`coil_num` is always the number of specs).
+For `machine="vest"` (the default) the geometry and the GPEC direction words come from the packaged
+VEST configuration and `vaft.machine_mapping.conventions.VEST_GPEC_COIL_DIRECTIONS`. For any other
+machine three things are mandatory and are never inherited from the template: `coil_config`, a
+mapping of set name to `CoilSet3D` (build one from Cartesian loops with
+`vaft.machine_mapping.coils_non_axisymmetric_geometry.coil_set_from_xyz_loops`, or from an existing
+GPEC file with `coil_set_from_dat`), and the machine's `ip_direction` / `bt_direction`
+(`"positive"` for counter-clockwise, `"negative"` for clockwise, viewed from above, as GPEC defines
+them). A set built in memory is written out with the canonical header `ncoil nsec npts nw`
+(`GPEC_COIL_DAT_HEADER`). The toroidal-mode content of a current pattern and the vacuum field of
+the filaments are available as plain-array kernels in `vaft.process.coils_non_axisymmetric`.
+
 To stage the inputs without executing anything — useful when the run itself is dispatched by a
 scheduler — call `prepare_gpec_suite_case(inputs, config)` directly. `run_gpec(inputs, config)` is a
 compatibility entry point that forwards to `run_gpec_suite_case`.

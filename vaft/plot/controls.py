@@ -193,6 +193,11 @@ def _display_controls(record: Any) -> list[ControlSpec]:
 
 def _model_controls(record: Any) -> list[ControlSpec]:
     controls: list[ControlSpec] = []
+    abscissa: Mapping[str, Any] = getattr(record, "abscissa", None) or {}
+    options = tuple(abscissa.get("options") or ())
+    if len(options) > 1:
+        default = abscissa.get("default") if abscissa.get("default") in options else options[0]
+        controls.append(ControlSpec("x", "choice", "Abscissa", default, options))
     coordinates: Mapping[str, Any] = getattr(record, "coordinates", None) or {}
     options = tuple(coordinates.get("options") or ())
     if len(options) > 1:

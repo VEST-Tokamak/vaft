@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 from vaft.data.resources import data_path
-from vaft.machine_mapping.coil_geometry_3d import (
+from vaft.machine_mapping.coils_non_axisymmetric_geometry import (
     VEST_3D_COIL_SETS,
     CoilExcitation,
     load_vest_3d_coil_config,

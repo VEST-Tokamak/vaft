@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 from typing import Optional
 
+from vaft.compat import is_executable, resolve_executable
 from vaft.code._executables import executable_from_home, missing_home_message
 
 from .config import (
@@ -41,10 +42,16 @@ def _resolve(
     override: Optional[str], relative: Path, code_name: str
 ) -> Optional[Path]:
     if override:
-        candidate = Path(override).expanduser()
-        if not candidate.is_file():
-            raise FileNotFoundError(f"{code_name} executable not found: {candidate}")
-        if not os.access(candidate, os.X_OK):
+        # The same resolution the $NUBEAMHOME branch below gets from
+        # executable_from_home. Without it a configured path to the documented
+        # name never finds the native build beside it, and os.access(X_OK) --
+        # true for every readable file on Windows -- accepts a text file as a
+        # program and leaves CreateProcess to reject it as WinError 193.
+        requested = Path(override).expanduser()
+        candidate = resolve_executable(requested)
+        if candidate is None:
+            raise FileNotFoundError(f"{code_name} executable not found: {requested}")
+        if not is_executable(candidate):
             raise PermissionError(f"{code_name} executable is not executable: {candidate}")
         return candidate
     return executable_from_home(
@@ -153,6 +160,13 @@ def _run(
         env=merged,
         text=True,
         capture_output=True,
+        # NUBEAM writes its own diagnostics, so these bytes are a foreign
+        # program's. Decoding them at the host locale ends a completed run --
+        # twenty minutes of Monte Carlo -- with a UnicodeDecodeError raised
+        # inside subprocess.run, before the logs below are ever written. The
+        # rest of this module already reads and writes UTF-8 explicitly.
+        encoding="utf-8",
+        errors="replace",
         timeout=config.timeout,
         check=False,
     )
