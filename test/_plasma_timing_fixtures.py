@@ -7,8 +7,15 @@ timing tests and the consumers' tests describe the same shots.
 """
 from __future__ import annotations
 
+import functools
+import gzip
+import shutil
+import tempfile
+from pathlib import Path
+
 import numpy as np
-from omas import ODS
+import pytest
+from omas import ODS, load_omas_json
 
 DT = 4e-5
 RNG = np.random.default_rng(409)
@@ -42,6 +49,32 @@ def pickup_only(t, *, noise=150.0):
         m = (t >= t_fire) & (t < t_fire + 1e-3)
         y[m] += 2e3 * np.sin(2 * np.pi * (t[m] - t_fire) / 1e-3)
     return y
+
+
+def pipeline_ods(shot: int) -> ODS:
+    """A private copy of the packaged ``pipeline-until-efit`` product of ``shot``, or a skip."""
+    return _packaged_product(shot).copy()
+
+
+@functools.lru_cache(maxsize=None)
+def _packaged_product(shot: int) -> ODS:
+    from vaft.data import resources
+
+    try:
+        source = resources.data_path(f"samples/{shot}/source/pipeline-until-efit.json.gz")
+    except Exception:  # pragma: no cover
+        pytest.skip("packaged pipeline sample unavailable")
+    if not Path(source).is_file():
+        pytest.skip("packaged pipeline sample is repository-only")
+    with gzip.open(source, "rt") as handle, tempfile.NamedTemporaryFile(
+        "w", suffix=".json", delete=False
+    ) as plain:
+        shutil.copyfileobj(handle, plain)
+        plain_path = plain.name
+    try:
+        return load_omas_json(plain_path, consistency_check=False)
+    finally:
+        Path(plain_path).unlink(missing_ok=True)
 
 
 def synthetic_ods(

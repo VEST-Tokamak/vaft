@@ -134,7 +134,7 @@ def render_panels(
             f"expected a vaft.plot.models.Panels; got {type(model).__name__}. "
             "Adapters such as vaft.omas.plot_* build the model from data objects."
         )
-    occupied = len(model.models) + len(model.placeholders)
+    occupied = len(model.models)
     if ax is not None:
         # Caller-supplied axes are authoritative and *are* the grid: exactly one
         # axes per panel, filled in order, whatever grid this model would have
@@ -161,7 +161,7 @@ def render_panels(
         if figsize is None:
             figsize = (
                 _DEFAULT_PANEL_WIDTH * model.ncols,
-                _DEFAULT_PANEL_HEIGHT * model.nrows,
+                _DEFAULT_PANEL_HEIGHT * visual_rows(model),
             )
         figure = resolve_axes(None, figsize=figsize)[0]
         for axis in list(figure.axes):
@@ -189,22 +189,15 @@ def render_panels(
         )
         grid = np.asarray(axes, dtype=object).reshape(model.nrows, model.ncols)
         flat = grid.ravel()
-    placeholders = dict(model.placeholders)
-    slots = [slot for slot in range(flat.size) if slot not in placeholders]
-    if model.spans is not None and ax is None:
-        _mark_spanned_slots_for_layout(flat)
     for index, panel_model in enumerate(model.models):
-        axis = flat[slots[index]]
+        axis = flat[index]
         member_style = dict(model.member_styles[index]) if model.member_styles else {}
         draw = _panel_drawer(panel_model)
         draw(panel_model, ax=axis, show=False, **{**member_style, **style})
         _mark_if_invalid(axis, panel_model, {**member_style, **style})
-    for slot, text in placeholders.items():
-        axis = flat[slot]
-        axis.set_axis_off()
-        axis.text(0.5, 0.5, text, transform=axis.transAxes, ha="center", va="center", color="0.4")
-    for slot in slots[len(model.models) :]:
-        flat[slot].set_visible(False)
+    for axis in flat[len(model.models):]:
+        # A grid cell past the last member (five members in a 3 x 2 grid).
+        axis.set_visible(False)
 
     if ax is None and model.spans is None and model.share_x and model.nrows > 1:
         # Panels sharing a time base share its label: only the lowest drawn
@@ -226,8 +219,20 @@ def render_panels(
     return finalize(figure, grid, show=show, tight_layout=ax is None)
 
 
-def _mark_spanned_slots_for_layout(flat: np.ndarray) -> None:
-    """Nothing to mark today; tight_layout handles gridspec spans itself."""
+def visual_rows(model: Panels) -> int:
+    """How many panels stack in the tallest column: the height a figure needs.
+
+    A spans grid may count more rows than any column shows (rows are the
+    least common multiple of the column counts), so figure height follows
+    the deepest stack rather than the grid's row count.
+    """
+    if model.spans is None:
+        return model.nrows
+    columns: dict[int, int] = {}
+    for _, col, _, colspan in model.spans:
+        for c in range(col, col + colspan):
+            columns[c] = columns.get(c, 0) + 1
+    return max(columns.values()) if columns else 1
 
 
 def slice_grid_axes(figure: Any, grid: Any, model: Panels, *, top: int = 0, colorbar_slot: int | None = None):
@@ -239,8 +244,7 @@ def slice_grid_axes(figure: Any, grid: Any, model: Panels, *, top: int = 0, colo
     cell beside that slot's panel for a colorbar the caller redraws into.
     """
     spans = model.spans or tuple(
-        (slot // model.ncols, slot % model.ncols, 1, 1)
-        for slot in range(len(model.models) + len(model.placeholders))
+        (slot // model.ncols, slot % model.ncols, 1, 1) for slot in range(len(model.models))
     )
     axes = []
     colorbar_axes = None

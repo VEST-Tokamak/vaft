@@ -61,7 +61,8 @@ A VEST shot is a *set* of IDSs. Which ones exist depends on whether the quantity
 
 **Modelling**
 
-`wall` · `em_coupling` · `pf_passive` · `equilibrium` (EFIT/CHEASE) · `core_profiles` ·
+`wall` · `em_coupling` · `pf_passive` · `pf_plasma` (a reconstruction's plasma current as
+elements; see `vaft.omas.pf_plasma`) · `equilibrium` (EFIT/CHEASE) · `core_profiles` ·
 `mhd_linear` (DCON/RDCON)
 
 Not every shot carries every IDS. Check before you index:
@@ -181,19 +182,17 @@ vaft.omas.print_info(ods)                 # metadata header, then one line per I
 vaft.omas.print_info(ods, 'magnetics')    # channel counts inside one IDS
 ```
 
-`vaft.omas.classify_shot(ods)` is *intended* to label a shot `'Plasma'`, `'BD failure'` or `'Vacuum'` from the
-barometry, H-alpha and Ip signals.
+`vaft.omas.classify_shot(ods)` labels a shot `'Plasma'`, `'BD failure'` or `'Vacuum'` from the
+barometry, H-alpha and Ip signals. It needs a `barometry` IDS; on the packaged sample (shot 39915)
+it returns `'Plasma'`. Its `pressure_threshold` and `halpha_threshold` are the variance-ratio
+thresholds of the primitive below; an IDS it cannot find is caught and reported as `'Vacuum'`,
+so guard the IDSs yourself when that default is not what you want.
 
-> **Do not rely on it as it stands.** On `main` it calls `vaft.process.is_signal_active(data, threshold=...)`,
-> but that function's signature is `is_signal_active(data, var_ratio_thresh=1e-2, change_ratio_thresh=1e-2,
-> verbose=False)` — there is no `threshold` argument. The resulting `TypeError` is swallowed by a bare
-> `except`, so the call prints
-> `Error in find_shotclass: is_signal_active() got an unexpected keyword argument 'threshold'`
-> and returns `'Vacuum'` for **every** shot. It also needs a `barometry` IDS, which the packaged sample
-> (shot 39915) does not carry.
-
-The underlying primitive does work, and it is scale-invariant — it compares a variance ratio and a mean-|Δx|
-ratio against relative thresholds, so it needs no knowledge of the signal's units:
+The underlying primitive is scale-free: it compares the trace's variance and its mean |Δx|, both
+divided by the trace's mean absolute level, against relative thresholds, so it needs no knowledge
+of the signal's units. A trace held at any non-zero level with noise far below that level is
+inactive; the converse caveat is that a zero-mean noise trace has no level to be small against
+and reads active at any amplitude, so apply a known noise floor before asking (issue #463).
 
 ```python
 import vaft
@@ -202,8 +201,8 @@ ods = vaft.omas.sample_ods()
 
 halpha = ods['spectrometer_uv.channel.0.processed_line.0.intensity.data']
 vaft.process.is_signal_active(halpha, verbose=True)   # -> True  (H-alpha fired: breakdown occurred)
-# Variance ratio: 1.000e+00 (thresh=1.000e-02)
-# Mean |Δx| ratio: 1.976e-01 (thresh=1.000e-02)
+# Variance ratio: 2.918e+00 (thresh=1.000e-02)
+# Mean |Δx| ratio: 2.276e-01 (thresh=1.000e-02)
 ```
 
 Compose your own classifier on top of it, guarding each IDS before you index it:
@@ -537,42 +536,63 @@ VEST diagnostics are digitised on a DAQ clock whose $t=0$ is the trigger, not an
 shots on that clock is meaningless: breakdown happens tens of milliseconds later, and *when* it happens varies
 from shot to shot. VAFT therefore lets you re-reference an entire ODS to a physical event.
 
-Four conventions are defined.
+Four conventions are defined. Every origin is a *measured* event on the DAQ clock, found by the shared
+timing modules with provenance (issue #409):
 
-| `convention` | $t=0$ at |
-|---|---|
-| `'daq'` | the DAQ trigger (as stored) |
-| `'vloop'` | loop-voltage onset — the time of maximum `magnetics.flux_loop.0.flux.data` |
-| `'ip'` | plasma-current onset (`magnetics.ip.0.data` crosses threshold) |
-| `'breakdown'` | H-alpha onset (`spectrometer_uv.channel.0.processed_line.0.intensity.data`) |
+| `convention` | $t=0$ at | found by |
+|---|---|---|
+| `'daq'` | the DAQ trigger (as stored) | — |
+| `'vloop'` | the first sign change of the inboard-midplane loop voltage after the extremum of the solenoid-driven excursion (a stored `flux_loop.{i}.voltage.data`, else $-d\Phi/dt$; 39915: 0.3022 s) | `vaft.omas.discharge_timing` |
+| `'ip'` | the start of the plasma-current principal pulse | `vaft.omas.plasma_timing` |
+| `'breakdown'` | the plasma onset — H-alpha by label, the current as fallback | `vaft.omas.plasma_timing` |
 
 ```python
+import logging
+
+from omas import ODC
+
 import vaft
 
-odc = vaft.omas.sample_odc()                                  # 39915, 41524, 41672
+logging.basicConfig(level=logging.INFO)          # the shift is logged, not printed
+odc = ODC()
+odc['0'] = vaft.omas.sample_ods()                # packaged 39915
 vaft.omas.change_time_convention(odc, convention='breakdown')
-# [0] shift -0.3069 s  (daq → breakdown)
-# [1] shift -0.31484 s  (daq → breakdown)
-# [2] shift -0.31476 s  (daq → breakdown)
+# INFO:vaft.omas.general:[0] shift -0.30632 s  (daq -> breakdown)
 ```
 
-The shifts differ from shot to shot — breakdown lands at a different point on the DAQ clock every time — which
-is exactly why the raw clock is useless for comparing shots.
+The shift differs from shot to shot (39915 breaks down at 0.3063 s, 41524 at 0.3146 s, 41672 at 0.3122 s on
+the DAQ clock) — which is exactly why the raw clock is useless for comparing shots.
 
 `change_time_convention(odc_or_ods, convention='vloop')` accepts an ODS or an ODC (a bare ODS is wrapped
-internally, and an ODC is returned). On the first call it records the reference times under
-`summary.code.parameters`:
+internally, and an ODC is returned). On the first call it derives the origins on the product's DAQ clock and
+records them under `summary.code.parameters`, with their sources:
 
 ```python
 params = odc['0']['summary.code.parameters']
-params['time_convention']    # 'breakdown'
-params['vloop_onset']        # seconds, on the ORIGINAL daq clock
+params['time_convention']         # 'breakdown'
+params['vloop_onset']             # seconds, on the ORIGINAL daq clock (absent when the event was not found)
 params['ip_onset']
 params['breakdown_onset']
+params['onset_method']            # 'plasma_timing/discharge_timing'
+params['breakdown_onset_source']  # 'h_alpha_primary', 'h_alpha_fast', 'ip_principal'
+params['vloop_onset_source']      # 'magnetics.flux_loop.5 dflux_dt zero crossing after the ohmic excursion'
+params['vloop_onset_reason']      # present instead of the origin when the event was not found
+params['onset_flags']             # ';'-joined, e.g. 'vloop:approached_without_crossing'
 ```
 
+The finders and every consumer of the plasma window (`xlim='plasma'`, the vacuum-flux plot, the shot
+overview) work on the product's own clock: the analysis span is stated in DAQ seconds and displaced by the
+recorded origin, so a product already shifted to `'breakdown'` reports its plasma onset at 0 s. A product
+that declares a convention without recording its origin cannot be placed and raises.
+
 Because the onsets are stored, conversions are **composable and reversible**: call it again with a different
-convention and the shift is computed from the recorded originals, not re-derived from already-shifted data.
+convention and the shift is computed from the recorded originals, never re-derived from already-shifted data.
+An origin that was not found is simply absent, its `*_onset_reason` says why, and asking for its convention
+raises `ValueError` with that reason. Nothing is written when no origin at all can be derived (a shifted
+product whose memo was lost): the call raises and the product is left as it was. A product carrying the memo of the earlier finders (no `onset_method`) is
+re-derived when it is still on the `daq` clock and flagged `legacy_memo_rederived`; one already shifted with
+those origins keeps them — they are what makes its shift reversible — with `onset_method = 'legacy'` and the
+flag `legacy_origins_retained`.
 
 ```python
 vaft.omas.change_time_convention(odc, convention='ip')     # breakdown → ip
@@ -585,16 +605,22 @@ or `offset`, and it never touches anything under `summary.code.parameters`. That
 looser rule corrupts data by shifting fields such as `magnetics.ip.0.data` whose *path* merely contains a
 time-like word.
 
-Individual onsets are available directly:
+Individual onsets are available directly; they are meaningful on a product in the `daq` convention, which is
+why the conversion derives them once:
 
 ```python
 vaft.omas.find_vloop_onset(ods)
 vaft.omas.find_ip_onset(ods)
 vaft.omas.find_breakdown_onset(ods)
-vaft.omas.find_pulse_duration(ods)     # H-alpha offset - onset
+vaft.omas.find_pulse_duration(ods)     # plasma offset - onset
+vaft.omas.find_pf_active_onset(ods)    # one entry per coil, nan for a coil that did not fire
 vaft.omas.find_max_ip(ods)             # median-filtered peak Ip
-vaft.omas.find_bt(ods)                 # mean toroidal field during the plasma phase
+vaft.omas.find_bt(ods)                 # mean toroidal field over the plasma window
 ```
+
+The records behind them carry the evidence: `vaft.omas.plasma_timing.plasma_timing(ods)` (the window, its
+source, the light/current agreement) and `vaft.omas.discharge_timing.discharge_timing(ods)` (every coil's
+onset, the ohmic onset, the loop-voltage excursion and its crossing, and the actuators that are not mapped).
 
 **Fix the time convention before you compare shots or overlay traces.** Mixing an ODS on the `daq` clock with
 one on the `breakdown` clock in the same figure is the easiest way to produce a wrong result that still looks

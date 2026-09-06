@@ -9,6 +9,12 @@ environment**. Building the external Fortran codes is optional and independent,
 and has its own entry points: see
 [External fusion codes](#external-fusion-codes-chease-and-dcongpec).
 
+Build recipes for external codes live in [`external/`](../external/) instead, one
+directory per code. [`external/nubeam/`](../external/nubeam/) is the first: it is
+macOS/Apple Silicon only, is not run by CI, and operates on a NUBEAM source tree
+you supply rather than one VAFT vendors. Bringing that class of script to Linux
+and Windows belongs to #226.
+
 Budget about 15–20 minutes from a nearly clean machine.
 
 ## Which script do I run?

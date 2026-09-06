@@ -119,3 +119,24 @@ def test_analysis_diagnostics_skips_mismatched_series_and_uses_plasma_window(mon
     assert axes[0, 0].texts[0].get_text() == "Data unavailable"
     np.testing.assert_allclose(axes[0, 0].get_xlim(), [0.05, 0.15])
     plt.close(fig)
+
+
+def test_vacuum_psi_falls_back_to_the_ohmic_onset_on_a_vacuum_shot():
+    """A coil-only product (no plasma, no magnetics) still draws the vacuum flux."""
+    from vaft.plot.backend.recipes import _vacuum_psi_time
+
+    t = np.arange(0.26, 0.36, 4e-5)
+    ods = ODS(consistency_check=False)
+    ods["dataset_description.data_entry.pulse"] = 42
+    ods["pf_active.ids_properties.homogeneous_time"] = 1
+    ods["pf_active.time"] = t
+    ods["pf_active.coil.0.name"] = "PF1"
+    noise = 2.0 * np.random.default_rng(42).standard_normal(t.size)   # a digitiser's floor
+    current = np.where(t >= 0.2925, 4000.0, 0.0) + noise
+    ods["pf_active.coil.0.current.data"] = current
+
+    assert _vacuum_psi_time(ods) == pytest.approx(0.2925, abs=2e-4)
+
+    ods["pf_active.coil.0.current.data"] = noise
+    with pytest.raises(ValueError, match="no ohmic-coil onset"):
+        _vacuum_psi_time(ods)

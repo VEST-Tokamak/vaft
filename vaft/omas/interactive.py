@@ -55,16 +55,21 @@ class InteractiveEquilibrium:
     """What :func:`plot_equilibrium_interactive` returns.
 
     ``figure`` and ``axes`` follow the renderer contract (``axes`` are the
-    slice summary's panels in slot order); ``navigator`` is the shared selection;
-    ``history_axes`` carry the time marker; ``widget`` is the backend's
-    control, or ``None`` for ``backend="none"``.
+    slice summary's panels in slot order, current for the selected slice: a
+    slice that draws fewer panels gets fresh axes); ``navigator`` is the
+    shared selection; ``history_axes`` carry the time marker; ``widget`` is
+    the backend's control, or ``None`` for ``backend="none"``.
     """
 
     figure: Any
-    axes: np.ndarray
+    slice_axes: Any
     navigator: SliceNavigator
     history_axes: tuple[Any, ...]
     widget: Any = None
+
+    @property
+    def axes(self) -> np.ndarray:
+        return self.slice_axes.axes
 
     def __iter__(self):
         # Unpacks like a renderer result plus the navigator.
@@ -131,7 +136,7 @@ def plot_equilibrium_interactive(
         navigator, histories, build_slice, backend=backend, show=show, figsize=figsize
     )
     return InteractiveEquilibrium(
-        figure=figure, axes=slice_axes, navigator=navigator, history_axes=history_axes, widget=widget
+        figure=figure, slice_axes=slice_axes, navigator=navigator, history_axes=history_axes, widget=widget
     )
 
 

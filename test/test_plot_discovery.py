@@ -175,6 +175,11 @@ def test_channel_counts_distinguish_total_and_usable(shot):
     record = vaft.omas.available_plots(shot, query="flux_loop").find("flux_loop_time_flux")
     channels = record.channels
     assert channels["total"] == 11 and channels["usable"] == 11 and channels["flagged"] == 0
+    from vaft.validation.imas import is_condemned_channel
+
+    assert channels["flagged"] == sum(
+        is_condemned_channel(shot, f"magnetics.flux_loop.{i}.flux") for i in range(11)
+    )
     assert channels["regions"] == {"inboard": 7, "outboard": 4}
     assert "channels: 11 / 11 usable · regions: inboard, outboard" in str(
         vaft.omas.available_plots(shot, query="flux_loop")

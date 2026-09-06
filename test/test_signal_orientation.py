@@ -176,3 +176,72 @@ def test_discovery_advertises_the_sign_policy(sample):
     assert record.orientation == {"default": "intuitive", "options": ["canonical", "intuitive"]}
     assert "orientation: intuitive by default" in str(vaft.omas.available_plots(sample, query="diamagnetic"))
     assert vaft.omas.available_plots(sample, query="barometry").find("barometry_time_pressure").orientation["default"] == "canonical"
+
+
+def _equilibrium(sign: float) -> omas.ODS:
+    """One equilibrium slice whose q, F F' and p' carry ``sign``."""
+    ods = omas.ODS(consistency_check=False)
+    psi_norm = np.linspace(0.0, 1.0, 65)
+    base = f"equilibrium.time_slice.0.profiles_1d"
+    ods["equilibrium.time"] = np.array([0.0])
+    ods[f"{base}.psi"] = psi_norm
+    ods[f"{base}.q"] = sign * (1.0 + 4.0 * psi_norm**2)
+    ods[f"{base}.f_df_dpsi"] = sign * (0.5 - 0.4 * psi_norm)
+    ods[f"{base}.dpressure_dpsi"] = sign * (2.0e4 * (1.0 - psi_norm))
+    ods["dataset_description.data_entry.pulse"] = 1
+    return ods
+
+
+def test_profiles_take_the_same_sign_policy_as_lines():
+    """A q stored negative is a COCOS statement, not a different plasma (#458)."""
+    assert RECIPES["equilibrium_profile_q"].orientation == "intuitive"
+    for name in ("equilibrium_profile_f", "equilibrium_profile_ffprime", "equilibrium_profile_pprime"):
+        # Their sign also carries gradient direction; flipping is opt-in.
+        assert RECIPES[name].orientation == "canonical", name
+
+    negative = _equilibrium(-1)
+    stored = float(np.min(negative["equilibrium.time_slice.0.profiles_1d.q"]))
+    model = build_model("equilibrium_profile_q", normalize_entries(negative), coordinate="psi_norm")
+    assert model.series[0].y.min() > 0
+    assert model.title.endswith("— intuitive orientation (sign flipped)")
+
+    canonical = build_model(
+        "equilibrium_profile_q", normalize_entries(negative), coordinate="psi_norm",
+        orientation="canonical",
+    )
+    assert canonical.series[0].y.max() < 0 and "intuitive" not in canonical.title
+    assert np.allclose(model.series[0].y, -canonical.series[0].y)
+    # The policy is a display multiplier: the ODS still holds what it held.
+    assert float(np.min(negative["equilibrium.time_slice.0.profiles_1d.q"])) == stored
+
+    opt_in = build_model(
+        "equilibrium_profile_pprime", normalize_entries(negative), coordinate="psi_norm",
+        orientation="intuitive",
+    )
+    assert opt_in.series[0].y.max() > 0
+    with pytest.raises(ValueError, match="orientation must be one of"):
+        build_model("equilibrium_profile_q", normalize_entries(negative), orientation="up")
+
+
+def test_each_machines_profile_is_oriented_by_its_own_convention():
+    """Two machines of opposite COCOS come out comparable, not co-flipped."""
+    entries = [("negative", _equilibrium(-1)), ("positive", _equilibrium(+1))]
+    model = build_model("equilibrium_profile_q", entries, coordinate="psi_norm")
+    stored = {
+        trace.entry: trace
+        for trace in build_model(
+            "equilibrium_profile_q", entries, coordinate="psi_norm", orientation="canonical"
+        ).series
+    }
+    drawn = {trace.entry: trace for trace in model.series}
+    assert np.allclose(drawn["negative"].y, -stored["negative"].y)
+    assert np.allclose(drawn["positive"].y, stored["positive"].y)
+    assert all(trace.y.min() > 0 for trace in model.series)
+
+
+def test_discovery_advertises_the_sign_policy_of_a_profile(sample):
+    catalog = vaft.omas.available_plots(sample, query="q")
+    assert catalog.find("equilibrium_profile_q").orientation == {
+        "default": "intuitive",
+        "options": ["canonical", "intuitive"],
+    }

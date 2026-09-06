@@ -628,38 +628,58 @@ def _coerce_rule_value(key: str, value: Any, annotation: str, *, context: str) -
     return number
 
 
-def _active_window_rule(rule: Any, *, context: str) -> Dict[str, Any]:
-    """Validate one rule block against ``active_window``'s keyword parameters.
+def _signature_rule(func: Any, rule: Any, *, reserved: frozenset, context: str) -> Dict[str, Any]:
+    """Validate one rule block against ``func``'s keyword-only parameters.
 
     Every key must be a keyword-only parameter of the detector other than the
-    ones the caller derives from the record (``reference_mask``,
-    ``search_mask``, ``fs``), and every value is coerced to the parameter's
-    annotated type -- a boolean for a numeric parameter, a fraction for an
-    integer count, a null for a required number are configuration errors.
+    ones the caller derives from the record (``reserved``), and every value is
+    coerced to the parameter's annotated type -- a boolean for a numeric
+    parameter, a fraction for an integer count, a null for a required number
+    are configuration errors.
     """
     import inspect
 
-    from vaft.process.onset import active_window
-
     if not isinstance(rule, Mapping) or not rule:
         raise VestConfigurationError(f"{context}: must be a non-empty mapping")
-    parameters = inspect.signature(active_window).parameters
+    parameters = inspect.signature(func).parameters
     allowed = {
         name
         for name, p in parameters.items()
-        if p.kind is inspect.Parameter.KEYWORD_ONLY and name not in _ACTIVE_WINDOW_RESERVED
+        if p.kind is inspect.Parameter.KEYWORD_ONLY and name not in reserved
     }
     unknown = sorted(set(rule) - allowed)
     if unknown:
         raise VestConfigurationError(
             f"{context}: {', '.join(repr(k) for k in unknown)} "
             f"{'is' if len(unknown) == 1 else 'are'} not a configurable keyword argument of "
-            f"vaft.process.onset.active_window"
+            f"{func.__module__}.{func.__name__}"
         )
     return {
         key: _coerce_rule_value(key, value, str(parameters[key].annotation), context=context)
         for key, value in rule.items()
     }
+
+
+def _active_window_rule(rule: Any, *, context: str) -> Dict[str, Any]:
+    """Validate one rule block against :func:`vaft.process.onset.active_window`."""
+    from vaft.process.onset import active_window
+
+    return _signature_rule(active_window, rule, reserved=_ACTIVE_WINDOW_RESERVED, context=context)
+
+
+#: ``zero_crossing_after_excursion`` arguments the caller supplies from the
+#: record and the anchoring event; a rule may not set them.
+_ZERO_CROSSING_RESERVED = frozenset({"anchor_time", "reference_mask", "search_mask"})
+
+
+def _zero_crossing_rule(rule: Any, *, context: str) -> Dict[str, Any]:
+    """Validate one rule block against
+    :func:`vaft.process.onset.zero_crossing_after_excursion`."""
+    from vaft.process.onset import zero_crossing_after_excursion
+
+    return _signature_rule(
+        zero_crossing_after_excursion, rule, reserved=_ZERO_CROSSING_RESERVED, context=context
+    )
 
 
 def _number_block(block: Any, keys: Sequence[str], *, context: str) -> Dict[str, float]:
@@ -742,6 +762,106 @@ def resolve_plasma_timing_policy(*, info_file: str | None = None) -> PlasmaTimin
         agreement=_number_block(
             document.get("agreement"), PLASMA_TIMING_AGREEMENT_KEYS, context=f"{context}: agreement"
         ),
+    )
+
+
+DISCHARGE_TIMING_KEY = "discharge_timing"
+DISCHARGE_TIMING_LOOP_SELECTIONS = ("inboard_midplane",)
+
+
+@dataclass(frozen=True)
+class DischargeTimingPolicy:
+    """The configured discharge-timing policy (issue #409).
+
+    Actuator events, independent of :class:`PlasmaTimingPolicy`: ``coil``
+    is the per-coil onset rule (keyword arguments of
+    :func:`vaft.process.onset.active_window`, run on ``|I - baseline|``),
+    ``ohmic_coil`` names the solenoid drive whose onset anchors the
+    loop-voltage excursion, ``loop_voltage`` says which flux loop is read and
+    whether a stored voltage is preferred to ``-d(flux)/dt``, and ``vloop`` is
+    the zero-crossing rule (keyword arguments of
+    :func:`vaft.process.onset.zero_crossing_after_excursion`).  ``window``
+    and ``baseline_lead_s`` have the same meaning as in the plasma policy so
+    :func:`vaft.omas.plasma_timing.analysis_span` accepts either.
+    """
+
+    window: DiagnosticsTimePolicy
+    baseline_lead_s: float
+    ohmic_coil: str
+    loop_voltage: Mapping[str, Any]
+    coil: Mapping[str, Any]
+    vloop: Mapping[str, Any]
+
+    @property
+    def baseline_start(self) -> float:
+        """Where the baseline stretch begins: ``window.tstart - baseline_lead_s``."""
+        return float(self.window.tstart - self.baseline_lead_s)
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "window": self.window.as_dict(),
+            "baseline_lead_s": self.baseline_lead_s,
+            "ohmic_coil": self.ohmic_coil,
+            "loop_voltage": dict(self.loop_voltage),
+            "coil": dict(self.coil),
+            "vloop": dict(self.vloop),
+        }
+
+
+def resolve_discharge_timing_policy(*, info_file: str | None = None) -> DischargeTimingPolicy:
+    """Return the configured discharge-timing policy (issue #409).
+
+    Validated like :func:`resolve_plasma_timing_policy`: the window must be a
+    configured diagnostics time window, ``ohmic_coil`` a non-empty name,
+    ``loop_voltage.selection`` one of ``inboard_midplane``, and the two rule
+    blocks are checked against their detectors' signatures at load time.
+    """
+    content = _policy_document(info_file)
+    document = content.get(DISCHARGE_TIMING_KEY)
+    context = DISCHARGE_TIMING_KEY
+    if not isinstance(document, Mapping):
+        raise VestConfigurationError(
+            f"VEST configuration defines no {DISCHARGE_TIMING_KEY!r} section"
+        )
+    window_name = document.get("window")
+    windows = resolve_diagnostics_time_policies(info_file=info_file).windows
+    if not isinstance(window_name, str) or window_name not in windows:
+        raise VestConfigurationError(
+            f"{context}: 'window' must name a configured diagnostics time window; "
+            f"configured windows: {', '.join(sorted(windows))}"
+        )
+    lead = _required_number(document, "baseline_lead_s", context=context)
+    if not np.isfinite(lead) or lead < 0.0:
+        raise VestConfigurationError(f"{context}: 'baseline_lead_s' must be finite and >= 0")
+    ohmic_coil = document.get("ohmic_coil")
+    if not isinstance(ohmic_coil, str) or not ohmic_coil.strip():
+        raise VestConfigurationError(f"{context}: 'ohmic_coil' must name a pf_active coil")
+    loop_voltage = document.get("loop_voltage")
+    if not isinstance(loop_voltage, Mapping):
+        raise VestConfigurationError(f"{context}: 'loop_voltage' must be a mapping")
+    selection = loop_voltage.get("selection")
+    if selection not in DISCHARGE_TIMING_LOOP_SELECTIONS:
+        raise VestConfigurationError(
+            f"{context}: loop_voltage.selection must be one of "
+            f"{', '.join(DISCHARGE_TIMING_LOOP_SELECTIONS)}, not {selection!r}"
+        )
+    prefer = loop_voltage.get("prefer_measured_voltage", True)
+    if not isinstance(prefer, bool):
+        raise VestConfigurationError(
+            f"{context}: loop_voltage.prefer_measured_voltage must be true or false"
+        )
+    unknown = sorted(set(loop_voltage) - {"selection", "prefer_measured_voltage"})
+    if unknown:
+        raise VestConfigurationError(
+            f"{context}: loop_voltage has unknown keys {', '.join(repr(k) for k in unknown)}"
+        )
+    return DischargeTimingPolicy(
+        window=windows[window_name],
+        baseline_lead_s=lead,
+        ohmic_coil=ohmic_coil.strip(),
+        loop_voltage={"selection": str(selection), "prefer_measured_voltage": prefer},
+        coil=_active_window_rule(document.get("coil"), context=f"{context}: coil"),
+        vloop=_zero_crossing_rule(document.get("vloop"), context=f"{context}: vloop"),
     )
 
 
@@ -1261,7 +1381,9 @@ __all__ = [
     "DEFAULT_CONSTRAINT_UNCERTAINTIES",
     "DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR",
     "DIAGNOSTICS_TIME_POLICIES_KEY",
+    "DISCHARGE_TIMING_KEY",
     "DiagnosticsTimePolicy",
+    "DischargeTimingPolicy",
     "CroppedRecord",
     "DiagnosticsTimePolicyTable",
     "MIN_BASELINE_S",
@@ -1291,6 +1413,7 @@ __all__ = [
     "process_static_geometry",
     "resolve_data_root",
     "resolve_diagnostics_time_policies",
+    "resolve_discharge_timing_policy",
     "resolve_plasma_timing_policy",
     "set_path",
 ]

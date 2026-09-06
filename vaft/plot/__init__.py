@@ -216,6 +216,7 @@ from .renderers.geometry import (
     pf_coil_geometry_poloidal,
     passive_structure_geometry_poloidal,
     passive_structure_geometry_wall_mode,
+    pf_plasma_geometry_poloidal,
     soft_x_rays_geometry_lines_of_sight,
     thomson_scattering_geometry_poloidal,
     wall_geometry_poloidal,

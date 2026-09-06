@@ -32,6 +32,7 @@ __all__ = [
     "magnetics_geometry_poloidal",
     "passive_structure_geometry_poloidal",
     "passive_structure_geometry_wall_mode",
+    "pf_plasma_geometry_poloidal",
     "pf_coil_geometry_poloidal",
     "render_geometry_3d_layers",
     "render_geometry_layers",
@@ -74,6 +75,21 @@ def draw_geometry_layer(
     axes.plot(r, z, **options)
 
 
+def _entry_colors(model: GeometryLayers) -> dict[str, Any]:
+    """One colour per entry when a view draws several, else no colouring.
+
+    Cycled from the active style so a geometry overlay matches the line and
+    profile overlays beside it: one colour per machine, whatever its parts.
+    """
+    entries = list(dict.fromkeys(layer.entry for layer in model.layers if layer.entry))
+    if len(entries) < 2:
+        return {}
+    colors = plt.rcParams["axes.prop_cycle"].by_key().get("color", [])
+    if not colors:
+        return {}
+    return {entry: colors[index % len(colors)] for index, entry in enumerate(entries)}
+
+
 def render_geometry_layers(
     model: GeometryLayers,
     *,
@@ -96,9 +112,15 @@ def render_geometry_layers(
         )
     figure, axes = resolve_axes(ax, figsize=figsize or _DEFAULT_FIGSIZE)
 
+    palette = _entry_colors(model)
     labelled = False
     for layer in model.layers:
-        draw_geometry_layer(axes, layer, **style)
+        defaults = dict(style)
+        if layer.entry in palette:
+            # A default, not an override: a layer that names its own colour --
+            # any single-input view -- still keeps it.
+            defaults.setdefault("color", palette[layer.entry])
+        draw_geometry_layer(axes, layer, **defaults)
         labelled = labelled or bool(layer.label and layer.kind != "text")
 
     axes.set_xlabel(model.x_label)
@@ -182,6 +204,25 @@ def passive_structure_geometry_wall_mode(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """A wall eigenmode's current pattern on the passive structure."""
+    return render_geometry_layers(model, ax=ax, show=show, **style)
+
+
+@_geometry_renderer(
+    domain="machine", quantity="poloidal",
+    subject="pf_plasma",
+    description="The plasma current as pf_plasma elements (filaments or a grid of "
+                "current elements), each coloured by its signed current at one instant.",
+    ids=("pf_plasma", "wall"),
+    required_paths=("pf_plasma.element.{i}.geometry.geometry_type",
+                    "pf_plasma.element.{i}.current"),
+    optional_paths=("pf_plasma.element.{i}.geometry.rectangle.r",
+                    "pf_plasma.element.{i}.geometry.outline.r",
+                    "wall.description_2d.{i}.limiter.unit.{j}.outline.r"),
+)
+def pf_plasma_geometry_poloidal(
+    model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Plasma-current elements in the poloidal plane, coloured by current."""
     return render_geometry_layers(model, ax=ax, show=show, **style)
 
 

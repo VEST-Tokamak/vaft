@@ -210,15 +210,19 @@ alive         = vaft.process.is_signal_active(ip)          # -> bool
 
 `signal_on_offset` applies a Savitzky–Golay smooth (polyorder 3) and returns the contiguous
 above-threshold window **containing the global maximum**; `vfit_signal_start_end` does the same without
-the smoothing stage. `is_signal_active` is a scale-invariant "is this channel alive?" test
-(`var_ratio_thresh=1e-2`, `change_ratio_thresh=1e-2`) that returns `False` for arrays shorter than 2.
+the smoothing stage. `is_signal_active` is a scale-free "is this channel alive?" test: the variance and
+the mean |Δx| are each divided by the trace's mean absolute level (the first is the squared coefficient
+of variation) and compared with `var_ratio_thresh=1e-2` and `change_ratio_thresh=1e-2`; a trace is
+inactive only when both fall below threshold, and arrays shorter than 2 are never active.
 
-These are what the ODS-level event finders are built on — `vaft.omas.find_breakdown_onset`,
-`find_ip_onset`, `find_pf_active_onset` and `find_pulse_duration` all call `signal_on_offset`
-internally:
+`signal_on_offset` is the generic pulse-window helper (the plot layer's coil limits use it). The
+ODS-level event finders — `vaft.omas.find_breakdown_onset`, `find_ip_onset`, `find_pulse_duration`,
+`find_vloop_onset`, `find_pf_active_onset` — are built on the onset primitives of `vaft.process.onset`
+instead (`active_window`, `principal_pulse_onset`, `zero_crossing_after_excursion`), composed with the
+VEST source hierarchy and rules by `vaft.omas.plasma_timing` and `vaft.omas.discharge_timing`:
 
 ```python
-t_bd  = vaft.omas.find_breakdown_onset(ods)     # from the spectrometer_uv line intensity
+t_bd  = vaft.omas.find_breakdown_onset(ods)     # plasma onset: H-alpha by label, current as fallback
 t_dur = vaft.omas.find_pulse_duration(ods)
 ```
 

@@ -84,11 +84,13 @@ def test_onset_helpers_work_on_the_packaged_heterogeneous_sample():
     vaft.omas.change_time_convention(vaft.omas.sample_ods(), convention="breakdown")
 
 
-def test_find_pf_active_onset_returns_an_onset_for_every_coil():
+def test_find_pf_active_onset_returns_an_entry_for_every_coil():
     """It iterated ``pf_active.channel``, which the DD does not define.
 
     OMAS yields an empty list for a missing node instead of raising, so the
-    helper silently returned ``[]`` for every caller rather than failing loudly.
+    helper silently returned ``[]`` for every caller rather than failing
+    loudly.  One entry per coil; a coil that did not fire is ``nan`` (the
+    packaged 39915 drives PF1, PF5, PF6, PF9 and PF10 and leaves the rest idle).
     """
     ods = vaft.omas.sample_ods()
     coil_count = len(ods["pf_active.coil"])
@@ -97,4 +99,6 @@ def test_find_pf_active_onset_returns_an_onset_for_every_coil():
     onsets = vaft.omas.find_pf_active_onset(ods)
 
     assert len(onsets) == coil_count
-    assert all(np.isfinite(onset) for onset in onsets)
+    names = [ods[f"pf_active.coil.{i}.name"] for i in range(coil_count)]
+    fired = {name for name, onset in zip(names, onsets) if np.isfinite(onset)}
+    assert fired == {"PF1", "PF5", "PF6", "PF9", "PF10"}

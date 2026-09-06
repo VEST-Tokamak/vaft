@@ -102,7 +102,7 @@ reflects what you asked for.
 
 | Value | Behaviour |
 |---|---|
-| `'plasma'` (default) | window from plasma-current on/off |
+| `'plasma'` (default) | the plasma window from `vaft.omas.plasma_timing` (H-alpha by label, current as fallback), on the product's own time convention; a warning and no limit when no plasma is found |
 | `'coil'` | window spanning all PF coil-current on/off |
 | `'none'` | no limit applied |
 | `[t0, t1]` | a list of exactly two numbers, used literally |
@@ -273,8 +273,10 @@ vaft.omas.change_time_convention(odc, convention='breakdown')
 vaft.plot.magnetics_time_ip(odc)                                # aligned on breakdown
 ```
 
-Accepted conventions are `'daq'`, `'vloop'` (the default), `'ip'` and `'breakdown'`. Unlike
-the plotting keywords, an unknown convention here raises `ValueError`.
+Accepted conventions are `'daq'`, `'vloop'` (the default: the loop-voltage zero crossing after the
+solenoid excursion), `'ip'` and `'breakdown'`; the origins come from `vaft.omas.plasma_timing` and
+`vaft.omas.discharge_timing` and the shift is logged rather than printed. Unlike the plotting keywords,
+an unknown convention here raises `ValueError`.
 
 ## 1D equilibrium profiles
 
@@ -338,6 +340,14 @@ vaft.plot.overlay_all_with_vacuum_psi_contour(ods)
 
 Passing `savepath` writes the figure to disk. `pf_passive_overlay` is the one function here
 that accepts an `ax`, so it can be layered onto a figure you are building yourself.
+
+A reconstruction that models the plasma as filaments or as a grid of current
+elements stores that representation in the `pf_plasma` IDS
+(`vaft.omas.pf_plasma.set_plasma_elements` writes it, `plasma_elements` reads
+it). `vaft.plot.pf_plasma_geometry_poloidal(ods, time=None)` draws the
+elements coloured by their signed current at one instant, with the limiter
+outline, so a filament fit and an element fit of the same slice read the same
+way; the OMAS and IMAS adapters are `plot_pf_plasma_geometry_poloidal`.
 
 ## Mirnov coils
 

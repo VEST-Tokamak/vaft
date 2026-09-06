@@ -213,18 +213,24 @@ def test_a_composite_member_cannot_take_a_layout(shots):
 
 
 # ---------------------------------------------------------------------------
-# Overviews keep one shape on every shot (sections 6, 18; C12)
+# Overviews draw the members the input holds, in declared order (#476)
 # ---------------------------------------------------------------------------
 
-def test_the_diagnostics_overview_has_the_same_shape_on_every_shot(shots):
-    shapes, placeholders = set(), {}
+def test_the_diagnostics_overview_draws_only_the_members_the_shot_holds(shots):
     for shot, ods in shots.items():
         figure, axes = vaft.omas.plot_diagnostics_overview(ods)
-        shapes.add(axes.shape)
-        placeholders[shot] = sum(1 for panel in axes.ravel() if not panel.axison)
+        drawn = [panel for panel in axes.ravel() if panel.get_visible()]
+        # Every packaged shot holds the same five of the ten members; the
+        # 2-column grid shrinks to three rows and the trailing cell is hidden.
+        assert axes.shape == (3, 2) and len(drawn) == 5, shot
+        assert all(panel.axison and panel.lines for panel in drawn), shot
+        available = vaft.omas.available_plots(ods).names()
+        expected = [m for m in ("flux_loop_time_flux", "b_field_probe_time_field", "mirnov_time_voltage",
+                                "impa_time_field", "soft_x_rays_time_power", "interferometer_time_n_e_line",
+                                "thomson_scattering_time_electron_density", "charge_exchange_time_ion_temperature",
+                                "spectrometer_uv_time_intensity", "barometry_time_pressure") if m in available]
+        assert len(expected) == len(drawn)
         plt.close(figure)
-    assert shapes == {(5, 2)}
-    assert all(0 < n < 10 for n in placeholders.values()), placeholders
 
 
 def test_the_diagnostics_overview_excludes_flagged_channels_by_default(shots):
@@ -238,15 +244,24 @@ def test_the_diagnostics_overview_excludes_flagged_channels_by_default(shots):
     plt.close(figure)
 
 
-def test_placeholders_keep_a_fixed_grid_and_name_the_missing_member():
+def test_a_composite_never_reserves_a_cell_for_what_it_does_not_draw():
     from vaft.plot.models import LineSeries, Series
 
     trace = Series(x=np.arange(3.0), y=np.arange(3.0))
-    panels = Panels(models=(LineSeries(series=(trace,)),), ncols=2,
-                    placeholders=((1, "x\nnot available"),))
-    assert (panels.nrows, panels.ncols) == (1, 2)
-    with pytest.raises(ValueError, match="outside the grid"):
-        Panels(models=(LineSeries(series=(trace,)),), ncols=1, placeholders=((5, "x"),))
+    with pytest.raises(TypeError):
+        Panels(models=(LineSeries(series=(trace,)),), ncols=2, placeholders=((1, "x"),))
+    # One member declared for two columns draws one column.
+    from vaft.plot.backend.recipes import PanelRecipe, _build_panels
+    from vaft.omas.entries import normalize_entries
+    import omas
+
+    ods = omas.ODS(consistency_check=False)
+    ods["magnetics.time"] = np.linspace(0, 1, 5)
+    ods["magnetics.ip.0.data"] = np.ones(5)
+    ods["magnetics.ip.0.time"] = np.linspace(0, 1, 5)
+    recipe = PanelRecipe(members=("plasma_current_time", "diamagnetic_flux_time"), ncols=2)
+    panels = _build_panels(normalize_entries(ods), recipe)
+    assert len(panels.models) == 1 and (panels.nrows, panels.ncols) == (1, 1)
 
 
 # ---------------------------------------------------------------------------

@@ -425,6 +425,7 @@ def experimental_comparison(
     from vaft.validation.vacuum_benchmark import (
         DEFAULT_HISTORY_TIME_CONSTANTS,
         _static_model,
+        array_contradictions,
         benchmark_wall_currents,
         plasma_free_interval,
         wall_time_constants,
@@ -448,7 +449,10 @@ def experimental_comparison(
         # paths select identically by construction (an explicit channel list
         # would re-order the rows and the response bundle would be refused).
         built = synthetic_vacuum_magnetics(working, per_family=per_family, window=window, response=response)
-        return built, vacuum_residual_metrics(built, window=window, min_wall_authority=authority)
+        flagged = [entry["channel"] for entry in array_contradictions(built, window)]
+        return built, vacuum_residual_metrics(
+            built, window=window, min_wall_authority=authority, scored_exclude=flagged
+        )
 
     full_channels, full_metrics = evaluate(full_ods)
     zero_channels, zero_metrics = evaluate(_with_wall_currents(full_ods, np.zeros_like(I_full)))

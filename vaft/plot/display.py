@@ -335,11 +335,16 @@ def channel_label(index: int, r: float | None = None, z: float | None = None) ->
 _EXPONENT = re.compile(r"\^(-?\d+(?:\.\d+)?)")
 
 
-def unit_markup(unit: str) -> str:
-    """Render an ASCII unit for Matplotlib: ``10^18 m^-3`` -> ``10$^{18}$ m$^{-3}$``.
+def unit_markup(unit: str, *, flavor: str = "mathtext") -> str:
+    """Render an ASCII unit for a renderer: ``10^18 m^-3`` -> ``10$^{18}$ m$^{-3}$``.
 
     Presentation only.  The ASCII spelling stays the key of every conversion
     table and the string a caller passes as ``yunit=``; only the label a reader
     sees is typeset.  Units without an exponent come back unchanged.
+    ``flavor="html"`` writes ``<sup>``, which is what Plotly reads.
     """
+    if flavor == "html":
+        return _EXPONENT.sub(lambda m: f"<sup>{m.group(1)}</sup>", str(unit or ""))
+    if flavor != "mathtext":
+        raise ValueError(f"flavor must be 'mathtext' or 'html'; got {flavor!r}")
     return _EXPONENT.sub(lambda m: f"$^{{{m.group(1)}}}$", str(unit or ""))

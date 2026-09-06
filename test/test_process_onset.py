@@ -422,3 +422,102 @@ def test_a_grid_that_cannot_carry_the_cutoff_skips_the_filter_and_says_so():
     # ... and a record too short for a filter that would not run is judged, not refused
     short = active_window(coarse[:14], y[:14], cutoff_hz=2000.0)
     assert "record_too_short" not in short.flags and "lowpass_skipped" in short.flags
+
+
+# ---------------------------------------------------------------------------
+# Zero crossing after an anchored excursion (#409 PR-v)
+# ---------------------------------------------------------------------------
+
+from vaft.process.onset import zero_crossing_after_excursion  # noqa: E402
+
+ANCHOR = 0.030
+
+
+def excursion(*, depth: float = -5.0, decay_s: float = 0.004, noise: float = 0.02,
+              approach: bool = False, cross: bool = True) -> np.ndarray:
+    """A loop-voltage-like swing starting at ANCHOR: a sharp dip that decays
+    and either crosses zero on a slow positive ramp (``cross``), stalls just
+    short of it, or (``approach``, the 41524 shape) comes within a few percent
+    of zero, dips again and only then crosses."""
+    y = np.zeros_like(T)
+    on = T >= ANCHOR
+    tau = T[on] - ANCHOR
+    swing = depth * np.exp(-tau / decay_s)
+    if approach:
+        swing += 0.5 * depth * np.exp(-((tau - 0.016) / 0.0015) ** 2)
+    if cross:
+        swing += 1.0 * np.clip((tau - 0.018) / 0.010, 0.0, 1.0)
+    else:
+        swing -= 0.4
+    y[on] = swing
+    return y + noise * RNG.standard_normal(T.size)
+
+
+def _record(y, **kw):
+    return zero_crossing_after_excursion(T, y, anchor_time=ANCHOR, reference_mask=T < ANCHOR - 0.005, **kw)
+
+
+def test_the_crossing_is_the_first_sign_change_after_the_extremum():
+    y = excursion()
+    rec = _record(y)
+    assert rec.found and rec.method == "excursion_zero_crossing"
+    assert rec.time in T
+    i = rec.index
+    assert rec.evidence["extremum"] < -4.0
+    assert rec.evidence["extremum_time"] >= ANCHOR
+    assert (y[i - 1] - rec.evidence["baseline_median"]) < 0 < (y[i] - rec.evidence["baseline_median"])
+    assert "approached_without_crossing" not in rec.flags
+    assert abs(rec.evidence["run_start_minus_anchor"]) <= 5e-4
+    json.dumps(rec.as_dict())
+
+
+def test_an_approach_that_re_dips_before_crossing_is_flagged():
+    rec = _record(excursion(approach=True))
+    assert rec.found
+    assert "approached_without_crossing" in rec.flags
+    assert rec.evidence["approach_time"] < rec.time
+    assert abs(rec.evidence["approach_min"]) < 0.10 * abs(rec.evidence["extremum"])
+
+
+def test_a_flat_record_has_no_excursion_at_the_anchor():
+    rec = _record(0.02 * RNG.standard_normal(T.size))
+    assert not rec.found
+    assert "no_excursion_at_anchor" in rec.flags
+    assert rec.evidence["anchor_time"] == ANCHOR
+
+
+def test_a_later_larger_pulse_does_not_steal_the_anchor():
+    y = excursion()
+    late = T >= 0.080
+    y[late] += 12.0 * np.clip((T[late] - 0.080) / 0.003, 0, 1)   # the 41524 plasma-phase swing
+    rec = _record(y)
+    assert rec.found
+    assert rec.evidence["extremum"] < 0 and rec.evidence["extremum_time"] < 0.040
+    assert rec.time < 0.080
+
+
+def test_an_excursion_that_never_crosses_says_so():
+    rec = _record(excursion(cross=False))
+    assert not rec.found
+    assert "no_zero_crossing" in rec.flags
+    assert rec.evidence["extremum"] < -4.0
+
+
+def test_a_run_outside_the_anchor_tolerance_is_rejected():
+    y = excursion()
+    rec = zero_crossing_after_excursion(T, y, anchor_time=ANCHOR - 0.010,
+                                        reference_mask=T < ANCHOR - 0.015, anchor_tolerance_s=2e-3)
+    assert not rec.found
+    assert "no_excursion_at_anchor" in rec.flags
+    assert any(why == "not_at_anchor" for _, why, _ in rec.rejected)
+
+
+def test_a_sample_exactly_at_the_baseline_is_not_a_crossing():
+    y = np.resize([0.0, 1e-3, -1e-3], T.size)   # reference median exactly 0, spread finite
+    i0 = int(np.searchsorted(T, ANCHOR))
+    y[i0:i0 + 40] = -5.0
+    y[i0 + 40:i0 + 50] = 0.0          # sits at the baseline
+    y[i0 + 50:] = 2.0                 # crosses here
+    rec = zero_crossing_after_excursion(T, y, anchor_time=ANCHOR, reference_mask=T < ANCHOR - 0.005,
+                                        sigma=0.0, fraction=0.05)
+    assert rec.index == i0 + 50

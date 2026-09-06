@@ -1811,12 +1811,16 @@ def is_signal_active(
 ):
     """Decide whether a trace carries a signal or is flat.
 
+    Both tests are relative to the trace's own level, so the verdict does not
+    depend on the signal's units or gain.
+
     Parameters
     ----------
     data : array_like
         The waveform; fewer than two samples is never active [any].
     var_ratio_thresh : float, optional
-        Threshold on the variance ratio described below [-].
+        Threshold on the variance divided by the squared mean absolute level,
+        the squared coefficient of variation [-].
     change_ratio_thresh : float, optional
         Threshold on the mean absolute sample-to-sample change divided by the
         mean absolute level [-].
@@ -1839,13 +1843,12 @@ def is_signal_active(
 
     Limitations
     -----------
-    The variance test is a tautology: the variance is divided by itself plus
-    ``1e-12``, so the ratio is 1 for any trace whose variance exceeds about
-    1e-10, and the ``var_ratio_thresh`` branch can only fire for a trace that
-    is constant to twelve decimal places.  The decision is therefore made by
-    ``change_ratio`` alone, and a trace flat to one part in a million is
-    reported active.  Tracked in #463; this docstring describes the code as it
-    is, not as it was meant to be.
+    A trace held at a non-zero level with noise far below that level is
+    inactive, whatever the level.  The converse is the caveat: the test is
+    scale-free by design and has no absolute floor, so a zero-mean noise
+    trace scores near 1 on both ratios and is reported active at any
+    amplitude.  A caller that knows a noise floor must apply it before
+    asking.  An identically zero trace is inactive.
     """
     data = np.asarray(data)
 
@@ -1854,13 +1857,12 @@ def is_signal_active(
 
     variance = np.var(data)
     mean_abs_change = np.mean(np.abs(np.diff(data)))
+    level = np.mean(np.abs(data))
 
-    # Scale definitions (always positive, scale-aware)
-    scale_var = np.var(data) + 1e-12
-    scale_change = np.mean(np.abs(data)) + 1e-12
-
-    var_ratio = variance / scale_var
-    change_ratio = mean_abs_change / scale_change
+    # Both ratios are relative to the magnitude of the trace (#463).  An
+    # identically zero trace has no level to be relative to and is inactive.
+    var_ratio = variance / level**2 if level > 0.0 else 0.0
+    change_ratio = mean_abs_change / (level + 1e-12)
 
     if verbose:
         print(f"Variance ratio: {var_ratio:.3e} (thresh={var_ratio_thresh:.3e})")

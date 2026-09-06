@@ -42,8 +42,13 @@ def render(
     show: bool = False,
     label: str | Sequence[str] = "shot",
     **options: Any,
-) -> tuple[Any, Any]:
-    """Build the view model for ``name`` from a native IMAS ``source`` and render it."""
+) -> Any:
+    """Build the view model for ``name`` from a native IMAS ``source`` and render it.
+
+    ``backend="plotly"`` among the options draws with Plotly and returns a
+    :class:`plotly.graph_objects.Figure` (no ``ax=``); the default is
+    Matplotlib's ``(Figure, Axes)``.  See :mod:`vaft.plot.backends`.
+    """
     return render_entries(
         name, normalize_entries(source, label=label), ax=ax, show=show,
         namespace="vaft.imas", subject="ids", **options,
@@ -1418,6 +1423,22 @@ def plot_passive_structure_field_wall_reduction(
     )
 
 
+def plot_pf_plasma_geometry_poloidal(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """The plasma-current elements of ``pf_plasma`` coloured by current.
+
+    Options: ``time`` (instant; default the largest total current).
+    Renders with :func:`vaft.plot.pf_plasma_geometry_poloidal` from native IMAS input.
+    """
+    return render("pf_plasma_geometry_poloidal", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_passive_structure_overview_wall_time(
     source: Any,
     *,
@@ -1888,6 +1909,7 @@ __all__ += [
     "plot_passive_structure_geometry_wall_mode",
     "plot_passive_structure_overview_wall_reduction",
     "plot_passive_structure_overview_wall_time",
+    "plot_pf_plasma_geometry_poloidal",
     "plot_pf_coil_geometry_poloidal",
     "plot_pf_coil_time_current",
     "plot_pf_coil_time_current_turns",

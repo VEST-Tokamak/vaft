@@ -118,7 +118,7 @@ def equilibrium_field_psi(
     domain="equilibrium", quantity="psi_vacuum",
     subject="equilibrium",
     description="Vacuum poloidal flux from the PF coils alone, without plasma.",
-    ids=("pf_active", "pf_passive", "wall", "spectrometer_uv", "equilibrium"),
+    ids=("pf_active", "pf_passive", "wall", "spectrometer_uv", "magnetics", "equilibrium"),
     required_paths=("pf_active.time", "pf_active.coil.{i}.current.data"),
     optional_paths=("wall.description_2d.{i}.limiter.unit.{j}.outline.r",),
 )

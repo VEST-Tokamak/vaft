@@ -733,3 +733,58 @@ def test_a_held_tail_does_not_make_a_probe_broken_for_efit(packaged):
     ods, report = packaged
     project_validity(ods, report)
     assert _condemned_channels(ods, nbprobe=76) == {25}
+    from vaft.validation.imas import is_condemned_channel
+
+    assert {
+        i
+        for i in range(len(ods["magnetics.b_field_pol_probe"]))
+        if is_condemned_channel(ods, f"magnetics.b_field_pol_probe.{i}.field")
+    } == {25}
+
+
+def test_every_consumer_agrees_with_the_interpretation_layer(packaged):
+    """One rule, one answer (#424): the k-file writer, plot discovery and the
+    drawn series must condemn exactly the channels the interpretation layer
+    condemns, for every magnetics channel of the packaged shot."""
+    from vaft.code.efit.kfile import _condemned_channels
+    from vaft.plot.backend.recipes import _validity_of
+    from vaft.plot.models import Series
+    from vaft.validation.imas import is_condemned_channel
+
+    ods, report = packaged
+    project_validity(ods, report)
+    nbprobe = len(ods["magnetics.b_field_pol_probe"])
+    kfile = _condemned_channels(ods, nbprobe=nbprobe)
+    for kind, quantity, offset in (("b_field_pol_probe", "field", 0), ("flux_loop", "flux", nbprobe)):
+        for index in range(len(ods[f"magnetics.{kind}"])):
+            base = f"magnetics.{kind}.{index}.{quantity}"
+            expected = is_condemned_channel(ods, base)
+            assert ((index + offset) in kfile) == expected, base
+            code, mask = _validity_of(ods, f"magnetics.{kind}.{{i}}.{quantity}.data", index)
+            y = np.asarray(ods[f"{base}.data"], dtype=float)
+            drawn = Series(x=np.arange(y.size, dtype=float), y=y, validity=code, valid_mask=mask)
+            assert drawn.is_invalid_channel == expected, base
+
+def test_array_contradiction_scores_judge_interior_probes_against_their_neighbours():
+    from vaft.validation.magnetics import array_contradiction_scores
+
+    heights = [0.04 * k for k in range(9)]
+    base = np.linspace(1.0, 2.0, 50)
+    waveforms = np.array([base * (1 + 0.1 * k) for k in range(9)])  # linear in height: no departure
+    scores = array_contradiction_scores(heights, waveforms, floor=1e-3)
+    assert np.isfinite(scores).all()  # nine probes: every member has three witnesses
+    assert np.nanmax(scores) < 1.0
+    waveforms[4, 20:30] += 1.0  # a departure the neighbours do not share
+    scores = array_contradiction_scores(heights, waveforms, floor=1e-3)
+    assert (scores[4, 20:30] > 20.0).all()
+    # its neighbours' departures rise with it (they are predicted from it), so
+    # which probe is wrong is the caller's leave-one-out question; the probe
+    # itself still scores highest, and the witnesses far from it stay quiet
+    assert np.nanargmax(np.nanmean(scores, axis=1)) == 4
+    assert np.nanmax(scores[[0, 1, 7, 8]]) < 1.0
+    # too few witnesses: nothing is judged against the floor alone
+    assert np.isnan(array_contradiction_scores(heights[:4], waveforms[:4], floor=1e-3)).all()
+    # a non-finite sample in a probe or a neighbour is unscorable there, not a contradiction
+    waveforms[3, 10] = np.nan
+    scores = array_contradiction_scores(heights, waveforms, floor=1e-3)
+    assert np.isnan(scores[2:5, 10]).all()

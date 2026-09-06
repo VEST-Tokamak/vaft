@@ -18,10 +18,13 @@ import pytest
 from gpec_nc_fixtures import DEFAULT_DCON_EQUILIBRIUM, write_dcon_output_nc
 
 from vaft.code.gpec import (
+    SCAN_COLUMNS,
     DconEigenfunction,
     DconOutput,
     Pest3MatchingOutput,
+    dcon_scan_row,
     read_dcon_output,
+    read_dcon_scan,
     read_pest3_matching_output,
     read_solutions_bin,
 )
@@ -496,3 +499,89 @@ def test_a_sidecar_from_a_newer_vaft_refuses_rather_than_dropping_fields(tmp_pat
 
     with pytest.raises(ValueError, match="newer than this VAFT understands"):
         DconOutput.read_json(path)
+
+
+# ---------------------------------------------------------------------------
+# The scan harvest: one flat row per run, across a case directory.
+# ---------------------------------------------------------------------------
+
+
+def test_a_scan_row_has_every_column_even_when_the_run_carries_none_of_them():
+    """A scan is a table; a table whose columns vary per row cannot be compared.
+
+    Missing values are `None` rather than absent, so a consumer indexes columns
+    instead of guarding every access -- and `None` rather than NaN, so "DCON did
+    not report this" stays distinguishable from a computed non-number.
+    """
+    row = dcon_scan_row(DconOutput(n_tor=2, mlow=-1, mhigh=1, mpert=3, mband=0))
+
+    assert sorted(row) == sorted(SCAN_COLUMNS)
+    assert row["n_tor"] == 2
+    assert row["q0"] is None and row["betan"] is None
+    assert not any(isinstance(value, float) and np.isnan(value) for value in row.values())
+
+
+def test_a_scan_row_carries_the_equilibrium_summary_and_the_stability_verdict(tmp_path):
+    write_dcon_output_nc(tmp_path, equilibrium=True, w_t=-0.42)
+    result = read_dcon_output(tmp_path, mode=1)
+
+    row = dcon_scan_row(result, shot=39915, time_ms=325.0)
+
+    assert row["shot"] == 39915
+    assert row["time_ms"] == pytest.approx(325.0)
+    assert row["q95"] == pytest.approx(DEFAULT_DCON_EQUILIBRIUM["q95"])
+    assert row["li3"] == pytest.approx(DEFAULT_DCON_EQUILIBRIUM["li3"])
+    assert row["total1_real"] == pytest.approx(-0.42)
+    assert row["stable_free_boundary"] is False
+    # qlim is the run's truncation, kept apart from the equilibrium's own qa.
+    assert row["qlim"] == pytest.approx(8.0)
+    assert row["qa"] == pytest.approx(DEFAULT_DCON_EQUILIBRIUM["qa"])
+
+
+def test_read_dcon_scan_walks_the_layout_the_runner_writes(tmp_path):
+    """`<workdir>/<time>/<module>/nn=<mode>/` -- the same layout `module_dir` builds."""
+    for label, w_t in (("00320", -0.1), ("00325", -0.9), ("00330", 0.3)):
+        run_dir = tmp_path / label / "dcon" / "nn=1"
+        run_dir.mkdir(parents=True)
+        write_dcon_output_nc(run_dir, equilibrium=True, w_t=w_t)
+
+    rows = read_dcon_scan(tmp_path, modes=(1,), shot=39915)
+
+    assert [row["time_ms"] for row in rows] == [320.0, 325.0, 330.0]
+    assert [row["stable_free_boundary"] for row in rows] == [False, False, True]
+    assert {row["shot"] for row in rows} == {39915}
+
+
+def test_read_dcon_scan_warns_about_a_bad_cell_and_keeps_the_rest(tmp_path):
+    """One unreadable run costs that cell, not the scan -- and never silently.
+
+    A quietly shorter table is indistinguishable from a shorter run list, which
+    is exactly the confusion that makes a scan untrustworthy.
+    """
+    for label in ("00320", "00325"):
+        run_dir = tmp_path / label / "dcon" / "nn=1"
+        run_dir.mkdir(parents=True)
+        write_dcon_output_nc(run_dir, equilibrium=True)
+    (tmp_path / "00325" / "dcon" / "nn=1" / "dcon_output_n1.nc").write_bytes(b"not a netcdf")
+
+    with pytest.warns(RuntimeWarning, match="skipping unreadable DCON output"):
+        rows = read_dcon_scan(tmp_path, modes=(1,))
+
+    assert [row["time_ms"] for row in rows] == [320.0]
+
+
+def test_the_scan_takes_identity_from_the_directory_not_the_file(tmp_path):
+    """DCON writes shot/time as INT(...) of what it was told -- 0 for a VEST g-file.
+
+    Trusting those would label every row of a scan `shot=0, time=0`, so they are
+    kept only as metadata to cross-check against.
+    """
+    run_dir = tmp_path / "00325" / "dcon" / "nn=1"
+    run_dir.mkdir(parents=True)
+    write_dcon_output_nc(run_dir, equilibrium={"shot": 0, "time": 0})
+
+    (row,) = read_dcon_scan(tmp_path, modes=(1,), shot=39915)
+
+    assert row["shot"] == 39915
+    assert row["time_ms"] == pytest.approx(325.0)
+    assert read_dcon_output(run_dir, mode=1).metadata["nc_shot"] == 0

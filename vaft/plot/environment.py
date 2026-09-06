@@ -23,6 +23,7 @@ __all__ = [
     "ENVIRONMENT_KINDS",
     "detect_environment",
     "default_interaction_backend",
+    "use_non_interactive_backend",
 ]
 
 #: ``terminal`` -- plain Python; ``ipython`` -- an IPython terminal shell;
@@ -112,3 +113,19 @@ def default_interaction_backend(environment: Environment | None = None) -> str:
     if environment.in_kernel and environment.widgets:
         return "ipywidgets"
     return "none"
+
+
+def use_non_interactive_backend() -> None:
+    """Draw to files only: no display, no writable ``$HOME`` needed.
+
+    Selects Matplotlib's ``Agg`` backend (unless one is already in use) and
+    points ``MPLCONFIGDIR`` at a temporary directory when nothing set it, the
+    way automated workflows and the ``vaft plot --out`` command run.
+    """
+    import os
+    import tempfile
+
+    os.environ.setdefault("MPLCONFIGDIR", tempfile.mkdtemp(prefix="vaft-mpl-"))
+    import matplotlib
+
+    matplotlib.use("Agg", force=False)

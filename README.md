@@ -213,12 +213,22 @@ export GPECHOME=/path/to/gpec
 export CHEASEHOME=/path/to/chease
 export EFITHOME=/path/to/efit
 export TESHOME=/path/to/tes
+export NUBEAMHOME=/path/to/nubeam
 ```
 
-Each executable belongs under its root's `bin/` directory. On Windows, set the
-same roots with `[Environment]::SetEnvironmentVariable(name, value, 'User')` so a
-new terminal and a Jupyter kernel both inherit them; VAFT resolves the documented
-POSIX name to a native `.exe` beside it. See
+`NUBEAMHOME` also supplies the PREACT and ADAS reaction databases NUBEAM cannot
+run without, at `share/preact` and `share/adas`. VAFT builds NUBEAM through
+[`external/nubeam/`](external/nubeam/) rather than vendoring it: NTCC requires each
+user to accept its licence before downloading the source. That path is macOS/Apple
+Silicon only for now; Linux and Windows are tracked in
+[issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). The adapter runs
+NUBEAM and parses its native output; mapping those results into IMAS is not
+implemented yet.
+
+Each executable belongs under its root's `bin/` directory. On Windows, set
+the same roots with `[Environment]::SetEnvironmentVariable(name, value, 'User')`
+so a new terminal and a Jupyter kernel both inherit them; VAFT resolves the
+documented POSIX name to a native `.exe` beside it. See
 [Initialize external fusion codes](notebooks/initialize_external_fusion_codes.ipynb)
 for layouts, compatibility variables, FileDB configuration, and validation, and
 [install/README.md](install/README.md) for building the codes on Windows.
@@ -414,6 +424,15 @@ asked for, and `vaft.database.compose(shot)` is the explicit way to analyse
 `python -m vaft.cli summary sources` prints the same list. The historical
 `directory=`/`target=` keywords still work and warn. To use a namespace outside
 the catalog, list it in `VAFT_HSDS_EXTRA_SOURCES`.
+
+The canonical plots are reachable from the command line too (the `vaft`
+console script is installed with the package):
+
+```bash
+vaft plot --list --shot 39915                              # what this shot can plot
+vaft plot plasma_current_time --shot 39915 --out ip.png    # render to a file
+vaft plot equilibrium_overview --shot 39915 --option time_slice=4
+```
 
 ```python
 ods = vaft.database.load(39915)                       # reads main

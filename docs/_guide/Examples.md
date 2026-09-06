@@ -152,6 +152,7 @@ See [Magnetics]({{ site.baseurl }}/guide/Magnetics/) and [Processing]({{ site.ba
 | [`linear_ideal_stability_analysis_with_dcon.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/linear_ideal_stability_analysis_with_dcon.ipynb) | *(design shell)* Planned ideal MHD stability (delta-W) with DCON from the GPEC package. |
 | [`linear_resistive_stability_analysis_with_rdcon.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/linear_resistive_stability_analysis_with_rdcon.ipynb) | *(design shell)* Planned resistive stability (Delta-prime) with RDCON. |
 | [`perturbed_equilibrium_and_3d_response_with_gpec.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb) | *(design shell)* Planned perturbed equilibrium and non-axisymmetric 3D response with GPEC. |
+| [`vest_nbi_analysis_with_nubeam.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/vest_nbi_analysis_with_nubeam.ipynb) | Neutral-beam deposition, heating, current drive and loss accounting for VEST with NUBEAM. Needs a completed NUBEAM run named by `VAFT_NUBEAM_RUN_DIR`. |
 
 CHEASE is the most complete code-coupling example in the repository. The `prepare_*` / `run_*` / `collect_*` triple is the pattern every code wrapper in `vaft.code` follows:
 
