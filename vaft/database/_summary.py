@@ -185,6 +185,7 @@ SHOT_OVERVIEW_COLUMNS = (
     "pulse_duration_s",
     "max_ip_kA",
     "mean_b_t_T",
+    "shot_class",
 )
 
 
@@ -905,25 +906,38 @@ def _plasma_timing(ods):
     return plasma_timing(ods)
 
 
+def _plasma_features(ods, timing):
+    """The representative peaks inside the window ``timing`` found (lazy, as above)."""
+    from vaft.omas.plasma_features import plasma_features
+
+    return plasma_features(ods, timing=timing)
+
+
+def _shot_class(ods, timing):
+    """The shot class decided from ``timing`` and the gas response (lazy, as above)."""
+    from vaft.omas.shot_class import shot_class
+
+    return shot_class(ods, timing=timing)
+
+
 def extract_shot_overview(ods, shot: int) -> list[dict]:
     """Extract one operational overview row from canonical diagnostic signals.
 
     The plasma window comes from ``vaft.omas.plasma_timing`` (H-alpha by
-    label, the current as fallback) and its source is a column.  A shot with
-    no plasma keeps its row -- onset, duration and mean field are NaN and
-    ``plasma_onset_source`` is ``none`` -- rather than vanishing from the
-    table; the analysis range is never reported as a window.
+    label, the current as fallback) and its source is a column; the peak
+    current is the representative peak inside that window
+    (``vaft.omas.plasma_features``) and the shot class the verdict of
+    ``vaft.omas.shot_class``.  A shot with no plasma keeps its row -- onset,
+    duration, peak current and mean field are NaN, ``plasma_onset_source``
+    is ``none`` and ``shot_class`` says why -- rather than vanishing from
+    the table; the analysis range is never reported as a window.
     """
-    from scipy.signal import medfilt
-
     timing = _plasma_timing(ods)
     found = bool(timing.found)
     onset, offset = (float(timing.onset), float(timing.offset)) if found else (float("nan"),) * 2
-    ip = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
-    if not ip.size:
-        raise ValueError("magnetics.ip.0.data is empty")
-    kernel = min(15, ip.size if ip.size % 2 else ip.size - 1)
-    filtered_ip = medfilt(ip, kernel_size=kernel) if kernel >= 3 else ip
+    features = _plasma_features(ods, timing)
+    max_ip = float(features.ip.value) if features.computed and features.ip.found else float("nan")
+    shot_class = str(_shot_class(ods, timing).label)
     tf_time = np.asarray(ods["tf.time"], dtype=float)
     field = np.asarray(ods["tf.b_field_tor_vacuum_r.data"], dtype=float)
     tf_r0 = _as_float(ods["tf.r0"])
@@ -939,8 +953,9 @@ def extract_shot_overview(ods, shot: int) -> list[dict]:
             "plasma_onset_time_s": onset,
             "plasma_onset_source": str(timing.source) if found else "none",
             "pulse_duration_s": offset - onset,
-            "max_ip_kA": float(np.nanmax(filtered_ip)) / 1e3,
+            "max_ip_kA": max_ip / 1e3,
             "mean_b_t_T": float(np.nanmean(field_at_reference[in_pulse])) if found else float("nan"),
+            "shot_class": shot_class,
         }
     ]
 
