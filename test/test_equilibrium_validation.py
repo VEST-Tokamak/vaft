@@ -530,3 +530,55 @@ def test_the_public_name_lives_on_the_package(sample):
 
     assert vaft.validation.validate_equilibrium is equilibrium.validate_equilibrium
     assert "validate_equilibrium" in vaft.validation.__all__
+
+def test_the_two_virial_checks_do_not_contradict_each_other(report):
+    """Review of #546: virial_conditioning used to say the RT-dependent closures
+    were indeterminate while virial_pair_consistency graded their residuals and
+    reported `fail` on the same slice. Every leave-one-out residual passes
+    through RT/R0 -- pair_12 and pair_23 in the closure, pair_13 in the E2 it is
+    scored on -- so when the RT denominator has cancelled away, neither check
+    may claim a verdict."""
+    conditioning = _slice(report, "physical_validity", "virial_conditioning", LIVE)
+    consistency = _slice(report, "physical_validity", "virial_pair_consistency", LIVE)
+    assert conditioning["rt_ill_conditioned"] is True
+    assert conditioning["status"] == WARN
+    assert consistency["status"] == INDETERMINATE
+    assert "RT denominator" in consistency["reason"]
+
+
+def test_conditioning_measures_distance_in_alpha_not_in_the_denominator(report):
+    """lao_li divides by (alpha-1) and full_123 by 4*(alpha-1): the same singular
+    point. Comparing raw denominators would call one near-singular and the other
+    safe at an alpha where both are equally ill-conditioned."""
+    live = _slice(report, "physical_validity", "virial_conditioning", LIVE)
+    assert live["denominator_full_123"] == pytest.approx(4.0 * live["denominator_lao_li"])
+    # ... but the distances that decide `near_singular` are equal.
+    slices = report["physical_validity"]["virial_conditioning"]["slices"]
+    entry = next(e for e in slices if e["time_slice"] == LIVE)
+    assert "lao_li" not in entry["near_singular"] or "full_123" in entry["near_singular"]
+
+
+def test_a_missing_pressure_profile_is_not_a_beta_p_of_zero(sample):
+    """p_2d defaults to zeros so the surface integrals have something to use;
+    that default must not reach the volume beta_p, or virial_identity grades an
+    absent measurement as a force-balance violation."""
+    from vaft.omas.process_wrapper import compute_virial_equilibrium_quantities_ods
+
+    stripped = copy.deepcopy(sample)
+    del stripped[f"equilibrium.time_slice.{LIVE}.profiles_1d.pressure"]
+    row = compute_virial_equilibrium_quantities_ods(stripped, time_slice=LIVE)[LIVE]
+    assert np.isnan(row["volume"]["beta_p"])
+    assert np.isfinite(row["volume"]["li"])  # li needs no pressure and survives
+
+
+def test_every_slice_carries_the_same_virial_keys(sample):
+    """A slice with no boundary must not have a different shape from one that
+    has: a consumer walking the documented structure would raise KeyError on
+    exactly the slices it most needs to report as undecided."""
+    from vaft.omas.process_wrapper import compute_virial_equilibrium_quantities_ods
+
+    rows = compute_virial_equilibrium_quantities_ods(copy.deepcopy(sample))
+    assert set(rows[DEAD]) == set(rows[LIVE])
+    for block in ("identity", "conditioning", "pair_13", "mu_i_sources"):
+        assert set(rows[DEAD][block]) == set(rows[LIVE][block])
+

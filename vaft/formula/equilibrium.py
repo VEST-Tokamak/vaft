@@ -2108,6 +2108,21 @@ def approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi(B_pa: float,
     return (4 * np.pi * B_tv * R0 * delta_phi) / (B_pa**2 * V_p)
 
 
+#: Denominator magnitude below which a virial closure is reported as
+#: indeterminate rather than as a large finite number.  The Shafranov integrals
+#: and $\alpha$ are all $O(1)$, so an absolute floor is the meaningful one.
+VIRIAL_SINGULAR_EPS = 1e-9
+
+
+def _virial_ratio(numerator: float, denominator: float, eps: float) -> float:
+    """Divide, or return NaN when the denominator is within ``eps`` of zero."""
+    if not np.isfinite(numerator) or not np.isfinite(denominator):
+        return float("nan")
+    if abs(denominator) <= eps:
+        return float("nan")
+    return float(numerator) / float(denominator)
+
+
 def virial_beta_p_from_S_alpha_mu(S1: float,
                                   S2: float,
                                   S3: float,
@@ -2481,6 +2496,7 @@ def virial_bongard_from_S_alpha_mu(
     S3: float,
     alpha: float,
     mui: float,
+    eps: float = VIRIAL_SINGULAR_EPS,
 ) -> Tuple[float, float]:
     r"""Low-aspect-ratio virial closure (Bongard 2016): $\beta_p$ and $l_i$.
 
@@ -2500,6 +2516,9 @@ def virial_bongard_from_S_alpha_mu(
         Closure coefficient multiplying $l_i$ in the third virial relation [-].
     mui : float
         Diamagnetic parameter $\hat\mu_i$ [-].
+    eps : float, optional
+        Denominator magnitude below which the result is NaN, forwarded to the
+        closure; default :data:`VIRIAL_SINGULAR_EPS` [-].
 
     Returns
     -------
@@ -2513,22 +2532,7 @@ def virial_bongard_from_S_alpha_mu(
     .. [1] M. W. Bongard et al., Phys. Plasmas 23 (2016), low-aspect-ratio
            virial closure (journal page not recorded in the VAFT source).
     """
-    return virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mui)
-
-
-#: Denominator magnitude below which a virial closure is reported as
-#: indeterminate rather than as a large finite number.  The Shafranov integrals
-#: and $\alpha$ are all $O(1)$, so an absolute floor is the meaningful one.
-VIRIAL_SINGULAR_EPS = 1e-9
-
-
-def _virial_ratio(numerator: float, denominator: float, eps: float) -> float:
-    """Divide, or return NaN when the denominator is within ``eps`` of zero."""
-    if not np.isfinite(numerator) or not np.isfinite(denominator):
-        return float("nan")
-    if abs(denominator) <= eps:
-        return float("nan")
-    return float(numerator) / float(denominator)
+    return virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mui, eps=eps)
 
 
 def virial_identity_residuals(
@@ -2732,7 +2736,6 @@ def virial_pair_13_from_S_alpha_mu(
 
 
 def virial_pair_23_from_S_alpha_mu_rt(
-    S1: float,
     S2: float,
     S3: float,
     alpha: float,
@@ -2748,9 +2751,6 @@ def virial_pair_23_from_S_alpha_mu_rt(
 
     Parameters
     ----------
-    S1 : float
-        First Shafranov surface integral, unused by this closure and accepted
-        only so the three pairs share one call signature [-].
     S2 : float
         Second Shafranov surface integral [-].
     S3 : float
@@ -2790,7 +2790,6 @@ def virial_pair_23_from_S_alpha_mu_rt(
            relations for elongated plasmas in tokamaks", Eqs. (1)-(3).
     .. [2] V. D. Shafranov, Plasma Phys. 13 (1971) 757.
     """
-    del S1  # kept in the signature so the three pairs are called alike
     beta_p = _virial_ratio(
         (alpha - 1.0) * RT_over_R0 * S2 + S3 + (2.0 - alpha) * mu_i, alpha, eps
     )
@@ -2864,9 +2863,14 @@ def virial_full_123_from_S_alpha_rt(
            relations for elongated plasmas in tokamaks", Eqs. (1)-(3).
     .. [2] V. D. Shafranov, Plasma Phys. 13 (1971) 757.
     """
-    # beta_p - mu_i follows from (E1 - E2)/2 alone; E3 then gives li.
+    # beta_p - mu_i follows from (E1 - E2)/2 alone; E3 then gives li. The guard
+    # is on the determinant 4*(alpha-1) that the docstring and
+    # virial_closure_denominators both name, not on alpha-1, so a caller tuning
+    # eps against those numbers gets the band they asked for.
+    if not np.isfinite(alpha) or abs(4.0 * (alpha - 1.0)) <= eps:
+        return float("nan"), float("nan"), float("nan")
     half_diff = 0.5 * S1 + 0.5 * (1.0 - RT_over_R0) * S2
-    li = _virial_ratio(half_diff - S3, alpha - 1.0, eps)
+    li = _virial_ratio(half_diff - S3, alpha - 1.0, 0.0)
     if not np.isfinite(li):
         return float("nan"), float("nan"), float("nan")
     # E2 supplies beta_p + mu_i once li is known.
@@ -2949,7 +2953,12 @@ def virial_normalized_residual(residual: float, lhs: float, rhs: float) -> float
     change the numbers, so the thresholds built on this one stay report-only
     until a representative equilibrium population qualifies them.
     """
-    scale = max(1.0, abs(float(lhs)), abs(float(rhs)))
+    lhs, rhs = float(lhs), float(rhs)
+    # max() keeps its first argument against a NaN, so guard explicitly rather
+    # than letting an unknown side quietly become a scale of 1.
+    if not (np.isfinite(lhs) and np.isfinite(rhs)):
+        return float("nan")
+    scale = max(1.0, abs(lhs), abs(rhs))
     return float(residual) / scale
 
 

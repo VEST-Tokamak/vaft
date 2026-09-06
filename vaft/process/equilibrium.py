@@ -996,10 +996,20 @@ def computed_diamagnetism_from_phi(
     Compute EFIT-style xmui from computed diamagnetic flux.
 
     xmui = (4*pi*B_t0*R_0 / (V*B_ref^2)) * Phi_dia_comp
+
+    The arithmetic is :func:`vaft.formula.equilibrium.virial_muihat_from_Bt_R0_dphi`;
+    this wrapper adds the positivity precondition its callers rely on. Keeping
+    one definition matters because the validation layer compares a mu_i from
+    this path against one from the formula path, and a correction applied to
+    only one of them would desynchronize them silently.
     """
     if volume <= 0.0 or B_ref <= 0.0:
         raise ValueError("volume and B_ref must be positive.")
-    return float((4.0 * np.pi * B_t0 * R_0 * phi_dia_comp) / (volume * B_ref**2))
+    from vaft.formula.equilibrium import virial_muihat_from_Bt_R0_dphi
+
+    return float(
+        virial_muihat_from_Bt_R0_dphi(B_t0, R_0, phi_dia_comp, B_ref, volume)
+    )
 
 
 psi_to_RZ = psi_to_rz

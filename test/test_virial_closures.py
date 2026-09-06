@@ -34,13 +34,23 @@ from vaft.formula.equilibrium import (
 #: A well-conditioned point: every denominator (3a-2, a, a-1) is O(1).
 S1, S2, S3, ALPHA, MU, RT = 0.9, 1.4, 0.5, 1.6, 0.12, 1.05
 
-#: The pairs, as (name, solver, omitted identity index).  Index into the
-#: (e1, e2, e3) triple that virial_identity_residuals returns.
-PAIRS = (
-    ("pair_12", lambda: virial_pair_12_from_S_mu_rt(S1, S2, MU, RT), 2),
-    ("pair_13", lambda: virial_pair_13_from_S_alpha_mu(S1, S2, S3, ALPHA, MU), 1),
-    ("pair_23", lambda: virial_pair_23_from_S_alpha_mu_rt(S1, S2, S3, ALPHA, MU, RT), 0),
-)
+#: How each closure is called, given a dict of inputs.  One definition, used by
+#: every test below, so a signature change cannot leave a stale copy behind.
+SOLVERS = {
+    "pair_12": lambda v: virial_pair_12_from_S_mu_rt(v["S1"], v["S2"], v["mu"], v["rt"]),
+    "pair_13": lambda v: virial_pair_13_from_S_alpha_mu(
+        v["S1"], v["S2"], v["S3"], v["alpha"], v["mu"]
+    ),
+    "pair_23": lambda v: virial_pair_23_from_S_alpha_mu_rt(
+        v["S2"], v["S3"], v["alpha"], v["mu"], v["rt"]
+    ),
+}
+
+#: The pairs, as (name, omitted identity index).  Index into the (e1, e2, e3)
+#: triple that virial_identity_residuals returns.
+PAIRS = (("pair_12", 2), ("pair_13", 1), ("pair_23", 0))
+
+BASE = {"S1": S1, "S2": S2, "S3": S3, "alpha": ALPHA, "rt": RT, "mu": MU}
 
 
 def _residuals(beta_p, li, mu_i=MU):
@@ -50,11 +60,11 @@ def _residuals(beta_p, li, mu_i=MU):
 # --- the closures solve the identities they claim to ------------------------
 
 
-@pytest.mark.parametrize("name, solve, omitted", PAIRS, ids=[p[0] for p in PAIRS])
-def test_each_pair_satisfies_the_two_identities_it_uses(name, solve, omitted):
+@pytest.mark.parametrize("name, omitted", PAIRS, ids=[p[0] for p in PAIRS])
+def test_each_pair_satisfies_the_two_identities_it_uses(name, omitted):
     """The definition of a pairwise closure: the two kept identities close
     exactly, at machine precision, for any input."""
-    beta_p, li = solve()
+    beta_p, li = SOLVERS[name](BASE)
     residuals = _residuals(beta_p, li)
     for index, residual in enumerate(residuals):
         if index == omitted:
@@ -64,21 +74,13 @@ def test_each_pair_satisfies_the_two_identities_it_uses(name, solve, omitted):
         )
 
 
-@pytest.mark.parametrize("name, solve, omitted", PAIRS, ids=[p[0] for p in PAIRS])
-def test_the_omitted_identity_is_the_evidence(name, solve, omitted):
+@pytest.mark.parametrize("name, omitted", PAIRS, ids=[p[0] for p in PAIRS])
+def test_the_omitted_identity_is_the_evidence(name, omitted):
     """Leave-one-identity-out: on inputs that are mutually consistent the
     omitted residual vanishes too, so any departure from zero is real
     inconsistency rather than the closure's own arithmetic."""
     consistent = _consistent_inputs()
-    beta_p, li = {
-        "pair_12": lambda c: virial_pair_12_from_S_mu_rt(c["S1"], c["S2"], c["mu"], c["rt"]),
-        "pair_13": lambda c: virial_pair_13_from_S_alpha_mu(
-            c["S1"], c["S2"], c["S3"], c["alpha"], c["mu"]
-        ),
-        "pair_23": lambda c: virial_pair_23_from_S_alpha_mu_rt(
-            c["S1"], c["S2"], c["S3"], c["alpha"], c["mu"], c["rt"]
-        ),
-    }[name](consistent)
+    beta_p, li = SOLVERS[name](consistent)
     residuals = virial_identity_residuals(
         beta_p, li, consistent["mu"], consistent["S1"], consistent["S2"],
         consistent["S3"], consistent["alpha"], consistent["rt"],
@@ -104,11 +106,9 @@ def _consistent_inputs():
 
 def test_the_three_closures_agree_when_the_inputs_are_consistent():
     c = _consistent_inputs()
-    b12, l12 = virial_pair_12_from_S_mu_rt(c["S1"], c["S2"], c["mu"], c["rt"])
-    b13, l13 = virial_pair_13_from_S_alpha_mu(c["S1"], c["S2"], c["S3"], c["alpha"], c["mu"])
-    b23, l23 = virial_pair_23_from_S_alpha_mu_rt(
-        c["S1"], c["S2"], c["S3"], c["alpha"], c["mu"], c["rt"]
-    )
+    b12, l12 = SOLVERS["pair_12"](c)
+    b13, l13 = SOLVERS["pair_13"](c)
+    b23, l23 = SOLVERS["pair_23"](c)
     for value in (b12, b13, b23):
         assert value == pytest.approx(c["beta_p"], abs=1e-12)
     for value in (l12, l13, l23):
@@ -196,21 +196,12 @@ def test_each_closure_depends_on_exactly_the_inputs_its_identities_carry(name, e
     """The point of having three closures: they fail differently. pair_13 must
     not move when RT/R0 does, or comparing it against the others says nothing
     about RT sensitivity."""
-    base = {"S1": S1, "S2": S2, "S3": S3, "alpha": ALPHA, "rt": RT, "mu": MU}
-    nudged = dict(base, **{name: base[name] + 0.05})
+    nudged = dict(BASE, **{name: BASE[name] + 0.05})
 
     def solve(v):
-        return {
-            "pair_12": virial_pair_12_from_S_mu_rt(v["S1"], v["S2"], v["mu"], v["rt"]),
-            "pair_13": virial_pair_13_from_S_alpha_mu(
-                v["S1"], v["S2"], v["S3"], v["alpha"], v["mu"]
-            ),
-            "pair_23": virial_pair_23_from_S_alpha_mu_rt(
-                v["S1"], v["S2"], v["S3"], v["alpha"], v["mu"], v["rt"]
-            ),
-        }
+        return {key: solver(v) for key, solver in SOLVERS.items()}
 
-    before, after = solve(base), solve(nudged)
+    before, after = solve(BASE), solve(nudged)
     moved = {
         key for key in before
         if not np.allclose(before[key], after[key], rtol=0, atol=1e-12)
@@ -225,7 +216,7 @@ def test_each_closure_depends_on_exactly_the_inputs_its_identities_carry(name, e
     "label, call",
     [
         ("pair_13 at alpha = 2/3", lambda: virial_pair_13_from_S_alpha_mu(S1, S2, S3, 2.0 / 3.0, MU)),
-        ("pair_23 at alpha = 0", lambda: virial_pair_23_from_S_alpha_mu_rt(S1, S2, S3, 0.0, MU, RT)),
+        ("pair_23 at alpha = 0", lambda: virial_pair_23_from_S_alpha_mu_rt(S2, S3, 0.0, MU, RT)),
         ("full_123 at alpha = 1", lambda: virial_full_123_from_S_alpha_rt(S1, S2, S3, 1.0, RT)),
     ],
 )
@@ -315,3 +306,36 @@ def test_consistent_inputs_give_a_vanishing_aggregate():
         for r, (lhs, rhs) in zip((e1, e2, e3), lhs_rhs)
     ]
     assert virial_residual_rms(*normalized) == pytest.approx(0.0, abs=1e-12)
+
+# --- what the review of #546 found, pinned so it cannot come back -----------
+
+
+def test_a_normalized_residual_refuses_an_unknown_scale():
+    """max() keeps its first argument against a NaN, so an unguarded
+    max(1.0, |lhs|, |rhs|) would silently normalize by 1 when a side is
+    unknown, and report a small residual derived from nothing."""
+    assert math.isnan(virial_normalized_residual(0.3, 10.0, float("nan")))
+    assert math.isnan(virial_normalized_residual(0.3, float("nan"), 10.0))
+
+
+def test_the_full_solve_guards_the_determinant_it_documents():
+    """The docstring and virial_closure_denominators both name 4*(alpha-1); the
+    guard must be on that, not on a quarter of it."""
+    eps = 0.4
+    # |4*(alpha-1)| = 0.2, inside the band: rejected. Guarding |alpha-1|
+    # instead would accept it, since 0.05 is well under eps.
+    assert all(math.isnan(v) for v in virial_full_123_from_S_alpha_rt(
+        S1, S2, S3, 1.05, RT, eps=eps
+    ))
+    # |4*(alpha-1)| = 1.2, outside it: still a number.
+    assert all(math.isfinite(v) for v in virial_full_123_from_S_alpha_rt(
+        S1, S2, S3, 1.3, RT, eps=eps
+    ))
+
+
+def test_the_historical_bongard_name_can_tune_the_same_guard():
+    near = 2.0 / 3.0 + 1e-6
+    assert all(math.isfinite(v) for v in virial_bongard_from_S_alpha_mu(S1, S2, S3, near, MU))
+    assert all(math.isnan(v) for v in virial_bongard_from_S_alpha_mu(
+        S1, S2, S3, near, MU, eps=1e-3
+    ))

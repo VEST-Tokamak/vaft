@@ -629,6 +629,10 @@ def _virial_identity_check(row: Mapping[str, Any]) -> dict[str, Any]:
         "e2_normalized": _float(identity.get("e2_normalized")),
         "e3_normalized": _float(identity.get("e3_normalized")),
         "rms": _float(identity.get("rms")),
+        # How many of the three could be evaluated at all: E2 needs RT/R0, E1
+        # and E3 do not, so a slice with an undetermined current centroid still
+        # reports two.
+        "identities_available": int(identity.get("identities_available") or 0),
         "beta_p_volume": _float(volume.get("beta_p")),
         "li_volume": _float(volume.get("li")),
         "mu_i_volume": _float(volume.get("mu_i")),
@@ -641,8 +645,18 @@ def _virial_identity_check(row: Mapping[str, Any]) -> dict[str, Any]:
             **fields,
         )
     status = _graded("physical_validity.virial_identity", fields["rms"])
-    worst = max(("e1", "e2", "e3"), key=lambda k: abs(fields[f"{k}_normalized"]))
-    return _result(status, reason=f"largest residual on {worst.upper()}", **fields)
+    evaluable = [
+        key for key in ("e1", "e2", "e3") if math.isfinite(fields[f"{key}_normalized"])
+    ]
+    worst = max(evaluable, key=lambda k: abs(fields[f"{k}_normalized"]))
+    detail = (
+        f"largest residual on {worst.upper()}"
+        if len(evaluable) == 3
+        else f"largest residual on {worst.upper()}; "
+             f"{', '.join(k.upper() for k in ('e1', 'e2', 'e3') if k not in evaluable)} "
+             "could not be evaluated"
+    )
+    return _result(status, reason=detail, **fields)
 
 
 def _virial_pair_consistency(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -668,6 +682,22 @@ def _virial_pair_consistency(row: Mapping[str, Any]) -> dict[str, Any]:
             residuals[pair] = abs(normalized)
     disagreement = row.get("disagreement") or {}
     fields.update({name: _float(value) for name, value in disagreement.items()})
+
+    # Every leave-one-out residual passes through RT/R0 -- pair_12 and pair_23
+    # in the closure itself, pair_13 in the E2 it is scored on -- so when the RT
+    # denominator has cancelled away, none of them is evidence. Grading them
+    # anyway is what let this check report `fail` on the very slices
+    # virial_conditioning was calling indeterminate.
+    conditioning = row.get("conditioning") or {}
+    rt_ratio = _float(conditioning.get("rt_denominator_ratio"))
+    if math.isfinite(rt_ratio) and rt_ratio < _VIRIAL_RT_RATIO_WARN:
+        return _result(
+            ValidationStatus.INDETERMINATE,
+            reason=f"only {rt_ratio:.3g} of the RT denominator survives cancellation; every "
+                   "leave-one-out residual depends on RT/R0, so none of them is evidence here "
+                   "(see virial_conditioning)",
+            **fields,
+        )
     if len(residuals) < 2:
         return _result(
             ValidationStatus.INDETERMINATE,
@@ -725,8 +755,10 @@ def _virial_conditioning(row: Mapping[str, Any]) -> dict[str, Any]:
         reasons.append("near-singular denominator: " + ", ".join(near_singular))
     if rt_ill:
         reasons.append(
-            f"only {rt_ratio:.3g} of the RT denominator survives cancellation, so the "
-            "RT-dependent closures (pair_12, pair_23, lao, full_123) are indeterminate"
+            f"only {rt_ratio:.3g} of the RT denominator survives cancellation, so RT/R0 "
+            "carries no information and every closure using it (pair_12, pair_23, lao, "
+            "full_123) is unreliable here; virial_pair_consistency reports indeterminate "
+            "for the same reason"
         )
     if reasons:
         return _result(ValidationStatus.WARN, reason="; ".join(reasons), **fields)
@@ -1148,11 +1180,13 @@ def _virial_measured_mu_i(virial: Mapping[str, Any]) -> dict[str, Any]:
     ratio = _log_ratio(measured, derived)
     fields["log_ratio"] = ratio
     if not math.isfinite(ratio):
-        return _result(
-            ValidationStatus.INDETERMINATE,
-            reason="the two closures differ in sign, so their ratio is not a comparison",
-            **fields,
+        same_sign = (measured > 0) == (derived > 0)
+        reason = (
+            "both closures are non-positive, so a log ratio is not defined"
+            if same_sign
+            else "the two closures differ in sign, so their ratio is not a comparison"
         )
+        return _result(ValidationStatus.INDETERMINATE, reason=reason, **fields)
     return _result(
         _graded("independent_validation.virial_measured_mu_i", ratio),
         reason="pair_13 beta_p from the measured diamagnetism against the reconstructed one",
