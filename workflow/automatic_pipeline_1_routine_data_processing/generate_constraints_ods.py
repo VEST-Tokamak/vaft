@@ -55,11 +55,13 @@ def _assessment_present(ods) -> bool:
     return False
 
 
-def _decisions_for(ods, times, *, manual: list[int], require_assessment: bool):
+def _decisions_for(ods, times, *, require_assessment: bool):
     """The per-channel, per-slice decisions the constraint builder consumes (#296).
 
     Formed by the acceptance policy from the validity the diagnostics stage
-    projected (#189) and the routine manual list.  No detector runs here: a
+    projected (#189) and nothing else: the routine manual exclusion list is
+    gone (#295), so a channel is a constraint unless the assessment says it
+    is not.  No detector runs here: a
     product that carries no assessment is refused when ``require_assessment``
     (the routine setting), otherwise every channel is usable by default
     (#424) and the log says so.  Sensor health is decided once, at the
@@ -77,7 +79,7 @@ def _decisions_for(ods, times, *, manual: list[int], require_assessment: bool):
             raise ValueError(message + " -- or pass --detect-broken false to proceed with every channel usable")
         LOGGER.warning("%s; proceeding with every channel usable by default (#424)", message)
     nbprobe = efit_probe_count(ods)
-    return decide_efit_channels(ods, times, nbprobe=nbprobe, manual_rejections=manual)
+    return decide_efit_channels(ods, times, nbprobe=nbprobe)
 
 
 def _recovery_for(option: int, ods, count: int):
@@ -233,14 +235,6 @@ def main() -> int:
     parser.add_argument("--uncertainty", default=",".join(str(v) for v in DEFAULT_UNCERTAINTY))
     parser.add_argument("--weighting", default=",".join(str(v) for v in DEFAULT_WEIGHTING))
     parser.add_argument(
-        "--broken",
-        default="",
-        help=(
-            "Comma-separated one-based combined indexes rejected by configuration (probes 1..nbprobe, "
-            "flux loops above); recorded as manual_exclusion_list in the product (issue #295)."
-        ),
-    )
-    parser.add_argument(
         "--detect-broken",
         default="false",
         help=(
@@ -288,9 +282,7 @@ def main() -> int:
         else:
             fl_correct_coeff = correct_flux_loop(ods, window=(window.start, window.end))
 
-    decisions = _decisions_for(
-        ods, times, manual=_csv_ints(args.broken), require_assessment=_bool(args.detect_broken)
-    )
+    decisions = _decisions_for(ods, times, require_assessment=_bool(args.detect_broken))
     _log_decisions(decisions)
     from vaft.validation.efit_channels import efit_probe_count
 

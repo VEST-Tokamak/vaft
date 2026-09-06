@@ -56,31 +56,41 @@ def test_the_wrapper_never_runs_a_detector(monkeypatch):
     monkeypatch.setattr(quality, "validate_magnetics_signals", boom)
     ods = _array()
     _assess(ods, bad_probe=9)
-    decisions = MODULE._decisions_for(ods, [0.30, 0.31], manual=[3], require_assessment=True)
+    decisions = MODULE._decisions_for(ods, [0.30, 0.31], require_assessment=True)
     assert decisions.get("b_field_pol_probe", 9).state.tolist() == [REJECTED, REJECTED]
-    assert decisions.get("b_field_pol_probe", 2).reasons == (f"{REASON_MANUAL_LIST}:3",)
+    assert decisions.get("b_field_pol_probe", 2).all_usable
 
 
 def test_an_unassessed_product_is_refused_when_required_and_warned_otherwise(caplog):
     ods = _array()
     with pytest.raises(ValueError, match="no diagnostics-stage assessment"):
-        MODULE._decisions_for(ods, [0.30], manual=[], require_assessment=True)
+        MODULE._decisions_for(ods, [0.30], require_assessment=True)
     with caplog.at_level("WARNING", logger="vaft.generate_constraints_ods"):
-        decisions = MODULE._decisions_for(ods, [0.30], manual=[], require_assessment=False)
+        decisions = MODULE._decisions_for(ods, [0.30], require_assessment=False)
     assert "every channel usable by default" in caplog.text
     assert all(decision.all_usable for decision in decisions.entries.values())
 
 
-def test_flux_loop_combined_indexes_use_the_efit_probe_count():
-    """68 probes in the IDS, 64 in EFIT's geometry: the manual list's 66 is
-    flux loop 1, not probe 65 -- and the trailing probes get no decision."""
+def test_trailing_probes_get_no_decision_and_a_condemned_loop_is_rejected():
+    """68 probes in the IDS, 64 in EFIT's geometry: the trailing four are not
+    submitted, and the flux loop the assessment condemned is rejected on the
+    assessment alone -- there is no list to consult (#295)."""
     ods = _array(n=68)
     _assess(ods, bad_loop=1)
-    decisions = MODULE._decisions_for(ods, [0.30], manual=[66], require_assessment=True)
+    decisions = MODULE._decisions_for(ods, [0.30], require_assessment=True)
     assert decisions.indices("b_field_pol_probe") == tuple(range(64))
     loop = decisions.get("flux_loop", 1)
     assert loop.state.tolist() == [REJECTED]
-    assert loop.reasons == ("condemned_whole_record", f"{REASON_MANUAL_LIST}:66")
+    assert loop.reasons == ("condemned_whole_record",)
+    assert not any(REASON_MANUAL_LIST in reason for d in decisions.entries.values() for reason in d.reasons)
+
+
+def test_the_wrapper_has_no_manual_list_argument():
+    import argparse
+
+    source = SCRIPT.read_text()
+    assert '"--broken"' not in source and "manual_rejections" not in source
+    assert "--detect-broken" in source
 
 
 def test_the_recovery_backend_follows_the_fit_option():
