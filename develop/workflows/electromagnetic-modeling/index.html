@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>8337473</code>. What is described
+  <code>5502a93</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -537,7 +537,11 @@ inactive only when both fall below threshold, and arrays shorter than 2 are neve
 ODS-level event finders — <code class="language-plaintext highlighter-rouge">vaft.omas.find_breakdown_onset</code>, <code class="language-plaintext highlighter-rouge">find_ip_onset</code>, <code class="language-plaintext highlighter-rouge">find_pulse_duration</code>,
 <code class="language-plaintext highlighter-rouge">find_vloop_onset</code>, <code class="language-plaintext highlighter-rouge">find_pf_active_onset</code> — are built on the onset primitives of <code class="language-plaintext highlighter-rouge">vaft.process.onset</code>
 instead (<code class="language-plaintext highlighter-rouge">active_window</code>, <code class="language-plaintext highlighter-rouge">principal_pulse_onset</code>, <code class="language-plaintext highlighter-rouge">zero_crossing_after_excursion</code>), composed with the
-VEST source hierarchy and rules by <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing</code> and <code class="language-plaintext highlighter-rouge">vaft.omas.discharge_timing</code>:</p>
+VEST source hierarchy and rules by <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing</code> and <code class="language-plaintext highlighter-rouge">vaft.omas.discharge_timing</code>. The same
+module’s <code class="language-plaintext highlighter-rouge">robust_peak</code> is the representative-peak primitive behind <code class="language-plaintext highlighter-rouge">find_max_ip</code> and
+<code class="language-plaintext highlighter-rouge">vaft.omas.plasma_features</code>: the largest <em>sustained</em> excursion inside a search stretch, a candidate whose
+run at half height is narrower than <code class="language-plaintext highlighter-rouge">min_width_s</code> being refused as a spike; its <code class="language-plaintext highlighter-rouge">PeakRecord</code> carries the
+smoothed value, the grid-sample time, the raw maximum and the runs it refused:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">t_bd</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_breakdown_onset</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>     <span class="c1"># plasma onset: H-alpha by label, current as fallback
 </span><span class="n">t_dur</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_pulse_duration</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
@@ -1392,7 +1396,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-06 03:00:39 +0000"
+        "time": "2026-09-06 04:06:49 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

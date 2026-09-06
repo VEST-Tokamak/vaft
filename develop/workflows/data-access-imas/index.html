@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>8337473</code>. What is described
+  <code>5502a93</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -577,6 +577,34 @@ plasma hierarchy as fallbacks.</p>
 <span class="n">events</span><span class="p">.</span><span class="n">oh_onset</span><span class="p">,</span> <span class="n">events</span><span class="p">.</span><span class="n">vloop</span><span class="p">.</span><span class="n">zero_crossing</span><span class="p">,</span> <span class="n">events</span><span class="p">.</span><span class="n">vloop</span><span class="p">.</span><span class="n">flags</span>
 <span class="p">{</span><span class="n">coil</span><span class="p">.</span><span class="n">name</span><span class="p">:</span> <span class="n">coil</span><span class="p">.</span><span class="n">time</span> <span class="k">for</span> <span class="n">coil</span> <span class="ow">in</span> <span class="n">events</span><span class="p">.</span><span class="n">pf_onsets</span><span class="p">}</span>      <span class="c1"># None for a coil that did not fire
 </span></code></pre></div></div>
+
+<h3 id="plasma-features-policy">Plasma features policy</h3>
+
+<p>The representative peaks of the plasma phase are a third concept beside the timing and the actuator events,
+configured in the <code class="language-plaintext highlighter-rouge">plasma_features</code> block of <code class="language-plaintext highlighter-rouge">vest.yaml</code> and read by <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_features.plasma_features(ods)</code>
+(issue #409). Its <code class="language-plaintext highlighter-rouge">window</code> is <code class="language-plaintext highlighter-rouge">plasma_timing</code> — the only value: every peak is measured strictly inside the
+window the timing found, and when the timing found no plasma nothing is measured (<code class="language-plaintext highlighter-rouge">computed = False</code> with the
+timing’s <code class="language-plaintext highlighter-rouge">fallback_reason</code>; the analysis range is never reinterpreted as a window). The rule blocks <code class="language-plaintext highlighter-rouge">ip</code>,
+<code class="language-plaintext highlighter-rouge">h_alpha</code>, each <code class="language-plaintext highlighter-rouge">lines[label]</code> and <code class="language-plaintext highlighter-rouge">diamagnetic</code> are keyword arguments of <code class="language-plaintext highlighter-rouge">vaft.process.onset.robust_peak</code>,
+keyed by the signal they were tuned on — an impurity line never borrows the H-alpha values, and <code class="language-plaintext highlighter-rouge">lines</code> may
+not carry the H-alpha label. The H-alpha peak is measured on the line that answered for the plasma (the slow
+line, the validated fast line as fallback); lines are found by their stored <code class="language-plaintext highlighter-rouge">processed_line</code> label, and a
+configured label the product lacks is <code class="language-plaintext highlighter-rouge">absent</code> while an unconfigured one simply does not appear. Every
+optical feature notes what the mapper did to its channel (<code class="language-plaintext highlighter-rouge">resampled</code>, <code class="language-plaintext highlighter-rouge">native_rate_hz</code>, <code class="language-plaintext highlighter-rouge">time_shift_s</code> for
+the fast filterscope) and whether the channel’s digitizer clipped inside the window (<code class="language-plaintext highlighter-rouge">railed</code>, judged on the
+raw maximum against <code class="language-plaintext highlighter-rouge">spectrometer_uv.CHANNEL_RAIL_LEVEL</code>; <code class="language-plaintext highlighter-rouge">None</code> for a channel with no documented rail). The
+diamagnetic value is the signed sample at the largest |deviation| (<code class="language-plaintext highlighter-rouge">polarity: absolute</code>): VEST’s stored flux
+is negative-going, so a paramagnetic shot would come back positive. <code class="language-plaintext highlighter-rouge">ip_ramp_end</code> is reserved and never
+required.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.omas.plasma_features</span> <span class="kn">import</span> <span class="n">plasma_features</span>
+
+<span class="n">features</span> <span class="o">=</span> <span class="nf">plasma_features</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">features</span><span class="p">.</span><span class="n">computed</span><span class="p">,</span> <span class="n">features</span><span class="p">.</span><span class="n">window</span>
+<span class="n">features</span><span class="p">.</span><span class="n">ip</span><span class="p">.</span><span class="n">value</span><span class="p">,</span> <span class="n">features</span><span class="p">.</span><span class="n">ip</span><span class="p">.</span><span class="n">time</span>                 <span class="c1"># A, s -- the representative peak, not the loudest sample
+</span><span class="n">features</span><span class="p">.</span><span class="n">h_alpha</span><span class="p">.</span><span class="n">value</span><span class="p">,</span> <span class="n">features</span><span class="p">.</span><span class="n">h_alpha</span><span class="p">.</span><span class="n">flags</span>       <span class="c1"># 39915: the raw maximum is a spike on the window edge
+</span><span class="n">features</span><span class="p">.</span><span class="n">lines</span><span class="p">[</span><span class="sh">"</span><span class="s">CIII_1909</span><span class="sh">"</span><span class="p">].</span><span class="n">value</span><span class="p">,</span> <span class="n">features</span><span class="p">.</span><span class="n">diamagnetic</span><span class="p">.</span><span class="n">value</span>
+</code></pre></div></div>
 
 <h2 id="tf">tf</h2>
 
@@ -1096,7 +1124,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">magnetics</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#plasma-timing-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma timing policy</a></li><li class="page-toc-item page-toc-level-3"><a href="#discharge-timing-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Discharge timing policy</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#tf" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">tf</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_active" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_active</a></li><li class="page-toc-item page-toc-level-2"><a href="#soft_x_rays" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">soft_x_rays</a></li><li class="page-toc-item page-toc-level-2"><a href="#thomson_scattering-and-charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">thomson_scattering and charge_exchange</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_passive-and-em_coupling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_passive and em_coupling</a></li><li class="page-toc-item page-toc-level-2"><a href="#dataset_description" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dataset_description</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">magnetics</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#plasma-timing-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma timing policy</a></li><li class="page-toc-item page-toc-level-3"><a href="#discharge-timing-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Discharge timing policy</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma-features-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma features policy</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#tf" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">tf</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_active" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_active</a></li><li class="page-toc-item page-toc-level-2"><a href="#soft_x_rays" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">soft_x_rays</a></li><li class="page-toc-item page-toc-level-2"><a href="#thomson_scattering-and-charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">thomson_scattering and charge_exchange</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_passive-and-em_coupling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_passive and em_coupling</a></li><li class="page-toc-item page-toc-level-2"><a href="#dataset_description" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dataset_description</a></li></ul>
     </nav>
 </aside>
 
@@ -1214,7 +1242,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-06 03:00:39 +0000"
+        "time": "2026-09-06 04:06:49 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
