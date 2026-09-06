@@ -219,7 +219,11 @@ inactive only when both fall below threshold, and arrays shorter than 2 are neve
 ODS-level event finders — `vaft.omas.find_breakdown_onset`, `find_ip_onset`, `find_pulse_duration`,
 `find_vloop_onset`, `find_pf_active_onset` — are built on the onset primitives of `vaft.process.onset`
 instead (`active_window`, `principal_pulse_onset`, `zero_crossing_after_excursion`), composed with the
-VEST source hierarchy and rules by `vaft.omas.plasma_timing` and `vaft.omas.discharge_timing`:
+VEST source hierarchy and rules by `vaft.omas.plasma_timing` and `vaft.omas.discharge_timing`. The same
+module's `robust_peak` is the representative-peak primitive behind `find_max_ip` and
+`vaft.omas.plasma_features`: the largest *sustained* excursion inside a search stretch, a candidate whose
+run at half height is narrower than `min_width_s` being refused as a spike; its `PeakRecord` carries the
+smoothed value, the grid-sample time, the raw maximum and the runs it refused:
 
 ```python
 t_bd  = vaft.omas.find_breakdown_onset(ods)     # plasma onset: H-alpha by label, current as fallback

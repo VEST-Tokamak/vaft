@@ -554,6 +554,7 @@ def test_an_isolated_spike_never_becomes_the_peak():
     filtered = robust_peak(T, y, reference_mask=T < 0.03)
     assert abs(filtered.time - PEAK_T) <= 5e-4 and filtered.value == pytest.approx(1.0, abs=0.02)
     assert "peak_is_spike" not in filtered.flags      # the median prefilter removed it before it was a candidate
+    assert "raw_max_outside_run" in filtered.flags     # but the record's loudest sample is still on record
     assert filtered.evidence["raw_max"] == pytest.approx(y[i_spike])
 
     unfiltered = robust_peak(T, y, prefilter_samples=1, reference_mask=T < 0.03)

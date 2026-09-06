@@ -259,6 +259,32 @@ events.oh_onset, events.vloop.zero_crossing, events.vloop.flags
 {coil.name: coil.time for coil in events.pf_onsets}      # None for a coil that did not fire
 ```
 
+### Plasma features policy
+
+The representative peaks of the plasma phase are a third concept beside the timing and the actuator events,
+configured in the `plasma_features` block of `vest.yaml` and read by `vaft.omas.plasma_features.plasma_features(ods)`
+(issue #409). Its `window` is `plasma_timing` — the only value: every peak is measured strictly inside the
+window the timing found, and when the timing found no plasma nothing is measured (`computed = False` with the
+timing's `fallback_reason`; the analysis range is never reinterpreted as a window). The rule blocks `ip`,
+`h_alpha`, each `lines[label]` and `diamagnetic` are keyword arguments of `vaft.process.onset.robust_peak`,
+keyed by the signal they were tuned on — an impurity line never borrows the H-alpha values, and `lines` may
+not carry the H-alpha label. The H-alpha peak is measured on the line that answered for the plasma (the slow
+line, the validated fast line as fallback); lines are found by their stored `processed_line` label, and a
+configured label the product lacks is `absent` while an unconfigured one simply does not appear. The
+diamagnetic value is the signed sample at the largest |deviation| (`polarity: absolute`): VEST's stored flux
+is negative-going, so a paramagnetic shot would come back positive. `ip_ramp_end` is reserved and never
+required.
+
+```python
+from vaft.omas.plasma_features import plasma_features
+
+features = plasma_features(ods)
+features.computed, features.window
+features.ip.value, features.ip.time                 # A, s -- the representative peak, not the loudest sample
+features.h_alpha.value, features.h_alpha.flags       # 39915: the raw maximum is a spike on the window edge
+features.lines["CIII_1909"].value, features.diamagnetic.value
+```
+
 ## tf
 
 `tf` reconstructs the toroidal field from a **Hall probe**, not from a coil current shunt. The raw signal is

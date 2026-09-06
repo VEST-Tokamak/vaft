@@ -1243,11 +1243,16 @@ def robust_peak(
     not clear ``sigma`` robust sigmas is ``peak_below_noise``.
 
     Flags on a found peak: ``peak_is_spike`` when the record's raw maximum
-    lay in a refused run (the reported peak is not the loudest sample);
-    ``peak_at_window_edge`` when the peak is within ``edge_samples`` of the
-    search stretch's edge (the excursion may continue beyond it);
-    ``peak_plateau`` when the smoothed record holds the peak value for three
-    samples or more (a railed digitizer); ``reference_flat`` when the
+    lay in a refused run; ``raw_max_outside_run`` when it lies anywhere
+    outside the accepted run (an isolated spike the prefilter removed before
+    it could be a candidate, or a second excursion) -- either way the
+    reported peak is not the loudest sample, and ``raw_max``/``raw_max_time``
+    say where that was; ``peak_at_window_edge`` when the peak is within
+    ``edge_samples`` of the search stretch's edge (the excursion may continue
+    beyond it); ``peak_plateau`` when the *raw* record holds its extreme
+    value for three consecutive samples or more inside the accepted run (a
+    railed digitizer; the median filter's own repeats do not count);
+    ``reference_flat`` when the
     reference has no spread (a peak is still reported: an integrated record
     can have an exactly zero lead).  ``time`` is always a sample of the
     input grid, or ``None`` with ``no_peak`` and one reason.
@@ -1332,16 +1337,22 @@ def robust_peak(
             "n_rejected": len(rejected),
             "run_start": float(t[start]), "run_end": float(t[stop - 1]),
         })
+        # A rail holds the raw extreme for consecutive samples; judged on the
+        # raw record inside the run, since the median filter repeats values too.
+        run_raw = raw_score[start:stop]
+        j = int(np.argmax(run_raw))
         plateau = 1
-        while i - plateau >= 0 and y[i - plateau] == y[i]:
+        while j - plateau >= 0 and run_raw[j - plateau] == run_raw[j]:
             plateau += 1
         after = 1
-        while i + after < y.size and y[i + after] == y[i]:
+        while j + after < run_raw.size and run_raw[j + after] == run_raw[j]:
             after += 1
         evidence["plateau_samples"] = plateau + after - 1
         if rejected and any(r_start <= float(t[i_raw]) <= r_end
                             for r_start, r_end in ((f.start_time, f.end_time) for _, _, f in rejected)):
             flags.append("peak_is_spike")
+        if not (start <= i_raw < stop):
+            flags.append("raw_max_outside_run")
         if i - edge_first < int(edge_samples) or edge_last - i < int(edge_samples):
             flags.append("peak_at_window_edge")
         if evidence["plateau_samples"] >= 3:
