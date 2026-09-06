@@ -324,9 +324,7 @@ def test_a_plasma_shot_contributes_the_stretch_before_breakdown(plasma_shot):
     assert evidence["boundary"] == pytest.approx(0.300, abs=1e-3)
     assert interval.end == evidence["boundary"]
     assert evidence["boundary_on_pf_grid"] is True
-    # The retired detectors are still reported, for one release.
-    assert np.isfinite(evidence["legacy"]["discharge_detector_onset"])
-    assert np.isfinite(evidence["legacy"]["sigma_crossing_onset"])
+    assert "legacy" not in evidence          # schema 3: the retired detectors are gone
     # And essentially no plasma current is left inside the accepted interval.
     assert evidence["max_abs_ip_in_interval"] < 5.0 * evidence["ip_reference_std"]
 
@@ -528,9 +526,7 @@ def test_the_packaged_case_needs_no_plasma_and_declares_its_evidence(packaged_ca
     assert evidence["boundary"] <= timing["onset"]
     assert evidence["boundary_source"] == "ip_principal"
     assert packaged_case["solver_input_window"][1] == pytest.approx(evidence["boundary"])
-    # Both retired detectors fired on PF pickup, 5.5 and 14 ms before the light.
-    legacy = evidence["legacy"]
-    assert legacy["sigma_crossing_onset"] < legacy["discharge_detector_onset"] < evidence["boundary"]
+    assert PLASMA_FREE_EVIDENCE_SCHEMA == 3 and "legacy" not in evidence
     assert evidence["max_abs_ip_in_interval"] < 20.0 * evidence["ip_reference_std"]
 
 
@@ -615,11 +611,11 @@ def test_the_evaluation_window_excludes_its_own_upper_bound(vacuum_shot):
     """Half-open, and it has to be.
 
     Both callers derive the upper bound from a plasma-onset time, and that time
-    is a grid sample -- `vfit_plasma_mgods_startend` returns
-    `float(time[start_index])`. An inclusive bound folds the plasma's first
-    sample into a nominally plasma-free window, and silently widens the
-    pre-plasma statistics the eddy stage has always reported over
-    `time < plasma_onset`.
+    is a grid sample -- every `vaft.process.onset` detector returns one, so
+    the shared timing's boundary is a sample of the grid it was found on. An
+    inclusive bound folds the plasma's first sample into a nominally
+    plasma-free window, and silently widens the pre-plasma statistics the
+    eddy stage has always reported over `time < plasma_onset`.
     """
     from vaft.omas.vacuum_magnetics import VacuumChannel, evaluation_mask
 
@@ -702,11 +698,11 @@ def test_the_packaged_shot_was_driven_through_its_validation_window(packaged_cas
 
 def test_a_shot_the_legacy_detector_cut_before_its_solenoid_is_driven_now():
     """41524 is the shot the drive gate was written for: the legacy Ip
-    discharge detector fired on PF pickup ~0.8 ms *before* the solenoid, so
-    the nominal plasma-free window carried 0.3 % of the shot's coil drive.
-    With the interval ending at the light's onset (#409) the window holds the
-    whole PF ramp and the retired detector's cut is visible in the evidence.
-    The undriven branch itself is kept alive by the synthetic case above."""
+    discharge detector (retired with evidence schema 3) fired on PF pickup
+    ~0.8 ms *before* the solenoid, so the nominal plasma-free window carried
+    0.3 % of the shot's coil drive.  With the interval ending at the light's
+    onset (#409) the window holds the whole PF ramp.  The undriven branch
+    itself is kept alive by the synthetic case above."""
     import vaft
     import vaft.omas
     from vaft.validation.vacuum_benchmark import (
@@ -724,7 +720,7 @@ def test_a_shot_the_legacy_detector_cut_before_its_solenoid_is_driven_now():
     evidence = interval["plasma_free_evidence"]
     assert evidence["plasma_timing"]["source"] == "h_alpha_primary"
     assert evidence["boundary"] == pytest.approx(0.3146, abs=1e-3)
-    assert evidence["legacy"]["discharge_detector_onset"] < evidence["boundary"] - 0.015
+    assert interval.end - interval.start > 0.05     # the whole PF ramp, not the pickup's cut
     drive = coil_drive_check(ods, (interval.start, interval.end))
     assert drive["coil_drive_fraction"] > MIN_COIL_DRIVE_FRACTION
     assert drive["sufficiently_driven"] is True

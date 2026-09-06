@@ -636,7 +636,7 @@ def correct_flux_loop(ods):
     print("Flux Loop Onset Time: ", fl_onset)
 
     # Find the plasma onset and offset time
-    (onset, offset) = vest_Halpha_tstart_tend(ods)
+    (onset, offset) = _plasma_window(ods)
     fl_onset = fl_onset + 0.003
     onset = onset - 0.003
 
@@ -1003,7 +1003,7 @@ def brokenFinder(ods, option=2):
     )
 
     # Find the plasma onset and offset time
-    (onset, offset) = vest_Halpha_tstart_tend(ods)
+    (onset, offset) = _plasma_window(ods)
     bz_calc_time = ods["pf_active.time"]
     bz_exp_time = ods["magnetics.time"]
 
@@ -1222,6 +1222,21 @@ def vest_signal_onoffsetpeak(time, data, tstart, tend, threshold):
     t_offset = time[indxe] if indxe != -1 else 0
 
     return t_onset, t_peak, t_offset
+
+
+def _plasma_window(ods):
+    """The plasma window of the shared timing, for this module's own callers.
+
+    :func:`vaft.omas.plasma_timing.plasma_timing`: H-alpha by label, the
+    current as fallback, inside the configured range; raises ``ValueError``
+    naming the reason when no source shows a plasma.
+    """
+    from vaft.omas.plasma_timing import plasma_timing
+
+    timing = plasma_timing(ods)
+    if not timing.found:
+        raise ValueError(f"no plasma window: {timing.fallback_reason}")
+    return timing.window
 
 
 def vest_Halpha_tstart_tend(ods):
