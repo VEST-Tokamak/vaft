@@ -426,10 +426,23 @@ integrals that map directly; the driven current is not -- NUBEAM reports it as a
 current and IMAS asks for `<J.B>/B0`, so it goes through
 `vaft.process.equilibrium.parallel_current_from_toroidal`, which needs equilibrium geometry and
 assumes the driven current is field-aligned. On a spherical tokamak the two differ by about a
-factor of 1.5, so the distinction is not academic. `vaft.machine_mapping.nbi` populates the
-static beam geometry. What has no IMAS home yet -- deposition markers, lost fast ions, the step
-log's power budget -- stays in the native container and is drawn by `vaft.plot.nubeam`, which is why
-those particular views are not in the plot catalog while `nbi_profile_*` are.
+factor of 1.5, so the distinction is not academic.
+
+`vaft.machine_mapping.distributions.distributions_from_nubeam` maps the other half: the fast-ion
+population itself, one `distributions.distribution` entry per beam species. `global_quantities`
+there is the exact part of the whole NUBEAM mapping -- summing a per-zone integral needs no
+division -- and it is also where NUBEAM's *toroidal* driven current survives unmodified, as
+`current_tor` and `current_fast_tor`, with none of the field-aligned assumption `core_sources`
+requires. The fast-ion pressures are derived: NUBEAM reports `eperp_beami` and `epll_beami` as
+mean energies per particle in keV, so `pressure_fast_parallel` is `2 n <E_par>` and
+`pressure_fast` the scalar `(p_par + 2 p_perp)/3`. When a run resolves more than one beam species
+the profiles NUBEAM already summed over species are skipped rather than repeated into each entry,
+which would double-count.
+
+`vaft.machine_mapping.nbi` populates the static beam geometry. What has no IMAS home yet --
+deposition markers, lost fast ions, the step log's power budget -- stays in the native container
+and is drawn by `vaft.plot.nubeam`, which is why those particular views are not in the plot
+catalog while `nbi_profile_*` are.
 
 `refine_equilibrium(source, config=None)` is the one-shot CHEASE convenience: g-file or ODS in,
 refined equilibrium out. `scan_tes(ods, base_config, values, param="ip0_kA")` sweeps a single TES
