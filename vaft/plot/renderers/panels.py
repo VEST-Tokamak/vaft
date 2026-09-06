@@ -212,11 +212,23 @@ def render_panels(
                 # a column that ends earlier needs them switched on by hand.
                 column_axes[-1].tick_params(labelbottom=True)
     if model.suptitle:
+        # tight_layout does not reserve room for a suptitle, so on a tall grid
+        # it lands on the first row's panel titles. Placing the text after the
+        # layout runs, in figure coordinates just above the axes, keeps it clear
+        # whatever the grid's shape.
         figure.suptitle(model.suptitle)
     # A figure the caller owns keeps the caller's layout: tight_layout is
     # applied only to a figure this renderer created (issue #260 section 8;
     # a figure that redraws its panels must not be re-laid-out each time).
-    return finalize(figure, grid, show=show, tight_layout=ax is None)
+    figure, grid = finalize(figure, grid, show=False, tight_layout=ax is None)
+    if model.suptitle and ax is None:
+        top = max(axis.get_position().y1 for axis in flat if axis.get_visible())
+        figure.suptitle(model.suptitle, y=min(1.0, top + 0.985 * (1.0 - top)), va="bottom")
+    if show:
+        import matplotlib.pyplot as plt
+
+        plt.show()
+    return figure, grid
 
 
 def visual_rows(model: Panels) -> int:

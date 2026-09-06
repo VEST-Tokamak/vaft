@@ -217,6 +217,21 @@ def test_panel_members_keep_the_short_recipe_title(ip_ods):
     plt.close(standalone_figure)
 
 
+def test_a_grid_suptitle_clears_the_panels_it_names():
+    """tight_layout reserves no room for a suptitle: on a tall grid it landed
+    on the first row's own titles, which is what a reader sees first."""
+    sample = vaft.omas.load(str(vaft.data.data_path("samples/39915/omas.json.gz")))
+    figure, axes = vaft.omas.plot_b_field_probe_time_field(
+        sample, selection=list(range(24)), layout="subplots"
+    )
+    drawn = [panel for panel in np.asarray(axes).ravel() if panel.get_visible()]
+    assert len(drawn) > 12  # a grid deep enough for the collision to happen
+    assert figure._suptitle is not None
+    top = max(panel.get_position().y1 for panel in drawn)
+    assert figure._suptitle.get_position()[1] >= top
+    plt.close(figure)
+
+
 def test_multi_shot_titles_leave_shot_identity_to_the_legend(ip_ods):
     figure, axes = vaft.omas.plot_plasma_current_time(
         [ip_ods, ip_ods], label=["39915", "39916"]
