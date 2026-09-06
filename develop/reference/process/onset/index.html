@@ -1,0 +1,1705 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: onset · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/process/atomic/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/process/wall_modes/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: onset</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>b5c4d46</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_onset">Process reference: onset</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.onset, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/onset.py"><code class="language-plaintext highlighter-rouge">vaft/process/onset.py</code></a>:
+13 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("onset.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>Every detector here answers one question about one waveform – <em>when does it
+become active, and on what evidence</em> – and returns an <code class="language-plaintext highlighter-rouge">OnsetRecord</code>.
+Nothing here knows what the waveform is.  The diagnostic preprocessing, the
+choice of which signal is authoritative for a <em>plasma</em> onset and the verdicts
+built on top live in <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing</code> and <code class="language-plaintext highlighter-rouge">vaft.validation</code>.</p>
+
+<p>Three ideas, kept separable because a study of the VEST raw database showed
+each does a different job.  The study is <code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py</code>
+and its table <code class="language-plaintext highlighter-rouge">test/data/onset_corpus.json</code> (its <code class="language-plaintext highlighter-rouge">summary</code> carries the
+counts); the figures quoted below are from the hand-reviewed first pass that
+motivated the rules:</p>
+
+<ul>
+  <li><strong>threshold</strong> – <code class="language-plaintext highlighter-rouge">baseline + max(fraction * peak, sigma * robust_sigma)</code>.
+The fraction-of-peak term makes the boundary independent of a channel’s
+noise floor (two H-alpha channels with a ten-fold noise difference agree to
+0.2 ms); the sigma term keeps a weak record from being thresholded at its own
+noise.</li>
+  <li><strong>persistence</strong> – the signal must stay above threshold for <code class="language-plaintext highlighter-rouge">hold_s</code>.
+0.5 ms removes the coil-firing pickup spikes from plasma-current records
+(1 false onset in 84 shots, from 51) and most isolated optical spikes.</li>
+  <li><strong>morphology</strong> – width, prominence and integral of the accepted run.  Width
+is the one that matters on that corpus: the residual false onsets after
+persistence are 0.5-1 ms flashes on failed breakdowns and the noisy burst an
+ECH switch-on induces in every channel; <code class="language-plaintext highlighter-rouge">min_width_s = 1 ms</code> removes them
+(1 in 51 non-plasma shots, and that one is genuine light).</li>
+</ul>
+
+<p>For a pulse-shaped record <code class="language-plaintext highlighter-rouge">principal_pulse_onset</code> walks back from the
+global maximum, so an isolated excursion is unreachable by construction; its
+one weakness is a record with no pulse, where the maximum <em>is</em> the pickup –
+<code class="language-plaintext highlighter-rouge">pickup_scale</code> measures the record’s own impulsive excursions and a
+floor on the pulse amplitude relative to them refuses that case.</p>
+
+<p>Two contracts every consumer can rely on: <code class="language-plaintext highlighter-rouge">OnsetRecord.time</code> is always a
+sample of the input grid (or <code class="language-plaintext highlighter-rouge">None</code>), which is what lets a half-open window
+<code class="language-plaintext highlighter-rouge">[start, onset)</code> exclude exactly the samples from the onset onward; and <em>no
+onset is never the whole record</em> – a detector that finds nothing says so with
+<code class="language-plaintext highlighter-rouge">time=None</code> and a flag, never by returning the record bounds.</p>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#active_window"><code>active_window</code></a> &mdash; The window over which a waveform is active, onset to offset.
+</li>
+  <li><a href="#excess_threshold"><code>excess_threshold</code></a> &mdash; Baseline, spread, peak and activity threshold of one waveform.
+</li>
+  <li><a href="#isolated_excursions"><code>isolated_excursions</code></a> &mdash; How many runs above a threshold are shorter than a given length.
+</li>
+  <li><a href="#median_smooth"><code>median_smooth</code></a> &mdash; Median filter that removes excursions shorter than half the kernel.
+</li>
+  <li><a href="#pickup_scale"><code>pickup_scale</code></a> &mdash; The record’s own impulsive-excursion amplitude.
+</li>
+  <li><a href="#principal_pulse_onset"><code>principal_pulse_onset</code></a> &mdash; Onset of the pulse that contains the global maximum.
+</li>
+  <li><a href="#principal_pulse_window"><code>principal_pulse_window</code></a> &mdash; <code class="language-plaintext highlighter-rouge">(onset, offset)</code> of the pulse holding the global maximum.
+</li>
+  <li><a href="#robust_baseline"><code>robust_baseline</code></a> &mdash; Median and robust sigma (<code class="language-plaintext highlighter-rouge">1.4826 * MAD</code>) over the reference samples.
+</li>
+  <li><a href="#robust_peak"><code>robust_peak</code></a> &mdash; The representative peak of a record: its largest sustained excursion, not its loudest sample.
+</li>
+  <li><a href="#run_features"><code>run_features</code></a> &mdash; Width, peak, prominence and integral of one run above a baseline.
+</li>
+  <li><a href="#sustained_excess_onset"><code>sustained_excess_onset</code></a> &mdash; First run above the threshold that persists and has the right shape.
+</li>
+  <li><a href="#zero_crossing_after_excursion"><code>zero_crossing_after_excursion</code></a> &mdash; First sample after an anchored excursion where the record changes sign.
+</li>
+  <li><a href="#zero_phase_lowpass"><code>zero_phase_lowpass</code></a> &mdash; Forward-backward Butterworth low-pass: no group delay.
+</li>
+</ul>
+
+<h3 id="active_window"><code class="language-plaintext highlighter-rouge">active_window</code></h3>
+
+<p class="formula-signature"><code>active_window(time, values, *, fraction=0.02, sigma=5.0, hold_s=0.0005, min_width_s=0.0, min_prominence_sigma=0.0, min_integral_fraction=0.0, gap_s=0.001, post_quiet_s=0.002, principal_only=False, pickup_floor=0.0, impulse_max_s=0.002, reference_mask=None, reference_fraction=0.2, trailing_fraction=0.1, trailing_max_fraction=0.1, end_fraction=None, collapse_fallback=True, collapse_rate_fraction=0.1, collapse_min_drop=0.5, search_mask=None, prefilter_samples=1, cutoff_hz=None, fs=None, order=4)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The window over which a waveform is active, onset to offset.</p>
+
+<p>The detector behind every plasma window in VAFT: what the onset detectors do
+for the start, plus the harder half, which is where a pulse <em>ends</em>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Time grid of the record.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The waveform.</p>
+</td></tr>
+  <tr><td><code>fraction</code></td><td>float, optional</td><td>-</td><td><p>Fraction-of-peak term of the onset threshold.</p>
+</td></tr>
+  <tr><td><code>sigma</code></td><td>float, optional</td><td>-</td><td><p>Robust-sigma term of the onset threshold.</p>
+</td></tr>
+  <tr><td><code>hold_s</code></td><td>float, optional</td><td>s</td><td><p>How long a run must stay above the threshold to be a segment.</p>
+</td></tr>
+  <tr><td><code>min_width_s</code></td><td>float, optional</td><td>s</td><td><p>Shortest accepted segment; <code class="language-plaintext highlighter-rouge">0</code> disables the test.</p>
+</td></tr>
+  <tr><td><code>min_prominence_sigma</code></td><td>float, optional</td><td>-</td><td><p>How far a segment must rise above its surroundings, in robust sigmas; <code class="language-plaintext highlighter-rouge">0</code> disables the test.</p>
+</td></tr>
+  <tr><td><code>min_integral_fraction</code></td><td>float, optional</td><td>-</td><td><p>Fraction of the record’s total positive excess a segment must carry; <code class="language-plaintext highlighter-rouge">0</code> disables the test.</p>
+</td></tr>
+  <tr><td><code>gap_s</code></td><td>float, optional</td><td>s</td><td><p>Longest dip below the threshold that does not split a segment.</p>
+</td></tr>
+  <tr><td><code>post_quiet_s</code></td><td>float, optional</td><td>s</td><td><p>A segment beginning within this of the previous one’s end is merged into it.</p>
+</td></tr>
+  <tr><td><code>principal_only</code></td><td>bool, optional</td><td>-</td><td><p>Keep only the segment holding the global maximum.</p>
+</td></tr>
+  <tr><td><code>pickup_floor</code></td><td>float, optional</td><td>-</td><td><p>Principal-segment floor relative to <code class="language-plaintext highlighter-rouge">pickup_scale</code>; <code class="language-plaintext highlighter-rouge">0</code> disables the test.</p>
+</td></tr>
+  <tr><td><code>impulse_max_s</code></td><td>float, optional</td><td>s</td><td><p>Longest run still treated as an impulse.</p>
+</td></tr>
+  <tr><td><code>reference_mask</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>Samples that define the quiet reference; <code class="language-plaintext highlighter-rouge">None</code> selects the leading <code class="language-plaintext highlighter-rouge">reference_fraction</code> of the record.</p>
+</td></tr>
+  <tr><td><code>reference_fraction</code></td><td>float, optional</td><td>-</td><td><p>Fraction of the record used as the reference when no mask is given.</p>
+</td></tr>
+  <tr><td><code>trailing_fraction</code></td><td>float, optional</td><td>-</td><td><p>Fraction of the record at its end used as the trailing reference.</p>
+</td></tr>
+  <tr><td><code>trailing_max_fraction</code></td><td>float, optional</td><td>-</td><td><p>How far above the leading baseline that trailing level may sit, as a fraction of the peak, for it to be used at all.</p>
+</td></tr>
+  <tr><td><code>end_fraction</code></td><td>float or None, optional</td><td>-</td><td><p>Fraction of the peak the signal must fall below, above the trailing level, for the window to end; <code class="language-plaintext highlighter-rouge">fraction</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
+</td></tr>
+  <tr><td><code>collapse_fallback</code></td><td>bool, optional</td><td>-</td><td><p>Whether to end a window that never falls below the end threshold at the last steep fall.</p>
+</td></tr>
+  <tr><td><code>collapse_rate_fraction</code></td><td>float, optional</td><td>-</td><td><p>How steep that fall must be, as a fraction of the steepest fall in the record.</p>
+</td></tr>
+  <tr><td><code>collapse_min_drop</code></td><td>float, optional</td><td>-</td><td><p>Fraction of the level present before the fall that it must remove.</p>
+</td></tr>
+  <tr><td><code>search_mask</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>Samples the detector may look at; the peak that scales the threshold is taken inside it too.  <code class="language-plaintext highlighter-rouge">None</code> is the whole record.</p>
+</td></tr>
+  <tr><td><code>prefilter_samples</code></td><td>int, optional</td><td>-</td><td><p>Median-filter kernel applied first; <code class="language-plaintext highlighter-rouge">1</code> means no filtering.</p>
+</td></tr>
+  <tr><td><code>cutoff_hz</code></td><td>float or None, optional</td><td>Hz</td><td><p>Zero-phase low-pass cutoff; <code class="language-plaintext highlighter-rouge">None</code> leaves the record unfiltered.</p>
+</td></tr>
+  <tr><td><code>fs</code></td><td>float or None, optional</td><td>Hz</td><td><p>Sample rate; inferred from <code class="language-plaintext highlighter-rouge">time</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
+</td></tr>
+  <tr><td><code>order</code></td><td>int, optional</td><td>-</td><td><p>Butterworth order of that low-pass.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>PulseWindow</td><td>s</td><td><p><code class="language-plaintext highlighter-rouge">onset</code> and <code class="language-plaintext highlighter-rouge">offset</code> records, both on samples of the input grid, the accepted <code class="language-plaintext highlighter-rouge">segments</code> in time order, and the flags that say what the window is not: <code class="language-plaintext highlighter-rouge">offset_at_record_end</code> (still active at the last sample), <code class="language-plaintext highlighter-rouge">onset_at_record_start</code>, <code class="language-plaintext highlighter-rouge">multiple_segments</code>, <code class="language-plaintext highlighter-rouge">offset_from_collapse</code>, <code class="language-plaintext highlighter-rouge">trailing_segment_dropped</code>, <code class="language-plaintext highlighter-rouge">offset_threshold_above_peak</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Median-filter over <code class="language-plaintext highlighter-rouge">prefilter_samples</code>, low-pass (zero-phase) when a
+<code class="language-plaintext highlighter-rouge">cutoff_hz</code> is given and the grid can carry it.</li>
+  <li>Threshold as <code class="language-plaintext highlighter-rouge">excess_threshold</code> against the leading reference.</li>
+  <li>Bridge dips shorter than <code class="language-plaintext highlighter-rouge">gap_s</code>; keep the runs that pass persistence
+(<code class="language-plaintext highlighter-rouge">hold_s</code>) and morphology as segments; merge a segment that begins
+within <code class="language-plaintext highlighter-rouge">post_quiet_s</code> of the previous one’s end into it, so a brief
+quiet moment does not end the window while a real gap does.</li>
+  <li>With <code class="language-plaintext highlighter-rouge">principal_only</code>, keep only the segment holding the global maximum,
+guarded by the impulsive-run and <code class="language-plaintext highlighter-rouge">pickup_floor</code> rules of
+<code class="language-plaintext highlighter-rouge">principal_pulse_onset</code>; otherwise the window is the envelope of
+every segment and <code class="language-plaintext highlighter-rouge">multiple_segments</code> says when there is more than one.</li>
+  <li>Judge the offset against a <em>trailing</em> reference – the last
+<code class="language-plaintext highlighter-rouge">trailing_fraction</code> of the record, used only when it is quiet (spread
+within three times the leading one) and sits below
+<code class="language-plaintext highlighter-rouge">trailing_max_fraction</code> of the peak – at <code class="language-plaintext highlighter-rouge">end_fraction</code> of the peak
+above it.  Where that end threshold is never crossed and
+<code class="language-plaintext highlighter-rouge">collapse_fallback</code> is on, end the window at the end of the <em>last</em> steep
+fall after the peak (<code class="language-plaintext highlighter-rouge">collapse_rate_fraction</code>, <code class="language-plaintext highlighter-rouge">collapse_min_drop</code>)
+and flag <code class="language-plaintext highlighter-rouge">offset_from_collapse</code>.</li>
+</ol>
+
+<p>The baseline after a pulse need not be the one before it: a VEST
+plasma-current record settles a few percent of its peak above zero once the
+plasma is gone, and after a termination the Rogowski keeps reading the induced
+vessel current – a few to ten percent of the peak, decaying over tens of
+milliseconds – which no level between it and the trailing baseline separates
+from plasma.  The collapse does.  The last fall, not the steepest: a plasma
+survives a mid-pulse drop and terminates later.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The signature values are numerical convenience; <code class="language-plaintext highlighter-rouge">trailing_fraction</code>,
+<code class="language-plaintext highlighter-rouge">trailing_max_fraction</code>, <code class="language-plaintext highlighter-rouge">collapse_rate_fraction</code> and
+<code class="language-plaintext highlighter-rouge">collapse_min_drop</code> are empirical, fixed on the hand-reviewed VEST
+discharges and then checked against the whole corpus [corpus].  The VEST
+values a pipeline actually runs with are policy [vest.yaml].</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">offset.time</code> is the <em>last</em> sample of the pulse – the last sample above the
+end threshold, or, with <code class="language-plaintext highlighter-rouge">offset_from_collapse</code>, the last sample of the
+quench that ended it – so a half-open consumer window is
+<code class="language-plaintext highlighter-rouge">[onset.time, time[offset.index + 1])</code>.  A window is never assumed: nothing
+here reports the record bounds when it found no pulse.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The end rule is the weak one.  A disruption’s vessel-current tail can sit at a
+third of the peak for a hundred milliseconds, above any end threshold that
+still separates plasma from a normal termination, and is then ended by the
+collapse fallback rather than by the threshold.  Thirteen shots of the corpus
+reach the <code class="language-plaintext highlighter-rouge">offset_threshold_above_peak</code> guard, where the trailing level and
+the peak leave no usable end threshold; they are flagged, not repaired,
+tracked in issue #409.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #409, which introduced these primitives and fixed their rules against the VEST raw database.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py</code> and the table it writes, <code class="language-plaintext highlighter-rouge">test/data/onset_corpus.json</code>: the scan of VEST shots 39900-41700 the thresholds, hold times and widths were judged on.
+</li>
+  <li>The VEST values for these rules are policy, not defaults: <code class="language-plaintext highlighter-rouge">vaft/machine_mapping/vest.yaml</code> carries them in <code class="language-plaintext highlighter-rouge">plasma_timing</code>, <code class="language-plaintext highlighter-rouge">discharge_timing</code> and <code class="language-plaintext highlighter-rouge">plasma_features</code>, resolved by <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.utils</code> and passed in by <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing</code>, <code class="language-plaintext highlighter-rouge">vaft.omas.discharge_timing</code> and <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_features</code>.
+</li>
+</ol>
+
+<h3 id="excess_threshold"><code class="language-plaintext highlighter-rouge">excess_threshold</code></h3>
+
+<p class="formula-signature"><code>excess_threshold(values, reference_mask, *, fraction, sigma, search_mask=None)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Baseline, spread, peak and activity threshold of one waveform.</p>
+
+<p>The threshold is <code class="language-plaintext highlighter-rouge">baseline + max(fraction * peak, sigma * robust_sigma)</code>.
+The fraction-of-peak term makes the boundary independent of a channel’s noise
+floor – two VEST H-alpha channels with a ten-fold noise difference agree to
+0.2 ms on it – and the sigma term keeps a weak record from being thresholded
+at its own noise.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The waveform.</p>
+</td></tr>
+  <tr><td><code>reference_mask</code></td><td>array_like of bool or None</td><td>-</td><td><p>Samples that define the quiet reference, passed to <code class="language-plaintext highlighter-rouge">robust_baseline</code>.</p>
+</td></tr>
+  <tr><td><code>fraction</code></td><td>float</td><td>-</td><td><p>Fraction of the peak excess the threshold sits at.</p>
+</td></tr>
+  <tr><td><code>sigma</code></td><td>float</td><td>-</td><td><p>Number of robust sigmas the threshold sits at.</p>
+</td></tr>
+  <tr><td><code>search_mask</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>Samples the detector may look at; the peak that scales the threshold is taken inside it too.  <code class="language-plaintext highlighter-rouge">None</code> is the whole record.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>baseline</code></td><td>float</td><td>any</td><td><p>Median of the reference samples.</p>
+</td></tr>
+  <tr><td><code>robust_sigma</code></td><td>float</td><td>any</td><td><p>Robust sigma of the reference samples.</p>
+</td></tr>
+  <tr><td><code>peak</code></td><td>float</td><td>any</td><td><p>Largest excess over the baseline inside the search mask, <code class="language-plaintext highlighter-rouge">nan</code> when the baseline is not finite or the mask selects nothing.</p>
+</td></tr>
+  <tr><td><code>threshold</code></td><td>float</td><td>any</td><td><p>The activity threshold, in the units of the record, not of the excess</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p>None; both terms are the caller’s.  The VEST values are a machine-specific
+setting [vest.yaml].</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A negative peak (every sample below the baseline inside the mask) contributes
+nothing: the fraction term is clipped at zero and the threshold falls back to
+the sigma term.  Detectors treat a non-finite baseline or threshold as <em>no
+evidence</em> rather than thresholding on it.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #409, which introduced these primitives and fixed their rules against the VEST raw database.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py</code> and the table it writes, <code class="language-plaintext highlighter-rouge">test/data/onset_corpus.json</code>: the scan of VEST shots 39900-41700 the thresholds, hold times and widths were judged on.
+</li>
+  <li>The VEST values for these rules are policy, not defaults: <code class="language-plaintext highlighter-rouge">vaft/machine_mapping/vest.yaml</code> carries them in <code class="language-plaintext highlighter-rouge">plasma_timing</code>, <code class="language-plaintext highlighter-rouge">discharge_timing</code> and <code class="language-plaintext highlighter-rouge">plasma_features</code>, resolved by <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.utils</code> and passed in by <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing</code>, <code class="language-plaintext highlighter-rouge">vaft.omas.discharge_timing</code> and <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_features</code>.
+</li>
+</ol>
+
+<h3 id="isolated_excursions"><code class="language-plaintext highlighter-rouge">isolated_excursions</code></h3>
+
+<p class="formula-signature"><code>isolated_excursions(values, threshold, max_run_samples)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>How many runs above a threshold are shorter than a given length.</p>
+
+<p>The count of spikes a record carries: the detectors report it as
+<code class="language-plaintext highlighter-rouge">isolated_excursions_before_onset</code> so a consumer can see how noisy the
+stretch before an onset was without re-reading the waveform.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The waveform.</p>
+</td></tr>
+  <tr><td><code>threshold</code></td><td>float</td><td>any</td><td><p>Level a sample must exceed to be part of a run.</p>
+</td></tr>
+  <tr><td><code>max_run_samples</code></td><td>int</td><td>-</td><td><p>Runs strictly shorter than this many samples are counted.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>int</td><td>-</td><td><p>Number of such runs.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Purely a count: which runs, and where, is not reported.  The detectors keep
+the runs they rejected, with reasons, in <code class="language-plaintext highlighter-rouge">OnsetRecord.rejected</code>.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #409, which introduced these primitives and fixed their rules against the VEST raw database.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py</code> and the table it writes, <code class="language-plaintext highlighter-rouge">test/data/onset_corpus.json</code>: the scan of VEST shots 39900-41700 the thresholds, hold times and widths were judged on.
+</li>
+</ol>
+
+<h3 id="median_smooth"><code class="language-plaintext highlighter-rouge">median_smooth</code></h3>
+
+<p class="formula-signature"><code>median_smooth(values, kernel_samples)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Median filter that removes excursions shorter than half the kernel.</p>
+
+<p>The prefilter every optical detector runs first: an isolated digitizer spike
+is not evidence of light, and a median of an odd kernel removes any excursion
+narrower than half of it without moving the edges of the ones it keeps.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The waveform; non-finite samples are linearly interpolated first.</p>
+</td></tr>
+  <tr><td><code>kernel_samples</code></td><td>int</td><td>-</td><td><p>Median kernel width in samples, forced odd; <code class="language-plaintext highlighter-rouge">1</code> or less returns the finite-filled input unchanged.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>numpy.ndarray</td><td>any</td><td><p>The filtered waveform, same length and grid as the input.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p>None; the kernel is the caller’s.  The VEST widths are a machine-specific
+setting [vest.yaml]: five samples on the slow optical and current
+channels, one (no filtering) where the rule wants the raw record.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Zero-phase by construction: a median filter of an odd kernel introduces no
+group delay, so an onset read off the output is not shifted from the input’s.
+An even <code class="language-plaintext highlighter-rouge">kernel_samples</code> is incremented rather than applied, because an even
+median averages two order statistics and does shift edges.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A kernel at or above the record length is clipped to the longest odd kernel
+that fits.  A flat top wider than the kernel survives, which is what lets
+<code class="language-plaintext highlighter-rouge">robust_peak</code> still see a railed digitizer.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #409, which introduced these primitives and fixed their rules against the VEST raw database.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py</code> and the table it writes, <code class="language-plaintext highlighter-rouge">test/data/onset_corpus.json</code>: the scan of VEST shots 39900-41700 the thresholds, hold times and widths were judged on.
+</li>
+</ol>
+
+<h3 id="pickup_scale"><code class="language-plaintext highlighter-rouge">pickup_scale</code></h3>
+
+<p class="formula-signature"><code>pickup_scale(values, baseline, robust_sigma, dt, *, impulse_max_s=0.002, sigma=6.0)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The record’s own impulsive-excursion amplitude.</p>
+
+<p>The largest absolute excess over the baseline among runs above
+<code class="language-plaintext highlighter-rouge">sigma * robust_sigma</code> that last less than <code class="language-plaintext highlighter-rouge">impulse_max_s</code> – on a
+plasma-current record, the coil-firing pickup measured on that very shot.
+<code class="language-plaintext highlighter-rouge">principal_pulse_onset</code> compares a candidate pulse against it, which is
+what refuses a record whose maximum <em>is</em> the pickup.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The waveform.</p>
+</td></tr>
+  <tr><td><code>baseline</code></td><td>float</td><td>any</td><td><p>Level the excess is measured from.</p>
+</td></tr>
+  <tr><td><code>robust_sigma</code></td><td>float</td><td>any</td><td><p>Robust spread of the reference, as returned by <code class="language-plaintext highlighter-rouge">robust_baseline</code>.</p>
+</td></tr>
+  <tr><td><code>dt</code></td><td>float</td><td>s</td><td><p>Sample spacing, used to turn <code class="language-plaintext highlighter-rouge">impulse_max_s</code> into samples.</p>
+</td></tr>
+  <tr><td><code>impulse_max_s</code></td><td>float, optional</td><td>s</td><td><p>Longest run still counted as an impulse.</p>
+</td></tr>
+  <tr><td><code>sigma</code></td><td>float, optional</td><td>-</td><td><p>Number of robust sigmas a sample must clear to be part of a run.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>any</td><td><p>The largest such excursion, or <code class="language-plaintext highlighter-rouge">0.0</code> when there is none or the baseline or spread is not usable.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">sigma = 6</code> is empirical and deliberately above the detectors’ five: white
+noise does not reach six sigma in a record of a few thousand samples, so the
+scale measures pickup rather than the noise tail.  <code class="language-plaintext highlighter-rouge">impulse_max_s = 2 ms</code>
+is empirical too, the longest coil-firing transient seen on VEST
+plasma-current records [corpus].</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Absolute: a pickup transient of either sign counts, because the induced
+excursion’s polarity depends on the coil and the winding, not on the plasma.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  Both defaults were fixed on VEST records.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The scale is measured wherever the caller points it.  Inside a pulse the
+pulse’s own noisy threshold crossings would be counted, so
+<code class="language-plaintext highlighter-rouge">principal_pulse_onset</code> measures it outside the principal run, one
+impulse length clear of both edges.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #409, which introduced these primitives and fixed their rules against the VEST raw database.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py</code> and the table it writes, <code class="language-plaintext highlighter-rouge">test/data/onset_corpus.json</code>: the scan of VEST shots 39900-41700 the thresholds, hold times and widths were judged on.
+</li>
+</ol>
+
+<h3 id="principal_pulse_onset"><code class="language-plaintext highlighter-rouge">principal_pulse_onset</code></h3>
+
+<p class="formula-signature"><code>principal_pulse_onset(time, values, *, fraction=0.02, sigma=5.0, reference_mask=None, reference_fraction=0.2, search_mask=None, cutoff_hz=None, fs=None, order=4, pickup_floor=3.0, impulse_max_s=0.002, bridge_samples=2)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Onset of the pulse that contains the global maximum.</p>
+
+<p>An excursion not connected to the maximum can never be chosen, which is what
+makes this the detector for a record known to be pulse-shaped.  A record with
+no pulse has its maximum <em>at</em> the pickup, and two floors guard that case.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Time grid of the record.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The waveform.</p>
+</td></tr>
+  <tr><td><code>fraction</code></td><td>float, optional</td><td>-</td><td><p>Fraction-of-peak term of the threshold.</p>
+</td></tr>
+  <tr><td><code>sigma</code></td><td>float, optional</td><td>-</td><td><p>Robust-sigma term of the threshold.</p>
+</td></tr>
+  <tr><td><code>reference_mask</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>Samples that define the quiet reference; <code class="language-plaintext highlighter-rouge">None</code> selects the leading <code class="language-plaintext highlighter-rouge">reference_fraction</code> of the record.</p>
+</td></tr>
+  <tr><td><code>reference_fraction</code></td><td>float, optional</td><td>-</td><td><p>Fraction of the record used as the reference when no mask is given.</p>
+</td></tr>
+  <tr><td><code>search_mask</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>Samples the detector may look at; the peak that scales the threshold is taken inside it too.  <code class="language-plaintext highlighter-rouge">None</code> is the whole record.</p>
+</td></tr>
+  <tr><td><code>cutoff_hz</code></td><td>float or None, optional</td><td>Hz</td><td><p>Zero-phase low-pass cutoff; <code class="language-plaintext highlighter-rouge">None</code> leaves the record unfiltered.</p>
+</td></tr>
+  <tr><td><code>fs</code></td><td>float or None, optional</td><td>Hz</td><td><p>Sample rate; inferred from <code class="language-plaintext highlighter-rouge">time</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
+</td></tr>
+  <tr><td><code>order</code></td><td>int, optional</td><td>-</td><td><p>Butterworth order of that low-pass.</p>
+</td></tr>
+  <tr><td><code>pickup_floor</code></td><td>float, optional</td><td>-</td><td><p>How many times the record’s own impulsive scale the pulse must exceed; <code class="language-plaintext highlighter-rouge">0</code> disables the test.</p>
+</td></tr>
+  <tr><td><code>impulse_max_s</code></td><td>float, optional</td><td>s</td><td><p>Longest run still treated as an impulse, both for the principal-run test and for <code class="language-plaintext highlighter-rouge">pickup_scale</code>.</p>
+</td></tr>
+  <tr><td><code>bridge_samples</code></td><td>int, optional</td><td>-</td><td><p>Longest dip below the threshold that does not split the run.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>OnsetRecord</td><td>s</td><td><p><code class="language-plaintext highlighter-rouge">time</code> is the first sample of the principal run, or <code class="language-plaintext highlighter-rouge">None</code> with <code class="language-plaintext highlighter-rouge">no_onset</code> and one of <code class="language-plaintext highlighter-rouge">peak_below_noise</code>, <code class="language-plaintext highlighter-rouge">principal_run_impulsive</code>, <code class="language-plaintext highlighter-rouge">peak_below_pickup_floor</code>, <code class="language-plaintext highlighter-rouge">search_mask_empty</code> or <code class="language-plaintext highlighter-rouge">record_too_short</code>. <code class="language-plaintext highlighter-rouge">evidence</code> carries the threshold terms, the peak’s time and index and the measured <code class="language-plaintext highlighter-rouge">pickup_scale</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Low-pass the record (zero-phase) when a <code class="language-plaintext highlighter-rouge">cutoff_hz</code> is given and the
+grid can carry it; otherwise flag <code class="language-plaintext highlighter-rouge">lowpass_skipped</code>.</li>
+  <li>Settle the reference, measure baseline and spread, threshold as
+<code class="language-plaintext highlighter-rouge">excess_threshold</code>.</li>
+  <li>Refuse when the peak does not clear <code class="language-plaintext highlighter-rouge">sigma</code> robust sigmas
+(<code class="language-plaintext highlighter-rouge">peak_below_noise</code>).</li>
+  <li>Walk back and forward from the maximum inside <code class="language-plaintext highlighter-rouge">search_mask</code> while the
+excess stays above the threshold; that connected run is the pulse.</li>
+  <li>Refuse a run narrower than <code class="language-plaintext highlighter-rouge">impulse_max_s</code> (<code class="language-plaintext highlighter-rouge">principal_run_impulsive</code>)
+and a peak below <code class="language-plaintext highlighter-rouge">pickup_floor</code> times <code class="language-plaintext highlighter-rouge">pickup_scale</code> measured
+outside the run (<code class="language-plaintext highlighter-rouge">peak_below_pickup_floor</code>); otherwise the onset is the
+run’s first sample.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>Numerical convenience, as in <code class="language-plaintext highlighter-rouge">sustained_excess_onset</code>; <code class="language-plaintext highlighter-rouge">pickup_floor</code>
+and <code class="language-plaintext highlighter-rouge">impulse_max_s</code> are empirical, fixed on VEST plasma-current records
+[corpus].  The VEST values are policy [vest.yaml].</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The onset is the run’s first sample.  The low-pass is zero-phase, so the
+onset is not shifted by the filtering.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Only for a record whose activity is one pulse: on a record with two comparable
+pulses the answer is the onset of whichever holds the maximum, with no flag
+saying the other exists.  <code class="language-plaintext highlighter-rouge">active_window</code> reports that case as
+<code class="language-plaintext highlighter-rouge">multiple_segments</code>.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #409, which introduced these primitives and fixed their rules against the VEST raw database.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py</code> and the table it writes, <code class="language-plaintext highlighter-rouge">test/data/onset_corpus.json</code>: the scan of VEST shots 39900-41700 the thresholds, hold times and widths were judged on.
+</li>
+  <li>The VEST values for these rules are policy, not defaults: <code class="language-plaintext highlighter-rouge">vaft/machine_mapping/vest.yaml</code> carries them in <code class="language-plaintext highlighter-rouge">plasma_timing</code>, <code class="language-plaintext highlighter-rouge">discharge_timing</code> and <code class="language-plaintext highlighter-rouge">plasma_features</code>, resolved by <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.utils</code> and passed in by <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing</code>, <code class="language-plaintext highlighter-rouge">vaft.omas.discharge_timing</code> and <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_features</code>.
+</li>
+</ol>
+
+<h3 id="principal_pulse_window"><code class="language-plaintext highlighter-rouge">principal_pulse_window</code></h3>
+
+<p class="formula-signature"><code>principal_pulse_window(time, values, **kwargs)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p><code class="language-plaintext highlighter-rouge">(onset, offset)</code> of the pulse holding the global maximum.</p>
+
+<p>One <code class="language-plaintext highlighter-rouge">active_window</code> call with <code class="language-plaintext highlighter-rouge">principal_only=True</code> and the principal
+defaults, for callers that want the pair of records rather than the window
+object.  Every other keyword argument is forwarded to <code class="language-plaintext highlighter-rouge">active_window</code>
+unchanged.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Time grid of the record.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The waveform.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>onset</code></td><td>OnsetRecord</td><td>s</td><td><p>The principal run’s first sample – exactly what <code class="language-plaintext highlighter-rouge">principal_pulse_onset</code> returns – or <code class="language-plaintext highlighter-rouge">None</code> with the window’s flags.</p>
+</td></tr>
+  <tr><td><code>offset</code></td><td>OnsetRecord</td><td>s</td><td><p>The principal run’s last sample, carrying the window’s flags, so <code class="language-plaintext highlighter-rouge">offset_at_record_end</code> and <code class="language-plaintext highlighter-rouge">offset_from_collapse</code> reach a caller that never sees the <code class="language-plaintext highlighter-rouge">PulseWindow</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">pickup_floor = 3</code> and <code class="language-plaintext highlighter-rouge">hold_s = 0</code> are set here unless the caller
+overrides them: empirical, and the pair that makes this agree with
+<code class="language-plaintext highlighter-rouge">principal_pulse_onset</code> – the pulse is the run holding the maximum, so
+persistence is redundant and the pickup floor does the refusing.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Both records carry the <em>window’s</em> evidence rather than an onset detector’s, so
+<code class="language-plaintext highlighter-rouge">evidence</code> is keyed as <code class="language-plaintext highlighter-rouge">active_window</code> keys it.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #409, which introduced these primitives and fixed their rules against the VEST raw database.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py</code> and the table it writes, <code class="language-plaintext highlighter-rouge">test/data/onset_corpus.json</code>: the scan of VEST shots 39900-41700 the thresholds, hold times and widths were judged on.
+</li>
+</ol>
+
+<h3 id="robust_baseline"><code class="language-plaintext highlighter-rouge">robust_baseline</code></h3>
+
+<p class="formula-signature"><code>robust_baseline(values, reference_mask=None)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Median and robust sigma (<code class="language-plaintext highlighter-rouge">1.4826 * MAD</code>) over the reference samples.</p>
+
+<p>The MAD is computed here rather than through <code class="language-plaintext highlighter-rouge">vaft.formula</code> so this module
+stays a scipy-only import.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The waveform.</p>
+</td></tr>
+  <tr><td><code>reference_mask</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>Samples to measure over; <code class="language-plaintext highlighter-rouge">None</code> uses all of them.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>baseline</code></td><td>float</td><td>any</td><td><p>Median of the finite reference samples, <code class="language-plaintext highlighter-rouge">nan</code> when fewer than two exist.</p>
+</td></tr>
+  <tr><td><code>robust_sigma</code></td><td>float</td><td>any</td><td><p><code class="language-plaintext highlighter-rouge">1.4826</code> times the median absolute deviation about that median, on the same samples, <code class="language-plaintext highlighter-rouge">nan</code> under the same condition.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The MAD-to-sigma factor <code class="language-plaintext highlighter-rouge">1.4826</code> (<code class="language-plaintext highlighter-rouge">MAD_TO_SIGMA</code>) is a physical constant
+of the Gaussian distribution, not a tuning value: it makes the returned
+spread equal the standard deviation for Gaussian noise.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>The reference samples are quiet.  Nothing here checks that; a caller that
+cannot guarantee it asks a detector, which settles the reference itself and
+flags <code class="language-plaintext highlighter-rouge">reference_contaminated</code>.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">(nan, nan)</code> on fewer than two finite reference samples, so a caller can
+flag the reference rather than threshold against garbage.  A reference of
+identical samples gives <code class="language-plaintext highlighter-rouge">robust_sigma == 0</code>; a threshold built on it
+degenerates to the fraction-of-peak term alone.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #409, which introduced these primitives and fixed their rules against the VEST raw database.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py</code> and the table it writes, <code class="language-plaintext highlighter-rouge">test/data/onset_corpus.json</code>: the scan of VEST shots 39900-41700 the thresholds, hold times and widths were judged on.
+</li>
+</ol>
+
+<h3 id="robust_peak"><code class="language-plaintext highlighter-rouge">robust_peak</code></h3>
+
+<p class="formula-signature"><code>robust_peak(time, values, *, polarity='positive', prefilter_samples=5, cutoff_hz=None, fs=None, order=4, sigma=5.0, level_fraction=0.5, min_width_s=0.001, max_candidates=8, edge_samples=1, impulse_max_s=0.002, reference_mask=None, reference_fraction=0.2, search_mask=None, bridge_samples=2)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The representative peak of a record: its largest sustained excursion, not its loudest sample.</p>
+
+<p>The measurement behind every peak value VAFT reports – the plasma current, a
+line’s brightness, the diamagnetic flux – for records where the loudest
+sample is routinely a coil-firing impulse or a digitizer glitch.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Time grid of the record.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The waveform.</p>
+</td></tr>
+  <tr><td><code>polarity</code></td><td>{'positive', 'negative', 'absolute'}, optional</td><td>-</td><td><p>What counts as up.</p>
+</td></tr>
+  <tr><td><code>prefilter_samples</code></td><td>int, optional</td><td>-</td><td><p>Median-filter kernel applied first; <code class="language-plaintext highlighter-rouge">1</code> means no filtering.</p>
+</td></tr>
+  <tr><td><code>cutoff_hz</code></td><td>float or None, optional</td><td>Hz</td><td><p>Zero-phase low-pass cutoff; <code class="language-plaintext highlighter-rouge">None</code> leaves the record unfiltered.</p>
+</td></tr>
+  <tr><td><code>fs</code></td><td>float or None, optional</td><td>Hz</td><td><p>Sample rate; inferred from <code class="language-plaintext highlighter-rouge">time</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
+</td></tr>
+  <tr><td><code>order</code></td><td>int, optional</td><td>-</td><td><p>Butterworth order of that low-pass.</p>
+</td></tr>
+  <tr><td><code>sigma</code></td><td>float, optional</td><td>-</td><td><p>How many robust sigmas the excursion must clear.</p>
+</td></tr>
+  <tr><td><code>level_fraction</code></td><td>float, optional</td><td>-</td><td><p>Height at which the run holding a candidate is measured, as a fraction of the candidate’s own excursion.</p>
+</td></tr>
+  <tr><td><code>min_width_s</code></td><td>float, optional</td><td>s</td><td><p>How long that run must last for the candidate to be a peak rather than a spike.</p>
+</td></tr>
+  <tr><td><code>max_candidates</code></td><td>int, optional</td><td>-</td><td><p>How many candidates may be refused before the record is given up on; must be at least 1.</p>
+</td></tr>
+  <tr><td><code>edge_samples</code></td><td>int, optional</td><td>-</td><td><p>How close to the edge of the search stretch a peak may lie before <code class="language-plaintext highlighter-rouge">peak_at_window_edge</code> is flagged.</p>
+</td></tr>
+  <tr><td><code>impulse_max_s</code></td><td>float, optional</td><td>s</td><td><p>Longest run treated as an impulse, for both the refusal mask and the reported <code class="language-plaintext highlighter-rouge">pickup_scale</code>.</p>
+</td></tr>
+  <tr><td><code>reference_mask</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>Samples that define the quiet reference; <code class="language-plaintext highlighter-rouge">None</code> selects the leading <code class="language-plaintext highlighter-rouge">reference_fraction</code> of the record.</p>
+</td></tr>
+  <tr><td><code>reference_fraction</code></td><td>float, optional</td><td>-</td><td><p>Fraction of the record used as the reference when no mask is given.</p>
+</td></tr>
+  <tr><td><code>search_mask</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>Samples the detector may look at; the peak that scales the threshold is taken inside it too.  <code class="language-plaintext highlighter-rouge">None</code> is the whole record.</p>
+</td></tr>
+  <tr><td><code>bridge_samples</code></td><td>int, optional</td><td>-</td><td><p>Longest dip below a candidate’s level that does not split its run.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>PeakRecord</td><td>any</td><td><p><code class="language-plaintext highlighter-rouge">value</code> is the smoothed record’s extreme sample in the accepted run, and <code class="language-plaintext highlighter-rouge">time</code> the sample of the input grid it sits on – or <code class="language-plaintext highlighter-rouge">None</code> with <code class="language-plaintext highlighter-rouge">no_peak</code> and one reason. <code class="language-plaintext highlighter-rouge">evidence</code> carries the baseline, the robust sigma, the rule values, <code class="language-plaintext highlighter-rouge">raw_value</code>, <code class="language-plaintext highlighter-rouge">raw_max</code> and <code class="language-plaintext highlighter-rouge">raw_max_time</code>, the measured <code class="language-plaintext highlighter-rouge">pickup_scale</code> and the number of refused candidates.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    When <code class="language-plaintext highlighter-rouge">polarity</code> is not one of the three, or <code class="language-plaintext highlighter-rouge">max_candidates</code> is below
+    one.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Median-filter over <code class="language-plaintext highlighter-rouge">prefilter_samples</code> and, when a <code class="language-plaintext highlighter-rouge">cutoff_hz</code> is
+given and the grid can carry it, zero-phase low-pass.</li>
+  <li>Settle the reference and take the baseline as its median.</li>
+  <li>Orient the record by <code class="language-plaintext highlighter-rouge">polarity</code>: <code class="language-plaintext highlighter-rouge">positive</code> scores the excess over the
+baseline, <code class="language-plaintext highlighter-rouge">negative</code> the deficit, <code class="language-plaintext highlighter-rouge">absolute</code> the magnitude.</li>
+  <li>Take the largest score inside <code class="language-plaintext highlighter-rouge">search_mask</code> as a candidate; the run
+holding it at <code class="language-plaintext highlighter-rouge">level_fraction</code> of its height must last <code class="language-plaintext highlighter-rouge">min_width_s</code>.
+A narrower run is a spike: it is refused (<code class="language-plaintext highlighter-rouge">rejected</code>, reason
+<code class="language-plaintext highlighter-rouge">impulsive</code>), masked whole – shoulders included, bounded by
+<code class="language-plaintext highlighter-rouge">impulse_max_s</code> and by the baseline crossing, so it cannot come back –
+and the next candidate is tried, up to <code class="language-plaintext highlighter-rouge">max_candidates</code> times.</li>
+  <li>Report the accepted run’s extreme sample, with the raw record’s own
+maximum kept in the evidence.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The signature values are numerical convenience.  The VEST values are policy
+in the <code class="language-plaintext highlighter-rouge">plasma_features</code> block [vest.yaml], per signal: the plasma current,
+H-alpha, each impurity line and the diamagnetic flux carry their own
+<code class="language-plaintext highlighter-rouge">prefilter</code>, <code class="language-plaintext highlighter-rouge">sigma</code>, <code class="language-plaintext highlighter-rouge">level_fraction</code> and <code class="language-plaintext highlighter-rouge">min_width_s</code>, and an
+H-alpha value is never reused for an impurity line.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">polarity</code> decides the sign of the answer: with <code class="language-plaintext highlighter-rouge">negative</code> or
+<code class="language-plaintext highlighter-rouge">absolute</code> the reported <code class="language-plaintext highlighter-rouge">value</code> is still the record’s own signed sample,
+not the score, so a VEST diamagnetic flux – stored negative-going – comes
+back negative.  <code class="language-plaintext highlighter-rouge">value</code> is the <em>smoothed</em> sample; the raw one is in the
+evidence.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Flags on a found peak say when the answer is not the loudest sample:
+<code class="language-plaintext highlighter-rouge">peak_is_spike</code> (the raw maximum lay in a refused run),
+<code class="language-plaintext highlighter-rouge">raw_max_outside_run</code> (it lies outside the accepted run for any other
+reason), <code class="language-plaintext highlighter-rouge">peak_at_window_edge</code> (the excursion may continue past the search
+stretch), <code class="language-plaintext highlighter-rouge">peak_plateau</code> (the raw record holds its extreme value for three
+samples or more – a railed digitizer), <code class="language-plaintext highlighter-rouge">reference_flat</code> (the reference has
+no spread; a peak is still reported, because an integrated record can have an
+exactly zero lead).  A record whose every excursion is impulsive returns
+<code class="language-plaintext highlighter-rouge">all_candidates_impulsive</code> rather than a value.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #409, which introduced these primitives and fixed their rules against the VEST raw database.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py</code> and the table it writes, <code class="language-plaintext highlighter-rouge">test/data/onset_corpus.json</code>: the scan of VEST shots 39900-41700 the thresholds, hold times and widths were judged on.
+</li>
+  <li>The VEST values for these rules are policy, not defaults: <code class="language-plaintext highlighter-rouge">vaft/machine_mapping/vest.yaml</code> carries them in <code class="language-plaintext highlighter-rouge">plasma_timing</code>, <code class="language-plaintext highlighter-rouge">discharge_timing</code> and <code class="language-plaintext highlighter-rouge">plasma_features</code>, resolved by <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.utils</code> and passed in by <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing</code>, <code class="language-plaintext highlighter-rouge">vaft.omas.discharge_timing</code> and <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_features</code>.
+</li>
+</ol>
+
+<h3 id="run_features"><code class="language-plaintext highlighter-rouge">run_features</code></h3>
+
+<p class="formula-signature"><code>run_features(time, values, baseline, start, stop)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Width, peak, prominence and integral of one run above a baseline.</p>
+
+<p>The temporal shape of a candidate run, on which the morphology rules of the
+detectors are stated.  Prominence comes from <code class="language-plaintext highlighter-rouge">scipy.signal.peak_prominences</code>
+on the whole excess record, so it measures how far the run rises above its
+surroundings, not above the baseline.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Time grid of the record; must be as long as <code class="language-plaintext highlighter-rouge">values</code>.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The waveform.</p>
+</td></tr>
+  <tr><td><code>baseline</code></td><td>float</td><td>any</td><td><p>Level the excess is measured from.</p>
+</td></tr>
+  <tr><td><code>start, stop</code></td><td>int</td><td>-</td><td><p>Half-open index bounds of the run, <code class="language-plaintext highlighter-rouge">values[start:stop]</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>RunFeatures</td><td>any*s</td><td><p><code class="language-plaintext highlighter-rouge">start_time</code> and <code class="language-plaintext highlighter-rouge">end_time</code> (first and last sample of the run) [s], <code class="language-plaintext highlighter-rouge">width_s</code> (<code class="language-plaintext highlighter-rouge">samples * dt</code>) [s], <code class="language-plaintext highlighter-rouge">samples</code> [-], <code class="language-plaintext highlighter-rouge">peak</code> and <code class="language-plaintext highlighter-rouge">prominence</code> (excess over the baseline) [any], <code class="language-plaintext highlighter-rouge">peak_time</code> [s] and <code class="language-plaintext highlighter-rouge">integral</code> (excess integrated over the run).</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">end_time</code> is the run’s last sample, not the first sample after it, so a
+run of one sample has <code class="language-plaintext highlighter-rouge">start_time == end_time</code> and <code class="language-plaintext highlighter-rouge">width_s == dt</code>.  The
+sample spacing is the median of <code class="language-plaintext highlighter-rouge">diff(time)</code>, so a record with a few
+irregular samples still gets a representative width.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A run touching either end of the record has no surroundings on that side;
+<code class="language-plaintext highlighter-rouge">prominence</code> then falls back to the run’s own peak excess.  Nothing checks
+that <code class="language-plaintext highlighter-rouge">start</code> and <code class="language-plaintext highlighter-rouge">stop</code> bound a run that is actually above the baseline.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #409, which introduced these primitives and fixed their rules against the VEST raw database.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py</code> and the table it writes, <code class="language-plaintext highlighter-rouge">test/data/onset_corpus.json</code>: the scan of VEST shots 39900-41700 the thresholds, hold times and widths were judged on.
+</li>
+</ol>
+
+<h3 id="sustained_excess_onset"><code class="language-plaintext highlighter-rouge">sustained_excess_onset</code></h3>
+
+<p class="formula-signature"><code>sustained_excess_onset(time, values, *, fraction=0.02, sigma=5.0, hold_s=0.0005, min_width_s=0.0, min_prominence_sigma=0.0, min_integral_fraction=0.0, reference_mask=None, reference_fraction=0.2, search_mask=None, prefilter_samples=1, bridge_samples=2)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>First run above the threshold that persists and has the right shape.</p>
+
+<p>The general-purpose detector: it makes no assumption that the record is
+pulse-shaped, so it is the one to use where the first activity matters and a
+later, larger excursion does not.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Time grid of the record.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The waveform.</p>
+</td></tr>
+  <tr><td><code>fraction</code></td><td>float, optional</td><td>-</td><td><p>Fraction-of-peak term of the threshold.</p>
+</td></tr>
+  <tr><td><code>sigma</code></td><td>float, optional</td><td>-</td><td><p>Robust-sigma term of the threshold.</p>
+</td></tr>
+  <tr><td><code>hold_s</code></td><td>float, optional</td><td>s</td><td><p>How long a run must stay above the threshold.</p>
+</td></tr>
+  <tr><td><code>min_width_s</code></td><td>float, optional</td><td>s</td><td><p>Shortest accepted run; <code class="language-plaintext highlighter-rouge">0</code> disables the test.</p>
+</td></tr>
+  <tr><td><code>min_prominence_sigma</code></td><td>float, optional</td><td>-</td><td><p>How far a run must rise above its surroundings, in robust sigmas; <code class="language-plaintext highlighter-rouge">0</code> disables the test.</p>
+</td></tr>
+  <tr><td><code>min_integral_fraction</code></td><td>float, optional</td><td>-</td><td><p>Fraction of the record’s total positive excess a run must carry; <code class="language-plaintext highlighter-rouge">0</code> disables the test.</p>
+</td></tr>
+  <tr><td><code>reference_mask</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>Samples that define the quiet reference; <code class="language-plaintext highlighter-rouge">None</code> selects the leading <code class="language-plaintext highlighter-rouge">reference_fraction</code> of the record.</p>
+</td></tr>
+  <tr><td><code>reference_fraction</code></td><td>float, optional</td><td>-</td><td><p>Fraction of the record used as the reference when no mask is given.</p>
+</td></tr>
+  <tr><td><code>search_mask</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>Samples the detector may look at; the peak that scales the threshold is taken inside it too.  <code class="language-plaintext highlighter-rouge">None</code> is the whole record.</p>
+</td></tr>
+  <tr><td><code>prefilter_samples</code></td><td>int, optional</td><td>-</td><td><p>Median-filter kernel applied first; <code class="language-plaintext highlighter-rouge">1</code> means no filtering.</p>
+</td></tr>
+  <tr><td><code>bridge_samples</code></td><td>int, optional</td><td>-</td><td><p>Longest dip below the threshold that does not split a run.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>OnsetRecord</td><td>s</td><td><p><code class="language-plaintext highlighter-rouge">time</code> is the accepted run’s first sample of the input grid, or <code class="language-plaintext highlighter-rouge">None</code> with <code class="language-plaintext highlighter-rouge">no_onset</code> and a reason. <code class="language-plaintext highlighter-rouge">evidence</code> carries the baseline, spread, peak, threshold and the rule values; <code class="language-plaintext highlighter-rouge">rejected</code> the runs that crossed the threshold and failed, each with its reason.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Median-filter the record over <code class="language-plaintext highlighter-rouge">prefilter_samples</code> (an optical channel’s
+isolated spikes are removed before they can be counted).</li>
+  <li>Settle the reference stretch and measure baseline and spread on it.</li>
+  <li>Threshold as <code class="language-plaintext highlighter-rouge">excess_threshold</code>; refuse the record outright when the
+baseline, spread or peak is degenerate.</li>
+  <li>Bridge gaps of at most <code class="language-plaintext highlighter-rouge">bridge_samples</code> below the threshold, so a single
+noise sample during a rise does not split the run.</li>
+  <li>Walk the runs in time order; the first that passes persistence
+(<code class="language-plaintext highlighter-rouge">hold_s</code>) and morphology (<code class="language-plaintext highlighter-rouge">min_width_s</code>, <code class="language-plaintext highlighter-rouge">min_prominence_sigma</code>,
+<code class="language-plaintext highlighter-rouge">min_integral_fraction</code>) is the onset, at its first sample.  Every run
+that fails is kept in <code class="language-plaintext highlighter-rouge">rejected</code> with the reason.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The signature values are numerical convenience – a working detector for a
+caller with no policy – and are documented as rules, not as numbers to copy.
+The VEST values are policy [vest.yaml]; the reasoning behind their
+magnitudes, and the false-onset counts that fixed them, is in the module
+docstring and in the corpus table [corpus].</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The onset is the run’s <em>first</em> sample, so a half-open consumer window
+<code class="language-plaintext highlighter-rouge">[start, onset)</code> excludes exactly the samples from the onset onward.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>No pulse shape is assumed, so an early isolated excursion that passes both
+persistence and morphology <em>is</em> the onset.  Where the record is known to be
+pulse-shaped and the principal pulse is what is wanted,
+<code class="language-plaintext highlighter-rouge">principal_pulse_onset</code> is unreachable by such an excursion by
+construction.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #409, which introduced these primitives and fixed their rules against the VEST raw database.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py</code> and the table it writes, <code class="language-plaintext highlighter-rouge">test/data/onset_corpus.json</code>: the scan of VEST shots 39900-41700 the thresholds, hold times and widths were judged on.
+</li>
+  <li>The VEST values for these rules are policy, not defaults: <code class="language-plaintext highlighter-rouge">vaft/machine_mapping/vest.yaml</code> carries them in <code class="language-plaintext highlighter-rouge">plasma_timing</code>, <code class="language-plaintext highlighter-rouge">discharge_timing</code> and <code class="language-plaintext highlighter-rouge">plasma_features</code>, resolved by <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.utils</code> and passed in by <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing</code>, <code class="language-plaintext highlighter-rouge">vaft.omas.discharge_timing</code> and <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_features</code>.
+</li>
+</ol>
+
+<h3 id="zero_crossing_after_excursion"><code class="language-plaintext highlighter-rouge">zero_crossing_after_excursion</code></h3>
+
+<p class="formula-signature"><code>zero_crossing_after_excursion(time, values, *, anchor_time, fraction=0.05, sigma=5.0, hold_s=0.0005, anchor_tolerance_s=0.0005, approach_fraction=0.1, approach_hysteresis=2.0, reference_mask=None, reference_fraction=0.2, search_mask=None, prefilter_samples=1, bridge_samples=2)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>First sample after an anchored excursion where the record changes sign.</p>
+
+<p>Written for a drive waveform: the loop voltage crosses zero once the ohmic
+swing that drove it is over, and <em>that</em> crossing – not the record’s loudest
+moment – is the event.  Anchoring is what makes a later, larger pulse
+irrelevant: the excursion is judged where the drive starts.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Time grid of the record.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The waveform.</p>
+</td></tr>
+  <tr><td><code>anchor_time</code></td><td>float</td><td>s</td><td><p>Where the excursion is expected to start, usually another detector’s onset.</p>
+</td></tr>
+  <tr><td><code>fraction</code></td><td>float, optional</td><td>-</td><td><p>Fraction-of-peak term of the excursion threshold.</p>
+</td></tr>
+  <tr><td><code>sigma</code></td><td>float, optional</td><td>-</td><td><p>Robust-sigma term of the excursion threshold.</p>
+</td></tr>
+  <tr><td><code>hold_s</code></td><td>float, optional</td><td>s</td><td><p>How long the excursion must stay above that threshold.</p>
+</td></tr>
+  <tr><td><code>anchor_tolerance_s</code></td><td>float, optional</td><td>s</td><td><p>How far the run’s start may lie from the anchor when it does not contain it.</p>
+</td></tr>
+  <tr><td><code>approach_fraction</code></td><td>float, optional</td><td>-</td><td><p>Fraction of the extremum the decay must reach to count as an approach</p>
+</td></tr>
+  <tr><td><code>approach_hysteresis</code></td><td>float, optional</td><td>-</td><td><p>Multiple of that level the record must climb back above for the approach to be reported as one that did not cross; the hysteresis keeps noise around the level from counting as a re-rise.</p>
+</td></tr>
+  <tr><td><code>reference_mask</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>Samples that define the quiet reference; <code class="language-plaintext highlighter-rouge">None</code> selects the leading <code class="language-plaintext highlighter-rouge">reference_fraction</code> of the record.</p>
+</td></tr>
+  <tr><td><code>reference_fraction</code></td><td>float, optional</td><td>-</td><td><p>Fraction of the record used as the reference when no mask is given.</p>
+</td></tr>
+  <tr><td><code>search_mask</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>Samples the detector may look at; the peak that scales the threshold is taken inside it too.  <code class="language-plaintext highlighter-rouge">None</code> is the whole record.</p>
+</td></tr>
+  <tr><td><code>prefilter_samples</code></td><td>int, optional</td><td>-</td><td><p>Median-filter kernel applied first; <code class="language-plaintext highlighter-rouge">1</code> means no filtering.</p>
+</td></tr>
+  <tr><td><code>bridge_samples</code></td><td>int, optional</td><td>-</td><td><p>Longest dip below the threshold that does not split the excursion.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>OnsetRecord</td><td>s</td><td><p><code class="language-plaintext highlighter-rouge">time</code> is the first sample past the crossing, or <code class="language-plaintext highlighter-rouge">None</code> with <code class="language-plaintext highlighter-rouge">no_excursion_at_anchor</code> or <code class="language-plaintext highlighter-rouge">no_zero_crossing</code>. <code class="language-plaintext highlighter-rouge">evidence</code> carries the signed extremum (baseline-relative), its time, the run bounds, the run’s start relative to the anchor, and the approach minimum when there was one.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Median-filter over <code class="language-plaintext highlighter-rouge">prefilter_samples</code>, settle the reference, measure
+baseline and spread.</li>
+  <li>Threshold <code class="language-plaintext highlighter-rouge">|values - baseline|</code> at
+<code class="language-plaintext highlighter-rouge">max(fraction * peak, sigma * robust_sigma)</code>, the peak taken inside
+<code class="language-plaintext highlighter-rouge">search_mask</code>.</li>
+  <li>Take the first sustained run (<code class="language-plaintext highlighter-rouge">hold_s</code>) that starts within
+<code class="language-plaintext highlighter-rouge">anchor_tolerance_s</code> of <code class="language-plaintext highlighter-rouge">anchor_time</code> or contains the anchor sample;
+with none, return <code class="language-plaintext highlighter-rouge">no_excursion_at_anchor</code>.</li>
+  <li>From that run’s extremum, walk forward to the first sample whose
+baseline-relative sign is opposite to the extremum’s – strictly, so a
+sample exactly at the baseline is not a crossing.</li>
+  <li>Watch the decay in between: when the deviation drops below
+<code class="language-plaintext highlighter-rouge">approach_fraction</code> of the extremum and climbs back above
+<code class="language-plaintext highlighter-rouge">approach_hysteresis</code> times that level before crossing, flag
+<code class="language-plaintext highlighter-rouge">approached_without_crossing</code> and record the minimum and its time.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The signature values are numerical convenience; the VEST loop-voltage values – the
+fraction, the hold, the anchor tolerance and both approach numbers – are
+policy in the <code class="language-plaintext highlighter-rouge">discharge_timing.vloop</code> block [vest.yaml].</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The sign is measured relative to the <em>baseline</em>, not to zero, so a record
+with an offset crosses where it returns through its own quiet level.  The
+crossing must be strict: a sample exactly at the baseline is not one.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>One crossing only, the first after the anchored excursion.  A record that
+decays towards the baseline and turns back without reaching it is reported as
+<code class="language-plaintext highlighter-rouge">approached_without_crossing</code> <em>and</em> <code class="language-plaintext highlighter-rouge">no_zero_crossing</code> – the flag is
+evidence for a consumer, not an event.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #409, which introduced these primitives and fixed their rules against the VEST raw database.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py</code> and the table it writes, <code class="language-plaintext highlighter-rouge">test/data/onset_corpus.json</code>: the scan of VEST shots 39900-41700 the thresholds, hold times and widths were judged on.
+</li>
+  <li>The VEST values for these rules are policy, not defaults: <code class="language-plaintext highlighter-rouge">vaft/machine_mapping/vest.yaml</code> carries them in <code class="language-plaintext highlighter-rouge">plasma_timing</code>, <code class="language-plaintext highlighter-rouge">discharge_timing</code> and <code class="language-plaintext highlighter-rouge">plasma_features</code>, resolved by <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.utils</code> and passed in by <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing</code>, <code class="language-plaintext highlighter-rouge">vaft.omas.discharge_timing</code> and <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_features</code>.
+</li>
+</ol>
+
+<h3 id="zero_phase_lowpass"><code class="language-plaintext highlighter-rouge">zero_phase_lowpass</code></h3>
+
+<p class="formula-signature"><code>zero_phase_lowpass(values, cutoff_hz, fs, order=4)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Forward-backward Butterworth low-pass: no group delay.</p>
+
+<p>An onset read off the output is not shifted from the input’s.  A causal filter
+of the same order moved the plasma-current onset by +0.1 to +0.9 ms on VEST
+records; this one by less than a sample.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The waveform; non-finite samples are linearly interpolated first.</p>
+</td></tr>
+  <tr><td><code>cutoff_hz</code></td><td>float</td><td>Hz</td><td><p>Low-pass cutoff.</p>
+</td></tr>
+  <tr><td><code>fs</code></td><td>float</td><td>Hz</td><td><p>Sample rate of the record.</p>
+</td></tr>
+  <tr><td><code>order</code></td><td>int, optional</td><td>-</td><td><p>Butterworth order; the filter is applied twice, so the effective roll-off is twice this.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>numpy.ndarray</td><td>any</td><td><p>The filtered waveform, same length and grid as the input.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    When the record has no more samples than <code class="language-plaintext highlighter-rouge">filtfilt</code>’s padding length,
+    <code class="language-plaintext highlighter-rouge">3 * (order + 1)</code>.  The detectors call <code class="language-plaintext highlighter-rouge">_too_short</code> first and
+    report <code class="language-plaintext highlighter-rouge">record_too_short</code> instead of raising.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">order = 4</code> is a numerical convenience: the same order the VEST soft X-ray
+viewer and <code class="language-plaintext highlighter-rouge">vaft.process.signal_processing</code> use, steep enough to matter and
+short enough to pad on a few-thousand-sample record.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Zero-phase (<code class="language-plaintext highlighter-rouge">scipy.signal.filtfilt</code>, forward then backward), which is
+mandatory wherever an onset time is read off the result and is the opposite
+choice from <code class="language-plaintext highlighter-rouge">vaft.process.signal_processing.butterworth_lowpass</code>, whose
+default is causal to match the validated viewer.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A cutoff at or above the record’s Nyquist frequency cannot be designed; the
+detectors detect that case themselves and report <code class="language-plaintext highlighter-rouge">lowpass_skipped</code> rather
+than filtering.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #409, which introduced these primitives and fixed their rules against the VEST raw database.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py</code> and the table it writes, <code class="language-plaintext highlighter-rouge">test/data/onset_corpus.json</code>: the scan of VEST shots 39900-41700 the thresholds, hold times and widths were judged on.
+</li>
+</ol>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/atomic/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: atomic">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/process/wall_modes/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: wall_modes">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#active_window" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">active_window</a></li><li class="page-toc-item page-toc-level-3"><a href="#excess_threshold" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">excess_threshold</a></li><li class="page-toc-item page-toc-level-3"><a href="#isolated_excursions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">isolated_excursions</a></li><li class="page-toc-item page-toc-level-3"><a href="#median_smooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">median_smooth</a></li><li class="page-toc-item page-toc-level-3"><a href="#pickup_scale" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pickup_scale</a></li><li class="page-toc-item page-toc-level-3"><a href="#principal_pulse_onset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">principal_pulse_onset</a></li><li class="page-toc-item page-toc-level-3"><a href="#principal_pulse_window" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">principal_pulse_window</a></li><li class="page-toc-item page-toc-level-3"><a href="#robust_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">robust_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#robust_peak" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">robust_peak</a></li><li class="page-toc-item page-toc-level-3"><a href="#run_features" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">run_features</a></li><li class="page-toc-item page-toc-level-3"><a href="#sustained_excess_onset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sustained_excess_onset</a></li><li class="page-toc-item page-toc-level-3"><a href="#zero_crossing_after_excursion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">zero_crossing_after_excursion</a></li><li class="page-toc-item page-toc-level-3"><a href="#zero_phase_lowpass" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">zero_phase_lowpass</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: wall_modes",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_wall_modes.md",
+            "ref": "_guide/Process_reference_wall_modes.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_onset.md",
+        "mtime": "2026-09-04 10:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-06 22:45:29 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>
