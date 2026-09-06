@@ -517,6 +517,19 @@ def test_the_omas_layer_reads_only_and_the_process_layer_knows_no_diagnostic():
 
     import vaft.process.onset as onset
 
-    text = Path(onset.__file__).read_text(encoding="utf-8")
+    # The bar is on the code, not on the prose: the detectors may not name a
+    # diagnostic, a policy file or the layers above them in anything that
+    # runs, but their docstrings must say where the VEST values they are
+    # called with live (#571), so the docstrings are stripped before the
+    # check rather than exempting the module from it.
+    onset_tree = ast.parse(Path(onset.__file__).read_text(encoding="utf-8"))
+    for node in ast.walk(onset_tree):
+        if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        body = getattr(node, "body", [])
+        if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) \
+                and isinstance(body[0].value.value, str):
+            node.body = body[1:] or [ast.Pass()]
+    code = ast.unparse(ast.fix_missing_locations(onset_tree))
     for literal in ("spectrometer_uv", "vest.yaml", "magnetics.ip", "machine_mapping", "vaft.omas import"):
-        assert literal not in text, literal
+        assert literal not in code, literal

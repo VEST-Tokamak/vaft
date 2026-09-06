@@ -48,7 +48,6 @@ PENDING = frozenset({
     "magnetics",
     "profile",
     "soft_x_rays",
-    "wall_modes",
 })
 
 #: Pure numerics and bookkeeping: no source adds anything.
@@ -80,6 +79,9 @@ DEFINITIONAL = frozenset({
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
     "active_window",
+    "allocate_per_segment",
+    "build_wall_mode_basis",
+    "segment_eigenmodes",
     "principal_pulse_onset",
     "robust_peak",
     "sustained_excess_onset",
@@ -103,12 +105,31 @@ PIPELINE = frozenset({
 #: C and D add the equilibrium mappers, the profile fitters and the
 #: reconstructions.
 STATEFUL = frozenset({
+    "combined_operators",
+    "project",
+    "reconstruct",
+    "reduce_response",
+    "reduced_operators",
     "repair_clipped_interval",
+    "solve_reduced_eddy",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
     "active_window",
+    "allocate_per_segment",
+    "build_wall_mode_basis",
+    "canonical_sign",
+    "combined_operators",
+    "global_time_constants",
+    "moment_patterns",
+    "orthonormalize_r",
+    "project",
+    "reconstruction_error",
+    "reduced_operators",
+    "segment_eigenmodes",
+    "select_by_score",
+    "subspace_angles_r",
     "median_smooth",
     "pickup_scale",
     "principal_pulse_onset",
