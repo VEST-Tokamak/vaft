@@ -42,6 +42,9 @@ __all__ = [
     "ParallelCurrentResult",
     "flux_surface_quantities",
     "fractional_cell_weights_from_boundary",
+    "GradShafranovResidual",
+    "grad_shafranov_operator",
+    "grad_shafranov_residual",
     "make_equilibrium_field_interpolator",
     "parallel_current_from_toroidal",
     "poloidal_field_at_boundary",
@@ -1753,3 +1756,180 @@ def parallel_current_from_toroidal(
         shell_current_tor=dI,
     )
 
+
+
+@dataclass(frozen=True)
+class GradShafranovResidual:
+    """How far an equilibrium is from satisfying force balance, surface by surface.
+
+    ``residual`` is the root-mean-square of ``delta_star - source`` over the grid
+    points falling on each of ``psi_norm``'s surfaces, in the units of the source
+    term.  ``relative`` divides it by ``scale``, which is **one number for the
+    whole plasma** -- the RMS of the source over every masked point -- so the
+    profile can be read across surfaces.  It is not normalised per surface, so
+    near the edge, where the source itself is small, it understates the local
+    error.  ``mask`` marks the points that were used.
+    """
+
+    psi_norm: np.ndarray
+    residual: np.ndarray
+    relative: np.ndarray
+    scale: float
+    delta_star: np.ndarray
+    source: np.ndarray
+    mask: np.ndarray
+
+
+def grad_shafranov_operator(psi: Any, r: Any, z: Any) -> np.ndarray:
+    r"""The Grad-Shafranov elliptic operator on a rectangular ``(R, Z)`` grid.
+
+    .. math::
+        \Delta^\* \psi = R\,\frac{\partial}{\partial R}
+            \left(\frac{1}{R}\frac{\partial \psi}{\partial R}\right)
+            + \frac{\partial^2 \psi}{\partial Z^2}
+        = \frac{\partial^2\psi}{\partial R^2}
+            - \frac{1}{R}\frac{\partial\psi}{\partial R}
+            + \frac{\partial^2\psi}{\partial Z^2}
+
+    ``psi`` is indexed ``(R, Z)``, the orientation EFIT-sourced ODSs store.
+
+    Second-order central differences, one-sided at the edges.  The outermost two
+    cells inherit that lower accuracy, so callers comparing against a source term
+    should ignore the frame -- :func:`grad_shafranov_residual` does.
+    """
+    psi = np.asarray(psi, dtype=float)
+    r = np.asarray(r, dtype=float).ravel()
+    z = np.asarray(z, dtype=float).ravel()
+    if psi.ndim != 2:
+        raise ValueError(f"psi must be a 2-D (R, Z) grid; got shape {psi.shape}")
+    if psi.shape != (r.size, z.size):
+        raise ValueError(
+            f"psi has shape {psi.shape} but the grid is (R={r.size}, Z={z.size}); "
+            "psi is indexed (R, Z)"
+        )
+
+    dpsi_dr = np.gradient(psi, r, axis=0, edge_order=2)
+    d2psi_dr2 = np.gradient(dpsi_dr, r, axis=0, edge_order=2)
+    d2psi_dz2 = np.gradient(np.gradient(psi, z, axis=1, edge_order=2), z, axis=1, edge_order=2)
+    return d2psi_dr2 - dpsi_dr / r[:, None] + d2psi_dz2
+
+
+def grad_shafranov_residual(
+    psi: Any,
+    r: Any,
+    z: Any,
+    *,
+    psi_1d: Any,
+    pprime: Any,
+    ffprime: Any,
+    psi_axis: float | None = None,
+    psi_boundary: float | None = None,
+    boundary_r: Any = None,
+    boundary_z: Any = None,
+    n_surfaces: int = 32,
+    psi_norm_max: float = 0.99,
+    edge_cells: int = 2,
+) -> GradShafranovResidual:
+    r"""Residual of :math:`\Delta^\*\psi + \mu_0 R^2 p' + FF'`, reduced along psi.
+
+    The Grad-Shafranov equation states that an equilibrium's flux map and its own
+    ``p'`` and ``FF'`` profiles are not independent.  Evaluating both sides on the
+    stored grid says how well a *particular* reconstruction closed it, which is a
+    different and stricter question than whether a solver's iteration converged --
+    the number EFIT reports as its "Grad-Shafranov error" is the latter.
+
+    **Every flux quantity here must be per-radian** (Wb/rad, COCOS 1-8).  The
+    textbook equation takes this form only in that convention: rescaling psi to
+    full weber multiplies the left side by 2*pi and divides each right-hand
+    derivative by it, so the two sides move apart by ``(2*pi)**2``.  Callers
+    holding a DD-conformant ODS should convert first; the ODS wrapper
+    :func:`vaft.omas.compute_grad_shafranov_residual` does it for them.
+
+    ``pprime`` and ``ffprime`` are sampled against ``psi_1d`` and interpolated
+    onto the grid through psi itself, so the residual is only meaningful where
+    those profiles are the equilibrium's own.  **Pass ``boundary_r``/
+    ``boundary_z``**: outside the separatrix psi is not monotonic -- it folds
+    back into ``[0, 1]`` near the poloidal field coils -- so a psi-value cutoff
+    alone re-admits vacuum points where ``p'`` and ``FF'`` are extrapolation and
+    ``Delta* psi`` is reading coil current.  On a free-boundary EFIT grid that
+    is a third of the points and two orders of magnitude of spurious residual,
+    and it does not affect a fixed-boundary grid at all, so a comparison of the
+    two without it is not comparing like with like.
+
+    ``psi_norm_max`` then trims the last sliver inside the separatrix, where the
+    profiles flatten and the contour is least resolved, and ``edge_cells`` frames
+    off the grid border where the difference stencil is one-sided.
+    """
+    psi = np.asarray(psi, dtype=float)
+    r = np.asarray(r, dtype=float).ravel()
+    z = np.asarray(z, dtype=float).ravel()
+    psi_1d = np.asarray(psi_1d, dtype=float).ravel()
+    pprime = np.asarray(pprime, dtype=float).ravel()
+    ffprime = np.asarray(ffprime, dtype=float).ravel()
+    if not (psi_1d.size == pprime.size == ffprime.size):
+        raise ValueError(
+            "psi_1d, pprime and ffprime must be the same length; got "
+            f"{psi_1d.size}, {pprime.size}, {ffprime.size}"
+        )
+    if psi_1d.size < 2:
+        raise ValueError("psi_1d needs at least two samples to interpolate")
+
+    axis = float(psi_1d[0]) if psi_axis is None else float(psi_axis)
+    boundary = float(psi_1d[-1]) if psi_boundary is None else float(psi_boundary)
+    if not np.isfinite(axis) or not np.isfinite(boundary) or axis == boundary:
+        raise ValueError(
+            f"psi_axis and psi_boundary must be finite and distinct; got {axis}, {boundary}"
+        )
+
+    delta_star = grad_shafranov_operator(psi, r, z)
+    psi_norm_2d = (psi - axis) / (boundary - axis)
+
+    # The 1-D profiles are tabulated against psi, which may run either way.
+    order = np.argsort(psi_1d)
+    sampled_psi = psi_1d[order]
+    pprime_2d = np.interp(psi, sampled_psi, pprime[order])
+    ffprime_2d = np.interp(psi, sampled_psi, ffprime[order])
+    source = -MU0 * (r[:, None] ** 2) * pprime_2d - ffprime_2d
+
+    mask = np.isfinite(delta_star) & np.isfinite(source)
+    mask &= (psi_norm_2d >= 0.0) & (psi_norm_2d <= float(psi_norm_max))
+    if boundary_r is not None and boundary_z is not None:
+        outline_r = np.asarray(boundary_r, dtype=float).ravel()
+        outline_z = np.asarray(boundary_z, dtype=float).ravel()
+        if outline_r.size >= 3:
+            weights = fractional_cell_weights_from_boundary(r, z, outline_r, outline_z)
+            mask &= weights > 0.5
+    if edge_cells > 0:
+        frame = np.zeros_like(mask)
+        frame[edge_cells:-edge_cells, edge_cells:-edge_cells] = True
+        mask &= frame
+    if not mask.any():
+        raise ValueError(
+            "no grid point survives the plasma boundary, the psi_norm range "
+            f"and a {edge_cells}-cell border; the grid may be smaller than the "
+            "border it is being trimmed by, or psi_axis/psi_boundary may be wrong"
+        )
+
+    difference = delta_star - source
+    scale = float(np.sqrt(np.mean(source[mask] ** 2)))
+
+    edges = np.linspace(0.0, float(psi_norm_max), int(n_surfaces) + 1)
+    centres = 0.5 * (edges[:-1] + edges[1:])
+    flat_norm = psi_norm_2d[mask]
+    flat_diff = difference[mask]
+    residual = np.full(centres.size, np.nan)
+    for index in range(centres.size):
+        in_bin = (flat_norm >= edges[index]) & (flat_norm < edges[index + 1])
+        if in_bin.any():
+            residual[index] = float(np.sqrt(np.mean(flat_diff[in_bin] ** 2)))
+
+    relative = residual / scale if scale > 0.0 else np.full_like(residual, np.nan)
+    return GradShafranovResidual(
+        psi_norm=centres,
+        residual=residual,
+        relative=relative,
+        scale=scale,
+        delta_star=delta_star,
+        source=source,
+        mask=mask,
+    )

@@ -2727,3 +2727,73 @@ def compute_parallel_current_from_toroidal(
         shell_area=np.diff(_on(edges, "area")),
     )
 
+
+
+def compute_grad_shafranov_residual(
+    ods: Any,
+    *,
+    time_slice: int = 0,
+    n_surfaces: int = 32,
+    psi_norm_max: float = 0.99,
+):
+    """How well one stored equilibrium satisfies its own Grad-Shafranov equation.
+
+    Reads ``profiles_2d.0`` and the ``dpressure_dpsi``/``f_df_dpsi`` profiles of
+    ``time_slice`` and returns a
+    :class:`~vaft.process.equilibrium.GradShafranovResidual`.
+
+    This is a different question from the one EFIT's ``a``-file answers.  What
+    VAFT elsewhere calls the "Grad-Shafranov error" is EFIT's own
+    iteration-to-iteration delta, ``max|psi - psi_prev|`` over the grid -- a
+    statement about convergence.  This measures whether the flux map that came
+    out is consistent with the ``p'`` and ``FF'`` that went in, which a
+    comfortably converged reconstruction can still fail.
+
+    The flux convention is handled here rather than left to the caller: the
+    equation takes its textbook form only for per-radian psi, so a
+    DD-conformant ODS storing full weber is converted first (psi scaled by
+    ``ods_psi_to_wb_per_radian_factor``, each psi-derivative by its reciprocal).
+    Getting that wrong moves the two sides apart by ``(2*pi)**2``, which is why
+    it is not an option.
+    """
+    from vaft.process.equilibrium import grad_shafranov_residual
+
+    slice_node = ods["equilibrium.time_slice"][int(time_slice)]
+    grid = slice_node["profiles_2d.0.grid"]
+    r_grid = np.asarray(grid["dim1"], dtype=float).ravel()
+    z_grid = np.asarray(grid["dim2"], dtype=float).ravel()
+    psi_grid = _read_psi_grid(slice_node, r_grid, z_grid)
+
+    profiles = slice_node["profiles_1d"]
+    missing = [
+        leaf for leaf in ("psi", "dpressure_dpsi", "f_df_dpsi") if leaf not in profiles
+    ]
+    if missing:
+        raise ValueError(
+            f"equilibrium slice {time_slice} is missing {', '.join(missing)}; the "
+            "residual needs the flux map and the p' and FF' profiles that produced it"
+        )
+
+    # Everything into Wb/rad, where Delta* psi = -mu0 R^2 p' - FF' holds as written.
+    factor = ods_psi_to_wb_per_radian_factor(ods, int(time_slice))
+    globals_node = slice_node["global_quantities"] if "global_quantities" in slice_node else {}
+    psi_axis = globals_node.get("psi_axis") if hasattr(globals_node, "get") else None
+    psi_boundary = globals_node.get("psi_boundary") if hasattr(globals_node, "get") else None
+
+    boundary = slice_node["boundary"] if "boundary" in slice_node else {}
+    outline = boundary["outline"] if "outline" in boundary else {}
+
+    return grad_shafranov_residual(
+        psi_grid * factor,
+        r_grid,
+        z_grid,
+        boundary_r=outline["r"] if "r" in outline else None,
+        boundary_z=outline["z"] if "z" in outline else None,
+        psi_1d=np.asarray(profiles["psi"], dtype=float) * factor,
+        pprime=np.asarray(profiles["dpressure_dpsi"], dtype=float) / factor,
+        ffprime=np.asarray(profiles["f_df_dpsi"], dtype=float) / factor,
+        psi_axis=None if psi_axis is None else float(psi_axis) * factor,
+        psi_boundary=None if psi_boundary is None else float(psi_boundary) * factor,
+        n_surfaces=n_surfaces,
+        psi_norm_max=psi_norm_max,
+    )
