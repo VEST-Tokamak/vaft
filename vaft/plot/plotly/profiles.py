@@ -7,7 +7,7 @@ from typing import Any
 from ..models import Profile1D
 from ..style import trace_labels
 from . import require_plotly
-from ._style import plain_axis_label, plain_text
+from ._style import color, plain_axis_label, plain_text
 from .lines import _apply_legend_policy, add_series
 
 __all__ = ["add_profile_1d", "render_profile_1d"]
@@ -35,6 +35,18 @@ def add_profile_1d(
             if not series.role:
                 judged += 1
     _apply_legend_policy(figure, judged, labelled, legend, legend_title, cell)
+    for line in model.reference_lines:
+        figure.add_vline(
+            x=line.x,
+            line={
+                "dash": "dash" if line.style.get("linestyle") == "--" else "dot",
+                "color": color(line.style.get("color", "#666666")),
+                "width": line.style.get("linewidth", 1.0),
+            },
+            annotation_text=plain_text(line.label) if line.label else None,
+            annotation_position="top",
+            **cell,
+        )
     figure.update_xaxes(title_text=plain_text(model.coordinate_label) if x_title else None,
                         range=list(model.x_limits) if model.x_limits else None, **cell)
     yaxis: dict[str, Any] = {"title_text": plain_axis_label(model.y_label, model.y_unit)}

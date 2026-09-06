@@ -75,7 +75,8 @@ def _specs() -> tuple[OptionSpec, ...]:
         # cannot be a "choice" here.
         OptionSpec("emission", "any", description="spectral line, ion or element to draw"),
         OptionSpec("line_index", "int", description="position in the stored processed_line array"),
-        OptionSpec("contour_levels"), OptionSpec("coordinate"), OptionSpec("detector"),
+        OptionSpec("coordinate", "choice", "display.PROFILE_COORDINATES", "radial coordinate of a 1-D profile"),
+        OptionSpec("contour_levels"), OptionSpec("detector"),
         OptionSpec("detrend"), OptionSpec("direction"), OptionSpec("dphi_deg"),
         OptionSpec("field_line_start"), OptionSpec("fit_ranges"), OptionSpec("flux_surface_levels"),
         OptionSpec("frame_index", "int"), OptionSpec("frame_indices"), OptionSpec("intrinsics_path"),
