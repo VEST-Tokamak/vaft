@@ -54,6 +54,7 @@ from .recipes import (
     CAMERA_PROJECTIONS,
     RECIPES,
     SYNTHETIC_CONSTRAINTS,
+    FieldRecipe,
     LineRecipe,
     PanelRecipe,
     PowerSpectrumRecipe,
@@ -384,14 +385,21 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
 
 
 def _takes_time_slice(name: str) -> bool:
-    """Whether ``name`` draws one stored equilibrium slice (``time_slice=``)."""
+    """Whether ``name`` draws one stored equilibrium slice (``time_slice=``).
+
+    A profile indexed by slice and a 2-D map do; a time history gathers every
+    slice into one trace and takes no ``time_slice=`` (``LineRecipe`` with
+    ``index="time_slice"`` is that history, not a selection), so the check is
+    on the recipe's kind, never on the text of its paths.
+    """
     recipe = RECIPES.get(name)
-    paths = []
-    for attribute in ("value_path", "y_path", "x_path", "r_path", "z_path"):
-        value = getattr(recipe, attribute, None)
-        if isinstance(value, str):
-            paths.append(value)
-    return name in PSI_FIELD_CONVENTIONS or any("time_slice.{i}" in path for path in paths)
+    if name in PSI_FIELD_CONVENTIONS:
+        return True
+    if isinstance(recipe, ProfileRecipe):
+        return recipe.index == "time_slice"
+    if isinstance(recipe, FieldRecipe):
+        return "{i}" in recipe.value_path
+    return False
 
 
 def _slices_block(ods: Any) -> dict[str, Any]:

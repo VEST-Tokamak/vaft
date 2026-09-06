@@ -267,3 +267,38 @@ def test_static_plotting_still_imports_no_widget_toolkit():
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=300)
     assert out.returncode == 0, out.stderr[-500:]
     assert out.stdout.strip() == "False"
+
+
+def test_a_time_history_offers_no_slice_control(sample):
+    """A LineRecipe over every slice is a history: time_slice= means nothing to it."""
+    from vaft.plot.backend.discovery import describe_one
+
+    record = describe_one("equilibrium_time_plasma_current", [("shot", sample)])
+    assert record.slices == {}
+    assert "time_slice" not in [c.name for c in controls_for(record)]
+    profile = describe_one("equilibrium_profile_pressure", [("shot", sample)])
+    assert [c.name for c in controls_for(profile)][0] == "time_slice"
+
+
+def test_controls_accepts_a_list_and_the_imas_adapter_offers_the_same(sample):
+    from vaft.imas.access import IDSEntry
+
+    subset = vaft.omas.plot_flux_loop_time_flux(sample, interactive=True, interaction_backend="none", controls=["layout", "yunit"])
+    assert [c.name for c in subset.controls] == ["layout", "yunit"]
+    subset.state.update(layout="subplots", yunit="Wb")
+    assert subset.axes.shape == (11,)
+    with vaft.imas.load(vaft.data.sample(39915, representation="imas"), imas_version="3.41.0") as handle:
+        result = vaft.imas.plot_flux_loop_time_flux(handle, interactive=True, interaction_backend="none")
+        assert [c.name for c in result.controls] == ["selection", "channels", "layout", "yunit", "orientation", "validity"]
+        result.state.set("selection", "outboard")
+        assert result.axes is not None
+
+
+def test_a_panel_with_a_field_keeps_its_colorbar_in_its_own_cell(sample):
+    result = vaft.omas.plot_equilibrium_overview(sample, interactive=True, interaction_backend="none")
+    canvas = result.figure.subfigs[0]
+    before = len(canvas.axes)
+    width = result.axes[0].get_position().width
+    result.state.set("time_slice", 1)
+    assert len(result.figure.subfigs[0].axes) == before
+    assert result.axes[0].get_position().width == pytest.approx(width)

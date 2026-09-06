@@ -381,27 +381,25 @@ def _draw_into(canvas: Any, model: Any, draw: Callable[..., Any], style: dict | 
     """Render ``model`` into ``canvas`` (a SubFigure); returns the axes."""
     style = dict(style or {})
     if isinstance(model, Panels):
-        from .panels import render_panels
+        from ..models import Field2D
+        from .panels import render_panels, slice_grid_axes
 
         # The panels renderer lays a Panels model out on a figure of its own
-        # making; here it gets the sub-figure's axes in the model's shape.
-        axes = _panel_axes(canvas, model)
+        # making; here it gets the sub-figure's axes in the model's shape, with
+        # a colorbar cell beside the first 2-D field so a redraw never shrinks
+        # the panel (the arrangement render_slice_navigation uses).
+        field_slot = next((i for i, m in enumerate(model.models) if isinstance(m, Field2D)), None)
+        grid = canvas.add_gridspec(model.nrows, model.ncols)
+        axes, colorbar = slice_grid_axes(canvas, grid, model, top=0, colorbar_slot=field_slot)
+        styles = [dict(s) for s in (model.member_styles or ({},) * len(model.models))]
+        if colorbar is not None and field_slot is not None:
+            styles[field_slot]["colorbar_ax"] = colorbar
+        model = replace(model, member_styles=tuple(styles))
         render_panels(model, ax=axes, show=False, **style)
         return axes
     axis = canvas.add_subplot(1, 1, 1)
     draw(model, ax=axis, show=False, **style)
     return axis
-
-
-def _panel_axes(canvas: Any, model: Panels) -> np.ndarray:
-    from matplotlib.gridspec import GridSpec
-
-    grid = canvas.add_gridspec(model.nrows, model.ncols)
-    spans = model.spans or tuple((i // model.ncols, i % model.ncols, 1, 1) for i in range(len(model.models)))
-    axes = []
-    for row, col, rowspan, colspan in spans:
-        axes.append(canvas.add_subplot(grid[row:row + rowspan, col:col + colspan]))
-    return np.asarray(axes, dtype=object)
 
 
 def _matplotlib_controls(strip: Any, state: Any) -> list[Any]:
@@ -437,7 +435,6 @@ def _matplotlib_controls(strip: Any, state: Any) -> list[Any]:
             labels = control.labels or tuple(map(str, control.options))
             actives = [option in tuple(state[control.name] or ()) for option in control.options]
             widget = CheckButtons(axis, labels, actives)
-            widget.on_clicked(lambda _label, w=None, c=control: None)
 
             def on_check(_label: str, c=control, ws=widgets, index=len(widgets)) -> None:
                 chosen = [option for option, on in zip(c.options, ws[index].get_status()) if on]

@@ -74,7 +74,7 @@ class ControlSpec:
             low, high, _ = self.options
             if self.default is not None and not low <= self.default <= high:
                 raise ValueError(f"control {self.name!r}: default {self.default!r} is outside [{low}, {high}]")
-        if self.labels and self.kind in ("choice", "multi", "range") and self.kind != "range" and len(self.labels) != len(self.options):
+        if self.labels and self.kind in ("choice", "multi") and len(self.labels) != len(self.options):
             raise ValueError(f"control {self.name!r}: one label per option, got {len(self.labels)} for {len(self.options)}")
 
     def validate(self, value: Any) -> Any:
