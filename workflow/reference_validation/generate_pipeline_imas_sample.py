@@ -82,6 +82,56 @@ def _project_signal_quality(ods, manifest: dict) -> None:
     }
 
 
+def _remap_em_coupling(ods, manifest: dict) -> None:
+    """Replace the coupling the frozen pipeline materialized with the mapper's current one.
+
+    The canonical product carries the `em_coupling` its eddy stage ran with,
+    which predates the #373 repair of the packaged asset and so violates
+    reciprocity by 1.27e-3 -- enough for the wall-mode check to refuse the
+    sample outright.  The coupling is a derivation from the static geometry,
+    not a measurement, so re-mapping it at generation is the same result the
+    static stage now writes.  The passive-loop currents are left as the frozen
+    eddy stage solved them; that mismatch is recorded here rather than hidden.
+    """
+    from vaft.machine_mapping.em_coupling import (
+        DEFAULT_VERSIONED_COUPLING,
+        em_coupling,
+        load_versioned_coupling_provenance,
+    )
+
+    shot = int(manifest["shot"])
+    replaced = None
+    if "em_coupling.mutual_passive_passive" in ods:
+        before = np.asarray(ods["em_coupling.mutual_passive_passive"], dtype=float)
+        replaced = float(np.max(np.abs(before - before.T)) / np.max(np.abs(before)))
+    if "em_coupling" in ods:
+        del ods["em_coupling"]
+    em_coupling(ods, shot=shot)
+    provenance = load_versioned_coupling_provenance() or {}
+    generation = manifest.setdefault("generation", {})
+    generation["em_coupling"] = {
+        "remapped": True,
+        "issue": "https://github.com/VEST-Tokamak/vaft/issues/373",
+        "asset": Path(DEFAULT_VERSIONED_COUPLING).name,
+        "asset_sha256": sha256_file(DEFAULT_VERSIONED_COUPLING),
+        "asset_provenance": {
+            key: provenance.get(key)
+            for key in ("generated", "git_commit", "passive_material_factor", "source_sha256")
+        },
+        "replaced_input_asymmetry": replaced,
+        "pf_passive_currents": (
+            "solved by the frozen eddy stage against the pre-repair asset; not re-solved"
+        ),
+    }
+    line = (
+        "re-map em_coupling through vaft.machine_mapping.em_coupling "
+        "(exactly reciprocal asset, issue 373)"
+    )
+    normalizations = generation.setdefault("normalizations", [])
+    if line not in normalizations:
+        normalizations.append(line)
+
+
 def normalized_pipeline_ods(canonical_source: Path, manifest: dict):
     """Return the pipeline ODS in the portable DD 3.41 representation."""
     version = str(manifest["imas_dd_version"])
@@ -110,6 +160,7 @@ def normalized_pipeline_ods(canonical_source: Path, manifest: dict):
     if "equilibrium.time" in ods:
         set_path(ods, "equilibrium.ids_properties.homogeneous_time", 1)
     _project_signal_quality(ods, manifest)
+    _remap_em_coupling(ods, manifest)
     return ods
 
 
