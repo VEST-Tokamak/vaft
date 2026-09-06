@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b618ab9</code>. What is described
+  <code>84c787a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -323,7 +323,10 @@ numerical notes, references), and these pages are generated from those docstring
   <li><strong>Poloidal flux, Wb versus Wb/rad.</strong> The equilibrium helpers default to flux per radian
 (COCOS 1-8, EFIT g-files, VFIT); the IMAS Data Dictionary and the Green’s functions use full weber
 (COCOS 11-18).  <code class="language-plaintext highlighter-rouge">poloidal_field_factor(cocos)</code> carries both the $2\pi$ and the orientation sign;
-<code class="language-plaintext highlighter-rouge">vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor</code> settles which family an ODS holds.</li>
+<code class="language-plaintext highlighter-rouge">vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor</code> settles which family an ODS holds – a declared
+COCOS index first, the data probes only for an unlabelled file.  <code class="language-plaintext highlighter-rouge">vaft.omas.equilibrium_psi_to_weber</code>
+moves a legacy Wb/rad ODS to the DD’s weber in place and declares COCOS 11; the packaged 39915
+sample is stored that way since issue #478.</li>
   <li><strong>Engineering units.</strong> The confinement scalings, $n_G$, $\beta_N$ and the Verdoolaege dimensionless
 parameters are defined in MA, MW, $10^{19}$ m$^{-3}$ and percent; each page states what is converted
 internally and what is not.</li>
@@ -1040,7 +1043,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-05 15:04:21 +0000"
+        "time": "2026-09-06 01:52:03 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
