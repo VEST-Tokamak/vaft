@@ -2061,8 +2061,19 @@ diagnostic_registry:
     # what the mapping sees in the archive, not what the camera wrote.
     # Acquisitions at >= 50 kfps are held in a sibling
     # `legacy/camera_visible_fluctuation/` tree, reserved for issue #161 and
-    # excluded from routine ingest. Frames named `{shot}_{time}_ms.bmp` are
-    # `bmp_arranger` output, not raw, and this mapping cannot read them.
+    # excluded from routine ingest. That split is policy, not data model, and
+    # it is one entry rather than two on purpose -- the same reasoning as
+    # magnetics.b_field_pol_probe covering both the equilibrium probe set and
+    # the outboard fluctuation array. All 52 high-rate acquisitions were
+    # inspected: identical 150-line GX-8 headers, the same uint8 BMPs under
+    # the same filename grammar, contiguous frames, and a timebase that
+    # `frame_time_ms` reproduces exactly (0.02 ms at 50 kfps, 40 ms over 2001
+    # frames). Original frame indices survive the reindex because each frame's
+    # time is computed from its pre-selection index. So this mapping reads
+    # both trees unchanged; only the source path and the ingest policy differ,
+    # and inventing a second IDS path for a directory name would be noise.
+    # Frames named `{shot}_{time}_ms.bmp` are `bmp_arranger` output, not raw,
+    # and this mapping cannot read them.
     source: {type: file, formats: [bmp, text], patterns: ["{shot}/{shot}_{frame:08d}.bmp", "{shot}/{shot}_bmp.txt"]}
     availability: If-requested
     lifecycle: available
