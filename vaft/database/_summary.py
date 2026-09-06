@@ -73,6 +73,30 @@ EQUILIBRIUM_GLOBAL_COLUMNS = (
     "virial_li_lao",
     "virial_beta_bongard",
     "virial_li_bongard",
+    # #546: the three pairwise closures, the identity residuals evaluated on
+    # the equilibrium's own volume integrals, and the conditioning that says
+    # whether the RT-dependent ones mean anything. Report-only: no threshold
+    # here gates anything.
+    "virial_beta_pair_12",
+    "virial_li_pair_12",
+    "virial_beta_pair_13",
+    "virial_li_pair_13",
+    "virial_beta_pair_23",
+    "virial_li_pair_23",
+    "virial_beta_full_123",
+    "virial_li_full_123",
+    "virial_mui_full_123",
+    "virial_beta_volume",
+    "virial_li_volume",
+    "virial_mui_measured",
+    "virial_residual_e1",
+    "virial_residual_e2",
+    "virial_residual_e3",
+    "virial_residual_rms",
+    "virial_omitted_residual_pair_12",
+    "virial_omitted_residual_pair_13",
+    "virial_omitted_residual_pair_23",
+    "virial_rt_denominator_ratio",
 )
 
 # These paths cover both directly exported values and inputs consumed by the
@@ -253,6 +277,49 @@ def _virial_values(outputs: dict, index: int) -> dict[str, float]:
         "virial_li_lao": get("li_vir_lao", "li_vir"),
         "virial_beta_bongard": get("beta_p_vir_bongard"),
         "virial_li_bongard": get("li_vir_bongard"),
+        **_virial_structured_values(values),
+    }
+
+
+def _virial_structured_values(values: dict) -> dict[str, float]:
+    """Flatten the #546 closure structure into the sheet's flat columns.
+
+    The wrapper returns nested blocks; a spreadsheet row is flat. Missing
+    blocks yield NaN rather than a KeyError, so a row computed by an older
+    wrapper still populates the columns it can.
+    """
+
+    def block(name: str, key: str) -> float:
+        entry = values.get(name)
+        if not isinstance(entry, dict):
+            return np.nan
+        return _as_float(entry.get(key, np.nan))
+
+    conditioning = values.get("conditioning")
+    rt_ratio = np.nan
+    if isinstance(conditioning, dict):
+        rt_ratio = _as_float(conditioning.get("rt_denominator_ratio", np.nan))
+    return {
+        "virial_beta_pair_12": block("pair_12", "beta_p"),
+        "virial_li_pair_12": block("pair_12", "li"),
+        "virial_beta_pair_13": block("pair_13", "beta_p"),
+        "virial_li_pair_13": block("pair_13", "li"),
+        "virial_beta_pair_23": block("pair_23", "beta_p"),
+        "virial_li_pair_23": block("pair_23", "li"),
+        "virial_beta_full_123": block("full_123", "beta_p"),
+        "virial_li_full_123": block("full_123", "li"),
+        "virial_mui_full_123": block("full_123", "mu_i"),
+        "virial_beta_volume": block("volume", "beta_p"),
+        "virial_li_volume": block("volume", "li"),
+        "virial_mui_measured": block("mu_i_sources", "measured"),
+        "virial_residual_e1": block("identity", "e1_normalized"),
+        "virial_residual_e2": block("identity", "e2_normalized"),
+        "virial_residual_e3": block("identity", "e3_normalized"),
+        "virial_residual_rms": block("identity", "rms"),
+        "virial_omitted_residual_pair_12": block("pair_12", "residual_normalized"),
+        "virial_omitted_residual_pair_13": block("pair_13", "residual_normalized"),
+        "virial_omitted_residual_pair_23": block("pair_23", "residual_normalized"),
+        "virial_rt_denominator_ratio": rt_ratio,
     }
 
 
