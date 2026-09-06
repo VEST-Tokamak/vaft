@@ -111,6 +111,10 @@ EQUILIBRIUM_GLOBAL_PATHS = (
     # resolver cross-checks it against tf, so tf has to be loaded or the check
     # is blind and the corrupt value is used silently.
     "tf",
+    # The virial path reads the diamagnetic loop for the measured mu_i. Without
+    # it the magnetics IDS is never opened and virial_mui_measured is NaN on
+    # every row of every shot -- a column that exists and says nothing.
+    "magnetics",
 )
 
 VACUUM_REFERENCE_RADIUS_M = 0.4

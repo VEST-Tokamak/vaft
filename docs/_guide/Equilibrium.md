@@ -254,15 +254,40 @@ So comparing `pair_13` against `pair_12` and `pair_23` is the first thing to do
 with a suspicious $\beta_p$, and a $\beta_p$ that exists only through an
 $R_T$-dependent closure should be read with the conditioning number beside it.
 
+### The sign of $\mu_i$, which is not optional
+
+The three relations use the **volume** definition,
+
+$$\mu_i = \frac{1}{B_{pa}^2\,\Omega}\int_\Omega \left(B_{tv}^2 - B_t^2\right)dV,$$
+
+positive for a diamagnetic plasma. The **flux** form — EFIT's `xmui`, and
+`vaft.process.equilibrium.computed_diamagnetism_from_phi` which shares its sign
+— is its negative, because $B_{tv}^2-B_t^2 \approx -2F_b(F-F_b)/R^2$ while
+$\Delta\phi = \int (B_t - B_{tv})\,dA$. Feeding the flux sign to the closures
+puts a systematic $2\mu_i$ into every identity residual: on an analytic
+Solov'ev equilibrium the residuals are $(-0.675, +0.675, -0.675)$ that way and
+$(+0.0005, +0.0003, +0.0001)$ with the volume definition.
+
+Use `virial_mu_i_from_diamagnetic_flux` to convert a *measured* flux into the
+virial sign; the equilibrium's own $\mu_i$ comes from the exact volume
+integral where the $F$ profile exists.
+
 ### The three sources of $\mu_i$
 
-Never collapsed into one number, because they disagree:
+All on the volume convention, so they are comparable — and never collapsed into
+one number, because they disagree:
 
 | Source | Where from |
 | --- | --- |
 | `mu_i_sources.volume` | the reconstructed equilibrium's own volume integral |
 | `mu_i_sources.full_123` | predicted by solving all three relations |
 | `mu_i_sources.measured` | `magnetics.diamagnetic_flux`, a measurement no reconstruction fitted |
+
+On the packaged shot-39915 sample the first is $-0.77$ (paramagnetic) and the
+last $+0.63$ (diamagnetic). That disagreement is issue #385, and it is what
+`independent_validation.virial_measured_mu_i` and `diamagnetic_energy` both
+report — they used to contradict each other only because the two $\mu_i$ were
+on opposite conventions.
 
 The measured one also feeds the three closures again under
 `measured_mu_i_closures`, so `beta_p` from the measurement and `beta_p` from

@@ -2019,6 +2019,63 @@ def virial_li_from_volume(B_p: np.ndarray,
     return (1.0 / (B_pa**2 * Omega)) * np.sum(B_p**2 * dV)
 
 
+def virial_mu_i_from_diamagnetic_flux(B_t: float,
+                                      R0: float,
+                                      dphi: float,
+                                      B_pa: float,
+                                      Omega: float) -> float:
+    r"""Diamagnetic parameter $\mu_i$ from a diamagnetic flux, in the virial sign.
+
+    $$\mu_i = -\frac{4\pi\,B_t\,R_0\,\Delta\phi}{B_{pa}^2\,\Omega}$$
+
+    Parameters
+    ----------
+    B_t : float
+        Vacuum toroidal field at $R_0$ [T].
+    R0 : float
+        Reference major radius [m].
+    dphi : float
+        Diamagnetic flux, signed as stored: negative for a diamagnetic plasma [Wb].
+    B_pa : float
+        Boundary-averaged poloidal field [T].
+    Omega : float
+        Plasma volume [m^3].
+
+    Returns
+    -------
+    float
+        Diamagnetic parameter in the sign the virial relations use [-].
+
+    Convention
+    ----------
+    The **minus** is the whole point. The three virial relations solved by
+    :func:`virial_full_123_from_S_alpha_rt` use the volume definition
+    $\mu_i = \frac{1}{B_{pa}^2\Omega}\int (B_{tv}^2 - B_t^2)\,dV$, which is
+    positive for a diamagnetic plasma. The flux form
+    :func:`virial_muihat_from_Bt_R0_dphi`, and the EFIT ``xmui`` port
+    :func:`vaft.process.equilibrium.computed_diamagnetism_from_phi` that shares
+    its sign, are the negative of it, because
+    $B_{tv}^2 - B_t^2 \approx -2F_b(F-F_b)/R^2$ while
+    $\Delta\phi = \int (B_t - B_{tv})\,dA$. Feeding the flux sign to the
+    closures puts a systematic $2\mu_i$ into every identity residual.
+
+    Validity
+    --------
+    First order in $(F-F_b)/F_b$, like the flux form it negates. Where the $F$
+    profile is available the exact volume integral is better and is what
+    :func:`vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods`
+    uses for the equilibrium's own $\mu_i$; this form is for a *measured* flux,
+    where no profile exists.
+
+    References
+    ----------
+    .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion
+           25 (1985) 1421, Sec. 2 ($\mu_i$ definition).
+    .. [2] V. D. Shafranov, Plasma Phys. 13 (1971) 757.
+    """
+    return -virial_muihat_from_Bt_R0_dphi(B_t, R0, dphi, B_pa, Omega)
+
+
 def virial_muihat_from_Bt_R0_dphi(B_t: float,
                                  R0: float,
                                  dphi: float,
@@ -2110,8 +2167,14 @@ def approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi(B_pa: float,
 
 #: Denominator magnitude below which a virial closure is reported as
 #: indeterminate rather than as a large finite number.  The Shafranov integrals
-#: and $\alpha$ are all $O(1)$, so an absolute floor is the meaningful one.
-VIRIAL_SINGULAR_EPS = 1e-9
+#: and $\alpha$ are all $O(1)$, so an absolute floor is the meaningful one --
+#: but it has to be a floor at the scale the closure actually degrades at, not
+#: at machine epsilon.  At 1e-9 a denominator of 3e-9 still returned
+#: ``beta_p = -6.2e7``, which the validation layer's plausibility bounds then
+#: read as a physical failure: exactly the outcome the guard is documented to
+#: prevent.  1e-3 keeps genuinely usable closures and rejects the ones whose
+#: value is set by the denominator rather than by the equilibrium.
+VIRIAL_SINGULAR_EPS = 1e-3
 
 
 def _virial_ratio(numerator: float, denominator: float, eps: float) -> float:

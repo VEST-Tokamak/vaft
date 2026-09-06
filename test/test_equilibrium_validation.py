@@ -153,7 +153,7 @@ def test_a_partially_assessable_category_is_indeterminate(report):
     """Eight slices pass the virial plausibility bounds and the dead one cannot
     be decided: the check is ``indeterminate``, because part of the evidence is
     missing."""
-    virial = report["physical_validity"]["virial_parameter_plausibility"]
+    virial = report["physical_validity"]["virial_identity"]
     assert virial["counts"] == {INDETERMINATE: 1, PASS: 8}
     assert virial["status"] == INDETERMINATE
 
@@ -165,13 +165,16 @@ def test_a_partially_assessable_category_is_indeterminate(report):
 def test_a_slice_without_a_boundary_is_indeterminate_not_a_number(report):
     dead = _slice(report, "physical_validity", "virial_parameter_plausibility", DEAD)
     assert dead["status"] == INDETERMINATE
-    assert "non-finite" in dead["reason"]
     for name in ("s_1", "beta_p", "li", "B_pa"):
         assert dead[name] is None  # NaN serializes as null, never as an unbounded value
+    # The live slices are indeterminate too, but for the other reason the check
+    # can give: their Lao beta_p and li run through an RT/R0 the conditioning
+    # check reports as cancelled away. Both are numbers the report declines to
+    # grade, neither is an unbounded one.
     live = _slice(report, "physical_validity", "virial_parameter_plausibility", LIVE)
-    assert live["status"] == PASS
-    assert 0 < live["beta_p"] < 10 and 0 < live["li"] < 3
-    # Both closures are named; neither is silently the other.
+    assert live["status"] == INDETERMINATE
+    assert "RT denominator" in live["reason"]
+    # Both closures are still named; neither is silently the other.
     assert live["beta_p"] == live["beta_p_lao"] and live["li"] == live["li_lao"]
     assert live["li_bongard"] != live["li_lao"]
     assert _slice(report, "independent_validation", "diamagnetic_energy", DEAD)["status"] == INDETERMINATE
@@ -290,28 +293,31 @@ def test_the_reconstructed_diamagnetic_flux_disagrees_with_the_measurement_in_si
     """A finding on shot 39915 the report surfaces: the reconstructed flux is
     paramagnetic where the loop measures diamagnetic.
 
-    This test used to also assert that the measured flux closed the virial
-    energy balance to half a percent. It did not: that agreement was the Lao
-    ``beta_p`` sign error (#546) cancelling the very sign disagreement this test
-    exists to record. ``W_kin`` is built on the equilibrium-derived ``mu_i``
-    (+0.75 here) and ``W_diamagnetic`` on the measured one (-0.63), so the two
-    cannot agree to half a percent while the measurement and the reconstruction
-    disagree about which way the plasma diamagnetism points. The old
-    ``beta_p`` carried a spurious ``+r*S2 = -0.128`` that offset
-    ``-(mu_i + mu_i_measured) = -0.120`` to within 0.008. With the sign
-    corrected the balance closes to ~8%, which is the honest size of the
-    disagreement and still well inside the check's own tolerance.
+    This test twice asserted that the measured flux nearly closed the virial
+    energy balance -- to half a percent, then to ~8%. Both were artifacts of
+    sign errors, and both are gone (#546):
+
+    * the Lao ``beta_p`` carried a spurious ``+r*S2``, and
+    * ``mu_i`` was handed to the closures on the flux convention, which is the
+      negative of the volume definition the three relations use.
+
+    With both corrected the two sides are on one convention and say what the
+    data says: the equilibrium's ``mu_i`` is -0.77 (paramagnetic) and the
+    loop's is +0.63 (diamagnetic). Quantities that disagree about the direction
+    of the plasma diamagnetism must not produce an agreeing energy balance, so
+    ``diamagnetic_energy`` now **fails**, alongside ``diamagnetic_flux``, and
+    the two tell one story instead of contradicting each other.
     """
     flux = _slice(report, "physical_validity", "diamagnetic_flux", LIVE)
     assert flux["status"] == FAIL
     assert flux["sign_agreement"] is False
     assert flux["measured"] < 0 < flux["computed"]
     energy = _slice(report, "independent_validation", "diamagnetic_energy", LIVE)
-    assert energy["status"] == PASS
-    assert energy["mui_measured"] < 0
-    # The residual is the mu_i disagreement, not a coincidence: it must be far
-    # enough from zero to be the real thing and inside the registry tolerance.
-    assert 0.02 < abs(energy["log_ratio"]) < describe("independent_validation.diamagnetic_energy").tolerance[0]
+    virial = _slice(report, "physical_validity", "virial_identity", LIVE)
+    # One convention, opposite signs: that is the finding.
+    assert energy["mui_measured"] > 0 > virial["mu_i_volume"]
+    assert energy["status"] == FAIL
+    assert abs(energy["log_ratio"]) > describe("independent_validation.diamagnetic_energy").tolerance[1]
 
 
 def test_measurements_can_arrive_on_a_separate_diagnostics_ods(sample):

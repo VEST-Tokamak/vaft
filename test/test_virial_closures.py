@@ -234,12 +234,20 @@ def test_the_singularity_is_caught_from_either_side(delta):
     ))
 
 
-def test_a_closure_just_outside_the_singular_band_still_returns_numbers():
-    """The guard must not swallow merely ill-conditioned cases: those are real
-    results the conditioning evidence is there to qualify."""
-    beta_p, li = virial_pair_13_from_S_alpha_mu(S1, S2, S3, 2.0 / 3.0 + 1e-6, MU)
+def test_the_guard_rejects_values_set_by_the_denominator_not_the_equilibrium():
+    """The band has to sit where the closure actually degrades. This test used
+    to assert `abs(beta_p) > 1e3` as the *desired* outcome, which enshrined the
+    thing the guard exists to prevent: a 6e7 beta_p reaching the plausibility
+    bounds and being reported as a physical failure."""
+    # Inside the band: the denominator, not the equilibrium, sets the value.
+    assert all(math.isnan(v) for v in virial_pair_13_from_S_alpha_mu(
+        S1, S2, S3, 2.0 / 3.0 + 1e-6, MU
+    ))
+    # Outside it: an ill-conditioned but real result, which the conditioning
+    # evidence qualifies rather than the guard discarding.
+    beta_p, li = virial_pair_13_from_S_alpha_mu(S1, S2, S3, 2.0 / 3.0 + 0.05, MU)
     assert math.isfinite(beta_p) and math.isfinite(li)
-    assert abs(beta_p) > 1e3, "expected the near-singular value to be large"
+    assert abs(beta_p) < 100.0
 
 
 def test_pair_12_cannot_be_singular_because_it_never_sees_alpha():
@@ -334,8 +342,33 @@ def test_the_full_solve_guards_the_determinant_it_documents():
 
 
 def test_the_historical_bongard_name_can_tune_the_same_guard():
-    near = 2.0 / 3.0 + 1e-6
+    near = 2.0 / 3.0 + 0.02          # denominator 0.06: outside the 1e-3 default
     assert all(math.isfinite(v) for v in virial_bongard_from_S_alpha_mu(S1, S2, S3, near, MU))
     assert all(math.isnan(v) for v in virial_bongard_from_S_alpha_mu(
-        S1, S2, S3, near, MU, eps=1e-3
+        S1, S2, S3, near, MU, eps=0.1
     ))
+
+
+def test_the_flux_and_volume_mu_i_conventions_are_negatives():
+    """The defect the cold review of #546 found. The three relations use the
+    volume definition of mu_i; the EFIT flux port is its negative. Feeding the
+    flux sign to the closures put a systematic 2*mu_i into every residual and
+    turned l_i negative on real reconstructions."""
+    from vaft.formula.equilibrium import (
+        virial_mu_i_from_diamagnetic_flux,
+        virial_muihat_from_Bt_R0_dphi,
+    )
+
+    args = (0.15, 0.4, -1.44e-3, 0.042, 0.956)   # B_t, R0, dphi, B_pa, Omega
+    assert virial_mu_i_from_diamagnetic_flux(*args) == pytest.approx(
+        -virial_muihat_from_Bt_R0_dphi(*args), rel=1e-12
+    )
+    # A negative (diamagnetic) flux gives a positive mu_i in the virial sign.
+    assert virial_mu_i_from_diamagnetic_flux(*args) > 0
+
+    # And the sign matters by exactly 2*mu_i in every identity, which is what
+    # made this survive: the offset is systematic, so nothing looked random.
+    mu = 0.31
+    a = virial_identity_residuals(0.85, 0.72, mu, S1, S2, S3, ALPHA, RT)
+    b = virial_identity_residuals(0.85, 0.72, -mu, S1, S2, S3, ALPHA, RT)
+    assert [x - y for x, y in zip(a, b)] == pytest.approx([-2 * mu, 2 * mu, -2 * mu])
