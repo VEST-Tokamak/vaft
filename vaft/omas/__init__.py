@@ -112,8 +112,18 @@ def load(source, *, imas_version=None):
     return ods
 
 
-def save(ods, target):
-    """Save an OMAS ODS as JSON or HDF5, chosen from ``target``'s suffix."""
+def save(ods, target, *, compression=None):
+    """Save an OMAS ODS as JSON or HDF5, chosen from ``target``'s suffix.
+
+    ``compression`` applies to ``.h5``/``.hdf5`` targets only and names an
+    h5py filter (``"gzip"``, ``"lzf"``). OMAS's own ``save_omas_h5`` is
+    ``dict2hdf5(filename, ods, lists_as_dicts=True)`` with no way to pass a
+    filter through, so a compressed target calls ``dict2hdf5`` directly with
+    the same arguments plus ``compression``. The dataset contents are
+    identical either way -- HDF5 compression is lossless and transparent to
+    readers, so a compressed product loads through the ordinary loader with
+    no flag on the reading side.
+    """
     import gzip
     from pathlib import Path
     import shutil
@@ -122,13 +132,23 @@ def save(ods, target):
 
     target_path = Path(target).expanduser()
     suffixes = target_path.suffixes
+    is_hdf5 = target_path.suffix.lower() in {".h5", ".hdf5"}
     if (
         target_path.suffix.lower() not in {".h5", ".hdf5", ".json"}
         and suffixes[-2:] != [".json", ".gz"]
     ):
         raise ValueError("vaft.omas.save target must end in .json, .json.gz, .h5, or .hdf5")
+    if compression is not None and not is_hdf5:
+        raise ValueError(
+            "vaft.omas.save compression applies to .h5/.hdf5 targets only; "
+            f"got {target_path.name!r}. JSON.GZ is already gzip-compressed."
+        )
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    if suffixes[-2:] == [".json", ".gz"]:
+    if compression is not None:
+        from omas.omas_h5 import dict2hdf5
+
+        dict2hdf5(str(target_path), ods, lists_as_dicts=True, compression=compression)
+    elif suffixes[-2:] == [".json", ".gz"]:
         # `ODS.save` takes a path and opens it itself, so the staging file has
         # to be openable by name -- which a NamedTemporaryFile is not on
         # Windows. See vaft.compat.reopenable_temporary_file.

@@ -64,7 +64,9 @@ measurement, so an example that needs them should call that API instead. Shots 4
 regenerated from frozen current-pipeline products by
 `generate_pipeline_imas_sample.py`; each retains its successful EFIT slices
 and records unavailable optional channels and unsuccessful EFIT times in its
-manifest. Both native samples normalize DD-only metadata and use +Bz probe
+manifest. Their `em_coupling` is re-mapped at generation from the current
+packaged asset (`generation.em_coupling` in the manifest, issue #373) rather
+than carried from the frozen product, whose matrix predates the repair below. Both native samples normalize DD-only metadata and use +Bz probe
 direction metadata. The old format-grouped JSON files and unrelated IMAS
 NetCDF sample are intentionally not recreated.
 
@@ -78,6 +80,13 @@ SHA-256 checksums for the geometry-dependent coupling assets are
 `71c10a410b4bb180d5366f1bb7191a1a14e9277142af2cd20246af181f5b6830`
 (2507). The 1909 matrix is the coupling counterpart of VAFT's 1906 PF
 geometry; the differing suffixes are retained from the source asset names.
+The `mutual_passive_passive` block was repaired on 2026-09-06 (issue #373):
+the legacy kernel applied the SUS316LN permeability factor 1.04 from the
+first conductor only, so the SUS–tungsten cross block violated reciprocity by
+1.27e-3; it now carries the SUS-side value throughout and is symmetric to
+exactly zero. The asset's `provenance` key (a JSON record: generator, date,
+commit, source and geometry digests, the factor, the convention) says so, and
+`workflow/em_coupling/regenerate_passive_coupling.py --verify` checks it.
 `VEST_MagneticsGeometry_Full_ver_2302.yaml` retains its historical filename
 for API compatibility, while its source metadata, channel order, and
 calibration values reflect the production 2409 magnetic geometry.
@@ -122,7 +131,13 @@ flux-surface solve's derived equilibrium quantities
 in Wb as the IMAS DD requires (the earlier Wb/rad discrepancy this paragraph
 used to document is fixed); `from_omas` tells legacy Wb/rad artifacts apart
 from DD-conformant ones via the `dphi/dpsi` vs `q` slope, so both this OMFIT
-sample and older native ODS files read back correctly. The committed sample is
+sample and older native ODS files read back correctly. The packaged shot
+samples under `samples/` and `wheel_samples/` are regenerated through
+`vaft.omas.equilibrium_psi_to_weber` (issue #478): 39915 now stores psi in
+Wb and declares COCOS 11 on `equilibrium.code.parameters.cocos`, which every
+reader (`ods_psi_to_wb_per_radian_factor`, `as_equilibrium`) honours before
+probing the data. 41524 and 41672 (repository-only `imas.nc`) still hold the
+legacy Wb/rad and declare nothing; the probes settle them at read time. The committed sample is
 kept as a frozen artifact rather than regenerated -- do not overwrite it
 casually. Keep `user`
 pinned if you do regenerate (`dataset_description` otherwise stamps `$USER`,

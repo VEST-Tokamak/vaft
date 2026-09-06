@@ -26,6 +26,13 @@ CHANNEL_CADENCE_HZ: dict[int, float] = {
     2: 250e3,
 }
 
+#: Where a channel's digitizer rails, in stored units, for the channels whose
+#: rail is documented: the versatile filterscope clips at 5.0 (41524).  A
+#: channel absent here has no known rail and is not judged against one.
+CHANNEL_RAIL_LEVEL: dict[int, float] = {
+    2: 5.0,
+}
+
 #: ``(raw_field, channel, line, label, wavelength_m)``.
 #:
 #: ``label`` follows the syntax the IMAS Data Dictionary prescribes for

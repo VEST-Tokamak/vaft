@@ -116,6 +116,19 @@ licence first; see [`external/nubeam/`](https://github.com/VEST-Tokamak/vaft/tre
 That build is macOS/Apple Silicon only at present. The adapter runs NUBEAM and parses its native
 output; it does not yet map results into IMAS.
 
+On Windows, set the same roots as user environment variables so that a new
+terminal and a Jupyter kernel both inherit them:
+
+```powershell
+[Environment]::SetEnvironmentVariable('CHEASEHOME', "$env:LOCALAPPDATA\vaft\external\chease", 'User')
+[Environment]::SetEnvironmentVariable('GPECHOME',   "$env:LOCALAPPDATA\vaft\external\gpec",   'User')
+```
+
+The executable under `bin/` may be the native `chease.exe` or `dcon.exe`; VAFT
+resolves the documented POSIX name to it. `install/README.md` covers building
+CHEASE and the DCON/GPEC suite natively on Windows.
+
+
 ## Expected outputs
 
 - Offline: a plasma-current plot from the packaged sample ODS.

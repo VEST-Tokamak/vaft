@@ -282,7 +282,15 @@ def main() -> int:
                 "No plasma window found; EFIT constraint times cover the whole analysis range "
                 "%.4f-%.4f s (%s)", window.start, window.end, window.fallback_reason,
             )
-    fl_correct_coeff = correct_flux_loop(ods) if args.fl_correct_option else None
+    fl_correct_coeff = None
+    if args.fl_correct_option:
+        if window is None or window.fallback:
+            # The correction fits the pre-plasma stretch; without a detected
+            # plasma there is no such stretch to fit, so it is skipped -- said
+            # here rather than raised from inside the fit.
+            LOGGER.warning("flux-loop correction skipped: no plasma window to fit before")
+        else:
+            fl_correct_coeff = correct_flux_loop(ods, window=(window.start, window.end))
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     LOGGER.info("Generating constraints for shot %s at %d time slices", args.shot, len(times))

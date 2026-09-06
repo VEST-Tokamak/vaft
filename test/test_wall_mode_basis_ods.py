@@ -134,7 +134,12 @@ def test_record_writes_provenance_under_em_coupling_only(packaged):
     assert sum(l.startswith("wall_mode_basis_digest=") for l in str(ods["em_coupling.code.parameters"]).splitlines()) == 1
 
 
-def test_41672_shipped_em_coupling_is_refused_until_remapped():
+def test_41672_shipped_em_coupling_is_symmetric_and_builds_without_remap():
+    """Since #373 the packaged asset is exactly reciprocal and the shipped
+    41672 product carries it re-mapped, so the basis builds on it directly,
+    silently, at full rank."""
+    import warnings
+
     import vaft
     import vaft.omas
 
@@ -143,12 +148,28 @@ def test_41672_shipped_em_coupling_is_refused_until_remapped():
     except (ValueError, FileNotFoundError):
         pytest.skip("sample 41672 is not available in this checkout")
     ods = vaft.omas.load(path)
-    asymmetry = float(np.max(np.abs(ods["em_coupling.mutual_passive_passive"] - ods["em_coupling.mutual_passive_passive"].T))
-                      / np.max(np.abs(ods["em_coupling.mutual_passive_passive"])))
-    if asymmetry <= 1e-6:
-        pytest.skip("the shipped coupling is already symmetric; nothing to refuse")
+    M = np.asarray(ods["em_coupling.mutual_passive_passive"], dtype=float)
+    assert float(np.max(np.abs(M - M.T)) / np.max(np.abs(M))) == 0.0
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        basis = compute_wall_mode_basis_ods(ods)
+    assert sum(basis.n_modes()) == 950
+
+
+def test_a_product_materialized_before_the_repair_is_refused_until_remapped():
+    """An artifact carrying the pre-#373 matrix (re-created here from the
+    repaired one) is refused, and `remap_em_coupling=True` is the repair."""
+    from vaft.omas.process_wrapper import ensure_em_coupling
+    from vaft.omas.sample import sample_ods
+
+    ods = sample_ods()
+    ensure_em_coupling(ods)
+    stale = np.asarray(ods["em_coupling.mutual_passive_passive"], dtype=float).copy()
+    stale[720:, :720] /= 1.04
+    ods["em_coupling.mutual_passive_passive"] = stale
     with pytest.raises(WallModeError, match="asymmetric"):
         compute_wall_mode_basis_ods(ods)
-    with pytest.warns(RuntimeWarning):
-        basis = compute_wall_mode_basis_ods(ods, remap_em_coupling=True)
+    basis = compute_wall_mode_basis_ods(ods, remap_em_coupling=True)
     assert sum(basis.n_modes()) == 950
+    repaired = np.asarray(ods["em_coupling.mutual_passive_passive"], dtype=float)
+    assert np.array_equal(repaired, repaired.T)

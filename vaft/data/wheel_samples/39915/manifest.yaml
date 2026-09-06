@@ -49,8 +49,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 9919054
-    sha256: ceff4d5db963dd31e76878c60157f05b2ea27ff2e737b9ecfd479af1a5689bbc
+    size: 10107995
+    sha256: 39bc61953343362db8e7ce7d94725799dbadc6b34e1972e01878ae0fbb16009d
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -58,16 +58,18 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 11205129
-    sha256: dbb39afa6956baf86ef9a1b448f985f51b9b62e00c24242813cedadf74df1c1a
+    size: 11205694
+    sha256: 22c68beeaa230a70c4366f4a35c167db7a4448bec344da0688f63e8ca85d6e57
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
   canonical_source: source/pipeline-until-efit.json.gz
   canonical_sha256: ba20eeef791ce7a212497053e527db620ffd88652a7794b8184e816e8d7143b0
   canonical_policy: repository-only
+  normalizations:
+  - equilibrium_psi_weber
   equilibrium_time_slices: 3
-  materialized_leaves: 15731
+  materialized_leaves: 15733
   metadata_corrections:
   - issue: https://github.com/VEST-Tokamak/vaft/issues/169
     path: magnetics.b_field_pol_probe.*.poloidal_angle
@@ -117,6 +119,7 @@ generation:
       population_peak_factor: 4.0
     condemned:
     - b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz
+  equilibrium_cocos: 11
   distribution_variant: wheel
 semantic_comparison:
   paths:
@@ -186,10 +189,9 @@ corrections:
     line the filterscope observes is near 4267 Angstrom. The old pair therefore
     named two different species at one wavelength, which a species-aware selector
     would have resolved to the wrong ion. Applied in place rather than by rerunning
-    the pipeline, for the same reason as the correction above: the mapper writes
-    both leaves as constants from vaft.machine_mapping.spectrometer_uv.SIGNALS, and
-    no stage output depends on either, so the intensity series recorded from DAQ
-    field 142 is untouched. SIGNALS was corrected in the same change, so a
-    regeneration now reproduces these values rather than reverting them, and the
-    stage hashes above still describe the run that produced the rest of the
-    artifact.'
+    the pipeline, for the same reason as the #288 correction: the mapper writes both
+    leaves as constants from vaft.machine_mapping.spectrometer_uv.SIGNALS, and no
+    stage output depends on either, so the intensity series recorded from DAQ field
+    142 is untouched. SIGNALS was corrected in the same change, so a regeneration
+    reproduces these values rather than reverting them, and the stage hashes still
+    describe the run that produced the rest of the artifact.'

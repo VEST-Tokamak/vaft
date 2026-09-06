@@ -14,39 +14,18 @@ def find_shotnumber(ods):
     """Find the shot number from the ODS."""
     return ods['dataset_description.data_entry.pulse']
 
-def find_shotclass(ods,plot_opt=0):
+def find_shotclass(ods, plot_opt=0):
+    """The lenient form of :func:`classify_shot`: ``None`` when the ODS cannot be classified.
+
+    A product without the plasma current the shared timing needs, or one
+    that raises on read, answers ``None`` here rather than raising; the
+    classification itself is :func:`classify_shot`, and the two never
+    disagree on a classifiable shot.
     """
-    !!! Obsolete function:
-    it is not successfully find the shot class. Need to be improved.
-
-    Find shot class from ODS
-    # 'Plasma': Plasma discharge is stable and Halpha is detected
-    # 'Vacuum': Vacuum Test Shot
-    # 'Breakdown failure': Try to discharge but failed (BD Test Shot)
-
-    """
-    # check existence of barometry and spectrometer
-    if 'barometry' not in ods:
-        print('Barometry not found in ODS')
-        return
-    if 'spectrometer_uv' not in ods:
-        print('Spectrometer not found in ODS')
-        return
-
-    # Check status: Vacuum, BD failure, Plasma
-    time_pres=ods['barometry.gauge.0.pressure.time'] # time
-    data_pres=ods['barometry.gauge.0.pressure.data'] # pressure
-    data_alpha=ods['spectrometer_uv.channel.0.processed_line.0.intensity.data'] # Halpha
-    time_alpha=ods['spectrometer_uv.time'] # Halpha
-
-    if vaft.process.is_signal_active(data_alpha, 0.01):
-        status = 'Plasma'
-    else:
-        if not vaft.process.is_signal_active(data_pres): # no pressure?
-            status='Vacuum'
-        else:
-            status='BD failure'
-    return status
+    try:
+        return classify_shot(ods)
+    except (KeyError, ValueError):   # PlasmaTimingError is a ValueError
+        return None
 
 def find_chamber_boundary(ods):
     """Find the chamber boundary from the ODS."""
@@ -164,21 +143,21 @@ def find_bt(ods):
     return float(np.mean(bt[inside]))
 
 def find_max_ip(ods):
-    """Find the maximum plasma current."""
-    current = ods['magnetics.ip.0.data']
-    from scipy.signal import medfilt
-    data_filtered = medfilt(current, kernel_size=15)
-    
-    max_org = np.max(current)
-    max_filtered = np.max(data_filtered)
+    """The representative peak of the plasma current inside the plasma window.
 
-    print(f"Original max IP: {max_org}, Filtered max IP: {max_filtered}")
+    ``vaft.omas.plasma_features``: the largest sustained excursion of the
+    median-filtered, zero-phase low-passed current between the plasma onset
+    and offset -- a coil-firing impulse is never the answer.  Raises
+    ``ValueError`` naming the reason when the timing found no plasma or the
+    current carries no qualifying peak.
+    """
+    from .plasma_features import ip_peak
 
-    if ods['dataset_description']['data_entry']['pulse'] == 40919 or ods['dataset_description']['data_entry']['pulse'] == '40919':
-        if max_filtered > 100:
-            raise RuntimeError("조건을 만족하지 않아 종료합니다.")
-    
-    return np.max(data_filtered)
+    feature = ip_peak(ods)
+    if not feature.found:
+        raise ValueError(f"no plasma-current peak: {feature.reason or ', '.join(feature.flags)}")
+    return float(feature.value)
+
 
 def find_major_radius(ods):
     """Placeholder for finding major radius."""
@@ -410,26 +389,22 @@ def print_info(ods, key_name=None):
         else:
             print("key_name value Error!")
 
-def classify_shot(ods, pressure_threshold=0.01, halpha_threshold=0.01):
-    """Determine the classification of a shot based on pressure and H-alpha signals."""
-    try:
-        data_pres = ods['barometry.gauge.0.pressure.data']
-        if not vaft.process.is_signal_active(data_pres, var_ratio_thresh=pressure_threshold):
-            return 'Vacuum'
-        data_alpha = ods['spectrometer_uv.channel.0.processed_line.0.intensity.data']
-        if not vaft.process.is_signal_active(data_alpha, var_ratio_thresh=halpha_threshold):
-            return 'BD failure'
-        try:
-            ip = ods['magnetics.ip.0.data']
-            if np.max(ip) > 0:
-                return 'Plasma'
-            else:
-                return 'BD failure'
-        except Exception:
-            return 'Plasma'
-    except Exception as e:
-        print(f"Error in find_shotclass: {str(e)}")
-        return 'Vacuum'
+def classify_shot(ods, pressure_threshold=0.01, halpha_threshold=None):
+    """The class of a shot -- ``'Plasma'``, ``'BD failure'`` or ``'Vacuum'`` -- as a string.
+
+    :func:`vaft.omas.shot_class.shot_class` decides it from the shared plasma
+    timing and the barometry pressure response, and carries which check
+    decided; this is that record's label.  ``halpha_threshold`` is no longer
+    used: the light is judged by the plasma timing, not by a variance ratio.
+    """
+    from .shot_class import shot_class
+
+    if halpha_threshold is not None:
+        warnings.warn(
+            "classify_shot: halpha_threshold is ignored; the light is judged by vaft.omas.plasma_timing",
+            DeprecationWarning, stacklevel=2,
+        )
+    return shot_class(ods, pressure_threshold=pressure_threshold).label
 
 # ----------------------------------------------------------------------
 # Combine ODS
@@ -679,10 +654,13 @@ def ods_cocos(ods, *, default=None):
     """
     from vaft.data.cocos import COCOS_INDICES
 
+    from vaft.ods_access import path_value
+
     for path in ("equilibrium.ids_properties.cocos", COCOS_PARAMETER_PATH):
-        try:
-            value = ods[path]
-        except Exception:
+        # A non-mutating read: a plain ``ods[path]`` of a missing path creates
+        # an empty node that ``flat()`` hides but ``save`` writes (issue #478).
+        value = path_value(ods, path)
+        if value is None:
             continue
         try:
             index = int(value)
@@ -711,8 +689,122 @@ def set_ods_cocos(ods, index, *, source=None):
     ods[COCOS_PARAMETER_PATH] = index
     if source is not None:
         ods["equilibrium.code.parameters.cocos_source"] = str(source)
-    try:  # DD 4 only; harmless where the field does not exist.
+    if _dd_defines(ods, "equilibrium.ids_properties.cocos"):  # DD 4 only
         ods["equilibrium.ids_properties.cocos"] = index
-    except Exception:
-        pass
     return index
+
+
+def _dd_defines(ods, path):
+    """Whether the data dictionary version ``ods`` targets defines ``path``.
+
+    An ODS with consistency checks off accepts any path, so the DD itself has
+    to be asked; otherwise a DD 3 artifact ends up carrying a DD 4 leaf that
+    its native serializers cannot write (issue #478).
+    """
+    from omas.omas_utils import omas_info_node
+
+    try:
+        info = omas_info_node(path, imas_version=getattr(ods, "imas_version", None))
+    except Exception:
+        return False
+    return bool(info) and "data_type" in info
+
+
+#: Equilibrium leaves that scale with psi (times 2*pi from Wb/rad to Wb) and
+#: the psi-derivative leaves that scale inversely.  Only leaves the slice holds
+#: are touched.  The list covers what VAFT's own writers (eqdsk, vfit, the
+#: update helpers) produce; DD leaves no VAFT path writes
+#: (``q_min.psi``, ``psi_external_average``, ``constraints.*.position.psi``)
+#: are not on it, so point this at externally produced ODSs with care.
+_PSI_LIKE_LEAVES = (
+    "global_quantities.psi_axis",
+    "global_quantities.psi_boundary",
+    "boundary.psi",
+    "boundary_separatrix.psi",
+    "profiles_1d.psi",
+    "profiles_1d.dpsi_drho_tor",
+)
+_PER_PSI_LEAVES = (
+    "profiles_1d.dpressure_dpsi",
+    "profiles_1d.f_df_dpsi",
+    "profiles_1d.dvolume_dpsi",
+    "profiles_1d.darea_dpsi",
+)
+
+
+def equilibrium_psi_to_weber(ods, *, source=None):
+    """Rewrite a legacy Wb/rad equilibrium in place to the DD's full weber.
+
+    The IMAS Data Dictionary stores ``equilibrium.*.psi`` in Wb (COCOS 11);
+    artifacts written before issue #236 hold the g-file's Wb/rad verbatim and
+    declare nothing.  This multiplies every psi-like leaf by 2*pi, divides the
+    psi-derivative profiles by it, does the same to ``core_profiles`` psi grids,
+    and then declares COCOS 11 through :func:`set_ods_cocos` so no reader has
+    to guess again.
+
+    Returns ``True`` when a conversion was applied and ``False`` when the ODS
+    already declares a weber convention or holds no equilibrium.  A declared
+    COCOS 1-8 is trusted as provenance and converted without probing the
+    data.  An undeclared ODS is probed slice by slice, and ``ValueError`` is
+    raised when the slices disagree about their storage family or when no
+    slice can settle it -- guessing would silently corrupt the flux by 2*pi,
+    which is what this function exists to end (issue #478).
+    """
+    import numpy as np
+
+    from vaft.data.cocos import VAFT_INTERNAL_COCOS
+    from vaft.data.eqdsk import TWO_PI, slice_flux_exponent
+
+    if "equilibrium" not in ods or "equilibrium.time_slice" not in ods:
+        return False
+    declared = ods_cocos(ods)
+    if declared is not None:
+        if declared >= 11:
+            return False
+        exponents = {0}
+    else:
+        exponents = set()
+        undecided = []
+        for index in range(len(ods["equilibrium.time_slice"])):
+            exponent = slice_flux_exponent(ods[f"equilibrium.time_slice.{index}"])
+            if exponent is None:
+                undecided.append(index)
+            else:
+                exponents.add(exponent)
+        if not exponents:
+            raise ValueError(
+                "No equilibrium time slice carries enough data (profiles_1d.phi, "
+                "or a boundary outline with psi and ip) to settle whether psi is "
+                "stored in Wb or Wb/rad; declare the COCOS index instead"
+            )
+        if len(exponents) > 1:
+            raise ValueError(
+                "Equilibrium time slices disagree about their psi convention; "
+                "refusing to convert an inconsistent ODS"
+            )
+        if exponents == {1}:
+            set_ods_cocos(ods, VAFT_INTERNAL_COCOS, source=source)
+            return False
+
+    for index in range(len(ods["equilibrium.time_slice"])):
+        ts = ods[f"equilibrium.time_slice.{index}"]
+        for leaf in _PSI_LIKE_LEAVES:
+            if leaf in ts:
+                scaled = np.asarray(ts[leaf], float) * TWO_PI
+                ts[leaf] = float(scaled) if scaled.ndim == 0 else scaled
+        for leaf in _PER_PSI_LEAVES:
+            if leaf in ts:
+                ts[leaf] = np.asarray(ts[leaf], float) / TWO_PI
+        if "profiles_2d" in ts:
+            for grid_index in range(len(ts["profiles_2d"])):
+                if f"profiles_2d.{grid_index}.psi" in ts:
+                    ts[f"profiles_2d.{grid_index}.psi"] = (
+                        np.asarray(ts[f"profiles_2d.{grid_index}.psi"], float) * TWO_PI
+                    )
+    if "core_profiles.profiles_1d" in ods:
+        for index in range(len(ods["core_profiles.profiles_1d"])):
+            leaf = f"core_profiles.profiles_1d.{index}.grid.psi"
+            if leaf in ods:
+                ods[leaf] = np.asarray(ods[leaf], float) * TWO_PI
+    set_ods_cocos(ods, VAFT_INTERNAL_COCOS, source=source)
+    return True

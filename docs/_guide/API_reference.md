@@ -154,17 +154,17 @@ geq = vaft.omas.sample_gfile()  # packaged g-file as a GEQDSK object
 
 ```python
 vaft.omas.find_shotnumber(ods)
-vaft.omas.find_shotclass(ods, plot_opt=0)
+vaft.omas.find_shotclass(ods)             # lenient classify_shot: None when the ODS cannot be classified
 vaft.omas.find_chamber_boundary(ods)
 vaft.omas.find_breakdown_onset(ods)       # plasma onset from vaft.omas.plasma_timing
 vaft.omas.find_vloop_onset(ods)           # loop-voltage zero crossing from vaft.omas.discharge_timing
 vaft.omas.find_ip_onset(ods)              # plasma-current principal-pulse start
 vaft.omas.find_pf_active_onset(ods)       # one entry per coil; nan for a coil that did not fire
 vaft.omas.find_pulse_duration(ods)        # plasma offset - onset
-vaft.omas.find_max_ip(ods)
+vaft.omas.find_max_ip(ods)                # representative peak Ip inside the plasma window (vaft.omas.plasma_features)
 vaft.omas.find_bt(ods)                    # mean toroidal field over the plasma window
 vaft.omas.find_major_radius(ods)
-vaft.omas.classify_shot(ods, pressure_threshold=0.01, halpha_threshold=0.01)
+vaft.omas.classify_shot(ods, pressure_threshold=0.01)   # 'Plasma' | 'BD failure' | 'Vacuum' from the shared timing
 vaft.omas.print_info(ods, key_name=None)
 vaft.omas.find_matching_time_indices(ods, time_slice=None, atol=1e-6)
 ```
@@ -174,6 +174,8 @@ The finders answer from the shared timings with provenance, which are available 
 ```python
 vaft.omas.plasma_timing.plasma_timing(ods, policy=None)          # PlasmaTiming: window, source, agreement, flags
 vaft.omas.discharge_timing.discharge_timing(ods, policy=None)    # DischargeTiming: coil onsets, ohmic onset, vloop event
+vaft.omas.plasma_features.plasma_features(ods, timing=None)      # PlasmaFeatures: peaks of Ip, H-alpha, lines, diamagnetic flux
+vaft.omas.shot_class.shot_class(ods, timing=None)                # ShotClass: the label and the check that decided it
 ```
 
 Time-base bookkeeping (DAQ time versus event-referenced time) and container plumbing. The convention
@@ -417,9 +419,17 @@ outputs = collect_efit_outputs(workdir, cfg)
 | Base classes | `CodeConfig`, `CodeInputs`, `CodeResult`, `CodeRunner` |
 
 `run_nubeam_case(input_dir, gfile=..., workdir=...)` is the NUBEAM equivalent: it stages a case,
-builds its Plasma State, and runs INIT then STEP. NUBEAM results are returned as a native
-container and are not yet mapped into IMAS -- see issue #490 section 6. `vaft.plot.nubeam`
-renders them directly, which is why those views are not in the plot catalog.
+builds its Plasma State, and runs INIT then STEP. Results come back as a native container, and
+`vaft.machine_mapping.core_sources.core_sources_from_nubeam` maps the heating, current-drive and
+torque channels into `core_sources` as an NBI source term. Heating and torque are per-zone
+integrals that map directly; the driven current is not -- NUBEAM reports it as a *toroidal*
+current and IMAS asks for `<J.B>/B0`, so it goes through
+`vaft.process.equilibrium.parallel_current_from_toroidal`, which needs equilibrium geometry and
+assumes the driven current is field-aligned. On a spherical tokamak the two differ by about a
+factor of 1.5, so the distinction is not academic. `vaft.machine_mapping.nbi` populates the
+static beam geometry. What has no IMAS home yet -- deposition markers, lost fast ions, the step
+log's power budget -- stays in the native container and is drawn by `vaft.plot.nubeam`, which is why
+those particular views are not in the plot catalog while `nbi_profile_*` are.
 
 `refine_equilibrium(source, config=None)` is the one-shot CHEASE convenience: g-file or ODS in,
 refined equilibrium out. `scan_tes(ods, base_config, values, param="ip0_kA")` sweeps a single TES

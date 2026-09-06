@@ -724,6 +724,81 @@ class PanelRecipe:
 _MAGNETICS_TIME = ("magnetics.time",)
 _EQ_TIME = ("equilibrium.time",)
 
+# --- NBI source terms ------------------------------------------------------
+#
+# These read `core_sources`, not `nbi`: the beam's *effect* on the plasma is a
+# source term, while the `nbi` IDS describes the hardware. The NBI entry is
+# found by its identifier rather than by position, because `core_sources` holds
+# every source a run computed and nothing fixes the beam's index.
+
+#: `core_source_identifier` index for neutral beam injection.
+_NBI_SOURCE_INDEX = 2
+
+
+def _nbi_source_index(ods, **options):
+    """Position of the NBI entry in ``core_sources.source``.
+
+    ``source=`` names one explicitly; otherwise the identifier decides. Raising
+    here with the indices that *are* present beats returning an empty plot.
+    """
+    explicit = options.get("source")
+    if explicit is not None:
+        return int(explicit)
+    count = _count(ods, "core_sources.source")
+    found = []
+    for index in range(count):
+        if _get(ods, f"core_sources.source.{index}.identifier.index") == _NBI_SOURCE_INDEX:
+            return index
+        name = _get(ods, f"core_sources.source.{index}.identifier.name")
+        if name:
+            found.append(f"{index}:{name}")
+    raise ValueError(
+        "no neutral-beam entry in core_sources"
+        + (f"; this ODS holds {', '.join(found)}" if found else " (it holds no sources)")
+        + ". Map a NUBEAM result with vaft.machine_mapping.core_sources first."
+    )
+
+
+def _build_nbi_profile(ods, *, field, y_label, y_unit, heading, **options):
+    """One `core_sources` NBI profile against its own radial grid."""
+    source = _nbi_source_index(ods, **options)
+    base = f"core_sources.source.{source}.profiles_1d"
+    count = _count(ods, base)
+    if not count:
+        raise ValueError(f"core_sources.source.{source} carries no profiles_1d")
+    index = int(options.get("time_slice", 0))
+    if index >= count:
+        raise ValueError(
+            f"time_slice {index} is out of range; core_sources.source.{source} "
+            f"has {count}"
+        )
+    slice_base = f"{base}.{index}"
+    values = _array(ods, f"{slice_base}.{field}")
+    if values is None:
+        raise ValueError(
+            f"{field} is not in this ODS at {slice_base}. A hydrogen run has no "
+            "fusion channels, and a NUBEAM result maps only what it produced."
+        )
+    rho = _array(ods, f"{slice_base}.grid.rho_tor_norm")
+    if rho is None:
+        raise ValueError(f"no rho_tor_norm grid at {slice_base}.grid")
+
+    return Profile1D(
+        series=(Series(x=rho, y=values, label=heading),),
+        coordinate_label=r"$\rho_{tor,norm}$",
+        y_label=y_label,
+        y_unit=y_unit,
+        title=heading,
+    )
+
+
+def _nbi_profile_builder(**spec):
+    def builder(ods, **options):
+        return _build_nbi_profile(ods, **spec, **options)
+
+    return builder
+
+
 RECIPES: dict[str, Any] = {
     # --- magnetics -----------------------------------------------------------
     "plasma_current_time": LineRecipe(
@@ -1035,6 +1110,33 @@ RECIPES: dict[str, Any] = {
         title="Volume-averaged n_e",
     ),
     # --- 1D profiles ---------------------------------------------------------
+    "nbi_profile_electron_heating": CallableRecipe(
+        builder=_nbi_profile_builder(
+            field="electrons.energy",
+            y_label="NBI electron heating",
+            y_unit="W.m^-3",
+            heading="NBI electron heating",
+        ),
+        description="Beam power density to electrons, from a mapped NUBEAM result.",
+    ),
+    "nbi_profile_ion_heating": CallableRecipe(
+        builder=_nbi_profile_builder(
+            field="total_ion_energy",
+            y_label="NBI ion heating",
+            y_unit="W.m^-3",
+            heading="NBI ion heating",
+        ),
+        description="Beam power density to ions, from a mapped NUBEAM result.",
+    ),
+    "nbi_profile_current_drive": CallableRecipe(
+        builder=_nbi_profile_builder(
+            field="j_parallel",
+            y_label="NBI driven current density",
+            y_unit="A.m^-2",
+            heading="NBI driven current",
+        ),
+        description="Beam-driven parallel current density, from a mapped NUBEAM result.",
+    ),
     "equilibrium_profile_pressure": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.pressure",
         y_label="Pressure",
@@ -2439,8 +2541,15 @@ def _vacuum_psi_time(ods: Any) -> float:
         return float(ohmic.time)
 
 
-def _build_vacuum_psi(ods: Any, *, time: float | None = None, **_: Any) -> Field2D:
-    """Vacuum poloidal flux from the PF coils, via the OMAS null-field helper."""
+def _build_vacuum_psi(
+    ods: Any, *, time: float | None = None, units: str | None = None, **_: Any
+) -> Field2D:
+    """Vacuum poloidal flux from the PF coils, via the OMAS null-field helper.
+
+    The Green's functions give full weber, whatever convention the stored
+    equilibrium uses, so the map is labelled from ``"Wb"`` through the
+    display policy (mWb by default; ``units=`` chooses, per-radian included).
+    """
     from vaft.omas import compute_null_ods
 
     if time is None:
@@ -2454,11 +2563,13 @@ def _build_vacuum_psi(ods: Any, *, time: float | None = None, **_: Any) -> Field
     values = np.asarray(psi, dtype=float)
     if values.shape != (z_axis.size, r_axis.size):
         values = values.T
+    flux_display = resolve_display("Wb", unit=units, subject="equilibrium", data=values)
     return Field2D(
         r=r_axis,
         z=z_axis,
-        values=values,
-        value_label="Vacuum Poloidal Flux [Wb]",
+        values=values * flux_display.scale,
+        value_label=f"Vacuum Poloidal Flux [{flux_display.unit}]",
+        display=flux_display,
         filled=False,
         contour_levels=50,
         overlays=tuple(_wall_layers(ods)),
@@ -4225,24 +4336,57 @@ def _inside_polygon(r: np.ndarray, z: np.ndarray, outline_r: np.ndarray, outline
     return inside
 
 
+def _flux_display(
+    ods: Any,
+    time_slice: int,
+    unit: str | None = None,
+    *,
+    convention: str | None = None,
+    data: Any = None,
+):
+    """The display resolution of this equilibrium's poloidal flux (issue #478).
+
+    ``convention`` is the stored family (``"Wb"`` or ``"Wb/rad"``) when the
+    caller already resolved it; otherwise the backend probe settles it from
+    a declared COCOS index or the data.  ``data`` lets ``unit="auto"`` pick
+    by magnitude.  The map, the vacuum map and the slice summary's psi rows
+    all pass through here, so they cannot disagree.
+    """
+    from .convention import psi_convention
+
+    stored = convention or psi_convention(ods, time_slice)
+    return resolve_display(stored, unit=unit, subject="equilibrium", data=data)
+
+
 def _style_psi_field(
-    ods: Any, field: Field2D, time_slice: int, style: str, *, requested: bool = True, **options: Any
+    ods: Any,
+    field: Field2D,
+    time_slice: int,
+    style: str,
+    *,
+    requested: bool = True,
+    unit: str | None = None,
+    convention: str | None = None,
+    **options: Any,
 ) -> Field2D:
     """Apply a :data:`PSI_STYLES` entry to a raw psi :class:`Field2D`.
 
-    Whatever the style, psi is shown in the display unit of the equilibrium
-    subject (mWb) so the map and the slice's stated psi_axis/psi_boundary
-    read alike.  A slice that stores no usable axis-to-boundary span (a
-    degenerate reconstruction) cannot show surfaces: the default degrades to
-    the filled map, a style the caller asked for by name raises.
+    Whatever the style, psi is shown in the display unit the equilibrium's
+    stored convention resolves to (mWb for a DD weber file, mWb/rad for a
+    legacy per-radian one, or ``unit`` when the caller names one) so the map
+    and the slice's stated psi_axis/psi_boundary read alike.  A slice that
+    stores no usable axis-to-boundary span (a degenerate reconstruction)
+    cannot show surfaces: the default degrades to the filled map, a style
+    the caller asked for by name raises.
     """
     if style not in PSI_STYLES:
         raise ValueError(f"style must be one of {', '.join(PSI_STYLES)}; got {style!r}")
-    flux_display = resolve_display("Wb", subject="equilibrium")
+    flux_display = _flux_display(ods, time_slice, unit, convention=convention, data=field.values)
     field = dataclasses.replace(
         field,
         values=np.asarray(field.values, dtype=float) * flux_display.scale,
         value_label=f"Poloidal Flux [{flux_display.unit}]",
+        display=flux_display,
     )
     overlays = list(field.overlays)
     base = f"equilibrium.time_slice.{time_slice}"
@@ -4336,12 +4480,32 @@ def _build_field_2d(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
         overlays=tuple(overlays),
         title=options.get("title", recipe.title),
     )
+    if "yunit" in options:
+        raise ValueError(
+            f"{recipe.title or recipe.value_path!r} is a 2-D map with no y-axis unit; "
+            "use units= to choose the value unit"
+        )
     if recipe is RECIPES.get("equilibrium_field_psi"):
-        extra = {k: v for k, v in options.items() if k not in ("time_slice", "style")}
+        # ``_convention`` is the overview's internal hand-off (the family it
+        # resolved once for the map and the text panel); a leading underscore
+        # keeps it off the public keyword surface (review of #538).
+        extra = {
+            k: v for k, v in options.items()
+            if k not in ("time_slice", "style", "units", "_convention")
+        }
         style = options.get("style")
         field = _style_psi_field(
-            ods, field, time_slice, style or PSI_STYLES[0], requested=style is not None, **extra
+            ods,
+            field,
+            time_slice,
+            style or PSI_STYLES[0],
+            requested=style is not None,
+            unit=options.get("units"),
+            convention=options.get("_convention"),
+            **extra,
         )
+    elif options.get("units") is not None:
+        raise ValueError(f"{recipe.title or recipe.value_path!r} takes no units= option")
     return field
 
 
@@ -4497,8 +4661,7 @@ def _build_panels(
     # model: selection, synthetic, ...) or a renderer style (validity, ...).
     # The former goes beneath the caller's options into build_model; the
     # latter beneath the caller's style into the renderer (issue #260).
-    member_options = {k: v for k, v in recipe.member_defaults.items() if k in EXTRACTION_OPTIONS}
-    member_style = {k: v for k, v in recipe.member_defaults.items() if k not in EXTRACTION_OPTIONS}
+    member_options, member_style = split_options(recipe.member_defaults)
     members = []
     for name in recipe.members:
         if not any(entry_supports(ods, name) for _, ods in entries):
@@ -4539,87 +4702,10 @@ def _build_panels(
 
 
 #: Keyword arguments that shape the *model* -- what is extracted -- as opposed
-#: to the renderer keyword arguments that shape how it is drawn.  The adapter
-#: strips these before calling a renderer; a composite routes its members'
-#: defaults by the same split.
-EXTRACTION_OPTIONS = frozenset(
-    {
-        "channel",
-        "channels",
-        "contour_levels",
-        "coordinate",
-        "detector",
-        "detrend",
-        "direction",
-        "emission",
-        "dphi_deg",
-        "field_line_start",
-        "fit_ranges",
-        "flux_surface_levels",
-        "orientation",
-        "style",
-        "frame_index",
-        "frame_indices",
-        "intrinsics_path",
-        "layout",
-        "line_index",
-        "log_y",
-        "marker_frequencies",
-        "max_frequency",
-        "max_harmonics",
-        "max_length_m",
-        "n_tor",
-        "ncols",
-        "noverlap",
-        "nperseg",
-        "overlay",
-        "per_family",
-        # wall eigenmode views (vaft #473)
-        "basis",
-        "segment",
-        "mode",
-        "max_modes",
-        "whole_wall",
-        "remap_em_coupling",
-        "rows",
-        "rules",
-        "orders",
-        "drive",
-        "metrics",
-        "which",
-        "selection",
-        "rule",
-        "M",
-        "grid_shape",
-        "phi0",
-        "pose_path",
-        "projection",
-        "quantity",
-        "r0",
-        "reference_slopes",
-        "sample_rate",
-        "selection",
-        "series_label",
-        "shot",
-        "show_lcfs",
-        "show_magnetic_axis",
-        "show_wall",
-        "sigma",
-        "synthetic",
-        "time",
-        "time_range",
-        "time_resolution",
-        "time_slice",
-        "title",
-        "use_wall_boundary",
-        "window",
-        "window_size",
-        "x_limits",
-        "xunit",
-        "yunit",
-        "z0",
-    }
-)
+#: to the renderer keyword arguments that shape how it is drawn.  The names
+#: come from the validated schema in :mod:`vaft.plot.backend.options`; this
+#: alias keeps the historical import working.
+from .options import EXTRACTION_OPTIONS, split_options  # noqa: E402
 
 LAYOUTS = ("overlay", "subplots", "grouped")
 
@@ -5131,8 +5217,9 @@ _SLICE_GLOBAL_QUANTITIES: tuple[tuple[str, str, str], ...] = (
     ("li_3", "li_3", ""),
     ("q_axis", "q_axis", ""),
     ("q_95", "q_95", ""),
-    ("psi_axis", "psi_axis", "Wb"),
-    ("psi_boundary", "psi_boundary", "Wb"),
+    # "psi": the stored flux convention, resolved once per slice (issue #478).
+    ("psi_axis", "psi_axis", "psi"),
+    ("psi_boundary", "psi_boundary", "psi"),
     ("R_axis", "magnetic_axis.r", "m"),
     ("Z_axis", "magnetic_axis.z", "m"),
     ("B_tor at axis", "magnetic_axis.b_field_tor", "T"),
@@ -5151,7 +5238,9 @@ def _global_scalar(ods: Any, index: int, leaf: str) -> float:
         return np.nan
 
 
-def _slice_global_lines(ods: Any, index: int, derived: Any = None) -> list[str]:
+def _slice_global_lines(
+    ods: Any, index: int, derived: Any = None, *, flux_display: Any = None
+) -> list[str]:
     """Formatted global-quantity lines for one slice, per the display policy.
 
     A quantity the slice stores is read from ``ods``; one it does not store is
@@ -5172,7 +5261,11 @@ def _slice_global_lines(ods: Any, index: int, derived: Any = None) -> list[str]:
             lines.append(f"{label:<{width}}  not stored")
             continue
         shown_unit = unit
-        if unit:
+        if unit == "psi":
+            if flux_display is None:
+                flux_display = _flux_display(ods, index)
+            value, shown_unit = value * flux_display.scale, flux_display.unit
+        elif unit:
             try:
                 display = resolve_display(unit, subject="equilibrium")
                 value, shown_unit = value * display.scale, display.unit
@@ -5201,11 +5294,19 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
     entries = [("", ods)]
     # The map is drawn in the requested psi style (flux surfaces by default),
     # in the display unit the text panel uses, with the axis marked.
+    # The stored flux convention is resolved once and handed to both the map
+    # and the text panel, so the two cannot disagree (issue #478).
+    from .convention import psi_convention
+
+    convention = psi_convention(ods, index)
+    units = options.get("units")
     field = _build_field_2d(
         ods, RECIPES["equilibrium_field_psi"], time_slice=index,
+        units=units, _convention=convention,
         **({"style": options["style"]} if options.get("style") else {}),
     )
     field = dataclasses.replace(field, title="Poloidal flux")
+    flux_display = field.display
     # Column 2: the profiles that describe the plasma -- pressure, safety
     # factor, flux-surface-averaged toroidal current density.  Column 3: what
     # the solver actually fitted -- the two Grad-Shafranov source terms p' and
@@ -5223,7 +5324,10 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
                 # The text panel reads the derived copy too; the representative-
                 # slice choice above read the caller's ODS, so a derived volume
                 # never changes which slice was picked or the title's reason.
-                panels.append(TextPanel(lines=tuple(_slice_global_lines(ods, index, derived)), title="Global quantities"))
+                panels.append(TextPanel(
+                    lines=tuple(_slice_global_lines(ods, index, derived, flux_display=flux_display)),
+                    title="Global quantities",
+                ))
                 continue
             profile = _overview_profile(member, ods, entries, derived, derived_entries, index)
             if profile is not None:

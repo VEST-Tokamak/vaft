@@ -52,7 +52,6 @@ from typing import Any, Iterable, Mapping, Sequence, TYPE_CHECKING
 
 import numpy as np
 
-from vaft.formula.statistics import sigma_threshold_crossing
 from vaft.ods_access import path_value
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -100,13 +99,9 @@ DEFAULT_HISTORY_TIME_CONSTANTS = 3.0
 #: for the shot whose coils genuinely fire late.
 MIN_COIL_DRIVE_FRACTION = 0.10
 
-#: Sigma above the early-record noise band at which the plasma current is
-#: considered to have emerged.  Matches the residual-onset convention in
-#: :mod:`vaft.omas.vacuum_magnetics` so the two detectors speak the same way.
-ONSET_SIGMA = 5.0
-
-#: Fraction of the record used as the reference noise band for that detector.
-ONSET_REFERENCE_FRACTION = 0.2
+#: Fraction of the record whose plasma current sets the reference noise band
+#: the residual current inside a plasma-free interval is reported against.
+IP_REFERENCE_FRACTION = 0.2
 
 #: A B-probe whose departure from the interpolation of its two nearest array
 #: neighbours exceeds this robust-z -- against the spread of departures of
@@ -135,15 +130,18 @@ MIN_ARRAY_MEMBERS = 7
 #: both neighbours) before its contradiction fraction means anything.
 ARRAY_CONTRADICTION_MIN_SCORED = 0.5
 
-#: Schema of ``plasma_free_evidence`` (#409): the boundary comes from the shared
-#: plasma-timing policy and its provenance is recorded; the two retired
-#: detectors are reported under ``legacy`` until this reaches 3.
-PLASMA_FREE_EVIDENCE_SCHEMA = 2
+#: Schema of ``plasma_free_evidence`` (#409).  3: the boundary comes from the
+#: shared plasma-timing policy with its provenance, and nothing else -- the
+#: two retired detectors (the legacy Ip discharge detector and a sigma
+#: crossing of the current, both of which fired on PF pickup) that schema 2
+#: still reported under ``legacy`` are gone with them.
+PLASMA_FREE_EVIDENCE_SCHEMA = 3
 
-#: Schema of a :func:`run_benchmark_case` record.  3: ``channels.flagged`` and
-#: the conditioned ``metrics.summary.scored`` block (its ``count`` excludes
-#: flagged probes); 2 followed the evidence schema.
-BENCHMARK_CASE_SCHEMA = 3
+#: Schema of a :func:`run_benchmark_case` record.  4 follows the evidence
+#: schema (the ``legacy`` block a case's ``plasma_free_evidence`` carried is
+#: gone); 3: ``channels.flagged`` and the conditioned ``metrics.summary.scored``
+#: block (its ``count`` excludes flagged probes); 2 followed the evidence schema.
+BENCHMARK_CASE_SCHEMA = 4
 
 
 class BenchmarkError(ValueError):
@@ -198,8 +196,7 @@ def _signal(ods: Any, path: str) -> np.ndarray | None:
 def plasma_free_interval(
     ods: Any,
     *,
-    sigma: float = ONSET_SIGMA,
-    reference_fraction: float = ONSET_REFERENCE_FRACTION,
+    reference_fraction: float = IP_REFERENCE_FRACTION,
 ) -> PlasmaFreeInterval:
     """The interval of a shot over which no plasma contributes, with evidence.
 
@@ -220,10 +217,9 @@ def plasma_free_interval(
     all, or a current whose principal pulse the detector examined and found
     absent.  A current the product marks unusable, or one the policy cannot
     read, cannot certify a plasma-free interval and raises
-    :class:`BenchmarkError`.  The two detectors this replaced -- the legacy
-    Ip discharge detector and a sigma crossing of the current, both of which
-    fired on PF pickup -- are reported under ``legacy`` until the evidence
-    schema reaches 3.  ``sigma`` feeds only that block.
+    :class:`BenchmarkError`.  ``reference_fraction`` sets the early stretch
+    of the current whose noise band the residual current inside the
+    interval is reported against.
     """
     from vaft.omas.plasma_timing import PlasmaTimingError, plasma_timing
     from vaft.omas.vacuum_magnetics import plasma_free_boundary
@@ -268,17 +264,6 @@ def plasma_free_interval(
             )
         else:
             evidence["reason"] = f"no source shows a plasma ({timing.fallback_reason})"
-
-        from vaft.machine_mapping.magnetics import vfit_plasma_mgods_startend
-
-        start, end = vfit_plasma_mgods_startend(ods)
-        span = float(ip_time[-1] - ip_time[0])
-        reference = ip_time < ip_time[0] + reference_fraction * span
-        fine = sigma_threshold_crossing(ip_time, ip_data, reference, sigma=sigma)
-        evidence["legacy"] = {
-            "discharge_detector_onset": float(start) if start >= 0 and end > start else float("nan"),
-            "sigma_crossing_onset": float(fine),
-        }
 
     if not np.isfinite(boundary) or boundary <= record[0]:
         interval = PlasmaFreeInterval(

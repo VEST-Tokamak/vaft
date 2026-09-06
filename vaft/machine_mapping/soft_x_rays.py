@@ -142,14 +142,8 @@ def _resolve_digitizer_file(
             return path
         raise FileNotFoundError(f"Digitizer CSV file not found: {path}")
 
-    root = resolve_data_root(data_root)
     label = str(daq_label)
-    candidates = [
-        root / "legacy" / f"digitizer_{label}_{int(shot)}.csv",
-        root / f"digitizer_{label}_{int(shot)}.csv",
-        root / "soft_x_rays" / f"digitizer_{label}_{int(shot)}.csv",
-        root / "raw" / f"digitizer_{label}_{int(shot)}.csv",
-    ]
+    candidates = _digitizer_file_candidates(shot, label, data_root)
     for candidate in candidates:
         if candidate.exists():
             return candidate
@@ -167,7 +161,15 @@ def _digitizer_file_candidates(
     daq_label: str | int,
     data_root: str | Path | None,
 ) -> list[Path]:
-    """Return candidate locations for one archived SXR digitizer file."""
+    """Return candidate locations for one archived SXR digitizer file.
+
+    The flat candidates cover the packaged sample and hand-assembled data
+    directories. The per-shot candidate covers a consolidated archive laid out
+    as ``legacy/soft_x_rays/{shot}/``, which is what
+    ``vaft.database.filedb.FileDB.legacy`` resolves and what the camera mapping
+    already assumes; pointing ``data_root`` at that directory is then enough to
+    read a whole archive without naming files one at a time.
+    """
     root = resolve_data_root(data_root)
     filename = f"digitizer_{str(daq_label)}_{int(shot)}.csv"
     return [
@@ -175,6 +177,7 @@ def _digitizer_file_candidates(
         root / filename,
         root / "soft_x_rays" / filename,
         root / "raw" / filename,
+        root / str(int(shot)) / filename,
     ]
 
 

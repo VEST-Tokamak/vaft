@@ -609,7 +609,7 @@ def vfit_pf_active_efit26(PF, PF_orig, shot, tstart, tend, dt):
 #        PF[f'coil.{i}.current.time']=time_1
 
 
-def correct_flux_loop(ods):
+def correct_flux_loop(ods, *, window=None):
     """
     In the inboard flux loop near the central solenoid,
     there is an issue where the uncertainty in the vacuum component of the total signal becomes larger than the plasma signal.
@@ -636,7 +636,7 @@ def correct_flux_loop(ods):
     print("Flux Loop Onset Time: ", fl_onset)
 
     # Find the plasma onset and offset time
-    (onset, offset) = vest_Halpha_tstart_tend(ods)
+    (onset, offset) = _plasma_window(ods, window)
     fl_onset = fl_onset + 0.003
     onset = onset - 0.003
 
@@ -996,24 +996,25 @@ def calculate_md_by_ods(
     return psi_total, psi_coil, psi_eddy, psi_plas, bz_total, bz_coil, bz_eddy, bz_plas
 
 
-def brokenFinder(ods, option=2):
+def brokenFinder(ods, option=2, *, window=None):
     # Calculate response matrix
     (psi_total, psi_coil, psi_eddy, psi_plas, bz_total, bz_coil, bz_eddy, bz_plas) = (
         calculate_md_by_ods(ods, method="vectorized")
     )
 
     # Find the plasma onset and offset time
-    (onset, offset) = vest_Halpha_tstart_tend(ods)
+    (onset, offset) = _plasma_window(ods, window)
     bz_calc_time = ods["pf_active.time"]
     bz_exp_time = ods["magnetics.time"]
 
     min_time = max(bz_calc_time[0], bz_exp_time[0])
     max_time = min(bz_calc_time[-1], bz_exp_time[-1])
 
-    # phase1: time before plasma
-    time1 = np.linspace(min_time, onset - 0.015, 11)
-    # phase2: time after plasma
-    time2 = np.linspace(offset + 0.001, max_time, 11)
+    # phase1: time before plasma; phase2: time after plasma -- both kept
+    # inside the record, so a window that reaches the record's end cannot
+    # turn a grid backwards
+    time1 = np.linspace(min_time, max(min_time, min(onset - 0.015, max_time)), 11)
+    time2 = np.linspace(min(max_time, max(offset + 0.001, min_time)), max_time, 11)
 
     #    print(time1)
     #    print(time2)
@@ -1224,6 +1225,22 @@ def vest_signal_onoffsetpeak(time, data, tstart, tend, threshold):
     return t_onset, t_peak, t_offset
 
 
+def _plasma_window(ods, window=None):
+    """``(onset, offset)`` for this module's own callers.
+
+    The ``window`` a policy-aware caller already resolved (the constraints
+    script hands over the one it chose) wins; otherwise the shared timing
+    through the same helper the ``vaft.omas`` finders use, which raises
+    ``ValueError`` naming the reason when no source shows a plasma.
+    """
+    if window is not None:
+        onset, offset = window
+        return float(onset), float(offset)
+    from vaft.omas.general import _plasma_timing_or_raise
+
+    return _plasma_timing_or_raise(ods).window
+
+
 def vest_Halpha_tstart_tend(ods):
     """Deprecated H-alpha plasma window (0.3-0.36 s, min-normalised, legacy detector).
 
@@ -1232,7 +1249,7 @@ def vest_Halpha_tstart_tend(ods):
     provenance inside the configured ``plasma_analysis`` range (issue #409).
     """
     warnings.warn(
-        "vest_Halpha_tstart_tend() is deprecated; use "
+        "vest_Halpha_tstart_tend() is deprecated and will be removed in the next release; use "
         "vaft.omas.plasma_timing.plasma_timing(ods).window instead.",
         DeprecationWarning,
         stacklevel=2,
@@ -1274,7 +1291,7 @@ def set_discharge_index(ods):
     (issue #409).
     """
     warnings.warn(
-        "set_discharge_index() is deprecated; use the plasma_analysis window from "
+        "set_discharge_index() is deprecated and will be removed in the next release; use the plasma_analysis window from "
         "vaft.machine_mapping.utils.resolve_plasma_timing_policy() intersected with "
         "vaft.omas.plasma_timing.plasma_timing(ods).window instead.",
         DeprecationWarning,

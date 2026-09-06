@@ -171,9 +171,14 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
     ods["wall.ids_properties.comment"] = (
         f"VEST static wall; machine era {era.name}"
     )
+    # Prefix the era; keep the mapper's reciprocity/provenance clause so a
+    # product says which coupling asset it carries (issues #347/#373).
+    mapper_comment = str(ods["em_coupling.ids_properties.comment"])
+    _, _, reciprocity = mapper_comment.partition("; mutual_passive_passive ")
     ods["em_coupling.ids_properties.comment"] = (
         f"VEST electromagnetic coupling; machine era {era.name}; "
         f"PF geometry {era.pf_geometry}"
+        + (f"; mutual_passive_passive {reciprocity}" if reciprocity else "")
     )
     # pf_active, pf_passive, magnetics, and tf each have a dynamic counterpart
     # that legitimately sets homogeneous_time=1 once it adds a `.time` node
@@ -1449,9 +1454,16 @@ def write_stage_product(
     *,
     output: str | Path,
     metadata: str | Path,
+    compression: str | None = None,
 ) -> None:
-    """Write deterministic ODS and manifest products."""
-    output_path = save(ods, output)
+    """Write deterministic ODS and manifest products.
+
+    ``compression`` names an HDF5 filter (``"gzip"``) for ``.h5``/``.hdf5``
+    outputs. It changes the container encoding, not the data, so the recorded
+    ``output.sha256`` legitimately differs from an uncompressed product built
+    from the same ODS -- that hash identifies the file, not the physics.
+    """
+    output_path = save(ods, output, compression=compression)
     final_manifest = dict(manifest)
     final_manifest["output"] = {
         "name": output_path.name,

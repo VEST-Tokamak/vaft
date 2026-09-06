@@ -13,6 +13,7 @@ from vaft.process import (
     compute_vacuum_fields_1d,
     time_derivative,
     psi_to_rz,
+    parallel_current_from_toroidal,
     volume_average,
     poloidal_field_at_boundary,
     calculate_average_boundary_poloidal_field,
@@ -1083,6 +1084,22 @@ def compute_core_profile_2d(
     
     return profile_RZ, R_grid, Z_grid, psiN_RZ, cp_time
 
+
+def _per_radian_cocos(ods):
+    """The declared COCOS index re-expressed for psi already scaled to Wb/rad.
+
+    Every field derivation here first multiplies psi by
+    :func:`ods_psi_to_wb_per_radian_factor`, so the Sauter prefactor must carry
+    the orientation sign only.  A declared 11-18 index would divide by 2*pi a
+    second time (issue #478); its 1-8 sibling has the same signs without the
+    exponent.  ``None`` stays ``None``: the historical per-radian default.
+    """
+    index = ods_cocos(ods)
+    if index is None:
+        return None
+    return index - 10 if index >= 11 else index
+
+
 def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float:
     """Compute magnetic energy from ODS.
     
@@ -1168,7 +1185,7 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     # B_R = k (1/R) dpsi/dZ, B_Z = -k (1/R) dpsi/dR, with
     # k = sigma_RphiZ sigma_Bp / (2*pi)**e_Bp.  IMAS declares psi in weber
     # (COCOS 11), so a labelled ODS needs the 2*pi that a Wb/rad one does not.
-    k = poloidal_field_factor(ods_cocos(ods))
+    k = poloidal_field_factor(_per_radian_cocos(ods))
     B_R = k * (1.0 / Rm_safe) * dpsi_dZ
     B_Z = -k * (1.0 / Rm_safe) * dpsi_dR
 
@@ -1296,7 +1313,7 @@ def compute_virial_equilibrium_quantities_ods(
             continue
 
         B_p_bdry, _, _ = poloidal_field_at_boundary(
-            R_grid_1d, Z_grid_1d, psi_RZ, R_bdry, Z_bdry, cocos=ods_cocos(ods)
+            R_grid_1d, Z_grid_1d, psi_RZ, R_bdry, Z_bdry, cocos=_per_radian_cocos(ods)
         )
         B_pa = float(calculate_average_boundary_poloidal_field(R_bdry, Z_bdry, B_p_bdry))
 
@@ -1317,7 +1334,7 @@ def compute_virial_equilibrium_quantities_ods(
             Rm_safe = np.where(Rm == 0.0, np.nan, Rm)
             # Same Eq. 20 coefficient as the boundary field a few lines above:
             # feeding shafranov_integrals one of each mixes conventions.
-            k_grid = poloidal_field_factor(ods_cocos(ods))
+            k_grid = poloidal_field_factor(_per_radian_cocos(ods))
             B_R_grid = k_grid * (1.0 / Rm_safe) * dpsi_dZ
             B_Z_grid = -k_grid * (1.0 / Rm_safe) * dpsi_dR
 
@@ -1701,7 +1718,8 @@ def compute_diamagnetism(ods, time_index=0):
     R_grid = np.asarray(eq_slice["profiles_2d.0.grid.dim1"], float)
     Z_grid = np.asarray(eq_slice["profiles_2d.0.grid.dim2"], float)
     # poloidal_field_at_boundary below needs psi in Wb/rad (issue #236).
-    _psi_factor = ods_psi_to_wb_per_radian_factor(eq_slice)
+    # The whole ODS, not the bare slice: the declared COCOS lives at the root.
+    _psi_factor = ods_psi_to_wb_per_radian_factor(ods, time_index)
     psi_RZ = _ensure_rz_shape(
         np.asarray(eq_slice["profiles_2d.0.psi"], float), R_grid, Z_grid
     ) * _psi_factor
@@ -1737,7 +1755,7 @@ def compute_diamagnetism(ods, time_index=0):
     R_bdry = np.asarray(eq_slice["boundary.outline.r"], float)
     Z_bdry = np.asarray(eq_slice["boundary.outline.z"], float)
     B_p_bdry, _, _ = poloidal_field_at_boundary(
-        R_grid, Z_grid, psi_RZ, R_bdry, Z_bdry, cocos=ods_cocos(ods)
+        R_grid, Z_grid, psi_RZ, R_bdry, Z_bdry, cocos=_per_radian_cocos(ods)
     )
     B_pa = float(calculate_average_boundary_poloidal_field(R_bdry, Z_bdry, B_p_bdry))
 
@@ -2472,7 +2490,7 @@ def compute_field_line_trace(
     field_data = _equilibrium_field_slice_data(time_slice)
     b_field = make_equilibrium_field_interpolator(
         field_data["R_grid"], field_data["Z_grid"], field_data["psi_grid"],
-        field_data["psi_1d"], field_data["f_1d"], cocos=ods_cocos(ods),
+        field_data["psi_1d"], field_data["f_1d"], cocos=_per_radian_cocos(ods),
     )
 
     wall_r = wall_z = None
@@ -2608,3 +2626,104 @@ def _plot_vacuum_field_quantities(time_arr, psi_out, br_out, bz_out, rz, mode):
         ),
         figsize=(10, 8),
     )
+
+def compute_parallel_current_from_toroidal(
+    ods,
+    shell_current_tor,
+    rho_tor_norm,
+    *,
+    time_index: int = 0,
+    b0: Optional[float] = None,
+):
+    """Convert a shell toroidal driven current using an equilibrium in *ods*.
+
+    The ODS-facing counterpart of
+    :func:`vaft.process.equilibrium.parallel_current_from_toroidal`: it pulls
+    ``f``, ``gm1`` and ``gm5`` off ``equilibrium.time_slice[].profiles_1d``,
+    interpolates them onto the shell centres implied by *rho_tor_norm*, and
+    hands them over.
+
+    This is the generic path, for any code that reports a toroidal driven
+    current on its own radial grid. A solver that publishes its *own*
+    flux-surface averages -- NUBEAM does -- should prefer those, since they
+    describe the surfaces it actually integrated over; this path is then an
+    independent cross-check rather than the primary source.
+
+    Parameters
+    ----------
+    ods : ODS
+        Must carry ``equilibrium.time_slice[time_index].profiles_1d`` with
+        ``rho_tor_norm``, ``f``, ``gm1``, ``gm5``, ``volume`` and ``area``.
+        Those averages are *derived* leaves: a raw g-file read does not have
+        them until the flux-surface trace has run.
+    shell_current_tor : array_like
+        Toroidal current per shell [A], one value per interval of
+        *rho_tor_norm*.
+    rho_tor_norm : array_like
+        Shell boundaries, ``len(shell_current_tor) + 1`` values.
+    time_index : int, optional
+        Equilibrium time slice.
+    b0 : float, optional
+        Overrides ``equilibrium.vacuum_toroidal_field.b0``.
+
+    Returns
+    -------
+    ParallelCurrentResult
+
+    Raises
+    ------
+    ValueError
+        When the equilibrium lacks ``gm1``/``gm5``, rather than substituting a
+        geometry-free approximation.
+    """
+    base = f"equilibrium.time_slice.{time_index}.profiles_1d"
+    required = ("rho_tor_norm", "f", "gm1", "gm5", "volume", "area")
+    missing = [name for name in required
+               if ods.get(f"{base}.{name}", None) is None]
+    if missing:
+        raise ValueError(
+            f"equilibrium slice {time_index} is missing {', '.join(missing)}; "
+            "gm1 and gm5 are derived leaves that a flux-surface trace writes. "
+            "Supply an equilibrium that carries them, or use the solver's own "
+            "flux-surface averages."
+        )
+
+    rho_eq = np.asarray(ods[f"{base}.rho_tor_norm"], dtype=float)
+    order = np.argsort(rho_eq)
+    rho_eq = rho_eq[order]
+
+    def _on(grid, name):
+        values = np.asarray(ods[f"{base}.{name}"], dtype=float)[order]
+        return np.interp(grid, rho_eq, values)
+
+    edges = np.asarray(rho_tor_norm, dtype=float)
+    dI = np.asarray(shell_current_tor, dtype=float)
+    if edges.size != dI.size + 1:
+        raise ValueError(
+            f"rho_tor_norm has {edges.size} points; expected {dI.size + 1} "
+            "boundaries for that many shells"
+        )
+    centres = 0.5 * (edges[:-1] + edges[1:])
+
+    if b0 is None:
+        raw = ods.get("equilibrium.vacuum_toroidal_field.b0", None)
+        if raw is None:
+            raise ValueError(
+                "no b0: pass it, or set equilibrium.vacuum_toroidal_field.b0"
+            )
+        finite = np.atleast_1d(np.asarray(raw, dtype=float))
+        finite = finite[np.isfinite(finite)]
+        if not finite.size:
+            raise ValueError("equilibrium.vacuum_toroidal_field.b0 is not finite")
+        b0 = float(finite[0])
+
+    return parallel_current_from_toroidal(
+        dI,
+        f=_on(centres, "f"),
+        gm1=_on(centres, "gm1"),
+        gm5=_on(centres, "gm5"),
+        shell_volume=np.diff(_on(edges, "volume")),
+        b0=b0,
+        shell_area=np.diff(_on(edges, "area")),
+    )
+

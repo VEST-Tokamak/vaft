@@ -31,6 +31,7 @@ from vaft.plot import discovery as _core
 from vaft.validation.validity import is_condemned, record_from_mask
 from vaft.plot.discovery import PlotCapability, PlotCatalog, with_capabilities
 from vaft.plot.display import (
+    allowed_units,
     DIMENSIONLESS_DISPLAY,
     QUANTITIES,
     channel_label,
@@ -53,6 +54,7 @@ from .recipes import (
     CAMERA_PROJECTIONS,
     RECIPES,
     SYNTHETIC_CONSTRAINTS,
+    FieldRecipe,
     LineRecipe,
     PanelRecipe,
     PowerSpectrumRecipe,
@@ -85,6 +87,7 @@ INTERACTION: dict[str, tuple[str, ...]] = {
 #: The public entry point behind an interaction mode that is not a view.
 INTERACTION_ENTRY_POINTS: dict[str, str] = {
     "time-navigable": "plot_equilibrium_interactive()",
+    "controls": "plot_<name>(..., interactive=True)",
 }
 
 #: What a composite built by code (not a PanelRecipe) draws, for discovery's
@@ -211,12 +214,31 @@ def _source_label(shots: Sequence[str]) -> str:
 # ---------------------------------------------------------------------------
 
 
+#: Plots whose value unit is a poloidal flux: ``None`` means "the stored
+#: convention of the input"; the vacuum map is always full weber (Green's
+#: functions), whatever the equilibrium declares.
+PSI_FIELD_CONVENTIONS: dict[str, str | None] = {
+    "equilibrium_field_psi": None,
+    "equilibrium_field_psi_vacuum": "Wb",
+    "equilibrium_overview": None,
+}
+
+
 def _declare(record: PlotCapability) -> PlotCapability:
     recipe = RECIPES.get(record.name)
     updates: dict[str, Any] = {}
     unit = getattr(recipe, "y_unit", None)
     if isinstance(recipe, (LineRecipe, ProfileRecipe)):
         updates["display"] = _display_block(record, unit or "")
+    elif record.name in PSI_FIELD_CONVENTIONS:
+        # The psi maps take units= (issue #478); the default unit follows the
+        # stored convention, which only an input can tell -- see _evaluate.
+        updates["display"] = {
+            "unit": None,
+            "units": allowed_units("magnetic_flux", "equilibrium"),
+            "notation": "auto",
+            "convention": PSI_FIELD_CONVENTIONS[record.name],
+        }
     if isinstance(recipe, LineRecipe):
         # Only the line-series builder takes layout= (issue #260); grouped
         # needs a radial split, which an ODS decides -- see _evaluate.
@@ -261,7 +283,7 @@ def _display_block(record: PlotCapability, unit: str) -> dict[str, Any]:
     except ValueError:
         return {}
     quantity = quantity_for_unit(unit) if unit else None
-    units = tuple(QUANTITIES[quantity].units) if quantity else (display.unit,)
+    units = allowed_units(quantity, record.subject) if quantity else (display.unit,)
     return {"unit": display.unit, "units": units, "notation": display.notation}
 
 
@@ -280,6 +302,20 @@ def _member_subjects(recipe: PanelRecipe) -> tuple[str, ...]:
 # ---------------------------------------------------------------------------
 # Instance-level evaluation
 # ---------------------------------------------------------------------------
+
+
+def describe_one(name: str, entries: Sequence[tuple[str, Any]]) -> PlotCapability:
+    """The capability record of one plot, evaluated against ``entries``.
+
+    What ``describe_entries`` does for the whole catalog, for the single
+    record a control layer needs (issue #480); the unavailable record is
+    returned with its reason rather than dropped.
+    """
+    base = _core.catalog(status=None)
+    record = next((record for record in base if record.name == name), None)
+    if record is None:
+        raise KeyError(f"no plot named {name!r}")
+    return _evaluate(_declare(record), entries)
 
 
 def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> PlotCapability:
@@ -314,6 +350,18 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             # to say which default a profile applies, or a caller cannot know
             # whether the curve it gets back was flipped.
             updates["orientation"] = _orientation_block(recipe)
+        if _takes_time_slice(record.name):
+            updates["slices"] = _slices_block(ods)
+        if record.name in PSI_FIELD_CONVENTIONS:
+            from .convention import psi_convention
+
+            convention = PSI_FIELD_CONVENTIONS[record.name] or psi_convention(ods)
+            display = resolve_display(convention, subject="equilibrium")
+            updates["display"] = {
+                **record.display,
+                "unit": display.unit,
+                "convention": convention,
+            }
         if record.synthetic:
             updates["synthetic"] = {
                 **record.synthetic,
@@ -321,7 +369,57 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             }
         if record.projection:
             updates["projection"] = {**record.projection, **_projection_state(ods)}
+        # A plot with something to change offers ``interactive=True`` (issue #480).
+        from vaft.plot.controls import controls_for
+
+        evaluated = with_capabilities(record, **updates)
+        offered = controls_for(evaluated)
+        if offered:
+            updates["interaction"] = tuple(dict.fromkeys((*record.interaction, "controls")))
+            updates["interaction_entry_points"] = {
+                **record.interaction_entry_points,
+                "controls": f"{record.function.removesuffix('()')}(..., interactive=True)",
+            }
+            updates["controls"] = tuple(c.name for c in offered)
     return with_capabilities(record, **updates)
+
+
+def _takes_time_slice(name: str) -> bool:
+    """Whether ``name`` draws one stored equilibrium slice (``time_slice=``).
+
+    A profile indexed by slice and a 2-D map do; a time history gathers every
+    slice into one trace and takes no ``time_slice=`` (``LineRecipe`` with
+    ``index="time_slice"`` is that history, not a selection), so the check is
+    on the recipe's kind, never on the text of its paths.
+    """
+    recipe = RECIPES.get(name)
+    if name in PSI_FIELD_CONVENTIONS:
+        return True
+    if isinstance(recipe, ProfileRecipe):
+        return recipe.index == "time_slice"
+    if isinstance(recipe, FieldRecipe):
+        return "{i}" in recipe.value_path
+    return False
+
+
+def _slices_block(ods: Any) -> dict[str, Any]:
+    """The stored equilibrium slices: how many, which are usable, their times."""
+    from .recipes import _count, _get, _usable_slices, resolve_time_slice
+
+    total = _count(ods, "equilibrium.time_slice")
+    times = []
+    for index in range(total):
+        raw = _get(ods, f"equilibrium.time_slice.{index}.time")
+        try:
+            times.append(float(np.asarray(raw, dtype=float).ravel()[0]))
+        except (IndexError, TypeError, ValueError):
+            times.append(float("nan"))
+    usable = tuple(int(i) for i in _usable_slices(ods)) if total else ()
+    try:
+        selected = int(resolve_time_slice(ods)[0]) if total else None
+    except Exception:
+        selected = None
+    return {"total": total, "usable": usable, "times": tuple(times), "selected": selected}
 
 
 def _projection_state(ods: Any) -> dict[str, Any]:

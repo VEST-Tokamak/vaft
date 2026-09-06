@@ -2586,6 +2586,63 @@ plot_tf_time_b_field_tor = _renamed_adapter("tf_time_b_field_tor", "tf_coil_time
 plot_tf_time_b_field_tor_vacuum_r = _renamed_adapter("tf_time_b_field_tor_vacuum_r", "tf_coil_time_b_t_vacuum_r")
 plot_tf_time_coil_current = _renamed_adapter("tf_time_coil_current", "tf_coil_time_current")
 
+
+def plot_nbi_profile_electron_heating(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Beam power density to electrons against normalized toroidal flux.
+
+    Reads a NUBEAM result mapped into ``core_sources`` by
+    :func:`vaft.machine_mapping.core_sources.core_sources_from_nubeam`; the NBI
+    entry is found by its identifier, or named with ``source=``.
+
+    Renders with :func:`vaft.plot.nbi_profile_electron_heating`.
+    """
+    return render("nbi_profile_electron_heating", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_nbi_profile_ion_heating(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Beam power density to ions against normalized toroidal flux.
+
+    Reads a NUBEAM result mapped into ``core_sources`` by
+    :func:`vaft.machine_mapping.core_sources.core_sources_from_nubeam`; the NBI
+    entry is found by its identifier, or named with ``source=``.
+
+    Renders with :func:`vaft.plot.nbi_profile_ion_heating`.
+    """
+    return render("nbi_profile_ion_heating", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_nbi_profile_current_drive(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Beam-driven parallel current density against normalized toroidal flux.
+
+    Reads a NUBEAM result mapped into ``core_sources`` by
+    :func:`vaft.machine_mapping.core_sources.core_sources_from_nubeam`; the NBI
+    entry is found by its identifier, or named with ``source=``.
+
+    Renders with :func:`vaft.plot.nbi_profile_current_drive`.
+    """
+    return render("nbi_profile_current_drive", source, ax=ax, show=show, label=label, **options)
+
 __all__ = [
     "available_plots",
     "disable_overlay_methods",
@@ -2667,6 +2724,9 @@ __all__ = [
     "plot_mhd_linear_overview_eigenfunction",
     "plot_mhd_linear_profile_b_field_perturbed",
     "plot_mhd_linear_profile_displacement",
+    "plot_nbi_profile_current_drive",
+    "plot_nbi_profile_electron_heating",
+    "plot_nbi_profile_ion_heating",
     "plot_mhd_linear_time_energy_perturbed",
     "plot_impa_profile_field",
     "plot_impa_time_field",

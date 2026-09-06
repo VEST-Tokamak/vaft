@@ -163,3 +163,64 @@ def test_a_jupyter_kernel_gets_a_slider_that_redraws_the_figure(tmp_path):
     assert report["kind"] == "jupyter" and report["backend"] == "ipywidgets"
     assert report["shown"][:2] == ["Image", "VBox"] and report["shown"].count("Image") == 2
     assert report["selected"] == 2 and report["pyplot"] == []
+
+
+def test_a_jupyter_kernel_gets_control_widgets_for_one_plot(tmp_path):
+    """``interactive=True`` under a real kernel: an ipywidgets box, a PNG redraw
+    per change for Matplotlib, a re-displayed figure for Plotly, and no
+    pyplot figure left behind (issue #480)."""
+    pytest.importorskip("nbformat")
+    pytest.importorskip("ipykernel")
+    pytest.importorskip("ipywidgets")
+    pytest.importorskip("jupyter_client")
+    import nbformat
+
+    kernels = subprocess.run(
+        [sys.executable, "-m", "jupyter", "kernelspec", "list"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+    )
+    if "python3" not in kernels.stdout:
+        pytest.skip("no python3 Jupyter kernel installed here")
+
+    nb = nbformat.v4.new_notebook()
+    nb.cells = [nbformat.v4.new_code_cell(
+        "import IPython.display as ipd\n"
+        "shown = []\n"
+        "_orig = ipd.display\n"
+        "ipd.display = lambda *objs, **kw: (shown.extend(type(o).__name__ for o in objs), _orig(*objs, **kw))\n"
+        "import vaft, vaft.omas, vaft.data\n"
+        "ods = vaft.omas.load(str(vaft.data.data_path('samples/39915/omas.json.gz')))\n"
+        "res = vaft.omas.plot_flux_loop_time_flux(ods, interactive=True)\n"
+        "dropdown = next(w for w in res.widget.vaft_widgets if w.vaft_control == 'layout')\n"
+        "dropdown.value = 'subplots'\n"
+        "images = shown.count('Image')\n"
+        "shown.clear()\n"
+        "web = vaft.omas.plot_flux_loop_time_flux(ods, interactive=True, backend='plotly')\n"
+        "web.state.set('selection', 'outboard')\n"
+        "import json, matplotlib.pyplot as plt\n"
+        "print(json.dumps({'backend': type(res.widget).__name__, 'images': images, 'axes': list(res.axes.shape),"
+        " 'plotly': shown, 'traces': len(web.figure.data), 'pyplot': plt.get_fignums()}))\n"
+    )]
+    path = tmp_path / "controls.ipynb"
+    nbformat.write(nb, path)
+    completed = subprocess.run(
+        [sys.executable, "-m", "jupyter", "nbconvert",
+         "--to", "notebook", "--execute", "--allow-errors", str(path),
+         "--output", "out.ipynb", "--output-dir", str(tmp_path), "--ExecutePreprocessor.timeout=600"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
+        env={**os.environ, "PYTHONPATH": str(Path(vaft.__file__).resolve().parents[1])},
+    )
+    if not (tmp_path / "out.ipynb").exists():
+        tail = completed.stderr[-1500:]
+        if "No such kernel" in tail or "kernel" in tail.lower() and "not found" in tail.lower():
+            pytest.skip(f"the Jupyter kernel could not start here: {tail}")
+        pytest.fail(f"nbconvert produced no notebook (exit {completed.returncode}):\n{tail}")
+    executed = nbformat.read(tmp_path / "out.ipynb", as_version=4)
+    streams = [o["text"] for o in executed.cells[0]["outputs"] if o.get("output_type") == "stream"]
+    errors = [o for o in executed.cells[0]["outputs"] if o.get("output_type") == "error"]
+    assert not errors, errors[0]["evalue"] if errors else ""
+    report = json.loads([line for text in streams for line in text.splitlines() if line.startswith("{")][-1])
+    assert report["backend"] == "VBox" and report["images"] == 2 and report["axes"] == [11]
+    # Plotly's own renderer follows each Figure with a mime bundle (a dict).
+    assert report["plotly"].count("Figure") == 2 and "VBox" in report["plotly"]
+    assert report["traces"] == 4 and report["pyplot"] == []

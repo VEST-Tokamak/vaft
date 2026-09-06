@@ -245,6 +245,81 @@ class NUBEAMLostParticles:
 
 
 @dataclass
+class NUBEAMRadialGrid:
+    """The radial grid NUBEAM's profiles live on, and the zone measures.
+
+    ``rho`` holds the zone *boundaries* (one more point than a profile) and is
+    toroidal-flux based -- on the validated VEST case it matches
+    ``sqrt(phit/phit_edge)`` to 3e-4, while the poloidal-flux test fails at
+    0.13 -- so it is the coordinate ``rho_tor_norm`` means.
+
+    ``volume`` and ``area`` are *enclosed* quantities on those boundaries, so
+    :attr:`zone_volume` and :attr:`zone_area` difference them to per-zone
+    measures. Those are what turn NUBEAM's per-zone integrals into the
+    densities IMAS asks for, which is why they are collected here rather than
+    left for a consumer to find: an IDS-populating layer must not have to
+    reopen a solver file to divide by a volume.
+    """
+
+    rho: Any
+    volume: Any
+    area: Any
+
+    @property
+    def zone_volume(self) -> Any:
+        """Volume of each zone [m^3], one per profile point."""
+        import numpy as np
+
+        return np.diff(np.asarray(self.volume, dtype=float))
+
+    @property
+    def zone_area(self) -> Any:
+        """Cross-sectional area of each zone [m^2], one per profile point."""
+        import numpy as np
+
+        return np.diff(np.asarray(self.area, dtype=float))
+
+    @property
+    def rho_centres(self) -> Any:
+        """Zone centres, which is where a zone-averaged profile belongs."""
+        import numpy as np
+
+        edges = np.asarray(self.rho, dtype=float)
+        return 0.5 * (edges[:-1] + edges[1:])
+
+
+@dataclass
+class NUBEAMFluxSurfaceAverages:
+    """Flux-surface averages of the equilibrium NUBEAM ran on.
+
+    Collected because converting NUBEAM's toroidal driven current into the
+    parallel current IMAS asks for needs them, and because these are the very
+    surfaces NUBEAM integrated over -- self-consistent in a way a separately
+    traced equilibrium is not. Cross-checked against VAFT's own
+    ``flux_surface_quantities`` on the same g-file, which agrees to about 0.5%.
+
+    All three sit on the Plasma State's ``rho`` grid of surface boundaries.
+    ``f`` is a profile, not a constant: the validated VEST case is 61%
+    paramagnetic, running 0.0964 T.m on axis to its 0.0600 vacuum value.
+    """
+
+    #: F = R B_phi [T.m]  (Plasma State ``g_eq``).
+    f: Any
+    #: <R^-2> [m^-2]  (``gr2i``; IMAS calls it gm1).
+    gm1: Any
+    #: <B^2> [T^2]  (``gb2``; IMAS calls it gm5).
+    gm5: Any
+
+    def at_zone_centres(self) -> tuple[Any, Any, Any]:
+        """The three averages midway between boundaries, where profiles live."""
+        import numpy as np
+
+        centre = lambda a: 0.5 * (np.asarray(a, dtype=float)[:-1]
+                                  + np.asarray(a, dtype=float)[1:])
+        return centre(self.f), centre(self.gm1), centre(self.gm5)
+
+
+@dataclass
 class NUBEAMOutputs:
     """Everything a completed NUBEAM run produced, in NUBEAM's own terms."""
 
@@ -258,6 +333,13 @@ class NUBEAMOutputs:
     scalars: Mapping[str, Any] = field(default_factory=dict)
     birth: Optional[NUBEAMBirthMarkers] = None
     lost: Optional[NUBEAMLostParticles] = None
+    grid: Optional[NUBEAMRadialGrid] = None
+    flux_surface: Optional[NUBEAMFluxSurfaceAverages] = None
+    #: Beam conditions this case ran with, from the Plasma State. These are
+    #: modelling inputs chosen for the run, not machine description: energy
+    #: and power enter through the `profiles` file. Kept apart from the
+    #: geometry for that reason (issue #490 section 5).
+    beam_conditions: Mapping[str, Any] = field(default_factory=dict)
     power_balance: tuple[NUBEAMPowerBalance, ...] = ()
     #: Count of ``xpprof`` out-of-bounds interpolation warnings in step.log.
     interpolation_warnings: int = 0
@@ -443,6 +525,47 @@ def collect_nubeam_outputs(
     if birth_files:
         birth = _read_birth(birth_files[0])
 
+    # The radial grid and zone measures live in the Plasma State, not in
+    # state_changes.cdf, so they are collected alongside the profiles they
+    # describe rather than left to a consumer to go looking for.
+    grid = None
+    for candidate in (directory / f"{runid}.cdf", directory / "cur_state.cdf"):
+        if not candidate.is_file():
+            continue
+        state = _read_variables(candidate)
+        if all(key in state for key in ("rho_nbi", "vol", "area")):
+            grid = NUBEAMRadialGrid(
+                rho=state["rho_nbi"], volume=state["vol"], area=state["area"]
+            )
+            break
+
+    flux_surface = None
+    for candidate in (directory / f"{runid}.cdf", directory / "cur_state.cdf"):
+        if not candidate.is_file():
+            continue
+        state = _read_variables(candidate)
+        if all(key in state for key in ("g_eq", "gr2i", "gb2")):
+            flux_surface = NUBEAMFluxSurfaceAverages(
+                f=state["g_eq"], gm1=state["gr2i"], gm5=state["gb2"]
+            )
+            break
+
+    conditions: dict[str, Any] = {}
+    for candidate in (directory / f"{runid}.cdf", directory / "cur_state.cdf"):
+        if not candidate.is_file():
+            continue
+        state = _read_variables(candidate)
+        if "kvolt_nbi" in state:
+            import numpy as np
+
+            conditions["energy_keV"] = float(np.asarray(state["kvolt_nbi"]).ravel()[0])
+        if "power_nbi" in state:
+            import numpy as np
+
+            conditions["power_W"] = float(np.asarray(state["power_nbi"]).ravel()[0])
+        if conditions:
+            break
+
     lost = None
     xplasma_out = directory / f"{runid}{XPLASMA_OUT_SUFFIX}"
     if xplasma_out.is_file():
@@ -475,6 +598,9 @@ def collect_nubeam_outputs(
         scalars=scalars,
         birth=birth,
         lost=lost,
+        grid=grid,
+        flux_surface=flux_surface,
+        beam_conditions=conditions,
         power_balance=balance,
         interpolation_warnings=warnings_count,
     )

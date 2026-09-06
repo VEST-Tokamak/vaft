@@ -1260,6 +1260,60 @@
   # must fail clearly rather than reuse a neighboring era. The documented
   # gaps (mid: 42138-42144, 42641) are intentionally left unlisted so they
   # fall through to that failure.
+  # Neutral beam injection, bootstrapped from the validated VEST NUBEAM case
+  # (issue #490 section 5). NUBEAM-DERIVED, NOT AS-BUILT: every value here was
+  # read from mdescr_VEST_190307.dat, the machine description that case runs
+  # with. It is the best available source until the NBI hardware package is
+  # received and reconciled -- that reconciliation is issue #265, and until it
+  # happens the registry keeps this mapping at `partial`.
+  #
+  # Values are stored exactly as NUBEAM states them, in NUBEAM's own units and
+  # sign convention, so the provenance survives; vaft.machine_mapping.nbi does
+  # the conversion into IMAS and every conversion has a test.
+  nbi:
+    provenance: mdescr_VEST_190307.dat
+    units: {length: m, angle: degree}
+    unit:
+      - name: B_001
+        beam_type: Standard
+        species: {label: H, a: 1, z_n: 1}
+        source:
+          # NUBEAM signs the tangency radius; IMAS wants a magnitude plus a
+          # separate direction, so both are recorded rather than one derived
+          # from the other by a sign rule verified on a single case.
+          tangency_radius_signed: -0.22129
+          # -1 = clockwise seen from above, IMAS's own convention. Established
+          # from the run rather than assumed: all 200 deposition markers land
+          # at negative toroidal angle relative to the source at phi=0, the
+          # marker pitch is +0.58 with 198 of 200 co-going, and published VEST
+          # material describes the beam as co-injected into a clockwise plasma
+          # current.
+          direction: -1
+          elevation: 0.0
+          toroidal_angle: 0.0
+          distance_to_tangency: 2.625867
+          distance_to_aperture: 1.8
+        grid:
+          shape: Rectangle
+          # Half-widths, as NUBEAM states them. IMAS width_horizontal is the
+          # full width of the enclosing rectangle, so the mapping doubles them.
+          half_width: 0.06
+          half_height: 0.21
+          horizontal_divergence: 1.0
+          vertical_divergence: 1.0
+          # 1.2e11 m is NUBEAM's spelling of "unfocused"; the mapping leaves
+          # the IMAS focus fields absent rather than writing a fictitious
+          # hundred-million-kilometre focal length.
+          horizontal_focal_length: 120000000000.0
+          vertical_focal_length: 120000000000.0
+        aperture:
+          shape: Rectangle
+          half_width: 0.094646
+          half_height: 0.2317
+        # Energy and power are NOT here. They are per-case modelling inputs
+        # that enter through the `profiles` file, not machine description, and
+        # writing them as static machine metadata is exactly the conflation
+        # issue #490 section 5 warns against.
   langmuir_probes:
     mid:
       source:
@@ -1647,9 +1701,9 @@ diagnostics_time_policies:
 # `diagnostics_time_policies` this is pipeline policy, outside the `0:` / shot
 # overrides. Rules are keyed by the signal they were tuned on: an impurity line
 # (C III, O series) has its own temporal morphology and gets its own `lines`
-# entry rather than the H-alpha values. Sibling blocks for discharge timing
-# (actuator onsets) and plasma features (representative peaks) are separate
-# concepts and will sit beside this one, not inside it.
+# entry rather than the H-alpha values. The sibling blocks `discharge_timing`
+# (actuator onsets) and `plasma_features` (representative peaks) are separate
+# concepts and sit beside this one, not inside it.
 plasma_timing:
   window: plasma_analysis        # a diagnostics_time_policies window
   baseline_lead_s: 0.02          # baseline = [tstart - lead, tstart)
@@ -1735,6 +1789,53 @@ discharge_timing:
     anchor_tolerance_s: 5.0e-4
     approach_fraction: 0.10
     approach_hysteresis: 2.0
+
+# Plasma-features policy (issue #409): representative peaks of the plasma
+# phase, measured only inside the plasma window `vaft.omas.plasma_timing`
+# found -- never over the analysis range (no window: nothing is computed, and
+# the record says why). Every rule block is keyword arguments of
+# `vaft.process.onset.robust_peak`, keyed by the signal it was tuned on; the
+# span, the baseline and the H-alpha usability floors are the plasma_timing
+# block's. `ip_ramp_end` is optional and may be added later, never required.
+plasma_features:
+  window: plasma_timing          # the only value: the timing's window, with its provenance
+  # Plasma-current peak: median-5, zero-phase 2 kHz, the run at half height
+  # must last 2 ms (a coil-firing impulse never does).
+  ip:
+    prefilter_samples: 5
+    cutoff_hz: 2000.0
+    sigma: 5.0
+    level_fraction: 0.5
+    min_width_s: 2.0e-3
+  # H-alpha_6563 peak on the line that answered for the plasma (slow line,
+  # validated fast line as fallback). 39915's raw maximum is a one-sample
+  # spike on the window's last sample; the median-5 peak is a third of it.
+  h_alpha:
+    prefilter_samples: 5
+    sigma: 5.0
+    level_fraction: 0.5
+    min_width_s: 1.0e-3
+  # Impurity lines by processed_line label, each with its own rule (never the
+  # H-alpha values). A configured label absent from a product is `absent`.
+  lines:
+    OI_7770:
+      prefilter_samples: 5
+      sigma: 5.0
+      level_fraction: 0.5
+      min_width_s: 1.0e-3
+    CIII_1909:
+      prefilter_samples: 5
+      sigma: 5.0
+      level_fraction: 0.5
+      min_width_s: 1.0e-3
+  # Diamagnetic flux: the signed sample at the largest |deviation| (VEST's
+  # stored flux is negative-going; a paramagnetic shot would come back
+  # positive). Value and time only -- no window of its own.
+  diamagnetic:
+    polarity: absolute
+    prefilter_samples: 5
+    level_fraction: 0.5
+    min_width_s: 2.0e-3
 
 # Canonical ownership and availability registry. This top-level namespace is
 # intentionally not part of the `0:` / shot-override runtime configuration.
@@ -1834,10 +1935,10 @@ diagnostic_registry:
     ids: nbi
     ids_path: nbi
     responsible: [{name: 정윤호}]
-    source: {type: unknown}
+    source: {type: model, note: "NUBEAM mdescr_VEST_190307.dat - not as-built, see #265"}
     availability: If-requested
     lifecycle: in_maintenance
-    mapping_status: not_implemented
+    mapping_status: partial
     quantities: {static: [aperture, beam_line, source_position, species], measured: [beam_voltage, beam_current, suppression_voltage, particle_fraction, power], derived: []}
   helicity_injection:
     name: Helicity injection
@@ -1953,6 +2054,26 @@ diagnostic_registry:
     ids: camera_visible
     ids_path: camera_visible
     responsible: [{name: Joint}]
+    # Export directories carry an acquisition suffix on the directory and on
+    # every file inside it (`27134_50kHz/`, `36976-N001/`). The suffix is
+    # stripped when data is consolidated into `legacy/camera_visible/{shot}/`
+    # and preserved in that shot's provenance.json, so the pattern below is
+    # what the mapping sees in the archive, not what the camera wrote.
+    # Acquisitions at >= 50 kfps are held in a sibling
+    # `legacy/camera_visible_fluctuation/` tree, reserved for issue #161 and
+    # excluded from routine ingest. That split is policy, not data model, and
+    # it is one entry rather than two on purpose -- the same reasoning as
+    # magnetics.b_field_pol_probe covering both the equilibrium probe set and
+    # the outboard fluctuation array. All 52 high-rate acquisitions were
+    # inspected: identical 150-line GX-8 headers, the same uint8 BMPs under
+    # the same filename grammar, contiguous frames, and a timebase that
+    # `frame_time_ms` reproduces exactly (0.02 ms at 50 kfps, 40 ms over 2001
+    # frames). Original frame indices survive the reindex because each frame's
+    # time is computed from its pre-selection index. So this mapping reads
+    # both trees unchanged; only the source path and the ingest policy differ,
+    # and inventing a second IDS path for a directory name would be noise.
+    # Frames named `{shot}_{time}_ms.bmp` are `bmp_arranger` output, not raw,
+    # and this mapping cannot read them.
     source: {type: file, formats: [bmp, text], patterns: ["{shot}/{shot}_{frame:08d}.bmp", "{shot}/{shot}_bmp.txt"]}
     availability: If-requested
     lifecycle: available
@@ -2071,7 +2192,11 @@ diagnostic_registry:
     ids: hard_x_rays
     ids_path: hard_x_rays
     responsible: [{name: 임수빈}]
-    source: {type: unknown}
+    # Written by the same acquisition program as soft_x_rays, with an extra
+    # `hxr_{variant}` segment: `raw` is the digitizer trace, `Eflux` the
+    # energy-flux product derived from it. Archived under
+    # `unmapped/hard_x_rays/{shot}/` pending a mapping.
+    source: {type: file, formats: [csv], patterns: ["digitizer_hxr_{variant}_{daq_label}_{shot}.csv"]}
     availability: If-requested
     lifecycle: in_maintenance
     mapping_status: not_implemented
@@ -2083,7 +2208,11 @@ diagnostic_registry:
     ids: soft_x_rays
     ids_path: soft_x_rays
     responsible: [{name: 임수빈}, {name: 이명원}]
-    source: {type: file, formats: [csv], patterns: ["digitizer_{daq_label}_{shot}.csv"]}
+    # Resolved flat (`legacy/`, `soft_x_rays/`, `raw/`) or per-shot
+    # (`{shot}/digitizer_..._{shot}.csv`), the latter being how a consolidated
+    # archive is laid out. Most shots carry only digitizer 17592; a shot with
+    # both yields twice the channels.
+    source: {type: file, formats: [csv], patterns: ["digitizer_{daq_label}_{shot}.csv", "{shot}/digitizer_{daq_label}_{shot}.csv"]}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented

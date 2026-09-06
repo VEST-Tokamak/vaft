@@ -26,17 +26,24 @@ from vaft.omas.general import (
     find_bt,
     find_breakdown_onset,
     find_ip_onset,
+    find_max_ip,
     find_pf_active_onset,
     find_pulse_duration,
     find_vloop_onset,
 )
+from vaft.omas.plasma_features import plasma_features
 from vaft.omas.plasma_timing import PlasmaTimingError, plasma_timing
 
 from _plasma_timing_fixtures import current, grid, light, pickup_only, pipeline_ods, synthetic_ods
 
 
 def test_the_submodule_is_not_shadowed_by_the_star_export():
+    import vaft.omas.plasma_features
+    import vaft.omas.shot_class
+
     assert inspect.ismodule(vaft.omas.plasma_timing)
+    assert inspect.ismodule(vaft.omas.plasma_features)
+    assert inspect.ismodule(vaft.omas.shot_class)
     assert callable(vaft.omas.find_breakdown_onset)
 
 
@@ -53,6 +60,7 @@ def test_the_finders_answer_from_the_shared_timings(loader):
     assert find_vloop_onset(ods) == pytest.approx(0.3022, abs=5e-4)
     assert find_breakdown_onset(ods) == pytest.approx(0.3063, abs=5e-4)
     assert np.isfinite(find_bt(ods))
+    assert find_max_ip(ods) == plasma_features(ods).ip.value > 80e3
 
     onsets = find_pf_active_onset(ods)
     assert len(onsets) == len(events.pf_onsets) == 10
@@ -68,6 +76,8 @@ def test_no_plasma_is_an_error_that_names_the_reason():
         find_breakdown_onset(ods)
     with pytest.raises(ValueError, match="no plasma-current pulse"):
         find_ip_onset(ods)
+    with pytest.raises(ValueError, match="no plasma-current peak: .*ip_principal"):
+        find_max_ip(ods)
     with pytest.raises(ValueError, match="no loop-voltage zero crossing: .*loop_not_found"):
         find_vloop_onset(ods)
     assert find_pf_active_onset(ods) == []

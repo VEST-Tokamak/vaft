@@ -113,3 +113,41 @@ def synthetic_ods(
     return ods
 
 
+
+
+def policy_resolver(tmp_path, key: str, resolver):
+    """``resolve_with(**changes)``: the packaged ``vest.yaml`` with block ``key`` amended, resolved by ``resolver``."""
+    import yaml
+
+    from vaft.machine_mapping.utils import _resolve_info_file_path, load_yaml
+
+    document = load_yaml(_resolve_info_file_path(None))
+    block = document[key]
+
+    def resolve_with(**changes):
+        doc = dict(document)
+        doc[key] = {**block, **changes}
+        path = tmp_path / f"{len(list(tmp_path.iterdir()))}.yaml"
+        path.write_text(yaml.safe_dump(doc))
+        return resolver(info_file=str(path))
+
+    resolve_with.block = block
+    return resolve_with
+
+
+def classified_shot(pressure_active: bool, halpha_active: bool, ip_pulse: bool = True, *,
+                    barometry: bool = True, seed: int = 463) -> ODS:
+    """A shot on the analysis grid for the classifier: a gas puff (or a flat gauge),
+    light (or a dark line), a current pulse (or coil pickup alone)."""
+    t = grid()
+    rng = np.random.default_rng(seed)
+    dark = 0.002 * rng.standard_normal(t.size)
+    ods = synthetic_ods(slow=light(t) if halpha_active else dark,
+                        ip=current(t) if ip_pulse else pickup_only(t), t=t)
+    if barometry:
+        flat = 1.0 + 1e-6 * rng.standard_normal(t.size)
+        puff = 1.0 + np.exp(-((t - 0.29) / 0.01) ** 2)
+        ods["barometry.ids_properties.homogeneous_time"] = 0
+        ods["barometry.gauge.0.pressure.time"] = t
+        ods["barometry.gauge.0.pressure.data"] = puff if pressure_active else flat
+    return ods

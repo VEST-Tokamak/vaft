@@ -15,6 +15,7 @@ import numpy as np
 
 from vaft.formula.statistics import rms
 
+from ..compat import is_executable, resolve_executable
 from ._executables import executable_from_home, missing_home_message
 from .base import CodeConfig, CodeInputs, CodeResult, CodeRunner
 
@@ -669,8 +670,8 @@ def _default_input_name(source: Any) -> str:
 def _resolve_executable(config: CHEASEConfig) -> Path | None:
     candidates = []
     if config.executable:
-        candidate = Path(config.executable).expanduser()
-        return candidate if candidate.exists() and os.access(candidate, os.X_OK) else None
+        candidate = resolve_executable(Path(config.executable).expanduser())
+        return candidate if candidate is not None and is_executable(candidate) else None
     environment = {**os.environ, **dict(config.env)}
     home_executable = executable_from_home(
         environment.get(CHEASE_HOME_ENV),
@@ -689,8 +690,12 @@ def _resolve_executable(config: CHEASEConfig) -> Path | None:
         env_candidate = Path(env_path).expanduser()
         candidates.append(env_candidate / "chease" if env_candidate.is_dir() else env_candidate)
     for candidate in candidates:
-        if candidate.exists() and os.access(candidate, os.X_OK):
-            return candidate
+        # `is_executable` requires a regular file, where the previous
+        # `exists()` accepted a directory -- which is executable on POSIX and
+        # then fails inside `subprocess.run`.
+        resolved = resolve_executable(candidate)
+        if resolved is not None and is_executable(resolved):
+            return resolved
     return None
 
 
@@ -1024,15 +1029,36 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
 
     env = os.environ.copy()
     env.update(dict(config.env))
-    completed = subprocess.run(
-        [str(executable), *config.args],
-        cwd=str(inputs.workdir),
-        env=env,
-        text=True,
-        capture_output=True,
-        timeout=config.timeout,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            [str(executable), *config.args],
+            cwd=str(inputs.workdir),
+            env=env,
+            text=True,
+            capture_output=True,
+            # CHEASE writes its own diagnostics, so the bytes on these pipes are
+            # a foreign program's, not this repository's. Decoding them at the
+            # host locale turns a *completed* solve into a UnicodeDecodeError on
+            # any non-UTF-8 console -- cp949, for one -- after the refined
+            # equilibrium is already on disk. The log below is written as UTF-8,
+            # so reading as UTF-8 is also what makes the round trip symmetric,
+            # and `replace` keeps one bad character from discarding the run.
+            encoding="utf-8",
+            errors="replace",
+            timeout=config.timeout,
+            check=False,
+        )
+    except OSError as error:
+        # The file resolved and passed the executability probe and the operating
+        # system still refused to start it. A configuration problem raises above;
+        # this is a runtime one, so it is reported the way a non-zero exit is,
+        # rather than as a traceback out of a notebook cell.
+        completed = subprocess.CompletedProcess(
+            [str(executable), *config.args],
+            returncode=1,
+            stdout="",
+            stderr=f"CHEASE could not be launched ({executable}): {error}",
+        )
     log_path = inputs.workdir / "chease.log"
     log_path.write_text((completed.stdout or "") + (completed.stderr or ""), encoding="utf-8")
 
