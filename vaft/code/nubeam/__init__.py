@@ -33,6 +33,7 @@ from .inputs import (
 from .outputs import (
     LOST_PARTICLE_FIELDS,
     NUBEAMBirthMarkers,
+    NUBEAMFluxSurfaceAverages,
     NUBEAMLostParticles,
     NUBEAMPowerBalance,
     NUBEAMOutputs,
@@ -60,6 +61,7 @@ __all__ = [
     "NUBEAM_UPDATE_STATE_EXECUTABLE",
     "LOST_PARTICLE_FIELDS",
     "NUBEAMBirthMarkers",
+    "NUBEAMFluxSurfaceAverages",
     "NUBEAMLostParticles",
     "NUBEAMPowerBalance",
     "NUBEAMConfig",

@@ -456,9 +456,10 @@ def nbi_profile_ion_heating(
     domain="core_sources", quantity="current_drive",
     subject="nbi",
     description="Beam-driven parallel current density against normalized toroidal "
-                "flux. IMAS defines j_parallel as a flux-surface average NUBEAM does "
-                "not report, so this is the zone-area quotient; the exact quantity is "
-                "current_parallel_inside.",
+                "flux, <J.B>/B0. Derived from the solver's toroidal driven current "
+                "and the equilibrium geometry, assuming the driven current is "
+                "field-aligned on each flux surface; it is not a direct solver "
+                "output.",
     ids=("core_sources",),
     required_paths=_NBI_PROFILE_PATHS + (
         "core_sources.source.{i}.profiles_1d.{j}.j_parallel",

@@ -289,6 +289,37 @@ class NUBEAMRadialGrid:
 
 
 @dataclass
+class NUBEAMFluxSurfaceAverages:
+    """Flux-surface averages of the equilibrium NUBEAM ran on.
+
+    Collected because converting NUBEAM's toroidal driven current into the
+    parallel current IMAS asks for needs them, and because these are the very
+    surfaces NUBEAM integrated over -- self-consistent in a way a separately
+    traced equilibrium is not. Cross-checked against VAFT's own
+    ``flux_surface_quantities`` on the same g-file, which agrees to about 0.5%.
+
+    All three sit on the Plasma State's ``rho`` grid of surface boundaries.
+    ``f`` is a profile, not a constant: the validated VEST case is 61%
+    paramagnetic, running 0.0964 T.m on axis to its 0.0600 vacuum value.
+    """
+
+    #: F = R B_phi [T.m]  (Plasma State ``g_eq``).
+    f: Any
+    #: <R^-2> [m^-2]  (``gr2i``; IMAS calls it gm1).
+    gm1: Any
+    #: <B^2> [T^2]  (``gb2``; IMAS calls it gm5).
+    gm5: Any
+
+    def at_zone_centres(self) -> tuple[Any, Any, Any]:
+        """The three averages midway between boundaries, where profiles live."""
+        import numpy as np
+
+        centre = lambda a: 0.5 * (np.asarray(a, dtype=float)[:-1]
+                                  + np.asarray(a, dtype=float)[1:])
+        return centre(self.f), centre(self.gm1), centre(self.gm5)
+
+
+@dataclass
 class NUBEAMOutputs:
     """Everything a completed NUBEAM run produced, in NUBEAM's own terms."""
 
@@ -303,6 +334,7 @@ class NUBEAMOutputs:
     birth: Optional[NUBEAMBirthMarkers] = None
     lost: Optional[NUBEAMLostParticles] = None
     grid: Optional[NUBEAMRadialGrid] = None
+    flux_surface: Optional[NUBEAMFluxSurfaceAverages] = None
     #: Beam conditions this case ran with, from the Plasma State. These are
     #: modelling inputs chosen for the run, not machine description: energy
     #: and power enter through the `profiles` file. Kept apart from the
@@ -507,6 +539,17 @@ def collect_nubeam_outputs(
             )
             break
 
+    flux_surface = None
+    for candidate in (directory / f"{runid}.cdf", directory / "cur_state.cdf"):
+        if not candidate.is_file():
+            continue
+        state = _read_variables(candidate)
+        if all(key in state for key in ("g_eq", "gr2i", "gb2")):
+            flux_surface = NUBEAMFluxSurfaceAverages(
+                f=state["g_eq"], gm1=state["gr2i"], gm5=state["gb2"]
+            )
+            break
+
     conditions: dict[str, Any] = {}
     for candidate in (directory / f"{runid}.cdf", directory / "cur_state.cdf"):
         if not candidate.is_file():
@@ -556,6 +599,7 @@ def collect_nubeam_outputs(
         birth=birth,
         lost=lost,
         grid=grid,
+        flux_surface=flux_surface,
         beam_conditions=conditions,
         power_balance=balance,
         interpolation_warnings=warnings_count,

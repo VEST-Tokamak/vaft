@@ -10,7 +10,11 @@ import numpy as np
 import pytest
 from omas import ODS
 
-from vaft.code.nubeam.outputs import NUBEAMOutputs, NUBEAMRadialGrid
+from vaft.code.nubeam.outputs import (
+    NUBEAMFluxSurfaceAverages,
+    NUBEAMOutputs,
+    NUBEAMRadialGrid,
+)
 from vaft.machine_mapping.core_sources import (
     NBI_SOURCE_INDEX,
     core_sources_from_nubeam,
@@ -41,6 +45,14 @@ def outputs(tmp_path):
             volume=np.array([0.0, 2.0, 4.0, 6.0, 8.0]),
             area=np.array([0.0, 0.5, 1.0, 1.5, 2.0]),
         ),
+        # Chosen so the field-aligned conversion has an exact answer:
+        # F <R^-2> dV / 2pi = 1 * 2pi * 2 / 2pi = 2, so lambda = dI/2 and
+        # j_par = lambda * <B^2> / b0 = (dI/2) * 4 / 2 = dI.
+        flux_surface=NUBEAMFluxSurfaceAverages(
+            f=np.full(ZONES + 1, 1.0),
+            gm1=np.full(ZONES + 1, 2.0 * np.pi),
+            gm5=np.full(ZONES + 1, 4.0),
+        ),
     )
 
 
@@ -61,9 +73,9 @@ def test_cumulative_fields_are_a_running_sum_in_nubeams_own_units(outputs):
     np.testing.assert_allclose(
         ods[f"{BASE}.total_ion_power_inside"], [10.0, 30.0, 60.0, 100.0]
     )
-    np.testing.assert_allclose(
-        ods[f"{BASE}.current_parallel_inside"], [1.0, 3.0, 6.0, 10.0]
-    )
+    # current_parallel_inside is deliberately absent from this list: it is
+    # derived from equilibrium geometry, not a running sum of the toroidal
+    # current. See test_driven_current_is_derived_not_copied.
 
 
 def test_the_last_cumulative_value_is_the_total(outputs):
@@ -89,11 +101,62 @@ def test_density_divides_by_the_zone_volume(outputs):
     )
 
 
-def test_current_density_divides_by_the_zone_area_not_volume(outputs):
+def test_driven_current_is_derived_not_copied(outputs):
+    """j_parallel is <J.B>/B0, which a zone-area quotient is not.
+
+    With the fixture's geometry the field-aligned conversion is exact:
+    lambda = 2 pi dI / (F <R^-2> dV) = dI/2, and j_par = lambda <B^2>/b0 = dI.
+    A zone-area quotient would give dI/0.5 = 2 dI, twice as much.
+    """
     ods = ODS()
+    core_sources_from_nubeam(ods, outputs, b0=2.0)
+
+    driven = outputs.profiles["curbeam"]
+    np.testing.assert_allclose(ods[f"{BASE}.j_parallel"], driven)
+    # and emphatically not the old proxy
+    assert not np.allclose(ods[f"{BASE}.j_parallel"], driven / 0.5)
+
+
+def test_current_parallel_inside_is_not_the_toroidal_current(outputs):
+    """The equality asserted before this change was the bug."""
+    ods = ODS()
+    core_sources_from_nubeam(ods, outputs, b0=2.0)
+
+    inside = np.asarray(ods[f"{BASE}.current_parallel_inside"])
+    toroidal_total = outputs.profiles["curbeam"].sum()
+    # It is the cumulative surface integral of j_parallel, per the DD.
+    np.testing.assert_allclose(
+        inside, np.cumsum(ods[f"{BASE}.j_parallel"] * outputs.grid.zone_area)
+    )
+    assert inside[-1] != pytest.approx(toroidal_total)
+
+
+def test_no_flux_surface_averages_means_no_current_fields(outputs):
+    """Absent geometry must leave the fields unset, not fall back to a proxy."""
+    outputs.flux_surface = None
+    ods = ODS()
+    report = core_sources_from_nubeam(ods, outputs, b0=2.0)
+
+    written = set(ods.flat())
+    assert not any("j_parallel" in k for k in written)
+    assert not any("current_parallel_inside" in k for k in written)
+    assert any("flux-surface averages" in entry for entry in report["skipped"])
+
+
+def test_no_b0_means_no_current_fields(outputs):
+    ods = ODS()
+    report = core_sources_from_nubeam(ods, outputs)  # no b0, none in the ODS
+    assert not any("j_parallel" in k for k in ods.flat())
+    assert any("no b0" in entry for entry in report["skipped"])
+
+
+def test_b0_is_taken_from_the_equilibrium_when_not_given(outputs):
+    ods = ODS()
+    ods["equilibrium.vacuum_toroidal_field.b0"] = [2.0]
     core_sources_from_nubeam(ods, outputs)
-    # zone area is 0.5 m^2 everywhere
-    np.testing.assert_allclose(ods[f"{BASE}.j_parallel"], [2.0, 4.0, 6.0, 8.0])
+    np.testing.assert_allclose(
+        ods[f"{BASE}.j_parallel"], outputs.profiles["curbeam"]
+    )
 
 
 def test_density_reintegrates_to_the_cumulative_total(outputs):
@@ -151,13 +214,16 @@ def test_profiles_sit_at_zone_centres_not_boundaries(outputs):
     np.testing.assert_allclose(rho, [0.125, 0.375, 0.625, 0.875])
 
 
-def test_the_two_inexact_mappings_are_recorded(outputs):
+def test_the_derived_quantities_are_recorded_as_derived(outputs):
     ods = ODS()
-    core_sources_from_nubeam(ods, outputs)
+    core_sources_from_nubeam(ods, outputs, b0=2.0)
     parameters = ods["core_sources.code.parameters"]
     assert "per_zone_to_density" in parameters
-    assert "j_parallel" in parameters
-    assert "average(J.B)/B0" in parameters
+    # The driven current is derived under a stated physical assumption, and
+    # the provenance has to say so rather than call it a copy.
+    assert "DERIVED" in parameters
+    assert "field-aligned" in parameters
+    assert "toroidal driven current" in parameters
     assert ods["core_sources.code.name"] == "NUBEAM"
 
 

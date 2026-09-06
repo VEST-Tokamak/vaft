@@ -32,12 +32,24 @@ here. Data dictionary 4 renames every toroidal field ``tor`` -> ``phi``
 milestone 17's to make across the package, not something to anticipate in one
 module with a compatibility shim.
 
-One mapping is closest-fit rather than exact and is flagged there too:
-``j_parallel`` is documented as ``average(J.B)/B0``, a flux-surface average
-NUBEAM does not report. What NUBEAM gives is the shielded beam-driven current
-per zone, so ``current_parallel_inside`` -- which is just amps inside a surface
--- carries it exactly, and ``j_parallel`` carries the zone-area quotient as an
-approximation to the flux-surface average.
+**The driven current is the exception, and it is not a copy of anything.**
+NUBEAM reports a *toroidal* current per zone -- the Plasma State names the
+family for it, ``curt`` being "total enclosed toroidal current". IMAS asks for
+``j_parallel = <J.B>/B0``. These are different quantities, and on a spherical
+tokamak they differ by a lot: for the validated VEST case the proper value is
+1.48-1.59 times a zone-area quotient, and the parallel current inside the
+boundary is 293.6 A against 191.2 A of toroidal current, 53% apart. ``<B^2>``
+greatly exceeds ``B0^2`` there, from the large poloidal field and from 61%
+paramagnetism.
+
+NUBEAM publishes no beam-driven ``<J.B>``. The Plasma State's ``jdotb`` is the
+*total* plasma value and an input -- ``state_changes.cdf`` never updates it --
+so it cannot stand in. Both IMAS fields are therefore **derived**, by
+:func:`vaft.process.equilibrium.parallel_current_from_toroidal`, under the
+explicit assumption that the driven current is field-aligned on each flux
+surface. When the flux-surface averages that conversion needs are absent,
+neither field is written: a proxy that looks like an IMAS quantity is worse
+than an absent one.
 
 Quantities with no defensible home stay in the native container: the FRANTIC
 halo and recombination channels (which the reference cases put 15-28% away from
@@ -53,6 +65,7 @@ import numpy as np
 from omas import ODS
 
 from vaft.ods_access import path_count
+from vaft.process.equilibrium import parallel_current_from_toroidal
 
 __all__ = [
     "NBI_SOURCE_INDEX",
@@ -71,7 +84,6 @@ NBI_SOURCE_DESCRIPTION = "Source from Neutral Beam Injection"
 _CUMULATIVE = {
     "pbe": ("electrons.power_inside", "W"),
     "pbi": ("total_ion_power_inside", "W"),
-    "curbeam": ("current_parallel_inside", "A"),
     "sbedep": ("electrons.particles_inside", "s^-1"),
 }
 
@@ -80,7 +92,6 @@ _CUMULATIVE = {
 _DENSITY = {
     "pbe": ("electrons.energy", "volume"),
     "pbi": ("total_ion_energy", "volume"),
-    "curbeam": ("j_parallel", "area"),
     "tqbjxb": ("momentum_tor_j_cross_b_field", "volume"),
 }
 
@@ -119,6 +130,20 @@ def _ensure_profiles_1d(ods: ODS, source: int, time_index: int) -> None:
         ods[base][index]
 
 
+
+def _set_time_array(ods: ODS, path: str, index: int, value: float) -> None:
+    """Write one entry of a time-coordinated leaf, growing it in order."""
+    try:
+        ods.set_time_array(path, index, value)
+    except Exception:
+        # Older OMAS, or a leaf it declines to treat as a time array.
+        existing = list(np.atleast_1d(np.asarray(ods.get(path, []), dtype=float)))
+        while len(existing) <= index:
+            existing.append(float("nan"))
+        existing[index] = value
+        ods[path] = np.asarray(existing, dtype=float)
+
+
 def core_sources_from_nubeam(
     ods: ODS,
     result: Any,
@@ -126,8 +151,14 @@ def core_sources_from_nubeam(
     time: float = 0.0,
     time_index: int = 0,
     rho: Optional[Sequence[float]] = None,
+    b0: Optional[float] = None,
 ) -> dict[str, Any]:
     """Write a NUBEAM result into ``core_sources`` as an NBI source term.
+
+    *b0* is the vacuum toroidal field IMAS normalizes ``j_parallel`` by. When it
+    is not given it is taken from the ODS -- ``core_sources`` first, then the
+    equilibrium sitting beside it. Without it the driven-current fields are
+    skipped rather than guessed.
 
     Returns a report of what was written and what was skipped, so a caller can
     see which channels this particular run actually supported rather than
@@ -157,6 +188,20 @@ def core_sources_from_nubeam(
             "The grid lives in the Plasma State; pass rho= if the run directory "
             "no longer holds it."
         )
+
+    if b0 is None:
+        for path in (
+            "core_sources.vacuum_toroidal_field.b0",
+            "equilibrium.vacuum_toroidal_field.b0",
+        ):
+            found = ods.get(path, None)
+            if found is None:
+                continue
+            values = np.atleast_1d(np.asarray(found, dtype=float))
+            finite = values[np.isfinite(values)]
+            if finite.size:
+                b0 = float(finite[0])
+                break
 
     source = _source_position(ods)
     ods[f"core_sources.source.{source}.identifier.index"] = NBI_SOURCE_INDEX
@@ -190,6 +235,50 @@ def core_sources_from_nubeam(
             density = np.where(divisor > 0.0, values / divisor, 0.0)
         ods[f"{base}.{field}"] = density
         written.append(f"{name} -> {field}")
+
+    # Driven current: derived, never copied. See the module docstring.
+    driven = _flat(profiles, "curbeam")
+    flux_surface = getattr(native, "flux_surface", None)
+    if driven is None or driven.size != centres.size:
+        skipped.append("curbeam -> j_parallel, current_parallel_inside")
+    elif flux_surface is None or zone_volume is None:
+        skipped.append(
+            "curbeam -> j_parallel, current_parallel_inside "
+            "(no flux-surface averages; the conversion needs <B^2>, <R^-2> and F)"
+        )
+    else:
+        f_c, gm1_c, gm5_c = flux_surface.at_zone_centres()
+        if b0 is None:
+            skipped.append(
+                "curbeam -> j_parallel, current_parallel_inside (no b0)"
+            )
+        elif not (f_c.size == gm1_c.size == gm5_c.size == centres.size):
+            skipped.append(
+                "curbeam -> j_parallel, current_parallel_inside "
+                "(flux-surface averages are on a different grid)"
+            )
+        else:
+            converted = parallel_current_from_toroidal(
+                driven,
+                f=f_c,
+                gm1=gm1_c,
+                gm5=gm5_c,
+                shell_volume=zone_volume,
+                b0=b0,
+                shell_area=zone_area,
+            )
+            ods[f"{base}.j_parallel"] = converted.j_parallel
+            written.append("curbeam -> j_parallel (derived)")
+            if converted.current_parallel_inside is not None:
+                ods[f"{base}.current_parallel_inside"] = (
+                    converted.current_parallel_inside
+                )
+                written.append("curbeam -> current_parallel_inside (derived)")
+            # b0 is time-coordinated in the DD, so it grows with the slice
+            # index rather than being written as a scalar.
+            _set_time_array(ods, "core_sources.vacuum_toroidal_field.b0",
+                            time_index, float(b0))
+            _set_time_array(ods, "core_sources.time", time_index, float(time))
 
     # The collisional torque IMAS asks for is the total to the plasma, which
     # NUBEAM splits between electrons and ions; the JxB part has its own field
@@ -228,11 +317,15 @@ def _write_provenance(ods: ODS, native: Any) -> None:
         "The *_inside fields carry them exactly as a running sum; the density "
         "fields are those integrals divided by the collected zone volume or "
         "area, and are therefore derived.</per_zone_to_density>"
-        "<j_parallel>IMAS documents j_parallel as average(J.B)/B0. NUBEAM "
-        "reports a shielded beam-driven current per zone and no flux-surface "
-        "average, so j_parallel here is the zone-area quotient, an "
-        "approximation; current_parallel_inside is exact."
-        "</j_parallel>"
+        "<driven_current>NUBEAM reports a toroidal driven current per zone and "
+        "publishes no beam-driven &lt;J.B&gt;. Both j_parallel and "
+        "current_parallel_inside are therefore DERIVED from equilibrium "
+        "geometry, not copied: j_parallel = lambda &lt;B^2&gt;/B0 with lambda = "
+        "2 pi dI_tor / (F &lt;R^-2&gt; dV), under the explicit assumption that the "
+        "driven current is field-aligned on each flux surface. The native "
+        "per-zone toroidal current is retained in the NUBEAM result container; "
+        "IMAS core_sources has no toroidal-current field to hold it."
+        "</driven_current>"
         "</nubeam>"
     )
     path = "core_sources.code.parameters"
