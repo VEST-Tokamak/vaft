@@ -41,7 +41,9 @@ from _plasma_timing_fixtures import DT, RNG, current, grid, light, pickup_only, 
 PACKAGED = {
     # Ip peak (A), H-alpha peak, diamagnetic peak (Wb), CIII peak
     39915: dict(ip=83852.0, h_alpha=0.2986, diamagnetic=-1.553e-3, ciii=0.7005),
-    41524: dict(ip=222026.0, h_alpha=0.8498, diamagnetic=-8.545e-3, ciii=3.596),
+    # 41524's H-alpha: 0.850 was the shoulder of the refused spike at 334 ms; the
+    # representative peak is the 0.507 plateau
+    41524: dict(ip=222026.0, h_alpha=0.5072, diamagnetic=-8.545e-3, ciii=3.596),
     41672: dict(ip=127105.0, h_alpha=0.5586, diamagnetic=-3.900e-3, ciii=0.9297),
 }
 
@@ -65,13 +67,16 @@ def test_the_packaged_products_pin_the_peaks_inside_the_window(shot):
     assert features.ip.notes["timing_source"] == "h_alpha_primary"
     assert features.h_alpha.label == HALPHA_LABEL and features.h_alpha.notes["role"] == "h_alpha_primary"
     assert features.h_alpha.value == pytest.approx(expected["h_alpha"], rel=1e-3)
-    assert features.h_alpha.notes["railed"] is False
+    assert features.h_alpha.notes["railed"] is None          # channel 0 has no documented rail
+    assert features.lines["CIII_1909"].notes["resampled"] is True
+    assert features.lines["CIII_1909"].notes["time_shift_s"] in (0.24, 0.26)
+    assert features.lines["OI_7770"].notes["resampled"] is False and features.lines["OI_7770"].notes["railed"] is None
     assert features.lines["OI_7770"].base.startswith("spectrometer_uv.channel.1.")
     assert features.lines["CIII_1909"].base.startswith("spectrometer_uv.channel.2.")
     assert features.lines["CIII_1909"].value == pytest.approx(expected["ciii"], rel=1e-3)
     assert features.diamagnetic.value == pytest.approx(expected["diamagnetic"], rel=1e-3)
     assert features.diamagnetic.value < 0 and "reference_flat" in features.diamagnetic.flags
-    assert features.diamagnetic.notes == {"method_name": None, "saturated": False}
+    assert features.diamagnetic.notes["method_name"] is None and features.diamagnetic.notes["saturated"] is False
     assert features.flags == ()
     json.dumps(features.record())
     json.dumps(features.summary())
@@ -93,7 +98,7 @@ def test_39915s_loudest_h_alpha_sample_is_a_spike_on_the_window_edge():
 
 def test_a_railed_line_is_noted():
     policy = resolve_plasma_features_policy()
-    with_gamma = replace(policy, lines={"H-gamma_4340": dict(policy.h_alpha)})
+    with_gamma = replace(policy, lines={**policy.lines, "H-gamma_4340": dict(policy.h_alpha)})
 
     features = plasma_features(pipeline_ods(41524), policy=with_gamma)
 
@@ -101,7 +106,8 @@ def test_a_railed_line_is_noted():
     assert gamma.found and gamma.notes["railed"] is True and "railed" in gamma.flags
     assert gamma.peak.evidence["raw_max"] == pytest.approx(5.0, abs=1e-6)   # the digitizer's rail
     assert gamma.value < 5.0                                                 # the rail was brief: a spike, refused
-    assert features.h_alpha.notes["railed"] is False
+    assert features.h_alpha.notes["railed"] is None                          # slow channel: no rail to judge
+    assert features.lines["CIII_1909"].notes["railed"] is False              # fast channel, below the rail
 
 
 def test_the_compact_sample_measures_the_same_peaks():
@@ -251,3 +257,31 @@ def test_reading_a_product_materialises_nothing():
     plasma_features(ods)
 
     assert sorted(map(str, ods.flat().keys())) == before
+
+
+# ---------------------------------------------------------------------------
+# Review findings on PR #535
+# ---------------------------------------------------------------------------
+
+
+def test_record_level_flags_name_the_feature_once():
+    t = grid()
+    ods = synthetic_ods(slow=light(t), ip=current(t), t=t)
+    ods["magnetics.ip.0.validity"] = -2
+
+    features = plasma_features(ods)
+
+    assert features.ip.flags == ("ip_unusable",)
+    assert "ip_unusable" in features.flags and "ip_ip_unusable" not in features.flags
+    assert "diamagnetic_absent" in features.flags
+
+
+def test_ip_peak_alone_matches_the_full_record():
+    from vaft.omas.plasma_features import ip_peak
+
+    ods = pipeline_ods(41672)
+    alone = ip_peak(ods)
+    assert alone.summary() == plasma_features(ods).ip.summary()
+    t = grid()
+    dark = 0.002 * RNG.standard_normal(t.size)
+    assert ip_peak(synthetic_ods(slow=dark, ip=pickup_only(t), t=t)).flags == (NOT_COMPUTED,)

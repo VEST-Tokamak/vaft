@@ -24,11 +24,12 @@ reserved and never required.  Nothing here writes the ODS.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Mapping
 
 import numpy as np
 
+from vaft.machine_mapping.spectrometer_uv import CHANNEL_CADENCE_HZ, CHANNEL_RAIL_LEVEL
 from vaft.machine_mapping.utils import (
     PLASMA_FEATURES_HALPHA_LABEL,
     PlasmaFeaturesPolicy,
@@ -49,6 +50,7 @@ from .plasma_timing import (
     HalphaUsability,
     PlasmaTiming,
     _crop,
+    channel_notes,
     plasma_timing,
 )
 
@@ -64,6 +66,7 @@ __all__ = [
     "SPECTROMETER_CHANNELS",
     "Feature",
     "PlasmaFeatures",
+    "ip_peak",
     "line_by_label",
     "plasma_features",
 ]
@@ -232,25 +235,42 @@ def _peak_in_window(
     peak = robust_peak(
         cropped.t, cropped.y, reference_mask=cropped.baseline_mask, search_mask=inside, **rule
     )
+    notes.setdefault("stored_dt", float(np.median(np.diff(cropped.t))) if cropped.t.size > 1 else float("nan"))
     flags = tuple(dict.fromkeys((*cropped.flags, *peak.flags)))
     reason = None if peak.found else ", ".join(f for f in peak.flags if f != "no_peak") or "no peak"
     return Feature(name=name, base=base, label=label, peak=peak, flags=flags, notes=notes, reason=reason)
 
 
-def _railed(feature: Feature, usability: Mapping[str, float]) -> Feature:
-    """``feature`` with the ``railed`` note and flag when the record reached the digitizer's rail inside the window.
+def _flagged(feature: Feature, *flags: str, **notes: Any) -> Feature:
+    """``feature`` with ``flags`` appended (deduplicated) and ``notes`` merged."""
+    return replace(feature, flags=tuple(dict.fromkeys((*feature.flags, *flags))),
+                   notes={**feature.notes, **notes})
 
-    Judged on the raw maximum the detector saw: a rail held for less than
-    the peak's minimum width is refused as a spike and the reported peak is
-    below it, yet the line did clip and the note must say so.
+
+def _railed(feature: Feature, channel: int | None, usability: Mapping[str, float]) -> Feature:
+    """``feature`` with the ``railed`` note (and flag) when its channel's digitizer clipped inside the window.
+
+    A rail is a property of the digitizer, not of the line:
+    :data:`vaft.machine_mapping.spectrometer_uv.CHANNEL_RAIL_LEVEL` names the
+    channels whose rail is known, and a line on a channel without one is not
+    judged (``railed`` is ``None``).  Judged on the raw maximum the detector
+    saw: a rail held for less than the peak's minimum width is refused as a
+    spike and the reported peak is below it, yet the line did clip.
     """
-    level = float(usability.get("rail_level", np.inf)) * float(usability.get("rail_fraction", 1.0))
+    level = None if channel is None else CHANNEL_RAIL_LEVEL.get(int(channel))
     raw_max = None if feature.peak is None else feature.peak.evidence.get("raw_max")
-    railed = bool(raw_max is not None and raw_max >= level)
-    notes = {**feature.notes, "railed": railed}
-    flags = feature.flags + (("railed",) if railed else ())
-    return Feature(name=feature.name, base=feature.base, label=feature.label, peak=feature.peak,
-                   flags=flags, notes=notes, reason=feature.reason)
+    if level is None or raw_max is None:
+        return _flagged(feature, railed=None)
+    railed = bool(abs(raw_max) >= float(usability.get("rail_fraction", 1.0)) * float(level))
+    return _flagged(feature, *(("railed",) if railed else ()), railed=railed)
+
+
+def _line_notes(ods: Any, channel: int, feature: Feature) -> dict[str, Any]:
+    """The mapper's handling of the line's channel (resampling, time shift), as the timing records it."""
+    cadence = CHANNEL_CADENCE_HZ.get(int(channel))
+    if cadence is None or feature.peak is None:
+        return {}
+    return channel_notes(ods, cadence, float(feature.notes.get("stored_dt", float("nan"))))
 
 
 def line_by_label(ods: Any, label: str) -> tuple[str, int, int] | None:
@@ -269,7 +289,11 @@ def line_by_label(ods: Any, label: str) -> tuple[str, int, int] | None:
 
 
 def _answering_halpha(timing: PlasmaTiming) -> HalphaUsability | None:
-    """The H-alpha line that answers for the plasma: the first usable candidate, in timing order."""
+    """The H-alpha line that answers for the plasma: the timing's optical source, else its first usable candidate."""
+    if timing.optical_source is not None:
+        for candidate in timing.candidates:
+            if candidate.source is timing.optical_source:
+                return candidate
     for candidate in timing.candidates:
         if candidate.usable:
             return candidate
@@ -293,10 +317,9 @@ def _halpha_feature(ods: Any, timing: PlasmaTiming, rule: Mapping[str, Any],
     feature = _peak_in_window(ods, source.base, timing, rule, name=FEATURE_H_ALPHA,
                               label=source.label, notes=notes)
     if source.role != SOURCE_H_PRIMARY:
-        flag = "optical_fallback_fast" if source.role == SOURCE_H_FAST else "optical_fallback_secondary"
-        feature = Feature(name=feature.name, base=feature.base, label=feature.label, peak=feature.peak,
-                          flags=(*feature.flags, flag), notes=feature.notes, reason=feature.reason)
-    return _railed(feature, usability)
+        feature = _flagged(feature, "optical_fallback_fast" if source.role == SOURCE_H_FAST
+                           else "optical_fallback_secondary")
+    return _railed(feature, source.channel, usability)
 
 
 def _line_feature(ods: Any, label: str, timing: PlasmaTiming, rule: Mapping[str, Any],
@@ -308,7 +331,8 @@ def _line_feature(ods: Any, label: str, timing: PlasmaTiming, rule: Mapping[str,
     base, channel, line = found
     feature = _peak_in_window(ods, base, timing, rule, name=name, label=label,
                               notes={"channel": channel, "line": line})
-    return _railed(feature, usability)
+    feature = _flagged(feature, **_line_notes(ods, channel, feature))
+    return _railed(feature, channel, usability)
 
 
 def _diamagnetic_feature(ods: Any, timing: PlasmaTiming, rule: Mapping[str, Any]) -> Feature:
@@ -317,9 +341,7 @@ def _diamagnetic_feature(ods: Any, timing: PlasmaTiming, rule: Mapping[str, Any]
     notes = {"method_name": method, "saturated": bool(method and "acquisition limit" in method)}
     feature = _peak_in_window(ods, DIAMAGNETIC_BASE, timing, rule, name=FEATURE_DIAMAGNETIC, notes=notes)
     if feature.peak is not None and "record_flat" in feature.peak.flags:
-        feature = Feature(name=feature.name, base=feature.base, label=feature.label, peak=feature.peak,
-                          flags=(*feature.flags, "diamagnetic_flat"), notes=feature.notes,
-                          reason=feature.reason)
+        feature = _flagged(feature, "diamagnetic_flat")
     return feature
 
 
@@ -330,9 +352,29 @@ def _ip_feature(ods: Any, timing: PlasmaTiming, rule: Mapping[str, Any]) -> Feat
     feature = _peak_in_window(ods, IP_BASE, timing, rule, name=FEATURE_IP,
                               notes={"timing_source": timing.source})
     if timing.ip is None or not timing.ip.found:
-        feature = Feature(name=feature.name, base=feature.base, label=feature.label, peak=feature.peak,
-                          flags=(*feature.flags, "ip_no_pulse"), notes=feature.notes, reason=feature.reason)
+        feature = _flagged(feature, "ip_no_pulse")
     return feature
+
+
+def ip_peak(
+    ods: Any,
+    *,
+    timing: PlasmaTiming | None = None,
+    policy: PlasmaFeaturesPolicy | None = None,
+) -> Feature:
+    """The plasma-current feature alone, for a caller that needs one number.
+
+    The same measurement :func:`plasma_features` makes for ``ip``, without
+    the optical and diamagnetic peaks; ``not_computed`` when the timing found
+    no plasma.
+    """
+    if timing is None:
+        timing = plasma_timing(ods)
+    if policy is None:
+        policy = resolve_plasma_features_policy()
+    if not timing.found:
+        return _not_measured(FEATURE_IP, NOT_COMPUTED, timing.fallback_reason or "no plasma timing", base=IP_BASE)
+    return _ip_feature(ods, timing, policy.ip)
 
 
 # ---------------------------------------------------------------------------
@@ -379,11 +421,14 @@ def plasma_features(
     lines = {label: _line_feature(ods, label, timing, rule, usability) for label, rule in policy.lines.items()}
     diamagnetic = _diamagnetic_feature(ods, timing, policy.diamagnetic)
 
+    # record-level outcomes: an outcome that already names its feature
+    # (ip_unusable, no_usable_h_alpha) is repeated as is, the generic ones
+    # (absent, no_samples_in_window) are prefixed with the feature
     flags: list[str] = []
     for feature in (ip, h_alpha, diamagnetic):
         for outcome in ("ip_unusable", "no_usable_h_alpha", ABSENT, "no_samples_in_window"):
             if outcome in feature.flags:
-                flags.append(f"{feature.name}_{outcome}" if outcome != feature.name else outcome)
+                flags.append(outcome if feature.name in outcome else f"{feature.name}_{outcome}")
     for label, feature in lines.items():
         if ABSENT in feature.flags:
             flags.append(f"line_absent:{label}")

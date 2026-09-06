@@ -92,6 +92,7 @@ __all__ = [
     "USABILITY_CHECKS",
     "WAVELENGTH_TOLERANCE_M",
     "analysis_span",
+    "channel_notes",
     "clock_offset",
     "halpha_sources",
     "halpha_usability",
@@ -470,19 +471,34 @@ def halpha_usability(
         return verdict("validity")
 
     grid_dt = float(np.median(np.diff(t))) if t.size > 1 else float("nan")
-    resampled = bool(np.isfinite(grid_dt) and grid_dt * source.cadence_hz > 1.5)
-    notes["stored_dt"] = grid_dt
-    notes["native_rate_hz"] = source.cadence_hz
-    notes["resampled"] = resampled
-    if resampled:
-        shot = path_value(ods, "dataset_description.data_entry.pulse")
-        notes["time_shift_s"] = None if shot is None else legacy_time_shift_s(int(shot))
+    notes.update(channel_notes(ods, source.cadence_hz, grid_dt))
     return verdict(None)
 
 
 # ---------------------------------------------------------------------------
 # Windows per source
 # ---------------------------------------------------------------------------
+
+
+def channel_notes(ods: Any, cadence_hz: float, grid_dt: float) -> dict[str, Any]:
+    """What the mapper did to a line digitised at ``cadence_hz`` and stored on a ``grid_dt`` grid.
+
+    A fast-DAQ line is resampled onto the policy grid and its own time axis
+    was shifted onto the discharge clock by ``time_shift_s``; a reader
+    comparing its times with a slow line's must know both.  The one place
+    this is decided, for the H-alpha candidates and for every configured
+    line the features measure.
+    """
+    resampled = bool(np.isfinite(grid_dt) and grid_dt * float(cadence_hz) > 1.5)
+    notes: dict[str, Any] = {
+        "stored_dt": grid_dt,
+        "native_rate_hz": float(cadence_hz),
+        "resampled": resampled,
+    }
+    if resampled:
+        shot = path_value(ods, "dataset_description.data_entry.pulse")
+        notes["time_shift_s"] = None if shot is None else legacy_time_shift_s(int(shot))
+    return notes
 
 
 def _halpha_cropped(ods: Any, source: HalphaSource, span: AnalysisSpan) -> CroppedRecord:

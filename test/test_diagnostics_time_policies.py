@@ -448,19 +448,12 @@ def test_the_discharge_timing_policy_shares_the_plasma_window():
 
 
 def test_discharge_timing_configuration_errors_are_caught_at_load(tmp_path):
-    import yaml
+    from vaft.machine_mapping.utils import resolve_discharge_timing_policy
 
-    from vaft.machine_mapping.utils import _resolve_info_file_path, load_yaml, resolve_discharge_timing_policy
+    from _plasma_timing_fixtures import policy_resolver
 
-    document = load_yaml(_resolve_info_file_path(None))
-    block = document["discharge_timing"]
-
-    def resolve_with(**changes):
-        doc = dict(document)
-        doc["discharge_timing"] = {**block, **changes}
-        path = tmp_path / f"{len(list(tmp_path.iterdir()))}.yaml"
-        path.write_text(yaml.safe_dump(doc))
-        return resolve_discharge_timing_policy(info_file=str(path))
+    resolve_with = policy_resolver(tmp_path, "discharge_timing", resolve_discharge_timing_policy)
+    block = resolve_with.block
 
     with pytest.raises(VestConfigurationError, match="'aproach_fraction'.*zero_crossing_after_excursion"):
         resolve_with(vloop={**block["vloop"], "aproach_fraction": 0.1})
@@ -499,19 +492,12 @@ def test_the_plasma_features_policy_measures_inside_the_timing_window():
 
 
 def test_plasma_features_configuration_errors_are_caught_at_load(tmp_path):
-    import yaml
+    from vaft.machine_mapping.utils import resolve_plasma_features_policy
 
-    from vaft.machine_mapping.utils import _resolve_info_file_path, load_yaml, resolve_plasma_features_policy
+    from _plasma_timing_fixtures import policy_resolver
 
-    document = load_yaml(_resolve_info_file_path(None))
-    block = document["plasma_features"]
-
-    def resolve_with(**changes):
-        doc = dict(document)
-        doc["plasma_features"] = {**block, **changes}
-        path = tmp_path / f"{len(list(tmp_path.iterdir()))}.yaml"
-        path.write_text(yaml.safe_dump(doc))
-        return resolve_plasma_features_policy(info_file=str(path))
+    resolve_with = policy_resolver(tmp_path, "plasma_features", resolve_plasma_features_policy)
+    block = resolve_with.block
 
     with pytest.raises(VestConfigurationError, match="'level_fractoin'.*robust_peak"):
         resolve_with(ip={**block["ip"], "level_fractoin": 0.5})

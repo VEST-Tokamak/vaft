@@ -373,9 +373,8 @@ def test_shot_overview_extractor_uses_the_shared_plasma_timing(monkeypatch):
     )
     monkeypatch.setattr(
         summary_module,
-        "_plasma_features",
-        lambda _ods, timing: SimpleNamespace(computed=timing.found,
-                                             ip=SimpleNamespace(found=timing.found, value=10_000.0)),
+        "_ip_peak",
+        lambda _ods, timing: SimpleNamespace(found=timing.found, value=10_000.0 if timing.found else None),
     )
     monkeypatch.setattr(
         summary_module,
@@ -540,3 +539,10 @@ def test_vacuum_b0_is_rescaled_with_the_cross_checked_radius():
     # shrunk by 0.2313/0.4.
     assert row["vacuum_b0_T"] == pytest.approx(0.149799, rel=1e-6)
     assert row["vacuum_r0_m"] == pytest.approx(0.4)
+
+
+def test_the_shot_overview_loads_what_the_shot_class_reads():
+    """Review finding on #535: through the database only the preset's paths are
+    loaded, and the class decides BD failure versus Vacuum on the barometry."""
+    paths = summary_module.PRESETS["shot_overview"].paths
+    assert "barometry" in paths and "dataset_description" in paths

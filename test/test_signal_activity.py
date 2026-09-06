@@ -140,3 +140,36 @@ def test_the_old_entry_points_warn_and_agree():
         assert vaft.omas.find_shotclass(ods) == "Plasma"
     with pytest.warns(DeprecationWarning, match="halpha_threshold is ignored"):
         assert classify_shot(ods, halpha_threshold=0.5) == "Plasma"
+
+
+# ---------------------------------------------------------------------------
+# Review findings on PR #535
+# ---------------------------------------------------------------------------
+
+
+def test_a_nan_in_the_pressure_record_does_not_read_as_a_puff():
+    from vaft.omas.shot_class import pressure_response, shot_class
+
+    ods = _shot(False, False, False)
+    flat = np.asarray(ods["barometry.gauge.0.pressure.data"], dtype=float).copy()
+    flat[10] = np.nan
+    ods["barometry.gauge.0.pressure.data"] = flat
+    assert pressure_response(ods) is False
+    assert shot_class(ods).label == "Vacuum"
+    ods["barometry.gauge.0.pressure.data"] = np.full(flat.size, np.nan)
+    assert pressure_response(ods) is None
+
+
+def test_an_unusable_current_lets_the_light_stand_in():
+    """A condemned current channel is not a missing plasma: a light window still says Plasma."""
+    from vaft.omas.shot_class import shot_class
+
+    ods = _shot(True, True, True)
+    ods["magnetics.ip.0.validity"] = -2
+    record = shot_class(ods)
+    assert record.label == "Plasma" and record.decided_by == "optical_window"
+    assert "ip_unusable" in record.flags and not record.ip_pulse
+    assert record.summary()["agreement"] == "halpha_only"
+
+    flash = shot_class(_shot(False, True, False))      # usable current, no pulse, light: a flash
+    assert flash.label == "BD failure" and flash.decided_by == "optical_window"

@@ -630,3 +630,27 @@ def test_an_empty_search_mask_is_no_peak():
     assert not rec.found and "search_mask_empty" in rec.flags
     with pytest.raises(ValueError):
         robust_peak(T, bump(), search_mask=np.ones(3, dtype=bool))
+
+
+def test_a_refused_impulse_cannot_return_through_its_shoulder():
+    """Review finding on #535: masking only the half-height run let the impulse's
+    shoulder become the next candidate and pass the width test."""
+    y = np.zeros_like(T)
+    pulse = (T >= 0.020) & (T <= 0.030)
+    y[pulse] = 1.0
+    apex = 0.010
+    tri = np.clip(1.0 - np.abs(T - apex) / 0.0015, 0.0, None)      # 3 ms base, 1.5 ms at half height
+    y += 10.0 * tri + 0.005 * RNG.standard_normal(T.size)
+    rec = robust_peak(T, y, prefilter_samples=1, min_width_s=2e-3, reference_mask=T < 0.005)
+    assert rec.found
+    assert 0.020 <= rec.time <= 0.030
+    assert rec.value == pytest.approx(1.0, abs=0.05)
+    assert rec.rejected and rec.rejected[0][1] == "impulsive"
+    assert "peak_is_spike" in rec.flags
+
+
+def test_a_window_of_nan_samples_is_no_peak():
+    y = bump()
+    y[(T > 0.05) & (T < 0.09)] = np.nan
+    rec = robust_peak(T, y, reference_mask=T < 0.03, search_mask=(T > 0.05) & (T < 0.09))
+    assert not rec.found and "no_finite_samples" in rec.flags

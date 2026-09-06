@@ -146,13 +146,12 @@ def find_max_ip(ods):
     ``ValueError`` naming the reason when the timing found no plasma or the
     current carries no qualifying peak.
     """
-    from .plasma_features import plasma_features
+    from .plasma_features import ip_peak
 
-    features = plasma_features(ods)
-    if not features.computed or not features.ip.found:
-        reason = features.reason or features.ip.reason or ", ".join(features.ip.flags)
-        raise ValueError(f"no plasma-current peak: {reason}")
-    return float(features.ip.value)
+    feature = ip_peak(ods)
+    if not feature.found:
+        raise ValueError(f"no plasma-current peak: {feature.reason or ', '.join(feature.flags)}")
+    return float(feature.value)
 
 
 def find_major_radius(ods):

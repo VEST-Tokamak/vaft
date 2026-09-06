@@ -184,9 +184,11 @@ vaft.omas.print_info(ods, 'magnetics')    # channel counts inside one IDS
 
 `vaft.omas.classify_shot(ods)` labels a shot `'Plasma'`, `'BD failure'` or `'Vacuum'`, decided from the
 shared plasma timing and the gas response, in this order: a plasma-current pulse found by
-`vaft.omas.plasma_timing` → `'Plasma'`; otherwise a barometry pressure response (`is_signal_active` over the
-whole record, the puff precedes the analysis window) or an optical window → `'BD failure'` (the shot was
-attempted); otherwise `'Vacuum'`. `vaft.omas.shot_class.shot_class(ods)` returns the record behind the string:
+`vaft.omas.plasma_timing` → `'Plasma'`; a current that could not be judged at all (`ip_unusable`, a condemned
+channel) with a window the light saw → `'Plasma'` too, flagged; otherwise a barometry pressure response
+(`is_signal_active` over the finite samples of the whole record, the puff precedes the analysis window) or an
+optical window → `'BD failure'` (the shot was attempted: a puff, or a flash without current); otherwise
+`'Vacuum'`. `vaft.omas.shot_class.shot_class(ods)` returns the record behind the string:
 the label, `decided_by` (`ip_pulse`, `pressure_response`, `optical_window`, `none`), the three checks, the
 timing summary and flags such as `barometry_absent` (a product without barometry is judged on the light
 alone). A product without `magnetics.ip` cannot be classified either way and raises `PlasmaTimingError`;

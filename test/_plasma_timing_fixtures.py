@@ -113,3 +113,23 @@ def synthetic_ods(
     return ods
 
 
+
+
+def policy_resolver(tmp_path, key: str, resolver):
+    """``resolve_with(**changes)``: the packaged ``vest.yaml`` with block ``key`` amended, resolved by ``resolver``."""
+    import yaml
+
+    from vaft.machine_mapping.utils import _resolve_info_file_path, load_yaml
+
+    document = load_yaml(_resolve_info_file_path(None))
+    block = document[key]
+
+    def resolve_with(**changes):
+        doc = dict(document)
+        doc[key] = {**block, **changes}
+        path = tmp_path / f"{len(list(tmp_path.iterdir()))}.yaml"
+        path.write_text(yaml.safe_dump(doc))
+        return resolver(info_file=str(path))
+
+    resolve_with.block = block
+    return resolve_with

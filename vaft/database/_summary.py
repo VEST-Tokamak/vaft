@@ -906,11 +906,11 @@ def _plasma_timing(ods):
     return plasma_timing(ods)
 
 
-def _plasma_features(ods, timing):
-    """The representative peaks inside the window ``timing`` found (lazy, as above)."""
-    from vaft.omas.plasma_features import plasma_features
+def _ip_peak(ods, timing):
+    """The plasma-current feature inside the window ``timing`` found (lazy, as above)."""
+    from vaft.omas.plasma_features import ip_peak
 
-    return plasma_features(ods, timing=timing)
+    return ip_peak(ods, timing=timing)
 
 
 def _shot_class(ods, timing):
@@ -927,16 +927,19 @@ def extract_shot_overview(ods, shot: int) -> list[dict]:
     label, the current as fallback) and its source is a column; the peak
     current is the representative peak inside that window
     (``vaft.omas.plasma_features``) and the shot class the verdict of
-    ``vaft.omas.shot_class``.  A shot with no plasma keeps its row -- onset,
+    ``vaft.omas.shot_class``.  A shot with no window keeps its row -- onset,
     duration, peak current and mean field are NaN, ``plasma_onset_source``
     is ``none`` and ``shot_class`` says why -- rather than vanishing from
-    the table; the analysis range is never reported as a window.
+    the table; the analysis range is never reported as a window.  A
+    ``BD failure`` row may carry a window: the light saw one while a usable
+    current showed no pulse, so the optical window and its duration are
+    reported and the peak current is NaN.
     """
     timing = _plasma_timing(ods)
     found = bool(timing.found)
     onset, offset = (float(timing.onset), float(timing.offset)) if found else (float("nan"),) * 2
-    features = _plasma_features(ods, timing)
-    max_ip = float(features.ip.value) if features.computed and features.ip.found else float("nan")
+    ip = _ip_peak(ods, timing)
+    max_ip = float(ip.value) if ip.found else float("nan")
     shot_class = str(_shot_class(ods, timing).label)
     tf_time = np.asarray(ods["tf.time"], dtype=float)
     field = np.asarray(ods["tf.b_field_tor_vacuum_r.data"], dtype=float)
@@ -1029,7 +1032,7 @@ PRESETS = {
     ),
     "shot_overview": SummaryPreset(
         columns=SHOT_OVERVIEW_COLUMNS,
-        paths=("spectrometer_uv", "magnetics", "tf"),
+        paths=("spectrometer_uv", "magnetics", "tf", "barometry", "dataset_description"),
         key_columns=("shot",),
         replace_groups=("shot",),
         sort_columns=("shot",),

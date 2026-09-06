@@ -3,9 +3,13 @@
 Three classes, decided in this order and with the deciding check on record:
 
 * ``Plasma`` -- :func:`vaft.omas.plasma_timing.plasma_timing` found a
-  plasma-current pulse (whichever source answered for the window);
-* ``BD failure`` -- no current pulse, but the shot was attempted: the
-  barometry pressure responded to the gas puff, or the light saw a window;
+  plasma-current pulse (whichever source answered for the window); when the
+  current could not be judged at all (``ip_unusable``: a condemned or
+  absent-inside-the-span channel) the light stands in, and a window it saw
+  is ``Plasma`` too, flagged so;
+* ``BD failure`` -- a usable current shows no pulse, but the shot was
+  attempted: the barometry pressure responded to the gas puff, or the light
+  saw a window (a flash without current);
 * ``Vacuum`` -- none of those.
 
 The pressure response is judged over the whole record (the puff precedes the
@@ -56,7 +60,7 @@ DECIDED_NONE = "none"
 PRESSURE_BASE = "barometry.gauge.0.pressure"
 
 #: The timing flags a class record repeats, so a reader need not open the timing.
-_TIMING_FLAGS = ("ip_no_pulse", "ip_unusable", "halpha_only", "no_plasma_timing", "halpha_dark_with_ip_pulse")
+_TIMING_FLAGS = ("ip_no_pulse", "ip_unusable", "no_plasma_timing", "halpha_dark_with_ip_pulse")
 
 
 @dataclass(frozen=True)
@@ -82,6 +86,7 @@ class ShotClass:
             "ip_pulse": self.ip_pulse,
             "optical_window": self.optical_window,
             "pressure_active": self.pressure_active,
+            "agreement": self.timing.agreement,
             "reason": self.reason,
             "flags": list(self.flags),
             "timing": self.timing.summary(),
@@ -97,6 +102,7 @@ def pressure_response(ods: Any, *, var_ratio_thresh: float = 1e-2) -> bool | Non
     if data is None:
         return None
     values = np.asarray(data, dtype=float).reshape(-1)
+    values = values[np.isfinite(values)]   # a NaN would make the activity ratios NaN and read as active
     if values.size < 2:
         return None
     return bool(is_signal_active(values, var_ratio_thresh=float(var_ratio_thresh)))
@@ -118,6 +124,7 @@ def shot_class(
     if timing is None:
         timing = plasma_timing(ods, policy=policy)
     ip_pulse = timing.ip is not None and timing.ip.found
+    ip_unusable = timing.ip is None
     optical_window = timing.optical is not None and timing.optical.found
     pressure_active = pressure_response(ods, var_ratio_thresh=pressure_threshold)
     flags = [flag for flag in timing.flags if flag in _TIMING_FLAGS]
@@ -127,6 +134,11 @@ def shot_class(
     if ip_pulse:
         label, decided, reason = CLASS_PLASMA, DECIDED_IP_PULSE, (
             f"a plasma-current pulse was found ({timing.source} window {timing.onset:.4f}-{timing.offset:.4f} s)"
+        )
+    elif ip_unusable and optical_window:
+        label, decided, reason = CLASS_PLASMA, DECIDED_OPTICAL_WINDOW, (
+            f"the plasma current could not be judged (ip_unusable) and the light saw a window "
+            f"({timing.optical.start:.4f}-{timing.optical.end:.4f} s)"
         )
     elif pressure_active:
         label, decided, reason = CLASS_BD_FAILURE, DECIDED_PRESSURE, (

@@ -135,9 +135,7 @@ class OnsetRecord:
             "evidence": dict(self.evidence),
             "flags": list(self.flags),
             "accepted": None if self.accepted is None else self.accepted.as_dict(),
-            "rejected": [
-                {"time": t, "reason": why, **feats.as_dict()} for t, why, feats in self.rejected
-            ],
+            "rejected": _rejected_as_dicts(self.rejected),
         }
 
 
@@ -352,6 +350,21 @@ def _bridged(mask: np.ndarray, bridge_samples: int) -> np.ndarray:
         if stop - start <= bridge_samples and start > 0 and stop < mask.size:
             out[start:stop] = True
     return out
+
+
+def _run_around(above: np.ndarray, i: int) -> tuple[int, int]:
+    """The maximal ``[start, stop)`` stretch of True samples in ``above`` that holds ``i``."""
+    start = i
+    while start > 0 and above[start - 1]:
+        start -= 1
+    stop = i + 1
+    while stop < above.size and above[stop]:
+        stop += 1
+    return start, stop
+
+
+def _rejected_as_dicts(rejected) -> list[dict[str, Any]]:
+    return [{"time": t, "reason": why, **feats.as_dict()} for t, why, feats in rejected]
 
 
 def _brief_run(t: np.ndarray, y: np.ndarray, baseline: float, start: int, stop: int) -> RunFeatures:
@@ -707,12 +720,7 @@ def _principal_pulse_onset(
         region = y
     i_peak = int(np.argmax(region))
     above = _bridged(y > threshold, int(bridge_samples))
-    start = i_peak
-    while start > 0 and above[start - 1]:
-        start -= 1
-    stop = i_peak + 1
-    while stop < y.size and above[stop]:
-        stop += 1
+    start, stop = _run_around(above, i_peak)
     feats = run_features(t, y, baseline, start, stop)
     # A pulse is never as brief as a pickup impulse: a principal run narrower
     # than ``impulse_max_s`` is the pickup itself (a record with no pulse has
@@ -1193,9 +1201,7 @@ class PeakRecord:
             "evidence": dict(self.evidence),
             "flags": list(self.flags),
             "accepted": None if self.accepted is None else self.accepted.as_dict(),
-            "rejected": [
-                {"time": t, "reason": why, **feats.as_dict()} for t, why, feats in self.rejected
-            ],
+            "rejected": _rejected_as_dicts(self.rejected),
         }
 
 
@@ -1223,6 +1229,7 @@ def robust_peak(
     min_width_s: float = 1.0e-3,
     max_candidates: int = 8,
     edge_samples: int = 1,
+    impulse_max_s: float = 2.0e-3,
     reference_mask=None,
     reference_fraction: float = 0.2,
     search_mask=None,
@@ -1239,8 +1246,13 @@ def robust_peak(
     ``level_fraction`` of its height must last ``min_width_s``, otherwise it
     is a spike -- a coil-firing pickup impulse, a digitizer glitch -- and is
     refused (``rejected``, reason ``impulsive``) in favour of the next
-    excursion, up to ``max_candidates`` times.  A peak whose excursion does
-    not clear ``sigma`` robust sigmas is ``peak_below_noise``.
+    excursion, up to ``max_candidates`` times -- the whole impulse, shoulders
+    included, so they cannot come back as a candidate.  A peak whose
+    excursion does not clear ``sigma`` robust sigmas
+    is ``peak_below_noise``.  ``impulse_max_s`` is the impulse length: a
+    refused run is masked one impulse length beyond its edges (never past
+    the baseline crossing), and the reported ``pickup_scale`` is measured
+    with it, as in the onset detectors.
 
     Flags on a found peak: ``peak_is_spike`` when the record's raw maximum
     lay in a refused run; ``raw_max_outside_run`` when it lies anywhere
@@ -1259,6 +1271,8 @@ def robust_peak(
     """
     if polarity not in PEAK_POLARITIES:
         raise ValueError(f"polarity must be one of {PEAK_POLARITIES}, not {polarity!r}")
+    if int(max_candidates) < 1:
+        raise ValueError("max_candidates must be at least 1")
     t, raw = _as_arrays(time, values)
     skipped = _lowpass_skipped(t, cutoff_hz, fs)
     effective_cutoff = None if skipped else cutoff_hz
@@ -1282,12 +1296,15 @@ def robust_peak(
     if spread <= 0.0:
         flags.append("reference_flat")
     deviation = y - baseline
-    if polarity == "negative":
-        score = -deviation
-    elif polarity == "absolute":
-        score = np.abs(deviation)
-    else:
-        score = deviation.copy()
+
+    def oriented(dev: np.ndarray) -> np.ndarray:
+        if polarity == "negative":
+            return -dev
+        if polarity == "absolute":
+            return np.abs(dev)
+        return dev
+
+    score = oriented(deviation)
     if search_mask is not None:
         sel = np.asarray(search_mask, dtype=bool).reshape(-1)
         if sel.size != t.size:
@@ -1297,11 +1314,12 @@ def robust_peak(
     else:
         sel = np.ones(t.size, dtype=bool)
     score = np.where(sel, score, -np.inf)
-    raw_score = np.where(sel, (-(raw - baseline) if polarity == "negative"
-                               else np.abs(raw - baseline) if polarity == "absolute"
-                               else raw - baseline), -np.inf)
+    raw_score = np.where(sel, oriented(raw - baseline), -np.inf)
     raw_score = np.where(np.isfinite(raw_score), raw_score, -np.inf)
     i_raw = int(np.argmax(raw_score))
+    if not np.isfinite(raw_score[i_raw]):
+        return _no_peak("no_finite_samples", evidence, *flags)
+    # the raw extreme on the chosen side: the loudest raw sample, whatever the polarity
     evidence.update({"raw_max": float(raw[i_raw]), "raw_max_time": float(t[i_raw])})
     peak_score = float(score.max())
     if peak_score <= 0.0:
@@ -1310,30 +1328,33 @@ def robust_peak(
         return _no_peak("peak_below_noise", evidence, *flags)
     rejected: list[tuple[float, str, RunFeatures]] = []
     remaining = score.copy()
-    edge_first = int(np.flatnonzero(sel)[0])
-    edge_last = int(np.flatnonzero(sel)[-1])
-    for _ in range(max(1, int(max_candidates))):
+    selected = np.flatnonzero(sel)
+    edge_first, edge_last = int(selected[0]), int(selected[-1])
+    for _ in range(int(max_candidates)):
         i = int(np.argmax(remaining))
         if not np.isfinite(remaining[i]) or remaining[i] <= 0.0:
             break
-        above = _bridged(score > float(level_fraction) * score[i], int(bridge_samples)) & sel
-        start = i
-        while start > 0 and above[start - 1]:
-            start -= 1
-        stop = i + 1
-        while stop < t.size and above[stop]:
-            stop += 1
-        feats = run_features(t, score, 0.0, start, stop)
+        # the run is judged on what is still in play, so a refused excursion's
+        # shoulders cannot rejoin a later candidate's run
+        above = _bridged(remaining > float(level_fraction) * remaining[i], int(bridge_samples)) & sel
+        start, stop = _run_around(above, i)
+        feats = run_features(t, remaining, 0.0, start, stop)
         if feats.width_s < float(min_width_s):
             if len(rejected) < MAX_REJECTED_RUNS:
                 rejected.append((float(t[i]), "impulsive", feats))
-            remaining[start:stop] = -np.inf
+            # refuse the whole impulse: its run, widened by one impulse length on
+            # each side (an impulse is that brief by definition) but never past
+            # the baseline crossing -- so its shoulders cannot rejoin a later
+            # candidate, and a genuine excursion beyond it is untouched
+            reach = max(1, int(round(float(impulse_max_s) / dt)))
+            base_start, base_stop = _run_around(remaining > 0.0, i)
+            remaining[max(base_start, start - reach):min(base_stop, stop + reach)] = -np.inf
             continue
-        margin = max(1, int(round(2.0e-3 / dt)))
+        margin = max(1, int(round(float(impulse_max_s) / dt)))
         outside = np.r_[y[: max(0, start - margin)], y[min(y.size, stop + margin):]]
         evidence.update({
             "raw_value": float(raw[i]),
-            "pickup_scale": pickup_scale(outside, baseline, spread, dt),
+            "pickup_scale": pickup_scale(outside, baseline, spread, dt, impulse_max_s=impulse_max_s),
             "n_rejected": len(rejected),
             "run_start": float(t[start]), "run_end": float(t[stop - 1]),
         })
