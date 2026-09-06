@@ -419,9 +419,17 @@ outputs = collect_efit_outputs(workdir, cfg)
 | Base classes | `CodeConfig`, `CodeInputs`, `CodeResult`, `CodeRunner` |
 
 `run_nubeam_case(input_dir, gfile=..., workdir=...)` is the NUBEAM equivalent: it stages a case,
-builds its Plasma State, and runs INIT then STEP. NUBEAM results are returned as a native
-container and are not yet mapped into IMAS -- see issue #490 section 6. `vaft.plot.nubeam`
-renders them directly, which is why those views are not in the plot catalog.
+builds its Plasma State, and runs INIT then STEP. Results come back as a native container, and
+`vaft.machine_mapping.core_sources.core_sources_from_nubeam` maps the heating, current-drive and
+torque channels into `core_sources` as an NBI source term. Heating and torque are per-zone
+integrals that map directly; the driven current is not -- NUBEAM reports it as a *toroidal*
+current and IMAS asks for `<J.B>/B0`, so it goes through
+`vaft.process.equilibrium.parallel_current_from_toroidal`, which needs equilibrium geometry and
+assumes the driven current is field-aligned. On a spherical tokamak the two differ by about a
+factor of 1.5, so the distinction is not academic. `vaft.machine_mapping.nbi` populates the
+static beam geometry. What has no IMAS home yet -- deposition markers, lost fast ions, the step
+log's power budget -- stays in the native container and is drawn by `vaft.plot.nubeam`, which is why
+those particular views are not in the plot catalog while `nbi_profile_*` are.
 
 `refine_equilibrium(source, config=None)` is the one-shot CHEASE convenience: g-file or ODS in,
 refined equilibrium out. `scan_tes(ods, base_config, values, param="ip0_kA")` sweeps a single TES

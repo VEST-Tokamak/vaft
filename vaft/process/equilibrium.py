@@ -1,4 +1,5 @@
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Optional
 
 from scipy.interpolate import RectBivariateSpline
 
@@ -38,9 +39,11 @@ __all__ = [
     "contour_shape_parameters",
     "efit_virial_volume_integrals",
     "extract_flux_surface_contours",
+    "ParallelCurrentResult",
     "flux_surface_quantities",
     "fractional_cell_weights_from_boundary",
     "make_equilibrium_field_interpolator",
+    "parallel_current_from_toroidal",
     "poloidal_field_at_boundary",
     "prepare_boundary_for_shafranov",
     "psi_to_RZ",
@@ -1589,3 +1592,164 @@ try:  # pragma: no branch - normal package import takes this path
     from ._equilibrium_parametric import *  # noqa: E402,F401,F403
 except ImportError:  # direct ``spec_from_file_location`` loading
     from vaft.process._equilibrium_parametric import *  # noqa: E402,F401,F403
+
+@dataclass(frozen=True)
+class ParallelCurrentResult:
+    """Parallel current density derived from an enclosed toroidal current.
+
+    Carries the intermediates as well as the answer: this conversion is easy to
+    get wrong by a factor that looks plausible, so ``lambda_`` and
+    ``b_phi_area_integral`` are returned for inspection rather than discarded.
+    """
+
+    #: <J.B>/B0 on the shells [A.m^-2].
+    j_parallel: np.ndarray
+    #: Cumulative integral of j_parallel over cross-sectional area [A]; None
+    #: when no shell area was supplied.
+    current_parallel_inside: Optional[np.ndarray]
+    #: lambda(psi) in J = lambda B, i.e. the field-aligned proportionality
+    #: [A.m^-2.T^-1].
+    lambda_: np.ndarray
+    #: int B_phi dA over each shell [T.m^2].
+    b_phi_area_integral: np.ndarray
+    #: The shell toroidal current the conversion started from [A].
+    shell_current_tor: np.ndarray
+
+
+def parallel_current_from_toroidal(
+    shell_current_tor: Any,
+    *,
+    f: Any,
+    gm1: Any,
+    gm5: Any,
+    shell_volume: Any,
+    b0: float,
+    shell_area: Any = None,
+) -> ParallelCurrentResult:
+    """Convert a shell toroidal driven current to the IMAS parallel current.
+
+    A code that drives current usually reports it as a toroidal current per
+    flux shell, or as a profile of current enclosed by each surface. IMAS asks
+    for something different: ``j_parallel`` is ``<J.B>/B0``. The two are not
+    interchangeable, and in a spherical tokamak they differ by tens of percent
+    because ``<B^2>`` is much larger than ``B0^2``.
+
+    Assumption
+    ----------
+    The driven current is **field-aligned on each flux surface**,
+    ``J = lambda(psi) B``. This is the usual statement for a current driven by
+    parallel momentum input -- beams, EC, LH -- and it is what makes the
+    conversion possible at all from a toroidal quantity. It is an assumption,
+    not an identity: it omits any perpendicular (diamagnetic,
+    Pfirsch-Schlueter) part, so a caller converting a *total* plasma current
+    with this routine will see that part as a residual.
+
+    Derivation
+    ----------
+    With ``J = lambda B`` and ``B_phi = F/R``, the toroidal current through a
+    shell is ``dI = lambda * int B_phi dA``. Writing the poloidal area element
+    as ``dA = dV / (2 pi R)`` turns that integral into flux-surface averages::
+
+        int B_phi dA = F <R^-2> dV / (2 pi)
+        lambda       = 2 pi dI / (F <R^-2> dV)
+        j_parallel   = lambda <B^2> / B0
+
+    In the large-aspect-ratio limit -- ``F -> R0 B0``, ``<B^2> -> B0^2``,
+    ``<R^-2> -> R0^-2``, ``dV -> 2 pi R0 dA`` -- this reduces to ``dI / dA``,
+    the intuitive toroidal current density. That limit is a check on the
+    result, never a substitute for it.
+
+    Parameters
+    ----------
+    shell_current_tor : array_like
+        Toroidal current in each flux shell [A]. Not the enclosed profile: pass
+        ``numpy.diff`` of an enclosed one.
+    f : array_like
+        ``F = R B_phi`` at the shell centres [T.m]. A profile, not a constant:
+        a paramagnetic plasma can carry an F well above its vacuum value.
+    gm1 : array_like
+        Flux-surface-averaged ``<R^-2>`` at the shell centres [m^-2].
+    gm5 : array_like
+        Flux-surface-averaged ``<B^2>`` at the shell centres [T^2].
+    shell_volume : array_like
+        Volume of each shell [m^3].
+    b0 : float
+        The vacuum toroidal field IMAS normalizes by [T]. For a
+        ``core_sources`` consumer this is ``vacuum_toroidal_field.b0`` of that
+        IDS, which the data dictionary names explicitly in the definition of
+        ``j_parallel``.
+    shell_area : array_like, optional
+        Cross-sectional area of each shell [m^2]. Supplying it also returns
+        ``current_parallel_inside``, the cumulative surface integral of
+        ``j_parallel``.
+
+    Returns
+    -------
+    ParallelCurrentResult
+        ``j_parallel`` and, when *shell_area* was given,
+        ``current_parallel_inside``, plus the intermediates.
+
+    Applicability
+    -------------
+    Machine-independent. Requires an axisymmetric equilibrium and a driven
+    current that is field-aligned. Nothing here is specific to a solver: the
+    inputs are physics quantities, so any code reporting a toroidal driven
+    current and an equilibrium can use it.
+
+    Convention
+    ----------
+    Sign is inherited from *shell_current_tor* and *f*, not imposed. The result
+    therefore carries the sign convention of whatever produced them, which is
+    the caller's to reconcile with the equilibrium it will sit beside.
+
+    Limitations
+    -----------
+    Shells where ``F <R^-2> dV`` vanishes -- a degenerate or zero-width shell,
+    typically at the magnetic axis -- yield zero rather than a division by
+    zero. The field-aligned assumption is the dominant error for a total
+    current and a much smaller one for a driven current.
+
+    Provenance
+    ----------
+    IMAS definitions read from the data dictionary: ``j_parallel`` is
+    ``average(J.B)/B0`` and ``current_parallel_inside`` its cumulative surface
+    integral.
+    """
+    dI = np.asarray(shell_current_tor, dtype=float)
+    f_arr = np.asarray(f, dtype=float)
+    gm1_arr = np.asarray(gm1, dtype=float)
+    gm5_arr = np.asarray(gm5, dtype=float)
+    dV = np.asarray(shell_volume, dtype=float)
+
+    shapes = {dI.shape, f_arr.shape, gm1_arr.shape, gm5_arr.shape, dV.shape}
+    if len(shapes) != 1:
+        raise ValueError(
+            "shell_current_tor, f, gm1, gm5 and shell_volume must share a "
+            f"shape; got {sorted(str(s) for s in shapes)}"
+        )
+    if not np.isfinite(b0) or b0 == 0.0:
+        raise ValueError(f"b0 must be finite and non-zero, got {b0!r}")
+
+    b_phi_area = f_arr * gm1_arr * dV / (2.0 * np.pi)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        lambda_ = np.where(b_phi_area != 0.0, dI / b_phi_area, 0.0)
+    lambda_ = np.nan_to_num(lambda_, nan=0.0, posinf=0.0, neginf=0.0)
+    j_parallel = lambda_ * gm5_arr / b0
+
+    inside = None
+    if shell_area is not None:
+        dA = np.asarray(shell_area, dtype=float)
+        if dA.shape != dI.shape:
+            raise ValueError(
+                f"shell_area has shape {dA.shape}, expected {dI.shape}"
+            )
+        inside = np.cumsum(j_parallel * dA)
+
+    return ParallelCurrentResult(
+        j_parallel=j_parallel,
+        current_parallel_inside=inside,
+        lambda_=lambda_,
+        b_phi_area_integral=b_phi_area,
+        shell_current_tor=dI,
+    )
+

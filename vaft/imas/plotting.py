@@ -31,6 +31,63 @@ from vaft.plot.backend.render import render_entries
 
 from .entries import normalize_entries
 
+
+def plot_nbi_profile_electron_heating(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Beam power density to electrons against normalized toroidal flux.
+
+    Reads a NUBEAM result mapped into ``core_sources`` by
+    :func:`vaft.machine_mapping.core_sources.core_sources_from_nubeam`; the NBI
+    entry is found by its identifier, or named with ``source=``.
+
+    Renders with :func:`vaft.plot.nbi_profile_electron_heating` from native IMAS input.
+    """
+    return render("nbi_profile_electron_heating", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_nbi_profile_ion_heating(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Beam power density to ions against normalized toroidal flux.
+
+    Reads a NUBEAM result mapped into ``core_sources`` by
+    :func:`vaft.machine_mapping.core_sources.core_sources_from_nubeam`; the NBI
+    entry is found by its identifier, or named with ``source=``.
+
+    Renders with :func:`vaft.plot.nbi_profile_ion_heating` from native IMAS input.
+    """
+    return render("nbi_profile_ion_heating", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_nbi_profile_current_drive(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Beam-driven parallel current density against normalized toroidal flux.
+
+    Reads a NUBEAM result mapped into ``core_sources`` by
+    :func:`vaft.machine_mapping.core_sources.core_sources_from_nubeam`; the NBI
+    entry is found by its identifier, or named with ``source=``.
+
+    Renders with :func:`vaft.plot.nbi_profile_current_drive` from native IMAS input.
+    """
+    return render("nbi_profile_current_drive", source, ax=ax, show=show, label=label, **options)
+
 __all__ = ["available_plots", "normalize_entries", "render"]
 
 
@@ -1900,6 +1957,9 @@ __all__ += [
     "plot_mhd_linear_overview_eigenfunction",
     "plot_mhd_linear_profile_b_field_perturbed",
     "plot_mhd_linear_profile_displacement",
+    "plot_nbi_profile_current_drive",
+    "plot_nbi_profile_electron_heating",
+    "plot_nbi_profile_ion_heating",
     "plot_mhd_linear_time_energy_perturbed",
     "plot_mirnov_spectrogram",
     "plot_mirnov_spectrum",
