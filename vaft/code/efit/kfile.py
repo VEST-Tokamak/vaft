@@ -1054,15 +1054,14 @@ def generate_kfile(
             "PSIBIT", psibit_values, per_line=3, formatter=uncertainty_formatter
         )
 
-        TTIME = str(int(np.round(time[time_idx], 4) * 1e6))
-        #        print('TTIME=',TTIME)
-        ITIME = TTIME[0:3]
-        UTIME = TTIME[3:]
-        #        print(ITIME,UTIME)
-
-        filename = f"k0{shotnumber}.00{time[time_idx] * 1000.0:.0f}"  # 0.305 -> 305
-        if UTIME != "000":
-            filename = f"k0{shotnumber}.00{ITIME}_{UTIME}"  # 0.3051 -> 305_100
+        # Named the way EFIT names its outputs: the millisecond, then the
+        # exact microsecond remainder when there is one (0.3051 -> 00305_100,
+        # 0.30632 -> 00306_320).  The remainder used to be truncated to 0.1 ms,
+        # so slices closer than that collided and never matched their a-file.
+        slice_us = int(round(time[time_idx] * 1.0e6))
+        filename = f"k0{shotnumber}.{slice_us // 1000:05d}"
+        if slice_us % 1000:
+            filename = f"{filename}_{slice_us % 1000:03d}"
 
         # Write the kfile
         #        filename=f'k0{shotnumber}.00{time[time_idx]*1e+5:.0f}'
@@ -1112,9 +1111,13 @@ def generate_kfile(
         f.write("\n")
         f.write(f" RCENTR = {RCENTR}\n")
         f.write(f" ISHOT = {shotnumber}\n")
-        f.write(f" ITIME = {int(round(time[time_idx] * 1000.0))}\n")
-        # if digit > 3: # Add ITIMEU (microsecond) if digit is greater than 3
-        #     f.write(f' ITIMEU = {(time[time_idx]*1000-int(time[time_idx]*1000))*1000}\n')
+        # EFIT reads the slice time as ITIME [ms] + ITIMEU [us] and names its
+        # outputs with both, so a sub-millisecond slice needs ITIMEU or it
+        # collides with its millisecond neighbour and is mislabelled (#468).
+        # Whole-millisecond slices write exactly what they always did.
+        f.write(f" ITIME = {slice_us // 1000}\n")
+        if slice_us % 1000:
+            f.write(f" ITIMEU = {slice_us % 1000}\n")
         f.write(BRSP)
         f.write("\n")
         f.write(BITFC)
