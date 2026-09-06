@@ -7,7 +7,7 @@ carries the IDS vocabulary; the IMAS mapper is
 warns and re-exports the canonical module's public names plus the two
 support names callers historically imported from here
 (``VestConfigurationError``, ``data_path``).  Scheduled for removal two minor
-releases after the rename ships (rename released in 0.7.x -> remove in 0.9.0).
+releases after the rename ships (current version 0.6.2; remove in 0.9.0).
 """
 
 from __future__ import annotations
