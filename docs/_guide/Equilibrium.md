@@ -236,11 +236,23 @@ $\int R\,G\,dV / \int G\,dV$ with $G = 2\mu_0 p + B_p^2 + B_{\phi,vac}^2 -
 B_\phi^2$, an integrand that changes sign, so the denominator can pass through
 zero while both integrals stay finite. `efit_virial_volume_integrals` returns
 `rt_denominator_ratio`, the fraction of the denominator surviving that
-cancellation. On the packaged shot-39915 sample it is 0.08, and $R_T/R_0$
-comes out between $-4.3$ and $+8.7$ — a current centroid outside the vessel.
-At VEST's aspect ratio this is the rule, not the exception, which is why
-comparing `pair_13` against `pair_12` and `pair_23` is the first thing to do
-with a suspicious $\beta_p$.
+cancellation.
+
+At VEST's aspect ratio the cancellation is the rule, not the exception. Over
+the 234 reconstructed slices of the equilibrium-global history (72 shots):
+
+| | |
+| --- | --- |
+| median `rt_denominator_ratio` | **0.0135** |
+| slices below 0.25 | 230 / 234 |
+| slices below 0.05 | 173 / 234 |
+| slices with $R_T/R_0 < 0$ | **70 / 234** — a current centroid at negative major radius |
+| slices where `pair_13` is computable | 226 / 234 |
+| slices where any $R_T$-dependent closure is | 194 / 234 |
+
+So comparing `pair_13` against `pair_12` and `pair_23` is the first thing to do
+with a suspicious $\beta_p$, and a $\beta_p$ that exists only through an
+$R_T$-dependent closure should be read with the conditioning number beside it.
 
 ### The three sources of $\mu_i$
 
