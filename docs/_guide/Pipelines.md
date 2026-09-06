@@ -139,7 +139,8 @@ result = run_efit(EFITInputs(workdir=workdir, kfiles=kfiles),
                              args=("129",), timeout=600))
 result = collect_efit_outputs(workdir, EFITConfig(workdir=workdir, shot=shot))
 
-# CHEASE: resolve the binary (falls back to $PATH), prepare, run
+# CHEASE: resolve the binary ($CHEASEHOME/bin/chease, then $CHEASE,
+# then $CHEASE_EXEC_DIR -- there is no $PATH fallback), prepare, run
 config = CHEASEConfig(executable=exe, timeout=600, target_psin=0.993, nideal=6, nw=513)
 result = run_chease(prepare_chease_inputs(gfile, config), config)
 
