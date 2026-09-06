@@ -1,7 +1,7 @@
 ---
 title: "Process reference: coils_non_axisymmetric"
 author: VEST team
-date: 2026-09-07 10:00
+date: 2026-09-05 10:00
 category: guide
 layout: post
 permalink: /reference/process/coils_non_axisymmetric/
