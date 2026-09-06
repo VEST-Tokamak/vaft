@@ -831,14 +831,52 @@ def test_the_vfit_psi_factor_is_the_declared_conversion_not_a_bare_two_pi():
 
 
 def test_a_geqdsk_conversion_labels_the_ods_when_the_convention_is_certain():
-    """An unlabelled ODS is how weber-per-radian psi came to sit in weber slots."""
+    """An unlabelled ODS is how weber-per-radian psi came to sit in weber slots.
+
+    The label is the convention the ODS is *in*, not the file's: ``to_omas``
+    converts psi to full weber on the way in (issue #236), so a COCOS 2 g-file
+    yields a COCOS 12 ODS. Declaring 2 over weber data would be worse than not
+    labelling at all -- a declared index beats the data probe in
+    ``ods_psi_to_wb_per_radian_factor``, so every flux quantity downstream
+    would come out 2*pi wrong.
+    """
     from vaft.data.eqdsk import from_equilibrium
     from vaft.data.resources import sample_geqdsk
     from vaft.omas.general import ods_cocos
     from vaft.process.equilibrium import as_equilibrium
 
     certain = from_equilibrium(as_equilibrium(sample_geqdsk(), convention=2))
-    assert ods_cocos(certain.to_omas()) == 2
+    assert ods_cocos(certain.to_omas()) == 12
+
+
+def test_a_declared_index_agrees_with_the_flux_the_ods_actually_holds():
+    """The half of a COCOS index that signs cannot check.
+
+    COCOS 2 and 12 have identical signs and differ only in the flux exponent,
+    so sign identification alone can never catch a per-radian declaration over
+    weber data. Every index a conversion writes must therefore match what the
+    slice's own psi says, which is what silently broke on fresh CHEASE output.
+    """
+    from vaft.data.eqdsk import from_equilibrium, read_geqdsk, slice_flux_exponent
+    from vaft.data.resources import sample_geqdsk
+    from vaft.omas.general import ods_cocos
+    from vaft.process.equilibrium import as_equilibrium
+    import vaft.data
+
+    candidates = [from_equilibrium(as_equilibrium(sample_geqdsk(), convention=2))]
+    candidates.append(read_geqdsk(str(vaft.data.data_path("kineticEfit/g048224.00300.chease"))))
+
+    checked = 0
+    for geqdsk in candidates:
+        ods = geqdsk.to_omas()
+        declared = ods_cocos(ods)
+        if declared is None:
+            continue
+        exponent = slice_flux_exponent(ods["equilibrium.time_slice.0"])
+        assert exponent is not None
+        assert (declared >= 11) == (exponent == 1), (declared, exponent)
+        checked += 1
+    assert checked, "no candidate was labelled, so nothing was actually checked"
 
 
 def test_an_ambiguous_convention_is_left_unlabelled_rather_than_guessed():
