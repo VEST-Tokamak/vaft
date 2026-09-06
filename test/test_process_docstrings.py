@@ -34,7 +34,8 @@ from vaft.process._docstring import (
 #: Sub-issue C (#419): equilibrium, cocos.
 #: Sub-issue D (#420): profile, atomic.
 #: Sub-issue E (#421): impa, soft_x_rays, langmuir, camera_geometry.
-#: ``onset`` landed after #252 was scoped (#409) and is unassigned.
+#: Sub-issue F (#571) removed ``onset`` and ``wall_modes``, which landed
+#: after #252 was scoped.
 PENDING = frozenset({
     "atomic",
     "camera_geometry",
@@ -45,7 +46,6 @@ PENDING = frozenset({
     "impa",
     "langmuir",
     "magnetics",
-    "onset",
     "profile",
     "soft_x_rays",
     "wall_modes",
@@ -79,6 +79,11 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    "active_window",
+    "principal_pulse_onset",
+    "robust_peak",
+    "sustained_excess_onset",
+    "zero_crossing_after_excursion",
     "repair_clipped_interval",
     "vest_coil_current_noise_reduction",
     "anti_alias_filter",
@@ -103,6 +108,15 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    "active_window",
+    "median_smooth",
+    "pickup_scale",
+    "principal_pulse_onset",
+    "robust_peak",
+    "run_features",
+    "sustained_excess_onset",
+    "zero_crossing_after_excursion",
+    "zero_phase_lowpass",
     "line_average_density",
     "smooth",
     "butterworth_lowpass",

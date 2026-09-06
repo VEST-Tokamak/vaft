@@ -233,10 +233,55 @@ def _fill_non_finite(y: np.ndarray) -> np.ndarray:
 def robust_baseline(values, reference_mask=None) -> tuple[float, float]:
     """Median and robust sigma (``1.4826 * MAD``) over the reference samples.
 
-    Non-finite samples are ignored.  Returns ``(nan, nan)`` when fewer than two
-    finite reference samples exist, so a caller can flag the reference rather
-    than threshold against garbage.  The MAD is computed here rather than
-    through ``vaft.formula`` so this module stays a scipy-only import.
+    The MAD is computed here rather than through ``vaft.formula`` so this module
+    stays a scipy-only import.
+
+    Parameters
+    ----------
+    values : array_like
+        The waveform [any].
+    reference_mask : array_like of bool or None, optional
+        Samples to measure over; ``None`` uses all of them [-].
+
+    Returns
+    -------
+    baseline : float
+        Median of the finite reference samples, ``nan`` when fewer than two
+        exist [any].
+    robust_sigma : float
+        ``1.4826`` times the median absolute deviation about that median, on the
+        same samples, ``nan`` under the same condition [any].
+
+    Defaults
+    --------
+    The MAD-to-sigma factor ``1.4826`` (``MAD_TO_SIGMA``) is a physical constant
+    of the Gaussian distribution, not a tuning value: it makes the returned
+    spread equal the standard deviation for Gaussian noise.
+
+    Assumptions
+    -----------
+    The reference samples are quiet.  Nothing here checks that; a caller that
+    cannot guarantee it asks a detector, which settles the reference itself and
+    flags ``reference_contaminated``.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    ``(nan, nan)`` on fewer than two finite reference samples, so a caller can
+    flag the reference rather than threshold against garbage.  A reference of
+    identical samples gives ``robust_sigma == 0``; a threshold built on it
+    degenerates to the fraction-of-peak term alone.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
     """
     y = np.asarray(values, dtype=float).reshape(-1)
     if reference_mask is not None:
@@ -251,8 +296,53 @@ def robust_baseline(values, reference_mask=None) -> tuple[float, float]:
 def median_smooth(values, kernel_samples: int) -> np.ndarray:
     """Median filter that removes excursions shorter than half the kernel.
 
-    Non-finite samples are linearly interpolated first.  ``kernel_samples``
-    is forced odd; ``1`` returns the (finite-filled) input.
+    The prefilter every optical detector runs first: an isolated digitizer spike
+    is not evidence of light, and a median of an odd kernel removes any excursion
+    narrower than half of it without moving the edges of the ones it keeps.
+
+    Parameters
+    ----------
+    values : array_like
+        The waveform; non-finite samples are linearly interpolated first [any].
+    kernel_samples : int
+        Median kernel width in samples, forced odd; ``1`` or less returns the
+        finite-filled input unchanged [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        The filtered waveform, same length and grid as the input [any].
+
+    Defaults
+    --------
+    None; the kernel is the caller's.  The VEST widths are a machine-specific
+    setting [vest.yaml]: five samples on the slow optical and current
+    channels, one (no filtering) where the rule wants the raw record.
+
+    Convention
+    ----------
+    Zero-phase by construction: a median filter of an odd kernel introduces no
+    group delay, so an onset read off the output is not shifted from the input's.
+    An even ``kernel_samples`` is incremented rather than applied, because an even
+    median averages two order statistics and does shift edges.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A kernel at or above the record length is clipped to the longest odd kernel
+    that fits.  A flat top wider than the kernel survives, which is what lets
+    :func:`robust_peak` still see a railed digitizer.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
     """
     y = _fill_non_finite(np.asarray(values, dtype=float).reshape(-1))
     k = int(kernel_samples)
@@ -268,11 +358,66 @@ def median_smooth(values, kernel_samples: int) -> np.ndarray:
 
 
 def zero_phase_lowpass(values, cutoff_hz: float, fs: float, order: int = 4) -> np.ndarray:
-    """Forward-backward Butterworth low-pass: no group delay, so an onset
-    read from the output is not shifted from the input's.
+    """Forward-backward Butterworth low-pass: no group delay.
 
-    A causal filter of the same order moved the plasma-current onset by
-    +0.1 to +0.9 ms on VEST records; this one by less than a sample.
+    An onset read off the output is not shifted from the input's.  A causal filter
+    of the same order moved the plasma-current onset by +0.1 to +0.9 ms on VEST
+    records; this one by less than a sample.
+
+    Parameters
+    ----------
+    values : array_like
+        The waveform; non-finite samples are linearly interpolated first [any].
+    cutoff_hz : float
+        Low-pass cutoff [Hz].
+    fs : float
+        Sample rate of the record [Hz].
+    order : int, optional
+        Butterworth order; the filter is applied twice, so the effective
+        roll-off is twice this [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        The filtered waveform, same length and grid as the input [any].
+
+    Raises
+    ------
+    ValueError
+        When the record has no more samples than ``filtfilt``'s padding length,
+        ``3 * (order + 1)``.  The detectors call :func:`_too_short` first and
+        report ``record_too_short`` instead of raising.
+
+    Defaults
+    --------
+    ``order = 4`` is a numerical convenience: the same order the VEST soft X-ray
+    viewer and ``vaft.process.signal_processing`` use, steep enough to matter and
+    short enough to pad on a few-thousand-sample record.
+
+    Convention
+    ----------
+    Zero-phase (``scipy.signal.filtfilt``, forward then backward), which is
+    mandatory wherever an onset time is read off the result and is the opposite
+    choice from ``vaft.process.signal_processing.butterworth_lowpass``, whose
+    default is causal to match the validated viewer.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A cutoff at or above the record's Nyquist frequency cannot be designed; the
+    detectors detect that case themselves and report ``lowpass_skipped`` rather
+    than filtering.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
     """
     y = _fill_non_finite(np.asarray(values, dtype=float).reshape(-1))
     padlen = 3 * (int(order) + 1)  # filtfilt's default for a b/a filter of this order
@@ -297,11 +442,70 @@ def excess_threshold(
     sigma: float,
     search_mask=None,
 ) -> tuple[float, float, float, float]:
-    """``(baseline, robust_sigma, peak, threshold)``.
+    """Baseline, spread, peak and activity threshold of one waveform.
 
-    ``peak`` is the largest excess over the baseline within ``search_mask``
-    (the whole record when ``None``); ``threshold`` is
-    ``baseline + max(fraction * peak, sigma * robust_sigma)``.
+    The threshold is ``baseline + max(fraction * peak, sigma * robust_sigma)``.
+    The fraction-of-peak term makes the boundary independent of a channel's noise
+    floor -- two VEST H-alpha channels with a ten-fold noise difference agree to
+    0.2 ms on it -- and the sigma term keeps a weak record from being thresholded
+    at its own noise.
+
+    Parameters
+    ----------
+    values : array_like
+        The waveform [any].
+    reference_mask : array_like of bool or None
+        Samples that define the quiet reference, passed to
+        :func:`robust_baseline` [-].
+    fraction : float
+        Fraction of the peak excess the threshold sits at [-].
+    sigma : float
+        Number of robust sigmas the threshold sits at [-].
+    search_mask : array_like of bool or None, optional
+        Samples the detector may look at; the peak that scales the threshold is
+        taken inside it too.  ``None`` is the whole record [-].
+
+    Returns
+    -------
+    baseline : float
+        Median of the reference samples [any].
+    robust_sigma : float
+        Robust sigma of the reference samples [any].
+    peak : float
+        Largest excess over the baseline inside the search mask, ``nan`` when the
+        baseline is not finite or the mask selects nothing [any].
+    threshold : float
+        The activity threshold, in the units of the record, not of the excess
+        [any].
+
+    Defaults
+    --------
+    None; both terms are the caller's.  The VEST values are a machine-specific
+    setting [vest.yaml].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A negative peak (every sample below the baseline inside the mask) contributes
+    nothing: the fraction term is clipped at zero and the threshold falls back to
+    the sigma term.  Detectors treat a non-finite baseline or threshold as *no
+    evidence* rather than thresholding on it.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
+    .. [vest.yaml] The VEST values for these rules are policy, not defaults:
+       ``vaft/machine_mapping/vest.yaml`` carries them in ``plasma_timing``,
+       ``discharge_timing`` and ``plasma_features``, resolved by
+       ``vaft.machine_mapping.utils`` and passed in by ``vaft.omas.plasma_timing``,
+       ``vaft.omas.discharge_timing`` and ``vaft.omas.plasma_features``.
     """
     y = np.asarray(values, dtype=float).reshape(-1)
     baseline, spread = robust_baseline(y, reference_mask)
@@ -382,7 +586,57 @@ def _brief_run(t: np.ndarray, y: np.ndarray, baseline: float, start: int, stop: 
 
 
 def run_features(time, values, baseline: float, start: int, stop: int) -> RunFeatures:
-    """Width, peak, prominence and integral of ``values[start:stop] - baseline``."""
+    """Width, peak, prominence and integral of one run above a baseline.
+
+    The temporal shape of a candidate run, on which the morphology rules of the
+    detectors are stated.  Prominence comes from ``scipy.signal.peak_prominences``
+    on the whole excess record, so it measures how far the run rises above its
+    surroundings, not above the baseline.
+
+    Parameters
+    ----------
+    time : array_like
+        Time grid of the record; must be as long as ``values`` [s].
+    values : array_like
+        The waveform [any].
+    baseline : float
+        Level the excess is measured from [any].
+    start, stop : int
+        Half-open index bounds of the run, ``values[start:stop]`` [-].
+
+    Returns
+    -------
+    RunFeatures
+        ``start_time`` and ``end_time`` (first and last sample of the run) [s],
+        ``width_s`` (``samples * dt``) [s], ``samples`` [-], ``peak`` and
+        ``prominence`` (excess over the baseline) [any], ``peak_time`` [s] and
+        ``integral`` (excess integrated over the run) [any*s].
+
+    Convention
+    ----------
+    ``end_time`` is the run's last sample, not the first sample after it, so a
+    run of one sample has ``start_time == end_time`` and ``width_s == dt``.  The
+    sample spacing is the median of ``diff(time)``, so a record with a few
+    irregular samples still gets a representative width.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A run touching either end of the record has no surroundings on that side;
+    ``prominence`` then falls back to the run's own peak excess.  Nothing checks
+    that ``start`` and ``stop`` bound a run that is actually above the baseline.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
+    """
     t, y = _as_arrays(time, values)
     seg = y[start:stop] - baseline
     dt = float(np.median(np.diff(t)))
@@ -405,7 +659,43 @@ def run_features(time, values, baseline: float, start: int, stop: int) -> RunFea
 
 
 def isolated_excursions(values, threshold: float, max_run_samples: int) -> int:
-    """How many runs above ``threshold`` are shorter than ``max_run_samples``."""
+    """How many runs above a threshold are shorter than a given length.
+
+    The count of spikes a record carries: the detectors report it as
+    ``isolated_excursions_before_onset`` so a consumer can see how noisy the
+    stretch before an onset was without re-reading the waveform.
+
+    Parameters
+    ----------
+    values : array_like
+        The waveform [any].
+    threshold : float
+        Level a sample must exceed to be part of a run [any].
+    max_run_samples : int
+        Runs strictly shorter than this many samples are counted [-].
+
+    Returns
+    -------
+    int
+        Number of such runs [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Purely a count: which runs, and where, is not reported.  The detectors keep
+    the runs they rejected, with reasons, in ``OnsetRecord.rejected``.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
+    """
     y = np.asarray(values, dtype=float).reshape(-1)
     return sum(1 for a, b in _runs(y > threshold) if (b - a) < int(max_run_samples))
 
@@ -417,9 +707,62 @@ def pickup_scale(values, baseline: float, robust_sigma: float, dt: float,
     The largest absolute excess over the baseline among runs above
     ``sigma * robust_sigma`` that last less than ``impulse_max_s`` -- on a
     plasma-current record, the coil-firing pickup measured on that very shot.
-    ``0.0`` when there is none.  The bar is six robust sigmas rather than the
-    detector's five: white noise does not reach six sigma in a record of a few
-    thousand samples, so the scale measures pickup, not the noise tail.
+    :func:`principal_pulse_onset` compares a candidate pulse against it, which is
+    what refuses a record whose maximum *is* the pickup.
+
+    Parameters
+    ----------
+    values : array_like
+        The waveform [any].
+    baseline : float
+        Level the excess is measured from [any].
+    robust_sigma : float
+        Robust spread of the reference, as returned by
+        :func:`robust_baseline` [any].
+    dt : float
+        Sample spacing, used to turn ``impulse_max_s`` into samples [s].
+    impulse_max_s : float, optional
+        Longest run still counted as an impulse [s].
+    sigma : float, optional
+        Number of robust sigmas a sample must clear to be part of a run [-].
+
+    Returns
+    -------
+    float
+        The largest such excursion, or ``0.0`` when there is none or the
+        baseline or spread is not usable [any].
+
+    Defaults
+    --------
+    ``sigma = 6`` is empirical and deliberately above the detectors' five: white
+    noise does not reach six sigma in a record of a few thousand samples, so the
+    scale measures pickup rather than the noise tail.  ``impulse_max_s = 2 ms``
+    is empirical too, the longest coil-firing transient seen on VEST
+    plasma-current records [corpus].
+
+    Convention
+    ----------
+    Absolute: a pickup transient of either sign counts, because the induced
+    excursion's polarity depends on the coil and the winding, not on the plasma.
+
+    Applicability
+    -------------
+    Machine-independent.  Both defaults were fixed on VEST records.
+
+    Limitations
+    -----------
+    The scale is measured wherever the caller points it.  Inside a pulse the
+    pulse's own noisy threshold crossings would be counted, so
+    :func:`principal_pulse_onset` measures it outside the principal run, one
+    impulse length clear of both edges.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
     """
     y = np.asarray(values, dtype=float).reshape(-1)
     if not (np.isfinite(baseline) and np.isfinite(robust_sigma) and robust_sigma > 0):
@@ -569,16 +912,104 @@ def sustained_excess_onset(
 ) -> OnsetRecord:
     """First run above the threshold that persists and has the right shape.
 
-    The threshold is :func:`excess_threshold`; a run must last at least
-    ``hold_s``, be at least ``min_width_s`` wide, rise at least
-    ``min_prominence_sigma`` robust sigmas above its surroundings and carry at
-    least ``min_integral_fraction`` of the record's total positive excess.
-    Runs that fail are kept in ``rejected`` with the reason.
+    The general-purpose detector: it makes no assumption that the record is
+    pulse-shaped, so it is the one to use where the first activity matters and a
+    later, larger excursion does not.
 
-    ``prefilter_samples`` applies :func:`median_smooth` first, which is how an
-    optical channel's isolated spikes are removed before they are counted.
-    Gaps of at most ``bridge_samples`` below the threshold do not split a run.
-    The returned time is the first sample of the accepted run.
+    Processing steps
+    ----------------
+    1. Median-filter the record over ``prefilter_samples`` (an optical channel's
+       isolated spikes are removed before they can be counted).
+    2. Settle the reference stretch and measure baseline and spread on it.
+    3. Threshold as :func:`excess_threshold`; refuse the record outright when the
+       baseline, spread or peak is degenerate.
+    4. Bridge gaps of at most ``bridge_samples`` below the threshold, so a single
+       noise sample during a rise does not split the run.
+    5. Walk the runs in time order; the first that passes persistence
+       (``hold_s``) and morphology (``min_width_s``, ``min_prominence_sigma``,
+       ``min_integral_fraction``) is the onset, at its first sample.  Every run
+       that fails is kept in ``rejected`` with the reason.
+
+    Parameters
+    ----------
+    time : array_like
+        Time grid of the record [s].
+    values : array_like
+        The waveform [any].
+    fraction : float, optional
+        Fraction-of-peak term of the threshold [-].
+    sigma : float, optional
+        Robust-sigma term of the threshold [-].
+    hold_s : float, optional
+        How long a run must stay above the threshold [s].
+    min_width_s : float, optional
+        Shortest accepted run; ``0`` disables the test [s].
+    min_prominence_sigma : float, optional
+        How far a run must rise above its surroundings, in robust sigmas; ``0``
+        disables the test [-].
+    min_integral_fraction : float, optional
+        Fraction of the record's total positive excess a run must carry; ``0``
+        disables the test [-].
+    reference_mask : array_like of bool or None, optional
+        Samples that define the quiet reference; ``None`` selects the leading
+        ``reference_fraction`` of the record [-].
+    reference_fraction : float, optional
+        Fraction of the record used as the reference when no mask is given [-].
+    search_mask : array_like of bool or None, optional
+        Samples the detector may look at; the peak that scales the threshold is
+        taken inside it too.  ``None`` is the whole record [-].
+    prefilter_samples : int, optional
+        Median-filter kernel applied first; ``1`` means no filtering [-].
+    bridge_samples : int, optional
+        Longest dip below the threshold that does not split a run [-].
+
+    Returns
+    -------
+    OnsetRecord
+        ``time`` is the accepted run's first sample of the input grid, or
+        ``None`` with ``no_onset`` and a reason [s].
+
+        ``evidence`` carries the baseline, spread, peak, threshold and the rule
+        values; ``rejected`` the runs that crossed the threshold and failed,
+        each with its reason.
+
+    Defaults
+    --------
+    The signature values are numerical convenience -- a working detector for a
+    caller with no policy -- and are documented as rules, not as numbers to copy.
+    The VEST values are policy [vest.yaml]; the reasoning behind their
+    magnitudes, and the false-onset counts that fixed them, is in the module
+    docstring and in the corpus table [corpus].
+
+    Convention
+    ----------
+    The onset is the run's *first* sample, so a half-open consumer window
+    ``[start, onset)`` excludes exactly the samples from the onset onward.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    No pulse shape is assumed, so an early isolated excursion that passes both
+    persistence and morphology *is* the onset.  Where the record is known to be
+    pulse-shaped and the principal pulse is what is wanted,
+    :func:`principal_pulse_onset` is unreachable by such an excursion by
+    construction.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
+    .. [vest.yaml] The VEST values for these rules are policy, not defaults:
+       ``vaft/machine_mapping/vest.yaml`` carries them in ``plasma_timing``,
+       ``discharge_timing`` and ``plasma_features``, resolved by
+       ``vaft.machine_mapping.utils`` and passed in by ``vaft.omas.plasma_timing``,
+       ``vaft.omas.discharge_timing`` and ``vaft.omas.plasma_features``.
     """
     t, raw = _as_arrays(time, values)
     y = median_smooth(raw, prefilter_samples) if prefilter_samples > 1 else _fill_non_finite(raw)
@@ -662,15 +1093,103 @@ def principal_pulse_onset(
 ) -> OnsetRecord:
     """Onset of the pulse that contains the global maximum.
 
-    Optionally low-passes the record first (zero-phase), then walks back from
-    the maximum while the excess stays above the threshold; the first sample
-    of that connected run is the onset.  An excursion not connected to the
-    maximum can never be chosen.
+    An excursion not connected to the maximum can never be chosen, which is what
+    makes this the detector for a record known to be pulse-shaped.  A record with
+    no pulse has its maximum *at* the pickup, and two floors guard that case.
 
-    A record with no pulse has its maximum *at* the pickup, so two floors
-    guard the answer: the peak must exceed ``sigma`` robust sigmas
-    (``peak_below_noise``) and ``pickup_floor`` times the record's own
-    :func:`pickup_scale` (``peak_below_pickup_floor``).
+    Processing steps
+    ----------------
+    1. Low-pass the record (zero-phase) when a ``cutoff_hz`` is given and the
+       grid can carry it; otherwise flag ``lowpass_skipped``.
+    2. Settle the reference, measure baseline and spread, threshold as
+       :func:`excess_threshold`.
+    3. Refuse when the peak does not clear ``sigma`` robust sigmas
+       (``peak_below_noise``).
+    4. Walk back and forward from the maximum inside ``search_mask`` while the
+       excess stays above the threshold; that connected run is the pulse.
+    5. Refuse a run narrower than ``impulse_max_s`` (``principal_run_impulsive``)
+       and a peak below ``pickup_floor`` times :func:`pickup_scale` measured
+       outside the run (``peak_below_pickup_floor``); otherwise the onset is the
+       run's first sample.
+
+    Parameters
+    ----------
+    time : array_like
+        Time grid of the record [s].
+    values : array_like
+        The waveform [any].
+    fraction : float, optional
+        Fraction-of-peak term of the threshold [-].
+    sigma : float, optional
+        Robust-sigma term of the threshold [-].
+    reference_mask : array_like of bool or None, optional
+        Samples that define the quiet reference; ``None`` selects the leading
+        ``reference_fraction`` of the record [-].
+    reference_fraction : float, optional
+        Fraction of the record used as the reference when no mask is given [-].
+    search_mask : array_like of bool or None, optional
+        Samples the detector may look at; the peak that scales the threshold is
+        taken inside it too.  ``None`` is the whole record [-].
+    cutoff_hz : float or None, optional
+        Zero-phase low-pass cutoff; ``None`` leaves the record unfiltered [Hz].
+    fs : float or None, optional
+        Sample rate; inferred from ``time`` when ``None`` [Hz].
+    order : int, optional
+        Butterworth order of that low-pass [-].
+    pickup_floor : float, optional
+        How many times the record's own impulsive scale the pulse must exceed;
+        ``0`` disables the test [-].
+    impulse_max_s : float, optional
+        Longest run still treated as an impulse, both for the principal-run test
+        and for :func:`pickup_scale` [s].
+    bridge_samples : int, optional
+        Longest dip below the threshold that does not split the run [-].
+
+    Returns
+    -------
+    OnsetRecord
+        ``time`` is the first sample of the principal run, or ``None`` with
+        ``no_onset`` and one of ``peak_below_noise``, ``principal_run_impulsive``,
+        ``peak_below_pickup_floor``, ``search_mask_empty`` or
+        ``record_too_short`` [s].
+
+        ``evidence`` carries the threshold terms, the peak's time and index and
+        the measured ``pickup_scale``.
+
+    Defaults
+    --------
+    Numerical convenience, as in :func:`sustained_excess_onset`; ``pickup_floor``
+    and ``impulse_max_s`` are empirical, fixed on VEST plasma-current records
+    [corpus].  The VEST values are policy [vest.yaml].
+
+    Convention
+    ----------
+    The onset is the run's first sample.  The low-pass is zero-phase, so the
+    onset is not shifted by the filtering.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Only for a record whose activity is one pulse: on a record with two comparable
+    pulses the answer is the onset of whichever holds the maximum, with no flag
+    saying the other exists.  :func:`active_window` reports that case as
+    ``multiple_segments``.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
+    .. [vest.yaml] The VEST values for these rules are policy, not defaults:
+       ``vaft/machine_mapping/vest.yaml`` carries them in ``plasma_timing``,
+       ``discharge_timing`` and ``plasma_features``, resolved by
+       ``vaft.machine_mapping.utils`` and passed in by ``vaft.omas.plasma_timing``,
+       ``vaft.omas.discharge_timing`` and ``vaft.omas.plasma_features``.
     """
     t, raw = _as_arrays(time, values)
     skipped = _lowpass_skipped(t, cutoff_hz, fs)
@@ -785,46 +1304,156 @@ def active_window(
 ) -> PulseWindow:
     """The window over which a waveform is active, onset to offset.
 
-    Threshold as :func:`excess_threshold`; runs above it with dips shorter
-    than ``gap_s`` bridged; each run must pass persistence (``hold_s``) and
-    morphology (``min_width_s``, ``min_prominence_sigma``,
-    ``min_integral_fraction``) to be a segment; a segment beginning within
-    ``post_quiet_s`` of the previous one's end is merged into it, so a brief
-    quiet moment does not end the window while a real gap does.
+    The detector behind every plasma window in VAFT: what the onset detectors do
+    for the start, plus the harder half, which is where a pulse *ends*.
 
-    ``principal_only`` keeps just the segment holding the global maximum
-    (the plasma-current pulse rather than any earlier light), guarded by
-    the impulsive-run and ``pickup_floor`` rules of
-    :func:`principal_pulse_onset`; otherwise the window is the envelope of
-    every segment and ``multiple_segments`` says when there is more than one.
+    Processing steps
+    ----------------
+    1. Median-filter over ``prefilter_samples``, low-pass (zero-phase) when a
+       ``cutoff_hz`` is given and the grid can carry it.
+    2. Threshold as :func:`excess_threshold` against the leading reference.
+    3. Bridge dips shorter than ``gap_s``; keep the runs that pass persistence
+       (``hold_s``) and morphology as segments; merge a segment that begins
+       within ``post_quiet_s`` of the previous one's end into it, so a brief
+       quiet moment does not end the window while a real gap does.
+    4. With ``principal_only``, keep only the segment holding the global maximum,
+       guarded by the impulsive-run and ``pickup_floor`` rules of
+       :func:`principal_pulse_onset`; otherwise the window is the envelope of
+       every segment and ``multiple_segments`` says when there is more than one.
+    5. Judge the offset against a *trailing* reference -- the last
+       ``trailing_fraction`` of the record, used only when it is quiet (spread
+       within three times the leading one) and sits below
+       ``trailing_max_fraction`` of the peak -- at ``end_fraction`` of the peak
+       above it.  Where that end threshold is never crossed and
+       ``collapse_fallback`` is on, end the window at the end of the *last* steep
+       fall after the peak (``collapse_rate_fraction``, ``collapse_min_drop``)
+       and flag ``offset_from_collapse``.
 
-    The baseline after a pulse need not be the one before it -- a
-    plasma-current record settles a few percent of its peak above zero once
-    the plasma is gone -- so the *offset* is judged against a trailing
-    reference: the last ``trailing_fraction`` of the record, when that stretch
-    is quiet (spread within three times the leading one) and its level lies
-    below ``trailing_max_fraction`` of the peak.  Otherwise the record is
-    still active at its end and the window says ``offset_at_record_end``.
+    The baseline after a pulse need not be the one before it: a VEST
+    plasma-current record settles a few percent of its peak above zero once the
+    plasma is gone, and after a termination the Rogowski keeps reading the induced
+    vessel current -- a few to ten percent of the peak, decaying over tens of
+    milliseconds -- which no level between it and the trailing baseline separates
+    from plasma.  The collapse does.  The last fall, not the steepest: a plasma
+    survives a mid-pulse drop and terminates later.
 
-    ``end_fraction`` is the fraction of the peak the signal must fall below,
-    above that trailing level, for the window to end (``fraction`` when
-    ``None``).  A plasma-current record needs a higher one than its onset:
-    after a termination the Rogowski keeps reading the induced vessel
-    current, a few to ten percent of the peak decaying over tens of
-    milliseconds, which no level between it and the trailing baseline
-    separates from plasma; the collapse does, and 10 % of the peak is below
-    every plasma and above every such tail on the VEST corpus -- except a
-    disruption, whose vessel-current tail can sit at a third of the peak for
-    a hundred milliseconds.  When the signal never falls below the end
-    threshold, ``collapse_fallback`` ends the window at the end of the
-    **last** steep fall after the peak (falling at ``collapse_rate_fraction``
-    of the steepest rate or faster, and removing at least ``collapse_min_drop``
-    of the current present before it, as a quench does) and says
-    ``offset_from_collapse``.  The
-    last fall, not the steepest: a plasma survives a mid-pulse drop and
-    terminates later.  On the hand-reviewed discharges of the VEST corpus
-    this put the plasma-current offset within 2 ms of the light's; the full
-    table (``test/data/onset_corpus.json``) records the per-shot deltas.
+    Parameters
+    ----------
+    time : array_like
+        Time grid of the record [s].
+    values : array_like
+        The waveform [any].
+    fraction : float, optional
+        Fraction-of-peak term of the onset threshold [-].
+    sigma : float, optional
+        Robust-sigma term of the onset threshold [-].
+    hold_s : float, optional
+        How long a run must stay above the threshold to be a segment [s].
+    min_width_s : float, optional
+        Shortest accepted segment; ``0`` disables the test [s].
+    min_prominence_sigma : float, optional
+        How far a segment must rise above its surroundings, in robust sigmas;
+        ``0`` disables the test [-].
+    min_integral_fraction : float, optional
+        Fraction of the record's total positive excess a segment must carry;
+        ``0`` disables the test [-].
+    gap_s : float, optional
+        Longest dip below the threshold that does not split a segment [s].
+    post_quiet_s : float, optional
+        A segment beginning within this of the previous one's end is merged into
+        it [s].
+    principal_only : bool, optional
+        Keep only the segment holding the global maximum [-].
+    pickup_floor : float, optional
+        Principal-segment floor relative to :func:`pickup_scale`; ``0`` disables
+        the test [-].
+    impulse_max_s : float, optional
+        Longest run still treated as an impulse [s].
+    reference_mask : array_like of bool or None, optional
+        Samples that define the quiet reference; ``None`` selects the leading
+        ``reference_fraction`` of the record [-].
+    reference_fraction : float, optional
+        Fraction of the record used as the reference when no mask is given [-].
+    trailing_fraction : float, optional
+        Fraction of the record at its end used as the trailing reference [-].
+    trailing_max_fraction : float, optional
+        How far above the leading baseline that trailing level may sit, as a
+        fraction of the peak, for it to be used at all [-].
+    end_fraction : float or None, optional
+        Fraction of the peak the signal must fall below, above the trailing
+        level, for the window to end; ``fraction`` when ``None`` [-].
+    collapse_fallback : bool, optional
+        Whether to end a window that never falls below the end threshold at the
+        last steep fall [-].
+    collapse_rate_fraction : float, optional
+        How steep that fall must be, as a fraction of the steepest fall in the
+        record [-].
+    collapse_min_drop : float, optional
+        Fraction of the level present before the fall that it must remove [-].
+    search_mask : array_like of bool or None, optional
+        Samples the detector may look at; the peak that scales the threshold is
+        taken inside it too.  ``None`` is the whole record [-].
+    prefilter_samples : int, optional
+        Median-filter kernel applied first; ``1`` means no filtering [-].
+    cutoff_hz : float or None, optional
+        Zero-phase low-pass cutoff; ``None`` leaves the record unfiltered [Hz].
+    fs : float or None, optional
+        Sample rate; inferred from ``time`` when ``None`` [Hz].
+    order : int, optional
+        Butterworth order of that low-pass [-].
+
+    Returns
+    -------
+    PulseWindow
+        ``onset`` and ``offset`` records, both on samples of the input grid, the
+        accepted ``segments`` in time order, and the flags that say what the
+        window is not: ``offset_at_record_end`` (still active at the last
+        sample), ``onset_at_record_start``, ``multiple_segments``,
+        ``offset_from_collapse``, ``trailing_segment_dropped``,
+        ``offset_threshold_above_peak`` [s].
+
+    Defaults
+    --------
+    The signature values are numerical convenience; ``trailing_fraction``,
+    ``trailing_max_fraction``, ``collapse_rate_fraction`` and
+    ``collapse_min_drop`` are empirical, fixed on the hand-reviewed VEST
+    discharges and then checked against the whole corpus [corpus].  The VEST
+    values a pipeline actually runs with are policy [vest.yaml].
+
+    Convention
+    ----------
+    ``offset.time`` is the *last* sample of the pulse -- the last sample above the
+    end threshold, or, with ``offset_from_collapse``, the last sample of the
+    quench that ended it -- so a half-open consumer window is
+    ``[onset.time, time[offset.index + 1])``.  A window is never assumed: nothing
+    here reports the record bounds when it found no pulse.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The end rule is the weak one.  A disruption's vessel-current tail can sit at a
+    third of the peak for a hundred milliseconds, above any end threshold that
+    still separates plasma from a normal termination, and is then ended by the
+    collapse fallback rather than by the threshold.  Thirteen shots of the corpus
+    reach the ``offset_threshold_above_peak`` guard, where the trailing level and
+    the peak leave no usable end threshold; they are flagged, not repaired,
+    tracked in issue #409.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
+    .. [vest.yaml] The VEST values for these rules are policy, not defaults:
+       ``vaft/machine_mapping/vest.yaml`` carries them in ``plasma_timing``,
+       ``discharge_timing`` and ``plasma_features``, resolved by
+       ``vaft.machine_mapping.utils`` and passed in by ``vaft.omas.plasma_timing``,
+       ``vaft.omas.discharge_timing`` and ``vaft.omas.plasma_features``.
     """
     t, raw = _as_arrays(time, values)
     method = "active_window"
@@ -1029,11 +1658,52 @@ def _active_window(
 def principal_pulse_window(time, values, **kwargs) -> tuple[OnsetRecord, OnsetRecord]:
     """``(onset, offset)`` of the pulse holding the global maximum.
 
-    One :func:`active_window` call with ``principal_only=True`` and the
-    principal defaults (``pickup_floor`` 3, no persistence: the pulse is the
-    run holding the maximum); the onset is the run's first sample, exactly
-    what :func:`principal_pulse_onset` returns, and the offset carries the
-    window's flags -- ``offset_at_record_end``, ``offset_from_collapse``.
+    One :func:`active_window` call with ``principal_only=True`` and the principal
+    defaults, for callers that want the pair of records rather than the window
+    object.  Every other keyword argument is forwarded to :func:`active_window`
+    unchanged.
+
+    Parameters
+    ----------
+    time : array_like
+        Time grid of the record [s].
+    values : array_like
+        The waveform [any].
+
+    Returns
+    -------
+    onset : OnsetRecord
+        The principal run's first sample -- exactly what
+        :func:`principal_pulse_onset` returns -- or ``None`` with the window's
+        flags [s].
+    offset : OnsetRecord
+        The principal run's last sample, carrying the window's flags, so
+        ``offset_at_record_end`` and ``offset_from_collapse`` reach a caller that
+        never sees the :class:`PulseWindow` [s].
+
+    Defaults
+    --------
+    ``pickup_floor = 3`` and ``hold_s = 0`` are set here unless the caller
+    overrides them: empirical, and the pair that makes this agree with
+    :func:`principal_pulse_onset` -- the pulse is the run holding the maximum, so
+    persistence is redundant and the pickup floor does the refusing.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Both records carry the *window's* evidence rather than an onset detector's, so
+    ``evidence`` is keyed as :func:`active_window` keys it.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
     """
     kwargs.setdefault("pickup_floor", 3.0)
     kwargs.setdefault("hold_s", 0.0)
@@ -1076,26 +1746,112 @@ def zero_crossing_after_excursion(
 ) -> OnsetRecord:
     """First sample after an anchored excursion where the record changes sign.
 
-    The *excursion* is the first sustained run of ``|values - baseline|``
-    above the threshold (``max(fraction * peak, sigma * robust_sigma)``, the
-    peak taken inside ``search_mask``) that starts within
-    ``anchor_tolerance_s`` of ``anchor_time`` or contains the anchor sample.
-    Anchoring is what makes a later, larger pulse irrelevant: a drive
-    excursion is judged where the drive starts, not where the record is
-    loudest.  The event is the first sample after the excursion's extremum
-    whose baseline-relative sign is opposite to the extremum's (strictly --
-    a sample exactly at the baseline is not a crossing).
+    Written for a drive waveform: the loop voltage crosses zero once the ohmic
+    swing that drove it is over, and *that* crossing -- not the record's loudest
+    moment -- is the event.  Anchoring is what makes a later, larger pulse
+    irrelevant: the excursion is judged where the drive starts.
 
-    The excursion's decay is watched between the extremum and the crossing:
-    when ``|values - baseline|`` drops below ``approach_fraction`` of the
-    extremum and later climbs back above ``approach_hysteresis`` times that
-    level before crossing (the hysteresis keeps noise around the level from
-    counting as a re-rise), the record is flagged
-    ``approached_without_crossing`` with the minimum and its time in the
-    evidence.  A record with no run at the anchor returns ``time=None``
-    with ``no_excursion_at_anchor``; an excursion that never crosses returns
-    ``time=None`` with ``no_zero_crossing``.  The evidence carries the
-    signed extremum (baseline-relative), its time and the run bounds.
+    Processing steps
+    ----------------
+    1. Median-filter over ``prefilter_samples``, settle the reference, measure
+       baseline and spread.
+    2. Threshold ``|values - baseline|`` at
+       ``max(fraction * peak, sigma * robust_sigma)``, the peak taken inside
+       ``search_mask``.
+    3. Take the first sustained run (``hold_s``) that starts within
+       ``anchor_tolerance_s`` of ``anchor_time`` or contains the anchor sample;
+       with none, return ``no_excursion_at_anchor``.
+    4. From that run's extremum, walk forward to the first sample whose
+       baseline-relative sign is opposite to the extremum's -- strictly, so a
+       sample exactly at the baseline is not a crossing.
+    5. Watch the decay in between: when the deviation drops below
+       ``approach_fraction`` of the extremum and climbs back above
+       ``approach_hysteresis`` times that level before crossing, flag
+       ``approached_without_crossing`` and record the minimum and its time.
+
+    Parameters
+    ----------
+    time : array_like
+        Time grid of the record [s].
+    values : array_like
+        The waveform [any].
+    anchor_time : float
+        Where the excursion is expected to start, usually another detector's
+        onset [s].
+    fraction : float, optional
+        Fraction-of-peak term of the excursion threshold [-].
+    sigma : float, optional
+        Robust-sigma term of the excursion threshold [-].
+    hold_s : float, optional
+        How long the excursion must stay above that threshold [s].
+    anchor_tolerance_s : float, optional
+        How far the run's start may lie from the anchor when it does not contain
+        it [s].
+    approach_fraction : float, optional
+        Fraction of the extremum the decay must reach to count as an approach
+        [-].
+    approach_hysteresis : float, optional
+        Multiple of that level the record must climb back above for the approach
+        to be reported as one that did not cross; the hysteresis keeps noise
+        around the level from counting as a re-rise [-].
+    reference_mask : array_like of bool or None, optional
+        Samples that define the quiet reference; ``None`` selects the leading
+        ``reference_fraction`` of the record [-].
+    reference_fraction : float, optional
+        Fraction of the record used as the reference when no mask is given [-].
+    search_mask : array_like of bool or None, optional
+        Samples the detector may look at; the peak that scales the threshold is
+        taken inside it too.  ``None`` is the whole record [-].
+    prefilter_samples : int, optional
+        Median-filter kernel applied first; ``1`` means no filtering [-].
+    bridge_samples : int, optional
+        Longest dip below the threshold that does not split the excursion [-].
+
+    Returns
+    -------
+    OnsetRecord
+        ``time`` is the first sample past the crossing, or ``None`` with
+        ``no_excursion_at_anchor`` or ``no_zero_crossing`` [s].
+
+        ``evidence`` carries the signed extremum (baseline-relative), its time,
+        the run bounds, the run's start relative to the anchor, and the approach
+        minimum when there was one.
+
+    Defaults
+    --------
+    The signature values are numerical convenience; the VEST loop-voltage values -- the
+    fraction, the hold, the anchor tolerance and both approach numbers -- are
+    policy in the ``discharge_timing.vloop`` block [vest.yaml].
+
+    Convention
+    ----------
+    The sign is measured relative to the *baseline*, not to zero, so a record
+    with an offset crosses where it returns through its own quiet level.  The
+    crossing must be strict: a sample exactly at the baseline is not one.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    One crossing only, the first after the anchored excursion.  A record that
+    decays towards the baseline and turns back without reaching it is reported as
+    ``approached_without_crossing`` *and* ``no_zero_crossing`` -- the flag is
+    evidence for a consumer, not an event.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
+    .. [vest.yaml] The VEST values for these rules are policy, not defaults:
+       ``vaft/machine_mapping/vest.yaml`` carries them in ``plasma_timing``,
+       ``discharge_timing`` and ``plasma_features``, resolved by
+       ``vaft.machine_mapping.utils`` and passed in by ``vaft.omas.plasma_timing``,
+       ``vaft.omas.discharge_timing`` and ``vaft.omas.plasma_features``.
     """
     t, raw = _as_arrays(time, values)
     y = median_smooth(raw, prefilter_samples) if prefilter_samples > 1 else _fill_non_finite(raw)
@@ -1257,37 +2013,131 @@ def robust_peak(
 ) -> PeakRecord:
     """The representative peak of a record: its largest sustained excursion, not its loudest sample.
 
-    The record is median-filtered (``prefilter_samples``, the isolated optical
-    spike) and, when a ``cutoff_hz`` is given, zero-phase low-passed; the
-    baseline is the median of the reference stretch.  ``polarity`` selects
-    what counts as up: ``positive`` (the excess over the baseline),
-    ``negative`` (the deficit) or ``absolute``.  The largest excursion inside
-    ``search_mask`` is a candidate; the run holding it at
-    ``level_fraction`` of its height must last ``min_width_s``, otherwise it
-    is a spike -- a coil-firing pickup impulse, a digitizer glitch -- and is
-    refused (``rejected``, reason ``impulsive``) in favour of the next
-    excursion, up to ``max_candidates`` times -- the whole impulse, shoulders
-    included, so they cannot come back as a candidate.  A peak whose
-    excursion does not clear ``sigma`` robust sigmas
-    is ``peak_below_noise``.  ``impulse_max_s`` is the impulse length: a
-    refused run is masked one impulse length beyond its edges (never past
-    the baseline crossing), and the reported ``pickup_scale`` is measured
-    with it, as in the onset detectors.
+    The measurement behind every peak value VAFT reports -- the plasma current, a
+    line's brightness, the diamagnetic flux -- for records where the loudest
+    sample is routinely a coil-firing impulse or a digitizer glitch.
 
-    Flags on a found peak: ``peak_is_spike`` when the record's raw maximum
-    lay in a refused run; ``raw_max_outside_run`` when it lies anywhere
-    outside the accepted run (an isolated spike the prefilter removed before
-    it could be a candidate, or a second excursion) -- either way the
-    reported peak is not the loudest sample, and ``raw_max``/``raw_max_time``
-    say where that was; ``peak_at_window_edge`` when the peak is within
-    ``edge_samples`` of the search stretch's edge (the excursion may continue
-    beyond it); ``peak_plateau`` when the *raw* record holds its extreme
-    value for three consecutive samples or more inside the accepted run (a
-    railed digitizer; the median filter's own repeats do not count);
-    ``reference_flat`` when the
-    reference has no spread (a peak is still reported: an integrated record
-    can have an exactly zero lead).  ``time`` is always a sample of the
-    input grid, or ``None`` with ``no_peak`` and one reason.
+    Processing steps
+    ----------------
+    1. Median-filter over ``prefilter_samples`` and, when a ``cutoff_hz`` is
+       given and the grid can carry it, zero-phase low-pass.
+    2. Settle the reference and take the baseline as its median.
+    3. Orient the record by ``polarity``: ``positive`` scores the excess over the
+       baseline, ``negative`` the deficit, ``absolute`` the magnitude.
+    4. Take the largest score inside ``search_mask`` as a candidate; the run
+       holding it at ``level_fraction`` of its height must last ``min_width_s``.
+       A narrower run is a spike: it is refused (``rejected``, reason
+       ``impulsive``), masked whole -- shoulders included, bounded by
+       ``impulse_max_s`` and by the baseline crossing, so it cannot come back --
+       and the next candidate is tried, up to ``max_candidates`` times.
+    5. Report the accepted run's extreme sample, with the raw record's own
+       maximum kept in the evidence.
+
+    Parameters
+    ----------
+    time : array_like
+        Time grid of the record [s].
+    values : array_like
+        The waveform [any].
+    polarity : {'positive', 'negative', 'absolute'}, optional
+        What counts as up [-].
+    prefilter_samples : int, optional
+        Median-filter kernel applied first; ``1`` means no filtering [-].
+    cutoff_hz : float or None, optional
+        Zero-phase low-pass cutoff; ``None`` leaves the record unfiltered [Hz].
+    fs : float or None, optional
+        Sample rate; inferred from ``time`` when ``None`` [Hz].
+    order : int, optional
+        Butterworth order of that low-pass [-].
+    sigma : float, optional
+        How many robust sigmas the excursion must clear [-].
+    level_fraction : float, optional
+        Height at which the run holding a candidate is measured, as a fraction of
+        the candidate's own excursion [-].
+    min_width_s : float, optional
+        How long that run must last for the candidate to be a peak rather than a
+        spike [s].
+    max_candidates : int, optional
+        How many candidates may be refused before the record is given up on;
+        must be at least 1 [-].
+    edge_samples : int, optional
+        How close to the edge of the search stretch a peak may lie before
+        ``peak_at_window_edge`` is flagged [-].
+    impulse_max_s : float, optional
+        Longest run treated as an impulse, for both the refusal mask and the
+        reported :func:`pickup_scale` [s].
+    reference_mask : array_like of bool or None, optional
+        Samples that define the quiet reference; ``None`` selects the leading
+        ``reference_fraction`` of the record [-].
+    reference_fraction : float, optional
+        Fraction of the record used as the reference when no mask is given [-].
+    search_mask : array_like of bool or None, optional
+        Samples the detector may look at; the peak that scales the threshold is
+        taken inside it too.  ``None`` is the whole record [-].
+    bridge_samples : int, optional
+        Longest dip below a candidate's level that does not split its run [-].
+
+    Returns
+    -------
+    PeakRecord
+        ``value`` is the smoothed record's extreme sample in the accepted run,
+        and ``time`` the sample of the input grid it sits on -- or ``None`` with
+        ``no_peak`` and one reason [any].
+
+        ``evidence`` carries the baseline, the robust sigma, the rule values,
+        ``raw_value``, ``raw_max`` and ``raw_max_time``, the measured
+        ``pickup_scale`` and the number of refused candidates.
+
+    Raises
+    ------
+    ValueError
+        When ``polarity`` is not one of the three, or ``max_candidates`` is below
+        one.
+
+    Defaults
+    --------
+    The signature values are numerical convenience.  The VEST values are policy
+    in the ``plasma_features`` block [vest.yaml], per signal: the plasma current,
+    H-alpha, each impurity line and the diamagnetic flux carry their own
+    ``prefilter``, ``sigma``, ``level_fraction`` and ``min_width_s``, and an
+    H-alpha value is never reused for an impurity line.
+
+    Convention
+    ----------
+    ``polarity`` decides the sign of the answer: with ``negative`` or
+    ``absolute`` the reported ``value`` is still the record's own signed sample,
+    not the score, so a VEST diamagnetic flux -- stored negative-going -- comes
+    back negative.  ``value`` is the *smoothed* sample; the raw one is in the
+    evidence.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Flags on a found peak say when the answer is not the loudest sample:
+    ``peak_is_spike`` (the raw maximum lay in a refused run),
+    ``raw_max_outside_run`` (it lies outside the accepted run for any other
+    reason), ``peak_at_window_edge`` (the excursion may continue past the search
+    stretch), ``peak_plateau`` (the raw record holds its extreme value for three
+    samples or more -- a railed digitizer), ``reference_flat`` (the reference has
+    no spread; a peak is still reported, because an integrated record can have an
+    exactly zero lead).  A record whose every excursion is impulsive returns
+    ``all_candidates_impulsive`` rather than a value.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
+    .. [vest.yaml] The VEST values for these rules are policy, not defaults:
+       ``vaft/machine_mapping/vest.yaml`` carries them in ``plasma_timing``,
+       ``discharge_timing`` and ``plasma_features``, resolved by
+       ``vaft.machine_mapping.utils`` and passed in by ``vaft.omas.plasma_timing``,
+       ``vaft.omas.discharge_timing`` and ``vaft.omas.plasma_features``.
     """
     if polarity not in PEAK_POLARITIES:
         raise ValueError(f"polarity must be one of {PEAK_POLARITIES}, not {polarity!r}")
