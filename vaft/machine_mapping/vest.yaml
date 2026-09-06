@@ -1647,9 +1647,9 @@ diagnostics_time_policies:
 # `diagnostics_time_policies` this is pipeline policy, outside the `0:` / shot
 # overrides. Rules are keyed by the signal they were tuned on: an impurity line
 # (C III, O series) has its own temporal morphology and gets its own `lines`
-# entry rather than the H-alpha values. Sibling blocks for discharge timing
-# (actuator onsets) and plasma features (representative peaks) are separate
-# concepts and will sit beside this one, not inside it.
+# entry rather than the H-alpha values. The sibling blocks `discharge_timing`
+# (actuator onsets) and `plasma_features` (representative peaks) are separate
+# concepts and sit beside this one, not inside it.
 plasma_timing:
   window: plasma_analysis        # a diagnostics_time_policies window
   baseline_lead_s: 0.02          # baseline = [tstart - lead, tstart)
@@ -1735,6 +1735,53 @@ discharge_timing:
     anchor_tolerance_s: 5.0e-4
     approach_fraction: 0.10
     approach_hysteresis: 2.0
+
+# Plasma-features policy (issue #409): representative peaks of the plasma
+# phase, measured only inside the plasma window `vaft.omas.plasma_timing`
+# found -- never over the analysis range (no window: nothing is computed, and
+# the record says why). Every rule block is keyword arguments of
+# `vaft.process.onset.robust_peak`, keyed by the signal it was tuned on; the
+# span, the baseline and the H-alpha usability floors are the plasma_timing
+# block's. `ip_ramp_end` is optional and may be added later, never required.
+plasma_features:
+  window: plasma_timing          # the only value: the timing's window, with its provenance
+  # Plasma-current peak: median-5, zero-phase 2 kHz, the run at half height
+  # must last 2 ms (a coil-firing impulse never does).
+  ip:
+    prefilter_samples: 5
+    cutoff_hz: 2000.0
+    sigma: 5.0
+    level_fraction: 0.5
+    min_width_s: 2.0e-3
+  # H-alpha_6563 peak on the line that answered for the plasma (slow line,
+  # validated fast line as fallback). 39915's raw maximum is a one-sample
+  # spike on the window's last sample; the median-5 peak is a third of it.
+  h_alpha:
+    prefilter_samples: 5
+    sigma: 5.0
+    level_fraction: 0.5
+    min_width_s: 1.0e-3
+  # Impurity lines by processed_line label, each with its own rule (never the
+  # H-alpha values). A configured label absent from a product is `absent`.
+  lines:
+    OI_7770:
+      prefilter_samples: 5
+      sigma: 5.0
+      level_fraction: 0.5
+      min_width_s: 1.0e-3
+    CIII_1909:
+      prefilter_samples: 5
+      sigma: 5.0
+      level_fraction: 0.5
+      min_width_s: 1.0e-3
+  # Diamagnetic flux: the signed sample at the largest |deviation| (VEST's
+  # stored flux is negative-going; a paramagnetic shot would come back
+  # positive). Value and time only -- no window of its own.
+  diamagnetic:
+    polarity: absolute
+    prefilter_samples: 5
+    level_fraction: 0.5
+    min_width_s: 2.0e-3
 
 # Canonical ownership and availability registry. This top-level namespace is
 # intentionally not part of the `0:` / shot-override runtime configuration.

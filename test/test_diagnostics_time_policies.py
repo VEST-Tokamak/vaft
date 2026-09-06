@@ -476,3 +476,53 @@ def test_discharge_timing_configuration_errors_are_caught_at_load(tmp_path):
         resolve_with(window="plasma_analisys")
     with pytest.raises(VestConfigurationError, match="'fs'"):
         resolve_with(coil={**block["coil"], "fs": 25000.0})
+
+
+# ---------------------------------------------------------------------------
+# Plasma-features policy (#409 PR-vi)
+# ---------------------------------------------------------------------------
+
+
+def test_the_plasma_features_policy_measures_inside_the_timing_window():
+    from vaft.machine_mapping.utils import PlasmaFeaturesPolicy, resolve_plasma_features_policy
+
+    policy = resolve_plasma_features_policy()
+
+    assert isinstance(policy, PlasmaFeaturesPolicy)
+    assert policy.window == "plasma_timing"
+    assert policy.ip["cutoff_hz"] == 2000.0 and policy.ip["min_width_s"] == 2e-3
+    assert policy.h_alpha["prefilter_samples"] == 5
+    assert set(policy.lines) == {"OI_7770", "CIII_1909"}
+    assert policy.diamagnetic["polarity"] == "absolute"
+    assert policy.ip_ramp_end is None
+    assert policy.as_dict()["lines"]["OI_7770"] == dict(policy.lines["OI_7770"])
+
+
+def test_plasma_features_configuration_errors_are_caught_at_load(tmp_path):
+    import yaml
+
+    from vaft.machine_mapping.utils import _resolve_info_file_path, load_yaml, resolve_plasma_features_policy
+
+    document = load_yaml(_resolve_info_file_path(None))
+    block = document["plasma_features"]
+
+    def resolve_with(**changes):
+        doc = dict(document)
+        doc["plasma_features"] = {**block, **changes}
+        path = tmp_path / f"{len(list(tmp_path.iterdir()))}.yaml"
+        path.write_text(yaml.safe_dump(doc))
+        return resolve_plasma_features_policy(info_file=str(path))
+
+    with pytest.raises(VestConfigurationError, match="'level_fractoin'.*robust_peak"):
+        resolve_with(ip={**block["ip"], "level_fractoin": 0.5})
+    with pytest.raises(VestConfigurationError, match="'search_mask'"):
+        resolve_with(h_alpha={**block["h_alpha"], "search_mask": 0})
+    with pytest.raises(VestConfigurationError, match="'polarity' must be a non-empty string"):
+        resolve_with(diamagnetic={**block["diamagnetic"], "polarity": 3})
+    with pytest.raises(VestConfigurationError, match="'polarity' must be one of"):
+        resolve_with(diamagnetic={**block["diamagnetic"], "polarity": "upward"})
+    with pytest.raises(VestConfigurationError, match="lines may not carry 'H-alpha_6563'"):
+        resolve_with(lines={**block["lines"], "H-alpha_6563": dict(block["h_alpha"])})
+    with pytest.raises(VestConfigurationError, match="'window' must be one of plasma_timing"):
+        resolve_with(window="plasma_analysis")
+    assert resolve_with(ip_ramp_end={"level_fraction": 0.1}).ip_ramp_end == {"level_fraction": 0.1}
