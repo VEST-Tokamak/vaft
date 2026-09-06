@@ -153,6 +153,7 @@ import numpy as np
 
 __all__ = [
     "BT_SIGN_VEST_TO_IMAS",
+    "VEST_GPEC_COIL_DIRECTIONS",
     "DischargeSignContract",
     "IMAS_DISCHARGE_SIGNS",
     "IP_SIGN_VEST_TO_IMAS",
@@ -194,6 +195,19 @@ class DischargeSignContract:
 
 IMAS_DISCHARGE_SIGNS = DischargeSignContract(ip=-1, b0=+1)
 """Ip clockwise and Bt counter-clockwise, expressed in IMAS signs."""
+
+VEST_GPEC_COIL_DIRECTIONS = {"ip_direction": "positive", "bt_direction": "negative"}
+"""The ``coil.in`` direction words of the VEST reference GPEC run.
+
+GPEC documents these as "positive for CCW or negative for CW from a top down
+view".  The pair is the one carried by the shot-48226 reference input
+(``test/data/gpec_reference_48226/coil.in``) and is stated here explicitly,
+per machine, rather than derived from :data:`IMAS_DISCHARGE_SIGNS`: whether
+GPEC's top-down words and the IMAS sign contract describe the same senses for
+VEST has not been verified in code, so the two are kept as independent facts.
+Another machine must supply its own pair; the GPEC adapter refuses to inherit
+this one.
+"""
 
 
 def expected_q_sign(cocos_index: int, contract: DischargeSignContract | None = None) -> int:

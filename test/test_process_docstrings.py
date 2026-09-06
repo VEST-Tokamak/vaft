@@ -162,6 +162,8 @@ CONVENTION_SENSITIVE = frozenset({
     "integrate_emissivity_profile",
     "compute_line_radiation_power_series",
     "export_electron_profile_txt",
+    "toroidal_mode_decomposition",
+    "biot_savart_filaments",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]
