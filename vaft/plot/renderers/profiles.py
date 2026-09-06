@@ -70,6 +70,12 @@ def render_profile_1d(
             options.setdefault("label", label)
         draw_series(axes, series, uncertainty=uncertainty, validity=validity, **options)
 
+    for line in model.reference_lines:
+        axes.axvline(
+            line.x,
+            **{"color": "0.4", "linestyle": ":", "linewidth": 1.0, **line.style},
+            label=line.label or None,
+        )
     axes.set_xlabel(model.coordinate_label)
     axes.set_ylabel(axis_label(model.y_label, model.y_unit))
     if model.title:
@@ -109,9 +115,12 @@ _MHD_LINEAR_EIGENFUNCTION_PATHS = (
 )
 
 
+#: The coordinate leaves a profile may read; r_minor is computed from the
+#: two radii and never stored (vaft.plot.display.PROFILE_COORDINATES).
 _EQ_COORDS = (
     "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
     "equilibrium.time_slice.{i}.profiles_1d.psi_norm",
+    "equilibrium.time_slice.{i}.profiles_1d.phi",
     "equilibrium.time_slice.{i}.profiles_1d.r_inboard",
     "equilibrium.time_slice.{i}.profiles_1d.r_outboard",
 )

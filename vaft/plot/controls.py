@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from .display import PSI_STYLES
+from .display import COORDINATE_LABELS, PSI_STYLES
 from .selection import REGION_PRESETS, REPRESENTATIVE_PRESETS, SIGNAL_PRESETS
 from .style import UNCERTAINTY_MODES, VALIDITY_MODES
 
@@ -28,6 +28,15 @@ CONTROL_KINDS = ("toggle", "choice", "multi", "range", "text")
 
 #: The order controls are offered in, and the group each belongs to.
 CONTROL_GROUPS = ("slice", "selection", "layout", "display", "model", "style", "backend")
+
+def _plain(label: str) -> str:
+    """A mathtext axis label as plain widget text: ``$\\rho_N$`` -> ``rho_N``."""
+    import re
+
+    text = re.sub(r"\$\\?([A-Za-z]+)(_[A-Za-z0-9]+)?\$", lambda m: m.group(1) + (m.group(2) or ""), label)
+    text = text.replace("\\sqrt{", "sqrt(").replace("}", ")").replace("$", "")
+    return text.replace("\\", "")
+
 
 #: The value a ``choice`` control uses to say "no overlay" for an option
 #: that is otherwise absent.
@@ -184,6 +193,14 @@ def _display_controls(record: Any) -> list[ControlSpec]:
 
 def _model_controls(record: Any) -> list[ControlSpec]:
     controls: list[ControlSpec] = []
+    coordinates: Mapping[str, Any] = getattr(record, "coordinates", None) or {}
+    options = tuple(coordinates.get("options") or ())
+    if len(options) > 1:
+        default = coordinates.get("default") if coordinates.get("default") in options else options[0]
+        controls.append(ControlSpec(
+            "coordinate", "choice", "Radial coordinate", default, options,
+            tuple(_plain(COORDINATE_LABELS.get(name, name)) for name in options),
+        ))
     display: Mapping[str, Any] = record.display or {}
     if "convention" in display and record.model in ("Field2D", "Panels") and record.name != "equilibrium_field_psi_vacuum":
         controls.append(ControlSpec("style", "choice", "Flux map style", PSI_STYLES[0], tuple(PSI_STYLES)))
