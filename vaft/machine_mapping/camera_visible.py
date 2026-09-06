@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 import re
-from typing import Any, Sequence
+from typing import Any, Iterator, Sequence
 
 import numpy as np
 
@@ -300,6 +300,28 @@ def vfit_camera_visible_dynamic(
         set_path(ods, f"{prefix}.time", float(time_value))
 
 
+def _image_raw_paths(ods: Any) -> Iterator[str]:
+    """Yield every populated ``image_raw`` path in a ``camera_visible`` ODS.
+
+    The mapping only ever writes channel 0 / detector 0, but this is a public
+    entry point and a caller may hand it an ODS assembled elsewhere. Walking
+    what is actually there beats hardcoding the one shape this module happens
+    to produce, which would silently leave other channels at their original
+    width while the product claims to be narrowed throughout.
+    """
+    channels = ods["camera_visible"].get("channel", {})
+    for channel_index in sorted(channels):
+        detectors = channels[channel_index].get("detector", {})
+        for detector_index in sorted(detectors):
+            frames = detectors[detector_index].get("frame", {})
+            for frame_index in sorted(frames):
+                if "image_raw" in frames[frame_index]:
+                    yield (
+                        f"camera_visible.channel.{channel_index}"
+                        f".detector.{detector_index}.frame.{frame_index}.image_raw"
+                    )
+
+
 def narrow_image_storage(ods: Any) -> None:
     """Re-state every ``camera_visible`` ``image_raw`` frame as ``int32``.
 
@@ -330,15 +352,19 @@ def narrow_image_storage(ods: Any) -> None:
     deliberately not folded into ``save``: applying it to every ODS would
     silently re-type unrelated integer nodes in other IDSs.
     """
-    frames_path = "camera_visible.channel.0.detector.0.frame"
-    try:
-        frame_count = len(ods[frames_path])
-    except (KeyError, IndexError, ValueError):
+    # Membership, not indexing. Reading a missing path through an ODS creates
+    # it, so a `try: ods[path] except KeyError` guard would never fire here --
+    # it would quietly graft an empty camera_visible onto an ODS that has none
+    # and then disable its consistency check for nothing.
+    if "camera_visible" not in ods:
+        return
+
+    paths = list(_image_raw_paths(ods))
+    if not paths:
         return
 
     ods.consistency_check = False
-    for index in range(frame_count):
-        path = f"{frames_path}.{index}.image_raw"
+    for path in paths:
         image = np.asarray(ods[path])
         if image.dtype == np.int32:
             continue

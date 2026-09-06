@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 from collections import defaultdict
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import hashlib
@@ -315,6 +316,11 @@ def _move_path(
     records the operation so revert removes the copy.
     """
     target.parent.mkdir(parents=True, exist_ok=True)
+    # Intent first, outcome after. A crash between the rename and its record
+    # would otherwise leave data moved with nothing naming where it came from,
+    # which is exactly the case `--revert` exists for. A stale `intent` with no
+    # matching completion tells a reader precisely which operation to inspect.
+    manifest.record(kind=f"{kind}.intent", source=str(source), target=str(target), **extra)
     if keep_source:
         if source.is_dir():
             shutil.copytree(source, target)
@@ -335,6 +341,7 @@ def _move_path(
         if source.is_dir():
             shutil.copytree(source, target)
             checksum = None
+            _verify_directory_copy(source, target)
         else:
             shutil.copy2(source, target)
             checksum = _sha256(target)
@@ -349,6 +356,41 @@ def _move_path(
     manifest.record(kind=kind, mode=mode, source=str(source), target=str(target),
                     sha256=checksum, **extra)
     return mode
+
+
+def _relative_sizes(directory: Path) -> dict[str, int]:
+    """Map every file under ``directory`` to its size, ignoring residue."""
+    sizes: dict[str, int] = {}
+    for path in directory.rglob("*"):
+        if not path.is_file() or path.name.startswith("._") or path.name in JUNK_NAMES:
+            continue
+        sizes[str(path.relative_to(directory))] = path.stat().st_size
+    return sizes
+
+
+def _verify_directory_copy(source: Path, target: Path) -> None:
+    """Confirm a copied tree matches its source before the source is deleted.
+
+    ``copytree`` not raising is a weaker claim than it looks: it says no call
+    failed, not that every byte arrived. Since the next statement destroys the
+    original, the tree is compared by relative path and size first -- which
+    catches a missing or truncated file, the failure modes that actually
+    occur here -- rather than hashing tens of gigabytes of frames.
+    """
+    source_sizes = _relative_sizes(source)
+    target_sizes = _relative_sizes(target)
+    if source_sizes == target_sizes:
+        return
+    missing = sorted(set(source_sizes) - set(target_sizes))
+    truncated = sorted(
+        name
+        for name in set(source_sizes) & set(target_sizes)
+        if source_sizes[name] != target_sizes[name]
+    )
+    raise ConsolidationError(
+        f"Copy of {source} -> {target} does not match the source; refusing to "
+        f"delete the original. Missing: {missing[:5]}. Size mismatch: {truncated[:5]}."
+    )
 
 
 def _drop_junk(directory: Path, manifest: Manifest) -> list[str]:
@@ -409,7 +451,11 @@ def execute(operations: Sequence[Operation], manifest: Manifest) -> dict[str, in
                             reason="source disappeared before the move")
             counts["missing"] += 1
             continue
-        if target.exists() and operation.kind == "move_file":
+        if target.exists():
+            # Both kinds, not just files: `os.rename` onto a non-empty
+            # directory raises ENOTEMPTY, which would abort a resumed run at
+            # the first already-moved shot and abandon every operation after
+            # it. A present target means this operation is already done.
             manifest.record(kind="skip", source=str(source), target=str(target),
                             reason="target already present")
             counts["already_present"] += 1
@@ -421,12 +467,7 @@ def execute(operations: Sequence[Operation], manifest: Manifest) -> dict[str, in
                               keep_source=inside_git_worktree(source),
                               diagnostic=operation.diagnostic, shot=operation.shot)
             if operation.renames:
-                applied = {}
-                for old, new in operation.renames.items():
-                    old_path, new_path = target / old, target / new
-                    if old_path.exists() and not new_path.exists():
-                        os.rename(old_path, new_path)
-                        applied[old] = new
+                applied = _apply_member_renames(target, operation.renames)
                 manifest.record(kind="rename_members", source=str(target), target=str(target),
                                 renames=applied)
             _write_provenance(target, operation, manifest)
@@ -439,6 +480,35 @@ def execute(operations: Sequence[Operation], manifest: Manifest) -> dict[str, in
         counts[mode] += 1
         counts["bytes"] += operation.size_bytes
     return dict(counts)
+
+
+def _apply_member_renames(target: Path, renames: Mapping[str, str]) -> dict[str, str]:
+    """Strip the acquisition suffix from a moved directory's files.
+
+    A rename whose destination already exists is treated as done rather than
+    repeated, so a resumed run converges. But a file present under *both*
+    names is genuinely ambiguous -- an interrupted rename, or two acquisitions
+    merged by accident -- and is raised rather than skipped: leaving a shot
+    directory holding some suffixed and some unsuffixed frames reads as a
+    complete acquisition to `camera_visible`, which then silently builds an
+    IDS from whichever subset it can open.
+    """
+    applied: dict[str, str] = {}
+    ambiguous: list[str] = []
+    for old_name, new_name in renames.items():
+        old_path, new_path = target / old_name, target / new_name
+        if old_path.exists() and new_path.exists():
+            ambiguous.append(old_name)
+        elif old_path.exists():
+            os.rename(old_path, new_path)
+            applied[old_name] = new_name
+    if ambiguous:
+        raise ConsolidationError(
+            f"{target} holds {len(ambiguous)} files under both their original and "
+            f"their normalized names, e.g. {ambiguous[:3]}. Resolve by hand: a "
+            "partially renamed directory still parses as a complete acquisition."
+        )
+    return applied
 
 
 def write_fluctuation_index(root: Path, operations: Sequence[Operation]) -> Path | None:
@@ -494,6 +564,10 @@ def revert(manifest_path: Path, *, execute_changes: bool) -> int:
     undone = 0
     for record in reversed(records):
         kind = record["kind"]
+        if kind.endswith(".intent"):
+            # Intent lines mark that an operation was attempted; the matching
+            # completion record is what says it happened and how to undo it.
+            continue
         if kind == "rename_members":
             directory = Path(record["target"])
             for old, new in record.get("renames", {}).items():

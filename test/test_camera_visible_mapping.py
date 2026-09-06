@@ -350,3 +350,38 @@ def test_save_rejects_compression_for_a_json_target(tmp_path):
     ods = camera_visible_from_frame_dir(SHOT, frame_dir=shot_dir, consistency_check=True)
     with pytest.raises(ValueError, match="compression"):
         vaft.omas.save(ods, tmp_path / f"{SHOT}.json", compression="gzip")
+
+
+def test_narrow_image_storage_leaves_a_camera_less_ods_alone():
+    """Reading a missing ODS path creates it, so the guard must not index.
+
+    A `try: ods[path] except KeyError` guard never fired: the read grafted an
+    empty `camera_visible` onto an unrelated ODS and then disabled its
+    consistency check for a diagnostic it does not carry. `ods.flat()` does
+    not show the grafted key, so nothing made it visible.
+    """
+    ods = ODS(consistency_check=True)
+    ods["magnetics.ids_properties.homogeneous_time"] = 1
+
+    narrow_image_storage(ods)
+
+    assert "camera_visible" not in ods
+    assert sorted(ods.keys()) == ["magnetics"]
+    assert ods.consistency_check is True
+
+
+def test_narrow_image_storage_covers_every_channel(tmp_path):
+    """It used to narrow channel 0 only, while the manifest claimed the lot."""
+    ods = ODS(consistency_check=True)
+    ods["camera_visible.ids_properties.homogeneous_time"] = 1
+    ods["camera_visible.time"] = np.array([0.3, 0.4])
+    image = np.full((4, 4), 7, dtype=np.uint8)
+    for channel in (0, 1):
+        ods[f"camera_visible.channel.{channel}.detector.0.frame.0.image_raw"] = image
+
+    narrow_image_storage(ods)
+
+    for channel in (0, 1):
+        stored = np.asarray(ods[f"camera_visible.channel.{channel}.detector.0.frame.0.image_raw"])
+        assert stored.dtype == np.int32
+        assert np.array_equal(stored, image)

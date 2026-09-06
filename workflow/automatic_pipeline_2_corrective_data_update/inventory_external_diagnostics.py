@@ -65,7 +65,12 @@ JUNK_NAMES = frozenset({"Thumbs.db", ".DS_Store"})
 #: multi-gigabyte frame directories are not duplicated across roots.
 MAX_HASH_BYTES = 100 * 1024 * 1024
 
-_CAMERA_DIR_RE = re.compile(r"^(?P<shot>\d{3,6})(?P<suffix>[^/]*)$")
+# A shot number followed by anything that is not another digit. Without the
+# lookahead the greedy `\d{3,6}` eats the first six digits of a date-named
+# directory -- `20130816_FastCamera` became shot 201308 with suffix
+# `16_FastCamera` -- and a directory that never held a discharge is
+# consolidated under a shot number VEST never fired.
+_CAMERA_DIR_RE = re.compile(r"^(?P<shot>\d{3,6})(?!\d)(?P<suffix>[^/]*)$")
 _CAMERA_FRAME_INDEXED_RE = re.compile(r"^(?P<stem>.+)_(?P<index>\d{8})\.bmp$", re.IGNORECASE)
 _CAMERA_FRAME_ARRANGED_RE = re.compile(
     r"^(?P<stem>.+)_(?P<time_ms>\d+(?:\.\d+)?)_ms\.(?:bmp|png)$", re.IGNORECASE

@@ -121,13 +121,12 @@ def _camera_storage(tree: str, product_format: str) -> dict[str, Any] | None:
     """Describe how a camera product is encoded, or None for other trees."""
     if not tree.startswith("camera"):
         return None
-    return {
-        "width": CAMERA_STORAGE_WIDTH,
-        # JSON containers have no dtype and no HDF5 filter to name.
-        "compression": (
-            CAMERA_COMPRESSION if product_format.lower() in HDF5_FORMATS else None
-        ),
-    }
+    if product_format.lower() not in HDF5_FORMATS:
+        # A JSON container stores numbers as decimal text: it has neither a
+        # dtype to narrow nor a filter to name, so claiming either would
+        # describe an encoding the file does not have.
+        return {"width": None, "compression": None}
+    return {"width": CAMERA_STORAGE_WIDTH, "compression": CAMERA_COMPRESSION}
 
 
 def build_shot(
@@ -172,11 +171,13 @@ def build_shot(
 
     storage = _camera_storage(tree, product_format)
     if storage is not None:
-        from vaft.machine_mapping.camera_visible import narrow_image_storage
+        if storage["width"] is not None:
+            from vaft.machine_mapping.camera_visible import narrow_image_storage
 
-        # Last thing before the manifest is sealed, and nothing but the write
-        # may follow: narrowing leaves the consistency check off on purpose.
-        narrow_image_storage(ods)
+            # Last thing before the manifest is sealed, and nothing but the
+            # write may follow: narrowing leaves the consistency check off on
+            # purpose.
+            narrow_image_storage(ods)
         manifest["storage"] = storage
     return ods, manifest
 

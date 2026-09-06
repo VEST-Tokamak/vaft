@@ -11,6 +11,7 @@ path only.
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import sys
 
@@ -349,3 +350,133 @@ class TestGitSafeguard:
         CONSOLIDATE.revert(manifest_path, execute_changes=True)
         assert source.read_text() == "payload", "the original must survive a revert"
         assert not target.exists(), "the copy must be removed"
+
+
+class TestReviewRegressions:
+    """Cases a review found, each of which silently produced wrong data."""
+
+    def test_a_date_named_directory_is_not_a_shot(self):
+        """`20130816_FastCamera` used to classify as shot 201308.
+
+        The greedy `\\d{3,6}` took the first six digits of the date and left
+        `16_FastCamera` as the acquisition suffix, so a directory that never
+        held a discharge would be consolidated under a shot VEST never fired.
+        """
+        info = INVENTORY.classify_camera_directory(
+            "20130816_FastCamera",
+            ["20130816_FastCamera_00000000.bmp", "20130816_FastCamera_bmp.txt"],
+            "Frame_Rate: 2500\r\nFrames: 1\r\n",
+        )
+        assert info.shot is None
+        assert info.diagnostic is None
+        assert "does not start with a shot number" in info.reason
+
+    @pytest.mark.parametrize(
+        ("name", "shot", "suffix"),
+        [("41451", 41451, ""), ("27134_50kHz", 27134, "_50kHz"), ("36976-N001", 36976, "-N001")],
+    )
+    def test_real_shot_directories_still_parse(self, name, shot, suffix):
+        info = INVENTORY.classify_camera_directory(
+            name, [f"{name}_00000000.bmp", f"{name}_bmp.txt"], "Frame_Rate: 2500\r\nFrames: 1\r\n"
+        )
+        assert (info.shot, info.suffix) == (shot, suffix)
+
+    def test_an_already_moved_target_is_skipped_not_fatal(self, tmp_path):
+        """`os.rename` onto a non-empty directory raises ENOTEMPTY.
+
+        The guard covered only files, so a resumed run died at the first
+        already-moved shot and abandoned every operation after it.
+        """
+        source = tmp_path / "src" / "41451"
+        source.mkdir(parents=True)
+        (source / "41451_00000000.bmp").write_text("x")
+        target = tmp_path / "dst" / "camera_visible" / "41451"
+        target.mkdir(parents=True)
+        (target / "41451_00000000.bmp").write_text("x")
+
+        operation = CONSOLIDATE.Operation(
+            kind="move_directory", source=str(source), target=str(target),
+            diagnostic="camera_visible", shot=41451,
+        )
+        with CONSOLIDATE.Manifest(tmp_path / "m.jsonl") as manifest:
+            counts = CONSOLIDATE.execute([operation], manifest)
+        assert counts.get("already_present") == 1
+        assert source.exists(), "the source must be left alone, not half-moved"
+
+    def test_a_file_under_both_names_is_refused(self, tmp_path):
+        """A half-renamed directory still looks complete to camera_visible.
+
+        Its header resolves and `_load_raw_frame` simply returns None for the
+        frames still carrying the suffix, so the mapping would build an IDS
+        from whichever subset it could open.
+        """
+        directory = tmp_path / "27134"
+        directory.mkdir()
+        (directory / "27134_50kHz_00000000.bmp").write_text("a")
+        (directory / "27134_00000000.bmp").write_text("b")
+        with pytest.raises(CONSOLIDATE.ConsolidationError, match="under both"):
+            CONSOLIDATE._apply_member_renames(
+                directory, {"27134_50kHz_00000000.bmp": "27134_00000000.bmp"}
+            )
+
+    def test_an_already_renamed_file_is_not_an_error(self, tmp_path):
+        """Only genuine ambiguity is refused; a converged rename is fine."""
+        directory = tmp_path / "27134"
+        directory.mkdir()
+        (directory / "27134_00000000.bmp").write_text("b")
+        applied = CONSOLIDATE._apply_member_renames(
+            directory, {"27134_50kHz_00000000.bmp": "27134_00000000.bmp"}
+        )
+        assert applied == {}
+
+    def test_a_truncated_copy_is_caught_before_the_source_is_deleted(self, tmp_path):
+        """`copytree` not raising says no call failed, not that bytes arrived."""
+        source, target = tmp_path / "src", tmp_path / "dst"
+        source.mkdir(); target.mkdir()
+        (source / "a.bmp").write_text("xxxxx")
+        (target / "a.bmp").write_text("xx")
+        with pytest.raises(CONSOLIDATE.ConsolidationError, match="refusing to delete"):
+            CONSOLIDATE._verify_directory_copy(source, target)
+
+    def test_a_missing_file_is_caught_too(self, tmp_path):
+        source, target = tmp_path / "src", tmp_path / "dst"
+        source.mkdir(); target.mkdir()
+        (source / "a.bmp").write_text("x")
+        with pytest.raises(CONSOLIDATE.ConsolidationError, match="Missing"):
+            CONSOLIDATE._verify_directory_copy(source, target)
+
+    def test_export_residue_does_not_fail_a_matching_copy(self, tmp_path):
+        source, target = tmp_path / "src", tmp_path / "dst"
+        source.mkdir(); target.mkdir()
+        (source / "a.bmp").write_text("x")
+        (source / "Thumbs.db").write_text("junk")
+        (target / "a.bmp").write_text("x")
+        CONSOLIDATE._verify_directory_copy(source, target)
+
+    def test_every_move_records_its_intent_before_acting(self, tmp_path):
+        """A crash between the rename and its record left an unrevertable move."""
+        source = tmp_path / "src" / "digitizer_17592_41451.csv"
+        source.parent.mkdir(parents=True)
+        source.write_text("1,2\n")
+        target = tmp_path / "dst" / "41451" / source.name
+        manifest_path = tmp_path / "m.jsonl"
+        with CONSOLIDATE.Manifest(manifest_path) as manifest:
+            CONSOLIDATE._move_path(source, target, manifest, kind="move_file")
+
+        kinds = [json.loads(line)["kind"] for line in
+                 manifest_path.read_text().splitlines() if line.strip()]
+        assert kinds == ["move_file.intent", "move_file"]
+
+    def test_revert_ignores_intent_records(self, tmp_path):
+        source = tmp_path / "src" / "digitizer_17592_41451.csv"
+        source.parent.mkdir(parents=True)
+        source.write_text("payload")
+        target = tmp_path / "dst" / "41451" / source.name
+        manifest_path = tmp_path / "m.jsonl"
+        with CONSOLIDATE.Manifest(manifest_path) as manifest:
+            CONSOLIDATE._move_path(source, target, manifest, kind="move_file")
+        assert not source.exists() and target.exists()
+
+        CONSOLIDATE.revert(manifest_path, execute_changes=True)
+        assert source.read_text() == "payload"
+        assert not target.exists()
