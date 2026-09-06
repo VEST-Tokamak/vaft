@@ -4868,8 +4868,15 @@ def confinement_factor_ITER89P(tau_E_exp: float, tau_E_ITER89P: float) -> float:
     return tau_E_exp / tau_E_ITER89P
 
 def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
-    a_I, a_B, a_P, a_n, a_M, a_R, a_eps, a_kappa
-):
+    a_I: float,
+    a_B: float,
+    a_P: float,
+    a_n: float,
+    a_M: float,
+    a_R: float,
+    a_eps: float,
+    a_kappa: float,
+) -> Tuple[float, float, float, float, float]:
     r"""Dimensionless scaling indices $(\mu_\rho, \mu_\beta, \mu_\nu)$ from engineering exponents.
 
     $$\Omega_i\tau_E \propto \rho_*^{\mu_\rho}\,\beta^{\mu_\beta}\,\nu_*^{\mu_\nu}$$
@@ -4913,6 +4920,13 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     mu_kappa : float
         Elongation index, equal to ``a_kappa`` [-].
 
+    Raises
+    ------
+    ValueError
+        When $1 + \alpha_P$ vanishes, which is the exact-power-degradation case
+        $\alpha_P = -1$: every index divides by it, so the transformation has no
+        value there rather than a special one [-].
+
     Assumptions
     -----------
     Constant safety factor, $I_p \propto a^2B/R$, so current is absorbed into
@@ -4920,8 +4934,8 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
 
     Limitations
     -----------
-    Returns ``None`` instead of a tuple when $1 + \alpha_P$ vanishes (tracked in
-    #352); indices are rounded to three decimals.
+    ``a_eps`` is accepted and unused; ``a_M`` and ``a_kappa`` are returned
+    unchanged, so the transformation is a no-op for those two axes.
 
     References
     ----------
@@ -4943,7 +4957,12 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     
     denom = 1 + a_P
     if abs(denom) < 1e-9:
-        return None
+        # Returning None here made every caller fail on the unpack instead, with
+        # a TypeError naming the call site rather than the degenerate exponent.
+        raise ValueError(
+            "a_P = -1 leaves 1 + a_P = 0, and every dimensionless index divides "
+            f"by it; the transformation is undefined there. Got a_P={a_P!r}."
+        )
 
     # Mapping based on Gyro-kinetic transport theory and Kadomtsev's similarity principles
     # mu_rho: Characterizes size scaling (e.g., -3 for Gyro-Bohm, -2 for Bohm)
@@ -4955,14 +4974,9 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     # mu_nu: Characterizes collisionality scaling
     mu_nu = (a_L + 3 * a_n + a_B_star - 2 * a_P - 4) / (2 * denom)
 
-    # round to 3 decimal places
-    mu_rho = round(mu_rho, 3)
-    mu_beta = round(mu_beta, 3)
-    mu_nu = round(mu_nu, 3)
-    mu_M = round(a_M, 3)
-    mu_kappa = round(a_kappa, 3)
-
-    return mu_rho, mu_beta, mu_nu, mu_M, mu_kappa
+    # Deliberately unrounded: three decimals is a presentation choice, and a
+    # kernel that bakes one in cannot be used for anything needing more.
+    return mu_rho, mu_beta, mu_nu, a_M, a_kappa
 
 def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
     r"""Reconstruct the Kadomtsev constraint value from dimensionless indices.
