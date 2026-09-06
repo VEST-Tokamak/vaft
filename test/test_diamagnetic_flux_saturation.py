@@ -417,3 +417,15 @@ def test_the_package_exports_the_window_detector():
 
     assert detect_plasma_window is magnetics.detect_plasma_window
     assert PlasmaWindowChoice is magnetics.PlasmaWindowChoice
+
+
+def test_a_light_window_past_a_short_current_record_is_kept_and_flagged(tmp_path):
+    """Corpus shots 39926/39961: the current record ended at 0.34 s while the light
+    started at 0.342 s; clipping the window to the current record inverted it."""
+    t_ip = np.arange(0.20, 0.34, DT)
+    source = _dump_with_fields(tmp_path, **{str(HALPHA_FIELD): -light(RAW_TIME, onset=0.342, offset=0.352)})
+    choice = magnetics.detect_plasma_window(SYNTHETIC_SHOT, t_ip, pickup_only(t_ip), source)
+
+    assert choice.source == "h_alpha_raw" and not choice.fallback
+    assert 0.342 <= choice.start < choice.end <= 0.36
+    assert "ip_record_short" in choice.flags

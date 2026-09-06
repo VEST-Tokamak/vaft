@@ -1856,10 +1856,15 @@ def detect_plasma_window(
     }
 
     def choose(window, source: str, crop_flags: tuple[str, ...]) -> PlasmaWindowChoice:
-        flags = tuple(dict.fromkeys((*crop_flags, *window.flags)))
-        return PlasmaWindowChoice(
-            max(float(window.start), tstart), min(float(window.end), tend), source, flags, evidence
-        )
+        # A found window is intersected with the policy range, not with the
+        # current record: a light window past a short current record is a real
+        # window the current simply does not cover, said with ip_record_short.
+        start = max(float(window.start), float(policy.window.tstart))
+        end = min(float(window.end), float(policy.window.tend))
+        flags = list(dict.fromkeys((*crop_flags, *window.flags)))
+        if float(ip_t[0]) > start or float(ip_t[-1]) < end:
+            flags.append("ip_record_short")
+        return PlasmaWindowChoice(start, end, source, tuple(flags), evidence)
 
     halpha = _safe_vest_load(shot, HALPHA_RAW_FIELD, raw_source)
     if halpha is not None and len(halpha[1]) > 1:

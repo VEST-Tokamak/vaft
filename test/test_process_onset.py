@@ -654,3 +654,19 @@ def test_a_window_of_nan_samples_is_no_peak():
     y[(T > 0.05) & (T < 0.09)] = np.nan
     rec = robust_peak(T, y, reference_mask=T < 0.03, search_mask=(T > 0.05) & (T < 0.09))
     assert not rec.found and "no_finite_samples" in rec.flags
+
+
+def test_an_end_threshold_above_the_pulse_cannot_empty_the_segment():
+    """Corpus shot 40002: a faint pulse (7 sigma) followed by a noisier stretch the
+    trailing rule still calls quiet; the offset threshold built on that stretch
+    sits above the peak, and the window used to raise on an empty segment
+    instead of keeping the run and saying why."""
+    rng = np.random.default_rng(40002)
+    y = 0.01 * rng.standard_normal(T.size)
+    y[(T >= 0.030) & (T < 0.045)] += 0.09          # the faint pulse: 9 sigma
+    tail = T >= 0.045
+    y[tail] += 0.023 * rng.standard_normal(int(tail.sum()))   # 2.5 sigma: quiet by the rule, loud enough
+    window = active_window(T, y, reference_mask=T < 0.02, end_fraction=0.10, hold_s=1e-3)
+    assert window.found
+    assert "offset_threshold_above_peak" in window.flags
+    assert window.onset.time == pytest.approx(0.030, abs=2e-4)

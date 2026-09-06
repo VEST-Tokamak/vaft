@@ -6,8 +6,11 @@ Nothing here knows what the waveform is.  The diagnostic preprocessing, the
 choice of which signal is authoritative for a *plasma* onset and the verdicts
 built on top live in ``vaft.omas.plasma_timing`` and ``vaft.validation``.
 
-Three ideas, kept separable because a 205-shot study of the VEST raw database
-showed each does a different job:
+Three ideas, kept separable because a study of the VEST raw database showed
+each does a different job (the study is ``workflow/plasma_onset/scan_corpus.py``
+and its table ``test/data/onset_corpus.json``: shots 39900-41700, 1718 judged,
+1213 light windows, 884 current windows, 850 with both, every window inside
+the shared range; the counts below are from its hand-reviewed first pass):
 
 * **threshold** -- ``baseline + max(fraction * peak, sigma * robust_sigma)``.
   The fraction-of-peak term makes the boundary independent of a channel's
@@ -819,8 +822,9 @@ def active_window(
     of the current present before it, as a quench does) and says
     ``offset_from_collapse``.  The
     last fall, not the steepest: a plasma survives a mid-pulse drop and
-    terminates later.  On the VEST corpus this puts the plasma-current
-    offset within 2 ms of the light's on every discharge, level or collapse.
+    terminates later.  On the hand-reviewed discharges of the VEST corpus
+    this put the plasma-current offset within 2 ms of the light's; the full
+    table (``test/data/onset_corpus.json``) records the per-shot deltas.
     """
     t, raw = _as_arrays(time, values)
     method = "active_window"
@@ -966,7 +970,12 @@ def _active_window(
         seg0, seg1 = segments[-1]
         i_peak_last = seg0 + int(np.argmax(y[seg0:seg1]))
         stop = _extend_forward(above_end, i_peak_last, quiet)
-        if stop < y.size:
+        if stop <= i_peak_last:
+            # The end threshold sits above the pulse itself (a trailing baseline
+            # that settled higher than the peak): it cannot bound the offset, and
+            # a segment ending before its own peak would be empty.
+            flags.append("offset_threshold_above_peak")
+        elif stop < y.size:
             last = stop
             segments[-1] = (seg0, last)
             evidence["offset_threshold"] = float(end_threshold)
