@@ -315,7 +315,7 @@ def test_narrowed_product_stores_int32_and_round_trips_identically(tmp_path):
     vaft.omas.save(ods, target, compression="gzip")
 
     with h5py.File(target, "r") as handle:
-        dataset = handle[f"camera_visible/channel/0/detector/0/frame/0/image_raw"]
+        dataset = handle["camera_visible/channel/0/detector/0/frame/0/image_raw"]
         assert dataset.dtype == np.int32
         assert dataset.compression == "gzip"
 
