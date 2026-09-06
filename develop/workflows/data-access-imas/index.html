@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>86c7a24</code>. What is described
+  <code>dbe072f</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -528,6 +528,13 @@ baseline, validity) and the <code class="language-plaintext highlighter-rouge">a
 <span class="n">policy</span><span class="p">.</span><span class="n">window</span><span class="p">.</span><span class="n">tstart</span><span class="p">,</span> <span class="n">policy</span><span class="p">.</span><span class="n">window</span><span class="p">.</span><span class="n">tend</span><span class="p">,</span> <span class="n">policy</span><span class="p">.</span><span class="n">baseline_start</span>   <span class="c1"># 0.28, 0.36, 0.26
 </span><span class="n">policy</span><span class="p">.</span><span class="n">h_alpha</span><span class="p">,</span> <span class="n">policy</span><span class="p">.</span><span class="n">ip</span>                                          <span class="c1"># keyword arguments of active_window
 </span></code></pre></div></div>
+
+<p>The rules were tuned on a scan of the raw database, and that scan is reproducible:
+<code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py --shots 39900-41700</code> runs the raw-side detector over every shot in the
+range and writes <code class="language-plaintext highlighter-rouge">test/data/onset_corpus.json</code> (one row per shot: the verdict, both detectors’ windows, why a
+shot could not be judged), which <code class="language-plaintext highlighter-rouge">test/test_onset_corpus.py</code> holds to the current policy and to the packaged
+products; <code class="language-plaintext highlighter-rouge">--npz-dir</code> also writes the per-shot records <code class="language-plaintext highlighter-rouge">review_onset.py</code> draws from. A retuned rule means a
+re-scan, not an edit of the quoted numbers.</p>
 
 <p>Two readers consume it. <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing.plasma_timing(ods)</code> works on a mapped product: it finds the
 H-alpha line <strong>by label</strong>, checks it is usable, takes the slow line as authoritative for onset and offset, the
@@ -1242,7 +1249,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-06 12:29:56 +0000"
+        "time": "2026-09-06 13:29:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
