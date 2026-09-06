@@ -1448,6 +1448,132 @@ def build_gpec_ideal_ods(
     return ods, manifest
 
 
+def _external_profile_manifest(stage: str, shot: int, run: int, era_name: str) -> dict[str, Any]:
+    """The manifest shape shared by the externally-uploaded profile stages."""
+    return {
+        "schema_version": 1,
+        "stage": stage,
+        "shot": int(shot),
+        "machine_version": era_name,
+        # Absence is the default outcome. Most VEST shots carry no external
+        # profile upload at all, and that is a normal result rather than a
+        # failure, so the stage starts unavailable and is promoted only once a
+        # mapper has actually written channels.
+        "status": "unavailable",
+        "input": {},
+        "configuration": {"run": int(run)},
+        "quality_summary": {
+            "missing": [],
+            "repaired": [],
+            "disabled": [],
+            "rejected": [],
+            "unavailable": [stage],
+        },
+    }
+
+
+def build_thomson_ods(
+    *,
+    shot: int,
+    data_root: str | Path | None = None,
+    mat_file: str | Path | None = None,
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Build the standalone Thomson scattering product for one shot.
+
+    The mapper resolves its own `.mat` file across the layouts VEST has used
+    over the years, so an explicit ``mat_file`` is an override rather than a
+    requirement.  A shot with no upload yields a provenance-only product whose
+    manifest says ``unavailable``: the stage is optional, so that is recorded
+    and replication skips it rather than failing the run.
+    """
+    from vaft.machine_mapping.thomson_scattering import thomson_scattering
+
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+    ods = ODS(consistency_check=False)
+    dataset_description(
+        ods,
+        shot,
+        {
+            "source_type": "shot",
+            "run": run,
+            "machine": "VEST",
+            "user": "vaft",
+            "description": f"VEST Thomson scattering; machine era {era.name}",
+        },
+    )
+    manifest = _external_profile_manifest("thomson", shot, run, era.name)
+    if mat_file is not None:
+        manifest["input"]["mat_file"] = str(mat_file)
+
+    try:
+        thomson_scattering(ods, shot, data_root=data_root, mat_file=mat_file)
+    except FileNotFoundError as error:
+        # No upload for this shot. Distinguished from a malformed one: the
+        # mapper raises FileNotFoundError only after exhausting every layout.
+        manifest["error"] = f"{type(error).__name__}: {error}"
+        return ods, manifest
+
+    channels = len(ods["thomson_scattering.channel"]) if "thomson_scattering.channel" in ods else 0
+    if channels:
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+        manifest["channels"] = channels
+    return ods, manifest
+
+
+def build_ces_ods(
+    *,
+    shot: int,
+    data_root: str | Path | None = None,
+    mat_file: str | Path | None = None,
+    options: str = "ces",
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Build the standalone charge-exchange product for one shot.
+
+    ``options`` selects which external layout is read (``ces`` for
+    ``CES_{shot}.mat``, ``ids`` for ``IDS_{shot}.mat``); both land in the same
+    ``charge_exchange`` IDS.  Presence of this product is what later routes a
+    shot's kinetic reconstruction to `kinetic-efit` rather than `electron-efit`,
+    so an absent upload must be recorded rather than inferred.
+    """
+    from vaft.machine_mapping.charge_exchange import charge_exchange
+
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+    ods = ODS(consistency_check=False)
+    dataset_description(
+        ods,
+        shot,
+        {
+            "source_type": "shot",
+            "run": run,
+            "machine": "VEST",
+            "user": "vaft",
+            "description": f"VEST charge exchange; machine era {era.name}",
+        },
+    )
+    manifest = _external_profile_manifest("ces", shot, run, era.name)
+    manifest["configuration"]["options"] = options
+    if mat_file is not None:
+        manifest["input"]["mat_file"] = str(mat_file)
+
+    try:
+        charge_exchange(ods, shot, options=options, data_root=data_root, mat_file=mat_file)
+    except FileNotFoundError as error:
+        manifest["error"] = f"{type(error).__name__}: {error}"
+        return ods, manifest
+
+    channels = len(ods["charge_exchange.channel"]) if "charge_exchange.channel" in ods else 0
+    if channels:
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+        manifest["channels"] = channels
+    return ods, manifest
+
+
 def write_stage_product(
     ods: ODS,
     manifest: dict[str, Any],
