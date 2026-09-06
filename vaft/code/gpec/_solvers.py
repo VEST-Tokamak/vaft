@@ -156,6 +156,9 @@ class DCONSolver:
                 "sas_flag": ctx.config.dcon.sas_flag,
                 "qhigh": ctx.config.dcon.qhigh,
                 "psiedge": ctx.config.dcon.psiedge,
+                "mer_flag": ctx.config.dcon.mer_flag,
+                "bal_flag": ctx.config.dcon.bal_flag,
+                "thmax0": ctx.config.dcon.thmax0,
             },
         )
         shutil.copy2(ctx.template_dir / "match.in", ctx.run_dir / "match.in")

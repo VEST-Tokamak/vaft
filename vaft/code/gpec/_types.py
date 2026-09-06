@@ -18,11 +18,26 @@ STABILITY_MODULES = frozenset(("dcon", "rdcon", "stride"))
 
 @dataclass(frozen=True)
 class DCONOptions:
-    """DCON-specific namelist overrides."""
+    """DCON-specific namelist overrides.
+
+    ``mer_flag``/``bal_flag``/``thmax0`` gate DCON's *local* stability criteria,
+    and they matter for more than reproducibility: DCON zero-fills the whole
+    local-stability spline before running either scan (``dcon/dcon.F:148-160``),
+    so a criterion that was never evaluated is written to the netCDF as exactly
+    zero -- which is also its marginal value. Recording what was requested is
+    what lets VAFT tell "marginally stable everywhere" from "never computed".
+
+    ``bal_flag`` defaults to the packaged namelist's ``f``. That is deliberately
+    unchanged here, but note it makes DCON the odd one out: ``rdcon.in`` and
+    ``stride.in`` both ship ``bal_flag=t``.
+    """
 
     sas_flag: bool = False
     qhigh: float = 20.2
     psiedge: float = 1.0
+    mer_flag: bool = True
+    bal_flag: bool = False
+    thmax0: float = 1.0
 
 
 @dataclass(frozen=True)
