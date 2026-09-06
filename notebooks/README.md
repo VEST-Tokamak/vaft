@@ -77,7 +77,7 @@ Pipeline notebooks are expanded as the reusable VAFT functions behind them becom
 - `shot_characteristics_classification.ipynb`: Per-shot feature records from the packaged shots — timing with its detector and agreement, equilibrium descriptors, a class label with its threshold sensitivity shown, a review state beside the automatic proposal, and the summary table an aggregation rule would write.
 - `vest_daily_monitoring.ipynb`: Existing daily monitoring notebook for VEST data review.
 - `multiple_tokamak_comparison.ipynb`: Cross-device comparison against public upstream data — VEST, DIII-D, MAST-U, JET, TCV and SPARC equilibria fetched from their own repositories as IMAS netCDF, ODS JSON and GEQDSK, loaded through one `vaft.omas.load` path, then compared as physical and normalized geometry, global descriptors, COCOS conventions and profiles.
-- `publication_figures.ipynb`: Existing or planned notebook for publication figure preparation.
+- `publication_figures.ipynb`: Publication figures built from packaged data — three reconstructions of shot 48224 at 300 ms (EFIT, its CHEASE refinement, kinetic EFIT) overlaid through the canonical renderers, and a Mirnov spectrogram of shot 45531 from the packaged raw archive. Sections needing the external stability history report that and skip.
 
 ## Recommended Reading Order
 
