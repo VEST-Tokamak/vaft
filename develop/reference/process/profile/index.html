@@ -1,0 +1,1427 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: profile · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/process/statistical_analysis/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/process/atomic/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: profile</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>0ce7902</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_profile">Process reference: profile</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.profile, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/profile.py"><code class="language-plaintext highlighter-rouge">vaft/process/profile.py</code></a>:
+9 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("profile.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>The chain, and where each step’s state changes::</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>measured diagnostic points (R, Z, value)
+-&gt; equilibrium-mapped coordinates: psi_norm, rho_pol_norm = sqrt(psi_norm),
+   rho_tor_norm from the equilibrium's own Phi(psi)          [MappedPositions]
+-&gt; coordinate-selected profile points (default rho_tor_norm)
+-&gt; fitted callable in that coordinate                          [FittedProfile]
+-&gt; equilibrium-grid profile, stored on grid.rho_tor_norm / psi /
+   rho_pol_norm with the fit's provenance beside it           [core_profiles]
+</code></pre></div></div>
+
+<p>Everything here is machine-independent.  The radial coordinate to fit in,
+the statistical Ti/Te ratio for a Thomson-only slice, and their provenance
+are <em>arguments</em>; on VEST the pipeline
+(<code class="language-plaintext highlighter-rouge">vaft.code.efit.build_kinetic_core_profiles</code>) resolves them from
+<code class="language-plaintext highlighter-rouge">vest.yaml</code> through
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.core_profiles.vest_core_profiles_policy</code>.  This
+module holds no VEST number (issue #420).</p>
+
+<table class="formula-table">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>psi_norm</td><td>normalized poloidal flux, (psi - psi_axis)/(psi_boundary - psi_axis)</td><td>-</td></tr>
+  <tr><td>rho_pol_norm</td><td>sqrt(psi_norm)</td><td>-</td></tr>
+  <tr><td>rho_tor_norm</td><td>normalized toroidal-flux radius, sqrt(Phi/Phi_boundary), Phi = int q dpsi [-]</td><td></td></tr>
+  <tr><td>T_e, T_i</td><td>electron, ion temperature</td><td>eV</td></tr>
+  <tr><td>n_e</td><td>electron density</td><td>m^-3</td></tr>
+  <tr><td>V_tor</td><td>toroidal ion velocity</td><td>m/s</td></tr>
+  <tr><td>p</td><td>thermal pressure, e n_e (T_e + T_i)</td><td>Pa</td></tr>
+  </tbody>
+</table>
+
+<p>Three radial coordinates, never interchangeable: <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> is not
+<code class="language-plaintext highlighter-rouge">sqrt(psi_norm)</code> except for a flat-<code class="language-plaintext highlighter-rouge">q</code> cylinder.  A fit is a function
+of exactly one of them and carries which; <code class="language-plaintext highlighter-rouge">core_profiles</code> evaluates it
+on the equilibrium grid expressed in that coordinate.  Parameter names that
+still say <code class="language-plaintext highlighter-rouge">rho</code> (<code class="language-plaintext highlighter-rouge">rho_points</code>, the deprecated <code class="language-plaintext highlighter-rouge">mapped_rho_position</code>)
+predate the choice and mean “the fit coordinate”.  Quasi-neutral single
+main ion H+ with <code class="language-plaintext highlighter-rouge">n_i = n_e</code>; all electrons thermal.</p>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#core_profiles"><code>core_profiles</code></a> &mdash; Evaluate fitted kinetic profiles on the equilibrium grid and store them as a <code class="language-plaintext highlighter-rouge">profiles_1d</code> slice.
+</li>
+  <li><a href="#core_profiles_from_eq"><code>core_profiles_from_eq</code></a> &mdash; Build a synthetic <code class="language-plaintext highlighter-rouge">core_profiles</code> slice from the equilibrium pressure and an axis <code class="language-plaintext highlighter-rouge">T_e</code>.
+</li>
+  <li><a href="#core_profiles_from_eq_ratio"><code>core_profiles_from_eq_ratio</code></a> &mdash; Build a synthetic <code class="language-plaintext highlighter-rouge">core_profiles</code> slice from the equilibrium pressure and a fixed <code class="language-plaintext highlighter-rouge">n_e/T_e</code>.
+</li>
+  <li><a href="#equilibrium_mapping_charge_exchange"><code>equilibrium_mapping_charge_exchange</code></a> &mdash; Map charge-exchange channel positions into the equilibrium’s radial coordinates.
+</li>
+  <li><a href="#equilibrium_mapping_thomson_scattering"><code>equilibrium_mapping_thomson_scattering</code></a> &mdash; Map Thomson scattering channel positions into the equilibrium’s radial coordinates.
+</li>
+  <li><a href="#export_electron_profile_txt"><code>export_electron_profile_txt</code></a> &mdash; Write fitted electron profiles, sampled on a uniform grid, to a text file.
+</li>
+  <li><a href="#fit_ti_te_ratio"><code>fit_ti_te_ratio</code></a> &mdash; Fit the proportionality coefficient <code class="language-plaintext highlighter-rouge">alpha</code> of <code class="language-plaintext highlighter-rouge">Ti = alpha * Te</code>.
+</li>
+  <li><a href="#profile_fitting_charge_exchange"><code>profile_fitting_charge_exchange</code></a> &mdash; Fit charge-exchange <code class="language-plaintext highlighter-rouge">T_i</code> and <code class="language-plaintext highlighter-rouge">V_tor</code> profiles in a chosen radial coordinate.
+</li>
+  <li><a href="#profile_fitting_thomson_scattering"><code>profile_fitting_thomson_scattering</code></a> &mdash; Fit Thomson-scattering <code class="language-plaintext highlighter-rouge">T_e</code> and <code class="language-plaintext highlighter-rouge">n_e</code> profiles in a chosen radial coordinate.
+</li>
+</ul>
+
+<h3 id="core_profiles"><code class="language-plaintext highlighter-rouge">core_profiles</code></h3>
+
+<p class="formula-signature"><code>core_profiles(ods, time_ms, mapped_positions=None, n_e_function=None, T_e_function=None, tol_ms=0.1, T_i_function=None, V_tor_function=None, ti_mapped_positions=None, rho_points=100, time_tolerance_ms=1.0, geq=None, ti_te_fallback=True, ti_te_ratio=None, *, coordinate=None, ti_te_ratio_record=None, mapped_rho_position=None, ti_mapped_rho_position=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Evaluate fitted kinetic profiles on the equilibrium grid and store them as a <code class="language-plaintext highlighter-rouge">profiles_1d</code> slice.</p>
+
+<p>The fits are functions of one radial coordinate – the one they were made
+in, carried by <code class="language-plaintext highlighter-rouge">FittedProfile</code> or named by <code class="language-plaintext highlighter-rouge">coordinate</code> for a
+plain callable – and are evaluated on the equilibrium’s grid expressed in
+that same coordinate, so a fit in <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> is never evaluated at a
+<code class="language-plaintext highlighter-rouge">psi_norm</code> value.  What was fitted, in which coordinate, and where any
+assumed number came from is written beside the profile.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Mutated in place: gains or replaces the <code class="language-plaintext highlighter-rouge">core_profiles.profiles_1d</code> slice at <code class="language-plaintext highlighter-rouge">time_ms</code>.</p>
+</td></tr>
+  <tr><td><code>time_ms</code></td><td>float</td><td>ms</td><td><p>Time of the slice.</p>
+</td></tr>
+  <tr><td><code>mapped_positions</code></td><td>MappedPositions or np.ndarray, optional</td><td>-</td><td><p>Thomson channel positions from <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code>; required with an electron fit.  A bare array is the deprecated pre-#420 form and is accepted only with <code class="language-plaintext highlighter-rouge">coordinate="psi_norm"</code>.</p>
+</td></tr>
+  <tr><td><code>n_e_function</code></td><td>FittedProfile or callable, optional</td><td>m^-3</td><td><p>Electron density fit.</p>
+</td></tr>
+  <tr><td><code>T_e_function</code></td><td>FittedProfile or callable, optional</td><td>eV</td><td><p>Electron temperature fit.</p>
+</td></tr>
+  <tr><td><code>tol_ms</code></td><td>float, optional</td><td>ms</td><td><p>An existing slice within this of <code class="language-plaintext highlighter-rouge">time_ms</code> is replaced.</p>
+</td></tr>
+  <tr><td><code>T_i_function</code></td><td>FittedProfile or callable, optional</td><td>eV</td><td><p>Ion temperature fit from the charge-exchange fitter; when given, the ion block carries the real <code class="language-plaintext highlighter-rouge">T_i</code> and <code class="language-plaintext highlighter-rouge">pressure_thermal</code> is written.</p>
+</td></tr>
+  <tr><td><code>V_tor_function</code></td><td>FittedProfile or callable, optional</td><td>m/s</td><td><p>Toroidal ion velocity fit.</p>
+</td></tr>
+  <tr><td><code>ti_mapped_positions</code></td><td>MappedPositions or np.ndarray, optional</td><td>-</td><td><p>Charge-exchange channel positions, for the ion fit metadata.</p>
+</td></tr>
+  <tr><td><code>rho_points</code></td><td>int, optional</td><td>-</td><td><p>Size of the uniform fallback grid when no equilibrium slice matches.</p>
+</td></tr>
+  <tr><td><code>time_tolerance_ms</code></td><td>float, optional</td><td>ms</td><td><p>Tolerance for matching the Thomson and equilibrium times.</p>
+</td></tr>
+  <tr><td><code>geq</code></td><td>GEQDSK, optional</td><td>-</td><td><p>The equilibrium the mapping used; its 1-D grid is preferred over the ODS equilibrium so the profile lands on the same surfaces.</p>
+</td></tr>
+  <tr><td><code>ti_te_fallback</code></td><td>bool, optional</td><td>-</td><td><p>With no ion fit, still write an ion temperature from <code class="language-plaintext highlighter-rouge">T_e</code>.</p>
+</td></tr>
+  <tr><td><code>ti_te_ratio</code></td><td>float, optional</td><td>-</td><td><p>Coefficient for that fallback: <code class="language-plaintext highlighter-rouge">T_i = ratio * T_e</code> and <code class="language-plaintext highlighter-rouge">pressure_thermal = e n_e (1 + ratio) T_e</code>; <code class="language-plaintext highlighter-rouge">None</code> keeps the legacy <code class="language-plaintext highlighter-rouge">T_i = T_e</code> and writes no pressure.  Resolved by the pipeline from the machine policy; this function holds no value.</p>
+</td></tr>
+  <tr><td><code>coordinate</code></td><td>str, optional</td><td>-</td><td><p>Required when the fits are plain callables; must agree with every <code class="language-plaintext highlighter-rouge">FittedProfile</code> given.</p>
+</td></tr>
+  <tr><td><code>ti_te_ratio_record</code></td><td>str, optional</td><td>-</td><td><p>Provenance text for the ratio (value, status, source), stored beside the ion temperature; the pipeline passes the policy’s own record.</p>
+</td></tr>
+  <tr><td><code>mapped_rho_position</code></td><td>MappedPositions or np.ndarray, optional</td><td>-</td><td><p>Deprecated name for mapped_positions.</p>
+</td></tr>
+  <tr><td><code>ti_mapped_rho_position</code></td><td>MappedPositions or np.ndarray, optional</td><td>-</td><td><p>Deprecated name for ti_mapped_positions.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ODS</td><td>-</td><td><p>The same object, updated.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    No electron and no ion fit; an electron fit without positions; fits in
+    different coordinates; a ratio that is not finite and non-negative;
+    no Thomson time within tolerance.
+TypeError
+    A plain callable without <code class="language-plaintext highlighter-rouge">coordinate</code>, or a bare position array
+    without <code class="language-plaintext highlighter-rouge">coordinate="psi_norm"</code>.
+CoordinateUnavailableError
+    The mapping cannot supply the fit’s coordinate.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Establish the fit coordinate from the fit objects (or <code class="language-plaintext highlighter-rouge">coordinate</code>)
+and check they agree.</li>
+  <li>Read the measured Thomson values at the nearest time.</li>
+  <li>Take the equilibrium 1-D grid – from <code class="language-plaintext highlighter-rouge">geq</code>, else the ODS slice at
+this time – as <code class="language-plaintext highlighter-rouge">(rho_tor_norm, psi, psi_norm)</code>; express it in the
+fit coordinate; without one, use a uniform grid in that coordinate.</li>
+  <li>Evaluate every fit on that grid; apply the ion fallback if needed.</li>
+  <li>Replace any slice at the same time, write grid, electrons, ions,
+pressure, per-channel fit metadata and provenance.</li>
+</ol>
+
+<p><strong>Input semantics.</strong></p>
+
+<p>Fitted: callables of one radial coordinate, from
+<code class="language-plaintext highlighter-rouge">profile_fitting_thomson_scattering</code> /
+<code class="language-plaintext highlighter-rouge">profile_fitting_charge_exchange</code>, plus the measured channel
+values and their equilibrium-mapped positions.</p>
+
+<p><strong>Output semantics.</strong></p>
+
+<p>Stored, on the equilibrium grid: <code class="language-plaintext highlighter-rouge">grid.rho_tor_norm</code>, <code class="language-plaintext highlighter-rouge">grid.psi</code> and
+<code class="language-plaintext highlighter-rouge">grid.rho_pol_norm</code> when an equilibrium slice exists, else only the
+coordinate the fit is actually in.  <code class="language-plaintext highlighter-rouge">*_fit.measured</code> are measured,
+<code class="language-plaintext highlighter-rouge">*_fit.reconstructed</code> are the fit at the measured points; a
+ratio-derived ion temperature is inferred and says so.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">ti_te_ratio = None</code> is a legacy compatibility value: the pre-#420
+behaviour writes <code class="language-plaintext highlighter-rouge">T_i = T_e</code> and no pressure.  The VEST value is
+resolved by <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.core_profiles.vest_core_profiles_policy</code>
+and passed in by <code class="language-plaintext highlighter-rouge">vaft.code.efit.build_kinetic_core_profiles</code>.
+<code class="language-plaintext highlighter-rouge">tol_ms = 0.1</code> and <code class="language-plaintext highlighter-rouge">time_tolerance_ms = 1.0</code> are numerical
+conveniences.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The fit coordinate is one of <code class="language-plaintext highlighter-rouge">rho_tor_norm</code>, <code class="language-plaintext highlighter-rouge">rho_pol_norm</code>,
+<code class="language-plaintext highlighter-rouge">psi_norm</code>; the equilibrium grid supplies all three (<code class="language-plaintext highlighter-rouge">rho_pol_norm =
+sqrt(psi_norm)</code>; <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> from the equilibrium, never from
+<code class="language-plaintext highlighter-rouge">psi_norm</code>).  Quasi-neutral single main ion H+, <code class="language-plaintext highlighter-rouge">n_i = n_e</code>.
+<code class="language-plaintext highlighter-rouge">pressure_thermal = e n_e (T_e + T_i)</code> [Pa] with temperatures in eV.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>All electrons are thermal (an ohmic plasma); one hydrogenic main ion with
+no impurity dilution; the equilibrium at <code class="language-plaintext highlighter-rouge">time_ms</code> is the one the
+channels were mapped through.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  Every machine-specific number – the coordinate
+convention, the Ti/Te ratio, its provenance – arrives as an argument;
+for VEST the pipeline resolves them from <code class="language-plaintext highlighter-rouge">vest.yaml</code>.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Only the first equilibrium time slice of <code class="language-plaintext highlighter-rouge">geq</code> is used.  The
+charge-exchange <code class="language-plaintext highlighter-rouge">*_fit</code> metadata is best-effort and its failure is
+reported, not raised.  A slice produced before #420 has no
+<code class="language-plaintext highlighter-rouge">*_fit.parameters</code>; that absence is the signature of a legacy product
+fitted in <code class="language-plaintext highlighter-rouge">psi_norm</code>.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Per-slice fit records in <code class="language-plaintext highlighter-rouge">electrons.{density,temperature}_fit.parameters</code> and <code class="language-plaintext highlighter-rouge">ion.0.temperature_fit.parameters</code>, and one line per slice in <code class="language-plaintext highlighter-rouge">core_profiles.code.parameters</code>; issue #420.
+</li>
+</ol>
+
+<h3 id="core_profiles_from_eq"><code class="language-plaintext highlighter-rouge">core_profiles_from_eq</code></h3>
+
+<p class="formula-signature"><code>core_profiles_from_eq(ods, Te0_eV, rho_fit=None, tol_ms=0.1, eq_time_index=0)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Build a synthetic <code class="language-plaintext highlighter-rouge">core_profiles</code> slice from the equilibrium pressure and an axis <code class="language-plaintext highlighter-rouge">T_e</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Carries the equilibrium slice; gains the <code class="language-plaintext highlighter-rouge">core_profiles</code> slice.</p>
+</td></tr>
+  <tr><td><code>Te0_eV</code></td><td>float</td><td>eV</td><td><p>Electron temperature on axis.</p>
+</td></tr>
+  <tr><td><code>rho_fit</code></td><td>array_like, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">rho_tor_norm</code> grid to write on; <code class="language-plaintext highlighter-rouge">None</code> for 100 uniform points.</p>
+</td></tr>
+  <tr><td><code>tol_ms</code></td><td>float, optional</td><td>ms</td><td><p>An existing slice within this of the equilibrium time is replaced.</p>
+</td></tr>
+  <tr><td><code>eq_time_index</code></td><td>int, optional</td><td>-</td><td><p>Which equilibrium time slice.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ODS</td><td>-</td><td><p>The same object, updated.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Non-1-D or non-finite equilibrium profiles, or non-positive axis
+    pressure.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Interpolate the equilibrium <code class="language-plaintext highlighter-rouge">pressure(rho_tor_norm)</code> onto <code class="language-plaintext highlighter-rouge">rho_fit</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">g = sqrt(p / p(0))</code>; <code class="language-plaintext highlighter-rouge">T_e = Te0 g</code>; <code class="language-plaintext highlighter-rouge">n_e = p(0) / (2 e Te0) g</code>.</li>
+  <li>Write electrons and a quasi-neutral H+ ion with <code class="language-plaintext highlighter-rouge">T_i = T_e</code>.</li>
+</ol>
+
+<p><strong>Input semantics.</strong></p>
+
+<p>Reconstructed: the equilibrium pressure profile.</p>
+
+<p><strong>Output semantics.</strong></p>
+
+<p>Synthetic: profiles consistent with that pressure under an assumed shape,
+not measured.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">p = 2 n_e T_e e</code> [Pa]: <code class="language-plaintext highlighter-rouge">T_i = T_e</code> and <code class="language-plaintext highlighter-rouge">n_i = n_e</code> are absorbed in
+the factor 2.  The grid is the equilibrium’s <code class="language-plaintext highlighter-rouge">rho_tor_norm</code>, read directly.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">n_e</code> and <code class="language-plaintext highlighter-rouge">T_e</code> share one shape, <code class="language-plaintext highlighter-rouge">sqrt(p/p(0))</code>; no impurities.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Any split of the pressure between density and temperature is consistent
+with the equilibrium; this one is a convention, and <code class="language-plaintext highlighter-rouge">Te0_eV</code> fixes it.</p>
+
+<h3 id="core_profiles_from_eq_ratio"><code class="language-plaintext highlighter-rouge">core_profiles_from_eq_ratio</code></h3>
+
+<p class="formula-signature"><code>core_profiles_from_eq_ratio(ods, C_ne_over_Te, rho_fit=None, tol_ms=0.1, eq_time_index=0)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Build a synthetic <code class="language-plaintext highlighter-rouge">core_profiles</code> slice from the equilibrium pressure and a fixed <code class="language-plaintext highlighter-rouge">n_e/T_e</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Carries the equilibrium slice; gains the <code class="language-plaintext highlighter-rouge">core_profiles</code> slice.</p>
+</td></tr>
+  <tr><td><code>C_ne_over_Te</code></td><td>float</td><td>m^-3/eV</td><td><p>Density-to-temperature ratio held constant across the profile.</p>
+</td></tr>
+  <tr><td><code>rho_fit</code></td><td>array_like, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">rho_tor_norm</code> grid to write on; <code class="language-plaintext highlighter-rouge">None</code> for 100 uniform points.</p>
+</td></tr>
+  <tr><td><code>tol_ms</code></td><td>float, optional</td><td>ms</td><td><p>An existing slice within this of the equilibrium time is replaced.</p>
+</td></tr>
+  <tr><td><code>eq_time_index</code></td><td>int, optional</td><td>-</td><td><p>Which equilibrium time slice.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ODS</td><td>-</td><td><p>The same object, updated.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Non-positive axis pressure.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Interpolate the equilibrium <code class="language-plaintext highlighter-rouge">pressure(rho_tor_norm)</code> onto <code class="language-plaintext highlighter-rouge">rho_fit</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">f = p / p(0)</code>; <code class="language-plaintext highlighter-rouge">T_e = sqrt(f)</code>, <code class="language-plaintext highlighter-rouge">n_e = C sqrt(f)</code>, then scale both
+by <code class="language-plaintext highlighter-rouge">sqrt(p(0) / (2 C e))</code> so that <code class="language-plaintext highlighter-rouge">p = 2 n_e T_e e</code>.</li>
+  <li>Write electrons and a quasi-neutral H+ ion with <code class="language-plaintext highlighter-rouge">T_i = T_e</code>.</li>
+</ol>
+
+<p><strong>Input semantics.</strong></p>
+
+<p>Reconstructed: the equilibrium pressure profile.</p>
+
+<p><strong>Output semantics.</strong></p>
+
+<p>Synthetic.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">p = 2 n_e T_e e</code> [Pa] with <code class="language-plaintext highlighter-rouge">T_i = T_e</code>; grid is the equilibrium’s
+<code class="language-plaintext highlighter-rouge">rho_tor_norm</code>.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">n_e / T_e</code> is constant across the profile; no impurities.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A constant ratio is a modelling choice, not an observation.</p>
+
+<h3 id="equilibrium_mapping_charge_exchange"><code class="language-plaintext highlighter-rouge">equilibrium_mapping_charge_exchange</code></h3>
+
+<p class="formula-signature"><code>equilibrium_mapping_charge_exchange(ods, geq)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Map charge-exchange channel positions into the equilibrium’s radial coordinates.</p>
+
+<p>The charge-exchange twin of <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code>:
+the same mapping, from <code class="language-plaintext highlighter-rouge">charge_exchange.channel[:].position.(r, z)</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Carries the channel positions, as <code class="language-plaintext highlighter-rouge">.data</code> leaves (what the VEST mapper writes) or as bare values.</p>
+</td></tr>
+  <tr><td><code>geq</code></td><td>GEQDSK, ODS or mapping</td><td>-</td><td><p>A <code class="language-plaintext highlighter-rouge">vaft.data.GEQDSK</code>, an OMAS equilibrium ODS (first time slice), or a legacy <code class="language-plaintext highlighter-rouge">fluxSurfaces</code> mapping.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>MappedPositions</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">psi_norm</code>, <code class="language-plaintext highlighter-rouge">rho_pol_norm</code> and, when derivable, <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> per channel; NaN outside the LCFS.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Read each channel’s <code class="language-plaintext highlighter-rouge">(R, Z)</code>, taking the nominal value of an
+uncertainty-carrying leaf and the first sample of a time series.</li>
+  <li>As <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code>.</li>
+</ol>
+
+<p><strong>Input semantics.</strong></p>
+
+<p>Measured: diagnostic-native <code class="language-plaintext highlighter-rouge">(R, Z)</code> channel positions.</p>
+
+<p><strong>Output semantics.</strong></p>
+
+<p>Equilibrium-mapped, in three coordinates at once.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>As <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code>: <code class="language-plaintext highlighter-rouge">psi_norm</code> is
+normalized poloidal flux and <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> is not its square root.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>As <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code>.  A channel whose
+position is a time series is mapped at its first sample only.</p>
+
+<h3 id="equilibrium_mapping_thomson_scattering"><code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code></h3>
+
+<p class="formula-signature"><code>equilibrium_mapping_thomson_scattering(ods, geq)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Map Thomson scattering channel positions into the equilibrium’s radial coordinates.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Carries <code class="language-plaintext highlighter-rouge">thomson_scattering.channel[:].position.r</code> and <code class="language-plaintext highlighter-rouge">.z</code>.</p>
+</td></tr>
+  <tr><td><code>geq</code></td><td>GEQDSK, ODS or mapping</td><td>-</td><td><p>A <code class="language-plaintext highlighter-rouge">vaft.data.GEQDSK</code>, an OMAS equilibrium ODS (first time slice), or a legacy <code class="language-plaintext highlighter-rouge">fluxSurfaces</code> mapping.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>MappedPositions</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">psi_norm</code>, <code class="language-plaintext highlighter-rouge">rho_pol_norm</code> and, when the equilibrium carries a usable <code class="language-plaintext highlighter-rouge">q</code>, <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> for every channel; NaN outside the LCFS</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Interpolate <code class="language-plaintext highlighter-rouge">psi(R, Z)</code> at each channel and normalize to
+<code class="language-plaintext highlighter-rouge">psi_norm = (psi - psi_axis)/(psi_boundary - psi_axis)</code>; a channel
+with <code class="language-plaintext highlighter-rouge">psi_norm &gt; 1</code> is outside the plasma and becomes NaN.</li>
+  <li><code class="language-plaintext highlighter-rouge">rho_pol_norm = sqrt(psi_norm)</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">rho_tor_norm</code> from the equilibrium’s <code class="language-plaintext highlighter-rouge">rho_tor_norm(psi_norm)</code>
+table (<code class="language-plaintext highlighter-rouge">Phi = int q dpsi</code>), interpolated at each channel; recorded
+as unavailable, with the reason, when <code class="language-plaintext highlighter-rouge">q</code> cannot supply it.</li>
+</ol>
+
+<p><strong>Input semantics.</strong></p>
+
+<p>Measured: diagnostic-native <code class="language-plaintext highlighter-rouge">(R, Z)</code> channel positions.</p>
+
+<p><strong>Output semantics.</strong></p>
+
+<p>Equilibrium-mapped, in three coordinates at once; the fitter selects one.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">psi_norm</code> is normalized <em>poloidal</em> flux; <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> is the
+normalized toroidal-flux radius and is <strong>not</strong> <code class="language-plaintext highlighter-rouge">sqrt(psi_norm)</code> except
+for a flat-<code class="language-plaintext highlighter-rouge">q</code> cylinder.  Before issue #420 this function returned a
+bare <code class="language-plaintext highlighter-rouge">psi_norm</code> array under the name “rho”.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">rho_tor_norm</code> is unavailable for a legacy <code class="language-plaintext highlighter-rouge">fluxSurfaces</code> mapping and
+for a GEQDSK or ODS whose <code class="language-plaintext highlighter-rouge">q</code> is missing, non-finite or gives a
+non-monotonic toroidal flux; a fit requested in that coordinate then
+raises <code class="language-plaintext highlighter-rouge">CoordinateUnavailableError</code> rather than falling back.
+Only the first equilibrium time slice of an ODS is used.</p>
+
+<h3 id="export_electron_profile_txt"><code class="language-plaintext highlighter-rouge">export_electron_profile_txt</code></h3>
+
+<p class="formula-signature"><code>export_electron_profile_txt(n_e_function, T_e_function, n_e_coeff, T_e_coeff, rho_points=100, filename='electron_profiles.txt')</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Write fitted electron profiles, sampled on a uniform grid, to a text file.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>n_e_function</code></td><td>FittedProfile or callable</td><td>m^-3</td><td><p><code class="language-plaintext highlighter-rouge">n_e(x)</code>.</p>
+</td></tr>
+  <tr><td><code>T_e_function</code></td><td>FittedProfile or callable</td><td>eV</td><td><p><code class="language-plaintext highlighter-rouge">T_e(x)</code>.</p>
+</td></tr>
+  <tr><td><code>n_e_coeff</code></td><td>np.ndarray or None</td><td>-</td><td><p>Fit coefficients; not written, kept for the legacy signature.</p>
+</td></tr>
+  <tr><td><code>T_e_coeff</code></td><td>np.ndarray or None</td><td>-</td><td><p>As <code class="language-plaintext highlighter-rouge">n_e_coeff</code>.</p>
+</td></tr>
+  <tr><td><code>rho_points</code></td><td>int, optional</td><td>-</td><td><p>Points of the uniform grid on <code class="language-plaintext highlighter-rouge">[0, 1]</code>.</p>
+</td></tr>
+  <tr><td><code>filename</code></td><td>str, optional</td><td>-</td><td><p>Output path.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>None</td><td>-</td><td><p>The file is the result.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>The first column is labelled with the fit’s coordinate when a
+<code class="language-plaintext highlighter-rouge">FittedProfile</code> is given, else <code class="language-plaintext highlighter-rouge">x</code>; a plain callable’s coordinate
+is unknown here.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<h3 id="fit_ti_te_ratio"><code class="language-plaintext highlighter-rouge">fit_ti_te_ratio</code></h3>
+
+<p class="formula-signature"><code>fit_ti_te_ratio(te, ti, te_std=None, ti_std=None, max_iter=200, tol=1e-12)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Fit the proportionality coefficient <code class="language-plaintext highlighter-rouge">alpha</code> of <code class="language-plaintext highlighter-rouge">Ti = alpha * Te</code>.</p>
+
+<p>Effective-variance weighted through-origin regression with errors in BOTH
+variables: minimizes <code class="language-plaintext highlighter-rouge">sum_k (Ti_k - a*Te_k)^2 / (sTi_k^2 + a^2*sTe_k^2)</code>
+by iterating the weights.  This is the estimator the VEST statistical
+coefficient was derived with [TITE] (paired Thomson <code class="language-plaintext highlighter-rouge">Te</code> and fitted
+charge-exchange <code class="language-plaintext highlighter-rouge">Ti</code> at the same radial position, on the shots that carry
+both diagnostics); use it to re-derive the coefficient as more
+two-diagnostic shots become available.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>te</code></td><td>array_like</td><td>eV</td><td><p>Electron temperature samples.</p>
+</td></tr>
+  <tr><td><code>ti</code></td><td>array_like</td><td>eV</td><td><p>Ion temperature samples, paired with <code class="language-plaintext highlighter-rouge">te</code>.</p>
+</td></tr>
+  <tr><td><code>te_std</code></td><td>array_like, optional</td><td>eV</td><td><p>1-sigma uncertainties of <code class="language-plaintext highlighter-rouge">te</code>; <code class="language-plaintext highlighter-rouge">None</code> for zero.</p>
+</td></tr>
+  <tr><td><code>ti_std</code></td><td>array_like, optional</td><td>eV</td><td><p>1-sigma uncertainties of <code class="language-plaintext highlighter-rouge">ti</code>; <code class="language-plaintext highlighter-rouge">None</code> for unit weights, a plain least-squares fit.</p>
+</td></tr>
+  <tr><td><code>max_iter</code></td><td>int, optional</td><td>-</td><td><p>Iterations of the weight update.</p>
+</td></tr>
+  <tr><td><code>tol</code></td><td>float, optional</td><td>-</td><td><p>Change in <code class="language-plaintext highlighter-rouge">alpha</code> below which the iteration stops.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">alpha</code> the fitted ratio; <code class="language-plaintext highlighter-rouge">alpha_se</code> its formal standard error, scaled by <code class="language-plaintext highlighter-rouge">sqrt(chi2_red)</code> when <code class="language-plaintext highlighter-rouge">chi2_red &gt; 1</code>; <code class="language-plaintext highlighter-rouge">alpha_scatter</code> the error-weighted scatter of the per-point ratios, the predictive per-point sigma; <code class="language-plaintext highlighter-rouge">chi2_red</code>; <code class="language-plaintext highlighter-rouge">n_points</code> the pairs used.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Mismatched lengths, or fewer than two valid pairs.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Drop pairs with a non-finite value, a non-finite or negative sigma, or
+<code class="language-plaintext highlighter-rouge">Te &lt;= 0</code>.</li>
+  <li>Start from the unweighted through-origin estimate.</li>
+  <li>Iterate <code class="language-plaintext highlighter-rouge">w = 1 / (sTi^2 + a^2 sTe^2)</code>, <code class="language-plaintext highlighter-rouge">a = sum(w Te Ti)/sum(w Te^2)</code>
+to convergence.</li>
+  <li>Standard error, reduced chi-square, and the weighted scatter of
+<code class="language-plaintext highlighter-rouge">Ti/Te</code>.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">max_iter = 200</code> and <code class="language-plaintext highlighter-rouge">tol = 1e-12</code> are numerical conveniences.  A
+uniformly zero <code class="language-plaintext highlighter-rouge">ti_std</code> is replaced by unit weights, a numerical
+convenience that keeps the effective variance finite.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">Ti</code> is proportional to <code class="language-plaintext highlighter-rouge">Te</code> with no offset, across the whole sample.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The VEST value it produced (0.17, sigma 0.08) lives in
+<code class="language-plaintext highlighter-rouge">vest.yaml</code>, not here.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The derivation script cited by the VEST record, <code class="language-plaintext highlighter-rouge">ids_test/fit_ti_te_ratio.py</code>,
+is not in the repository; the value is reproducible from this estimator and
+the three shots named there, but the script that did it is not tracked.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The VEST Ti/Te policy record [TITE]: shots 48224, 48226, 48233 at 299-301 ms; pressure-matching estimator on the fitted 129-point profiles, cross-checked at 0.170 +/- 0.010 by this regression.
+</li>
+</ol>
+
+<h3 id="profile_fitting_charge_exchange"><code class="language-plaintext highlighter-rouge">profile_fitting_charge_exchange</code></h3>
+
+<p class="formula-signature"><code>profile_fitting_charge_exchange(ods, time_ms, mapped_positions=None, Ti_order=3, Vtor_order=3, uncertainty_option=1, rho_points=100, fitting_function_ti='polynomial', fitting_function_vtor='polynomial', ion_index=0, time_tolerance_ms=1.0, clamp_to_measured_span=True, *, coordinate='rho_tor_norm', mapped_rho_position=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Fit charge-exchange <code class="language-plaintext highlighter-rouge">T_i</code> and <code class="language-plaintext highlighter-rouge">V_tor</code> profiles in a chosen radial coordinate.</p>
+
+<p>The ion twin of <code class="language-plaintext highlighter-rouge">profile_fitting_thomson_scattering</code>, reading
+<code class="language-plaintext highlighter-rouge">charge_exchange.channel[:].ion[ion_index].t_i</code> and <code class="language-plaintext highlighter-rouge">velocity_tor</code>.  By
+default the fitted curves are held at their value at the innermost and
+outermost measured positions rather than extrapolated beyond them.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Carries <code class="language-plaintext highlighter-rouge">charge_exchange.time</code> and per-channel ion <code class="language-plaintext highlighter-rouge">t_i</code> and <code class="language-plaintext highlighter-rouge">velocity_tor</code> data with <code class="language-plaintext highlighter-rouge">data_error_upper</code>.</p>
+</td></tr>
+  <tr><td><code>time_ms</code></td><td>float</td><td>ms</td><td><p>Time to fit at.</p>
+</td></tr>
+  <tr><td><code>mapped_positions</code></td><td>MappedPositions or np.ndarray, optional</td><td>-</td><td><p>Channel positions from <code class="language-plaintext highlighter-rouge">equilibrium_mapping_charge_exchange</code>; a bare array only with <code class="language-plaintext highlighter-rouge">coordinate="psi_norm"</code>.</p>
+</td></tr>
+  <tr><td><code>Ti_order</code></td><td>int, optional</td><td>-</td><td><p>Polynomial order for <code class="language-plaintext highlighter-rouge">T_i</code>.</p>
+</td></tr>
+  <tr><td><code>Vtor_order</code></td><td>int, optional</td><td>-</td><td><p>Polynomial order for <code class="language-plaintext highlighter-rouge">V_tor</code>.</p>
+</td></tr>
+  <tr><td><code>uncertainty_option</code></td><td>int, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">1</code> weights the fit by the per-channel uncertainties.</p>
+</td></tr>
+  <tr><td><code>rho_points</code></td><td>int, optional</td><td>-</td><td><p>Points of the uniform evaluation grid the sampled returns are on.</p>
+</td></tr>
+  <tr><td><code>fitting_function_ti</code></td><td>str, optional</td><td>-</td><td><p>Model for <code class="language-plaintext highlighter-rouge">T_i</code>, as the Thomson fitter’s choices.</p>
+</td></tr>
+  <tr><td><code>fitting_function_vtor</code></td><td>str, optional</td><td>-</td><td><p>Model for <code class="language-plaintext highlighter-rouge">V_tor</code>.</p>
+</td></tr>
+  <tr><td><code>ion_index</code></td><td>int, optional</td><td>-</td><td><p>Which ion of each channel.</p>
+</td></tr>
+  <tr><td><code>time_tolerance_ms</code></td><td>float, optional</td><td>ms</td><td><p>Largest distance to the nearest charge-exchange sample.</p>
+</td></tr>
+  <tr><td><code>clamp_to_measured_span</code></td><td>bool, optional</td><td>-</td><td><p>Hold the fit at its end values outside the measured span.</p>
+</td></tr>
+  <tr><td><code>coordinate</code></td><td>str, optional</td><td>-</td><td><p>Which coordinate of the mapping to fit in.</p>
+</td></tr>
+  <tr><td><code>mapped_rho_position</code></td><td>MappedPositions or np.ndarray, optional</td><td>-</td><td><p>Deprecated name for <code class="language-plaintext highlighter-rouge">mapped_positions</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>Vtor_function</code></td><td>FittedProfile</td><td>m/s</td><td><p><code class="language-plaintext highlighter-rouge">V_tor(x)</code>.</p>
+</td></tr>
+  <tr><td><code>Ti_function</code></td><td>FittedProfile</td><td>eV</td><td><p><code class="language-plaintext highlighter-rouge">T_i(x)</code>, clipped non-negative.</p>
+</td></tr>
+  <tr><td><code>coeffs_vtor</code></td><td>np.ndarray or None</td><td>-</td><td><p>Fit coefficients, <code class="language-plaintext highlighter-rouge">None</code> for methods without them.</p>
+</td></tr>
+  <tr><td><code>coeffs_ti</code></td><td>np.ndarray or None</td><td>-</td><td><p>As <code class="language-plaintext highlighter-rouge">coeffs_vtor</code>.</p>
+</td></tr>
+  <tr><td><code>Vtor_rho</code></td><td>np.ndarray</td><td>m/s</td><td><p><code class="language-plaintext highlighter-rouge">V_tor</code> sampled on <code class="language-plaintext highlighter-rouge">rho_points</code> uniform points of <code class="language-plaintext highlighter-rouge">x</code>.</p>
+</td></tr>
+  <tr><td><code>Ti_rho</code></td><td>np.ndarray</td><td>eV</td><td><p><code class="language-plaintext highlighter-rouge">T_i</code> sampled on the same grid.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    No charge-exchange sample within tolerance; a non-1-D time axis; an
+    unknown <code class="language-plaintext highlighter-rouge">coordinate</code>.
+TypeError
+    A bare position array without <code class="language-plaintext highlighter-rouge">coordinate="psi_norm"</code>.
+CoordinateUnavailableError
+    The mapping cannot supply <code class="language-plaintext highlighter-rouge">coordinate</code>.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Select the channel positions in <code class="language-plaintext highlighter-rouge">coordinate</code>.</li>
+  <li>Read <code class="language-plaintext highlighter-rouge">T_i</code> and <code class="language-plaintext highlighter-rouge">V_tor</code> with their real per-channel sigmas from the
+<code class="language-plaintext highlighter-rouge">data_error_upper</code> leaves (OMAS strips the uncertainty from the re-read
+<code class="language-plaintext highlighter-rouge">.data</code>).</li>
+  <li>Drop channels with a non-finite value or position; replace zero or
+non-finite sigmas by the median valid sigma so no channel’s weight
+explodes.</li>
+  <li>Fit each with its model; clip <code class="language-plaintext highlighter-rouge">T_i</code> non-negative.</li>
+  <li>With <code class="language-plaintext highlighter-rouge">clamp_to_measured_span</code>, hold each fit at its value on the
+nearest measured end outside the span the channels cover.</li>
+</ol>
+
+<p><strong>Input semantics.</strong></p>
+
+<p>Measured, at diagnostic-native channels; equilibrium-mapped positions in
+the selected coordinate.</p>
+
+<p><strong>Output semantics.</strong></p>
+
+<p>Fitted: continuous functions of the selected coordinate, span-clamped.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">coordinate = "rho_tor_norm"</code> is the IMAS convention.  <code class="language-plaintext highlighter-rouge">Ti_order =
+Vtor_order = 3</code> are legacy compatibility values; <code class="language-plaintext highlighter-rouge">uncertainty_option = 1</code>
+and <code class="language-plaintext highlighter-rouge">clamp_to_measured_span = True</code> are validated-workflow defaults –
+the clamp was added after shot 48224 at 298 ms, where only 8 of 40 channels
+mapped inside the LCFS and the unclamped cubic gave <code class="language-plaintext highlighter-rouge">T_i(axis) = 54</code> eV
+against a 21 eV largest measurement.  <code class="language-plaintext highlighter-rouge">ion_index = 0</code> selects the first
+ion; <code class="language-plaintext highlighter-rouge">rho_points = 100</code> and <code class="language-plaintext highlighter-rouge">time_tolerance_ms = 1.0</code> are numerical
+conveniences.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>As <code class="language-plaintext highlighter-rouge">profile_fitting_thomson_scattering</code>: the fit and its span are in
+the selected coordinate.  <code class="language-plaintext highlighter-rouge">V_tor</code> keeps the sign the diagnostic mapping
+gave it.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">T_i</code> and <code class="language-plaintext highlighter-rouge">V_tor</code> are flux functions; the channel’s <code class="language-plaintext highlighter-rouge">(R, Z)</code> is where
+the measurement is local.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>With the clamp off, a polynomial through a poorly covered span runs away
+toward the axis.  Every channel’s <code class="language-plaintext highlighter-rouge">ion[ion_index]</code> must exist.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The fitting kernel [FIT]; the span clamp from the 48224 @ 298 ms failure, mirroring <code class="language-plaintext highlighter-rouge">vaft.code.efit._ti_weighted_fit_psin</code>.
+</li>
+</ol>
+
+<h3 id="profile_fitting_thomson_scattering"><code class="language-plaintext highlighter-rouge">profile_fitting_thomson_scattering</code></h3>
+
+<p class="formula-signature"><code>profile_fitting_thomson_scattering(ods, time_ms, mapped_positions=None, Te_order=3, Ne_order=3, uncertainty_option=1, rho_points=100, fitting_function_te='polynomial', fitting_function_ne='polynomial', time_tolerance_ms=1.0, enforce_physical=True, *, coordinate='rho_tor_norm', mapped_rho_position=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Fit Thomson-scattering <code class="language-plaintext highlighter-rouge">T_e</code> and <code class="language-plaintext highlighter-rouge">n_e</code> profiles in a chosen radial coordinate.</p>
+
+<p>Extracts the channel values at the nearest Thomson time, drops unusable
+channels, and fits <code class="language-plaintext highlighter-rouge">T_e(x)</code> and <code class="language-plaintext highlighter-rouge">n_e(x)</code> on <code class="language-plaintext highlighter-rouge">x in [0, 1]</code> with the
+selected model, where <code class="language-plaintext highlighter-rouge">x</code> is the radial coordinate chosen from the mapping
+– <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> by default.  With <code class="language-plaintext highlighter-rouge">enforce_physical</code> a fit that goes
+non-positive or collapses inside the LCFS is retried at lower order.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Carries <code class="language-plaintext highlighter-rouge">thomson_scattering.time</code> and per-channel <code class="language-plaintext highlighter-rouge">t_e</code> / <code class="language-plaintext highlighter-rouge">n_e</code> data with <code class="language-plaintext highlighter-rouge">data_error_upper</code>.</p>
+</td></tr>
+  <tr><td><code>time_ms</code></td><td>float</td><td>ms</td><td><p>Time to fit at; the nearest Thomson sample within <code class="language-plaintext highlighter-rouge">time_tolerance_ms</code></p>
+</td></tr>
+  <tr><td><code>mapped_positions</code></td><td>MappedPositions or np.ndarray, optional</td><td>-</td><td><p>Channel positions from <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code>.  A bare array is the deprecated pre-#420 form, accepted only with <code class="language-plaintext highlighter-rouge">coordinate="psi_norm"</code>.</p>
+</td></tr>
+  <tr><td><code>Te_order</code></td><td>int, optional</td><td>-</td><td><p>Polynomial order for <code class="language-plaintext highlighter-rouge">T_e</code>.</p>
+</td></tr>
+  <tr><td><code>Ne_order</code></td><td>int, optional</td><td>-</td><td><p>Polynomial order for <code class="language-plaintext highlighter-rouge">n_e</code>.</p>
+</td></tr>
+  <tr><td><code>uncertainty_option</code></td><td>int, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">1</code> weights the fit by the per-channel uncertainties.</p>
+</td></tr>
+  <tr><td><code>rho_points</code></td><td>int, optional</td><td>-</td><td><p>Points of the uniform evaluation grid the sampled returns are on.</p>
+</td></tr>
+  <tr><td><code>fitting_function_te</code></td><td>str, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">'polynomial'</code>, <code class="language-plaintext highlighter-rouge">'exponential'</code>, <code class="language-plaintext highlighter-rouge">'core_poly_edge_exp'</code>, <code class="language-plaintext highlighter-rouge">'linear'</code> or <code class="language-plaintext highlighter-rouge">'gp'</code> for <code class="language-plaintext highlighter-rouge">T_e</code>.</p>
+</td></tr>
+  <tr><td><code>fitting_function_ne</code></td><td>str, optional</td><td>-</td><td><p>The same choice for <code class="language-plaintext highlighter-rouge">n_e</code>.</p>
+</td></tr>
+  <tr><td><code>time_tolerance_ms</code></td><td>float, optional</td><td>ms</td><td><p>Largest distance to the nearest Thomson sample.</p>
+</td></tr>
+  <tr><td><code>enforce_physical</code></td><td>bool, optional</td><td>-</td><td><p>Retry at lower order until the profile is physical inside the LCFS.</p>
+</td></tr>
+  <tr><td><code>coordinate</code></td><td>str, optional</td><td>-</td><td><p>Which coordinate of the mapping to fit in: <code class="language-plaintext highlighter-rouge">rho_tor_norm</code>, <code class="language-plaintext highlighter-rouge">rho_pol_norm</code> or <code class="language-plaintext highlighter-rouge">psi_norm</code>.</p>
+</td></tr>
+  <tr><td><code>mapped_rho_position</code></td><td>MappedPositions or np.ndarray, optional</td><td>-</td><td><p>Deprecated name for <code class="language-plaintext highlighter-rouge">mapped_positions</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>n_e_function</code></td><td>FittedProfile</td><td>m^-3</td><td><p><code class="language-plaintext highlighter-rouge">n_e(x)</code>, clipped non-negative, with its coordinate and method.</p>
+</td></tr>
+  <tr><td><code>T_e_function</code></td><td>FittedProfile</td><td>eV</td><td><p><code class="language-plaintext highlighter-rouge">T_e(x)</code>, clipped non-negative.</p>
+</td></tr>
+  <tr><td><code>coeffs_ne</code></td><td>np.ndarray or None</td><td>-</td><td><p>Fit coefficients; <code class="language-plaintext highlighter-rouge">None</code> for the Gaussian-process and linear methods.</p>
+</td></tr>
+  <tr><td><code>coeffs_te</code></td><td>np.ndarray or None</td><td>-</td><td><p>As <code class="language-plaintext highlighter-rouge">coeffs_ne</code>.</p>
+</td></tr>
+  <tr><td><code>n_e_rho</code></td><td>np.ndarray</td><td>m^-3</td><td><p><code class="language-plaintext highlighter-rouge">n_e</code> sampled on <code class="language-plaintext highlighter-rouge">rho_points</code> uniform points of <code class="language-plaintext highlighter-rouge">x</code>.</p>
+</td></tr>
+  <tr><td><code>T_e_rho</code></td><td>np.ndarray</td><td>eV</td><td><p><code class="language-plaintext highlighter-rouge">T_e</code> sampled on the same grid.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    No Thomson sample within tolerance; an unknown <code class="language-plaintext highlighter-rouge">coordinate</code>.
+TypeError
+    A bare position array without <code class="language-plaintext highlighter-rouge">coordinate="psi_norm"</code>.
+CoordinateUnavailableError
+    The mapping cannot supply <code class="language-plaintext highlighter-rouge">coordinate</code>.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Select the channel positions in <code class="language-plaintext highlighter-rouge">coordinate</code> from the mapping.</li>
+  <li>Read <code class="language-plaintext highlighter-rouge">T_e</code>, <code class="language-plaintext highlighter-rouge">n_e</code> and their uncertainties at the nearest time.</li>
+  <li>Drop channels with a non-finite value, a non-finite or zero sigma, or an
+unmapped (NaN) position; floor the surviving sigmas at <code class="language-plaintext highlighter-rouge">1e-3</code> of the
+largest value.</li>
+  <li>Fit <code class="language-plaintext highlighter-rouge">T_e(x)</code> with <code class="language-plaintext highlighter-rouge">fitting_function_te</code>; with <code class="language-plaintext highlighter-rouge">enforce_physical</code>,
+reduce the order until <code class="language-plaintext highlighter-rouge">T_e &gt; 0</code> for <code class="language-plaintext highlighter-rouge">x &lt; PHYSICAL_EDGE_MAX</code>.</li>
+  <li>Fit <code class="language-plaintext highlighter-rouge">n_e(x)</code> on <code class="language-plaintext highlighter-rouge">n_e / 1e18</code>; with <code class="language-plaintext highlighter-rouge">enforce_physical</code>, reduce the
+order until <code class="language-plaintext highlighter-rouge">n_e &gt; 0</code> and its dynamic range inside the LCFS is below
+<code class="language-plaintext highlighter-rouge">NE_DYNAMIC_RANGE_MAX</code>.</li>
+  <li>Wrap both as <code class="language-plaintext highlighter-rouge">FittedProfile</code> carrying <code class="language-plaintext highlighter-rouge">coordinate</code>, method and
+the order actually used.</li>
+</ol>
+
+<p><strong>Input semantics.</strong></p>
+
+<p>Measured, at diagnostic-native channels; equilibrium-mapped positions in
+the selected coordinate.</p>
+
+<p><strong>Output semantics.</strong></p>
+
+<p>Fitted: a continuous function of the selected coordinate, plus its sampled
+form.  Not yet on an equilibrium grid – that is <code class="language-plaintext highlighter-rouge">core_profiles</code>.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">coordinate = "rho_tor_norm"</code> is the IMAS convention; a VEST pipeline
+takes it from <code class="language-plaintext highlighter-rouge">vest.yaml</code>.  <code class="language-plaintext highlighter-rouge">Te_order = Ne_order = 3</code> are legacy
+compatibility values.  <code class="language-plaintext highlighter-rouge">uncertainty_option = 1</code> and
+<code class="language-plaintext highlighter-rouge">enforce_physical = True</code> are validated-workflow defaults; the guard’s
+<code class="language-plaintext highlighter-rouge">PHYSICAL_EDGE_MAX = 0.98</code> and <code class="language-plaintext highlighter-rouge">NE_DYNAMIC_RANGE_MAX = 1e3</code> are empirical
+estimates from shot 48224 at 299 ms, where a cubic extrapolated from five
+channels inside <code class="language-plaintext highlighter-rouge">psi_N &lt;= 0.27</code> crossed zero at <code class="language-plaintext highlighter-rouge">psi_N = 0.87</code> and
+collapsed <code class="language-plaintext highlighter-rouge">n_e</code> by <code class="language-plaintext highlighter-rouge">5e6</code>.  <code class="language-plaintext highlighter-rouge">rho_points = 100</code> and
+<code class="language-plaintext highlighter-rouge">time_tolerance_ms = 1.0</code> are numerical conveniences.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The fit, its <code class="language-plaintext highlighter-rouge">(1 - x)</code> edge factor in the polynomial and exponential
+bases, and the physicality checks are all in the selected coordinate; a
+cubic in <code class="language-plaintext highlighter-rouge">psi_norm</code> is not a cubic in <code class="language-plaintext highlighter-rouge">rho_tor_norm</code>, and the edge
+factor lands at a different physical radius.  Before issue #420 every fit
+was in <code class="language-plaintext highlighter-rouge">psi_norm</code> while the docstring said <code class="language-plaintext highlighter-rouge">rho_tor_norm</code>.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>The profile is a smooth function of one radial coordinate: channel
+positions inside the LCFS are on flux surfaces and <code class="language-plaintext highlighter-rouge">T_e</code>, <code class="language-plaintext highlighter-rouge">n_e</code> are
+flux functions.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The coordinate convention is the pipeline’s to
+supply; for VEST it is resolved from <code class="language-plaintext highlighter-rouge">vest.yaml</code>.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Thomson often covers only the inner part of the profile; every model
+extrapolates over the rest and the guard can only catch the gross failures.
+<code class="language-plaintext highlighter-rouge">'gp'</code> imports scikit-learn on first use (#426).  A slice with fewer
+channels than the order plus one cannot be fitted at that order and the
+guard steps down; with <code class="language-plaintext highlighter-rouge">enforce_physical=False</code> it raises from the
+kernel.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The fitting kernel [FIT]; the physicality guard and its constants from the 48224 failures (<code class="language-plaintext highlighter-rouge">PHYSICAL_EDGE_MAX</code>).
+</li>
+</ol>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/statistical_analysis/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: statistical_analysis">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/process/atomic/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: atomic">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">core_profiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#core_profiles_from_eq" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">core_profiles_from_eq</a></li><li class="page-toc-item page-toc-level-3"><a href="#core_profiles_from_eq_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">core_profiles_from_eq_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_mapping_charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_mapping_charge_exchange</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_mapping_thomson_scattering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_mapping_thomson_scattering</a></li><li class="page-toc-item page-toc-level-3"><a href="#export_electron_profile_txt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">export_electron_profile_txt</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_ti_te_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_ti_te_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#profile_fitting_charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">profile_fitting_charge_exchange</a></li><li class="page-toc-item page-toc-level-3"><a href="#profile_fitting_thomson_scattering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">profile_fitting_thomson_scattering</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: atomic",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_atomic.md",
+            "ref": "_guide/Process_reference_atomic.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_profile.md",
+        "mtime": "2026-09-03 10:04:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-06 16:23:53 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

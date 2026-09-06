@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>c7a626b</code>. What is described
+  <code>0ce7902</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -332,19 +332,36 @@ for the ODS/IDS conventions, and use <code class="language-plaintext highlighter
 <h2 id="stage-1--equilibrium-mapping">Stage 1 — equilibrium mapping</h2>
 
 <p>Each diagnostic channel sits at a fixed $(R, Z)$. The mapping functions interpolate $\psi(R,Z)$ from the
-equilibrium and normalize it, returning one $\rho \in [0, 1]$ per channel:</p>
+equilibrium and return <strong>every radial coordinate the equilibrium supports</strong>, one value per channel, as a
+<code class="language-plaintext highlighter-rouge">MappedPositions</code> record:</p>
 
-\[\rho = \frac{\psi(R,Z) - \psi_{axis}}{\psi_{boundary} - \psi_{axis}}\]
+\[\psi_N = \frac{\psi(R,Z) - \psi_{axis}}{\psi_{boundary} - \psi_{axis}}, \qquad
+\rho_{pol,N} = \sqrt{\psi_N}, \qquad
+\rho_{tor,N} = \sqrt{\Phi(\psi)/\Phi_{boundary}},\ \Phi = \int q\,d\psi\]
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">geq</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">read_geqdsk</span><span class="p">(</span><span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">efit/g040330.00320</span><span class="sh">"</span><span class="p">))</span>
 
-<span class="n">mapped_rho</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">equilibrium_mapping_thomson_scattering</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">geq</span><span class="p">)</span>
-<span class="n">mapped_rho_ces</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">equilibrium_mapping_charge_exchange</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">geq</span><span class="p">)</span>
-</code></pre></div></div>
+<span class="n">mapped</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">equilibrium_mapping_thomson_scattering</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">geq</span><span class="p">)</span>
+<span class="n">mapped_ces</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">equilibrium_mapping_charge_exchange</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">geq</span><span class="p">)</span>
+
+<span class="n">mapped</span><span class="p">.</span><span class="n">psi_norm</span><span class="p">,</span> <span class="n">mapped</span><span class="p">.</span><span class="n">rho_pol_norm</span><span class="p">,</span> <span class="n">mapped</span><span class="p">.</span><span class="n">rho_tor_norm</span>   <span class="c1"># one array each, NaN outside the LCFS
+</span><span class="n">mapped</span><span class="p">.</span><span class="nf">available</span><span class="p">()</span>                                          <span class="c1"># ('rho_tor_norm', 'rho_pol_norm', 'psi_norm')
+</span></code></pre></div></div>
 
 <p>Both accept a <code class="language-plaintext highlighter-rouge">vaft.data.GEQDSK</code>, an OMAS equilibrium ODS, or a legacy flux-surface mapping as <code class="language-plaintext highlighter-rouge">geq</code>.
-Values are clipped to $[0, 1]$, so channels outside the last closed flux surface pile up at $\rho = 1$.
+Channels outside the last closed flux surface are <code class="language-plaintext highlighter-rouge">NaN</code> in every coordinate and are dropped by the
+fitters. $\rho_{tor,N}$ needs the equilibrium’s $q$ profile; a legacy flux-surface mapping cannot supply
+it, and the record says so (<code class="language-plaintext highlighter-rouge">mapped.rho_tor_norm_unavailable</code>) rather than substituting $\sqrt{\psi_N}$,
+which is a different coordinate.</p>
+
+<blockquote>
+  <p><strong>The coordinate is a choice, and the default is $\rho_{tor,N}$.</strong> Before issue #420 the mappers
+returned a bare $\psi_N$ array under the name “rho” and every fit was made in it. Fits are now made in
+the coordinate you select (<code class="language-plaintext highlighter-rouge">coordinate=</code>), <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> by default; pass <code class="language-plaintext highlighter-rouge">coordinate="psi_norm"</code> to
+reproduce the old numbers. A bare array is still accepted, but only together with
+<code class="language-plaintext highlighter-rouge">coordinate="psi_norm"</code>, because that is the only thing it ever meant.
 Building an equilibrium is covered in <a href="/vaft/develop/guide/Equilibrium/">Equilibrium</a>.</p>
+</blockquote>
 
 <h2 id="stage-2--profile-fitting">Stage 2 — profile fitting</h2>
 
@@ -352,8 +369,9 @@ Building an equilibrium is covered in <a href="/vaft/develop/guide/Equilibrium/"
     <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">profile_fitting_thomson_scattering</span><span class="p">(</span>
         <span class="n">ods</span><span class="p">,</span>
         <span class="n">time_ms</span><span class="o">=</span><span class="mf">320.0</span><span class="p">,</span>
-        <span class="n">mapped_rho_position</span><span class="o">=</span><span class="n">mapped_rho</span><span class="p">,</span>
-        <span class="n">Te_order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">mapped_positions</span><span class="o">=</span><span class="n">mapped</span><span class="p">,</span>
+        <span class="n">coordinate</span><span class="o">=</span><span class="sh">"</span><span class="s">rho_tor_norm</span><span class="sh">"</span><span class="p">,</span>  <span class="c1"># the default; "rho_pol_norm" and "psi_norm" are the alternatives
+</span>        <span class="n">Te_order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
         <span class="n">Ne_order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
         <span class="n">uncertainty_option</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>       <span class="c1"># weight the fit by per-channel error bars
 </span>        <span class="n">rho_points</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
@@ -362,9 +380,11 @@ Building an equilibrium is covered in <a href="/vaft/develop/guide/Equilibrium/"
     <span class="p">)</span>
 </code></pre></div></div>
 
-<p>Note the return order: <strong>density first, then temperature</strong>. <code class="language-plaintext highlighter-rouge">n_e_fn</code> and <code class="language-plaintext highlighter-rouge">T_e_fn</code> are callables you can
-evaluate on any $\rho \in [0,1]$; <code class="language-plaintext highlighter-rouge">n_e_rho</code> and <code class="language-plaintext highlighter-rouge">T_e_rho</code> are those functions already sampled on a
-uniform grid of <code class="language-plaintext highlighter-rouge">rho_points</code>. <code class="language-plaintext highlighter-rouge">coeffs_*</code> is <code class="language-plaintext highlighter-rouge">None</code> for the <code class="language-plaintext highlighter-rouge">gp</code> and <code class="language-plaintext highlighter-rouge">linear</code> methods.</p>
+<p>Note the return order: <strong>density first, then temperature</strong>. <code class="language-plaintext highlighter-rouge">n_e_fn</code> and <code class="language-plaintext highlighter-rouge">T_e_fn</code> are <code class="language-plaintext highlighter-rouge">FittedProfile</code>
+objects: callable on any $x \in [0,1]$ of the coordinate they were fitted in, and carrying <code class="language-plaintext highlighter-rouge">.coordinate</code>,
+<code class="language-plaintext highlighter-rouge">.method</code> and <code class="language-plaintext highlighter-rouge">.order</code> so that <code class="language-plaintext highlighter-rouge">core_profiles</code> evaluates them on the right grid and records what produced
+them. <code class="language-plaintext highlighter-rouge">n_e_rho</code> and <code class="language-plaintext highlighter-rouge">T_e_rho</code> are those functions already sampled on a uniform grid of <code class="language-plaintext highlighter-rouge">rho_points</code>.
+<code class="language-plaintext highlighter-rouge">coeffs_*</code> is <code class="language-plaintext highlighter-rouge">None</code> for the <code class="language-plaintext highlighter-rouge">gp</code> and <code class="language-plaintext highlighter-rouge">linear</code> methods.</p>
 
 <p>The CES counterpart mirrors it, with <code class="language-plaintext highlighter-rouge">ion_index</code> selecting the ion species:</p>
 
@@ -372,7 +392,7 @@ uniform grid of <code class="language-plaintext highlighter-rouge">rho_points</c
     <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">profile_fitting_charge_exchange</span><span class="p">(</span>
         <span class="n">ods</span><span class="p">,</span>
         <span class="n">time_ms</span><span class="o">=</span><span class="mf">300.0</span><span class="p">,</span>
-        <span class="n">mapped_rho_position</span><span class="o">=</span><span class="n">mapped_rho_ces</span><span class="p">,</span>
+        <span class="n">mapped_positions</span><span class="o">=</span><span class="n">mapped_ces</span><span class="p">,</span>
         <span class="n">Ti_order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
         <span class="n">Vtor_order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
         <span class="n">fitting_function_ti</span><span class="o">=</span><span class="sh">"</span><span class="s">polynomial</span><span class="sh">"</span><span class="p">,</span>
@@ -459,12 +479,23 @@ estimate), a callable, and the coefficients. <code class="language-plaintext hig
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">core_profiles</span><span class="p">(</span>
     <span class="n">ods</span><span class="p">,</span>
     <span class="n">time_ms</span><span class="o">=</span><span class="mf">320.0</span><span class="p">,</span>
-    <span class="n">mapped_rho_position</span><span class="o">=</span><span class="n">mapped_rho</span><span class="p">,</span>
+    <span class="n">mapped_positions</span><span class="o">=</span><span class="n">mapped</span><span class="p">,</span>
     <span class="n">n_e_function</span><span class="o">=</span><span class="n">n_e_fn</span><span class="p">,</span>
     <span class="n">T_e_function</span><span class="o">=</span><span class="n">T_e_fn</span><span class="p">,</span>
     <span class="n">tol_ms</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
 <span class="p">)</span>
 </code></pre></div></div>
+
+<p>The fits are evaluated on the equilibrium grid <strong>in their own coordinate</strong> and stored on
+<code class="language-plaintext highlighter-rouge">grid.rho_tor_norm</code>, <code class="language-plaintext highlighter-rouge">grid.psi</code> and <code class="language-plaintext highlighter-rouge">grid.rho_pol_norm</code>. What produced the slice is written beside it:
+<code class="language-plaintext highlighter-rouge">electrons.temperature_fit.parameters</code> records the coordinate, method and order, and
+<code class="language-plaintext highlighter-rouge">core_profiles.code.parameters</code> carries one line per slice. A slice written before #420 has no such
+record; that absence marks a legacy product fitted in $\psi_N$.</p>
+
+<p>Thomson-only slices need an ion temperature. The statistical Ti/Te coefficient is <strong>VEST policy</strong>, not a
+processing default: it lives in <code class="language-plaintext highlighter-rouge">vest.yaml</code> (<code class="language-plaintext highlighter-rouge">diagnostics.core_profiles.ti_te_ratio</code>, status
+<code class="language-plaintext highlighter-rouge">inferred</code>, with its derivation record) and the kinetic-EFIT pipeline resolves it per shot with
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.core_profiles.vest_core_profiles_policy(shot)</code> before calling <code class="language-plaintext highlighter-rouge">core_profiles</code>.</p>
 
 <p>It writes, for the new slice index <code class="language-plaintext highlighter-rouge">i</code>:</p>
 
@@ -560,17 +591,17 @@ result in one call:</p>
     <span class="n">ods</span><span class="p">,</span> <span class="mi">46051</span><span class="p">,</span> <span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">legacy/46051_NeTe.mat</span><span class="sh">"</span><span class="p">),</span>
 <span class="p">)</span>
 
-<span class="n">mapped_rho</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">equilibrium_mapping_thomson_scattering</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">geq</span><span class="p">)</span>
+<span class="n">mapped</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">equilibrium_mapping_thomson_scattering</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">geq</span><span class="p">)</span>
 
 <span class="k">for</span> <span class="n">t_s</span> <span class="ow">in</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">"</span><span class="s">thomson_scattering.time</span><span class="sh">"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">):</span>
     <span class="n">time_ms</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">t_s</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1e3</span>
     <span class="n">n_e_fn</span><span class="p">,</span> <span class="n">T_e_fn</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">profile_fitting_thomson_scattering</span><span class="p">(</span>
-        <span class="n">ods</span><span class="p">,</span> <span class="n">time_ms</span><span class="p">,</span> <span class="n">mapped_rho</span><span class="p">,</span>
+        <span class="n">ods</span><span class="p">,</span> <span class="n">time_ms</span><span class="p">,</span> <span class="n">mapped</span><span class="p">,</span>
         <span class="n">Te_order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">Ne_order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
         <span class="n">fitting_function_te</span><span class="o">=</span><span class="sh">"</span><span class="s">polynomial</span><span class="sh">"</span><span class="p">,</span>
         <span class="n">fitting_function_ne</span><span class="o">=</span><span class="sh">"</span><span class="s">polynomial</span><span class="sh">"</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">core_profiles</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_ms</span><span class="p">,</span> <span class="n">mapped_rho</span><span class="p">,</span> <span class="n">n_e_fn</span><span class="p">,</span> <span class="n">T_e_fn</span><span class="p">)</span>
+    <span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">core_profiles</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_ms</span><span class="p">,</span> <span class="n">mapped</span><span class="p">,</span> <span class="n">n_e_fn</span><span class="p">,</span> <span class="n">T_e_fn</span><span class="p">)</span>
 
 <span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">plot_thomson_profiles</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
 </code></pre></div></div>
@@ -944,7 +975,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-06 16:16:16 +0000"
+        "time": "2026-09-06 16:23:53 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

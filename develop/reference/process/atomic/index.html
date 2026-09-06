@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: atomic · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: atomic · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/formula/green/" />
+            <link rel="prev" href="/vaft/develop/reference/process/profile/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/formula/statistics/" />
+            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
         
     </head>
     <body>
@@ -220,7 +220,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Formula reference: atomic</a>
+                            <a href="." >Process reference: atomic</a>
                         
                     </h1>
                 </div>
@@ -246,70 +246,93 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/formula/Formula_reference_atomic">Formula reference: atomic</h1>
+                        <h1 id="/reference/process/Process_reference_atomic">Process reference: atomic</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.atomic, read from the standardized docstrings (issue 248).</dd>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.atomic, read from the standardized docstrings (issue 252).</dd>
     <dt>Prerequisites / inputs</dt><dd>None.</dd>
-    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
 
 <p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/atomic.py"><code class="language-plaintext highlighter-rouge">vaft/formula/atomic.py</code></a>:
-3 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("atomic.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/atomic.py"><code class="language-plaintext highlighter-rouge">vaft/process/atomic.py</code></a>:
+5 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("atomic.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
 <h2 id="overview">Overview</h2>
 
-<p>The equilibrium construction follows MIT-licensed work, Copyright (c) 2021
-Francesco Sciortino. See the third-party notices in the project README.</p>
+<p>This module owns profile selection, time alignment, impurity-density
+fallback and volume integration.  Numerical atomic physics remains in
+<code class="language-plaintext highlighter-rouge">vaft.formula.atomic</code> and ADF11 file access in
+<code class="language-plaintext highlighter-rouge">vaft.data.open_adas</code>.  Which impurity species to include and what
+fraction to assume for them is machine policy, resolved by the pipeline
+(<code class="language-plaintext highlighter-rouge">vaft.omas.formula_wrapper.compute_power_balance</code> from <code class="language-plaintext highlighter-rouge">vest.yaml</code>
+on VEST) and passed in; this module holds no such number (issue #420).</p>
 
-<p>This module is the numerical layer of VAFT’s atomic package.  It accepts SI
-electron densities, evaluates native ADF11 tables in log10 space, and returns
-charge-state fractions or cooling coefficients without depending on OMAS.</p>
+<table class="formula-table">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>n_e</td><td>electron density</td><td>m^-3</td></tr>
+  <tr><td>n_imp</td><td>impurity density</td><td>m^-3</td></tr>
+  <tr><td>T_e</td><td>electron temperature</td><td>eV</td></tr>
+  <tr><td>L_Z</td><td>line-radiation cooling coefficient of species Z</td><td>W m^3</td></tr>
+  <tr><td>epsilon</td><td>line emissivity, n_e n_imp L_Z</td><td>W/m^3</td></tr>
+  <tr><td>P_line</td><td>radiated line power, int epsilon dV</td><td>W</td></tr>
+  <tr><td>V</td><td>cumulative enclosed plasma volume</td><td>m^3</td></tr>
+  <tr><td>rho_tor_norm</td><td>normalized toroidal-flux radius</td><td>-</td></tr>
+  </tbody>
+</table>
 
 <h2 id="functions">Functions</h2>
 
 <ul class="formula-index">
-  <li><a href="#fractional_abundances"><code>fractional_abundances</code></a> &mdash; Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.
+  <li><a href="#compute_line_radiation_power_series"><code>compute_line_radiation_power_series</code></a> &mdash; Line-radiation power for matched equilibrium slices, from the stored kinetic profiles.
 </li>
-  <li><a href="#interpolate_adf11"><code>interpolate_adf11</code></a> &mdash; Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.
+  <li><a href="#compute_time_match_atol"><code>compute_time_match_atol</code></a> &mdash; An absolute time-matching tolerance adapted to the native time spacing.
 </li>
-  <li><a href="#line_cooling_coefficient"><code>line_cooling_coefficient</code></a> &mdash; Equilibrium line-radiation cooling coefficient $L_{line}(n_e, T_e)$ of a species.
+  <li><a href="#find_time_match_index"><code>find_time_match_index</code></a> &mdash; Index of the time closest to <code class="language-plaintext highlighter-rouge">target_time</code>, within the adaptive tolerance.
+</li>
+  <li><a href="#integrate_emissivity_profile"><code>integrate_emissivity_profile</code></a> &mdash; Integrate an emissivity profile to a total radiated power.
+</li>
+  <li><a href="#normalize_atomic_symbol"><code>normalize_atomic_symbol</code></a> &mdash; Normalize an element or ion label to a supported atomic symbol.
 </li>
 </ul>
 
-<h3 id="fractional_abundances"><code class="language-plaintext highlighter-rouge">fractional_abundances</code></h3>
+<h3 id="compute_line_radiation_power_series"><code class="language-plaintext highlighter-rouge">compute_line_radiation_power_series</code></h3>
 
-<p class="formula-signature"><code>fractional_abundances(ne_m3, te_eV, acd, scd)</code></p>
+<p class="formula-signature"><code>compute_line_radiation_power_series(ods, eq_indices, eq_times, volume_series, line_radiation_species=None, impurity_fractions=None, Z_eff=None, *, return_assumptions=False)</code></p>
 
-<p><strong>Convention-sensitive.</strong> </p>
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
-<p>Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.</p>
+<p>Line-radiation power for matched equilibrium slices, from the stored kinetic profiles.</p>
 
-\[\frac{f_{z+1}}{f_z} = \frac{S_z(n_e, T_e)}{\alpha_{z+1}(n_e, T_e)}, \qquad
-  \tilde f_0 = 1, \quad \tilde f_z = \prod_{j=0}^{z-1}\frac{S_j}{\alpha_{j+1}}, \quad
-  f_z = \frac{\tilde f_z}{\sum_k\tilde f_k}\]
-
-<p>with $S_z$ the SCD effective ionisation and $\alpha_{z+1}$ the ACD effective
-recombination coefficients.</p>
+<p>For each species and time slice the local emissivity is
+<code class="language-plaintext highlighter-rouge">epsilon = n_e n_imp L_Z(n_e, T_e)</code> and the power <code class="language-plaintext highlighter-rouge">P = int epsilon dV</code>.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>ne_m3</code></td><td>array-like</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
+  <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Carries <code class="language-plaintext highlighter-rouge">core_profiles.profiles_1d</code> and <code class="language-plaintext highlighter-rouge">equilibrium.time_slice</code>.</p>
 </td></tr>
-  <tr><td><code>te_eV</code></td><td>array-like</td><td>eV</td><td><p>Electron temperature, finite and positive.</p>
+  <tr><td><code>eq_indices</code></td><td>list of int</td><td>-</td><td><p>Equilibrium slice indices to evaluate.</p>
 </td></tr>
-  <tr><td><code>acd</code></td><td>ADF11Data or path-like</td><td>n/a</td><td><p>Effective recombination table.</p>
+  <tr><td><code>eq_times</code></td><td>array_like</td><td>s</td><td><p>Time of each of those slices.</p>
 </td></tr>
-  <tr><td><code>scd</code></td><td>ADF11Data or path-like</td><td>n/a</td><td><p>Effective ionisation table.</p>
+  <tr><td><code>volume_series</code></td><td>array_like</td><td>m^3</td><td><p>Total plasma volume of each slice, for the integration fallback.</p>
+</td></tr>
+  <tr><td><code>line_radiation_species</code></td><td>list of str, optional</td><td>-</td><td><p>Species to include; <code class="language-plaintext highlighter-rouge">None</code> for every species that has a configured fraction or an ion density profile in the ODS.</p>
+</td></tr>
+  <tr><td><code>impurity_fractions</code></td><td>dict of str to float, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">n_imp / n_e</code> per species, used when the ODS carries no profile for it; <code class="language-plaintext highlighter-rouge">None</code> means no assumption.</p>
+</td></tr>
+  <tr><td><code>Z_eff</code></td><td>float, optional</td><td>-</td><td><p>Effective charge, used only to infer a single species’ fraction when nothing else is known.</p>
+</td></tr>
+  <tr><td><code>return_assumptions</code></td><td>bool, optional</td><td>-</td><td><p>Also return what each species’ density was taken from.</p>
 </td></tr>
   </tbody>
 </table>
@@ -317,7 +340,7 @@ recombination coefficients.</p>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>Fractional abundances, summing to one over the last axis. That axis has <code class="language-plaintext highlighter-rouge">n_rate_blocks + 1</code> charge states, neutral to fully stripped.</p>
+  <tr><td></td><td>np.ndarray or tuple of (np.ndarray, dict)</td><td>W</td><td><p>Non-negative line-radiation power per <code class="language-plaintext highlighter-rouge">eq_indices</code> entry, and with <code class="language-plaintext highlighter-rouge">return_assumptions</code> a dict of <code class="language-plaintext highlighter-rouge">species</code>, per-species <code class="language-plaintext highlighter-rouge">impurity_source</code> (<code class="language-plaintext highlighter-rouge">profile</code>, <code class="language-plaintext highlighter-rouge">configured</code>, <code class="language-plaintext highlighter-rouge">inferred_from_zeff</code> or <code class="language-plaintext highlighter-rouge">none</code>), the <code class="language-plaintext highlighter-rouge">impurity_fraction</code> used, and <code class="language-plaintext highlighter-rouge">z_eff</code>.</p>
 </td></tr>
   </tbody>
 </table>
@@ -325,57 +348,93 @@ recombination coefficients.</p>
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    Mismatched charge-state counts, wrong table class, or non-finite rates.</p>
+    Mismatched <code class="language-plaintext highlighter-rouge">eq_times</code> / <code class="language-plaintext highlighter-rouge">volume_series</code> lengths, non-finite times,
+    an unrecognized species label, or a negative or non-finite fraction.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Match each equilibrium time to a <code class="language-plaintext highlighter-rouge">core_profiles</code> slice
+(<code class="language-plaintext highlighter-rouge">find_time_match_index</code>); an unmatched slice radiates nothing.</li>
+  <li>Interpolate <code class="language-plaintext highlighter-rouge">n_e</code>, <code class="language-plaintext highlighter-rouge">T_e</code> from the slice’s <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> onto the
+equilibrium’s <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> (constant edge extrapolation).</li>
+  <li>For each species, take <code class="language-plaintext highlighter-rouge">n_imp / n_e</code> from, in order: the slice’s own
+ion density profile; <code class="language-plaintext highlighter-rouge">impurity_fractions</code>; a single-species inference
+from <code class="language-plaintext highlighter-rouge">Z_eff</code>; else zero with one warning per species.</li>
+  <li><code class="language-plaintext highlighter-rouge">L_Z</code> from the ADAS tables [FORMULA]; <code class="language-plaintext highlighter-rouge">epsilon = L_Z n_e n_imp</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">integrate_emissivity_profile</code> per species, summed; clipped at
+zero.</li>
+</ol>
+
+<p><strong>Input semantics.</strong></p>
+
+<p>Stored kinetic profiles (fitted or synthetic) on their <code class="language-plaintext highlighter-rouge">core_profiles</code>
+grid, plus the equilibrium grid and volume.</p>
+
+<p><strong>Output semantics.</strong></p>
+
+<p>Synthetic: a modelled diagnostic-like quantity, not a measurement.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">impurity_fractions = None</code> and <code class="language-plaintext highlighter-rouge">line_radiation_species = None</code> mean
+<em>no assumption</em>.  The VEST carbon and oxygen fractions that used to be
+this function’s defaults are machine-specific settings, each an assumed
+value in <code class="language-plaintext highlighter-rouge">vest.yaml</code> resolved by the pipeline.  <code class="language-plaintext highlighter-rouge">Z_eff = None</code>
+disables the single-species inference, a numerical convenience.</p>
 
 <p><strong>Convention.</strong></p>
 
-<p>Effective (collisional-radiative, density-dependent) coefficients in the
-ADAS sense, evaluated in cm^-3 internally; the density cancels in the
-ratio, so the result is dimensionless.</p>
+<p>The radial coordinate is <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> throughout: the <code class="language-plaintext highlighter-rouge">core_profiles</code>
+grid and the equilibrium <code class="language-plaintext highlighter-rouge">profiles_1d</code> both carry it and are interpolated
+against each other in it.  <code class="language-plaintext highlighter-rouge">n_i</code> for the impurity is <code class="language-plaintext highlighter-rouge">fraction * n_e</code>
+where a fraction is used; <code class="language-plaintext highlighter-rouge">Z_eff</code> inference assumes hydrogenic main ions,
+<code class="language-plaintext highlighter-rouge">n_imp/n_e = (Z_eff - 1)/(Z(Z - 1))</code>.</p>
 
 <p><strong>Assumptions.</strong></p>
 
-<p>Steady state, no transport: the local balance of ionisation and
-recombination alone sets the charge-state distribution.</p>
+<p>Coronal equilibrium for <code class="language-plaintext highlighter-rouge">L_Z</code>; one impurity species at a time with no
+mutual dilution; the <code class="language-plaintext highlighter-rouge">core_profiles</code> slice at the matched time describes
+the equilibrium slice.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  Species and fractions arrive as arguments.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>Transport in a real edge or start-up plasma shifts the distribution toward
-lower charge states than coronal equilibrium predicts (the effect Aurora
-models with an impurity transport solve).</p>
+<p>Every failure mode – no <code class="language-plaintext highlighter-rouge">core_profiles</code>, no matching time, no <code class="language-plaintext highlighter-rouge">n_e</code>
+or <code class="language-plaintext highlighter-rouge">T_e</code>, ADAS data unavailable, no fraction known – yields zero for
+that slice or species with a logged warning rather than an error, to keep
+an offline power balance running; the returned assumptions are how a
+caller can tell.  A <code class="language-plaintext highlighter-rouge">core_profiles</code> slice stored on <code class="language-plaintext highlighter-rouge">rho_pol_norm</code>
+only (no equilibrium at its time) has no <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> and is skipped.</p>
 
-<p><strong>References.</strong></p>
+<p><strong>Provenance.</strong></p>
 
 <ol class="formula-references">
-  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), Sec. on ADF11 (ionisation balance).
-</li>
-  <li>F. Sciortino et al., Plasma Phys. Control. Fusion 63 (2021) 112001, Sec. 2 (equilibrium construction; MIT-licensed, see the module docstring).
+  <li>ADAS tables [ADAS] through the cooling-coefficient kernel [FORMULA].
 </li>
 </ol>
 
-<h3 id="interpolate_adf11"><code class="language-plaintext highlighter-rouge">interpolate_adf11</code></h3>
+<h3 id="compute_time_match_atol"><code class="language-plaintext highlighter-rouge">compute_time_match_atol</code></h3>
 
-<p class="formula-signature"><code>interpolate_adf11(table, ne_m3, te_eV, *, multiply_density=False)</code></p>
+<p class="formula-signature"><code>compute_time_match_atol(time_array, base_atol=1e-06)</code></p>
 
-<p><strong>Convention-sensitive.</strong> </p>
+<p><strong>Machine-independent.</strong> </p>
 
-<p>Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.</p>
+<p>An absolute time-matching tolerance adapted to the native time spacing.</p>
 
-\[C_z(n_e, T_e) = 10^{\,\mathcal{I}_2[\log_{10}C_z]}\]
-
-<p>where $\mathcal{I}<em>2$ is bilinear interpolation on the table’s rectangular
-grid of $\log</em>{10}n_e\,[\mathrm{cm^{-3}}]$ and $\log_{10}T_e\,[\mathrm{eV}]$.</p>
+<p><code class="language-plaintext highlighter-rouge">max(base_atol, 0.25 * min(diff(unique_finite_times)))</code>, which absorbs
+floating-point drift in a time coordinate without ever matching an
+adjacent physical slice.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>table</code></td><td>ADF11Data</td><td>n/a</td><td><p>Parsed ADF11 table (<code class="language-plaintext highlighter-rouge">acd</code>, <code class="language-plaintext highlighter-rouge">scd</code>, <code class="language-plaintext highlighter-rouge">plt</code>, …).</p>
+  <tr><td><code>time_array</code></td><td>np.ndarray</td><td>s</td><td><p>The time coordinate to be matched against.</p>
 </td></tr>
-  <tr><td><code>ne_m3</code></td><td>array-like</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
-</td></tr>
-  <tr><td><code>te_eV</code></td><td>array-like</td><td>eV</td><td><p>Electron temperature, finite and positive.</p>
-</td></tr>
-  <tr><td><code>multiply_density</code></td><td>bool, optional</td><td>bool</td><td><p>Multiply by $n_e$ in cm^-3 to turn coefficients into rates; default <code class="language-plaintext highlighter-rouge">False</code>.</p>
+  <tr><td><code>base_atol</code></td><td>float, optional</td><td>s</td><td><p>Floor on the tolerance.</p>
 </td></tr>
   </tbody>
 </table>
@@ -383,7 +442,7 @@ grid of $\log</em>{10}n_e\,[\mathrm{cm^{-3}}]$ and $\log_{10}T_e\,[\mathrm{eV}]$
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>Coefficients in the table’s own unit, or rates with <code class="language-plaintext highlighter-rouge">multiply_density</code>. Shape <code class="language-plaintext highlighter-rouge">broadcast(ne_m3, te_eV).shape + (n_blocks,)</code>; cm^3/s for ACD/SCD and W cm^3 for PLT, s^-1 when multiplied by density.</p>
+  <tr><td></td><td>float</td><td>s</td><td><p>The tolerance; <code class="language-plaintext highlighter-rouge">base_atol</code> when fewer than two distinct finite times exist.</p>
 </td></tr>
   </tbody>
 </table>
@@ -391,71 +450,31 @@ grid of $\log</em>{10}n_e\,[\mathrm{cm^{-3}}]$ and $\log_{10}T_e\,[\mathrm{eV}]$
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    Empty, non-finite or non-positive profiles.</p>
+    <code class="language-plaintext highlighter-rouge">base_atol</code> non-finite or negative.</p>
 
-<p><strong>Convention.</strong></p>
+<p><strong>Defaults.</strong></p>
 
-<p>ADF11 stores densities in cm^-3 and rate coefficients in cm^3 s^-1; the SI
-input is converted to cm^-3 internally and the output is <em>not</em> converted
-back, so callers multiply by $10^{-6}$ for m^3 s^-1 (as
-<code class="language-plaintext highlighter-rouge">line_cooling_coefficient</code> does for W m^3).</p>
+<p><code class="language-plaintext highlighter-rouge">base_atol = 1e-6</code> s and the factor <code class="language-plaintext highlighter-rouge">0.25</code> are numerical conveniences:
+a quarter of the smallest spacing can never reach the neighbouring slice.</p>
 
-<p><strong>Validity.</strong></p>
+<p><strong>Applicability.</strong></p>
 
-<p>Inside the tabulated grid (typically $10^{8}$-$10^{15}$ cm^-3 and
-1 eV-10 keV for iso-nuclear ADF11 files).</p>
+<p>Machine-independent.</p>
 
-<p><strong>Limitations.</strong></p>
+<h3 id="find_time_match_index"><code class="language-plaintext highlighter-rouge">find_time_match_index</code></h3>
 
-<p>Linear extrapolation in log space is retained outside the grid to match the
-established ADF11 calculation path; extrapolated coefficients are not
-physical and are not flagged.</p>
+<p class="formula-signature"><code>find_time_match_index(time_array, target_time)</code></p>
 
-<p><strong>Numerical notes.</strong></p>
+<p><strong>Machine-independent.</strong> </p>
 
-<p><code class="language-plaintext highlighter-rouge">scipy.interpolate.RegularGridInterpolator</code> with <code class="language-plaintext highlighter-rouge">bounds_error=False</code>,
-<code class="language-plaintext highlighter-rouge">fill_value=None</code>, one interpolator per charge-state block.</p>
-
-<p><strong>References.</strong></p>
-
-<ol class="formula-references">
-  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), https://www.adas.ac.uk/manual.php, ADF11 format.
-</li>
-  <li>F. Sciortino et al., Plasma Phys. Control. Fusion 63 (2021) 112001 (Aurora; the calculation path this follows).
-</li>
-</ol>
-
-<h3 id="line_cooling_coefficient"><code class="language-plaintext highlighter-rouge">line_cooling_coefficient</code></h3>
-
-<p class="formula-signature"><code>line_cooling_coefficient(species, ne_m3, te_eV, *, acd=None, scd=None, plt=None, cache_dir=None)</code></p>
-
-<p><strong>Convention-sensitive.</strong> </p>
-
-<p>Equilibrium line-radiation cooling coefficient $L_{line}(n_e, T_e)$ of a species.</p>
-
-\[L_{\mathrm{line}}(n_e, T_e) = 10^{-6}\sum_{q=0}^{Z-1} f_q(n_e, T_e)\,
-  P^{\mathrm{PLT}}_q(n_e, T_e)\]
-
-<p>the PLT coefficients weighted by the coronal abundances of
-<code class="language-plaintext highlighter-rouge">fractional_abundances</code>; the fully stripped state has no line
-radiation and is omitted.</p>
+<p>Index of the time closest to <code class="language-plaintext highlighter-rouge">target_time</code>, within the adaptive tolerance.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>species</code></td><td>str</td><td>str</td><td><p>Atomic symbol with configured default ADF11 files, e.g. <code class="language-plaintext highlighter-rouge">"C"</code>.</p>
+  <tr><td><code>time_array</code></td><td>np.ndarray</td><td>s</td><td><p>The time coordinate.</p>
 </td></tr>
-  <tr><td><code>ne_m3</code></td><td>array-like</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
-</td></tr>
-  <tr><td><code>te_eV</code></td><td>array-like</td><td>eV</td><td><p>Electron temperature, finite and positive.</p>
-</td></tr>
-  <tr><td><code>acd</code></td><td>ADF11Data or path-like or None, optional</td><td>n/a</td><td><p>Recombination table; <code class="language-plaintext highlighter-rouge">None</code> resolves the configured file.</p>
-</td></tr>
-  <tr><td><code>scd</code></td><td>ADF11Data or path-like or None, optional</td><td>n/a</td><td><p>Ionisation table; <code class="language-plaintext highlighter-rouge">None</code> resolves the configured file.</p>
-</td></tr>
-  <tr><td><code>plt</code></td><td>ADF11Data or path-like or None, optional</td><td>n/a</td><td><p>Line-power table; <code class="language-plaintext highlighter-rouge">None</code> resolves the configured file.</p>
-</td></tr>
-  <tr><td><code>cache_dir</code></td><td>str or path-like or None, optional</td><td>n/a</td><td><p>OPEN-ADAS cache directory; downloads on a miss.</p>
+  <tr><td><code>target_time</code></td><td>float</td><td>s</td><td><p>The time to match.</p>
 </td></tr>
   </tbody>
 </table>
@@ -463,46 +482,116 @@ radiation and is omitted.</p>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>np.ndarray</td><td>W m^3</td><td><p>Cooling coefficient with the broadcast input shape. Multiply by $n_e n_Z$ for a power density.</p>
+  <tr><td></td><td>int or None</td><td>-</td><td><p>Index of the closest time within <code class="language-plaintext highlighter-rouge">compute_time_match_atol</code>; <code class="language-plaintext highlighter-rouge">None</code> for an empty array, a non-finite target, or no candidate within tolerance.</p>
 </td></tr>
   </tbody>
 </table>
 
-<p><strong>Raises.</strong></p>
+<p><strong>Applicability.</strong></p>
 
-<p>KeyError
-    Unconfigured species.
-ADASDataError
-    Lookup, download or parsing failure.
-ValueError
-    Invalid inputs or mismatched charge-state dimensions.</p>
+<p>Machine-independent.</p>
+
+<h3 id="integrate_emissivity_profile"><code class="language-plaintext highlighter-rouge">integrate_emissivity_profile</code></h3>
+
+<p class="formula-signature"><code>integrate_emissivity_profile(emissivity_profile, volume_profile, total_volume)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Integrate an emissivity profile to a total radiated power.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>emissivity_profile</code></td><td>np.ndarray</td><td>W/m^3</td><td><p>Local emissivity on the radial grid.</p>
+</td></tr>
+  <tr><td><code>volume_profile</code></td><td>np.ndarray or None</td><td>m^3</td><td><p>Cumulative enclosed volume on the same grid, or <code class="language-plaintext highlighter-rouge">None</code>.</p>
+</td></tr>
+  <tr><td><code>total_volume</code></td><td>float</td><td>m^3</td><td><p>Total plasma volume, for the fallback.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>W</td><td><p><code class="language-plaintext highlighter-rouge">P = int epsilon dV</code>, or the fallback, or <code class="language-plaintext highlighter-rouge">0</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>If <code class="language-plaintext highlighter-rouge">volume_profile</code> is given, matches the emissivity’s shape and has at
+least two finite points spanning a non-zero volume: trapezoidal
+integration of <code class="language-plaintext highlighter-rouge">epsilon</code> against <code class="language-plaintext highlighter-rouge">V</code>, in volume order.</li>
+  <li>Else, if <code class="language-plaintext highlighter-rouge">total_volume</code> is finite and positive:
+<code class="language-plaintext highlighter-rouge">nanmean(epsilon) * total_volume</code>.</li>
+  <li>Else <code class="language-plaintext highlighter-rouge">0</code>.</li>
+</ol>
 
 <p><strong>Convention.</strong></p>
 
-<p>ADF11 PLT is stored in W cm^3; the factor $10^{-6}$ converts to W m^3.
-Coronal equilibrium, no transport, no recombination/bremsstrahlung
-continuum (that is the separate PRB class).</p>
+<p><code class="language-plaintext highlighter-rouge">volume_profile</code> is the <em>cumulative enclosed</em> volume <code class="language-plaintext highlighter-rouge">V(rho)</code>, so
+<code class="language-plaintext highlighter-rouge">dV</code> is its difference; it is not a shell volume.</p>
 
-<p><strong>References.</strong></p>
+<p><strong>Applicability.</strong></p>
 
-<ol class="formula-references">
-  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), ADF11 PLT class.
-</li>
-  <li>D. E. Post et al., At. Data Nucl. Data Tables 20 (1977) 397 (coronal cooling curves).
-</li>
-</ol>
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The two fallbacks are silent: a volume profile of the wrong length drops to
+the mean-times-volume estimate, and a missing volume to zero, with no
+warning from this function.</p>
+
+<h3 id="normalize_atomic_symbol"><code class="language-plaintext highlighter-rouge">normalize_atomic_symbol</code></h3>
+
+<p class="formula-signature"><code>normalize_atomic_symbol(label)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Normalize an element or ion label to a supported atomic symbol.</p>
+
+<p>Full English names and charge-decorated labels are accepted –
+<code class="language-plaintext highlighter-rouge">carbon6+</code> gives <code class="language-plaintext highlighter-rouge">C</code>, <code class="language-plaintext highlighter-rouge">neon</code> gives <code class="language-plaintext highlighter-rouge">Ne</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>label</code></td><td>str, bytes or None</td><td>-</td><td><p>The label as found in an ODS <code class="language-plaintext highlighter-rouge">ion.label</code> or a species list.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>str or None</td><td>-</td><td><p>The symbol, or <code class="language-plaintext highlighter-rouge">None</code> for an unrecognized label so the caller decides whether absence is fatal.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Only the elements in the module’s table are recognized (H through W, the
+common tokamak species); isotopes D and T map to their own symbols.</p>
 
 <h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
 
 <p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
 </code></pre></div></div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
 validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -515,7 +604,7 @@ The same text is available offline as <code class="language-plaintext highlighte
       <ul>
         
           
-          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
         
       </ul>
     </div>
@@ -581,13 +670,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/formula/green/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: green">
+                        <a href="/vaft/develop/reference/process/profile/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: profile">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/formula/statistics/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: statistics">
+                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -603,7 +692,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fractional_abundances" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_abundances</a></li><li class="page-toc-item page-toc-level-3"><a href="#interpolate_adf11" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">interpolate_adf11</a></li><li class="page-toc-item page-toc-level-3"><a href="#line_cooling_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">line_cooling_coefficient</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#compute_line_radiation_power_series" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_line_radiation_power_series</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_time_match_atol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_time_match_atol</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_time_match_index" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_time_match_index</a></li><li class="page-toc-item page-toc-level-3"><a href="#integrate_emissivity_profile" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">integrate_emissivity_profile</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalize_atomic_symbol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalize_atomic_symbol</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -619,11 +708,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Formula reference: statistics",
+            "title": "VEST diagnostics and data availability",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Formula_reference_statistics.md",
-            "ref": "_guide/Formula_reference_statistics.md",
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
             "articles": []
         },
         
@@ -715,8 +804,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Formula_reference_atomic.md",
-        "mtime": "2026-09-02 10:14:00 +0000",
+        "path": "_guide/Process_reference_atomic.md",
+        "mtime": "2026-09-03 10:05:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
