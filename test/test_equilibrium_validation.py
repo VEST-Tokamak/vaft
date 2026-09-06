@@ -150,9 +150,10 @@ def test_not_available_is_distinct_from_pass_and_from_fail(report):
 
 
 def test_a_partially_assessable_category_is_indeterminate(report):
-    """Eight slices pass the virial closure and the dead one cannot be decided:
-    the check is ``indeterminate``, because part of the evidence is missing."""
-    virial = report["physical_validity"]["virial"]
+    """Eight slices pass the virial plausibility bounds and the dead one cannot
+    be decided: the check is ``indeterminate``, because part of the evidence is
+    missing."""
+    virial = report["physical_validity"]["virial_parameter_plausibility"]
     assert virial["counts"] == {INDETERMINATE: 1, PASS: 8}
     assert virial["status"] == INDETERMINATE
 
@@ -162,12 +163,12 @@ def test_a_partially_assessable_category_is_indeterminate(report):
 # ---------------------------------------------------------------------------
 
 def test_a_slice_without_a_boundary_is_indeterminate_not_a_number(report):
-    dead = _slice(report, "physical_validity", "virial", DEAD)
+    dead = _slice(report, "physical_validity", "virial_parameter_plausibility", DEAD)
     assert dead["status"] == INDETERMINATE
     assert "non-finite" in dead["reason"]
     for name in ("s_1", "beta_p", "li", "B_pa"):
         assert dead[name] is None  # NaN serializes as null, never as an unbounded value
-    live = _slice(report, "physical_validity", "virial", LIVE)
+    live = _slice(report, "physical_validity", "virial_parameter_plausibility", LIVE)
     assert live["status"] == PASS
     assert 0 < live["beta_p"] < 10 and 0 < live["li"] < 3
     # Both closures are named; neither is silently the other.
@@ -263,7 +264,7 @@ def test_virial_quantities_are_the_wrappers_numbers(sample):
 
     expected = compute_virial_equilibrium_quantities_ods(copy.deepcopy(sample), time_slice=LIVE)[LIVE]
     physical = validate_physical(sample, time_slice=LIVE)
-    virial = physical["virial"]
+    virial = physical["virial_parameter_plausibility"]
     for name in ("s_1", "s_2", "s_3", "alpha", "B_pa", "beta_p", "li", "W_kin"):
         assert virial[name] == pytest.approx(expected[name])
 
@@ -277,7 +278,9 @@ def test_pressure_consistency_names_both_definitions(report):
     live = _slice(report, "physical_validity", "pressure_consistency", LIVE)
     descriptors = derive_global_descriptors(as_equilibrium(sample_ods(), time_index=LIVE)).values
     assert live["beta_p_pressure_integral"] == pytest.approx(descriptors["beta_p_boundary_average"].value)
-    assert live["beta_p_virial"] == _slice(report, "physical_validity", "virial", LIVE)["beta_p"]
+    assert live["beta_p_virial"] == _slice(
+        report, "physical_validity", "virial_parameter_plausibility", LIVE
+    )["beta_p"]
     assert live["ratio"] == pytest.approx(live["beta_p_pressure_integral"] / live["beta_p_virial"])
     assert live["status"] == FAIL and abs(live["log_ratio"]) > describe("physical_validity.pressure_consistency").tolerance[1]
     assert _slice(report, "physical_validity", "pressure_consistency", DEAD)["status"] == NOT_AVAILABLE

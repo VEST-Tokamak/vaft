@@ -41,6 +41,17 @@ from vaft.formula import (
     virial_beta_pd_from_S_mu_rt,
     kinetic_energy_from_beta_p_B_pa_V_p,
     magnetic_energy_from_li_B_pa_V_p,
+    virial_beta_p_from_volume,
+    virial_closure_denominators,
+    virial_full_123_from_S_alpha_rt,
+    virial_identity_residuals,
+    virial_li_from_volume,
+    virial_muihat_from_Bt_R0_dphi,
+    virial_normalized_residual,
+    virial_pair_12_from_S_mu_rt,
+    virial_pair_13_from_S_alpha_mu,
+    virial_pair_23_from_S_alpha_mu_rt,
+    virial_residual_rms,
 )
 from vaft.omas import find_matching_time_indices
 from vaft.omas.update import update_equilibrium_boundary
@@ -1213,6 +1224,170 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     return W_B
 
 
+def _virial_measured_diamagnetic_flux(ods, eq_idx: int) -> float:
+    """The measured diamagnetic flux at one equilibrium slice time, or NaN.
+
+    Never raises: the measured loop is optional evidence here, and an ODS
+    without magnetics must still produce every equilibrium-derived quantity.
+    The same linear interpolation and edge-clamping as
+    :func:`compute_diamagnetic_flux_measured_vs_computed`, so the two agree on
+    what "the measurement at this slice" means.
+    """
+    try:
+        if (
+            "magnetics.diamagnetic_flux.0.data" not in ods
+            or "magnetics.time" not in ods
+            or not len(ods["magnetics.diamagnetic_flux"])
+        ):
+            return np.nan
+        t_mag = np.asarray(ods["magnetics.time"], float)
+        flux = np.asarray(ods["magnetics.diamagnetic_flux.0.data"], float)
+        if t_mag.size < 2 or flux.size != t_mag.size:
+            return np.nan
+        eq_ts = ods["equilibrium.time_slice"][eq_idx]
+        t_eq = float(eq_ts["time"]) if "time" in eq_ts else np.nan
+        if not np.isfinite(t_eq) and "equilibrium.time" in ods:
+            times = np.asarray(ods["equilibrium.time"], float)
+            if eq_idx < times.size:
+                t_eq = float(times[eq_idx])
+        if not np.isfinite(t_eq):
+            return np.nan
+        return float(
+            interp1d(
+                t_mag, flux, kind="linear", bounds_error=False,
+                fill_value=(flux[0], flux[-1]),
+            )(t_eq)
+        )
+    except Exception as exc:  # optional evidence: never fail the virial path
+        logger.debug("Time slice %s: measured diamagnetic flux unavailable: %s", eq_idx, exc)
+        return np.nan
+
+
+def _virial_disagreement_block(pairs):
+    """Pairwise differences between the three closures, report-only.
+
+    On consistent inputs all three agree exactly, so every difference is
+    evidence about the inputs rather than about the closures. The 12-vs-13 and
+    23-vs-13 differences are the informative ones at low aspect ratio: pair_13
+    is the only closure that does not use RT/R0, so its distance from the other
+    two is a direct measure of RT sensitivity (#546 s8).
+    """
+    out = {}
+    for left, right in (("12", "13"), ("12", "23"), ("13", "23")):
+        beta_l, li_l = pairs[left]
+        beta_r, li_r = pairs[right]
+        out[f"delta_beta_{left}_{right}"] = (
+            float(beta_l - beta_r)
+            if np.isfinite(beta_l) and np.isfinite(beta_r)
+            else np.nan
+        )
+        out[f"delta_li_{left}_{right}"] = (
+            float(li_l - li_r) if np.isfinite(li_l) and np.isfinite(li_r) else np.nan
+        )
+    return out
+
+
+def _virial_pair_block(beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0, omitted):
+    """One pairwise closure plus the residual of the identity it left out.
+
+    ``omitted`` is ``"e1"``, ``"e2"`` or ``"e3"``: the relation the pair did not
+    use, and therefore the only one whose residual carries information. The two
+    it did use close to machine precision by construction.
+    """
+    index = {"e1": 0, "e2": 1, "e3": 2}[omitted]
+    if not (np.isfinite(beta_p) and np.isfinite(li)):
+        return {
+            "beta_p": np.nan,
+            "li": np.nan,
+            "omitted_identity": omitted.upper(),
+            "residual": np.nan,
+            "residual_normalized": np.nan,
+        }
+    residuals = virial_identity_residuals(
+        beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0
+    )
+    lhs, rhs = _virial_identity_sides(
+        beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0
+    )[index]
+    return {
+        "beta_p": float(beta_p),
+        "li": float(li),
+        "omitted_identity": omitted.upper(),
+        "residual": float(residuals[index]),
+        "residual_normalized": float(
+            virial_normalized_residual(residuals[index], lhs, rhs)
+        ),
+    }
+
+
+def _virial_identity_sides(beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0):
+    """The two sides of each identity, for the residual normalization scale."""
+    return (
+        (3.0 * beta_p + li - mu_i, S1 + S2),
+        (beta_p + li + mu_i, rt_over_r0 * S2),
+        (beta_p - (alpha - 1.0) * li - mu_i, S3),
+    )
+
+
+def _virial_identity_block(beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0):
+    """Evaluate all three identities directly, without inverting anything.
+
+    This is the closure-independent evidence (#546 s6): whether the
+    equilibrium's own volume-integral beta_p, li and mu_i satisfy the three
+    relations. A closure being singular says nothing about these.
+    """
+    if not all(np.isfinite(v) for v in (beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0)):
+        return {"e1": np.nan, "e2": np.nan, "e3": np.nan,
+                "e1_normalized": np.nan, "e2_normalized": np.nan,
+                "e3_normalized": np.nan, "rms": np.nan}
+    residuals = virial_identity_residuals(beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0)
+    sides = _virial_identity_sides(beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0)
+    normalized = [
+        virial_normalized_residual(r, lhs, rhs)
+        for r, (lhs, rhs) in zip(residuals, sides)
+    ]
+    return {
+        "e1": float(residuals[0]), "e2": float(residuals[1]), "e3": float(residuals[2]),
+        "e1_normalized": float(normalized[0]),
+        "e2_normalized": float(normalized[1]),
+        "e3_normalized": float(normalized[2]),
+        "rms": float(virial_residual_rms(*normalized)),
+    }
+
+
+def _virial_conditioning_block(alpha, rt_denominator_ratio, rt_over_r0):
+    """Which closures can be inverted here, and how far each is from failing.
+
+    The identities themselves never become singular; only the inversions do
+    (#546 s10). RT is the one whose conditioning is not a function of alpha:
+    its denominator is an integral over a sign-changing integrand, so
+    ``rt_denominator_ratio`` is what says whether RT/R0 means anything.
+
+    ``pair_12`` is deliberately absent from the denominators: it is built from
+    the two relations that never mention alpha and has nothing to divide by.
+    """
+    pair_13, pair_23, lao_li, full_123 = (
+        virial_closure_denominators(alpha)
+        if np.isfinite(alpha)
+        else (np.nan, np.nan, np.nan, np.nan)
+    )
+    denominators = {
+        "pair_13": float(pair_13),
+        "pair_23": float(pair_23),
+        "lao_li": float(lao_li),
+        "full_123": float(full_123),
+    }
+    return {
+        "denominators": denominators,
+        "distance_to_singularity": {
+            name: (abs(value) if np.isfinite(value) else np.nan)
+            for name, value in denominators.items()
+        },
+        "rt_denominator_ratio": float(rt_denominator_ratio),
+        "rt_over_r0_available": bool(np.isfinite(rt_over_r0)),
+    }
+
+
 def compute_virial_equilibrium_quantities_ods(
     ods: ODS,
     time_slice: Optional[int] = None,
@@ -1451,6 +1626,7 @@ def compute_virial_equilibrium_quantities_ods(
         RT = float(vol_terms["rt"]) if np.isfinite(vol_terms["rt"]) else np.nan
         phi_dia_comp = float(vol_terms["phi_dia_comp"]) if np.isfinite(vol_terms["phi_dia_comp"]) else np.nan
         V_p = float(vol_terms["volume"]) if np.isfinite(vol_terms["volume"]) else np.nan
+        rt_den_ratio = float(vol_terms.get("rt_denominator_ratio", np.nan))
 
         # Boundary terms (S1,S2,S3), using same B_ref = B_pa and weighted volume
         S1, S2, S3, _alpha_check = shafranov_integrals(
@@ -1517,6 +1693,82 @@ def compute_virial_equilibrium_quantities_ods(
             except ValueError:
                 beta_p_bongard, li_bongard = np.nan, np.nan
 
+        # The three pairwise closures and the full solve (#546 s2, s4). Unlike
+        # the historical pair above these return NaN at a singular denominator
+        # rather than raising or returning a large finite number, so no
+        # try/except is needed and an indeterminate closure stays indeterminate.
+        beta_p_12, li_12 = (
+            virial_pair_12_from_S_mu_rt(S1, S2, mui, RT_over_R0)
+            if np.isfinite(mui) and np.isfinite(RT_over_R0)
+            else (np.nan, np.nan)
+        )
+        beta_p_13, li_13 = (
+            virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mui)
+            if np.isfinite(alpha) and np.isfinite(mui)
+            else (np.nan, np.nan)
+        )
+        beta_p_23, li_23 = (
+            virial_pair_23_from_S_alpha_mu_rt(S1, S2, S3, alpha, mui, RT_over_R0)
+            if np.isfinite(alpha) and np.isfinite(mui) and np.isfinite(RT_over_R0)
+            else (np.nan, np.nan)
+        )
+        beta_p_full, li_full, mui_full = (
+            virial_full_123_from_S_alpha_rt(S1, S2, S3, alpha, RT_over_R0)
+            if np.isfinite(alpha) and np.isfinite(RT_over_R0)
+            else (np.nan, np.nan, np.nan)
+        )
+
+        # Volume-integral beta_p, li and mu_i (#546 s6). These invert nothing,
+        # so they are the one set of values a singular closure cannot spoil, and
+        # the identity residuals built on them are the primary self-consistency
+        # evidence.
+        beta_p_volume = np.nan
+        li_volume = np.nan
+        if np.isfinite(B_pa) and B_pa > 0.0 and np.isfinite(V_p) and V_p > 0.0:
+            dV_cells = np.asarray(vol_terms["dV"], float)
+            b_p_sq = np.asarray(vol_terms["b_p_squared"], float)
+            beta_p_volume = float(
+                virial_beta_p_from_volume(p_2d, dV_cells, B_pa, V_p)
+            )
+            li_volume = float(
+                virial_li_from_volume(np.sqrt(np.clip(b_p_sq, 0.0, None)), dV_cells, B_pa, V_p)
+            )
+        # mu_i has three separable sources and they must not be collapsed
+        # (#546 s9): the volume/equilibrium-derived one already computed above,
+        # the one the full three-relation solve predicts, and the measured
+        # diamagnetic loop.
+        mui_measured = np.nan
+        delta_phi_measured = _virial_measured_diamagnetic_flux(ods, eq_idx)
+        if (
+            np.isfinite(delta_phi_measured)
+            and np.isfinite(B_t0)
+            and np.isfinite(R_0)
+            and np.isfinite(B_pa)
+            and B_pa > 0.0
+            and np.isfinite(V_p)
+            and V_p > 0.0
+        ):
+            mui_measured = float(
+                virial_muihat_from_Bt_R0_dphi(B_t0, R_0, delta_phi_measured, B_pa, V_p)
+            )
+        # The same three closures again, on the measured mu_i, so the comparison
+        # against the reconstruction is like for like.
+        beta_p_12_m, li_12_m = (
+            virial_pair_12_from_S_mu_rt(S1, S2, mui_measured, RT_over_R0)
+            if np.isfinite(mui_measured) and np.isfinite(RT_over_R0)
+            else (np.nan, np.nan)
+        )
+        beta_p_13_m, li_13_m = (
+            virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mui_measured)
+            if np.isfinite(alpha) and np.isfinite(mui_measured)
+            else (np.nan, np.nan)
+        )
+        beta_p_23_m, li_23_m = (
+            virial_pair_23_from_S_alpha_mu_rt(S1, S2, S3, alpha, mui_measured, RT_over_R0)
+            if np.isfinite(alpha) and np.isfinite(mui_measured) and np.isfinite(RT_over_R0)
+            else (np.nan, np.nan)
+        )
+
         # Keep backward-compatible top-level beta_p/li mapped to Lao version.
         beta_p = float(beta_p_lao) if np.isfinite(beta_p_lao) else np.nan
         li = float(li_lao) if np.isfinite(li_lao) else np.nan
@@ -1553,6 +1805,46 @@ def compute_virial_equilibrium_quantities_ods(
             "li_vir_lao": float(li_lao) if np.isfinite(li_lao) else np.nan,
             "beta_p_vir_bongard": float(beta_p_bongard) if np.isfinite(beta_p_bongard) else np.nan,
             "li_vir_bongard": float(li_bongard) if np.isfinite(li_bongard) else np.nan,
+            # --- #546: the closure-and-consistency structure -----------------
+            # Every key above is kept as it was; the summary preset, the plot
+            # recipes and the validation layer all read them by name.
+            "volume": {
+                "beta_p": beta_p_volume,
+                "li": li_volume,
+                "mu_i": float(mui) if np.isfinite(mui) else np.nan,
+            },
+            "pair_12": _virial_pair_block(
+                beta_p_12, li_12, mui, S1, S2, S3, alpha, RT_over_R0, "e3"
+            ),
+            "pair_13": _virial_pair_block(
+                beta_p_13, li_13, mui, S1, S2, S3, alpha, RT_over_R0, "e2"
+            ),
+            "pair_23": _virial_pair_block(
+                beta_p_23, li_23, mui, S1, S2, S3, alpha, RT_over_R0, "e1"
+            ),
+            "full_123": {
+                "beta_p": float(beta_p_full) if np.isfinite(beta_p_full) else np.nan,
+                "li": float(li_full) if np.isfinite(li_full) else np.nan,
+                "mu_i": float(mui_full) if np.isfinite(mui_full) else np.nan,
+            },
+            "identity": _virial_identity_block(
+                beta_p_volume, li_volume, mui, S1, S2, S3, alpha, RT_over_R0
+            ),
+            "conditioning": _virial_conditioning_block(alpha, rt_den_ratio, RT_over_R0),
+            "mu_i_sources": {
+                "volume": float(mui) if np.isfinite(mui) else np.nan,
+                "full_123": float(mui_full) if np.isfinite(mui_full) else np.nan,
+                "measured": mui_measured,
+                "measured_diamagnetic_flux": delta_phi_measured,
+            },
+            "measured_mu_i_closures": {
+                "pair_12": {"beta_p": beta_p_12_m, "li": li_12_m},
+                "pair_13": {"beta_p": beta_p_13_m, "li": li_13_m},
+                "pair_23": {"beta_p": beta_p_23_m, "li": li_23_m},
+            },
+            "disagreement": _virial_disagreement_block(
+                {"12": (beta_p_12, li_12), "13": (beta_p_13, li_13), "23": (beta_p_23, li_23)}
+            ),
         }
         nans = [k for k in ("s_1", "s_2", "s_3", "alpha", "B_pa", "beta_p", "li", "W_mag", "W_kin")
                  if not np.isfinite(np.asarray(out[eq_idx][k], float))]

@@ -907,7 +907,17 @@ def efit_virial_volume_integrals(
     """
     EFIT-style weighted volume integrals on the poloidal grid.
 
-    Returns alpha, RT, and diamagnetic-flux components in SI units.
+    Returns alpha, RT, and diamagnetic-flux components in SI units, plus
+    ``rt_denominator_ratio``, the fraction of the RT denominator that survives
+    the sign cancellation inside its integrand. RT is a weighted mean radius
+    only while that ratio is comfortably above zero; below it the value is a
+    ratio of two small differences and carries no information, which is why the
+    conditioning number is returned rather than merely used as a gate.
+
+    ``dV`` and ``b_p_squared`` are the weighted volume element and the poloidal
+    field magnitude squared on the same grid, so a caller can form
+    volume-integral beta_p and l_i against exactly the cells and weights that
+    produced ``volume``.
     """
     if np.ndim(R_grid) == 1 and np.ndim(Z_grid) == 1:
         R_grid, Z_grid = np.meshgrid(np.asarray(R_grid, float), np.asarray(Z_grid, float), indexing="ij")
@@ -926,6 +936,11 @@ def efit_virial_volume_integrals(
     alpha = np.nan if alpha_den == 0.0 else float(2.0 * alpha_num / alpha_den)
 
     RT = np.nan
+    # |int G dA| / int |G| dA -- how much of the RT denominator survives the
+    # cancellation inside G. Near zero, RT is a ratio of two small differences
+    # and its value says nothing, so the conditioning number is reported
+    # alongside RT rather than only used to gate it (#546 s10).
+    rt_denominator_ratio = np.nan
     if p_tot_grid is not None and B_phi_grid is not None and B_phi_vac_grid is not None:
         p_tot_grid = np.asarray(p_tot_grid, float)
         B_phi_grid = np.asarray(B_phi_grid, float)
@@ -936,6 +951,8 @@ def efit_virial_volume_integrals(
         RT_den = float(np.nansum(G_weighted))
         # Guard against near-singular denominator to prevent RT/R0 blow-up.
         rt_den_scale = float(np.nansum(np.abs(G_weighted)))
+        if rt_den_scale > 0.0 and np.isfinite(RT_den):
+            rt_denominator_ratio = abs(RT_den) / rt_den_scale
         if (
             np.isfinite(RT_num)
             and np.isfinite(RT_den)
@@ -951,12 +968,20 @@ def efit_virial_volume_integrals(
             phi_term = -((float(F_boundary) - F_grid) / R_grid) * weights * dA
         phi_dia_comp = float(np.nansum(phi_term))
 
-    volume = float(np.nansum(2.0 * np.pi * R_grid * weights * dA))
+    # The volume element every quantity here is weighted by. Returned so a
+    # caller computing volume-integral beta_p or l_i uses the same cells and the
+    # same weights as `volume` and the Shafranov integrals, instead of a second
+    # masking convention that would make the two incomparable.
+    dV = 2.0 * np.pi * R_grid * weights * dA
+    volume = float(np.nansum(dV))
     return {
         "alpha": alpha,
         "rt": RT,
+        "rt_denominator_ratio": rt_denominator_ratio,
         "phi_dia_comp": phi_dia_comp,
         "volume": volume,
+        "dV": dV,
+        "b_p_squared": B_p_sq,
     }
 
 
