@@ -176,9 +176,10 @@ dump with no SQL server in reach. Magnetics processing parameters travel as a
   by the `Snakefile`.
 * **Channel selection is a decision the constraint stage consumes, not one it makes** (issue #296).
   `vaft.validation.efit_channels.decide_efit_channels` reads the validity the diagnostics stage projected
-  and the `constraints.broken` list (1-based combined indexes: probes first, flux loops after the 64 EFIT
-  probes) and emits a per-channel, per-slice decision — usable, suspect, rejected, missing or recovered —
-  that `generate_constraints_ods` only translates into weights. `constraints.detect_broken: true` now means
+  and emits a per-channel, per-slice decision — usable, suspect, rejected, missing or recovered —
+  that `generate_constraints_ods` only translates into weights. There is no manual channel list any more
+  (issue #295 retired `constraints.broken`; its evidence is in `workflow/efit_channel_selection/README.md`),
+  so a channel is a constraint unless the assessment says otherwise. `constraints.detect_broken: true` now means
   *require* that assessment: a product without projected validity is refused and must be re-run through the
   diagnostics stage (with `false` every channel is usable by default). No detector runs in this stage.
   `gaussian_fit_option` selects the compatibility recovery backend (`1` refits rejected probes from their

@@ -227,8 +227,8 @@ result = collect_efit_outputs('/tmp/efit-run', config)
 Which magnetic channels constrain the fit, and at which slices, is decided
 before the constraints are written and only translated by the writer
 (issue #296). `vaft.validation.efit_channels.decide_efit_channels` reads the
-validity the diagnostics stage projected (never re-detecting anything) and an
-optional manual rejection list, and returns a `ChannelDecisions` holding one
+validity the diagnostics stage projected (never re-detecting anything) and
+returns a `ChannelDecisions` holding one
 of five states per channel and slice:
 
 | state | weight | value |
@@ -242,8 +242,9 @@ of five states per channel and slice:
 A recovery backend is any `callable(EQ, decisions) -> decisions`; the
 compatibility one refits rejected probes from their geometric family's
 Gaussian profile, and never re-enables a channel the quality layer rejected —
-it replaces the number, the weight stays zero unless the only rejection was
-the manual list.
+it replaces the number, the weight stays zero. (The routine pipeline carries
+no manual rejection list since issue #295; `manual_rejections=` remains an
+input for ad-hoc studies and is recorded as such.)
 
 ```python
 from functools import partial
@@ -251,7 +252,7 @@ from vaft.code.efit import generate_constraints_ods, gaussian_probe_recovery, pr
 from vaft.validation.efit_channels import decide_efit_channels, efit_probe_count
 
 nbprobe = efit_probe_count(ods)
-decisions = decide_efit_channels(ods, times, nbprobe=nbprobe, manual_rejections=[65, 66])
+decisions = decide_efit_channels(ods, times, nbprobe=nbprobe)
 recovery = partial(gaussian_probe_recovery, mode=1,
                    families=probe_families(ods['magnetics'], count=nbprobe))
 generate_constraints_ods(ods, shot, save_dir, table_dir, times, uncertainty, weighting,

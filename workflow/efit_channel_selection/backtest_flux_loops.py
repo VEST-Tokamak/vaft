@@ -21,8 +21,9 @@ Usage::
         --case 39915=/path/to/39915/eddy/omas.json.gz \\
         --case 41524=/path/to/41524/diagnostics/omas.json.gz
 
-The manual list defaults to ``constraints.broken`` of the routine
-``config.yaml``; pass ``--manual-broken`` to test another.  As with the
+The list under test defaults to the one the routine ``config.yaml`` carried
+until issue #295 retired it (``HISTORICAL_MANUAL_LIST``); pass
+``--manual-broken`` to test another.  As with the
 vacuum benchmark, the #190 population lives in the VEST database, so the case
 list is an argument and the invocation should be recorded with the output.
 """
@@ -56,8 +57,19 @@ UNREPRODUCED_EXCLUSION = "unreproduced_exclusion"
 AGREEMENTS = (AGREE_REJECT, AGREE_KEEP, FALSE_REJECTION, UNREPRODUCED_EXCLUSION, NOT_AVAILABLE)
 
 
+#: The list the routine configuration carried as ``constraints.broken`` until
+#: issue #295 retired it: combined one-based indexes after EFIT's 64 probes,
+#: i.e. flux loops #3, #4, #5, #6, #12 and #14.  Kept here, and only here,
+#: as the record of what the evidence table was measured against.
+HISTORICAL_MANUAL_LIST = (65, 66, 67, 68, 72, 74)
+
+
 def routine_manual_broken(config: Path = ROUTINE_CONFIG) -> list[int]:
-    """The combined one-based indexes the routine pipeline hands to EFIT as broken."""
+    """The combined one-based indexes the routine pipeline hands to EFIT as broken.
+
+    Empty since #295: the configuration carries no list.  A value here would
+    mean the pipeline had grown a manual list again.
+    """
     import yaml
 
     with open(config, "r", encoding="utf-8") as handle:
@@ -209,7 +221,7 @@ def main(argv: list[str] | None = None) -> int:
         "--manual-broken",
         default=None,
         help="Comma-separated combined one-based indexes to test against; "
-        "defaults to constraints.broken of the routine config.yaml.",
+        "defaults to the historical list the routine config carried until #295.",
     )
     parser.add_argument("--no-benchmark", action="store_true", help="Skip the vacuum-model comparison; intrinsic quality only.")
     parser.add_argument("--min-valid-fraction", type=float, default=0.0, help="Policy: a loop must leave more than this fraction of the window usable.")
@@ -222,7 +234,7 @@ def main(argv: list[str] | None = None) -> int:
     manual = (
         sorted(int(item) for item in args.manual_broken.split(",") if item.strip())
         if args.manual_broken is not None
-        else routine_manual_broken()
+        else list(HISTORICAL_MANUAL_LIST)
     )
     policy = FluxLoopPolicy(
         min_valid_fraction_in_window=args.min_valid_fraction,
@@ -251,7 +263,8 @@ def main(argv: list[str] | None = None) -> int:
         "schema_version": 1,
         "configuration": {
             "manual_broken": manual,
-            "manual_source": "argument" if args.manual_broken is not None else str(ROUTINE_CONFIG),
+            "manual_source": "argument" if args.manual_broken is not None else "historical (retired by #295)",
+            "routine_config_manual_broken": routine_manual_broken(),
             "policy": policy.as_dict(),
             "benchmark": not args.no_benchmark,
             "mapping": mapping_table(cases[0], manual),
