@@ -200,6 +200,14 @@ Equilibrium codes
 `vaft.code.efit` prepares k-files from an ODS, runs EFIT, and collects the
 resulting g/a/m files back into an `EFITResult`.
 
+EFIT is licensed software you obtain and build yourself (`install/install_efit.sh`,
+see the installation guide). Set `EFITHOME` to the install prefix: VAFT resolves
+both toolchain roles from it, `bin/efit` for reconstruction and `bin/efund` for
+Green-function tables, so a table and the reconstruction that consumes it always
+come from one build. `vaft.code.efit.toolchain.resolve_toolchain()` returns the
+resolved pair and `executable_identity()` records each executable's sha256 and
+source revision for run manifests.
+
 ```python
 from vaft.code import EFITConfig, prepare_efit_inputs, run_efit, collect_efit_outputs
 
