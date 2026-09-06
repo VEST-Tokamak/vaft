@@ -750,3 +750,51 @@ def test_the_eigenvector_and_the_eigenfunction_stay_distinguishable(tmp_path):
     assert result.W_t_eigenvector.ndim == 2  # (m, mode), one radius
     assert result.eigenfunction.xi_psi_real.ndim == 2  # (m, radial step)
     assert result.eigenfunction.m.tolist() == [-3, -2, -1]
+
+
+# ---------------------------------------------------------------------------
+# Edge treatment.  DCON rewrites its own controls mid-run, so which of its two
+# solutions a file holds is a property of the output, not of the request.
+# ---------------------------------------------------------------------------
+
+
+def test_a_run_without_an_edge_scan_describes_the_full_edge_solution(tmp_path):
+    write_dcon_output_nc(tmp_path, equilibrium=True)
+    write_dcon_in(tmp_path, psiedge=1.0)
+
+    result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.edge_treatment == DconOutput.FULL_EDGE
+    assert result.evaluation.psiedge == pytest.approx(1.0)
+
+
+def test_a_scanned_run_describes_the_truncated_solution_not_the_requested_one(tmp_path):
+    """The scan means DCON re-integrated, so the file holds the truncated solve.
+
+    `dcon.F:262-279` overwrites `qhigh`, `sas_flag` and `psiedge`, recomputes the
+    limits and runs the whole problem again. The eigenvalues and `euler.bin` in
+    the file are from that second pass, and `qlim`/`psilim` are post-mutation --
+    so the requested boundary and the one actually used are different numbers
+    and both have to be recorded.
+    """
+    write_dcon_output_nc(tmp_path, equilibrium=True, edge_scan=True)
+    write_dcon_in(tmp_path, psiedge=0.95)
+
+    result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.edge_treatment == DconOutput.PEAK_DW_TRUNCATED
+    # Requested comes from the namelist, effective from the file.
+    assert result.evaluation.psiedge == pytest.approx(0.95)
+    assert result.psilim == pytest.approx(0.994)
+    assert result.edge_scan is not None
+
+
+def test_the_edge_treatment_label_survives_the_sidecar_round_trip(tmp_path):
+    write_dcon_output_nc(tmp_path, equilibrium=True, edge_scan=True)
+    write_dcon_in(tmp_path, psiedge=0.95)
+    result = read_dcon_output(tmp_path, mode=1)
+
+    restored = DconOutput.read_json(result.write_json(tmp_path / "dcon_native_n1.json"))
+
+    assert restored.edge_treatment == result.edge_treatment
+    assert restored.evaluation.psiedge == pytest.approx(0.95)
