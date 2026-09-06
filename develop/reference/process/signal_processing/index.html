@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>dbe072f</code>. What is described
+  <code>1ff7d92</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -261,7 +261,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/signal_processing.py"><code class="language-plaintext highlighter-rouge">vaft/process/signal_processing.py</code></a>:
-25 public functions.  The category overview and notation come from the module
+27 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("signal_processing.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -336,6 +336,10 @@ zero-phase.</p>
   <li><a href="#detrend_moving_average"><code>detrend_moving_average</code></a> &mdash; Subtract a centered moving-average trend along the last axis.
 </li>
   <li><a href="#exp_baseline"><code>exp_baseline</code></a> &mdash; Exponential model for baseline fitting: <code class="language-plaintext highlighter-rouge">y = a * exp(b * x) + c</code>.
+</li>
+  <li><a href="#fir_filter"><code>fir_filter</code></a> &mdash; Linear-phase FIR filter along the last axis.
+</li>
+  <li><a href="#fir_filter_coefficients"><code>fir_filter_coefficients</code></a> &mdash; Window-method FIR coefficients for a linear-phase filter.
 </li>
   <li><a href="#infer_signal_orientation"><code>infer_signal_orientation</code></a> &mdash; Infer the dominant sign of <code class="language-plaintext highlighter-rouge">signal</code> from its active region.
 </li>
@@ -920,6 +924,134 @@ it and appears, inverted, in the neighbours.</p>
 <p><strong>Applicability.</strong></p>
 
 <p>Machine-independent.  A fit model for <code class="language-plaintext highlighter-rouge">subtract_baseline</code>.</p>
+
+<h3 id="fir_filter"><code class="language-plaintext highlighter-rouge">fir_filter</code></h3>
+
+<p class="formula-signature"><code>fir_filter(data, cutoff, fs, *, kind='lowpass', numtaps=None, window='hann', zero_phase=True)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Linear-phase FIR filter along the last axis.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>The waveform or a stack of them; the time axis is the last.</p>
+</td></tr>
+  <tr><td><code>cutoff</code></td><td>float or sequence of float</td><td>Hz</td><td><p>Band edge, or the pair of edges for <code class="language-plaintext highlighter-rouge">bandpass</code>/<code class="language-plaintext highlighter-rouge">bandstop</code>.</p>
+</td></tr>
+  <tr><td><code>fs</code></td><td>float</td><td>Hz</td><td><p>Sample rate.</p>
+</td></tr>
+  <tr><td><code>kind</code></td><td>str, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">lowpass</code>, <code class="language-plaintext highlighter-rouge">highpass</code>, <code class="language-plaintext highlighter-rouge">bandpass</code> or <code class="language-plaintext highlighter-rouge">bandstop</code>.</p>
+</td></tr>
+  <tr><td><code>numtaps</code></td><td>int or None, optional</td><td>-</td><td><p>Filter length; <code class="language-plaintext highlighter-rouge">None</code> derives it from <code class="language-plaintext highlighter-rouge">fs</code> (<code class="language-plaintext highlighter-rouge">fir_filter_coefficients</code>).</p>
+</td></tr>
+  <tr><td><code>window</code></td><td>str, optional</td><td>-</td><td><p>Window passed to <code class="language-plaintext highlighter-rouge">scipy.signal.firwin</code>.</p>
+</td></tr>
+  <tr><td><code>zero_phase</code></td><td>bool, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> for forward-backward <code class="language-plaintext highlighter-rouge">filtfilt</code>; <code class="language-plaintext highlighter-rouge">False</code> for a causal <code class="language-plaintext highlighter-rouge">lfilter</code> that keeps the filter’s own group delay.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>The filtered waveform, same shape as <code class="language-plaintext highlighter-rouge">data</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    As <code class="language-plaintext highlighter-rouge">fir_filter_coefficients</code>.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">zero_phase = True</code> is a validated-workflow default matching
+<code class="language-plaintext highlighter-rouge">butterworth_bandpass</code>: a filtered fluctuation signal feeds spectral
+and mode-number analysis, where phase across channels is the measurement.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>An FIR filter of this design is already linear-phase, so a causal
+application shifts every frequency by the same <code class="language-plaintext highlighter-rouge">(numtaps - 1) / 2</code>
+samples and the delay can be removed exactly – unlike an IIR filter, whose
+phase distortion is frequency-dependent and only <code class="language-plaintext highlighter-rouge">filtfilt</code> removes it.
+That is the reason to reach for FIR here rather than
+<code class="language-plaintext highlighter-rouge">butterworth_bandpass</code>: the cost is a longer impulse response and
+more arithmetic per sample.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">filtfilt</code> needs a record longer than roughly three times the tap count
+and raises from SciPy otherwise; a one-millisecond default response is long
+at a high sample rate.</p>
+
+<h3 id="fir_filter_coefficients"><code class="language-plaintext highlighter-rouge">fir_filter_coefficients</code></h3>
+
+<p class="formula-signature"><code>fir_filter_coefficients(cutoff, fs, *, kind='lowpass', numtaps=None, window='hann')</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Window-method FIR coefficients for a linear-phase filter.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>cutoff</code></td><td>float or sequence of float</td><td>Hz</td><td><p>Band edge, or the pair of edges for <code class="language-plaintext highlighter-rouge">bandpass</code>/<code class="language-plaintext highlighter-rouge">bandstop</code>.</p>
+</td></tr>
+  <tr><td><code>fs</code></td><td>float</td><td>Hz</td><td><p>Sample rate.</p>
+</td></tr>
+  <tr><td><code>kind</code></td><td>str, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">lowpass</code>, <code class="language-plaintext highlighter-rouge">highpass</code>, <code class="language-plaintext highlighter-rouge">bandpass</code> or <code class="language-plaintext highlighter-rouge">bandstop</code>.</p>
+</td></tr>
+  <tr><td><code>numtaps</code></td><td>int or None, optional</td><td>-</td><td><p>Filter length; <code class="language-plaintext highlighter-rouge">None</code> derives it from <code class="language-plaintext highlighter-rouge">fs</code> (see Defaults).</p>
+</td></tr>
+  <tr><td><code>window</code></td><td>str, optional</td><td>-</td><td><p>Window passed to <code class="language-plaintext highlighter-rouge">scipy.signal.firwin</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">numtaps</code> coefficients of a symmetric (Type I) FIR filter.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">kind</code> is not one of the four supported responses, the number of band
+    edges does not match it, or an edge is outside <code class="language-plaintext highlighter-rouge">0 &lt; f &lt; fs / 2</code>.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">numtaps = None</code> and <code class="language-plaintext highlighter-rouge">window = "hann"</code> are validated-workflow defaults,
+taken from VEST’s fluctuation analysis.  The length is an impulse response
+one millisecond long, <code class="language-plaintext highlighter-rouge">int(fs * 1e-3)</code> forced odd, which ties the
+transition width to the sample rate rather than to a fixed tap count.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The length is always odd, so the filter is Type I: symmetric with an
+integer group delay of <code class="language-plaintext highlighter-rouge">(numtaps - 1) / 2</code> samples, and with a response
+that is not forced to zero at the Nyquist frequency – which a Type II
+(even-length) filter would be, making a high-pass or band-stop unusable.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The window method sets the transition width by the tap count alone; it does
+not meet a stated ripple specification the way an equiripple design would.</p>
 
 <h3 id="infer_signal_orientation"><code class="language-plaintext highlighter-rouge">infer_signal_orientation</code></h3>
 
@@ -1869,7 +2001,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#VEST_CoilCurrentNoiseReduction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">VEST_CoilCurrentNoiseReduction</a></li><li class="page-toc-item page-toc-level-3"><a href="#anti_alias_filter" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">anti_alias_filter</a></li><li class="page-toc-item page-toc-level-3"><a href="#butterworth_bandpass" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">butterworth_bandpass</a></li><li class="page-toc-item page-toc-level-3"><a href="#butterworth_lowpass" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">butterworth_lowpass</a></li><li class="page-toc-item page-toc-level-3"><a href="#define_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">define_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#describe_time_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">describe_time_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#detect_active_window" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">detect_active_window</a></li><li class="page-toc-item page-toc-level-3"><a href="#detect_clipped_samples" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">detect_clipped_samples</a></li><li class="page-toc-item page-toc-level-3"><a href="#detrend_moving_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">detrend_moving_average</a></li><li class="page-toc-item page-toc-level-3"><a href="#exp_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">exp_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#infer_signal_orientation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">infer_signal_orientation</a></li><li class="page-toc-item page-toc-level-3"><a href="#is_signal_active" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">is_signal_active</a></li><li class="page-toc-item page-toc-level-3"><a href="#line_average_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">line_average_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#linear_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">linear_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#process_signal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">process_signal</a></li><li class="page-toc-item page-toc-level-3"><a href="#quadratic_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">quadratic_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#repair_clipped_interval" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">repair_clipped_interval</a></li><li class="page-toc-item page-toc-level-3"><a href="#resample_to_time" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resample_to_time</a></li><li class="page-toc-item page-toc-level-3"><a href="#signal_on_offset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">signal_on_offset</a></li><li class="page-toc-item page-toc-level-3"><a href="#signal_onoffset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">signal_onoffset</a></li><li class="page-toc-item page-toc-level-3"><a href="#smooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">smooth</a></li><li class="page-toc-item page-toc-level-3"><a href="#subtract_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">subtract_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#vest_coil_current_noise_reduction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vest_coil_current_noise_reduction</a></li><li class="page-toc-item page-toc-level-3"><a href="#vfit_signal_start_end" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vfit_signal_start_end</a></li><li class="page-toc-item page-toc-level-3"><a href="#vfit_signal_startend" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vfit_signal_startend</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#VEST_CoilCurrentNoiseReduction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">VEST_CoilCurrentNoiseReduction</a></li><li class="page-toc-item page-toc-level-3"><a href="#anti_alias_filter" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">anti_alias_filter</a></li><li class="page-toc-item page-toc-level-3"><a href="#butterworth_bandpass" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">butterworth_bandpass</a></li><li class="page-toc-item page-toc-level-3"><a href="#butterworth_lowpass" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">butterworth_lowpass</a></li><li class="page-toc-item page-toc-level-3"><a href="#define_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">define_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#describe_time_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">describe_time_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#detect_active_window" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">detect_active_window</a></li><li class="page-toc-item page-toc-level-3"><a href="#detect_clipped_samples" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">detect_clipped_samples</a></li><li class="page-toc-item page-toc-level-3"><a href="#detrend_moving_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">detrend_moving_average</a></li><li class="page-toc-item page-toc-level-3"><a href="#exp_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">exp_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#fir_filter" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fir_filter</a></li><li class="page-toc-item page-toc-level-3"><a href="#fir_filter_coefficients" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fir_filter_coefficients</a></li><li class="page-toc-item page-toc-level-3"><a href="#infer_signal_orientation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">infer_signal_orientation</a></li><li class="page-toc-item page-toc-level-3"><a href="#is_signal_active" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">is_signal_active</a></li><li class="page-toc-item page-toc-level-3"><a href="#line_average_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">line_average_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#linear_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">linear_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#process_signal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">process_signal</a></li><li class="page-toc-item page-toc-level-3"><a href="#quadratic_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">quadratic_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#repair_clipped_interval" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">repair_clipped_interval</a></li><li class="page-toc-item page-toc-level-3"><a href="#resample_to_time" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resample_to_time</a></li><li class="page-toc-item page-toc-level-3"><a href="#signal_on_offset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">signal_on_offset</a></li><li class="page-toc-item page-toc-level-3"><a href="#signal_onoffset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">signal_onoffset</a></li><li class="page-toc-item page-toc-level-3"><a href="#smooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">smooth</a></li><li class="page-toc-item page-toc-level-3"><a href="#subtract_baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">subtract_baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#vest_coil_current_noise_reduction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vest_coil_current_noise_reduction</a></li><li class="page-toc-item page-toc-level-3"><a href="#vfit_signal_start_end" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vfit_signal_start_end</a></li><li class="page-toc-item page-toc-level-3"><a href="#vfit_signal_startend" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vfit_signal_startend</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1987,7 +2119,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-06 13:29:25 +0000"
+        "time": "2026-09-06 13:38:46 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
