@@ -2019,6 +2019,63 @@ def virial_li_from_volume(B_p: np.ndarray,
     return (1.0 / (B_pa**2 * Omega)) * np.sum(B_p**2 * dV)
 
 
+def virial_mu_i_from_diamagnetic_flux(B_t: float,
+                                      R0: float,
+                                      dphi: float,
+                                      B_pa: float,
+                                      Omega: float) -> float:
+    r"""Diamagnetic parameter $\mu_i$ from a diamagnetic flux, in the virial sign.
+
+    $$\mu_i = -\frac{4\pi\,B_t\,R_0\,\Delta\phi}{B_{pa}^2\,\Omega}$$
+
+    Parameters
+    ----------
+    B_t : float
+        Vacuum toroidal field at $R_0$ [T].
+    R0 : float
+        Reference major radius [m].
+    dphi : float
+        Diamagnetic flux, signed as stored: negative for a diamagnetic plasma [Wb].
+    B_pa : float
+        Boundary-averaged poloidal field [T].
+    Omega : float
+        Plasma volume [m^3].
+
+    Returns
+    -------
+    float
+        Diamagnetic parameter in the sign the virial relations use [-].
+
+    Convention
+    ----------
+    The **minus** is the whole point. The three virial relations solved by
+    :func:`virial_full_123_from_S_alpha_rt` use the volume definition
+    $\mu_i = \frac{1}{B_{pa}^2\Omega}\int (B_{tv}^2 - B_t^2)\,dV$, which is
+    positive for a diamagnetic plasma. The flux form
+    :func:`virial_muihat_from_Bt_R0_dphi`, and the EFIT ``xmui`` port
+    :func:`vaft.process.equilibrium.computed_diamagnetism_from_phi` that shares
+    its sign, are the negative of it, because
+    $B_{tv}^2 - B_t^2 \approx -2F_b(F-F_b)/R^2$ while
+    $\Delta\phi = \int (B_t - B_{tv})\,dA$. Feeding the flux sign to the
+    closures puts a systematic $2\mu_i$ into every identity residual.
+
+    Validity
+    --------
+    First order in $(F-F_b)/F_b$, like the flux form it negates. Where the $F$
+    profile is available the exact volume integral is better and is what
+    :func:`vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods`
+    uses for the equilibrium's own $\mu_i$; this form is for a *measured* flux,
+    where no profile exists.
+
+    References
+    ----------
+    .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion
+           25 (1985) 1421, Sec. 2 ($\mu_i$ definition).
+    .. [2] V. D. Shafranov, Plasma Phys. 13 (1971) 757.
+    """
+    return -virial_muihat_from_Bt_R0_dphi(B_t, R0, dphi, B_pa, Omega)
+
+
 def virial_muihat_from_Bt_R0_dphi(B_t: float,
                                  R0: float,
                                  dphi: float,
@@ -2110,8 +2167,14 @@ def approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi(B_pa: float,
 
 #: Denominator magnitude below which a virial closure is reported as
 #: indeterminate rather than as a large finite number.  The Shafranov integrals
-#: and $\alpha$ are all $O(1)$, so an absolute floor is the meaningful one.
-VIRIAL_SINGULAR_EPS = 1e-9
+#: and $\alpha$ are all $O(1)$, so an absolute floor is the meaningful one --
+#: but it has to be a floor at the scale the closure actually degrades at, not
+#: at machine epsilon.  At 1e-9 a denominator of 3e-9 still returned
+#: ``beta_p = -6.2e7``, which the validation layer's plausibility bounds then
+#: read as a physical failure: exactly the outcome the guard is documented to
+#: prevent.  1e-3 keeps genuinely usable closures and rejects the ones whose
+#: value is set by the denominator rather than by the equilibrium.
+VIRIAL_SINGULAR_EPS = 1e-3
 
 
 def _virial_ratio(numerator: float, denominator: float, eps: float) -> float:
@@ -2162,9 +2225,11 @@ def virial_beta_p_from_S_alpha_mu(S1: float,
            virial closure (journal page not recorded in the VAFT source).
     .. [2] V. D. Shafranov, Plasma Phys. 13 (1971) 757.
     """
-    num = (S1 + S2) * (alpha - 1) + alpha * mui_hat + S3
-    den = 3 * (alpha - 1) + 1
-    return num / den
+    # One implementation, so the two entry points cannot drift apart or disagree
+    # about the singularity: 3*(alpha-1)+1 == 3*alpha-2, and this raised
+    # ZeroDivisionError exactly where the closure it duplicates returns NaN.
+    beta_p, _ = virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mui_hat)
+    return beta_p
 
 
 def virial_li_from_S_alpha_mu(S1: float,
@@ -2200,16 +2265,16 @@ def virial_li_from_S_alpha_mu(S1: float,
 
     Limitations
     -----------
-    Ill-conditioned as $\alpha\to2/3$; no guard.
+    Ill-conditioned as $\alpha\to2/3$, where it returns NaN rather than a large
+    finite value; :data:`VIRIAL_SINGULAR_EPS` sets the band.
 
     References
     ----------
     .. [1] M. W. Bongard et al., Phys. Plasmas 23 (2016), low-aspect-ratio
            virial closure (journal page not recorded in the VAFT source).
     """
-    num = S1 + S2 - 2 * mui_hat - 3 * S3
-    den = 3 * alpha - 2
-    return num / den
+    _, li = virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mui_hat)
+    return li
 
 
 def virial_beta_p_lao_from_S_mu_rt(
@@ -2250,8 +2315,11 @@ def virial_beta_p_lao_from_S_mu_rt(
 
     Validity
     --------
-    Large aspect ratio; at VEST aspect ratio the neglected $\epsilon$ terms
-    reach tens of percent, which is why the Bongard closure exists.
+    Exact given $E_1$ and $E_2$: no aspect-ratio expansion enters here, and this
+    returns the same number as :func:`virial_pair_12_from_S_mu_rt`, which a test
+    pins. What it inherits instead is a total dependence on $R_T/R_0$, which at
+    VEST's aspect ratio is frequently not determined -- the reason to compare it
+    against the $R_T$-free Bongard closure rather than to prefer either.
 
     References
     ----------
@@ -2637,8 +2705,10 @@ def virial_pair_12_from_S_mu_rt(
     -----------------------
     Both unknowns come from the two relations that do not involve $\alpha$, so
     this closure is insensitive to the boundary field's poloidal anisotropy and
-    has no singular denominator. It is the only one of the three pairs that
-    cannot become ill-conditioned.
+    is the only pair with no $\alpha$-dependent denominator to divide by. That
+    is not the same as being well conditioned: it depends on $R_T/R_0$ in both
+    unknowns, and $R_T$ has a denominator of its own -- see **Validity**. On the
+    VEST equilibrium history it is the pair that is *least* often computable.
 
     Convention
     ----------
@@ -2910,8 +2980,9 @@ def virial_closure_denominators(alpha: float) -> Tuple[float, float, float, floa
 
     Notes
     -----
-    The $E_1$/$E_2$ closure is absent because it has no denominator; it is the
-    one pair that cannot become singular.
+    The $E_1$/$E_2$ closure is absent because it has no $\alpha$-dependent
+    denominator. It is still $R_T$-dependent, and `rt_denominator_ratio` is
+    where its conditioning is reported.
     """
     return (
         float(3.0 * alpha - 2.0),
@@ -3140,10 +3211,11 @@ def virial_bp_li_lihat_from_S123(S1: float,
 
     Numerical notes
     ---------------
-    Direct solve of the 3x3 linear system with ``numpy.linalg.solve``. The
-    determinant is $4(\alpha-1)$, so the system is singular at $\alpha = 1$ --
-    the same limit that makes the historical Lao $l_i$ blow up, because
-    $E_1$ and $E_2$ fix $\beta_p - \mu_i$ and only $E_3$ separates $l_i$ from it.
+    Delegates to :func:`virial_full_123_from_S_alpha_rt`, which solves the
+    system in closed form. The determinant is $4(\alpha-1)$, so it is singular
+    at $\alpha = 1$ -- the same limit that makes the historical Lao $l_i$ blow
+    up, because $E_1$ and $E_2$ fix $\beta_p - \mu_i$ and only $E_3$ separates
+    $l_i$ from it.
 
     References
     ----------

@@ -46,7 +46,7 @@ from vaft.formula import (
     virial_full_123_from_S_alpha_rt,
     virial_identity_residuals,
     virial_li_from_volume,
-    virial_muihat_from_Bt_R0_dphi,
+    virial_mu_i_from_diamagnetic_flux,
     virial_normalized_residual,
     virial_pair_12_from_S_mu_rt,
     virial_pair_13_from_S_alpha_mu,
@@ -1350,17 +1350,24 @@ def _virial_identity_block(beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0):
         for r, (lhs, rhs) in zip(residuals, sides)
     ]
     available = [value for value in normalized if np.isfinite(value)]
-    rms = (
-        float(np.sqrt(np.mean(np.asarray(available, float) ** 2)))
-        if available
-        else np.nan
-    )
+    # Two aggregates, because they answer different questions and a single key
+    # named "rms" fed by the subset rule while a catalog function of the same
+    # name uses the strict one is a trap for anyone who reads both.
+    #   rms            -- virial_residual_rms exactly: NaN unless all three hold
+    #   rms_evaluable  -- over the ones that could be evaluated, which is what
+    #                     the validation layer grades, so E1 and E3 still count
+    #                     when RT/R0 is undetermined
     return {
         "e1": float(residuals[0]), "e2": float(residuals[1]), "e3": float(residuals[2]),
         "e1_normalized": float(normalized[0]),
         "e2_normalized": float(normalized[1]),
         "e3_normalized": float(normalized[2]),
-        "rms": rms,
+        "rms": float(virial_residual_rms(*normalized)),
+        "rms_evaluable": (
+            float(np.sqrt(np.mean(np.asarray(available, float) ** 2)))
+            if available
+            else np.nan
+        ),
         "identities_available": len(available),
     }
 
@@ -1420,7 +1427,8 @@ def _virial_empty_row():
         "s_1": nan, "s_2": nan, "s_3": nan, "alpha": nan,
         "B_pa": nan, "beta_p": nan, "li": nan,
         "W_mag": nan, "W_kin": nan, "V_p": nan,
-        "mui_hat": nan, "mui": nan, "rt": nan, "phi_dia_comp": nan,
+        "mui_hat": nan, "mui": nan, "mui_from_flux": nan,
+        "rt": nan, "phi_dia_comp": nan,
         "beta_p_vir": nan, "li_vir": nan, "beta_pd_vir": nan,
         "virial_lao": {"beta_p": nan, "li": nan},
         "virial_bongard": {"beta_p": nan, "li": nan},
@@ -1709,10 +1717,37 @@ def compute_virial_equilibrium_quantities_ods(
         elif "global_quantities.magnetic_axis.b_field_tor" in eq_ts:
             B_t0 = float(eq_ts["global_quantities.magnetic_axis.b_field_tor"])
 
+        # mu_i as the three virial relations define it, and as
+        # docs/_guide/Equilibrium.md states it: the volume integral of
+        # B_tv^2 - B_t^2 over the plasma, normalized by B_pa^2 * Omega.
+        #
+        # This is NOT computed_diamagnetism_from_phi, which is its negative:
+        # that one is 4*pi*B_t0*R_0*Phi/(V*B_pa^2) with
+        # Phi = int (B_t - B_tv) dA, and
+        #   B_tv^2 - B_t^2 = (F_b - F)(F_b + F)/R^2 ~ -2*F_b*(F - F_b)/R^2,
+        # so the two differ by a sign (plus an O((F-F_b)/F_b) term this exact
+        # form does not drop). Feeding the flux-derived one to the closures put
+        # a systematic 2*mu_i into every identity residual: on an analytic
+        # Solov'ev equilibrium the residuals were (-0.675, +0.675, -0.675)
+        # against (+0.0005, +0.0003, +0.0001) with this definition, and on the
+        # packaged sample it turned l_i negative. The flux quantity is kept
+        # below as mui_from_flux for continuity with the EFIT xmui port.
         mui = np.nan
+        mui_from_flux = np.nan
         if np.isfinite(phi_dia_comp) and np.isfinite(B_t0) and np.isfinite(V_p) and np.isfinite(B_pa):
             if V_p > 0.0 and B_pa > 0.0:
-                mui = computed_diamagnetism_from_phi(phi_dia_comp, B_t0, R_0, V_p, B_pa)
+                mui_from_flux = computed_diamagnetism_from_phi(
+                    phi_dia_comp, B_t0, R_0, V_p, B_pa
+                )
+        if (
+            np.isfinite(B_pa) and B_pa > 0.0
+            and np.isfinite(V_p) and V_p > 0.0
+            and np.isfinite(F_boundary)
+        ):
+            _dV = np.nan_to_num(np.asarray(vol_terms["dV"], float), nan=0.0)
+            _b_tv_sq = np.nan_to_num((F_boundary / R_safe) ** 2, nan=0.0)
+            _b_t_sq = np.nan_to_num((F_2d / R_safe) ** 2, nan=0.0)
+            mui = float(np.sum((_b_tv_sq - _b_t_sq) * _dV) / (B_pa**2 * V_p))
 
         RT_over_R0 = np.nan
         if np.isfinite(RT) and R_0 != 0.0:
@@ -1820,8 +1855,13 @@ def compute_virial_equilibrium_quantities_ods(
             and np.isfinite(V_p)
             and V_p > 0.0
         ):
+            # Same sign convention as the equilibrium mu_i above, or the two
+            # are not comparable and every measured-vs-reconstructed check
+            # reads a convention difference as a physics disagreement.
             mui_measured = float(
-                virial_muihat_from_Bt_R0_dphi(B_t0, R_0, delta_phi_measured, B_pa, V_p)
+                virial_mu_i_from_diamagnetic_flux(
+                    B_t0, R_0, delta_phi_measured, B_pa, V_p
+                )
             )
         # The same three closures again, on the measured mu_i, so the comparison
         # against the reconstruction is like for like.
@@ -1859,6 +1899,10 @@ def compute_virial_equilibrium_quantities_ods(
             "B_pa": B_pa, "beta_p": beta_p, "li": li,
             "W_mag": W_mag, "W_kin": W_kin, "V_p": V_p,
             "mui_hat": float(mui) if np.isfinite(mui) else np.nan,  # backward-compatible key
+            # The EFIT xmui port's flux-derived quantity, which is -mui to
+            # leading order. Kept so the change of convention is visible rather
+            # than silent.
+            "mui_from_flux": float(mui_from_flux) if np.isfinite(mui_from_flux) else np.nan,
             "mui": float(mui) if np.isfinite(mui) else np.nan,
             "rt": RT,
             "phi_dia_comp": phi_dia_comp,

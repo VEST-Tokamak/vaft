@@ -29,7 +29,7 @@ tolerance, the rule that yields its status -- lives once in
 Report shape (#253 §15)::
 
     {
-        "schema_version": 1,
+        "schema_version": 2,
         "status": "warn",                       # aggregate, never hides not_available
         "summary": {"verification": "pass", ...},
         "provenance": {...},                    # once per report, not per check
@@ -629,6 +629,9 @@ def _virial_identity_check(row: Mapping[str, Any]) -> dict[str, Any]:
         "e2_normalized": _float(identity.get("e2_normalized")),
         "e3_normalized": _float(identity.get("e3_normalized")),
         "rms": _float(identity.get("rms")),
+        # Graded on this one: E2 needs RT/R0, E1 and E3 do not, so an
+        # undetermined current centroid must not silence the other two.
+        "rms_evaluable": _float(identity.get("rms_evaluable")),
         # How many of the three could be evaluated at all: E2 needs RT/R0, E1
         # and E3 do not, so a slice with an undetermined current centroid still
         # reports two.
@@ -637,14 +640,14 @@ def _virial_identity_check(row: Mapping[str, Any]) -> dict[str, Any]:
         "li_volume": _float(volume.get("li")),
         "mu_i_volume": _float(volume.get("mu_i")),
     }
-    if not math.isfinite(fields["rms"]):
+    if not math.isfinite(fields["rms_evaluable"]):
         return _result(
             ValidationStatus.INDETERMINATE,
             reason="the volume-integral beta_p, li or mu_i is unavailable, so the identities "
                    "cannot be evaluated without inverting a closure",
             **fields,
         )
-    status = _graded("physical_validity.virial_identity", fields["rms"])
+    status = _graded("physical_validity.virial_identity", fields["rms_evaluable"])
     evaluable = [
         key for key in ("e1", "e2", "e3") if math.isfinite(fields[f"{key}_normalized"])
     ]
@@ -732,10 +735,20 @@ def _virial_conditioning(row: Mapping[str, Any]) -> dict[str, Any]:
     }
     rt_ratio = _float(conditioning.get("rt_denominator_ratio"))
     fields["rt_denominator_ratio"] = rt_ratio
-    fields["rt_over_r0_available"] = bool(conditioning.get("rt_over_r0_available"))
+    # A missing key means "the producer said nothing", not "no RT/R0".
+    _rt_flag = conditioning.get("rt_over_r0_available")
+    fields["rt_over_r0_available"] = None if _rt_flag is None else bool(_rt_flag)
 
+    # Distance in alpha, not the raw denominator: lao_li divides by (alpha-1)
+    # and full_123 by 4*(alpha-1), the same singular point, so comparing
+    # denominators flagged one and cleared the other at the same alpha. The
+    # producer already computes the alpha-distance; use it.
+    distances = conditioning.get("distance_to_singularity") or {}
+    fields.update({
+        f"distance_{name}": _float(value) for name, value in distances.items()
+    })
     near_singular = sorted(
-        name for name, value in denominators.items()
+        name for name, value in distances.items()
         if math.isfinite(_float(value)) and abs(_float(value)) < _VIRIAL_DENOMINATOR_WARN
     )
     fields["near_singular"] = near_singular
@@ -768,6 +781,11 @@ def _virial_conditioning(row: Mapping[str, Any]) -> dict[str, Any]:
 def _virial_result(row: Mapping[str, Any]) -> dict[str, Any]:
     if "unavailable" in row:
         return _unavailable(row["unavailable"])
+    # beta_p and li here are the Lao closure, which is RT-dependent. When the RT
+    # denominator has cancelled away, virial_conditioning says so and
+    # virial_pair_consistency reports indeterminate; this check used to return
+    # `pass` on the same numbers in the same report, including on slices whose
+    # current centroid sits at negative major radius.
     values = {name: _float(row.get(name)) for name in (
         "s_1", "s_2", "s_3", "alpha", "B_pa", "V_p", "rt", "mui", "phi_dia_comp", "W_kin", "W_mag",
     )}
@@ -781,6 +799,16 @@ def _virial_result(row: Mapping[str, Any]) -> dict[str, Any]:
         li_bongard=_float(bongard.get("li")),
         beta_p_diamagnetic=_float(row.get("beta_pd_vir")),
     )
+    _conditioning = row.get("conditioning") or {}
+    _rt_ratio = _float(_conditioning.get("rt_denominator_ratio"))
+    if math.isfinite(_rt_ratio) and _rt_ratio < _VIRIAL_RT_RATIO_WARN:
+        return _result(
+            ValidationStatus.INDETERMINATE,
+            reason=f"only {_rt_ratio:.3g} of the RT denominator survives cancellation, so the "
+                   "Lao beta_p and li these bounds would grade are not determined here "
+                   "(see virial_conditioning)",
+            **values,
+        )
     missing = [name for name in _VIRIAL_REQUIRED if not math.isfinite(values[name])]
     if missing:
         return _result(
@@ -1114,8 +1142,11 @@ def _thomson_pressure(ods: Any, index: int, diagnostics: Any) -> dict[str, Any]:
 
 def _diamagnetic_energy(ods: Any, index: int, virial: Mapping[str, Any], dia_row: Mapping[str, Any] | None,
                         descriptors: Mapping[str, Any] | None) -> dict[str, Any]:
-    from vaft.formula.equilibrium import kinetic_energy_from_beta_p_B_pa_V_p, virial_beta_pd_from_S_mu_rt
-    from vaft.process.equilibrium import computed_diamagnetism_from_phi
+    from vaft.formula.equilibrium import (
+        kinetic_energy_from_beta_p_B_pa_V_p,
+        virial_beta_pd_from_S_mu_rt,
+        virial_mu_i_from_diamagnetic_flux,
+    )
 
     if dia_row is None or not math.isfinite(_float(dia_row.get("measured"))):
         return _unavailable("no measured diamagnetic flux at this slice")
@@ -1131,7 +1162,11 @@ def _diamagnetic_energy(ods: Any, index: int, virial: Mapping[str, Any], dia_row
         return _result(ValidationStatus.INDETERMINATE,
                        reason=f"the virial inputs are not decided: {', '.join(missing) or 'non-positive volume, field or radius'}",
                        measured_flux=measured)
-    mui = _float(computed_diamagnetism_from_phi(measured, b_t0, r_0, needed["V_p"], needed["B_pa"]))
+    # virial_beta_pd_from_S_mu_rt takes mu_i in the sign the three relations
+    # use; the EFIT flux port is its negative, so converting here rather than
+    # there was comparing a diamagnetic beta_p built one way against a kinetic
+    # one built the other.
+    mui = _float(virial_mu_i_from_diamagnetic_flux(b_t0, r_0, measured, needed["B_pa"], needed["V_p"]))
     beta_pd = _float(virial_beta_pd_from_S_mu_rt(needed["s_1"], needed["s_2"], mui, needed["rt"] / r_0))
     fields = dict(measured_flux=measured, B_t0=b_t0, R_0=r_0, mui_measured=mui, beta_p_diamagnetic=beta_pd,
                   W_kin_virial=needed["W_kin"],
@@ -1337,7 +1372,7 @@ def validate_equilibrium(
         raise ValueError(f"unknown validation categories {unknown}; choose from {EQUILIBRIUM_CATEGORIES}")
     indices = _slice_indices(equilibrium, time_slice)
     times = [_slice_time(equilibrium, index) for index in indices]
-    report: dict[str, Any] = {"schema_version": 1}
+    report: dict[str, Any] = {"schema_version": 2}
     provenance = _provenance(equilibrium, indices, diagnostics=diagnostics, kinetic_profiles=kinetic_profiles)
 
     if not indices:

@@ -93,6 +93,8 @@ EQUILIBRIUM_GLOBAL_COLUMNS = (
     "virial_residual_e2",
     "virial_residual_e3",
     "virial_residual_rms",
+    "virial_residual_rms_evaluable",
+    "virial_identities_available",
     "virial_omitted_residual_pair_12",
     "virial_omitted_residual_pair_13",
     "virial_omitted_residual_pair_23",
@@ -111,6 +113,10 @@ EQUILIBRIUM_GLOBAL_PATHS = (
     # resolver cross-checks it against tf, so tf has to be loaded or the check
     # is blind and the corrupt value is used silently.
     "tf",
+    # The virial path reads the diamagnetic loop for the measured mu_i. Without
+    # it the magnetics IDS is never opened and virial_mui_measured is NaN on
+    # every row of every shot -- a column that exists and says nothing.
+    "magnetics",
 )
 
 VACUUM_REFERENCE_RADIUS_M = 0.4
@@ -316,6 +322,8 @@ def _virial_structured_values(values: dict) -> dict[str, float]:
         "virial_residual_e2": block("identity", "e2_normalized"),
         "virial_residual_e3": block("identity", "e3_normalized"),
         "virial_residual_rms": block("identity", "rms"),
+        "virial_residual_rms_evaluable": block("identity", "rms_evaluable"),
+        "virial_identities_available": block("identity", "identities_available"),
         "virial_omitted_residual_pair_12": block("pair_12", "residual_normalized"),
         "virial_omitted_residual_pair_13": block("pair_13", "residual_normalized"),
         "virial_omitted_residual_pair_23": block("pair_23", "residual_normalized"),

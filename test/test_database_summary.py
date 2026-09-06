@@ -546,3 +546,35 @@ def test_the_shot_overview_loads_what_the_shot_class_reads():
     loaded, and the class decides BD failure versus Vacuum on the barometry."""
     paths = summary_module.PRESETS["shot_overview"].paths
     assert "barometry" in paths and "dataset_description" in paths
+
+
+def test_the_virial_columns_carry_numbers_and_not_only_names():
+    """`set(rows[0]) == set(COLUMNS)` passes with every new column NaN, which is
+    exactly how `virial_mui_measured` shipped empty on all 234 rows of the
+    history sheet: the magnetics IDS was never opened, so the measured mu_i had
+    nothing to read. Assert the columns populate on the packaged sample, which
+    does carry a diamagnetic loop."""
+    import numpy as np
+
+    from vaft.database import _summary as summary_module
+    from vaft.omas.sample import sample_ods
+
+    rows = summary_module.extract_equilibrium_global(sample_ods(), 39915)
+    assert rows, "the packaged sample has equilibrium slices"
+    live = rows[0]
+
+    populated = (
+        "virial_beta_pair_12", "virial_li_pair_12",
+        "virial_beta_pair_13", "virial_li_pair_13",
+        "virial_beta_volume", "virial_li_volume",
+        "virial_mui", "virial_mui_full_123", "virial_mui_measured",
+        "virial_residual_e1", "virial_residual_e3",
+        "virial_residual_rms_evaluable", "virial_rt_denominator_ratio",
+    )
+    empty = [name for name in populated if not np.isfinite(live.get(name, np.nan))]
+    assert empty == [], f"columns present but never filled: {empty}"
+
+    # The measured mu_i is the one that needs the magnetics IDS to be opened.
+    assert "magnetics" in summary_module.EQUILIBRIUM_GLOBAL_PATHS
+    # Both mu_i are on the volume convention, so their signs are comparable.
+    assert live["virial_mui"] < 0 < live["virial_mui_measured"]

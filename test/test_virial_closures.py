@@ -141,13 +141,25 @@ def test_bongard_is_exactly_the_pair_13_closure():
 
 
 def test_lao_beta_p_is_pair_12_but_lao_li_is_not():
-    """The distinction #546 exists to make explicit. Lao's beta_p comes from
-    E1+E2; his li takes beta_p - mu_i from the same pair and substitutes it into
-    E3, so it is a three-relation result wearing a pairwise name."""
+    """The distinction #546 exists to make explicit. Lao's beta_p is half of
+    E1 - E2, which fixes beta_p - mu_i; his li takes that same difference and
+    substitutes it into E3, so it is a three-relation result wearing a pairwise
+    name. (E1 + E2 is the other combination, the one that eliminates mu_i in
+    favour of li -- it cannot yield beta_p - mu_i.)"""
     beta_lao, li_lao = virial_lao_from_S_alpha_mu_rt(S1, S2, S3, ALPHA, MU, RT)
     beta_12, li_12 = virial_pair_12_from_S_mu_rt(S1, S2, MU, RT)
     assert beta_lao == pytest.approx(beta_12, abs=1e-12)
     assert li_lao != pytest.approx(li_12, abs=1e-9)
+    # ... and it is a difference of formulas, not of these numbers: the two
+    # coincide exactly on inputs that satisfy all three relations, so a test
+    # that only ever used consistent inputs could not tell them apart, while one
+    # that only ever used BASE could not show they are the same closure of E1
+    # and E2. Both facts are needed.
+    c = _consistent_inputs()
+    _, li_lao_c = virial_lao_from_S_alpha_mu_rt(
+        c["S1"], c["S2"], c["S3"], c["alpha"], c["mu"], c["rt"]
+    )
+    assert li_lao_c == pytest.approx(SOLVERS["pair_12"](c)[1], abs=1e-12)
 
 
 def test_the_full_solve_li_is_identically_the_lao_li():
@@ -167,9 +179,17 @@ def test_the_full_solve_mu_i_is_independent_of_the_supplied_one():
     which is what makes its mu_i comparable against a measured one."""
     beta_p, li, mu_i = virial_full_123_from_S_alpha_rt(S1, S2, S3, ALPHA, RT)
     pair_beta, pair_li = virial_pair_12_from_S_mu_rt(S1, S2, MU, RT)
+    # On inconsistent inputs the solve disagrees with the mu_i it was not given.
     assert mu_i != pytest.approx(MU, abs=1e-9)
-    assert beta_p != pytest.approx(pair_beta, abs=1e-9)
-    assert li != pytest.approx(pair_li, abs=1e-9)
+    # beta_p - pair_beta == mu_i - MU identically, so asserting both adds
+    # nothing; assert the identity instead, which holds for any input.
+    assert beta_p - pair_beta == pytest.approx(mu_i - MU, abs=1e-12)
+    # And on consistent inputs it recovers the supplied mu_i exactly, so the
+    # inequality above is a statement about the inputs, not about the solve.
+    c = _consistent_inputs()
+    assert virial_full_123_from_S_alpha_rt(
+        c["S1"], c["S2"], c["S3"], c["alpha"], c["rt"]
+    )[2] == pytest.approx(c["mu"], abs=1e-12)
 
 
 def test_the_deprecated_name_still_returns_the_same_numbers():
@@ -234,21 +254,37 @@ def test_the_singularity_is_caught_from_either_side(delta):
     ))
 
 
-def test_a_closure_just_outside_the_singular_band_still_returns_numbers():
-    """The guard must not swallow merely ill-conditioned cases: those are real
-    results the conditioning evidence is there to qualify."""
-    beta_p, li = virial_pair_13_from_S_alpha_mu(S1, S2, S3, 2.0 / 3.0 + 1e-6, MU)
+def test_the_guard_rejects_values_set_by_the_denominator_not_the_equilibrium():
+    """The band has to sit where the closure actually degrades. This test used
+    to assert `abs(beta_p) > 1e3` as the *desired* outcome, which enshrined the
+    thing the guard exists to prevent: a 6e7 beta_p reaching the plausibility
+    bounds and being reported as a physical failure."""
+    # Inside the band: the denominator, not the equilibrium, sets the value.
+    assert all(math.isnan(v) for v in virial_pair_13_from_S_alpha_mu(
+        S1, S2, S3, 2.0 / 3.0 + 1e-6, MU
+    ))
+    # Outside it: an ill-conditioned but real result, which the conditioning
+    # evidence qualifies rather than the guard discarding.
+    beta_p, li = virial_pair_13_from_S_alpha_mu(S1, S2, S3, 2.0 / 3.0 + 0.05, MU)
     assert math.isfinite(beta_p) and math.isfinite(li)
-    assert abs(beta_p) > 1e3, "expected the near-singular value to be large"
+    assert abs(beta_p) < 100.0
 
 
-def test_pair_12_cannot_be_singular_because_it_never_sees_alpha():
-    """It is the one closure built from the two relations that never mention
-    alpha. That is structural, not a property of these numbers, so assert it on
-    the signature: there is no alpha to make it indeterminate."""
+def test_pair_12_has_no_alpha_denominator_but_is_not_therefore_well_conditioned():
+    """It is built from the two relations that never mention alpha, so no alpha
+    can make it divide by zero -- assert that on the signature, since it is
+    structural. But it was documented as "the only pair that cannot become
+    ill-conditioned", which is false: it depends on RT/R0 in both unknowns, and
+    on the VEST history it is the pair least often computable."""
     assert "alpha" not in inspect.signature(virial_pair_12_from_S_mu_rt).parameters
-    beta_p, li = virial_pair_12_from_S_mu_rt(S1, S2, MU, RT)
-    assert math.isfinite(beta_p) and math.isfinite(li)
+    for alpha in (0.0, 2.0 / 3.0, 1.0, 1e9):
+        # No value of alpha reaches it at all.
+        assert virial_pair_12_from_S_mu_rt(S1, S2, MU, RT) == virial_pair_12_from_S_mu_rt(
+            S1, S2, MU, RT
+        )
+    # RT/R0 does reach it, and moves both unknowns without bound.
+    wide = [virial_pair_12_from_S_mu_rt(S1, S2, MU, r) for r in (1.0, 0.0, -0.5)]
+    assert abs(wide[2][1] - wide[0][1]) > 3.0, "li moves freely with RT/R0"
 
 
 def test_the_identities_stay_finite_where_the_inversions_fail():
@@ -334,8 +370,33 @@ def test_the_full_solve_guards_the_determinant_it_documents():
 
 
 def test_the_historical_bongard_name_can_tune_the_same_guard():
-    near = 2.0 / 3.0 + 1e-6
+    near = 2.0 / 3.0 + 0.02          # denominator 0.06: outside the 1e-3 default
     assert all(math.isfinite(v) for v in virial_bongard_from_S_alpha_mu(S1, S2, S3, near, MU))
     assert all(math.isnan(v) for v in virial_bongard_from_S_alpha_mu(
-        S1, S2, S3, near, MU, eps=1e-3
+        S1, S2, S3, near, MU, eps=0.1
     ))
+
+
+def test_the_flux_and_volume_mu_i_conventions_are_negatives():
+    """The defect the cold review of #546 found. The three relations use the
+    volume definition of mu_i; the EFIT flux port is its negative. Feeding the
+    flux sign to the closures put a systematic 2*mu_i into every residual and
+    turned l_i negative on real reconstructions."""
+    from vaft.formula.equilibrium import (
+        virial_mu_i_from_diamagnetic_flux,
+        virial_muihat_from_Bt_R0_dphi,
+    )
+
+    args = (0.15, 0.4, -1.44e-3, 0.042, 0.956)   # B_t, R0, dphi, B_pa, Omega
+    assert virial_mu_i_from_diamagnetic_flux(*args) == pytest.approx(
+        -virial_muihat_from_Bt_R0_dphi(*args), rel=1e-12
+    )
+    # A negative (diamagnetic) flux gives a positive mu_i in the virial sign.
+    assert virial_mu_i_from_diamagnetic_flux(*args) > 0
+
+    # And the sign matters by exactly 2*mu_i in every identity, which is what
+    # made this survive: the offset is systematic, so nothing looked random.
+    mu = 0.31
+    a = virial_identity_residuals(0.85, 0.72, mu, S1, S2, S3, ALPHA, RT)
+    b = virial_identity_residuals(0.85, 0.72, -mu, S1, S2, S3, ALPHA, RT)
+    assert [x - y for x, y in zip(a, b)] == pytest.approx([-2 * mu, 2 * mu, -2 * mu])
