@@ -44,7 +44,7 @@ A longer path is truncated with no diagnostic and fails later as
 the path. `vaft.code.nubeam` checks this before running and says so;
 `vaft.compat.short_temporary_directory` allocates a scratch directory that fits.
 
-**No `sed` or `awk`.** The edits these scripts need are the two that diverge
+**No in-place `sed`.** The edits these scripts need are the two that diverge
 between GNU and BSD: `sed -i` takes a backup suffix on BSD and none on GNU, and
 the two spell a whole-line replacement differently. `_case_edit.py` does them in
 Python instead, reusing the adapter's own implementations so the harness and the

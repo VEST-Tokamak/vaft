@@ -12,12 +12,20 @@ from pathlib import Path
 import pytest
 
 from vaft.code import nubeam
-from vaft.compat import short_temporary_directory
+from vaft.compat import is_executable, short_temporary_directory
 from vaft.code.nubeam.config import (
     NUBEAM_LONGEST_OUTPUT_SUFFIX,
     NUBEAM_PATH_BUFFER_CHARS,
 )
 from vaft.code.nubeam.inputs import _apply_particle_count
+
+from external_code_stubs import write_launchable_stub, write_unlaunchable_file
+
+
+#: Read once, at import, because the autouse fixture below deletes it before
+#: any test body runs -- and the skipif that gates the integration test is
+#: evaluated here too, so this is the same value it consulted.
+INSTALLED_NUBEAM_HOME = os.environ.get("NUBEAMHOME")
 
 
 @pytest.fixture(autouse=True)
@@ -284,20 +292,58 @@ def test_collecting_a_missing_directory_is_an_error(tmp_path):
 
 
 @pytest.mark.skipif(
-    not os.environ.get("NUBEAMHOME"),
+    not INSTALLED_NUBEAM_HOME,
     reason="NUBEAM integration test requires NUBEAMHOME",
 )
 def test_installed_nubeam_resolves():
-    # The autouse fixture clears NUBEAMHOME, so read it from the real
-    # environment the skipif consulted.
+    # The documented POSIX name; resolution finds the native build beside it.
     executable = nubeam.find_nubeam_executable(
         nubeam.NUBEAMConfig(
             executable=str(
-                Path(os.environ["NUBEAMHOME"]) / "bin" / "nubeam_comp_exec"
+                Path(INSTALLED_NUBEAM_HOME) / "bin" / "nubeam_comp_exec"
             )
         )
     )
     assert executable is not None and executable.is_file()
+    assert is_executable(executable)
+
+
+def test_a_configured_executable_resolves_the_way_this_platform_names_it(tmp_path):
+    """The documented POSIX name has to find the native build beside it.
+
+    Every other adapter resolves an explicit `executable=` through
+    `resolve_executable`; NUBEAM was the last one comparing the raw name, so a
+    Windows install could not be reached by the path its own documentation
+    gives.
+    """
+    created = write_launchable_stub(tmp_path / "bin" / "nubeam_comp_exec")
+
+    resolved = nubeam.find_nubeam_executable(
+        nubeam.NUBEAMConfig(executable=str(tmp_path / "bin" / "nubeam_comp_exec"))
+    )
+
+    assert resolved == created
+
+
+def test_a_configured_path_that_is_not_a_program_is_refused(tmp_path):
+    """`os.access(X_OK)` accepts any readable file on Windows.
+
+    Left to it, a text file passed as `executable=` reaches CreateProcess and
+    comes back as WinError 193, which names nothing the reader can act on.
+    """
+    write_unlaunchable_file(tmp_path / "bin" / "nubeam_comp_exec")
+
+    with pytest.raises(PermissionError, match="not executable"):
+        nubeam.find_nubeam_executable(
+            nubeam.NUBEAMConfig(executable=str(tmp_path / "bin" / "nubeam_comp_exec"))
+        )
+
+
+def test_a_configured_path_that_is_absent_names_what_was_asked_for(tmp_path):
+    with pytest.raises(FileNotFoundError, match="nubeam_comp_exec"):
+        nubeam.find_nubeam_executable(
+            nubeam.NUBEAMConfig(executable=str(tmp_path / "bin" / "nubeam_comp_exec"))
+        )
 
 
 # --------------------------------------------------------------------------
