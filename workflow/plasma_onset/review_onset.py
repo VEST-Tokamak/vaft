@@ -4,7 +4,8 @@ One page per shot: raw and filtered plasma current with the principal-pulse
 onset and the pickup scale, the H-alpha record with the threshold, hold and
 sustained onset, and the runs each detector rejected.  Reads either a
 packaged pipeline sample (``--shot 39915``) or a corpus file written by the
-raw-database scan (``--npz path``; keys ``t_ip, ip, t_ha, ha``).  The rules
+raw-database scan (``scan_corpus.py --npz-dir``; ``--npz path``; keys
+``t_ip, ip, t_ha, ha``).  The rules
 and the shared plasma-analysis range come from the ``plasma_timing`` policy
 in ``vest.yaml``; a packaged shot also gets the composed
 ``vaft.omas.plasma_timing`` verdict -- source, agreement, fallback reason --

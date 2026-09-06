@@ -54,7 +54,7 @@ def _declared_groups() -> list[list[str]]:
     the list is that a reader can see what the gate covers, and that only works
     if each group says what it protects and stays in order.
     """
-    source = (TEST_ROOT / "core_selection.py").read_text().splitlines()
+    source = (TEST_ROOT / "core_selection.py").read_text(encoding="utf-8").splitlines()
     start = next(i for i, line in enumerate(source) if line.startswith("CORE_MODULES"))
     groups: list[list[str]] = []
     for line in source[start + 1 :]:
@@ -92,7 +92,10 @@ def _markers_applied_in(path: Path) -> set[str]:
     and a substring scan cannot tell the difference.
     """
     applied = set()
-    for node in ast.walk(ast.parse(path.read_text())):
+    # Repository files are UTF-8. Reading them at the host locale fails on a
+    # cp949 or cp1252 console the moment a source file contains a dash, which
+    # is the same defect ff1359a fixed for the library.
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
         if (
             isinstance(node, ast.Attribute)
             and isinstance(node.value, ast.Attribute)
@@ -137,7 +140,7 @@ GATE_EXPRESSION = 'core and not perf'
 @pytest.mark.skipif(not WORKFLOW.is_file(), reason="this branch has no Package CI workflow")
 def test_the_develop_gate_runs_the_declared_expression():
     """CI must select what this module says it selects."""
-    workflow = WORKFLOW.read_text()
+    workflow = WORKFLOW.read_text(encoding="utf-8")
     assert f'-m "{GATE_EXPRESSION}"' in workflow, (
         "the core-test job in .github/workflows/package-ci.yml no longer runs "
         f'-m "{GATE_EXPRESSION}". The develop gate and this contract have to '
@@ -147,7 +150,7 @@ def test_the_develop_gate_runs_the_declared_expression():
 
 def test_core_marker_is_registered():
     """`pytest -m core` must be a documented selector, not an unknown mark."""
-    pyproject = (REPO_ROOT / "pyproject.toml").read_text()
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert '"core: ' in pyproject, "register the `core` marker in pyproject.toml"
 
 

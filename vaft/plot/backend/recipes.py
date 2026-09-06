@@ -6732,14 +6732,47 @@ def _mhd_linear_eigenfunction_cell(ods: Any, **options: Any) -> dict[str, Any]:
     }
 
 
+def _code_parameter_values(node: Any, name: str) -> list[Any]:
+    """Every value stored under ``name`` anywhere in a decoded code-parameters tree.
+
+    Attribute keys carry a leading ``@`` once OMAS has decoded the XML, and the
+    nesting depth depends on how many fragments the document holds, so this
+    walks rather than indexes a fixed path.
+    """
+    found: list[Any] = []
+    if isinstance(node, Mapping):
+        for key, value in node.items():
+            if str(key).lstrip("@") == name:
+                found.append(value)
+            else:
+                found.extend(_code_parameter_values(value, name))
+    elif isinstance(node, (list, tuple)):
+        for item in node:
+            found.extend(_code_parameter_values(item, name))
+    return found
+
+
 def _mhd_linear_radial_stride(ods: Any) -> int | None:
     """The radial stride the mapper recorded, when every cell agrees on one.
 
     What reaches the IDS is a strided view of `solutions.bin`, so a reader who
     is not told that will mistake the drawn resolution for DCON's own.
+
+    Read shape-agnostically because `code.parameters` is not always the string
+    the mapper wrote: loading through IMAS decodes it into a `CodeParameters`
+    tree (`load_omas_imas` is wrapped in omas's `codeparams_xml_load`), where no
+    amount of regex over the repr will find the attribute. Whether that decode
+    happens depends on the document -- omas raises internally on the repeated
+    `<solver>` elements a multi-module shot produces and leaves the string
+    alone -- so a reader that only handles one shape works by accident on some
+    shots and silently drops the annotation on others.
     """
     parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
-    strides = {int(value) for value in re.findall(r'radial_stride="(\d+)"', str(parameters))}
+    if isinstance(parameters, str):
+        values: list[Any] = re.findall(r'radial_stride="(\d+)"', parameters)
+    else:
+        values = _code_parameter_values(parameters, "radial_stride")
+    strides = {int(value) for value in values}
     return strides.pop() if len(strides) == 1 else None
 
 

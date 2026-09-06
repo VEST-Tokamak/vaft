@@ -69,6 +69,58 @@ class CameraHeaderInfo:
     exposure_time_s: float | None
 
 
+#: VEST's two camera-viewing ports, as the visible-camera calibration uses
+#: them: a rectangular aperture on the vessel's outer wall, given by its major
+#: radius, its chord width, and the top and bottom of its opening. The two
+#: ports sit 120 degrees apart, the first centred on 30 degrees. Machine
+#: geometry, kept here rather than in the notebooks that project it.
+PORT_MAJOR_RADIUS_M = 0.803
+PORT_CHORD_WIDTH_M = 0.24
+PORT_TOP_M = 0.57 - 0.2355
+PORT_HEIGHT_M = 0.692
+PORT_FIRST_CENTRE_RAD = np.deg2rad(30.0)
+PORT_SEPARATION_RAD = np.deg2rad(120.0)
+
+
+def vest_port_corner_points() -> np.ndarray:
+    """The camera ports' corner and edge-midpoint markers, in world centimeters.
+
+    Eight markers per port -- four corners, then the mid-height points of the
+    two vertical edges and the mid-width points of the top and bottom edges --
+    for both ports, in the ``(X, Y, Z)`` centimeter frame
+    :func:`vaft.process.camera_geometry.project_points` expects, matching
+    :func:`vaft.process.camera_geometry.sweep_toroidal`.
+
+    The aperture's angular half-width follows from its chord across the port
+    circle, ``cos(w) = 1 - c^2 / (2 R^2)``.
+    """
+    z_top = PORT_TOP_M
+    z_bottom = z_top - PORT_HEIGHT_M
+    z_middle = 0.5 * (z_top + z_bottom)
+    radius = PORT_MAJOR_RADIUS_M
+    width_rad = np.arccos(1.0 - PORT_CHORD_WIDTH_M ** 2 / (2.0 * radius ** 2))
+
+    def corners(base_angle: float) -> np.ndarray:
+        left, right = base_angle, base_angle + width_rad
+        centre = base_angle + width_rad / 2.0
+        x_left, y_left = radius * np.cos(left), radius * np.sin(left)
+        x_right, y_right = radius * np.cos(right), radius * np.sin(right)
+        x_centre, y_centre = radius * np.cos(centre), radius * np.sin(centre)
+        return np.array([
+            [x_right, y_right, z_top],
+            [x_right, y_right, z_bottom],
+            [x_left, y_left, z_bottom],
+            [x_left, y_left, z_top],
+            [x_right, y_right, z_middle],
+            [x_centre, y_centre, z_bottom],
+            [x_left, y_left, z_middle],
+            [x_centre, y_centre, z_top],
+        ]) * 100.0
+
+    first = PORT_FIRST_CENTRE_RAD - width_rad / 2.0
+    return np.vstack([corners(first), corners(first + PORT_SEPARATION_RAD)])
+
+
 def _parse_bmp_header(path: str | Path) -> CameraHeaderInfo:
     """Parse a FAST-camera `{shot}_bmp.txt` header.
 

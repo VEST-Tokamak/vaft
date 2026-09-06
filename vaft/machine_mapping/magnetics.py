@@ -32,6 +32,8 @@ from vaft.process.signal_processing import (
 from vaft.formula.statistics import median_absolute_deviation
 
 from .utils import (
+    AGREEMENT_CONSISTENT,
+    onset_agreement,
     CroppedRecord,
     PlasmaTimingPolicy,
     VestConfigurationError,
@@ -1066,6 +1068,11 @@ def vest_diamagnetic_flux_detailed(
     integrated = integrate.cumulative_trapezoid(raw_values, temp_time, initial=0.0) * rogo_gain
     start_index = int(np.argmin(np.abs(temp_time - plasma_start)))
     end_index = int(np.argmin(np.abs(temp_time - plasma_end)))
+    # A window past the record is anchored at the record's end: said in the
+    # report and the method_name rather than left to look like the light's offset.
+    report["window_clipped_to_record"] = bool(
+        float(plasma_start) < float(temp_time[0]) or float(plasma_end) > float(temp_time[-1])
+    )
     if end_index <= start_index:
         empty = np.zeros(temp_time.size, dtype=float)
         if with_stages:
@@ -1759,11 +1766,16 @@ HALPHA_RAW_FIELD = 101
 class PlasmaWindowChoice:
     """The plasma window a raw-side consumer uses, and where it came from.
 
-    ``start``/``end`` lie inside the shared ``plasma_analysis`` range; ``source``
-    names the record that produced them (the raw H-alpha field, the plasma
-    current, or the range itself when neither showed a plasma, in which case
-    ``flags`` carries ``analysis_range_fallback``).  ``evidence`` keeps the
-    detector records so a consumer can say why.
+    A found window lies inside the shared ``plasma_analysis`` range (a plasma
+    current record that does not cover it is flagged ``ip_record_short``);
+    the range fallback lies inside the current record.  ``source`` names the
+    record that produced them (the raw H-alpha field, the plasma current, or
+    the range itself when neither showed a plasma, in which case ``flags``
+    carries ``analysis_range_fallback``); when both records show a plasma the
+    flags also carry their agreement (``ip_before_halpha``,
+    ``halpha_leads_ip_large``) in the same vocabulary as
+    ``vaft.omas.plasma_timing``.  ``evidence`` keeps both detector records so
+    a consumer can say why.
     """
 
     start: float
@@ -1856,10 +1868,20 @@ def detect_plasma_window(
     }
 
     def choose(window, source: str, crop_flags: tuple[str, ...]) -> PlasmaWindowChoice:
-        flags = tuple(dict.fromkeys((*crop_flags, *window.flags)))
-        return PlasmaWindowChoice(
-            max(float(window.start), tstart), min(float(window.end), tend), source, flags, evidence
-        )
+        # A found window is intersected with the policy range, not with the
+        # current record: a light window past a short current record is a real
+        # window the current simply does not cover, said with ip_record_short.
+        start = max(float(window.start), float(policy.window.tstart))
+        end = min(float(window.end), float(policy.window.tend))
+        flags = list(dict.fromkeys((*crop_flags, *window.flags)))
+        if float(ip_t[0]) > start or float(ip_t[-1]) < end:
+            flags.append("ip_record_short")
+        return PlasmaWindowChoice(start, end, source, tuple(flags), evidence)
+
+    # The current is always examined: it is the fallback and the cross-check.
+    ip_record = crop_to_span(ip_t, ip_y, **span)
+    ip_window = ip_record.detect(policy.ip)
+    evidence["ip"] = ip_window.as_dict()
 
     halpha = _safe_vest_load(shot, HALPHA_RAW_FIELD, raw_source)
     if halpha is not None and len(halpha[1]) > 1:
@@ -1870,15 +1892,19 @@ def detect_plasma_window(
             window = record.detect(policy.h_alpha)
             evidence["h_alpha"] = window.as_dict()
             if window.found:
-                return choose(window, PLASMA_WINDOW_H_ALPHA_RAW, record.flags)
+                flags = record.flags
+                if ip_window.found:
+                    agreement = onset_agreement(float(ip_window.start - window.start), policy.agreement)
+                    evidence["agreement"] = agreement
+                    if agreement != AGREEMENT_CONSISTENT:
+                        flags = (*flags, agreement)
+                return choose(window, PLASMA_WINDOW_H_ALPHA_RAW, flags)
         else:
             evidence["h_alpha_unusable"] = reason
 
-    record = crop_to_span(ip_t, ip_y, **span)
-    window = record.detect(policy.ip)
-    evidence["ip"] = window.as_dict()
-    if window.found:
-        return choose(window, PLASMA_WINDOW_IP, record.flags)
+    if ip_window.found:
+        return choose(ip_window, PLASMA_WINDOW_IP, ip_record.flags)
+    record = ip_record
 
     flags = tuple(dict.fromkeys((*record.flags, PLASMA_WINDOW_FALLBACK_FLAG)))
     return PlasmaWindowChoice(tstart, tend, PLASMA_WINDOW_ANALYSIS_RANGE, flags, evidence)
@@ -1907,8 +1933,13 @@ def _diamagnetic_method_name(
         )
     if window is not None:
         text += f"; plasma window {window.start:.4f}-{window.end:.4f} s from {window.source}"
+        noted = [f for f in window.flags if f in ("ip_record_short", "ip_before_halpha", "halpha_leads_ip_large")]
+        if noted:
+            text += f" ({', '.join(noted)})"
         if window.fallback:
             text += "; analysis-range fallback"
+    if report.get("window_clipped_to_record"):
+        text += "; window clipped to the Rogowski record"
     return text
 
 
