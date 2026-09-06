@@ -53,6 +53,7 @@ from .recipes import (
     CAMERA_OVERLAYS,
     ChannelProfileRecipe,
     _coordinate_options,
+    abscissa_options,
     _has,
     CAMERA_PROJECTIONS,
     RECIPES,
@@ -255,6 +256,8 @@ def _declare(record: PlotCapability) -> PlotCapability:
             "convention": PSI_FIELD_CONVENTIONS[record.name],
         }
     if isinstance(recipe, LineRecipe):
+        options = abscissa_options(recipe)
+        updates["abscissa"] = {"default": "time", "options": options, "declared": options}
         # Only the line-series builder takes layout= (issue #260); grouped
         # needs a radial split, which an ODS decides -- see _evaluate.
         updates["layouts"] = (
@@ -360,6 +363,7 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
         recipe = RECIPES.get(record.name)
         if isinstance(recipe, LineRecipe):
             updates.update(_line_facts(record, recipe, ods))
+            updates["abscissa"] = _abscissa_block(record, recipe, ods)
         elif isinstance(recipe, ChannelProfileRecipe):
             updates.update(_channel_facts(record, recipe, ods))
             updates["times"] = _times_block(ods, recipe)
@@ -567,6 +571,22 @@ def _channel_facts(record: PlotCapability, recipe: Any, ods: Any) -> dict[str, A
         any(_uncertainty_of(ods, recipe.y_path, i) is not None for i in with_data)
     )
     return facts
+
+
+def _abscissa_block(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[str, Any]:
+    """The abscissae this input can actually supply (issue #481).
+
+    ``time`` and ``index`` always can be; a declared sibling needs its own
+    leaf, so a shot without one is not offered a control that would silently
+    fall back to the index.
+    """
+    declared = tuple(record.abscissa.get("declared") or abscissa_options(recipe))
+    available = []
+    for name in declared:
+        entry = next((a for a in recipe.abscissae if a.name == name), None)
+        if entry is None or any(_has(ods, path.format(i=0)) for path in entry.paths):
+            available.append(name)
+    return {"default": "time", "options": tuple(available), "declared": declared}
 
 
 def _times_block(ods: Any, recipe: Any) -> dict[str, Any]:

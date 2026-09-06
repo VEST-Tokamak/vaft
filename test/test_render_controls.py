@@ -143,7 +143,7 @@ def test_the_matplotlib_strip_drives_the_state_and_follows_it(sample):
         result = render_controls(build, ControlState(controls_for(record)), draw=draw, backend="matplotlib")
     widgets = result.widget
     names = [c.name for c in result.controls]
-    assert [type(w).__name__ for w in widgets] == ["RadioButtons", "CheckButtons", "RadioButtons", "RadioButtons", "RadioButtons", "RadioButtons"]
+    assert [type(w).__name__ for w in widgets] == ["RadioButtons", "CheckButtons"] + ["RadioButtons"] * 5
     layout = widgets[names.index("layout")]
     layout.set_active(1)
     assert result.state["layout"] == "subplots" and calls[-1]["layout"] == "subplots"
@@ -199,7 +199,7 @@ def test_the_ipywidgets_box_redraws_matplotlib_and_redisplays_plotly(sample):
 def test_interactive_true_on_a_plot_adapter_returns_the_controls_of_its_record(sample):
     result = vaft.omas.plot_flux_loop_time_flux(sample, interactive=True, interaction_backend="none", layout="subplots", legend=False)
     assert isinstance(result, Interactive)
-    assert [c.name for c in result.controls] == ["selection", "channels", "layout", "yunit", "orientation", "validity"]
+    assert [c.name for c in result.controls] == ["selection", "channels", "layout", "yunit", "x", "orientation", "validity"]
     assert result.state["layout"] == "subplots"  # the option given is the starting value
     result.state.set("selection", "outboard")
     assert result.axes.shape == (4,)
@@ -250,7 +250,7 @@ def test_discovery_names_the_controls_and_the_entry_point(sample):
     record = next(r for r in vaft.omas.available_plots(sample) if r.name == "flux_loop_time_flux")
     assert "controls" in record.interaction
     assert record.interaction_entry_points["controls"] == "plot_flux_loop_time_flux(..., interactive=True)"
-    assert record.controls == ("selection", "channels", "layout", "yunit", "orientation", "validity")
+    assert record.controls == ("selection", "channels", "layout", "yunit", "x", "orientation", "validity")
     assert "controls: selection, channels" in str(vaft.omas.available_plots(sample, query="flux loop"))
 
 
@@ -289,7 +289,7 @@ def test_controls_accepts_a_list_and_the_imas_adapter_offers_the_same(sample):
     assert subset.axes.shape == (11,)
     with vaft.imas.load(vaft.data.sample(39915, representation="imas"), imas_version="3.41.0") as handle:
         result = vaft.imas.plot_flux_loop_time_flux(handle, interactive=True, interaction_backend="none")
-        assert [c.name for c in result.controls] == ["selection", "channels", "layout", "yunit", "orientation", "validity"]
+        assert [c.name for c in result.controls] == ["selection", "channels", "layout", "yunit", "x", "orientation", "validity"]
         result.state.set("selection", "outboard")
         assert result.axes is not None
 

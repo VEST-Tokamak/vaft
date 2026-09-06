@@ -78,6 +78,7 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("emission", "any", description="spectral line, ion or element to draw"),
         OptionSpec("line_index", "int", description="position in the stored processed_line array"),
         OptionSpec("coordinate", "choice", "display.PROFILE_COORDINATES", "radial coordinate of a 1-D profile"),
+        OptionSpec("x", "choice", "recipes.ABSCISSA_NAMES", "quantity on the abscissa of a line plot"),
         OptionSpec("contour_levels"), OptionSpec("detector"),
         OptionSpec("detrend"), OptionSpec("direction"), OptionSpec("dphi_deg"),
         OptionSpec("field_line_start"), OptionSpec("fit_ranges"), OptionSpec("flux_surface_levels"),
@@ -192,13 +193,19 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
 
 
 def _plot_scoped_choices(name: str, key: str) -> tuple[Any, ...] | None:
-    """A vocabulary the plot itself narrows or widens: ``coordinate`` today."""
-    if key != "coordinate":
-        return None
-    from .recipes import coordinate_options_for
+    """A vocabulary the plot itself narrows or widens.
 
+    ``coordinate`` (issue #479) and ``x`` (issue #481) are declared per
+    recipe, so the schema's static list is only the union: what a given plot
+    accepts is asked of the plot.
+    """
+    if key not in ("coordinate", "x"):
+        return None
+    from . import recipes
+
+    resolve = recipes.coordinate_options_for if key == "coordinate" else recipes.abscissa_options_for
     try:
-        return coordinate_options_for(name)
+        return resolve(name)
     except Exception:  # pragma: no cover - an unknown name is refused later by get_spec
         return None
 

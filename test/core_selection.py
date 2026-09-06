@@ -76,6 +76,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagnostic_registry.py",
     "test_display_policy.py",
     "test_layout_contract.py",
+    "test_line_abscissa.py",
     "test_magnetics_spatial.py",
     "test_plot_contract.py",
     "test_plot_taxonomy.py",
