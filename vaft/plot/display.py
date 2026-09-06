@@ -227,14 +227,20 @@ class DisplaySpec:
     notation: str = "auto"
 
 
-def _auto_unit(quantity: QuantityDisplay, data: Any) -> str:
-    """Pick the allowed unit that puts the median |value| in [1, 1000)."""
+def _auto_unit(quantity: QuantityDisplay, data: Any, subject: str | None = None) -> str:
+    """Pick the allowed unit that puts the median |value| in [1, 1000).
+
+    Only the units the subject may show are searched (``allowed_units``): a
+    flux loop's magnitude never lands on a per-radian unit.
+    """
     values = np.abs(np.asarray(data, dtype=float).ravel())
     values = values[np.isfinite(values) & (values > 0)]
     if values.size == 0:
         return quantity.default
     magnitude = float(np.median(values))
-    for unit, factor in sorted(quantity.units.items(), key=lambda item: -item[1]):
+    permitted = allowed_units(quantity.name, subject)
+    candidates = {unit: factor for unit, factor in quantity.units.items() if unit in permitted}
+    for unit, factor in sorted(candidates.items(), key=lambda item: -item[1]):
         scaled = magnitude * factor
         if 1.0 <= scaled < 1000.0:
             return unit
@@ -326,7 +332,7 @@ def resolve_display(
     elif unit == "auto":
         if data is None:
             raise ValueError('unit="auto" requires the plotted data')
-        chosen = _auto_unit(quantity, data)
+        chosen = _auto_unit(quantity, data, subject)
     else:
         chosen = unit
     permitted = allowed_units(quantity_name, subject)

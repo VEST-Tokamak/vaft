@@ -2443,7 +2443,6 @@ def _build_vacuum_psi(
     """
     from vaft.omas import compute_null_ods
 
-    flux_display = resolve_display("Wb", unit=units, subject="equilibrium")
     if time is None:
         time = _vacuum_psi_time(ods)
     # The null-field helper reads with plain subscripts; give it a private copy
@@ -2455,6 +2454,7 @@ def _build_vacuum_psi(
     values = np.asarray(psi, dtype=float)
     if values.shape != (z_axis.size, r_axis.size):
         values = values.T
+    flux_display = resolve_display("Wb", unit=units, subject="equilibrium", data=values)
     return Field2D(
         r=r_axis,
         z=z_axis,
@@ -4045,19 +4045,25 @@ def _inside_polygon(r: np.ndarray, z: np.ndarray, outline_r: np.ndarray, outline
 
 
 def _flux_display(
-    ods: Any, time_slice: int, unit: str | None = None, *, convention: str | None = None
+    ods: Any,
+    time_slice: int,
+    unit: str | None = None,
+    *,
+    convention: str | None = None,
+    data: Any = None,
 ):
     """The display resolution of this equilibrium's poloidal flux (issue #478).
 
     ``convention`` is the stored family (``"Wb"`` or ``"Wb/rad"``) when the
     caller already resolved it; otherwise the backend probe settles it from
-    a declared COCOS index or the data.  The map, the vacuum map and the
-    slice summary's psi rows all pass through here, so they cannot disagree.
+    a declared COCOS index or the data.  ``data`` lets ``unit="auto"`` pick
+    by magnitude.  The map, the vacuum map and the slice summary's psi rows
+    all pass through here, so they cannot disagree.
     """
     from .convention import psi_convention
 
     stored = convention or psi_convention(ods, time_slice)
-    return resolve_display(stored, unit=unit, subject="equilibrium")
+    return resolve_display(stored, unit=unit, subject="equilibrium", data=data)
 
 
 def _style_psi_field(
@@ -4083,7 +4089,7 @@ def _style_psi_field(
     """
     if style not in PSI_STYLES:
         raise ValueError(f"style must be one of {', '.join(PSI_STYLES)}; got {style!r}")
-    flux_display = _flux_display(ods, time_slice, unit, convention=convention)
+    flux_display = _flux_display(ods, time_slice, unit, convention=convention, data=field.values)
     field = dataclasses.replace(
         field,
         values=np.asarray(field.values, dtype=float) * flux_display.scale,
@@ -4188,9 +4194,12 @@ def _build_field_2d(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
             "use units= to choose the value unit"
         )
     if recipe is RECIPES.get("equilibrium_field_psi"):
+        # ``_convention`` is the overview's internal hand-off (the family it
+        # resolved once for the map and the text panel); a leading underscore
+        # keeps it off the public keyword surface (review of #538).
         extra = {
             k: v for k, v in options.items()
-            if k not in ("time_slice", "style", "units", "convention")
+            if k not in ("time_slice", "style", "units", "_convention")
         }
         style = options.get("style")
         field = _style_psi_field(
@@ -4200,7 +4209,7 @@ def _build_field_2d(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
             style or PSI_STYLES[0],
             requested=style is not None,
             unit=options.get("units"),
-            convention=options.get("convention"),
+            convention=options.get("_convention"),
             **extra,
         )
     elif options.get("units") is not None:
@@ -5073,7 +5082,7 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
     units = options.get("units")
     field = _build_field_2d(
         ods, RECIPES["equilibrium_field_psi"], time_slice=index,
-        units=units, convention=convention,
+        units=units, _convention=convention,
         **({"style": options["style"]} if options.get("style") else {}),
     )
     field = dataclasses.replace(field, title="Poloidal flux")

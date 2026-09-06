@@ -283,3 +283,44 @@ def test_both_renderers_label_the_colorbar_from_the_display(sample):
         if getattr(trace, "colorbar", None) is not None and trace.colorbar.title.text
     ]
     assert any("mWb/rad" in title for title in titles)
+
+
+# ---------------------------------------------------------------------------
+# review of #538
+# ---------------------------------------------------------------------------
+
+def test_the_convention_hand_off_is_not_a_public_keyword(sample):
+    """A caller cannot relabel psi by asserting a convention; the probe decides."""
+    from vaft.plot.backend.recipes import build_model
+    from vaft.omas.entries import normalize_entries
+
+    entries = normalize_entries(sample)
+    reference = build_model("equilibrium_field_psi", entries, time_slice=4)
+    with pytest.raises((TypeError, ValueError)):
+        vaft.omas.plot_equilibrium_field_psi(sample, time_slice=4, convention="Wb/rad")
+    # The internal hand-off exists for the overview only and is spelled as such.
+    handed = build_model("equilibrium_field_psi", entries, time_slice=4, _convention="Wb")
+    np.testing.assert_allclose(handed.values, reference.values)
+
+
+def test_units_auto_works_on_both_maps(sample):
+    from vaft.plot.backend.recipes import build_model
+    from vaft.omas.entries import normalize_entries
+
+    entries = normalize_entries(sample)
+    auto = build_model("equilibrium_field_psi", entries, time_slice=4, units="auto")
+    assert auto.display.unit in ("Wb", "mWb") and auto.value_label == f"Poloidal Flux [{auto.display.unit}]"
+    vacuum = build_model("equilibrium_field_psi_vacuum", entries, units="auto")
+    assert vacuum.display.unit in ("Wb", "mWb")
+
+
+def test_the_automatic_unit_stays_within_the_subjects_units():
+    from vaft.plot.display import resolve_display
+
+    # A flux-loop magnitude that would land on mWb/rad if per-radian units were searched.
+    chosen = resolve_display("Wb", unit="auto", subject="flux_loop", data=np.array([2.0]))
+    assert chosen.unit in ("Wb", "mWb")
+    for magnitude in (2e-4, 2e-2, 2.0, 40.0):
+        assert resolve_display("Wb", unit="auto", subject="flux_loop", data=np.array([magnitude])).unit in ("Wb", "mWb")
+    equilibrium = resolve_display("Wb", unit="auto", subject="equilibrium", data=np.array([2.0]))
+    assert equilibrium.unit in ("Wb", "mWb", "Wb/rad", "mWb/rad")
