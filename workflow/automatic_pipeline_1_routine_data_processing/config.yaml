@@ -75,7 +75,11 @@ eddy:
 constraints:
   timeset: auto
   tstep: 0.001
+  # Require the diagnostics-stage assessment (projected validity); the
+  # constraint stage never assesses signals itself (issue #296).
   detect_broken: true
+  # Rejected by configuration: one-based combined indexes, probes 1..64 then
+  # flux loops (65 = loop 0).  Recorded in the product as manual_exclusion_list.
   broken:
   - 65
   - 66
@@ -84,6 +88,8 @@ constraints:
   - 72
   - 74
   fl_correct_option: 0
+  # Recovery backend: 0 none, 1 refit rejected probes from their family's
+  # Gaussian profile, 2 refit every probe.
   gaussian_fit_option: 1
   npprime: 2
   nffprime: 2

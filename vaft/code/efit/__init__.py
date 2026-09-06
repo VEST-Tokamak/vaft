@@ -65,7 +65,8 @@ from .magnetic import (
     collect_efit_outputs,
     gfile_to_omas,
 )
-from .kfile import generate_constraints_ods, generate_kfile
+from .kfile import apply_channel_decisions, generate_constraints_ods, generate_kfile
+from .recovery import ProbeFamilies, gaussian_probe_recovery, probe_families
 from .kinetic import (
     EQE,
     SPLINE_SIG_FRAC,
@@ -107,6 +108,10 @@ __all__ = [
     "gfile_to_omas",
     "generate_constraints_ods",
     "generate_kfile",
+    "apply_channel_decisions",
+    "gaussian_probe_recovery",
+    "probe_families",
+    "ProbeFamilies",
     "EQE",
     "KineticEFITConfig",
     "KineticEFITInputs",

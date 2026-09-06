@@ -1,4 +1,4 @@
-"""Offline automatic Bpol probe-quality detection."""
+"""The routine constraint wrapper forms decisions; it detects nothing (issue #296)."""
 
 from __future__ import annotations
 
@@ -6,8 +6,11 @@ import importlib.util
 from pathlib import Path
 
 import numpy as np
+import pytest
 from omas import ODS
 
+from vaft.validation.channel_decision import REASON_MANUAL_LIST, REJECTED
+from vaft.validation.imas import write_validity
 
 SCRIPT = (
     Path(__file__).parents[1]
@@ -18,85 +21,71 @@ MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(MODULE)
 
+TIME = np.linspace(0.26, 0.36, 2500)
 
-def test_detects_gross_integrator_drift_without_flagging_peer_variation():
+
+def _array(n: int = 68, loops: int = 2) -> ODS:
     ods = ODS(consistency_check=False)
-    time = np.linspace(0.26, 0.36, 2500)
-    ods["magnetics.time"] = time
-    for index in range(64):
-        amplitude = 0.05 * (1.0 + 0.1 * np.sin(index))
-        values = amplitude * np.sin(2 * np.pi * 20 * time)
-        if index == 25:
-            values = values + np.linspace(0.0, 2.7, time.size)
-        ods[f"magnetics.b_field_pol_probe.{index}.field.data"] = values
-
-    assert MODULE._detect_broken_bpol_probes(ods) == [26]
-
-
-def test_the_fallback_is_the_shared_detector():
-    """One rule for one fault, with or without a projected assessment: what
-    the fallback names on the packaged shot is what the quality layer
-    condemns there."""
-    from vaft.omas.sample import sample_ods
-    from vaft.validation.magnetics import validate_magnetics_signals
-    from vaft.validation.model import ValidationStatus
-
-    ods = sample_ods()
-    condemned = sorted(
-        q.index + 1
-        for q in validate_magnetics_signals(ods, kinds=("b_field_pol_probe",))
-        if q.status is not ValidationStatus.NOT_AVAILABLE and q.valid_fraction == 0.0
-    )
-    assert MODULE._detect_broken_bpol_probes(ods) == condemned == [26]
-
-
-def _array(n: int = 64, bad: int = 25) -> ODS:
-    ods = ODS(consistency_check=False)
-    time = np.linspace(0.26, 0.36, 2500)
+    ods["magnetics.time"] = TIME
     for index in range(n):
-        values = 0.05 * (1.0 + 0.1 * np.sin(index)) * np.sin(2 * np.pi * 20 * time)
-        if index == bad:
-            values = values + np.linspace(0.0, 2.7, time.size)
-        ods[f"magnetics.b_field_pol_probe.{index}.field.data"] = values
-        ods[f"magnetics.b_field_pol_probe.{index}.field.time"] = time
+        ods[f"magnetics.b_field_pol_probe.{index}.field.data"] = 0.05 * np.sin(2 * np.pi * 20 * TIME)
+        ods[f"magnetics.b_field_pol_probe.{index}.position.r"] = 0.05
+        ods[f"magnetics.b_field_pol_probe.{index}.position.z"] = 0.1
+    for index in range(loops):
+        ods[f"magnetics.flux_loop.{index}.flux.data"] = 0.01 * np.cos(2 * np.pi * 20 * TIME)
+        ods[f"magnetics.flux_loop.{index}.position.0.r"] = 0.6
+        ods[f"magnetics.flux_loop.{index}.position.0.z"] = 0.3
     return ods
 
 
-def test_projected_validity_wins_over_the_amplitude_detector():
-    """Once the diagnostics stage has assessed the magnetics (#189/#343), the
-    script's own detector must not vote: kfile already folds condemned
-    channels in, and two detectors disagreeing on one probe is worse than one.
-    Here the stage condemned probe 10 and cleared the drifting probe 25."""
-    from vaft.validation.imas import write_validity
+def _assess(ods, *, bad_probe=None, bad_loop=None):
+    for index in range(len(ods["magnetics.b_field_pol_probe"])):
+        code = -2 if index == bad_probe else 0
+        write_validity(ods, f"magnetics.b_field_pol_probe.{index}.field", [code] * TIME.size, scalar=code)
+    for index in range(len(ods["magnetics.flux_loop"])):
+        code = -2 if index == bad_loop else 0
+        write_validity(ods, f"magnetics.flux_loop.{index}.flux", [code] * TIME.size, scalar=code)
 
+
+def test_the_wrapper_never_runs_a_detector(monkeypatch):
+    import vaft.validation.magnetics as quality
+
+    def boom(*args, **kwargs):
+        raise AssertionError("the wrapper must not assess signals")
+
+    monkeypatch.setattr(quality, "validate_magnetics_signals", boom)
     ods = _array()
-    for index in range(64):
-        verdict = -2 if index == 9 else 0
-        write_validity(
-            ods, f"magnetics.b_field_pol_probe.{index}.field", [verdict] * 2500, scalar=verdict
-        )
-    assert MODULE._condemned_by_diagnostics_stage(ods) == [10]
-    assert MODULE._resolve_broken(ods, [3], detect=True) == [3]  # kfile adds 10 itself
-    assert MODULE._resolve_broken(ods, [], detect=False) == []
+    _assess(ods, bad_probe=9)
+    decisions = MODULE._decisions_for(ods, [0.30, 0.31], manual=[3], require_assessment=True)
+    assert decisions.get("b_field_pol_probe", 9).state.tolist() == [REJECTED, REJECTED]
+    assert decisions.get("b_field_pol_probe", 2).reasons == (f"{REASON_MANUAL_LIST}:3",)
 
 
-def test_products_without_an_assessment_fall_back_to_the_amplitude_detector():
+def test_an_unassessed_product_is_refused_when_required_and_warned_otherwise(caplog):
     ods = _array()
-    assert MODULE._condemned_by_diagnostics_stage(ods) is None
-    assert MODULE._resolve_broken(ods, [3], detect=True) == [3, 26]
+    with pytest.raises(ValueError, match="no diagnostics-stage assessment"):
+        MODULE._decisions_for(ods, [0.30], manual=[], require_assessment=True)
+    with caplog.at_level("WARNING", logger="vaft.generate_constraints_ods"):
+        decisions = MODULE._decisions_for(ods, [0.30], manual=[], require_assessment=False)
+    assert "every channel usable by default" in caplog.text
+    assert all(decision.all_usable for decision in decisions.entries.values())
 
 
-def test_condemned_flux_loops_are_listed_at_the_legacy_offset():
-    from vaft.validation.imas import write_validity
+def test_flux_loop_combined_indexes_use_the_efit_probe_count():
+    """68 probes in the IDS, 64 in EFIT's geometry: the manual list's 66 is
+    flux loop 1, not probe 65 -- and the trailing probes get no decision."""
+    ods = _array(n=68)
+    _assess(ods, bad_loop=1)
+    decisions = MODULE._decisions_for(ods, [0.30], manual=[66], require_assessment=True)
+    assert decisions.indices("b_field_pol_probe") == tuple(range(64))
+    loop = decisions.get("flux_loop", 1)
+    assert loop.state.tolist() == [REJECTED]
+    assert loop.reasons == ("condemned_whole_record", f"{REASON_MANUAL_LIST}:66")
 
-    ods = _array(n=4)
-    for index in range(4):
-        write_validity(ods, f"magnetics.b_field_pol_probe.{index}.field", [0] * 2500, scalar=0)
-    time = np.linspace(0.26, 0.36, 2500)
-    for index in range(2):
-        ods[f"magnetics.flux_loop.{index}.flux.data"] = np.zeros(2500)
-        ods[f"magnetics.flux_loop.{index}.flux.time"] = time
-    write_validity(ods, "magnetics.flux_loop.0.flux", [0] * 2500, scalar=0)
-    write_validity(ods, "magnetics.flux_loop.1.flux", [-2] * 2500, scalar=-2)
-    # flux loop 1 -> legacy index 1 + nbprobe(4) = 5, one-based 6
-    assert MODULE._condemned_by_diagnostics_stage(ods) == [6]
+
+def test_the_recovery_backend_follows_the_fit_option():
+    ods = _array()
+    assert MODULE._recovery_for(0, ods, 64) is None
+    backend = MODULE._recovery_for(1, ods, 64)
+    assert backend.keywords["mode"] == 1 and backend.keywords["uncertainty"] == "legacy"
+    assert len(backend.keywords["families"].inboard) == 64
