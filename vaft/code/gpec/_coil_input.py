@@ -1,7 +1,7 @@
 """GPEC-native coil input generation from the canonical VEST configuration.
 
 The canonical VEST 3D coil geometry lives in
-:mod:`vaft.machine_mapping.coil_geometry_3d` (three packaged GPEC-format
+:mod:`vaft.machine_mapping.coils_non_axisymmetric_geometry` (three packaged GPEC-format
 ``.dat`` files plus set metadata).  This module owns the GPEC-specific
 serialization: staging the ``.dat`` files into a run's coil data directory
 and writing a ``coil.in`` whose ``coil_name``/``coil_cur`` block expresses a
@@ -19,7 +19,7 @@ from typing import Sequence
 
 import numpy as np
 
-from vaft.machine_mapping.coil_geometry_3d import (
+from vaft.machine_mapping.coils_non_axisymmetric_geometry import (
     CoilExcitation,
     CoilSet3D,
     load_vest_3d_coil_config,

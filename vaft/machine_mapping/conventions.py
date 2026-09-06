@@ -137,7 +137,7 @@ oriented; and the datasheet does not record which toroidal direction the Hall
 sensors face.  So it needs the raw alignment-shot data, which is in the VEST
 database but not packaged here, plus one statement of the Hall sensors' facing
 (issue #298).  Failing that: the TF winding sense with its supply polarity.  The
-packaged 3D coil geometry (:mod:`vaft.machine_mapping.coil_geometry_3d`) covers
+packaged 3D coil geometry (:mod:`vaft.machine_mapping.coils_non_axisymmetric_geometry`) covers
 only the non-axisymmetric RMP sets, so it cannot supply the TF winding path.
 
 Until both polarities are confirmed the VEST COCOS index is not resolved, because

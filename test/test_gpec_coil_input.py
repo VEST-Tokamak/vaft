@@ -19,7 +19,7 @@ from vaft.code import gpec
 from vaft.code.gpec import CoilInputSpec, emit_coil_dat, stage_coil_data, write_coil_in
 from vaft.code.gpec._runtime import package_vest_dir
 from vaft.data.resources import data_path
-from vaft.machine_mapping.coil_geometry_3d import (
+from vaft.machine_mapping.coils_non_axisymmetric_geometry import (
     load_vest_3d_coil_config,
     parse_gpec_coil_dat,
 )
