@@ -71,6 +71,8 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("angle", "choice", "recipes.ANGLE_SOURCES", "where a sensor's poloidal angle comes from"),
         OptionSpec("overlay", "multi", "recipes.CAMERA_OVERLAYS", "camera overlays"),
         OptionSpec("projection", "any", description="camera projection method"),
+        OptionSpec("theta_deg_range", "range",
+                   description="toroidal sweep of a camera overlay, in degrees"),
         # Spectroscopy: emission= names the species or line, line_index= the
         # position in the stored processed_line array beneath it.  The
         # vocabulary is the input's own labels, not a module constant, so it
