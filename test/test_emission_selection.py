@@ -197,6 +197,12 @@ def test_a_species_this_input_does_not_record_is_refused(filterscope_ods, emissi
         _drawn(filterscope_ods, emission=emission)
 
 
+def test_an_empty_selection_is_not_everything(filterscope_ods):
+    """It would draw an empty figure and present it as the answer."""
+    with pytest.raises(ValueError, match="selected nothing"):
+        _drawn(filterscope_ods, emission=[])
+
+
 def test_a_malformed_value_is_refused(filterscope_ods):
     with pytest.raises(TypeError, match="species or line name"):
         _drawn(filterscope_ods, emission=3.7)

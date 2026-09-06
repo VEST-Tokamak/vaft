@@ -3410,6 +3410,13 @@ def _resolve_emission(
         )
     else:
         terms = list(emission)
+    if not terms:
+        # An empty selection is not "everything": it would draw an empty figure
+        # and present it as the answer, which is what this resolver refuses.
+        raise ValueError(
+            f"emission= selected nothing for {container}; "
+            f"available {describe_available(known)}"
+        )
     pairs: list[tuple[int, int]] = []
     for text in terms:
         if not isinstance(text, str):
