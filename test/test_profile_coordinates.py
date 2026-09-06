@@ -159,17 +159,75 @@ def test_the_proxy_rho_tor_norm_is_still_refused_through_the_choice_path(sample,
 
 
 def test_entries_that_disagree_fall_back_together(sample):
-    without_q = copy.deepcopy(sample)
-    del without_q[f"equilibrium.time_slice.{SLICE}.profiles_1d.q"]
-    without_q[f"equilibrium.time_slice.{SLICE}.profiles_1d.q"] = np.asarray(sample[f"equilibrium.time_slice.{SLICE}.profiles_1d.q"])
     without_boundary = copy.deepcopy(sample)
     del without_boundary[f"equilibrium.time_slice.{SLICE}.boundary.outline"]
     model = build_model(
         "equilibrium_profile_q", [("a", sample), ("b", without_boundary)], time_slice=SLICE, coordinate="r_major"
     )
     # One entry cannot supply r_major: both are drawn against the common fallback.
-    assert model.coordinate_label != COORDINATE_LABELS["r_major"]
-    assert len({np.asarray(trace.x).size for trace in model.series}) == 1
+    assert model.coordinate_label == COORDINATE_LABELS["psi_norm"]
+    for trace in model.series:
+        assert np.asarray(trace.x).size == 129 and np.asarray(trace.x)[-1] == pytest.approx(1.0)
+    # The pressure profile needs psi and q to derive rho_tor_norm; an entry
+    # whose stored rho_tor_norm is refused and whose q is gone falls to psi_norm
+    # and takes the other entry with it.
+    without_q = copy.deepcopy(sample)
+    del without_q[f"equilibrium.time_slice.{SLICE}.profiles_1d.q"]
+    pressure = build_model(
+        "equilibrium_profile_pressure", [("a", sample), ("b", without_q)], time_slice=SLICE, coordinate="rho_tor_norm"
+    )
+    assert pressure.coordinate_label == COORDINATE_LABELS["psi_norm"]
+
+
+def test_no_entry_is_left_on_a_coordinate_under_another_entrys_label(sample):
+    """Review of #556: the common fallback failing for a later entry used to
+    relabel the axis 'index' while an earlier entry kept its real coordinate."""
+    stored_radii = copy.deepcopy(sample)
+    from vaft.omas import update_equilibrium_profiles_1d_radial_coordinates
+
+    update_equilibrium_profiles_1d_radial_coordinates(stored_radii, time_slice=SLICE)
+    del stored_radii[f"equilibrium.time_slice.{SLICE}.profiles_1d.psi"]  # r_major yes, psi_norm no
+    without_boundary = copy.deepcopy(sample)
+    del without_boundary[f"equilibrium.time_slice.{SLICE}.boundary.outline"]  # psi_norm yes, r_major no
+    model = build_model(
+        "equilibrium_profile_q", [("y", without_boundary), ("x", stored_radii)], time_slice=SLICE, coordinate="r_major"
+    )
+    assert model.coordinate_label == COORDINATE_LABELS["index"]
+    for trace in model.series:
+        np.testing.assert_allclose(trace.x, np.arange(np.asarray(trace.y).size))
+
+
+def test_a_stored_phi_that_turns_back_is_refused_for_sqrt_phi_norm(sample):
+    turned = copy.deepcopy(sample)
+    phi = np.linspace(0.0, 2.0, 129) ** 1.5
+    phi[60:] = phi[60] - (phi[60:] - phi[60])  # reverses direction mid-profile
+    turned[f"equilibrium.time_slice.{SLICE}.profiles_1d.phi"] = phi
+    model = build_model("equilibrium_profile_q", normalize_entries(turned), time_slice=SLICE, coordinate="sqrt_phi_norm")
+    derived = build_model("equilibrium_profile_q", normalize_entries(sample), time_slice=SLICE, coordinate="sqrt_phi_norm")
+    np.testing.assert_allclose(model.series[0].x, derived.series[0].x)  # the integrated phi instead
+
+
+def test_limiter_marks_sit_where_the_wall_crosses_the_axis_height(sample):
+    """A shaped limiter: the marks are the midplane crossings, not the extremes."""
+    from vaft.plot.backend.recipes import _wall_midplane_radii, _wall_radii
+
+    shaped = copy.deepcopy(sample)
+    # A D-shaped limiter: R from 0.2 to 0.7 at the midplane, bulging to 0.1/0.9 off it.
+    theta = np.linspace(0.0, 2.0 * np.pi, 181)
+    r = 0.45 + 0.25 * np.cos(theta) - 0.2 * np.cos(theta) * np.sin(theta) ** 2 * 0 + 0.0
+    z = 0.8 * np.sin(theta)
+    r = np.where(np.abs(z) > 0.3, r + 0.2 * np.sign(np.cos(theta)), r)
+    shaped["wall.description_2d.0.limiter.unit.0.outline.r"] = r
+    shaped["wall.description_2d.0.limiter.unit.0.outline.z"] = z
+    for index in range(1, 20):
+        try:
+            del shaped[f"wall.description_2d.0.limiter.unit.{index}"]
+        except Exception:
+            break
+    extremes, _ = _wall_radii(shaped)
+    crossings, surface = _wall_midplane_radii(shaped, 0.0)
+    assert surface == "Limiter" and (min(extremes), max(extremes)) != (min(crossings), max(crossings))
+    assert min(crossings) == pytest.approx(0.2, abs=0.02) and max(crossings) == pytest.approx(0.7, abs=0.02)
 
 
 def test_the_overview_and_the_navigator_take_the_coordinate(sample, entries):

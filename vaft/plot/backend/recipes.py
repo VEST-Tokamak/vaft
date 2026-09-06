@@ -3928,8 +3928,11 @@ def _equilibrium_coordinate_values(
         # Either way sqrt(|phi|/|phi_edge|), which is rho_tor_norm's own
         # definition -- the name says where the number came from.
         phi = _array(ods, f"{base}.phi")
-        if phi is None or phi.size != size or not np.all(np.isfinite(phi)):
+        if phi is not None and (phi.size != size or not np.all(np.isfinite(phi)) or not _monotone_flux(phi)):
+            # A stored phi that reverses sign or turns back is no coordinate;
+            # the derived one is held to the same rule (vaft.data._derived).
             phi = None
+        if phi is None:
             if psi is not None:
                 from vaft.data._derived import rho_tor_profile
 
@@ -3970,6 +3973,14 @@ def _equilibrium_coordinate_values(
             return None, coordinate
 
     return values, coordinate
+
+
+def _monotone_flux(phi: np.ndarray) -> bool:
+    """Whether ``phi`` runs one way from the axis without crossing zero."""
+    if phi.size < 2 or phi[-1] == 0:
+        return False
+    fraction = phi / phi[-1]
+    return bool(np.all(fraction >= -1e-12) and np.all(np.diff(fraction) >= -1e-10))
 
 
 def _mirror(values: Any) -> Any:
@@ -4032,21 +4043,72 @@ def _equilibrium_trace(
     )
 
 
+def _rebuild_against(
+    trace_entries: Sequence[tuple[str, Any]],
+    traces: Sequence[Series],
+    resolved: Sequence[str],
+    recipe: ProfileRecipe,
+    wanted: str,
+    time_slice: int,
+    cache: dict | None,
+) -> list[Series] | None:
+    """Every trace against ``wanted``, or ``None`` when one entry cannot supply it."""
+    rebuilt: list[Series] = []
+    for (entry_label, ods), trace, was in zip(trace_entries, traces, resolved):
+        if was == wanted:
+            rebuilt.append(trace)
+            continue
+        redrawn, got = _equilibrium_trace(ods, entry_label, recipe, wanted, time_slice, cache)
+        if redrawn is None or got != wanted:
+            return None
+        rebuilt.append(redrawn)
+    return rebuilt
+
+
+def _wall_midplane_radii(ods: Any, z0: float | None) -> tuple[list[float], str]:
+    """The wall's crossings of the horizontal line ``Z = z0``, with its label.
+
+    An ``r_major`` axis is the midplane radius, so the limiter marks belong
+    where the limiter outline crosses the axis height, not at the outline's
+    extreme radii (the same on a circular limiter, different on a shaped
+    one).  A description without a crossing at that height, or a vessel
+    description, falls back to the extremes :func:`_wall_radii` reports.
+    """
+    radii, surface = _wall_radii(ods)
+    if z0 is None or not np.isfinite(z0) or surface != "Limiter":
+        return radii, surface
+    crossings: list[float] = []
+    for layer in _wall_layers(ods):
+        r = np.asarray(layer.r, dtype=float).ravel()
+        z = np.asarray(layer.z, dtype=float).ravel()
+        if r.size < 2:
+            continue
+        for a, b in zip(range(r.size), list(range(1, r.size)) + [0]):
+            za, zb = z[a] - z0, z[b] - z0
+            if za == zb:
+                continue
+            if (za <= 0.0 < zb) or (zb <= 0.0 < za):
+                crossings.append(float(r[a] + (r[b] - r[a]) * (-za) / (zb - za)))
+    return (crossings, surface) if len(crossings) >= 2 else (radii, surface)
+
+
 def _profile_reference_lines(ods: Any, time_slice: int, coordinate: str, traces: Sequence[Series]) -> tuple[ReferenceLine, ...]:
     """The markers a geometric abscissa deserves: the axis and the limiter.
 
-    ``r_major``: the magnetic axis and the innermost and outermost wall
-    radius (one legend entry; ``_wall_radii`` says whether that surface is
-    the limiter or the vessel).  ``r_minor``: the last closed flux surface.
-    Flux coordinates carry none.  Read from the first entry only: one axis,
-    one wall per figure.
+    ``r_major``: the magnetic axis and the wall's two crossings of the axis
+    height (one legend entry; the surface is the limiter or the vessel as
+    ``_wall_radii`` says), read from the first entry: one axis, one wall per
+    figure.  ``r_minor``: the last closed flux surface, the widest edge over
+    the entries drawn.  Flux coordinates carry none.
     """
     lines: list[ReferenceLine] = []
     if coordinate == "r_major":
-        axis_r = _finite_scalar(_get(ods, f"equilibrium.time_slice.{time_slice}.global_quantities.magnetic_axis.r"))
+        base = f"equilibrium.time_slice.{time_slice}.global_quantities.magnetic_axis"
+        axis_r = _finite_scalar(_get(ods, f"{base}.r"))
+        axis_z = _finite_scalar(_get(ods, f"{base}.z"))
         if axis_r is not None:
             lines.append(ReferenceLine(axis_r, "Magnetic axis", {"color": "k", "linestyle": "--"}))
-        radii, surface = _wall_radii(ods)
+        radii, surface = _wall_midplane_radii(ods, axis_z)
         if radii:
             lines.append(ReferenceLine(min(radii), surface))
             lines.append(ReferenceLine(max(radii), ""))
@@ -4060,7 +4122,8 @@ def _default_x_limits(ods: Any, coordinate: str, traces: Sequence[Series]) -> tu
     if coordinate in _FLUX_COORDINATES:
         return (0.0, 1.0)
     if coordinate == "r_major":
-        radii, _ = _wall_radii(ods)
+        axis_z = _finite_scalar(_get(ods, "equilibrium.time_slice.0.global_quantities.magnetic_axis.z"))
+        radii, _ = _wall_midplane_radii(ods, axis_z)
         return (min(radii) - 0.02, max(radii) + 0.02) if radii else None
     if coordinate == "r_minor" and traces:
         edge = max(float(np.asarray(trace.x)[-1]) for trace in traces if np.asarray(trace.x).size)
@@ -4133,17 +4196,16 @@ def _build_profile_1d(
     # each entry rebuilt against it (a mirrored r_major trace cannot be patched).
     drawn_coordinate = _common_coordinate(resolved_per_entry, coordinate)
     if len(set(resolved_per_entry)) > 1 and recipe.index != "channel":
-        rebuilt = []
-        for (entry_label, ods), was in zip(trace_entries, resolved_per_entry):
-            if was == drawn_coordinate:
-                rebuilt.append(traces[len(rebuilt)])
-                continue
-            trace, resolved = _equilibrium_trace(ods, entry_label, recipe, drawn_coordinate, time_slice, cache)
-            if trace is None or resolved != drawn_coordinate:
-                y = traces[len(rebuilt)].y
-                trace = dataclasses.replace(traces[len(rebuilt)], x=np.arange(np.asarray(y).size, dtype=float))
-                drawn_coordinate = "index"
-            rebuilt.append(trace)
+        # Every entry is rebuilt against the common coordinate; if any entry
+        # cannot supply it either, all of them go to a sample index together
+        # -- never one entry on a coordinate under another's label.
+        rebuilt = _rebuild_against(trace_entries, traces, resolved_per_entry, recipe, drawn_coordinate, time_slice, cache)
+        if rebuilt is None:
+            drawn_coordinate = "index"
+            rebuilt = [
+                dataclasses.replace(trace, x=np.arange(np.asarray(trace.y).size, dtype=float))
+                for trace in traces
+            ]
         traces = rebuilt
 
     y_display = _resolve_axis_display(
