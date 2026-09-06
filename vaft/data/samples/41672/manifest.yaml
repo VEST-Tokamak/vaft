@@ -17,14 +17,14 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 31520228
-    sha256: 98bac116ed191d9a003252c9dcf2c4081d926a4083cd64b04df639198f24b96c
+    size: 31524361
+    sha256: e6d87edcc7d8f7908b2ff1e4bf0314162e3161eb5e8ac23a51d474747d53502f
 generation:
   command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
     vaft/data/samples/41672/manifest.yaml --canonical-source vaft/data/samples/41672/source/pipeline-until-efit.json.gz
   canonical_source: source/pipeline-until-efit.json.gz
   canonical_sha256: fbdc476145cf472a6b522f50bffae0d06117c1dc90be44692bb6a5deff6e22db
-  materialized_leaves: 26987
+  materialized_leaves: 26988
   normalizations:
   - remove non-DD equilibrium.code.parameters parser cache
   - remove only scalar-default placeholders for unavailable heterogeneous Mirnov signals
@@ -32,6 +32,8 @@ generation:
   - retain native-rate voltage and derived magnetic-field waveforms
   - use +Bz poloidal probe metadata (poloidal_angle = 3*pi/2, DD-clockwise; see corrections,
     issue 288)
+  - re-map em_coupling through vaft.machine_mapping.em_coupling (exactly reciprocal
+    asset, issue 373)
   related_issue: https://github.com/VEST-Tokamak/vaft/issues/169
   signal_quality:
     projected: true
@@ -55,6 +57,19 @@ generation:
     - b_field_pol_probe[38] MagneticFieldProbe_C3-02_Bz
     - b_field_pol_probe[41] MagneticFieldProbe_C3-05_Bz
     - b_field_pol_probe[43] MagneticFieldProbe_C4-02_Bz
+  em_coupling:
+    remapped: true
+    issue: https://github.com/VEST-Tokamak/vaft/issues/373
+    asset: VEST_em_coupling_pf_versions.npz
+    asset_sha256: 1c391442762fb1c9563eb5fc62fef35ee4e002c7cda8afc06968539a5e2a6f05
+    asset_provenance:
+      generated: '2026-09-06T01:18:59+00:00'
+      git_commit: b618ab9cfc449cbe2d8faa8bde55310d35decbbc
+      passive_material_factor: 1.04
+      source_sha256: 2d645cffaa6350955fb131779c6f5129c6c478ff0b480136d7686fef717fe819
+    replaced_input_asymmetry: 0.0012745563025436115
+    pf_passive_currents: solved by the frozen eddy stage against the pre-repair asset;
+      not re-solved
 pipeline:
   configuration: source/pipeline-config.yaml
   configuration_sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a

@@ -63,12 +63,10 @@ def _real_shot(shot: int) -> ODS:
         ods = load_omas_json(plain_path, consistency_check=False)
     finally:
         Path(plain_path).unlink(missing_ok=True)
-    # Re-map em_coupling so the sample's stale asymmetric matrix is replaced
-    # by the symmetrized one the loader now produces (#347).
+    # Re-map em_coupling so the frozen pipeline product carries the mapper's
+    # current, exactly reciprocal matrices (#347, #373).
     del ods["em_coupling"]
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
-        em.em_coupling(ods, shot=shot)
+    em.em_coupling(ods, shot=shot)
     return ods
 
 
