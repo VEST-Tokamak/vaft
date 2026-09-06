@@ -70,8 +70,12 @@ What the first pass says:
   `SAICON = 80`, the residual sits just under `ERRMIN = 0.01`, and the loop
   stops at 11 iterations without `jflag`. The stored pipeline product for the
   same shot (`vaft/data/efit/a039915.00319`) has `jflag = 1` at χ² = 77.6
-  from a different EFIT build and table set. Which settings differ is exactly
-  what #171 is for.
+  from a different EFIT build. The Green tables are **not** the difference:
+  the #194 A/B (`workflow/efit_tables/`) reconstructed the same slices with a
+  table generated from canonical geometry and with the bundled one, and the
+  two agree on χ², plasma current and axis to every printed digit while
+  failing identically. What remains is the constraint set and the termination
+  settings, which is exactly what #171 is for.
 
 So the cadence question cannot be answered yet: under the configuration the
 study can currently hold fixed, no cadence converges, and a comparison of
