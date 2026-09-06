@@ -471,18 +471,21 @@ def read_fortran_records(path: str | os.PathLike[str]) -> list[bytes]:
     return records
 
 
-def read_fortran_arrays(path: str | os.PathLike[str]) -> list[np.ndarray]:
-    """Every record of a table file as a flat ``float64`` array, in file order.
+def read_fortran_arrays(
+    path: str | os.PathLike[str], *, int32_records: Sequence[int] = ()
+) -> list[np.ndarray]:
+    """Every record of a table file as a flat array, in file order.
 
     Records are Fortran arrays written whole, so a record of ``n*m`` doubles
-    reshapes as ``(n, m)`` with ``order="F"``.  The first record of an
-    ``ec`` file holds two ``integer*4`` (``mw, mh``) and is returned as
-    ``int32``.
+    reshapes as ``(n, m)`` with ``order="F"``.  Records are ``float64``
+    except those listed in ``int32_records``: the first record of an ``ec``
+    file holds two ``integer*4`` (``mw, mh``), so read it with
+    ``int32_records=(0,)``.
     """
     order = fortran_byte_order(path)
     arrays = []
-    for record in read_fortran_records(path):
-        if len(record) % 8:
+    for index, record in enumerate(read_fortran_records(path)):
+        if index in int32_records or len(record) % 8:
             arrays.append(np.frombuffer(record, dtype=order + "i4"))
         else:
             arrays.append(np.frombuffer(record, dtype=order + "f8"))
