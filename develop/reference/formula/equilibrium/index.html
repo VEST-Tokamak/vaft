@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>05ed556</code>. What is described
+  <code>956f8da</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -261,7 +261,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/equilibrium.py"><code class="language-plaintext highlighter-rouge">vaft/formula/equilibrium.py</code></a>:
-96 public functions.  The category overview and notation come from the module
+104 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("equilibrium.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
 
@@ -470,7 +470,13 @@ including poloidal flux, toroidal flux, safety factor, current, energy, and geom
 </li>
   <li><a href="#virial_bongard_from_S_alpha_mu"><code>virial_bongard_from_S_alpha_mu</code></a> &mdash; Low-aspect-ratio virial closure (Bongard 2016): $\beta_p$ and $l_i$.
 </li>
-  <li><a href="#virial_bp_li_lihat_from_S123"><code>virial_bp_li_lihat_from_S123</code></a> &mdash; Solve the three virial relations for $\beta_p$, $l_i$ and $\hat l_i$.
+  <li><a href="#virial_bp_li_lihat_from_S123"><code>virial_bp_li_lihat_from_S123</code></a> &mdash; Deprecated historical name for the three-relation virial solve.
+</li>
+  <li><a href="#virial_closure_denominators"><code>virial_closure_denominators</code></a> &mdash; The denominator each virial closure divides by, for conditioning checks.
+</li>
+  <li><a href="#virial_full_123_from_S_alpha_rt"><code>virial_full_123_from_S_alpha_rt</code></a> &mdash; Solve all three virial relations for $\beta_p$, $l_i$ and $\mu_i$.
+</li>
+  <li><a href="#virial_identity_residuals"><code>virial_identity_residuals</code></a> &mdash; Residuals of the three virial identities at a given $(\beta_p, l_i, \mu_i)$.
 </li>
   <li><a href="#virial_kinetic_energy"><code>virial_kinetic_energy</code></a> &mdash; Bulk kinetic energy of a sampled flow, $W_{kin} = \tfrac{1}{2}\sum n m v^2\,V$.
 </li>
@@ -485,6 +491,16 @@ including poloidal flux, toroidal flux, safety factor, current, energy, and geom
   <li><a href="#virial_magnetic_energy"><code>virial_magnetic_energy</code></a> &mdash; Magnetic energy of a sampled field, $W_{mag} = \sum B^2\,V/(2\mu_0)$.
 </li>
   <li><a href="#virial_muihat_from_Bt_R0_dphi"><code>virial_muihat_from_Bt_R0_dphi</code></a> &mdash; Diamagnetic parameter $\hat\mu_i$ from the measured diamagnetic flux.
+</li>
+  <li><a href="#virial_normalized_residual"><code>virial_normalized_residual</code></a> &mdash; Scale a virial identity residual so shots can be compared.
+</li>
+  <li><a href="#virial_pair_12_from_S_mu_rt"><code>virial_pair_12_from_S_mu_rt</code></a> &mdash; Virial closure on $E_1$ and $E_2$, leaving $E_3$ free.
+</li>
+  <li><a href="#virial_pair_13_from_S_alpha_mu"><code>virial_pair_13_from_S_alpha_mu</code></a> &mdash; Virial closure on $E_1$ and $E_3$, leaving $E_2$ free.
+</li>
+  <li><a href="#virial_pair_23_from_S_alpha_mu_rt"><code>virial_pair_23_from_S_alpha_mu_rt</code></a> &mdash; Virial closure on $E_2$ and $E_3$, leaving $E_1$ free.
+</li>
+  <li><a href="#virial_residual_rms"><code>virial_residual_rms</code></a> &mdash; Aggregate the three normalised virial residuals into one number.
 </li>
   <li><a href="#virial_stability_criterion"><code>virial_stability_criterion</code></a> &mdash; Virial-ratio margin against the heuristic threshold $r_v = 0.5$.
 </li>
@@ -4407,9 +4423,11 @@ differ by shape-dependent factors.</p>
 
 <p class="formula-signature"><code>virial_beta_p_lao_from_S_mu_rt(S1, S2, mui, RT_over_R0)</code></p>
 
+<p><strong>Convention-sensitive.</strong> </p>
+
 <p>Poloidal beta, Lao large-aspect-ratio virial closure.</p>
 
-\[\beta_p = \frac{S_1}{2} + \frac{S_2}{2}\left(1 + \frac{R_T}{R_0}\right) + \mu_i\]
+\[\beta_p = \frac{S_1}{2} + \frac{S_2}{2}\left(1 - \frac{R_T}{R_0}\right) + \mu_i\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
@@ -4432,6 +4450,16 @@ differ by shape-dependent factors.</p>
 </td></tr>
   </tbody>
 </table>
+
+<p><strong>Convention.</strong></p>
+
+<p>The $R_T/R_0$ term carries a <strong>minus</strong> sign: this is $\tfrac{1}{2}(E_1-E_2)$
+of the three virial relations solved by
+<code class="language-plaintext highlighter-rouge">virial_bp_li_lihat_from_S123</code>, which fixes $\beta_p - \mu_i$ from
+$E_1$ and $E_2$ alone. A plus sign belongs to the other combination,
+$E_1+E_2$, which eliminates $\mu_i$ in favour of $l_i$ and is what
+<code class="language-plaintext highlighter-rouge">virial_beta_p_from_S_li</code> evaluates at $R_T/R_0 = 1$. The two are not
+interchangeable, and confusing them is what this function did until #546.</p>
 
 <p><strong>Validity.</strong></p>
 
@@ -4545,12 +4573,13 @@ on the same inputs.</p>
 
 <h3 id="virial_bongard_from_S_alpha_mu"><code class="language-plaintext highlighter-rouge">virial_bongard_from_S_alpha_mu</code></h3>
 
-<p class="formula-signature"><code>virial_bongard_from_S_alpha_mu(S1, S2, S3, alpha, mui)</code></p>
+<p class="formula-signature"><code>virial_bongard_from_S_alpha_mu(S1, S2, S3, alpha, mui, eps=1e-09)</code></p>
 
 <p>Low-aspect-ratio virial closure (Bongard 2016): $\beta_p$ and $l_i$.</p>
 
-<p>Evaluates <code class="language-plaintext highlighter-rouge">virial_beta_p_from_S_alpha_mu</code> and
-<code class="language-plaintext highlighter-rouge">virial_li_from_S_alpha_mu</code>.</p>
+<p>The historical name for the $E_1$/$E_3$ pairwise closure; delegates to
+<code class="language-plaintext highlighter-rouge">virial_pair_13_from_S_alpha_mu</code>, which is the same algebra. The two
+are identical by construction, not by approximation.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
@@ -4564,6 +4593,8 @@ on the same inputs.</p>
   <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
 </td></tr>
   <tr><td><code>mui</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\hat\mu_i$.</p>
+</td></tr>
+  <tr><td><code>eps</code></td><td>float, optional</td><td>-</td><td><p>Denominator magnitude below which the result is NaN, forwarded to the closure; default <code class="language-plaintext highlighter-rouge">VIRIAL_SINGULAR_EPS</code>.</p>
 </td></tr>
   </tbody>
 </table>
@@ -4589,7 +4620,14 @@ on the same inputs.</p>
 
 <p class="formula-signature"><code>virial_bp_li_lihat_from_S123(S1, S2, S3, a_param, RT_over_R0)</code></p>
 
-<p>Solve the three virial relations for $\beta_p$, $l_i$ and $\hat l_i$.</p>
+<p><strong>Deprecated.</strong> </p>
+
+<p>Deprecated historical name for the three-relation virial solve.</p>
+
+<p>Use <code class="language-plaintext highlighter-rouge">virial_full_123_from_S_alpha_rt</code>, which this delegates to. The
+third return is renamed there from $\hat l_i$ to $\mu_i$: it is the
+diamagnetic parameter the pairwise closures take as an input, and the hat
+notation read as a second internal inductance.</p>
 
 \[3\beta_p + l_i - \hat l_i = S_1 + S_2, \qquad
   \beta_p + l_i + \hat l_i = \frac{R_T}{R_0}S_2, \qquad
@@ -4625,8 +4663,191 @@ on the same inputs.</p>
 
 <p><strong>Numerical notes.</strong></p>
 
-<p>Direct solve of the 3x3 linear system with <code class="language-plaintext highlighter-rouge">numpy.linalg.solve</code>; singular
-when $\alpha = 1/3$ (rows become dependent).</p>
+<p>Direct solve of the 3x3 linear system with <code class="language-plaintext highlighter-rouge">numpy.linalg.solve</code>. The
+determinant is $4(\alpha-1)$, so the system is singular at $\alpha = 1$ –
+the same limit that makes the historical Lao $l_i$ blow up, because
+$E_1$ and $E_2$ fix $\beta_p - \mu_i$ and only $E_3$ separates $l_i$ from it.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), “Virial relations for elongated plasmas in tokamaks”, Eqs. (1)-(3).
+</li>
+  <li>V. D. Shafranov, Plasma Phys. 13 (1971) 757.
+</li>
+</ol>
+
+<h3 id="virial_closure_denominators"><code class="language-plaintext highlighter-rouge">virial_closure_denominators</code></h3>
+
+<p class="formula-signature"><code>virial_closure_denominators(alpha)</code></p>
+
+<p>The denominator each virial closure divides by, for conditioning checks.</p>
+
+\[3\alpha-2,\qquad \alpha,\qquad \alpha-1,\qquad 4(\alpha-1)\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third relation.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>pair_13</code></td><td>float</td><td>-</td><td><p>Denominator of the $E_1$/$E_3$ closure, $3\alpha-2$.</p>
+</td></tr>
+  <tr><td><code>pair_23</code></td><td>float</td><td>-</td><td><p>Denominator of the $E_2$/$E_3$ closure, $\alpha$.</p>
+</td></tr>
+  <tr><td><code>lao_li</code></td><td>float</td><td>-</td><td><p>Denominator of the historical Lao $l_i$, $\alpha-1$.</p>
+</td></tr>
+  <tr><td><code>full_123</code></td><td>float</td><td>-</td><td><p>Determinant of the three-relation system, $4(\alpha-1)$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The identities themselves have no singularities; only the inversions do.
+Reporting the denominators separates “this equilibrium violates force
+balance” from “this particular closure cannot be inverted here”, which a
+bare $\beta_p$ cannot distinguish.</p>
+
+<p><strong>Notes.</strong></p>
+
+<p>The $E_1$/$E_2$ closure is absent because it has no denominator; it is the
+one pair that cannot become singular.</p>
+
+<h3 id="virial_full_123_from_S_alpha_rt"><code class="language-plaintext highlighter-rouge">virial_full_123_from_S_alpha_rt</code></h3>
+
+<p class="formula-signature"><code>virial_full_123_from_S_alpha_rt(S1, S2, S3, alpha, RT_over_R0, eps=1e-09)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Solve all three virial relations for $\beta_p$, $l_i$ and $\mu_i$.</p>
+
+\[\begin{pmatrix} 3 &amp; 1 &amp; -1 \\ 1 &amp; 1 &amp; 1 \\ 1 &amp; -(\alpha-1) &amp; -1
+  \end{pmatrix}
+  \begin{pmatrix}\beta_p \\ l_i \\ \mu_i\end{pmatrix}
+  = \begin{pmatrix} S_1+S_2 \\ \tfrac{R_T}{R_0}S_2 \\ S_3\end{pmatrix}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+</td></tr>
+  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+</td></tr>
+  <tr><td><code>S3</code></td><td>float</td><td>-</td><td><p>Third Shafranov surface integral.</p>
+</td></tr>
+  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third relation.</p>
+</td></tr>
+  <tr><td><code>RT_over_R0</code></td><td>float</td><td>-</td><td><p>Current-centroid radius over reference radius, $R_T/R_0$.</p>
+</td></tr>
+  <tr><td><code>eps</code></td><td>float, optional</td><td>-</td><td><p>Determinant magnitude below which the result is NaN; default <code class="language-plaintext highlighter-rouge">VIRIAL_SINGULAR_EPS</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>beta_p</code></td><td>float</td><td>-</td><td><p>Poloidal beta, NaN when $4(\alpha-1)$ is within <code class="language-plaintext highlighter-rouge">eps</code> of zero.</p>
+</td></tr>
+  <tr><td><code>li</code></td><td>float</td><td>-</td><td><p>Internal inductance, NaN under the same condition.</p>
+</td></tr>
+  <tr><td><code>mu_i</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter, NaN under the same condition.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Its $l_i$ is identically the historical Lao $l_i$, because $E_1$ and $E_2$
+already fix $\beta_p-\mu_i$ and only $E_3$ separates $l_i$ from it. That is
+an algebraic identity, not an approximation.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>A different inverse problem from the pairwise closures: they take $\mu_i$ as
+known and solve for two unknowns, while this takes none of the three as
+known. Its $\mu_i$ is therefore an equilibrium-derived prediction that a
+measured diamagnetic flux can be compared against, rather than an input.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>Determinant $4(\alpha-1)$: singular at $\alpha = 1$, the same limit that
+makes the historical Lao $l_i$ diverge. Solved in closed form rather than
+with <code class="language-plaintext highlighter-rouge">numpy.linalg.solve</code> so the singularity is detected instead of
+raising or returning a large finite value.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), “Virial relations for elongated plasmas in tokamaks”, Eqs. (1)-(3).
+</li>
+  <li>V. D. Shafranov, Plasma Phys. 13 (1971) 757.
+</li>
+</ol>
+
+<h3 id="virial_identity_residuals"><code class="language-plaintext highlighter-rouge">virial_identity_residuals</code></h3>
+
+<p class="formula-signature"><code>virial_identity_residuals(beta_p, li, mu_i, S1, S2, S3, alpha, RT_over_R0)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Residuals of the three virial identities at a given $(\beta_p, l_i, \mu_i)$.</p>
+
+\[R_1 = 3\beta_p + l_i - \mu_i - (S_1+S_2), \qquad
+  R_2 = \beta_p + l_i + \mu_i - \frac{R_T}{R_0}S_2, \qquad
+  R_3 = \beta_p - (\alpha-1)l_i - \mu_i - S_3\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>beta_p</code></td><td>float</td><td>-</td><td><p>Poloidal beta at which the identities are evaluated.</p>
+</td></tr>
+  <tr><td><code>li</code></td><td>float</td><td>-</td><td><p>Internal inductance at which the identities are evaluated.</p>
+</td></tr>
+  <tr><td><code>mu_i</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter at which the identities are evaluated.</p>
+</td></tr>
+  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+</td></tr>
+  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+</td></tr>
+  <tr><td><code>S3</code></td><td>float</td><td>-</td><td><p>Third Shafranov surface integral.</p>
+</td></tr>
+  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third relation.</p>
+</td></tr>
+  <tr><td><code>RT_over_R0</code></td><td>float</td><td>-</td><td><p>Current-centroid radius over reference radius, $R_T/R_0$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>e1</code></td><td>float</td><td>-</td><td><p>Residual of the first identity.</p>
+</td></tr>
+  <tr><td><code>e2</code></td><td>float</td><td>-</td><td><p>Residual of the second identity.</p>
+</td></tr>
+  <tr><td><code>e3</code></td><td>float</td><td>-</td><td><p>Residual of the third identity.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Signs follow the relations as written above, which are the ones
+<code class="language-plaintext highlighter-rouge">virial_full_123_from_S_alpha_rt</code> solves. Every closure and residual
+in this module is derived from these three and no other statement of them.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>Zero residuals say the triple closes the three global force-balance
+relations; a residual localises <em>which</em> relation an inconsistent
+equilibrium violates, which a single $\beta_p$ estimator cannot.</p>
 
 <p><strong>References.</strong></p>
 
@@ -4981,6 +5202,274 @@ constant over the cross-section.</p>
 </li>
 </ol>
 
+<h3 id="virial_normalized_residual"><code class="language-plaintext highlighter-rouge">virial_normalized_residual</code></h3>
+
+<p class="formula-signature"><code>virial_normalized_residual(residual, lhs, rhs)</code></p>
+
+<p>Scale a virial identity residual so shots can be compared.</p>
+
+\[\epsilon = \frac{R}{\max\left(1, |\mathrm{LHS}|, |\mathrm{RHS}|\right)}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>residual</code></td><td>float</td><td>-</td><td><p>Raw residual $\mathrm{LHS}-\mathrm{RHS}$ of one identity.</p>
+</td></tr>
+  <tr><td><code>lhs</code></td><td>float</td><td>-</td><td><p>Left-hand side of that identity.</p>
+</td></tr>
+  <tr><td><code>rhs</code></td><td>float</td><td>-</td><td><p>Right-hand side of that identity.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Dimensionless residual.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>Symmetric in the two sides, and the floor of 1 keeps the scale from
+collapsing when both sides pass through zero, which would turn a small
+absolute residual into a large apparent one.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A placeholder scale, not an uncertainty. It is deliberately replaceable: an
+uncertainty-propagated normalisation would be strictly better and would
+change the numbers, so the thresholds built on this one stay report-only
+until a representative equilibrium population qualifies them.</p>
+
+<h3 id="virial_pair_12_from_S_mu_rt"><code class="language-plaintext highlighter-rouge">virial_pair_12_from_S_mu_rt</code></h3>
+
+<p class="formula-signature"><code>virial_pair_12_from_S_mu_rt(S1, S2, mu_i, RT_over_R0)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Virial closure on $E_1$ and $E_2$, leaving $E_3$ free.</p>
+
+\[\beta_p = \frac{S_1}{2} + \frac{S_2}{2}\left(1-\frac{R_T}{R_0}\right) + \mu_i,
+  \qquad
+  l_i = -\frac{S_1}{2} + \frac{S_2}{2}\left(3\frac{R_T}{R_0}-1\right) - 2\mu_i\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+</td></tr>
+  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+</td></tr>
+  <tr><td><code>mu_i</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\mu_i$, supplied independently.</p>
+</td></tr>
+  <tr><td><code>RT_over_R0</code></td><td>float</td><td>-</td><td><p>Current-centroid radius over reference radius, $R_T/R_0$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>beta_p</code></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
+</td></tr>
+  <tr><td><code>li</code></td><td>float</td><td>-</td><td><p>Internal inductance.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>The $\beta_p$ here is the conventional Lao one and agrees with
+<code class="language-plaintext highlighter-rouge">virial_beta_p_lao_from_S_mu_rt</code>. The $l_i$ does <strong>not</strong>: the
+historical Lao $l_i$ takes $\beta_p-\mu_i$ from this same pair and then
+substitutes it into $E_3$, so it is the $l_i$ of the full three-relation
+solve, not of this closure. See
+<code class="language-plaintext highlighter-rouge">virial_li_from_S_alpha_rt</code>.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>Both unknowns come from the two relations that do not involve $\alpha$, so
+this closure is insensitive to the boundary field’s poloidal anisotropy and
+has no singular denominator. It is the only one of the three pairs that
+cannot become ill-conditioned.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Depends entirely on $R_T/R_0$, which is poorly conditioned whenever the
+volume integral defining $R_T$ has a near-vanishing denominator. Compare
+against <code class="language-plaintext highlighter-rouge">virial_pair_13_from_S_alpha_mu</code>, which does not use it.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion 25 (1985) 1421, Sec. 3.
+</li>
+  <li>A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), “Virial relations for elongated plasmas in tokamaks”, Eqs. (1)-(3).
+</li>
+</ol>
+
+<h3 id="virial_pair_13_from_S_alpha_mu"><code class="language-plaintext highlighter-rouge">virial_pair_13_from_S_alpha_mu</code></h3>
+
+<p class="formula-signature"><code>virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mu_i, eps=1e-09)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Virial closure on $E_1$ and $E_3$, leaving $E_2$ free.</p>
+
+\[\beta_p = \frac{(\alpha-1)(S_1+S_2)+S_3+\alpha\mu_i}{3\alpha-2},
+  \qquad
+  l_i = \frac{S_1+S_2-3S_3-2\mu_i}{3\alpha-2}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+</td></tr>
+  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+</td></tr>
+  <tr><td><code>S3</code></td><td>float</td><td>-</td><td><p>Third Shafranov surface integral.</p>
+</td></tr>
+  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third relation.</p>
+</td></tr>
+  <tr><td><code>mu_i</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\mu_i$, supplied independently.</p>
+</td></tr>
+  <tr><td><code>eps</code></td><td>float, optional</td><td>-</td><td><p>Denominator magnitude below which the result is NaN; default <code class="language-plaintext highlighter-rouge">VIRIAL_SINGULAR_EPS</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>beta_p</code></td><td>float</td><td>-</td><td><p>Poloidal beta, NaN when $3\alpha-2$ is within <code class="language-plaintext highlighter-rouge">eps</code> of zero.</p>
+</td></tr>
+  <tr><td><code>li</code></td><td>float</td><td>-</td><td><p>Internal inductance, NaN under the same condition.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>This is the Bongard low-aspect-ratio closure;
+<code class="language-plaintext highlighter-rouge">virial_bongard_from_S_alpha_mu</code> is the same numbers under the
+historical name.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The only closure that never mentions $R_T/R_0$. At low aspect ratio, where
+the current centroid is both large and poorly determined, comparing this
+against the other two pairs isolates how much of a $\beta_p$ or $l_i$
+disagreement is $R_T$ sensitivity rather than physics.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>Singular at $\alpha = 2/3$. Returns NaN there rather than a large finite
+value, so a near-singular closure is not mistaken for a physical failure.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>M. W. Bongard et al., Phys. Plasmas 23 (2016), low-aspect-ratio virial closure (journal page not recorded in the VAFT source).
+</li>
+  <li>A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), “Virial relations for elongated plasmas in tokamaks”, Eqs. (1)-(3).
+</li>
+</ol>
+
+<h3 id="virial_pair_23_from_S_alpha_mu_rt"><code class="language-plaintext highlighter-rouge">virial_pair_23_from_S_alpha_mu_rt</code></h3>
+
+<p class="formula-signature"><code>virial_pair_23_from_S_alpha_mu_rt(S2, S3, alpha, mu_i, RT_over_R0, eps=1e-09)</code></p>
+
+<p>Virial closure on $E_2$ and $E_3$, leaving $E_1$ free.</p>
+
+\[\beta_p = \frac{(\alpha-1)\tfrac{R_T}{R_0}S_2+S_3+(2-\alpha)\mu_i}{\alpha},
+  \qquad
+  l_i = \frac{\tfrac{R_T}{R_0}S_2-S_3-2\mu_i}{\alpha}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+</td></tr>
+  <tr><td><code>S3</code></td><td>float</td><td>-</td><td><p>Third Shafranov surface integral.</p>
+</td></tr>
+  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third relation.</p>
+</td></tr>
+  <tr><td><code>mu_i</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\mu_i$, supplied independently.</p>
+</td></tr>
+  <tr><td><code>RT_over_R0</code></td><td>float</td><td>-</td><td><p>Current-centroid radius over reference radius, $R_T/R_0$.</p>
+</td></tr>
+  <tr><td><code>eps</code></td><td>float, optional</td><td>-</td><td><p>Denominator magnitude below which the result is NaN; default <code class="language-plaintext highlighter-rouge">VIRIAL_SINGULAR_EPS</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>beta_p</code></td><td>float</td><td>-</td><td><p>Poloidal beta, NaN when $\alpha$ is within <code class="language-plaintext highlighter-rouge">eps</code> of zero.</p>
+</td></tr>
+  <tr><td><code>li</code></td><td>float</td><td>-</td><td><p>Internal inductance, NaN under the same condition.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>Drops $E_1$, the relation carrying $S_1$, which is the integral least
+sensitive to boundary shape and therefore the best determined of the three.
+Read this closure as a probe of $E_1$ rather than as a preferred estimator:
+its residual on the omitted identity is the informative output.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>Singular at $\alpha = 0$, and returns NaN there rather than a large finite
+value.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), “Virial relations for elongated plasmas in tokamaks”, Eqs. (1)-(3).
+</li>
+  <li>V. D. Shafranov, Plasma Phys. 13 (1971) 757.
+</li>
+</ol>
+
+<h3 id="virial_residual_rms"><code class="language-plaintext highlighter-rouge">virial_residual_rms</code></h3>
+
+<p class="formula-signature"><code>virial_residual_rms(e1, e2, e3)</code></p>
+
+<p>Aggregate the three normalised virial residuals into one number.</p>
+
+\[E_{virial} = \sqrt{\frac{\epsilon_1^2+\epsilon_2^2+\epsilon_3^2}{3}}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>e1</code></td><td>float</td><td>-</td><td><p>Normalised residual of the first identity.</p>
+</td></tr>
+  <tr><td><code>e2</code></td><td>float</td><td>-</td><td><p>Normalised residual of the second identity.</p>
+</td></tr>
+  <tr><td><code>e3</code></td><td>float</td><td>-</td><td><p>Normalised residual of the third identity.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Root-mean-square residual, NaN if any input is.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A summary, not a verdict: it says how badly the three relations fail to
+close together but not which one failed. Read it beside the three
+residuals, never instead of them.</p>
+
 <h3 id="virial_stability_criterion"><code class="language-plaintext highlighter-rouge">virial_stability_criterion</code></h3>
 
 <p class="formula-signature"><code>virial_stability_criterion(W_mag, W_kin, W_th)</code></p>
@@ -5280,7 +5769,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#alpha_heating_power_from_n_D_n_T_T_keV_V" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">alpha_heating_power_from_n_D_n_T_T_keV_V</a></li><li class="page-toc-item page-toc-level-3"><a href="#approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#aspect_ratio_from_a_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">aspect_ratio_from_a_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#auxiliary_heating_power" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">auxiliary_heating_power</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_normal_from_beta_tor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_normal_from_beta_tor</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_poloidal_from_circumference" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_poloidal_from_circumference</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_poloidal_from_pressure_integral" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_poloidal_from_pressure_integral</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_t_from_n_T_B" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_t_from_n_T_B</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_toroidal_from_p_B0" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_toroidal_from_p_B0</a></li><li class="page-toc-item page-toc-level-3"><a href="#bootstrap_current_fraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">bootstrap_current_fraction</a></li><li class="page-toc-item page-toc-level-3"><a href="#bremsstrahlung_power_density_from_T_e_p_Z_eff" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">bremsstrahlung_power_density_from_T_e_p_Z_eff</a></li><li class="page-toc-item page-toc-level-3"><a href="#bremsstrahlung_power_density_from_Z_eff_n_e_T_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">bremsstrahlung_power_density_from_Z_eff_n_e_T_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#bremsstrahlung_radiation_power_from_z_eff_n_e_t_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">bremsstrahlung_radiation_power_from_z_eff_n_e_t_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#calc_inverse_aspect_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calc_inverse_aspect_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_kadomtsev_constraint" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_kadomtsev_constraint</a></li><li class="page-toc-item page-toc-level-3"><a href="#confinement_factor_ITER89P" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">confinement_factor_ITER89P</a></li><li class="page-toc-item page-toc-level-3"><a href="#confinement_time_from_P_loss_W_th" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">confinement_time_from_P_loss_W_th</a></li><li class="page-toc-item page-toc-level-3"><a href="#confinement_time_from_engineering_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">confinement_time_from_engineering_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#coulomb_logarithm_from_n_T" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">coulomb_logarithm_from_n_T</a></li><li class="page-toc-item page-toc-level-3"><a href="#current_density_from_B" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">current_density_from_B</a></li><li class="page-toc-item page-toc-level-3"><a href="#current_density_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">current_density_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#current_drive_efficiency" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">current_drive_efficiency</a></li><li class="page-toc-item page-toc-level-3"><a href="#current_limit_from_beta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">current_limit_from_beta</a></li><li class="page-toc-item page-toc-level-3"><a href="#current_limit_from_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">current_limit_from_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#dimensionless_scaling_coeffs_from_engineering_scaling_coeffs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dimensionless_scaling_coeffs_from_engineering_scaling_coeffs</a></li><li class="page-toc-item page-toc-level-3"><a href="#eK_from_K" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">eK_from_K</a></li><li class="page-toc-item page-toc-level-3"><a href="#ec_heating_power_from_I_ec_V_ec" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ec_heating_power_from_I_ec_V_ec</a></li><li class="page-toc-item page-toc-level-3"><a href="#elongation_from_RZ_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">elongation_from_RZ_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#exact_volume_from_RZ_contour" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">exact_volume_from_RZ_contour</a></li><li class="page-toc-item page-toc-level-3"><a href="#heating_power_from_p_ohm_p_aux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">heating_power_from_p_ohm_p_aux</a></li><li class="page-toc-item page-toc-level-3"><a href="#inductive_voltage_from_dW_magdt_I_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">inductive_voltage_from_dW_magdt_I_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#inverse_aspect_ratio_from_a_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">inverse_aspect_ratio_from_a_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#kadomtsev_constraint_from_engineering_exponents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kadomtsev_constraint_from_engineering_exponents</a></li><li class="page-toc-item page-toc-level-3"><a href="#kinetic_energy_from_beta_p_B_pa_V_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kinetic_energy_from_beta_p_B_pa_V_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#kink_safety_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kink_safety_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#li_3_from_Bp2_volume_integral" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">li_3_from_Bp2_volume_integral</a></li><li class="page-toc-item page-toc-level-3"><a href="#line_to_volume_avg_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">line_to_volume_avg_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#loop_voltage_from_total_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">loop_voltage_from_total_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#loss_power_from_p_heat_dWdt_p_rad" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">loss_power_from_p_heat_dWdt_p_rad</a></li><li class="page-toc-item page-toc-level-3"><a href="#magnetic_energy_from_li_B_pa_V_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">magnetic_energy_from_li_B_pa_V_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#nbi_heating_power_from_I_nbi_V_nbi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">nbi_heating_power_from_I_nbi_V_nbi</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalize_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalize_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalized_collisionality_from_a_n_q_epsilon_T" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalized_collisionality_from_a_n_q_epsilon_T</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalized_larmor_radius_from_M_T_a_Bt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalized_larmor_radius_from_M_T_a_Bt</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalized_plasma_current" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalized_plasma_current</a></li><li class="page-toc-item page-toc-level-3"><a href="#nu_star_from_n_T_B_R_epsilon_kappa_I" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">nu_star_from_n_T_B_R_epsilon_kappa_I</a></li><li class="page-toc-item page-toc-level-3"><a href="#ohmic_heating_power_from_I_p_V_res" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ohmic_heating_power_from_I_p_V_res</a></li><li class="page-toc-item page-toc-level-3"><a href="#omega_i_tau_E_from_B_tau_E_M" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">omega_i_tau_E_from_B_tau_E_M</a></li><li class="page-toc-item page-toc-level-3"><a href="#peaking_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">peaking_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#phi_from_Bphi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">phi_from_Bphi</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_from_RBtheta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_from_RBtheta</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_normalised" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_normalised</a></li><li class="page-toc-item page-toc-level-3"><a href="#q_cyl_from_B_R_epsilon_kappa_I" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">q_cyl_from_B_R_epsilon_kappa_I</a></li><li class="page-toc-item page-toc-level-3"><a href="#q_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">q_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#q_from_rhoN" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">q_from_rhoN</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_magnetic_field_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_magnetic_field_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#rhoN_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rhoN_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#rhoN_from_qpsiN" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rhoN_from_qpsiN</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_star_from_M_T_B_R_epsilon" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_star_from_M_T_B_R_epsilon</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_tor_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_tor_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#shear_from_r_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shear_from_r_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#spitzer_resistivity_from_T_e_Z_eff_ln_Lambda" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</a></li><li class="page-toc-item page-toc-level-3"><a href="#stored_energy_from_beta_V" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">stored_energy_from_beta_V</a></li><li class="page-toc-item page-toc-level-3"><a href="#stored_energy_from_p_V" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">stored_energy_from_p_V</a></li><li class="page-toc-item page-toc-level-3"><a href="#surface_poloidal_flux_from_psi_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">surface_poloidal_flux_from_psi_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#toroidal_flux_from_q_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">toroidal_flux_from_q_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#triangularity_from_RZ_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">triangularity_from_RZ_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#verify_kadomtsev_constraint" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">verify_kadomtsev_constraint</a></li><li class="page-toc-item page-toc-level-3"><a href="#vertical_magnetic_field_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vertical_magnetic_field_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_D0_boundary_from_bp_li_eK" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_D0_boundary_from_bp_li_eK</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_S1_approx" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_S1_approx</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_S2_approx_from_D0_a_R0" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_S2_approx_from_D0_a_R0</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_S3_approx_from_eK_d" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_S3_approx_from_eK_d</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_p_from_S_alpha_mu" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_p_from_S_alpha_mu</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_p_from_S_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_p_from_S_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_p_from_volume" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_p_from_volume</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_p_lao_from_S_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_p_lao_from_S_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_p_li_from_S_alpha_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_p_li_from_S_alpha_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_pd_from_S_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_pd_from_S_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_bongard_from_S_alpha_mu" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_bongard_from_S_alpha_mu</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_bp_li_lihat_from_S123" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_bp_li_lihat_from_S123</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_kinetic_energy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_kinetic_energy</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_lao_from_S_alpha_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_lao_from_S_alpha_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_li_from_S_alpha_mu" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_li_from_S_alpha_mu</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_li_from_S_alpha_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_li_from_S_alpha_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_li_from_volume" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_li_from_volume</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_magnetic_energy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_magnetic_energy</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_muihat_from_Bt_R0_dphi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_muihat_from_Bt_R0_dphi</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_theorem" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_theorem</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_thermal_energy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_thermal_energy</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_from_RZ_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_from_RZ_boundary</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#alpha_heating_power_from_n_D_n_T_T_keV_V" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">alpha_heating_power_from_n_D_n_T_T_keV_V</a></li><li class="page-toc-item page-toc-level-3"><a href="#approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#aspect_ratio_from_a_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">aspect_ratio_from_a_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#auxiliary_heating_power" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">auxiliary_heating_power</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_normal_from_beta_tor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_normal_from_beta_tor</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_poloidal_from_circumference" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_poloidal_from_circumference</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_poloidal_from_pressure_integral" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_poloidal_from_pressure_integral</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_t_from_n_T_B" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_t_from_n_T_B</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_toroidal_from_p_B0" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_toroidal_from_p_B0</a></li><li class="page-toc-item page-toc-level-3"><a href="#bootstrap_current_fraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">bootstrap_current_fraction</a></li><li class="page-toc-item page-toc-level-3"><a href="#bremsstrahlung_power_density_from_T_e_p_Z_eff" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">bremsstrahlung_power_density_from_T_e_p_Z_eff</a></li><li class="page-toc-item page-toc-level-3"><a href="#bremsstrahlung_power_density_from_Z_eff_n_e_T_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">bremsstrahlung_power_density_from_Z_eff_n_e_T_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#bremsstrahlung_radiation_power_from_z_eff_n_e_t_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">bremsstrahlung_radiation_power_from_z_eff_n_e_t_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#calc_inverse_aspect_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calc_inverse_aspect_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_kadomtsev_constraint" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_kadomtsev_constraint</a></li><li class="page-toc-item page-toc-level-3"><a href="#confinement_factor_ITER89P" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">confinement_factor_ITER89P</a></li><li class="page-toc-item page-toc-level-3"><a href="#confinement_time_from_P_loss_W_th" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">confinement_time_from_P_loss_W_th</a></li><li class="page-toc-item page-toc-level-3"><a href="#confinement_time_from_engineering_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">confinement_time_from_engineering_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#coulomb_logarithm_from_n_T" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">coulomb_logarithm_from_n_T</a></li><li class="page-toc-item page-toc-level-3"><a href="#current_density_from_B" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">current_density_from_B</a></li><li class="page-toc-item page-toc-level-3"><a href="#current_density_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">current_density_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#current_drive_efficiency" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">current_drive_efficiency</a></li><li class="page-toc-item page-toc-level-3"><a href="#current_limit_from_beta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">current_limit_from_beta</a></li><li class="page-toc-item page-toc-level-3"><a href="#current_limit_from_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">current_limit_from_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#dimensionless_scaling_coeffs_from_engineering_scaling_coeffs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dimensionless_scaling_coeffs_from_engineering_scaling_coeffs</a></li><li class="page-toc-item page-toc-level-3"><a href="#eK_from_K" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">eK_from_K</a></li><li class="page-toc-item page-toc-level-3"><a href="#ec_heating_power_from_I_ec_V_ec" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ec_heating_power_from_I_ec_V_ec</a></li><li class="page-toc-item page-toc-level-3"><a href="#elongation_from_RZ_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">elongation_from_RZ_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#exact_volume_from_RZ_contour" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">exact_volume_from_RZ_contour</a></li><li class="page-toc-item page-toc-level-3"><a href="#heating_power_from_p_ohm_p_aux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">heating_power_from_p_ohm_p_aux</a></li><li class="page-toc-item page-toc-level-3"><a href="#inductive_voltage_from_dW_magdt_I_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">inductive_voltage_from_dW_magdt_I_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#inverse_aspect_ratio_from_a_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">inverse_aspect_ratio_from_a_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#kadomtsev_constraint_from_engineering_exponents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kadomtsev_constraint_from_engineering_exponents</a></li><li class="page-toc-item page-toc-level-3"><a href="#kinetic_energy_from_beta_p_B_pa_V_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kinetic_energy_from_beta_p_B_pa_V_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#kink_safety_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kink_safety_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#li_3_from_Bp2_volume_integral" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">li_3_from_Bp2_volume_integral</a></li><li class="page-toc-item page-toc-level-3"><a href="#line_to_volume_avg_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">line_to_volume_avg_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#loop_voltage_from_total_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">loop_voltage_from_total_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#loss_power_from_p_heat_dWdt_p_rad" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">loss_power_from_p_heat_dWdt_p_rad</a></li><li class="page-toc-item page-toc-level-3"><a href="#magnetic_energy_from_li_B_pa_V_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">magnetic_energy_from_li_B_pa_V_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#nbi_heating_power_from_I_nbi_V_nbi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">nbi_heating_power_from_I_nbi_V_nbi</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalize_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalize_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalized_collisionality_from_a_n_q_epsilon_T" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalized_collisionality_from_a_n_q_epsilon_T</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalized_larmor_radius_from_M_T_a_Bt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalized_larmor_radius_from_M_T_a_Bt</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalized_plasma_current" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalized_plasma_current</a></li><li class="page-toc-item page-toc-level-3"><a href="#nu_star_from_n_T_B_R_epsilon_kappa_I" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">nu_star_from_n_T_B_R_epsilon_kappa_I</a></li><li class="page-toc-item page-toc-level-3"><a href="#ohmic_heating_power_from_I_p_V_res" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ohmic_heating_power_from_I_p_V_res</a></li><li class="page-toc-item page-toc-level-3"><a href="#omega_i_tau_E_from_B_tau_E_M" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">omega_i_tau_E_from_B_tau_E_M</a></li><li class="page-toc-item page-toc-level-3"><a href="#peaking_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">peaking_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#phi_from_Bphi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">phi_from_Bphi</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_from_RBtheta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_from_RBtheta</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_normalised" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_normalised</a></li><li class="page-toc-item page-toc-level-3"><a href="#q_cyl_from_B_R_epsilon_kappa_I" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">q_cyl_from_B_R_epsilon_kappa_I</a></li><li class="page-toc-item page-toc-level-3"><a href="#q_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">q_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#q_from_rhoN" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">q_from_rhoN</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_magnetic_field_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_magnetic_field_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#rhoN_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rhoN_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#rhoN_from_qpsiN" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rhoN_from_qpsiN</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_star_from_M_T_B_R_epsilon" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_star_from_M_T_B_R_epsilon</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_tor_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_tor_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#shear_from_r_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shear_from_r_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#spitzer_resistivity_from_T_e_Z_eff_ln_Lambda" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</a></li><li class="page-toc-item page-toc-level-3"><a href="#stored_energy_from_beta_V" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">stored_energy_from_beta_V</a></li><li class="page-toc-item page-toc-level-3"><a href="#stored_energy_from_p_V" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">stored_energy_from_p_V</a></li><li class="page-toc-item page-toc-level-3"><a href="#surface_poloidal_flux_from_psi_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">surface_poloidal_flux_from_psi_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#toroidal_flux_from_q_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">toroidal_flux_from_q_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#triangularity_from_RZ_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">triangularity_from_RZ_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#verify_kadomtsev_constraint" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">verify_kadomtsev_constraint</a></li><li class="page-toc-item page-toc-level-3"><a href="#vertical_magnetic_field_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vertical_magnetic_field_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_D0_boundary_from_bp_li_eK" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_D0_boundary_from_bp_li_eK</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_S1_approx" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_S1_approx</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_S2_approx_from_D0_a_R0" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_S2_approx_from_D0_a_R0</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_S3_approx_from_eK_d" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_S3_approx_from_eK_d</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_p_from_S_alpha_mu" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_p_from_S_alpha_mu</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_p_from_S_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_p_from_S_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_p_from_volume" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_p_from_volume</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_p_lao_from_S_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_p_lao_from_S_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_p_li_from_S_alpha_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_p_li_from_S_alpha_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_pd_from_S_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_pd_from_S_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_bongard_from_S_alpha_mu" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_bongard_from_S_alpha_mu</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_bp_li_lihat_from_S123" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_bp_li_lihat_from_S123</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_closure_denominators" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_closure_denominators</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_full_123_from_S_alpha_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_full_123_from_S_alpha_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_identity_residuals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_identity_residuals</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_kinetic_energy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_kinetic_energy</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_lao_from_S_alpha_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_lao_from_S_alpha_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_li_from_S_alpha_mu" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_li_from_S_alpha_mu</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_li_from_S_alpha_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_li_from_S_alpha_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_li_from_volume" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_li_from_volume</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_magnetic_energy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_magnetic_energy</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_muihat_from_Bt_R0_dphi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_muihat_from_Bt_R0_dphi</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_normalized_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_normalized_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_pair_12_from_S_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_pair_12_from_S_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_pair_13_from_S_alpha_mu" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_pair_13_from_S_alpha_mu</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_pair_23_from_S_alpha_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_pair_23_from_S_alpha_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_residual_rms" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_residual_rms</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_theorem" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_theorem</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_thermal_energy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_thermal_energy</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_from_RZ_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_from_RZ_boundary</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -5398,7 +5887,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-06 16:04:12 +0000"
+        "time": "2026-09-06 16:08:59 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
