@@ -149,6 +149,61 @@ The sensor-selection keyword is the exception: an unusable value raises `ValueEr
 The probe groups are the ones described in
 [Magnetics]({{ site.baseurl }}/guide/Magnetics/).
 
+### `emission` — selecting a spectral line by what it is
+
+A filterscope channel can record several lines at once — VEST's versatile
+filterscope carries seven — so the spectroscopy plots take a second selector
+that says *which emission* to draw. It resolves against the labels the data
+itself records, not a position in an array:
+
+```python
+vaft.omas.plot_spectrometer_uv_time_intensity(ods, emission='CIII')     # one ion
+vaft.omas.plot_spectrometer_uv_time_intensity(ods, emission='C2+')      # the same ion
+vaft.omas.plot_spectrometer_uv_time_intensity(ods, emission='Carbon')   # every carbon line
+vaft.omas.plot_spectrometer_uv_time_intensity(ods, emission='H_alpha')  # one transition
+```
+
+Three levels resolve, from the most specific to the least:
+
+| Level | Written as | Selects |
+|---|---|---|
+| Spectral line | `H_alpha`, `H-alpha`, `Halpha`, `Hα` | one transition of one isotope |
+| Ion species | `CIII`, `C III`, `C2+` | one ionization stage |
+| Element or isotope | `C`, `Carbon`, `O`, `H`, `D`, `He` | every line of that species |
+
+Spectroscopic notation and charge state both work and mean the same thing:
+`CIII` and `C2+` are one ion, because a stage counts from the neutral atom and
+a charge does not. For the same reason `CIII` and `C3+` are *different* ions,
+and VAFT will not conflate them. Hydrogen and deuterium likewise stay distinct:
+`emission='D'` never returns a line the data recorded as hydrogen.
+
+A selector may match several lines, and then it draws several traces — carbon
+is measured at two stages, H-alpha on two digitizers. That is the same
+convention `selection=` follows, so `layout='subplots'` gives each matched line
+its own panel.
+
+Like `indices`, this one raises rather than guessing. An unknown term, or a
+species this shot did not record, names the choices that do exist:
+
+```
+>>> vaft.omas.plot_spectrometer_uv_time_intensity(ods, emission='CIV')
+ValueError: no C IV line is recorded in this input; available lines and
+species: H_alpha, O I, H_beta, H_gamma, C II, C III, O II, O V; elements: H, O, C
+```
+
+`line_index=` sits underneath, selecting by position in the stored
+`processed_line` array (`line_index=4`). Prefer `emission=`: an index says
+nothing about what is being plotted, and it moves when a mapping changes.
+
+`emission=` composes with `selection=`, which still picks the channel — so one
+filterscope's whole spectrum is a single call:
+
+```python
+vaft.omas.plot_spectrometer_uv_time_intensity(
+    ods, selection=2, emission=['H', 'C', 'O'], layout='subplots'
+)
+```
+
 ## Time traces
 
 All of these take an ODS or an ODC as first argument, call `plt.show()` and return `None` —
@@ -226,7 +281,7 @@ vaft.plot.time_tf_coil_current(ods, yunit='MA')
 vaft.plot.time_tf_b_field_tor(ods, yunit='T')          # vacuum toroidal field
 vaft.plot.time_tf_b_field_tor_vacuum_r(ods)            # B_tor * R
 vaft.plot.time_barometry_pressure(ods, yunit='Pa')     # neutral pressure
-vaft.plot.time_spectrometer_uv_intensity(ods, indices='all')
+vaft.omas.plot_spectrometer_uv_time_intensity(ods, emission='CIII')
 vaft.plot.time_impurity_effect(ods)                    # 3x2: Ip/Ha, flux/CIII, V_loop/OII
 ```
 
