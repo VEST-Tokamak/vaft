@@ -612,6 +612,10 @@ def _coerce_rule_value(key: str, value: Any, annotation: str, *, context: str) -
         if "None" in kinds:
             return None
         raise VestConfigurationError(f"{context}: parameter {key!r} may not be null")
+    if "str" in kinds:
+        if isinstance(value, str) and value:
+            return value
+        raise VestConfigurationError(f"{context}: parameter {key!r} must be a non-empty string")
     if "bool" in kinds:
         if isinstance(value, bool):
             return value
@@ -670,6 +674,23 @@ def _active_window_rule(rule: Any, *, context: str) -> Dict[str, Any]:
 #: ``zero_crossing_after_excursion`` arguments the caller supplies from the
 #: record and the anchoring event; a rule may not set them.
 _ZERO_CROSSING_RESERVED = frozenset({"anchor_time", "reference_mask", "search_mask"})
+
+
+#: ``robust_peak`` arguments the caller supplies from the record; a rule may not set them.
+_ROBUST_PEAK_RESERVED = frozenset({"reference_mask", "search_mask", "fs"})
+
+
+def _robust_peak_rule(rule: Any, *, context: str) -> Dict[str, Any]:
+    """Validate one rule block against :func:`vaft.process.onset.robust_peak`."""
+    from vaft.process.onset import PEAK_POLARITIES, robust_peak
+
+    out = _signature_rule(robust_peak, rule, reserved=_ROBUST_PEAK_RESERVED, context=context)
+    polarity = out.get("polarity")
+    if polarity is not None and polarity not in PEAK_POLARITIES:
+        raise VestConfigurationError(
+            f"{context}: 'polarity' must be one of {', '.join(PEAK_POLARITIES)}, not {polarity!r}"
+        )
+    return out
 
 
 def _zero_crossing_rule(rule: Any, *, context: str) -> Dict[str, Any]:
@@ -862,6 +883,95 @@ def resolve_discharge_timing_policy(*, info_file: str | None = None) -> Discharg
         loop_voltage={"selection": str(selection), "prefer_measured_voltage": prefer},
         coil=_active_window_rule(document.get("coil"), context=f"{context}: coil"),
         vloop=_zero_crossing_rule(document.get("vloop"), context=f"{context}: vloop"),
+    )
+
+
+PLASMA_FEATURES_KEY = "plasma_features"
+PLASMA_FEATURES_WINDOWS = ("plasma_timing",)
+#: The H-alpha label; ``lines`` may not carry it (it is the ``h_alpha`` block).
+#: ``vaft.omas.plasma_timing.HALPHA_LABEL`` is the same string; the omas
+#: composer asserts so at import.
+PLASMA_FEATURES_HALPHA_LABEL = "H-alpha_6563"
+_PLASMA_FEATURES_RULE_BLOCKS = ("ip", "h_alpha", "diamagnetic")
+
+
+@dataclass(frozen=True)
+class PlasmaFeaturesPolicy:
+    """The configured plasma-features policy (issue #409).
+
+    ``window`` names where the peaks are measured -- ``plasma_timing``, the
+    window :func:`vaft.omas.plasma_timing.plasma_timing` found, is the only
+    value; nothing is measured over the analysis range.  ``ip``, ``h_alpha``,
+    each ``lines[label]`` and ``diamagnetic`` are keyword arguments of
+    :func:`vaft.process.onset.robust_peak`, keyed by the signal they were
+    tuned on.  ``ip_ramp_end`` is optional and reserved: ``None`` unless a
+    block is configured, and never required by any consumer.
+    """
+
+    window: str
+    ip: Mapping[str, Any]
+    h_alpha: Mapping[str, Any]
+    lines: Mapping[str, Mapping[str, Any]]
+    diamagnetic: Mapping[str, Any]
+    ip_ramp_end: Mapping[str, Any] | None = None
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "window": self.window,
+            "ip": dict(self.ip),
+            "h_alpha": dict(self.h_alpha),
+            "lines": {label: dict(rule) for label, rule in self.lines.items()},
+            "diamagnetic": dict(self.diamagnetic),
+            "ip_ramp_end": None if self.ip_ramp_end is None else dict(self.ip_ramp_end),
+        }
+
+
+def resolve_plasma_features_policy(*, info_file: str | None = None) -> PlasmaFeaturesPolicy:
+    """Return the configured plasma-features policy (issue #409).
+
+    Every rule block is checked against ``robust_peak``'s signature at load
+    time; ``lines`` may not carry the H-alpha label (that is the ``h_alpha``
+    block); ``ip_ramp_end`` is validated only when present.
+    """
+    content = _policy_document(info_file)
+    document = content.get(PLASMA_FEATURES_KEY)
+    context = PLASMA_FEATURES_KEY
+    if not isinstance(document, Mapping):
+        raise VestConfigurationError(
+            f"VEST configuration defines no {PLASMA_FEATURES_KEY!r} section"
+        )
+    window = document.get("window")
+    if window not in PLASMA_FEATURES_WINDOWS:
+        raise VestConfigurationError(
+            f"{context}: 'window' must be one of {', '.join(PLASMA_FEATURES_WINDOWS)}, not {window!r}"
+        )
+    rules = {
+        name: _robust_peak_rule(document.get(name), context=f"{context}: {name}")
+        for name in _PLASMA_FEATURES_RULE_BLOCKS
+    }
+    raw_lines = document.get("lines", {})
+    if raw_lines is None:
+        raw_lines = {}
+    if not isinstance(raw_lines, Mapping):
+        raise VestConfigurationError(f"{context}: 'lines' must be a mapping of label -> rule")
+    if PLASMA_FEATURES_HALPHA_LABEL in raw_lines:
+        raise VestConfigurationError(
+            f"{context}: lines may not carry {PLASMA_FEATURES_HALPHA_LABEL!r}; H-alpha is the 'h_alpha' block"
+        )
+    lines = {
+        str(label): _robust_peak_rule(rule, context=f"{context}: lines[{label!r}]")
+        for label, rule in raw_lines.items()
+    }
+    ramp_end = document.get("ip_ramp_end")
+    return PlasmaFeaturesPolicy(
+        window=str(window),
+        ip=rules["ip"],
+        h_alpha=rules["h_alpha"],
+        lines=lines,
+        diamagnetic=rules["diamagnetic"],
+        ip_ramp_end=None if ramp_end is None else _robust_peak_rule(
+            ramp_end, context=f"{context}: ip_ramp_end"
+        ),
     )
 
 
@@ -1387,7 +1497,9 @@ __all__ = [
     "CroppedRecord",
     "DiagnosticsTimePolicyTable",
     "MIN_BASELINE_S",
+    "PLASMA_FEATURES_KEY",
     "PLASMA_TIMING_KEY",
+    "PlasmaFeaturesPolicy",
     "PlasmaTimingPolicy",
     "VestConfigurationError",
     "apply_default_constraint_uncertainties",
@@ -1414,6 +1526,7 @@ __all__ = [
     "resolve_data_root",
     "resolve_diagnostics_time_policies",
     "resolve_discharge_timing_policy",
+    "resolve_plasma_features_policy",
     "resolve_plasma_timing_policy",
     "set_path",
 ]

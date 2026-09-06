@@ -48,6 +48,7 @@ from .signal_processing import butterworth_lowpass
 
 __all__ = [
     "OnsetRecord",
+    "PeakRecord",
     "PulseWindow",
     "RunFeatures",
     "active_window",
@@ -58,6 +59,7 @@ __all__ = [
     "principal_pulse_onset",
     "principal_pulse_window",
     "robust_baseline",
+    "robust_peak",
     "run_features",
     "sustained_excess_onset",
     "zero_crossing_after_excursion",
@@ -133,9 +135,7 @@ class OnsetRecord:
             "evidence": dict(self.evidence),
             "flags": list(self.flags),
             "accepted": None if self.accepted is None else self.accepted.as_dict(),
-            "rejected": [
-                {"time": t, "reason": why, **feats.as_dict()} for t, why, feats in self.rejected
-            ],
+            "rejected": _rejected_as_dicts(self.rejected),
         }
 
 
@@ -350,6 +350,21 @@ def _bridged(mask: np.ndarray, bridge_samples: int) -> np.ndarray:
         if stop - start <= bridge_samples and start > 0 and stop < mask.size:
             out[start:stop] = True
     return out
+
+
+def _run_around(above: np.ndarray, i: int) -> tuple[int, int]:
+    """The maximal ``[start, stop)`` stretch of True samples in ``above`` that holds ``i``."""
+    start = i
+    while start > 0 and above[start - 1]:
+        start -= 1
+    stop = i + 1
+    while stop < above.size and above[stop]:
+        stop += 1
+    return start, stop
+
+
+def _rejected_as_dicts(rejected) -> list[dict[str, Any]]:
+    return [{"time": t, "reason": why, **feats.as_dict()} for t, why, feats in rejected]
 
 
 def _brief_run(t: np.ndarray, y: np.ndarray, baseline: float, start: int, stop: int) -> RunFeatures:
@@ -705,12 +720,7 @@ def _principal_pulse_onset(
         region = y
     i_peak = int(np.argmax(region))
     above = _bridged(y > threshold, int(bridge_samples))
-    start = i_peak
-    while start > 0 and above[start - 1]:
-        start -= 1
-    stop = i_peak + 1
-    while stop < y.size and above[stop]:
-        stop += 1
+    start, stop = _run_around(above, i_peak)
     feats = run_features(t, y, baseline, start, stop)
     # A pulse is never as brief as a pickup impulse: a principal run narrower
     # than ``impulse_max_s`` is the pickup itself (a record with no pulse has
@@ -1148,3 +1158,228 @@ def zero_crossing_after_excursion(
                            rejected=tuple(rejected), accepted=accepted)
     return OnsetRecord(time=float(t[k]), index=k, method=method, evidence=evidence,
                        flags=tuple(flags), rejected=tuple(rejected), accepted=accepted)
+
+
+# ---------------------------------------------------------------------------
+# Representative peak
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PeakRecord:
+    """What :func:`robust_peak` concluded about one waveform.
+
+    ``value`` is the *smoothed* sample at the peak (the raw one is in the
+    evidence -- that is what makes the peak spike-resistant), ``time`` a
+    sample of the input grid or ``None`` when nothing qualifies, ``excess``
+    the value relative to the baseline median.  ``rejected`` holds the
+    louder candidates that were refused as impulsive, each with its run
+    features, so a consumer can see what the record's loudest sample was.
+    """
+
+    value: float | None
+    time: float | None
+    index: int | None
+    excess: float | None
+    method: str = "robust_peak"
+    evidence: Mapping[str, Any] = field(default_factory=dict)
+    flags: tuple[str, ...] = ()
+    rejected: tuple[tuple[float, str, RunFeatures], ...] = ()
+    accepted: RunFeatures | None = None
+
+    @property
+    def found(self) -> bool:
+        return self.time is not None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "value": self.value,
+            "time": self.time,
+            "index": self.index,
+            "excess": self.excess,
+            "method": self.method,
+            "evidence": dict(self.evidence),
+            "flags": list(self.flags),
+            "accepted": None if self.accepted is None else self.accepted.as_dict(),
+            "rejected": _rejected_as_dicts(self.rejected),
+        }
+
+
+PEAK_POLARITIES = ("positive", "negative", "absolute")
+
+
+def _no_peak(reason: str, evidence: Mapping[str, Any], *extra: str,
+             rejected=(), accepted=None) -> PeakRecord:
+    return PeakRecord(value=None, time=None, index=None, excess=None, evidence=dict(evidence),
+                     flags=tuple(dict.fromkeys(("no_peak", reason, *extra))),
+                     rejected=tuple(rejected), accepted=accepted)
+
+
+def robust_peak(
+    time,
+    values,
+    *,
+    polarity: str = "positive",
+    prefilter_samples: int = 5,
+    cutoff_hz: float | None = None,
+    fs: float | None = None,
+    order: int = 4,
+    sigma: float = 5.0,
+    level_fraction: float = 0.5,
+    min_width_s: float = 1.0e-3,
+    max_candidates: int = 8,
+    edge_samples: int = 1,
+    impulse_max_s: float = 2.0e-3,
+    reference_mask=None,
+    reference_fraction: float = 0.2,
+    search_mask=None,
+    bridge_samples: int = 2,
+) -> PeakRecord:
+    """The representative peak of a record: its largest sustained excursion, not its loudest sample.
+
+    The record is median-filtered (``prefilter_samples``, the isolated optical
+    spike) and, when a ``cutoff_hz`` is given, zero-phase low-passed; the
+    baseline is the median of the reference stretch.  ``polarity`` selects
+    what counts as up: ``positive`` (the excess over the baseline),
+    ``negative`` (the deficit) or ``absolute``.  The largest excursion inside
+    ``search_mask`` is a candidate; the run holding it at
+    ``level_fraction`` of its height must last ``min_width_s``, otherwise it
+    is a spike -- a coil-firing pickup impulse, a digitizer glitch -- and is
+    refused (``rejected``, reason ``impulsive``) in favour of the next
+    excursion, up to ``max_candidates`` times -- the whole impulse, shoulders
+    included, so they cannot come back as a candidate.  A peak whose
+    excursion does not clear ``sigma`` robust sigmas
+    is ``peak_below_noise``.  ``impulse_max_s`` is the impulse length: a
+    refused run is masked one impulse length beyond its edges (never past
+    the baseline crossing), and the reported ``pickup_scale`` is measured
+    with it, as in the onset detectors.
+
+    Flags on a found peak: ``peak_is_spike`` when the record's raw maximum
+    lay in a refused run; ``raw_max_outside_run`` when it lies anywhere
+    outside the accepted run (an isolated spike the prefilter removed before
+    it could be a candidate, or a second excursion) -- either way the
+    reported peak is not the loudest sample, and ``raw_max``/``raw_max_time``
+    say where that was; ``peak_at_window_edge`` when the peak is within
+    ``edge_samples`` of the search stretch's edge (the excursion may continue
+    beyond it); ``peak_plateau`` when the *raw* record holds its extreme
+    value for three consecutive samples or more inside the accepted run (a
+    railed digitizer; the median filter's own repeats do not count);
+    ``reference_flat`` when the
+    reference has no spread (a peak is still reported: an integrated record
+    can have an exactly zero lead).  ``time`` is always a sample of the
+    input grid, or ``None`` with ``no_peak`` and one reason.
+    """
+    if polarity not in PEAK_POLARITIES:
+        raise ValueError(f"polarity must be one of {PEAK_POLARITIES}, not {polarity!r}")
+    if int(max_candidates) < 1:
+        raise ValueError("max_candidates must be at least 1")
+    t, raw = _as_arrays(time, values)
+    skipped = _lowpass_skipped(t, cutoff_hz, fs)
+    effective_cutoff = None if skipped else cutoff_hz
+    base_flags: tuple[str, ...] = ("lowpass_skipped",) if skipped else ()
+    evidence: dict[str, Any] = {
+        "polarity": polarity, "prefilter_samples": int(prefilter_samples), "cutoff_hz": cutoff_hz,
+        "sigma": float(sigma), "level_fraction": float(level_fraction),
+        "min_width_s": float(min_width_s), "edge_samples": int(edge_samples),
+    }
+    if _too_short(t, effective_cutoff, order):
+        return _no_peak("record_too_short", evidence, *base_flags)
+    dt = float(np.median(np.diff(t)))
+    y = median_smooth(raw, prefilter_samples) if prefilter_samples > 1 else _fill_non_finite(raw)
+    y = _lowpassed(y, effective_cutoff, fs, dt, order)
+    ref, ref_flags = _settle_reference(y, _reference(t, reference_mask, reference_fraction), sigma)
+    baseline, spread = robust_baseline(y, ref)
+    evidence.update({"baseline_median": baseline, "robust_sigma": spread})
+    if not np.isfinite(baseline) or not np.isfinite(spread):
+        return _no_peak("reference_not_finite", evidence, *base_flags, *ref_flags)
+    flags: list[str] = [*base_flags, *ref_flags]
+    if spread <= 0.0:
+        flags.append("reference_flat")
+    deviation = y - baseline
+
+    def oriented(dev: np.ndarray) -> np.ndarray:
+        if polarity == "negative":
+            return -dev
+        if polarity == "absolute":
+            return np.abs(dev)
+        return dev
+
+    score = oriented(deviation)
+    if search_mask is not None:
+        sel = np.asarray(search_mask, dtype=bool).reshape(-1)
+        if sel.size != t.size:
+            raise ValueError(f"search_mask has {sel.size} samples but the record has {t.size}")
+        if not sel.any():
+            return _no_peak("search_mask_empty", evidence, *flags)
+    else:
+        sel = np.ones(t.size, dtype=bool)
+    score = np.where(sel, score, -np.inf)
+    raw_score = np.where(sel, oriented(raw - baseline), -np.inf)
+    raw_score = np.where(np.isfinite(raw_score), raw_score, -np.inf)
+    i_raw = int(np.argmax(raw_score))
+    if not np.isfinite(raw_score[i_raw]):
+        return _no_peak("no_finite_samples", evidence, *flags)
+    # the raw extreme on the chosen side: the loudest raw sample, whatever the polarity
+    evidence.update({"raw_max": float(raw[i_raw]), "raw_max_time": float(t[i_raw])})
+    peak_score = float(score.max())
+    if peak_score <= 0.0:
+        return _no_peak("record_flat", evidence, *flags)
+    if spread > 0.0 and peak_score < float(sigma) * spread:
+        return _no_peak("peak_below_noise", evidence, *flags)
+    rejected: list[tuple[float, str, RunFeatures]] = []
+    remaining = score.copy()
+    selected = np.flatnonzero(sel)
+    edge_first, edge_last = int(selected[0]), int(selected[-1])
+    for _ in range(int(max_candidates)):
+        i = int(np.argmax(remaining))
+        if not np.isfinite(remaining[i]) or remaining[i] <= 0.0:
+            break
+        # the run is judged on what is still in play, so a refused excursion's
+        # shoulders cannot rejoin a later candidate's run
+        above = _bridged(remaining > float(level_fraction) * remaining[i], int(bridge_samples)) & sel
+        start, stop = _run_around(above, i)
+        feats = run_features(t, remaining, 0.0, start, stop)
+        if feats.width_s < float(min_width_s):
+            if len(rejected) < MAX_REJECTED_RUNS:
+                rejected.append((float(t[i]), "impulsive", feats))
+            # refuse the whole impulse: its run, widened by one impulse length on
+            # each side (an impulse is that brief by definition) but never past
+            # the baseline crossing -- so its shoulders cannot rejoin a later
+            # candidate, and a genuine excursion beyond it is untouched
+            reach = max(1, int(round(float(impulse_max_s) / dt)))
+            base_start, base_stop = _run_around(remaining > 0.0, i)
+            remaining[max(base_start, start - reach):min(base_stop, stop + reach)] = -np.inf
+            continue
+        margin = max(1, int(round(float(impulse_max_s) / dt)))
+        outside = np.r_[y[: max(0, start - margin)], y[min(y.size, stop + margin):]]
+        evidence.update({
+            "raw_value": float(raw[i]),
+            "pickup_scale": pickup_scale(outside, baseline, spread, dt, impulse_max_s=impulse_max_s),
+            "n_rejected": len(rejected),
+            "run_start": float(t[start]), "run_end": float(t[stop - 1]),
+        })
+        # A rail holds the raw extreme for consecutive samples; judged on the
+        # raw record inside the run, since the median filter repeats values too.
+        run_raw = raw_score[start:stop]
+        j = int(np.argmax(run_raw))
+        plateau = 1
+        while j - plateau >= 0 and run_raw[j - plateau] == run_raw[j]:
+            plateau += 1
+        after = 1
+        while j + after < run_raw.size and run_raw[j + after] == run_raw[j]:
+            after += 1
+        evidence["plateau_samples"] = plateau + after - 1
+        if rejected and any(r_start <= float(t[i_raw]) <= r_end
+                            for r_start, r_end in ((f.start_time, f.end_time) for _, _, f in rejected)):
+            flags.append("peak_is_spike")
+        if not (start <= i_raw < stop):
+            flags.append("raw_max_outside_run")
+        if i - edge_first < int(edge_samples) or edge_last - i < int(edge_samples):
+            flags.append("peak_at_window_edge")
+        if evidence["plateau_samples"] >= 3:
+            flags.append("peak_plateau")
+        return PeakRecord(value=float(y[i]), time=float(t[i]), index=i, excess=float(deviation[i]),
+                         evidence=evidence, flags=tuple(dict.fromkeys(flags)),
+                         rejected=tuple(rejected), accepted=feats)
+    evidence["n_rejected"] = len(rejected)
+    return _no_peak("all_candidates_impulsive", evidence, *flags, rejected=rejected)

@@ -26,6 +26,13 @@ CHANNEL_CADENCE_HZ: dict[int, float] = {
     2: 250e3,
 }
 
+#: Where a channel's digitizer rails, in stored units, for the channels whose
+#: rail is documented: the versatile filterscope clips at 5.0 (41524).  A
+#: channel absent here has no known rail and is not judged against one.
+CHANNEL_RAIL_LEVEL: dict[int, float] = {
+    2: 5.0,
+}
+
 SIGNALS: list[tuple[int, int, int, str, float]] = [
     (101, 0, 0, "H-alpha_6563", 656.3e-9),
     (214, 1, 0, "OI_7770", 777.0e-9),

@@ -371,12 +371,23 @@ def test_shot_overview_extractor_uses_the_shared_plasma_timing(monkeypatch):
         "_plasma_timing",
         lambda _ods: SimpleNamespace(found=True, onset=0.1, offset=0.2, source="h_alpha_primary"),
     )
+    monkeypatch.setattr(
+        summary_module,
+        "_ip_peak",
+        lambda _ods, timing: SimpleNamespace(found=timing.found, value=10_000.0 if timing.found else None),
+    )
+    monkeypatch.setattr(
+        summary_module,
+        "_shot_class",
+        lambda _ods, timing: SimpleNamespace(label="Plasma" if timing.found else "Vacuum"),
+    )
 
     rows = summary_module.extract_shot_overview(ods, 42)
 
     assert set(rows[0]) == set(summary_module.SHOT_OVERVIEW_COLUMNS)
     assert rows[0]["plasma_onset_time_s"] == pytest.approx(0.1)
     assert rows[0]["plasma_onset_source"] == "h_alpha_primary"
+    assert rows[0]["shot_class"] == "Plasma"
     assert rows[0]["pulse_duration_s"] == pytest.approx(0.1)
     assert rows[0]["max_ip_kA"] == 10.0
     assert rows[0]["mean_b_t_T"] == pytest.approx(0.15)
@@ -389,9 +400,9 @@ def test_shot_overview_extractor_uses_the_shared_plasma_timing(monkeypatch):
     )
     vacuum = summary_module.extract_shot_overview(ods, 42)[0]
     assert set(vacuum) == set(summary_module.SHOT_OVERVIEW_COLUMNS)
-    assert vacuum["plasma_onset_source"] == "none"
+    assert vacuum["plasma_onset_source"] == "none" and vacuum["shot_class"] == "Vacuum"
     assert np.isnan(vacuum["plasma_onset_time_s"]) and np.isnan(vacuum["pulse_duration_s"])
-    assert np.isnan(vacuum["mean_b_t_T"]) and vacuum["max_ip_kA"] == 10.0
+    assert np.isnan(vacuum["mean_b_t_T"]) and np.isnan(vacuum["max_ip_kA"])
 
 
 def test_export_replace_preserves_frame_and_column_order(tmp_path):
@@ -528,3 +539,10 @@ def test_vacuum_b0_is_rescaled_with_the_cross_checked_radius():
     # shrunk by 0.2313/0.4.
     assert row["vacuum_b0_T"] == pytest.approx(0.149799, rel=1e-6)
     assert row["vacuum_r0_m"] == pytest.approx(0.4)
+
+
+def test_the_shot_overview_loads_what_the_shot_class_reads():
+    """Review finding on #535: through the database only the preset's paths are
+    loaded, and the class decides BD failure versus Vacuum on the barometry."""
+    paths = summary_module.PRESETS["shot_overview"].paths
+    assert "barometry" in paths and "dataset_description" in paths

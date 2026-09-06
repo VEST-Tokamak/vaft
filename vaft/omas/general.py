@@ -15,21 +15,16 @@ def find_shotnumber(ods):
     return ods['dataset_description.data_entry.pulse']
 
 def find_shotclass(ods, plot_opt=0):
-    """Classify a shot, returning ``None`` when the ODS cannot be classified.
+    """The lenient form of :func:`classify_shot`: ``None`` when the ODS cannot be classified.
 
-    Kept for callers that want the lenient form; the classification itself is
-    :func:`classify_shot`, which the two used to disagree about.
+    A product without the plasma current the shared timing needs, or one
+    that raises on read, answers ``None`` here rather than raising; the
+    classification itself is :func:`classify_shot`, and the two never
+    disagree on a classifiable shot.
     """
-    for ids in ('barometry', 'spectrometer_uv'):
-        if ids not in ods:
-            print(f'{ids} not found in ODS')
-            return None
     try:
         return classify_shot(ods)
-    except KeyError as error:
-        # The IDS is there but the channel this classifier reads is not; the
-        # lenient form promises None rather than an exception.
-        print(f'shot cannot be classified: {error}')
+    except (KeyError, ValueError):   # PlasmaTimingError is a ValueError
         return None
 
 def find_chamber_boundary(ods):
@@ -148,21 +143,21 @@ def find_bt(ods):
     return float(np.mean(bt[inside]))
 
 def find_max_ip(ods):
-    """Find the maximum plasma current."""
-    current = ods['magnetics.ip.0.data']
-    from scipy.signal import medfilt
-    data_filtered = medfilt(current, kernel_size=15)
-    
-    max_org = np.max(current)
-    max_filtered = np.max(data_filtered)
+    """The representative peak of the plasma current inside the plasma window.
 
-    print(f"Original max IP: {max_org}, Filtered max IP: {max_filtered}")
+    ``vaft.omas.plasma_features``: the largest sustained excursion of the
+    median-filtered, zero-phase low-passed current between the plasma onset
+    and offset -- a coil-firing impulse is never the answer.  Raises
+    ``ValueError`` naming the reason when the timing found no plasma or the
+    current carries no qualifying peak.
+    """
+    from .plasma_features import ip_peak
 
-    if ods['dataset_description']['data_entry']['pulse'] == 40919 or ods['dataset_description']['data_entry']['pulse'] == '40919':
-        if max_filtered > 100:
-            raise RuntimeError("조건을 만족하지 않아 종료합니다.")
-    
-    return np.max(data_filtered)
+    feature = ip_peak(ods)
+    if not feature.found:
+        raise ValueError(f"no plasma-current peak: {feature.reason or ', '.join(feature.flags)}")
+    return float(feature.value)
+
 
 def find_major_radius(ods):
     """Placeholder for finding major radius."""
@@ -394,51 +389,22 @@ def print_info(ods, key_name=None):
         else:
             print("key_name value Error!")
 
-def classify_shot(ods, pressure_threshold=0.01, halpha_threshold=0.01):
-    """Classify a discharge from its fill pressure, H-alpha light and current.
+def classify_shot(ods, pressure_threshold=0.01, halpha_threshold=None):
+    """The class of a shot -- ``'Plasma'``, ``'BD failure'`` or ``'Vacuum'`` -- as a string.
 
-    Returns ``'Vacuum'`` when no gas signal is present, ``'BD failure'`` when
-    the gas is there but the breakdown produced neither light nor current, and
-    ``'Plasma'`` otherwise.
-
-    Both thresholds are handed to :func:`vaft.process.is_signal_active` as both
-    of its ratio thresholds, so a trace counts as flat only when its variance
-    and its sample-to-sample change are *both* below the value given, each
-    relative to the trace's own level.
-
-    Raises
-    ------
-    KeyError
-        The ODS carries no barometry gauge or no UV spectrometer channel, so
-        there is nothing to classify. A shot whose gas signal was never
-        recorded is not a vacuum shot, and this used to report one as the
-        other: the call raised a ``TypeError`` on a stale keyword, a bare
-        ``except`` swallowed it, and every shot came back ``'Vacuum'``.
+    :func:`vaft.omas.shot_class.shot_class` decides it from the shared plasma
+    timing and the barometry pressure response, and carries which check
+    decided; this is that record's label.  ``halpha_threshold`` is no longer
+    used: the light is judged by the plasma timing, not by a variance ratio.
     """
-    def active(path, threshold):
-        # ODS.__getitem__ on a missing path returns an empty branch *and*
-        # leaves it behind; .get answers without creating anything.
-        data = ods.get(path, None)
-        if data is None:
-            raise KeyError(f'classify_shot needs {path}, which this ODS does not carry')
-        return vaft.process.is_signal_active(
-            data,
-            var_ratio_thresh=threshold,
-            change_ratio_thresh=threshold,
-        )
+    from .shot_class import shot_class
 
-    if not active('barometry.gauge.0.pressure.data', pressure_threshold):
-        return 'Vacuum'
-    if not active(
-        'spectrometer_uv.channel.0.processed_line.0.intensity.data',
-        halpha_threshold,
-    ):
-        return 'BD failure'
-    ip = ods.get('magnetics.ip.0.data', None)
-    if ip is None:
-        # Light without a current trace still says a plasma formed.
-        return 'Plasma'
-    return 'Plasma' if np.max(ip) > 0 else 'BD failure'
+    if halpha_threshold is not None:
+        warnings.warn(
+            "classify_shot: halpha_threshold is ignored; the light is judged by vaft.omas.plasma_timing",
+            DeprecationWarning, stacklevel=2,
+        )
+    return shot_class(ods, pressure_threshold=pressure_threshold).label
 
 # ----------------------------------------------------------------------
 # Combine ODS

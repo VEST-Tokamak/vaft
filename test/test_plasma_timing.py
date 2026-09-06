@@ -449,19 +449,10 @@ def test_every_configured_channel_has_a_digitizer_rate(monkeypatch):
 
 
 def test_rule_validation_refuses_call_site_keys_booleans_and_bad_fractions(tmp_path):
-    import yaml
+    from _plasma_timing_fixtures import policy_resolver
 
-    from vaft.machine_mapping.utils import _resolve_info_file_path, load_yaml
-
-    document = load_yaml(_resolve_info_file_path(None))
-    block = document["plasma_timing"]
-
-    def resolve_with(**changes):
-        doc = dict(document)
-        doc["plasma_timing"] = {**block, **changes}
-        path = tmp_path / f"{len(list(tmp_path.iterdir()))}.yaml"
-        path.write_text(yaml.safe_dump(doc))
-        return resolve_plasma_timing_policy(info_file=str(path))
+    resolve_with = policy_resolver(tmp_path, "plasma_timing", resolve_plasma_timing_policy)
+    block = resolve_with.block
 
     with pytest.raises(VestConfigurationError, match="'fs'"):
         resolve_with(ip={**block["ip"], "fs": 25000.0})
