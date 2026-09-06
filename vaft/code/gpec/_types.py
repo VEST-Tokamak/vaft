@@ -156,6 +156,11 @@ class GPECModuleRun:
     mode: int
     workdir: Path
     returncode: Optional[int] = None
+    #: ``prepared`` | ``completed`` | ``stable`` | ``skipped`` | ``failed``.
+    #:
+    #: ``stable`` is a *successful* outcome, kept apart from ``completed``
+    #: because a stable equilibrium produces no unstable-mode output and so
+    #: cannot be told from a broken run by what it wrote (issue #423).
     status: str = "prepared"
     reason: str = ""
     logs: tuple[Path, ...] = ()
@@ -170,7 +175,13 @@ class GPECModuleRun:
 
     @property
     def ok(self) -> bool:
-        return self.status == "completed" and self.returncode == 0
+        """Whether this cell produced a usable result.
+
+        ``stable`` counts: the solver ran and found no unstable mode, which is a
+        physics result. Excluding it would make every stable discharge read as
+        an unusable cell (issue #423).
+        """
+        return self.status in {"completed", "stable"} and self.returncode == 0
 
 
 @dataclass

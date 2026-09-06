@@ -615,3 +615,202 @@ def test_strict_mode_still_raises_when_a_solver_cannot_be_started(monkeypatch, t
             case,
             gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="strict"),
         )
+
+
+# ---------------------------------------------------------------------------
+# A stable equilibrium is a result, not a failure (issue #423).
+# ---------------------------------------------------------------------------
+
+
+def _write_rdcon_netcdf(
+    path, *, n, total1, delta_prime=True, points=8, fmt="NETCDF3_CLASSIC"
+):
+    """An RDCON output as the solver writes one, for a given free-boundary energy.
+
+    ``total1`` is the least-stable total-energy eigenvalue: negative is
+    unstable, positive stable, and ``None`` stands for a ``vac_flag=false`` run
+    that computed no free-boundary energy at all and so writes no attribute
+    (``rdcon/rdcon_netcdf.f:152-157``). ``delta_prime=False`` is the stable
+    case this issue is about -- no rational surfaces to match across, so the
+    tearing matrix is never defined (``rdcon/rdcon_netcdf.f:317``). Any other
+    value fills the matrix with it, for the case where the variable exists but
+    holds nothing usable.
+    """
+    import numpy as np
+    import xarray as xr
+
+    data = {"psi_n": (("psi_n",), np.linspace(0.0, 1.0, points))}
+    if delta_prime is not False:
+        fill = 0.0 if delta_prime is True else float(delta_prime)
+        data["Delta_prime"] = (("r", "r_prime", "i"), np.full((1, 1, 2), fill))
+    attrs = {"mlow": -2, "mhigh": 0, "mpert": 3, "mband": 0, "n": n}
+    if total1 is not None:
+        attrs["total1"] = [float(total1), 0.0]
+    target = Path(path) / f"rdcon_output_n{n}.nc"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    xr.Dataset(data, attrs=attrs).to_netcdf(target, format=fmt)
+    return target
+
+
+def test_the_free_boundary_verdict_comes_from_the_output_not_the_log(tmp_path):
+    """`Re(total1) < 0` is unstable, anything else stable -- and only if computed.
+
+    The solvers also say this in prose, but only under `verbose`
+    (`rdcon/dcon.f:449`), a Fortran default VAFT never sets. Reading the number
+    the solver wrote makes the verdict independent of how chatty the run was.
+    """
+    from vaft.code.gpec._solvers import free_boundary_stable
+
+    name = "rdcon_output_n1.nc"
+
+    _write_rdcon_netcdf(tmp_path, n=1, total1=7.891)
+    assert free_boundary_stable(tmp_path, name) is True
+
+    _write_rdcon_netcdf(tmp_path, n=1, total1=-0.3)
+    assert free_boundary_stable(tmp_path, name) is False
+
+    # vac_flag=false: no free-boundary energy exists, which is not stability.
+    _write_rdcon_netcdf(tmp_path, n=1, total1=None)
+    assert free_boundary_stable(tmp_path, name) is None
+
+    # An exact zero is the value the solvers store when they skip free_run
+    # (rdcon/dcon.f:431-438), not a marginally stable equilibrium.
+    _write_rdcon_netcdf(tmp_path, n=1, total1=0.0)
+    assert free_boundary_stable(tmp_path, name) is None
+
+    assert free_boundary_stable(tmp_path / "absent", name) is None
+
+
+def test_the_verdict_reads_dcons_eigenvalue_form_too(tmp_path):
+    """DCON writes no `total1` attribute; the same number is `W_t_eigenvalue`(mode 1)."""
+    from vaft.code.gpec._solvers import free_boundary_stable
+
+    _write_valid_dcon_netcdf(tmp_path, n=1)  # W_t_eigenvalue = -0.3
+    assert free_boundary_stable(tmp_path, "dcon_output_n1.nc") is False
+
+
+def test_a_stable_run_is_not_a_failure_even_when_its_companion_exits_badly(
+    monkeypatch, tmp_path, case
+):
+    """RDCON on a stable discharge reported 8 failed cases out of 8 (#423).
+
+    The solver terminates normally; `rmatch`, which exists to match resistive
+    layers to unstable modes, then has nothing to match. Reading that as a
+    failed cell makes the desirable outcome indistinguishable from a broken run
+    and buries genuine RDCON problems under a baseline of false failures.
+    """
+    write_launchable_stub(tmp_path / "gpec/bin/rdcon")
+    write_launchable_stub(tmp_path / "gpec/bin/rmatch", exit_code=1)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    config = gpec.GPECSuiteConfig(modules=("rdcon",), modes=(1,), run_mode="auto")
+    gpec.prepare_gpec_suite_case(case, config)
+    run_dir = gpec._module_dir(case.workdir, case.time_ms, "rdcon", 1, geqdsk=case.geqdsk)
+    _write_rdcon_netcdf(run_dir, n=1, total1=7.891, delta_prime=False)
+
+    (record,) = gpec.run_gpec_suite_case(case, config).records
+    assert record.status == "stable"
+    assert record.ok
+    # The companion's exit is recorded rather than discarded, and named.
+    assert "rmatch exited 1" in record.reason
+
+
+def test_a_genuine_solver_failure_is_still_a_failure(monkeypatch, tmp_path, case):
+    """The solver's own exit code gates this, so a real failure cannot hide.
+
+    Even with a stable output left in the directory by an earlier run.
+    """
+    write_launchable_stub(tmp_path / "gpec/bin/rdcon", exit_code=3)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    config = gpec.GPECSuiteConfig(modules=("rdcon",), modes=(1,), run_mode="auto")
+    gpec.prepare_gpec_suite_case(case, config)
+    run_dir = gpec._module_dir(case.workdir, case.time_ms, "rdcon", 1, geqdsk=case.geqdsk)
+    _write_rdcon_netcdf(run_dir, n=1, total1=7.891, delta_prime=False)
+
+    (record,) = gpec.run_gpec_suite_case(case, config).records
+    assert record.status == "failed"
+    assert not record.ok
+
+
+def test_a_stable_rdcon_run_passes_verification_without_a_tearing_index(tmp_path):
+    """Delta-prime describes a tearing mode; a run that found none has none.
+
+    Without this, enabling `verify_outputs` would fail every stable cell.
+    """
+    solver = gpec._solvers.SOLVERS["rdcon"]
+
+    ok, reason = solver.check_success(tmp_path, 1)
+    assert not ok and "missing output" in reason
+
+    _write_rdcon_netcdf(tmp_path, n=1, total1=7.891, delta_prime=False)
+    assert solver.check_success(tmp_path, 1)[0]
+
+    # An *unstable* run with no Delta_prime did fail to produce what it owed.
+    _write_rdcon_netcdf(tmp_path, n=1, total1=-0.3, delta_prime=False)
+    ok, reason = solver.check_success(tmp_path, 1)
+    assert not ok and "Delta_prime" in reason
+
+    # Only a genuinely absent Delta_prime is forgiven. One that was written and
+    # holds nothing usable is a defect in the tearing solve, and a stable
+    # verdict does not make it one of the tearing modes that never existed.
+    import numpy as np
+
+    _write_rdcon_netcdf(tmp_path, n=1, total1=7.891, delta_prime=np.nan)
+    ok, reason = solver.check_success(tmp_path, 1)
+    assert not ok and "no finite value" in reason
+
+
+def test_a_stable_verdict_does_not_excuse_a_damaged_output(tmp_path):
+    """The rescue forgives one missing variable, never a broken file.
+
+    `total1` is a header attribute, so it survives a truncation that destroys
+    the data below it: a corrupted output can still claim to be stable. The
+    file therefore has to pass the same integrity check on its own before its
+    stability verdict is allowed to excuse the absent tearing matrix.
+    """
+    solver = gpec._solvers.SOLVERS["rdcon"]
+
+    target = _write_rdcon_netcdf(tmp_path, n=1, total1=7.891, delta_prime=False, points=20000)
+    assert solver.check_success(tmp_path, 1)[0]
+
+    full = target.stat().st_size
+    with open(target, "r+b") as handle:
+        handle.truncate(int(full * 0.5))
+
+    from vaft.code.gpec._solvers import free_boundary_stable
+
+    assert free_boundary_stable(tmp_path, target.name) is True, "the header still reads stable"
+    ok, reason = solver.check_success(tmp_path, 1)
+    assert not ok and "truncated" in reason
+
+
+def test_a_reused_stable_cell_reports_the_same_status_as_a_fresh_one(
+    monkeypatch, tmp_path, case
+):
+    """Reuse must not silently downgrade `stable` to `completed`.
+
+    A stage's stable count would otherwise depend on whether the pipeline
+    happened to re-solve the cell, which is not a property of the physics.
+    """
+    write_launchable_stub(tmp_path / "gpec/bin/stride")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    config = gpec.GPECSuiteConfig(modules=("stride",), modes=(1,), run_mode="auto")
+    gpec.prepare_gpec_suite_case(case, config)
+    run_dir = gpec._module_dir(case.workdir, case.time_ms, "stride", 1, geqdsk=case.geqdsk)
+
+    # STRIDE has no companion, so a full output set takes the reuse fast path.
+    import numpy as np
+    import xarray as xr
+
+    xr.Dataset(
+        {"psi_n": (("psi_n",), np.linspace(0.0, 1.0, 8))},
+        attrs={"mlow": -2, "mhigh": 0, "mpert": 3, "mband": 0, "n": 1, "total1": [7.891, 0.0]},
+    ).to_netcdf(run_dir / "stride_output_n1.nc")
+    (run_dir / "stride.out").write_text("", encoding="utf-8")
+    (run_dir / "delta_prime.out").write_text("", encoding="utf-8")
+
+    (record,) = gpec.run_gpec_suite_case(case, config).records
+    assert record.status == "stable"
+    assert "reused existing solver outputs" in record.reason
