@@ -1710,7 +1710,10 @@ plasma_timing:
   # H-alpha_6563 envelope rule (keyword arguments of active_window): median-5,
   # threshold max(2 % peak, 5 sigma), persistence 0.5 ms, width >= 1 ms,
   # prominence >= 10 sigma, integral >= 1 % -- 0/51 early-light and 1/51
-  # non-plasma false onsets on the 205-shot raw-database corpus.
+  # non-plasma false onsets on the hand-reviewed first pass of the raw-database
+  # corpus; the full scan (workflow/plasma_onset/scan_corpus.py, table
+  # test/data/onset_corpus.json, shots 39900-41700) finds 1213 light windows
+  # on 1718 judged shots, 363 of them without a current pulse (flashes).
   h_alpha:
     prefilter_samples: 5
     fraction: 0.02
@@ -1725,7 +1728,9 @@ plasma_timing:
   lines: {}
   # Plasma-current principal-pulse rule: zero-phase low-pass 2 kHz, pickup
   # floor 3x, offset at 10 % of peak with the collapse fallback -- 84/84
-  # windows on the corpus, offsets within [-2.2, 0] ms of the light.
+  # windows on the hand-reviewed first pass, offsets within [-2.2, 0] ms of
+  # the light; the full scan finds 884 current windows, 850 of them with a
+  # light window (onset delta median +0.3 ms), 34 current-only.
   ip:
     principal_only: true
     pickup_floor: 3.0
