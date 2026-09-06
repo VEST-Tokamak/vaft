@@ -31,7 +31,11 @@ from .constants import (
     SPITZER_RESISTIVITY_COEF,
     _SCALING_COEFS
 )
+from scipy.integrate import cumulative_trapezoid
+
 from .utils import (
+    _guarded_ratio,
+    calculate_peaking_factor,
     gradient,
     trapz_integral,
     normalize_profile,
@@ -127,11 +131,10 @@ def psi_normalised(psi: Union[np.ndarray, float],
     both cancel in the ratio, provided all three inputs share one convention.
     Equals the IMAS ``profiles_1d.psi_norm`` label.
 
-    Limitations
-    -----------
-    Divides by ``psi_boundary - psi_axis`` without a guard; a degenerate
-    equilibrium with equal axis and boundary flux returns ``inf``/``nan``.
-    Tracked in #357.
+    Numerical notes
+    ---------------
+    A degenerate equilibrium with equal axis and boundary flux warns and
+    returns ``nan`` rather than ``inf``.
 
     See Also
     --------
@@ -455,17 +458,38 @@ def rhoN_from_qpsiN(psiN: np.ndarray,
 
     Numerical notes
     ---------------
-    Cumulative trapezoidal integral rebuilt from scratch at every sample
-    ($O(N^2)$; tracked in #357); the denominator is not guarded against zero.
+    One vectorised cumulative trapezoid
+    (``scipy.integrate.cumulative_trapezoid``), not a rebuild per sample. A
+    vanishing or non-finite total integral warns and yields ``nan`` rather than
+    ``inf``. A uniformly signed $q$ is fine -- numerator and denominator flip
+    together -- but one that changes sign makes the cumulative ratio negative
+    on some samples, and those warn rather than becoming a silent ``nan``.
 
     References
     ----------
     .. [1] F. L. Hinton and R. D. Hazeltine, Rev. Mod. Phys. 48 (1976) 239, Sec. II.B.
     """
-    # Cumulative integral using trapezoidal rule to preserve quartiles
-    num = np.array([trapz_integral(psiN[:i+1], qpsiN[:i+1]) for i in range(len(psiN))])
+    psiN = np.asarray(psiN, dtype=float)
+    qpsiN = np.asarray(qpsiN, dtype=float)
+    # cumulative_trapezoid with initial=0 is the same quantity the old
+    # per-sample rebuild produced, in one pass instead of O(N^2).
+    num = cumulative_trapezoid(qpsiN, psiN, initial=0.0)
     den = trapz_integral(psiN, qpsiN)
-    return np.sqrt(num / den)
+    ratio = _guarded_ratio(
+        num, den, what="rhoN_from_qpsiN", because="the total integral of q dpsi_N"
+    )
+    negative = np.asarray(ratio) < 0.0
+    if np.any(negative):
+        warnings.warn(
+            "rhoN_from_qpsiN: the cumulative flux ratio is negative on "
+            f"{int(np.count_nonzero(negative))} sample(s), which means q "
+            "changes sign over the profile; the square root is undefined "
+            "there. Returning nan on those samples.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        ratio = np.where(negative, np.nan, ratio)
+    return np.sqrt(ratio)
 
 
 # ------------------------------------------------------------------
@@ -1459,15 +1483,15 @@ def peaking_factor(central: float,
     float
         Peaking factor [-].
 
-    Limitations
-    -----------
-    No guard against a zero volume average.  Tracked in #357.
+    Numerical notes
+    ---------------
+    A zero volume average warns and returns ``nan``.
 
     See Also
     --------
     vaft.formula.utils.calculate_peaking_factor
     """
-    return central / volume_avg
+    return calculate_peaking_factor(central, volume_avg)
 
 # ------------------------------------------------------------------
 # Plasma Resistance

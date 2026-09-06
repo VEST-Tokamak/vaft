@@ -5,6 +5,8 @@ This module provides common utility functions and fitting utilities used through
 the formula module.
 """
 
+import warnings
+
 import numpy as np
 from typing import Union, Tuple, List, Dict
 from scipy.optimize import curve_fit
@@ -75,6 +77,35 @@ def trapz_integral(x: np.ndarray, y: np.ndarray) -> float:
     return trapz_compat(y, x=x)
 
 
+
+def _guarded_ratio(numerator, denominator, *, what: str, because: str):
+    """Divide, or warn and return NaN when the denominator vanishes.
+
+    NaN rather than an exception because these ratios sit under plotting and
+    summary paths, where one degenerate slice should blank a point rather than
+    take down the figure; a warning rather than a silent NaN because the
+    degenerate case is real -- packaged VEST samples contain a slice whose axis
+    and boundary flux are equal -- and it used to propagate as ``inf`` with
+    nothing to say where it started.
+
+    Mirrors ``vaft.formula.equilibrium._virial_ratio``, which makes the same
+    trade for the Shafranov closures but is called in tight loops where the
+    warning would be noise.
+    """
+    denominator = np.asarray(denominator, dtype=float)
+    degenerate = ~np.isfinite(denominator) | (denominator == 0.0)
+    if np.any(degenerate):
+        warnings.warn(
+            f"{what}: {because} is zero or non-finite, so the ratio is undefined; "
+            "returning nan",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        safe = np.where(degenerate, np.nan, denominator)
+        return np.asarray(numerator, dtype=float) / safe
+    return numerator / denominator
+
+
 def normalize_profile(x: Union[float, np.ndarray],
                      x_axis: float,
                      x_boundary: float) -> Union[float, np.ndarray]:
@@ -96,13 +127,18 @@ def normalize_profile(x: Union[float, np.ndarray],
     float or np.ndarray
         Normalised values, 0 at the axis value and 1 at the boundary value [-].
 
-    Limitations
-    -----------
-    No guard against ``x_boundary == x_axis``: a degenerate equilibrium with
-    equal axis and boundary flux, which packaged VEST samples do contain,
-    returns ``inf``/``nan``.  Tracked in #357.
+    Numerical notes
+    ---------------
+    A degenerate profile whose axis and boundary values are equal -- which
+    packaged VEST samples do contain -- warns and returns ``nan`` rather than
+    propagating ``inf``.
     """
-    return (x - x_axis) / (x_boundary - x_axis)
+    return _guarded_ratio(
+        x - x_axis,
+        x_boundary - x_axis,
+        what="normalize_profile",
+        because="x_boundary - x_axis",
+    )
 
 
 def calculate_peaking_factor(central: float,
@@ -123,11 +159,13 @@ def calculate_peaking_factor(central: float,
     float
         Peaking factor [-].
 
-    Limitations
-    -----------
-    No guard against a zero volume average.  Tracked in #357.
+    Numerical notes
+    ---------------
+    A zero volume average warns and returns ``nan``.
     """
-    return central / volume_avg
+    return _guarded_ratio(
+        central, volume_avg, what="calculate_peaking_factor", because="volume_avg"
+    )
 
 
 def calculate_volume_weighted_average(x: np.ndarray,
@@ -148,11 +186,16 @@ def calculate_volume_weighted_average(x: np.ndarray,
     float
         Volume-weighted average in the unit of ``x`` [any].
 
-    Limitations
-    -----------
-    No guard against a zero total volume.  Tracked in #357.
+    Numerical notes
+    ---------------
+    A zero total volume warns and returns ``nan``.
     """
-    return np.sum(x * V) / np.sum(V)
+    return _guarded_ratio(
+        np.sum(x * V),
+        np.sum(V),
+        what="calculate_volume_weighted_average",
+        because="sum(V)",
+    )
 
 
 def calculate_poloidal_flux(R: np.ndarray,
@@ -435,8 +478,6 @@ def fit_profile(
     >>> fit_profile(x, y, y_std, x_eval, fitting_function='linear')
     >>> fit_profile(x, y, y_std, x_eval, order=3, fitting_function='core_poly_edge_exp')
     """
-    import warnings
-
     # --- input sanitization: accept lists, mask non-finite / non-positive-sigma points ---
     x = np.asarray(x, dtype=float).reshape(-1)
     y = np.asarray(y, dtype=float).reshape(-1)
