@@ -51,6 +51,7 @@ from vaft.plot.style import UNCERTAINTY_MODES, VALIDITY_MODES
 
 from .recipes import (
     CAMERA_OVERLAYS,
+    ChannelProfileRecipe,
     _coordinate_options,
     _has,
     CAMERA_PROJECTIONS,
@@ -237,6 +238,13 @@ def _declare(record: PlotCapability) -> PlotCapability:
         updates["coordinates"] = {
             "default": recipe.default_coordinate, "options": options, "declared": options,
         }
+    if isinstance(recipe, ChannelProfileRecipe):
+        updates["display"] = _display_block(record, unit or "")
+        updates["coordinates"] = {
+            "default": recipe.default_coordinate,
+            "options": tuple(recipe.coordinates),
+            "declared": tuple(recipe.coordinates),
+        }
     elif record.name in PSI_FIELD_CONVENTIONS:
         # The psi maps take units= (issue #478); the default unit follows the
         # stored convention, which only an input can tell -- see _evaluate.
@@ -352,6 +360,9 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
         recipe = RECIPES.get(record.name)
         if isinstance(recipe, LineRecipe):
             updates.update(_line_facts(record, recipe, ods))
+        elif isinstance(recipe, ChannelProfileRecipe):
+            updates.update(_channel_facts(record, recipe, ods))
+            updates["times"] = _times_block(ods, recipe)
         elif isinstance(recipe, ProfileRecipe):
             # Profiles take the same sign policy (issue #307); the catalog has
             # to say which default a profile applies, or a caller cannot know
@@ -494,6 +505,17 @@ def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[st
         facts["uncertainty"] = _uncertainty_block(_uncertainty_of(ods, recipe.y_path) is not None)
         return facts
 
+    facts.update(_channel_facts(record, recipe, ods))
+    return facts
+
+
+def _channel_facts(record: PlotCapability, recipe: Any, ods: Any) -> dict[str, Any]:
+    """Channel, layout and metadata facts of a channel-indexed recipe.
+
+    Shared by the time histories (``LineRecipe``) and the spatial plots
+    (``ChannelProfileRecipe``, issue #486): the same family, the same split.
+    """
+    facts: dict[str, Any] = {}
     container = _container_of(recipe.y_path, "{i}")
     total = _count(ods, container)
     candidates = (recipe.y_path,) + tuple(recipe.fallback_y_paths)
@@ -536,7 +558,8 @@ def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[st
         channel_label(i, r_values[i], z_values[i]) for i in range(total)
     )
     facts["channels"] = channels
-    facts["layouts"] = layouts
+    if isinstance(recipe, LineRecipe):
+        facts["layouts"] = layouts
     facts["validity"] = _validity_block(
         present=any(code is not None for code in codes.values()), flagged=len(flagged)
     )
@@ -544,6 +567,18 @@ def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[st
         any(_uncertainty_of(ods, recipe.y_path, i) is not None for i in with_data)
     )
     return facts
+
+
+def _times_block(ods: Any, recipe: Any) -> dict[str, Any]:
+    """The stored time axis a spatial plot samples: start, stop, count."""
+    from .recipes import _first_time
+
+    container = _container_of(recipe.y_path, "{i}")
+    for index in range(_count(ods, container)):
+        axis = _first_time(ods, recipe.time_paths, i=index)
+        if axis is not None and axis.size:
+            return {"start": float(axis.min()), "stop": float(axis.max()), "count": int(axis.size)}
+    return {}
 
 
 def _validity_block(*, present: bool, flagged: int) -> dict[str, Any]:

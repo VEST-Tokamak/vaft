@@ -76,8 +76,10 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagnostic_registry.py",
     "test_display_policy.py",
     "test_layout_contract.py",
+    "test_magnetics_spatial.py",
     "test_plot_contract.py",
     "test_plot_taxonomy.py",
+    "test_process_magnetics_geometry.py",
     "test_profile_coordinates.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
     # writes, plus the canonical-IDS contract fixtures.

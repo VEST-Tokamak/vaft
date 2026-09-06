@@ -77,7 +77,10 @@ def test_printing_never_discards_the_structure(catalog):
 def test_the_tree_is_grouped_by_subject_view_and_quantity(catalog):
     text = str(catalog)
     flux_loop = text[text.index("\nflux_loop\n"):]
-    assert "└─ time" in flux_loop.split("\n\n")[0]
+    # Two views under flux_loop since #486: the time history and the spatial
+    # plot at one time, the last branch closing the tree.
+    first = flux_loop.split("\n\n")[0]
+    assert "├─ time" in first and "└─ spatial" in first
     assert "└─ flux  plot_flux_loop_time_flux()" in flux_loop
     # A plot whose identity has no quantity hangs straight off its view.
     assert "└─ time  plot_plasma_current_time()" in text

@@ -300,6 +300,8 @@ from .renderers.panels import (
     passive_structure_overview_wall_reduction,
 )
 from .renderers.profiles import (
+    b_field_probe_spatial_field,
+    flux_loop_spatial_flux,
     nbi_profile_current_drive,
     nbi_profile_electron_heating,
     nbi_profile_ion_heating,

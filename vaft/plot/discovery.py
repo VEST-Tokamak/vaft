@@ -127,6 +127,9 @@ class PlotCapability:
     #: The stored equilibrium slices a slice-indexed plot can draw (instance
     #: level, issue #480): ``total``, ``usable``, ``times``, ``selected``.
     slices: Mapping[str, Any] = field(default_factory=dict)
+    #: The stored time axis a spatial plot samples (issue #486): ``start``,
+    #: ``stop`` in seconds and ``count``.
+    times: Mapping[str, Any] = field(default_factory=dict)
     #: The radial coordinates a 1-D profile can be drawn against (issue #479):
     #: ``default``, ``options`` (what this input can resolve) and ``declared``
     #: (what the recipe offers regardless of input).
@@ -531,6 +534,8 @@ def _compact_notes(record: PlotCapability) -> list[str]:
         notes.append(_synthetic_note(record.synthetic))
     if record.interaction:
         notes.append("interaction: " + " | ".join(record.interaction))
+    if record.times.get("count"):
+        notes.append(f"time: {record.times['start']:.4g}-{record.times['stop']:.4g} s ({record.times['count']} samples)")
     if record.coordinates.get("options"):
         default = record.coordinates.get("default")
         notes.append("coordinates: " + " | ".join(

@@ -67,6 +67,8 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("time_slice", "int", description="stored equilibrium slice index"),
         OptionSpec("time", "float", description="a time in seconds, snapped to a stored slice"),
         OptionSpec("time_range", "range", description="(start, stop) in seconds"),
+        OptionSpec("centre", "range", description="(r0, z0) in metres the poloidal angle is measured about"),
+        OptionSpec("angle", "choice", "recipes.ANGLE_SOURCES", "where a sensor's poloidal angle comes from"),
         OptionSpec("overlay", "multi", "recipes.CAMERA_OVERLAYS", "camera overlays"),
         OptionSpec("projection", "any", description="camera projection method"),
         OptionSpec("coordinate", "choice", "display.PROFILE_COORDINATES", "radial coordinate of a 1-D profile"),
@@ -176,11 +178,23 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
                 f"{', '.join(sorted(STYLE_OPTIONS))}"
             )
         if spec.kind == "choice" and isinstance(value, str):
-            choices = choices_for(spec)
+            choices = _plot_scoped_choices(name, key) or choices_for(spec)
             if choices is not None and value not in choices:
                 raise ValueError(
                     f"{key} must be one of {', '.join(map(str, choices))}; got {value!r}"
                 )
+
+
+def _plot_scoped_choices(name: str, key: str) -> tuple[Any, ...] | None:
+    """A vocabulary the plot itself narrows or widens: ``coordinate`` today."""
+    if key != "coordinate":
+        return None
+    from .recipes import coordinate_options_for
+
+    try:
+        return coordinate_options_for(name)
+    except Exception:  # pragma: no cover - an unknown name is refused later by get_spec
+        return None
 
 
 def split_options(options: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
