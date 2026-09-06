@@ -97,6 +97,7 @@ _INTEGRALS = {
     "tqbe": ("collisions.electrons.torque_thermal_tor", "volume"),
     "tqbi": ("collisions.ion.0.torque_thermal_tor", "volume"),
     "tqbjxb": ("torque_tor_j_radial", "volume"),
+    "pbth": ("thermalisation.energy", "volume"),
     # "shielded" in NUBEAM means the electron back-current is already
     # accounted for, so this is the net driven current. IMAS spells that
     # current_tor; current_fast_tor is the unshielded fast-ion current,
@@ -113,6 +114,7 @@ _TOTALS = {
     "tqbe": "collisions.electrons.torque_thermal_tor",
     "tqbi": "collisions.ion.0.torque_thermal_tor",
     "tqbjxb": "torque_tor_j_radial",
+    "pbth": "thermalisation.power",
     "curbeam": "current_tor",
 }
 
@@ -244,6 +246,24 @@ def distributions_from_nubeam(
     zone_area = grid.zone_area if grid is not None else None
     measures = {"volume": zone_volume, "area": zone_area}
 
+    # A grid of the wrong length matches no profile, so every channel would be
+    # skipped and the caller would get a structurally valid IDS holding no
+    # NUBEAM data at all -- plus a code.parameters block asserting how it was
+    # derived. Refuse instead, and name the likeliest cause: rho is the zone
+    # boundaries, one point more than a profile, not the centres.
+    lengths = {
+        int(np.asarray(values).shape[-1])
+        for values in profiles.values()
+        if np.asarray(values).ndim
+    }
+    if lengths and centres.size not in lengths:
+        raise ValueError(
+            f"the radial grid gives {centres.size} zone centres, which matches "
+            f"no profile in this result (profiles are {sorted(lengths)} points "
+            f"across). rho is the zone boundaries, one point more than a "
+            f"profile, not the zone centres."
+        )
+
     count = _species_count(profiles)
     positions = _distribution_positions(ods, count)
     written: list[str] = []
@@ -264,6 +284,8 @@ def distributions_from_nubeam(
         if species is not None and ordinal < len(species) and species[ordinal]:
             ods[f"{stem}.species.ion.label"] = str(species[ordinal])
             written.append(f"species[{ordinal}] -> species.ion.label")
+        elif species is not None:
+            skipped.append(f"species[{ordinal}] -> species.ion.label (not named)")
 
         _ensure(ods, f"{stem}.profiles_1d", time_index)
         _ensure(ods, f"{stem}.global_quantities", time_index)
@@ -288,6 +310,12 @@ def distributions_from_nubeam(
                 f"these summed over species; attributing them to one entry "
                 f"would be wrong and repeating them would double-count)"
             )
+
+    if species is not None and len(species) > count:
+        skipped.append(
+            f"species[{count}:] -> species.ion.label "
+            f"({len(species)} labels given for {count} beam species)"
+        )
 
     _set_time_array(ods, "distributions.time", time_index, float(time))
     _write_provenance(ods, native)
@@ -362,6 +390,8 @@ def _write_species_fields(
     if n is not None and zone_volume is not None and zone_volume.size == centres.size:
         ods[f"{totals}.particles_fast_n"] = float(np.sum(n * zone_volume))
         written.append("nbeami -> particles_fast_n (derived)")
+    else:
+        skipped.append("nbeami -> particles_fast_n")
 
     thermalised = _per_species(profiles, "sbtherm")
     if (
@@ -442,6 +472,7 @@ def _write_provenance(ods: ODS, native: Any) -> None:
         "parallel is DERIVED as 2 n &lt;E_par&gt;, and pressure_fast as "
         "(2/3) n (&lt;E_par&gt; + &lt;E_perp&gt;), the scalar pressure "
         "(p_par + 2 p_perp)/3.</pressures>"
+        "<lumped_ions>pbi and tqbi are NUBEAM's sums over every thermal ion ""species, and they are written to collisions.ion[0] because IMAS has ""no lumped entry. Read that entry as the total to the thermal ions, ""not as the main ion: summing collisions.ion[:] gives the right ""number, reading ion[0] alone as one species over-counts it.""</lumped_ions>"
         "<toroidal_current>current_tor, in both profiles_1d and "
         "global_quantities, is NUBEAM's own toroidal driven current -- divided "
         "by the zone area and summed respectively. Unlike core_sources."
@@ -457,6 +488,11 @@ def _write_provenance(ods: ODS, native: Any) -> None:
     existing = ods.get(path, None)
     if not existing:
         ods[path] = f"<parameters>{fragment}</parameters>"
+    elif fragment in existing:
+        # Mapping a second time slice into the same ODS re-runs this, and the
+        # note is about the mapping rather than about any one slice. Appending
+        # it again would leave one identical block per slice.
+        return
     elif existing.rstrip().endswith("</parameters>"):
         ods[path] = existing.rstrip()[: -len("</parameters>")] + fragment + "</parameters>"
     else:

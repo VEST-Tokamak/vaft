@@ -48,6 +48,7 @@ def outputs(tmp_path):
             # Already summed over species by NUBEAM: (zone,).
             "pbe": np.array([100.0, 200.0, 300.0, 400.0]),
             "pbi": np.array([10.0, 20.0, 30.0, 40.0]),
+            "pbth": np.array([50.0, 100.0, 150.0, 200.0]),
             "tqbe": np.array([0.1, 0.2, 0.3, 0.4]),
             "tqbi": np.array([0.01, 0.02, 0.03, 0.04]),
             "tqbjxb": np.array([0.001, 0.002, 0.003, 0.004]),
@@ -66,6 +67,7 @@ def two_species(tmp_path):
             "nbeami": np.array([[1e18, 2e18, 3e18, 4e18], [5e17, 6e17, 7e17, 8e17]]),
             "eperp_beami": np.full((2, ZONES), 20.0),
             "epll_beami": np.full((2, ZONES), 10.0),
+            "sbtherm": np.array([[1e16, 2e16, 3e16, 4e16], [1e15, 2e15, 3e15, 4e15]]),
             "pbe": np.array([100.0, 200.0, 300.0, 400.0]),
             "curbeam": np.array([1.0, 2.0, 3.0, 4.0]),
         },
@@ -172,11 +174,46 @@ def test_the_scalar_pressure_is_two_thirds_of_the_energy_density(outputs):
     expected = (2.0 / 3.0) * n * (10.0 + 20.0) * KEV
     assert np.allclose(ods[f"{BASE}.pressure_fast"], expected)
 
-    # And the two pressures are consistent: p = (p_par + 2 p_perp)/3 with
-    # p_perp the perpendicular energy density itself.
+
+@pytest.mark.parametrize(
+    "e_par, e_perp, parallel_over_energy",
+    [
+        # Isotropic: <E_perp> = 2 <E_par>, and then p_par, p_perp and the
+        # scalar pressure all coincide at two thirds of the energy density.
+        (10.0, 20.0, 2.0 / 3.0),
+        (30.0, 0.0, 2.0),   # purely parallel: p_par = 2 W
+        (0.0, 30.0, 0.0),   # purely perpendicular: no parallel pressure at all
+    ],
+)
+def test_the_pressures_hold_in_every_anisotropy_limit(
+    tmp_path, e_par, e_perp, parallel_over_energy
+):
+    """The limits pin the factor of two that one worked example cannot.
+
+    The scalar pressure is two thirds of the energy density whatever the
+    anisotropy, and in the isotropic limit the parallel pressure has to meet
+    it. A conversion missing the factor of two in p_par passes a single
+    numerical check and fails here.
+    """
+    outputs = NUBEAMOutputs(
+        workdir=tmp_path,
+        runid="LIMIT",
+        profiles={
+            "nbeami": np.full((1, ZONES), 1e18),
+            "epll_beami": np.full((1, ZONES), e_par),
+            "eperp_beami": np.full((1, ZONES), e_perp),
+        },
+        grid=_grid(),
+    )
+    ods = ODS()
+    distributions_from_nubeam(ods, outputs)
+
+    energy_density = 1e18 * (e_par + e_perp) * KEV
     p_par = np.asarray(ods[f"{BASE}.pressure_fast_parallel"])
-    p_perp = n * 20.0 * KEV
-    assert np.allclose(ods[f"{BASE}.pressure_fast"], (p_par + 2.0 * p_perp) / 3.0)
+    p_scalar = np.asarray(ods[f"{BASE}.pressure_fast"])
+
+    assert np.allclose(p_par, parallel_over_energy * energy_density)
+    assert np.allclose(p_scalar, (2.0 / 3.0) * energy_density)
 
 
 def test_the_stored_energy_reintegrates_from_the_pressures(outputs):
@@ -351,3 +388,77 @@ def test_the_written_ods_survives_a_save_load_round_trip(outputs, tmp_path):
     assert reloaded[f"{TOTALS}.current_tor"] == pytest.approx(
         ods[f"{TOTALS}.current_tor"]
     )
+
+
+def test_a_grid_that_matches_no_profile_is_refused(outputs, tmp_path):
+    """`rho` is the zone boundaries, and passing centres is the easy mistake.
+
+    Without this check the run is reported as a success: every channel lands
+    in `skipped`, but the ODS still gets a grid, a process identifier and a
+    `code.parameters` block describing derivations that were never made. A
+    caller who does not read the returned report gets a NUBEAM
+    `distributions` IDS containing no NUBEAM data.
+    """
+    centres = np.array([0.125, 0.375, 0.625, 0.875])
+    with pytest.raises(ValueError, match="zone boundaries"):
+        distributions_from_nubeam(ODS(), outputs, rho=centres)
+
+
+def test_a_supplied_grid_is_used_when_the_result_has_none(tmp_path):
+    """The documented escape hatch for a run directory that lost its state."""
+    ungridded = NUBEAMOutputs(
+        workdir=tmp_path,
+        runid="NOGRID",
+        profiles={
+            "nbeami": np.array([[1e18, 2e18, 3e18, 4e18]]),
+            "epll_beami": np.full((1, ZONES), 10.0),
+            "eperp_beami": np.full((1, ZONES), 20.0),
+        },
+    )
+    ods = ODS()
+    distributions_from_nubeam(ods, ungridded, rho=np.linspace(0.0, 1.0, ZONES + 1))
+
+    assert np.allclose(ods[f"{BASE}.grid.rho_tor_norm"], [0.125, 0.375, 0.625, 0.875])
+    assert np.allclose(ods[f"{BASE}.density_fast"], [1e18, 2e18, 3e18, 4e18])
+    # No zone measures came with it, so nothing that needs one is written.
+    assert f"{BASE}.pressure_fast_parallel" in ods  # needs no measure
+    assert f"{TOTALS}.particles_fast_n" not in ods  # needs the zone volume
+
+
+def test_mapping_a_second_slice_does_not_repeat_the_provenance(outputs):
+    """The note describes the mapping, not one time slice.
+
+    A time-series loop calls this once per slice, and an unconditional append
+    would leave one identical block of prose per slice in `code.parameters`.
+    """
+    ods = ODS()
+    distributions_from_nubeam(ods, outputs, time=0.1, time_index=0)
+    after_one = ods["distributions.code.parameters"]
+    for index, moment in enumerate((0.2, 0.3), start=1):
+        distributions_from_nubeam(ods, outputs, time=moment, time_index=index)
+
+    assert ods["distributions.code.parameters"] == after_one
+    assert ods["distributions.code.parameters"].count("<nubeam>") == 1
+
+
+def test_the_thermalisation_power_is_the_exact_sum_of_pbth(outputs):
+    """`pbth` is watts per zone, which is what the thermalisation fields mean."""
+    ods = ODS()
+    distributions_from_nubeam(ods, outputs)
+
+    assert ods[f"{TOTALS}.thermalisation.power"] == pytest.approx(500.0)
+    # Zone volume is 2 m^3 throughout.
+    assert np.allclose(
+        ods[f"{BASE}.thermalisation.energy"], [25.0, 50.0, 75.0, 100.0]
+    )
+
+
+def test_each_species_gets_its_own_thermalisation_rate(two_species):
+    """`sbtherm` is species-resolved, so indexing it per entry has to be right."""
+    ods = ODS()
+    distributions_from_nubeam(ods, two_species)
+
+    assert ods[f"{TOTALS}.thermalisation.particles"] == pytest.approx(1e17)
+    assert ods[
+        "distributions.distribution.1.global_quantities.0.thermalisation.particles"
+    ] == pytest.approx(1e16)
