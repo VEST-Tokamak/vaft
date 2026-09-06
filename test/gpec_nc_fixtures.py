@@ -246,7 +246,7 @@ def write_dcon_output_nc(
     return {"path": target, "psi_n": psi_n, "mode": mode, "attrs": attrs}
 
 
-def write_dcon_in(path, *, mer_flag=True, bal_flag=False, thmax0=1.0):
+def write_dcon_in(path, *, mer_flag=True, bal_flag=False, thmax0=1.0, psiedge=1.0):
     """Write the local-stability part of a `dcon.in`, in the packaged layout.
 
     `read_dcon_output` recovers the evaluation provenance from the namelist
@@ -258,6 +258,7 @@ def write_dcon_in(path, *, mer_flag=True, bal_flag=False, thmax0=1.0):
         f"    bal_flag={'t' if bal_flag else 'f'}           ! Ideal MHD ballooning criterion\n"
         f"    mer_flag={'t' if mer_flag else 'f'}           ! Evaluate the Mercier criterion\n"
         f"    thmax0={thmax0}            ! theta integration bound multiplier\n"
+        f"    psiedge={psiedge}          ! edge boundary requested for the dW scan\n"
         "/\n"
     )
     target = path / "dcon.in"
