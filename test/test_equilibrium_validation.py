@@ -150,9 +150,10 @@ def test_not_available_is_distinct_from_pass_and_from_fail(report):
 
 
 def test_a_partially_assessable_category_is_indeterminate(report):
-    """Eight slices pass the virial closure and the dead one cannot be decided:
-    the check is ``indeterminate``, because part of the evidence is missing."""
-    virial = report["physical_validity"]["virial"]
+    """Eight slices pass the virial plausibility bounds and the dead one cannot
+    be decided: the check is ``indeterminate``, because part of the evidence is
+    missing."""
+    virial = report["physical_validity"]["virial_parameter_plausibility"]
     assert virial["counts"] == {INDETERMINATE: 1, PASS: 8}
     assert virial["status"] == INDETERMINATE
 
@@ -162,12 +163,12 @@ def test_a_partially_assessable_category_is_indeterminate(report):
 # ---------------------------------------------------------------------------
 
 def test_a_slice_without_a_boundary_is_indeterminate_not_a_number(report):
-    dead = _slice(report, "physical_validity", "virial", DEAD)
+    dead = _slice(report, "physical_validity", "virial_parameter_plausibility", DEAD)
     assert dead["status"] == INDETERMINATE
     assert "non-finite" in dead["reason"]
     for name in ("s_1", "beta_p", "li", "B_pa"):
         assert dead[name] is None  # NaN serializes as null, never as an unbounded value
-    live = _slice(report, "physical_validity", "virial", LIVE)
+    live = _slice(report, "physical_validity", "virial_parameter_plausibility", LIVE)
     assert live["status"] == PASS
     assert 0 < live["beta_p"] < 10 and 0 < live["li"] < 3
     # Both closures are named; neither is silently the other.
@@ -263,7 +264,7 @@ def test_virial_quantities_are_the_wrappers_numbers(sample):
 
     expected = compute_virial_equilibrium_quantities_ods(copy.deepcopy(sample), time_slice=LIVE)[LIVE]
     physical = validate_physical(sample, time_slice=LIVE)
-    virial = physical["virial"]
+    virial = physical["virial_parameter_plausibility"]
     for name in ("s_1", "s_2", "s_3", "alpha", "B_pa", "beta_p", "li", "W_kin"):
         assert virial[name] == pytest.approx(expected[name])
 
@@ -277,7 +278,9 @@ def test_pressure_consistency_names_both_definitions(report):
     live = _slice(report, "physical_validity", "pressure_consistency", LIVE)
     descriptors = derive_global_descriptors(as_equilibrium(sample_ods(), time_index=LIVE)).values
     assert live["beta_p_pressure_integral"] == pytest.approx(descriptors["beta_p_boundary_average"].value)
-    assert live["beta_p_virial"] == _slice(report, "physical_validity", "virial", LIVE)["beta_p"]
+    assert live["beta_p_virial"] == _slice(
+        report, "physical_validity", "virial_parameter_plausibility", LIVE
+    )["beta_p"]
     assert live["ratio"] == pytest.approx(live["beta_p_pressure_integral"] / live["beta_p_virial"])
     assert live["status"] == FAIL and abs(live["log_ratio"]) > describe("physical_validity.pressure_consistency").tolerance[1]
     assert _slice(report, "physical_validity", "pressure_consistency", DEAD)["status"] == NOT_AVAILABLE
@@ -285,8 +288,20 @@ def test_pressure_consistency_names_both_definitions(report):
 
 def test_the_reconstructed_diamagnetic_flux_disagrees_with_the_measurement_in_sign(report):
     """A finding on shot 39915 the report surfaces: the reconstructed flux is
-    paramagnetic where the loop measures diamagnetic, while the *measured*
-    flux closes the virial energy balance to half a percent."""
+    paramagnetic where the loop measures diamagnetic.
+
+    This test used to also assert that the measured flux closed the virial
+    energy balance to half a percent. It did not: that agreement was the Lao
+    ``beta_p`` sign error (#546) cancelling the very sign disagreement this test
+    exists to record. ``W_kin`` is built on the equilibrium-derived ``mu_i``
+    (+0.75 here) and ``W_diamagnetic`` on the measured one (-0.63), so the two
+    cannot agree to half a percent while the measurement and the reconstruction
+    disagree about which way the plasma diamagnetism points. The old
+    ``beta_p`` carried a spurious ``+r*S2 = -0.128`` that offset
+    ``-(mu_i + mu_i_measured) = -0.120`` to within 0.008. With the sign
+    corrected the balance closes to ~8%, which is the honest size of the
+    disagreement and still well inside the check's own tolerance.
+    """
     flux = _slice(report, "physical_validity", "diamagnetic_flux", LIVE)
     assert flux["status"] == FAIL
     assert flux["sign_agreement"] is False
@@ -294,8 +309,9 @@ def test_the_reconstructed_diamagnetic_flux_disagrees_with_the_measurement_in_si
     energy = _slice(report, "independent_validation", "diamagnetic_energy", LIVE)
     assert energy["status"] == PASS
     assert energy["mui_measured"] < 0
-    assert abs(energy["log_ratio"]) < 0.02
-    assert energy["W_diamagnetic"] == pytest.approx(energy["W_kin_virial"], rel=0.02)
+    # The residual is the mu_i disagreement, not a coincidence: it must be far
+    # enough from zero to be the real thing and inside the registry tolerance.
+    assert 0.02 < abs(energy["log_ratio"]) < describe("independent_validation.diamagnetic_energy").tolerance[0]
 
 
 def test_measurements_can_arrive_on_a_separate_diagnostics_ods(sample):
@@ -514,3 +530,55 @@ def test_the_public_name_lives_on_the_package(sample):
 
     assert vaft.validation.validate_equilibrium is equilibrium.validate_equilibrium
     assert "validate_equilibrium" in vaft.validation.__all__
+
+def test_the_two_virial_checks_do_not_contradict_each_other(report):
+    """Review of #546: virial_conditioning used to say the RT-dependent closures
+    were indeterminate while virial_pair_consistency graded their residuals and
+    reported `fail` on the same slice. Every leave-one-out residual passes
+    through RT/R0 -- pair_12 and pair_23 in the closure, pair_13 in the E2 it is
+    scored on -- so when the RT denominator has cancelled away, neither check
+    may claim a verdict."""
+    conditioning = _slice(report, "physical_validity", "virial_conditioning", LIVE)
+    consistency = _slice(report, "physical_validity", "virial_pair_consistency", LIVE)
+    assert conditioning["rt_ill_conditioned"] is True
+    assert conditioning["status"] == WARN
+    assert consistency["status"] == INDETERMINATE
+    assert "RT denominator" in consistency["reason"]
+
+
+def test_conditioning_measures_distance_in_alpha_not_in_the_denominator(report):
+    """lao_li divides by (alpha-1) and full_123 by 4*(alpha-1): the same singular
+    point. Comparing raw denominators would call one near-singular and the other
+    safe at an alpha where both are equally ill-conditioned."""
+    live = _slice(report, "physical_validity", "virial_conditioning", LIVE)
+    assert live["denominator_full_123"] == pytest.approx(4.0 * live["denominator_lao_li"])
+    # ... but the distances that decide `near_singular` are equal.
+    slices = report["physical_validity"]["virial_conditioning"]["slices"]
+    entry = next(e for e in slices if e["time_slice"] == LIVE)
+    assert "lao_li" not in entry["near_singular"] or "full_123" in entry["near_singular"]
+
+
+def test_a_missing_pressure_profile_is_not_a_beta_p_of_zero(sample):
+    """p_2d defaults to zeros so the surface integrals have something to use;
+    that default must not reach the volume beta_p, or virial_identity grades an
+    absent measurement as a force-balance violation."""
+    from vaft.omas.process_wrapper import compute_virial_equilibrium_quantities_ods
+
+    stripped = copy.deepcopy(sample)
+    del stripped[f"equilibrium.time_slice.{LIVE}.profiles_1d.pressure"]
+    row = compute_virial_equilibrium_quantities_ods(stripped, time_slice=LIVE)[LIVE]
+    assert np.isnan(row["volume"]["beta_p"])
+    assert np.isfinite(row["volume"]["li"])  # li needs no pressure and survives
+
+
+def test_every_slice_carries_the_same_virial_keys(sample):
+    """A slice with no boundary must not have a different shape from one that
+    has: a consumer walking the documented structure would raise KeyError on
+    exactly the slices it most needs to report as undecided."""
+    from vaft.omas.process_wrapper import compute_virial_equilibrium_quantities_ods
+
+    rows = compute_virial_equilibrium_quantities_ods(copy.deepcopy(sample))
+    assert set(rows[DEAD]) == set(rows[LIVE])
+    for block in ("identity", "conditioning", "pair_13", "mu_i_sources"):
+        assert set(rows[DEAD][block]) == set(rows[LIVE][block])
+

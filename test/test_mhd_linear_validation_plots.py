@@ -215,6 +215,30 @@ def test_the_title_reports_the_radial_stride_the_mapper_applied():
     assert "every 4th radial sample" in axes.get_title()
 
 
+@pytest.mark.parametrize("decode", [False, True], ids=["as-written", "after-imas-decode"])
+def test_the_stride_annotation_survives_the_imas_code_parameters_decode(decode):
+    """`code.parameters` is not always the string the mapper wrote.
+
+    Loading through IMAS decodes it into a `CodeParameters` tree -- omas wraps
+    `load_omas_imas` in `codeparams_xml_load` -- and a reader that only handles
+    the string form finds nothing there, silently dropping the annotation. The
+    figure would then present a strided eigenfunction as if it were DCON's own
+    resolution.
+
+    Whether the decode succeeds depends on the document: omas raises internally
+    on the repeated `<solver>` elements a multi-module shot produces and leaves
+    the string alone. So the string-only reader works by accident on some shots
+    and fails on others, which is why this is parametrized over both.
+    """
+    ods = _mhd_linear_ods()
+    if decode:
+        ods.codeparams2dict()
+
+    figure, axes = vomas.plot_mhd_linear_profile_displacement(ods)
+
+    assert "every 4th radial sample" in axes.get_title()
+
+
 def test_the_perturbed_field_carries_the_singular_factor_the_displacement_does_not():
     """The two panels differ by exactly |m - nq|, which is why both are drawn.
 

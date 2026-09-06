@@ -181,14 +181,47 @@ def test_the_input_arrays_are_not_modified():
 # Against a solver's own <J.B>
 # --------------------------------------------------------------------------
 
-import os  # noqa: E402
 from pathlib import Path  # noqa: E402
 
-_RUN_DIR = os.environ.get("VAFT_NUBEAM_RUN_DIR")
-_needs_run = pytest.mark.skipif(
-    not _RUN_DIR or not Path(_RUN_DIR).is_dir(),
-    reason="set VAFT_NUBEAM_RUN_DIR to a completed NUBEAM run",
-)
+
+@pytest.fixture(scope="session")
+def nubeam_run():
+    """Run the packaged VEST case once per session, or skip.
+
+    Gated on ``$NUBEAMHOME`` like every other external-code test, and driven
+    from the inputs in ``vaft/data/nubeam/vest_case`` rather than a run
+    directory someone had to preserve by hand.
+
+    The particle count is cut hard because nothing these tests assert depends
+    on Monte Carlo statistics. The first check compares the transformation
+    against xplasma's own ``jdotb``, and both sides are equilibrium
+    quantities. The second forms a ratio in which the driven current cancels
+    identically -- ``j_parallel / (dI/dA)`` reduces to
+    ``2*pi*dA*<B^2> / (F*<R^-2>*dV*B0)``, pure geometry -- leaving only the
+    cumulative check with any shape sensitivity at all. A run this small
+    takes a couple of minutes, which is the whole cost these two tests add
+    to a suite run on a machine that has NUBEAM.
+    """
+    from vaft.code import nubeam as nubeam_code
+    from vaft.compat import short_temporary_directory
+
+    case = nubeam_code.packaged_vest_case()
+    runid = nubeam_code.inputf_runid(
+        (case.input_dir / "inputf").read_text(encoding="utf-8")
+    )
+    config = nubeam_code.NUBEAMConfig(runid=runid, nptcls=1000)
+    if nubeam_code.find_nubeam_executable(config) is None:
+        pytest.skip("set $NUBEAMHOME to a NUBEAM installation")
+
+    with short_temporary_directory(
+        max_length=config.workdir_budget, prefix="vaft-nb-test-"
+    ) as workdir:
+        result = nubeam_code.run_nubeam_case(
+            case.input_dir, gfile=case.gfile, workdir=workdir, config=config
+        )
+        if not result.ok:
+            pytest.skip(f"NUBEAM run failed (rc={result.returncode})")
+        yield workdir
 
 
 def _plasma_state(run_dir):
@@ -209,8 +242,7 @@ def _plasma_state(run_dir):
     pytest.skip("no Plasma State carrying <J.B> in the run directory")
 
 
-@_needs_run
-def test_matches_the_solvers_own_jdotb_on_the_total_current():
+def test_matches_the_solvers_own_jdotb_on_the_total_current(nubeam_run):
     """The strongest available check on the machinery.
 
     Applied to the *total* enclosed toroidal current, the conversion must
@@ -219,7 +251,7 @@ def test_matches_the_solvers_own_jdotb_on_the_total_current():
     part -- so this bounds the assumption rather than proving it, and the
     residual is expected to grow outward.
     """
-    state = _plasma_state(_RUN_DIR)
+    state = _plasma_state(nubeam_run)
     centre = lambda a: 0.5 * (a[:-1] + a[1:])
     b0 = 0.15  # VEST vacuum_toroidal_field.b0 for the validated case
 
@@ -240,18 +272,17 @@ def test_matches_the_solvers_own_jdotb_on_the_total_current():
     assert np.median(ratio[:-1]) == pytest.approx(1.0, abs=0.05)
 
 
-@_needs_run
-def test_the_spherical_tokamak_departure_is_recorded():
+def test_the_spherical_tokamak_departure_is_recorded(nubeam_run):
     """Pin the size of the error the previous mapping made, so it cannot
     silently return."""
-    state = _plasma_state(_RUN_DIR)
+    state = _plasma_state(nubeam_run)
     import warnings
 
     import xarray as xr
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        with xr.open_dataset(Path(_RUN_DIR) / "state_changes.cdf",
+        with xr.open_dataset(Path(nubeam_run) / "state_changes.cdf",
                              decode_times=False) as ds:
             driven = np.asarray(ds["curbeam"].values).ravel()
 

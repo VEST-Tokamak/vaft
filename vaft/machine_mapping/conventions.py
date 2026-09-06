@@ -137,7 +137,7 @@ oriented; and the datasheet does not record which toroidal direction the Hall
 sensors face.  So it needs the raw alignment-shot data, which is in the VEST
 database but not packaged here, plus one statement of the Hall sensors' facing
 (issue #298).  Failing that: the TF winding sense with its supply polarity.  The
-packaged 3D coil geometry (:mod:`vaft.machine_mapping.coil_geometry_3d`) covers
+packaged 3D coil geometry (:mod:`vaft.machine_mapping.coils_non_axisymmetric_geometry`) covers
 only the non-axisymmetric RMP sets, so it cannot supply the TF winding path.
 
 Until both polarities are confirmed the VEST COCOS index is not resolved, because
@@ -153,6 +153,7 @@ import numpy as np
 
 __all__ = [
     "BT_SIGN_VEST_TO_IMAS",
+    "VEST_GPEC_COIL_DIRECTIONS",
     "DischargeSignContract",
     "IMAS_DISCHARGE_SIGNS",
     "IP_SIGN_VEST_TO_IMAS",
@@ -194,6 +195,19 @@ class DischargeSignContract:
 
 IMAS_DISCHARGE_SIGNS = DischargeSignContract(ip=-1, b0=+1)
 """Ip clockwise and Bt counter-clockwise, expressed in IMAS signs."""
+
+VEST_GPEC_COIL_DIRECTIONS = {"ip_direction": "positive", "bt_direction": "negative"}
+"""The ``coil.in`` direction words of the VEST reference GPEC run.
+
+GPEC documents these as "positive for CCW or negative for CW from a top down
+view".  The pair is the one carried by the shot-48226 reference input
+(``test/data/gpec_reference_48226/coil.in``) and is stated here explicitly,
+per machine, rather than derived from :data:`IMAS_DISCHARGE_SIGNS`: whether
+GPEC's top-down words and the IMAS sign contract describe the same senses for
+VEST has not been verified in code, so the two are kept as independent facts.
+Another machine must supply its own pair; the GPEC adapter refuses to inherit
+this one.
+"""
 
 
 def expected_q_sign(cocos_index: int, contract: DischargeSignContract | None = None) -> int:

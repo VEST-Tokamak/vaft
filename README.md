@@ -496,10 +496,10 @@ with vaft.imas.load("./equilibrium.nc") as entry:
 ### Profile Fitting
 
 ```python
-# Map Thomson scattering data onto equilibrium flux coordinates, then fit profiles
-mapped_rho = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
+# Map Thomson scattering data onto the equilibrium's radial coordinates, then fit profiles (rho_tor_norm by default)
+mapped = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
 vaft.process.profile_fitting_thomson_scattering(
-    ods, time_ms, mapped_rho, fitting_function_te='gp', fitting_function_ne='gp'
+    ods, time_ms, mapped, fitting_function_te='gp', fitting_function_ne='gp'
 )
 ```
 

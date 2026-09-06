@@ -127,6 +127,9 @@ class PlotCapability:
     #: The stored equilibrium slices a slice-indexed plot can draw (instance
     #: level, issue #480): ``total``, ``usable``, ``times``, ``selected``.
     slices: Mapping[str, Any] = field(default_factory=dict)
+    #: What a line plot can be drawn against (issue #481): ``default``,
+    #: ``options`` (what this input can supply) and ``declared``.
+    abscissa: Mapping[str, Any] = field(default_factory=dict)
     #: The stored time axis a spatial plot samples (issue #486): ``start``,
     #: ``stop`` in seconds and ``count``.
     times: Mapping[str, Any] = field(default_factory=dict)
@@ -536,6 +539,11 @@ def _compact_notes(record: PlotCapability) -> list[str]:
         notes.append("interaction: " + " | ".join(record.interaction))
     if record.times.get("count"):
         notes.append(f"time: {record.times['start']:.4g}-{record.times['stop']:.4g} s ({record.times['count']} samples)")
+    if len(record.abscissa.get("options") or ()) > 1:
+        default = record.abscissa.get("default")
+        notes.append("abscissa: " + " | ".join(
+            f"{name} (default)" if name == default else name for name in record.abscissa["options"]
+        ))
     if record.coordinates.get("options"):
         default = record.coordinates.get("default")
         notes.append("coordinates: " + " | ".join(
@@ -607,6 +615,12 @@ def _detail_lines(record: PlotCapability) -> list[str]:
             lines.append("positions: " + ", ".join(c["positions"]))
     if record.layouts:
         lines.append("layouts: " + " | ".join(record.layouts))
+    for key, what in (("abscissa", "abscissa"), ("coordinates", "coordinate")):
+        block = getattr(record, key) or {}
+        if len(block.get("options") or ()) > 1:
+            lines.append(
+                f"{what}: {block.get('default')} by default; " + " | ".join(block["options"])
+            )
     if record.analysis_methods:
         lines.append("methods: " + " | ".join(record.analysis_methods))
     if record.overview_members:

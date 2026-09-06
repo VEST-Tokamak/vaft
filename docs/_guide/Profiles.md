@@ -73,19 +73,34 @@ for the ODS/IDS conventions, and use `vaft.data.data_path()` to resolve them:
 ## Stage 1 — equilibrium mapping
 
 Each diagnostic channel sits at a fixed $(R, Z)$. The mapping functions interpolate $\psi(R,Z)$ from the
-equilibrium and normalize it, returning one $\rho \in [0, 1]$ per channel:
+equilibrium and return **every radial coordinate the equilibrium supports**, one value per channel, as a
+`MappedPositions` record:
 
-$$\rho = \frac{\psi(R,Z) - \psi_{axis}}{\psi_{boundary} - \psi_{axis}}$$
+$$\psi_N = \frac{\psi(R,Z) - \psi_{axis}}{\psi_{boundary} - \psi_{axis}}, \qquad
+\rho_{pol,N} = \sqrt{\psi_N}, \qquad
+\rho_{tor,N} = \sqrt{\Phi(\psi)/\Phi_{boundary}},\ \Phi = \int q\,d\psi$$
 
 ```python
 geq = vaft.data.read_geqdsk(vaft.data.data_path("efit/g040330.00320"))
 
-mapped_rho = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
-mapped_rho_ces = vaft.process.equilibrium_mapping_charge_exchange(ods, geq)
+mapped = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
+mapped_ces = vaft.process.equilibrium_mapping_charge_exchange(ods, geq)
+
+mapped.psi_norm, mapped.rho_pol_norm, mapped.rho_tor_norm   # one array each, NaN outside the LCFS
+mapped.available()                                          # ('rho_tor_norm', 'rho_pol_norm', 'psi_norm')
 ```
 
 Both accept a `vaft.data.GEQDSK`, an OMAS equilibrium ODS, or a legacy flux-surface mapping as `geq`.
-Values are clipped to $[0, 1]$, so channels outside the last closed flux surface pile up at $\rho = 1$.
+Channels outside the last closed flux surface are `NaN` in every coordinate and are dropped by the
+fitters. $\rho_{tor,N}$ needs the equilibrium's $q$ profile; a legacy flux-surface mapping cannot supply
+it, and the record says so (`mapped.rho_tor_norm_unavailable`) rather than substituting $\sqrt{\psi_N}$,
+which is a different coordinate.
+
+> **The coordinate is a choice, and the default is $\rho_{tor,N}$.** Before issue #420 the mappers
+> returned a bare $\psi_N$ array under the name "rho" and every fit was made in it. Fits are now made in
+> the coordinate you select (`coordinate=`), `rho_tor_norm` by default; pass `coordinate="psi_norm"` to
+> reproduce the old numbers. A bare array is still accepted, but only together with
+> `coordinate="psi_norm"`, because that is the only thing it ever meant.
 Building an equilibrium is covered in [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/).
 
 ## Stage 2 — profile fitting
@@ -95,7 +110,8 @@ n_e_fn, T_e_fn, coeffs_ne, coeffs_te, n_e_rho, T_e_rho = \
     vaft.process.profile_fitting_thomson_scattering(
         ods,
         time_ms=320.0,
-        mapped_rho_position=mapped_rho,
+        mapped_positions=mapped,
+        coordinate="rho_tor_norm",  # the default; "rho_pol_norm" and "psi_norm" are the alternatives
         Te_order=3,
         Ne_order=3,
         uncertainty_option=1,       # weight the fit by per-channel error bars
@@ -105,9 +121,11 @@ n_e_fn, T_e_fn, coeffs_ne, coeffs_te, n_e_rho, T_e_rho = \
     )
 ```
 
-Note the return order: **density first, then temperature**. `n_e_fn` and `T_e_fn` are callables you can
-evaluate on any $\rho \in [0,1]$; `n_e_rho` and `T_e_rho` are those functions already sampled on a
-uniform grid of `rho_points`. `coeffs_*` is `None` for the `gp` and `linear` methods.
+Note the return order: **density first, then temperature**. `n_e_fn` and `T_e_fn` are `FittedProfile`
+objects: callable on any $x \in [0,1]$ of the coordinate they were fitted in, and carrying `.coordinate`,
+`.method` and `.order` so that `core_profiles` evaluates them on the right grid and records what produced
+them. `n_e_rho` and `T_e_rho` are those functions already sampled on a uniform grid of `rho_points`.
+`coeffs_*` is `None` for the `gp` and `linear` methods.
 
 The CES counterpart mirrors it, with `ion_index` selecting the ion species:
 
@@ -116,7 +134,7 @@ Vtor_fn, Ti_fn, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho = \
     vaft.process.profile_fitting_charge_exchange(
         ods,
         time_ms=300.0,
-        mapped_rho_position=mapped_rho_ces,
+        mapped_positions=mapped_ces,
         Ti_order=3,
         Vtor_order=3,
         fitting_function_ti="polynomial",
@@ -176,12 +194,23 @@ estimate), a callable, and the coefficients. `vaft.formula.make_fit_function(mod
 ods = vaft.process.core_profiles(
     ods,
     time_ms=320.0,
-    mapped_rho_position=mapped_rho,
+    mapped_positions=mapped,
     n_e_function=n_e_fn,
     T_e_function=T_e_fn,
     tol_ms=0.1,
 )
 ```
+
+The fits are evaluated on the equilibrium grid **in their own coordinate** and stored on
+`grid.rho_tor_norm`, `grid.psi` and `grid.rho_pol_norm`. What produced the slice is written beside it:
+`electrons.temperature_fit.parameters` records the coordinate, method and order, and
+`core_profiles.code.parameters` carries one line per slice. A slice written before #420 has no such
+record; that absence marks a legacy product fitted in $\psi_N$.
+
+Thomson-only slices need an ion temperature. The statistical Ti/Te coefficient is **VEST policy**, not a
+processing default: it lives in `vest.yaml` (`diagnostics.core_profiles.ti_te_ratio`, status
+`inferred`, with its derivation record) and the kinetic-EFIT pipeline resolves it per shot with
+`vaft.machine_mapping.core_profiles.vest_core_profiles_policy(shot)` before calling `core_profiles`.
 
 It writes, for the new slice index `i`:
 
@@ -280,17 +309,17 @@ vaft.machine_mapping.thomson_scattering(
     ods, 46051, vaft.data.data_path("legacy/46051_NeTe.mat"),
 )
 
-mapped_rho = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
+mapped = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
 
 for t_s in np.asarray(ods["thomson_scattering.time"], dtype=float):
     time_ms = float(t_s) * 1e3
     n_e_fn, T_e_fn, *_ = vaft.process.profile_fitting_thomson_scattering(
-        ods, time_ms, mapped_rho,
+        ods, time_ms, mapped,
         Te_order=2, Ne_order=2,
         fitting_function_te="polynomial",
         fitting_function_ne="polynomial",
     )
-    ods = vaft.process.core_profiles(ods, time_ms, mapped_rho, n_e_fn, T_e_fn)
+    ods = vaft.process.core_profiles(ods, time_ms, mapped, n_e_fn, T_e_fn)
 
 vaft.plot.plot_thomson_profiles(ods)
 ```

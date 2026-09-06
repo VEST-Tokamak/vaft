@@ -417,3 +417,33 @@ def test_the_package_exports_the_window_detector():
 
     assert detect_plasma_window is magnetics.detect_plasma_window
     assert PlasmaWindowChoice is magnetics.PlasmaWindowChoice
+
+
+def test_a_light_window_past_a_short_current_record_is_kept_and_flagged(tmp_path):
+    """Corpus shots 39926/39961: the current record ended at 0.34 s while the light
+    started at 0.342 s; clipping the window to the current record inverted it."""
+    t_ip = np.arange(0.20, 0.34, DT)
+    source = _dump_with_fields(tmp_path, **{str(HALPHA_FIELD): -light(RAW_TIME, onset=0.342, offset=0.352)})
+    choice = magnetics.detect_plasma_window(SYNTHETIC_SHOT, t_ip, pickup_only(t_ip), source)
+
+    assert choice.source == "h_alpha_raw" and not choice.fallback
+    assert 0.342 <= choice.start < choice.end <= 0.36
+    assert "ip_record_short" in choice.flags
+
+
+def test_a_window_past_the_rogowski_record_is_said_in_the_provenance():
+    """The mapper anchors its baseline at the record's end; the method_name says so."""
+    from vaft.machine_mapping.magnetics import PlasmaWindowChoice, _diamagnetic_method_name
+
+    report = magnetics.diamagnetic_saturation_report(SYNTHETIC_SHOT, raw_source=SAMPLE_SOURCE)
+    report = {**report, "window_clipped_to_record": True}
+    choice = PlasmaWindowChoice(0.3423, 0.3523, "h_alpha_raw", ("ip_record_short", "ip_before_halpha"), {})
+    text = _diamagnetic_method_name(report, choice)
+    assert "0.3423-0.3523 s from h_alpha_raw (ip_record_short, ip_before_halpha)" in text
+    assert text.endswith("; window clipped to the Rogowski record")
+    _, flux, detailed = magnetics.vest_diamagnetic_flux_detailed(
+        SYNTHETIC_SHOT, 0.99, 1.05, raw_source=SAMPLE_SOURCE      # the record ends at 1.0 s
+    )
+    assert detailed["window_clipped_to_record"] is True
+    _, _, inside = magnetics.vest_diamagnetic_flux_detailed(SYNTHETIC_SHOT, 0.30, 0.36, raw_source=SAMPLE_SOURCE)
+    assert inside["window_clipped_to_record"] is False
