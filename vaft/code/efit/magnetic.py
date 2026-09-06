@@ -18,6 +18,7 @@ from typing import Any, Mapping, Optional, Sequence
 
 import numpy as np
 
+from ...compat import is_executable, resolve_executable
 from .._executables import executable_from_home, missing_home_message
 from .status import (
     EFITSliceStatus,
@@ -333,7 +334,8 @@ def _resolve_efit_executable(config: EFITConfig) -> Path | None:
     env_path = environment.get(EFIT_EXEC_ENV)
     if env_path:
         env_candidate = Path(env_path).expanduser()
-        return env_candidate / "efit" if env_candidate.is_dir() else env_candidate
+        requested = env_candidate / "efit" if env_candidate.is_dir() else env_candidate
+        return resolve_executable(requested) or requested
     return None
 
 
@@ -349,7 +351,7 @@ def _efit_unconfigured_reason() -> str:
 def find_efit_executable(config: EFITConfig | None = None) -> Path | None:
     """Return EFIT resolved from explicit config, ``$EFITHOME``, or ``$EFIT``."""
     exe = _resolve_efit_executable(config or EFITConfig())
-    if exe is not None and exe.exists() and os.access(exe, os.X_OK):
+    if exe is not None and is_executable(exe):
         return exe
     return None
 
@@ -428,7 +430,7 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
             config,
             reason=_efit_unconfigured_reason(),
         )
-    if not (executable.exists() and os.access(executable, os.X_OK)):
+    if not is_executable(executable):
         reason = f"missing executable: {executable}"
         return _skipped_efit_result(
             inputs,
@@ -449,6 +451,9 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
             input=stdin_text,
             text=True,
             capture_output=True,
+            # A foreign program's bytes; see the note in vaft.code.chease.
+            encoding="utf-8",
+            errors="replace",
             timeout=config.timeout,
             check=False,
         )

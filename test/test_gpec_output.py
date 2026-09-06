@@ -20,6 +20,8 @@ from gpec_nc_fixtures import write_control_nc, write_cylindrical_nc
 from vaft.code import gpec
 from vaft.code.gpec import GpecIdealResult, read_gpec_netcdf, validate_dcon_result
 
+from external_code_stubs import write_launchable_stub
+
 
 def test_reads_control_and_cylindrical(tmp_path):
     control_data = write_control_nc(tmp_path)
@@ -141,10 +143,7 @@ GFILE_TEXT = "  EFITD   01/01/2024   #  48226  300ms        3  65  65\n 1.0 2.0 
 
 
 def _stub_installation(tmp_path):
-    executable = tmp_path / "gpec/bin/gpec"
-    executable.parent.mkdir(parents=True)
-    executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "gpec/bin/gpec")
     return tmp_path / "gpec"
 
 

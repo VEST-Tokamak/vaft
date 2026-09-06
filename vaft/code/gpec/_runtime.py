@@ -14,7 +14,12 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Mapping
 
-from .._executables import executable_from_home, missing_home_message
+from ...compat import resolve_executable
+from .._executables import (
+    ExecutableNotLaunchable,
+    executable_from_home,
+    missing_home_message,
+)
 from ._types import GPEC_HOME_ENV
 
 if TYPE_CHECKING:
@@ -48,7 +53,11 @@ def executable_dir(config: "GPECSuiteConfig") -> Path | None:
 
 def executable(config: "GPECSuiteConfig", program: str) -> Path | None:
     if config.executable_dir:
-        return Path(config.executable_dir).expanduser() / program
+        # Falls back to the unsuffixed path when nothing matches, so a caller
+        # that points at a directory which does not exist yet still gets the
+        # name it asked for and the "missing or non-executable" report names it.
+        requested = Path(config.executable_dir).expanduser() / program
+        return resolve_executable(requested) or requested
     home = gpec_home(config)
     return executable_from_home(
         home,
@@ -61,7 +70,10 @@ def executable(config: "GPECSuiteConfig", program: str) -> Path | None:
 def optional_executable(config: "GPECSuiteConfig", program: str) -> Path | None:
     """Return an optional companion executable without making it mandatory."""
     directory = executable_dir(config)
-    return directory / program if directory is not None else None
+    if directory is None:
+        return None
+    requested = directory / program
+    return resolve_executable(requested) or requested
 
 
 def unconfigured_reason() -> str:
@@ -241,15 +253,22 @@ def run_subprocess(
     *,
     config: "GPECSuiteConfig",
 ) -> tuple[int, Path]:
+    # The log is opened outside the try so that a bad log path stays its own
+    # error rather than being reported as an unlaunchable solver.
     with log_path.open("w", encoding="utf-8") as log:
-        result = subprocess.run(
-            [str(executable_path)],
-            cwd=cwd,
-            env=gpec_env(config),
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=config.timeout,
-            check=False,
-        )
+        try:
+            result = subprocess.run(
+                [str(executable_path)],
+                cwd=cwd,
+                env=gpec_env(config),
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=config.timeout,
+                check=False,
+            )
+        except OSError as error:
+            raise ExecutableNotLaunchable(
+                f"cannot launch {executable_path}: {error}"
+            ) from error
     return int(result.returncode), log_path
