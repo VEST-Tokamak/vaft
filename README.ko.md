@@ -212,10 +212,10 @@ ip = ods['magnetics.ip.0.data']
 ### 프로파일 피팅
 
 ```python
-# 톰슨 산란 데이터를 평형 자속 좌표에 매핑한 뒤 프로파일 피팅
-mapped_rho = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
+# 톰슨 산란 데이터를 평형의 반경 좌표(기본 rho_tor_norm)에 매핑한 뒤 프로파일 피팅
+mapped = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
 vaft.process.profile_fitting_thomson_scattering(
-    ods, time_ms, mapped_rho, fitting_function_te='gp', fitting_function_ne='gp'
+    ods, time_ms, mapped, fitting_function_te='gp', fitting_function_ne='gp'
 )
 ```
 
