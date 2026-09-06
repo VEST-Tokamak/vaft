@@ -86,6 +86,7 @@ INTERACTION: dict[str, tuple[str, ...]] = {
 #: The public entry point behind an interaction mode that is not a view.
 INTERACTION_ENTRY_POINTS: dict[str, str] = {
     "time-navigable": "plot_equilibrium_interactive()",
+    "controls": "plot_<name>(..., interactive=True)",
 }
 
 #: What a composite built by code (not a PanelRecipe) draws, for discovery's
@@ -302,6 +303,20 @@ def _member_subjects(recipe: PanelRecipe) -> tuple[str, ...]:
 # ---------------------------------------------------------------------------
 
 
+def describe_one(name: str, entries: Sequence[tuple[str, Any]]) -> PlotCapability:
+    """The capability record of one plot, evaluated against ``entries``.
+
+    What ``describe_entries`` does for the whole catalog, for the single
+    record a control layer needs (issue #480); the unavailable record is
+    returned with its reason rather than dropped.
+    """
+    base = _core.catalog(status=None)
+    record = next((record for record in base if record.name == name), None)
+    if record is None:
+        raise KeyError(f"no plot named {name!r}")
+    return _evaluate(_declare(record), entries)
+
+
 def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> PlotCapability:
     missing = {str(label): missing_required_path(ods, record.name) for label, ods in entries}
     per_entry = {label: path is None for label, path in missing.items()}
@@ -334,6 +349,8 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             # to say which default a profile applies, or a caller cannot know
             # whether the curve it gets back was flipped.
             updates["orientation"] = _orientation_block(recipe)
+        if _takes_time_slice(record.name):
+            updates["slices"] = _slices_block(ods)
         if record.name in PSI_FIELD_CONVENTIONS:
             from .convention import psi_convention
 
@@ -351,7 +368,50 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             }
         if record.projection:
             updates["projection"] = {**record.projection, **_projection_state(ods)}
+        # A plot with something to change offers ``interactive=True`` (issue #480).
+        from vaft.plot.controls import controls_for
+
+        evaluated = with_capabilities(record, **updates)
+        offered = controls_for(evaluated)
+        if offered:
+            updates["interaction"] = tuple(dict.fromkeys((*record.interaction, "controls")))
+            updates["interaction_entry_points"] = {
+                **record.interaction_entry_points,
+                "controls": f"{record.function.removesuffix('()')}(..., interactive=True)",
+            }
+            updates["controls"] = tuple(c.name for c in offered)
     return with_capabilities(record, **updates)
+
+
+def _takes_time_slice(name: str) -> bool:
+    """Whether ``name`` draws one stored equilibrium slice (``time_slice=``)."""
+    recipe = RECIPES.get(name)
+    paths = []
+    for attribute in ("value_path", "y_path", "x_path", "r_path", "z_path"):
+        value = getattr(recipe, attribute, None)
+        if isinstance(value, str):
+            paths.append(value)
+    return name in PSI_FIELD_CONVENTIONS or any("time_slice.{i}" in path for path in paths)
+
+
+def _slices_block(ods: Any) -> dict[str, Any]:
+    """The stored equilibrium slices: how many, which are usable, their times."""
+    from .recipes import _count, _get, _usable_slices, resolve_time_slice
+
+    total = _count(ods, "equilibrium.time_slice")
+    times = []
+    for index in range(total):
+        raw = _get(ods, f"equilibrium.time_slice.{index}.time")
+        try:
+            times.append(float(np.asarray(raw, dtype=float).ravel()[0]))
+        except (IndexError, TypeError, ValueError):
+            times.append(float("nan"))
+    usable = tuple(int(i) for i in _usable_slices(ods)) if total else ()
+    try:
+        selected = int(resolve_time_slice(ods)[0]) if total else None
+    except Exception:
+        selected = None
+    return {"total": total, "usable": usable, "times": tuple(times), "selected": selected}
 
 
 def _projection_state(ods: Any) -> dict[str, Any]:

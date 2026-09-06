@@ -20,7 +20,7 @@ from typing import Any, Callable, Sequence
 
 import numpy as np
 
-__all__ = ["SliceNavigator"]
+__all__ = ["ControlState", "SliceNavigator"]
 
 
 class SliceNavigator:
@@ -132,3 +132,122 @@ class SliceNavigator:
             f"SliceNavigator(selected={self._selected}, t={self.time:.4f}, "
             f"usable={len(self._usable)}/{self._times.size})"
         )
+
+
+class ControlState:
+    """The current value of every control of one plot, with observers (issue #480).
+
+    ``controls`` are the :class:`~vaft.plot.controls.ControlSpec` entries a
+    record supports; ``values`` start at their defaults.  :meth:`set`
+    validates against the spec and notifies only on a change, the same
+    contract as :class:`SliceNavigator`; :meth:`as_options` is what a
+    builder receives.  No widget toolkit is imported here either.
+    """
+
+    def __init__(self, controls: Sequence[Any], values: dict[str, Any] | None = None) -> None:
+        self._controls = tuple(controls)
+        self._by_name = {control.name: control for control in self._controls}
+        self._values: dict[str, Any] = {control.name: control.default for control in self._controls}
+        self._observers: list[Callable[["ControlState"], Any]] = []
+        for name, value in (values or {}).items():
+            self.set(name, value, notify=False)
+
+    @property
+    def controls(self) -> tuple[Any, ...]:
+        return self._controls
+
+    @property
+    def values(self) -> dict[str, Any]:
+        return dict(self._values)
+
+    def __getitem__(self, name: str) -> Any:
+        return self._values[name]
+
+    def spec(self, name: str) -> Any:
+        try:
+            return self._by_name[name]
+        except KeyError:
+            raise KeyError(
+                f"no control named {name!r}; controls: {', '.join(self._by_name) or 'none'}"
+            ) from None
+
+    def set(self, name: str, value: Any, *, notify: bool = True) -> bool:
+        """Set one control; returns whether the value changed."""
+        control = self.spec(name)
+        value = control.validate(value)
+        changed = value != self._values.get(name)
+        self._values[name] = value
+        if changed and notify:
+            self._notify()
+        return changed
+
+    def update(self, **values: Any) -> bool:
+        """Set several controls; observers run once if anything changed."""
+        changed = False
+        for name, value in values.items():
+            changed = self.set(name, value, notify=False) or changed
+        if changed:
+            self._notify()
+        return changed
+
+    def as_options(self) -> dict[str, Any]:
+        """The builder's keyword arguments for the current values.
+
+        ``None`` and the ``"none"`` choice mean "leave the option out"; an
+        explicit ``channels`` selection replaces the ``selection`` preset.
+        Renderer-side controls (group ``"style"``) are left to :meth:`as_style`.
+        """
+        options: dict[str, Any] = {}
+        for control in self._controls:
+            value = self._values.get(control.name)
+            if control.group == "style" or value is None or value == "none" or value == ():
+                continue
+            options[control.name] = value
+        if options.get("channels"):
+            options["selection"] = list(options.pop("channels"))
+        return options
+
+    def as_style(self) -> dict[str, Any]:
+        """The renderer's keyword arguments: the ``"style"`` group's values."""
+        return {
+            control.name: self._values[control.name]
+            for control in self._controls
+            if control.group == "style" and self._values.get(control.name) is not None
+        }
+
+    def subscribe(self, callback: Callable[["ControlState"], Any]) -> Callable[[], None]:
+        """Call ``callback(state)`` after every change; returns an unsubscribe."""
+        self._observers.append(callback)
+
+        def unsubscribe() -> None:
+            if callback in self._observers:
+                self._observers.remove(callback)
+
+        return unsubscribe
+
+    def _notify(self) -> None:
+        for callback in list(self._observers):
+            callback(self)
+
+    def refresh(self) -> None:
+        """Re-run every observer without changing anything."""
+        self._notify()
+
+    def bind_navigator(self, navigator: SliceNavigator, name: str = "time_slice") -> None:
+        """Keep a slice control and a :class:`SliceNavigator` in step, both ways."""
+        control = self.spec(name)
+
+        def from_state(state: "ControlState") -> None:
+            index = int(state[name])
+            if index != navigator.selected:
+                navigator.select_index(index)
+
+        def from_navigator(nav: SliceNavigator) -> None:
+            if control.validate(nav.selected) != self._values.get(name):
+                self.set(name, nav.selected)
+
+        self.subscribe(from_state)
+        navigator.subscribe(from_navigator)
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return f"ControlState({self._values!r})"

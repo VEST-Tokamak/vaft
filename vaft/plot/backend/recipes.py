@@ -4369,8 +4369,7 @@ def _build_panels(
     # model: selection, synthetic, ...) or a renderer style (validity, ...).
     # The former goes beneath the caller's options into build_model; the
     # latter beneath the caller's style into the renderer (issue #260).
-    member_options = {k: v for k, v in recipe.member_defaults.items() if k in EXTRACTION_OPTIONS}
-    member_style = {k: v for k, v in recipe.member_defaults.items() if k not in EXTRACTION_OPTIONS}
+    member_options, member_style = split_options(recipe.member_defaults)
     members = []
     for name in recipe.members:
         if not any(entry_supports(ods, name) for _, ods in entries):
@@ -4406,86 +4405,10 @@ def _build_panels(
 
 
 #: Keyword arguments that shape the *model* -- what is extracted -- as opposed
-#: to the renderer keyword arguments that shape how it is drawn.  The adapter
-#: strips these before calling a renderer; a composite routes its members'
-#: defaults by the same split.
-EXTRACTION_OPTIONS = frozenset(
-    {
-        "channel",
-        "channels",
-        "contour_levels",
-        "coordinate",
-        "detector",
-        "detrend",
-        "direction",
-        "dphi_deg",
-        "field_line_start",
-        "fit_ranges",
-        "flux_surface_levels",
-        "orientation",
-        "style",
-        "units",
-        "frame_index",
-        "frame_indices",
-        "intrinsics_path",
-        "layout",
-        "log_y",
-        "marker_frequencies",
-        "max_frequency",
-        "max_harmonics",
-        "max_length_m",
-        "n_tor",
-        "ncols",
-        "noverlap",
-        "nperseg",
-        "overlay",
-        "per_family",
-        # wall eigenmode views (vaft #473)
-        "basis",
-        "segment",
-        "mode",
-        "max_modes",
-        "whole_wall",
-        "remap_em_coupling",
-        "rows",
-        "rules",
-        "orders",
-        "drive",
-        "metrics",
-        "which",
-        "selection",
-        "rule",
-        "M",
-        "grid_shape",
-        "phi0",
-        "pose_path",
-        "projection",
-        "quantity",
-        "r0",
-        "reference_slopes",
-        "sample_rate",
-        "selection",
-        "series_label",
-        "shot",
-        "show_lcfs",
-        "show_magnetic_axis",
-        "show_wall",
-        "sigma",
-        "synthetic",
-        "time",
-        "time_range",
-        "time_resolution",
-        "time_slice",
-        "title",
-        "use_wall_boundary",
-        "window",
-        "window_size",
-        "x_limits",
-        "xunit",
-        "yunit",
-        "z0",
-    }
-)
+#: to the renderer keyword arguments that shape how it is drawn.  The names
+#: come from the validated schema in :mod:`vaft.plot.backend.options`; this
+#: alias keeps the historical import working.
+from .options import EXTRACTION_OPTIONS, split_options  # noqa: E402
 
 LAYOUTS = ("overlay", "subplots", "grouped")
 

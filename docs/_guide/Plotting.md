@@ -314,7 +314,10 @@ These functions also print progress lines to stdout on every call; that noise is
 `plot_onedim_profile_interactive(odc_or_ods, ods_group_name, quantity_name,
 coordinate_name, time_slices=None, labels_opt='shot', **plot_kwargs)` is the engine behind
 the generated names and can be called directly for a pair outside the generated set. It
-carries exactly the same caveats.
+carries exactly the same caveats. **It is legacy.** The canonical adapters offer
+`vaft.omas.plot_<name>(ods, interactive=True)` (issue #480): the controls are read off the
+plot's capability record, the returned `state` rebuilds and redraws, and
+`plot_equilibrium_interactive()` remains the slice explorer; see the plotting sample notebook.
 
 `equilibrium_1d_radial(ods, time_slices=None)` produces radial-coordinate mapping figures,
 useful as a consistency check on a reconstruction.
