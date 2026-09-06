@@ -183,6 +183,17 @@ submodules not yet converted (#418-#421): a module leaves that list only when
 every function in it conforms, and the catalog's own `conforming` flag is what
 the site reads to decide which categories get a reference page.
 
+Machine policy does not live in `vaft/process`. A number that is true of VEST
+and not of the algorithm -- a statistical coefficient, an assumed impurity
+fraction, which radial coordinate profiles are fitted in -- belongs in
+`vaft/machine_mapping/vest.yaml` with a `status` (`assumed`, `measured`,
+`inferred`) and its provenance, is resolved per shot by a function in
+`vaft/machine_mapping` (for kinetic profiles,
+`vest_core_profiles_policy(shot)`), and is handed to the generic routine by
+the pipeline that calls it. `test/test_vest_core_profiles_policy.py` pins
+that `vaft.process.profile` and `vaft.process.atomic` hold no such number
+and never import the machine layer (issue #420).
+
 `vaft.process.describe(name)`, `vaft.process.search(text)` and
 `vaft.process.list_processes(category=...)` read the docstrings on demand and
 are never imported by `import vaft.process`; `/reference/process/` is generated

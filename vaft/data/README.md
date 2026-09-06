@@ -48,6 +48,20 @@ Repository-only samples such as `efit/g039915.00319` and
 `legacy/46051_NeTe.mat` are available after cloning the repository, not after
 `pip install vaft`.
 
+### What `efit/` holds
+
+The directory mixes four kinds of file, and issue #194 needs them told apart:
+
+| Kind | Files | Status |
+| --- | --- | --- |
+| Legacy Green table (generated, provenance unrecorded) | `ec129129.ddd`, `ep129129.ddd`, `rv129129.ddd`, `rfcoil.ddd`, `brzgfc.dat`, `mhdout.dat` | The table the routine pipeline reconstructs with. 16 F-coil groups (PF1 as eight axial segments, PF5/6/9/10 upper and lower, one rectangle each), 950 vessel segments, 11 flux loops, 64 probes, 129×129 on R 0.05–1.2 m, Z ±1.5 m. Which EFUND build produced it, and when, is not recoverable; `vaft.code.efit.efund.table_identity()` reports it as `unrecorded` and identifies it by the hash of its `mhdin.dat`. `brzgfc.dat` is not read by EFIT. |
+| EFUND input | `mhdin.dat` | An NSTX-derived header with `device='VEST'`. It lists `islpfc` under `&in5`, which the current EFUND rejects (the variable belongs to `&in3`), so this file cannot be fed to the current EFUND as it stands; `vaft.code.efit.efund.write_mhdin` writes the canonical equivalent. |
+| EFIT inputs that are not Green tables | `lim.dat`, `dprobe.dat`, `rfcoil.txt` | `lim.dat` is the limiter outline EFIT reads from `TABLE_DIR`. `dprobe.dat` is not read by this EFIT. `rfcoil.txt` is a text rendering kept for reference. |
+| Reference outputs and stubs | `a039915.00319`, `g039915.*`, `g039020.*`, `g040330.*`, `efund_run_command.sh` | Stored pipeline reconstructions used by tests and the table A/B; the shell stub is superseded by `vaft.code.efit.efund`. |
+
+A freshly generated table carries an `efund_table_manifest.json`; see
+`workflow/efit_tables/README.md` for how the bundled table compares with one.
+
 The repository copy of the 39915 pair retains every successful EFIT time
 slice. Its wheel build replaces those checkout artifacts with a separately
 manifested three-slice variant generated from the same canonical ODS, keeping
@@ -107,7 +121,7 @@ taken from the shot-48226 @ 300 ms ideal-GPEC reference run
 `vest_12inch_20turn.dat`). The `UP`/`LOW` headers previously carried an
 erroneous `nw = 100.00` (their bodies were already identical to the corrected
 files); the geometry and the 20-turn interpretation were reviewed with 3D
-coil developer Gwang-geun Seo. `vaft.machine_mapping.coil_geometry_3d` is the
+coil developer Gwang-geun Seo. `vaft.machine_mapping.coils_non_axisymmetric_geometry` is the
 canonical loader; the metadata (identifiers, sector angles, provenance) lives
 in its `VEST_3D_COIL_SETS` constant.
 

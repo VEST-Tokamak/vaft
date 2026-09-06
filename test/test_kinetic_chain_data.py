@@ -118,8 +118,9 @@ def _has(ods, path):
 
 
 def test_thomson_only_writes_statistical_kinetic_slice():
-    from vaft.process.profile import TI_TE_RATIO_VEST
+    from vaft.machine_mapping.core_profiles import vest_core_profiles_policy
 
+    TI_TE_RATIO_VEST = vest_core_profiles_policy(SHOT).ti_te_ratio
     cp = "core_profiles.profiles_1d.0"
     ods = _build(with_ts=True, with_cx=False)
     assert _has(ods, f"{cp}.electrons.density")
@@ -135,6 +136,25 @@ def test_thomson_only_writes_statistical_kinetic_slice():
     np.testing.assert_allclose(
         pth, 1.602176634e-19 * ne * (1.0 + TI_TE_RATIO_VEST) * te, rtol=1e-10
     )
+    # the policy that produced the ion temperature is recorded beside it
+    record = str(ods[f"{cp}.ion.0.temperature_fit.parameters"])
+    assert "status=inferred" in record and "vest.yaml" in record
+
+
+def test_default_pipeline_fits_in_rho_tor_norm_and_says_so(kinetic_ods):
+    ods, _ = kinetic_ods
+    cp = "core_profiles.profiles_1d.0"
+    assert "coordinate=rho_tor_norm" in str(ods[f"{cp}.electrons.temperature_fit.parameters"])
+    assert "coordinate=rho_tor_norm" in str(ods[f"{cp}.ion.0.temperature_fit.parameters"])
+    assert "coordinate=rho_tor_norm" in str(ods["core_profiles.code.parameters"])
+    assert str(ods["core_profiles.code.name"]) == "vaft.process.profile"
+    assert f"{cp}.grid.rho_pol_norm" in ods and f"{cp}.grid.psi" in ods
+
+
+def test_pipeline_can_be_told_to_fit_in_psi_norm():
+    ods = _build(with_ts=True, with_cx=False, coordinate="psi_norm")
+    cp = "core_profiles.profiles_1d.0"
+    assert "coordinate=psi_norm" in str(ods[f"{cp}.electrons.temperature_fit.parameters"])
 
 
 def test_thomson_only_legacy_mode_unchanged():
