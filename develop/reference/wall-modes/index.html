@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>8b17b43</code>. What is described
+  <code>6bca428</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -344,9 +344,10 @@ exist for the study that will (vfit #10).</p>
 positive definite, a condition number above 1e12, an inductance asymmetric by
 more than 1e-6 (relative), and a near-degenerate pair of decay times inside a
 segment (relative gap below 1e-6; pass <code class="language-plaintext highlighter-rouge">on_cluster="warn"</code> to record instead).
-The packaged coupling asset is asymmetric by 1.27e-3 (#347); the mapper
-symmetrizes it on read, and an artifact materialized before that must be
-re-mapped: <code class="language-plaintext highlighter-rouge">compute_wall_mode_basis_ods(ods, remap_em_coupling=True)</code>.</p>
+The packaged coupling asset has been exactly reciprocal since #373 (its
+<code class="language-plaintext highlighter-rouge">provenance</code> record names the repair); an artifact materialized before that
+carries a 1.27e-3 asymmetry and must be re-mapped:
+<code class="language-plaintext highlighter-rouge">compute_wall_mode_basis_ods(ods, remap_em_coupling=True)</code>.</p>
 
 <h2 id="provenance">Provenance</h2>
 
@@ -562,7 +563,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-06 05:57:30 +0000"
+        "time": "2026-09-06 06:10:31 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
