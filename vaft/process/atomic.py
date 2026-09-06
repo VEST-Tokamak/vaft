@@ -48,32 +48,8 @@ logger = logging.getLogger(__name__)
 #: What each species' impurity density was taken from, per call.
 IMPURITY_SOURCES = ("profile", "configured", "inferred_from_zeff", "none")
 
-#: The VEST species and fractions this module used to default to. They are
-#: machine policy, not atomic physics, and live in ``vest.yaml`` now
-#: (``diagnostics.core_profiles.impurities``), resolved by the pipeline
-#: through :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`
-#: (issue #420). Reachable here for one cycle with a warning.
-_RETIRED_DEFAULTS = {
-    "DEFAULT_LINE_RADIATION_SPECIES": ("C", "O"),
-    "DEFAULT_IMPURITY_FRACTIONS": {"C": 1.0e-2, "O": 1.0e-2},
-}
 _DEFAULT_TIME_MATCH_ATOL = 1.0e-6
 
-
-def __getattr__(name: str):
-    if name in _RETIRED_DEFAULTS:
-        import warnings
-
-        warnings.warn(
-            f"vaft.process.atomic.{name} is VEST policy and no longer a default of "
-            "this module; resolve it with "
-            "vaft.machine_mapping.core_profiles.vest_core_profiles_policy(shot) and "
-            "pass the result in (issue #420)",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return _RETIRED_DEFAULTS[name]
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 #: Shared with :mod:`vaft.spectroscopy`, which owns the element vocabulary so
 #: that ``vaft.plot`` can resolve species without importing OMAS through this
 #: module.  ``D`` and ``T`` stay distinct keys here because ADAS files are
@@ -81,7 +57,6 @@ def __getattr__(name: str):
 #: with a mass number instead.
 _ATOMIC_NUMBERS = ATOMIC_NUMBERS
 _ELEMENT_NAMES = ELEMENT_NAMES
-
 
 
 def compute_time_match_atol(time_array: ndarray, base_atol: float = _DEFAULT_TIME_MATCH_ATOL) -> float:

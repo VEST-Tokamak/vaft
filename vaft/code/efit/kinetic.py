@@ -98,22 +98,18 @@ SPLINE_SIG_FRAC = 0.15   # SIGPRE = SIG_FRAC * p_kin(axis), constant in Pa
 #: Descending PLASMA-scale sweep; first (largest) converging scale wins.
 DEFAULT_SCALES = (1.0, 0.94, 0.90, 0.85, 0.80, 0.75, 0.70, 0.60, 0.50, 0.40)
 def _core_profiles_policy(ods=None, shot=None, policy=None):
-    """The VEST kinetic-profile policy for this ODS, resolved once.
+    """The VEST kinetic-profile policy for this ODS, resolved once (cached by the resolver).
 
-    ``shot`` wins; otherwise it is inferred from the ODS; an ODS with no shot
-    number resolves the base revision (shot 0), which the policy's provenance
-    records as ``revision_index: None``.
+    ``shot`` wins; otherwise the ODS's own shot number; an ODS with none
+    resolves the base revision and its provenance text says ``shot=unknown``.
+    One rule, shared with the power-balance wrapper:
+    :func:`vaft.machine_mapping.core_profiles.policy_for_ods`.
     """
     if policy is not None:
         return policy
-    from vaft.machine_mapping.core_profiles import vest_core_profiles_policy
+    from vaft.machine_mapping.core_profiles import policy_for_ods
 
-    if shot is None and ods is not None:
-        try:
-            shot = _infer_shot(ods)
-        except Exception:  # noqa: BLE001 -- a test ODS without dataset_description
-            shot = None
-    return vest_core_profiles_policy(0 if shot is None else int(shot))
+    return policy_for_ods(ods, shot)
 
 
 def _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma=None, *, ods=None, shot=None, policy=None):
@@ -828,6 +824,10 @@ def build_kinetic_core_profiles(
                 fitting_function_te=te_mode, fitting_function_ne=ne_mode,
                 coordinate=coord,
             )
+        except _profile.CoordinateUnavailableError:
+            # not "no Thomson fit": the equilibrium cannot supply the policy's
+            # coordinate, and the caller has to choose one, not lose the slice
+            raise
         except Exception as exc:  # noqa: BLE001
             if require_thomson:
                 raise
@@ -846,6 +846,8 @@ def build_kinetic_core_profiles(
                 ion_index=ion_index,
                 coordinate=coord,
             )
+        except _profile.CoordinateUnavailableError:
+            raise
         except Exception as exc:  # noqa: BLE001
             if require_ion:
                 raise
@@ -1085,6 +1087,7 @@ def run_kinetic_chain(
     """
     from dataclasses import replace
 
+    profile_modes.setdefault("shot", efit_config.shot)
     ods = build_kinetic_core_profiles(ods, geq, time_ms, **profile_modes)
 
     if efit_config.time_ms is None:

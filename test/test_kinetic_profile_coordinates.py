@@ -357,3 +357,96 @@ def test_the_default_pipeline_differs_from_the_pre_change_one_on_purpose(shot_od
     assert te.shape == fx["cp_te"].shape
     assert not np.allclose(te, fx["cp_te"], rtol=1e-3)
     assert np.all(np.isfinite(te)) and te[0] > 0
+
+
+# --- cold-review regressions ------------------------------------------------------
+
+
+def test_a_stored_sqrt_psi_proxy_grid_is_re_derived_not_trusted(shot_ods):
+    """A pre-#276 equilibrium stores sqrt(psi_N) under rho_tor_norm.
+
+    Evaluating a rho_tor_norm fit on that proxy would put the profile at the
+    wrong radius.  The grid builder re-derives the coordinate from the slice's
+    own ``q`` instead.
+    """
+    ods, geq = shot_ods
+    n = len(np.asarray(ods["equilibrium.time_slice.0.profiles_1d.psi"]))
+    psi = np.asarray(ods["equilibrium.time_slice.0.profiles_1d.psi"], dtype=float)
+    psi_n = (psi - psi[0]) / (psi[-1] - psi[0])
+
+    work = ODS()
+    work["equilibrium"] = ods["equilibrium"]
+    work["equilibrium.time_slice.0.profiles_1d.rho_tor_norm"] = np.sqrt(np.clip(psi_n, 0, 1))
+
+    from vaft.data._derived import is_rho_pol_proxy
+
+    assert is_rho_pol_proxy(work["equilibrium.time_slice.0.profiles_1d.rho_tor_norm"], psi_n)
+
+    grid = P._equilibrium_grid_at_time(work, float(work["equilibrium.time"][0]), 1.0)
+    rho, psi_n_grid = grid.rho_tor_norm, grid.psi_norm
+    assert grid.rho_tor_norm_trusted and rho.size == n
+    assert not np.allclose(rho, np.sqrt(np.clip(psi_n_grid, 0, 1)), atol=1e-3)
+    expected = derive_radial_coordinates(geq)["rho_tor_n"].value
+    np.testing.assert_allclose(rho, expected, atol=2e-3)
+
+
+def test_a_proxy_grid_without_q_refuses_rho_tor_norm_rather_than_substituting(shot_ods):
+    ods, geq = shot_ods
+    psi = np.asarray(ods["equilibrium.time_slice.0.profiles_1d.psi"], dtype=float)
+    psi_n = (psi - psi[0]) / (psi[-1] - psi[0])
+
+    work = ODS()
+    work["thomson_scattering"] = ods["thomson_scattering"]
+    work["equilibrium.time"] = np.asarray(ods["equilibrium.time"], dtype=float)
+    work["equilibrium.ids_properties.homogeneous_time"] = 1
+    work["equilibrium.time_slice.0.profiles_1d.psi"] = psi
+    work["equilibrium.time_slice.0.profiles_1d.rho_tor_norm"] = np.sqrt(np.clip(psi_n, 0, 1))
+
+    mapped = P.equilibrium_mapping_thomson_scattering(ods, geq)
+    ne_fit, te_fit, *_ = P.profile_fitting_thomson_scattering(ods, TIME_MS, mapped, time_tolerance_ms=3.0)
+    with pytest.raises(P.CoordinateUnavailableError, match="rho_pol_norm"):
+        P.core_profiles(work, TIME_MS, mapped, ne_fit, te_fit, time_tolerance_ms=3.0)
+
+    P.core_profiles(work, TIME_MS, mapped, ne_fit.function, te_fit.function,
+                    coordinate="rho_pol_norm", time_tolerance_ms=3.0)
+    assert "core_profiles.profiles_1d.0.grid.rho_pol_norm" in work
+
+
+def test_a_bare_ion_array_is_refused_not_downgraded_to_a_warning(shot_ods):
+    """The CX refusal is a caller error; it must not be swallowed by the
+    metadata try/except that reports 'could not attach'."""
+    ods, geq = shot_ods
+    mapped_ts = P.equilibrium_mapping_thomson_scattering(ods, geq)
+    mapped_cx = P.equilibrium_mapping_charge_exchange(ods, geq)
+    ne_fit, te_fit, *_ = P.profile_fitting_thomson_scattering(ods, TIME_MS, mapped_ts, time_tolerance_ms=3.0)
+    _, ti_fit, *_ = P.profile_fitting_charge_exchange(ods, TIME_MS, mapped_cx, ion_index=0, time_tolerance_ms=3.0)
+
+    work = ODS()
+    work["thomson_scattering"] = ods["thomson_scattering"]
+    work["charge_exchange"] = ods["charge_exchange"]
+    with pytest.raises(TypeError, match="ti_mapped_rho_position"):
+        P.core_profiles(work, TIME_MS, mapped_ts, ne_fit, te_fit, T_i_function=ti_fit,
+                        ti_mapped_positions=np.asarray(mapped_cx.psi_norm), geq=geq,
+                        time_tolerance_ms=3.0)
+
+
+def test_mapping_and_fit_records_are_usable_in_a_set(shot_ods):
+    """ndarray fields make the generated __eq__ raise; the records opt out."""
+    ods, geq = shot_ods
+    mapped = P.equilibrium_mapping_thomson_scattering(ods, geq)
+    ne_fit, te_fit, *_ = P.profile_fitting_thomson_scattering(ods, TIME_MS, mapped, time_tolerance_ms=3.0)
+
+    assert mapped == mapped and mapped != P.equilibrium_mapping_charge_exchange(ods, geq)
+    assert len({mapped, ne_fit, te_fit}) == 3
+
+
+def test_an_existing_producer_name_is_not_overwritten(shot_ods):
+    ods, geq = shot_ods
+    mapped = P.equilibrium_mapping_thomson_scattering(ods, geq)
+    ne_fit, te_fit, *_ = P.profile_fitting_thomson_scattering(ods, TIME_MS, mapped, time_tolerance_ms=3.0)
+
+    work = ODS()
+    work["thomson_scattering"] = ods["thomson_scattering"]
+    work["core_profiles.code.name"] = "vaft.code.efit.kinetic"
+    P.core_profiles(work, TIME_MS, mapped, ne_fit, te_fit, geq=geq, time_tolerance_ms=3.0)
+    assert work["core_profiles.code.name"] == "vaft.code.efit.kinetic"

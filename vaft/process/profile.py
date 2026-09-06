@@ -52,6 +52,7 @@ Provenance
 import os
 import warnings
 from dataclasses import dataclass
+from typing import NamedTuple
 
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
@@ -107,7 +108,7 @@ class CoordinateUnavailableError(ValueError):
     """
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class MappedPositions:
     """Diagnostic channel positions in every radial coordinate the equilibrium supports.
 
@@ -183,7 +184,7 @@ def _positions_for_fit(mapped, coordinate, *, legacy_name="mapped_rho_position")
     return np.asarray(mapped, dtype=float).reshape(-1), coordinate
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class FittedProfile:
     """A fitted 1-D profile that knows which radial coordinate it is a function of.
 
@@ -458,11 +459,6 @@ def _psi_norm_from_equilibrium_points(geq, r_points, z_points):
     # Outside the LCFS (rho > 1) -> NaN rather than pinning to the edge psi_N level.
     rho = np.where(rho > 1.0, np.nan, rho)
     return np.clip(rho, 0.0, 1.0), source
-
-
-#: Kept for one cycle for anything that reached in for the private helper.
-def _rho_from_equilibrium_points(geq, r_points, z_points):
-    return _psi_norm_from_equilibrium_points(geq, r_points, z_points)[0]
 
 
 def _coordinates_from_psi_norm(geq, psi_norm, source):
@@ -1383,8 +1379,24 @@ def profile_fitting_charge_exchange(
     Vtor_fit = FittedProfile(Vtor_function, coordinate, str(fitting_function_vtor), int(Vtor_order), coeffs_vtor, v_span)
     Ti_fit = FittedProfile(Ti_function, coordinate, str(fitting_function_ti), int(Ti_order), coeffs_ti, ti_span)
     return Vtor_fit, Ti_fit, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho
+class _EquilibriumGrid(NamedTuple):
+    """The 1-D flux grid a profile is stored on, and whether its rho is real.
+
+    ``rho_tor_norm_trusted`` is ``False`` when the grid's ``rho_tor_norm`` is
+    indistinguishable from the ``sqrt(psi_N)`` proxy that producers wrote
+    before issue #276 and the real coordinate could not be re-derived from
+    ``q``.  The array is still stored as the equilibrium's own description of
+    itself, but a ``rho_tor_norm`` fit must not be evaluated on it.
+    """
+
+    rho_tor_norm: "np.ndarray"
+    psi: "np.ndarray"
+    psi_norm: "np.ndarray"
+    rho_tor_norm_trusted: bool = True
+
+
 def _grid_from_geq(geq):
-    """Return (rho_tor_norm, psi, psi_N) 1D grid from a geqdsk, or None.
+    """Return the 1-D (rho_tor_norm, psi, psi_N) grid from a geqdsk, or None.
 
     Used so core_profiles can put profiles on the grid of the SAME equilibrium
     that was used for the psi_N mapping, without depending on (or mutating) the
@@ -1406,7 +1418,7 @@ def _grid_from_geq(geq):
     if rho.size < 2 or psi.size < 2 or psi[-1] == psi[0]:
         return None
     psi_n = (psi - psi[0]) / (psi[-1] - psi[0])
-    return rho, psi, psi_n
+    return _resolve_grid_rho(rho, psi, psi_n, lambda: _rho_tor_from_equilibrium(geq, psi_n))
 
 
 def _equilibrium_grid_at_time(ods, target_s, tol_s):
@@ -1432,7 +1444,53 @@ def _equilibrium_grid_at_time(ods, target_s, tol_s):
     if rho.ndim != 1 or rho.shape != psi.shape or psi[-1] == psi[0]:
         return None
     psi_n = (psi - psi[0]) / (psi[-1] - psi[0])
-    return rho, psi, psi_n
+    return _resolve_grid_rho(rho, psi, psi_n, lambda: _rho_tor_from_equilibrium(ods, psi_n, time_index=idx))
+
+
+def _resolve_grid_rho(rho, psi, psi_n, derive):
+    """Trust the grid's ``rho_tor_norm``, or re-derive it, or mark it untrusted.
+
+    A producer before issue #276 wrote ``sqrt(psi_N)`` under ``rho_tor_norm``,
+    and every packaged sample is in that state; evaluating a ``rho_tor_norm``
+    fit on it would put the profile at the wrong radius.  When the array looks
+    like that proxy the real coordinate is re-derived from ``q``; when it
+    cannot be, the stored array is kept as the equilibrium's own description
+    but flagged, and :func:`core_profiles` refuses the coordinate by name.
+    """
+    from vaft.data._derived import is_rho_pol_proxy
+
+    if not is_rho_pol_proxy(rho, psi_n):
+        return _EquilibriumGrid(rho, psi, psi_n, True)
+    derived = derive()
+    if derived is None:
+        return _EquilibriumGrid(rho, psi, psi_n, False)
+    return _EquilibriumGrid(derived, psi, psi_n, True)
+
+
+def _rho_tor_from_equilibrium(source, psi_n_grid, *, time_index=0):
+    """``rho_tor_norm`` on ``psi_n_grid``, derived from the equilibrium's own ``q``.
+
+    ``None`` when the derivation is unavailable -- no ``q``, or a ``q`` that
+    does not produce a monotonic toroidal flux -- so the caller can say so
+    instead of substituting a different coordinate.
+    """
+    if source is None:
+        return None
+    try:
+        from ._equilibrium_parametric import as_equilibrium, derive_radial_coordinates
+
+        derived = derive_radial_coordinates(as_equilibrium(source, time_index=time_index))
+        rho_tor = derived.get("rho_tor_n")
+        psi_n = derived.get("psi_n")
+        rho_tor_values = np.asarray(getattr(rho_tor, "value", rho_tor), dtype=float).reshape(-1)
+        psi_n_values = np.asarray(getattr(psi_n, "value", psi_n), dtype=float).reshape(-1)
+    except Exception:
+        return None
+    if rho_tor_values.size < 2 or rho_tor_values.shape != psi_n_values.shape:
+        return None
+    if not np.all(np.isfinite(rho_tor_values)) or not np.all(np.isfinite(psi_n_values)):
+        return None
+    return np.interp(np.asarray(psi_n_grid, dtype=float), psi_n_values, rho_tor_values)
 
 
 def _channel_rho_tor_norm(mapped, positions, coordinate, eq_grid):
@@ -1446,9 +1504,11 @@ def _channel_rho_tor_norm(mapped, positions, coordinate, eq_grid):
         return np.asarray(mapped.rho_tor_norm, dtype=float).reshape(-1)
     if coordinate == "rho_tor_norm":
         return np.asarray(positions, dtype=float).reshape(-1)
+    if eq_grid is not None and not eq_grid.rho_tor_norm_trusted:
+        return None
     if eq_grid is None:
         return None
-    rho_tor_grid, _, psi_n_grid = eq_grid
+    rho_tor_grid, psi_n_grid = eq_grid.rho_tor_norm, eq_grid.psi_norm
     psi_n = positions if coordinate == "psi_norm" else np.asarray(positions, dtype=float) ** 2
     out = np.full(np.shape(positions), np.nan)
     finite = np.isfinite(psi_n)
@@ -1705,7 +1765,15 @@ def core_profiles(
     if eq_grid is None:
         eq_grid = _equilibrium_grid_at_time(ods, target_s, tol_s)
     if eq_grid is not None:
-        rho_tor_grid, psi_grid, psi_n_grid = eq_grid
+        rho_tor_grid, psi_grid, psi_n_grid = eq_grid[:3]
+        if coord == "rho_tor_norm" and not eq_grid.rho_tor_norm_trusted:
+            raise CoordinateUnavailableError(
+                "the equilibrium slice at this time stores rho_tor_norm as a "
+                "sqrt(psi_N) proxy and carries no usable q profile to re-derive "
+                "it from, so a rho_tor_norm fit cannot be evaluated on this "
+                "grid. Pass coordinate='rho_pol_norm' or 'psi_norm' to fit and "
+                "store in a coordinate this equilibrium supports."
+            )
         rho_pol_grid = np.sqrt(np.clip(psi_n_grid, 0.0, None))
         x_grid = {
             "rho_tor_norm": rho_tor_grid,
@@ -1838,6 +1906,11 @@ def core_profiles(
         fit_base_ti = f'{base}.ion.0.temperature_fit'
         ods[f'{fit_base_ti}.parameters'] = _fit_parameters_text(T_i_function, coord)
         if ti_mapped_positions is not None:
+            # Resolved outside the try: a refused coordinate is a caller error and
+            # must not be downgraded to a "could not attach metadata" warning.
+            ti_rho, _ = _positions_for_fit(
+                ti_mapped_positions, coord, legacy_name="ti_mapped_rho_position"
+            )
             try:
                 ce_times = np.asarray(ods['charge_exchange.time'], dtype=float)
                 ce_idx = int(np.argmin(np.abs(ce_times - target_s)))
@@ -1854,7 +1927,6 @@ def core_profiles(
                     ti_meas_err.append(err)
                 ti_meas = np.asarray(ti_meas, dtype=float)
                 ti_meas_err = np.asarray(ti_meas_err, dtype=float)
-                ti_rho, _ = _positions_for_fit(ti_mapped_positions, coord, legacy_name="ti_mapped_rho_position")
                 ti_rho_tor = _channel_rho_tor_norm(ti_mapped_positions, ti_rho, coord, eq_grid)
                 if ti_rho_tor is not None:
                     finite_ti = np.isfinite(ti_rho) & np.isfinite(ti_rho_tor)
@@ -1875,7 +1947,8 @@ def core_profiles(
         ion_record = "Ti[legacy Ti=Te]"
 
     # --- IDS bookkeeping: producer and per-slice provenance, then the time base ---
-    ods['core_profiles.code.name'] = 'vaft.process.profile'
+    if 'core_profiles.code.name' not in ods:
+        ods['core_profiles.code.name'] = 'vaft.process.profile'
     _append_code_parameters(
         ods,
         'core_profiles',

@@ -18,12 +18,14 @@ The carbon and oxygen fractions are ``assumed``.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-from typing import Any, Mapping
+from functools import lru_cache
+from typing import Any, Mapping, Optional
 
 from .utils import VestConfigurationError, resolve_vest_diagnostic
 
-__all__ = ["CoreProfilesPolicy", "POLICY_STATUSES", "vest_core_profiles_policy"]
+__all__ = ["CoreProfilesPolicy", "POLICY_STATUSES", "policy_for_ods", "vest_core_profiles_policy"]
 
 #: How a configured value relates to the truth it stands in for.
 POLICY_STATUSES = ("assumed", "measured", "inferred")
@@ -47,7 +49,7 @@ class CoreProfilesPolicy:
     derivation notes, verbatim.
     """
 
-    shot: int
+    shot: Optional[int]
     coordinate: str
     ti_te_ratio: float
     ti_te_ratio_sigma: float
@@ -58,11 +60,18 @@ class CoreProfilesPolicy:
     provenance: Mapping[str, Any]
     source: str = _SOURCE
 
+    @property
+    def revision_text(self) -> str:
+        """``base`` or ``revision=<n>``, and whether the shot was known."""
+        index = self.provenance.get("revision", {}).get("revision_index")
+        era = "base" if index is None else f"revision={index}"
+        return era if self.shot is not None else f"{era}; shot=unknown"
+
     def ti_te_ratio_text(self) -> str:
         """The record a profile writer stores beside a ratio-derived ion temperature."""
         return (
             f"ti_te_ratio={self.ti_te_ratio:g}; sigma={self.ti_te_ratio_sigma:g}; "
-            f"status={self.ti_te_ratio_status}; source={self.source}"
+            f"status={self.ti_te_ratio_status}; source={self.source}; {self.revision_text}"
         )
 
     def impurity_text(self) -> str:
@@ -87,12 +96,13 @@ def _finite_non_negative(value: Any, context: str) -> float:
         number = float(value)
     except (TypeError, ValueError) as exc:
         raise VestConfigurationError(f"{context}: expected a number, got {value!r}") from exc
-    if not number >= 0.0 or number != number or number == float("inf"):
+    if not (math.isfinite(number) and number >= 0.0):
         raise VestConfigurationError(f"{context}: must be finite and non-negative, got {value!r}")
     return number
 
 
-def vest_core_profiles_policy(shot: int, *, info_file: str | None = None) -> CoreProfilesPolicy:
+@lru_cache(maxsize=64)
+def vest_core_profiles_policy(shot: Optional[int], *, info_file: str | None = None) -> CoreProfilesPolicy:
     """Resolve the VEST kinetic-profile policy for *shot* from ``vest.yaml``.
 
     Pure configuration: no data is read.  Raises
@@ -100,10 +110,15 @@ def vest_core_profiles_policy(shot: int, *, info_file: str | None = None) -> Cor
     block is missing or malformed -- a wrong status word, an unknown
     coordinate, a negative fraction -- rather than returning a default,
     because a silently defaulted assumption is the thing this policy exists
-    to prevent.
+    to prevent.  ``shot=None`` resolves the base revision and says so in the
+    policy's ``revision_text``; it is for an ODS that carries no shot number,
+    never a way to skip the era lookup for one that does.
+
+    Cached: the result is a frozen record of a file that does not change
+    while a pipeline runs, and a kinetic pipeline asks once per time slice.
     """
     config, revision = resolve_vest_diagnostic(
-        int(shot), _DIAGNOSTIC, info_file=info_file, with_provenance=True
+        0 if shot is None else int(shot), _DIAGNOSTIC, info_file=info_file, with_provenance=True
     )
     context = f"VEST diagnostic {_DIAGNOSTIC!r}"
 
@@ -145,7 +160,7 @@ def vest_core_profiles_policy(shot: int, *, info_file: str | None = None) -> Cor
         },
     }
     return CoreProfilesPolicy(
-        shot=int(shot),
+        shot=None if shot is None else int(shot),
         coordinate=str(coordinate),
         ti_te_ratio=ratio,
         ti_te_ratio_sigma=sigma,
@@ -155,3 +170,32 @@ def vest_core_profiles_policy(shot: int, *, info_file: str | None = None) -> Cor
         impurity_status=statuses,
         provenance=provenance,
     )
+
+
+_SHOT_PATHS = ("dataset_description.data_entry.pulse", "summary.global_quantities.pulse")
+
+
+def shot_number(ods) -> Optional[int]:
+    """The shot number an ODS carries, or ``None`` -- without materializing anything.
+
+    An OMAS read of a missing leaf creates its parents, so this probes with
+    ``in`` first; ``compute_power_balance`` on a shot-less ODS must not leave
+    an empty ``summary`` IDS behind.
+    """
+    for path in _SHOT_PATHS:
+        try:
+            if path in ods:
+                return int(ods[path])
+        except Exception:  # noqa: BLE001 -- a FakeNode or a malformed leaf
+            continue
+    return None
+
+
+def policy_for_ods(ods, shot: Optional[int] = None, *, info_file: str | None = None) -> CoreProfilesPolicy:
+    """The policy for this ODS: ``shot`` if given, else the ODS's own, else the base revision.
+
+    One rule for every pipeline.  A shot-less ODS gets the base revision with
+    ``shot=unknown`` in its provenance text, which is explicit rather than
+    silent; a caller that knows the shot passes it.
+    """
+    return vest_core_profiles_policy(shot if shot is not None else shot_number(ods), info_file=info_file)

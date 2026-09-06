@@ -997,19 +997,6 @@ def _compute_bremsstrahlung_power_series(
     return P_Br
 
 
-def _core_profiles_policy_for(ods):
-    """The VEST kinetic-profile policy for this ODS's shot, or ``None`` without a shot."""
-    from vaft.machine_mapping.core_profiles import vest_core_profiles_policy
-
-    for path in ("dataset_description.data_entry.pulse", "summary.global_quantities.pulse"):
-        try:
-            shot = int(ods[path])
-        except Exception:
-            continue
-        return vest_core_profiles_policy(shot)
-    return None
-
-
 def compute_power_balance(
     ods: ODS,
     include_line_radiation: bool = True,
@@ -1184,23 +1171,24 @@ def compute_power_balance(
         "policy": None,
     }
     if line_rad_requested:
-        if impurity_fractions is None or line_radiation_species is None:
-            policy = _core_profiles_policy_for(ods)
-            if policy is not None:
-                assumptions["policy"] = policy.source
-                if impurity_fractions is None:
-                    impurity_fractions = dict(policy.impurity_fractions)
-                    assumptions["impurity_status"] = dict(policy.impurity_status)
-                if line_radiation_species is None:
-                    line_radiation_species = list(policy.impurity_species)
-            else:
-                logger.warning(
-                    "no shot number in the ODS: no impurity fractions resolved from the "
-                    "VEST policy; line radiation is zero unless the ODS carries ion profiles"
-                )
-        if impurity_fractions is not None:
-            for species, value in impurity_fractions.items():
-                assumptions["impurity_status"].setdefault(species, "argument")
+        if impurity_fractions is None:
+            # No fractions given: the machine policy supplies them, and the
+            # species list with them. An explicit {} means "no assumption" and
+            # leaves species to whatever the ODS carries ion profiles for.
+            from vaft.machine_mapping.core_profiles import policy_for_ods
+
+            policy = policy_for_ods(ods)
+            assumptions["policy"] = f"{policy.source}; {policy.revision_text}"
+            impurity_fractions = dict(policy.impurity_fractions)
+            assumptions["impurity_status"] = dict(policy.impurity_status)
+            if line_radiation_species is None:
+                line_radiation_species = list(policy.impurity_species)
+        else:
+            from vaft.process.atomic import normalize_atomic_symbol
+
+            for label in impurity_fractions:
+                symbol = normalize_atomic_symbol(label) or str(label)
+                assumptions["impurity_status"].setdefault(symbol, "argument")
         P_rad_line, line_assumptions = compute_line_radiation_power_series(
             ods=ods,
             eq_indices=idxs,

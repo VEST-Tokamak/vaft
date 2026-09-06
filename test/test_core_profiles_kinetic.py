@@ -47,6 +47,12 @@ def _make_ods(with_eq=True, n_grid=33):
         ods["equilibrium.time_slice.0.time"] = 0.300
         ods["equilibrium.time_slice.0.profiles_1d.rho_tor_norm"] = rho_tor
         ods["equilibrium.time_slice.0.profiles_1d.psi"] = psi
+        # Flat q: rho_tor_norm = sqrt(psi_N) is the TRUE coordinate here, not the
+        # pre-#276 proxy. Without q the grid cannot tell the two apart and a
+        # rho_tor_norm fit is refused, which is the intended behaviour.
+        ods["equilibrium.time_slice.0.profiles_1d.q"] = np.ones_like(rho_tor)
+        ods["equilibrium.time_slice.0.global_quantities.psi_axis"] = float(psi[0])
+        ods["equilibrium.time_slice.0.global_quantities.psi_boundary"] = float(psi[-1])
     return ods, psi_n_ch
 
 
