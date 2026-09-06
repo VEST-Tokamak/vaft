@@ -142,7 +142,7 @@ command -v git >/dev/null || die "git is required"
 
 # --- revision and cleanliness -------------------------------------------------
 REVISION="$(git -C "$SOURCE" rev-parse --short HEAD 2>/dev/null || true)"
-[[ -n "$REVISION" ]] || die "the source tree is not a git checkout, so its revision cannot be recorded"
+[[ -n "$REVISION" ]] || die "the source tree is not under git, so its revision cannot be recorded"
 DESCRIBED="$(git -C "$SOURCE" describe --always --dirty 2>/dev/null || echo "$REVISION")"
 BRANCH="$(git -C "$SOURCE" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
 REMOTE="$(git -C "$SOURCE" remote get-url origin 2>/dev/null || echo "")"
