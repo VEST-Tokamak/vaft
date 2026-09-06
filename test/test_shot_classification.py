@@ -88,13 +88,23 @@ def test_the_lenient_form_answers_none_for_an_ids_without_the_channel():
 
 
 def test_the_threshold_reaches_the_detector():
-    """Passing it under the wrong keyword is what broke this in the first place."""
-    barely_moving = np.full(64, 1.0)
-    barely_moving[::2] += 1.0e-4
-    assert vaft.omas.classify_shot(_shot(barely_moving, barely_moving)) == "Plasma"
+    """Passing it under the wrong keyword is what broke this in the first place.
+
+    The trace below sits between two thresholds: its change ratio is about 0.02
+    and its variance ratio about 1e-4, so `is_signal_active` calls it active at
+    0.01 and flat at 0.05. A threshold that never reached the detector could not
+    move the answer.
+    """
+    faint = np.full(64, 1.0)
+    faint[::2] += 0.02
+    assert vaft.omas.classify_shot(_shot(faint, faint)) == "Plasma"
     assert (
-        vaft.omas.classify_shot(
-            _shot(barely_moving, barely_moving), pressure_threshold=1.0
-        )
+        vaft.omas.classify_shot(_shot(faint, faint), pressure_threshold=0.05)
         == "Vacuum"
+    )
+    # Gas seen, light judged flat: the middle class, reached by moving only the
+    # second threshold.
+    assert (
+        vaft.omas.classify_shot(_shot(faint, faint), halpha_threshold=0.05)
+        == "BD failure"
     )
