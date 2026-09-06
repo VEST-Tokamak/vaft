@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a579e25</code>. What is described
+  <code>fb56a04</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -489,6 +489,22 @@ mapping merged into the subprocess environment.</p>
     </tr>
   </tbody>
 </table>
+
+<h3 id="3-d-coil-input-for-any-machine">3-D coil input for any machine</h3>
+
+<p>By default the ideal-GPEC stage copies the packaged VEST <code class="language-plaintext highlighter-rouge">coil.in</code> template. Passing
+<code class="language-plaintext highlighter-rouge">IdealGPECOptions(coil_specs=[CoilInputSpec(name, currents_a), ...])</code> instead generates <code class="language-plaintext highlighter-rouge">coil.in</code>
+and stages one <code class="language-plaintext highlighter-rouge">&lt;machine&gt;_&lt;set&gt;.dat</code> per activated set (<code class="language-plaintext highlighter-rouge">coil_num</code> is always the number of specs).
+For <code class="language-plaintext highlighter-rouge">machine="vest"</code> (the default) the geometry and the GPEC direction words come from the packaged
+VEST configuration and <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.conventions.VEST_GPEC_COIL_DIRECTIONS</code>. For any other
+machine three things are mandatory and are never inherited from the template: <code class="language-plaintext highlighter-rouge">coil_config</code>, a
+mapping of set name to <code class="language-plaintext highlighter-rouge">CoilSet3D</code> (build one from Cartesian loops with
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.coils_non_axisymmetric_geometry.coil_set_from_xyz_loops</code>, or from an existing
+GPEC file with <code class="language-plaintext highlighter-rouge">coil_set_from_dat</code>), and the machine’s <code class="language-plaintext highlighter-rouge">ip_direction</code> / <code class="language-plaintext highlighter-rouge">bt_direction</code>
+(<code class="language-plaintext highlighter-rouge">"positive"</code> for counter-clockwise, <code class="language-plaintext highlighter-rouge">"negative"</code> for clockwise, viewed from above, as GPEC defines
+them). A set built in memory is written out with the canonical header <code class="language-plaintext highlighter-rouge">ncoil nsec npts nw</code>
+(<code class="language-plaintext highlighter-rouge">GPEC_COIL_DAT_HEADER</code>). The toroidal-mode content of a current pattern and the vacuum field of
+the filaments are available as plain-array kernels in <code class="language-plaintext highlighter-rouge">vaft.process.coils_non_axisymmetric</code>.</p>
 
 <p>To stage the inputs without executing anything — useful when the run itself is dispatched by a
 scheduler — call <code class="language-plaintext highlighter-rouge">prepare_gpec_suite_case(inputs, config)</code> directly. <code class="language-plaintext highlighter-rouge">run_gpec(inputs, config)</code> is a
@@ -859,7 +875,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#density-limit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Density limit</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-combined-margin-helper-and-its-one-trap" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The combined margin helper, and its one trap</a></li><li class="page-toc-item page-toc-level-2"><a href="#operational-space-traces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Operational-space traces</a></li><li class="page-toc-item page-toc-level-2"><a href="#configure-prepare-run" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configure, prepare, run</a></li><li class="page-toc-item page-toc-level-2"><a href="#directory-layout-and-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Directory layout and outputs</a></li><li class="page-toc-item page-toc-level-2"><a href="#geqdsk-headers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GEQDSK headers</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#density-limit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Density limit</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-combined-margin-helper-and-its-one-trap" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The combined margin helper, and its one trap</a></li><li class="page-toc-item page-toc-level-2"><a href="#operational-space-traces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Operational-space traces</a></li><li class="page-toc-item page-toc-level-2"><a href="#configure-prepare-run" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configure, prepare, run</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#3-d-coil-input-for-any-machine" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D coil input for any machine</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#directory-layout-and-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Directory layout and outputs</a></li><li class="page-toc-item page-toc-level-2"><a href="#geqdsk-headers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GEQDSK headers</a></li></ul>
     </nav>
 </aside>
 
@@ -977,7 +993,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-06 16:33:52 +0000"
+        "time": "2026-09-06 16:54:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

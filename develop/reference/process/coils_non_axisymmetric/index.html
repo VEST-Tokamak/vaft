@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Start here · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: coils_non_axisymmetric · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/" />
+            <link rel="prev" href="/vaft/develop/reference/process/atomic/" />
         
 
         
-            <link rel="next" href="/vaft/develop/guide/Quick_start_guide/" />
+            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
         
     </head>
     <body>
@@ -81,7 +81,7 @@
                 <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
                 
                     
-                    <li class="chapter active" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
                     
                         <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
                     </li>
@@ -220,7 +220,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Start here</a>
+                            <a href="." >Process reference: coils_non_axisymmetric</a>
                         
                     </h1>
                 </div>
@@ -246,161 +246,201 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/workflows/Installation">Start here</h1>
+                        <h1 id="/reference/process/Process_reference_coils_non_axisymmetric">Process reference: coils_non_axisymmetric</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Entry point from installation to an offline ODS and optional public data.</dd>
-    <dt>Prerequisites / inputs</dt><dd>Python 3.10–3.13, Git, and a fresh virtual environment.</dd>
-    <dt>Expected result</dt><dd>A local plasma-current plot, followed optionally by read-only shot 39915 metadata.</dd>
-    <dt>Status</dt><dd>Verified offline and against public HSDS.</dd>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.coils_non_axisymmetric, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
-<p>This path gets a new user from a clean Python environment to a visible result without requiring
-database credentials or an external fusion code. Public VEST data access is the optional second step.</p>
 
-<h2 id="1-install-vaft-from-source">1. Install VAFT from source</h2>
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/coils_non_axisymmetric.py"><code class="language-plaintext highlighter-rouge">vaft/process/coils_non_axisymmetric.py</code></a>:
+2 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("coils_non_axisymmetric.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
-<p>VAFT supports Python 3.10–3.13. Use a virtual environment and install the repository source:</p>
+<h2 id="overview">Overview</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git clone https://github.com/VEST-Tokamak/vaft.git
-<span class="nb">cd </span>vaft
-python <span class="nt">-m</span> pip <span class="nb">install</span> <span class="nt">-e</span> <span class="nb">.</span>
-</code></pre></div></div>
-
-<p>The declared dependencies include OMAS, IMAS-Python, plotting tools, Snakemake and <code class="language-plaintext highlighter-rouge">h5pyd</code>. NumPy 2
-is the default numerical stack. The older PyPI package is retained for compatibility but is not the
-recommended installation route.</p>
-
-<h3 id="development-tooling">Development tooling</h3>
-
-<p><code class="language-plaintext highlighter-rouge">dev</code> is the only optional-dependency group defined by the project:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> pip <span class="nb">install</span> <span class="nt">-e</span> <span class="s2">".[dev]"</span>
-</code></pre></div></div>
-
-<h2 id="2-produce-the-first-offline-result">2. Produce the first offline result</h2>
-
-<p>The packaged sample follows the same OMAS/IMAS paths as a VEST shot:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
-<span class="kn">import</span> <span class="n">vaft</span>
-
-<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
-<span class="nf">print</span><span class="p">(</span><span class="nf">sorted</span><span class="p">(</span><span class="n">ods</span><span class="p">.</span><span class="nf">keys</span><span class="p">()))</span>
-
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">magnetics_time_ip</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
-</code></pre></div></div>
-
-<p>Seeing the plasma-current trace completes the credential-free first workflow. Continue with
-<a href="/vaft/develop/workflows/experimental-interpretation/">experimental interpretation</a> or configure
-the public database below.</p>
-
-<h2 id="3-configure-read-only-public-hsds-access">3. Configure read-only public HSDS access</h2>
-
-<p>Run <code class="language-plaintext highlighter-rouge">hsconfigure</code> and enter the endpoint plus credentials supplied by the VEST team. Credentials stay
-in the user configuration and must never be committed to a notebook or documentation asset.</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;&gt;</span> hsconfigure
-Enter new values or accept defaults <span class="k">in </span>brackets with Enter.
-
-Server endpoint <span class="o">[]</span>: http://147.46.36.244:5101
-Username <span class="o">[]</span>: <span class="o">[</span>assigned_username]
-Password <span class="o">[]</span>: <span class="o">[</span>assigned_password]
-API Key <span class="o">[</span>None]: 
-Testing connection...
-connection ok
-Quit? <span class="o">(</span>Y/N<span class="o">)</span>Y
-</code></pre></div></div>
-
-<p>A successful read uses the public namespace and does not modify the database:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
-
-<span class="k">with</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">ods</span><span class="p">:</span>
-    <span class="nf">print</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">"</span><span class="s">equilibrium.time</span><span class="sh">"</span><span class="p">])</span>
-</code></pre></div></div>
-
-<p>Use <code class="language-plaintext highlighter-rouge">vaft.database.open()</code> for lazy exploratory reads and <code class="language-plaintext highlighter-rouge">vaft.database.load()</code> when a workflow needs
-a staged eager object. Remote saving is restricted to authorized operators; this workflow never calls
-<code class="language-plaintext highlighter-rouge">vaft.database.save()</code>.</p>
-
-<h2 id="4-optional-external-fusion-codes">4. Optional external fusion codes</h2>
-
-<p>VAFT can prepare and collect inputs for EFIT, CHEASE, GPEC/DCON/RDCON, TES and NUBEAM. Configure only the
-codes you have installed:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">EFITHOME</span><span class="o">=</span>/path/to/efit
-<span class="nb">export </span><span class="nv">CHEASEHOME</span><span class="o">=</span>/path/to/chease
-<span class="nb">export </span><span class="nv">GPECHOME</span><span class="o">=</span>/path/to/gpec
-<span class="nb">export </span><span class="nv">TESHOME</span><span class="o">=</span>/path/to/tes
-<span class="nb">export </span><span class="nv">NUBEAMHOME</span><span class="o">=</span>/path/to/nubeam
-</code></pre></div></div>
-
-<p>Each executable belongs under its root’s <code class="language-plaintext highlighter-rouge">bin/</code> directory. The workflow guides degrade to deterministic
-input preparation when a binary is absent.</p>
-
-<p>NUBEAM differs from the others in two ways. Its root must also hold the PREACT and ADAS reaction
-databases at <code class="language-plaintext highlighter-rouge">share/preact</code> and <code class="language-plaintext highlighter-rouge">share/adas</code>, because <code class="language-plaintext highlighter-rouge">nubeam_comp_exec</code> aborts when either is
-unset, and both must stay writable — the table code caches newly computed reaction tables into them.
-And VAFT ships the build recipe rather than the source, since NTCC requires each user to accept its
-licence first; see <a href="https://github.com/VEST-Tokamak/vaft/tree/develop/external/nubeam"><code class="language-plaintext highlighter-rouge">external/nubeam/</code></a>.
-That build is macOS/Apple Silicon only at present. The adapter runs NUBEAM and parses its native
-output; it does not yet map results into IMAS.</p>
-
-<p>On Windows, set the same roots as user environment variables so that a new
-terminal and a Jupyter kernel both inherit them:</p>
-
-<div class="language-powershell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="n">Environment</span><span class="p">]::</span><span class="n">SetEnvironmentVariable</span><span class="p">(</span><span class="s1">'CHEASEHOME'</span><span class="p">,</span><span class="w"> </span><span class="s2">"</span><span class="nv">$</span><span class="nn">env</span><span class="p">:</span><span class="nv">LOCALAPPDATA</span><span class="s2">\vaft\external\chease"</span><span class="p">,</span><span class="w"> </span><span class="s1">'User'</span><span class="p">)</span><span class="w">
-</span><span class="p">[</span><span class="n">Environment</span><span class="p">]::</span><span class="n">SetEnvironmentVariable</span><span class="p">(</span><span class="s1">'GPECHOME'</span><span class="p">,</span><span class="w">   </span><span class="s2">"</span><span class="nv">$</span><span class="nn">env</span><span class="p">:</span><span class="nv">LOCALAPPDATA</span><span class="s2">\vaft\external\gpec"</span><span class="p">,</span><span class="w">   </span><span class="s1">'User'</span><span class="p">)</span><span class="w">
-</span></code></pre></div></div>
-
-<p>The executable under <code class="language-plaintext highlighter-rouge">bin/</code> may be the native <code class="language-plaintext highlighter-rouge">chease.exe</code> or <code class="language-plaintext highlighter-rouge">dcon.exe</code>; VAFT
-resolves the documented POSIX name to it. <code class="language-plaintext highlighter-rouge">install/README.md</code> covers building
-CHEASE and the DCON/GPEC suite natively on Windows.</p>
-
-<h2 id="expected-outputs">Expected outputs</h2>
+<p>The two operations every 3-D coil workflow repeats, on plain arrays, with the
+sign conventions stated once.  Geometry objects live in
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.coils_non_axisymmetric_geometry</code>; the IMAS mapper in
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.coils_non_axisymmetric</code>; the GPEC <code class="language-plaintext highlighter-rouge">coil.in</code>
+serialization in <code class="language-plaintext highlighter-rouge">vaft.code.gpec</code>.  Nothing here reads an ODS or knows
+which machine the coils belong to.</p>
 
 <ul>
-  <li>Offline: a plasma-current plot from the packaged sample ODS.</li>
-  <li>HSDS: readable metadata or IDS paths for public shot 39915.</li>
-  <li>External codes: an explicit readiness report before any solver is launched.</li>
+  <li><code class="language-plaintext highlighter-rouge">toroidal_mode_decomposition</code> – complex Fourier coefficient of a
+per-sector quantity (typically coil currents) for each toroidal mode
+number, <code class="language-plaintext highlighter-rouge">C_n = &lt;v_k exp(-i n phi_k)&gt;</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">biot_savart_filaments</code> – vacuum magnetic field of closed polyline
+filaments carrying given currents, at arbitrary probe points.</li>
 </ul>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#biot_savart_filaments"><code>biot_savart_filaments</code></a> &mdash; Vacuum magnetic field of closed polyline filaments at probe points.
+</li>
+  <li><a href="#toroidal_mode_decomposition"><code>toroidal_mode_decomposition</code></a> &mdash; Complex toroidal Fourier coefficient of a per-sector quantity.
+</li>
+</ul>
+
+<h3 id="biot_savart_filaments"><code class="language-plaintext highlighter-rouge">biot_savart_filaments</code></h3>
+
+<p class="formula-signature"><code>biot_savart_filaments(points_xyz, currents_a, probes_xyz)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Vacuum magnetic field of closed polyline filaments at probe points.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>points_xyz</code></td><td>array_like</td><td>m</td><td><p>Filament vertices, shape <code class="language-plaintext highlighter-rouge">(F, P, 3)</code> or a sequence of <code class="language-plaintext highlighter-rouge">F</code> arrays <code class="language-plaintext highlighter-rouge">(P_f, 3)</code>; each filament is traversed in vertex order and must be closed (first vertex equals last).</p>
+</td></tr>
+  <tr><td><code>currents_a</code></td><td>array_like</td><td>A</td><td><p>Current in each filament, positive along the vertex order, shape <code class="language-plaintext highlighter-rouge">(F,)</code>; multiply by the winding turns first when a filament stands for a multi-turn coil.</p>
+</td></tr>
+  <tr><td><code>probes_xyz</code></td><td>array_like</td><td>m</td><td><p>Observation points, shape <code class="language-plaintext highlighter-rouge">(N, 3)</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>T</td><td><p>Cartesian field <code class="language-plaintext highlighter-rouge">(B_x, B_y, B_z)</code> at each probe, shape <code class="language-plaintext highlighter-rouge">(N, 3)</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A filament is not closed, the number of currents differs from the
+    number of filaments, or a probe coincides with a segment midpoint
+    (the field is singular on the conductor).</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Right-handed Cartesian axes.  Each straight segment contributes
+<code class="language-plaintext highlighter-rouge">mu0/(4 pi) I (dl x r) / |r|^3</code> with <code class="language-plaintext highlighter-rouge">dl</code> along the vertex order and
+<code class="language-plaintext highlighter-rouge">r</code> from the segment midpoint to the probe (midpoint rule), so the
+field is the one the right-hand rule assigns to a current flowing in the
+vertex order.  A coil traversed the other way, or a negative current,
+flips the sign.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Filaments are thin (no conductor cross-section); the midpoint rule is
+second-order accurate in segment length.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  Any set of polyline coils: RMP, error-field
+correction, PF coils sampled as polygons.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Transient memory is <code class="language-plaintext highlighter-rouge">O(S N)</code> per filament (<code class="language-plaintext highlighter-rouge">S</code> segments, <code class="language-plaintext highlighter-rouge">N</code>
+probes; two <code class="language-plaintext highlighter-rouge">(N, S, 3)</code> float arrays), whichever input form is used;
+call in probe blocks when <code class="language-plaintext highlighter-rouge">S * N</code> reaches ~1e7.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>J. D. Jackson, <em>Classical Electrodynamics</em>, 3rd ed., Sec. 5.2: the Biot-Savart law for a line current.
+</li>
+  <li>hsyun_GPEC <code class="language-plaintext highlighter-rouge">library/gpec_input_processor.py</code> and <code class="language-plaintext highlighter-rouge">library/mast_u_input_convertor.py</code> carried three copies of this midpoint-rule kernel; this is the single replacement.
+</li>
+</ol>
+
+<h3 id="toroidal_mode_decomposition"><code class="language-plaintext highlighter-rouge">toroidal_mode_decomposition</code></h3>
+
+<p class="formula-signature"><code>toroidal_mode_decomposition(phi_rad, values, modes)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Complex toroidal Fourier coefficient of a per-sector quantity.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>phi_rad</code></td><td>array_like</td><td>rad</td><td><p>Toroidal angle of each sector sample, any order, shape <code class="language-plaintext highlighter-rouge">(K,)</code>.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The quantity at each sector, real or complex, shape <code class="language-plaintext highlighter-rouge">(K,)</code>; coil currents are the usual case.</p>
+</td></tr>
+  <tr><td><code>modes</code></td><td>iterable of int</td><td>-</td><td><p>Toroidal mode numbers <code class="language-plaintext highlighter-rouge">n</code> to evaluate.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict[int, complex]</td><td>any</td><td><p><code class="language-plaintext highlighter-rouge">C_n</code> for each requested <code class="language-plaintext highlighter-rouge">n</code>, in the units of <code class="language-plaintext highlighter-rouge">values</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">phi_rad</code> and <code class="language-plaintext highlighter-rouge">values</code> differ in length, are not one-dimensional,
+    or are empty.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">C_n = (1/K) sum_k v_k exp(-i n phi_k)</code>, the plain sample mean, so a
+pattern <code class="language-plaintext highlighter-rouge">v_k = A cos(n phi_k + delta)</code> returns <code class="language-plaintext highlighter-rouge">C_n = (A/2) exp(+i delta)</code>
+when the sectors resolve <code class="language-plaintext highlighter-rouge">n</code> without aliasing: the peak amplitude is
+<code class="language-plaintext highlighter-rouge">2 |C_n|</code> and the phase of <code class="language-plaintext highlighter-rouge">C_n</code> is the pattern’s phase <code class="language-plaintext highlighter-rouge">delta</code> at
+<code class="language-plaintext highlighter-rouge">phi = 0</code>.  The <code class="language-plaintext highlighter-rouge">exp(-i n phi)</code> kernel is the one GPEC’s <code class="language-plaintext highlighter-rouge">coil.in</code>
+documentation and the legacy hsyun_GPEC <code class="language-plaintext highlighter-rouge">fourier_mode_coefficient</code>
+use; a <code class="language-plaintext highlighter-rouge">exp(+i n phi)</code> convention conjugates every coefficient.  No
+normalisation by <code class="language-plaintext highlighter-rouge">2/K</code> is applied, so <code class="language-plaintext highlighter-rouge">C_0</code> is the mean.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Uniform weighting of the sectors.  With <code class="language-plaintext highlighter-rouge">K</code> equally spaced sectors the
+coefficients are exact for <code class="language-plaintext highlighter-rouge">|n| &lt; K/2</code>; with fewer or unevenly spaced
+sectors they are the least-squares-free sample projection and alias.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  Any toroidal array of discrete elements: RMP coil
+rows, error-field correction coils, saddle loops.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>GPEC <code class="language-plaintext highlighter-rouge">coil.in</code> documentation: per-coil currents are combined per toroidal harmonic with <code class="language-plaintext highlighter-rouge">exp(-i n phi)</code>.
+</li>
+  <li>hsyun_GPEC <code class="language-plaintext highlighter-rouge">library/gpec_input_processor.py</code> <code class="language-plaintext highlighter-rouge">fourier_mode_coefficient</code> (same kernel), ported unchanged.
+</li>
+</ol>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
   <h2 id="related-resources-title">Related resources</h2>
   <div class="related-resources-grid">
-    
-    <div class="related-resource-group" data-resource-kind="notebooks">
-      <h3>Notebooks</h3>
-      <ul>
-        
-          
-          <li data-resource-id="database-initialization">
-            
-              
-                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/database_initialization_and_load.ipynb">Database initialization and load</a>
-              
-            <span class="resource-status resource-status-runnable">runnable</span>
-            
-          </li>
-        
-          
-          <li data-resource-id="plotting-sample">
-            
-              
-                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/plotting_sample_using_vaft_plot_module.ipynb">Plotting sample data</a>
-              
-            <span class="resource-status resource-status-runnable">runnable</span>
-            
-          </li>
-        
-      </ul>
-    </div>
     
     
     <div class="related-resource-group" data-resource-kind="api">
@@ -408,44 +448,12 @@ CHEASE and the DCON/GPEC suite natively on Windows.</p>
       <ul>
         
           
-          <li data-resource-id="omas"><a href="/vaft/develop/reference/api/#vaftomas"><code>vaft.omas</code></a></li>
-        
-          
-          <li data-resource-id="database"><a href="/vaft/develop/reference/api/#vaftdatabase"><code>vaft.database</code></a></li>
-        
-          
-          <li data-resource-id="plot"><a href="/vaft/develop/reference/api/#vaftplot"><code>vaft.plot</code></a></li>
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
         
       </ul>
     </div>
     
     
-    <div class="related-resource-group" data-resource-kind="data-sources">
-      <h3>Input data</h3>
-      <ul>
-        
-          
-          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
-        
-          
-          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
-        
-      </ul>
-    </div>
-    
-    
-    <div class="related-resource-group" data-resource-kind="outputs">
-      <h3>Verified outputs</h3>
-      <ul>
-        
-          
-          <li data-resource-id="first-result"><a href="/vaft/develop/reference/notebooks/#output-title-first-result">Offline first result</a></li>
-        
-          
-          <li data-resource-id="hsds-39915"><a href="/vaft/develop/reference/notebooks/#output-title-hsds-39915">Public HSDS shot 39915 metadata</a></li>
-        
-      </ul>
-    </div>
     
   </div>
 </section>
@@ -506,13 +514,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: VAFT">
+                        <a href="/vaft/develop/reference/process/atomic/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: atomic">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/guide/Quick_start_guide/" class="navigation navigation-next navigation-unique" aria-label="Next page: Quick start guide">
+                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -528,7 +536,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#1-install-vaft-from-source" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">1. Install VAFT from source</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#development-tooling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Development tooling</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#2-produce-the-first-offline-result" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2. Produce the first offline result</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-configure-read-only-public-hsds-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3. Configure read-only public HSDS access</a></li><li class="page-toc-item page-toc-level-2"><a href="#4-optional-external-fusion-codes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">4. Optional external fusion codes</a></li><li class="page-toc-item page-toc-level-2"><a href="#expected-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Expected outputs</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#biot_savart_filaments" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">biot_savart_filaments</a></li><li class="page-toc-item page-toc-level-3"><a href="#toroidal_mode_decomposition" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">toroidal_mode_decomposition</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -544,11 +552,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Quick start guide",
+            "title": "VEST diagnostics and data availability",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Quick_start_guide.md",
-            "ref": "_guide/Quick_start_guide.md",
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
             "articles": []
         },
         
@@ -640,8 +648,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Installation.md",
-        "mtime": "2026-07-01 09:00:00 +0000",
+        "path": "_guide/Process_reference_coils_non_axisymmetric.md",
+        "mtime": "2026-09-05 10:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
