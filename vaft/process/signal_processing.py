@@ -83,6 +83,8 @@ __all__ = [
     "detrend_moving_average",
     "define_baseline",
     "exp_baseline",
+    "fir_filter",
+    "fir_filter_coefficients",
     "is_signal_active",
     "line_average_density",
     "linear_baseline",
@@ -572,6 +574,171 @@ def butterworth_bandpass(data, low: float, high: float, fs: float, order: int = 
     if zero_phase:
         return scipy_signal.filtfilt(b, a, values, axis=-1)
     return scipy_signal.lfilter(b, a, values, axis=-1)
+
+
+def fir_filter_coefficients(
+    cutoff,
+    fs: float,
+    *,
+    kind: str = "lowpass",
+    numtaps: int | None = None,
+    window: str = "hann",
+) -> np.ndarray:
+    """Window-method FIR coefficients for a linear-phase filter.
+
+    Parameters
+    ----------
+    cutoff : float or sequence of float
+        Band edge, or the pair of edges for ``bandpass``/``bandstop`` [Hz].
+    fs : float
+        Sample rate [Hz].
+    kind : str, optional
+        ``lowpass``, ``highpass``, ``bandpass`` or ``bandstop`` [-].
+    numtaps : int or None, optional
+        Filter length; ``None`` derives it from ``fs`` (see Defaults) [-].
+    window : str, optional
+        Window passed to :func:`scipy.signal.firwin` [-].
+
+    Returns
+    -------
+    np.ndarray
+        ``numtaps`` coefficients of a symmetric (Type I) FIR filter [-].
+
+    Raises
+    ------
+    ValueError
+        ``kind`` is not one of the four supported responses, the number of band
+        edges does not match it, or an edge is outside ``0 < f < fs / 2``.
+
+    Defaults
+    --------
+    ``numtaps = None`` and ``window = "hann"`` are validated-workflow defaults,
+    taken from VEST's fluctuation analysis.  The length is an impulse response
+    one millisecond long, ``int(fs * 1e-3)`` forced odd, which ties the
+    transition width to the sample rate rather than to a fixed tap count.
+
+    Convention
+    ----------
+    The length is always odd, so the filter is Type I: symmetric with an
+    integer group delay of ``(numtaps - 1) / 2`` samples, and with a response
+    that is not forced to zero at the Nyquist frequency -- which a Type II
+    (even-length) filter would be, making a high-pass or band-stop unusable.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The window method sets the transition width by the tap count alone; it does
+    not meet a stated ripple specification the way an equiripple design would.
+    """
+    responses = {"lowpass": True, "highpass": False, "bandpass": False, "bandstop": True}
+    if kind not in responses:
+        raise ValueError(
+            f"kind must be one of {', '.join(sorted(responses))}; got {kind!r}"
+        )
+    edges = np.atleast_1d(np.asarray(cutoff, dtype=float)).reshape(-1)
+    expected = 2 if kind in ("bandpass", "bandstop") else 1
+    if edges.size != expected:
+        raise ValueError(
+            f"{kind} takes {expected} band edge(s); got {edges.size}"
+        )
+    nyquist = 0.5 * float(fs)
+    if not np.all((edges > 0.0) & (edges < nyquist)) or np.any(np.diff(edges) <= 0.0):
+        raise ValueError(
+            f"band edges must be increasing and satisfy 0 < f < {nyquist:g} Hz "
+            f"for fs={fs:g}; got {edges.tolist()}"
+        )
+
+    if numtaps is None:
+        numtaps = int(float(fs) * 1e-3)
+    numtaps = max(int(numtaps), 3)
+    if numtaps % 2 == 0:
+        numtaps += 1
+    return scipy_signal.firwin(
+        numtaps,
+        edges if edges.size > 1 else float(edges[0]),
+        fs=float(fs),
+        pass_zero=responses[kind],
+        window=window,
+    )
+
+
+def fir_filter(
+    data,
+    cutoff,
+    fs: float,
+    *,
+    kind: str = "lowpass",
+    numtaps: int | None = None,
+    window: str = "hann",
+    zero_phase: bool = True,
+) -> np.ndarray:
+    """Linear-phase FIR filter along the last axis.
+
+    Parameters
+    ----------
+    data : array_like
+        The waveform or a stack of them; the time axis is the last [any].
+    cutoff : float or sequence of float
+        Band edge, or the pair of edges for ``bandpass``/``bandstop`` [Hz].
+    fs : float
+        Sample rate [Hz].
+    kind : str, optional
+        ``lowpass``, ``highpass``, ``bandpass`` or ``bandstop`` [-].
+    numtaps : int or None, optional
+        Filter length; ``None`` derives it from ``fs``
+        (:func:`fir_filter_coefficients`) [-].
+    window : str, optional
+        Window passed to :func:`scipy.signal.firwin` [-].
+    zero_phase : bool, optional
+        ``True`` for forward-backward ``filtfilt``; ``False`` for a causal
+        ``lfilter`` that keeps the filter's own group delay [-].
+
+    Returns
+    -------
+    np.ndarray
+        The filtered waveform, same shape as ``data`` [any].
+
+    Raises
+    ------
+    ValueError
+        As :func:`fir_filter_coefficients`.
+
+    Defaults
+    --------
+    ``zero_phase = True`` is a validated-workflow default matching
+    :func:`butterworth_bandpass`: a filtered fluctuation signal feeds spectral
+    and mode-number analysis, where phase across channels is the measurement.
+
+    Convention
+    ----------
+    An FIR filter of this design is already linear-phase, so a causal
+    application shifts every frequency by the same ``(numtaps - 1) / 2``
+    samples and the delay can be removed exactly -- unlike an IIR filter, whose
+    phase distortion is frequency-dependent and only ``filtfilt`` removes it.
+    That is the reason to reach for FIR here rather than
+    :func:`butterworth_bandpass`: the cost is a longer impulse response and
+    more arithmetic per sample.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    ``filtfilt`` needs a record longer than roughly three times the tap count
+    and raises from SciPy otherwise; a one-millisecond default response is long
+    at a high sample rate.
+    """
+    values = np.asarray(data, dtype=float)
+    taps = fir_filter_coefficients(
+        cutoff, fs, kind=kind, numtaps=numtaps, window=window
+    )
+    if zero_phase:
+        return scipy_signal.filtfilt(taps, 1.0, values, axis=-1)
+    return scipy_signal.lfilter(taps, 1.0, values, axis=-1)
 
 
 def detrend_moving_average(data, window_samples: int) -> np.ndarray:
