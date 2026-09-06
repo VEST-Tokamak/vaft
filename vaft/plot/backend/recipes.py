@@ -577,6 +577,23 @@ def required_ids(name: str) -> tuple[str, ...]:
 
 
 @dataclass(frozen=True)
+class Abscissa:
+    """One quantity a line plot can be drawn against (issue #481).
+
+    ``paths`` are read exactly as ``y_path`` is -- ``{i}`` substituted per
+    channel, or gathered per slice for a slice-indexed recipe -- so a sibling
+    is only ever offered where it shares the ordinate's own grid and nothing
+    is interpolated.  ``time`` and ``index`` are built from the recipe itself
+    (:func:`_abscissa_of`) and need no declaration.
+    """
+
+    name: str
+    paths: tuple[str, ...] = ()
+    label: str = ""
+    unit: str = ""
+
+
+@dataclass(frozen=True)
 class LineRecipe:
     """How to read a ``LineSeries`` from an ODS.
 
@@ -615,6 +632,9 @@ class LineRecipe:
     #: (plasma current, diamagnetic flux, toroidal field), never on an
     #: intrinsically positive one.
     orientation: str = "canonical"
+    #: Sibling quantities this plot may be drawn against besides time and the
+    #: sample index (issue #481), each sampled on the ordinate's own grid.
+    abscissae: tuple[Abscissa, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -3189,11 +3209,17 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
             )
         projection = _projection_option(options, shot)
         if "wall" in overlays or "equilibrium" in overlays:
+            sweep = options.get("theta_deg_range")
             geometry = compute_camera_visible_efit_overlay(
                 ods, int(shot), channel=channel, detector=detector, frame_index=idx,
                 flux_surface_levels=tuple(options.get("flux_surface_levels", (0.25, 0.5, 0.75, 0.95)))
                 if "equilibrium" in overlays else (),
                 projection=projection,
+                # Every layer is swept toroidally, so the sweep width decides
+                # whether nested flux surfaces read as contours or fill in as a
+                # sheet.  The default spans the camera's view; a narrow range
+                # shows the surfaces themselves.
+                **({} if sweep is None else {"theta_deg_range": tuple(sweep)}),
             )
             # An explicit show_* flag refines within the overlay it belongs to.
             layer_options = {
@@ -3620,6 +3646,45 @@ def _resolve_emission(
     return list(dict.fromkeys(pairs))
 
 
+def _abscissa_values(
+    ods: Any,
+    abscissa: Abscissa,
+    *,
+    size: int,
+    index: int | None = None,
+    indices: Sequence[int] | None = None,
+    line: Any = None,
+) -> np.ndarray | None:
+    """One trace's abscissa, or ``None`` when this input cannot supply it.
+
+    A slice-indexed recipe gathers a per-slice sibling the same way it
+    gathers its ordinate; everything else reads the axis whole.  The result
+    is always length-checked against the ordinate: a sibling on another grid
+    is not an abscissa, it is a different measurement.
+    """
+    if abscissa.name == "index":
+        return np.arange(size, dtype=float)
+    if not abscissa.paths:
+        return None
+    paths = tuple(_with_line(path, line) for path in abscissa.paths)
+    if indices is not None and any("{i}" in path for path in paths):
+        gathered = []
+        for slice_index in indices:
+            raw = _first_time(ods, paths, i=slice_index)
+            if raw is None:
+                raw = _get(ods, paths[0].format(i=slice_index))
+            try:
+                gathered.append(float(np.asarray(raw, dtype=float).ravel()[0]))
+            except (IndexError, TypeError, ValueError):
+                gathered.append(np.nan)
+        values = np.asarray(gathered, dtype=float)
+    else:
+        values = _first_time(ods, paths, i=index) if index is not None else _first_time(ods, paths)
+    if values is None or values.ndim != 1 or values.size != size:
+        return None
+    return values
+
+
 def _build_line_traces(
     ods: Any,
     recipe: LineRecipe,
@@ -3628,12 +3693,25 @@ def _build_line_traces(
     selection: Any = None,
     emission: Any = None,
     line_index: Any = None,
+    abscissa: Abscissa | None = None,
+    resolved: list[str] | None = None,
 ) -> list[Series]:
-    """Extract traces in IMAS canonical units; display scaling happens later."""
+    """Extract traces in IMAS canonical units; display scaling happens later.
+
+    Every trace comes back with ``x`` on ``abscissa`` (the recipe's own time
+    axis by default) or, when this input cannot supply it, on the sample
+    index -- which :func:`_build_line_series` then says on the axis rather
+    than labelling an index as a time (issues #276, #481).
+    """
     value_scale = recipe.scale
+    abscissa = abscissa or _abscissa_of(recipe, "time")
+
+    def note(name: str) -> None:
+        """Record what a trace's abscissa turned out to be, for the label."""
+        if resolved is not None:
+            resolved.append(name)
 
     if recipe.index in ("time_slice", "time_slice_mean"):
-        time = _first_time(ods, recipe.x_paths)
         indices = _resolve_indices(ods, recipe.y_path, None)
         values = []
         for index in indices:
@@ -3647,7 +3725,9 @@ def _build_line_traces(
         if not values:
             return []
         y = np.asarray(values, dtype=float)
-        if time is None or time.size != y.size:
+        time = _abscissa_values(ods, abscissa, size=y.size, indices=indices)
+        note(abscissa.name if time is not None else "index")
+        if time is None:
             time = np.arange(y.size, dtype=float)
         # Slice-indexed scalars carry their uncertainty per slice, so gather it
         # the same way the values themselves were gathered.
@@ -3670,6 +3750,7 @@ def _build_line_traces(
         # is, so name the line whenever the caller chose one.
         name_the_line = emission is not None or line_index is not None
         traces = []
+        per_trace: list[str] = []
         for index, line in pairs:
             y_path = _with_line(recipe.y_path, line)
             fallback_paths = tuple(
@@ -3691,8 +3772,13 @@ def _build_line_traces(
             # channels in the same IDS.
             if y is None or y.ndim != 1:
                 continue
-            time = _first_time(ods, x_paths, i=index)
-            if time is None or time.ndim != 1 or time.size != y.size:
+            per_channel = (
+                dataclasses.replace(abscissa, paths=x_paths)
+                if abscissa.name == "time" else abscissa
+            )
+            time = _abscissa_values(ods, per_channel, size=y.size, index=index, line=line)
+            per_trace.append(abscissa.name if time is not None else "index")
+            if time is None:
                 time = np.arange(y.size, dtype=float)
             code, mask = _validity_of(ods, y_path, index)
             spread = _uncertainty_of(ods, y_path, index, y.size)
@@ -3723,13 +3809,22 @@ def _build_line_traces(
                     index=index,
                 )
             )
-        return _keep_by_signal(traces, selection)
+        # The abscissa is decided by the traces that are drawn: a channel the
+        # selection preset drops takes its own failed reading with it, rather
+        # than putting every surviving channel on a sample index.
+        kept = _keep_by_signal(traces, selection)
+        drawn = {id(trace) for trace in kept}
+        for trace, name in zip(traces, per_trace):
+            if id(trace) in drawn:
+                note(name)
+        return kept
 
     y = _array(ods, recipe.y_path)
     if y is None:
         return []
-    time = _first_time(ods, recipe.x_paths)
-    if time is None or time.size != y.size:
+    time = _abscissa_values(ods, abscissa, size=y.size)
+    note(abscissa.name if time is not None else "index")
+    if time is None:
         time = np.arange(y.size, dtype=float)
     y = y / _divisor(ods, recipe.divide_by_path)
     code, mask = _validity_of(ods, recipe.y_path)
@@ -3755,6 +3850,29 @@ SYNTHETIC_CONSTRAINTS: dict[str, tuple[str, bool]] = {
 }
 
 SYNTHETIC_MODES = ("equilibrium", "both")
+
+#: Every slice-indexed equilibrium scalar is stored on the same slice grid as
+#: the plasma current, so it can be drawn against it -- the operational space
+#: a shot is judged in -- with no interpolation anywhere (issue #481).  The
+#: current itself is left out: a quantity against itself says nothing.
+_EQUILIBRIUM_IP_ABSCISSA = (
+    Abscissa(
+        "ip",
+        ("equilibrium.time_slice.{i}.global_quantities.ip",),
+        "Plasma Current",
+        "A",
+    ),
+)
+
+for _name, _recipe in list(RECIPES.items()):
+    if (
+        isinstance(_recipe, LineRecipe)
+        and _recipe.index == "time_slice"
+        and _recipe.y_path.startswith("equilibrium.time_slice")
+        and _name != "equilibrium_time_plasma_current"
+    ):
+        RECIPES[_name] = dataclasses.replace(_recipe, abscissae=_EQUILIBRIUM_IP_ABSCISSA)
+del _name, _recipe
 
 
 def _synthetic_option(options: Mapping[str, Any], name: str) -> str | None:
@@ -3962,6 +4080,15 @@ def _build_line_series(
     traces: list[Series] = []
     synthetic = _synthetic_option(options, spec.name if spec is not None else "")
     emission, line_index = _emission_options(options)
+    requested = options.get("x") or "time"
+    abscissa = _abscissa_of(recipe, requested, spec.name if spec is not None else None)
+    if synthetic and requested != "time":
+        raise ValueError(
+            "the reconstruction overlay is a value per equilibrium slice, drawn against "
+            f"time; it cannot be placed on the {requested!r} abscissa. Pass x='time' or "
+            "drop synthetic=."
+        )
+    resolved: list[str] = []
     for entry_label, ods in entries:
         measured = _build_line_traces(
             ods,
@@ -3970,12 +4097,25 @@ def _build_line_series(
             selection=_selection_option(options),
             emission=emission,
             line_index=line_index,
+            abscissa=abscissa,
+            resolved=resolved,
         )
         traces.extend(measured)
         if synthetic:
             traces.extend(_synthetic_traces(ods, spec.name, recipe, measured, synthetic))
+    # One figure carries one abscissa: a trace this input cannot place on the
+    # requested one puts every trace on the sample index, and the axis says
+    # index rather than labelling one as a time (issues #276, #481).
+    drawn = abscissa
+    if any(name != abscissa.name for name in resolved):
+        drawn = INDEX_ABSCISSA
+        traces = [
+            dataclasses.replace(trace, x=np.arange(np.asarray(trace.y).size, dtype=float))
+            for trace in traces
+        ]
     x_display = _resolve_axis_display(
-        recipe.x_unit or "s", unit=options.get("xunit"), subject=subject,
+        drawn.unit or ("s" if drawn.name == "time" else ""),
+        unit=options.get("xunit"), subject=subject,
         series_values=[trace.x for trace in traces],
     )
     y_display = _resolve_axis_display(
@@ -3996,7 +4136,7 @@ def _build_line_series(
         default_title = f"{default_title} — intuitive orientation (sign flipped)"
     model = LineSeries(
         series=scaled,
-        x_label=recipe.x_label,
+        x_label=drawn.label,
         x_unit=x_display.unit,
         y_label=recipe.y_label,
         y_unit=y_display.unit,
@@ -4049,6 +4189,51 @@ def _coordinate_options(recipe: ProfileRecipe) -> tuple[str, ...]:
     if recipe.coordinate_paths:
         return tuple(recipe.coordinate_paths)
     return PROFILE_COORDINATES
+
+
+#: The sample index is an abscissa every line plot can offer: it needs no
+#: stored axis, and it is what the builder already falls back to when the
+#: recipe's own time axis is missing.
+INDEX_ABSCISSA = Abscissa("index", label="Sample index")
+
+#: Every abscissa name any recipe declares, for the option schema's static
+#: vocabulary; :func:`abscissa_options_for` narrows it to one plot.
+ABSCISSA_NAMES = ("time", "index", "ip")
+
+
+def abscissa_options(recipe: LineRecipe) -> tuple[str, ...]:
+    """The abscissae ``recipe`` offers: time, its declared siblings, the index."""
+    return ("time", *(entry.name for entry in recipe.abscissae), "index")
+
+
+def abscissa_options_for(name: str) -> tuple[str, ...] | None:
+    """The ``x=`` vocabulary of plot ``name``, or ``None`` if it takes none."""
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, LineRecipe):
+        return abscissa_options(recipe)
+    if isinstance(recipe, PanelRecipe):
+        options: list[str] = []
+        for member in recipe.members:
+            for option in abscissa_options_for(member) or ():
+                if option not in options:
+                    options.append(option)
+        return tuple(options) or None
+    return None
+
+
+def _abscissa_of(recipe: LineRecipe, name: str, plot_name: str | None = None) -> Abscissa:
+    """The declaration behind ``x=name``, or a ``ValueError`` naming the options."""
+    if name == "time":
+        return Abscissa("time", recipe.x_paths, recipe.x_label, recipe.x_unit)
+    if name == "index":
+        return INDEX_ABSCISSA
+    for entry in recipe.abscissae:
+        if entry.name == name:
+            return entry
+    options = abscissa_options(recipe)
+    raise ValueError(
+        f"{plot_name or recipe.title} takes x= one of {', '.join(options)}; got {name!r}"
+    )
 
 
 def coordinate_options_for(name: str) -> tuple[str, ...] | None:
@@ -6732,14 +6917,47 @@ def _mhd_linear_eigenfunction_cell(ods: Any, **options: Any) -> dict[str, Any]:
     }
 
 
+def _code_parameter_values(node: Any, name: str) -> list[Any]:
+    """Every value stored under ``name`` anywhere in a decoded code-parameters tree.
+
+    Attribute keys carry a leading ``@`` once OMAS has decoded the XML, and the
+    nesting depth depends on how many fragments the document holds, so this
+    walks rather than indexes a fixed path.
+    """
+    found: list[Any] = []
+    if isinstance(node, Mapping):
+        for key, value in node.items():
+            if str(key).lstrip("@") == name:
+                found.append(value)
+            else:
+                found.extend(_code_parameter_values(value, name))
+    elif isinstance(node, (list, tuple)):
+        for item in node:
+            found.extend(_code_parameter_values(item, name))
+    return found
+
+
 def _mhd_linear_radial_stride(ods: Any) -> int | None:
     """The radial stride the mapper recorded, when every cell agrees on one.
 
     What reaches the IDS is a strided view of `solutions.bin`, so a reader who
     is not told that will mistake the drawn resolution for DCON's own.
+
+    Read shape-agnostically because `code.parameters` is not always the string
+    the mapper wrote: loading through IMAS decodes it into a `CodeParameters`
+    tree (`load_omas_imas` is wrapped in omas's `codeparams_xml_load`), where no
+    amount of regex over the repr will find the attribute. Whether that decode
+    happens depends on the document -- omas raises internally on the repeated
+    `<solver>` elements a multi-module shot produces and leaves the string
+    alone -- so a reader that only handles one shape works by accident on some
+    shots and silently drops the annotation on others.
     """
     parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
-    strides = {int(value) for value in re.findall(r'radial_stride="(\d+)"', str(parameters))}
+    if isinstance(parameters, str):
+        values: list[Any] = re.findall(r'radial_stride="(\d+)"', parameters)
+    else:
+        values = _code_parameter_values(parameters, "radial_stride")
+    strides = {int(value) for value in values}
     return strides.pop() if len(strides) == 1 else None
 
 

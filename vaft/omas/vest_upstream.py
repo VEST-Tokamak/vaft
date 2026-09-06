@@ -1339,7 +1339,7 @@ def build_gpec_ideal_ods(
     """
     from vaft.code.gpec import _runtime as gpec_runtime
     from vaft.code.gpec import read_coil_in
-    from vaft.machine_mapping.coil_geometry_3d import (
+    from vaft.machine_mapping.coils_non_axisymmetric_geometry import (
         VEST_3D_COIL_SETS,
         CoilExcitation,
     )

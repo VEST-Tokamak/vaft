@@ -296,7 +296,7 @@ def test_virial_closure_relations_match_manual_forms():
     beta_pd = virial_beta_pd_from_S_mu_rt(s1, s2, mui, rt_over_r0)
 
     expected_li_lao = (0.5 * s1 + 0.5 * s2 * (1.0 - rt_over_r0) - s3) / (alpha - 1.0)
-    expected_beta_p_lao = 0.5 * s1 + 0.5 * s2 * (1.0 + rt_over_r0) + mui
+    expected_beta_p_lao = 0.5 * s1 + 0.5 * s2 * (1.0 - rt_over_r0) + mui
     expected_beta_p_bongard = ((s1 + s2) * (alpha - 1.0) + alpha * mui + s3) / (3.0 * (alpha - 1.0) + 1.0)
     expected_li_bongard = (s1 + s2 - 2.0 * mui - 3.0 * s3) / (3.0 * alpha - 2.0)
     expected_beta_pd = 0.5 * s1 - mui + 0.5 * s2 * (1.0 - rt_over_r0)
@@ -306,6 +306,16 @@ def test_virial_closure_relations_match_manual_forms():
     np.testing.assert_allclose(beta_p_bongard, expected_beta_p_bongard, rtol=1e-12, atol=1e-12)
     np.testing.assert_allclose(li_bongard, expected_li_bongard, rtol=1e-12, atol=1e-12)
     np.testing.assert_allclose(beta_pd, expected_beta_pd, rtol=1e-12, atol=1e-12)
+
+    # Re-typing a formula only proves the code matches the typing. These two tie
+    # the Lao halves to the relations they are derived from, which is what
+    # caught the sign #546 fixed: E1 - E2 fixes beta_p - mu_i without E3, so
+    # both halves must read the same (1 - RT/R0), and beta_p_d differs from
+    # beta_p by exactly 2 mu_i.
+    np.testing.assert_allclose(
+        beta_p_lao - mui, (alpha - 1.0) * li_lao + s3, rtol=1e-12, atol=1e-12
+    )
+    np.testing.assert_allclose(beta_p_lao - beta_pd, 2.0 * mui, rtol=1e-12, atol=1e-12)
 
 
 def test_compute_virial_refreshes_and_fallbacks_boundary_axis():

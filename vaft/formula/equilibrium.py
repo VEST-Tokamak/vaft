@@ -2108,6 +2108,21 @@ def approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi(B_pa: float,
     return (4 * np.pi * B_tv * R0 * delta_phi) / (B_pa**2 * V_p)
 
 
+#: Denominator magnitude below which a virial closure is reported as
+#: indeterminate rather than as a large finite number.  The Shafranov integrals
+#: and $\alpha$ are all $O(1)$, so an absolute floor is the meaningful one.
+VIRIAL_SINGULAR_EPS = 1e-9
+
+
+def _virial_ratio(numerator: float, denominator: float, eps: float) -> float:
+    """Divide, or return NaN when the denominator is within ``eps`` of zero."""
+    if not np.isfinite(numerator) or not np.isfinite(denominator):
+        return float("nan")
+    if abs(denominator) <= eps:
+        return float("nan")
+    return float(numerator) / float(denominator)
+
+
 def virial_beta_p_from_S_alpha_mu(S1: float,
                                   S2: float,
                                   S3: float,
@@ -2205,7 +2220,7 @@ def virial_beta_p_lao_from_S_mu_rt(
 ) -> float:
     r"""Poloidal beta, Lao large-aspect-ratio virial closure.
 
-    $$\beta_p = \frac{S_1}{2} + \frac{S_2}{2}\left(1 + \frac{R_T}{R_0}\right) + \mu_i$$
+    $$\beta_p = \frac{S_1}{2} + \frac{S_2}{2}\left(1 - \frac{R_T}{R_0}\right) + \mu_i$$
 
     Parameters
     ----------
@@ -2223,6 +2238,16 @@ def virial_beta_p_lao_from_S_mu_rt(
     float
         Poloidal beta [-].
 
+    Convention
+    ----------
+    The $R_T/R_0$ term carries a **minus** sign: this is $\tfrac{1}{2}(E_1-E_2)$
+    of the three virial relations solved by
+    :func:`virial_bp_li_lihat_from_S123`, which fixes $\beta_p - \mu_i$ from
+    $E_1$ and $E_2$ alone. A plus sign belongs to the other combination,
+    $E_1+E_2$, which eliminates $\mu_i$ in favour of $l_i$ and is what
+    :func:`virial_beta_p_from_S_li` evaluates at $R_T/R_0 = 1$. The two are not
+    interchangeable, and confusing them is what this function did until #546.
+
     Validity
     --------
     Large aspect ratio; at VEST aspect ratio the neglected $\epsilon$ terms
@@ -2233,7 +2258,7 @@ def virial_beta_p_lao_from_S_mu_rt(
     .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion
            25 (1985) 1421, Sec. 3.
     """
-    return 0.5 * S1 + 0.5 * S2 * (1.0 + RT_over_R0) + mui
+    return 0.5 * S1 + 0.5 * S2 * (1.0 - RT_over_R0) + mui
 
 
 def virial_li_from_S_alpha_rt(
@@ -2471,11 +2496,13 @@ def virial_bongard_from_S_alpha_mu(
     S3: float,
     alpha: float,
     mui: float,
+    eps: float = VIRIAL_SINGULAR_EPS,
 ) -> Tuple[float, float]:
     r"""Low-aspect-ratio virial closure (Bongard 2016): $\beta_p$ and $l_i$.
 
-    Evaluates :func:`virial_beta_p_from_S_alpha_mu` and
-    :func:`virial_li_from_S_alpha_mu`.
+    The historical name for the $E_1$/$E_3$ pairwise closure; delegates to
+    :func:`virial_pair_13_from_S_alpha_mu`, which is the same algebra. The two
+    are identical by construction, not by approximation.
 
     Parameters
     ----------
@@ -2489,6 +2516,9 @@ def virial_bongard_from_S_alpha_mu(
         Closure coefficient multiplying $l_i$ in the third virial relation [-].
     mui : float
         Diamagnetic parameter $\hat\mu_i$ [-].
+    eps : float, optional
+        Denominator magnitude below which the result is NaN, forwarded to the
+        closure; default :data:`VIRIAL_SINGULAR_EPS` [-].
 
     Returns
     -------
@@ -2502,9 +2532,465 @@ def virial_bongard_from_S_alpha_mu(
     .. [1] M. W. Bongard et al., Phys. Plasmas 23 (2016), low-aspect-ratio
            virial closure (journal page not recorded in the VAFT source).
     """
-    beta_p_bongard = virial_beta_p_from_S_alpha_mu(S1, S2, S3, alpha, mui)
-    li_bongard = virial_li_from_S_alpha_mu(S1, S2, S3, alpha, mui)
-    return beta_p_bongard, li_bongard
+    return virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mui, eps=eps)
+
+
+def virial_identity_residuals(
+    beta_p: float,
+    li: float,
+    mu_i: float,
+    S1: float,
+    S2: float,
+    S3: float,
+    alpha: float,
+    RT_over_R0: float,
+) -> Tuple[float, float, float]:
+    r"""Residuals of the three virial identities at a given $(\beta_p, l_i, \mu_i)$.
+
+    $$R_1 = 3\beta_p + l_i - \mu_i - (S_1+S_2), \qquad
+      R_2 = \beta_p + l_i + \mu_i - \frac{R_T}{R_0}S_2, \qquad
+      R_3 = \beta_p - (\alpha-1)l_i - \mu_i - S_3$$
+
+    Parameters
+    ----------
+    beta_p : float
+        Poloidal beta at which the identities are evaluated [-].
+    li : float
+        Internal inductance at which the identities are evaluated [-].
+    mu_i : float
+        Diamagnetic parameter at which the identities are evaluated [-].
+    S1 : float
+        First Shafranov surface integral [-].
+    S2 : float
+        Second Shafranov surface integral [-].
+    S3 : float
+        Third Shafranov surface integral [-].
+    alpha : float
+        Closure coefficient multiplying $l_i$ in the third relation [-].
+    RT_over_R0 : float
+        Current-centroid radius over reference radius, $R_T/R_0$ [-].
+
+    Returns
+    -------
+    e1 : float
+        Residual of the first identity [-].
+    e2 : float
+        Residual of the second identity [-].
+    e3 : float
+        Residual of the third identity [-].
+
+    Physical interpretation
+    -----------------------
+    Zero residuals say the triple closes the three global force-balance
+    relations; a residual localises *which* relation an inconsistent
+    equilibrium violates, which a single $\beta_p$ estimator cannot.
+
+    Convention
+    ----------
+    Signs follow the relations as written above, which are the ones
+    :func:`virial_full_123_from_S_alpha_rt` solves. Every closure and residual
+    in this module is derived from these three and no other statement of them.
+
+    References
+    ----------
+    .. [1] A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), "Virial
+           relations for elongated plasmas in tokamaks", Eqs. (1)-(3).
+    .. [2] V. D. Shafranov, Plasma Phys. 13 (1971) 757.
+    """
+    e1 = 3.0 * beta_p + li - mu_i - (S1 + S2)
+    e2 = beta_p + li + mu_i - RT_over_R0 * S2
+    e3 = beta_p - (alpha - 1.0) * li - mu_i - S3
+    return float(e1), float(e2), float(e3)
+
+
+def virial_pair_12_from_S_mu_rt(
+    S1: float,
+    S2: float,
+    mu_i: float,
+    RT_over_R0: float,
+) -> Tuple[float, float]:
+    r"""Virial closure on $E_1$ and $E_2$, leaving $E_3$ free.
+
+    $$\beta_p = \frac{S_1}{2} + \frac{S_2}{2}\left(1-\frac{R_T}{R_0}\right) + \mu_i,
+      \qquad
+      l_i = -\frac{S_1}{2} + \frac{S_2}{2}\left(3\frac{R_T}{R_0}-1\right) - 2\mu_i$$
+
+    Parameters
+    ----------
+    S1 : float
+        First Shafranov surface integral [-].
+    S2 : float
+        Second Shafranov surface integral [-].
+    mu_i : float
+        Diamagnetic parameter $\mu_i$, supplied independently [-].
+    RT_over_R0 : float
+        Current-centroid radius over reference radius, $R_T/R_0$ [-].
+
+    Returns
+    -------
+    beta_p : float
+        Poloidal beta [-].
+    li : float
+        Internal inductance [-].
+
+    Physical interpretation
+    -----------------------
+    Both unknowns come from the two relations that do not involve $\alpha$, so
+    this closure is insensitive to the boundary field's poloidal anisotropy and
+    has no singular denominator. It is the only one of the three pairs that
+    cannot become ill-conditioned.
+
+    Convention
+    ----------
+    The $\beta_p$ here is the conventional Lao one and agrees with
+    :func:`virial_beta_p_lao_from_S_mu_rt`. The $l_i$ does **not**: the
+    historical Lao $l_i$ takes $\beta_p-\mu_i$ from this same pair and then
+    substitutes it into $E_3$, so it is the $l_i$ of the full three-relation
+    solve, not of this closure. See
+    :func:`virial_li_from_S_alpha_rt`.
+
+    Validity
+    --------
+    Depends entirely on $R_T/R_0$, which is poorly conditioned whenever the
+    volume integral defining $R_T$ has a near-vanishing denominator. Compare
+    against :func:`virial_pair_13_from_S_alpha_mu`, which does not use it.
+
+    References
+    ----------
+    .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion
+           25 (1985) 1421, Sec. 3.
+    .. [2] A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), "Virial
+           relations for elongated plasmas in tokamaks", Eqs. (1)-(3).
+    """
+    beta_p = 0.5 * S1 + 0.5 * (1.0 - RT_over_R0) * S2 + mu_i
+    li = -0.5 * S1 + 0.5 * (3.0 * RT_over_R0 - 1.0) * S2 - 2.0 * mu_i
+    return float(beta_p), float(li)
+
+
+def virial_pair_13_from_S_alpha_mu(
+    S1: float,
+    S2: float,
+    S3: float,
+    alpha: float,
+    mu_i: float,
+    eps: float = VIRIAL_SINGULAR_EPS,
+) -> Tuple[float, float]:
+    r"""Virial closure on $E_1$ and $E_3$, leaving $E_2$ free.
+
+    $$\beta_p = \frac{(\alpha-1)(S_1+S_2)+S_3+\alpha\mu_i}{3\alpha-2},
+      \qquad
+      l_i = \frac{S_1+S_2-3S_3-2\mu_i}{3\alpha-2}$$
+
+    Parameters
+    ----------
+    S1 : float
+        First Shafranov surface integral [-].
+    S2 : float
+        Second Shafranov surface integral [-].
+    S3 : float
+        Third Shafranov surface integral [-].
+    alpha : float
+        Closure coefficient multiplying $l_i$ in the third relation [-].
+    mu_i : float
+        Diamagnetic parameter $\mu_i$, supplied independently [-].
+    eps : float, optional
+        Denominator magnitude below which the result is NaN; default
+        :data:`VIRIAL_SINGULAR_EPS` [-].
+
+    Returns
+    -------
+    beta_p : float
+        Poloidal beta, NaN when $3\alpha-2$ is within ``eps`` of zero [-].
+    li : float
+        Internal inductance, NaN under the same condition [-].
+
+    Physical interpretation
+    -----------------------
+    The only closure that never mentions $R_T/R_0$. At low aspect ratio, where
+    the current centroid is both large and poorly determined, comparing this
+    against the other two pairs isolates how much of a $\beta_p$ or $l_i$
+    disagreement is $R_T$ sensitivity rather than physics.
+
+    Convention
+    ----------
+    This is the Bongard low-aspect-ratio closure;
+    :func:`virial_bongard_from_S_alpha_mu` is the same numbers under the
+    historical name.
+
+    Numerical notes
+    ---------------
+    Singular at $\alpha = 2/3$. Returns NaN there rather than a large finite
+    value, so a near-singular closure is not mistaken for a physical failure.
+
+    References
+    ----------
+    .. [1] M. W. Bongard et al., Phys. Plasmas 23 (2016), low-aspect-ratio
+           virial closure (journal page not recorded in the VAFT source).
+    .. [2] A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), "Virial
+           relations for elongated plasmas in tokamaks", Eqs. (1)-(3).
+    """
+    den = 3.0 * alpha - 2.0
+    beta_p = _virial_ratio((alpha - 1.0) * (S1 + S2) + S3 + alpha * mu_i, den, eps)
+    li = _virial_ratio(S1 + S2 - 3.0 * S3 - 2.0 * mu_i, den, eps)
+    return beta_p, li
+
+
+def virial_pair_23_from_S_alpha_mu_rt(
+    S2: float,
+    S3: float,
+    alpha: float,
+    mu_i: float,
+    RT_over_R0: float,
+    eps: float = VIRIAL_SINGULAR_EPS,
+) -> Tuple[float, float]:
+    r"""Virial closure on $E_2$ and $E_3$, leaving $E_1$ free.
+
+    $$\beta_p = \frac{(\alpha-1)\tfrac{R_T}{R_0}S_2+S_3+(2-\alpha)\mu_i}{\alpha},
+      \qquad
+      l_i = \frac{\tfrac{R_T}{R_0}S_2-S_3-2\mu_i}{\alpha}$$
+
+    Parameters
+    ----------
+    S2 : float
+        Second Shafranov surface integral [-].
+    S3 : float
+        Third Shafranov surface integral [-].
+    alpha : float
+        Closure coefficient multiplying $l_i$ in the third relation [-].
+    mu_i : float
+        Diamagnetic parameter $\mu_i$, supplied independently [-].
+    RT_over_R0 : float
+        Current-centroid radius over reference radius, $R_T/R_0$ [-].
+    eps : float, optional
+        Denominator magnitude below which the result is NaN; default
+        :data:`VIRIAL_SINGULAR_EPS` [-].
+
+    Returns
+    -------
+    beta_p : float
+        Poloidal beta, NaN when $\alpha$ is within ``eps`` of zero [-].
+    li : float
+        Internal inductance, NaN under the same condition [-].
+
+    Physical interpretation
+    -----------------------
+    Drops $E_1$, the relation carrying $S_1$, which is the integral least
+    sensitive to boundary shape and therefore the best determined of the three.
+    Read this closure as a probe of $E_1$ rather than as a preferred estimator:
+    its residual on the omitted identity is the informative output.
+
+    Numerical notes
+    ---------------
+    Singular at $\alpha = 0$, and returns NaN there rather than a large finite
+    value.
+
+    References
+    ----------
+    .. [1] A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), "Virial
+           relations for elongated plasmas in tokamaks", Eqs. (1)-(3).
+    .. [2] V. D. Shafranov, Plasma Phys. 13 (1971) 757.
+    """
+    beta_p = _virial_ratio(
+        (alpha - 1.0) * RT_over_R0 * S2 + S3 + (2.0 - alpha) * mu_i, alpha, eps
+    )
+    li = _virial_ratio(RT_over_R0 * S2 - S3 - 2.0 * mu_i, alpha, eps)
+    return beta_p, li
+
+
+def virial_full_123_from_S_alpha_rt(
+    S1: float,
+    S2: float,
+    S3: float,
+    alpha: float,
+    RT_over_R0: float,
+    eps: float = VIRIAL_SINGULAR_EPS,
+) -> Tuple[float, float, float]:
+    r"""Solve all three virial relations for $\beta_p$, $l_i$ and $\mu_i$.
+
+    $$\begin{pmatrix} 3 & 1 & -1 \\ 1 & 1 & 1 \\ 1 & -(\alpha-1) & -1
+      \end{pmatrix}
+      \begin{pmatrix}\beta_p \\ l_i \\ \mu_i\end{pmatrix}
+      = \begin{pmatrix} S_1+S_2 \\ \tfrac{R_T}{R_0}S_2 \\ S_3\end{pmatrix}$$
+
+    Parameters
+    ----------
+    S1 : float
+        First Shafranov surface integral [-].
+    S2 : float
+        Second Shafranov surface integral [-].
+    S3 : float
+        Third Shafranov surface integral [-].
+    alpha : float
+        Closure coefficient multiplying $l_i$ in the third relation [-].
+    RT_over_R0 : float
+        Current-centroid radius over reference radius, $R_T/R_0$ [-].
+    eps : float, optional
+        Determinant magnitude below which the result is NaN; default
+        :data:`VIRIAL_SINGULAR_EPS` [-].
+
+    Returns
+    -------
+    beta_p : float
+        Poloidal beta, NaN when $4(\alpha-1)$ is within ``eps`` of zero [-].
+    li : float
+        Internal inductance, NaN under the same condition [-].
+    mu_i : float
+        Diamagnetic parameter, NaN under the same condition [-].
+
+    Physical interpretation
+    -----------------------
+    A different inverse problem from the pairwise closures: they take $\mu_i$ as
+    known and solve for two unknowns, while this takes none of the three as
+    known. Its $\mu_i$ is therefore an equilibrium-derived prediction that a
+    measured diamagnetic flux can be compared against, rather than an input.
+
+    Convention
+    ----------
+    Its $l_i$ is identically the historical Lao $l_i$, because $E_1$ and $E_2$
+    already fix $\beta_p-\mu_i$ and only $E_3$ separates $l_i$ from it. That is
+    an algebraic identity, not an approximation.
+
+    Numerical notes
+    ---------------
+    Determinant $4(\alpha-1)$: singular at $\alpha = 1$, the same limit that
+    makes the historical Lao $l_i$ diverge. Solved in closed form rather than
+    with ``numpy.linalg.solve`` so the singularity is detected instead of
+    raising or returning a large finite value.
+
+    References
+    ----------
+    .. [1] A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), "Virial
+           relations for elongated plasmas in tokamaks", Eqs. (1)-(3).
+    .. [2] V. D. Shafranov, Plasma Phys. 13 (1971) 757.
+    """
+    # beta_p - mu_i follows from (E1 - E2)/2 alone; E3 then gives li. The guard
+    # is on the determinant 4*(alpha-1) that the docstring and
+    # virial_closure_denominators both name, not on alpha-1, so a caller tuning
+    # eps against those numbers gets the band they asked for.
+    if not np.isfinite(alpha) or abs(4.0 * (alpha - 1.0)) <= eps:
+        return float("nan"), float("nan"), float("nan")
+    half_diff = 0.5 * S1 + 0.5 * (1.0 - RT_over_R0) * S2
+    li = _virial_ratio(half_diff - S3, alpha - 1.0, 0.0)
+    if not np.isfinite(li):
+        return float("nan"), float("nan"), float("nan")
+    # E2 supplies beta_p + mu_i once li is known.
+    sum_ = RT_over_R0 * S2 - li
+    beta_p = 0.5 * (sum_ + half_diff)
+    mu_i = 0.5 * (sum_ - half_diff)
+    return float(beta_p), float(li), float(mu_i)
+
+
+def virial_closure_denominators(alpha: float) -> Tuple[float, float, float, float]:
+    r"""The denominator each virial closure divides by, for conditioning checks.
+
+    $$3\alpha-2,\qquad \alpha,\qquad \alpha-1,\qquad 4(\alpha-1)$$
+
+    Parameters
+    ----------
+    alpha : float
+        Closure coefficient multiplying $l_i$ in the third relation [-].
+
+    Returns
+    -------
+    pair_13 : float
+        Denominator of the $E_1$/$E_3$ closure, $3\alpha-2$ [-].
+    pair_23 : float
+        Denominator of the $E_2$/$E_3$ closure, $\alpha$ [-].
+    lao_li : float
+        Denominator of the historical Lao $l_i$, $\alpha-1$ [-].
+    full_123 : float
+        Determinant of the three-relation system, $4(\alpha-1)$ [-].
+
+    Physical interpretation
+    -----------------------
+    The identities themselves have no singularities; only the inversions do.
+    Reporting the denominators separates "this equilibrium violates force
+    balance" from "this particular closure cannot be inverted here", which a
+    bare $\beta_p$ cannot distinguish.
+
+    Notes
+    -----
+    The $E_1$/$E_2$ closure is absent because it has no denominator; it is the
+    one pair that cannot become singular.
+    """
+    return (
+        float(3.0 * alpha - 2.0),
+        float(alpha),
+        float(alpha - 1.0),
+        float(4.0 * (alpha - 1.0)),
+    )
+
+
+def virial_normalized_residual(residual: float, lhs: float, rhs: float) -> float:
+    r"""Scale a virial identity residual so shots can be compared.
+
+    $$\epsilon = \frac{R}{\max\left(1, |\mathrm{LHS}|, |\mathrm{RHS}|\right)}$$
+
+    Parameters
+    ----------
+    residual : float
+        Raw residual $\mathrm{LHS}-\mathrm{RHS}$ of one identity [-].
+    lhs : float
+        Left-hand side of that identity [-].
+    rhs : float
+        Right-hand side of that identity [-].
+
+    Returns
+    -------
+    float
+        Dimensionless residual [-].
+
+    Physical interpretation
+    -----------------------
+    Symmetric in the two sides, and the floor of 1 keeps the scale from
+    collapsing when both sides pass through zero, which would turn a small
+    absolute residual into a large apparent one.
+
+    Limitations
+    -----------
+    A placeholder scale, not an uncertainty. It is deliberately replaceable: an
+    uncertainty-propagated normalisation would be strictly better and would
+    change the numbers, so the thresholds built on this one stay report-only
+    until a representative equilibrium population qualifies them.
+    """
+    lhs, rhs = float(lhs), float(rhs)
+    # max() keeps its first argument against a NaN, so guard explicitly rather
+    # than letting an unknown side quietly become a scale of 1.
+    if not (np.isfinite(lhs) and np.isfinite(rhs)):
+        return float("nan")
+    scale = max(1.0, abs(lhs), abs(rhs))
+    return float(residual) / scale
+
+
+def virial_residual_rms(e1: float, e2: float, e3: float) -> float:
+    r"""Aggregate the three normalised virial residuals into one number.
+
+    $$E_{virial} = \sqrt{\frac{\epsilon_1^2+\epsilon_2^2+\epsilon_3^2}{3}}$$
+
+    Parameters
+    ----------
+    e1 : float
+        Normalised residual of the first identity [-].
+    e2 : float
+        Normalised residual of the second identity [-].
+    e3 : float
+        Normalised residual of the third identity [-].
+
+    Returns
+    -------
+    float
+        Root-mean-square residual, NaN if any input is [-].
+
+    Limitations
+    -----------
+    A summary, not a verdict: it says how badly the three relations fail to
+    close together but not which one failed. Read it beside the three
+    residuals, never instead of them.
+    """
+    values = np.asarray([e1, e2, e3], dtype=float)
+    if not np.all(np.isfinite(values)):
+        return float("nan")
+    return float(np.sqrt(np.mean(values**2)))
 
 
 def virial_S1_approx() -> float:
@@ -2619,7 +3105,12 @@ def virial_bp_li_lihat_from_S123(S1: float,
                                  S3: float,
                                  a_param: float,
                                  RT_over_R0: float) -> Tuple[float, float, float]:
-    r"""Solve the three virial relations for $\beta_p$, $l_i$ and $\hat l_i$.
+    r"""Deprecated historical name for the three-relation virial solve.
+
+    Use :func:`virial_full_123_from_S_alpha_rt`, which this delegates to. The
+    third return is renamed there from $\hat l_i$ to $\mu_i$: it is the
+    diamagnetic parameter the pairwise closures take as an input, and the hat
+    notation read as a second internal inductance.
 
     $$3\beta_p + l_i - \hat l_i = S_1 + S_2, \qquad
       \beta_p + l_i + \hat l_i = \frac{R_T}{R_0}S_2, \qquad
@@ -2649,8 +3140,10 @@ def virial_bp_li_lihat_from_S123(S1: float,
 
     Numerical notes
     ---------------
-    Direct solve of the 3x3 linear system with ``numpy.linalg.solve``; singular
-    when $\alpha = 1/3$ (rows become dependent).
+    Direct solve of the 3x3 linear system with ``numpy.linalg.solve``. The
+    determinant is $4(\alpha-1)$, so the system is singular at $\alpha = 1$ --
+    the same limit that makes the historical Lao $l_i$ blow up, because
+    $E_1$ and $E_2$ fix $\beta_p - \mu_i$ and only $E_3$ separates $l_i$ from it.
 
     References
     ----------
@@ -2658,15 +3151,7 @@ def virial_bp_li_lihat_from_S123(S1: float,
            relations for elongated plasmas in tokamaks", Eqs. (1)-(3).
     .. [2] V. D. Shafranov, Plasma Phys. 13 (1971) 757.
     """
-    # Linear system  A·x = b
-    A = np.array([[3,  1, -1],
-                  [1,  1,  1],
-                  [1, -(a_param - 1), -1]], dtype=float)
-    b = np.array([S1 + S2,
-                  RT_over_R0 * S2,
-                  S3], dtype=float)
-    βp, li_int, li_hat = np.linalg.solve(A, b)
-    return βp, li_int, li_hat
+    return virial_full_123_from_S_alpha_rt(S1, S2, S3, a_param, RT_over_R0)
 
 
 def virial_D0_boundary_from_bp_li_eK(beta_p: float,

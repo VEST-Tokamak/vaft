@@ -10,10 +10,10 @@ and has its own entry points: see
 [External fusion codes](#external-fusion-codes-chease-and-dcongpec).
 
 Build recipes for external codes live in [`external/`](../external/) instead, one
-directory per code. [`external/nubeam/`](../external/nubeam/) is the first: it is
-macOS/Apple Silicon only, is not run by CI, and operates on a NUBEAM source tree
-you supply rather than one VAFT vendors. Bringing that class of script to Linux
-and Windows belongs to #226.
+directory per code. [`external/nubeam/`](../external/nubeam/) is the first: it
+builds on macOS/Apple Silicon (`macos.sh`) and on native Windows
+(`windows.ps1`), is not run by CI, and operates on a NUBEAM source tree you
+supply rather than one VAFT vendors. Linux belongs to #226.
 
 Budget about 15–20 minutes from a nearly clean machine.
 
@@ -502,9 +502,19 @@ unless you pass `-MaterializeSymlinks`.
 `-Uninstall` removes the prefix and the environment variable. It never touches
 your source tree, MSYS2, or anything `pacman` installed.
 
+### NUBEAM
+
+NUBEAM has its own entry point, [`external/nubeam/windows.ps1`](../external/nubeam/windows.ps1),
+because it shares the reference cases and validation scripts with the macOS
+recipe beside it. It needs a netCDF without S3, which
+`install_gpec_windows.ps1 -BuildDependencies` produces, and it downloads three
+NTCC dependency modules only after you pass `-AcceptNtccTerms`. Everything it
+generates stays inside your NUBEAM source tree. See
+[`external/nubeam/README.md`](../external/nubeam/README.md).
+
 ### Linux and macOS
 
-Not yet automated — tracked in
+CHEASE and GPEC are not yet automated — tracked in
 [issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). Build by hand
 with the recipe in
 `workflow/automatic_pipeline_1_routine_data_processing/DEPLOYMENT.md`, then set
@@ -524,6 +534,7 @@ available today.
 | netCDF-C / netCDF-Fortran | 4.9.3 / 4.6.1, built with `--disable-s3 --disable-nczarr` |
 | CHEASE | `fb46366` |
 | GPEC | `e68d7ac2` (v1.5.7-611) |
+| NUBEAM | 2021 serial distribution, with NTCC PSPLINE / PREACT / XPLASMA |
 
 ## EFIT and EFUND (licensed software; obtain it yourself)
 

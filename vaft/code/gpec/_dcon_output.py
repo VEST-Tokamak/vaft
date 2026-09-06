@@ -494,6 +494,10 @@ class DconEvaluation:
     mer_flag: Optional[bool] = None
     bal_flag: Optional[bool] = None
     thmax0: Optional[float] = None
+    #: The edge boundary the run *asked* for.  Not the one it used: DCON
+    #: overwrites ``psiedge`` (along with ``qhigh`` and ``sas_flag``) at runtime
+    #: before re-integrating -- see :attr:`DconOutput.edge_treatment`.
+    psiedge: Optional[float] = None
     #: Where the flags came from -- ``"dcon.in"``, or ``""`` when no namelist
     #: was found beside the output and nothing can be claimed.
     source: str = ""
@@ -517,6 +521,7 @@ class DconEvaluation:
             mer_flag=_namelist_bool(values, "mer_flag"),
             bal_flag=_namelist_bool(values, "bal_flag"),
             thmax0=_namelist_float(values, "thmax0"),
+            psiedge=_namelist_float(values, "psiedge"),
             source="dcon.in",
         )
 
@@ -525,6 +530,7 @@ class DconEvaluation:
             "mer_flag": self.mer_flag,
             "bal_flag": self.bal_flag,
             "thmax0": self.thmax0,
+            "psiedge": self.psiedge,
             "source": self.source,
         }
 
@@ -534,6 +540,7 @@ class DconEvaluation:
             mer_flag=payload.get("mer_flag"),
             bal_flag=payload.get("bal_flag"),
             thmax0=payload.get("thmax0"),
+            psiedge=payload.get("psiedge"),
             source=str(payload.get("source", "")),
         )
 
@@ -676,6 +683,37 @@ class DconOutput:
         """Least-stable total-energy eigenvalue -- ``dcon/free.f``'s ``total1``, the
         ``W_t_eigenvalue`` entry labelled by mode 1."""
         return self._least_stable(self.W_t_eigenvalue)
+
+    #: Label for the edge treatment this file's solution actually used.
+    FULL_EDGE = "full_edge"
+    PEAK_DW_TRUNCATED = "peak_dw_truncated"
+
+    @property
+    def edge_treatment(self) -> str:
+        """Which of DCON's two edge solutions this output describes.
+
+        When ``psiedge < psilim`` DCON does not merely record an edge scan
+        beside an otherwise-normal solve. It integrates once, finds the peak of
+        ``dW_edge``, **overwrites its own controls** -- ``qhigh = q_edge(peak)``,
+        ``sas_flag = .FALSE.``, ``psiedge = psihigh`` -- recomputes the limits
+        through ``sing_lim``, and integrates the whole problem again
+        (``dcon/dcon.F:262-279``).
+
+        Two consequences, and they are why the run's requested configuration is
+        not enough to interpret its output:
+
+        * The eigenvalues, eigenvectors and ``euler.bin`` (hence
+          ``solutions.bin``) in a scanned run describe the **truncated**
+          solution. The full-edge solution computed by the first pass is
+          discarded; only ``dW_edge`` survives from it.
+        * ``qlim``/``psilim`` in the file are the post-mutation values, so they
+          describe the truncated boundary, not the one the namelist asked for.
+
+        A single run therefore yields one of the two solutions, never both --
+        which is what makes the edge treatment part of a result's identity
+        rather than a parameter of it.
+        """
+        return self.PEAK_DW_TRUNCATED if self.edge_scan is not None else self.FULL_EDGE
 
     @property
     def m_pol_dominant(self) -> Optional[int]:

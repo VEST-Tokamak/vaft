@@ -244,3 +244,46 @@ def prepare_nubeam_inputs(
         plasma_state=target / inputf_state_filename(rewritten),
         runid=inputf_runid(rewritten),
     )
+
+
+#: Equilibrium shipped with the packaged VEST case, by its original name.
+PACKAGED_VEST_CASE_GFILE = "g020000.015100"
+
+#: Location of the packaged case within ``vaft/data``.
+PACKAGED_VEST_CASE_DIR = "nubeam/vest_case"
+
+
+@dataclass(frozen=True)
+class NUBEAMCase:
+    """A NUBEAM case: a directory of inputs and the equilibrium to run it on.
+
+    :func:`prepare_nubeam_inputs` takes the two separately because a case is
+    routinely re-run against a different equilibrium; this pairs them for the
+    one case VAFT ships.
+    """
+
+    input_dir: Path
+    gfile: Path
+
+
+def packaged_vest_case() -> NUBEAMCase:
+    """Return the VEST reference case stored in the repository.
+
+    Inputs only -- roughly 120 kB of namelists, profiles, machine description
+    and one G-EQDSK. Running them regenerates the ~260 MB of NUBEAM output
+    that would otherwise have to be preserved to reproduce an analysis.
+
+    The case is repository-only: ``vaft/data`` is pruned from both the wheel
+    and the source distribution, so this raises for a PyPI install rather than
+    silently resolving to a directory that is not there.
+    """
+    from vaft.data.resources import data_path, require_repository_sample
+
+    input_dir = require_repository_sample(data_path(PACKAGED_VEST_CASE_DIR))
+    if not input_dir.is_dir():
+        raise NUBEAMInputError(
+            f"Packaged NUBEAM case is not a directory: {input_dir}"
+        )
+    return NUBEAMCase(
+        input_dir=input_dir, gfile=input_dir / PACKAGED_VEST_CASE_GFILE
+    )

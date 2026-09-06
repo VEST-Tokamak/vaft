@@ -74,6 +74,13 @@ _HEAVY = (
 #: referenced any of them through `vaft.process`; the map exists so anyone who
 #: did is told where to go.
 REMOVED: dict[str, tuple[str, str]] = {
+    # Retired by #420: VEST policy that lived in generic process modules. The
+    # third kind, "policy", means the *name* is gone on purpose and the value
+    # is resolved from vest.yaml by the module named.
+    'DEFAULT_IMPURITY_FRACTIONS': ('vaft.machine_mapping.core_profiles', 'policy'),
+    'DEFAULT_LINE_RADIATION_SPECIES': ('vaft.machine_mapping.core_profiles', 'policy'),
+    'TI_TE_RATIO_VEST': ('vaft.machine_mapping.core_profiles', 'policy'),
+    'TI_TE_RATIO_VEST_SIGMA': ('vaft.machine_mapping.core_profiles', 'policy'),
     'Any': ('typing', 'attr'),
     'Callable': ('typing', 'attr'),
     'CodeParameters': ('omas', 'attr'),
@@ -357,6 +364,8 @@ def test_each_dropped_name_is_reachable_where_the_map_says_it_is(name):
 
     if kind == "module":
         assert module.__name__ == where
+    elif kind == "policy":
+        assert hasattr(module, "vest_core_profiles_policy"), f"{where} is not the policy resolver"
     else:
         assert hasattr(module, name), f"{where} does not provide {name!r}"
 
@@ -369,11 +378,13 @@ _OWNED_BUT_DROPPED = frozenset({"logger"})
 
 
 def test_the_dropped_names_are_the_ones_no_submodule_defines():
-    """Nothing owned was dropped, apart from the one name listed above."""
+    """Nothing owned was dropped, apart from the names listed above and the
+    VEST policy constants #420 moved to vest.yaml."""
     inventory = _inventory()
     owned = {name for name, entry in inventory.items() if entry["owned"]}
+    retired_policy = {name for name, (_, kind) in REMOVED.items() if kind == "policy"}
 
-    assert (owned & set(REMOVED)) == _OWNED_BUT_DROPPED
+    assert (owned & set(REMOVED)) == _OWNED_BUT_DROPPED | retired_policy
 
 
 def test_every_submodule_now_declares_what_it_exports():

@@ -1,9 +1,9 @@
 """Tests for the statistical Ti/Te ratio: estimator, core_profiles fallback,
 and the Thomson-only kinetic pressure path in vaft.code.efit.
 
-The coefficient (TI_TE_RATIO_VEST) is fitted offline on the shots that carry
-BOTH electron (Thomson) and ion (IDS/charge_exchange) profiles
-(ids_test/fit_ti_te_ratio.py); these tests cover the machinery, not the value.
+The coefficient is VEST policy, fitted offline on the shots that carry BOTH
+electron (Thomson) and ion (IDS/charge_exchange) profiles and resolved from
+``vest.yaml`` (issue #420); these tests cover the machinery, not the value.
 """
 
 import numpy as np
@@ -12,13 +12,13 @@ import pytest
 pytest.importorskip("omas")
 from omas import ODS
 
-from vaft.process.profile import (
-    TI_TE_RATIO_VEST,
-    TI_TE_RATIO_VEST_SIGMA,
-    core_profiles,
-    fit_ti_te_ratio,
-)
+from vaft.machine_mapping.core_profiles import vest_core_profiles_policy
+from vaft.process.profile import core_profiles, fit_ti_te_ratio
 from vaft.code import efit as km
+
+_POLICY = vest_core_profiles_policy(48224)
+TI_TE_RATIO_VEST = _POLICY.ti_te_ratio
+TI_TE_RATIO_VEST_SIGMA = _POLICY.ti_te_ratio_sigma
 
 E_CHARGE = 1.602176634e-19
 
@@ -57,10 +57,17 @@ def test_fit_ti_te_ratio_validates_input():
         fit_ti_te_ratio([np.nan], [1.0])       # <2 valid pairs
 
 
-def test_vest_constants_sane():
-    # guard against accidental edits: ratio in the bootstrap CI, sigma positive
+def test_vest_policy_values_sane():
+    # guard against accidental edits to vest.yaml: ratio in the bootstrap CI, sigma positive
     assert 0.10 < TI_TE_RATIO_VEST < 0.25
     assert 0.0 < TI_TE_RATIO_VEST_SIGMA < TI_TE_RATIO_VEST
+    assert _POLICY.ti_te_ratio_status == "inferred"
+
+
+def test_the_ratio_is_not_a_process_layer_constant():
+    import vaft.process.profile as profile
+
+    assert not hasattr(profile, "TI_TE_RATIO_VEST")
 
 
 # --------------------------------------------------------------------------- #
@@ -98,7 +105,7 @@ def _make_ts_only_ods(n_grid=33):
 
 def test_core_profiles_ratio_fallback_writes_ti_and_pressure():
     ods, psi_n_ch = _make_ts_only_ods()
-    core_profiles(ods, 300.0, psi_n_ch, _ne, _te, ti_te_ratio=0.2)
+    core_profiles(ods, 300.0, psi_n_ch, _ne, _te, ti_te_ratio=0.2, coordinate="psi_norm")
     base = "core_profiles.profiles_1d.0"
     psin = np.linspace(0.0, 1.0, 33) ** 2      # equilibrium grid: rho_tor^2
     np.testing.assert_allclose(
@@ -114,7 +121,7 @@ def test_core_profiles_ratio_fallback_writes_ti_and_pressure():
 
 def test_core_profiles_legacy_fallback_unchanged():
     ods, psi_n_ch = _make_ts_only_ods()
-    core_profiles(ods, 300.0, psi_n_ch, _ne, _te)   # no ratio -> legacy Ti=Te
+    core_profiles(ods, 300.0, psi_n_ch, _ne, _te, coordinate="psi_norm")   # no ratio -> legacy Ti=Te
     base = "core_profiles.profiles_1d.0"
     psin = np.linspace(0.0, 1.0, 33) ** 2
     np.testing.assert_allclose(
@@ -128,7 +135,7 @@ def test_core_profiles_ratio_ignored_with_real_ion_fit():
         return 20.0 * (1.0 - np.asarray(psin, float) ** 2)
 
     ods, psi_n_ch = _make_ts_only_ods()
-    core_profiles(ods, 300.0, psi_n_ch, _ne, _te, T_i_function=_ti, ti_te_ratio=0.2)
+    core_profiles(ods, 300.0, psi_n_ch, _ne, _te, T_i_function=_ti, ti_te_ratio=0.2, coordinate="psi_norm")
     base = "core_profiles.profiles_1d.0"
     psin = np.linspace(0.0, 1.0, 33) ** 2
     np.testing.assert_allclose(
@@ -152,6 +159,7 @@ def test_core_profiles_rejects_invalid_ratio(ratio):
             _ne,
             _te,
             ti_te_ratio=ratio,
+            coordinate="psi_norm",
         )
 
 

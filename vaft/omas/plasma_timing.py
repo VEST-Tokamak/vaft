@@ -50,6 +50,9 @@ from vaft.machine_mapping.spectrometer_uv import (
     legacy_time_shift_s,
 )
 from vaft.machine_mapping.utils import (
+    AGREEMENT_CONSISTENT,
+    AGREEMENT_HALPHA_LEADS_IP_LARGE,
+    AGREEMENT_IP_BEFORE_HALPHA,
     MIN_BASELINE_S,
     CroppedRecord,
     DischargeTimingPolicy,
@@ -110,9 +113,8 @@ SOURCE_H_FAST = "h_alpha_fast"
 SOURCE_H_SECONDARY = "h_alpha_secondary"
 SOURCE_IP = "ip_principal"
 
-AGREEMENT_CONSISTENT = "consistent"
-AGREEMENT_IP_BEFORE_HALPHA = "ip_before_halpha"
-AGREEMENT_HALPHA_LEADS_IP_LARGE = "halpha_leads_ip_large"
+# The light/current agreement vocabulary is the machine-mapping layer's, so
+# the raw-side chooser and the corpus scan speak it too.
 AGREEMENT_HALPHA_ONLY = "halpha_only"
 AGREEMENT_IP_ONLY = "ip_only"
 AGREEMENT_NONE = "none"
@@ -656,11 +658,9 @@ def _light_outcome(candidate: HalphaUsability, window: PulseWindow | None) -> st
 
 
 def _agreement(onset_delta: float, tolerances: Mapping[str, float]) -> str:
-    if onset_delta < -float(tolerances["onset_tolerance_s"]):
-        return AGREEMENT_IP_BEFORE_HALPHA
-    if onset_delta > float(tolerances["lag_tolerance_s"]):
-        return AGREEMENT_HALPHA_LEADS_IP_LARGE
-    return AGREEMENT_CONSISTENT
+    from vaft.machine_mapping.utils import onset_agreement
+
+    return onset_agreement(onset_delta, tolerances)
 
 
 def plasma_timing(

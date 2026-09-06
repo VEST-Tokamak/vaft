@@ -102,7 +102,7 @@ def test_a_channel_line_offers_selection_layout_unit_sign_and_validity(catalog):
     controls = controls_for(catalog["flux_loop_time_flux"])
     names = [c.name for c in controls]
     # No synthetic control: this input has no reconstruction overlay to show.
-    assert names == ["selection", "channels", "layout", "yunit", "orientation", "validity"]
+    assert names == ["selection", "channels", "layout", "yunit", "x", "orientation", "validity"]
     by_name = {c.name: c for c in controls}
     assert by_name["selection"].options == ("inboard_mid", "outboard_mid", "inboard", "outboard", "active", "valid", "all")
     assert by_name["selection"].default == "active"
@@ -149,4 +149,5 @@ def test_the_synthetic_control_needs_the_overlay_to_be_available(catalog):
     available = replace(record, synthetic={"overlay": "equilibrium", "available": True})
     synthetic = next(c for c in controls_for(available) if c.name == "synthetic")
     assert synthetic.options == ("none", "equilibrium", "both") and synthetic.default == "none"
-    assert [c.name for c in controls_for(available)].index("synthetic") == 4
+    # after selection, channels, layout, yunit and the abscissa (#481)
+    assert [c.name for c in controls_for(available)].index("synthetic") == 5

@@ -208,6 +208,13 @@ policy.window.tstart, policy.window.tend, policy.baseline_start   # 0.28, 0.36, 
 policy.h_alpha, policy.ip                                          # keyword arguments of active_window
 ```
 
+The rules were tuned on a scan of the raw database, and that scan is reproducible:
+`workflow/plasma_onset/scan_corpus.py --shots 39900-41700` runs the raw-side detector over every shot in the
+range and writes `test/data/onset_corpus.json` (one row per shot: the verdict, both detectors' windows, why a
+shot could not be judged), which `test/test_onset_corpus.py` holds to the current policy and to the packaged
+products; `--npz-dir` also writes the per-shot records `review_onset.py` draws from. A retuned rule means a
+re-scan, not an edit of the quoted numbers.
+
 Two readers consume it. `vaft.omas.plasma_timing.plasma_timing(ods)` works on a mapped product: it finds the
 H-alpha line **by label**, checks it is usable, takes the slow line as authoritative for onset and offset, the
 validated fast line as first fallback and the plasma-current principal pulse as final fallback and cross-check,

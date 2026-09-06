@@ -50,6 +50,7 @@ def _fit(ods, rho, time_ms=300.0, **kwargs):
     return profile_fitting_thomson_scattering(
         ods, time_ms, rho, Te_order=2, Ne_order=2,
         fitting_function_te="polynomial", fitting_function_ne="polynomial",
+        coordinate="psi_norm",   # the synthetic channels are placed in psi_N
         **kwargs,
     )
 
@@ -106,9 +107,13 @@ def test_ts_mapping_outside_lcfs_is_nan():
     ods["thomson_scattering.channel.0.position.z"] = 0.0
     ods["thomson_scattering.channel.1.position.r"] = 0.85
     ods["thomson_scattering.channel.1.position.z"] = 0.0
-    rho = equilibrium_mapping_thomson_scattering(ods, geq)
+    mapped = equilibrium_mapping_thomson_scattering(ods, geq)
+    rho = mapped.psi_norm
     assert np.isfinite(rho[0]) and 0.0 <= rho[0] <= 1.0
     assert np.isnan(rho[1])
+    assert np.isnan(mapped.rho_pol_norm[1])
+    # a fluxSurfaces mapping carries no q: rho_tor_norm is unavailable, not guessed
+    assert mapped.rho_tor_norm is None and "no q profile" in mapped.rho_tor_norm_unavailable
 
 
 def test_ces_mapping_outside_lcfs_is_nan():
@@ -121,6 +126,6 @@ def test_ces_mapping_outside_lcfs_is_nan():
         ods[f"charge_exchange.channel.{i}.position.r.data"] = np.array([r])
         ods[f"charge_exchange.channel.{i}.position.z.time"] = np.array([0.3])
         ods[f"charge_exchange.channel.{i}.position.z.data"] = np.array([0.0])
-    rho = equilibrium_mapping_charge_exchange(ods, geq)
+    rho = equilibrium_mapping_charge_exchange(ods, geq).psi_norm
     assert np.isfinite(rho[0]) and 0.0 <= rho[0] <= 1.0
     assert np.isnan(rho[1])

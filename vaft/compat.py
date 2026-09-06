@@ -320,22 +320,31 @@ def short_temporary_directory(
     needed = len(prefix) + 8 + 1  # +1 for the separator
     rejected: list[str] = []
     for root in _short_scratch_roots():
-        if len(str(root)) + needed <= max_length:
+        if len(str(root)) + needed > max_length:
+            rejected.append(f"{root} ({len(str(root)) + needed} characters)")
+            continue
+        # A root short enough still has to exist and be writable, and on
+        # Windows the shortest candidate is the least likely to: a stock
+        # install has no %SystemDrive%\Temp and an unprivileged user cannot
+        # create one. Treating mkdtemp's failure as this root's rather than
+        # the caller's is what lets the search go on to the next.
+        try:
             scratch = Path(tempfile.mkdtemp(prefix=prefix, dir=str(root)))
+        except OSError as error:
+            rejected.append(f"{root} ({error.strerror or error})")
+            continue
+        try:
+            yield scratch
+        finally:
             try:
-                yield scratch
-            finally:
-                try:
-                    remove_directory(scratch)
-                except OSError as error:
-                    warnings.warn(
-                        f"Could not remove the temporary directory {scratch}: {error}",
-                        RuntimeWarning,
-                        stacklevel=2,
-                    )
-            return
-        rejected.append(f"{root} ({len(str(root)) + needed} characters)")
-
+                remove_directory(scratch)
+            except OSError as error:
+                warnings.warn(
+                    f"Could not remove the temporary directory {scratch}: {error}",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+        return
     raise RuntimeError(
         "No writable scratch directory fits within "
         f"{max_length} characters. Tried: {'; '.join(rejected)}. "

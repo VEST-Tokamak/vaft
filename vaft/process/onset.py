@@ -6,8 +6,11 @@ Nothing here knows what the waveform is.  The diagnostic preprocessing, the
 choice of which signal is authoritative for a *plasma* onset and the verdicts
 built on top live in ``vaft.omas.plasma_timing`` and ``vaft.validation``.
 
-Three ideas, kept separable because a 205-shot study of the VEST raw database
-showed each does a different job:
+Three ideas, kept separable because a study of the VEST raw database showed
+each does a different job.  The study is ``workflow/plasma_onset/scan_corpus.py``
+and its table ``test/data/onset_corpus.json`` (its ``summary`` carries the
+counts); the figures quoted below are from the hand-reviewed first pass that
+motivated the rules:
 
 * **threshold** -- ``baseline + max(fraction * peak, sigma * robust_sigma)``.
   The fraction-of-peak term makes the boundary independent of a channel's
@@ -819,8 +822,9 @@ def active_window(
     of the current present before it, as a quench does) and says
     ``offset_from_collapse``.  The
     last fall, not the steepest: a plasma survives a mid-pulse drop and
-    terminates later.  On the VEST corpus this puts the plasma-current
-    offset within 2 ms of the light's on every discharge, level or collapse.
+    terminates later.  On the hand-reviewed discharges of the VEST corpus
+    this put the plasma-current offset within 2 ms of the light's; the full
+    table (``test/data/onset_corpus.json``) records the per-shot deltas.
     """
     t, raw = _as_arrays(time, values)
     method = "active_window"
@@ -955,18 +959,34 @@ def _active_window(
     evidence["trailing_sigma"] = trail_spread
     evidence["trailing_quiet"] = bool(trail_quiet)
     end_frac = float(fraction if end_fraction is None else end_fraction)
+    # The trailing form of the end threshold must lie below the pulse itself:
+    # a quiet-looking tail whose noise band reaches the peak (a faint pulse
+    # before a noisier stretch, 33 corpus shots) cannot bound the offset, and
+    # the leading baseline judges it instead.
+    end_threshold = None
     if trail_quiet:
-        end_threshold = trail_baseline + max(end_frac * peak, float(sigma) * trail_spread)
-    elif end_frac > float(fraction):
+        trailing = trail_baseline + max(end_frac * peak, float(sigma) * trail_spread)
+        if trailing < baseline + peak:
+            end_threshold = trailing
+    if end_threshold is None and end_frac > float(fraction):
         end_threshold = baseline + max(end_frac * peak, float(sigma) * spread)
-    else:
-        end_threshold = None
     if end_threshold is not None:
         above_end = _bridged(y > end_threshold, gap)
+        # A trailing segment whose own peak never reaches the end threshold is
+        # a re-emergence the end rule does not count as the pulse: drop it and
+        # judge the one before.
+        while len(segments) > 1 and float(y[segments[-1][0]:segments[-1][1]].max()) <= end_threshold:
+            segments.pop()
+            flags.append("trailing_segment_dropped")
+        last = segments[-1][1]
         seg0, seg1 = segments[-1]
         i_peak_last = seg0 + int(np.argmax(y[seg0:seg1]))
         stop = _extend_forward(above_end, i_peak_last, quiet)
-        if stop < y.size:
+        if stop <= i_peak_last:
+            # Unreachable with the threshold below the peak; the guard against a
+            # segment ending before its own peak (an empty run) stays.
+            flags.append("offset_threshold_above_peak")
+        elif stop < y.size:
             last = stop
             segments[-1] = (seg0, last)
             evidence["offset_threshold"] = float(end_threshold)

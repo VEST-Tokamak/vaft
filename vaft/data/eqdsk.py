@@ -233,12 +233,20 @@ def from_equilibrium(equilibrium: Any) -> GEQDSK:
 
 
 def _label_cocos(geqdsk: GEQDSK, ods: Any) -> int | None:
-    """Record the g-file's convention on the ODS it is being copied into.
+    """Record on the ODS the convention its psi is *in*, not the file's.
 
-    The values written here are the g-file's own -- psi is copied verbatim, so
-    the ODS is in whatever convention the file was.  Labelling it says so; the
-    alternative is an unlabelled ODS whose psi a consumer must guess at, which
-    is how a weber-per-radian psi came to sit in IMAS weber slots unremarked.
+    :func:`to_omas` converts psi to the Data Dictionary's full weber on the way
+    in (issue #236): psi-like leaves gain 2*pi and psi-derivative profiles lose
+    it.  So the index written here is the g-file's own index moved into the
+    weber family -- COCOS 2 becomes COCOS 12 -- because that is what the ODS
+    now holds.  Labelling it with the raw file index would declare per-radian
+    storage over weber data, and a declared index beats the data probe in
+    :func:`ods_psi_to_wb_per_radian_factor`, so every flux quantity downstream
+    would be off by 2*pi.
+
+    Sign identification cannot catch that on its own: COCOS 2 and COCOS 12 have
+    identical signs and differ only in this exponent, so an index the signs do
+    not contradict is still only half-checked.
 
     Nothing is written when the convention cannot be pinned to a single index:
     an honest silence, which readers already handle, beats a guess.
@@ -258,6 +266,9 @@ def _label_cocos(geqdsk: GEQDSK, ods: Any) -> int | None:
             index = convention.identified[0]
         if index is None:
             return None
+        if index < 10:
+            # The file was per-radian; to_omas just made the ODS weber.
+            index += 10
         return set_ods_cocos(ods, index, source=convention.source)
     except Exception:
         # Labelling is provenance, never a reason to fail a conversion.

@@ -654,3 +654,36 @@ def test_a_window_of_nan_samples_is_no_peak():
     y[(T > 0.05) & (T < 0.09)] = np.nan
     rec = robust_peak(T, y, reference_mask=T < 0.03, search_mask=(T > 0.05) & (T < 0.09))
     assert not rec.found and "no_finite_samples" in rec.flags
+
+
+def test_a_noisy_tail_cannot_put_the_end_threshold_above_the_pulse():
+    """Corpus shot 40002: a faint pulse (9 sigma) followed by a noisier stretch the
+    trailing rule still calls quiet; the offset threshold built on that stretch
+    would sit above the peak (the window used to raise on an empty segment), so
+    the leading baseline judges the offset instead."""
+    rng = np.random.default_rng(40002)
+    y = 0.01 * rng.standard_normal(T.size)
+    y[(T >= 0.030) & (T < 0.045)] += 0.09          # the faint pulse: 9 sigma
+    tail = T >= 0.045
+    y[tail] += 0.023 * rng.standard_normal(int(tail.sum()))   # 2.5 sigma: quiet by the rule, loud enough
+    window = active_window(T, y, reference_mask=T < 0.02, end_fraction=0.10, hold_s=1e-3)
+    assert window.found
+    assert "offset_threshold_above_peak" not in window.flags
+    assert window.onset.time == pytest.approx(0.030, abs=2e-4)
+    assert window.offset.time >= 0.045 - 1e-3                          # never before the pulse's own end
+    assert window.evidence["trailing_quiet"] is True                     # the tail passes the quietness rule...
+    assert "offset_threshold" not in window.evidence or (
+        window.evidence["offset_threshold"] < window.evidence["baseline_median"] + window.evidence["peak"]
+    )                                                                    # ...but never bounds the offset above the peak
+
+
+def test_a_trailing_re_emergence_under_the_end_threshold_is_dropped():
+    """A weak second segment the end rule does not count as the pulse."""
+    y = 0.01 * RNG.standard_normal(T.size)
+    y[(T >= 0.030) & (T < 0.045)] += 1.0
+    y[(T >= 0.060) & (T < 0.070)] += 0.06          # above the 2 % onset threshold, below the 10 % end rule
+    window = active_window(T, y, reference_mask=T < 0.02, end_fraction=0.10, hold_s=1e-3, gap_s=1e-3)
+    assert window.found
+    assert "trailing_segment_dropped" in window.flags
+    assert window.offset.time == pytest.approx(0.045, abs=1e-3)
+    assert len(window.segments) == 1

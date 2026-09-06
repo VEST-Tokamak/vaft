@@ -93,6 +93,12 @@ _ELEMENTARY_CHARGE = 1.602176634e-19
 
 #: Names a per-slice virial row must carry finite for the closure to be decided.
 _VIRIAL_REQUIRED = ("s_1", "s_2", "s_3", "alpha", "B_pa", "beta_p", "li")
+#: A closure denominator below this is reported as near-singular. Report-only:
+#: the number is a readable round figure, not a qualified threshold (#546 §7).
+_VIRIAL_DENOMINATOR_WARN = 0.1
+#: Fraction of the RT denominator that must survive the sign cancellation in
+#: its integrand before RT/R0 is treated as meaning anything. Also report-only.
+_VIRIAL_RT_RATIO_WARN = 0.25
 _VIRIAL_BOUNDS = {"beta_p": (0.0, 10.0), "li": (0.0, 3.0)}
 
 #: Errors a provider raises when the data cannot feed it.  They are recorded
@@ -603,6 +609,162 @@ def _diamagnetic_rows(work: Any, indices: Sequence[int]) -> dict[int, dict[str, 
     return rows
 
 
+def _virial_identity_check(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Do the three relations close on the equilibrium's own volume integrals?
+
+    The one piece of virial evidence that inverts nothing, so no closure
+    denominator can spoil it (#546 §6). Graded on the RMS of the normalized
+    residuals; the three are reported individually because which one fails is
+    the informative part.
+    """
+    if "unavailable" in row:
+        return _unavailable(row["unavailable"])
+    identity = row.get("identity") or {}
+    volume = row.get("volume") or {}
+    fields = {
+        "e1": _float(identity.get("e1")),
+        "e2": _float(identity.get("e2")),
+        "e3": _float(identity.get("e3")),
+        "e1_normalized": _float(identity.get("e1_normalized")),
+        "e2_normalized": _float(identity.get("e2_normalized")),
+        "e3_normalized": _float(identity.get("e3_normalized")),
+        "rms": _float(identity.get("rms")),
+        # How many of the three could be evaluated at all: E2 needs RT/R0, E1
+        # and E3 do not, so a slice with an undetermined current centroid still
+        # reports two.
+        "identities_available": int(identity.get("identities_available") or 0),
+        "beta_p_volume": _float(volume.get("beta_p")),
+        "li_volume": _float(volume.get("li")),
+        "mu_i_volume": _float(volume.get("mu_i")),
+    }
+    if not math.isfinite(fields["rms"]):
+        return _result(
+            ValidationStatus.INDETERMINATE,
+            reason="the volume-integral beta_p, li or mu_i is unavailable, so the identities "
+                   "cannot be evaluated without inverting a closure",
+            **fields,
+        )
+    status = _graded("physical_validity.virial_identity", fields["rms"])
+    evaluable = [
+        key for key in ("e1", "e2", "e3") if math.isfinite(fields[f"{key}_normalized"])
+    ]
+    worst = max(evaluable, key=lambda k: abs(fields[f"{k}_normalized"]))
+    detail = (
+        f"largest residual on {worst.upper()}"
+        if len(evaluable) == 3
+        else f"largest residual on {worst.upper()}; "
+             f"{', '.join(k.upper() for k in ('e1', 'e2', 'e3') if k not in evaluable)} "
+             "could not be evaluated"
+    )
+    return _result(status, reason=detail, **fields)
+
+
+def _virial_pair_consistency(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Each pairwise closure scored on the identity it did not use (#546 §5).
+
+    Solving two relations and testing the third is what stops any one
+    historical formulation being treated as the virial theorem itself. A
+    closure that could not be inverted here contributes nothing rather than a
+    large residual.
+    """
+    if "unavailable" in row:
+        return _unavailable(row["unavailable"])
+    fields: dict[str, Any] = {}
+    residuals: dict[str, float] = {}
+    for pair in ("pair_12", "pair_13", "pair_23"):
+        block = row.get(pair) or {}
+        normalized = _float(block.get("residual_normalized"))
+        fields[f"{pair}_beta_p"] = _float(block.get("beta_p"))
+        fields[f"{pair}_li"] = _float(block.get("li"))
+        fields[f"{pair}_omitted"] = block.get("omitted_identity")
+        fields[f"{pair}_residual"] = normalized
+        if math.isfinite(normalized):
+            residuals[pair] = abs(normalized)
+    disagreement = row.get("disagreement") or {}
+    fields.update({name: _float(value) for name, value in disagreement.items()})
+
+    # Every leave-one-out residual passes through RT/R0 -- pair_12 and pair_23
+    # in the closure itself, pair_13 in the E2 it is scored on -- so when the RT
+    # denominator has cancelled away, none of them is evidence. Grading them
+    # anyway is what let this check report `fail` on the very slices
+    # virial_conditioning was calling indeterminate.
+    conditioning = row.get("conditioning") or {}
+    rt_ratio = _float(conditioning.get("rt_denominator_ratio"))
+    if math.isfinite(rt_ratio) and rt_ratio < _VIRIAL_RT_RATIO_WARN:
+        return _result(
+            ValidationStatus.INDETERMINATE,
+            reason=f"only {rt_ratio:.3g} of the RT denominator survives cancellation; every "
+                   "leave-one-out residual depends on RT/R0, so none of them is evidence here "
+                   "(see virial_conditioning)",
+            **fields,
+        )
+    if len(residuals) < 2:
+        return _result(
+            ValidationStatus.INDETERMINATE,
+            reason="fewer than two closures are invertible here, so they cannot be "
+                   "cross-checked against each other",
+            **fields,
+        )
+    worst_pair = max(residuals, key=residuals.__getitem__)
+    status = _graded("physical_validity.virial_pair_consistency", residuals[worst_pair])
+    return _result(
+        status,
+        reason=f"largest leave-one-out residual from {worst_pair} "
+               f"(omitted {fields[f'{worst_pair}_omitted']})",
+        **fields,
+    )
+
+
+def _virial_conditioning(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Can these closures be inverted here at all? (#546 §10)
+
+    Never fails. A vanishing denominator is a property of the inversion, not of
+    the equilibrium -- the identities may hold perfectly while every closure
+    built on them is singular. Reporting it separately is what stops a
+    near-singular closure being read as a physics failure.
+    """
+    if "unavailable" in row:
+        return _unavailable(row["unavailable"])
+    conditioning = row.get("conditioning") or {}
+    denominators = conditioning.get("denominators") or {}
+    fields = {
+        f"denominator_{name}": _float(value) for name, value in denominators.items()
+    }
+    rt_ratio = _float(conditioning.get("rt_denominator_ratio"))
+    fields["rt_denominator_ratio"] = rt_ratio
+    fields["rt_over_r0_available"] = bool(conditioning.get("rt_over_r0_available"))
+
+    near_singular = sorted(
+        name for name, value in denominators.items()
+        if math.isfinite(_float(value)) and abs(_float(value)) < _VIRIAL_DENOMINATOR_WARN
+    )
+    fields["near_singular"] = near_singular
+    # RT is the conditioning nobody can read off alpha: its denominator is an
+    # integral over a sign-changing integrand, so a small surviving fraction
+    # means RT/R0 -- and every closure using it -- carries no information.
+    rt_ill = math.isfinite(rt_ratio) and rt_ratio < _VIRIAL_RT_RATIO_WARN
+    fields["rt_ill_conditioned"] = rt_ill
+    if not denominators or not math.isfinite(_float(denominators.get("pair_23"))):
+        return _result(
+            ValidationStatus.INDETERMINATE,
+            reason="alpha is unavailable, so no closure denominator can be evaluated",
+            **fields,
+        )
+    reasons = []
+    if near_singular:
+        reasons.append("near-singular denominator: " + ", ".join(near_singular))
+    if rt_ill:
+        reasons.append(
+            f"only {rt_ratio:.3g} of the RT denominator survives cancellation, so RT/R0 "
+            "carries no information and every closure using it (pair_12, pair_23, lao, "
+            "full_123) is unreliable here; virial_pair_consistency reports indeterminate "
+            "for the same reason"
+        )
+    if reasons:
+        return _result(ValidationStatus.WARN, reason="; ".join(reasons), **fields)
+    return _result(ValidationStatus.PASS, reason="every closure is invertible here", **fields)
+
+
 def _virial_result(row: Mapping[str, Any]) -> dict[str, Any]:
     if "unavailable" in row:
         return _unavailable(row["unavailable"])
@@ -761,7 +923,10 @@ def _descriptors(ods: Any, index: int) -> Mapping[str, Any] | None:
 def _physical_slice(ods: Any, index: int, virial_row: Mapping[str, Any],
                     dia_row: Mapping[str, Any] | None, descriptors: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     return {
-        "virial": _virial_result(virial_row),
+        "virial_identity": _virial_identity_check(virial_row),
+        "virial_pair_consistency": _virial_pair_consistency(virial_row),
+        "virial_conditioning": _virial_conditioning(virial_row),
+        "virial_parameter_plausibility": _virial_result(virial_row),
         "pressure_consistency": _pressure_consistency(descriptors, virial_row),
         "q_profile": _q_profile(ods, index),
         "pressure_profile": _pressure_profile(ods, index),
@@ -979,6 +1144,56 @@ def _diamagnetic_energy(ods: Any, index: int, virial: Mapping[str, Any], dia_row
                    W_diamagnetic=w_dia, log_ratio=ratio, **fields)
 
 
+def _virial_measured_mu_i(virial: Mapping[str, Any]) -> dict[str, Any]:
+    """The RT-free closure on the measured mu_i against the same closure on the
+    equilibrium-derived one (#546 §14).
+
+    pair_13 is used because it is the only closure that does not involve
+    RT/R0, so a disagreement here is about the diamagnetism and not about a
+    poorly determined current centroid. This is independent validation rather
+    than physical validity: the diamagnetic loop is a measurement the
+    reconstruction did not fit.
+    """
+    if "unavailable" in virial:
+        return _unavailable(virial["unavailable"])
+    sources = virial.get("mu_i_sources") or {}
+    measured_block = (virial.get("measured_mu_i_closures") or {}).get("pair_13") or {}
+    derived_block = virial.get("pair_13") or {}
+    fields = {
+        "mu_i_volume": _float(sources.get("volume")),
+        "mu_i_full_123": _float(sources.get("full_123")),
+        "mu_i_measured": _float(sources.get("measured")),
+        "measured_diamagnetic_flux": _float(sources.get("measured_diamagnetic_flux")),
+        "beta_p_pair_13_measured": _float(measured_block.get("beta_p")),
+        "beta_p_pair_13": _float(derived_block.get("beta_p")),
+    }
+    if not math.isfinite(fields["mu_i_measured"]):
+        return _unavailable("no measured diamagnetic flux at this slice", **fields)
+    measured, derived = fields["beta_p_pair_13_measured"], fields["beta_p_pair_13"]
+    if not (math.isfinite(measured) and math.isfinite(derived)):
+        return _result(
+            ValidationStatus.INDETERMINATE,
+            reason="the RT-free closure is singular here, so the two mu_i cannot be compared "
+                   "through it",
+            **fields,
+        )
+    ratio = _log_ratio(measured, derived)
+    fields["log_ratio"] = ratio
+    if not math.isfinite(ratio):
+        same_sign = (measured > 0) == (derived > 0)
+        reason = (
+            "both closures are non-positive, so a log ratio is not defined"
+            if same_sign
+            else "the two closures differ in sign, so their ratio is not a comparison"
+        )
+        return _result(ValidationStatus.INDETERMINATE, reason=reason, **fields)
+    return _result(
+        _graded("independent_validation.virial_measured_mu_i", ratio),
+        reason="pair_13 beta_p from the measured diamagnetism against the reconstructed one",
+        **fields,
+    )
+
+
 def _independent_slice(ods: Any, index: int, *, kinetic_profiles: Any | None, diagnostics: Any | None,
                        virial_row: Mapping[str, Any], dia_row: Mapping[str, Any] | None,
                        descriptors: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
@@ -988,6 +1203,7 @@ def _independent_slice(ods: Any, index: int, *, kinetic_profiles: Any | None, di
         "kinetic_pressure": _kinetic_pressure(ods, index, profiles),
         "thomson_pressure": _thomson_pressure(ods, index, thomson),
         "diamagnetic_energy": _diamagnetic_energy(ods, index, virial_row, dia_row, descriptors),
+        "virial_measured_mu_i": _virial_measured_mu_i(virial_row),
     }
 
 

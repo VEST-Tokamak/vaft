@@ -121,7 +121,7 @@ taken from the shot-48226 @ 300 ms ideal-GPEC reference run
 `vest_12inch_20turn.dat`). The `UP`/`LOW` headers previously carried an
 erroneous `nw = 100.00` (their bodies were already identical to the corrected
 files); the geometry and the 20-turn interpretation were reviewed with 3D
-coil developer Gwang-geun Seo. `vaft.machine_mapping.coil_geometry_3d` is the
+coil developer Gwang-geun Seo. `vaft.machine_mapping.coils_non_axisymmetric_geometry` is the
 canonical loader; the metadata (identifiers, sector angles, provenance) lives
 in its `VEST_3D_COIL_SETS` constant.
 
