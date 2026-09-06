@@ -18,7 +18,11 @@ import pytest
 from omas import ODS
 
 import vaft.omas as vomas
-from vaft.code.nubeam.outputs import NUBEAMOutputs, NUBEAMRadialGrid
+from vaft.code.nubeam.outputs import (
+    NUBEAMFluxSurfaceAverages,
+    NUBEAMOutputs,
+    NUBEAMRadialGrid,
+)
 from vaft.machine_mapping.core_sources import core_sources_from_nubeam
 from vaft.plot import registry
 
@@ -45,9 +49,16 @@ def ods(tmp_path):
             volume=np.linspace(0.0, 8.0, ZONES + 1),
             area=np.linspace(0.0, 2.0, ZONES + 1),
         ),
+        # j_parallel is derived from equilibrium geometry, so an ODS that is
+        # to offer the current-drive plot has to carry the averages and b0.
+        flux_surface=NUBEAMFluxSurfaceAverages(
+            f=np.full(ZONES + 1, 1.0),
+            gm1=np.full(ZONES + 1, 2.0 * np.pi),
+            gm5=np.full(ZONES + 1, 4.0),
+        ),
     )
     out = ODS()
-    core_sources_from_nubeam(out, outputs)
+    core_sources_from_nubeam(out, outputs, b0=2.0)
     return out
 
 
@@ -119,3 +130,27 @@ def test_plotting_does_not_mutate_the_ods(ods):
         figure, _ = getattr(vomas, f"plot_{name}")(ods)
         plt.close(figure)
     assert set(ods.flat().keys()) == before
+
+
+def test_the_current_drive_plot_is_not_offered_without_equilibrium_geometry(tmp_path):
+    """j_parallel is derived; with no flux-surface averages it is absent, and
+    discovery must not advertise a plot for a field that was never written."""
+    outputs = NUBEAMOutputs(
+        workdir=tmp_path,
+        runid="NOGEOM",
+        profiles={
+            "pbe": np.linspace(10.0, 1.0, ZONES),
+            "curbeam": np.linspace(5.0, 0.5, ZONES),
+        },
+        grid=NUBEAMRadialGrid(
+            rho=np.linspace(0.0, 1.0, ZONES + 1),
+            volume=np.linspace(0.0, 8.0, ZONES + 1),
+            area=np.linspace(0.0, 2.0, ZONES + 1),
+        ),
+    )
+    out = ODS()
+    core_sources_from_nubeam(out, outputs, b0=2.0)
+
+    offered = {row["name"] for row in vomas.available_plots(out)}
+    assert "nbi_profile_electron_heating" in offered
+    assert "nbi_profile_current_drive" not in offered
