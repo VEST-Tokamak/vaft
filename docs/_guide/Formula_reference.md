@@ -52,7 +52,10 @@ Every function whose result depends on a sign, normalisation, COCOS or unit choi
 - **Poloidal flux, Wb versus Wb/rad.** The equilibrium helpers default to flux per radian
   (COCOS 1-8, EFIT g-files, VFIT); the IMAS Data Dictionary and the Green's functions use full weber
   (COCOS 11-18).  `poloidal_field_factor(cocos)` carries both the $2\pi$ and the orientation sign;
-  `vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor` settles which family an ODS holds.
+  `vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor` settles which family an ODS holds -- a declared
+  COCOS index first, the data probes only for an unlabelled file.  `vaft.omas.equilibrium_psi_to_weber`
+  moves a legacy Wb/rad ODS to the DD's weber in place and declares COCOS 11; the packaged 39915
+  sample is stored that way since issue #478.
 - **Engineering units.** The confinement scalings, $n_G$, $\beta_N$ and the Verdoolaege dimensionless
   parameters are defined in MA, MW, $10^{19}$ m$^{-3}$ and percent; each page states what is converted
   internally and what is not.

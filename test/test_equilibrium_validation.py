@@ -199,11 +199,26 @@ def test_continuity_needs_two_slices_and_flags_the_current_collapse(sample, repo
     assert verify_continuity(broken)["status"] == FAIL
 
 
-def test_an_undeclared_convention_is_indeterminate_not_a_pass(report):
+def test_a_declared_but_unverifiable_convention_is_indeterminate_not_a_pass(report):
+    """The packaged sample declares COCOS 11 (#478); the sign relations that
+    would confirm it need inputs the slice does not carry, so the check is
+    indeterminate -- a declaration is not a verification."""
     live = _slice(report, "verification", "convention", LIVE)
     assert live["status"] == INDETERMINATE
+    assert live["issues"] == ["cocos_unverifiable"]
+    assert live["cocos"] == 11 and live["candidates"] == [11]
+    assert live["psi_per_radian"] is False
+
+
+def test_an_undeclared_convention_is_indeterminate_not_a_pass(sample):
+    from vaft.validation.equilibrium import verify_convention
+
+    undeclared = copy.deepcopy(sample)
+    del undeclared["equilibrium.code.parameters"]
+    live = verify_convention(undeclared, time_slice=LIVE)
+    assert live["status"] == INDETERMINATE
     assert live["issues"] == ["cocos_undeclared"]
-    assert live["cocos"] is None and live["candidates"] == [1, 2]
+    assert live["cocos"] is None and live["candidates"] == [11, 12]
 
 
 # ---------------------------------------------------------------------------
@@ -429,7 +444,7 @@ def test_results_carry_numbers_and_a_status_not_invariant_metadata(report):
         for check, entry in report[category].items():
             for result in entry.get("slices", [entry]):
                 assert not (forbidden & set(result)), f"{category}.{check}: {forbidden & set(result)}"
-    assert "provenance" in report and report["provenance"]["conventions"]["psi_per_radian"] is True
+    assert "provenance" in report and report["provenance"]["conventions"]["psi_per_radian"] is False
 
 
 def test_provenance_records_the_wrappers_actual_settings(report):

@@ -545,8 +545,14 @@ def test_quality_metrics_cover_every_slice(efit_ods):
 def test_portable_sample_reports_unavailable_optional_efit_metadata(
     portable_sample_ods,
 ):
-    """The paired sample must not fabricate cache or missing M-file output."""
-    assert "equilibrium.code.parameters" not in portable_sample_ods
+    """The paired sample must not fabricate cache or missing M-file output.
+
+    Since #478 the block carries the COCOS declaration and nothing else: no
+    EFIT parser cache, no per-slice records.
+    """
+    parameters = portable_sample_ods["equilibrium.code.parameters"]
+    assert set(parameters.keys()) == {"cocos", "cocos_source"}
+    assert int(parameters["cocos"]) == 11
     metrics = convergence_metrics(portable_sample_ods, time_slice=0)
     assert metrics["verdict"]["accepted"] is None
     assert metrics["history"]["available"] is False

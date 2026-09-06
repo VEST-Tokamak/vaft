@@ -264,6 +264,7 @@ def load_ods(
                 ods.load(str(plain_path), consistency_check=False)
         else:
             ods.load(str(source_path), consistency_check=False)
+        _promote_code_parameters(ods)
         return ods, SourceInfo(descriptor.format, descriptor.paths, version, fallback)
 
     temporary: Path | None = None
@@ -286,6 +287,47 @@ def load_ods(
     finally:
         if temporary is not None:
             remove_directory(temporary)
+
+
+def _promote_code_parameters(ods) -> None:
+    """Turn every ``<ids>.code.parameters`` branch into a ``CodeParameters``.
+
+    A JSON/HDF5 load with consistency checks off keeps the block as a plain
+    ODS branch, and omas serializes only ``CodeParameters`` objects to the XML
+    string the IMAS ``code.parameters`` leaf holds -- so the block silently
+    vanished on the way to an IMAS entry, taking the declared COCOS index
+    with it (issue #478).
+    """
+    from omas import ODS
+    from omas.omas_core import CodeParameters
+
+    for ids in list(ods.keys()):
+        path = f"{ids}.code.parameters"
+        try:
+            present = path in ods
+        except Exception:
+            continue
+        if not present:
+            continue
+        branch = ods[path]
+        if not isinstance(branch, ODS):
+            continue
+        # Only a flat, leaf-only block is promoted: that is what an XML
+        # ``code.parameters`` string represents and what the declaration
+        # needs.  A nested parser cache (EFIT's ``efit_collection``, lists of
+        # per-slice records) stays the plain branch it was -- ``CodeParameters``
+        # cannot address or serialize it.
+        leaves = {}
+        for key, value in branch.items():
+            if isinstance(value, (ODS, dict, list, tuple)):
+                leaves = None
+                break
+            leaves[str(key)] = value
+        if not leaves:
+            continue
+        promoted = CodeParameters()
+        promoted.update(leaves)
+        ods[path] = promoted
 
 
 class IMASHandle(AbstractContextManager["IMASHandle"]):

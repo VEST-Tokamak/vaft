@@ -109,6 +109,14 @@ def normalized_pipeline_ods(canonical_source: Path, manifest: dict):
         set_path(ods, "barometry.ids_properties.homogeneous_time", 1)
     if "equilibrium.time" in ods:
         set_path(ods, "equilibrium.ids_properties.homogeneous_time", 1)
+    # Opt-in per manifest (issue #478): the 41524/41672 artifacts are not
+    # regenerated with it yet, so their legacy Wb/rad psi stays undeclared and
+    # the read-time probes settle the convention.
+    if "equilibrium_psi_weber" in manifest.get("generation", {}).get("normalizations", []):
+        vaft.omas.equilibrium_psi_to_weber(
+            ods, source="generate_pipeline_imas_sample: legacy Wb/rad canonical source"
+        )
+        manifest["generation"]["equilibrium_cocos"] = vaft.omas.ods_cocos(ods)
     _project_signal_quality(ods, manifest)
     return ods
 

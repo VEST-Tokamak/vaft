@@ -406,10 +406,19 @@ def write_geqdsk(geqdsk: GEQDSK | Mapping[str, Any], path: str | Path) -> Path:
 
 
 def _path_get(ods: Any, path: str, default: Any = None) -> Any:
+    """Read ``path`` without creating it.
+
+    An OMAS ODS with dynamic path creation materializes a leaf on read, so a
+    probe that merely looked for ``profiles_1d.phi`` used to leave an empty
+    ``phi`` behind on every slice it inspected (issue #478).
+    """
+    from vaft.ods_access import path_value
+
     try:
-        return ods[path]
+        value = path_value(ods, path)
     except Exception:
         return default
+    return default if value is None else value
 
 
 def _profile(values: Any, size: int, default: float = 0.0) -> np.ndarray:
@@ -673,18 +682,54 @@ def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
     2. :func:`_ampere_flux_exponent` -- the loop integral of ``B_pol`` round the
        LCFS against ``mu0*|Ip|``, which needs no ``phi``.
 
-    Both are decisive because their two outcomes are 2*pi apart, and both abstain
-    rather than guess -- a ratio near neither outcome says the input is
-    inconsistent, not which family it belongs to. Only when every slice abstains
-    is the DD convention (Wb) assumed. Returns ``1/(2*pi)`` for Wb storage,
+    A COCOS index the ODS declares (:func:`vaft.omas.general.ods_cocos`) settles
+    the question before either probe runs.  Both probes are decisive because
+    their two outcomes are 2*pi apart, and both abstain rather than guess -- a
+    ratio near neither outcome says the input is inconsistent, not which family
+    it belongs to. Only when every slice abstains is the DD convention (Wb)
+    assumed. Returns ``1/(2*pi)`` for Wb storage,
     ``1.0`` for Wb/rad.
     """
+    declared = _declared_flux_exponent(ods)
+    if declared is not None:
+        return 1.0 if declared == 0 else 1.0 / TWO_PI
     for ts in _flux_exponent_candidates(ods, time_index):
-        for probe in (_slope_flux_exponent, _ampere_flux_exponent):
-            exponent = probe(ts)
-            if exponent is not None:
-                return 1.0 if exponent == 0 else 1.0 / TWO_PI
+        exponent = slice_flux_exponent(ts)
+        if exponent is not None:
+            return 1.0 if exponent == 0 else 1.0 / TWO_PI
     return 1.0 / TWO_PI
+
+
+def _declared_flux_exponent(ods: Any) -> int | None:
+    """The flux exponent a whole ODS declares through its COCOS index, if any.
+
+    A bare time slice carries no declaration and answers ``None``; so does an
+    ODS written before VAFT labelled its output (issue #478).
+    """
+    if _path_get(ods, "equilibrium") is None:
+        return None
+    from vaft.omas.general import ods_cocos
+
+    try:
+        index = ods_cocos(ods)
+    except Exception:
+        return None
+    if index is None:
+        return None
+    return 0 if index < 10 else 1
+
+
+def slice_flux_exponent(time_slice: Any) -> int | None:
+    """The flux exponent one equilibrium time slice's own data supports.
+
+    ``0`` for Wb/rad storage, ``1`` for Wb, ``None`` when neither the
+    dphi/dpsi slope nor Ampere's law can decide from this slice alone.
+    """
+    for probe in (_slope_flux_exponent, _ampere_flux_exponent):
+        exponent = probe(time_slice)
+        if exponent is not None:
+            return exponent
+    return None
 
 
 def from_omas(

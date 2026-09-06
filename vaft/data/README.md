@@ -122,7 +122,13 @@ flux-surface solve's derived equilibrium quantities
 in Wb as the IMAS DD requires (the earlier Wb/rad discrepancy this paragraph
 used to document is fixed); `from_omas` tells legacy Wb/rad artifacts apart
 from DD-conformant ones via the `dphi/dpsi` vs `q` slope, so both this OMFIT
-sample and older native ODS files read back correctly. The committed sample is
+sample and older native ODS files read back correctly. The packaged shot
+samples under `samples/` and `wheel_samples/` are regenerated through
+`vaft.omas.equilibrium_psi_to_weber` (issue #478): 39915 now stores psi in
+Wb and declares COCOS 11 on `equilibrium.code.parameters.cocos`, which every
+reader (`ods_psi_to_wb_per_radian_factor`, `as_equilibrium`) honours before
+probing the data. 41524 and 41672 (repository-only `imas.nc`) still hold the
+legacy Wb/rad and declare nothing; the probes settle them at read time. The committed sample is
 kept as a frozen artifact rather than regenerated -- do not overwrite it
 casually. Keep `user`
 pinned if you do regenerate (`dataset_description` otherwise stamps `$USER`,
