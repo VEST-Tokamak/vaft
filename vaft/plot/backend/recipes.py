@@ -23,7 +23,7 @@ imports ``omas`` or ``imas`` at module level.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import json
 import re
 import warnings
@@ -1488,8 +1488,16 @@ RECIPES: dict[str, Any] = {
         ),
         suptitle="Virial Equilibrium Quantities",
     ),
+    "passive_structure_time_current": CallableRecipe(
+        builder=lambda ods, **options: _build_passive_current(ods, **options),
+        description="Eddy current in the passive structure, summed over loops.",
+    ),
     "current_overview": PanelRecipe(
-        members=("plasma_current_time", "pf_coil_time_current"),
+        members=(
+            "plasma_current_time",
+            "pf_coil_time_current",
+            "passive_structure_time_current",
+        ),
         suptitle="Electromagnetic Currents",
     ),
     "core_profiles_time_volume_averaged": PanelRecipe(
@@ -3683,6 +3691,69 @@ def _abscissa_values(
     if values is None or values.ndim != 1 or values.size != size:
         return None
     return values
+
+
+def _build_passive_current(ods: Any, *, channels: Any = None, **_: Any) -> LineSeries:
+    """Eddy current in the passive structure, summed over loops by default.
+
+    VEST's vessel is discretised into 950 loops.  Drawing them individually is
+    unreadable and, for the startup question this answers -- how much current
+    the vessel carries against the coils -- the sum is the physical quantity.
+    Pass ``channels=`` to inspect individual loops instead.
+    """
+    time = _array(ods, "pf_passive.time")
+    if time is None:
+        raise ValueError(
+            "pf_passive.time is not available; solve the eddy currents first "
+            "with vaft.omas.compute_eddy_currents(ods, [], [])"
+        )
+    indices = _resolve_selection(ods, "pf_passive.loop.{i}.current", channels)
+    if not indices:
+        raise ValueError("no passive loop carries a current")
+
+    traces: list[Series] = []
+    if channels is None:
+        total = None
+        for index in indices:
+            current = _array(ods, f"pf_passive.loop.{index}.current")
+            if current is None or current.shape != time.shape:
+                continue
+            total = current.copy() if total is None else total + current
+        if total is None:
+            raise ValueError("no passive loop current matches the pf_passive time base")
+        # solve_eddy_currents falls back inv -> pinv -> an all-NaN array and only
+        # prints; a silent NaN panel would look like "no eddy current" rather
+        # than a failed solve.
+        if not np.isfinite(total).any():
+            raise ValueError(
+                "the eddy-current solution is entirely non-finite; the impedance "
+                "matrix was singular and solve_eddy_currents fell back to NaN"
+            )
+        traces.append(Series(x=time, y=total, label=f"Total ({len(indices)} loops)"))
+    else:
+        for index in indices:
+            current = _array(ods, f"pf_passive.loop.{index}.current")
+            if current is None or current.shape != time.shape:
+                continue
+            traces.append(
+                Series(
+                    x=time, y=current, index=index,
+                    # Loops share a wall-segment name, so the name alone gives
+                    # every selected loop the same legend entry.
+                    label=(
+                        f"{_channel_label(ods, 'pf_passive.loop.{i}.name', index, 'loop')}"
+                        f" [{index}]"
+                    ),
+                )
+            )
+    return LineSeries(
+        series=tuple(traces),
+        x_label="Time", x_unit="s",
+        y_label="Eddy Current", y_unit="A",
+        title="Passive Structure Current",
+    )
+
+
 
 
 def _build_line_traces(
