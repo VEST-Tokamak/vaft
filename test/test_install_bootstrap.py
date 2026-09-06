@@ -34,7 +34,7 @@ UNINSTALL_SCRIPTS = ("uninstall.sh", "uninstall_windows_native.ps1")
 # from the VAFT bootstrap: building them takes tens of minutes and needs a
 # compiler toolchain, neither of which belongs in the path a student runs first.
 EXTERNAL_CODE_SCRIPTS = ("install_chease_windows.ps1", "install_gpec_windows.ps1")
-EXTERNAL_CODE_CHECKERS = ("check_chease.py", "check_gpec.py")
+EXTERNAL_CODE_CHECKERS = ("check_chease.py", "check_gpec.py", "check_nubeam.py")
 POWERSHELL_SCRIPTS = (
     "windows_native.ps1",
     "uninstall_windows_native.ps1",
@@ -1366,6 +1366,13 @@ def test_external_code_checkers_report_every_layer():
     expected = {
         "check_chease.py": ("toolchain", "source", "build record", "executables", "discovery", "run"),
         "check_gpec.py": ("toolchain", "source", "build record", "executables", "discovery", "handoff"),
+        # NUBEAM has no smoke run without a case, and two layers the others do
+        # not: the reaction databases it aborts without, and the fixed-width
+        # filename buffer a deep working directory overruns.
+        "check_nubeam.py": (
+            "toolchain", "source", "build record", "executables", "discovery",
+            "reaction databases", "path budget",
+        ),
     }
     for name, layers in expected.items():
         module = _load_external_checker(name)
