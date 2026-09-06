@@ -6,8 +6,6 @@ lives in :mod:`vaft.machine_mapping.coils_non_axisymmetric`.  It was
 previously named ``vaft.machine_mapping.coil_geometry_3d``; that name remains
 importable as a deprecated alias.
 
-Canonical VEST non-axisymmetric 3D coil geometry.
-
 The primary geometry source is the three packaged GPEC-format coil files
 ``vaft/data/gpec/vest_{UP,MID,LOW}.dat``.  Each file header is four fields
 ``ncoil nsec npts nw``: number of coils (toroidal sectors) in the set, number

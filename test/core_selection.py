@@ -49,6 +49,7 @@ TEST_ROOT = Path(__file__).resolve().parent
 CORE_MODULES: tuple[str, ...] = (
     # Import and namespace shape. If these break, nothing downstream is
     # trustworthy -- and they are the cheapest tests in the repository.
+    "test_coil_geometry_3d_shim.py",
     "test_compat_runtime.py",
     "test_data_code_namespace.py",
     "test_database_namespace.py",
