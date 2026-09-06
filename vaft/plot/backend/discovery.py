@@ -31,6 +31,7 @@ from vaft.plot import discovery as _core
 from vaft.validation.validity import is_condemned, record_from_mask
 from vaft.plot.discovery import PlotCapability, PlotCatalog, with_capabilities
 from vaft.plot.display import (
+    allowed_units,
     DIMENSIONLESS_DISPLAY,
     QUANTITIES,
     channel_label,
@@ -211,12 +212,31 @@ def _source_label(shots: Sequence[str]) -> str:
 # ---------------------------------------------------------------------------
 
 
+#: Plots whose value unit is a poloidal flux: ``None`` means "the stored
+#: convention of the input"; the vacuum map is always full weber (Green's
+#: functions), whatever the equilibrium declares.
+PSI_FIELD_CONVENTIONS: dict[str, str | None] = {
+    "equilibrium_field_psi": None,
+    "equilibrium_field_psi_vacuum": "Wb",
+    "equilibrium_overview": None,
+}
+
+
 def _declare(record: PlotCapability) -> PlotCapability:
     recipe = RECIPES.get(record.name)
     updates: dict[str, Any] = {}
     unit = getattr(recipe, "y_unit", None)
     if isinstance(recipe, (LineRecipe, ProfileRecipe)):
         updates["display"] = _display_block(record, unit or "")
+    elif record.name in PSI_FIELD_CONVENTIONS:
+        # The psi maps take units= (issue #478); the default unit follows the
+        # stored convention, which only an input can tell -- see _evaluate.
+        updates["display"] = {
+            "unit": None,
+            "units": allowed_units("magnetic_flux", "equilibrium"),
+            "notation": "auto",
+            "convention": PSI_FIELD_CONVENTIONS[record.name],
+        }
     if isinstance(recipe, LineRecipe):
         # Only the line-series builder takes layout= (issue #260); grouped
         # needs a radial split, which an ODS decides -- see _evaluate.
@@ -261,7 +281,7 @@ def _display_block(record: PlotCapability, unit: str) -> dict[str, Any]:
     except ValueError:
         return {}
     quantity = quantity_for_unit(unit) if unit else None
-    units = tuple(QUANTITIES[quantity].units) if quantity else (display.unit,)
+    units = allowed_units(quantity, record.subject) if quantity else (display.unit,)
     return {"unit": display.unit, "units": units, "notation": display.notation}
 
 
@@ -314,6 +334,16 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             # to say which default a profile applies, or a caller cannot know
             # whether the curve it gets back was flipped.
             updates["orientation"] = _orientation_block(recipe)
+        if record.name in PSI_FIELD_CONVENTIONS:
+            from .convention import psi_convention
+
+            convention = PSI_FIELD_CONVENTIONS[record.name] or psi_convention(ods)
+            display = resolve_display(convention, subject="equilibrium")
+            updates["display"] = {
+                **record.display,
+                "unit": display.unit,
+                "convention": convention,
+            }
         if record.synthetic:
             updates["synthetic"] = {
                 **record.synthetic,

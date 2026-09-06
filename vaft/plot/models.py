@@ -275,6 +275,9 @@ class Field2D(ViewModel):
     #: Whether the value axis deserves a colorbar; a map whose levels are
     #: themselves the message (normalised flux at fixed steps) does without.
     colorbar: bool = True
+    #: The display policy's resolution of the value unit, when the builder
+    #: applied one; ``value_label`` already carries the unit it names.
+    display: "DisplaySpec | None" = None
     #: Where the main contours are drawn, as a boolean ``(len(z), len(r))``
     #: grid; ``None`` draws them everywhere.  A flux map confines its plasma
     #: levels to the plasma, since the same psi values recur beside the coils.
