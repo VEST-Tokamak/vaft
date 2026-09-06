@@ -235,3 +235,25 @@ def test_a_nested_code_parameters_cache_is_left_as_it_was(tmp_path):
     assert loaded["equilibrium.code.parameters.efit_collection.status"] == "completed"
     assert loaded["equilibrium.code.parameters.efit_collection.slice_statuses.0.status"] == "ok"
     assert ods_cocos(loaded) is None
+
+
+def test_core_profiles_psi_grids_scale_with_the_equilibrium(legacy):
+    legacy["core_profiles.profiles_1d.0.grid.psi"] = np.array([-0.002, -0.001, 0.0])
+    legacy["core_profiles.profiles_1d.0.electrons.density"] = np.array([3e18, 2e18, 1e18])
+    equilibrium_psi_to_weber(legacy)
+    np.testing.assert_allclose(
+        legacy["core_profiles.profiles_1d.0.grid.psi"], np.array([-0.002, -0.001, 0.0]) * TWO_PI
+    )
+    np.testing.assert_allclose(legacy["core_profiles.profiles_1d.0.electrons.density"], [3e18, 2e18, 1e18])
+
+
+def test_slice_callers_see_the_declaration_through_the_ods(weber):
+    """A bare slice carries no declaration; callers pass the ODS and the index."""
+    from vaft.omas.process_wrapper import compute_diamagnetism
+
+    set_ods_cocos(weber, 11)
+    labelled = compute_diamagnetism(weber, time_index=0)
+    del weber["equilibrium.code.parameters"]
+    unlabelled = compute_diamagnetism(weber, time_index=0)
+    assert np.isfinite(float(labelled))
+    assert float(labelled) == pytest.approx(float(unlabelled), rel=1e-9)

@@ -737,7 +737,10 @@ def _dd_defines(ods, path):
 
 #: Equilibrium leaves that scale with psi (times 2*pi from Wb/rad to Wb) and
 #: the psi-derivative leaves that scale inversely.  Only leaves the slice holds
-#: are touched.
+#: are touched.  The list covers what VAFT's own writers (eqdsk, vfit, the
+#: update helpers) produce; DD leaves no VAFT path writes
+#: (``q_min.psi``, ``psi_external_average``, ``constraints.*.position.psi``)
+#: are not on it, so point this at externally produced ODSs with care.
 _PSI_LIKE_LEAVES = (
     "global_quantities.psi_axis",
     "global_quantities.psi_boundary",
@@ -765,10 +768,12 @@ def equilibrium_psi_to_weber(ods, *, source=None):
     to guess again.
 
     Returns ``True`` when a conversion was applied and ``False`` when the ODS
-    already declares a weber convention or holds no equilibrium.  Raises
-    ``ValueError`` when the slices disagree about their storage family or when
-    no slice can settle it -- guessing would silently corrupt the flux by
-    2*pi, which is what this function exists to end (issue #478).
+    already declares a weber convention or holds no equilibrium.  A declared
+    COCOS 1-8 is trusted as provenance and converted without probing the
+    data.  An undeclared ODS is probed slice by slice, and ``ValueError`` is
+    raised when the slices disagree about their storage family or when no
+    slice can settle it -- guessing would silently corrupt the flux by 2*pi,
+    which is what this function exists to end (issue #478).
     """
     import numpy as np
 

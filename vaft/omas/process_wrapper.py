@@ -1717,7 +1717,8 @@ def compute_diamagnetism(ods, time_index=0):
     R_grid = np.asarray(eq_slice["profiles_2d.0.grid.dim1"], float)
     Z_grid = np.asarray(eq_slice["profiles_2d.0.grid.dim2"], float)
     # poloidal_field_at_boundary below needs psi in Wb/rad (issue #236).
-    _psi_factor = ods_psi_to_wb_per_radian_factor(eq_slice)
+    # The whole ODS, not the bare slice: the declared COCOS lives at the root.
+    _psi_factor = ods_psi_to_wb_per_radian_factor(ods, time_index)
     psi_RZ = _ensure_rz_shape(
         np.asarray(eq_slice["profiles_2d.0.psi"], float), R_grid, Z_grid
     ) * _psi_factor
