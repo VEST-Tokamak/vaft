@@ -521,3 +521,111 @@ def test_a_sample_exactly_at_the_baseline_is_not_a_crossing():
     rec = zero_crossing_after_excursion(T, y, anchor_time=ANCHOR, reference_mask=T < ANCHOR - 0.005,
                                         sigma=0.0, fraction=0.05)
     assert rec.index == i0 + 50
+
+
+# ---------------------------------------------------------------------------
+# Representative peak (#409 PR-vi)
+# ---------------------------------------------------------------------------
+
+from vaft.process.onset import PeakRecord, robust_peak  # noqa: E402
+
+PEAK_T = 0.070
+
+
+def bump(amplitude: float = 1.0, width_s: float = 0.006, noise: float = 0.01, centre: float = PEAK_T) -> np.ndarray:
+    return amplitude * np.exp(-((T - centre) / width_s) ** 2) + noise * RNG.standard_normal(T.size)
+
+
+def test_a_clean_pulse_peaks_at_its_centre():
+    rec = robust_peak(T, bump(), reference_mask=T < 0.03)
+    assert isinstance(rec, PeakRecord) and rec.found
+    assert rec.value == pytest.approx(1.0, abs=0.02)
+    assert abs(rec.time - PEAK_T) <= 5e-4          # 1 % noise on a 6 ms Gaussian top
+    assert rec.time in T
+    assert rec.flags == ()
+    assert rec.excess == pytest.approx(rec.value - rec.evidence["baseline_median"])
+    json.dumps(rec.as_dict())
+
+
+def test_an_isolated_spike_never_becomes_the_peak():
+    y = bump()
+    i_spike = int(np.searchsorted(T, 0.050))
+    y[i_spike] += 3.0
+    filtered = robust_peak(T, y, reference_mask=T < 0.03)
+    assert abs(filtered.time - PEAK_T) <= 5e-4 and filtered.value == pytest.approx(1.0, abs=0.02)
+    assert "peak_is_spike" not in filtered.flags      # the median prefilter removed it before it was a candidate
+    assert filtered.evidence["raw_max"] == pytest.approx(y[i_spike])
+
+    unfiltered = robust_peak(T, y, prefilter_samples=1, reference_mask=T < 0.03)
+    assert abs(unfiltered.time - PEAK_T) <= 5e-4
+    assert "peak_is_spike" in unfiltered.flags
+    assert unfiltered.rejected[0][1] == "impulsive"
+    assert unfiltered.evidence["raw_max_time"] == pytest.approx(T[i_spike])
+
+
+def test_coil_pickup_bursts_do_not_outrank_the_pulse_and_alone_are_no_peak():
+    pulse = 60e3 * np.clip((T - 0.04) / 0.02, 0, 1) * (T < 0.09)
+    bursts = np.zeros_like(T)
+    for centre in (0.010, 0.020, 0.030):
+        sel = np.abs(T - centre) < 0.0004
+        bursts[sel] = 200e3 * np.sign(np.sin((T[sel] - centre) * 8000))
+    y = pulse + bursts + 150.0 * RNG.standard_normal(T.size)
+    rec = robust_peak(T, y, prefilter_samples=1, min_width_s=2e-3, reference_mask=T < 0.005)
+    assert rec.found and 0.055 < rec.time < 0.09 and rec.value == pytest.approx(60e3, rel=0.02)
+    assert "peak_is_spike" in rec.flags
+
+    alone = robust_peak(T, bursts + 150.0 * RNG.standard_normal(T.size), prefilter_samples=1,
+                        min_width_s=2e-3, reference_mask=T < 0.005)
+    assert not alone.found and "all_candidates_impulsive" in alone.flags
+    assert alone.evidence["n_rejected"] >= 1
+
+
+def test_polarity_selects_the_side():
+    y = -bump()
+    negative = robust_peak(T, y, polarity="negative", reference_mask=T < 0.03)
+    absolute = robust_peak(T, y, polarity="absolute", reference_mask=T < 0.03)
+    positive = robust_peak(T, y, polarity="positive", reference_mask=T < 0.03)
+    assert negative.found and negative.value == pytest.approx(-1.0, abs=0.02)
+    assert absolute.time == negative.time and absolute.value == negative.value
+    assert not positive.found and "peak_below_noise" in positive.flags
+    with pytest.raises(ValueError, match="polarity"):
+        robust_peak(T, y, polarity="upward")
+
+
+def test_a_zero_lead_is_flat_but_the_peak_is_still_reported():
+    y = bump(noise=0.0)
+    y[T < 0.05] = 0.0
+    rec = robust_peak(T, y, reference_mask=T < 0.03)
+    assert rec.found and "reference_flat" in rec.flags
+    assert rec.value == pytest.approx(1.0, abs=1e-3)
+
+
+def test_a_peak_on_the_edge_of_the_search_stretch_is_flagged():
+    y = bump()
+    rec = robust_peak(T, y, reference_mask=T < 0.03, search_mask=T <= PEAK_T - 0.002)
+    assert rec.found and "peak_at_window_edge" in rec.flags
+    inside = robust_peak(T, y, reference_mask=T < 0.03, search_mask=(T > 0.05) & (T < 0.09))
+    assert "peak_at_window_edge" not in inside.flags
+
+
+def test_a_clipped_top_is_a_plateau():
+    y = np.minimum(bump(amplitude=2.0, noise=0.0), 1.0)
+    rec = robust_peak(T, y, prefilter_samples=1, reference_mask=T < 0.03)
+    assert rec.found and "peak_plateau" in rec.flags
+    assert rec.evidence["plateau_samples"] >= 3
+
+
+def test_short_records_and_slow_grids_say_so():
+    short = robust_peak(T[:2], np.array([0.0, 1.0]), cutoff_hz=2000.0)
+    assert not short.found and "record_too_short" in short.flags
+    slow_t = np.arange(0.0, 0.1, 1e-3)
+    slow = robust_peak(slow_t, np.exp(-((slow_t - 0.05) / 0.01) ** 2) + 1e-3 * RNG.standard_normal(slow_t.size),
+                       cutoff_hz=2000.0, reference_mask=slow_t < 0.02)
+    assert slow.found and "lowpass_skipped" in slow.flags
+
+
+def test_an_empty_search_mask_is_no_peak():
+    rec = robust_peak(T, bump(), search_mask=np.zeros(T.size, dtype=bool))
+    assert not rec.found and "search_mask_empty" in rec.flags
+    with pytest.raises(ValueError):
+        robust_peak(T, bump(), search_mask=np.ones(3, dtype=bool))
