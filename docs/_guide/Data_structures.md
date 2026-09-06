@@ -182,11 +182,15 @@ vaft.omas.print_info(ods)                 # metadata header, then one line per I
 vaft.omas.print_info(ods, 'magnetics')    # channel counts inside one IDS
 ```
 
-`vaft.omas.classify_shot(ods)` labels a shot `'Plasma'`, `'BD failure'` or `'Vacuum'` from the
-barometry, H-alpha and Ip signals. It needs a `barometry` IDS; on the packaged sample (shot 39915)
-it returns `'Plasma'`. Its `pressure_threshold` and `halpha_threshold` are the variance-ratio
-thresholds of the primitive below; an IDS it cannot find is caught and reported as `'Vacuum'`,
-so guard the IDSs yourself when that default is not what you want.
+`vaft.omas.classify_shot(ods)` labels a shot `'Plasma'`, `'BD failure'` or `'Vacuum'`, decided from the
+shared plasma timing and the gas response, in this order: a plasma-current pulse found by
+`vaft.omas.plasma_timing` → `'Plasma'`; otherwise a barometry pressure response (`is_signal_active` over the
+whole record, the puff precedes the analysis window) or an optical window → `'BD failure'` (the shot was
+attempted); otherwise `'Vacuum'`. `vaft.omas.shot_class.shot_class(ods)` returns the record behind the string:
+the label, `decided_by` (`ip_pulse`, `pressure_response`, `optical_window`, `none`), the three checks, the
+timing summary and flags such as `barometry_absent` (a product without barometry is judged on the light
+alone). A product without `magnetics.ip` cannot be classified either way and raises `PlasmaTimingError`;
+on the packaged samples every shot is `'Plasma'` by its current pulse. `halpha_threshold` is no longer read.
 
 The underlying primitive is scale-free: it compares the trace's variance and its mean |Δx|, both
 divided by the trace's mean absolute level, against relative thresholds, so it needs no knowledge
@@ -614,7 +618,7 @@ vaft.omas.find_ip_onset(ods)
 vaft.omas.find_breakdown_onset(ods)
 vaft.omas.find_pulse_duration(ods)     # plasma offset - onset
 vaft.omas.find_pf_active_onset(ods)    # one entry per coil, nan for a coil that did not fire
-vaft.omas.find_max_ip(ods)             # median-filtered peak Ip
+vaft.omas.find_max_ip(ods)             # representative peak Ip inside the plasma window
 vaft.omas.find_bt(ods)                 # mean toroidal field over the plasma window
 ```
 
@@ -685,7 +689,8 @@ for drop_ids in ['em_coupling', 'magnetics']:
 | `vaft.imas.IMAS_REMOVED_IDS` | IDSs dropped by newer DD releases (`dataset_description`) |
 | `vaft.omas.sample_ods()` / `sample_odc()` / `sample_gfile()` | Packaged VEST samples |
 | `vaft.omas.find_shotnumber(ods)` / `print_info(ods)` | Shot metadata |
-| `vaft.omas.classify_shot(ods)` | Shot class — **broken on `main`**: returns `'Vacuum'` unconditionally (see above) |
+| `vaft.omas.classify_shot(ods)` / `vaft.omas.shot_class.shot_class(ods)` | Shot class from the shared plasma timing (Ip pulse → Plasma; gas response or light → BD failure; else Vacuum), with the deciding check |
+| `vaft.omas.plasma_features.plasma_features(ods)` | Representative peaks (Ip, H-alpha, configured lines, diamagnetic flux) inside the plasma window, with provenance |
 | `vaft.process.is_signal_active(data, var_ratio_thresh=..., change_ratio_thresh=...)` | Scale-invariant "is this channel live?" test |
 | `vaft.omas.change_time_convention(odc_or_ods, convention=...)` / `shift_time(ods, dt)` | Time-convention handling |
 | `vaft.omas.find_matching_time_indices(ods, time_slice=...)` | Align `core_profiles` and `equilibrium` slices |

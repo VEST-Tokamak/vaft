@@ -14,39 +14,13 @@ def find_shotnumber(ods):
     """Find the shot number from the ODS."""
     return ods['dataset_description.data_entry.pulse']
 
-def find_shotclass(ods,plot_opt=0):
-    """
-    !!! Obsolete function:
-    it is not successfully find the shot class. Need to be improved.
-
-    Find shot class from ODS
-    # 'Plasma': Plasma discharge is stable and Halpha is detected
-    # 'Vacuum': Vacuum Test Shot
-    # 'Breakdown failure': Try to discharge but failed (BD Test Shot)
-
-    """
-    # check existence of barometry and spectrometer
-    if 'barometry' not in ods:
-        print('Barometry not found in ODS')
-        return
-    if 'spectrometer_uv' not in ods:
-        print('Spectrometer not found in ODS')
-        return
-
-    # Check status: Vacuum, BD failure, Plasma
-    time_pres=ods['barometry.gauge.0.pressure.time'] # time
-    data_pres=ods['barometry.gauge.0.pressure.data'] # pressure
-    data_alpha=ods['spectrometer_uv.channel.0.processed_line.0.intensity.data'] # Halpha
-    time_alpha=ods['spectrometer_uv.time'] # Halpha
-
-    if vaft.process.is_signal_active(data_alpha, 0.01):
-        status = 'Plasma'
-    else:
-        if not vaft.process.is_signal_active(data_pres): # no pressure?
-            status='Vacuum'
-        else:
-            status='BD failure'
-    return status
+def find_shotclass(ods, plot_opt=0):
+    """Deprecated: use :func:`classify_shot` (or ``vaft.omas.shot_class.shot_class`` for the record)."""
+    warnings.warn(
+        "find_shotclass is deprecated; use vaft.omas.classify_shot or vaft.omas.shot_class.shot_class",
+        DeprecationWarning, stacklevel=2,
+    )
+    return classify_shot(ods)
 
 def find_chamber_boundary(ods):
     """Find the chamber boundary from the ODS."""
@@ -164,21 +138,22 @@ def find_bt(ods):
     return float(np.mean(bt[inside]))
 
 def find_max_ip(ods):
-    """Find the maximum plasma current."""
-    current = ods['magnetics.ip.0.data']
-    from scipy.signal import medfilt
-    data_filtered = medfilt(current, kernel_size=15)
-    
-    max_org = np.max(current)
-    max_filtered = np.max(data_filtered)
+    """The representative peak of the plasma current inside the plasma window.
 
-    print(f"Original max IP: {max_org}, Filtered max IP: {max_filtered}")
+    ``vaft.omas.plasma_features``: the largest sustained excursion of the
+    median-filtered, zero-phase low-passed current between the plasma onset
+    and offset -- a coil-firing impulse is never the answer.  Raises
+    ``ValueError`` naming the reason when the timing found no plasma or the
+    current carries no qualifying peak.
+    """
+    from .plasma_features import plasma_features
 
-    if ods['dataset_description']['data_entry']['pulse'] == 40919 or ods['dataset_description']['data_entry']['pulse'] == '40919':
-        if max_filtered > 100:
-            raise RuntimeError("조건을 만족하지 않아 종료합니다.")
-    
-    return np.max(data_filtered)
+    features = plasma_features(ods)
+    if not features.computed or not features.ip.found:
+        reason = features.reason or features.ip.reason or ", ".join(features.ip.flags)
+        raise ValueError(f"no plasma-current peak: {reason}")
+    return float(features.ip.value)
+
 
 def find_major_radius(ods):
     """Placeholder for finding major radius."""
@@ -410,26 +385,22 @@ def print_info(ods, key_name=None):
         else:
             print("key_name value Error!")
 
-def classify_shot(ods, pressure_threshold=0.01, halpha_threshold=0.01):
-    """Determine the classification of a shot based on pressure and H-alpha signals."""
-    try:
-        data_pres = ods['barometry.gauge.0.pressure.data']
-        if not vaft.process.is_signal_active(data_pres, var_ratio_thresh=pressure_threshold):
-            return 'Vacuum'
-        data_alpha = ods['spectrometer_uv.channel.0.processed_line.0.intensity.data']
-        if not vaft.process.is_signal_active(data_alpha, var_ratio_thresh=halpha_threshold):
-            return 'BD failure'
-        try:
-            ip = ods['magnetics.ip.0.data']
-            if np.max(ip) > 0:
-                return 'Plasma'
-            else:
-                return 'BD failure'
-        except Exception:
-            return 'Plasma'
-    except Exception as e:
-        print(f"Error in find_shotclass: {str(e)}")
-        return 'Vacuum'
+def classify_shot(ods, pressure_threshold=0.01, halpha_threshold=None):
+    """The class of a shot -- ``'Plasma'``, ``'BD failure'`` or ``'Vacuum'`` -- as a string.
+
+    :func:`vaft.omas.shot_class.shot_class` decides it from the shared plasma
+    timing and the barometry pressure response, and carries which check
+    decided; this is that record's label.  ``halpha_threshold`` is no longer
+    used: the light is judged by the plasma timing, not by a variance ratio.
+    """
+    from .shot_class import shot_class
+
+    if halpha_threshold is not None:
+        warnings.warn(
+            "classify_shot: halpha_threshold is ignored; the light is judged by vaft.omas.plasma_timing",
+            DeprecationWarning, stacklevel=2,
+        )
+    return shot_class(ods, pressure_threshold=pressure_threshold).label
 
 # ----------------------------------------------------------------------
 # Combine ODS
