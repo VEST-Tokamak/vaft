@@ -601,7 +601,7 @@ def compute_voltage_consumption(
         t[k] = float(ts['time']) if 'time' in ts else float(i)
         # loop_voltage_from_total_flux multiplies by 2*pi, i.e. it expects
         # psi in Wb/rad; convert from the ODS storage convention (issue #236).
-        _psi_factor = ods_psi_to_wb_per_radian_factor(ts)
+        _psi_factor = ods_psi_to_wb_per_radian_factor(ods, i)
         psi_boundary[k] = (
             float(ts['global_quantities.psi_boundary']) - float(ts['global_quantities.psi_axis'])
         ) * _psi_factor

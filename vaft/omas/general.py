@@ -679,10 +679,13 @@ def ods_cocos(ods, *, default=None):
     """
     from vaft.data.cocos import COCOS_INDICES
 
+    from vaft.ods_access import path_value
+
     for path in ("equilibrium.ids_properties.cocos", COCOS_PARAMETER_PATH):
-        try:
-            value = ods[path]
-        except Exception:
+        # A non-mutating read: a plain ``ods[path]`` of a missing path creates
+        # an empty node that ``flat()`` hides but ``save`` writes (issue #478).
+        value = path_value(ods, path)
+        if value is None:
             continue
         try:
             index = int(value)
@@ -711,8 +714,122 @@ def set_ods_cocos(ods, index, *, source=None):
     ods[COCOS_PARAMETER_PATH] = index
     if source is not None:
         ods["equilibrium.code.parameters.cocos_source"] = str(source)
-    try:  # DD 4 only; harmless where the field does not exist.
+    if _dd_defines(ods, "equilibrium.ids_properties.cocos"):  # DD 4 only
         ods["equilibrium.ids_properties.cocos"] = index
-    except Exception:
-        pass
     return index
+
+
+def _dd_defines(ods, path):
+    """Whether the data dictionary version ``ods`` targets defines ``path``.
+
+    An ODS with consistency checks off accepts any path, so the DD itself has
+    to be asked; otherwise a DD 3 artifact ends up carrying a DD 4 leaf that
+    its native serializers cannot write (issue #478).
+    """
+    from omas.omas_utils import omas_info_node
+
+    try:
+        info = omas_info_node(path, imas_version=getattr(ods, "imas_version", None))
+    except Exception:
+        return False
+    return bool(info) and "data_type" in info
+
+
+#: Equilibrium leaves that scale with psi (times 2*pi from Wb/rad to Wb) and
+#: the psi-derivative leaves that scale inversely.  Only leaves the slice holds
+#: are touched.  The list covers what VAFT's own writers (eqdsk, vfit, the
+#: update helpers) produce; DD leaves no VAFT path writes
+#: (``q_min.psi``, ``psi_external_average``, ``constraints.*.position.psi``)
+#: are not on it, so point this at externally produced ODSs with care.
+_PSI_LIKE_LEAVES = (
+    "global_quantities.psi_axis",
+    "global_quantities.psi_boundary",
+    "boundary.psi",
+    "boundary_separatrix.psi",
+    "profiles_1d.psi",
+    "profiles_1d.dpsi_drho_tor",
+)
+_PER_PSI_LEAVES = (
+    "profiles_1d.dpressure_dpsi",
+    "profiles_1d.f_df_dpsi",
+    "profiles_1d.dvolume_dpsi",
+    "profiles_1d.darea_dpsi",
+)
+
+
+def equilibrium_psi_to_weber(ods, *, source=None):
+    """Rewrite a legacy Wb/rad equilibrium in place to the DD's full weber.
+
+    The IMAS Data Dictionary stores ``equilibrium.*.psi`` in Wb (COCOS 11);
+    artifacts written before issue #236 hold the g-file's Wb/rad verbatim and
+    declare nothing.  This multiplies every psi-like leaf by 2*pi, divides the
+    psi-derivative profiles by it, does the same to ``core_profiles`` psi grids,
+    and then declares COCOS 11 through :func:`set_ods_cocos` so no reader has
+    to guess again.
+
+    Returns ``True`` when a conversion was applied and ``False`` when the ODS
+    already declares a weber convention or holds no equilibrium.  A declared
+    COCOS 1-8 is trusted as provenance and converted without probing the
+    data.  An undeclared ODS is probed slice by slice, and ``ValueError`` is
+    raised when the slices disagree about their storage family or when no
+    slice can settle it -- guessing would silently corrupt the flux by 2*pi,
+    which is what this function exists to end (issue #478).
+    """
+    import numpy as np
+
+    from vaft.data.cocos import VAFT_INTERNAL_COCOS
+    from vaft.data.eqdsk import TWO_PI, slice_flux_exponent
+
+    if "equilibrium" not in ods or "equilibrium.time_slice" not in ods:
+        return False
+    declared = ods_cocos(ods)
+    if declared is not None:
+        if declared >= 11:
+            return False
+        exponents = {0}
+    else:
+        exponents = set()
+        undecided = []
+        for index in range(len(ods["equilibrium.time_slice"])):
+            exponent = slice_flux_exponent(ods[f"equilibrium.time_slice.{index}"])
+            if exponent is None:
+                undecided.append(index)
+            else:
+                exponents.add(exponent)
+        if not exponents:
+            raise ValueError(
+                "No equilibrium time slice carries enough data (profiles_1d.phi, "
+                "or a boundary outline with psi and ip) to settle whether psi is "
+                "stored in Wb or Wb/rad; declare the COCOS index instead"
+            )
+        if len(exponents) > 1:
+            raise ValueError(
+                "Equilibrium time slices disagree about their psi convention; "
+                "refusing to convert an inconsistent ODS"
+            )
+        if exponents == {1}:
+            set_ods_cocos(ods, VAFT_INTERNAL_COCOS, source=source)
+            return False
+
+    for index in range(len(ods["equilibrium.time_slice"])):
+        ts = ods[f"equilibrium.time_slice.{index}"]
+        for leaf in _PSI_LIKE_LEAVES:
+            if leaf in ts:
+                scaled = np.asarray(ts[leaf], float) * TWO_PI
+                ts[leaf] = float(scaled) if scaled.ndim == 0 else scaled
+        for leaf in _PER_PSI_LEAVES:
+            if leaf in ts:
+                ts[leaf] = np.asarray(ts[leaf], float) / TWO_PI
+        if "profiles_2d" in ts:
+            for grid_index in range(len(ts["profiles_2d"])):
+                if f"profiles_2d.{grid_index}.psi" in ts:
+                    ts[f"profiles_2d.{grid_index}.psi"] = (
+                        np.asarray(ts[f"profiles_2d.{grid_index}.psi"], float) * TWO_PI
+                    )
+    if "core_profiles.profiles_1d" in ods:
+        for index in range(len(ods["core_profiles.profiles_1d"])):
+            leaf = f"core_profiles.profiles_1d.{index}.grid.psi"
+            if leaf in ods:
+                ods[leaf] = np.asarray(ods[leaf], float) * TWO_PI
+    set_ods_cocos(ods, VAFT_INTERNAL_COCOS, source=source)
+    return True

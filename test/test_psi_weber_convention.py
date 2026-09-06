@@ -261,12 +261,19 @@ def test_legacy_artifact_without_phi_is_detected_by_ampere_law():
     ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
     assert "phi" not in ods["equilibrium.time_slice.0.profiles_1d"]
 
-    assert ods_psi_to_wb_per_radian_factor(ods, 0) == pytest.approx(1.0)
+    # Since issue #478 the packaged sample ships in DD weber and declares
+    # COCOS 11; strip the declaration so Ampere's law alone must answer.
+    del ods["equilibrium.code.parameters"]
+    assert ods_psi_to_wb_per_radian_factor(ods, 0) == pytest.approx(1.0 / TWO_PI)
 
     stored_axis = float(ods["equilibrium.time_slice.0.global_quantities.psi_axis"])
     recovered = from_omas(ods, 0)
     simag = (recovered.data if hasattr(recovered, "data") else recovered)["SIMAG"]
-    assert float(simag) == pytest.approx(stored_axis, rel=1e-9)
+    assert float(simag) == pytest.approx(stored_axis / TWO_PI, rel=1e-9)
+
+    # And the pre-#478 artifact, rebuilt from the sample, is still detected.
+    legacy = _legacy_style(ods)
+    assert ods_psi_to_wb_per_radian_factor(legacy, 0) == pytest.approx(1.0)
 
 
 def test_ampere_law_fallback_still_reports_weber_for_dd_conformant_data():
@@ -275,7 +282,9 @@ def test_ampere_law_fallback_still_reports_weber_for_dd_conformant_data():
 
     import vaft
 
-    ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    # Rebuild the undeclared Wb/rad artifact the sample used to be (#478).
+    ods = _legacy_style(vaft.omas.load(vaft.data.sample(39915, representation="omas")))
+    del ods["equilibrium.code.parameters"]
     weber = copy.deepcopy(ods)
     ts = weber["equilibrium.time_slice.0"]
     for path in (
@@ -304,7 +313,9 @@ def test_detector_accepts_a_bare_time_slice_as_its_docstring_promises():
 
     import vaft
 
-    ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    # The packaged sample is DD weber since #478; its legacy form is Wb/rad.
+    ods = _legacy_style(vaft.omas.load(vaft.data.sample(39915, representation="omas")))
+    del ods["equilibrium.code.parameters"]
     assert ods_psi_to_wb_per_radian_factor(ods, 0) == pytest.approx(1.0)
     assert ods_psi_to_wb_per_radian_factor(
         ods["equilibrium.time_slice.0"]

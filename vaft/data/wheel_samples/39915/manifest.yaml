@@ -49,8 +49,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 9919051
-    sha256: 53e27fe9e5774fa317529050a18e1cce5c6185e59902562a8345bb10043a6a27
+    size: 10107992
+    sha256: e3bcfa2024493848001da9565ca295428537d30db7a86a185097f2b476932d5c
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -58,16 +58,18 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 11205129
-    sha256: 0118e524049e01a84236ba0c907646d6c8dab53257adb26771b7078b7edd679a
+    size: 11205694
+    sha256: 047a7923bb35192a031d986dbfccc85c9f8d72c98fe745744daaf45013f2fc77
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
   canonical_source: source/pipeline-until-efit.json.gz
   canonical_sha256: ba20eeef791ce7a212497053e527db620ffd88652a7794b8184e816e8d7143b0
   canonical_policy: repository-only
+  normalizations:
+  - equilibrium_psi_weber
   equilibrium_time_slices: 3
-  materialized_leaves: 15731
+  materialized_leaves: 15733
   metadata_corrections:
   - issue: https://github.com/VEST-Tokamak/vaft/issues/169
     path: magnetics.b_field_pol_probe.*.poloidal_angle
@@ -117,6 +119,7 @@ generation:
       population_peak_factor: 4.0
     condemned:
     - b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz
+  equilibrium_cocos: 11
   distribution_variant: wheel
 semantic_comparison:
   paths:
