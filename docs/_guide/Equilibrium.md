@@ -222,6 +222,46 @@ if result.ok:                      # returncode == 0
 result = collect_efit_outputs('/tmp/efit-run', config)
 ```
 
+#### Channel decisions
+
+Which magnetic channels constrain the fit, and at which slices, is decided
+before the constraints are written and only translated by the writer
+(issue #296). `vaft.validation.efit_channels.decide_efit_channels` reads the
+validity the diagnostics stage projected (never re-detecting anything) and an
+optional manual rejection list, and returns a `ChannelDecisions` holding one
+of five states per channel and slice:
+
+| state | weight | value |
+| --- | --- | --- |
+| `usable` | the family's nominal weight | the window-averaged measurement |
+| `suspect` | nominal × a configured factor (1 = report-only) | the measurement |
+| `rejected` | 0 | the measurement, unused |
+| `missing` | 0, the deterministic placeholder (#145) | 0 |
+| `recovered` | the backend's factor | the backend's value and uncertainty |
+
+A recovery backend is any `callable(EQ, decisions) -> decisions`; the
+compatibility one refits rejected probes from their geometric family's
+Gaussian profile, and never re-enables a channel the quality layer rejected —
+it replaces the number, the weight stays zero unless the only rejection was
+the manual list.
+
+```python
+from functools import partial
+from vaft.code.efit import generate_constraints_ods, gaussian_probe_recovery, probe_families
+from vaft.validation.efit_channels import decide_efit_channels, efit_probe_count
+
+nbprobe = efit_probe_count(ods)
+decisions = decide_efit_channels(ods, times, nbprobe=nbprobe, manual_rejections=[65, 66])
+recovery = partial(gaussian_probe_recovery, mode=1,
+                   families=probe_families(ods['magnetics'], count=nbprobe))
+generate_constraints_ods(ods, shot, save_dir, table_dir, times, uncertainty, weighting,
+                         decisions=decisions, recovery=recovery)
+```
+
+The product records the decisions it was built from under
+`equilibrium.code.parameters.channel_decisions`, so a zero weight in a k-file
+can be traced to its reason.
+
 ### CHEASE — equilibrium refinement
 `vaft.code.chease` takes a GEQDSK (path, `GEQDSK`, or mapping) and produces a
 refined, high-resolution equilibrium.

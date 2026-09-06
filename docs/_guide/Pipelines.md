@@ -174,9 +174,17 @@ dump with no SQL server in reach. Magnetics processing parameters travel as a
   developer's home directory, while `base_dir` points at the Linux data server. Repoint them before running.
 * **Dead keys.** `cores`, `raw.offline_only` and `gpec.coil.source` appear in `config.yaml` but are never read
   by the `Snakefile`.
-* **`constraints.detect_broken: true` excludes the channels the diagnostics stage condemned** (their
-  projected validity), on top of the explicit `constraints.broken` list of 1-based channel indices; a
-  product that carries no assessment falls back to the 12-MAD amplitude detector.
+* **Channel selection is a decision the constraint stage consumes, not one it makes** (issue #296).
+  `vaft.validation.efit_channels.decide_efit_channels` reads the validity the diagnostics stage projected
+  and the `constraints.broken` list (1-based combined indexes: probes first, flux loops after the 64 EFIT
+  probes) and emits a per-channel, per-slice decision — usable, suspect, rejected, missing or recovered —
+  that `generate_constraints_ods` only translates into weights. `constraints.detect_broken: true` now means
+  *require* that assessment: a product without projected validity is refused and must be re-run through the
+  diagnostics stage (with `false` every channel is usable by default). No detector runs in this stage.
+  `gaussian_fit_option` selects the compatibility recovery backend (`1` refits rejected probes from their
+  family's Gaussian profile, `2` every probe); a recovered value never re-enables a channel the quality
+  layer rejected. The decisions are recorded in the product under
+  `equilibrium.code.parameters.channel_decisions`.
 
 Constraint time selection is worth spelling out, because `timeset: auto` is the default and it is not
 obvious. The script takes the shared plasma-analysis range — `diagnostics_time_policies.windows.plasma_analysis`
