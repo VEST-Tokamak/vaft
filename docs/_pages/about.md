@@ -19,13 +19,13 @@ related:
 > **Integrate fusion science knowledge so it can be discovered, verified, compared, and studied.**
 
 **VAFT** — the *Versatile Analytical Framework for Tokamak* — is a standardized, verifiable, and
-interoperable scientific infrastructure for machine-agnostic tokamak research, developed by the
-VEST team at **Seoul National University**. It integrates experimental data, reconstructed and
-simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered,
-verified, compared, and studied. Its full end-to-end implementation on the VEST tokamak supports
-routine experimental data processing, validation, modeling, physics analysis, and shared scientific
-use across collaborating researchers and institutions, while serving as the reference
-implementation for modern, reproducible, and data-driven fusion research.
+interoperable scientific framework for integrated, machine-agnostic tokamak research, developed by
+the VEST team at **Seoul National University**. It provides a common interface for connecting
+experimental data, standardized representations, data processing, validation, modeling,
+visualization, and physics codes into reproducible end-to-end research workflows. Its full
+implementation on the VEST tokamak supports routine experimental operation, physics analysis, and
+shared scientific use across collaborating researchers and institutions, while serving as a
+reference implementation for modern, reproducible, and data-driven fusion research.
 
 Everything the framework exposes — remote shot loading, diagnostic mapping, physics formulas,
 equilibrium and stability code interfaces, profile fitting and visualization — is organized around
@@ -109,7 +109,7 @@ Korean Government (MSIT) (RS-2023-00281276, RS-202400409564, and RS-2025-0230481
 
 ## License
 
-VAFT is distributed under the [Apache License 2.0](https://github.com/VEST-Tokamak/vaft/blob/main/LICENSE),
+VAFT is distributed under the [Apache License 2.0](https://github.com/VEST-Tokamak/vaft/blob/develop/LICENSE),
 as declared by the package classifier (`License :: OSI Approved :: Apache Software License`) in
 `pyproject.toml`.
 

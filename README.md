@@ -9,15 +9,15 @@ English | [한국어](README.ko.md)
 
 > **Integrate fusion science knowledge so it can be discovered, verified, compared, and studied.**
 
-**VAFT is a standardized, verifiable, and interoperable scientific infrastructure
-for machine-agnostic tokamak research.** It integrates experimental data,
-reconstructed and simulated plasma states, and analysis workflows so that fusion
-science knowledge can be discovered, verified, compared, and studied. Its full
-end-to-end implementation on the [VEST tokamak](https://eng.snu.ac.kr/) at Seoul
-National University supports routine experimental data processing, validation,
-modeling, physics analysis, and shared scientific use across collaborating
-researchers and institutions, while serving as the reference implementation for
-modern, reproducible, and data-driven fusion research.
+**VAFT is a standardized, verifiable, and interoperable scientific framework for
+integrated, machine-agnostic tokamak research.** It provides a common interface
+for connecting experimental data, standardized representations, data processing,
+validation, modeling, visualization, and physics codes into reproducible
+end-to-end research workflows. Its full implementation on the
+[VEST tokamak](https://eng.snu.ac.kr/) at Seoul National University supports
+routine experimental operation, physics analysis, and shared scientific use
+across collaborating researchers and institutions, while serving as a reference
+implementation for modern, reproducible, and data-driven fusion research.
 
 > Hong-Sik Yun, Sunjae Lee *et al* 2025 *Plasma Phys. Control. Fusion* **67** 115021
 > ([doi:10.1088/1361-6587/ae1b6a](https://doi.org/10.1088/1361-6587/ae1b6a))
@@ -549,5 +549,4 @@ by neither gives `AMBIGUOUS` with a reason rather than a guess. Real
 reconstructions routinely contain numerical saddles far from the plasma; those
 are returned in `x_points` with `active=False` instead of being filtered by
 hard-coded geometry.
-
 

@@ -68,8 +68,8 @@ def test_the_positioning_statement_leads(path):
     for phrase in ("VAFT", "VEST"):
         assert phrase in opening
     # The claim that distinguishes the new framing from "a Python library".
-    assert "infrastructure" in opening or "인프라" in opening, (
-        f"{path.name}: the opening does not state that VAFT is infrastructure"
+    assert any(term in opening for term in ("framework", "infrastructure", "프레임워크", "인프라")), (
+        f"{path.name}: the opening does not state that VAFT is framework/infrastructure"
     )
 
 
@@ -114,9 +114,9 @@ def test_overview_follows_identity_enablement_reference_order():
     opening = ENGLISH.read_text(encoding="utf-8")
     opening = opening[: opening.index("\n## ")]
     compact = re.sub(r"\s+", " ", opening)
-    what = compact.index("VAFT is a standardized, verifiable, and interoperable scientific infrastructure")
-    enables = compact.index("It integrates experimental data")
-    reference = compact.index("Its full end-to-end implementation on the")
+    what = compact.index("VAFT is a standardized, verifiable, and interoperable scientific framework")
+    enables = compact.index("It provides a common interface")
+    reference = compact.index("Its full implementation on the")
     assert what < enables < reference
 
 
