@@ -20,6 +20,7 @@ from scipy.interpolate import interp1d
 from vaft.compat import trapz_compat
 from vaft.data.open_adas import ADASDataError
 from vaft.formula.atomic import line_cooling_coefficient
+from vaft.spectroscopy import ATOMIC_NUMBERS, ELEMENT_NAMES
 
 
 logger = logging.getLogger(__name__)
@@ -27,21 +28,14 @@ logger = logging.getLogger(__name__)
 DEFAULT_LINE_RADIATION_SPECIES = ("C", "O")
 DEFAULT_IMPURITY_FRACTIONS = {"C": 1.0e-2, "O": 1.0e-2}
 _DEFAULT_TIME_MATCH_ATOL = 1.0e-6
-_ATOMIC_NUMBERS = {
-    "H": 1, "D": 1, "T": 1, "He": 2, "Li": 3, "Be": 4, "B": 5,
-    "C": 6, "N": 7, "O": 8, "F": 9, "Ne": 10, "Al": 13,
-    "Si": 14, "S": 16, "Cl": 17, "Ar": 18, "Ca": 20, "Ti": 22,
-    "Fe": 26, "Ni": 28, "Kr": 36, "Mo": 42, "Xe": 54, "W": 74,
-}
-_ELEMENT_NAMES = {
-    "hydrogen": "H", "deuterium": "D", "tritium": "T", "helium": "He",
-    "lithium": "Li", "beryllium": "Be", "boron": "B", "carbon": "C",
-    "nitrogen": "N", "oxygen": "O", "fluorine": "F", "neon": "Ne",
-    "aluminium": "Al", "aluminum": "Al", "silicon": "Si", "sulfur": "S",
-    "sulphur": "S", "chlorine": "Cl", "argon": "Ar", "calcium": "Ca",
-    "titanium": "Ti", "iron": "Fe", "nickel": "Ni", "krypton": "Kr",
-    "molybdenum": "Mo", "xenon": "Xe", "tungsten": "W",
-}
+#: Shared with :mod:`vaft.spectroscopy`, which owns the element vocabulary so
+#: that ``vaft.plot`` can resolve species without importing OMAS through this
+#: module.  ``D`` and ``T`` stay distinct keys here because ADAS files are
+#: named that way; :class:`vaft.spectroscopy.Species` records them as hydrogen
+#: with a mass number instead.
+_ATOMIC_NUMBERS = ATOMIC_NUMBERS
+_ELEMENT_NAMES = ELEMENT_NAMES
+
 
 
 def compute_time_match_atol(time_array: ndarray, base_atol: float = _DEFAULT_TIME_MATCH_ATOL) -> float:

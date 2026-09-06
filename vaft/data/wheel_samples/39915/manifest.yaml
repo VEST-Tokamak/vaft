@@ -49,8 +49,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 10107992
-    sha256: e3bcfa2024493848001da9565ca295428537d30db7a86a185097f2b476932d5c
+    size: 10107995
+    sha256: 39bc61953343362db8e7ce7d94725799dbadc6b34e1972e01878ae0fbb16009d
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -59,7 +59,7 @@ representations:
     - imas
     - omas
     size: 11205694
-    sha256: 047a7923bb35192a031d986dbfccc85c9f8d72c98fe745744daaf45013f2fc77
+    sha256: 22c68beeaa230a70c4366f4a35c167db7a4448bec344da0688f63e8ca85d6e57
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
@@ -180,3 +180,18 @@ corrections:
     so a regeneration now reproduces this value rather than reverting it. The stage
     hashes above are therefore unchanged and still describe the run that produced
     the rest of the artifact.'
+- change: semantic emission selector (emission=)
+  field: spectrometer_uv.channel.2.processed_line.3.{label,wavelength_central}
+  from: CII_3726 / 372.6e-9
+  to: CII_4267 / 426.7e-9
+  reason: '3726 Angstrom is the well-known [O II] line, which processed_line.5 of
+    the same channel already and correctly claims; the representative visible C II
+    line the filterscope observes is near 4267 Angstrom. The old pair therefore
+    named two different species at one wavelength, which a species-aware selector
+    would have resolved to the wrong ion. Applied in place rather than by rerunning
+    the pipeline, for the same reason as the #288 correction: the mapper writes both
+    leaves as constants from vaft.machine_mapping.spectrometer_uv.SIGNALS, and no
+    stage output depends on either, so the intensity series recorded from DAQ field
+    142 is untouched. SIGNALS was corrected in the same change, so a regeneration
+    reproduces these values rather than reverting them, and the stage hashes still
+    describe the run that produced the rest of the artifact.'
