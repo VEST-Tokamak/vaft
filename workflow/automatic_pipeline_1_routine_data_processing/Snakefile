@@ -522,6 +522,7 @@ rule generate_constraints_ods:
     params:
         timeset=CONSTRAINTS_CONFIG.get("timeset", "auto"),
         tstep=CONSTRAINTS_CONFIG.get("tstep", 0.001),
+        average_window=CONSTRAINTS_CONFIG.get("average_window", 0.0005),
         detect_broken=bool_text(CONSTRAINTS_CONFIG.get("detect_broken", False)),
         broken=csv(CONSTRAINTS_CONFIG.get("broken", [])),
         fl_correct_option=CONSTRAINTS_CONFIG.get("fl_correct_option", 0),
@@ -543,6 +544,7 @@ rule generate_constraints_ods:
             --efit-table-dir "{params.efit_table_dir}" \
             --timeset {params.timeset} \
             --tstep {params.tstep} \
+            --average-window {params.average_window} \
             --uncertainty "{params.uncertainty}" \
             --weighting "{params.weighting}" \
             --broken "{params.broken}" \

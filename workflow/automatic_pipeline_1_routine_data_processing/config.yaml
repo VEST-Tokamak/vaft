@@ -75,6 +75,9 @@ eddy:
 constraints:
   timeset: auto
   tstep: 0.001
+  # Half-width [s] of the box average each constraint is taken over (#433);
+  # distinct from tstep, and qualified together with it under #468.
+  average_window: 0.0005
   detect_broken: true
   broken:
   - 65

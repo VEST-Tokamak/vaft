@@ -244,6 +244,12 @@ def main() -> int:
     parser.add_argument("--efit-table-dir", default="", help="EFIT table/input directory written into kfiles.")
     parser.add_argument("--timeset", default="auto", choices=["auto", "manual"], help="EFIT constraint time selection mode.")
     parser.add_argument("--tstep", default=0.001, type=float, help="EFIT time step in seconds.")
+    parser.add_argument(
+        "--average-window",
+        default=0.0005,
+        type=float,
+        help="Half-width in seconds of the box average each constraint is taken over (issue #433/#468).",
+    )
     parser.add_argument("--tstart", default=None, type=float, help="Manual lower time bound.")
     parser.add_argument("--tend", default=None, type=float, help="Manual upper time bound.")
     parser.add_argument("--uncertainty", default=",".join(str(v) for v in DEFAULT_UNCERTAINTY))
@@ -307,6 +313,7 @@ def main() -> int:
         fl_correct_coeff=fl_correct_coeff,
         FFCUR=args.nffprime,
         PPCUR=args.npprime,
+        average_window=args.average_window,
     )
 
     produced = args.output.parent / f"{args.shot}_constraints.json"
