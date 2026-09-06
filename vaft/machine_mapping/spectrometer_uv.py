@@ -26,13 +26,24 @@ CHANNEL_CADENCE_HZ: dict[int, float] = {
     2: 250e3,
 }
 
+#: ``(raw_field, channel, line, label, wavelength_m)``.
+#:
+#: ``label`` follows the syntax the IMAS Data Dictionary prescribes for
+#: ``processed_line.label`` -- element with ionization state, then the
+#: wavelength in Angstrom (``OI_7770``, ``CIII_1909``) -- because that string
+#: is the only place the Data Dictionary lets a species be recorded: there is
+#: no element, ion or transition field under ``processed_line``.  The hydrogen
+#: entries name a Balmer series member instead of an ionization state, which
+#: the Data Dictionary does not cover but spectroscopy does.
+#: :mod:`vaft.spectroscopy` parses both forms, so a label written here is what
+#: ``emission=`` resolves against.
 SIGNALS: list[tuple[int, int, int, str, float]] = [
     (101, 0, 0, "H-alpha_6563", 656.3e-9),
     (214, 1, 0, "OI_7770", 777.0e-9),
     (144, 2, 0, "H-alpha_6563", 656.3e-9),
     (141, 2, 1, "H-beta_4861", 486.1e-9),
     (138, 2, 2, "H-gamma_4340", 434.0e-9),
-    (142, 2, 3, "CII_3726", 372.6e-9),
+    (142, 2, 3, "CII_4267", 426.7e-9),
     (140, 2, 4, "CIII_1909", 190.9e-9),
     (139, 2, 5, "OII_3726", 372.6e-9),
     (143, 2, 6, "OV_629", 62.9e-9),

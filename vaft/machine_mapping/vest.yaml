@@ -1203,8 +1203,8 @@
             label: "H-beta_4861"
             wavelength_central: 486.1E-9
           2:
-            label: "H-gamma_4341"
-            wavelength_central: 434.1E-9
+            label: "H-gamma_4340"
+            wavelength_central: 434.0E-9
           3:
             label: "OI_7770"
             wavelength_central: 777.0E-9

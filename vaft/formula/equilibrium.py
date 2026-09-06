@@ -3022,7 +3022,8 @@ def alpha_heating_power_from_n_D_n_T_T_keV_V(
 
     Limitations
     -----------
-    Irrelevant for a deuterium-only device such as VEST; kept for power-balance
+    Irrelevant for a hydrogen device such as VEST, which runs hydrogen and
+    occasionally helium and so sustains no D-T reaction; kept for power-balance
     completeness.  Tracked in #360 (Bosch-Hale replacement).
 
     References
