@@ -1710,7 +1710,10 @@ plasma_timing:
   # H-alpha_6563 envelope rule (keyword arguments of active_window): median-5,
   # threshold max(2 % peak, 5 sigma), persistence 0.5 ms, width >= 1 ms,
   # prominence >= 10 sigma, integral >= 1 % -- 0/51 early-light and 1/51
-  # non-plasma false onsets on the 205-shot raw-database corpus.
+  # non-plasma false onsets on the hand-reviewed first pass of the raw-database
+  # corpus; the full scan is workflow/plasma_onset/scan_corpus.py and its
+  # table test/data/onset_corpus.json (shots 39900-41700; the summary holds
+  # the counts, a retune means a re-scan).
   h_alpha:
     prefilter_samples: 5
     fraction: 0.02
@@ -1725,7 +1728,8 @@ plasma_timing:
   lines: {}
   # Plasma-current principal-pulse rule: zero-phase low-pass 2 kHz, pickup
   # floor 3x, offset at 10 % of peak with the collapse fallback -- 84/84
-  # windows on the corpus, offsets within [-2.2, 0] ms of the light.
+  # windows on the hand-reviewed first pass, offsets within [-2.2, 0] ms of
+  # the light; the full scan's per-shot deltas and agreement are in the table.
   ip:
     principal_only: true
     pickup_floor: 3.0
