@@ -511,6 +511,35 @@ def test_a_companion_that_can_still_run_is_given_the_chance_to(monkeypatch, tmp_
     assert "reused existing solver outputs" not in record.reason
 
 
+def test_the_local_stability_flags_reach_the_namelist_the_run_is_read_back_from(
+    no_gpec_env, case
+):
+    """What VAFT asked for has to be recorded where `read_dcon_output` looks.
+
+    DCON writes none of `mer_flag`/`bal_flag`/`thmax0` into its netCDF, so the
+    run's own `dcon.in` is the only provenance for whether an unevaluated
+    criterion's zeros are physics.
+    """
+    gpec.prepare_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(
+            modules=("dcon",),
+            modes=(1,),
+            dcon=gpec.DCONOptions(mer_flag=True, bal_flag=True, thmax0=2.0),
+        ),
+    )
+
+    namelist = (case.workdir / "00325" / "dcon" / "nn=1" / "dcon.in").read_text(encoding="utf-8")
+
+    assert "mer_flag=t" in namelist
+    assert "bal_flag=t" in namelist
+    assert "thmax0=2.0" in namelist
+
+    evaluation = gpec.DconEvaluation.from_run_dir(case.workdir / "00325" / "dcon" / "nn=1")
+    assert evaluation.mercier and evaluation.ballooning
+    assert evaluation.thmax0 == 2.0
+
+
 def test_required_outputs_is_derived_from_output_patterns(tmp_path):
     """The two lists cannot drift: one is the other minus the companion's share."""
     for module, solver in gpec._solvers.SOLVERS.items():

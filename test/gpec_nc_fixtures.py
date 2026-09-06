@@ -161,6 +161,7 @@ def write_dcon_output_nc(
     coordinates=None,
     profiles=False,
     edge_scan=False,
+    local_stability=False,
 ):
     """Write a miniature ``dcon_output_n<mode>.nc``; returns its data.
 
@@ -194,6 +195,12 @@ def write_dcon_output_nc(
                 "q": (("psi_n",), 1.05 + 7.0 * psi_n**2, {"long_name": "Safety Factor"}),
             }
         )
+    if local_stability:
+        values = dict(DEFAULT_LOCAL_STABILITY)
+        if isinstance(local_stability, dict):
+            values.update(local_stability)
+        for name in ("di", "dr", "ca1"):
+            data[name] = (("psi_n",), np.asarray(values[name], dtype=float))
     coords = {"i": [0, 1], "mode": mode, "m": np.arange(mlow, mhigh + 1), "psi_n": psi_n}
 
     if edge_scan:
@@ -223,3 +230,32 @@ def write_dcon_output_nc(
     target = path / f"dcon_output_n{n}.nc"
     ds.to_netcdf(target)
     return {"path": target, "psi_n": psi_n, "mode": mode, "attrs": attrs}
+
+
+def write_dcon_in(path, *, mer_flag=True, bal_flag=False, thmax0=1.0):
+    """Write the local-stability part of a `dcon.in`, in the packaged layout.
+
+    `read_dcon_output` recovers the evaluation provenance from the namelist
+    VAFT wrote beside the output, so a fixture that omits this file is testing
+    the "unknown provenance" path rather than a configured run.
+    """
+    text = (
+        "&DCON_CONTROL\n"
+        f"    bal_flag={'t' if bal_flag else 'f'}           ! Ideal MHD ballooning criterion\n"
+        f"    mer_flag={'t' if mer_flag else 'f'}           ! Evaluate the Mercier criterion\n"
+        f"    thmax0={thmax0}            ! theta integration bound multiplier\n"
+        "/\n"
+    )
+    target = path / "dcon.in"
+    target.write_text(text, encoding="utf-8")
+    return target
+
+
+#: A local-stability block with one Mercier-unstable surface and a ballooning
+#: profile that is genuinely evaluated on only some surfaces -- the rest keep
+#: the zero DCON's spline was initialised with (`dcon.F:150`).
+DEFAULT_LOCAL_STABILITY = {
+    "di": [-0.4, -0.2, 0.1, -0.3, -0.5, -0.1, 0.2, -0.6, -0.7],
+    "dr": [-0.3, -0.1, 0.2, -0.2, -0.4, 0.0, 0.3, -0.5, -0.6],
+    "ca1": [-0.2, -0.1, 0.0, -0.4, 0.3, 0.0, 0.0, -0.9, 0.5],
+}
