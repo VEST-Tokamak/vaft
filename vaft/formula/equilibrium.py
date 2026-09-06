@@ -2225,9 +2225,11 @@ def virial_beta_p_from_S_alpha_mu(S1: float,
            virial closure (journal page not recorded in the VAFT source).
     .. [2] V. D. Shafranov, Plasma Phys. 13 (1971) 757.
     """
-    num = (S1 + S2) * (alpha - 1) + alpha * mui_hat + S3
-    den = 3 * (alpha - 1) + 1
-    return num / den
+    # One implementation, so the two entry points cannot drift apart or disagree
+    # about the singularity: 3*(alpha-1)+1 == 3*alpha-2, and this raised
+    # ZeroDivisionError exactly where the closure it duplicates returns NaN.
+    beta_p, _ = virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mui_hat)
+    return beta_p
 
 
 def virial_li_from_S_alpha_mu(S1: float,
@@ -2263,16 +2265,16 @@ def virial_li_from_S_alpha_mu(S1: float,
 
     Limitations
     -----------
-    Ill-conditioned as $\alpha\to2/3$; no guard.
+    Ill-conditioned as $\alpha\to2/3$, where it returns NaN rather than a large
+    finite value; :data:`VIRIAL_SINGULAR_EPS` sets the band.
 
     References
     ----------
     .. [1] M. W. Bongard et al., Phys. Plasmas 23 (2016), low-aspect-ratio
            virial closure (journal page not recorded in the VAFT source).
     """
-    num = S1 + S2 - 2 * mui_hat - 3 * S3
-    den = 3 * alpha - 2
-    return num / den
+    _, li = virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mui_hat)
+    return li
 
 
 def virial_beta_p_lao_from_S_mu_rt(
@@ -2313,8 +2315,11 @@ def virial_beta_p_lao_from_S_mu_rt(
 
     Validity
     --------
-    Large aspect ratio; at VEST aspect ratio the neglected $\epsilon$ terms
-    reach tens of percent, which is why the Bongard closure exists.
+    Exact given $E_1$ and $E_2$: no aspect-ratio expansion enters here, and this
+    returns the same number as :func:`virial_pair_12_from_S_mu_rt`, which a test
+    pins. What it inherits instead is a total dependence on $R_T/R_0$, which at
+    VEST's aspect ratio is frequently not determined -- the reason to compare it
+    against the $R_T$-free Bongard closure rather than to prefer either.
 
     References
     ----------
@@ -2700,8 +2705,10 @@ def virial_pair_12_from_S_mu_rt(
     -----------------------
     Both unknowns come from the two relations that do not involve $\alpha$, so
     this closure is insensitive to the boundary field's poloidal anisotropy and
-    has no singular denominator. It is the only one of the three pairs that
-    cannot become ill-conditioned.
+    is the only pair with no $\alpha$-dependent denominator to divide by. That
+    is not the same as being well conditioned: it depends on $R_T/R_0$ in both
+    unknowns, and $R_T$ has a denominator of its own -- see **Validity**. On the
+    VEST equilibrium history it is the pair that is *least* often computable.
 
     Convention
     ----------
@@ -2973,8 +2980,9 @@ def virial_closure_denominators(alpha: float) -> Tuple[float, float, float, floa
 
     Notes
     -----
-    The $E_1$/$E_2$ closure is absent because it has no denominator; it is the
-    one pair that cannot become singular.
+    The $E_1$/$E_2$ closure is absent because it has no $\alpha$-dependent
+    denominator. It is still $R_T$-dependent, and `rt_denominator_ratio` is
+    where its conditioning is reported.
     """
     return (
         float(3.0 * alpha - 2.0),
@@ -3203,10 +3211,11 @@ def virial_bp_li_lihat_from_S123(S1: float,
 
     Numerical notes
     ---------------
-    Direct solve of the 3x3 linear system with ``numpy.linalg.solve``. The
-    determinant is $4(\alpha-1)$, so the system is singular at $\alpha = 1$ --
-    the same limit that makes the historical Lao $l_i$ blow up, because
-    $E_1$ and $E_2$ fix $\beta_p - \mu_i$ and only $E_3$ separates $l_i$ from it.
+    Delegates to :func:`virial_full_123_from_S_alpha_rt`, which solves the
+    system in closed form. The determinant is $4(\alpha-1)$, so it is singular
+    at $\alpha = 1$ -- the same limit that makes the historical Lao $l_i$ blow
+    up, because $E_1$ and $E_2$ fix $\beta_p - \mu_i$ and only $E_3$ separates
+    $l_i$ from it.
 
     References
     ----------

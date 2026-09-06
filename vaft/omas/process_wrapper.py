@@ -1350,17 +1350,24 @@ def _virial_identity_block(beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0):
         for r, (lhs, rhs) in zip(residuals, sides)
     ]
     available = [value for value in normalized if np.isfinite(value)]
-    rms = (
-        float(np.sqrt(np.mean(np.asarray(available, float) ** 2)))
-        if available
-        else np.nan
-    )
+    # Two aggregates, because they answer different questions and a single key
+    # named "rms" fed by the subset rule while a catalog function of the same
+    # name uses the strict one is a trap for anyone who reads both.
+    #   rms            -- virial_residual_rms exactly: NaN unless all three hold
+    #   rms_evaluable  -- over the ones that could be evaluated, which is what
+    #                     the validation layer grades, so E1 and E3 still count
+    #                     when RT/R0 is undetermined
     return {
         "e1": float(residuals[0]), "e2": float(residuals[1]), "e3": float(residuals[2]),
         "e1_normalized": float(normalized[0]),
         "e2_normalized": float(normalized[1]),
         "e3_normalized": float(normalized[2]),
-        "rms": rms,
+        "rms": float(virial_residual_rms(*normalized)),
+        "rms_evaluable": (
+            float(np.sqrt(np.mean(np.asarray(available, float) ** 2)))
+            if available
+            else np.nan
+        ),
         "identities_available": len(available),
     }
 

@@ -908,7 +908,7 @@ def efit_virial_volume_integrals(
     F_grid: np.ndarray | None = None,
     F_boundary: float | None = None,
     cell_weights: np.ndarray | None = None,
-) -> dict[str, float]:
+) -> dict[str, "float | np.ndarray"]:
     """
     EFIT-style weighted volume integrals on the poloidal grid.
 

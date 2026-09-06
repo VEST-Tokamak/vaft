@@ -37,6 +37,9 @@ __all__ = [
 MEASURES: Mapping[str, str] = {
     "z": "residual over its standard deviation; |z| is graded",
     "relative": "|value - reference| / |reference|",
+    "normalized_residual": "residual over max(1, |lhs|, |rhs|) of the relation it comes from; "
+                           "symmetric in the two sides and floored at 1, so a relation whose "
+                           "sides both pass through zero does not inflate a small residual",
     "log_ratio": "|ln(value / reference)|, for positive quantities; symmetric in the two",
     "reduced_chi_squared": "chi-square total over degrees of freedom",
     "rule": "no threshold: the status follows the rule in `method`",
@@ -118,19 +121,21 @@ _SPECS = (
     _spec("physical_validity.virial_identity", "1",
           "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
           "the three virial identities evaluated on the volume-integral beta_p, li and mu_i, "
-          "graded on the RMS of their normalized residuals; indeterminate when any of the three "
-          "is non-finite", "relative", (0.10, 0.30)),
+          "graded on the RMS of the normalized residuals that could be evaluated (E2 needs "
+          "RT/R0, E1 and E3 do not); indeterminate only when none of the three could be",
+          "normalized_residual", (0.10, 0.30)),
     _spec("physical_validity.virial_pair_consistency", "1",
           "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
           "leave-one-identity-out: each of pair_12, pair_13 and pair_23 solved from two relations "
           "and scored on the third, graded on the largest normalized residual; indeterminate when "
-          "fewer than two closures are invertible", "relative", (0.10, 0.30)),
+          "fewer than two closures are invertible", "normalized_residual", (0.10, 0.30)),
     _spec("physical_validity.virial_conditioning", "1",
           "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
-          "whether each closure can be inverted here: warn when a closure denominator (3*alpha-2, "
-          "alpha, alpha-1) or the RT denominator ratio is near zero, so the RT-dependent closures "
-          "are indeterminate rather than wrong; never fail, since a singular inversion is a "
-          "property of the closure and not of the equilibrium"),
+          "whether each closure can be inverted here: warn when alpha is close to a closure's "
+          "singular point (2/3 for pair_13, 0 for pair_23, 1 for both lao_li and full_123 -- "
+          "measured in alpha, not in the raw denominators, which differ by a factor of four at "
+          "the same singularity) or when the RT denominator ratio is near zero; never fail, "
+          "since a singular inversion is a property of the closure and not of the equilibrium"),
     _spec("physical_validity.virial_parameter_plausibility", "1",
           "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
           "Lao virial closure; indeterminate when any Shafranov integral, alpha, B_pa, beta_p or li "
@@ -169,8 +174,9 @@ _SPECS = (
     _spec("independent_validation.virial_measured_mu_i", "1",
           "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
           "the RT-free pair_13 closure re-solved on the measured diamagnetic mu_i, against the "
-          "same closure on the equilibrium-derived one; indeterminate without a diamagnetic loop "
-          "or when either closure is singular", "log_ratio", (0.262, 0.693)),
+          "same closure on the equilibrium-derived one, both mu_i in the volume sign the virial "
+          "relations use; not_available without a diamagnetic loop, indeterminate when either "
+          "closure is singular or the two differ in sign", "log_ratio", (0.262, 0.693)),
 )
 
 #: Every check, by key.  Insertion order is report order.

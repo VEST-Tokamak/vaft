@@ -554,14 +554,29 @@ def test_the_two_virial_checks_do_not_contradict_each_other(report):
 
 def test_conditioning_measures_distance_in_alpha_not_in_the_denominator(report):
     """lao_li divides by (alpha-1) and full_123 by 4*(alpha-1): the same singular
-    point. Comparing raw denominators would call one near-singular and the other
-    safe at an alpha where both are equally ill-conditioned."""
+    point. Comparing raw denominators calls one near-singular and the other safe
+    at an alpha where both are equally ill-conditioned.
+
+    The first version of this test asserted
+    ``"lao_li" not in near_singular or "full_123" in near_singular``, which on
+    the sample passes on the left disjunct because ``near_singular`` is empty --
+    it could not fail. This drives the flag directly instead.
+    """
     live = _slice(report, "physical_validity", "virial_conditioning", LIVE)
+    # The denominators differ by exactly four; the distances do not differ at all.
     assert live["denominator_full_123"] == pytest.approx(4.0 * live["denominator_lao_li"])
-    # ... but the distances that decide `near_singular` are equal.
-    slices = report["physical_validity"]["virial_conditioning"]["slices"]
-    entry = next(e for e in slices if e["time_slice"] == LIVE)
-    assert "lao_li" not in entry["near_singular"] or "full_123" in entry["near_singular"]
+    assert live["distance_full_123"] == pytest.approx(live["distance_lao_li"])
+
+    # And at an alpha where both are near-singular, the flag names both. A raw
+    # denominator comparison at 0.1 would name lao_li (0.05) and clear
+    # full_123 (0.20).
+    from vaft.validation.equilibrium import _virial_conditioning
+    from vaft.omas.process_wrapper import _virial_conditioning_block
+
+    near = _virial_conditioning({"conditioning": _virial_conditioning_block(1.05, 1.0, 1.0)})
+    assert near["near_singular"] == ["full_123", "lao_li"]
+    assert near["denominator_lao_li"] == pytest.approx(0.05)
+    assert near["denominator_full_123"] == pytest.approx(0.20)
 
 
 def test_a_missing_pressure_profile_is_not_a_beta_p_of_zero(sample):

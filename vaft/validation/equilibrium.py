@@ -29,7 +29,7 @@ tolerance, the rule that yields its status -- lives once in
 Report shape (#253 §15)::
 
     {
-        "schema_version": 1,
+        "schema_version": 2,
         "status": "warn",                       # aggregate, never hides not_available
         "summary": {"verification": "pass", ...},
         "provenance": {...},                    # once per report, not per check
@@ -629,6 +629,9 @@ def _virial_identity_check(row: Mapping[str, Any]) -> dict[str, Any]:
         "e2_normalized": _float(identity.get("e2_normalized")),
         "e3_normalized": _float(identity.get("e3_normalized")),
         "rms": _float(identity.get("rms")),
+        # Graded on this one: E2 needs RT/R0, E1 and E3 do not, so an
+        # undetermined current centroid must not silence the other two.
+        "rms_evaluable": _float(identity.get("rms_evaluable")),
         # How many of the three could be evaluated at all: E2 needs RT/R0, E1
         # and E3 do not, so a slice with an undetermined current centroid still
         # reports two.
@@ -637,14 +640,14 @@ def _virial_identity_check(row: Mapping[str, Any]) -> dict[str, Any]:
         "li_volume": _float(volume.get("li")),
         "mu_i_volume": _float(volume.get("mu_i")),
     }
-    if not math.isfinite(fields["rms"]):
+    if not math.isfinite(fields["rms_evaluable"]):
         return _result(
             ValidationStatus.INDETERMINATE,
             reason="the volume-integral beta_p, li or mu_i is unavailable, so the identities "
                    "cannot be evaluated without inverting a closure",
             **fields,
         )
-    status = _graded("physical_validity.virial_identity", fields["rms"])
+    status = _graded("physical_validity.virial_identity", fields["rms_evaluable"])
     evaluable = [
         key for key in ("e1", "e2", "e3") if math.isfinite(fields[f"{key}_normalized"])
     ]
@@ -732,7 +735,9 @@ def _virial_conditioning(row: Mapping[str, Any]) -> dict[str, Any]:
     }
     rt_ratio = _float(conditioning.get("rt_denominator_ratio"))
     fields["rt_denominator_ratio"] = rt_ratio
-    fields["rt_over_r0_available"] = bool(conditioning.get("rt_over_r0_available"))
+    # A missing key means "the producer said nothing", not "no RT/R0".
+    _rt_flag = conditioning.get("rt_over_r0_available")
+    fields["rt_over_r0_available"] = None if _rt_flag is None else bool(_rt_flag)
 
     # Distance in alpha, not the raw denominator: lao_li divides by (alpha-1)
     # and full_123 by 4*(alpha-1), the same singular point, so comparing
@@ -1367,7 +1372,7 @@ def validate_equilibrium(
         raise ValueError(f"unknown validation categories {unknown}; choose from {EQUILIBRIUM_CATEGORIES}")
     indices = _slice_indices(equilibrium, time_slice)
     times = [_slice_time(equilibrium, index) for index in indices]
-    report: dict[str, Any] = {"schema_version": 1}
+    report: dict[str, Any] = {"schema_version": 2}
     provenance = _provenance(equilibrium, indices, diagnostics=diagnostics, kinetic_profiles=kinetic_profiles)
 
     if not indices:
