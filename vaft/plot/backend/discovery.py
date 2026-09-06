@@ -584,9 +584,29 @@ def _abscissa_block(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dic
     available = []
     for name in declared:
         entry = next((a for a in recipe.abscissae if a.name == name), None)
-        if entry is None or any(_has(ods, path.format(i=0)) for path in entry.paths):
+        if entry is None or _abscissa_is_stored(ods, entry):
             available.append(name)
     return {"default": "time", "options": tuple(available), "declared": declared}
+
+
+def _abscissa_is_stored(ods: Any, entry: Any) -> bool:
+    """Whether this input holds a declared sibling abscissa anywhere.
+
+    The builder gathers a slice-indexed sibling across every slice and fills
+    what is missing, so one slice without the leaf does not make the abscissa
+    unavailable -- discovery must not refuse what rendering would draw.
+    """
+    from .recipes import _container_of
+
+    for path in entry.paths:
+        if "{i}" not in path:
+            if _has(ods, path):
+                return True
+            continue
+        total = _count(ods, _container_of(path, "{i}"))
+        if any(_has(ods, path.format(i=index)) for index in range(total)):
+            return True
+    return False
 
 
 def _times_block(ods: Any, recipe: Any) -> dict[str, Any]:

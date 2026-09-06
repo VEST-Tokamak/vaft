@@ -202,3 +202,50 @@ def test_both_renderers_label_the_chosen_abscissa(sample):
     assert axes.get_xlabel() == "Plasma Current [kA]"
     plotly = vaft.omas.plot_equilibrium_time_q95(sample, x="index", backend="plotly")
     assert plotly.layout.xaxis.title.text == "Sample index"
+
+
+def _with_a_broken_channel(sample):
+    """Channel 0 flat (dropped by the ``active`` preset) and its time unusable."""
+    broken = copy.deepcopy(sample)
+    broken["magnetics.flux_loop.0.flux.data"] = np.zeros_like(
+        np.asarray(sample["magnetics.flux_loop.0.flux.data"])
+    )
+    broken["magnetics.flux_loop.0.flux.time"] = np.arange(3, dtype=float)
+    return broken
+
+
+def test_a_channel_the_selection_drops_does_not_decide_the_abscissa(sample):
+    """Review of #582: a dropped channel's failed reading used to put every
+    surviving channel on a sample index, discarding their real times."""
+    broken = _with_a_broken_channel(sample)
+    drawn = build_model("flux_loop_time_flux", normalize_entries(broken))
+    assert drawn.x_label == "Time" and len(drawn.series) == 10
+    reference = build_model("flux_loop_time_flux", normalize_entries(sample))
+    np.testing.assert_allclose(drawn.series[0].x, reference.series[1].x)
+
+
+def test_a_channel_that_is_drawn_does_decide_it(sample):
+    """Asked for every channel, the figure includes the broken one and says so."""
+    broken = _with_a_broken_channel(sample)
+    everything = build_model("flux_loop_time_flux", normalize_entries(broken), selection="all")
+    assert everything.x_label == "Sample index" and len(everything.series) == 11
+    for trace in everything.series:
+        np.testing.assert_allclose(trace.x, np.arange(np.asarray(trace.y).size))
+
+
+def test_a_sibling_missing_from_one_slice_is_still_offered(sample):
+    """Discovery must not refuse an abscissa the builder would draw."""
+    partial = copy.deepcopy(sample)
+    del partial["equilibrium.time_slice.0.global_quantities.ip"]
+    record = next(r for r in vaft.omas.available_plots(partial) if r.name == "equilibrium_time_q95")
+    assert record.abscissa["options"] == ("time", "ip", "index")
+    model = build_model("equilibrium_time_q95", normalize_entries(partial), x="ip")
+    assert model.x_label == "Plasma Current" and np.isnan(model.series[0].x[0])
+
+
+def test_the_abscissa_survives_a_grouped_layout_with_a_selection(entries):
+    grouped = build_model(
+        "flux_loop_time_flux", entries, x="index", layout="grouped", selection="valid"
+    )
+    assert isinstance(grouped, Panels)
+    assert all(m.x_label == "Sample index" for m in grouped.models)

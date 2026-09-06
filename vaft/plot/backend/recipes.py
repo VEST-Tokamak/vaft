@@ -3744,6 +3744,7 @@ def _build_line_traces(
         # is, so name the line whenever the caller chose one.
         name_the_line = emission is not None or line_index is not None
         traces = []
+        per_trace: list[str] = []
         for index, line in pairs:
             y_path = _with_line(recipe.y_path, line)
             fallback_paths = tuple(
@@ -3770,7 +3771,7 @@ def _build_line_traces(
                 if abscissa.name == "time" else abscissa
             )
             time = _abscissa_values(ods, per_channel, size=y.size, index=index, line=line)
-            note(abscissa.name if time is not None else "index")
+            per_trace.append(abscissa.name if time is not None else "index")
             if time is None:
                 time = np.arange(y.size, dtype=float)
             code, mask = _validity_of(ods, y_path, index)
@@ -3802,7 +3803,15 @@ def _build_line_traces(
                     index=index,
                 )
             )
-        return _keep_by_signal(traces, selection)
+        # The abscissa is decided by the traces that are drawn: a channel the
+        # selection preset drops takes its own failed reading with it, rather
+        # than putting every surviving channel on a sample index.
+        kept = _keep_by_signal(traces, selection)
+        drawn = {id(trace) for trace in kept}
+        for trace, name in zip(traces, per_trace):
+            if id(trace) in drawn:
+                note(name)
+        return kept
 
     y = _array(ods, recipe.y_path)
     if y is None:
