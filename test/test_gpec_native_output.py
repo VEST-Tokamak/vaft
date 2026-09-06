@@ -680,8 +680,73 @@ def test_the_evaluation_block_survives_the_sidecar_round_trip(tmp_path):
 
     restored = DconOutput.read_json(result.write_json(tmp_path / "dcon_native_n1.json"))
 
-    assert restored.to_dict()["schema_version"] == 3
+    assert restored.to_dict()["schema_version"] == _SCHEMA_VERSION
     assert restored.evaluation == result.evaluation
     assert restored.evaluation.thmax0 == pytest.approx(2.5)
     np.testing.assert_array_equal(restored.ca1_evaluated, result.ca1_evaluated)
     np.testing.assert_allclose(restored.ca1, result.ca1)
+
+
+# ---------------------------------------------------------------------------
+# Energy eigenmodes.  A different object from the solutions.bin eigenfunction,
+# and both are needed to see how a mode changes when the edge is truncated.
+# ---------------------------------------------------------------------------
+
+
+def test_the_energy_eigenvectors_and_matrix_are_read_as_complex_over_m_and_mode(tmp_path):
+    written = write_dcon_output_nc(tmp_path, mlow=-2, mhigh=1, eigenvectors=True)
+
+    result = read_dcon_output(tmp_path, mode=1)
+
+    harmonics = result.mhigh - result.mlow + 1
+    expected_shape = (harmonics, written["mode"].size)
+    for name in ("W_p_eigenvector", "W_v_eigenvector", "W_t_eigenvector", "W_t"):
+        array = getattr(result, name)
+        assert array is not None, name
+        assert array.shape == expected_shape, name
+        assert np.iscomplexobj(array), name
+    # The fixture scales each block differently, so a mixed-up assignment shows.
+    np.testing.assert_allclose(result.W_v_eigenvector, 2.0 * result.W_p_eigenvector)
+    np.testing.assert_allclose(result.W_t, 4.0 * result.W_p_eigenvector)
+
+
+def test_the_energy_eigenvectors_are_absent_when_the_run_did_not_write_them(tmp_path):
+    write_dcon_output_nc(tmp_path)
+
+    result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.W_p_eigenvector is None
+    assert result.W_t is None
+    # The eigenvalues are still there: absence of the vectors is not absence of
+    # the solve.
+    assert result.W_t_eigenvalue is not None
+
+
+def test_the_energy_eigenvectors_round_trip_through_the_sidecar(tmp_path):
+    write_dcon_output_nc(tmp_path, mlow=-2, mhigh=1, eigenvectors=True)
+    result = read_dcon_output(tmp_path, mode=1)
+
+    restored = DconOutput.read_json(result.write_json(tmp_path / "dcon_native_n1.json"))
+
+    for name in ("W_p_eigenvector", "W_v_eigenvector", "W_t_eigenvector", "W_t"):
+        np.testing.assert_allclose(getattr(restored, name), getattr(result, name))
+
+
+def test_the_eigenvector_and_the_eigenfunction_stay_distinguishable(tmp_path):
+    """They answer different questions and neither substitutes for the other.
+
+    `W_t_eigenvector` is the poloidal-harmonic composition of one energy
+    eigenmode; the `solutions.bin` eigenfunction is the radial structure of
+    xi.grad(psi) over (psi, m).
+    """
+    write_dcon_output_nc(tmp_path, mlow=-3, mhigh=-1, eigenvectors=True)
+    _write_solutions_bin(
+        tmp_path,
+        blocks=[[[0.1, 0.3, 1.0, float(block), 0.0, 0.0, 0.0]] for block in range(3)],
+    )
+
+    result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.W_t_eigenvector.ndim == 2  # (m, mode), one radius
+    assert result.eigenfunction.xi_psi_real.ndim == 2  # (m, radial step)
+    assert result.eigenfunction.m.tolist() == [-3, -2, -1]

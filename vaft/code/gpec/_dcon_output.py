@@ -46,9 +46,10 @@ from ._netcdf import complex_var
 #: Sidecar payload version.  v1 carried only the mode-range provenance, energy
 #: eigenvalues, Mercier diagnostics and the eigenfunction; v2 added the
 #: equilibrium scalars, coordinate system, 1-D profiles and the edge scan; v3
-#: adds the local-stability evaluation provenance.  Every key added after v1 is
-#: read through ``.get()``, so an older payload still loads.
-_SCHEMA_VERSION = 3
+#: added the local-stability evaluation provenance; v4 adds the energy
+#: eigenvectors and the total-energy matrix.  Every key added after v1 is read
+#: through ``.get()``, so an older payload still loads.
+_SCHEMA_VERSION = 4
 
 
 def _opt_float(attrs: Any, key: str) -> Optional[float]:
@@ -585,6 +586,20 @@ class DconOutput:
     W_p_eigenvalue: Optional[np.ndarray] = None  # complex, (mode,)
     W_v_eigenvalue: Optional[np.ndarray] = None
     W_t_eigenvalue: Optional[np.ndarray] = None
+    #: Energy eigenmodes: the poloidal-harmonic composition of each energy
+    #: eigenvector, complex over ``(m, mode)`` (``dcon_netcdf.f:194-205``).
+    #:
+    #: A different object from :attr:`eigenfunction`, and both are needed: this
+    #: is how one eigenvalue's mode is built from poloidal harmonics, while
+    #: ``solutions.bin``'s eigenfunction is the radial structure of
+    #: ``xi.grad(psi)(psi, m)``.  Comparing how an instability changes when the
+    #: edge contribution is removed needs both.
+    W_p_eigenvector: Optional[np.ndarray] = None
+    W_v_eigenvector: Optional[np.ndarray] = None
+    W_t_eigenvector: Optional[np.ndarray] = None
+    #: The total-energy matrix itself, complex over ``(m, mode)``
+    #: (``long_name="Total Energy Matrix"``, ``dcon_netcdf.f:204-206``).
+    W_t: Optional[np.ndarray] = None
     #: Mercier ideal-interchange criterion ``D_I(psi)``. Stored as the physical
     #: criterion: ``mercier.f:95`` writes ``di*psi_n`` into the spline and
     #: ``dcon_netcdf.f:235`` divides that scaling back out.  ``None`` when the
@@ -719,6 +734,10 @@ class DconOutput:
             "W_p_eigenvalue": _c(self.W_p_eigenvalue),
             "W_v_eigenvalue": _c(self.W_v_eigenvalue),
             "W_t_eigenvalue": _c(self.W_t_eigenvalue),
+            "W_p_eigenvector": _c(self.W_p_eigenvector),
+            "W_v_eigenvector": _c(self.W_v_eigenvector),
+            "W_t_eigenvector": _c(self.W_t_eigenvector),
+            "W_t": _c(self.W_t),
             "di": None if self.di is None else np.asarray(self.di).tolist(),
             "dr": None if self.dr is None else np.asarray(self.dr).tolist(),
             "ca1": None if self.ca1 is None else np.asarray(self.ca1).tolist(),
@@ -772,6 +791,10 @@ class DconOutput:
             W_p_eigenvalue=_c(payload.get("W_p_eigenvalue")),
             W_v_eigenvalue=_c(payload.get("W_v_eigenvalue")),
             W_t_eigenvalue=_c(payload.get("W_t_eigenvalue")),
+            W_p_eigenvector=_c(payload.get("W_p_eigenvector")),
+            W_v_eigenvector=_c(payload.get("W_v_eigenvector")),
+            W_t_eigenvector=_c(payload.get("W_t_eigenvector")),
+            W_t=_c(payload.get("W_t")),
             di=None if payload.get("di") is None else np.asarray(payload["di"], dtype=float),
             dr=None if payload.get("dr") is None else np.asarray(payload["dr"], dtype=float),
             ca1=None if payload.get("ca1") is None else np.asarray(payload["ca1"], dtype=float),
@@ -971,6 +994,10 @@ def read_dcon_output(run_dir: str | Path, *, mode: int) -> DconOutput:
         W_p_eigenvalue = complex_var(ds, "W_p_eigenvalue")
         W_v_eigenvalue = complex_var(ds, "W_v_eigenvalue")
         W_t_eigenvalue = complex_var(ds, "W_t_eigenvalue")
+        W_p_eigenvector = complex_var(ds, "W_p_eigenvector")
+        W_v_eigenvector = complex_var(ds, "W_v_eigenvector")
+        W_t_eigenvector = complex_var(ds, "W_t_eigenvector")
+        W_t = complex_var(ds, "W_t")
         di = np.asarray(ds["di"].values, dtype=float) if "di" in ds.variables else None
         dr = np.asarray(ds["dr"].values, dtype=float) if "dr" in ds.variables else None
         ca1 = np.asarray(ds["ca1"].values, dtype=float) if "ca1" in ds.variables else None
@@ -1043,6 +1070,10 @@ def read_dcon_output(run_dir: str | Path, *, mode: int) -> DconOutput:
         W_p_eigenvalue=W_p_eigenvalue,
         W_v_eigenvalue=W_v_eigenvalue,
         W_t_eigenvalue=W_t_eigenvalue,
+        W_p_eigenvector=W_p_eigenvector,
+        W_v_eigenvector=W_v_eigenvector,
+        W_t_eigenvector=W_t_eigenvector,
+        W_t=W_t,
         di=di,
         dr=dr,
         ca1=ca1,

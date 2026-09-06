@@ -162,6 +162,7 @@ def write_dcon_output_nc(
     profiles=False,
     edge_scan=False,
     local_stability=False,
+    eigenvectors=False,
 ):
     """Write a miniature ``dcon_output_n<mode>.nc``; returns its data.
 
@@ -201,6 +202,19 @@ def write_dcon_output_nc(
             values.update(local_stability)
         for name in ("di", "dr", "ca1"):
             data[name] = (("psi_n",), np.asarray(values[name], dtype=float))
+    if eigenvectors:
+        # (m, mode, i) in the file -- DCON's energy eigenmodes and the total
+        # energy matrix share the harmonic axis with `m` and the mode axis with
+        # the eigenvalues (dcon_netcdf.f:194-206).
+        harmonics = mhigh - mlow + 1
+        base = np.arange(harmonics * mode.size, dtype=float).reshape(harmonics, mode.size)
+        for name, scale in (
+            ("W_p_eigenvector", 1.0),
+            ("W_v_eigenvector", 2.0),
+            ("W_t_eigenvector", 3.0),
+            ("W_t", 4.0),
+        ):
+            data[name] = (("m", "mode", "i"), np.stack([base * scale, -base * scale], axis=-1))
     coords = {"i": [0, 1], "mode": mode, "m": np.arange(mlow, mhigh + 1), "psi_n": psi_n}
 
     if edge_scan:
