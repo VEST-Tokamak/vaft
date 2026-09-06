@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>d5d100d</code>. What is described
+  <code>0fd76c6</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -342,6 +342,13 @@ codes you have installed:</p>
 
 <p>Each executable belongs under its root’s <code class="language-plaintext highlighter-rouge">bin/</code> directory. The workflow guides degrade to deterministic
 input preparation when a binary is absent.</p>
+
+<p>EFIT is licensed software that VAFT neither bundles nor fetches: obtain authorized access to the
+source through the EFIT-AI channel and agree to its users agreement first, then build it from your
+own tree with <code class="language-plaintext highlighter-rouge">install/install_efit.sh</code> (see the EFIT section of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/install/README.md">install/README.md</a>). One
+<code class="language-plaintext highlighter-rouge">EFITHOME</code> serves both the reconstruction code (<code class="language-plaintext highlighter-rouge">bin/efit</code>) and the Green-table generator
+(<code class="language-plaintext highlighter-rouge">bin/efund</code>); there is no separate root for EFUND.</p>
 
 <p>NUBEAM differs from the others in two ways. Its root must also hold the PREACT and ADAS reaction
 databases at <code class="language-plaintext highlighter-rouge">share/preact</code> and <code class="language-plaintext highlighter-rouge">share/adas</code>, because <code class="language-plaintext highlighter-rouge">nubeam_comp_exec</code> aborts when either is
@@ -646,7 +653,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-06 18:00:47 +0000"
+        "time": "2026-09-06 18:52:30 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
