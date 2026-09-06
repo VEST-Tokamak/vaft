@@ -56,6 +56,13 @@ from vaft.plot.models import (
 from vaft.plot.display import PSI_STYLES, channel_label, figure_title, resolve_display
 from vaft.plot.selection import ACTIVE, ALL, INBOARD, OUTBOARD, SIGNAL_PRESETS, VALID
 from vaft.plot.registry import get_spec
+from vaft.spectroscopy import (
+    describe_available,
+    format_species,
+    matches,
+    parse_emission_term,
+    parse_line_label,
+)
 
 from vaft.formula.statistics import noise_band, rms
 from vaft.validation.validity import VALIDITY_VALID, is_condemned, record_from_mask
@@ -3278,12 +3285,172 @@ def _slice_uncertainty(ods: Any, y_path: str, indices, size: int):
     return np.nan_to_num(spread, nan=0.0)
 
 
+#: The segment of a path naming which processed line of a channel is read.
+_LINE_SEGMENT = re.compile(r"\.processed_line\.\d+\.")
+
+#: The public options that pick a spectral line.  ``emission=`` names the
+#: physics; ``line_index=`` is the storage-level escape hatch beneath it.
+EMISSION_OPTIONS = ("emission", "line_index")
+
+
+def _reads_processed_line(recipe: Any) -> bool:
+    """Whether a recipe draws one of a channel's processed spectral lines."""
+    if isinstance(recipe, PanelRecipe):
+        return any(_reads_processed_line(RECIPES.get(name)) for name in recipe.members)
+    return ".processed_line." in (getattr(recipe, "y_path", "") or "")
+
+
+def _with_line(path: str, line: int | None) -> str:
+    """``path`` rewritten to read spectral line ``line`` of its channel.
+
+    The registry stores the real default path rather than a placeholder,
+    because availability checks, uncertainty and validity reads each format
+    that path themselves and a placeholder none of them knew about would fail
+    in every one.  Substituting here keeps all of them working and makes the
+    whole mechanism a no-op unless a caller asks for a line.
+    """
+    if line is None:
+        return path
+    return _LINE_SEGMENT.sub(f".processed_line.{line}.", path, count=1)
+
+
+def _default_line(y_path: str) -> int | None:
+    """The line a recipe reads when nothing was selected."""
+    found = _LINE_SEGMENT.search(y_path)
+    return int(found.group(0).split(".")[2]) if found else None
+
+
+def _line_label_path(y_path: str, line: int) -> str:
+    """Where the label of one channel's spectral line is stored."""
+    head = y_path.split(".processed_line.")[0]
+    return f"{head}.processed_line.{line}.label"
+
+
+def _line_labels(ods: Any, y_path: str, index: int) -> list[str]:
+    """Every stored label of one channel's processed lines, in ODS order."""
+    head = y_path.split(".processed_line.")[0].format(i=index)
+    labels = []
+    for line in range(_count(ods, f"{head}.processed_line")):
+        value = _get(ods, f"{head}.processed_line.{line}.label")
+        labels.append("" if value is None else str(value))
+    return labels
+
+
+def _emission_options(options: dict) -> tuple[Any, Any]:
+    """Read ``emission=`` and ``line_index=``, which are alternatives."""
+    emission = options.pop("emission", None)
+    line_index = options.pop("line_index", None)
+    if emission is not None and line_index is not None:
+        raise TypeError(
+            "pass either emission= or line_index=, not both; emission= names "
+            "the species and line_index= the position in the stored array"
+        )
+    return emission, line_index
+
+
+def _resolve_emission(
+    ods: Any,
+    recipe: LineRecipe,
+    indices: Sequence[int],
+    emission: Any,
+    line_index: Any,
+) -> list[tuple[int, int | None]]:
+    """Pair each selected channel with the spectral lines to draw from it.
+
+    A channel can record several lines -- VEST's versatile filterscope carries
+    seven -- and one selector may legitimately match several of them, on one
+    channel or across channels: ``emission="Carbon"`` names two lines, and
+    H-alpha is measured twice at different digitizer rates.  So this resolves
+    to ``(channel, line)`` pairs rather than rewriting a single path, which
+    could only ever have meant "line n of every channel".
+
+    The contract follows :func:`_resolve_selection`: order is preserved,
+    repeats collapse to their first appearance, and anything unresolved raises
+    naming what the input actually holds.  Fuzzy matching would let a typo
+    quietly plot a different species.
+    """
+    if not _reads_processed_line(recipe):
+        return [(index, None) for index in indices]
+    if emission is None and line_index is None:
+        default = _default_line(recipe.y_path)
+        return [(index, default) for index in indices]
+
+    labels_by_channel = {index: _line_labels(ods, recipe.y_path, index) for index in indices}
+    known = [label for labels in labels_by_channel.values() for label in labels if label]
+    container = _container_of(recipe.y_path, "{i}")
+
+    if line_index is not None:
+        if isinstance(line_index, (bool, np.bool_)) or not isinstance(
+            line_index, (int, np.integer)
+        ):
+            raise TypeError(
+                f"line_index= must be an integer position; got {line_index!r}. "
+                "Use emission= to select a line by species."
+            )
+        wanted = int(line_index)
+        if wanted < 0:
+            raise ValueError(f"line_index= must be non-negative; got {wanted}")
+        pairs = [
+            (index, wanted)
+            for index in indices
+            if wanted < len(labels_by_channel[index])
+        ]
+        if not pairs:
+            raise ValueError(
+                f"no channel of {container} records a spectral line at index "
+                f"{wanted}; available {describe_available(known)}"
+            )
+        return pairs
+
+    if isinstance(emission, str):
+        terms: list[Any] = [emission]
+    elif isinstance(emission, (bool, np.bool_)) or not isinstance(emission, Iterable):
+        raise TypeError(
+            f"emission= must be a species or line name; got {emission!r}"
+        )
+    else:
+        terms = list(emission)
+    pairs: list[tuple[int, int]] = []
+    for text in terms:
+        if not isinstance(text, str):
+            raise TypeError(
+                f"emission= must be a species or line name; got {text!r}"
+            )
+        term = parse_emission_term(text)
+        hits: list[tuple[int, int]] = []
+        for index in indices:
+            for line, label in enumerate(labels_by_channel[index]):
+                # The stored label is always a valid selector: it is what the
+                # error messages list, so passing one back must work, and it
+                # is the only way to reach a label following no convention.
+                if label and label == text:
+                    hits.append((index, line))
+                    continue
+                identity = parse_line_label(label)
+                if identity is not None and term is not None and matches(term, identity):
+                    hits.append((index, line))
+        if not hits:
+            if term is None:
+                raise ValueError(
+                    f"unknown emission {text!r} for {container}; "
+                    f"available {describe_available(known)}"
+                )
+            raise ValueError(
+                f"no {format_species(term.species)} line is recorded in this "
+                f"input; available {describe_available(known)}"
+            )
+        pairs.extend(hits)
+    return list(dict.fromkeys(pairs))
+
+
 def _build_line_traces(
     ods: Any,
     recipe: LineRecipe,
     *,
     entry_label: str,
     selection: Any = None,
+    emission: Any = None,
+    line_index: Any = None,
 ) -> list[Series]:
     """Extract traces in IMAS canonical units; display scaling happens later."""
     value_scale = recipe.scale
@@ -3321,11 +3488,20 @@ def _build_line_traces(
         )
         container = _container_of(recipe.y_path, "{i}")
         r_all, z_all = _channel_positions(ods, container, _count(ods, container))
+        pairs = _resolve_emission(ods, recipe, indices, emission, line_index)
+        # "Versatile Filterscope" does not say which of its seven lines a trace
+        # is, so name the line whenever the caller chose one.
+        name_the_line = emission is not None or line_index is not None
         traces = []
-        for index in indices:
+        for index, line in pairs:
+            y_path = _with_line(recipe.y_path, line)
+            fallback_paths = tuple(
+                _with_line(path, line) for path in recipe.fallback_y_paths
+            )
+            x_paths = tuple(_with_line(path, line) for path in recipe.x_paths)
             try:
                 y = _first_array(
-                    ods, (recipe.y_path, *recipe.fallback_y_paths), i=index
+                    ods, (y_path, *fallback_paths), i=index
                 )
             except ValueError:
                 # e.g. a channel with several real energy bands: skip it so one
@@ -3338,11 +3514,11 @@ def _build_line_traces(
             # channels in the same IDS.
             if y is None or y.ndim != 1:
                 continue
-            time = _first_time(ods, recipe.x_paths, i=index)
+            time = _first_time(ods, x_paths, i=index)
             if time is None or time.ndim != 1 or time.size != y.size:
                 time = np.arange(y.size, dtype=float)
-            code, mask = _validity_of(ods, recipe.y_path, index)
-            spread = _uncertainty_of(ods, recipe.y_path, index, y.size)
+            code, mask = _validity_of(ods, y_path, index)
+            spread = _uncertainty_of(ods, y_path, index, y.size)
             r_i = float(r_all[index]) if index < r_all.size else float("nan")
             z_i = float(z_all[index]) if index < z_all.size else float("nan")
             has_position = bool(np.isfinite(r_i) and np.isfinite(z_i))
@@ -3352,10 +3528,14 @@ def _build_line_traces(
                 channel_label(index, r_i, z_i) if has_position
                 else _channel_label(ods, recipe.label_path, index, f"#{index}")
             )
+            if name_the_line and line is not None:
+                stored = _get(ods, _line_label_path(recipe.y_path, line).format(i=index))
+                if stored:
+                    channel = f"{channel} {stored}"
             traces.append(
                 Series(
                     x=time,
-                    y=y * value_scale * _weight(ods, recipe.weight_path, index),
+                    y=y * value_scale * _weight(ods, _with_line(recipe.weight_path, line), index),
                     label=channel,
                     yerr=None if spread is None else spread * abs(value_scale),
                     validity=code,
@@ -3604,12 +3784,15 @@ def _build_line_series(
     panel_member = bool(options.pop("_panel_member", False))
     traces: list[Series] = []
     synthetic = _synthetic_option(options, spec.name if spec is not None else "")
+    emission, line_index = _emission_options(options)
     for entry_label, ods in entries:
         measured = _build_line_traces(
             ods,
             recipe,
             entry_label=entry_label,
             selection=_selection_option(options),
+            emission=emission,
+            line_index=line_index,
         )
         traces.extend(measured)
         if synthetic:
@@ -4319,6 +4502,11 @@ def _build_panels(
         # panels and leaves the PF-current panel alone (issue #261 section 9).
         if merged.get("synthetic") and name not in SYNTHETIC_CONSTRAINTS:
             merged.pop("synthetic")
+        # Likewise for a spectral-line selector: it applies to the members that
+        # read one and leaves the plasma-current panel beside them alone.
+        if not _reads_processed_line(RECIPES.get(name)):
+            for option in EMISSION_OPTIONS:
+                merged.pop(option, None)
         members.append(build_model(name, entries, _panel_member=True, **merged))
     if not members:
         raise ValueError(
@@ -4356,6 +4544,7 @@ EXTRACTION_OPTIONS = frozenset(
         "detector",
         "detrend",
         "direction",
+        "emission",
         "dphi_deg",
         "field_line_start",
         "fit_ranges",
@@ -4366,6 +4555,7 @@ EXTRACTION_OPTIONS = frozenset(
         "frame_indices",
         "intrinsics_path",
         "layout",
+        "line_index",
         "log_y",
         "marker_frequencies",
         "max_frequency",
@@ -6430,6 +6620,14 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
         ) from None
     if not entries:
         raise ValueError("no entries were supplied")
+
+    requested = [option for option in EMISSION_OPTIONS if options.get(option) is not None]
+    if requested and not _reads_processed_line(recipe):
+        raise ValueError(
+            f"{', '.join(requested)} selects a spectral line and {name!r} does "
+            "not read one; it is accepted by plots whose path names "
+            "processed_line"
+        )
 
     if isinstance(recipe, LineRecipe):
         return _build_line_series(entries, recipe, _plot_name=name, **options)
