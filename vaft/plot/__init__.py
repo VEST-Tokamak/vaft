@@ -25,8 +25,8 @@ from an ODS by ``vaft.omas.plot_plasma_current_time``.
 
 The radial coordinate is *not* part of a profile renderer's name.  One
 :func:`equilibrium_profile_q` serves every coordinate; pick one with the
-adapter's ``coordinate=`` argument (``rho_tor_norm``, ``psi_norm``, ``r_major``,
-``r_minor``).
+adapter's ``coordinate=`` argument (``rho_tor_norm``, ``psi_norm``,
+``sqrt_phi_norm``, ``r_major``, ``r_minor``; :data:`vaft.plot.display.PROFILE_COORDINATES`).
 
 The renderer contract
 ---------------------

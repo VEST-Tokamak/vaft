@@ -51,6 +51,8 @@ from vaft.plot.style import UNCERTAINTY_MODES, VALIDITY_MODES
 
 from .recipes import (
     CAMERA_OVERLAYS,
+    _coordinate_options,
+    _has,
     CAMERA_PROJECTIONS,
     RECIPES,
     SYNTHETIC_CONSTRAINTS,
@@ -230,6 +232,11 @@ def _declare(record: PlotCapability) -> PlotCapability:
     unit = getattr(recipe, "y_unit", None)
     if isinstance(recipe, (LineRecipe, ProfileRecipe)):
         updates["display"] = _display_block(record, unit or "")
+    if isinstance(recipe, ProfileRecipe):
+        options = _coordinate_options(recipe)
+        updates["coordinates"] = {
+            "default": recipe.default_coordinate, "options": options, "declared": options,
+        }
     elif record.name in PSI_FIELD_CONVENTIONS:
         # The psi maps take units= (issue #478); the default unit follows the
         # stored convention, which only an input can tell -- see _evaluate.
@@ -350,6 +357,8 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             # to say which default a profile applies, or a caller cannot know
             # whether the curve it gets back was flipped.
             updates["orientation"] = _orientation_block(recipe)
+            if record.coordinates and recipe.index == "time_slice":
+                updates["coordinates"] = _coordinates_block(record, recipe, ods)
         if _takes_time_slice(record.name):
             updates["slices"] = _slices_block(ods)
         if record.name in PSI_FIELD_CONVENTIONS:
@@ -382,6 +391,44 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             }
             updates["controls"] = tuple(c.name for c in offered)
     return with_capabilities(record, **updates)
+
+
+def _coordinates_block(record: PlotCapability, recipe: ProfileRecipe, ods: Any) -> dict[str, Any]:
+    """The coordinates this input can resolve for a slice-indexed profile.
+
+    Evaluated on the representative slice: a stored leaf, or the leaves a
+    derivation needs (``q``/``psi`` for the toroidal ones, the 2-D map with
+    the axis and the boundary outline for the radial ones, issue #479).
+    """
+    from .recipes import _count, resolve_time_slice
+
+    declared = tuple(record.coordinates.get("declared") or record.coordinates.get("options") or ())
+    if not _count(ods, "equilibrium.time_slice"):
+        return {**record.coordinates, "options": ()}
+    try:
+        index = int(resolve_time_slice(ods)[0])
+    except Exception:
+        index = 0
+    base = f"equilibrium.time_slice.{index}.profiles_1d"
+    has = lambda leaf: _has(ods, f"{base}.{leaf}")  # noqa: E731
+    radial = (has("r_inboard") and has("r_outboard")) or (
+        _has(ods, f"equilibrium.time_slice.{index}.profiles_2d.0.psi")
+        and _has(ods, f"equilibrium.time_slice.{index}.global_quantities.magnetic_axis.r")
+        and _has(ods, f"equilibrium.time_slice.{index}.boundary.outline.r")
+        and has("psi")
+    )
+    supported = {
+        "psi_norm": has("psi"),
+        "rho_tor_norm": has("psi") and (has("q") or has("rho_tor_norm")),
+        "sqrt_phi_norm": has("psi") and (has("phi") or has("q")),
+        "r_major": radial,
+        "r_minor": radial,
+    }
+    options = tuple(name for name in declared if supported.get(name, True))
+    default = record.coordinates.get("default")
+    if default not in options and options:
+        default = options[0]
+    return {"default": default, "options": options, "declared": declared}
 
 
 def _takes_time_slice(name: str) -> bool:

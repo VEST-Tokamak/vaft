@@ -48,6 +48,7 @@ from vaft.plot.models import (
     Panels,
     PowerSpectrum,
     Profile1D,
+    ReferenceLine,
     ReferenceSlope,
     Series,
     Spectrogram,
@@ -2498,6 +2499,12 @@ def _isolated_copy(ods: Any, roots: Sequence[str]) -> Any:
 
     from omas import ODS
 
+    convert = getattr(ods, "as_ods_for", None)
+    if convert is not None:
+        # Another data model that converts itself (an IMAS entry): the copy
+        # is taken from its conversion of just these roots, which the entry
+        # caches, so a profile on an IMAS input derives exactly as on an ODS.
+        ods = convert(tuple(root for root in roots if _has(ods, root)))
     private = ODS(consistency_check=False)
     for root in roots:
         if _has(ods, root):
@@ -3765,26 +3772,50 @@ def _build_line_series(
                     suptitle=options.get("title", _decorated_title(recipe.title, y_display.unit, entries)))
 
 
-_COORDINATE_LABELS = {
-    "index": "Profile sample index",
-    "rho_tor_norm": r"Normalized Toroidal Flux $\rho_N$",
-    "psi_norm": r"Normalized Poloidal Flux $\psi_N$",
-    "r_major": "Major Radius R [m]",
-    "r_minor": "Minor Radius r [m]",
-}
+from vaft.plot.display import COORDINATE_LABELS as _COORDINATE_LABELS  # noqa: E402
+from vaft.plot.display import PROFILE_COORDINATES  # noqa: E402
 
+#: Stored leaves the equilibrium coordinates are read from when a recipe
+#: declares no ``coordinate_paths``.  The radial coordinates are assembled
+#: from ``r_inboard``/``r_outboard`` (see :func:`_radial_arrays`) and
+#: ``sqrt_phi_norm`` from ``phi``, so they have no single leaf here.
 _EQUILIBRIUM_COORDINATES = {
     "rho_tor_norm": "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
     "psi_norm": "equilibrium.time_slice.{i}.profiles_1d.psi_norm",
-    "r_major": "equilibrium.time_slice.{i}.profiles_1d.r_outboard",
-    "r_minor": "equilibrium.time_slice.{i}.profiles_1d.r_minor",
 }
+
+#: The coordinates built from the midplane crossings of each flux surface.
+_RADIAL_COORDINATES = ("r_major", "r_minor")
+_FLUX_COORDINATES = ("rho_tor_norm", "psi_norm", "sqrt_phi_norm")
 
 
 #: Equilibrium abscissae, weakest last. When entries in one figure resolve to
 #: different coordinates they all fall back to the weakest any of them supports,
 #: because a figure has one x axis and it has to describe every curve on it.
-_COORDINATE_FALLBACK_ORDER = ("rho_tor_norm", "psi_norm", "index")
+_COORDINATE_FALLBACK_ORDER = (
+    "rho_tor_norm", "sqrt_phi_norm", "r_major", "r_minor", "psi_norm", "index"
+)
+
+
+def _coordinate_options(recipe: ProfileRecipe) -> tuple[str, ...]:
+    """The coordinates ``recipe`` can be drawn against (issue #479).
+
+    A recipe that declares its own ``coordinate_paths`` (a diagnostic
+    profile) offers exactly those; an equilibrium profile offers
+    :data:`vaft.plot.display.PROFILE_COORDINATES`.
+    """
+    if recipe.coordinate_paths:
+        return tuple(recipe.coordinate_paths)
+    return PROFILE_COORDINATES
+
+
+def _check_coordinate(recipe: ProfileRecipe, coordinate: str, plot_name: str | None) -> None:
+    options = _coordinate_options(recipe)
+    if coordinate not in options:
+        name = plot_name or recipe.y_label or recipe.y_path
+        raise ValueError(
+            f"{name} takes coordinate= one of {', '.join(options)}; got {coordinate!r}"
+        )
 
 
 def _common_coordinate(resolved: list[str], requested: str) -> str:
@@ -3800,30 +3831,64 @@ def _common_coordinate(resolved: list[str], requested: str) -> str:
     return "index"
 
 
-def _recoordinate(
-    trace: Series, was: str, wanted: str, ods: Any, recipe: ProfileRecipe, time_slice: int
-) -> Series:
-    """Redraw one trace against ``wanted``, or against an index if it cannot."""
-    if was == wanted:
-        return trace
-    size = np.asarray(trace.y).size
-    if wanted != "index":
-        values, resolved = _equilibrium_coordinate_values(
-            ods, recipe, wanted, time_slice, size
-        )
-        if values is not None and resolved == wanted:
-            return dataclasses.replace(trace, x=values)
-    return dataclasses.replace(trace, x=np.arange(size, dtype=float))
-
-
 def _profile_coordinate(recipe: ProfileRecipe, name: str) -> str | None:
     if recipe.coordinate_paths:
         return recipe.coordinate_paths.get(name)
     return _EQUILIBRIUM_COORDINATES.get(name)
 
 
+def _radial_coordinates_for(ods: Any, index: int, cache: dict | None = None) -> Any:
+    """A private copy of the equilibrium with slice ``index``'s midplane radii.
+
+    ``vaft.omas.update_equilibrium_profiles_1d_radial_coordinates`` writes
+    ``profiles_1d.r_inboard``/``r_outboard`` from the 2-D flux map; it runs
+    on an isolated copy so the caller's ODS is left as it was, and ``None``
+    comes back for a slice it cannot serve (no boundary outline, no map).
+    ``cache`` -- one per build call -- keeps a figure with several entries
+    from copying the same equilibrium more than once.
+    """
+    key = (id(ods), int(index))
+    if cache is not None and key in cache:
+        return cache[key]
+    try:
+        from vaft.omas import update_equilibrium_profiles_1d_radial_coordinates
+
+        private = _isolated_copy(ods, ("equilibrium",))
+        update_equilibrium_profiles_1d_radial_coordinates(private, time_slice=index)
+        base = f"equilibrium.time_slice.{index}.profiles_1d"
+        if _array(private, f"{base}.r_inboard") is None or _array(private, f"{base}.r_outboard") is None:
+            private = None
+    except Exception:  # noqa: BLE001 - an underivable slice falls back, it does not fail
+        private = None
+    if cache is not None:
+        cache[key] = private
+    return private
+
+
+def _radial_arrays(
+    ods: Any, time_slice: int, size: int, cache: dict | None = None
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """``(r_inboard, r_outboard)`` of one slice, stored else derived privately."""
+    base = f"equilibrium.time_slice.{time_slice}.profiles_1d"
+    for source in (ods, None):
+        if source is None:
+            source = _radial_coordinates_for(ods, time_slice, cache)
+            if source is None:
+                return None
+        inboard = _array(source, f"{base}.r_inboard")
+        outboard = _array(source, f"{base}.r_outboard")
+        if (
+            inboard is not None and outboard is not None
+            and inboard.size == size and outboard.size == size
+            and np.all(np.isfinite(inboard)) and np.all(np.isfinite(outboard))
+        ):
+            return inboard, outboard
+    return None
+
+
 def _equilibrium_coordinate_values(
-    ods: Any, recipe: ProfileRecipe, coordinate: str, time_slice: int, size: int
+    ods: Any, recipe: ProfileRecipe, coordinate: str, time_slice: int, size: int,
+    cache: dict | None = None,
 ) -> tuple[Any, str]:
     """The abscissa for one equilibrium profile, and the coordinate it really is.
 
@@ -3858,6 +3923,35 @@ def _equilibrium_coordinate_values(
         # supply it whether or not the DD leaf itself was written.
         return psi_norm, coordinate
 
+    if coordinate == "sqrt_phi_norm":
+        # The stored toroidal flux when there is one; else integrated from q.
+        # Either way sqrt(|phi|/|phi_edge|), which is rho_tor_norm's own
+        # definition -- the name says where the number came from.
+        phi = _array(ods, f"{base}.phi")
+        if phi is None or phi.size != size or not np.all(np.isfinite(phi)):
+            phi = None
+            if psi is not None:
+                from vaft.data._derived import rho_tor_profile
+
+                q = _array(ods, f"{base}.q")
+                derived = rho_tor_profile(q, psi) if q is not None else None
+                if derived is not None and derived.phi.size == size:
+                    phi = np.asarray(derived.phi, dtype=float)
+        if phi is not None and phi[-1] != 0:
+            return np.sqrt(np.abs(phi) / np.abs(phi[-1])), coordinate
+        if psi_norm is not None:
+            return psi_norm, "psi_norm"
+        return None, coordinate
+
+    if coordinate == "r_minor":
+        radial = _radial_arrays(ods, time_slice, size, cache)
+        if radial is not None:
+            inboard, outboard = radial
+            return (outboard - inboard) / 2.0, coordinate
+        if psi_norm is not None:
+            return psi_norm, "psi_norm"
+        return None, coordinate
+
     if coordinate == "rho_tor_norm":
         from vaft.data._derived import is_rho_pol_proxy, rho_tor_profile
 
@@ -3878,25 +3972,126 @@ def _equilibrium_coordinate_values(
     return values, coordinate
 
 
+def _mirror(values: Any) -> Any:
+    """``values`` reflected through its first sample, for an inboard->outboard axis."""
+    if values is None:
+        return None
+    array = np.asarray(values)
+    return np.concatenate([array[..., ::-1], array], axis=-1)
+
+
+def _equilibrium_trace(
+    ods: Any,
+    entry_label: str,
+    recipe: ProfileRecipe,
+    coordinate: str,
+    time_slice: int,
+    cache: dict | None = None,
+) -> tuple[Series | None, str]:
+    """One slice-indexed profile as a trace, and the coordinate it really is.
+
+    ``r_major`` is the one coordinate with two samples per flux surface: the
+    inboard crossings run from the edge to the axis and the outboard ones
+    back out, so the profile is mirrored through the axis (2n points).  A
+    coordinate the slice cannot supply degrades the way issue #276 fixed:
+    the axis is relabelled with what was drawn, never with what was asked.
+    """
+    y = _array(ods, recipe.y_path.format(i=time_slice))
+    for fallback in recipe.fallback_y_paths:
+        if y is None:
+            y = _array(ods, fallback.format(i=time_slice))
+    if y is None:
+        return None, coordinate
+    code, mask = _validity_of(ods, recipe.y_path, time_slice)
+    spread = _uncertainty_of(ods, recipe.y_path, time_slice, y.size)
+    if recipe.coordinate_paths:
+        coordinate_path = _profile_coordinate(recipe, coordinate)
+        x = _array(ods, coordinate_path.format(i=time_slice)) if coordinate_path else None
+        if x is not None and x.size != y.size:
+            x = None
+        resolved = coordinate
+    elif coordinate == "r_major":
+        radial = _radial_arrays(ods, time_slice, y.size, cache)
+        if radial is not None:
+            inboard, outboard = radial
+            x = np.concatenate([inboard[::-1], outboard])
+            y, spread, mask = _mirror(y), _mirror(spread), _mirror(mask)
+            resolved = coordinate
+        else:
+            x, resolved = _equilibrium_coordinate_values(ods, recipe, "psi_norm", time_slice, y.size, cache)
+    else:
+        x, resolved = _equilibrium_coordinate_values(ods, recipe, coordinate, time_slice, y.size, cache)
+    if x is None:
+        # A sample index is not a coordinate; label it as one, do not
+        # pass it off as the coordinate that was asked for.
+        x = np.arange(y.size, dtype=float)
+        resolved = "index"
+    return (
+        Series(x=x, y=y, label=entry_label, yerr=spread, validity=code, valid_mask=mask, entry=entry_label),
+        resolved,
+    )
+
+
+def _profile_reference_lines(ods: Any, time_slice: int, coordinate: str, traces: Sequence[Series]) -> tuple[ReferenceLine, ...]:
+    """The markers a geometric abscissa deserves: the axis and the limiter.
+
+    ``r_major``: the magnetic axis and the innermost and outermost wall
+    radius (one legend entry; ``_wall_radii`` says whether that surface is
+    the limiter or the vessel).  ``r_minor``: the last closed flux surface.
+    Flux coordinates carry none.  Read from the first entry only: one axis,
+    one wall per figure.
+    """
+    lines: list[ReferenceLine] = []
+    if coordinate == "r_major":
+        axis_r = _finite_scalar(_get(ods, f"equilibrium.time_slice.{time_slice}.global_quantities.magnetic_axis.r"))
+        if axis_r is not None:
+            lines.append(ReferenceLine(axis_r, "Magnetic axis", {"color": "k", "linestyle": "--"}))
+        radii, surface = _wall_radii(ods)
+        if radii:
+            lines.append(ReferenceLine(min(radii), surface))
+            lines.append(ReferenceLine(max(radii), ""))
+    elif coordinate == "r_minor" and traces:
+        edge = max(float(np.asarray(trace.x)[-1]) for trace in traces if np.asarray(trace.x).size)
+        lines.append(ReferenceLine(edge, "LCFS", {"color": "#e41a1c"}))
+    return tuple(lines)
+
+
+def _default_x_limits(ods: Any, coordinate: str, traces: Sequence[Series]) -> tuple[float, float] | None:
+    if coordinate in _FLUX_COORDINATES:
+        return (0.0, 1.0)
+    if coordinate == "r_major":
+        radii, _ = _wall_radii(ods)
+        return (min(radii) - 0.02, max(radii) + 0.02) if radii else None
+    if coordinate == "r_minor" and traces:
+        edge = max(float(np.asarray(trace.x)[-1]) for trace in traces if np.asarray(trace.x).size)
+        return (0.0, 1.05 * edge) if edge > 0 else None
+    return None
+
+
 def _build_profile_1d(
     entries: Sequence[tuple[str, Any]], recipe: ProfileRecipe, **options: Any
 ) -> Profile1D:
-    spec = get_spec(options.pop("_plot_name")) if "_plot_name" in options else None
+    plot_name = options.pop("_plot_name", None)
+    spec = get_spec(plot_name) if plot_name else None
     subject = spec.subject if spec is not None else None
     # Inside a composite the suptitle carries subject/unit/shot, so a member
     # keeps the short recipe title that identifies it within the figure.
     panel_member = bool(options.pop("_panel_member", False))
     coordinate = options.get("coordinate") or recipe.default_coordinate
+    _check_coordinate(recipe, coordinate, plot_name)
     time_slice = options.get("time_slice", 0)
+    cache: dict = {}
     traces: list[Series] = []
+    trace_entries: list[tuple[str, Any]] = []
     resolved_per_entry: list[str] = []
     for entry_label, ods in entries:
         if recipe.index == "channel":
             selection = _selection_option(options)
             indices = _resolve_selection(ods, recipe.y_path, selection)
             x_values, y_values = [], []
+            coordinate_path = _profile_coordinate(recipe, coordinate)
             for index in indices:
-                x = _get(ods, _profile_coordinate(recipe, coordinate).format(i=index))
+                x = _get(ods, coordinate_path.format(i=index)) if coordinate_path else None
                 y = _get(ods, recipe.y_path.format(i=index))
                 if x is None or y is None:
                     continue
@@ -3919,54 +4114,37 @@ def _build_profile_1d(
                         style={"marker": "o", "linestyle": "-"},
                     )
                 )
+                trace_entries.append((entry_label, ods))
+                resolved_per_entry.append(coordinate)
             continue
 
-        y = _array(ods, recipe.y_path.format(i=time_slice))
-        for fallback in recipe.fallback_y_paths:
-            if y is None:
-                y = _array(ods, fallback.format(i=time_slice))
-        if y is None:
+        trace, resolved = _equilibrium_trace(ods, entry_label, recipe, coordinate, time_slice, cache)
+        if trace is None:
             continue
-        if recipe.coordinate_paths:
-            coordinate_path = _profile_coordinate(recipe, coordinate)
-            x = (
-                _array(ods, coordinate_path.format(i=time_slice))
-                if coordinate_path
-                else None
-            )
-            if x is not None and x.size != y.size:
-                x = None
-            resolved = coordinate
-        else:
-            x, resolved = _equilibrium_coordinate_values(
-                ods, recipe, coordinate, time_slice, y.size
-            )
-        if x is None:
-            # A sample index is not a coordinate; label it as one, do not
-            # pass it off as the coordinate that was asked for.
-            x = np.arange(y.size, dtype=float)
-            resolved = "index"
+        traces.append(trace)
+        trace_entries.append((entry_label, ods))
         resolved_per_entry.append(resolved)
-        code, mask = _validity_of(ods, recipe.y_path, time_slice)
-        spread = _uncertainty_of(ods, recipe.y_path, time_slice, y.size)
-        traces.append(
-            Series(x=x, y=y, label=entry_label, yerr=spread,
-                   validity=code, valid_mask=mask, entry=entry_label)
-        )
 
     # One figure carries one abscissa. Entries can resolve to different
     # coordinates -- one slice derives rho_tor_norm, another only has psi_norm --
     # and labelling from whichever came last would put a curve on an axis that
     # does not describe it, with the label flipping on input order alone. They
-    # fall back together instead, to the weakest coordinate any entry supports.
+    # fall back together instead, to the weakest coordinate any entry supports,
+    # each entry rebuilt against it (a mirrored r_major trace cannot be patched).
     drawn_coordinate = _common_coordinate(resolved_per_entry, coordinate)
-    if len(set(resolved_per_entry)) > 1:
-        traces = [
-            _recoordinate(trace, was, drawn_coordinate, ods, recipe, time_slice)
-            for trace, was, (_entry_label, ods) in zip(
-                traces, resolved_per_entry, entries
-            )
-        ]
+    if len(set(resolved_per_entry)) > 1 and recipe.index != "channel":
+        rebuilt = []
+        for (entry_label, ods), was in zip(trace_entries, resolved_per_entry):
+            if was == drawn_coordinate:
+                rebuilt.append(traces[len(rebuilt)])
+                continue
+            trace, resolved = _equilibrium_trace(ods, entry_label, recipe, drawn_coordinate, time_slice, cache)
+            if trace is None or resolved != drawn_coordinate:
+                y = traces[len(rebuilt)].y
+                trace = dataclasses.replace(traces[len(rebuilt)], x=np.arange(np.asarray(y).size, dtype=float))
+                drawn_coordinate = "index"
+            rebuilt.append(trace)
+        traces = rebuilt
 
     y_display = _resolve_axis_display(
         recipe.y_unit, unit=options.get("yunit"), subject=subject,
@@ -3984,13 +4162,22 @@ def _build_profile_1d(
         default_title = _decorated_title(recipe.y_label, y_display.unit, entries)
     if flipped:
         default_title = f"{default_title} — intuitive orientation (sign flipped)"
+    first_ods = trace_entries[0][1] if trace_entries else (entries[0][1] if entries else None)
+    reference_lines: tuple[ReferenceLine, ...] = ()
+    x_limits = options.get("x_limits")
+    if first_ods is not None and recipe.index != "channel":
+        reference_lines = _profile_reference_lines(first_ods, time_slice, drawn_coordinate, scaled)
+        if x_limits is None:
+            x_limits = _default_x_limits(first_ods, drawn_coordinate, scaled)
     return Profile1D(
         series=scaled,
         coordinate_label=_COORDINATE_LABELS.get(drawn_coordinate, drawn_coordinate),
         y_label=recipe.y_label,
         y_unit=y_display.unit,
         title=options.get("title", default_title),
+        x_limits=x_limits,
         display=y_display,
+        reference_lines=reference_lines,
     )
 
 
@@ -5134,7 +5321,9 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
                     title="Global quantities",
                 ))
                 continue
-            profile = _overview_profile(member, ods, entries, derived, derived_entries, index)
+            profile = _overview_profile(
+                member, ods, entries, derived, derived_entries, index, options.get("coordinate")
+            )
             if profile is not None:
                 panels.append(profile)
         columns.append(panels)
@@ -5152,7 +5341,9 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
     )
 
 
-def _overview_profile(member: str, ods: Any, entries, derived: Any, derived_entries, index: int):
+def _overview_profile(
+    member: str, ods: Any, entries, derived: Any, derived_entries, index: int, coordinate: str | None = None
+):
     """One 1-D member of the slice overview, stored first, else derived, else ``None``."""
     source, source_entries = (ods, entries)
     if not entry_supports(ods, member) and derived is not None and entry_supports(derived, member):
@@ -5162,6 +5353,7 @@ def _overview_profile(member: str, ods: Any, entries, derived: Any, derived_entr
     try:
         profile = _build_profile_1d(
             source_entries, RECIPES[member], _plot_name=member, _panel_member=True, time_slice=index,
+            **({"coordinate": coordinate} if coordinate else {}),
         )
     except ValueError:
         return None
@@ -5209,6 +5401,14 @@ def _derived_profiles_for(ods: Any, index: int) -> tuple[Any, list]:
         update_equilibrium_derived_profiles(private, time_slice=index)
     except Exception:  # noqa: BLE001 - a failed derivation leaves a placeholder, not an error
         return None, []
+    try:
+        # The midplane radii have their own writer (one leaf, one writer);
+        # a slice without a boundary outline simply goes without them.
+        from vaft.omas import update_equilibrium_profiles_1d_radial_coordinates
+
+        update_equilibrium_profiles_1d_radial_coordinates(private, time_slice=index)
+    except Exception:  # noqa: BLE001
+        pass
     return private, [("", private)]
 
 

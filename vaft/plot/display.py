@@ -62,6 +62,27 @@ __all__ = [
 #: shows the coils' flux; inside the plasma it is a single colour.
 PSI_STYLES = ("surfaces", "normalized", "filled")
 
+#: The radial coordinates a 1-D equilibrium profile can be drawn against
+#: (issue #479).  ``sqrt_phi_norm`` equals ``rho_tor_norm`` by definition
+#: (both are the square root of the normalised toroidal flux) and differs
+#: only in its source: the stored ``profiles_1d.phi`` when there is one.
+#: ``r_major`` runs from the inboard to the outboard midplane crossing of
+#: each flux surface, the profile mirrored through the magnetic axis;
+#: ``r_minor`` is the midplane half-width ``(r_outboard - r_inboard) / 2``,
+#: which equals ``boundary.minor_radius`` at the edge.
+PROFILE_COORDINATES = ("rho_tor_norm", "psi_norm", "sqrt_phi_norm", "r_major", "r_minor")
+
+#: Axis labels of the profile coordinates.  ``index`` is what an axis says
+#: when no coordinate could be resolved; it is never accepted as a request.
+COORDINATE_LABELS = {
+    "index": "Profile sample index",
+    "rho_tor_norm": r"Normalized Toroidal Flux $\rho_N$",
+    "psi_norm": r"Normalized Poloidal Flux $\psi_N$",
+    "sqrt_phi_norm": r"Normalized Toroidal Flux $\sqrt{\Phi_N}$",
+    "r_major": "Major Radius R [m]",
+    "r_minor": "Minor Radius r [m]",
+}
+
 
 NOTATIONS = ("auto", "plain", "scientific", "scaled_axis", "percent")
 
