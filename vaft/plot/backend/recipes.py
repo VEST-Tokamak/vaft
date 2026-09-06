@@ -3189,11 +3189,17 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
             )
         projection = _projection_option(options, shot)
         if "wall" in overlays or "equilibrium" in overlays:
+            sweep = options.get("theta_deg_range")
             geometry = compute_camera_visible_efit_overlay(
                 ods, int(shot), channel=channel, detector=detector, frame_index=idx,
                 flux_surface_levels=tuple(options.get("flux_surface_levels", (0.25, 0.5, 0.75, 0.95)))
                 if "equilibrium" in overlays else (),
                 projection=projection,
+                # Every layer is swept toroidally, so the sweep width decides
+                # whether nested flux surfaces read as contours or fill in as a
+                # sheet.  The default spans the camera's view; a narrow range
+                # shows the surfaces themselves.
+                **({} if sweep is None else {"theta_deg_range": tuple(sweep)}),
             )
             # An explicit show_* flag refines within the overlay it belongs to.
             layer_options = {
