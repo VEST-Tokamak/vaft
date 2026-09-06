@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import subprocess
 from dataclasses import dataclass, field
 from numbers import Integral
@@ -217,6 +218,35 @@ def _vaft_revision() -> str | None:
     return revision if completed.returncode == 0 and revision else None
 
 
+_TABLE_DIR_LINE = re.compile(r"^\s*TABLE_DIR\s*=\s*'([^']*)'", re.IGNORECASE | re.MULTILINE)
+
+
+def _table_record(kfiles: Sequence[Path]) -> dict[str, Any] | None:
+    """What the k-files say EFIT will read its Green tables from, identified.
+
+    EFIT reads every table dimension from ``TABLE_DIR/mhdin.dat`` with no
+    consistency check, so the run manifest records the table by its own
+    manifest (``vaft.code.efit.efund``) when it has one and by the hash of
+    ``mhdin.dat`` otherwise -- and says which of the two it could do.
+    """
+    from .efund import table_identity
+
+    directories: list[str] = []
+    for path in sorted(Path(path) for path in kfiles):
+        try:
+            match = _TABLE_DIR_LINE.search(path.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            continue
+        if match and match.group(1) not in directories:
+            directories.append(match.group(1))
+    if not directories:
+        return None
+    record = table_identity(directories[0])
+    if len(directories) > 1:
+        record["other_dirs"] = directories[1:]
+    return record
+
+
 def _write_efit_configuration_manifest(
     config: EFITConfig,
     kfiles: Sequence[Path],
@@ -246,6 +276,7 @@ def _write_efit_configuration_manifest(
             }
             for path in sorted(Path(path) for path in kfiles)
         ],
+        "table": _table_record(kfiles),
     }
     destination.write_text(
         json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\n",
