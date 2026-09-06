@@ -49,8 +49,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 9919051
-    sha256: 53e27fe9e5774fa317529050a18e1cce5c6185e59902562a8345bb10043a6a27
+    size: 9919054
+    sha256: ceff4d5db963dd31e76878c60157f05b2ea27ff2e737b9ecfd479af1a5689bbc
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -59,7 +59,7 @@ representations:
     - imas
     - omas
     size: 11205129
-    sha256: 0118e524049e01a84236ba0c907646d6c8dab53257adb26771b7078b7edd679a
+    sha256: dbb39afa6956baf86ef9a1b448f985f51b9b62e00c24242813cedadf74df1c1a
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
@@ -177,3 +177,19 @@ corrections:
     so a regeneration now reproduces this value rather than reverting it. The stage
     hashes above are therefore unchanged and still describe the run that produced
     the rest of the artifact.'
+- change: semantic emission selector (emission=)
+  field: spectrometer_uv.channel.2.processed_line.3.{label,wavelength_central}
+  from: CII_3726 / 372.6e-9
+  to: CII_4267 / 426.7e-9
+  reason: '3726 Angstrom is the well-known [O II] line, which processed_line.5 of
+    the same channel already and correctly claims; the representative visible C II
+    line the filterscope observes is near 4267 Angstrom. The old pair therefore
+    named two different species at one wavelength, which a species-aware selector
+    would have resolved to the wrong ion. Applied in place rather than by rerunning
+    the pipeline, for the same reason as the correction above: the mapper writes
+    both leaves as constants from vaft.machine_mapping.spectrometer_uv.SIGNALS, and
+    no stage output depends on either, so the intensity series recorded from DAQ
+    field 142 is untouched. SIGNALS was corrected in the same change, so a
+    regeneration now reproduces these values rather than reverting them, and the
+    stage hashes above still describe the run that produced the rest of the
+    artifact.'
