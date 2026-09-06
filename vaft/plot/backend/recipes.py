@@ -55,7 +55,7 @@ from vaft.plot.models import (
     TextPanel,
 )
 from vaft.plot.display import PSI_STYLES, channel_label, figure_title, resolve_display
-from vaft.plot.selection import ACTIVE, ALL, INBOARD, OUTBOARD, SIGNAL_PRESETS, VALID
+from vaft.plot.selection import ACTIVE, ALL, INBOARD, OUTBOARD, SIGNAL_PRESETS, UNCLASSIFIED, VALID
 from vaft.plot.registry import get_spec
 
 from vaft.formula.statistics import noise_band, rms
@@ -631,6 +631,42 @@ class ProfileRecipe:
     orientation: str = "canonical"
 
 
+#: Where a sensor's poloidal angle comes from (issue #486): ``geometric`` is
+#: measured about the layout's centre; ``stored`` reads the IDS
+#: ``poloidal_angle``, which on VEST is the probe's *orientation* (3*pi/2 for
+#: every +Bz probe) and so collapses to one abscissa there.
+ANGLE_SOURCES = ("geometric", "stored")
+
+#: The abscissae of a spatial plot: height, or the poloidal angle about a centre.
+SPATIAL_COORDINATES = ("z", "theta")
+
+
+@dataclass(frozen=True)
+class ChannelProfileRecipe:
+    """How to read a sensor array's values at one time against sensor position.
+
+    One point per channel of ``y_path`` (``{i}``), sampled at the stored
+    time nearest ``time=`` (:func:`resolve_time_sample`); the positions come
+    from the channel's ``position`` node.  ``coordinate="z"`` draws the
+    inboard and outboard sensors as two panels, split by the family's own
+    radial divider; ``"theta"`` draws one panel against the poloidal angle
+    about the layout centre (:func:`vaft.process.magnetics.magnetics_sensor_centre`,
+    ``centre=`` overrides it).
+    """
+
+    y_path: str
+    time_paths: tuple[str, ...]
+    coordinates: tuple[str, ...] = SPATIAL_COORDINATES
+    default_coordinate: str = "z"
+    y_label: str = ""
+    y_unit: str = ""
+    label_path: str = ""
+    fallback_y_paths: tuple[str, ...] = ()
+    orientation: str = "canonical"
+    title: str = ""
+    index: str = "channel"
+
+
 @dataclass(frozen=True)
 class GeometryRecipe:
     """How to read a ``GeometryLayers`` stack from an ODS."""
@@ -836,6 +872,22 @@ RECIPES: dict[str, Any] = {
         y_unit="V",
         label_path="magnetics.flux_loop.{i}.name",
         title="Flux Loop Voltage",
+    ),
+    "flux_loop_spatial_flux": ChannelProfileRecipe(
+        y_path="magnetics.flux_loop.{i}.flux.data",
+        time_paths=("magnetics.flux_loop.{i}.flux.time", "magnetics.flux_loop.time", "magnetics.time"),
+        y_label="Poloidal Flux",
+        y_unit="Wb",
+        label_path="magnetics.flux_loop.{i}.name",
+        title="Flux loops",
+    ),
+    "b_field_probe_spatial_field": ChannelProfileRecipe(
+        y_path="magnetics.b_field_pol_probe.{i}.field.data",
+        time_paths=("magnetics.b_field_pol_probe.{i}.field.time", "magnetics.b_field_pol_probe.time", "magnetics.time"),
+        y_label="Poloidal Field",
+        y_unit="T",
+        label_path="magnetics.b_field_pol_probe.{i}.name",
+        title="B-field probes",
     ),
     "b_field_probe_time_field": LineRecipe(
         y_path="magnetics.b_field_pol_probe.{i}.field.data",
@@ -1657,7 +1709,7 @@ def _build_impa_tf_profile(ods: Any, *, time: float | None = None, **_: Any) -> 
             continue
         if axis is None:
             axis = _first_time(ods, (f"{prefix}.{quantity}.time", "magnetics.time"))
-        sample = 0 if axis is None or time is None else int(np.argmin(np.abs(axis - float(time))))
+        sample = 0 if axis is None or time is None else resolve_time_sample(axis, time)[0]
         if quantity == "voltage":
             # Hall probes sit on a large zero-field offset; remove it with the
             # same first-sample convention the processing uses so the shape
@@ -1685,7 +1737,7 @@ def _build_impa_tf_profile(ods: Any, *, time: float | None = None, **_: Any) -> 
             tf_time = _first_time(ods, ("tf.time",))
             sample = 0
             if tf_time is not None and time is not None:
-                sample = int(np.argmin(np.abs(tf_time - float(time))))
+                sample = resolve_time_sample(tf_time, time)[0]
             current = float(tf_current[min(sample, tf_current.size - 1)])
             series.append(
                 Series(
@@ -3809,6 +3861,28 @@ def _coordinate_options(recipe: ProfileRecipe) -> tuple[str, ...]:
     return PROFILE_COORDINATES
 
 
+def coordinate_options_for(name: str) -> tuple[str, ...] | None:
+    """The ``coordinate=`` vocabulary of plot ``name``, or ``None`` if it takes none.
+
+    A 1-D profile offers :func:`_coordinate_options`; a spatial plot its own
+    ``coordinates`` (issue #486); the option validator asks here so the
+    schema's global vocabulary never refuses a name a recipe accepts.
+    """
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, ProfileRecipe):
+        return _coordinate_options(recipe)
+    if isinstance(recipe, ChannelProfileRecipe):
+        return tuple(recipe.coordinates)
+    if isinstance(recipe, PanelRecipe):
+        options: list[str] = []
+        for member in recipe.members:
+            for option in coordinate_options_for(member) or ():
+                if option not in options:
+                    options.append(option)
+        return tuple(options) or None
+    return None
+
+
 def _check_coordinate(recipe: ProfileRecipe, coordinate: str, plot_name: str | None) -> None:
     options = _coordinate_options(recipe)
     if coordinate not in options:
@@ -4129,6 +4203,170 @@ def _default_x_limits(ods: Any, coordinate: str, traces: Sequence[Series]) -> tu
         edge = max(float(np.asarray(trace.x)[-1]) for trace in traces if np.asarray(trace.x).size)
         return (0.0, 1.05 * edge) if edge > 0 else None
     return None
+
+
+def _build_channel_profile(
+    entries: Sequence[tuple[str, Any]], recipe: ChannelProfileRecipe, **options: Any
+) -> Any:
+    """A sensor array's values at one time against position (issue #486)."""
+    from vaft.plot.selection import classify_regions, radial_divider
+
+    plot_name = options.pop("_plot_name", None)
+    spec = get_spec(plot_name) if plot_name else None
+    subject = spec.subject if spec is not None else None
+    panel_member = bool(options.pop("_panel_member", False))
+    if "layout" in options:
+        raise ValueError(f"{plot_name or recipe.title} takes no layout=; coordinate='z' already splits the array")
+    coordinate = options.get("coordinate") or recipe.default_coordinate
+    if coordinate not in recipe.coordinates:
+        raise ValueError(
+            f"{plot_name or recipe.title} takes coordinate= one of {', '.join(recipe.coordinates)}; got {coordinate!r}"
+        )
+    angle = options.get("angle") or ANGLE_SOURCES[0]
+    if angle not in ANGLE_SOURCES:
+        raise ValueError(f"angle must be one of {', '.join(ANGLE_SOURCES)}; got {angle!r}")
+    centre = options.get("centre")
+    if coordinate != "theta" and (options.get("angle") is not None or centre is not None):
+        raise ValueError(
+            f"angle= and centre= describe the poloidal angle; pass coordinate='theta' with them "
+            f"(got coordinate={coordinate!r})"
+        )
+    if centre is not None:
+        try:
+            centre = (float(centre[0]), float(centre[1]))
+            if len(centre) != 2 or len(tuple(options["centre"])) != 2:
+                raise ValueError
+        except (TypeError, ValueError, IndexError):
+            raise ValueError(f"centre= is (r0, z0) in metres; got {options['centre']!r}") from None
+        if not all(np.isfinite(centre)):
+            raise ValueError(f"centre= needs finite metres; got {options['centre']!r}")
+    selection = _selection_option(options)
+    container = _container_of(recipe.y_path, "{i}")
+    candidates = (recipe.y_path,) + tuple(recipe.fallback_y_paths)
+
+    points: list[dict[str, Any]] = []   # one per entry
+    stamps: list[str] = []
+    for entry_label, ods in entries:
+        time_value: float | None = None
+        if options.get("time") is not None:
+            time_value = float(options["time"])
+        elif options.get("time_slice") is not None:
+            if not _count(ods, "equilibrium.time_slice"):
+                raise ValueError(f"{plot_name or recipe.title} takes time= (seconds); time_slice= needs a stored equilibrium")
+            time_value = resolve_time_slice(ods, time_slice=int(options["time_slice"]))[1]
+        total = _count(ods, container)
+        indices = _resolve_selection(ods, recipe.y_path, selection, fallbacks=recipe.fallback_y_paths)
+        r_all, z_all = _channel_positions(ods, container, total)
+        split = radial_divider(r_all)
+        regions = classify_regions(r_all, split=split) if split else [UNCLASSIFIED] * total
+        entry_points = []
+        stamp = None
+        for index in indices:
+            y = _first_array(ods, candidates, i=index)
+            if y is None or y.size == 0:
+                continue
+            axis = _first_time(ods, recipe.time_paths, i=index)
+            if axis is None or axis.size != y.size:
+                continue
+            if not _channel_passes_signal_preset(ods, recipe.y_path, index, y, selection):
+                continue
+            sample, stored, reason = resolve_time_sample(axis, time_value)
+            if stamp is None:
+                stamp = f"t = {stored * 1e3:.2f} ms ({reason})"
+            code, mask = _validity_of(ods, recipe.y_path, index)
+            valid = True
+            if mask is not None and np.asarray(mask).size == y.size:
+                valid = bool(np.asarray(mask, dtype=bool)[sample])
+            elif code is not None and int(np.asarray(code).ravel()[0]) != 0:
+                valid = False
+            entry_points.append({
+                "r": float(r_all[index]), "z": float(z_all[index]), "y": float(y[sample]),
+                "valid": valid, "region": regions[index], "channel": index,
+                "angle_stored": _get(ods, f"{container}.{index}.poloidal_angle"),
+            })
+        points.append({"label": entry_label, "points": entry_points, "r": r_all, "z": z_all})
+        stamps.append(stamp or "no sample")
+
+    y_display = _resolve_axis_display(
+        recipe.y_unit, unit=options.get("yunit"), subject=subject,
+        quantity=spec.quantity if spec is not None else None,
+        series_values=[np.asarray([pt["y"] for pt in entry["points"]]) for entry in points],
+    )
+    # One stamp when every shot resolved to the same time; otherwise each
+    # shot's own, so a title never understates a second shot's sample.
+    distinct = list(dict.fromkeys(stamps))
+    if len(distinct) <= 1:
+        stamp_text = distinct[0] if distinct else ""
+    else:
+        stamp_text = "; ".join(f"{entry['label']}: {stamp}" for entry, stamp in zip(points, stamps))
+    heading = recipe.title or recipe.y_label
+    if panel_member:
+        title = heading
+    else:
+        title = f"{_decorated_title(heading, y_display.unit, entries)} at {stamp_text}"
+
+    def series_for(entry: dict, keep) -> Series | None:
+        chosen = [pt for pt in entry["points"] if keep(pt)]
+        if not chosen:
+            return None
+        if coordinate == "z":
+            x = np.asarray([pt["z"] for pt in chosen], dtype=float)
+        elif angle == "stored":
+            stored = [pt["angle_stored"] for pt in chosen]
+            if any(value is None for value in stored):
+                raise ValueError(
+                    f"angle='stored' needs a poloidal_angle on every selected channel of {container}; "
+                    "this input stores none"
+                )
+            x = np.degrees(np.mod(np.asarray(stored, dtype=float), 2.0 * np.pi))
+        else:
+            from vaft.process.magnetics import magnetics_sensor_centre, magnetics_sensor_poloidal_angle
+
+            origin = tuple(centre) if centre is not None else magnetics_sensor_centre(entry["r"], entry["z"])
+            x = np.degrees(magnetics_sensor_poloidal_angle(
+                [pt["r"] for pt in chosen], [pt["z"] for pt in chosen], origin
+            ))
+        order = np.argsort(x, kind="stable")
+        y = np.asarray([pt["y"] for pt in chosen], dtype=float)[order] * y_display.scale
+        valid = np.asarray([pt["valid"] for pt in chosen], dtype=bool)[order]
+        return Series(
+            x=x[order], y=y, label=entry["label"], entry=entry["label"],
+            valid_mask=None if valid.all() else valid,
+            style={"marker": "o", "linestyle": "-"},
+        )
+
+    def profile(series: Sequence[Series], panel_title: str, origin_text: str = "") -> Profile1D:
+        if coordinate == "z":
+            label = "Z [m]"
+        else:
+            label = (f"Poloidal angle θ [deg]{origin_text}" if angle == "geometric" else "Stored poloidal angle [deg]")
+        return Profile1D(
+            series=tuple(s for s in series if s is not None),
+            coordinate_label=label,
+            y_label=recipe.y_label,
+            y_unit=y_display.unit,
+            title=panel_title,
+            x_limits=(0.0, 360.0) if coordinate == "theta" else None,
+            display=y_display,
+        )
+
+    if coordinate == "theta":
+        origin_text = ""
+        if angle == "geometric" and points:
+            from vaft.process.magnetics import magnetics_sensor_centre
+
+            r0, z0 = tuple(centre) if centre is not None else magnetics_sensor_centre(points[0]["r"], points[0]["z"])
+            origin_text = f" about (R, Z) = ({r0:.3f}, {z0:.3f}) m"
+        return profile([series_for(entry, lambda pt: True) for entry in points], title, origin_text)
+
+    panels: list[Profile1D] = []
+    for region, panel_title in ((INBOARD, "inboard"), (OUTBOARD, "outboard"), (UNCLASSIFIED, "unclassified")):
+        series = [series_for(entry, lambda pt, region=region: pt["region"] == region) for entry in points]
+        if any(s is not None for s in series):
+            panels.append(profile(series, panel_title))
+    if not panels:
+        raise ValueError(f"{plot_name or recipe.title}: no channel of {container} carries a sample to draw")
+    return Panels(models=tuple(panels), ncols=len(panels), share_x=False, suptitle=title)
 
 
 def _build_profile_1d(
@@ -5260,6 +5498,34 @@ def resolve_time_slice(
     stored = _get(ods, f"equilibrium.time_slice.{index}.time")
     time_value = float(np.asarray(stored, dtype=float).ravel()[0]) if stored is not None else np.nan
     return index, time_value, reason
+
+
+def resolve_time_sample(times: Any, time: float | None) -> tuple[int, float, str]:
+    """``(index, stored time, reason)`` of the sample a ``time=`` resolves to.
+
+    The signal counterpart of :func:`resolve_time_slice`: ``time`` snaps to
+    the nearest stored sample and the returned time is that sample's own;
+    ``None`` takes the middle sample.  A time outside the stored range warns
+    and takes the nearest end.
+    """
+    axis = np.asarray(times, dtype=float).ravel()
+    if axis.size == 0 or not np.all(np.isfinite(axis)):
+        raise ValueError("a time axis with finite samples is needed to resolve time=")
+    if time is None:
+        index = int(axis.size // 2)
+        return index, float(axis[index]), "middle sample"
+    value = float(time)
+    if not np.isfinite(value):
+        raise ValueError(f"time must be a finite number of seconds; got {time!r}")
+    index = int(np.argmin(np.abs(axis - value)))
+    if not axis.min() <= value <= axis.max():
+        warnings.warn(
+            f"time={value:g} s lies outside the stored samples ({axis.min():g}-{axis.max():g} s); "
+            f"drawing the nearest, sample {index}. Times are in seconds.",
+            UserWarning,
+            stacklevel=3,
+        )
+    return index, float(axis[index]), f"nearest sample to t = {value * 1e3:.2f} ms"
 
 
 #: Global quantities a slice summary states, in order: label, IMAS leaf,
@@ -6803,6 +7069,8 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
         return _build_line_series(entries, recipe, _plot_name=name, **options)
     if isinstance(recipe, ProfileRecipe):
         return _build_profile_1d(entries, recipe, _plot_name=name, **options)
+    if isinstance(recipe, ChannelProfileRecipe):
+        return _build_channel_profile(entries, recipe, _plot_name=name, **options)
     if isinstance(recipe, PanelRecipe):
         return _build_panels(entries, recipe, **options)
     if isinstance(recipe, GeometryRecipe):
