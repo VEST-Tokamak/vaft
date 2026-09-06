@@ -267,7 +267,25 @@ assert not _collisions, (
 )
 
 
+#: Names removed outright, with where their behaviour went: a caller gets the
+#: pointer, not a bare AttributeError.
+_REMOVED_EXPORTS = {
+    "vfit_plasma_mgods_startend": (
+        "removed with evidence schema 3 (#409): the plasma window is "
+        "vaft.omas.plasma_timing.plasma_timing(ods).window on an ODS, or "
+        "vaft.machine_mapping.detect_plasma_window on raw arrays"
+    ),
+    "vfit_plasmaMGods_startend": (
+        "removed with evidence schema 3 (#409): the plasma window is "
+        "vaft.omas.plasma_timing.plasma_timing(ods).window on an ODS, or "
+        "vaft.machine_mapping.detect_plasma_window on raw arrays"
+    ),
+}
+
+
 def __getattr__(name: str):
+    if name in _REMOVED_EXPORTS:
+        raise AttributeError(f"vaft.machine_mapping.{name} was {_REMOVED_EXPORTS[name]}")
     if name in _EXPORT_MAP:
         module_name, attribute = _EXPORT_MAP[name]
     elif name in _LEGACY_EXPORT_MAP:

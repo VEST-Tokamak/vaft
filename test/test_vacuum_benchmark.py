@@ -526,7 +526,7 @@ def test_the_packaged_case_needs_no_plasma_and_declares_its_evidence(packaged_ca
     assert evidence["boundary"] <= timing["onset"]
     assert evidence["boundary_source"] == "ip_principal"
     assert packaged_case["solver_input_window"][1] == pytest.approx(evidence["boundary"])
-    assert PLASMA_FREE_EVIDENCE_SCHEMA == 3 and "legacy" not in evidence
+    assert "legacy" not in evidence
     assert evidence["max_abs_ip_in_interval"] < 20.0 * evidence["ip_reference_std"]
 
 
@@ -720,7 +720,13 @@ def test_a_shot_the_legacy_detector_cut_before_its_solenoid_is_driven_now():
     evidence = interval["plasma_free_evidence"]
     assert evidence["plasma_timing"]["source"] == "h_alpha_primary"
     assert evidence["boundary"] == pytest.approx(0.3146, abs=1e-3)
-    assert interval.end - interval.start > 0.05     # the whole PF ramp, not the pickup's cut
+    # The retired detector cut ~0.8 ms before the solenoid fired (293.6 ms);
+    # the interval now holds the solenoid's onset with the whole ramp after it.
+    from vaft.omas.discharge_timing import discharge_timing
+
+    solenoid = discharge_timing(ods).oh_onset
+    assert solenoid == pytest.approx(0.2936, abs=1e-3)
+    assert interval.end > solenoid + 0.015
     drive = coil_drive_check(ods, (interval.start, interval.end))
     assert drive["coil_drive_fraction"] > MIN_COIL_DRIVE_FRACTION
     assert drive["sufficiently_driven"] is True
@@ -876,3 +882,12 @@ def test_the_array_contradiction_margin_holds_on_the_packaged_shot(packaged_case
     assert first["MagneticFieldProbe_C4-04"] > 5.0 * ARRAY_CONTRADICTION_FRACTION
     rest = array_contradiction_fractions(channels, window, exclude=["MagneticFieldProbe_C4-04"])
     assert max(rest.values()) < 0.5 * ARRAY_CONTRADICTION_FRACTION
+
+
+def test_removed_detector_names_point_at_their_replacement():
+    import vaft.machine_mapping
+
+    with pytest.raises(AttributeError, match="plasma_timing"):
+        vaft.machine_mapping.vfit_plasma_mgods_startend
+    with pytest.raises(AttributeError, match="detect_plasma_window"):
+        vaft.machine_mapping.vfit_plasmaMGods_startend

@@ -101,7 +101,7 @@ MIN_COIL_DRIVE_FRACTION = 0.10
 
 #: Fraction of the record whose plasma current sets the reference noise band
 #: the residual current inside a plasma-free interval is reported against.
-ONSET_REFERENCE_FRACTION = 0.2
+IP_REFERENCE_FRACTION = 0.2
 
 #: A B-probe whose departure from the interpolation of its two nearest array
 #: neighbours exceeds this robust-z -- against the spread of departures of
@@ -137,10 +137,11 @@ ARRAY_CONTRADICTION_MIN_SCORED = 0.5
 #: still reported under ``legacy`` are gone with them.
 PLASMA_FREE_EVIDENCE_SCHEMA = 3
 
-#: Schema of a :func:`run_benchmark_case` record.  3: ``channels.flagged`` and
-#: the conditioned ``metrics.summary.scored`` block (its ``count`` excludes
-#: flagged probes); 2 followed the evidence schema.
-BENCHMARK_CASE_SCHEMA = 3
+#: Schema of a :func:`run_benchmark_case` record.  4 follows the evidence
+#: schema (the ``legacy`` block a case's ``plasma_free_evidence`` carried is
+#: gone); 3: ``channels.flagged`` and the conditioned ``metrics.summary.scored``
+#: block (its ``count`` excludes flagged probes); 2 followed the evidence schema.
+BENCHMARK_CASE_SCHEMA = 4
 
 
 class BenchmarkError(ValueError):
@@ -195,7 +196,7 @@ def _signal(ods: Any, path: str) -> np.ndarray | None:
 def plasma_free_interval(
     ods: Any,
     *,
-    reference_fraction: float = ONSET_REFERENCE_FRACTION,
+    reference_fraction: float = IP_REFERENCE_FRACTION,
 ) -> PlasmaFreeInterval:
     """The interval of a shot over which no plasma contributes, with evidence.
 
