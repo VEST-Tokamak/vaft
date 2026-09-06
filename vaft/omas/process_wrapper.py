@@ -2780,10 +2780,15 @@ def compute_grad_shafranov_residual(
     psi_axis = globals_node.get("psi_axis") if hasattr(globals_node, "get") else None
     psi_boundary = globals_node.get("psi_boundary") if hasattr(globals_node, "get") else None
 
+    boundary = slice_node["boundary"] if "boundary" in slice_node else {}
+    outline = boundary["outline"] if "outline" in boundary else {}
+
     return grad_shafranov_residual(
         psi_grid * factor,
         r_grid,
         z_grid,
+        boundary_r=outline["r"] if "r" in outline else None,
+        boundary_z=outline["z"] if "z" in outline else None,
         psi_1d=np.asarray(profiles["psi"], dtype=float) * factor,
         pprime=np.asarray(profiles["dpressure_dpsi"], dtype=float) / factor,
         ffprime=np.asarray(profiles["f_df_dpsi"], dtype=float) / factor,

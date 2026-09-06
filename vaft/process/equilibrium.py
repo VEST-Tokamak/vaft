@@ -1764,9 +1764,11 @@ class GradShafranovResidual:
 
     ``residual`` is the root-mean-square of ``delta_star - source`` over the grid
     points falling on each of ``psi_norm``'s surfaces, in the units of the source
-    term.  ``relative`` divides it by ``scale``, the RMS of the source itself, so
-    a value of 0.01 means "the equation closes to one percent of its own right
-    hand side there".  ``mask`` marks the points that were used.
+    term.  ``relative`` divides it by ``scale``, which is **one number for the
+    whole plasma** -- the RMS of the source over every masked point -- so the
+    profile can be read across surfaces.  It is not normalised per surface, so
+    near the edge, where the source itself is small, it understates the local
+    error.  ``mask`` marks the points that were used.
     """
 
     psi_norm: np.ndarray
@@ -1822,6 +1824,8 @@ def grad_shafranov_residual(
     ffprime: Any,
     psi_axis: float | None = None,
     psi_boundary: float | None = None,
+    boundary_r: Any = None,
+    boundary_z: Any = None,
     n_surfaces: int = 32,
     psi_norm_max: float = 0.99,
     edge_cells: int = 2,
@@ -1842,10 +1846,19 @@ def grad_shafranov_residual(
     :func:`vaft.omas.compute_grad_shafranov_residual` does it for them.
 
     ``pprime`` and ``ffprime`` are sampled against ``psi_1d`` and interpolated
-    onto the grid through psi itself.  Points outside ``psi_norm_max`` are
-    dropped: past the boundary the 1-D profiles are extrapolation, so a residual
-    there measures the extrapolation rather than the equilibrium.  ``edge_cells``
-    frames off the grid border, where the difference stencil is one-sided.
+    onto the grid through psi itself, so the residual is only meaningful where
+    those profiles are the equilibrium's own.  **Pass ``boundary_r``/
+    ``boundary_z``**: outside the separatrix psi is not monotonic -- it folds
+    back into ``[0, 1]`` near the poloidal field coils -- so a psi-value cutoff
+    alone re-admits vacuum points where ``p'`` and ``FF'`` are extrapolation and
+    ``Delta* psi`` is reading coil current.  On a free-boundary EFIT grid that
+    is a third of the points and two orders of magnitude of spurious residual,
+    and it does not affect a fixed-boundary grid at all, so a comparison of the
+    two without it is not comparing like with like.
+
+    ``psi_norm_max`` then trims the last sliver inside the separatrix, where the
+    profiles flatten and the contour is least resolved, and ``edge_cells`` frames
+    off the grid border where the difference stencil is one-sided.
     """
     psi = np.asarray(psi, dtype=float)
     r = np.asarray(r, dtype=float).ravel()
@@ -1880,14 +1893,21 @@ def grad_shafranov_residual(
 
     mask = np.isfinite(delta_star) & np.isfinite(source)
     mask &= (psi_norm_2d >= 0.0) & (psi_norm_2d <= float(psi_norm_max))
+    if boundary_r is not None and boundary_z is not None:
+        outline_r = np.asarray(boundary_r, dtype=float).ravel()
+        outline_z = np.asarray(boundary_z, dtype=float).ravel()
+        if outline_r.size >= 3:
+            weights = fractional_cell_weights_from_boundary(r, z, outline_r, outline_z)
+            mask &= weights > 0.5
     if edge_cells > 0:
         frame = np.zeros_like(mask)
         frame[edge_cells:-edge_cells, edge_cells:-edge_cells] = True
         mask &= frame
     if not mask.any():
         raise ValueError(
-            "no grid point lies inside the plasma once the border and the "
-            "psi_norm range are excluded; check psi_axis/psi_boundary"
+            "no grid point survives the plasma boundary, the psi_norm range "
+            f"and a {edge_cells}-cell border; the grid may be smaller than the "
+            "border it is being trimmed by, or psi_axis/psi_boundary may be wrong"
         )
 
     difference = delta_star - source

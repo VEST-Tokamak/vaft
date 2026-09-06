@@ -120,12 +120,16 @@ def test_a_degenerate_flux_range_is_refused():
 # Against real reconstructions
 # ---------------------------------------------------------------------------
 
-def test_chease_refinement_closes_the_equation_the_efit_left_open():
-    """The quantitative statement of what refinement bought.
+def test_both_reconstructions_close_their_own_equation_inside_the_plasma():
+    """Measured where the profiles are actually defined, both are consistent.
 
-    Both are the same discharge at the same time; the CHEASE output is a
-    converged fixed-boundary solve and satisfies its own equation to a few
-    percent, where the EFIT reconstruction it started from does not.
+    An earlier version of this test claimed CHEASE beat EFIT by fifty times.
+    That was an artifact of masking on the psi *value*: outside the separatrix
+    psi folds back into [0, 1] near the PF coils, so a third of the EFIT grid
+    points being scored were vacuum, where p' and FF' are extrapolation and
+    Delta* psi reads coil current. CHEASE's grid is fixed-boundary and has no
+    such points at all, so the comparison was between two different
+    measurements. Masked on the boundary, both close to a few percent.
     """
     efit = vaft.omas.compute_grad_shafranov_residual(
         read_geqdsk(str(vaft.data.data_path(KINETIC))).to_omas(), time_slice=0
@@ -133,8 +137,42 @@ def test_chease_refinement_closes_the_equation_the_efit_left_open():
     chease = vaft.omas.compute_grad_shafranov_residual(
         read_geqdsk(str(vaft.data.data_path(KINETIC + ".chease"))).to_omas(), time_slice=0
     )
-    assert np.nanmedian(chease.relative) < 0.1
-    assert np.nanmedian(chease.relative) < np.nanmedian(efit.relative) / 10
+    assert np.nanmedian(efit.relative) < 0.05
+    assert np.nanmedian(chease.relative) < 0.05
+
+
+def test_the_boundary_mask_is_what_makes_the_number_mean_anything():
+    """Without it the residual scores the poloidal field coils.
+
+    This is the defect the test above used to encode, pinned directly so it
+    cannot come back: on a free-boundary EFIT grid the psi-value cutoff alone
+    admits vacuum points and inflates the residual by more than a decade.
+    """
+    from vaft.process.equilibrium import grad_shafranov_residual
+
+    ods = read_geqdsk(str(vaft.data.data_path(KINETIC))).to_omas()
+    node = ods["equilibrium.time_slice.0"]
+    grid = node["profiles_2d.0.grid"]
+    profiles = node["profiles_1d"]
+    factor = 1.0 / (2.0 * np.pi)
+    common = dict(
+        psi_1d=np.asarray(profiles["psi"], float) * factor,
+        pprime=np.asarray(profiles["dpressure_dpsi"], float) / factor,
+        ffprime=np.asarray(profiles["f_df_dpsi"], float) / factor,
+    )
+    r_grid = np.asarray(grid["dim1"], float)
+    z_grid = np.asarray(grid["dim2"], float)
+    psi = np.asarray(node["profiles_2d.0.psi"], float) * factor
+
+    unbounded = grad_shafranov_residual(psi, r_grid, z_grid, **common)
+    bounded = grad_shafranov_residual(
+        psi, r_grid, z_grid,
+        boundary_r=node["boundary.outline.r"],
+        boundary_z=node["boundary.outline.z"],
+        **common,
+    )
+    assert bounded.mask.sum() < unbounded.mask.sum()
+    assert np.nanmedian(bounded.relative) < np.nanmedian(unbounded.relative) / 10
 
 
 def test_the_flux_convention_is_resolved_rather_than_assumed():
@@ -142,6 +180,8 @@ def test_the_flux_convention_is_resolved_rather_than_assumed():
 
     The wrapper converts, so it must land far closer than the raw reading.
     """
+    from vaft.process.equilibrium import grad_shafranov_residual
+
     ods = read_geqdsk(str(vaft.data.data_path(KINETIC + ".chease"))).to_omas()
     resolved = vaft.omas.compute_grad_shafranov_residual(ods, time_slice=0)
 
@@ -155,6 +195,8 @@ def test_the_flux_convention_is_resolved_rather_than_assumed():
         psi_1d=np.asarray(profiles["psi"], float),
         pprime=np.asarray(profiles["dpressure_dpsi"], float),
         ffprime=np.asarray(profiles["f_df_dpsi"], float),
+        boundary_r=slice_node["boundary.outline.r"],
+        boundary_z=slice_node["boundary.outline.z"],
     )
     assert np.nanmedian(resolved.relative) < np.nanmedian(raw.relative) / 100
 
@@ -166,14 +208,14 @@ def test_a_slice_without_the_profiles_says_which_are_missing():
         vaft.omas.compute_grad_shafranov_residual(ods, time_slice=0)
 
 
-def test_the_packaged_reconstruction_is_consistent_while_the_current_is_flat():
-    """39915 closes to sub-percent early and degrades as the plasma decays.
+def test_the_packaged_reconstruction_is_consistent_across_its_slices():
+    """39915 closes to under a percent throughout, not only while Ip is flat.
 
-    Slices 0-3 sit on the current plateau; by 0.325 s Ip has fallen by a third
-    and the magnetics-only reconstruction no longer satisfies the equation.
+    The earlier claim that it degraded as the plasma decayed was the same
+    masking artifact: the plasma shrinks, so the share of vacuum points being
+    scored grows. It was measuring plasma area.
     """
     ods = vaft.omas.load(str(vaft.data.data_path("samples/39915/omas.json.gz")))
-    early = vaft.omas.compute_grad_shafranov_residual(ods, time_slice=0)
-    late = vaft.omas.compute_grad_shafranov_residual(ods, time_slice=6)
-    assert np.nanmedian(early.relative) < 0.05
-    assert np.nanmedian(late.relative) > 10 * np.nanmedian(early.relative)
+    for index in (0, 3, 6):
+        result = vaft.omas.compute_grad_shafranov_residual(ods, time_slice=index)
+        assert np.nanmedian(result.relative) < 0.05, index

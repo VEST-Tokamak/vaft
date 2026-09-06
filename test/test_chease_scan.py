@@ -204,7 +204,7 @@ def test_each_knob_moves_the_quantity_it_names(tmp_path):
 
 
 @needs_chease
-def test_a_case_that_cannot_be_solved_does_not_lose_the_others(tmp_path):
+def test_a_scan_survives_a_case_the_solver_cannot_take(tmp_path):
     from vaft.code import CHEASEConfig
 
     config = CHEASEConfig(
@@ -221,6 +221,72 @@ def test_a_case_that_cannot_be_solved_does_not_lose_the_others(tmp_path):
     )
     assert cases[0].converged
     assert len(cases) == 2
-    if not cases[1].converged:
-        assert cases[1].error
-        assert cases[1].workdir.is_dir()
+    assert cases[1].workdir.is_dir()
+
+
+# ---------------------------------------------------------------------------
+# Failure handling, pinned without the solver
+# ---------------------------------------------------------------------------
+
+def test_a_raising_case_is_recorded_and_the_scan_continues(monkeypatch, tmp_path):
+    """``keep_going`` is the whole reason a scan is not a loop of solves."""
+    import vaft.code.chease_scan as module
+
+    calls = []
+
+    def fake(geqdsk, config):
+        calls.append(config.workdir)
+        if len(calls) == 2:
+            raise RuntimeError("mesh did not converge")
+        return module.CHEASEResult(returncode=0, workdir=config.workdir)
+
+    monkeypatch.setattr(module, "refine_equilibrium", fake)
+    cases = scan_chease(
+        str(vaft.data.data_path(SOURCE)),
+        [EquilibriumVariation(name) for name in ("a", "b", "c")],
+        workdir=tmp_path,
+    )
+    assert [case.variation.label for case in cases] == ["a", "b", "c"]
+    assert cases[0].converged and cases[2].converged
+    assert not cases[1].converged
+    assert "mesh did not converge" in cases[1].error
+    assert len(calls) == 3
+
+
+def test_keep_going_false_lets_the_failure_out(monkeypatch, tmp_path):
+    import vaft.code.chease_scan as module
+
+    def fake(geqdsk, config):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(module, "refine_equilibrium", fake)
+    with pytest.raises(RuntimeError, match="boom"):
+        scan_chease(
+            str(vaft.data.data_path(SOURCE)),
+            [EquilibriumVariation("only")],
+            workdir=tmp_path,
+            keep_going=False,
+        )
+
+
+def test_a_nonzero_exit_is_not_convergence(monkeypatch, tmp_path):
+    """CHEASE subprocesses with check=False, so a failed solve returns a result.
+
+    Its most likely failure -- a mesh that will not converge -- exits 1 and
+    writes no refined g-file, so "did not raise" must not be read as success.
+    """
+    import vaft.code.chease_scan as module
+
+    monkeypatch.setattr(
+        module, "refine_equilibrium",
+        lambda geqdsk, config: module.CHEASEResult(
+            returncode=1, workdir=config.workdir, refined_geqdsk=None
+        ),
+    )
+    cases = scan_chease(
+        str(vaft.data.data_path(SOURCE)),
+        [EquilibriumVariation("failed")],
+        workdir=tmp_path,
+    )
+    assert not cases[0].converged
+    assert "exited 1" in cases[0].error

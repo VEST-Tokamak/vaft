@@ -29,6 +29,7 @@ import numpy as np
 
 from .chease import CHEASEConfig, CHEASEResult, _copy_geqdsk, refine_equilibrium
 
+
 __all__ = [
     "CHEASEScanCase",
     "EquilibriumVariation",
@@ -47,8 +48,11 @@ class EquilibriumVariation:
     parameters fitted from the source boundary.
 
     ``current_peaking`` redistributes ``FF'`` toward the axis as
-    ``(1 - psi_n)**current_peaking`` **at fixed integral**, which is what moves
-    ``li``.  Scaling ``FF'`` uniformly does not: CHEASE rescales the total
+    ``(1 - psi_n)**current_peaking``, renormalized to preserve ``int|FF'|``
+    (the absolute integral, so a sign-changing profile keeps its magnitude
+    rather than its signed area).  CHEASE rescales the total current anyway, so
+    that factor does not change the solve -- it is there to keep the written
+    input readable as a redistribution.  What moves ``li`` is the shape.  Scaling ``FF'`` uniformly does not: CHEASE rescales the total
     current (``ncscal``), so a constant factor is precisely the degree of
     freedom it normalizes away, and ``li_3`` comes back unchanged to four
     decimal places whether or not the q95 constraint is on.  Measured on the
@@ -93,7 +97,16 @@ class CHEASEScanCase:
 
     @property
     def converged(self) -> bool:
-        return self.result is not None
+        """Whether CHEASE actually solved this case.
+
+        ``run_chease`` subprocesses with ``check=False``, so a non-zero exit
+        comes back as a :class:`CHEASEResult` rather than an exception -- and
+        the most likely failure, a mesh that will not converge, exits 1 and
+        writes no refined g-file.  "Did not raise" is therefore not "converged",
+        and a caller reading ``result.refined_geqdsk`` on the strength of it
+        gets ``None``.
+        """
+        return self.result is not None and self.result.ok
 
 
 def _reshape_boundary(
@@ -120,13 +133,23 @@ def _reshape_boundary(
         base.kappa * float(variation.elongation_scale),
         base.delta + float(variation.triangularity_shift),
     )
-    theta = np.linspace(0.0, 2.0 * np.pi, r_bnd.size, endpoint=False)
+    # A g-file outline is closed -- its last point repeats its first -- and a
+    # consumer doing polygon containment on the result is entitled to that.
+    closed = np.isclose(r_bnd[0], r_bnd[-1]) and np.isclose(z_bnd[0], z_bnd[-1])
+    count = r_bnd.size - 1 if closed else r_bnd.size
+    theta = np.linspace(0.0, 2.0 * np.pi, count, endpoint=False)
     new_r, new_z = evaluate_miller(shaped, theta)
+    if closed:
+        new_r = np.append(new_r, new_r[0])
+        new_z = np.append(new_z, new_z[0])
     return new_r, new_z, (shaped.r0, shaped.r, shaped.kappa, shaped.delta)
 
 
 def apply_equilibrium_variation(
-    geqdsk: Any, variation: EquilibriumVariation
+    geqdsk: Any,
+    variation: EquilibriumVariation,
+    *,
+    refit_boundary: bool = False,
 ) -> tuple[Any, Optional[tuple[float, float, float, float]]]:
     """Return a copy of ``geqdsk`` carrying ``variation``, and its shape.
 
@@ -135,11 +158,19 @@ def apply_equilibrium_variation(
     alone: CHEASE recomputes ``F`` from the ``FF'`` it is given, so rewriting
     it here would put a number in the file that the solve does not read and a
     reader might believe.
+
+    ``refit_boundary`` re-evaluates the boundary from its Miller fit even when
+    the variation does not change the shape.  :func:`scan_chease` turns it on
+    for every case of a scan that contains any shape variation, so that the
+    control differs from a shape case by the knob alone.  Without it the
+    control keeps the raw outline while a shape case carries the fit residual
+    too -- about 1.3% in elongation on the packaged 48224 boundary, which is an
+    uncontrolled variable sitting inside a controlled comparison.
     """
     modified = _copy_geqdsk(geqdsk)
     shape: Optional[tuple[float, float, float, float]] = None
 
-    if variation.reshapes_boundary:
+    if variation.reshapes_boundary or refit_boundary:
         new_r, new_z, shape = _reshape_boundary(geqdsk, variation)
         modified["RBBBS"] = new_r
         modified["ZBBBS"] = new_z
@@ -155,9 +186,9 @@ def apply_equilibrium_variation(
         ffprime = np.asarray(geqdsk["FFPRIM"], dtype=float)
         psi_norm = np.linspace(0.0, 1.0, ffprime.size)
         weight = (1.0 - psi_norm) ** float(variation.current_peaking)
-        # Renormalize so the integral is unchanged: this redistributes the
-        # current rather than adding to it, which is what separates a shape
-        # change from an amplitude change CHEASE would rescale away.
+        # Renormalize so |FF'| keeps its integral: the written input then reads
+        # as a redistribution rather than an amplitude change. CHEASE rescales
+        # the total current regardless, so this does not steer the solve.
         before = float(np.trapezoid(np.abs(ffprime), psi_norm))
         after = float(np.trapezoid(np.abs(ffprime * weight), psi_norm))
         if after <= 0.0:
@@ -199,20 +230,41 @@ def scan_chease(
     labels = [item.label for item in variations]
     if len(set(labels)) != len(labels):
         raise ValueError(f"variation labels must be unique; got {labels}")
+    for label in labels:
+        # The label becomes a directory name under the scan root.
+        if not label or label in (".", "..") or set(label) & set("/\\"):
+            raise ValueError(
+                f"variation label {label!r} is not a usable directory name; "
+                "labels name a case's sub-directory under the scan root"
+            )
 
     base_config = config or CHEASEConfig()
     root = Path(workdir) if workdir is not None else Path(base_config.workdir)
     root.mkdir(parents=True, exist_ok=True)
     geqdsk = _coerce_geqdsk(source)
 
+    # A scan that varies the shape at all compares every case against the same
+    # Miller representation, so the control is not the odd one out.
+    refit = any(item.reshapes_boundary for item in variations)
+
     cases: list[CHEASEScanCase] = []
     for variation in variations:
         case_dir = root / variation.label
         case_dir.mkdir(parents=True, exist_ok=True)
         try:
-            modified, shape = apply_equilibrium_variation(geqdsk, variation)
+            modified, shape = apply_equilibrium_variation(
+                geqdsk, variation, refit_boundary=refit
+            )
             result = refine_equilibrium(modified, replace(base_config, workdir=case_dir))
-            case = CHEASEScanCase(variation, case_dir, result=result, shape=shape)
+            case = CHEASEScanCase(
+                variation,
+                case_dir,
+                result=result,
+                shape=shape,
+                error=None if result.ok else (
+                    f"CHEASE exited {result.returncode}; see {case_dir / 'chease.log'}"
+                ),
+            )
         except Exception as error:  # noqa: BLE001 - recorded, not swallowed
             if not keep_going:
                 raise

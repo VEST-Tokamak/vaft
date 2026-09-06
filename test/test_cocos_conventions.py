@@ -870,13 +870,57 @@ def test_a_declared_index_agrees_with_the_flux_the_ods_actually_holds():
     for geqdsk in candidates:
         ods = geqdsk.to_omas()
         declared = ods_cocos(ods)
-        if declared is None:
-            continue
         exponent = slice_flux_exponent(ods["equilibrium.time_slice.0"])
+        if declared is None:
+            # Silence is allowed -- a contradicted or ambiguous file is left
+            # unlabelled on purpose -- but the psi must still read as weber,
+            # because to_omas converted it.
+            assert exponent == 1
+            continue
         assert exponent is not None
         assert (declared >= 11) == (exponent == 1), (declared, exponent)
         checked += 1
     assert checked, "no candidate was labelled, so nothing was actually checked"
+
+
+def test_a_geqdsk_survives_a_round_trip_through_an_ods():
+    """The cheapest guard on the label, and the defect it actually prevents.
+
+    A per-radian index declared over weber data does not merely mislead a
+    reader: ``from_omas`` trusts it and scales psi back by another 2*pi, so the
+    file that comes out is 2*pi from the file that went in. Round-tripping is
+    the one assertion that catches every version of this at once.
+    """
+    import numpy as np
+
+    from vaft.data.eqdsk import from_equilibrium, from_omas
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium
+
+    source = from_equilibrium(as_equilibrium(sample_geqdsk(), convention=2))
+    returned = from_omas(source.to_omas())
+    for key in ("PSIRZ", "PPRIME", "FFPRIM", "SIMAG", "SIBRY"):
+        original = np.asarray(source[key], dtype=float)
+        scale = np.max(np.abs(original))
+        if scale == 0.0:
+            continue
+        np.testing.assert_allclose(
+            np.asarray(returned[key], dtype=float), original, rtol=1e-9, atol=scale * 1e-9
+        )
+
+
+def test_converting_an_already_weber_ods_is_refused_rather_than_repeated():
+    """A declared 1-8 index sends equilibrium_psi_to_weber into another 2*pi.
+
+    Labelling the ODS in the weber family is what stops that second pass.
+    """
+    from vaft.data.eqdsk import from_equilibrium
+    from vaft.data.resources import sample_geqdsk
+    from vaft.omas.general import equilibrium_psi_to_weber
+    from vaft.process.equilibrium import as_equilibrium
+
+    ods = from_equilibrium(as_equilibrium(sample_geqdsk(), convention=2)).to_omas()
+    assert equilibrium_psi_to_weber(ods) is False
 
 
 def test_an_ambiguous_convention_is_left_unlabelled_rather_than_guessed():
