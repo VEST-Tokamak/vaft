@@ -51,11 +51,18 @@ DEFAULT_WINDOW = 0.0005
 
 _ITERATION = re.compile(r"\bt=\s*(\d+)\s+it=\s*(\d+)\s+chi2=\s*([0-9.E+-]+).*?err=\s*([0-9.E+-]+)")
 _DIR_LINE = re.compile(r"^\s*(INPUT_DIR|TABLE_DIR)\s*=", re.IGNORECASE)
-A_SCALARS = ("chisq", "ipmhd", "betap", "betat", "li", "q95", "qstar", "rcntr", "zcntr", "aminor", "elong", "cdflux", "condno", "rout", "zout", "rmagx", "zmagx")
+A_SCALARS = ("chisq", "ipmhd", "betap", "betat", "li", "q95", "qstar", "rm", "zm", "rcntr", "zcntr", "rcurrt", "zcurrt", "aminor", "elong", "cdflux", "condno", "terror")
+#: EFIT stores TABLE_DIR in a fixed-length character variable; a longer path
+#: is silently truncated and the run fails opening lim.dat.
+TABLE_DIR_MAX_LENGTH = 100
+#: Read from TABLE_DIR by EFIT but not produced by EFUND: the limiter outline.
+LIMITER_FILE = "lim.dat"
 
 
 def _table_dir(path: Path) -> str:
-    text = str(path.expanduser().resolve())
+    # absolute(), not resolve(): a symlink is the documented way to give EFIT
+    # a path under its 100-character limit, and resolving it would undo that.
+    text = str(path.expanduser().absolute())
     return text if text.endswith("/") else text + "/"
 
 
@@ -112,15 +119,15 @@ def afile_metrics(path: Path) -> dict[str, Any]:
 
 def gfile_metrics(path: Path) -> dict[str, Any]:
     g = read_geqdsk(path)
-    rb = np.asarray(g.get("rbbbs", []), dtype=float).reshape(-1)
-    zb = np.asarray(g.get("zbbbs", []), dtype=float).reshape(-1)
+    rb = np.asarray(g.get("RBBBS", []), dtype=float).reshape(-1)
+    zb = np.asarray(g.get("ZBBBS", []), dtype=float).reshape(-1)
     return {
         "gfile": path.name,
-        "rmaxis": float(g.get("rmaxis", np.nan)),
-        "zmaxis": float(g.get("zmaxis", np.nan)),
-        "simag": float(g.get("simag", np.nan)),
-        "sibry": float(g.get("sibry", np.nan)),
-        "current": float(g.get("current", np.nan)),
+        "rmaxis": float(g.get("RMAXIS", np.nan)),
+        "zmaxis": float(g.get("ZMAXIS", np.nan)),
+        "simag": float(g.get("SIMAG", np.nan)),
+        "sibry": float(g.get("SIBRY", np.nan)),
+        "current": float(g.get("CURRENT", np.nan)),
         "nbbbs": int(rb.size),
         "r_lcfs_min": float(rb.min()) if rb.size else None,
         "r_lcfs_max": float(rb.max()) if rb.size else None,
@@ -173,7 +180,8 @@ def kfile_diff(dir_a: Path, dir_b: Path, shot: int) -> dict[str, Any]:
         lines_b = files_b[name].read_text(errors="replace").splitlines()
         changed = [line for line in difflib.unified_diff(lines_a, lines_b, lineterm="", n=0) if line[:1] in "+-" and not line.startswith(("+++", "---"))]
         other = [line for line in changed if not _DIR_LINE.match(line[1:])]
-        report["files"][name] = {"changed_lines": len(changed), "non_directory_changes": other[:10]}
+        removed = [line for line in changed if line.startswith("-")]
+        report["files"][name] = {"changed_lines": len(removed), "non_directory_changes": other[:10]}
     report["only_directory_lines_differ"] = report["names_equal"] and all(
         not entry.get("non_directory_changes") and entry.get("changed_lines", 0) == 2 for entry in report["files"].values()
     )
@@ -256,7 +264,7 @@ def markdown(payload: dict[str, Any]) -> str:
         lines.append(f"- table provenance: {table['provenance']}; identity `{table.get('identity')}`; mhdin sha256 `{(table.get('mhdin_sha256') or '')[:12]}`")
         lines.append(f"- efit exit {arm['returncode']} ({arm['status']}) in {arm['seconds']:.0f} s; {arm['afiles']} a-files, {arm['gfiles']} g-files")
         lines.append("")
-    columns = ("jflag", "lflag", "chisq", "iterations_n", "gs_error_log", "bound_error", "rmagx", "zmagx", "rmaxis", "zmaxis", "r_lcfs_min", "r_lcfs_max", "z_lcfs_min", "z_lcfs_max", "aminor", "elong", "betap", "li", "q95", "cdflux", "ipmhd")
+    columns = ("jflag", "lflag", "chisq", "terror", "iterations_n", "gs_error_log", "bound_error", "rmaxis", "zmaxis", "rm", "zm", "rcurrt", "zcurrt", "r_lcfs_min", "r_lcfs_max", "z_lcfs_min", "z_lcfs_max", "aminor", "elong", "betap", "li", "q95", "cdflux", "ipmhd", "condno")
     keys = sorted({row["key"] for arm in payload["arms"] for row in arm["slices"]}, key=lambda k: int(k.replace("_", "")))
     for key in keys:
         lines.append(f"## Slice {key}")
@@ -329,6 +337,23 @@ def main(argv: list[str] | None = None) -> int:
     output = args.output.expanduser()
     output.mkdir(parents=True, exist_ok=True)
     table_a, table_b = _table_dir(args.table_a), _table_dir(args.table_b)
+    for label, table_dir in (("A", table_a), ("B", table_b)):
+        if len(table_dir) > TABLE_DIR_MAX_LENGTH:
+            print(
+                f"table {label} path is {len(table_dir)} characters; EFIT truncates TABLE_DIR at "
+                f"{TABLE_DIR_MAX_LENGTH} and then fails to open {LIMITER_FILE}. Use a shorter path (a symlink will do).",
+                file=sys.stderr,
+            )
+            return 2
+    # The limiter outline is an EFIT input read from TABLE_DIR, not an EFUND
+    # product; a generated table directory borrows A's so the arms differ in
+    # Green tables only.
+    if not (Path(table_b) / LIMITER_FILE).is_file():
+        if not (Path(table_a) / LIMITER_FILE).is_file():
+            print(f"neither table directory has {LIMITER_FILE}", file=sys.stderr)
+            return 2
+        shutil.copy(Path(table_a) / LIMITER_FILE, Path(table_b) / LIMITER_FILE)
+        print(f"copied {LIMITER_FILE} from table A into table B (EFIT reads it from TABLE_DIR; EFUND does not write it)")
     times = [float(t) for t in args.times]
 
     print(f"loading {args.eddy_ods} ...")
