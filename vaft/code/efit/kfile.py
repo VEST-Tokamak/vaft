@@ -144,6 +144,11 @@ def _has_matching_signal(magnetics, path: str) -> bool:
     return bool(data.size and data.size == time.size)
 
 
+#: Half-width [s] of the box average each constraint is taken over.  The
+#: legacy value; qualifying it against the cadence is issue #468.
+DEFAULT_AVERAGE_WINDOW = 0.0005
+
+
 def generate_constraints_ods(
     ods,
     shotnumber,
@@ -157,9 +162,15 @@ def generate_constraints_ods(
     fl_correct_coeff=None,
     FFCUR=2,
     PPCUR=2,
+    *,
+    average_window: float = DEFAULT_AVERAGE_WINDOW,
 ):
     """
     Generate Constraints ODS file such that save_dir/{shotnumber}_constraints.json is created
+
+    ``average_window`` is the half-width of the box average each constraint
+    is taken over, ``[t_i - w, t_i + w]`` (issue #433); the reconstruction
+    cadence is a separate control (issue #468).
     """
     # fit = 0: no fitting, only exp. data
     # fit = 1: broken data replaced by gaussian fitted data
@@ -371,11 +382,9 @@ def generate_constraints_ods(
 
     # Convert diagnostics ODS to equilibrium constraints ODS
 
-    default_average = (
-        (time[1] - time[0]) / 2
-    )  # Diagnostics data of each time point in equilibrium constraints ODS is the average of the +- 0.5*timestep
-    #    default_average=0.0002
-    default_average = 0.0005
+    # The constraint-averaging half-window is a control of its own, distinct
+    # from the reconstruction cadence (issues #433, #468).
+    default_average = float(average_window)
 
     EQ = ods["equilibrium"]
     EQtime = EQ["time"]

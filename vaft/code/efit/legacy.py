@@ -11,7 +11,6 @@ import numpy as np
 
 from vaft.ods_access import path_value
 
-import statistics
 import math
 import warnings
 from scipy.signal import savgol_filter
@@ -65,6 +64,35 @@ def annotate_constraint_equilibrium(EQ, times):
     EQ["time"] = times
 
 
+def box_average(time, data, center: float, half_width: float, *, what: str = "signal") -> float:
+    """The mean of the samples inside ``[center - half_width, center + half_width]``.
+
+    A true box average: every sample the window contains counts once, none
+    is interpolated onto a grid of its own (issue #433).  The window is
+    closed on both ends.  A window that contains no sample is an error named
+    after the constraint -- averaging an interpolated fiction there would
+    hide that the diagnostics grid does not cover the reconstruction time.
+    """
+    t = np.asarray(time, dtype=float).reshape(-1)
+    y = np.asarray(data, dtype=float).reshape(-1)
+    if t.size != y.size:
+        raise ValueError(f"{what}: {y.size} samples against {t.size} time instants")
+    inside = (t >= center - half_width) & (t <= center + half_width)
+    if not inside.any():
+        raise ValueError(
+            f"{what}: no sample inside [{center - half_width:.6g}, {center + half_width:.6g}] s "
+            f"(grid {t[0]:.6g}..{t[-1]:.6g} s, {t.size} samples)"
+        )
+    return float(np.mean(y[inside]))
+
+
+def _window_pair(time, data, error, center, half_width, *, what):
+    return (
+        box_average(time, data, center, half_width, what=what),
+        box_average(time, error, center, half_width, what=f"{what} uncertainty"),
+    )
+
+
 def vfit_equilibrium_form_constraints(
     EQ,
     PF,
@@ -86,10 +114,10 @@ def vfit_equilibrium_form_constraints(
 
     annotate_constraint_equilibrium(EQ, times)
     nbt = len(times)
-
-    ave_time = []
-    for i in range(nbt):
-        ave_time.append(np.arange(times[i] - average, times[i] + average, 0.0001))
+    # Each constraint is the box average of the diagnostic samples inside
+    # [t_i - average, t_i + average]: every sample once, equal weights, no
+    # interpolation grid of its own (issue #433).
+    times = [float(t) for t in times]
 
     if "pf_current" in constraints:
         for channel in PF["coil"]:
@@ -100,8 +128,9 @@ def vfit_equilibrium_form_constraints(
             error = PF[f"coil.{channel}.current.data_error_upper"]
 
             for i in range(nbt):
-                const = statistics.mean(np.interp(ave_time[i], time, data))
-                const_error = statistics.mean(np.interp(ave_time[i], time, error))
+                const, const_error = _window_pair(
+                    time, data, error, times[i], average, what=f"pf_current[{channel}] {label}"
+                )
 
                 EQ[f"time_slice.{i}.constraints.pf_current.{channel}.measured"] = const
                 EQ[
@@ -144,8 +173,9 @@ def vfit_equilibrium_form_constraints(
             data = MG[f"b_field_pol_probe.{channel}.field.data"]
             error = MG[f"b_field_pol_probe.{channel}.field.data_error_upper"]
             for i in range(nbt):
-                const = statistics.mean(np.interp(ave_time[i], time, data))
-                const_error = statistics.mean(np.interp(ave_time[i], time, error))
+                const, const_error = _window_pair(
+                    time, data, error, times[i], average, what=f"bpol_probe[{channel}] {label}"
+                )
                 EQ[f"time_slice.{i}.constraints.bpol_probe.{channel}.measured"] = const
                 EQ[
                     f"time_slice.{i}.constraints.bpol_probe.{channel}.measured_error_upper"
@@ -169,12 +199,11 @@ def vfit_equilibrium_form_constraints(
             data = MG[f"flux_loop.{channel}.flux.data"]
             error = MG[f"flux_loop.{channel}.flux.data_error_upper"]
             for i in range(nbt):
-                # const=statistics.mean(np.interp(ave_time[i],time,data/2/math.pi)) # Origianl version
-                # const_error=statistics.mean(np.interp(ave_time[i],time,error/2/math.pi))
-                const = statistics.mean(
-                    np.interp(ave_time[i], time, data)
-                )  # Modified Version for ods/ids convention (division by 2Pi are conducted in the k-file generation)
-                const_error = statistics.mean(np.interp(ave_time[i], time, error))  # Wb
+                # Stored in Wb per the IDS convention; the division by 2 pi
+                # happens in the k-file writer.
+                const, const_error = _window_pair(
+                    time, data, error, times[i], average, what=f"flux_loop[{channel}] {label}"
+                )
                 EQ[f"time_slice.{i}.constraints.flux_loop.{channel}.measured"] = const
                 EQ[
                     f"time_slice.{i}.constraints.flux_loop.{channel}.measured_error_upper"
@@ -187,8 +216,7 @@ def vfit_equilibrium_form_constraints(
         error = MG[f"ip.0.data_error_upper"]
 
         for i in range(nbt):
-            const = statistics.mean(np.interp(ave_time[i], time, data))
-            const_error = statistics.mean(np.interp(ave_time[i], time, error))
+            const, const_error = _window_pair(time, data, error, times[i], average, what="ip")
 
             EQ[f"time_slice.{i}.constraints.ip.measured"] = const
             EQ[f"time_slice.{i}.constraints.ip.measured_error_upper"] = const_error
@@ -199,9 +227,9 @@ def vfit_equilibrium_form_constraints(
         error = MG[f"diamagnetic_flux.0.data_error_upper"]
 
         for i in range(nbt):
-            const = statistics.mean(np.interp(ave_time[i], time, data))
-            const_error = statistics.mean(np.interp(ave_time[i], time, error))
-            #            print(i,const*2*math.pi)
+            const, const_error = _window_pair(
+                time, data, error, times[i], average, what="diamagnetic_flux"
+            )
 
             EQ[f"time_slice.{i}.constraints.diamagnetic_flux.measured"] = const
             EQ[f"time_slice.{i}.constraints.diamagnetic_flux.measured_error_upper"] = (
@@ -213,8 +241,9 @@ def vfit_equilibrium_form_constraints(
         data = TF[f"b_field_tor_vacuum_r.data"]
         error = TF[f"b_field_tor_vacuum_r.data_error_upper"]
         for i in range(nbt):
-            const = statistics.mean(np.interp(ave_time[i], time, data))
-            const_error = statistics.mean(np.interp(ave_time[i], time, error))
+            const, const_error = _window_pair(
+                time, data, error, times[i], average, what="b_field_tor_vacuum_r"
+            )
 
             EQ[f"time_slice.{i}.constraints.b_field_tor_vacuum_r.measured"] = const
             EQ[

@@ -178,6 +178,11 @@ dump with no SQL server in reach. Magnetics processing parameters travel as a
   projected validity), on top of the explicit `constraints.broken` list of 1-based channel indices; a
   product that carries no assessment falls back to the 12-MAD amplitude detector.
 
+Each constraint is the box average of the diagnostic samples inside `[t_i − w, t_i + w]` — every
+sample once, equal weights, no interpolation grid of its own (issue #433) — with `w =
+constraints.average_window` (0.5 ms by default). The window and the reconstruction cadence `tstep` are
+two separate controls; qualifying them together is issue #468.
+
 Constraint time selection is worth spelling out, because `timeset: auto` is the default and it is not
 obvious. The script takes the shared plasma-analysis range — `diagnostics_time_policies.windows.plasma_analysis`
 in `vest.yaml`, 0.28–0.36 s — and intersects it with the plasma window `vaft.omas.plasma_timing` detects on
