@@ -844,74 +844,6 @@ def vfit_plasma_current(
     return time, signal.lfilter(taps, 1, plasma_current)
 
 
-def vfit_plasma_mgods_startend(ods: object) -> tuple[float, float]:
-    """Estimate discharge start/end directly from `magnetics.ip.0.*`.
-
-    Legacy Ip-threshold discharge detector (mean before 0.3 s, 10x/15x
-    multipliers), superseded by issue #409: prefer
-    :func:`vaft.omas.plasma_timing.plasma_timing` for the plasma window with
-    its provenance on an ODS, or :func:`detect_plasma_window` /
-    ``vaft.process.onset.active_window(**policy.ip)`` on raw arrays.  Kept,
-    without a runtime warning, for its one remaining caller: the ``legacy``
-    block of ``vaft.validation.vacuum_benchmark.plasma_free_interval``, which
-    goes when that evidence schema reaches 3.
-    """
-    try:
-        magnetics = ods["magnetics"]
-        if isinstance(magnetics, dict) and "ip" in magnetics:
-            time = np.asarray(magnetics["ip"][0]["time"], dtype=float)
-            ip = np.asarray(magnetics["ip"][0]["data"], dtype=float)
-        else:
-            time = np.asarray(magnetics["ip.0.time"], dtype=float)
-            ip = np.asarray(magnetics["ip.0.data"], dtype=float)
-    except Exception:
-        return -1.0, -1.0
-
-    if time.size < 2 or ip.size < 2:
-        return -1.0, -1.0
-
-    filtered_ip = smooth(ip, 10)
-    span = max(1, min(20, filtered_ip.size // 20 if filtered_ip.size >= 20 else filtered_ip.size))
-
-    if time[0] < 0.3:
-        start_ref_index = int(np.argmin(np.abs(time - 0.3)))
-        baseline_slice = np.abs(filtered_ip[: max(start_ref_index, 1)])
-    else:
-        baseline_slice = np.abs(filtered_ip[: max(filtered_ip.size // 10, 1)])
-    baseline_mean = float(np.mean(baseline_slice)) if baseline_slice.size > 0 else 0.0
-
-    start_index = None
-    for idx in range(0, filtered_ip.size - span + 1):
-        if np.mean(np.abs(filtered_ip[idx : idx + span])) > max(10.0 * baseline_mean, 1e-9):
-            start_index = idx
-            break
-    if start_index is None:
-        start_index = 0
-
-    while start_index > 0 and abs(filtered_ip[start_index]) > baseline_mean:
-        start_index -= 1
-
-    if time[-1] > 0.33:
-        end_ref_index = int(np.argmin(np.abs(time - 0.33)))
-        tail_slice = np.abs(filtered_ip[end_ref_index:])
-    else:
-        tail_slice = np.abs(filtered_ip[-max(filtered_ip.size // 10, 1) :])
-    tail_mean = float(np.mean(tail_slice)) if tail_slice.size > 0 else 0.0
-
-    end_index = None
-    for idx in range(filtered_ip.size, start_index + span, -1):
-        if np.mean(np.abs(filtered_ip[idx - span : idx])) > max(15.0 * tail_mean, 1e-9):
-            end_index = idx - 1
-            break
-    if end_index is None:
-        end_index = filtered_ip.size - 1
-
-    while end_index < filtered_ip.size - 1 and abs(filtered_ip[end_index]) > tail_mean:
-        end_index += 1
-
-    return float(time[start_index]), float(time[end_index])
-
-
 def _diamagnetic_config(shot: int) -> dict[str, Any]:
     """Resolve the shot-era diamagnetic-Rogowski configuration from `vest.yaml`."""
     return resolve_vest_diagnostic(shot, "diamagnetic_flux")
@@ -2223,13 +2155,11 @@ __all__ = [
     "vfit_mirnov_raw_dynamic",
     "PlasmaWindowChoice",
     "detect_plasma_window",
-    "vfit_plasma_mgods_startend",
 ]
 
 
 VEST_DiamagneticFlux = vest_diamagnetic_flux
 vfit_PlasmaCurrent = vfit_plasma_current
-vfit_plasmaMGods_startend = vfit_plasma_mgods_startend
 # Pre-rename names: kept as plain aliases so a direct
 # `from vaft.machine_mapping.magnetics import ...` still works. The
 # deprecation warning for the package-level path lives in

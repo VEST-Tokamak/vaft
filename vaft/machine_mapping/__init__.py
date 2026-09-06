@@ -33,11 +33,6 @@ _LEGACY_REPLACEMENTS = {
     "vfit_PlasmaCurrent": None,
     "vfit_plasma_current": None,
     "vfit_pf": None,
-    # Superseded by vaft.omas.plasma_timing.plasma_timing / magnetics.detect_plasma_window
-    # (#409); the value stays None because the __getattr__ template names a
-    # vaft.machine_mapping replacement only.
-    "vfit_plasmaMGods_startend": None,
-    "vfit_plasma_mgods_startend": None,
     "vfit_tf_btR": None,
     "vfit_tf_bt_r": None,
     "vfit_tf_current": None,
@@ -120,8 +115,6 @@ __all__ = [
     "vfit_pf_active_dynamic",
     "vfit_pf_active_for_shot",
     "vfit_pf_active_static",
-    "vfit_plasmaMGods_startend",
-    "vfit_plasma_mgods_startend",
     "PlasmaWindowChoice",
     "detect_plasma_window",
     "diamagnetic_saturation_report",
@@ -213,8 +206,6 @@ _EXPORT_MAP = {
     "vfit_pf_active_dynamic": (".pf_active", "vfit_pf_active_dynamic"),
     "vfit_pf_active_for_shot": (".pf_active", "vfit_pf_active_for_shot"),
     "vfit_pf_active_static": (".pf_active", "vfit_pf_active_static"),
-    "vfit_plasmaMGods_startend": (".magnetics", "vfit_plasmaMGods_startend"),
-    "vfit_plasma_mgods_startend": (".magnetics", "vfit_plasma_mgods_startend"),
     "PlasmaWindowChoice": (".magnetics", "PlasmaWindowChoice"),
     "detect_plasma_window": (".magnetics", "detect_plasma_window"),
     "vest_diamagnetic_flux": (".magnetics", "vest_diamagnetic_flux"),
@@ -276,7 +267,25 @@ assert not _collisions, (
 )
 
 
+#: Names removed outright, with where their behaviour went: a caller gets the
+#: pointer, not a bare AttributeError.
+_REMOVED_EXPORTS = {
+    "vfit_plasma_mgods_startend": (
+        "removed with evidence schema 3 (#409): the plasma window is "
+        "vaft.omas.plasma_timing.plasma_timing(ods).window on an ODS, or "
+        "vaft.machine_mapping.detect_plasma_window on raw arrays"
+    ),
+    "vfit_plasmaMGods_startend": (
+        "removed with evidence schema 3 (#409): the plasma window is "
+        "vaft.omas.plasma_timing.plasma_timing(ods).window on an ODS, or "
+        "vaft.machine_mapping.detect_plasma_window on raw arrays"
+    ),
+}
+
+
 def __getattr__(name: str):
+    if name in _REMOVED_EXPORTS:
+        raise AttributeError(f"vaft.machine_mapping.{name} was {_REMOVED_EXPORTS[name]}")
     if name in _EXPORT_MAP:
         module_name, attribute = _EXPORT_MAP[name]
     elif name in _LEGACY_EXPORT_MAP:

@@ -50,7 +50,8 @@ python workflow/vacuum_benchmark/run_vacuum_benchmark.py --output benchmark.json
 Eligible cases are dedicated vacuum shots and plasma shots with a validated
 plasma-free interval; `plasma_free_interval` decides which, from the plasma onset of the
 shared timing policy (H-alpha by label, else the plasma-current principal pulse; issue #409),
-snapped to the `pf_active` grid, and records the choice under `plasma_free_evidence`.
+snapped to the `pf_active` grid, and records the choice under `plasma_free_evidence` (schema 3: the boundary,
+its source and the timing summary; the `legacy` block that schema 2 carried for the retired Ip detectors is gone).
 An **eddy-free flat-top is not wanted** — the transient chain from coil
 excitation through wall current to magnetic response is the validation target.
 
