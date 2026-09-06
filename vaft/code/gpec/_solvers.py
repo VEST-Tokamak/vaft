@@ -250,7 +250,7 @@ class IdealGPECSolver:
         # which wins over the packaged template copied verbatim.
         if ctx.inputs.coil_in:
             shutil.copy2(Path(ctx.inputs.coil_in).expanduser(), ctx.run_dir / "coil.in")
-        elif ctx.config.gpec.coil_specs:
+        elif ctx.config.gpec.coil_specs is not None:
             from ._coil_input import resolve_coil_inputs, stage_coil_data, write_coil_in
 
             options = ctx.config.gpec
@@ -263,9 +263,8 @@ class IdealGPECSolver:
                 [spec.name for spec in specs],
             )
             coil_dir = ctx.run_dir / "coil"
-            stage_coil_data(
-                [coil_config[spec.name] for spec in specs], coil_dir, machine=options.machine
-            )
+            # coil.in first: it carries the current-count validation, so a
+            # rejected request leaves no half-staged coil/ tree behind.
             write_coil_in(
                 ctx.template_dir / "coil.in",
                 ctx.run_dir / "coil.in",
@@ -276,19 +275,26 @@ class IdealGPECSolver:
                 ip_direction=ip_direction,
                 bt_direction=bt_direction,
             )
+            stage_coil_data(
+                [coil_config[spec.name] for spec in specs], coil_dir, machine=options.machine
+            )
         else:
-            # The packaged template is VEST's; copying it verbatim for another
-            # machine would silently run VEST coils under that machine's name.
-            if ctx.config.gpec.machine != "vest":
-                raise ValueError(
-                    f"machine {ctx.config.gpec.machine!r}: pass coil_specs (with coil_config, "
-                    "ip_direction, bt_direction) or an explicit coil_in; the packaged coil.in "
-                    "template is VEST-only"
-                )
+            # The packaged template is VEST's; IdealGPECOptions refuses any other
+            # machine without coil_specs, so this branch is VEST by construction.
+            from vaft.machine_mapping.conventions import VEST_GPEC_COIL_DIRECTIONS
+
+            from ._coil_input import DEFAULT_MACHINE
+
+            assert ctx.config.gpec.machine == DEFAULT_MACHINE
             rt.write_template(
                 ctx.template_dir / "coil.in",
                 ctx.run_dir / "coil.in",
-                {"data_dir": str(ctx.coil_data_dir.resolve()), "machine": "vest", "coil_num": 3},
+                {
+                    "data_dir": str(ctx.coil_data_dir.resolve()),
+                    "machine": DEFAULT_MACHINE,
+                    "coil_num": 3,
+                    **VEST_GPEC_COIL_DIRECTIONS,
+                },
             )
 
     def output_patterns(self, mode: int) -> tuple[str, ...]:

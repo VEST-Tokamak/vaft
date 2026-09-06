@@ -39,7 +39,6 @@ __all__ = [
     "VEST_3D_COIL_SETS",
     "coil_set_from_dat",
     "coil_set_from_xyz_loops",
-    "sector_angles_from_filaments",
     "CoilSetSpec",
     "CoilFilament",
     "CoilSet3D",
@@ -136,11 +135,6 @@ class CoilSet3D:
     provenance: str
 
 
-def sector_angles_from_filaments(filaments: Sequence[CoilFilament]) -> tuple[float, ...]:
-    """Centroid toroidal angle of each filament, degrees in ``[0, 360)``."""
-    return tuple(float(f.centroid_angle_deg) for f in filaments)
-
-
 def coil_set_from_xyz_loops(
     name: str,
     loops: Sequence[np.ndarray],
@@ -159,11 +153,13 @@ def coil_set_from_xyz_loops(
     as GPEC requires).  ``turns`` is the winding multiplier written to the
     ``.dat`` header (``nw``): currents in ``coil.in`` are amperes per turn and
     GPEC multiplies by ``turns``; there is deliberately no default.  Sector
-    angles default to the filament centroids.
+    angles default to the filament centroids.  ``dat_path`` means "this file
+    holds these loops": when given, GPEC staging copies the file's bytes and
+    the arrays are not re-emitted, so pass it only for loops read from it.
     """
-    if not loops:
-        raise ValueError(f"coil set {name!r}: at least one loop is required")
     arrays = [np.asarray(loop, dtype=float) for loop in loops]
+    if not arrays:
+        raise ValueError(f"coil set {name!r}: at least one loop is required")
     npts = arrays[0].shape[0]
     for k, arr in enumerate(arrays):
         if arr.ndim != 2 or arr.shape[1] != 3:
@@ -173,12 +169,16 @@ def coil_set_from_xyz_loops(
                 f"coil set {name!r}: GPEC needs one point count per set; loop {k} has "
                 f"{arr.shape[0]} points, loop 0 has {npts}"
             )
-        if not np.allclose(arr[0], arr[-1]):
-            raise ValueError(f"coil set {name!r}: loop {k} is not closed (first point != last point)")
     if not turns > 0:
         raise ValueError(f"coil set {name!r}: turns must be positive, got {turns}")
     filaments = tuple(CoilFilament(arr.copy()) for arr in arrays)
-    angles = tuple(float(a) for a in sector_angles_deg) if sector_angles_deg is not None else sector_angles_from_filaments(filaments)
+    for k, filament in enumerate(filaments):
+        if not filament.is_closed:
+            raise ValueError(f"coil set {name!r}: loop {k} is not closed (first point != last point)")
+    if sector_angles_deg is not None:
+        angles = tuple(float(a) for a in sector_angles_deg)
+    else:
+        angles = tuple(float(f.centroid_angle_deg) for f in filaments)
     if len(angles) != len(filaments):
         raise ValueError(f"coil set {name!r}: {len(angles)} sector angles for {len(filaments)} loops")
     return CoilSet3D(

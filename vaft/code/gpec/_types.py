@@ -79,6 +79,23 @@ class IdealGPECOptions:
     ip_direction: Optional[str] = None
     bt_direction: Optional[str] = None
 
+    def __post_init__(self) -> None:
+        # A config error is knowable here; refusing at construction keeps it
+        # from surfacing after DCON has run and gpec.in / vac.in are staged.
+        if self.machine == "vest":
+            return
+        missing = [
+            name
+            for name in ("coil_specs", "coil_config", "ip_direction", "bt_direction")
+            if getattr(self, name) is None
+        ]
+        if missing:
+            raise ValueError(
+                f"machine {self.machine!r}: {', '.join(missing)} must be given explicitly "
+                "(only 'vest' has packaged coil geometry and direction words); or pass an "
+                "explicit GPECCaseInputs.coil_in"
+            )
+
 
 @dataclass(frozen=True)
 class GPECSuiteConfig:

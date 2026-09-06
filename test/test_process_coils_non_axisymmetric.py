@@ -65,3 +65,15 @@ def test_open_filament_is_refused():
     loop = _circle(0.5)[:-1]
     with pytest.raises(ValueError, match="not closed"):
         biot_savart_filaments([loop], [1.0], [[0.0, 0.0, 0.0]])
+
+
+def test_probe_on_the_conductor_is_refused_rather_than_returning_nan():
+    loop = _circle(0.5, n=8)
+    midpoint = 0.5 * (loop[0] + loop[1])
+    with pytest.raises(ValueError, match="singular"):
+        biot_savart_filaments([loop], [1.0], [midpoint])
+
+
+def test_empty_sector_set_is_refused():
+    with pytest.raises(ValueError, match="at least one sector"):
+        toroidal_mode_decomposition([], [], modes=(1,))

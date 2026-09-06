@@ -20,12 +20,14 @@ from typing import Iterable, Mapping, Sequence
 
 import numpy as np
 
+from vaft.formula.constants import MU0
+
 __all__ = [
     "biot_savart_filaments",
     "toroidal_mode_decomposition",
 ]
 
-MU0_OVER_4PI = 1.0e-7  # [T m / A], exact in the pre-2019 SI and within 2e-10 relative afterwards
+_MU0_OVER_4PI = MU0 / (4.0 * np.pi)
 
 
 def toroidal_mode_decomposition(
@@ -51,7 +53,8 @@ def toroidal_mode_decomposition(
     Raises
     ------
     ValueError
-        ``phi_rad`` and ``values`` differ in length or are not one-dimensional.
+        ``phi_rad`` and ``values`` differ in length, are not one-dimensional,
+        or are empty.
 
     Convention
     ----------
@@ -88,6 +91,8 @@ def toroidal_mode_decomposition(
         raise ValueError(
             f"phi_rad and values must be one-dimensional and equal in length, got {phi.shape} and {v.shape}"
         )
+    if phi.size == 0:
+        raise ValueError("at least one sector sample is required")
     return {int(n): complex(np.mean(v * np.exp(-1j * int(n) * phi))) for n in modes}
 
 
@@ -115,8 +120,9 @@ def biot_savart_filaments(points_xyz, currents_a, probes_xyz) -> np.ndarray:
     Raises
     ------
     ValueError
-        A filament is not closed, or the number of currents differs from the
-        number of filaments.
+        A filament is not closed, the number of currents differs from the
+        number of filaments, or a probe coincides with a segment midpoint
+        (the field is singular on the conductor).
 
     Convention
     ----------
@@ -130,8 +136,7 @@ def biot_savart_filaments(points_xyz, currents_a, probes_xyz) -> np.ndarray:
     Assumptions
     -----------
     Filaments are thin (no conductor cross-section); the midpoint rule is
-    second-order accurate in segment length and undefined at a probe lying
-    on a segment midpoint.
+    second-order accurate in segment length.
 
     Applicability
     -------------
@@ -140,8 +145,9 @@ def biot_savart_filaments(points_xyz, currents_a, probes_xyz) -> np.ndarray:
 
     Limitations
     -----------
-    ``O(F P N)`` memory when ``points_xyz`` is passed as one array; loop over
-    probe blocks for very large arrays.
+    Transient memory is ``O(S N)`` per filament (``S`` segments, ``N``
+    probes; two ``(N, S, 3)`` float arrays), whichever input form is used;
+    call in probe blocks when ``S * N`` reaches ~1e7.
 
     Provenance
     ----------
@@ -152,7 +158,7 @@ def biot_savart_filaments(points_xyz, currents_a, probes_xyz) -> np.ndarray:
        midpoint-rule kernel; this is the single replacement.
     """
     if isinstance(points_xyz, np.ndarray) and points_xyz.ndim == 3:
-        filaments: Sequence[np.ndarray] = [points_xyz[k] for k in range(points_xyz.shape[0])]
+        filaments: Sequence[np.ndarray] = [np.asarray(points_xyz[k], dtype=float) for k in range(points_xyz.shape[0])]
     else:
         filaments = [np.asarray(f, dtype=float) for f in points_xyz]
     currents = np.asarray(currents_a, dtype=float).reshape(-1)
@@ -163,7 +169,6 @@ def biot_savart_filaments(points_xyz, currents_a, probes_xyz) -> np.ndarray:
         raise ValueError(f"{currents.shape[0]} currents for {len(filaments)} filaments")
     field = np.zeros((probes.shape[0], 3), dtype=float)
     for k, pts in enumerate(filaments):
-        pts = np.asarray(pts, dtype=float)
         if pts.ndim != 2 or pts.shape[1] != 3:
             raise ValueError(f"filament {k} must be (P, 3), got {pts.shape}")
         if not np.allclose(pts[0], pts[-1]):
@@ -173,7 +178,10 @@ def biot_savart_filaments(points_xyz, currents_a, probes_xyz) -> np.ndarray:
         dl = pts[1:] - pts[:-1]  # (S, 3)
         mid = 0.5 * (pts[1:] + pts[:-1])  # (S, 3)
         r = probes[:, None, :] - mid[None, :, :]  # (N, S, 3)
-        r3 = np.linalg.norm(r, axis=2) ** 3  # (N, S)
-        cross = np.cross(dl[None, :, :], r)  # (N, S, 3)
-        field += MU0_OVER_4PI * currents[k] * np.sum(cross / r3[:, :, None], axis=1)
+        r3 = np.einsum("nsk,nsk->ns", r, r) ** 1.5  # (N, S)
+        if not np.all(r3 > 0.0):
+            hit = np.argwhere(r3 == 0.0)[0]
+            raise ValueError(f"probe {hit[0]} lies on segment {hit[1]} of filament {k}: field is singular there")
+        r /= r3[:, :, None]  # in place: r / |r|^3
+        field += _MU0_OVER_4PI * currents[k] * np.cross(dl[None, :, :], r).sum(axis=1)
     return field

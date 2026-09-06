@@ -24,6 +24,7 @@ from ._coil_input import (
     CoilInputSpec,
     emit_coil_dat,
     read_coil_in,
+    resolve_coil_inputs,
     stage_coil_data,
     write_coil_in,
 )
@@ -474,6 +475,7 @@ __all__ = [
     "write_coil_in",
     "prepare_gpec_suite_case",
     "read_coil_in",
+    "resolve_coil_inputs",
     "run_gpec_suite_case",
     "validate_dcon_result",
     "DconCoordinates",
