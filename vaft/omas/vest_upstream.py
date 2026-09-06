@@ -1454,9 +1454,16 @@ def write_stage_product(
     *,
     output: str | Path,
     metadata: str | Path,
+    compression: str | None = None,
 ) -> None:
-    """Write deterministic ODS and manifest products."""
-    output_path = save(ods, output)
+    """Write deterministic ODS and manifest products.
+
+    ``compression`` names an HDF5 filter (``"gzip"``) for ``.h5``/``.hdf5``
+    outputs. It changes the container encoding, not the data, so the recorded
+    ``output.sha256`` legitimately differs from an uncompressed product built
+    from the same ODS -- that hash identifies the file, not the physics.
+    """
+    output_path = save(ods, output, compression=compression)
     final_manifest = dict(manifest)
     final_manifest["output"] = {
         "name": output_path.name,
