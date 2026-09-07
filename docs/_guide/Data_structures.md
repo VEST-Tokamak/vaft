@@ -446,7 +446,7 @@ The last row of the table is a defect VAFT currently ships, not a hypothetical: 
 index is a flat leaf of `equilibrium.code.parameters`, the EFIT mappers write their per-slice parser
 cache into the same field, and promotion is all-or-nothing on the block. An EFIT product loses the
 COCOS index it declares on the way to a replica — the leaf is not nested, it is merely standing next
-to something that is.
+to something that is; it is tracked as [#642](https://github.com/VEST-Tokamak/vaft/issues/642).
 
 ### Writing it
 

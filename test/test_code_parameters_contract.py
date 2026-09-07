@@ -253,7 +253,7 @@ def test_a_flat_leaf_beside_a_nested_block_is_dropped_with_it(tmp_path):
     block, so an EFIT product loses the COCOS index it declares -- the leaf is
     not nested, it is merely standing next to something that is.
 
-    Tracked as a live defect in issue #561; this test pins the behaviour, it
+    Tracked as a live defect in issue #642; this test pins the behaviour, it
     does not bless it.
     """
     ods = _product(**{"time_slice.0.aeqdsk.terror": 2.5e-6, "cocos": 11})
