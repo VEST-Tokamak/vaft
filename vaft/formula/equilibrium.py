@@ -2144,7 +2144,7 @@ def virial_beta_p_from_S_alpha_mu(S1: float,
     alpha : float
         Closure coefficient multiplying $l_i$ in the third virial relation [-].
     mui_hat : float
-        Diamagnetic parameter $\hat\mu_i$ [-].
+        Diamagnetic parameter [-].
 
     Returns
     -------
@@ -2153,9 +2153,15 @@ def virial_beta_p_from_S_alpha_mu(S1: float,
 
     Convention
     ----------
-    $S_1$-$S_3$ and $\hat\mu_i$ in the Lao/EFIT normalisation by $B_{pa}$
-    (:func:`virial_beta_p_from_volume`).  The closure retains the diamagnetic
-    term, so it holds at low aspect ratio where the Lao form does not.
+    Despite the parameter name, this takes $\mu_i$ in the **volume** sign the
+    three virial relations use -- $\langle B_{tv}^2-B_t^2\rangle/B_{pa}^2$,
+    positive when diamagnetic -- not the flux-sign $\hat\mu_i$ that
+    :func:`virial_muihat_from_Bt_R0_dphi` produces. The two are negatives of
+    each other, so the wrong one returns $\beta_p \mp 2\mu_i$ with nothing in
+    the number to show it. $S_1$-$S_3$ are in the Lao/EFIT normalisation by
+    $B_{pa}$ (:func:`virial_beta_p_from_volume`). The closure retains the
+    diamagnetic term, so it holds at low aspect ratio where the Lao form does
+    not.
 
     References
     ----------
