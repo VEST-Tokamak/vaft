@@ -104,6 +104,13 @@ ALLOWED: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("equilibrium.code.parameters.time_slice.", "read",
          "the accessor's own tests for descending into the cache"),
     ),
+    "test/test_code_parameters_entry_payload.py": (
+        ("equilibrium.code.parameters.time_slice.", "write",
+         "fixtures for the save-side split: the shape is written in order to show "
+         "that it stays local and is named rather than carried (#642)"),
+        ("core_profiles.code.parameters.fits.", "write",
+         "second-IDS fixture for the same"),
+    ),
     "test/test_equilibrium_psi_to_weber.py": (
         ("equilibrium.code.parameters.efit_collection.", "write",
          "pins that promotion declines a nested cache, and that the COCOS index is "

@@ -41,6 +41,8 @@ from omas.omas_core import (
 )
 from omas.omas_utils import _extra_structures
 
+from .code_parameters import entry_safe_code_parameters
+
 
 class IDS:
     """Wrapper for AL5 (IMAS-Python / imas_core) DBEntry"""
@@ -569,6 +571,7 @@ def imas_get(ids, path, skip_missing_nodes=False, check_empty=True):
 # --------------------------------------------
 # save and load OMAS to IMAS
 # --------------------------------------------
+@entry_safe_code_parameters
 @codeparams_xml_save
 def save_omas_imas(
     ods,

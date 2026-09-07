@@ -96,6 +96,7 @@ CORE_MODULES: tuple[str, ...] = (
     "contracts/test_models_plasma.py",
     "contracts/test_models_uncertainty.py",
     "test_code_parameters_contract.py",
+    "test_code_parameters_entry_payload.py",
     "test_dataset_description.py",
     "test_eqdsk_omas_roundtrip.py",
     "test_path_exists.py",
