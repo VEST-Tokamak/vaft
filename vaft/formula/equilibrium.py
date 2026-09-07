@@ -19,6 +19,7 @@ W      : stored energy                              [J]
 V      : plasma volume                              [m³]
 κ      : elongation                                 [-]
 δ      : triangularity                              [-]
+α      : virial closure coefficient, 2⟨R B_Z²⟩/⟨R B_p²⟩  [-]
 """
 
 import warnings
@@ -2991,6 +2992,145 @@ def virial_residual_rms(e1: float, e2: float, e3: float) -> float:
     if not np.all(np.isfinite(values)):
         return float("nan")
     return float(np.sqrt(np.mean(values**2)))
+
+
+def virial_alpha_approx_from_kappa(kappa: float) -> float:
+    r"""Virial closure coefficient from the boundary elongation (Bongard $\hat\alpha_1$).
+
+    $$\hat\alpha_1 = \frac{2\kappa^2}{1 + \kappa^2}$$
+
+    Parameters
+    ----------
+    kappa : float
+        Boundary elongation $\kappa$ [-].
+
+    Returns
+    -------
+    float
+        Closure coefficient $\hat\alpha_1$ [-].
+
+    Convention
+    ----------
+    $\alpha$ here is the coefficient multiplying $l_i$ in the third virial
+    relation, defined by the volume ratio
+    $\alpha = 2\langle R B_Z^2\rangle / \langle R B_p^2\rangle$ over the plasma,
+    so that $\alpha\to1$ for an up-down and in-out symmetric circular
+    cross-section and $\alpha\to2$ in the infinitely elongated limit.  The
+    elongation must come from the same convention throughout: VAFT's
+    :func:`elongation_from_RZ_boundary` and the IMAS ``boundary.elongation``
+    are both the bounding-box $(Z_{max}-Z_{min})/(2a)$, while a Miller fit
+    $\kappa$ is a different measure of the same contour and shifts
+    $\hat\alpha_1$ by a few percent.
+
+    Physical interpretation
+    -----------------------
+    Replaces the volume integral over the plasma interior by a function of the
+    boundary shape alone, so $\alpha$ can be obtained from a reconstruction
+    that determines the boundary but not the internal poloidal field --
+    a filament or current-element model, for instance.
+
+    Validity
+    --------
+    Reported accurate to roughly 10% over the aspect-ratio range tested by
+    Bongard et al., with slightly less spread than the annulus estimate
+    :func:`virial_alpha_from_R_Bz_Bp_dl`.  Exact at $\kappa=1$, where it
+    returns 1.  Because the Bongard closure divides by $3\alpha-2$, a 10% error
+    in $\alpha$ becomes a $\sim$19% error in $l_i$ near $\alpha=1.4$; see
+    :func:`virial_li_from_S_alpha_mu`.
+
+    References
+    ----------
+    .. [1] M. W. Bongard et al., Phys. Plasmas 23 (2016), low-aspect-ratio
+           virial closure (journal page not recorded in the VAFT source).
+    """
+    kappa = float(kappa)
+    den = 1.0 + kappa**2
+    if not np.isfinite(den) or den <= 0.0:
+        return float("nan")
+    return 2.0 * kappa**2 / den
+
+
+def virial_alpha_from_R_Bz_Bp_dl(R: np.ndarray,
+                                 B_Z: np.ndarray,
+                                 B_p: np.ndarray,
+                                 dl: np.ndarray,
+                                 weight: np.ndarray = None) -> float:
+    r"""Virial closure coefficient from the boundary field (thin-annulus $\hat\alpha_2$).
+
+    $$\hat\alpha_2 = \frac{2\oint R\,B_Z^2\,w\,dl}{\oint R\,B_p^2\,w\,dl}$$
+
+    Parameters
+    ----------
+    R : np.ndarray
+        Major radius of each boundary segment [m].
+    B_Z : np.ndarray
+        Vertical field component on each segment [T].
+    B_p : np.ndarray
+        Poloidal field magnitude on each segment [T].
+    dl : np.ndarray
+        Arc length of each segment [m].
+    weight : np.ndarray, optional
+        Annulus width per unit arc length $w$, in the same segment order;
+        default ones, the uniform-offset annulus [m].
+
+    Returns
+    -------
+    float
+        Closure coefficient $\hat\alpha_2$ in the thin-annulus limit [-].
+
+    Convention
+    ----------
+    Same normalisation as :func:`virial_alpha_approx_from_kappa`: the volume
+    ratio $2\langle R B_Z^2\rangle/\langle R B_p^2\rangle$, which is 1 for a
+    symmetric circular cross-section.  Every array is indexed by boundary
+    segment and must share one ordering; ``B_Z`` and ``B_p`` are components of
+    the same field, so $|B_Z| \le B_p$ segment by segment.
+
+    Physical interpretation
+    -----------------------
+    A thin annulus of local width $t\,w$ has area element $dA = t\,w\,dl$, and
+    the constant $t$ cancels between numerator and denominator, so this is the
+    $t\to0$ limit of an annulus estimate.  **The weight is what makes the limit
+    exact, and it depends on how the inner contour was constructed.**  For a
+    uniform-offset annulus $w=1$.  For an annulus conformal to the boundary --
+    the inner contour a copy scaled by $1-t$ about a centre $c$, as
+    :func:`vaft.process.equilibrium.virial_alpha_conformal_annulus` builds it --
+    the width varies around the contour and
+    $w = (\mathbf{x} - \mathbf{c})\cdot\hat{\mathbf{n}}$, the support function of
+    the boundary about $c$.  Passing $w=1$ against a conformal annulus does not
+    converge to it: on a VEST-like Solov'ev boundary the two limits differ by
+    about 5%.  :func:`vaft.process.equilibrium.virial_alpha_thin_annulus`
+    assembles the geometry and calls this function with the right weight.
+
+    Validity
+    --------
+    The limiting form of an estimate reported accurate to roughly 10% by
+    Bongard et al.  How fast a given equilibrium approaches the limit is a
+    property of that equilibrium, not of this quadrature: a boundary whose
+    field varies strongly across the annulus approaches it more slowly.
+
+    Numerical notes
+    ---------------
+    Plain weighted sum over the supplied segments; the caller chooses the
+    quadrature by choosing the segment values.  Returns ``nan`` rather than
+    raising when the denominator is zero or non-finite, matching
+    :func:`vaft.process.equilibrium.efit_virial_volume_integrals`.
+
+    References
+    ----------
+    .. [1] M. W. Bongard et al., Phys. Plasmas 23 (2016), low-aspect-ratio
+           virial closure (journal page not recorded in the VAFT source).
+    """
+    R = np.asarray(R, dtype=float)
+    B_Z = np.asarray(B_Z, dtype=float)
+    B_p = np.asarray(B_p, dtype=float)
+    dl = np.asarray(dl, dtype=float)
+    w = np.ones_like(dl) if weight is None else np.asarray(weight, dtype=float)
+    num = float(np.sum(R * B_Z**2 * w * dl))
+    den = float(np.sum(R * B_p**2 * w * dl))
+    if not np.isfinite(num) or not np.isfinite(den) or den == 0.0:
+        return float("nan")
+    return 2.0 * num / den
 
 
 def virial_S1_approx() -> float:

@@ -88,6 +88,7 @@ _PARAMETRIC_EXPORTS = (
 
 __all__ = [
     "FLUX_SURFACE_QUANTITIES",
+    "MIN_ANNULUS_CELLS",
     "MIN_FLUX_SURFACE_POINTS",
     "calculate_average_boundary_poloidal_field",
     "calculate_diamagnetism",
@@ -114,8 +115,11 @@ __all__ = [
     "r_at_z_extremum",
     "radial_to_psi",
     "rho_to_psi",
+    "scale_boundary_conformal",
     "shafranov_integrals",
     "trace_field_line",
+    "virial_alpha_conformal_annulus",
+    "virial_alpha_thin_annulus",
     "volume_average",
     *_PARAMETRIC_EXPORTS,
 ]
@@ -1307,6 +1311,213 @@ def fractional_cell_weights_from_boundary(
             inside_acc += inside.astype(float)
 
     return inside_acc / float(samples_per_axis * samples_per_axis)
+
+
+#: An annulus resolving fewer than this many cells describes the grid rather
+#: than the field.  Chosen to match :data:`MIN_FLUX_SURFACE_POINTS`, the same
+#: judgement applied to a contour instead of a region.
+MIN_ANNULUS_CELLS = 16.0
+
+
+def scale_boundary_conformal(
+    R_bdry: np.ndarray,
+    Z_bdry: np.ndarray,
+    scale: float,
+    center: tuple[float, float] | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Scale a closed boundary about a centre, giving a contour conformal to it.
+
+    ``(R, Z) -> center + scale * ((R, Z) - center)``, so the returned contour has
+    the same shape as the input and lies inside it for ``scale < 1``. The default
+    centre is the bounding-box centre of the boundary, the convention the shape
+    code uses in preference to the area centroid.
+
+    This is a purely geometric offset: unlike a psi_N band it does not consult
+    the flux map, so a contour conformal to a reconstructed LCFS carries no
+    dependence on how well the interior psi is known.
+    """
+    R_bdry = np.asarray(R_bdry, dtype=float).reshape(-1)
+    Z_bdry = np.asarray(Z_bdry, dtype=float).reshape(-1)
+    if R_bdry.size != Z_bdry.size:
+        raise ValueError("R_bdry and Z_bdry must have the same length.")
+    scale = float(scale)
+    if not np.isfinite(scale) or scale <= 0.0:
+        raise ValueError(f"scale must be finite and positive; got {scale}.")
+
+    R_bdry, Z_bdry = _ensure_closed_boundary(R_bdry, Z_bdry)
+    if center is None:
+        R_c = 0.5 * (float(np.min(R_bdry)) + float(np.max(R_bdry)))
+        Z_c = 0.5 * (float(np.min(Z_bdry)) + float(np.max(Z_bdry)))
+    else:
+        R_c, Z_c = float(center[0]), float(center[1])
+
+    return R_c + scale * (R_bdry - R_c), Z_c + scale * (Z_bdry - Z_c)
+
+
+def virial_alpha_thin_annulus(
+    R_bdry: np.ndarray,
+    Z_bdry: np.ndarray,
+    B_R_bdry: np.ndarray,
+    B_Z_bdry: np.ndarray,
+    center: tuple[float, float] | None = None,
+    mode: str = "conformal",
+    n_points: int = 512,
+) -> float:
+    """
+    Virial closure coefficient in the thin-annulus limit, from the boundary field.
+
+    The exact ``thickness -> 0`` limit of :func:`virial_alpha_conformal_annulus`.
+    A conformal annulus has local width ``t * (x - c).n``, so the area element is
+    ``t * (x - c).n * dl`` and the constant ``t`` cancels; ``mode="conformal"``
+    applies that support-function weight. ``mode="uniform"`` weights every
+    segment equally, which is the limit of a uniform-offset annulus instead --
+    a different region, and on a VEST-like boundary a ~5% different answer.
+
+    Needs only the field on the LCFS, so unlike the volume integral it asks
+    nothing of the plasma interior.
+    """
+    if mode not in ("conformal", "uniform"):
+        raise ValueError(f"mode must be 'conformal' or 'uniform'; got {mode!r}.")
+
+    R_b = np.asarray(R_bdry, float).reshape(-1)
+    Z_b = np.asarray(Z_bdry, float).reshape(-1)
+    B_R_b = np.asarray(B_R_bdry, float).reshape(-1)
+    B_Z_b = np.asarray(B_Z_bdry, float).reshape(-1)
+    if not (R_b.size == Z_b.size == B_R_b.size == B_Z_b.size):
+        raise ValueError("boundary and field arrays must have the same length.")
+
+    finite = np.isfinite(R_b) & np.isfinite(Z_b) & np.isfinite(B_R_b) & np.isfinite(B_Z_b)
+    R_b, Z_b, B_R_b, B_Z_b = R_b[finite], Z_b[finite], B_R_b[finite], B_Z_b[finite]
+    if R_b.size < 3:
+        return float("nan")
+
+    R_b, Z_b, B_R_b, B_Z_b = _ensure_closed_boundary(R_b, Z_b, B_R_b, B_Z_b)
+    R_b, Z_b, B_R_b, B_Z_b = _remove_degenerate_segments(R_b, Z_b, B_R_b, B_Z_b)
+    if R_b.size < 4:
+        return float("nan")
+    if _signed_area_closed_polygon(R_b, Z_b) < 0.0:  # enforce CCW for the normal
+        R_b, Z_b, B_R_b, B_Z_b = R_b[::-1], Z_b[::-1], B_R_b[::-1], B_Z_b[::-1]
+    R_b, Z_b, B_R_b, B_Z_b = _resample_closed_boundary_arrays(
+        R_b, Z_b, B_R_b, B_Z_b, n_points=n_points
+    )
+
+    dR, dZ = np.diff(R_b), np.diff(Z_b)
+    dl = np.hypot(dR, dZ)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        nR = np.where(dl > 0.0, dZ / dl, 0.0)   # outward normal of a CCW contour
+        nZ = np.where(dl > 0.0, -dR / dl, 0.0)
+    R_mid = 0.5 * (R_b[:-1] + R_b[1:])
+    Z_mid = 0.5 * (Z_b[:-1] + Z_b[1:])
+    B_R_mid = 0.5 * (B_R_b[:-1] + B_R_b[1:])
+    B_Z_mid = 0.5 * (B_Z_b[:-1] + B_Z_b[1:])
+    B_p_mid = np.hypot(B_R_mid, B_Z_mid)
+
+    if mode == "uniform":
+        weight = np.ones_like(dl)
+    else:
+        if center is None:
+            R_c = 0.5 * (float(np.min(R_b)) + float(np.max(R_b)))
+            Z_c = 0.5 * (float(np.min(Z_b)) + float(np.max(Z_b)))
+        else:
+            R_c, Z_c = float(center[0]), float(center[1])
+        weight = (R_mid - R_c) * nR + (Z_mid - Z_c) * nZ
+
+    from vaft.formula.equilibrium import virial_alpha_from_R_Bz_Bp_dl
+
+    return virial_alpha_from_R_Bz_Bp_dl(R_mid, B_Z_mid, B_p_mid, dl, weight=weight)
+
+
+def virial_alpha_conformal_annulus(
+    R_grid: np.ndarray,
+    Z_grid: np.ndarray,
+    B_R_grid: np.ndarray,
+    B_Z_grid: np.ndarray,
+    R_bdry: np.ndarray,
+    Z_bdry: np.ndarray,
+    thickness: float = 0.1,
+    samples_per_axis: int = 5,
+) -> dict[str, Any]:
+    """
+    Virial closure coefficient from a thin annulus conformal to the LCFS.
+
+    ``alpha_2 = 2 * sum(R Bz^2 w dA) / sum(R Bp^2 w dA)`` over an annulus bounded
+    by the LCFS and a copy of it scaled by ``1 - thickness`` about the
+    bounding-box centre (:func:`scale_boundary_conformal`). The weight map is the
+    difference of two :func:`fractional_cell_weights_from_boundary` maps, so cells
+    cut by either contour carry their area fraction.
+
+    ``thickness`` is a fraction of the distance from the centre to the boundary,
+    not an absolute length. As ``thickness -> 0`` the area element becomes
+    ``t * dl`` and ``t`` cancels, so this tends to the boundary line integral
+    :func:`vaft.formula.equilibrium.virial_alpha_from_R_Bz_Bp_dl`.
+
+    Returns a dict with ``alpha``, ``valid``, ``reason`` and ``n_cells`` (the
+    summed annulus weight). ``alpha`` is NaN whenever ``valid`` is False: a thin
+    annulus on a coarse grid resolves nothing, and a number computed from a
+    handful of cells would describe the grid, not the plasma.
+    """
+    if np.ndim(R_grid) == 1 and np.ndim(Z_grid) == 1:
+        R_grid, Z_grid = np.meshgrid(
+            np.asarray(R_grid, float), np.asarray(Z_grid, float), indexing="ij"
+        )
+    else:
+        R_grid = np.asarray(R_grid, float)
+        Z_grid = np.asarray(Z_grid, float)
+    B_R_grid = np.asarray(B_R_grid, float)
+    B_Z_grid = np.asarray(B_Z_grid, float)
+
+    def _fail(reason: str, n_cells: float = 0.0) -> dict[str, Any]:
+        return {"alpha": np.nan, "valid": False, "reason": reason, "n_cells": float(n_cells)}
+
+    thickness = float(thickness)
+    if not np.isfinite(thickness) or not (0.0 < thickness < 1.0):
+        return _fail(f"thickness must lie in (0, 1); got {thickness}.")
+
+    R_out, Z_out = _ensure_closed_boundary(R_bdry, Z_bdry)
+    if R_out.size < 4:
+        return _fail("boundary has too few points to define an annulus.")
+
+    # The outer contour must be on the grid, or the annulus is silently clipped.
+    if (
+        float(np.min(R_out)) < float(np.min(R_grid))
+        or float(np.max(R_out)) > float(np.max(R_grid))
+        or float(np.min(Z_out)) < float(np.min(Z_grid))
+        or float(np.max(Z_out)) > float(np.max(Z_grid))
+    ):
+        return _fail("boundary extends beyond the field grid; the annulus would be clipped.")
+
+    R_in, Z_in = scale_boundary_conformal(R_out, Z_out, 1.0 - thickness)
+
+    w_out = fractional_cell_weights_from_boundary(
+        R_grid, Z_grid, R_out, Z_out, samples_per_axis=samples_per_axis
+    )
+    w_in = fractional_cell_weights_from_boundary(
+        R_grid, Z_grid, R_in, Z_in, samples_per_axis=samples_per_axis
+    )
+    weights = np.clip(w_out - w_in, 0.0, 1.0)
+
+    n_cells = float(np.sum(weights))
+    if n_cells < MIN_ANNULUS_CELLS:
+        return _fail(
+            f"annulus resolves {n_cells:.2f} cells, below the {MIN_ANNULUS_CELLS:g} "
+            "needed for the integral to describe the field rather than the grid.",
+            n_cells,
+        )
+
+    dA = _cell_area_from_mesh(R_grid, Z_grid)
+    B_p_sq = B_R_grid**2 + B_Z_grid**2
+    num = float(np.nansum(R_grid * (B_Z_grid**2) * weights * dA))
+    den = float(np.nansum(R_grid * B_p_sq * weights * dA))
+    if not np.isfinite(num) or not np.isfinite(den) or den == 0.0:
+        return _fail("annulus integral of R*Bp^2 is zero or non-finite.", n_cells)
+
+    return {
+        "alpha": 2.0 * num / den,
+        "valid": True,
+        "reason": None,
+        "n_cells": n_cells,
+    }
 
 
 def shafranov_integrals(
