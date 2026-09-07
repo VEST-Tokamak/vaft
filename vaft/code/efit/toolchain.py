@@ -100,7 +100,8 @@ def resolve_role(
             f"EFIT executable ({role}) is missing for ${EFIT_HOME_ENV}={root}: expected "
             f"{root / INSTALLED_LAYOUT[role]} (or {root / BUILD_TREE_LAYOUT[role]} in a CMake "
             f"build tree). Compile or install EFIT so that the executable exists at the "
-            "documented location; install/install_efit.sh builds both efit and efund under one root."
+            "documented location; the EFIT installer for this platform builds both "
+            "efit and efund under one root."
         )
     if role == "efit":
         legacy = environment.get(EFIT_LEGACY_EXEC_ENV)

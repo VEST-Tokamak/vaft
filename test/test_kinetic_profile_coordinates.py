@@ -38,6 +38,15 @@ pytestmark = pytest.mark.skipif(
 
 SHOT, TIME_MS = 48224, 300.0
 
+#: How exactly the fixture has to be reproduced.  The fixture was generated on
+#: one machine and is compared on every machine CI runs: the fits underneath are
+#: least-squares solves, and a different LAPACK reproduces them to about eight
+#: significant figures, not sixteen.  Measured worst relative difference between
+#: macOS and Linux on this shot: 1.1e-8.  1e-6 is two orders of margin on that
+#: and still five orders tighter than the change this test exists to detect --
+#: fitting in rho_tor_norm instead of psi_norm moves these numbers by percents.
+FIXTURE_RTOL = 1e-6
+
 
 @pytest.fixture(scope="module")
 def shot_ods():
@@ -326,10 +335,10 @@ def test_explicit_psi_norm_reproduces_the_pre_change_pipeline(shot_ods):
     ne_fit, te_fit, *_ = P.profile_fitting_thomson_scattering(ods, TIME_MS, mapped_ts, time_tolerance_ms=3.0, coordinate="psi_norm")
     vt_fit, ti_fit, *_ = P.profile_fitting_charge_exchange(ods, TIME_MS, mapped_cx, ion_index=0, time_tolerance_ms=3.0, coordinate="psi_norm")
     grid = fx["grid"]
-    np.testing.assert_allclose(ne_fit(grid), fx["ne_fit"], rtol=1e-10)
-    np.testing.assert_allclose(te_fit(grid), fx["te_fit"], rtol=1e-10)
-    np.testing.assert_allclose(ti_fit(grid), fx["ti_fit"], rtol=1e-10)
-    np.testing.assert_allclose(vt_fit(grid), fx["vtor_fit"], rtol=1e-10)
+    np.testing.assert_allclose(ne_fit(grid), fx["ne_fit"], rtol=FIXTURE_RTOL)
+    np.testing.assert_allclose(te_fit(grid), fx["te_fit"], rtol=FIXTURE_RTOL)
+    np.testing.assert_allclose(ti_fit(grid), fx["ti_fit"], rtol=FIXTURE_RTOL)
+    np.testing.assert_allclose(vt_fit(grid), fx["vtor_fit"], rtol=FIXTURE_RTOL)
 
     work = ODS()
     work["thomson_scattering"] = ods["thomson_scattering"]
@@ -339,10 +348,10 @@ def test_explicit_psi_norm_reproduces_the_pre_change_pipeline(shot_ods):
     cp = "core_profiles.profiles_1d.0"
     np.testing.assert_allclose(work[f"{cp}.grid.rho_tor_norm"], fx["cp_rho_tor_norm"])
     np.testing.assert_allclose(work[f"{cp}.grid.psi"], fx["cp_psi"])
-    np.testing.assert_allclose(work[f"{cp}.electrons.density"], fx["cp_ne"], rtol=1e-10)
-    np.testing.assert_allclose(work[f"{cp}.electrons.temperature"], fx["cp_te"], rtol=1e-10)
-    np.testing.assert_allclose(work[f"{cp}.ion.0.temperature"], fx["cp_ti"], rtol=1e-10)
-    np.testing.assert_allclose(work[f"{cp}.pressure_thermal"], fx["cp_pth"], rtol=1e-10)
+    np.testing.assert_allclose(work[f"{cp}.electrons.density"], fx["cp_ne"], rtol=FIXTURE_RTOL)
+    np.testing.assert_allclose(work[f"{cp}.electrons.temperature"], fx["cp_te"], rtol=FIXTURE_RTOL)
+    np.testing.assert_allclose(work[f"{cp}.ion.0.temperature"], fx["cp_ti"], rtol=FIXTURE_RTOL)
+    np.testing.assert_allclose(work[f"{cp}.pressure_thermal"], fx["cp_pth"], rtol=FIXTURE_RTOL)
 
 
 def test_the_default_pipeline_differs_from_the_pre_change_one_on_purpose(shot_ods):

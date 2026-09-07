@@ -294,7 +294,56 @@ def as_equilibrium(
     source: Any, *, time_index: int = 0, profile_index: int = 0,
     convention: int | None = None,
 ) -> EquilibriumData:
-    """Adapt a GEQDSK, ODS, IMAS handle, or native model to ``EquilibriumData``."""
+    """Adapt a GEQDSK, ODS, IMAS handle, or native model to one equilibrium record.
+
+    The single entry point every algorithm here goes through, so that they operate
+    on one normalized shape regardless of where the equilibrium came from.
+
+    Parameters
+    ----------
+    source : EquilibriumData, ODS, GEQDSK, IMAS equilibrium IDS, path or mapping
+        A record is returned as is, or converted when a convention is asserted; a
+        path or path-like is read as a GEQDSK; an object exposing an OMAS export
+        is exported first; a native IDS root is wrapped [-].
+    time_index : int, optional
+        Which time slice to take from a multi-slice source [-].
+    profile_index : int, optional
+        Which 2-D profile grid to take from a slice carrying more than one [-].
+    convention : int, optional
+        A COCOS index the caller asserts for *source*, 1 to 18.  When given it
+        always wins over identification, and the result is converted to it [-].
+
+    Returns
+    -------
+    EquilibriumData
+        The normalized record, with its ``convention`` set from the assertion when
+        one was made and from identification otherwise [-].
+
+    Convention
+    ----------
+    Normalizes *shape*, not *convention*: the returned record is not converted to
+    any internal standard unless *convention* asks for it, so its psi may be in
+    weber or weber per radian and only ``convention.psi_per_radian`` says which.
+    A record built without a convention reports neither, and downstream field
+    calculations then fall back to the historical per-radian form.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A GEQDSK is identified as a two-dimensional grid by the presence of its
+    characteristic keys, so a mapping that happens to carry them is treated as
+    one.  Only the requested time slice and profile grid are read; everything else
+    in a multi-slice source is discarded.
+
+    Provenance
+    ----------
+    .. [1] The per-source adapters below preserve each format's own layout
+       conventions; see :func:`vaft.process.cocos.identify_convention` for how the
+       convention is inferred when the caller does not assert one.
+    """
     if isinstance(source, EquilibriumData):
         return convert_cocos(source, convention) if convention is not None else source
     if isinstance(source, (str, bytes)) or hasattr(source, "__fspath__"):
@@ -322,16 +371,52 @@ def as_equilibrium(
 def check_equilibrium_requirements(
     equilibrium: EquilibriumData, *, required_for: str = "general"
 ) -> ValidationReport:
-    """Whether ``equilibrium`` carries what ``required_for`` needs to run.
+    """Whether an equilibrium carries what a named algorithm needs to run.
 
-    A **precondition**, not a scientific verdict (issue #337): it answers "can
-    the global / Miller / edge / Solovev algorithms be applied to this input?",
-    which is why the answer depends on ``required_for`` -- the same equilibrium
-    is sufficient for one and not another.  Whether the equilibrium is
-    *credible* is a different question, asked by ``vaft.validation`` (#72).
+    A **precondition**, not a scientific verdict (issue #337): it answers "can the
+    global, Miller, edge or Solov'ev algorithms be applied to this input", which is
+    why the answer depends on which one is asked about.  Whether the equilibrium is
+    *credible* is a different question, asked by :mod:`vaft.validation` (#72).
+    Renamed from ``validate_equilibrium``, which read as the latter and is now the
+    name of the latter.
 
-    Renamed from ``validate_equilibrium``, which read as the latter and is now
-    the name of the latter.
+    Parameters
+    ----------
+    equilibrium : EquilibriumData
+        The record to check [-].
+    required_for : str, optional
+        Which requirement set to apply: ``general``, ``global``, ``miller``,
+        ``edge`` or ``solovev`` [-].
+
+    Returns
+    -------
+    ValidationReport
+        One issue per unmet requirement, at error severity for a missing or
+        malformed field and warning severity for an ambiguous or self-contradictory
+        convention.  An empty report means the algorithm can run [-].
+
+    Convention
+    ----------
+    Reports two convention problems without resolving either: an ambiguous COCOS,
+    where identification left more than one candidate, and a declared COCOS that
+    contradicts the signs actually observed.  Both are warnings, because an
+    algorithm can still run on a wrongly labelled equilibrium; it will simply be
+    wrong in a way this function refuses to hide.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    *required_for* is a free string; an unrecognized value applies the general
+    requirements rather than being rejected.  A clean report says the fields are
+    present and shaped correctly, not that their values are physical.
+
+    Provenance
+    ----------
+    .. [1] Issue #337 for the split between a precondition and a scientific
+       verdict, and #253 for the validation layer that owns the latter.
     """
     issues: list[ValidationIssue] = []
     if equilibrium.psi is not None and equilibrium.r is not None and equilibrium.z is not None:
@@ -376,7 +461,69 @@ def validate_equilibrium(
 
 
 def convert_cocos(equilibrium: EquilibriumData, target_cocos: int) -> EquilibriumData:
-    """Return a copy converted between explicitly known COCOS conventions."""
+    """Convert an equilibrium between two explicitly known COCOS conventions.
+
+    The only COCOS transform in the package.  :mod:`vaft.process.cocos` identifies
+    and validates conventions but never changes data; this is where a sign or a
+    factor of ``2*pi`` is actually applied.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData
+        The record to convert.  Its source convention must be known: either
+        declared, or identified down to exactly one candidate [-].
+    target_cocos : int
+        The convention to convert to, 1 to 18 [-].
+
+    Returns
+    -------
+    EquilibriumData
+        A copy with every convention-dependent field transformed and its
+        ``convention`` set to *target_cocos* [-].
+
+    Raises
+    ------
+    ValueError
+        *target_cocos* is outside 1 to 18, or the source convention is unknown or
+        ambiguous.
+
+    Processing steps
+    ----------------
+    1. Resolve the source convention from the declared index, or from a single
+       surviving identification candidate.
+    2. Take the per-quantity factors for the pair from OMAS.
+    3. Scale the flux quantities, the poloidal current, the safety factor, the two
+       source gradients, the plasma current and the vacuum field, each by its own
+       factor.
+    4. Record the target index on the returned convention.
+
+    Convention
+    ----------
+    Direction is source to target, and both must be in 1 to 18; 9 and 10 do not
+    exist.  The flux factor is where a sign flip and a factor of ``2*pi`` land
+    together.  Pressure and the magnetic axis are deliberately untouched: they are
+    physical quantities that no convention changes.  The pressure gradient scales
+    by its own factor rather than by the flux factor, because a derivative against
+    flux scales by the inverse of what flux does.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Refuses rather than guesses when the source convention is ambiguous, which is
+    the common case for a file that declares nothing and whose flux exponent could
+    not be identified.  The identified-candidate list carried on the result is
+    shifted on the assumption that every candidate shares the source's storage
+    family, which is not guaranteed and can produce an out-of-range index; tracked
+    in #601.
+
+    Provenance
+    ----------
+    .. [1] Sauter and Medvedev (2013) for the conventions; the per-quantity
+       factors are ``omas.cocos_transform``.
+    """
     if target_cocos not in range(1, 19):
         raise ValueError("target_cocos must be in the range 1..18")
     source_cocos = equilibrium.convention.cocos
@@ -457,6 +604,66 @@ def _polygon_geometry(contour: Contour) -> dict[str, float]:
 
 
 def derive_radial_coordinates(equilibrium: Any) -> Mapping[str, DerivedValue]:
+    """The three normalized radial coordinates, each with its derivation record.
+
+    ``psi_norm``, ``rho_pol_norm`` and ``rho_tor_norm`` are three different
+    coordinates and are not interchangeable; ``rho_tor_norm`` equals
+    ``sqrt(psi_norm)`` only for a flat-``q`` cylinder.  A coordinate that cannot be
+    derived is returned as an explicit unavailable record naming the reason, so a
+    caller can refuse rather than substitute a different radius.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData, ODS, GEQDSK or path
+        Adapted through :func:`as_equilibrium`.  Needs ``psi_1d`` and distinct
+        axis and boundary flux values; ``rho_tor_n`` additionally needs ``q`` [-].
+
+    Returns
+    -------
+    Mapping of str to DerivedValue
+        Keys ``psi_n``, ``rho_pol_n`` and ``rho_tor_n``, each dimensionless and
+        on the equilibrium's own ``psi_1d`` grid.  An entry whose ``value`` is
+        ``None`` carries a ``reason`` instead [-].
+
+    Processing steps
+    ----------------
+    1. ``psi_n = (psi_1d - psi_axis)/(psi_boundary - psi_axis)``.
+    2. ``rho_pol_n = sqrt(psi_n)``, by definition of that coordinate.
+    3. ``rho_tor_n = sqrt(Phi/Phi_boundary)`` with ``Phi`` the cumulative
+       trapezoidal integral of ``q`` over the normalized flux, returned only if
+       ``q`` is finite, of matching length, and produces a monotonic result.
+
+    Convention
+    ----------
+    All three are dimensionless and run 0 on axis to 1 at the boundary.
+    ``rho_tor_n`` is COCOS-independent: it is a ratio of two integrals of the same
+    ``q`` over the same variable, so the factor of ``2*pi`` and the sign of psi
+    both cancel.  ``psi_n`` is likewise invariant under the storage choice, being
+    normalized by its own span.  This function therefore needs no COCOS and
+    imposes none.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    ``rho_tor_n`` is unavailable when ``q`` is missing, non-finite, of the wrong
+    length, or gives a non-monotonic toroidal flux, and when ``psi_n`` is not
+    strictly monotonic.  The integral is trapezoidal on the stored grid, so a
+    coarse or axis-clustered ``q`` limits its accuracy near the axis.  The
+    published ``definition`` string names ``dpsi`` where the integration variable
+    is ``psi_n``; the value is unaffected and the wording is tracked in #602.
+
+    Provenance
+    ----------
+    .. [1] The toroidal flux definition ``Phi = int q dpsi`` and its normalized
+       radius, as used by the IMAS data dictionary for ``rho_tor_norm``.
+    .. [2] :func:`vaft.process.profile.core_profiles` consumes this to evaluate
+       kinetic fits on the equilibrium grid, and refuses by name when the record
+       here is unavailable (issue #420).
+    """
+
     eq = as_equilibrium(equilibrium)
     if eq.psi_1d is None or eq.psi_axis is None or eq.psi_boundary is None or eq.psi_axis == eq.psi_boundary:
         reason = "psi_1d and distinct axis/boundary flux values are required"
@@ -521,6 +728,85 @@ def _grid_fields(eq: EquilibriumData) -> tuple[np.ndarray, np.ndarray, np.ndarra
 def derive_global_descriptors(
     equilibrium: Any, *, rational_q: Sequence[float] = (1.0, 1.5, 2.0, 3.0),
 ) -> GlobalEquilibriumDescriptors:
+    """Global scalar descriptors of one equilibrium, each with its derivation record.
+
+    Geometry from the boundary, energy from a grid quadrature, the safety factor
+    from the stored profile, and the Shafranov virial closures from the boundary
+    integrals.  Every quantity is a :class:`~vaft.data.equilibrium.DerivedValue`
+    carrying the method it came from, the fields it read, and the convention it
+    was computed under, so a number that could not be formed says why instead of
+    being absent.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData, ODS, GEQDSK or path
+        Adapted through :func:`as_equilibrium`.  What can be derived depends on
+        which fields it carries; nothing is required [-].
+    rational_q : sequence of float, optional
+        Safety-factor values whose surfaces to locate, reported as the normalized
+        radii where ``q`` crosses each [-].
+
+    Returns
+    -------
+    GlobalEquilibriumDescriptors
+        A mapping of name to :class:`~vaft.data.equilibrium.DerivedValue` plus the
+        :class:`~vaft.data.equilibrium.ValidationReport` from the precondition
+        check.  Shape and radii in metres, areas in square metres, volume in cubic
+        metres, current in amperes, field in tesla, energies in joules, betas and
+        the safety factor and the virial terms dimensionless [-].
+
+    Processing steps
+    ----------------
+    1. Check preconditions for the ``global`` requirement set and keep the report.
+    2. Boundary geometry: major and minor radius, elongation, upper and lower
+       triangularity, volume and surface area from the last closed flux surface.
+    3. Energy: integrate pressure over the plasma volume by grid quadrature for
+       the pressure integral and the thermal energy.
+    4. Betas: toroidal from the volume-average pressure and the vacuum field,
+       normalized from that and the current, poloidal from the boundary-average
+       poloidal field.
+    5. Virial: the Shafranov boundary integrals and the internal inductance from
+       the Lao closure.
+    6. Safety factor: on-axis, at 95 percent of the normalized flux, at the edge,
+       the magnetic shear, and the radius of each requested rational surface.
+
+    Convention
+    ----------
+    Shape descriptors use the geometric centre ``(R_out+R_in)/2``, which is what
+    the IMAS data dictionary reports for the boundary's geometric axis and
+    triangularity.  The area centroid is a different quantity, used only where
+    Pappus's theorem needs it for the volume, and at low aspect ratio the two sit
+    centimetres apart.  The poloidal field is computed through the equilibrium's
+    own declared COCOS and per-radian flag, so a wrongly declared convention
+    propagates into every field-derived quantity here.  The magnetic shear is
+    taken against the poloidal radius.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Every quantity degrades independently: a missing pressure profile costs the
+    energies and the betas but not the geometry.  A failure inside the pressure
+    integration is captured as a warning on the returned report rather than
+    raised.  The normalized beta carries a non-SI unit string where the rest of
+    the module is SI, tracked in #607.  The virial internal inductance is
+    ill-conditioned as its coefficient approaches one.
+
+    Provenance
+    ----------
+    .. [1] IMAS data dictionary definitions for the boundary geometric axis,
+       triangularity, and the global quantities this mirrors.
+    .. [2] Lao's virial closure for the internal inductance from the Shafranov
+       boundary integrals, evaluated by
+       :func:`vaft.formula.equilibrium.virial_li_from_S_alpha_rt`.
+    .. [3] The boundary integrals themselves come from
+       :func:`vaft.process.equilibrium.shafranov_integrals` and
+       :func:`vaft.process.equilibrium.efit_virial_volume_integrals`, the
+       EFIT-style weighted forms.
+    """
+
     eq = as_equilibrium(equilibrium)
     validation = check_equilibrium_requirements(eq, required_for="global")
     values: dict[str, DerivedValue] = {}
@@ -669,6 +955,56 @@ def derive_global_descriptors(
 
 
 def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.ndarray]:
+    """Points on a Miller-parameterized flux surface at given poloidal angles.
+
+    The Miller parameterization writes a shaped, up-down symmetric surface in five
+    numbers: minor radius, centre, elongation and triangularity.  This is the
+    forward evaluation; :func:`fit_miller_surface` is the inverse.
+
+    Parameters
+    ----------
+    surface : MillerSurface
+        The five shape parameters.  ``r``, ``r0`` and ``z0`` in metres,
+        ``kappa`` and ``delta`` dimensionless [-].
+    theta : array_like
+        Poloidal angles at which to evaluate [rad].
+
+    Returns
+    -------
+    tuple of np.ndarray
+        ``(R, Z)`` on the surface, same shape as *theta* [m].
+
+    Raises
+    ------
+    ValueError
+        The geometry is degenerate: minor radius or elongation not positive, or
+        triangularity of magnitude one or more.
+
+    Convention
+    ----------
+    ``R = r0 + r*cos(theta + arcsin(delta)*sin(theta))`` and
+    ``Z = z0 + kappa*r*sin(theta)``.  *theta* is the parameter of the
+    parameterization, not a geometric poloidal angle about the centre, and the two
+    differ once the surface is shaped.  Positive ``delta`` shifts the extremum of
+    ``Z`` inboard.  The surface is up-down symmetric by construction.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Up-down symmetric and single-valued in *theta*, so it cannot represent a
+    separatrix, an X-point, or an asymmetric boundary at all.  Triangularity is
+    bounded by one because the arcsine of it must exist.
+
+    Provenance
+    ----------
+    .. [1] Miller, Chu, Greene, Lin-Liu and Waltz, *Noncircular, finite aspect
+       ratio, local equilibrium model*, Phys. Plasmas 5, 973 (1998), which
+       introduced this parameterization.
+    """
+
     theta = np.asarray(theta, dtype=float)
     if surface.r <= 0 or surface.kappa <= 0 or abs(surface.delta) >= 1:
         raise ValueError("Miller geometry requires r>0, kappa>0, and abs(delta)<1")
@@ -690,6 +1026,88 @@ def fit_miller_surface(
     radial_coordinate: str = "psi_n", max_normalized_rms: float = 0.02,
     near_xpoint: bool = False,
 ) -> MillerFitResult:
+    """Fit the five Miller shape parameters to one closed flux-surface contour.
+
+    Answers "how Miller-like is this surface, and with what parameters", and says
+    when the answer is that it is not Miller-like enough to use.  Acceptance is a
+    property of the fit, reported on the result rather than raised.
+
+    Parameters
+    ----------
+    contour : Contour or tuple of array_like
+        The closed surface to fit, as a contour record or an ``(R, Z)`` pair [m].
+    radial_value : float, optional
+        The radial coordinate of this surface, carried onto the fitted surface for
+        the caller's bookkeeping and used for the near-boundary veto [-].
+    radial_coordinate : str, optional
+        Which radial coordinate *radial_value* is in [-].
+    max_normalized_rms : float, optional
+        Largest residual, as a root-mean-square distance divided by the fitted
+        minor radius, that still counts as accepted [-].
+    near_xpoint : bool, optional
+        Caller's determination that this surface lies close to an active X-point,
+        which vetoes acceptance regardless of the residual [-].
+
+    Returns
+    -------
+    MillerFitResult
+        The fitted surface, the observed and reconstructed contours, the residual
+        statistics in metres, whether the solve converged, whether the fit is
+        accepted, the reason if not, and the derivation record [-].
+
+    Raises
+    ------
+    ValueError
+        The contour has zero arc length or zero radial extent.
+
+    Processing steps
+    ----------------
+    1. Resample the contour to a uniform arc-length parameterization.
+    2. Seed the five parameters from the contour's bounding box.
+    3. Solve a bounded least squares on point-to-surface distances, refining each
+       point's local angle by five Newton steps per evaluation so the residual is
+       a true nearest-point distance rather than an index-matched one.
+    4. Score with a symmetric distance: contour-to-model and model-to-contour,
+       giving a root-mean-square, a maximum, and a Hausdorff distance.
+    5. Reject, in order, a surface too near the boundary, a surface near an
+       X-point, a residual over the threshold, or a solve that did not converge.
+
+    Defaults
+    --------
+    ``max_normalized_rms = 0.02`` is a validated-workflow threshold, not a
+    physical constant: two percent of the minor radius is where a fitted surface
+    stops being a useful stand-in for the traced one.  The parameter bounds,
+    elongation in 0.05 to 10 and triangularity within 0.999, are numerical
+    conveniences that keep the solve inside the parameterization's own domain.
+
+    Convention
+    ----------
+    Purely geometric: it reads a contour and returns shape parameters, touching no
+    flux, no field and no COCOS.  *radial_value* is carried, never interpreted.
+    The residual is a symmetric point-set distance in metres, and the normalized
+    form divides it by the fitted minor radius so the threshold means the same
+    thing on every surface.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Miller is up-down symmetric, so a genuinely asymmetric surface fits poorly by
+    construction and is rejected rather than approximated.  Surfaces at or beyond
+    95.5 percent of the normalized flux are rejected outright, because separatrix
+    geometry is not locally Miller-like there.  The X-point proximity has to be
+    determined by the caller; this function only honours the flag.  Unlike every
+    other derived quantity in this module, the provenance recorded here carries no
+    convention, tracked in #604.
+
+    Provenance
+    ----------
+    .. [1] Miller et al., Phys. Plasmas 5, 973 (1998), for the parameterization
+       being fitted.
+    """
+
     if not isinstance(contour, Contour):
         contour = Contour(contour[0], contour[1], True)
     observed = _resample_contour(contour)
@@ -781,6 +1199,88 @@ def fit_miller_sequence(
     equilibrium: Any, levels: Sequence[float], *, radial_coordinate: str = "psi_n",
     max_normalized_rms: float = 0.02,
 ) -> MillerSequenceResult:
+    """Fit Miller parameters across a sequence of flux surfaces, with radial derivatives.
+
+    A local equilibrium model needs not only the shape of each surface but how the
+    shape changes outward, so this traces every requested level, fits each, and
+    differentiates the accepted ones against the fitted minor radius.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData, ODS, GEQDSK or path
+        Adapted through :func:`as_equilibrium`; needs a ``psi`` map and an axis
+        and boundary flux to trace contours [-].
+    levels : sequence of float
+        The radial positions to fit, in *radial_coordinate* [-].
+    radial_coordinate : str, optional
+        Which coordinate *levels* are given in.  Anything other than the
+        normalized poloidal flux is converted through
+        :func:`derive_radial_coordinates` first [-].
+    max_normalized_rms : float, optional
+        Passed to :func:`fit_miller_surface` as the acceptance threshold [-].
+
+    Returns
+    -------
+    MillerSequenceResult
+        Every fit in the order requested, including the rejected ones; the reason
+        radial derivatives could not be formed, if they could not; and the
+        derivation record.  Accepted surfaces additionally carry the derivatives
+        of centre, elongation and triangularity against minor radius, plus the
+        safety factor, the magnetic shear and the ballooning parameter [-].
+
+    Raises
+    ------
+    ValueError
+        The requested radial coordinate cannot be derived from this equilibrium.
+
+    Processing steps
+    ----------------
+    1. Convert the requested levels into normalized poloidal flux when they are
+       given in another coordinate.
+    2. Trace the contour at each level and keep the closed one containing the
+       magnetic axis.
+    3. Fit each with :func:`fit_miller_surface`, vetoing surfaces within five
+       percent of a minor radius of an *active* X-point.
+    4. On the accepted surfaces sorted by minor radius, spline-differentiate the
+       three shape parameters, then the safety factor for the magnetic shear, and
+       the pressure for the ballooning parameter.
+
+    Defaults
+    --------
+    The five percent X-point proximity is a numerical convenience marking where
+    the surface stops being locally Miller-like; so is the requirement of four
+    accepted surfaces for radial derivatives, which is the smallest set a cubic
+    spline can use.
+
+    Convention
+    ----------
+    The magnetic shear is ``(r/q) dq/dr`` and the ballooning parameter is
+    ``-2*mu0*q^2*R0*(dp/dr)/Bt0^2``, both against the *fitted minor radius*, not
+    against a flux coordinate.  Only an X-point that is active, meaning relevant
+    to the boundary, vetoes a fit; a saddle elsewhere in the domain must not.
+    The safety factor and pressure are taken from the equilibrium as stored, in
+    whatever sign convention it carries.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Rejected surfaces are returned with the rest, so a caller must filter on
+    acceptance before using them.  Derivatives are unavailable when fewer than
+    four surfaces are accepted or when the fitted minor radii are not strictly
+    increasing, and the reason says which.  The shear and the ballooning term
+    additionally need the safety factor, the pressure and the vacuum field, and
+    are simply absent without them.
+
+    Provenance
+    ----------
+    .. [1] Miller et al., Phys. Plasmas 5, 973 (1998); the radial derivatives are
+       what makes the parameterization a local equilibrium model rather than a
+       shape description.
+    """
+
     eq = as_equilibrium(equilibrium)
     if radial_coordinate != "psi_n":
         radial = derive_radial_coordinates(eq).get(radial_coordinate)
@@ -861,6 +1361,65 @@ def _solovev_components(model: SolovevEquilibrium, r: Any, z: Any) -> tuple[np.n
 
 
 def evaluate_solovev(model: SolovevEquilibrium, r: Any, z: Any) -> Mapping[str, np.ndarray]:
+    """Evaluate an analytic Solov'ev equilibrium on a set of points.
+
+    The Solov'ev solution is the Grad-Shafranov equation's closed form for a
+    pressure and squared poloidal current that are both linear in the poloidal
+    flux.  It is exact, which makes it the reference against which numerical
+    machinery here is checked.
+
+    Parameters
+    ----------
+    model : SolovevEquilibrium
+        The five basis coefficients and the two linear source slopes [-].
+    r : array_like
+        Major radius, strictly positive [m].
+    z : array_like
+        Height [m].
+
+    Returns
+    -------
+    Mapping of str to np.ndarray
+        ``psi`` [Wb/rad] with its two derivatives [Wb/(rad m)]; ``b_r``, ``b_z``
+        and ``b_phi`` [T]; ``pressure`` [Pa]; ``f`` [T m]; ``j_phi`` [A/m^2]; and
+        ``grad_shafranov_source``, the right-hand side the solution satisfies
+        [T/m] [-].
+
+    Raises
+    ------
+    ValueError
+        Any point has a non-positive major radius.
+
+    Convention
+    ----------
+    Works in poloidal flux per radian, with the poloidal field taken as
+    ``B_R = -dpsi/dz / R`` and ``B_Z = +dpsi/dR / R``.  That is the orientation
+    family with a positive product of the toroidal and poloidal sign conventions,
+    which is *not* the family the rest of this module falls back to for an
+    unidentified equilibrium; the mismatch is tracked in #600.
+    :func:`solovev_to_equilibrium` is where this is reconciled with a declared
+    convention.  Pressure and the squared poloidal current are linear in psi by
+    construction, so their gradients are the model's own constants.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Linear sources only, so it cannot represent a peaked pressure profile or a
+    realistic current density.  The poloidal current is recovered as a square
+    root, clipped at zero, so a model whose flux excursion drives the square
+    negative silently flattens rather than failing.
+
+    Provenance
+    ----------
+    .. [1] Solov'ev, *Hydromagnetic stability of closed plasma configurations*
+       (1968), for the linear-source closed form.
+    .. [2] The five-term homogeneous basis and the particular integral follow the
+       standard polynomial construction for that solution.
+    """
+
     psi, dpsi_dr, dpsi_dz, _ = _solovev_components(model, r, z)
     rr = np.asarray(r, dtype=float)
     delta = psi-model.psi_boundary
@@ -881,6 +1440,89 @@ def solve_solovev_constraints(
     rref: float, psi_boundary: float = 0.0, pressure_boundary: float = 0.0,
     f_boundary: float = 1.0, f_sign: int = 1,
 ) -> SolovevEquilibrium:
+    """Solve for the Solov'ev coefficients that satisfy a set of geometric constraints.
+
+    The inverse of :func:`evaluate_solovev`: given where the flux surface should
+    pass and where it should be flat, recover the five basis coefficients that put
+    it there.  This is how a Solov'ev model is shaped to a wanted boundary.
+
+    Parameters
+    ----------
+    constraints : sequence of SolovevConstraint
+        At least five, each pinning the flux or one of its two first derivatives
+        at a point.  Flux in Wb/rad, derivatives in Wb/(rad m) [-].
+    pprime : float
+        The pressure gradient against flux, constant by construction
+        [Pa rad/Wb].
+    ffprime : float
+        The poloidal-current term's gradient against flux, likewise constant
+        [T^2 m^2 rad/Wb].
+    rref : float
+        Reference major radius that sets the logarithm's origin in the basis [m].
+    psi_boundary : float, optional
+        Flux value taken as the boundary, the zero point of the linear sources
+        [Wb/rad].
+    pressure_boundary : float, optional
+        Pressure at that boundary [Pa].
+    f_boundary : float, optional
+        Poloidal current function at that boundary [T m].
+    f_sign : int, optional
+        Sign given to the poloidal current when the square root is taken [-].
+
+    Returns
+    -------
+    SolovevEquilibrium
+        The five coefficients, the inputs echoed, the numerical rank of the solve,
+        the residual norm, and the constraint count [-].
+
+    Raises
+    ------
+    ValueError
+        Fewer than five constraints, an unrecognized constraint kind, or a
+        constraint set of rank below five.
+
+    Processing steps
+    ----------------
+    1. Evaluate the basis and the particular integral of a zero-coefficient model
+       at each constraint point.
+    2. Build one row per constraint: the basis itself for a flux constraint, or a
+       central difference of it for a derivative constraint.
+    3. Move the particular integral to the right-hand side, so the unknowns are
+       the homogeneous coefficients alone.
+    4. Solve by least squares and refuse a rank-deficient system rather than
+       returning an underdetermined answer.
+
+    Defaults
+    --------
+    The boundary values default to a zero-flux, zero-pressure, unit-current
+    reference, which is the natural normalization for a shape-only model.  The
+    central-difference step is a numerical convenience scaled to the reference
+    radius.
+
+    Convention
+    ----------
+    Same per-radian flux and same orientation as :func:`evaluate_solovev`, whose
+    basis this inverts.  Five is not a tolerance but the dimension of the
+    homogeneous solution space; anything less leaves the surface unpinned in some
+    direction.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Constraints that are geometrically distinct can still be linearly dependent in
+    this basis, in which case the rank check rejects them and the caller must move
+    or add points.  With more than five constraints the solve is a least squares
+    and the result satisfies none exactly; the residual norm reports how far off.
+
+    Provenance
+    ----------
+    .. [1] Solov'ev (1968); see :func:`evaluate_solovev` for the basis being
+       solved.
+    """
+
     if len(constraints) < 5:
         raise ValueError("at least five independent Solovev constraints are required")
     zero = SolovevEquilibrium(np.zeros(5), pprime, ffprime, rref, psi_boundary, pressure_boundary, f_boundary, f_sign)
@@ -993,18 +1635,72 @@ def solovev_to_equilibrium(
     model: SolovevEquilibrium, r: Any, z: Any, *, magnetic_axis: tuple[float, float] | None = None,
     limiter: Contour | None = None, convention: int = 11,
 ) -> EquilibriumData:
-    """Export an analytic Solovev model as a gridded :class:`EquilibriumData`.
+    """Export an analytic Solov'ev model as a gridded equilibrium record.
 
-    ``evaluate_solovev`` works with psi in Wb/rad (B_pol = grad(psi)/R). The
-    exported flux quantities are scaled to honor the declared ``convention``:
-    a full-weber COCOS (11-18) multiplies psi by 2*pi so descriptor
-    derivation, which divides full-weber psi gradients by 2*pi, recovers the
-    analytic fields exactly.
+    Turns the closed-form solution into the same record shape a GEQDSK or an ODS
+    produces, so that an exactly known equilibrium can be fed to the same
+    machinery as a measured one.  That is what makes it useful as a reference.
 
-    Raises ``ValueError`` when ``psi_boundary`` does not form a CLOSED contour
-    enclosing the magnetic axis on this grid (checked explicitly, stepping to
-    psi_n=0.99 before giving up): an open boundary would silently corrupt Ip,
-    the pressure integrals, and every shape descriptor.
+    Parameters
+    ----------
+    model : SolovevEquilibrium
+        The analytic model to evaluate [-].
+    r : array_like
+        Major-radius grid axis, strictly positive and increasing [m].
+    z : array_like
+        Height grid axis, increasing [m].
+    magnetic_axis : tuple of float, optional
+        The axis position, as ``(R, Z)``.  Located from the flux map when not
+        given [m].
+    limiter : Contour, optional
+        A limiting surface to carry onto the record [m].
+    convention : int, optional
+        The COCOS index to declare and export in, 1 to 18 [-].
+
+    Returns
+    -------
+    EquilibriumData
+        A record on the requested grid carrying psi, its axis and boundary values,
+        the flux surface, the profiles, the plasma current, the vacuum field, and
+        the declared convention [-].
+
+    Raises
+    ------
+    ValueError
+        *convention* is outside 1 to 18, or the boundary flux does not form a
+        closed contour enclosing the magnetic axis on this grid.
+
+    Convention
+    ----------
+    :func:`evaluate_solovev` works in weber per radian, taking the poloidal field
+    as the flux gradient over the major radius.  The exported flux quantities are
+    scaled to honour the declared *convention*: a full-weber index, 11 to 18,
+    multiplies psi by ``2*pi`` so that descriptor derivation, which divides a
+    full-weber flux gradient by ``2*pi``, recovers the analytic fields exactly.
+    The two source gradients are rescaled inversely, because a derivative against
+    flux scales by the inverse of what flux does.  The plasma current and the
+    current density are deliberately *not* scaled: they are physical fields that
+    the storage choice does not change.  Only the ``2*pi`` half of the
+    reconciliation is handled here; the orientation sign is discussed at
+    :func:`evaluate_solovev` and tracked in #600.  The unscaled quantities are
+    noted in #608.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The closed-boundary requirement is checked explicitly, stepping inward to 99
+    percent of the normalized flux before giving up, because an open boundary
+    would silently corrupt the plasma current, the pressure integrals and every
+    shape descriptor rather than failing.  The grid must resolve the boundary well
+    enough for that contour to close.
+
+    Provenance
+    ----------
+    .. [1] Solov'ev (1968) through :func:`evaluate_solovev`, which supplies every
+       field this exports.
     """
     r = np.asarray(r, dtype=float).reshape(-1); z = np.asarray(z, dtype=float).reshape(-1)
     rm, zm = np.meshgrid(r, z, indexing="ij")
@@ -1354,19 +2050,68 @@ def derive_boundary_representation(
 
     Topology is decided from the flux map alone.  Stationary points of psi are
     located and split into O-points and saddles by the sign of the Hessian
-    determinant; a saddle counts as a physical X-point only when it is relevant
-    to the boundary, meaning its flux agrees with the boundary flux to within
-    what the grid resolves and the confined region's level set reaches it.  At
-    least one such X-point makes the equilibrium diverted; none, together with
-    an LCFS in contact with the wall, makes it limited.  Anything that cannot be
-    settled -- a grid-clipped confined region, no wall to test against, or an
-    LCFS bounded by neither -- returns ``Topology.AMBIGUOUS`` with a reason.
+    determinant; a saddle counts as a physical X-point only when it is relevant to
+    the boundary, meaning its flux agrees with the boundary flux to within what the
+    grid resolves and the confined region's level set reaches it.
 
-    ``flux_tolerance`` overrides the psi_n window of the flux test with a single
-    value for every saddle.  Leave it at ``None`` -- the numerically justified
-    choice -- and each saddle gets its own window from its Hessian curvature and
-    the grid spacing, since psi is stationary there and a one-cell position
-    error perturbs its flux only at second order.
+    Parameters
+    ----------
+    equilibrium : EquilibriumData, ODS, GEQDSK or path
+        Adapted through :func:`as_equilibrium`; needs a psi map, and a wall or
+        limiter to classify a limited plasma [-].
+    gap_angles : mapping of str to float, optional
+        Named directions from the geometric centre along which to measure the
+        plasma-wall gap [rad].
+    flux_tolerance : float, optional
+        Overrides the normalized-flux window of the saddle test with one value for
+        every saddle [-].
+    fourier_modes : int, optional
+        How many harmonics to fit to the boundary contour [-].
+
+    Returns
+    -------
+    BoundaryRepresentation
+        The topology and the reason for it; the X-points with their active flags;
+        the strike points with their flux expansion and incidence; the named gaps;
+        the outer-midplane separation between the first two separatrices; and the
+        Fourier coefficients with their fit error.  Distances in metres, angles in
+        radians, everything else dimensionless [-].
+
+    Convention
+    ----------
+    At least one boundary-relevant X-point makes the equilibrium diverted; none,
+    together with a last closed flux surface in contact with the wall, makes it
+    limited.  Anything that cannot be settled -- a grid-clipped confined region, no
+    wall to test against, or a surface bounded by neither -- is reported ambiguous
+    with a reason rather than forced into one of the two.
+
+    Defaults
+    --------
+    Leaving *flux_tolerance* at ``None`` is the justified choice, and an override
+    is a numerical convenience only: each saddle otherwise gets its own window
+    from its Hessian curvature and the grid spacing, because psi is stationary
+    there and a one-cell position error perturbs its flux only at second order.
+    A single global tolerance cannot be right for saddles of different sharpness.
+    ``fourier_modes = 16`` is likewise a numerical convenience, enough harmonics
+    to represent a tokamak boundary without fitting the contour's own sampling.
+
+    Applicability
+    -------------
+    Machine-independent.  The gap directions are where a machine's own geometry
+    enters, and they are supplied by the caller.
+
+    Limitations
+    -----------
+    Topology needs a wall or limiter to distinguish limited from ambiguous; without
+    one, a plasma with no X-point is ambiguous rather than limited.  Strike points
+    and gaps require the corresponding geometry and are simply absent otherwise.
+    The Fourier fit assumes a single closed contour.
+
+    Provenance
+    ----------
+    .. [1] The Hessian classification of stationary points of psi is the standard
+       O-point and X-point test; the boundary-relevance condition is what
+       distinguishes a physical X-point from a saddle elsewhere in the domain.
     """
     eq = as_equilibrium(equilibrium)
     unavailable = lambda definition, reason: _unavailable(eq, "m", definition, reason)

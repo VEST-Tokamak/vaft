@@ -153,7 +153,9 @@ import numpy as np
 
 __all__ = [
     "BT_SIGN_VEST_TO_IMAS",
+    "GPEC_DIRECTION_WORDS",
     "VEST_GPEC_COIL_DIRECTIONS",
+    "gpec_coil_directions",
     "DischargeSignContract",
     "IMAS_DISCHARGE_SIGNS",
     "IP_SIGN_VEST_TO_IMAS",
@@ -196,6 +198,32 @@ class DischargeSignContract:
 IMAS_DISCHARGE_SIGNS = DischargeSignContract(ip=-1, b0=+1)
 """Ip clockwise and Bt counter-clockwise, expressed in IMAS signs."""
 
+GPEC_DIRECTION_WORDS = {+1: "positive", -1: "negative"}
+"""IMAS sign to GPEC ``coil.in`` word: counter-clockwise from above is positive."""
+
+
+def gpec_coil_directions(contract: DischargeSignContract) -> dict[str, str]:
+    """The ``coil.in`` direction words a machine's sign contract implies.
+
+    GPEC's own gloss (``input/coil.in``) is "positive for CCW or negative for
+    CW from a top down view", the sense IMAS uses, so the words follow from
+    :class:`DischargeSignContract` with no extra assumption::
+
+        >>> gpec_coil_directions(DischargeSignContract(ip=+1, b0=-1))
+        {'ip_direction': 'positive', 'bt_direction': 'negative'}
+
+    Use this rather than writing a pair by hand: GPEC multiplies the two into
+    ``helicity``, which sets its toroidal-angle mapping and the conjugation of
+    its real-space perturbed output, so a hand-written pair that drifts from
+    the machine's contract silently changes results.  VEST is the exception,
+    for the reason :data:`VEST_GPEC_COIL_DIRECTIONS` records.
+    """
+    return {
+        "ip_direction": GPEC_DIRECTION_WORDS[contract.ip],
+        "bt_direction": GPEC_DIRECTION_WORDS[contract.b0],
+    }
+
+
 VEST_GPEC_COIL_DIRECTIONS = {"ip_direction": "positive", "bt_direction": "negative"}
 """The ``coil.in`` direction words of the VEST reference GPEC run.
 
@@ -210,9 +238,15 @@ What GPEC does with the two words, read from its source:
 * ``coil/coil.F`` and ``gpec/gpec.f`` set ``ipd``/``btd`` to ``+1`` unless the
   word is ``"negative"``, then ``helicity = ipd * btd``.
 * The *product* is what mirrors the field: ``coil/field.F`` maps the
-  observation angle as ``phi = -helicity * (2*pi*zeta + phi_eq)``, and
-  ``gpec/gpout.f`` multiplies the imaginary part of every perturbed output by
-  ``-helicity``.
+  observation angle as ``phi = -helicity * (2*pi*zeta + phi_eq)``.
+* ``gpec/gpout.f`` carries the same product into its *real-space* perturbed
+  output only -- theta-functions are written as ``Re, -helicity * Im``, and
+  the cylindrical fields are conjugated by branches whose sense differs
+  between the plasma-frame and vacuum blocks.  The *spectral* output
+  (``gpec_control_output``'s ``binmn``/``boutmn``/``finmn``/``foutmn``, the
+  netCDF ``b_xm``/``b_m``/``xi_xm``, ``singcoup``, the permeability
+  eigenvectors) is written raw, so no blanket ``Im -> -helicity * Im`` rule
+  may be applied when reading GPEC output.
 * The words act *separately* in one place only, where ``gpec/gpout.f`` builds
   the equilibrium field on the diagnostic grid: ``ipd > 0`` flips the sign of
   ``B_R`` and ``B_Z``, ``btd < 0`` flips ``B_phi``.
@@ -220,12 +254,34 @@ What GPEC does with the two words, read from its source:
 So flipping both words together leaves the perturbed response untouched and
 changes only the sign of the equilibrium field GPEC writes out.
 
-Unresolved for VEST: this pair reads as I_p counter-clockwise and B_T
-clockwise, while :data:`IMAS_DISCHARGE_SIGNS` states the opposite pair for the
-same machine.  Both give ``helicity = -1``, so no VEST result published from
-this reference run is affected in its perturbed quantities, but one of the two
-constants is wrong about the machine, and correcting one without the other
-would change VEST results; the test named below fails if that happens.
+Unresolved for VEST, with the evidence as it stands:
+
+* This pair reads as I_p counter-clockwise and B_T clockwise, while
+  :data:`IMAS_DISCHARGE_SIGNS` states the opposite pair for the same machine.
+* The pair is *also* GPEC's shipped default.  Upstream ``input/coil.in`` and
+  every DIII-D example carry exactly ``machine="d3d"``,
+  ``ip_direction="positive"``, ``bt_direction="negative"``, and the solovev
+  regression examples differ (``positive``/``positive``), so upstream does
+  edit these fields when a case needs it.  In the VEST reference input
+  ``machine`` was changed to ``"vest"`` and the two direction words were not.
+  So this pair is not evidence about VEST; it is what the template came with.
+* Neither statement matches the equilibria GPEC actually reads: the packaged
+  VEST g-files (``vaft/data/efit/``, ``vaft/data/kineticEfit/``) carry
+  ``current > 0`` *and* ``bcentr > 0``, i.e. a written helicity of ``+1``,
+  where both statements above give ``-1``.
+
+Settling this therefore needs the g-file sign convention, not a choice between
+two constants -- and that convention is the unconfirmed part of the sign
+contract (``IP_SIGN_VEST_TO_IMAS.confirmed`` is ``False``, issue #288), so it
+is deliberately left alone here.  What is safe to say: both statements give
+``helicity = -1``, which is the quantity GPEC uses for its toroidal-angle
+mapping and for conjugating real-space perturbed output, so no published VEST
+perturbed result turns on the disagreement; only the sign of the equilibrium
+field GPEC writes to its diagnostic grid does.  Correcting one constant alone
+*would* flip that helicity, so a test asserts the two agree on it.
+
+A machine whose contract is settled should not hand-write this pair at all:
+:func:`gpec_coil_directions` derives it.
 """
 
 

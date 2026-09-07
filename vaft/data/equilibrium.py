@@ -65,7 +65,17 @@ _DIVERTED_TOPOLOGIES = frozenset({
 
 @dataclass(frozen=True)
 class EquilibriumConvention:
-    """Coordinate/sign convention and the evidence used to identify it."""
+    """Coordinate and sign convention, and the evidence used to identify it.
+
+    Carries what an equilibrium's numbers *mean*, which the arrays themselves
+    cannot say.  ``cocos`` is a declared index, 1 to 18, or ``None``;
+    ``candidates`` are the indices identification left open; ``psi_per_radian``
+    is the storage family, and it is the field that fixes the unit of every
+    flux quantity on :class:`EquilibriumData`.  The three sign fields record
+    what was observed for the plasma current, the vacuum field and the safety
+    factor.  ``clockwise_phi`` is a fact about the machine, not the data, and
+    is what distinguishes an odd index from its even partner.
+    """
 
     cocos: int | None = None
     candidates: tuple[int, ...] = ()
@@ -106,7 +116,15 @@ class DerivationProvenance:
 
 @dataclass(frozen=True)
 class DerivedValue:
-    """A value together with its definition, provenance, and availability."""
+    """A value together with its definition, provenance, and availability.
+
+    A derived quantity that could not be formed is returned as one of these
+    with ``value`` at ``None`` and ``reason`` saying why, rather than being
+    absent or silently substituted.  ``unit`` and ``definition`` are the
+    published description of the number; ``provenance`` records the method, the
+    source fields read, the source time, and the convention it was computed
+    under, so a value carries the COCOS that shaped it.
+    """
 
     value: Any | None
     unit: str
@@ -143,7 +161,34 @@ class Contour:
 
 @dataclass(frozen=True)
 class EquilibriumData:
-    """One axisymmetric equilibrium normalized for numerical algorithms."""
+    """One axisymmetric equilibrium, shape-normalized for numerical algorithms.
+
+    The *shape* is normalized -- one grid layout, one profile layout, whatever
+    the source was -- and the *convention* deliberately is not.  Nothing is
+    converted to an internal standard on construction, so the fields below mean
+    what the source meant by them.
+
+    **The unit of every flux field is a property of :attr:`convention`, not of
+    the field.**  ``psi``, ``psi_axis``, ``psi_boundary`` and ``psi_1d`` are in
+    weber when ``convention.psi_per_radian`` is ``False`` (COCOS 11-18), in
+    weber per radian when it is ``True`` (COCOS 1-8), and of unknown scale when
+    it is ``None``.  ``pprime`` and ``ffprime`` are per that same flux unit.
+    Code that forms a poloidal field from ``psi`` must consult the convention;
+    a factor of ``2*pi`` in the field is a factor of ``(2*pi)**2`` in the
+    poloidal beta.
+
+    A default-constructed record carries no convention at all, and the field
+    calculations then fall back to the historical weber-per-radian form, which
+    is *not* :data:`vaft.data.cocos.VAFT_INTERNAL_COCOS`; that mismatch is
+    tracked in #603.  Nothing enforces agreement between a psi array and the
+    convention beside it, so a record rebuilt field-by-field can be made to lie.
+
+    Units of the remaining fields: ``r``, ``z``, ``magnetic_axis``, ``lcfs``,
+    ``limiter`` and ``r0`` in metres; ``pressure`` in pascal; ``f`` in
+    tesla-metre; ``q`` dimensionless; ``ip`` in ampere; ``bt0`` in tesla;
+    ``time`` in seconds.  ``psi`` is indexed ``(R, Z)``, matching ``r.size`` by
+    ``z.size``.
+    """
 
     r: np.ndarray | None = None
     z: np.ndarray | None = None

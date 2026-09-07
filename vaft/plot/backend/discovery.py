@@ -56,6 +56,8 @@ from .recipes import (
     SPECTROGRAM_PARAMETERS,
     _coordinate_options,
     abscissa_options,
+    field_options_for,
+    overlay_options_for,
     _has,
     CAMERA_PROJECTIONS,
     RECIPES,
@@ -239,8 +241,20 @@ def _source_label(shots: Sequence[str]) -> str:
 #: functions), whatever the equilibrium declares.
 PSI_FIELD_CONVENTIONS: dict[str, str | None] = {
     "equilibrium_field_psi": None,
+    "equilibrium_field_2d": None,
     "equilibrium_field_psi_vacuum": "Wb",
     "equilibrium_overview": None,
+}
+
+#: What each 2-D equilibrium field needs beyond the psi map itself, so a
+#: record offers only the fields this input can actually draw (issue #483).
+_FIELD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
+    "psi": (),
+    "j_tor": ("profiles_1d.dpressure_dpsi", "profiles_1d.f_df_dpsi"),
+    "pressure": ("profiles_1d.pressure",),
+    "b_field_r": ("profiles_1d.f",),
+    "b_field_z": ("profiles_1d.f",),
+    "b_field_tor": ("profiles_1d.f",),
 }
 
 
@@ -279,6 +293,12 @@ def _declare(record: PlotCapability) -> PlotCapability:
         updates["layouts"] = (
             ("overlay", "subplots", "grouped") if recipe.index == "channel" else ("overlay",)
         )
+    declared = field_options_for(record.name)
+    if declared:
+        updates["fields"] = {"default": declared[0], "options": declared, "declared": declared}
+    overlays = overlay_options_for(record.name)
+    if overlays:
+        updates["overlays"] = overlays
     methods = ANALYSIS_METHODS.get(record.name)
     if methods:
         updates["analysis_methods"] = methods
@@ -397,6 +417,8 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
                 updates["coordinates"] = _coordinates_block(record, recipe, ods)
         if _takes_time_slice(record.name):
             updates["slices"] = _slices_block(ods)
+        if record.fields:
+            updates["fields"] = _fields_block(record, ods)
         if record.name in PSI_FIELD_CONVENTIONS:
             from .convention import psi_convention
 
@@ -427,6 +449,36 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             }
             updates["controls"] = tuple(c.name for c in offered)
     return with_capabilities(record, **updates)
+
+
+def _fields_block(record: PlotCapability, ods: Any) -> dict[str, Any]:
+    """The 2-D fields this input can draw (issue #483).
+
+    ``psi`` is the plot's own required path; every other field is derived
+    from 1-D profiles the slice may or may not carry, so a record offers
+    only what a build would actually produce.
+    """
+    from .recipes import _count, resolve_time_slice
+
+    declared = tuple(record.fields.get("declared") or record.fields.get("options") or ())
+    if not _count(ods, "equilibrium.time_slice"):
+        return {**record.fields, "options": ()}
+    try:
+        index = int(resolve_time_slice(ods)[0])
+    except Exception:
+        index = 0
+    base = f"equilibrium.time_slice.{index}"
+    options = tuple(
+        name for name in declared
+        if all(_has(ods, f"{base}.{leaf}") for leaf in _FIELD_REQUIREMENTS.get(name, ()))
+        or _has(ods, f"{base}.profiles_2d.0.{name}")
+    )
+    default = record.fields.get("default")
+    return {
+        "default": default if default in options else (options[0] if options else None),
+        "options": options,
+        "declared": declared,
+    }
 
 
 def _coordinates_block(record: PlotCapability, recipe: ProfileRecipe, ods: Any) -> dict[str, Any]:

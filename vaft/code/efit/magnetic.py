@@ -19,6 +19,7 @@ from typing import Any, Mapping, Optional, Sequence
 
 import numpy as np
 
+from ... import compat
 from ...compat import is_executable, resolve_executable
 from .._executables import missing_home_message
 from .status import (
@@ -383,6 +384,14 @@ def _efit_command(config: EFITConfig, executable: str | Path | None = None) -> l
     executable = str(resolved)
     args = [str(arg) for arg in config.args]
     if config.stack_size_kb is None:
+        return [executable, *args]
+    if compat.IS_WINDOWS:
+        # A native Windows image takes its stack reserve from the PE header,
+        # fixed by the linker, so no wrapper can raise it after the fact --
+        # install/install_efit_windows.ps1 passes -Wl,--stack instead, and
+        # -StackReserveMB is where this setting goes there. Wrapping anyway
+        # would also make every run depend on an MSYS2 bash that the installers
+        # deliberately keep off PATH.
         return [executable, *args]
     return [
         "bash",

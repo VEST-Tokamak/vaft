@@ -78,15 +78,15 @@ constraints:
   # Half-width [s] of the box average each constraint is taken over (#433);
   # distinct from tstep, and qualified together with it under #468.
   average_window: 0.0005
+  # Require the diagnostics-stage assessment (projected validity); the
+  # constraint stage never assesses signals itself (issue #296).
   detect_broken: true
-  broken:
-  - 65
-  - 66
-  - 67
-  - 68
-  - 72
-  - 74
+  # No manual channel list: selection is the diagnostics-stage assessment's
+  # verdict alone (issue #295).  The retired list and its evidence are kept
+  # in workflow/efit_channel_selection/README.md.
   fl_correct_option: 0
+  # Recovery backend: 0 none, 1 refit rejected probes from their family's
+  # Gaussian profile, 2 refit every probe.
   gaussian_fit_option: 1
   npprime: 2
   nffprime: 2
