@@ -78,7 +78,7 @@ def test_the_measured_phases_sit_on_the_stored_angles_and_recover_the_mode(phase
 
 def test_the_fit_is_drawn_only_when_asked(phase_ods):
     points_only = _model(phase_ods, show_fit=False)
-    assert [s.role for s in points_only.series] == [points_only.series[0].role]
+    assert len(points_only.series) == 1
     assert all(s.role != "fit" for s in points_only.series)
 
     with_fit = _model(phase_ods, show_fit=True)
@@ -210,3 +210,100 @@ def test_omas_and_imas_agree(sample):
         assert a.label == b.label
         np.testing.assert_allclose(a.x, b.x, equal_nan=True)
         np.testing.assert_allclose(a.y, b.y, equal_nan=True)
+
+
+# ---------------------------------------------------------------------------
+# what the numbers are allowed to claim
+# ---------------------------------------------------------------------------
+
+def test_a_number_two_positions_cannot_settle_is_labelled_as_a_family(sample):
+    """Angles that are all multiples of one spacing alias n by 360/spacing."""
+    from vaft.plot.backend.recipes import _toroidal_alias_period
+
+    assert _toroidal_alias_period(np.array([0.0, 240.0])) == 3
+    assert _toroidal_alias_period(np.array([0.0, 120.0, 180.0, 240.0])) == 6
+    assert _toroidal_alias_period(np.array([0.0])) is None
+
+    model = build_model(NAME, normalize_entries(sample), time=0.30, window_size=512)
+    # 39915 sits at 0 and 240 degrees, so its default candidates -6..6 hold
+    # five members of one family and the label must not pick one silently.
+    assert all("(mod 3)" in s.label for s in model.series), [s.label for s in model.series]
+
+
+def test_a_number_the_array_can_settle_carries_no_family(phase_ods):
+    """Four positions with candidates 0..4 leave no alias in the set."""
+    label = _model(phase_ods).series[0].label
+    assert label.endswith("n=2") and "mod" not in label
+
+
+def test_the_title_reports_the_probes_behind_the_positions(sample):
+    title = build_model(NAME, normalize_entries(sample), time=0.30, window_size=512).title
+    assert "2 toroidal positions" in title
+    assert "probes at" in title
+    # Probes on another timebase are excluded, and saying so is part of the count.
+    assert "left out" in title
+
+
+def test_probes_a_hair_apart_are_one_position():
+    """Stored angles carry rounding noise; a microdegree is not a baseline."""
+    from vaft.plot.backend.recipes import _distinct_toroidal_angles
+
+    noisy = _phase_ods()
+    for index in range(4):
+        noisy[f"magnetics.b_field_pol_probe.{index}.toroidal_angle"] = 1e-9 * index
+    _, angles = __import__("vaft").plot.backend.recipes._toroidal_phase_channels(noisy)
+    assert _distinct_toroidal_angles(angles).size == 1
+    assert missing_required_path(noisy, NAME) is not None
+
+
+# ---------------------------------------------------------------------------
+# what it refuses, and how it says so
+# ---------------------------------------------------------------------------
+
+def test_probes_on_another_timebase_are_answered_before_the_plot_is_offered(phase_ods):
+    """Availability and buildability must agree about the timebase."""
+    import copy as _copy
+
+    mixed = _copy.deepcopy(phase_ods)
+    for index in (1, 2, 3):
+        probe = f"magnetics.b_field_pol_probe.{index}"
+        mixed[f"{probe}.voltage.time"] = np.asarray(mixed[f"{probe}.voltage.time"])[:100]
+        mixed[f"{probe}.voltage.data"] = np.asarray(mixed[f"{probe}.voltage.data"])[:100]
+    reason = missing_required_path(mixed, NAME)
+    assert reason and "timebase" in reason, reason
+    assert NAME not in {record.name for record in vaft.omas.available_plots(mixed)}
+
+
+def test_a_failing_predicate_is_reported_as_a_failure(phase_ods):
+    """A broken check is not the same fact as an unsupported input."""
+    import dataclasses
+
+    from vaft.plot.backend import recipes
+
+    def explode(_ods):
+        raise RuntimeError("connection lost")
+
+    broken = dataclasses.replace(recipes.RECIPES[NAME], available=explode)
+    reason = recipes._unmet_data_condition(broken, NAME, phase_ods)
+    assert "RuntimeError" in reason and "connection lost" in reason
+
+
+def test_named_channels_are_honoured_and_unknown_ones_refused(phase_ods):
+    model = _model(phase_ods, channels=[0, 2])
+    measured = [s for s in model.series if s.role != "fit"][0]
+    np.testing.assert_allclose(np.sort(measured.x), [0.0, 180.0], atol=1e-6)
+    assert "2 probes at 2 toroidal positions" in model.title
+    with pytest.raises(ValueError, match="carry no toroidal angle"):
+        _model(phase_ods, channels=[0, 99])
+
+
+def test_each_band_is_paired_with_its_own_fit_by_colour(sample):
+    """Two bands, so a fit taking the wrong band's colour would show."""
+    model = build_model(NAME, normalize_entries(sample), time=0.30, window_size=512)
+    measured = [s for s in model.series if s.role != "fit"]
+    fits = [s for s in model.series if s.role == "fit"]
+    assert len(measured) == 2 and len(fits) == 2
+    assert measured[0].style["color"] != measured[1].style["color"]
+    for band, fit in zip(measured, fits):
+        assert fit.style["color"] == band.style["color"]
+        assert fit.channel == band.channel

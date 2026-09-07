@@ -487,6 +487,9 @@ def missing_required_path(ods: Any, name: str) -> str | None:
         if any(entry_supports(ods, member) for member in recipe.members):
             return None
         return " or ".join(recipe.members)
+    reason = _unmet_data_condition(recipe, name, ods)
+    if reason is not None:
+        return reason
     if not spec.required_paths:
         if spec.ids and any(_has(ods, root) for root in spec.ids):
             return None
@@ -500,14 +503,31 @@ def missing_required_path(ods: Any, name: str) -> str | None:
         if any(_path_has_data(ods, option) for option in alternatives):
             continue
         return template
-    predicate = getattr(recipe, "available", None)
-    if predicate is not None:
-        # A data condition the paths cannot express (issue #485).
-        try:
-            return predicate(ods) or None
-        except Exception:  # noqa: BLE001 - an unreadable input is simply unsupported
-            return name
     return None
+
+
+def _unmet_data_condition(recipe: Any, name: str, ods: Any) -> str | None:
+    """The reason a recipe's own predicate refuses this input, or ``None``.
+
+    A plot may need something no path expresses -- probes spread around the
+    torus, say (issue #485).  The predicate is asked before the paths so that
+    a recipe declaring no ``required_paths`` still gets one, and a failure
+    inside it is reported as a failure rather than dressed up as
+    unavailability: an unreadable input and a broken predicate are different
+    facts, and a catalog that reported the second as the first would hide it.
+    """
+    predicate = getattr(recipe, "available", None)
+    if predicate is None:
+        return None
+    try:
+        return predicate(ods) or None
+    except Exception as error:  # noqa: BLE001 - one bad predicate must not end the catalog
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "the availability check for %s failed: %s", name, error
+        )
+        return f"an availability check that failed: {type(error).__name__}: {error}"
 
 
 class _ZeroIndices(dict):
@@ -1786,20 +1806,85 @@ def _toroidal_phase_channels(ods: Any) -> tuple[list[int], np.ndarray]:
     return indices, np.asarray(angles, dtype=float)
 
 
+#: Two probes count as separated only beyond this angle, in degrees.  Stored
+#: angles come from geometry computations, so a rounding difference of a
+#: microdegree is one position recorded twice, not a baseline to fit across.
+_PHASE_ANGLE_TOLERANCE_DEG = 1.0
+
+
+def _distinct_toroidal_angles(angles: np.ndarray) -> np.ndarray:
+    """The toroidal positions an array actually occupies, in degrees."""
+    degrees = np.degrees(np.mod(np.asarray(angles, dtype=float), 2.0 * np.pi))
+    return np.unique(np.round(degrees / _PHASE_ANGLE_TOLERANCE_DEG)) * _PHASE_ANGLE_TOLERANCE_DEG
+
+
+def _toroidal_alias_period(degrees: np.ndarray) -> int | None:
+    """Mode numbers this angle set cannot tell apart, or ``None`` if it can.
+
+    Phases are read modulo 2*pi, so if every occupied angle is a multiple of
+    one spacing ``d`` degrees, ``n`` and ``n + 360/d`` predict the same phase
+    at every probe and no fit can separate them. Two positions 240 degrees
+    apart therefore fix ``n`` only to within a step of three.
+    """
+    unique = np.unique(np.round(degrees, 3))
+    if unique.size < 2:
+        return None
+    steps = np.round(np.diff(np.concatenate([unique, [360.0 + unique[0]]])) * 1e3).astype(int)
+    spacing = int(np.gcd.reduce(steps))
+    if spacing <= 0 or (360_000 % spacing):
+        return None
+    period = 360_000 // spacing
+    return period if period > 1 else None
+
+
 def _mirnov_phase_available(ods: Any) -> str | None:
     """Why this input cannot carry a toroidal mode fit, or ``None`` (issue #485).
 
     An array measures a mode number by comparing phases *around* the torus,
     so the requirement is two probes at genuinely different toroidal angles
-    that both recorded something -- a fact about the data, not about which
-    paths exist, which is why it is answered here rather than declared.
+    that both recorded something on one timebase -- facts about the data, not
+    about which paths exist, which is why they are answered here rather than
+    declared. The timebase is part of it because phases read off two
+    differently digitised waveforms are not comparable sample by sample, and
+    a fit that discovered this only while building would have been advertised
+    already.
     """
     indices, angles = _toroidal_phase_channels(ods)
-    if len(indices) < 2 or np.unique(np.round(np.mod(angles, 2.0 * np.pi), 6)).size < 2:
+    if len(indices) < 2 or _distinct_toroidal_angles(angles).size < 2:
         return (
             "two or more Mirnov probes at distinct toroidal angles, each carrying a waveform"
         )
+    kept, _ = _shared_timebase_probes(ods, indices)
+    if len(kept) < 2 or _distinct_toroidal_angles(
+        angles[[indices.index(index) for index in kept]]
+    ).size < 2:
+        return (
+            "two or more Mirnov probes at distinct toroidal angles sharing one timebase"
+        )
     return None
+
+
+def _shared_timebase_probes(ods: Any, indices: Sequence[int]) -> tuple[list[int], np.ndarray | None]:
+    """The probes of ``indices`` that share the first usable timebase.
+
+    One timebase per figure: a probe digitised differently is not comparable
+    phase by phase, so it is left out rather than resampled into agreement.
+    """
+    axis: np.ndarray | None = None
+    kept: list[int] = []
+    for index in indices:
+        values = _array(ods, f"{_MIRNOV_PROBES}.{index}.voltage.data")
+        times = _first_time(
+            ods, (f"{_MIRNOV_PROBES}.{index}.voltage.time", "magnetics.time"), i=index
+        )
+        if values is None or times is None or times.size != values.size:
+            continue
+        if axis is None:
+            axis = times
+        elif times.size != axis.size:
+            continue
+        kept.append(index)
+    return kept, axis
 
 
 #: One colour per fitted band, so a band and its fit are read together.
@@ -1813,6 +1898,7 @@ def _build_mirnov_spatial_phase(
     frequencies: Any = None,
     num_modes: int = 2,
     candidate_n: Any = None,
+    channels: Any = None,
     window_size: int = 500,
     show_fit: bool = True,
     preprocess: bool = True,
@@ -1835,33 +1921,28 @@ def _build_mirnov_spatial_phase(
     from vaft.process.magnetics import mirnov_preprocess_signal, toroidal_phase_fit_at_time
 
     indices, angles = _toroidal_phase_channels(ods)
-    reason = _mirnov_phase_available(ods)
+    if channels is not None:
+        wanted = [int(channel) for channel in np.atleast_1d(channels)]
+        unknown = [channel for channel in wanted if channel not in indices]
+        if unknown:
+            raise ValueError(
+                f"channels {unknown} carry no toroidal angle and waveform; this input "
+                f"offers {indices}"
+            )
+        angles = angles[[indices.index(channel) for channel in wanted]]
+        indices = wanted
+    reason = _mirnov_phase_available(ods) if channels is None else None
     if reason:
         raise ValueError(f"a toroidal mode fit needs {reason}")
 
-    axis = None
-    signals: list[np.ndarray] = []
-    kept: list[int] = []
-    for index in indices:
-        values = _array(ods, f"{_MIRNOV_PROBES}.{index}.voltage.data")
-        times = _first_time(
-            ods, (f"{_MIRNOV_PROBES}.{index}.voltage.time", "magnetics.time"), i=index
-        )
-        if times is None or times.size != values.size:
-            continue
-        if axis is None:
-            axis = times
-        elif times.size != axis.size:
-            # One timebase per figure: a probe digitised differently is not
-            # comparable phase by phase, so it is left out rather than resampled.
-            continue
-        signals.append(values)
-        kept.append(index)
+    kept, axis = _shared_timebase_probes(ods, indices)
+    dropped = len(indices) - len(kept)
     if axis is None or len(kept) < 2:
         raise ValueError(
             "a toroidal mode fit needs two probes sharing one timebase; this input has "
             f"{len(kept)}"
         )
+    signals = [_array(ods, f"{_MIRNOV_PROBES}.{index}.voltage.data") for index in kept]
     angles = angles[[indices.index(index) for index in kept]]
     sample_rate = 1.0 / float(np.median(np.diff(axis))) if axis.size > 1 else 1.0
     _, center_time, stamp = resolve_time_sample(axis, time)
@@ -1880,11 +1961,22 @@ def _build_mirnov_spatial_phase(
     )
 
     degrees = np.degrees(np.mod(result.toroidal_angle, 2.0 * np.pi))
-    positions = int(np.unique(np.round(degrees, 6)).size)
+    occupied = _distinct_toroidal_angles(result.toroidal_angle)
+    positions = int(occupied.size)
+    period = _toroidal_alias_period(occupied)
     order = np.argsort(degrees)
     series: list[Series] = []
     for position, mode in enumerate(result.modes):
-        band = f"{mode.frequency / 1e3:.1f} kHz, n={mode.n}"
+        # An angle set that is a multiple of one spacing cannot separate mode
+        # numbers a period apart, so the label says so rather than presenting
+        # whichever member of the family the search happened to reach first.
+        aliased = period is not None and sum(
+            1 for candidate in np.asarray(result.candidate_n).ravel()
+            if (int(candidate) - int(mode.n)) % period == 0
+        ) > 1
+        band = f"{mode.frequency / 1e3:.1f} kHz, n={mode.n}" + (
+            f" (mod {period})" if aliased else ""
+        )
         # A band and its own fitted line share a colour, so which line belongs
         # to which measurement is visible without reading the legend.
         colour = _PHASE_BAND_COLOURS[position % len(_PHASE_BAND_COLOURS)]
@@ -1912,7 +2004,9 @@ def _build_mirnov_spatial_phase(
         y_unit="deg",
         title=(
             f"Toroidal mode phase at t = {center_time * 1e3:.2f} ms ({stamp}) — "
-            f"{positions} toroidal position{'' if positions == 1 else 's'}"
+            f"{len(kept)} probes at {positions} toroidal "
+            f"position{'' if positions == 1 else 's'}"
+            + (f", {dropped} on another timebase left out" if dropped else "")
         ),
         x_limits=(0.0, 360.0),
     )

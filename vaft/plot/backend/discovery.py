@@ -128,7 +128,10 @@ def _analysis_methods() -> dict[str, tuple[str, ...]]:
 
 #: The options each named analysis reads (issue #484, extended by #485).
 ANALYSIS_PARAMETERS: dict[str, tuple[str, ...]] = {
-    "wrapped n fit": ("frequencies", "num_modes", "candidate_n", "window_size", "show_fit"),
+    "wrapped n fit": (
+        "frequencies", "num_modes", "candidate_n", "channels", "window_size",
+        "show_fit", "preprocess",
+    ),
 }
 
 
