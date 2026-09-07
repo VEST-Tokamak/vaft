@@ -149,17 +149,24 @@ def test_reduction_error_is_invisible_next_to_the_vessel_model_error(study):
     result = wr.experimental_comparison(ods, selections)
     full_median = result["full"]["measurement"]["improvement"]["median"]
 
-    # The full wall removes about 78% of the no-wall residual on this shot
-    # (0.7809, identical on Linux and Windows and across repeated runs, so the
-    # bound is on the physics rather than on numerical spread), and 0.75 leaves
-    # room for that to move without going quiet if the wall term collapses.
-    # It sits above the 0.7 that test_eddy_vacuum_validation.py already asks of
-    # the same quantity, so the two agree on what a working vessel model is.
+    # The full wall removes a median 78% of the coil-only residual here
+    # (0.7811 over the 73 usable channels).  The median is steady because the
+    # channels are, not because the arithmetic is delicate: it moves by under
+    # 2e-3 across the evaluation window, across wall-authority conditioning
+    # from 0.0 to 1.3, and between the packaged sample and the canonical
+    # source it is cut from -- and it is the same on Linux and on Windows.
+    # The 0.85 this line once asked was never this quantity: no probe channel
+    # on this shot reaches 0.863, so no conditioning of a 73-channel median
+    # comes near 0.85.  It was a loose factor below the 91% the guide once
+    # reported, a figure the study's own convergence table contradicts.
+    # 0.75 is placed where it separates a working vessel model from a degraded
+    # one -- tau_19 below reaches 0.644 -- so the line still goes quiet if the
+    # wall term collapses.
     assert full_median > 0.75
     assert result["no_wall"]["measurement"]["improvement"]["median"] == 0.0
 
     # A converged reduction is indistinguishable from the full wall against the
-    # data: moments_30 lands 0.0005 away, with 0.5% of the probe wall term
+    # data: moments_30 lands 0.0009 away, with 0.5% of the probe wall term
     # missing.  That is the separation -- measurement error is the vessel
     # model's, reduction error is the truncation's.
     moments_median = result["models"]["moments_30"]["measurement"]["improvement"]["median"]

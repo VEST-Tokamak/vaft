@@ -139,10 +139,14 @@ plasma-free benchmark for the full PF-only wall and for each reduced wall
 over the same window, and reports two blocks per model: `measurement`
 (residual against the data) and `reduction` (distance from the full model
 at the same channels). On shot 39915 the full wall improves the coil-only
-residual by a median 91 %, and every reduced wall — even the nineteen
-slowest modes, 6 % from the full wall term at the probes — improves it by
-the same 91 % to within a point: the residual that remains is the vessel
-model's, not the truncation's.
+residual by a median 78 % over the 73 usable channels, and a converged
+reduction improves it by the same 78 % to within a tenth of a point
+(`moments_30`, 0.5 % from the full wall term at the probes): the residual
+that remains is the vessel model's, not the truncation's. The nineteen
+slowest modes are the counter-example rather than a second instance of it
+— 34 % from the full wall term at the probes, they reach only 64 % — so the
+separation is a claim about converged reductions, not about reduction in
+general.
 
 `find_plasma_free_shots` classifies database shots as `plasma_free`,
 `plasma`, `undriven` or `daq_missing` from their plasma-current and coil
