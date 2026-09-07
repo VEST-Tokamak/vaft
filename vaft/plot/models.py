@@ -305,6 +305,12 @@ class Field2D(ViewModel):
     #: The display policy's resolution of the value unit, when the builder
     #: applied one; ``value_label`` already carries the unit it names.
     display: "DisplaySpec | None" = None
+    #: What happens to values outside ``contour_levels``: ``"neither"`` leaves
+    #: them blank, ``"min"``/``"max"``/``"both"`` saturate them at the end
+    #: colours.  Levels chosen from a percentile need this -- otherwise the
+    #: points the percentile deliberately excluded come out as holes in the
+    #: map, indistinguishable from missing data.
+    extend: str = "neither"
     #: Where the main contours are drawn, as a boolean ``(len(z), len(r))``
     #: grid; ``None`` draws them everywhere.  A flux map confines its plasma
     #: levels to the plasma, since the same psi values recur beside the coils.
@@ -339,6 +345,11 @@ class Field2D(ViewModel):
                 self,
                 "contour_levels",
                 as_model_array(self.contour_levels, where="Field2D.contour_levels"),
+            )
+        if self.extend not in ("neither", "min", "max", "both"):
+            raise ValueError(
+                'Field2D.extend must be one of "neither", "min", "max", "both"; '
+                f"got {self.extend!r}"
             )
         object.__setattr__(self, "overlays", tuple(self.overlays))
 

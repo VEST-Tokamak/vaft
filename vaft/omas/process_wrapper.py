@@ -885,6 +885,15 @@ _VACUUM_MAP_CACHE: dict[tuple, tuple] = {}
 #: times over, ~97 MB at 65x65 on VEST, so this is deliberately small.
 _VACUUM_MAP_CACHE_LIMIT = 4
 
+#: Vessel currents solved from one PF programme, keyed by that programme and
+#: the machine.  A plot that hands the evaluator a private copy of the ODS each
+#: time -- which is how a recipe avoids mutating its caller's -- would otherwise
+#: repeat the same two-second eddy solve on every frame.
+_VACUUM_EDDY_CACHE: dict[tuple, tuple] = {}
+
+#: Two entries: each holds one current per loop per sample, ~19 MB on VEST.
+_VACUUM_EDDY_CACHE_LIMIT = 2
+
 
 def _machine_fingerprint(ods: ODS) -> tuple:
     """What the response matrices depend on, besides the observation points.
@@ -919,6 +928,42 @@ def _vacuum_response(ods: ODS, r_axis: ndarray, z_axis: ndarray):
     return cached
 
 
+def _solve_or_recall_eddy_currents(ods: ODS) -> None:
+    """Fill in ``pf_passive`` currents, reusing an identical earlier solve.
+
+    The vessel's response is fixed by the machine and the PF programme, so two
+    ODS objects carrying the same coil waveforms have the same answer.  Solving
+    it again costs about two seconds, which is most of what an interactive
+    frame would otherwise spend.
+    """
+    pf = ods["pf_active"]
+    time_base = np.asarray(pf["time"], dtype=float)
+    coil_currents = np.column_stack([
+        np.asarray(pf[f"coil.{i}.current.data"], dtype=float)
+        for i in range(len(pf["coil"]))
+    ]) if len(pf["coil"]) else np.zeros((time_base.size, 0))
+    key = (_machine_fingerprint(ods), time_base.tobytes(), coil_currents.tobytes())
+
+    cached = _VACUUM_EDDY_CACHE.get(key)
+    if cached is None:
+        compute_eddy_currents(ods, plasma=[], ip=[])
+        pfp = ods["pf_passive"]
+        cached = (
+            np.asarray(pfp["time"], dtype=float),
+            np.column_stack([np.asarray(pfp[f"loop.{i}.current"], dtype=float)
+                             for i in range(len(pfp["loop"]))]),
+        )
+        if len(_VACUUM_EDDY_CACHE) >= _VACUUM_EDDY_CACHE_LIMIT:
+            _VACUUM_EDDY_CACHE.pop(next(iter(_VACUUM_EDDY_CACHE)))
+        _VACUUM_EDDY_CACHE[key] = cached
+        return
+
+    passive_time, loop_currents = cached
+    ods["pf_passive.time"] = passive_time
+    for index in range(loop_currents.shape[1]):
+        ods[f"pf_passive.loop.{index}.current"] = loop_currents[:, index]
+
+
 def _vacuum_currents(ods: ODS, indices) -> ndarray:
     """Coil and passive-loop currents at the given samples of the PF time base.
 
@@ -936,6 +981,31 @@ def _vacuum_currents(ods: ODS, indices) -> ndarray:
     columns += [np.asarray(pfp[f"loop.{i}.current"], dtype=float)[take]
                 for i in range(len(pfp["loop"]))]
     return np.column_stack(columns)
+
+
+#: How much one cached grid's response may occupy, in bytes.  Three dense
+#: (n_points x n_sources) float64 matrices, so it grows with the fourth power
+#: of the resolution -- 97 MB at 65 on VEST, 591 MB at 129.
+_VACUUM_RESPONSE_BUDGET = 200 * 1024 ** 2
+
+
+def _refuse_oversized_grid(ods: ODS, r_axis: ndarray, z_axis: ndarray) -> None:
+    """Refuse a grid whose cached response would not fit, naming one that does.
+
+    Silently allocating several hundred megabytes -- and then keeping it, since
+    the point of the cache is to keep it -- is worse than saying no.
+    """
+    sources = len(_vacuum_sources(ods)[0])
+    needed = 3 * r_axis.size * z_axis.size * sources * 8
+    if needed <= _VACUUM_RESPONSE_BUDGET:
+        return
+    affordable = int(np.sqrt(_VACUUM_RESPONSE_BUDGET / (3 * sources * 8)))
+    raise ValueError(
+        f"a {r_axis.size}x{z_axis.size} grid over {sources} source filaments "
+        f"needs {needed / 1024 ** 2:.0f} MB of cached response matrices, above "
+        f"the {_VACUUM_RESPONSE_BUDGET / 1024 ** 2:.0f} MB budget; "
+        f"resolution={affordable} fits"
+    )
 
 
 def _vacuum_map_grid(ods: ODS, resolution: int) -> Tuple[ndarray, ndarray]:
@@ -1017,7 +1087,7 @@ def compute_vacuum_field_map(
     if "time" not in ods["pf_passive"]:
         # Geometry-only samples carry no passive-loop waveform; solve it rather
         # than refusing, matching compute_null_ods.
-        compute_eddy_currents(ods, plasma=[], ip=[])
+        _solve_or_recall_eddy_currents(ods)
 
     if grid is None:
         r_axis, z_axis = _vacuum_map_grid(ods, resolution)
@@ -1030,6 +1100,7 @@ def compute_vacuum_field_map(
     time_base = np.asarray(ods["pf_active.time"], dtype=float)
     index = int(np.argmin(np.abs(time_base - float(time))))
 
+    _refuse_oversized_grid(ods, r_axis, z_axis)
     psi_response, bz_response, br_response = _vacuum_response(ods, r_axis, z_axis)
     width = len(ods["pf_active.coil"]) + len(ods["pf_passive.loop"])
     psi_response = psi_response[:, :width]

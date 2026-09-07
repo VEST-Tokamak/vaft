@@ -67,6 +67,11 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("time_slice", "int", description="stored equilibrium slice index"),
         OptionSpec("time", "float", description="a time in seconds, snapped to a stored slice"),
         OptionSpec("time_range", "range", description="(start, stop) in seconds"),
+        # A dense time base is indexed, not chosen from a list: the vacuum map
+        # runs over the PF samples, thousands of them, where time_slice= names
+        # one of a handful of stored equilibria.
+        OptionSpec("time_index", "int", description="position on a dense time base"),
+        OptionSpec("resolution", "int", description="points per axis of a computed 2-D grid"),
         OptionSpec("centre", "range", description="(r0, z0) in metres the poloidal angle is measured about"),
         OptionSpec("angle", "choice", "recipes.ANGLE_SOURCES", "where a sensor's poloidal angle comes from"),
         OptionSpec("overlay", "multi", "recipes.CAMERA_OVERLAYS", "what is drawn over a map"),

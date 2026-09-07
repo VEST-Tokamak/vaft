@@ -139,7 +139,11 @@ _QUANTITIES = (
         "current_turns", "A-turns", {"A-turns": 1.0, "kA-turns": 1e-3}, "kA-turns"
     ),
     QuantityDisplay("voltage", "V", {"V": 1.0, "mV": 1e3}, "V"),
-    QuantityDisplay("magnetic_field", "T", {"T": 1.0, "mT": 1e3}, "mT"),
+    # Gauss is the working unit of tokamak start-up: a breakdown null is a few
+    # gauss and the vertical field a few hundred, where millitesla reads as a
+    # decimal fraction.
+    QuantityDisplay("magnetic_field", "T", {"T": 1.0, "mT": 1e3, "G": 1e4}, "mT"),
+    QuantityDisplay("electric_field", "V/m", {"V/m": 1.0, "mV/m": 1e3}, "V/m"),
     QuantityDisplay(
         "magnetic_flux",
         "Wb",
@@ -207,6 +211,7 @@ del _q
 SUBJECT_UNIT_DEFAULTS: dict[tuple[str, str], str] = {
     ("tf_coil", "magnetic_field"): "T",
     ("barometry", "pressure"): "Torr",
+    ("vacuum", "magnetic_field"): "G",
 }
 
 #: (subject, quantity) -> notation override.
@@ -222,6 +227,9 @@ SUBJECT_NOTATION_DEFAULTS: dict[tuple[str, str], str] = {
 #: is why a beta family plot cannot put all three on one shared axis.
 DIMENSIONLESS_DISPLAY: dict[tuple[str, str], tuple[str, float, str]] = {
     ("equilibrium", "beta_t"): ("%", 100.0, "percent"),
+    # A ratio of a field gradient to the field; the stable window 0 < n < 1.5
+    # is quoted in these units and no other, so there is nothing to convert.
+    ("vacuum", "decay_index"): ("", 1.0, "auto"),
 }
 
 

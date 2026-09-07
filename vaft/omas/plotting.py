@@ -807,6 +807,26 @@ def plot_equilibrium_field_psi_vacuum(
     )
 
 
+def plot_vacuum_field(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """One quantity of the coils' and vessel's vacuum field, at one instant.
+
+    ``field=`` chooses among ``psi``, ``b_poloidal``, ``decay_index`` and
+    ``breakdown``; ``time_index=`` steps along the PF time base.
+
+    Renders with :func:`vaft.plot.vacuum_field`.
+    """
+    return render(
+        "vacuum_field", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_equilibrium_geometry_boundary(
     source: Any,
     *,
@@ -2777,6 +2797,7 @@ __all__ = [
     "plot_equilibrium_field_2d",
     "plot_equilibrium_field_psi",
     "plot_equilibrium_field_psi_vacuum",
+    "plot_vacuum_field",
     "plot_equilibrium_geometry_boundary",
     "plot_equilibrium_geometry_topview",
     "plot_equilibrium_overview",

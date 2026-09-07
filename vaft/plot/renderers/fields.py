@@ -21,6 +21,7 @@ __all__ = [
     "equilibrium_field_2d",
     "equilibrium_field_psi",
     "equilibrium_field_psi_vacuum",
+    "vacuum_field",
     "render_field_2d",
 ]
 
@@ -54,6 +55,8 @@ def render_field_2d(
     contour_kwargs = {"cmap": cmap, **style}
     if levels is not None:
         contour_kwargs["levels"] = levels
+        if model.extend != "neither":
+            contour_kwargs["extend"] = model.extend
     if model.secondary_levels:
         axes.contour(
             model.r, model.z, model.values, levels=list(model.secondary_levels),
@@ -157,6 +160,27 @@ def equilibrium_field_psi_vacuum(
     model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Vacuum poloidal flux from the PF coils alone, without plasma."""
+    return render_field_2d(model, ax=ax, show=show, **style)
+
+
+@_field_renderer(
+    domain="pf_active", quantity="",
+    subject="vacuum",
+    description="The vacuum field of the coils and vessel at one instant: the "
+                "flux, the poloidal field strength, the decay index, or the "
+                "breakdown figure of merit, chosen with field=.",
+    ids=("pf_active", "pf_passive", "wall", "tf", "equilibrium", "magnetics"),
+    required_paths=("pf_active.time", "pf_active.coil.{i}.current.data"),
+    optional_paths=(
+        "pf_passive.loop.{i}.element.{j}.geometry.outline.r",
+        "tf.b_field_tor_vacuum_r.data",
+        "wall.description_2d.{i}.limiter.unit.{j}.outline.r",
+    ),
+)
+def vacuum_field(
+    model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """One quantity of the coils' and vessel's vacuum field, at one instant."""
     return render_field_2d(model, ax=ax, show=show, **style)
 
 
