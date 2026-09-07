@@ -1,7 +1,10 @@
 """NUBEAM neutral-beam Monte Carlo adapter.
 
-Runs NUBEAM and parses its native output. Mapping those results into IMAS is
-not implemented yet; see issue #490 section 6.
+Runs NUBEAM and parses its native output. This layer stops at NUBEAM's own
+terms; :mod:`vaft.machine_mapping.core_sources` writes the plasma-side source
+term and :mod:`vaft.machine_mapping.distributions` the fast-ion population.
+The birth markers and lost-particle records have no IDS home yet -- that is the
+remainder of issue #490 section 6.
 
 The installation is external -- NTCC requires each user to accept its licence
 before downloading the source -- so VAFT owns the build recipe
