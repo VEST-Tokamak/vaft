@@ -137,7 +137,7 @@ oriented; and the datasheet does not record which toroidal direction the Hall
 sensors face.  So it needs the raw alignment-shot data, which is in the VEST
 database but not packaged here, plus one statement of the Hall sensors' facing
 (issue #298).  Failing that: the TF winding sense with its supply polarity.  The
-packaged 3D coil geometry (:mod:`vaft.machine_mapping.coil_geometry_3d`) covers
+packaged 3D coil geometry (:mod:`vaft.machine_mapping.coils_non_axisymmetric_geometry`) covers
 only the non-axisymmetric RMP sets, so it cannot supply the TF winding path.
 
 Until both polarities are confirmed the VEST COCOS index is not resolved, because
@@ -153,6 +153,7 @@ import numpy as np
 
 __all__ = [
     "BT_SIGN_VEST_TO_IMAS",
+    "VEST_GPEC_COIL_DIRECTIONS",
     "DischargeSignContract",
     "IMAS_DISCHARGE_SIGNS",
     "IP_SIGN_VEST_TO_IMAS",
@@ -194,6 +195,38 @@ class DischargeSignContract:
 
 IMAS_DISCHARGE_SIGNS = DischargeSignContract(ip=-1, b0=+1)
 """Ip clockwise and Bt counter-clockwise, expressed in IMAS signs."""
+
+VEST_GPEC_COIL_DIRECTIONS = {"ip_direction": "positive", "bt_direction": "negative"}
+"""The ``coil.in`` direction words of the VEST reference GPEC run.
+
+GPEC documents these as "positive for CCW or negative for CW from a top down
+view".  The pair is the one carried by the shot-48226 reference input
+(``test/data/gpec_reference_48226/coil.in``); it is stated here per machine
+rather than derived from :data:`IMAS_DISCHARGE_SIGNS`, and the GPEC adapter
+refuses to let another machine inherit it.
+
+What GPEC does with the two words, read from its source:
+
+* ``coil/coil.F`` and ``gpec/gpec.f`` set ``ipd``/``btd`` to ``+1`` unless the
+  word is ``"negative"``, then ``helicity = ipd * btd``.
+* The *product* is what mirrors the field: ``coil/field.F`` maps the
+  observation angle as ``phi = -helicity * (2*pi*zeta + phi_eq)``, and
+  ``gpec/gpout.f`` multiplies the imaginary part of every perturbed output by
+  ``-helicity``.
+* The words act *separately* in one place only, where ``gpec/gpout.f`` builds
+  the equilibrium field on the diagnostic grid: ``ipd > 0`` flips the sign of
+  ``B_R`` and ``B_Z``, ``btd < 0`` flips ``B_phi``.
+
+So flipping both words together leaves the perturbed response untouched and
+changes only the sign of the equilibrium field GPEC writes out.
+
+Unresolved for VEST: this pair reads as I_p counter-clockwise and B_T
+clockwise, while :data:`IMAS_DISCHARGE_SIGNS` states the opposite pair for the
+same machine.  Both give ``helicity = -1``, so no VEST result published from
+this reference run is affected in its perturbed quantities, but one of the two
+constants is wrong about the machine, and correcting one without the other
+would change VEST results; the test named below fails if that happens.
+"""
 
 
 def expected_q_sign(cocos_index: int, contract: DischargeSignContract | None = None) -> int:

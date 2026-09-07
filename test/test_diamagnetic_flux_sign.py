@@ -159,14 +159,30 @@ def _virial_closure(sample, flux_sign):
 
 def test_the_measured_loop_closes_the_virial_balance_in_the_shared_convention(sample):
     """Same signed convention on both sides: the measured flux, taken as it is
-    stored, reproduces the virial beta_p; negating it does not.  This is what
-    makes the #72 diamagnetic-energy check a test of the data rather than of
-    an accidental sign agreement."""
+    stored, reproduces the virial beta_p far better than its negation does.
+    This is what makes the #72 diamagnetic-energy check a test of the data
+    rather than of an accidental sign agreement.
+
+    The stored sign leaves ~8%, not ~0%, and that residual is real: beta_p is
+    built on the equilibrium's own mu_i (+0.75 here) and beta_pd on the measured
+    one (-0.63), quantities the next test records as disagreeing about the
+    direction of the plasma diamagnetism. Until #546 this test asserted 5%,
+    which the Lao beta_p sign error supplied by cancelling that disagreement.
+    The discriminator is the asymmetry between the two signs -- a factor of
+    eleven -- not a tight absolute agreement that was never physical.
+    """
     measured, mui, beta_pd, beta_p = _virial_closure(sample, +1.0)
     assert measured < 0 and mui < 0
-    assert beta_pd == pytest.approx(beta_p, rel=0.05)
-    _, _, beta_pd_negated, _ = _virial_closure(sample, -1.0)
-    assert not beta_pd_negated == pytest.approx(beta_p, rel=0.5)
+    _, mui_negated, beta_pd_negated, _ = _virial_closure(sample, -1.0)
+    assert mui_negated == pytest.approx(-mui, rel=1e-9)
+
+    stored_error = abs(beta_pd - beta_p) / abs(beta_p)
+    negated_error = abs(beta_pd_negated - beta_p) / abs(beta_p)
+    assert stored_error < 0.15, "the stored sign must still close the balance"
+    assert negated_error > 10.0 * stored_error, (
+        "negating the measured flux must be clearly worse, or this test cannot "
+        "establish the convention"
+    )
 
 
 def test_the_sample_reconstruction_disagrees_with_its_loop_and_that_is_a_fit_failure(sample):

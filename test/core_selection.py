@@ -49,6 +49,7 @@ TEST_ROOT = Path(__file__).resolve().parent
 CORE_MODULES: tuple[str, ...] = (
     # Import and namespace shape. If these break, nothing downstream is
     # trustworthy -- and they are the cheapest tests in the repository.
+    "test_coil_geometry_3d_shim.py",
     "test_compat_runtime.py",
     "test_data_code_namespace.py",
     "test_database_namespace.py",
@@ -76,8 +77,13 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagnostic_registry.py",
     "test_display_policy.py",
     "test_layout_contract.py",
+    "test_line_abscissa.py",
+    "test_magnetics_spatial.py",
     "test_plot_contract.py",
     "test_plot_taxonomy.py",
+    "test_process_magnetics_geometry.py",
+    "test_profile_coordinates.py",
+    "test_spectrogram_methods.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
     # writes, plus the canonical-IDS contract fixtures.
     "contracts/test_contract_legacy_rejections.py",

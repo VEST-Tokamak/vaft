@@ -1885,6 +1885,42 @@ def plot_flux_loop_time_flux(
     )
 
 
+def plot_flux_loop_spatial_flux(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> Any:
+    """Flux-loop flux against sensor position at one time (issue #486).
+
+    ``time=`` snaps to the nearest stored sample (``time_slice=`` maps
+    through a stored equilibrium slice); ``coordinate="z"`` (default) draws
+    the inboard and outboard loops as two panels, ``"theta"`` one panel
+    against the poloidal angle about the layout centre (``centre=``).
+    Renders with :func:`vaft.plot.flux_loop_spatial_flux` from OMAS input.
+    """
+    return render("flux_loop_spatial_flux", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_b_field_probe_spatial_field(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> Any:
+    """B-probe poloidal field against sensor position at one time (issue #486).
+
+    Same options as :func:`plot_flux_loop_spatial_flux`; ``angle="stored"``
+    reads each probe's IMAS ``poloidal_angle`` instead of the geometric one.
+    Renders with :func:`vaft.plot.b_field_probe_spatial_field` from OMAS input.
+    """
+    return render("b_field_probe_spatial_field", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_flux_loop_time_voltage(
     source: Any,
     *,
@@ -1982,6 +2018,30 @@ def plot_pf_coil_geometry_poloidal(
     """
     return render(
         "pf_coil_geometry_poloidal", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_passive_structure_time_current(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Eddy current induced in the passive structure.
+
+    Summed over loops by default, because VEST's vessel is discretised into 950
+    of them and the sum is what balances against the coil currents.  Pass
+    ``channels=`` to inspect individual loops.
+
+    Requires the eddy currents to have been solved --
+    :func:`vaft.omas.compute_eddy_currents` writes ``pf_passive.time``.
+
+    Renders with :func:`vaft.plot.passive_structure_time_current`.
+    """
+    return render(
+        "passive_structure_time_current", source, ax=ax, show=show, label=label, **options
     )
 
 
@@ -2737,10 +2797,13 @@ __all__ = [
     "plot_diagnostics_overview",
     "plot_diamagnetic_flux_time",
     "plot_flux_loop_time_flux",
+    "plot_flux_loop_spatial_flux",
+    "plot_b_field_probe_spatial_field",
     "plot_flux_loop_time_voltage",
     "plot_plasma_current_time",
     "plot_limiter_current_time",
     "plot_mirnov_time_voltage",
+    "plot_passive_structure_time_current",
     "plot_pf_coil_geometry_poloidal",
     "plot_pf_coil_time_current",
     "plot_pf_coil_time_current_turns",

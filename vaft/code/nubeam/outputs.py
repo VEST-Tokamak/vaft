@@ -3,8 +3,9 @@
 This layer parses NUBEAM's own files and stops there. Nothing here writes an
 IDS: following the split that ``vaft/machine_mapping/mhd_linear.py`` documents,
 the IDS-populating layer reads a native container owned by ``vaft.code.<code>``
-rather than re-parsing solver output itself. The IMAS mapping for NUBEAM is not
-implemented yet -- see issue #490 section 6.
+rather than re-parsing solver output itself. For NUBEAM those layers are
+``vaft/machine_mapping/core_sources.py`` and
+``vaft/machine_mapping/distributions.py``.
 """
 
 from __future__ import annotations
@@ -24,22 +25,35 @@ STATE_CHANGES = "state_changes.cdf"
 #: Profiles in ``state_changes.cdf`` whose physical meaning is unambiguous.
 #: Recorded here so a caller can discover what a run produced without knowing
 #: NUBEAM's naming; this is an index, not a mapping to IMAS.
+#: What each catalogued profile is, in the units NUBEAM actually writes.
+#:
+#: The units are the ``units`` attributes of the Plasma State itself, read from
+#: the reference ``d3d_output_state.cdf`` that ships with the distribution --
+#: not NUBEAM's prose documentation, which describes several of these as
+#: densities. They are not. Every source, current and torque profile is a
+#: *per-zone integral*, which is why summing them reproduces NUBEAM's own
+#: end-of-step totals; and the two fast-ion energies are mean energies per
+#: particle, not energy densities. Reading either as a density is wrong by
+#: roughly the zone volume, a factor of about a hundred.
+#:
+#: :mod:`vaft.machine_mapping.core_sources` and
+#: :mod:`vaft.machine_mapping.distributions` do the conversions IMAS needs.
 PROFILE_DESCRIPTIONS: Mapping[str, str] = {
-    "pbe": "beam power density to electrons [W/m^3]",
-    "pbi": "beam power density to ions [W/m^3]",
-    "pbth": "beam power density to thermalization [W/m^3]",
+    "pbe": "beam power to electrons, per zone [W]",
+    "pbi": "beam power to thermal ions, per zone [W]",
+    "pbth": "beam power to thermalization, per zone [W]",
     "nbeami": "fast ion density per beam species [m^-3]",
-    "curbeam": "beam-driven current density [A/m^2]",
-    "curfusn": "fusion-product-driven current density [A/m^2]",
-    "tqbe": "toroidal torque density to electrons [N/m^2]",
-    "tqbi": "toroidal torque density to ions [N/m^2]",
-    "tqbjxb": "JxB toroidal torque density [N/m^2]",
-    "pfuse": "fusion power density to electrons [W/m^3]",
-    "pfusi": "fusion power density to ions [W/m^3]",
-    "eperp_beami": "fast ion perpendicular energy density [J/m^3]",
-    "epll_beami": "fast ion parallel energy density [J/m^3]",
-    "sbedep": "beam electron deposition rate [m^-3 s^-1]",
-    "sbtherm": "beam ion thermalization rate [m^-3 s^-1]",
+    "curbeam": "beam-driven toroidal current, shielded, per zone [A]",
+    "curfusn": "fusion-product-driven toroidal current, shielded, per zone [A]",
+    "tqbe": "collisional beam torque to electrons, per zone [N.m]",
+    "tqbi": "collisional beam torque to thermal ions, per zone [N.m]",
+    "tqbjxb": "JxB beam torque, per zone [N.m]",
+    "pfuse": "fusion power to electrons, per zone [W]",
+    "pfusi": "fusion power to thermal ions, per zone [W]",
+    "eperp_beami": "fast ion mean perpendicular energy, lab frame [keV]",
+    "epll_beami": "fast ion mean parallel energy, lab frame [keV]",
+    "sbedep": "beam deposition cold electron source, per zone [s^-1]",
+    "sbtherm": "beam ion thermalization rate, per zone [s^-1]",
 }
 
 #: Written by NUBEAM STEP when it has fast ions: the xplasma container that

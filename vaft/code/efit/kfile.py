@@ -3,13 +3,15 @@
 Moved verbatim out of the former monolithic ``efit.py``.
 """
 
+import json
 import numpy as np
 import os
 import re
 import statistics
+import warnings
+from functools import partial
 from numbers import Integral
 from pathlib import Path
-from scipy import optimize
 from omas import ODS, save_omas_json
 
 from vaft.ods_access import path_value
@@ -24,11 +26,12 @@ from vaft.machine_mapping.magnetics import (
 )
 
 from .legacy import (
-    gauss_fit4,
-    min_gauss_fit4,
     vfit_equilibrium_form_constraints,
     vfit_pf_active_efit26,
 )
+from .recovery import ProbeFamilies, family_of, gaussian_probe_recovery, probe_families
+from vaft.validation.channel_decision import MISSING, RECOVERED, ChannelDecisions
+from vaft.validation.efit_channels import condemned_channels, decide_efit_channels
 from vaft.validation.magnetics import unusable_channels_at
 
 from .magnetic import EFITConfig
@@ -44,31 +47,35 @@ _EFIT_CONSTRAINT_FAMILY = {
 }
 
 
+#: Positions, in the 26-channel legacy coil list of
+#: ``legacy.vfit_pf_active_efit26``, of the sixteen groups EFIT's VEST tables
+#: carry: PF1-1..PF1-8, PF5U/L, PF6U/L, PF9U/L, PF10U/L.
+EFIT16_GROUP_POSITIONS: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16, 17, 22, 23, 24, 25)
+
+
+def efit16_group_indices(count: int, target: int) -> list[int]:
+    """Indices of the coil channels the k-file writes for an ``nfsum``-group table.
+
+    The routine VEST table has sixteen groups and the constraints ODS carries
+    the twenty-six legacy channels, so the sixteen are picked by position.
+    Any other pairing takes the leading channels.  The same selection defines
+    the F-coil groups ``vaft.machine_mapping.efund_geometry`` projects for
+    EFUND, so table and k-file cannot disagree about which coils exist.
+    """
+    if target == 16 and count >= 26:
+        return list(EFIT16_GROUP_POSITIONS)
+    return list(range(min(count, target)))
+
+
 def _condemned_channels(ods, nbprobe: int) -> set[int]:
     """Legacy-style broken indices for channels with no usable sample at all.
 
-    Judged on the time-resolved validity, never on the scalar: the scalar is
-    "worst state reached", so a channel that merely holds its last value after
-    the diagnostics window (every probe on the packaged shot) reads ``-2``
-    there while being a perfectly good witness before it.  Only a record the
-    quality layer rejected in its entirety -- a physical-ceiling or
-    population verdict (#189) -- is broken in the k-file sense.  Probes map to
-    their own index, flux loops to ``index + nbprobe``, the offset the rest of
-    this module uses for the ``broken`` list.
+    Kept for callers and tests; the rule lives in
+    :func:`vaft.validation.efit_channels.condemned_channels` and the
+    constraint builder no longer consults it directly -- it consumes a
+    :class:`~vaft.validation.channel_decision.ChannelDecisions` (issue #296).
     """
-    from vaft.validation.imas import is_condemned_channel
-
-    condemned: set[int] = set()
-    for kind, quantity, offset in (
-        ("b_field_pol_probe", "field", 0),
-        ("flux_loop", "flux", nbprobe),
-    ):
-        count = len(ods[f"magnetics.{kind}"]) if f"magnetics.{kind}" in ods else 0
-        for index in range(count):
-            # Unassessed is not condemned; assessed with no usable sample is.
-            if is_condemned_channel(ods, f"magnetics.{kind}.{index}.{quantity}"):
-                condemned.add(index + offset)
-    return condemned
+    return condemned_channels(ods, nbprobe=nbprobe)
 
 
 def apply_validity_exclusions(ods, EQ, *, min_validity: int = 0) -> dict[tuple[str, int], list[int]]:
@@ -113,6 +120,67 @@ def apply_validity_exclusions(ods, EQ, *, min_validity: int = 0) -> dict[tuple[s
     return excluded
 
 
+PROBE_WEIGHT_INDEX = {"inboard": 3, "side": 4, "outboard": 5}
+FLUX_WEIGHT_INDEX = {"inboard": 6, "outboard": 7}
+
+
+def apply_channel_decisions(
+    EQ,
+    decisions: ChannelDecisions,
+    *,
+    weighting,
+    families: ProbeFamilies,
+    flux_families: tuple,
+) -> dict:
+    """Translate channel decisions into constraint weights and values (issue #296).
+
+    Per slice and submitted channel whose constraint already exists: a
+    ``missing`` decision is skipped (the #145 placeholder stands); every
+    other state writes ``weight = nominal * weight_factor``, where the
+    nominal weight is the family's entry of ``weighting`` (probes: inboard
+    ``[3]``, side ``[4]``, outboard ``[5]``; flux loops: inboard ``[6]``,
+    outboard ``[7]``); a ``recovered`` slice also writes the backend's value
+    into ``measured`` and, when it supplied one, its uncertainty into
+    ``measured_error_upper``.  A channel in no family gets no weight, as the
+    legacy builder left it.  Nothing is invented: a decision for a channel
+    the constraint equilibrium never submitted is ignored.
+
+    The decisions themselves are recorded under
+    ``code.parameters.channel_decisions`` (channels with a notable state
+    only) so the product says why a constraint carries the weight it does.
+    """
+    inboard_flux, outboard_flux = (set(int(k) for k in fam) for fam in flux_families)
+    written = 0
+    skipped: list[tuple[str, int]] = []
+    for (kind, index), decision in decisions.entries.items():
+        if kind == "b_field_pol_probe":
+            family = family_of(index, families)
+            nominal = None if family is None else float(weighting[PROBE_WEIGHT_INDEX[family]])
+            node = "bpol_probe"
+        elif kind == "flux_loop":
+            family = "inboard" if index in inboard_flux else "outboard" if index in outboard_flux else None
+            nominal = None if family is None else float(weighting[FLUX_WEIGHT_INDEX[family]])
+            node = "flux_loop"
+        else:
+            continue
+        for i in range(decisions.times.size):
+            base = f"time_slice.{i}.constraints.{node}.{index}"
+            if f"{base}.measured" not in EQ:
+                skipped.append((kind, index))
+                break
+            state = decision.state_at(i)
+            if state == MISSING or nominal is None:
+                continue
+            EQ[f"{base}.weight"] = nominal * float(decision.weight_factor[i])
+            if state == RECOVERED:
+                EQ[f"{base}.measured"] = float(decision.value[i])
+                if decision.uncertainty is not None and np.isfinite(decision.uncertainty[i]):
+                    EQ[f"{base}.measured_error_upper"] = float(decision.uncertainty[i])
+            written += 1
+    EQ["code.parameters.channel_decisions"] = json.dumps(decisions.as_dict(only_notable=True), default=float)
+    return {"written": written, "skipped_no_constraint": sorted(set(skipped)), **{"states": decisions.summary()}}
+
+
 def _efit_bpol_probe_count(magnetics) -> int:
     """Return the B-pol channels represented in VEST EFIT geometry.
 
@@ -144,6 +212,11 @@ def _has_matching_signal(magnetics, path: str) -> bool:
     return bool(data.size and data.size == time.size)
 
 
+#: Half-width [s] of the box average each constraint is taken over.  The
+#: legacy value; qualifying it against the cadence is issue #468.
+DEFAULT_AVERAGE_WINDOW = 0.0005
+
+
 def generate_constraints_ods(
     ods,
     shotnumber,
@@ -152,18 +225,38 @@ def generate_constraints_ods(
     time,
     uncertainty,
     weighting,
-    broken=[],
+    broken=None,
     fit=0,
     fl_correct_coeff=None,
     FFCUR=2,
     PPCUR=2,
-):
+    *,
+    decisions: ChannelDecisions | None = None,
+    recovery=None,
+    average_window: float = DEFAULT_AVERAGE_WINDOW,
+) -> ChannelDecisions:
+    """Generate the constraints ODS, ``save_dir/{shotnumber}_constraints.json``.
+
+    Channel selection is not decided here (issue #296).  Pass ``decisions``
+    from :func:`vaft.validation.efit_channels.decide_efit_channels` and,
+    optionally, a ``recovery`` backend ``callable(EQ, decisions) ->
+    decisions`` such as :func:`vaft.code.efit.recovery.gaussian_probe_recovery`;
+    the builder forms the window-averaged constraints, runs the backend, and
+    translates the decisions into weights and values through
+    :func:`apply_channel_decisions`.
+
+    ``average_window`` is the half-width of the box average each constraint
+    value is taken over, ``[t_i - w, t_i + w]`` (issue #433).  The two
+    controls are independent: this one says what a slice measures, the
+    decisions say which channels are believed, and the reconstruction
+    cadence is a third (issue #468).
+
+    ``broken`` (one-based combined indexes) and ``fit`` (0 none, 1 rejected
+    probes, 2 every probe) are the legacy way of saying the same thing and
+    are deprecated: when ``decisions`` is not given they are turned into the
+    equivalent policy and backend, with a warning.  Returns the decisions the
+    product was built from.
     """
-    Generate Constraints ODS file such that save_dir/{shotnumber}_constraints.json is created
-    """
-    # fit = 0: no fitting, only exp. data
-    # fit = 1: broken data replaced by gaussian fitted data
-    # fit = 2: all data replaced by gaussian fitted data
 
     # coilset_opt
     # "16_coils" : PF1 - 8 segments + PF5, 6, 9, 10 Upper and Lower Segments
@@ -245,73 +338,7 @@ def generate_constraints_ods(
     #    print(Index_outBz)
     #    print('==!==')
 
-    # Position for In, Out, side
-    Bzx = [
-        0.54,
-        0.5,
-        0.46,
-        0.42,
-        0.38,
-        0.34,
-        0.3,
-        0.26,
-        0.22,
-        0.16,
-        0.12,
-        0.08,
-        0.04,
-        0.0,
-        -0.04,
-        -0.08,
-        -0.12,
-        -0.16,
-        -0.22,
-        -0.26,
-        -0.3,
-        -0.34,
-        -0.38,
-        -0.42,
-        -0.46,
-        -0.5,
-        -0.54,
-        0.42,
-        0.38,
-        0.34,
-        0.3,
-        0.26,
-        0.22,
-        0.18,
-        0.1,
-        0.06,
-        0.02,
-        -0.02,
-        -0.06,
-        -0.1,
-        -0.14,
-        -0.18,
-        -0.22,
-        -0.26,
-        -0.3,
-        -0.34,
-        -0.38,
-        -0.42,
-        0.8328,
-        0.8728,
-        0.9128,
-        0.9528,
-        0.9928,
-        1.0328,
-        1.0728,
-        1.1128,
-        -0.8328,
-        -0.8728,
-        -0.9128,
-        -0.9528,
-        -0.9928,
-        -1.0328,
-        -1.0728,
-        -1.1128,
-    ]
+    families = probe_families(MG, count=efit_bpol_probe_count)
 
     for i in Index_inBz:
         MG[f"b_field_pol_probe.{i}.field.time"] = MG["time"]
@@ -371,11 +398,9 @@ def generate_constraints_ods(
 
     # Convert diagnostics ODS to equilibrium constraints ODS
 
-    default_average = (
-        (time[1] - time[0]) / 2
-    )  # Diagnostics data of each time point in equilibrium constraints ODS is the average of the +- 0.5*timestep
-    #    default_average=0.0002
-    default_average = 0.0005
+    # The constraint-averaging half-window is a control of its own, distinct
+    # from the reconstruction cadence (issues #433, #468).
+    default_average = float(average_window)
 
     EQ = ods["equilibrium"]
     EQtime = EQ["time"]
@@ -407,272 +432,37 @@ def generate_constraints_ods(
     # a diamagnetic plasma in VEST's positive toroidal field is a *negative*
     # flux.  The donor code compared magnitudes with a magnitude-only
     # reconstruction, which is not what EFIT does.
-    # convert one-based index to zero-based index
-    broken = [i - 1 for i in broken]
-    # A channel the quality layer condemned for the whole record (#189: a
-    # railed or miswired probe) must not be a point in the Gaussian fits
-    # below either -- zeroing its weight afterwards does not undo the pull it
-    # exerted on every neighbour's fitted value.  It joins the legacy list.
-    broken = sorted(set(broken) | _condemned_channels(ods, nbprobe))
-
-    # Add weight and validity (not broken) to the constraints - [pf_coil, tf_coil, pf_passive, ip, dia_flux, inboard_bz, side_bz, outboard_bz, inboard_fl, outboard_fl]
-    IPLIM = 45000
-    x0 = [0.1, 0.0, 0.2, -0.1]
-    x0m = [-0.1, 0.0, 0.2, -0.1]
-    x3 = [0.1, 0.2, -0.1]
-    x3m = [-0.1, 0.2, -0.1]
-    icpt = 0
     for i in range(len(EQ["time"])):
-        # PF coil
         for j in range(len(EQ[f"time_slice.{i}.constraints.pf_current"])):
             EQ[f"time_slice.{i}.constraints.pf_current.{j}.weight"] = weighting[0]
-        # Ip
         EQ[f"time_slice.{i}.constraints.ip.weight"] = weighting[1]
-        IP = EQ[f"time_slice.{i}.constraints.ip.measured"]
-        # Diamagnetic flux
         EQ[f"time_slice.{i}.constraints.diamagnetic_flux.weight"] = weighting[2]
 
-        # Inboard Bz
-        print(EQ["time"][i], IP)
-        if fit > 0 and IP > IPLIM:  # gaussian fitting
-            x = []
-            y = []
-            for j in Index_inBz:
-                if j not in broken:
-                    x.append(Bzx[j])
-                    y.append(EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.measured"])
-            res = optimize.minimize(
-                min_gauss_fit4,
-                x0,
-                args=(x, y),
-                method="SLSQP",
-                tol=1.0e-8,
-                options={"maxiter": 1000},
+    if decisions is None:
+        # The legacy interface: the manual list and the fit option are the
+        # policy and the backend, spelled the old way.
+        warnings.warn(
+            "generate_constraints_ods: broken=/fit= are deprecated; pass decisions= "
+            "from vaft.validation.efit_channels.decide_efit_channels and a recovery= backend",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        decisions = decide_efit_channels(
+            ods, EQ["time"], nbprobe=nbprobe, manual_rejections=broken or ()
+        )
+        if int(fit) > 0 and recovery is None:
+            recovery = partial(
+                gaussian_probe_recovery, mode=int(fit), families=families, uncertainty="legacy"
             )
-            print("in msg", res.message)
-            coef = res.x
-
-            xinBz = []
-            yinBz = []
-            yinBzg = []
-            xinBzb = []
-            yinBzb = []
-            for j in Index_inBz:
-                xinBz.append(Bzx[j])
-                yinBz.append(EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.measured"])
-                gau = gauss_fit4(coef, Bzx[j])
-                yinBzg.append(gau)
-                if j in broken:
-                    xinBzb.append(Bzx[j])
-                    yinBzb.append(
-                        EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.measured"]
-                    )
-
-            if fit == 1:  # only broken
-                for j in Index_inBz:
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.weight"] = weighting[
-                        3
-                    ]
-                    if j in broken:
-                        gau = gauss_fit4(coef, Bzx[j])
-                        EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.measured"] = gau
-
-            else:  # all data
-                for j in Index_inBz:
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.weight"] = weighting[
-                        3
-                    ]
-                    gau = gauss_fit4(coef, Bzx[j])
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.measured"] = gau
-        else:  # no fitting
-            for j in Index_inBz:
-                if j not in broken:
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.weight"] = weighting[
-                        3
-                    ]
-                else:
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.weight"] = 0
-        # Side Bz
-        if fit > 0 and IP > IPLIM:
-            x = []
-            y = []
-            for j in Index_sideBz:
-                if j not in broken:
-                    x.append(Bzx[j])
-                    y.append(EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.measured"])
-            res = optimize.minimize(
-                min_gauss_fit4,
-                x0m,
-                args=(x, y),
-                method="SLSQP",
-                tol=1.0e-8,
-                options={"maxiter": 1000},
-            )
-            coef1 = res.x
-            res = optimize.minimize(
-                min_gauss_fit4,
-                x0,
-                args=(x, y),
-                method="SLSQP",
-                tol=1.0e-8,
-                options={"maxiter": 1000},
-            )
-            coef2 = res.x
-            if min_gauss_fit4(coef1, x, y) < min_gauss_fit4(coef2, x, y):
-                coef = coef1
-            else:
-                coef = coef2
-
-            xsideBz = []
-            ysideBz = []
-            ysideBzg = []
-            xsideBzb = []
-            ysideBzb = []
-            for j in Index_sideBz:
-                xsideBz.append(Bzx[j])
-                ysideBz.append(
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.measured"]
-                )
-                gau = gauss_fit4(coef, Bzx[j])
-                ysideBzg.append(gau)
-                if j in broken:
-                    xsideBzb.append(Bzx[j])
-                    ysideBzb.append(
-                        EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.measured"]
-                    )
-
-            if fit == 1:  # only broken
-                for j in Index_sideBz:
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.weight"] = weighting[
-                        4
-                    ]
-                    if j in broken:
-                        gau = gauss_fit4(coef, Bzx[j])
-                        EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.measured"] = gau
-
-            else:  # all data
-                for j in Index_sideBz:
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.weight"] = weighting[
-                        4
-                    ]
-                    gau = gauss_fit4(coef, Bzx[j])
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.measured"] = gau
-        else:  # no fitting
-            for j in Index_sideBz:
-                if j not in broken:
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.weight"] = weighting[
-                        4
-                    ]
-                else:
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.weight"] = 0
-
-        # Outboard Bz
-        if fit > 0 and IP > IPLIM:
-            x = []
-            y = []
-            for j in Index_outBz:
-                if j not in broken:
-                    x.append(Bzx[j])
-                    y.append(EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.measured"])
-            res = optimize.minimize(
-                min_gauss_fit4,
-                x0,
-                args=(x, y),
-                method="SLSQP",
-                tol=1.0e-8,
-                options={"maxiter": 1000},
-            )
-            coef = res.x
-
-            xoutBz = []
-            youtBz = []
-            youtBzg = []
-            xoutBzb = []
-            youtBzb = []
-            for j in Index_outBz:
-                xoutBz.append(Bzx[j])
-                youtBz.append(EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.measured"])
-                gau = gauss_fit4(coef, Bzx[j])
-                youtBzg.append(gau)
-                if j in broken:
-                    xoutBzb.append(Bzx[j])
-                    youtBzb.append(
-                        EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.measured"]
-                    )
-
-            if fit == 1:  # only broken
-                for j in Index_outBz:
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.weight"] = weighting[
-                        5
-                    ]
-                    if j in broken:
-                        gau = gauss_fit4(coef, Bzx[j])
-                        EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.measured"] = gau
-
-            else:  # all data
-                for j in Index_outBz:
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.weight"] = weighting[
-                        5
-                    ]
-                    gau = gauss_fit4(coef, Bzx[j])
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.measured"] = gau
-        else:  # no fitting
-            for j in Index_outBz:
-                if j not in broken:
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.weight"] = weighting[
-                        5
-                    ]
-                else:
-                    EQ[f"time_slice.{i}.constraints.bpol_probe.{j}.weight"] = 0
-
-        # Inboard flux loop
-        for j in Index_inFlux:
-            if (j + nbprobe) not in broken:
-                EQ[f"time_slice.{i}.constraints.flux_loop.{j}.weight"] = weighting[6]
-            else:
-                EQ[f"time_slice.{i}.constraints.flux_loop.{j}.weight"] = 0
-        # Outboard flux loop
-        for j in Index_OutFlux:
-            if (j + nbprobe) not in broken:
-                EQ[f"time_slice.{i}.constraints.flux_loop.{j}.weight"] = weighting[7]
-            else:
-                EQ[f"time_slice.{i}.constraints.flux_loop.{j}.weight"] = 0
-
-        # if fit > 0 and IP>IPLIM: # plot all graphs
-        #     fig2, axs = plt.subplots(1, 3, layout="constrained")
-        #     axs[ 0].scatter(xinBz, yinBz, label='exp.',c='black')
-        #     axs[ 0].scatter(xinBz, yinBzg, label='gauss',c='red')
-        #     if len(xinBzb) > 0:
-        #         axs[ 0].scatter(xinBzb, yinBzb, label='broken',c='blue')
-        #     axs[ 0].set_title("Bzin")
-        #     for j, txt in enumerate(Index_inBz):
-        #         axs[0].text(xinBz[j], yinBz[j], f'{int(txt)+1}', fontsize=8, color='black')
-        #     axs[ 1].scatter(xsideBz, ysideBz,c='black')
-        #     axs[ 1].scatter(xsideBz, ysideBzg, c='red')
-        #     if len(xsideBzb) > 0:
-        #         axs[ 1].scatter(xsideBzb, ysideBzb, c='blue')
-        #     axs[ 1].set_title("Bzside")
-        #     loctime=EQ['time'][i]
-        #     plt.xlabel(f'{loctime}')
-
-        #     for j, txt in enumerate(Index_sideBz):
-        #         axs[1].text(xsideBz[j], ysideBz[j], f'{int(txt)+1}', fontsize=8, color='black')
-        #     axs[ 2].scatter(xoutBz, youtBz, c='black')
-        #     axs[ 2].scatter(xoutBz, youtBzg, c='red')
-        #     if len(xoutBzb) > 0:
-        #         axs[ 2].scatter(xoutBzb, youtBzb, c='blue')
-        #     axs[ 2].set_title("Bzout")
-        #     for j, txt in enumerate(Index_outBz):
-        #         axs[2].text(xoutBz[j], youtBz[j], f'{int(txt)+1}', fontsize=8, color='black')
-        #     axs[0].legend()
-
-        #     plt.savefig(os.path.join(save_dir, 'plots', f'{shotnumber}_gfit_{icpt}.png'))
-        #     icpt=icpt+1
-        #     plt.close(fig2)
-
-    #    make_gif(os.path.join(save_dir, 'plots'), f'{shotnumber}_gfit')
-
-    apply_validity_exclusions(ods, EQ)
+    if recovery is not None:
+        decisions = recovery(EQ, decisions)
+    apply_channel_decisions(
+        EQ,
+        decisions,
+        weighting=weighting,
+        families=families,
+        flux_families=(Index_inFlux, Index_OutFlux),
+    )
 
     # add namelist parameters in the k-file
     for i in range(len(EQ["time"])):
@@ -779,6 +569,7 @@ def generate_constraints_ods(
     ods_eq["equilibrium"] = EQ
     fullfilename = os.path.join(save_dir, f"{shotnumber}_constraints.json")
     save_omas_json(ods_eq, fullfilename)
+    return decisions
 
 
 def generate_kfile(
@@ -863,11 +654,6 @@ def generate_kfile(
                 chunks.append("\n ")
         return "".join(chunks).rstrip(" \n,") + "\n"
 
-    def _efit16_indices(count: int, target: int) -> list[int]:
-        if target == 16 and count >= 26:
-            return [0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16, 17, 22, 23, 24, 25]
-        return list(range(min(count, target)))
-
     def _weight(cstr, path: str, group: str) -> float:
         original = float(cstr[f"{path}.weight"])
         if original == 0.0:
@@ -901,7 +687,7 @@ def generate_kfile(
 
         ## (1) PF Coil currents with weight
         nfsum = _machine_count("nfsum", len(CSTR["pf_current"]))
-        pf_indices = _efit16_indices(len(CSTR["pf_current"]), nfsum)
+        pf_indices = efit16_group_indices(len(CSTR["pf_current"]), nfsum)
         nbcoil = len(pf_indices)
         matrix = constraint_config.coil_constraint_matrix
         if len(matrix) != nbcoil:
@@ -1045,15 +831,14 @@ def generate_kfile(
             "PSIBIT", psibit_values, per_line=3, formatter=uncertainty_formatter
         )
 
-        TTIME = str(int(np.round(time[time_idx], 4) * 1e6))
-        #        print('TTIME=',TTIME)
-        ITIME = TTIME[0:3]
-        UTIME = TTIME[3:]
-        #        print(ITIME,UTIME)
-
-        filename = f"k0{shotnumber}.00{time[time_idx] * 1000.0:.0f}"  # 0.305 -> 305
-        if UTIME != "000":
-            filename = f"k0{shotnumber}.00{ITIME}_{UTIME}"  # 0.3051 -> 305_100
+        # Named the way EFIT names its outputs: the millisecond, then the
+        # exact microsecond remainder when there is one (0.3051 -> 00305_100,
+        # 0.30632 -> 00306_320).  The remainder used to be truncated to 0.1 ms,
+        # so slices closer than that collided and never matched their a-file.
+        slice_us = int(round(time[time_idx] * 1.0e6))
+        filename = f"k0{shotnumber}.{slice_us // 1000:05d}"
+        if slice_us % 1000:
+            filename = f"{filename}_{slice_us % 1000:03d}"
 
         # Write the kfile
         #        filename=f'k0{shotnumber}.00{time[time_idx]*1e+5:.0f}'
@@ -1103,9 +888,13 @@ def generate_kfile(
         f.write("\n")
         f.write(f" RCENTR = {RCENTR}\n")
         f.write(f" ISHOT = {shotnumber}\n")
-        f.write(f" ITIME = {int(round(time[time_idx] * 1000.0))}\n")
-        # if digit > 3: # Add ITIMEU (microsecond) if digit is greater than 3
-        #     f.write(f' ITIMEU = {(time[time_idx]*1000-int(time[time_idx]*1000))*1000}\n')
+        # EFIT reads the slice time as ITIME [ms] + ITIMEU [us] and names its
+        # outputs with both, so a sub-millisecond slice needs ITIMEU or it
+        # collides with its millisecond neighbour and is mislabelled (#468).
+        # Whole-millisecond slices write exactly what they always did.
+        f.write(f" ITIME = {slice_us // 1000}\n")
+        if slice_us % 1000:
+            f.write(f" ITIMEU = {slice_us % 1000}\n")
         f.write(BRSP)
         f.write("\n")
         f.write(BITFC)

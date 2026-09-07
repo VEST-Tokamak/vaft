@@ -127,6 +127,19 @@ class PlotCapability:
     #: The stored equilibrium slices a slice-indexed plot can draw (instance
     #: level, issue #480): ``total``, ``usable``, ``times``, ``selected``.
     slices: Mapping[str, Any] = field(default_factory=dict)
+    #: How a time-frequency map is computed (issue #484): ``default`` and
+    #: ``methods``, each naming the options that method reads.
+    analysis: Mapping[str, Any] = field(default_factory=dict)
+    #: What a line plot can be drawn against (issue #481): ``default``,
+    #: ``options`` (what this input can supply) and ``declared``.
+    abscissa: Mapping[str, Any] = field(default_factory=dict)
+    #: The stored time axis a spatial plot samples (issue #486): ``start``,
+    #: ``stop`` in seconds and ``count``.
+    times: Mapping[str, Any] = field(default_factory=dict)
+    #: The radial coordinates a 1-D profile can be drawn against (issue #479):
+    #: ``default``, ``options`` (what this input can resolve) and ``declared``
+    #: (what the recipe offers regardless of input).
+    coordinates: Mapping[str, Any] = field(default_factory=dict)
     #: The controls ``plot_*(..., interactive=True)`` offers for this input
     #: (instance level, issue #480), in offer order.
     controls: tuple[str, ...] = ()
@@ -516,7 +529,10 @@ def _compact_notes(record: PlotCapability) -> list[str]:
             layouts[layouts.index("grouped")] = "grouped (with a radial split)"
         notes.append("layout: " + " | ".join(layouts))
     if record.analysis_methods:
-        notes.append("methods: " + " | ".join(record.analysis_methods))
+        default = record.analysis.get("default")
+        notes.append("methods: " + " | ".join(
+            f"{name} (default)" if name == default else name for name in record.analysis_methods
+        ))
     if record.overview_members:
         notes.append("overview: " + " · ".join(record.overview_members))
     if record.overlays:
@@ -527,6 +543,18 @@ def _compact_notes(record: PlotCapability) -> list[str]:
         notes.append(_synthetic_note(record.synthetic))
     if record.interaction:
         notes.append("interaction: " + " | ".join(record.interaction))
+    if record.times.get("count"):
+        notes.append(f"time: {record.times['start']:.4g}-{record.times['stop']:.4g} s ({record.times['count']} samples)")
+    if len(record.abscissa.get("options") or ()) > 1:
+        default = record.abscissa.get("default")
+        notes.append("abscissa: " + " | ".join(
+            f"{name} (default)" if name == default else name for name in record.abscissa["options"]
+        ))
+    if record.coordinates.get("options"):
+        default = record.coordinates.get("default")
+        notes.append("coordinates: " + " | ".join(
+            f"{name} (default)" if name == default else name for name in record.coordinates["options"]
+        ))
     if record.controls:
         notes.append("controls: " + ", ".join(record.controls))
     flags = []
@@ -593,8 +621,16 @@ def _detail_lines(record: PlotCapability) -> list[str]:
             lines.append("positions: " + ", ".join(c["positions"]))
     if record.layouts:
         lines.append("layouts: " + " | ".join(record.layouts))
+    for key, what in (("abscissa", "abscissa"), ("coordinates", "coordinate")):
+        block = getattr(record, key) or {}
+        if len(block.get("options") or ()) > 1:
+            lines.append(
+                f"{what}: {block.get('default')} by default; " + " | ".join(block["options"])
+            )
     if record.analysis_methods:
         lines.append("methods: " + " | ".join(record.analysis_methods))
+    for name, parameters in (record.analysis.get("methods") or {}).items():
+        lines.append(f"  {name}: " + (", ".join(parameters) if parameters else "no parameters"))
     if record.overview_members:
         lines.append("includes: " + ", ".join(record.overview_members))
     if record.overlays:

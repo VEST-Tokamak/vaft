@@ -6,23 +6,13 @@ installation and must say so clearly instead of silently pointing at a path that
 only exists on the author's laptop.
 """
 
-import os
 from pathlib import Path
 
 import pytest
 
 from vaft.code import gpec
 
-# These cases fabricate a solver by writing a `#!/bin/sh` script and marking it
-# executable, then assert that VAFT ran it. Windows CreateProcess cannot launch
-# a shebang script at all (WinError 193), and native-Windows external codes are
-# documented as experimental in install/README.md, so the gap being skipped here
-# is the fixture's, not VAFT's. Everything that does not actually execute a
-# solver still runs on Windows.
-runs_a_stub_solver = pytest.mark.skipif(
-    os.name == "nt",
-    reason="stub solvers are POSIX shell scripts; CreateProcess cannot run them",
-)
+from external_code_stubs import write_launchable_stub
 
 
 GFILE_TEXT = "  EFITD   01/01/2024   #  39915  325ms        3  65  65\n 1.0 2.0 3.0\n"
@@ -46,10 +36,7 @@ def case(tmp_path):
 
 
 def test_gpec_home_falls_back_to_environment(monkeypatch, tmp_path):
-    executable = tmp_path / "gpec/bin/dcon"
-    executable.parent.mkdir(parents=True)
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "gpec/bin/dcon")
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
     config = gpec.GPECSuiteConfig()
 
@@ -124,16 +111,12 @@ def test_run_without_installation_raises_in_strict_mode(no_gpec_env, case):
         )
 
 
-@runs_a_stub_solver
 def test_run_if_available_keeps_successful_dcon_when_optional_match_is_missing(
     monkeypatch,
     tmp_path,
     case,
 ):
-    dcon = tmp_path / "gpec/bin/dcon"
-    dcon.parent.mkdir(parents=True)
-    dcon.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    dcon.chmod(0o755)
+    dcon = write_launchable_stub(tmp_path / "gpec/bin/dcon")
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
     result = gpec.run_gpec_suite_case(
@@ -152,10 +135,7 @@ def test_run_if_available_keeps_successful_dcon_when_optional_match_is_missing(
 
 
 def test_run_reuses_a_completed_solver_cell_without_rerunning(monkeypatch, tmp_path, case):
-    dcon = tmp_path / "gpec/bin/dcon"
-    dcon.parent.mkdir(parents=True)
-    dcon.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
-    dcon.chmod(0o755)
+    dcon = write_launchable_stub(tmp_path / "gpec/bin/dcon", exit_code=99)
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
     run_dir = case.workdir / "00325" / "dcon" / "nn=1"
@@ -221,15 +201,11 @@ def test_prepare_ideal_gpec_uses_a_separate_dcon_work_tree(no_gpec_env, tmp_path
     assert str(expected_dcon.resolve()) in gpec_in.read_text(encoding="utf-8")
 
 
-@runs_a_stub_solver
 def test_run_if_available_chains_rmatch_after_a_successful_rdcon(monkeypatch, tmp_path, case):
     rdcon = tmp_path / "gpec/bin/rdcon"
     rmatch = tmp_path / "gpec/bin/rmatch"
-    rdcon.parent.mkdir(parents=True)
-    rdcon.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    rdcon.chmod(0o755)
-    rmatch.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    rmatch.chmod(0o755)
+    rdcon = write_launchable_stub(rdcon)
+    rmatch = write_launchable_stub(rmatch)
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
     result = gpec.run_gpec_suite_case(
@@ -242,15 +218,11 @@ def test_run_if_available_chains_rmatch_after_a_successful_rdcon(monkeypatch, tm
     assert record.commands == (str(rdcon), str(rmatch))
 
 
-@runs_a_stub_solver
 def test_run_if_available_fails_when_rmatch_exits_nonzero(monkeypatch, tmp_path, case):
     rdcon = tmp_path / "gpec/bin/rdcon"
     rmatch = tmp_path / "gpec/bin/rmatch"
-    rdcon.parent.mkdir(parents=True)
-    rdcon.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    rdcon.chmod(0o755)
-    rmatch.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
-    rmatch.chmod(0o755)
+    rdcon = write_launchable_stub(rdcon)
+    rmatch = write_launchable_stub(rmatch, exit_code=1)
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
     result = gpec.run_gpec_suite_case(
@@ -274,13 +246,9 @@ def test_run_if_available_skips_stride_cleanly_when_missing(no_gpec_env, case):
     assert record.status == "skipped"
 
 
-@runs_a_stub_solver
 def test_verify_outputs_fails_a_completed_run_missing_the_expected_variable(monkeypatch, tmp_path, case):
     """``verify_outputs`` catches a solver that exits 0 without writing real physics content."""
-    dcon = tmp_path / "gpec/bin/dcon"
-    dcon.parent.mkdir(parents=True)
-    dcon.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    dcon.chmod(0o755)
+    dcon = write_launchable_stub(tmp_path / "gpec/bin/dcon")
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
     result = gpec.run_gpec_suite_case(
@@ -337,10 +305,7 @@ def test_timeout_with_truncated_outputs_is_not_reported_as_success(monkeypatch, 
     """
     import subprocess
 
-    executable = tmp_path / "gpec/bin/gpec"
-    executable.parent.mkdir(parents=True)
-    executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "gpec/bin/gpec")
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
     # verify_outputs stays at its shipped default (False): a timed-out run
@@ -476,7 +441,6 @@ def test_a_truncated_profile_or_cylindrical_output_fails_the_check(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-@runs_a_stub_solver
 @pytest.mark.parametrize(
     ("module", "companion_file"),
     [("dcon", "solutions.bin"), ("rdcon", "globalsol.bin")],
@@ -496,10 +460,7 @@ def test_a_cell_missing_only_companion_output_is_not_solved_again(
     merely slowing it down.
     """
     solver = gpec._solvers.SOLVERS[module]
-    executable = tmp_path / f"gpec/bin/{module}"
-    executable.parent.mkdir(parents=True, exist_ok=True)
-    executable.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / f"gpec/bin/{module}", exit_code=99)
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
     run_dir = case.workdir / "00325" / module / "nn=1"
@@ -519,7 +480,6 @@ def test_a_cell_missing_only_companion_output_is_not_solved_again(
     assert companion_file in record.reason
 
 
-@runs_a_stub_solver
 def test_a_companion_that_can_still_run_is_given_the_chance_to(monkeypatch, tmp_path, case):
     """A missing companion output is only permanent when the companion is missing.
 
@@ -531,10 +491,9 @@ def test_a_companion_that_can_still_run_is_given_the_chance_to(monkeypatch, tmp_
     """
     bindir = tmp_path / "gpec" / "bin"
     bindir.mkdir(parents=True)
-    for name in ("dcon", "match"):
-        executable = bindir / name
-        executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-        executable.chmod(0o755)
+    # The helper returns the path it actually created, which carries a suffix on
+    # Windows; the assertion below compares against what VAFT recorded.
+    stubs = {name: write_launchable_stub(bindir / name) for name in ("dcon", "match")}
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
 
     run_dir = case.workdir / "00325" / "dcon" / "nn=1"
@@ -548,8 +507,37 @@ def test_a_companion_that_can_still_run_is_given_the_chance_to(monkeypatch, tmp_
     )
 
     (record,) = result.records
-    assert record.commands == (str(bindir / "dcon"), str(bindir / "match"))
+    assert record.commands == (str(stubs["dcon"]), str(stubs["match"]))
     assert "reused existing solver outputs" not in record.reason
+
+
+def test_the_local_stability_flags_reach_the_namelist_the_run_is_read_back_from(
+    no_gpec_env, case
+):
+    """What VAFT asked for has to be recorded where `read_dcon_output` looks.
+
+    DCON writes none of `mer_flag`/`bal_flag`/`thmax0` into its netCDF, so the
+    run's own `dcon.in` is the only provenance for whether an unevaluated
+    criterion's zeros are physics.
+    """
+    gpec.prepare_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(
+            modules=("dcon",),
+            modes=(1,),
+            dcon=gpec.DCONOptions(mer_flag=True, bal_flag=True, thmax0=2.0),
+        ),
+    )
+
+    namelist = (case.workdir / "00325" / "dcon" / "nn=1" / "dcon.in").read_text(encoding="utf-8")
+
+    assert "mer_flag=t" in namelist
+    assert "bal_flag=t" in namelist
+    assert "thmax0=2.0" in namelist
+
+    evaluation = gpec.DconEvaluation.from_run_dir(case.workdir / "00325" / "dcon" / "nn=1")
+    assert evaluation.mercier and evaluation.ballooning
+    assert evaluation.thmax0 == 2.0
 
 
 def test_required_outputs_is_derived_from_output_patterns(tmp_path):
@@ -582,3 +570,268 @@ def test_a_netcdf_whose_variable_holds_no_finite_value_is_not_success(tmp_path):
 
     assert not ok
     assert "no finite value" in reason
+
+
+def test_a_solver_the_system_refuses_to_start_is_a_failed_module(monkeypatch, tmp_path, case):
+    """A POSIX build in a Windows installation must not abort the whole suite.
+
+    The file resolves and passes the executability probe, and the operating
+    system still refuses it -- WinError 193 on Windows, ENOEXEC on POSIX. That
+    is one failed module, named, rather than a traceback out of
+    `run_gpec_suite_case` that says nothing about which one.
+    """
+    dcon = write_launchable_stub(tmp_path / "gpec/bin/dcon")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    def refuse(*args, **kwargs):
+        raise OSError(8, "Exec format error")
+
+    monkeypatch.setattr(gpec._runtime.subprocess, "run", refuse)
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="auto"),
+    )
+
+    (record,) = result.records
+    assert record.status == "failed"
+    assert record.returncode is None
+    assert str(dcon) in record.reason
+    assert "Exec format error" in record.reason
+
+
+def test_strict_mode_still_raises_when_a_solver_cannot_be_started(monkeypatch, tmp_path, case):
+    """Strict mode means every problem is the caller's to see, this one included."""
+    write_launchable_stub(tmp_path / "gpec/bin/dcon")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    def refuse(*args, **kwargs):
+        raise OSError(8, "Exec format error")
+
+    monkeypatch.setattr(gpec._runtime.subprocess, "run", refuse)
+
+    with pytest.raises(gpec._runtime.ExecutableNotLaunchable):
+        gpec.run_gpec_suite_case(
+            case,
+            gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="strict"),
+        )
+
+
+# ---------------------------------------------------------------------------
+# A stable equilibrium is a result, not a failure (issue #423).
+# ---------------------------------------------------------------------------
+
+
+def _write_rdcon_netcdf(
+    path, *, n, total1, delta_prime=True, points=8, fmt="NETCDF3_CLASSIC"
+):
+    """An RDCON output as the solver writes one, for a given free-boundary energy.
+
+    ``total1`` is the least-stable total-energy eigenvalue: negative is
+    unstable, positive stable, and ``None`` stands for a ``vac_flag=false`` run
+    that computed no free-boundary energy at all and so writes no attribute
+    (``rdcon/rdcon_netcdf.f:152-157``). ``delta_prime=False`` is the stable
+    case this issue is about -- no rational surfaces to match across, so the
+    tearing matrix is never defined (``rdcon/rdcon_netcdf.f:317``). Any other
+    value fills the matrix with it, for the case where the variable exists but
+    holds nothing usable.
+    """
+    import numpy as np
+    import xarray as xr
+
+    data = {"psi_n": (("psi_n",), np.linspace(0.0, 1.0, points))}
+    if delta_prime is not False:
+        fill = 0.0 if delta_prime is True else float(delta_prime)
+        data["Delta_prime"] = (("r", "r_prime", "i"), np.full((1, 1, 2), fill))
+    attrs = {"mlow": -2, "mhigh": 0, "mpert": 3, "mband": 0, "n": n}
+    if total1 is not None:
+        attrs["total1"] = [float(total1), 0.0]
+    target = Path(path) / f"rdcon_output_n{n}.nc"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    xr.Dataset(data, attrs=attrs).to_netcdf(target, format=fmt)
+    return target
+
+
+def test_the_free_boundary_verdict_comes_from_the_output_not_the_log(tmp_path):
+    """`Re(total1) < 0` is unstable, anything else stable -- and only if computed.
+
+    The solvers also say this in prose, but DCON and RDCON print it only under
+    `verbose` (`rdcon/dcon.f:452`), a Fortran default VAFT never sets. Reading
+    the number the solver wrote makes the verdict independent of how chatty the
+    run happened to be.
+    """
+    from vaft.code.gpec._solvers import free_boundary_stable
+
+    name = "rdcon_output_n1.nc"
+
+    _write_rdcon_netcdf(tmp_path, n=1, total1=7.891)
+    assert free_boundary_stable(tmp_path, name) is True
+
+    _write_rdcon_netcdf(tmp_path, n=1, total1=-0.3)
+    assert free_boundary_stable(tmp_path, name) is False
+
+    # vac_flag=false: no free-boundary energy exists, which is not stability.
+    _write_rdcon_netcdf(tmp_path, n=1, total1=None)
+    assert free_boundary_stable(tmp_path, name) is None
+
+    # An exact zero is the value the solvers store when they skip free_run
+    # (rdcon/dcon.f:431-438), not a marginally stable equilibrium.
+    _write_rdcon_netcdf(tmp_path, n=1, total1=0.0)
+    assert free_boundary_stable(tmp_path, name) is None
+
+    assert free_boundary_stable(tmp_path / "absent", name) is None
+
+
+def test_the_verdict_reads_strides_real_valued_attribute(tmp_path):
+    """RDCON's `total1` is COMPLEX, STRIDE's is REAL (`stride/stride_netcdf.f:56`).
+
+    So the attribute round-trips as a 2-element array from one solver and a bare
+    scalar from the other, and both have to decode to the same verdict.
+    """
+    import numpy as np
+    import xarray as xr
+
+    from vaft.code.gpec._solvers import free_boundary_stable
+
+    name = "stride_output_n1.nc"
+    xr.Dataset(
+        {"psi_n": (("psi_n",), np.linspace(0.0, 1.0, 8))},
+        attrs={"mlow": -2, "mhigh": 0, "mpert": 3, "mband": 0, "n": 1, "total1": 7.891},
+    ).to_netcdf(tmp_path / name)
+
+    assert free_boundary_stable(tmp_path, name) is True
+
+
+def test_the_verdict_reads_dcons_eigenvalue_form_too(tmp_path):
+    """DCON writes no `total1` attribute; the same number is `W_t_eigenvalue`(mode 1)."""
+    from vaft.code.gpec._solvers import free_boundary_stable
+
+    _write_valid_dcon_netcdf(tmp_path, n=1)  # W_t_eigenvalue = -0.3
+    assert free_boundary_stable(tmp_path, "dcon_output_n1.nc") is False
+
+
+def test_a_stable_run_is_not_a_failure_even_when_its_companion_exits_badly(
+    monkeypatch, tmp_path, case
+):
+    """RDCON on a stable discharge reported 8 failed cases out of 8 (#423).
+
+    The solver terminates normally; `rmatch`, which exists to match resistive
+    layers to unstable modes, then has nothing to match. Reading that as a
+    failed cell makes the desirable outcome indistinguishable from a broken run
+    and buries genuine RDCON problems under a baseline of false failures.
+    """
+    write_launchable_stub(tmp_path / "gpec/bin/rdcon")
+    write_launchable_stub(tmp_path / "gpec/bin/rmatch", exit_code=1)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    config = gpec.GPECSuiteConfig(modules=("rdcon",), modes=(1,), run_mode="auto")
+    gpec.prepare_gpec_suite_case(case, config)
+    run_dir = gpec._module_dir(case.workdir, case.time_ms, "rdcon", 1, geqdsk=case.geqdsk)
+    _write_rdcon_netcdf(run_dir, n=1, total1=7.891, delta_prime=False)
+
+    (record,) = gpec.run_gpec_suite_case(case, config).records
+    assert record.status == "stable"
+    assert record.ok
+    # The companion's exit is recorded rather than discarded, and named.
+    assert "rmatch exited 1" in record.reason
+
+
+def test_a_genuine_solver_failure_is_still_a_failure(monkeypatch, tmp_path, case):
+    """The solver's own exit code gates this, so a real failure cannot hide.
+
+    Even with a stable output left in the directory by an earlier run.
+    """
+    write_launchable_stub(tmp_path / "gpec/bin/rdcon", exit_code=3)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    config = gpec.GPECSuiteConfig(modules=("rdcon",), modes=(1,), run_mode="auto")
+    gpec.prepare_gpec_suite_case(case, config)
+    run_dir = gpec._module_dir(case.workdir, case.time_ms, "rdcon", 1, geqdsk=case.geqdsk)
+    _write_rdcon_netcdf(run_dir, n=1, total1=7.891, delta_prime=False)
+
+    (record,) = gpec.run_gpec_suite_case(case, config).records
+    assert record.status == "failed"
+    assert not record.ok
+
+
+def test_a_stable_rdcon_run_passes_verification_without_a_tearing_index(tmp_path):
+    """Delta-prime describes a tearing mode; a run that found none has none.
+
+    Without this, enabling `verify_outputs` would fail every stable cell.
+    """
+    solver = gpec._solvers.SOLVERS["rdcon"]
+
+    ok, reason = solver.check_success(tmp_path, 1)
+    assert not ok and "missing output" in reason
+
+    _write_rdcon_netcdf(tmp_path, n=1, total1=7.891, delta_prime=False)
+    assert solver.check_success(tmp_path, 1)[0]
+
+    # An *unstable* run with no Delta_prime did fail to produce what it owed.
+    _write_rdcon_netcdf(tmp_path, n=1, total1=-0.3, delta_prime=False)
+    ok, reason = solver.check_success(tmp_path, 1)
+    assert not ok and "Delta_prime" in reason
+
+    # Only a genuinely absent Delta_prime is forgiven. One that was written and
+    # holds nothing usable is a defect in the tearing solve, and a stable
+    # verdict does not make it one of the tearing modes that never existed.
+    import numpy as np
+
+    _write_rdcon_netcdf(tmp_path, n=1, total1=7.891, delta_prime=np.nan)
+    ok, reason = solver.check_success(tmp_path, 1)
+    assert not ok and "no finite value" in reason
+
+
+def test_a_stable_verdict_does_not_excuse_a_damaged_output(tmp_path):
+    """The rescue forgives one missing variable, never a broken file.
+
+    `total1` is a header attribute, so it survives a truncation that destroys
+    the data below it: a corrupted output can still claim to be stable. The
+    file therefore has to pass the same integrity check on its own before its
+    stability verdict is allowed to excuse the absent tearing matrix.
+    """
+    solver = gpec._solvers.SOLVERS["rdcon"]
+
+    target = _write_rdcon_netcdf(tmp_path, n=1, total1=7.891, delta_prime=False, points=20000)
+    assert solver.check_success(tmp_path, 1)[0]
+
+    full = target.stat().st_size
+    with open(target, "r+b") as handle:
+        handle.truncate(int(full * 0.5))
+
+    from vaft.code.gpec._solvers import free_boundary_stable
+
+    assert free_boundary_stable(tmp_path, target.name) is True, "the header still reads stable"
+    ok, reason = solver.check_success(tmp_path, 1)
+    assert not ok and "truncated" in reason
+
+
+def test_a_reused_stable_cell_reports_the_same_status_as_a_fresh_one(
+    monkeypatch, tmp_path, case
+):
+    """Reuse must not silently downgrade `stable` to `completed`.
+
+    A stage's stable count would otherwise depend on whether the pipeline
+    happened to re-solve the cell, which is not a property of the physics.
+    """
+    write_launchable_stub(tmp_path / "gpec/bin/stride")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    config = gpec.GPECSuiteConfig(modules=("stride",), modes=(1,), run_mode="auto")
+    gpec.prepare_gpec_suite_case(case, config)
+    run_dir = gpec._module_dir(case.workdir, case.time_ms, "stride", 1, geqdsk=case.geqdsk)
+
+    # STRIDE has no companion, so a full output set takes the reuse fast path.
+    import numpy as np
+    import xarray as xr
+
+    xr.Dataset(
+        {"psi_n": (("psi_n",), np.linspace(0.0, 1.0, 8))},
+        attrs={"mlow": -2, "mhigh": 0, "mpert": 3, "mband": 0, "n": 1, "total1": [7.891, 0.0]},
+    ).to_netcdf(run_dir / "stride_output_n1.nc")
+    (run_dir / "stride.out").write_text("", encoding="utf-8")
+    (run_dir / "delta_prime.out").write_text("", encoding="utf-8")
+
+    (record,) = gpec.run_gpec_suite_case(case, config).records
+    assert record.status == "stable"
+    assert "reused existing solver outputs" in record.reason

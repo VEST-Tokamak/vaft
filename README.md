@@ -225,9 +225,13 @@ Silicon only for now; Linux and Windows are tracked in
 NUBEAM and parses its native output; mapping those results into IMAS is not
 implemented yet.
 
-Each executable belongs under its root's `bin/` directory. See
+Each executable belongs under its root's `bin/` directory. On Windows, set
+the same roots with `[Environment]::SetEnvironmentVariable(name, value, 'User')`
+so a new terminal and a Jupyter kernel both inherit them; VAFT resolves the
+documented POSIX name to a native `.exe` beside it. See
 [Initialize external fusion codes](notebooks/initialize_external_fusion_codes.ipynb)
-for layouts, compatibility variables, FileDB configuration, and validation.
+for layouts, compatibility variables, FileDB configuration, and validation, and
+[install/README.md](install/README.md) for building the codes on Windows.
 
 
 ### Connect to the VEST Database
@@ -492,10 +496,10 @@ with vaft.imas.load("./equilibrium.nc") as entry:
 ### Profile Fitting
 
 ```python
-# Map Thomson scattering data onto equilibrium flux coordinates, then fit profiles
-mapped_rho = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
+# Map Thomson scattering data onto the equilibrium's radial coordinates, then fit profiles (rho_tor_norm by default)
+mapped = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
 vaft.process.profile_fitting_thomson_scattering(
-    ods, time_ms, mapped_rho, fitting_function_te='gp', fitting_function_ne='gp'
+    ods, time_ms, mapped, fitting_function_te='gp', fitting_function_ne='gp'
 )
 ```
 

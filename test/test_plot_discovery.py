@@ -77,7 +77,10 @@ def test_printing_never_discards_the_structure(catalog):
 def test_the_tree_is_grouped_by_subject_view_and_quantity(catalog):
     text = str(catalog)
     flux_loop = text[text.index("\nflux_loop\n"):]
-    assert "└─ time" in flux_loop.split("\n\n")[0]
+    # Two views under flux_loop since #486: the time history and the spatial
+    # plot at one time, the last branch closing the tree.
+    first = flux_loop.split("\n\n")[0]
+    assert "├─ time" in first and "└─ spatial" in first
     assert "└─ flux  plot_flux_loop_time_flux()" in flux_loop
     # A plot whose identity has no quantity hangs straight off its view.
     assert "└─ time  plot_plasma_current_time()" in text
@@ -249,9 +252,10 @@ def test_grouped_is_advertised_only_where_the_family_splits():
 
 def test_analysis_methods_list_what_exists():
     registry = vaft.omas.available_plots(query="mirnov")
-    assert registry.find("mirnov_spectrogram").analysis_methods == ("STFT",)
+    assert registry.find("mirnov_spectrogram").analysis_methods == ("stft", "hann_fft", "cwt")
     assert registry.find("mirnov_spectrum").analysis_methods == ("Welch PSD",)
-    assert "methods: STFT" in str(registry) and "wavelet" not in str(registry).lower()
+    # The methods listed are the ones that exist; the default is marked (#484).
+    assert "methods: stft (default) | hann_fft | cwt" in str(registry)
 
 
 def test_overviews_summarise_their_members():

@@ -1,7 +1,10 @@
 """NUBEAM neutral-beam Monte Carlo adapter.
 
-Runs NUBEAM and parses its native output. Mapping those results into IMAS is
-not implemented yet; see issue #490 section 6.
+Runs NUBEAM and parses its native output. This layer stops at NUBEAM's own
+terms; :mod:`vaft.machine_mapping.core_sources` writes the plasma-side source
+term and :mod:`vaft.machine_mapping.distributions` the fast-ion population.
+The birth markers and lost-particle records have no IDS home yet -- that is the
+remainder of issue #490 section 6.
 
 The installation is external -- NTCC requires each user to accept its licence
 before downloading the source -- so VAFT owns the build recipe
@@ -22,11 +25,15 @@ from .config import (
     workdir_budget,
 )
 from .inputs import (
+    PACKAGED_VEST_CASE_DIR,
+    PACKAGED_VEST_CASE_GFILE,
+    NUBEAMCase,
     NUBEAMInputError,
     NUBEAMInputs,
     check_workdir_length,
     inputf_runid,
     inputf_state_filename,
+    packaged_vest_case,
     prepare_nubeam_inputs,
     rewrite_inputf_equilibrium,
 )
@@ -59,8 +66,11 @@ __all__ = [
     "NUBEAM_LONGEST_OUTPUT_SUFFIX",
     "NUBEAM_PATH_BUFFER_CHARS",
     "NUBEAM_UPDATE_STATE_EXECUTABLE",
+    "PACKAGED_VEST_CASE_DIR",
+    "PACKAGED_VEST_CASE_GFILE",
     "LOST_PARTICLE_FIELDS",
     "NUBEAMBirthMarkers",
+    "NUBEAMCase",
     "NUBEAMFluxSurfaceAverages",
     "NUBEAMLostParticles",
     "NUBEAMPowerBalance",
@@ -79,6 +89,7 @@ __all__ = [
     "generate_plasma_state",
     "inputf_runid",
     "inputf_state_filename",
+    "packaged_vest_case",
     "parse_power_balance",
     "prepare_nubeam_inputs",
     "rewrite_inputf_equilibrium",

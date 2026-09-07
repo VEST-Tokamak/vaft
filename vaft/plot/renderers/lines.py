@@ -279,6 +279,31 @@ def mirnov_time_voltage(
 
 
 @renderer(
+    domain="pf_passive",
+    subject="passive_structure",
+    view="time",
+    quantity="current",
+    model=LineSeries,
+    description="Eddy current induced in the passive structure, summed over loops.",
+    ids=("pf_passive",),
+    required_paths=(
+        "pf_passive.time",
+        "pf_passive.loop.{i}.current",
+    ),
+    optional_paths=("pf_passive.loop.{i}.name",),
+)
+def passive_structure_time_current(
+    model: LineSeries,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """Eddy current in the passive structure."""
+    return render_line_series(model, ax=ax, show=show, **style)
+
+
+@renderer(
     domain="pf_active",
     subject="pf_coil",
     view="time",

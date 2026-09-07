@@ -65,7 +65,20 @@ from .magnetic import (
     collect_efit_outputs,
     gfile_to_omas,
 )
-from .kfile import generate_constraints_ods, generate_kfile
+from .kfile import apply_channel_decisions, generate_constraints_ods, generate_kfile
+from .recovery import ProbeFamilies, gaussian_probe_recovery, probe_families
+from .efund import (
+    EFUNDConfig,
+    EFUNDInputs,
+    EFUNDResult,
+    prepare_efund_inputs,
+    run_efund,
+    collect_efund_outputs,
+    write_table_manifest,
+    read_table_manifest,
+    table_identity,
+)
+from .toolchain import resolve_toolchain, executable_identity
 from .kinetic import (
     EQE,
     SPLINE_SIG_FRAC,
@@ -107,6 +120,21 @@ __all__ = [
     "gfile_to_omas",
     "generate_constraints_ods",
     "generate_kfile",
+    "apply_channel_decisions",
+    "gaussian_probe_recovery",
+    "probe_families",
+    "ProbeFamilies",
+    "EFUNDConfig",
+    "EFUNDInputs",
+    "EFUNDResult",
+    "prepare_efund_inputs",
+    "run_efund",
+    "collect_efund_outputs",
+    "write_table_manifest",
+    "read_table_manifest",
+    "table_identity",
+    "resolve_toolchain",
+    "executable_identity",
     "EQE",
     "KineticEFITConfig",
     "KineticEFITInputs",

@@ -70,6 +70,12 @@ def render_profile_1d(
             options.setdefault("label", label)
         draw_series(axes, series, uncertainty=uncertainty, validity=validity, **options)
 
+    for line in model.reference_lines:
+        axes.axvline(
+            line.x,
+            **{"color": "0.4", "linestyle": ":", "linewidth": 1.0, **line.style},
+            label=line.label or None,
+        )
     axes.set_xlabel(model.coordinate_label)
     axes.set_ylabel(axis_label(model.y_label, model.y_unit))
     if model.title:
@@ -102,6 +108,48 @@ def _profile_renderer(
     )
 
 
+_SENSOR_POSITIONS = {
+    "flux_loop": ("magnetics.flux_loop.{i}.position.0.r", "magnetics.flux_loop.{i}.position.0.z"),
+    "b_field_probe": (
+        "magnetics.b_field_pol_probe.{i}.position.r",
+        "magnetics.b_field_pol_probe.{i}.position.z",
+        "magnetics.b_field_pol_probe.{i}.poloidal_angle",
+    ),
+}
+
+
+@renderer(
+    domain="magnetics",
+    subject="flux_loop",
+    view="spatial",
+    quantity="flux",
+    model=Profile1D,
+    description="Flux-loop flux against sensor position at one time: height (inboard and outboard panels) or poloidal angle about the layout centre.",
+    ids=("magnetics",),
+    required_paths=("magnetics.flux_loop.{i}.flux.data",),
+    optional_paths=_SENSOR_POSITIONS["flux_loop"] + ("magnetics.flux_loop.{i}.flux.time", "magnetics.time"),
+)
+def flux_loop_spatial_flux(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
+    """Flux-loop flux against sensor position at one time (issue #486)."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="magnetics",
+    subject="b_field_probe",
+    view="spatial",
+    quantity="field",
+    model=Profile1D,
+    description="B-probe field against sensor position at one time: height (inboard and outboard panels) or poloidal angle about the layout centre.",
+    ids=("magnetics",),
+    required_paths=("magnetics.b_field_pol_probe.{i}.field.data",),
+    optional_paths=_SENSOR_POSITIONS["b_field_probe"] + ("magnetics.b_field_pol_probe.{i}.field.time", "magnetics.time"),
+)
+def b_field_probe_spatial_field(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
+    """B-probe poloidal field against sensor position at one time (issue #486)."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
 _MHD_LINEAR_EIGENFUNCTION_PATHS = (
     "mhd_linear.time_slice.{i}.toroidal_mode.{j}.n_tor",
     "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim1",
@@ -109,9 +157,12 @@ _MHD_LINEAR_EIGENFUNCTION_PATHS = (
 )
 
 
+#: The coordinate leaves a profile may read; r_minor is computed from the
+#: two radii and never stored (vaft.plot.display.PROFILE_COORDINATES).
 _EQ_COORDS = (
     "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
     "equilibrium.time_slice.{i}.profiles_1d.psi_norm",
+    "equilibrium.time_slice.{i}.profiles_1d.phi",
     "equilibrium.time_slice.{i}.profiles_1d.r_inboard",
     "equilibrium.time_slice.{i}.profiles_1d.r_outboard",
 )

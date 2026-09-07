@@ -1047,6 +1047,42 @@ def plot_flux_loop_time_flux(
     return render("flux_loop_time_flux", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_flux_loop_spatial_flux(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> Any:
+    """Flux-loop flux against sensor position at one time (issue #486).
+
+    ``time=`` snaps to the nearest stored sample (``time_slice=`` maps
+    through a stored equilibrium slice); ``coordinate="z"`` (default) draws
+    the inboard and outboard loops as two panels, ``"theta"`` one panel
+    against the poloidal angle about the layout centre (``centre=``).
+    Renders with :func:`vaft.plot.flux_loop_spatial_flux` from native IMAS input.
+    """
+    return render("flux_loop_spatial_flux", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_b_field_probe_spatial_field(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> Any:
+    """B-probe poloidal field against sensor position at one time (issue #486).
+
+    Same options as :func:`plot_flux_loop_spatial_flux`; ``angle="stored"``
+    reads each probe's IMAS ``poloidal_angle`` instead of the geometric one.
+    Renders with :func:`vaft.plot.b_field_probe_spatial_field` from native IMAS input.
+    """
+    return render("b_field_probe_spatial_field", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_flux_loop_time_voltage(
     source: Any,
     *,
@@ -1545,6 +1581,24 @@ def plot_pf_coil_time_current(
     return render("pf_coil_time_current", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_passive_structure_time_current(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Eddy current in the passive structure, summed over loops.
+
+    Renders with :func:`vaft.plot.passive_structure_time_current` from native
+    IMAS input.
+    """
+    return render(
+        "passive_structure_time_current", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_pf_coil_time_current_turns(
     source: Any,
     *,
@@ -1937,6 +1991,8 @@ __all__ += [
     "plot_equilibrium_time_w_mhd",
     "plot_equilibrium_time_w_tot",
     "plot_flux_loop_time_flux",
+    "plot_flux_loop_spatial_flux",
+    "plot_b_field_probe_spatial_field",
     "plot_flux_loop_time_voltage",
     "plot_impa_overview",
     "plot_impa_profile_field",
@@ -1972,6 +2028,7 @@ __all__ += [
     "plot_pf_plasma_geometry_poloidal",
     "plot_pf_coil_geometry_poloidal",
     "plot_pf_coil_time_current",
+    "plot_passive_structure_time_current",
     "plot_pf_coil_time_current_turns",
     "plot_plasma_current_time",
     "plot_soft_x_rays_geometry_lines_of_sight",

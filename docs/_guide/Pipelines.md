@@ -139,7 +139,8 @@ result = run_efit(EFITInputs(workdir=workdir, kfiles=kfiles),
                              args=("129",), timeout=600))
 result = collect_efit_outputs(workdir, EFITConfig(workdir=workdir, shot=shot))
 
-# CHEASE: resolve the binary (falls back to $PATH), prepare, run
+# CHEASE: resolve the binary ($CHEASEHOME/bin/chease, then $CHEASE,
+# then $CHEASE_EXEC_DIR -- there is no $PATH fallback), prepare, run
 config = CHEASEConfig(executable=exe, timeout=600, target_psin=0.993, nideal=6, nw=513)
 result = run_chease(prepare_chease_inputs(gfile, config), config)
 
@@ -174,9 +175,23 @@ dump with no SQL server in reach. Magnetics processing parameters travel as a
   developer's home directory, while `base_dir` points at the Linux data server. Repoint them before running.
 * **Dead keys.** `cores`, `raw.offline_only` and `gpec.coil.source` appear in `config.yaml` but are never read
   by the `Snakefile`.
-* **`constraints.detect_broken: true` excludes the channels the diagnostics stage condemned** (their
-  projected validity), on top of the explicit `constraints.broken` list of 1-based channel indices; a
-  product that carries no assessment falls back to the 12-MAD amplitude detector.
+* **Channel selection is a decision the constraint stage consumes, not one it makes** (issue #296).
+  `vaft.validation.efit_channels.decide_efit_channels` reads the validity the diagnostics stage projected
+  and emits a per-channel, per-slice decision — usable, suspect, rejected, missing or recovered —
+  that `generate_constraints_ods` only translates into weights. There is no manual channel list any more
+  (issue #295 retired `constraints.broken`; its evidence is in `workflow/efit_channel_selection/README.md`),
+  so a channel is a constraint unless the assessment says otherwise. `constraints.detect_broken: true` now means
+  *require* that assessment: a product without projected validity is refused and must be re-run through the
+  diagnostics stage (with `false` every channel is usable by default). No detector runs in this stage.
+  `gaussian_fit_option` selects the compatibility recovery backend (`1` refits rejected probes from their
+  family's Gaussian profile, `2` every probe); a recovered value never re-enables a channel the quality
+  layer rejected. The decisions are recorded in the product under
+  `equilibrium.code.parameters.channel_decisions`.
+
+Each constraint is the box average of the diagnostic samples inside `[t_i − w, t_i + w]` — every
+sample once, equal weights, no interpolation grid of its own (issue #433) — with `w =
+constraints.average_window` (0.5 ms by default). The window and the reconstruction cadence `tstep` are
+two separate controls; qualifying them together is issue #468.
 
 Constraint time selection is worth spelling out, because `timeset: auto` is the default and it is not
 obvious. The script takes the shared plasma-analysis range — `diagnostics_time_policies.windows.plasma_analysis`
@@ -238,11 +253,11 @@ machine_mapping.thomson_scattering(ods, shotnumber, filepath)
 database.save(ods, shotnumber)
 
 # and, when a refined equilibrium exists for that shot, per time slice:
-mapped_rho = process.equilibrium_mapping_thomson_scattering(ods, geq)
+mapped = process.equilibrium_mapping_thomson_scattering(ods, geq)   # psi_norm, rho_pol_norm, rho_tor_norm
 n_e_fn, T_e_fn, *_ = process.profile_fitting_thomson_scattering(
-    ods, time_ms, mapped_rho, Te_order=2, Ne_order=2,
+    ods, time_ms, mapped, Te_order=2, Ne_order=2,                    # fitted in rho_tor_norm by default
     fitting_function_te='polynomial', fitting_function_ne='exponential')
-ods = process.core_profiles(ods, time_ms, mapped_rho, n_e_fn, T_e_fn)
+ods = process.core_profiles(ods, time_ms, mapped, n_e_fn, T_e_fn)
 ```
 
 The equilibrium it maps against is the CHEASE-refined g-file at

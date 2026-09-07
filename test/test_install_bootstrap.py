@@ -30,7 +30,27 @@ PLATFORM_SCRIPTS = ("linux.sh", "macos.sh", "windows_wsl.sh", "windows_native.ps
 # Removal is identical on every POSIX platform, so it needs one entry point,
 # not one per platform.
 UNINSTALL_SCRIPTS = ("uninstall.sh", "uninstall_windows_native.ps1")
-POWERSHELL_SCRIPTS = ("windows_native.ps1", "uninstall_windows_native.ps1")
+# The external Fortran codes are their own entry points, deliberately separate
+# from the VAFT bootstrap: building them takes tens of minutes and needs a
+# compiler toolchain, neither of which belongs in the path a student runs first.
+EXTERNAL_CODE_SCRIPTS = ("install_chease_windows.ps1", "install_gpec_windows.ps1")
+EXTERNAL_CODE_CHECKERS = ("check_chease.py", "check_gpec.py", "check_nubeam.py")
+POWERSHELL_SCRIPTS = (
+    "windows_native.ps1",
+    "uninstall_windows_native.ps1",
+    "_external_code_common.ps1",
+    *EXTERNAL_CODE_SCRIPTS,
+)
+
+#: Commands that would obtain or move an external checkout for the operator.
+#: Issue #226 keeps source acquisition a separate, explicit act: provenance is
+#: something the operator states, not something a script infers.
+ACQUISITIVE = (
+    re.compile(r"git\s+clone"),
+    re.compile(r"git\s+pull"),
+    re.compile(r"git\s+fetch"),
+    re.compile(r"git\s+submodule"),
+)
 
 
 def _usable_bash() -> str | None:
@@ -103,7 +123,11 @@ def test_install_directory_is_flat_and_complete():
     expected = (
         *PLATFORM_SCRIPTS,
         *UNINSTALL_SCRIPTS,
+        *EXTERNAL_CODE_SCRIPTS,
+        *EXTERNAL_CODE_CHECKERS,
         "_common.sh",
+        "_external_code_common.ps1",
+        "_external_code_common.py",
         "README.md",
         "check_vaft_environment.py",
     )
@@ -767,7 +791,7 @@ def test_no_multiline_python_payload_crosses_conda_run():
     contain newlines not implemented`, so a multi-line `python -c` payload
     silently turns into a false FAIL. Pass a file path instead.
     """
-    for name in PLATFORM_SCRIPTS:
+    for name in (*PLATFORM_SCRIPTS, *EXTERNAL_CODE_SCRIPTS):
         text = _executable_source(INSTALL / name)
         for match in re.finditer(r"-c'?,?\s*(['\"])", text):
             quote = match.group(1)
@@ -1146,3 +1170,361 @@ def test_uninstall_reverses_exactly_what_the_bootstrap_creates():
         ("ipykernel install", "kernelspec remove"),
     ):
         assert created in text and removed in text, f"{created} has no counterpart"
+
+
+# ---------------------------------------------------------------------------
+# External Fortran codes (issue #226)
+# ---------------------------------------------------------------------------
+
+
+EXTERNAL_SOURCES = (
+    *EXTERNAL_CODE_SCRIPTS,
+    *EXTERNAL_CODE_CHECKERS,
+    "_external_code_common.ps1",
+    "_external_code_common.py",
+)
+
+
+def _load_external_checker(name):
+    module_name = name.replace(".py", "")
+    spec = importlib.util.spec_from_file_location(module_name, INSTALL / name)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_external_code_tooling_never_obtains_or_moves_a_checkout():
+    """Which revision was built is a statement the operator makes.
+
+    Issue #226 keeps source acquisition separate from building so that
+    provenance, access and revision selection stay decisions a person takes.
+    A script that fetches or switches revisions on their behalf destroys that.
+    """
+    for name in EXTERNAL_SOURCES:
+        text = _executable_source(INSTALL / name)
+        for pattern in ACQUISITIVE:
+            assert not pattern.search(text), f"install/{name} runs `{pattern.pattern}`"
+
+
+def test_external_code_installers_never_guess_where_the_source_is():
+    for name in EXTERNAL_CODE_SCRIPTS:
+        text = _executable_source(INSTALL / name)
+        for guess in ("~/git", "$HOME/git", "USERPROFILE\\git"):
+            assert guess not in text, f"install/{name} guesses a source path: {guess}"
+
+
+def test_external_code_installers_require_an_explicit_source_path():
+    for name in EXTERNAL_CODE_SCRIPTS:
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        assert "[Parameter(Position = 0)] [string] $SourcePath" in text, (
+            f"install/{name} must take the source path as its first argument"
+        )
+        assert "Assert-SourceCheckout" in text, (
+            f"install/{name} must validate the path it was given"
+        )
+
+
+def test_toolchain_installation_is_opt_in():
+    """Installing a compiler system-wide is the operator's decision.
+
+    The bootstrap already treats Git, Conda and WSL2 as things it will not
+    install for you. A Fortran toolchain is no different.
+    """
+    for name in EXTERNAL_CODE_SCRIPTS:
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        assert "[switch] $InstallToolchain" in text
+
+    shared = _executable_source(INSTALL / "_external_code_common.ps1")
+    for command in ("winget install", "pacman -S"):
+        assert command in shared, f"{command} belongs in the shared helper"
+    # Reachable only through the opt-in function.
+    body = shared[shared.index("function Install-Msys2Toolchain"):]
+    assert "winget install" in body
+    assert "pacman -S" in body
+    # And a machine without it is told both ways to fix that.
+    assert "Get-ToolchainGuidance" in shared
+    assert "-InstallToolchain" in shared
+
+
+def test_external_code_installs_outside_every_checkout():
+    """Nothing may land in the VAFT checkout.
+
+    The bootstrap CI cycle ends by requiring `git status` to come back empty,
+    so an artifact inside the repository would fail a job that has nothing to
+    do with these scripts.
+    """
+    shared = (INSTALL / "_external_code_common.ps1").read_text(encoding="utf-8")
+    assert "LOCALAPPDATA" in shared
+    assert "The install prefix must be outside" in shared
+    for name in EXTERNAL_CODE_SCRIPTS:
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        assert "Resolve-InstallPrefix" in text, f"install/{name} must validate its prefix"
+
+
+def test_the_vaft_bootstrap_never_builds_fortran():
+    """Bootstrap CI runs windows_native.ps1 three times on a hosted runner.
+
+    A Fortran build wired into that path would add tens of minutes and need a
+    toolchain the runner does not have, so the external codes stay separate
+    entry points that CI never invokes.
+    """
+    for name in ("windows_native.ps1", "_common.sh", "uninstall_windows_native.ps1"):
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        for external in EXTERNAL_CODE_SCRIPTS:
+            assert external not in text, f"install/{name} references {external}"
+
+
+def test_gpec_build_never_requires_x11():
+    """Issue #226 excludes xdraw: the Windows target is the CLI workflow."""
+    text = _executable_source(INSTALL / "install_gpec_windows.ps1")
+    assert "mkbin" in text, "build the executables target rather than everything"
+    assert "xdraw" not in text
+    assert "make all" not in text
+
+
+def test_gpec_build_sets_every_variable_the_upstream_makefile_reads():
+    """Each of these has its own opaque failure when it is left out.
+
+    An unset CC means GNU make's built-in `cc` reaches a compiler test that
+    rejects it. The argument-mismatch flag is mandatory on modern gfortran. The
+    library homes are what stop the makefile building its own dependencies from
+    submodules inside the operator's tree. And a stray MKLROOT from an
+    unrelated toolkit silently changes which math library gets linked.
+    """
+    text = _executable_source(INSTALL / "install_gpec_windows.ps1")
+    for required in (
+        "FC=gfortran",
+        "CC=gcc",
+        "OPENBLASHOME",
+        "NETCDF_FORTRAN_HOME",
+        "-fallow-argument-mismatch",
+        "RECURSFLAG=-frecursive",
+    ):
+        assert required in text, f"install_gpec_windows.ps1 does not set {required}"
+    assert "unset MKLROOT" in text
+    for leaked in ("LAPACKHOME", "NETCDFHOME"):
+        assert leaked in text, f"{leaked} should be cleared before the build"
+
+
+def test_gpec_build_refuses_to_let_make_fetch_its_own_dependencies():
+    """The submodule path would modify the operator's checkout."""
+    text = _executable_source(INSTALL / "install_gpec_windows.ps1")
+    assert "make v" in text
+    assert "Compiling supporting modules" in text
+
+
+def test_gpec_build_is_serial_and_records_why():
+    """OpenMP cannot be used, and a reader must not have to rediscover that.
+
+    gfortran expresses `!$OMP THREADPRIVATE` on a COMMON block with an
+    assembler directive the PE object format has no equivalent for, so an
+    OpenMP build of LSODE and ZVODE cannot assemble at all.
+    """
+    text = (INSTALL / "install_gpec_windows.ps1").read_text(encoding="utf-8")
+    assert "OMPFLAG=" in text
+    assert "threadprivate" in text.lower()
+
+
+def test_chease_build_pins_the_machine_and_the_compiler():
+    """CHEASE_MACHINE is not cosmetic.
+
+    Only that branch of the upstream flags file sets the double-precision
+    options, so the default machine builds a numerically different code that
+    still compiles cleanly.
+    """
+    text = (INSTALL / "install_chease_windows.ps1").read_text(encoding="utf-8")
+    assert "CHEASE_F90=gfortran" in text
+    assert "CHEASE_MACHINE=linux_nohdf5" in text
+    assert "precision" in text
+
+
+def test_chease_installer_explains_the_symbolic_link_placeholders():
+    """That failure happens at acquisition time, and no compiler flag fixes it."""
+    text = (INSTALL / "install_chease_windows.ps1").read_text(encoding="utf-8")
+    assert "[switch] $MaterializeSymlinks" in text
+    assert "symbolic link" in text.lower()
+
+
+def test_external_code_checkers_share_the_vaft_vocabulary():
+    """One vocabulary, imported -- not a second one that can drift from it."""
+    base = _load_checker()
+    for name in (*EXTERNAL_CODE_CHECKERS, "_external_code_common.py"):
+        source = (INSTALL / name).read_text(encoding="utf-8")
+        assert "class CheckResult" not in source, f"install/{name} redefines CheckResult"
+        for status in ("PASS", "FAIL", "SKIP", "WARN"):
+            assert f'{status} = "' not in source, f"install/{name} redefines {status}"
+    for name in EXTERNAL_CODE_CHECKERS:
+        module = _load_external_checker(name)
+        assert module.CheckResult._fields == base.CheckResult._fields
+        for status in ("PASS", "FAIL", "SKIP", "WARN"):
+            assert getattr(module, status) == getattr(base, status)
+
+
+def test_external_code_checkers_report_every_layer():
+    """Issue #226 asks each layer to answer for itself, not just the binary."""
+    expected = {
+        "check_chease.py": ("toolchain", "source", "build record", "executables", "discovery", "run"),
+        "check_gpec.py": ("toolchain", "source", "build record", "executables", "discovery", "handoff"),
+        # NUBEAM has no smoke run without a case, and two layers the others do
+        # not: the reaction databases it aborts without, and the fixed-width
+        # filename buffer a deep working directory overruns.
+        "check_nubeam.py": (
+            "toolchain", "source", "build record", "executables", "discovery",
+            "reaction databases", "path budget",
+        ),
+    }
+    for name, layers in expected.items():
+        module = _load_external_checker(name)
+        results = module.run_checks(source=None, prefix=None, skip_smoke=True)
+        reported = " ".join(result.name for result in results).lower()
+        for layer in layers:
+            assert layer in reported, f"{name} does not report a {layer} layer"
+
+
+def test_external_code_checkers_name_the_layer_not_the_linker(tmp_path):
+    """A page of compiler output tells the reader nothing they can act on."""
+    for name in EXTERNAL_CODE_CHECKERS:
+        module = _load_external_checker(name)
+        results = module.run_checks(source=None, prefix=str(tmp_path), skip_smoke=True)
+        for result in results:
+            if result.status == module.FAIL:
+                assert result.remediation, f"{name}: {result.name} fails with no remediation"
+            for noise in ("Traceback", "undefined reference", "collect2"):
+                assert noise not in result.detail, f"{name}: {result.name} leaks {noise}"
+
+
+def test_external_code_checkers_have_a_usable_command_line():
+    for name in EXTERNAL_CODE_CHECKERS:
+        completed = subprocess.run(
+            [sys.executable, str(INSTALL / name), "--help"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+        )
+        assert completed.returncode == 0, completed.stderr
+        assert "--source" in completed.stdout
+        assert "--prefix" in completed.stdout
+
+
+def test_readme_documents_the_external_code_path():
+    text = (INSTALL / "README.md").read_text(encoding="utf-8")
+    for fragment in (
+        "install_chease_windows.ps1",
+        "install_gpec_windows.ps1",
+        "check_chease.py",
+        "check_gpec.py",
+        "-InstallToolchain",
+        "MSYS2",
+    ):
+        assert fragment in text, f"install/README.md does not mention {fragment}"
+
+
+# ---------------------------------------------------------------------------
+# external/nubeam: the Windows NUBEAM recipe
+#
+# NUBEAM's entry point lives in external/nubeam/ rather than install/, beside
+# the macOS recipe it mirrors, because the two share the reference cases and
+# the validation scripts. The rules issue #226 sets for install/ apply to it
+# all the same, so they are asserted here rather than assumed.
+# ---------------------------------------------------------------------------
+
+NUBEAM_DIR = ROOT / "external" / "nubeam"
+NUBEAM_SCRIPTS = ("windows.ps1", "windows.sh")
+
+
+def test_nubeam_windows_recipe_is_present_beside_the_macos_one():
+    for name in (*NUBEAM_SCRIPTS, "macos.sh"):
+        assert (NUBEAM_DIR / name).is_file(), f"external/nubeam/{name} is missing"
+
+
+def test_nubeam_windows_recipe_never_obtains_or_moves_the_source():
+    """The NUBEAM tree is the operator's, and its revision is their statement.
+
+    The recipe does download the three NTCC dependency modules, which is a
+    different act: those are versionless tarballs from PPPL, gated on an
+    explicit acceptance flag, and they land in a vendor directory rather than
+    over anything the operator holds.
+    """
+    for name in NUBEAM_SCRIPTS:
+        text = _executable_source(NUBEAM_DIR / name)
+        for pattern in ACQUISITIVE:
+            assert not pattern.search(text), f"external/nubeam/{name} runs `{pattern.pattern}`"
+
+
+def test_nubeam_windows_recipe_never_guesses_where_the_source_is():
+    for name in NUBEAM_SCRIPTS:
+        text = _executable_source(NUBEAM_DIR / name)
+        for guess in ("~/git", "$HOME/git", "USERPROFILE\\git"):
+            assert guess not in text, f"external/nubeam/{name} guesses a source path: {guess}"
+
+
+def test_nubeam_windows_wrapper_requires_an_explicit_source_path():
+    text = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    assert "[Parameter(Position = 0)] [string] $SourcePath" in text
+    assert "Assert-SourceCheckout" in text
+    assert "[switch] $InstallToolchain" in text
+
+
+def test_nubeam_downloads_are_gated_on_explicit_acceptance():
+    """NTCC requires each user to accept its licence before downloading.
+
+    Both halves have to enforce it: the wrapper so the refusal is legible
+    before an hour of compilation, and the recipe so running it directly is
+    not a way around the wrapper.
+    """
+    wrapper = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    assert "[switch] $AcceptNtccTerms" in wrapper
+    assert "downloads.shtml" in wrapper
+
+    recipe = (NUBEAM_DIR / "windows.sh").read_text(encoding="utf-8")
+    assert "--accept-ntcc-terms" in recipe
+    assert "ACCEPT_NTCC_TERMS" in recipe
+    # The flag has to be checked before the first download, not after it.
+    gate = recipe.index("((ACCEPT_NTCC_TERMS))")
+    assert gate < recipe.index("download_ntcc_module()")
+
+
+def test_nubeam_generates_only_inside_the_source_tree():
+    """Everything generated stays where macos.sh puts it.
+
+    The prefix follows from the source path rather than being a separate
+    choice, so the two platforms cannot disagree about it, and -Uninstall has
+    an exact list to remove.
+    """
+    recipe = (NUBEAM_DIR / "windows.sh").read_text(encoding="utf-8")
+    assert 'PREFIX="$ROOT_DIR/local"' in recipe
+    assert "refusing path outside source tree" in recipe
+
+    wrapper = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    assert "Get-NubeamPrefix" in wrapper
+    assert "[switch] $Uninstall" in wrapper
+
+
+def test_the_vaft_bootstrap_never_builds_nubeam():
+    for name in ("windows_native.ps1", "_common.sh", "uninstall_windows_native.ps1"):
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        assert "nubeam" not in text.lower(), f"install/{name} references NUBEAM"
+
+
+def test_nubeam_windows_recipe_is_valid_shell():
+    bash = _usable_bash()
+    if bash is None:
+        pytest.skip("no usable POSIX bash on this machine")
+    completed = subprocess.run(
+        [bash, "-n", str(NUBEAM_DIR / "windows.sh")],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_nubeam_readme_documents_the_windows_path():
+    text = (NUBEAM_DIR / "README.md").read_text(encoding="utf-8")
+    for fragment in ("windows.ps1", "windows.sh", "-AcceptNtccTerms"):
+        assert fragment in text, f"external/nubeam/README.md does not mention {fragment}"

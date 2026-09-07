@@ -507,7 +507,7 @@ def time_impurity_effect(odc_or_ods, label='shot', xunit='s', xlim='plasma',
     axs[0, 0].grid(True)
 
     # (0,1): Halpha
-    _plot_spectrometer_line_into_ax(odc, labels, axs[0, 1], 'H_alpha', xunit)
+    _plot_spectrometer_line_into_ax(odc, axs[0, 1], 'H_alpha', xunit)
     axs[0, 1].set_ylabel(r'$\mathrm{H}_\alpha$ [a.u.]')
     axs[0, 1].grid(True)
 
@@ -527,7 +527,7 @@ def time_impurity_effect(odc_or_ods, label='shot', xunit='s', xlim='plasma',
     axs[1, 0].grid(True)
 
     # (1,1): CIII
-    _plot_spectrometer_line_into_ax(odc, labels, axs[1, 1], 'CIII', xunit)
+    _plot_spectrometer_line_into_ax(odc, axs[1, 1], 'CIII', xunit)
     axs[1, 1].set_ylabel(r'$\mathrm{C}$-III [a.u.]')
     axs[1, 1].grid(True)
 
@@ -557,7 +557,7 @@ def time_impurity_effect(odc_or_ods, label='shot', xunit='s', xlim='plasma',
     axs[2, 0].grid(True)
 
     # (2,1): OII
-    _plot_spectrometer_line_into_ax(odc, labels, axs[2, 1], 'OII', xunit)
+    _plot_spectrometer_line_into_ax(odc, axs[2, 1], 'OII', xunit)
     axs[2, 1].set_ylabel(r'$\mathrm{O}$-II [a.u.]')
     axs[2, 1].grid(True)
 
@@ -577,26 +577,24 @@ def time_impurity_effect(odc_or_ods, label='shot', xunit='s', xlim='plasma',
     plt.show()
 
 
-def _plot_spectrometer_line_into_ax(odc, labels, ax, line_name, xunit):
-    """Plot a single spectrometer line into the given axes. Leaves ax unchanged if no data."""
-    if line_name not in SPECTROMETER_LINE_MAP:
-        ax.text(0.5, 0.5, f'No line {line_name}', ha='center', va='center', transform=ax.transAxes)
-        ax.set_yticks([])
-        return
-    channel, line_idx = SPECTROMETER_LINE_MAP[line_name]
-    plot_ok = False
-    for key, lbl in zip(odc.keys(), labels):
-        try:
-            time_data = odc[key]['spectrometer_uv.time'].copy()
-            data_val = odc[key][f'spectrometer_uv.channel.{channel}.processed_line.{line_idx}.intensity.data']
-            if xunit == 'ms':
-                time_data = time_data * 1e3
-            ax.plot(time_data, data_val, label=lbl)
-            plot_ok = True
-        except KeyError:
-            continue
-    if not plot_ok:
-        ax.text(0.5, 0.5, f'No data for {line_name}', ha='center', va='center', transform=ax.transAxes)
+def _plot_spectrometer_line_into_ax(odc, ax, line_name, xunit):
+    """Draw one spectral line into ``ax``; leave it marked if there is none.
+
+    ``line_name`` resolves against the labels the data records rather than a
+    stored channel layout, so ``'CIII'`` finds C III wherever the mapping put
+    it.
+    """
+    from vaft.omas import plot_spectrometer_uv_time_intensity
+
+    try:
+        plot_spectrometer_uv_time_intensity(
+            odc, ax=ax, show=False, emission=line_name, xunit=xunit
+        )
+    except (ValueError, KeyError, TypeError):
+        ax.text(
+            0.5, 0.5, f'No data for {line_name}',
+            ha='center', va='center', transform=ax.transAxes,
+        )
         ax.set_yticks([])
 
 
@@ -1149,116 +1147,78 @@ equilibrium_time_q95 = time_equilibrium_q95
 equilibrium_time_qa = time_equilibrium_qa
 equilibrium_time_major_radius = time_equilibrium_major_radius
 
-"""
-spectrometer_uv (filterscope)
-VEST: channel 0 = Slow DaQ, channel 1 = Fast DaQ.
-Slow: line 0 H-alpha_6563, line 1 OI_7770.
-Fast: 0 H-alpha_6563, 1 H-beta_4861, 2 H-gamma_4340, 3 CII_3726, 4 CIII_1909, 5 OII_3726, 6 OV_629.
-"""
-# line_name -> (channel, line_idx). Order for 'all': slow then fast.
-SPECTROMETER_LINE_MAP = {
-    'Slow_H_alpha': (0, 0),
-    'OI': (0, 1),
-    'H_alpha': (1, 0),
-    'H_beta': (1, 1),
-    'H_gamma': (1, 2),
-    'CII': (1, 3),
-    'CIII': (1, 4),
-    'OII': (1, 5),
-    'OV': (1, 6),
-}
-SPECTROMETER_ALL_LINES_ORDER = [
-    'Slow_H_alpha', 'OI', 'H_alpha', 'H_beta', 'H_gamma', 'CII', 'CIII', 'OII', 'OV',
-]
-SPECTROMETER_FAST_LINES = ['H_alpha', 'H_beta', 'H_gamma', 'CII', 'CIII', 'OII', 'OV']
-SPECTROMETER_SLOW_LINES = ['Slow_H_alpha', 'OI']
-SPECTROMETER_MAIN_LINES = ['H_alpha', 'CIII', 'OII']  # fast: H-alpha, C-III, OII
+#: The deprecated ``indices=`` vocabulary, kept only so a call written against
+#: the old signature still resolves.  ``'fast'`` and ``'slow'`` named a
+#: digitizer split that ``processed_line.label`` does not record, so they now
+#: mean every stored line; select a channel with ``selection=`` on the
+#: canonical plot instead.
+_LEGACY_MAIN_LINES = ("H_alpha", "CIII", "OII")
 
 
-def _determine_spectrometer_lines(indices_param, line_map):
+def _stored_line_labels(odc):
+    """Every ``processed_line`` label the entries record, in stored order.
+
+    Read through :mod:`vaft.plot.backend.access`, which never materialises a
+    path it is only asked about -- an OMAS ``ODS`` creates whatever you index.
     """
-    Return list of line names to plot.
-    indices_param: 'all' | 'fast' | 'slow' | 'main' | 'H_alpha' | 'OI' | 'CII' | 'CIII' | 'OII' | 'OV' | 'H_beta' | 'H_gamma' | list
-    """
-    if indices_param == 'all':
-        return [name for name in SPECTROMETER_ALL_LINES_ORDER if name in line_map]
-    if indices_param == 'fast':
-        return [name for name in SPECTROMETER_FAST_LINES if name in line_map]
-    if indices_param == 'slow':
-        return [name for name in SPECTROMETER_SLOW_LINES if name in line_map]
-    if indices_param == 'main':
-        return [name for name in SPECTROMETER_MAIN_LINES if name in line_map]
-    if isinstance(indices_param, list):
-        return [name for name in indices_param if name in line_map]
-    if indices_param in line_map:
-        return [indices_param]
-    return []
+    from vaft.plot.backend.access import count as _count, get as _get
+
+    labels = []
+    for key in odc.keys():
+        ods = odc[key]
+        for channel in range(_count(ods, "spectrometer_uv.channel")):
+            base = f"spectrometer_uv.channel.{channel}.processed_line"
+            for line in range(_count(ods, base)):
+                label = _get(ods, f"{base}.{line}.label")
+                if label and str(label) not in labels:
+                    labels.append(str(label))
+    return labels
 
 
-def _plot_spectrometer_subplot_generic(odc_or_ods, indices_param, label_param, xunit, yunit, 
-                                       line_map, xlim_param):
-    """Generic plotting function for spectrometer data with subplots."""
-    odc = odc_or_ods_check(odc_or_ods)
-    xlim_processed = handle_xlim(odc_or_ods, xlim_param)
-    labels = handle_labels(odc, label_param)
+def _legacy_emission_terms(odc, indices_param):
+    """Map the deprecated ``indices=`` vocabulary onto ``emission=`` terms."""
+    if isinstance(indices_param, (list, tuple)):
+        return list(indices_param)
+    if indices_param == "main":
+        return list(_LEGACY_MAIN_LINES)
+    if indices_param in ("all", "fast", "slow"):
+        return _stored_line_labels(odc)
+    return [indices_param]
 
-    selected_lines = _determine_spectrometer_lines(indices_param, line_map)
-
-    if not selected_lines:
-        print("No valid spectral lines to plot")
-        return
-
-    nrows = len(selected_lines)
-    fig, axs = plt.subplots(nrows, 1, figsize=(6, 1.5 * nrows), sharex=True)
-    if nrows == 1:
-        axs = [axs]
-
-    for ax, line_name in zip(axs, selected_lines):
-        channel, line_idx = line_map[line_name]
-        plot_successful_for_line = False
-        for key, lbl in zip(odc.keys(), labels):
-            ods = odc[key]
-            try:
-                time_data = ods[f'spectrometer_uv.time']
-                data_val = ods[f'spectrometer_uv.channel.{channel}.processed_line.{line_idx}.intensity.data']
-                
-                if xunit == 'ms':
-                    time_data = time_data * 1e3
-                
-                ax.plot(time_data, data_val, label=lbl)
-                plot_successful_for_line = True
-            except KeyError as e:
-                # print(f"Missing {line_name} data in ODS {key}: {e}")
-                continue
-        
-        if plot_successful_for_line:
-            ax.set_ylabel(f'[{yunit}]')
-            ax.set_title(line_name.replace('_', '-'))
-            ax.grid(True)
-            if line_name == selected_lines[0]: # Legend for the first subplot
-                ax.legend()
-        else:
-            ax.text(0.5, 0.5, f'No data for {line_name}', horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
-            ax.set_yticks([])
-
-    if any(ax.lines for ax in axs):
-        axs[-1].set_xlabel(f'Time [{xunit}]')
-        if xlim_processed is not None:
-            plt.xlim(xlim_processed)
-
-    plt.tight_layout()
-    plt.show()
 
 def time_spectrometer_uv_intensity(odc_or_ods, indices='all', label='shot', xunit='s', yunit='a.u.', xlim='plasma'):
     """
     Plot UV spectrometer/filterscope intensity time series.
 
-    indices: 'all' (all lines, slow then fast), 'fast' (fast channel only),
-             'slow' (slow channel only), 'main' (fast: H-alpha, C-III, OII only),
-             'H_alpha', 'OI', 'CII', 'CIII', 'OII', 'OV', 'H_beta', 'H_gamma', or list of names.
+    ``indices`` accepts ``'all'``, ``'main'``, a line name such as ``'CIII'``
+    or ``'H_alpha'``, or a list of them.  Names now resolve against the labels
+    the data itself records, so this no longer depends on a hard-coded channel
+    layout -- the previous table assumed the versatile filterscope sat at
+    channel 1 when the mapping puts it at channel 2, and every fast-channel
+    name it offered pointed at a line that does not exist.
+
+    ``xlim`` is accepted and ignored: the canonical plot resolves its own
+    limits from the data (issue #256).
+
+    Deprecated: use ``vaft.omas.plot_spectrometer_uv_time_intensity`` with
+    ``emission=``, which is what this now calls.
     """
-    _plot_spectrometer_subplot_generic(odc_or_ods, indices, label, xunit, yunit, 
-                                       SPECTROMETER_LINE_MAP, xlim)
+    from vaft.omas import plot_spectrometer_uv_time_intensity
+
+    odc = odc_or_ods_check(odc_or_ods)
+    terms = _legacy_emission_terms(odc, indices)
+    if not terms:
+        print("No valid spectral lines to plot")
+        return
+    return plot_spectrometer_uv_time_intensity(
+        odc_or_ods,
+        emission=terms,
+        label=label,
+        xunit=xunit,
+        yunit=yunit,
+        layout="subplots",
+        show=True,
+    )
 spectrometer_uv_time_intensity = time_spectrometer_uv_intensity
 
 """

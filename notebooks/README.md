@@ -66,17 +66,18 @@ Pipeline notebooks are expanded as the reusable VAFT functions behind them becom
 - `linear_ideal_stability_analysis_with_dcon.ipynb`: Blocked on a GPEC-suite build; the notebook documents the `GPECHOME` layout and the case preparation and output validation `vaft.code.gpec` does without the solver.
 - `linear_resistive_stability_analysis_with_rdcon.ipynb`: Blocked on the same GPEC-suite build, for RDCON and its matching data.
 - `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`: Blocked on GPEC itself; the notebook notes that its output readers work on results produced elsewhere, so a run from another machine can still be analysed here.
-- `vest_nbi_analysis_with_nubeam.ipynb`: Neutral-beam deposition, heating, current drive and loss accounting for VEST with NUBEAM. Needs a completed NUBEAM run, named by `VAFT_NUBEAM_RUN_DIR`; without one each section reports what it would show and skips.
+- `vest_nbi_analysis_with_nubeam.ipynb`: Neutral-beam deposition, heating, current drive and loss accounting for VEST with NUBEAM. Runs the case stored in `vaft/data/nubeam/vest_case` into a temporary directory; needs `$NUBEAMHOME`, and without it each section reports what it would show and skips.
 
 ### Analysis, Visualization, Reporting, and Comparison
 
 - `plotting_sample_using_vaft_plot_module.ipynb`: Existing examples for plotting sample data with the VAFT plot module.
 - `profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb`: Existing profile-fitting and kinetic-diagnostic example notebook.
 - `confinement_time_scaling.ipynb`: Existing confinement time scaling analysis notebook.
+- `tokamak_power_balance.ipynb`: Radiation loss channels on one power-density basis — a temperature scan at assumed flat density, then the same channels integrated over the measured Thomson profiles of the packaged kinetic-EFIT sample (shot 48224 at 300 ms), which the flat estimate underestimates by a factor of two.
 - `shot_characteristics_classification.ipynb`: Per-shot feature records from the packaged shots — timing with its detector and agreement, equilibrium descriptors, a class label with its threshold sensitivity shown, a review state beside the automatic proposal, and the summary table an aggregation rule would write.
 - `vest_daily_monitoring.ipynb`: Existing daily monitoring notebook for VEST data review.
 - `multiple_tokamak_comparison.ipynb`: Cross-device comparison against public upstream data — VEST, DIII-D, MAST-U, JET, TCV and SPARC equilibria fetched from their own repositories as IMAS netCDF, ODS JSON and GEQDSK, loaded through one `vaft.omas.load` path, then compared as physical and normalized geometry, global descriptors, COCOS conventions and profiles.
-- `publication_figures.ipynb`: Existing or planned notebook for publication figure preparation.
+- `publication_figures.ipynb`: Publication figures built from packaged data — three reconstructions of shot 48224 at 300 ms (EFIT, its CHEASE refinement, kinetic EFIT) overlaid through the canonical renderers, and a Mirnov spectrogram of shot 45531 from the packaged raw archive. Sections needing the external stability history report that and skip.
 
 ## Recommended Reading Order
 

@@ -975,6 +975,25 @@ def resolve_plasma_features_policy(*, info_file: str | None = None) -> PlasmaFea
     )
 
 
+AGREEMENT_CONSISTENT = "consistent"
+AGREEMENT_IP_BEFORE_HALPHA = "ip_before_halpha"
+AGREEMENT_HALPHA_LEADS_IP_LARGE = "halpha_leads_ip_large"
+
+
+def onset_agreement(onset_delta: float, tolerances: Mapping[str, float]) -> str:
+    """How the current's onset relates to the light's, in the one vocabulary both readers use.
+
+    ``onset_delta`` is the current's onset minus the light's; the policy's
+    ``agreement`` block sets how much earlier (``onset_tolerance_s``) or later
+    (``lag_tolerance_s``) the current may start before the pair disagrees.
+    """
+    if onset_delta < -float(tolerances["onset_tolerance_s"]):
+        return AGREEMENT_IP_BEFORE_HALPHA
+    if onset_delta > float(tolerances["lag_tolerance_s"]):
+        return AGREEMENT_HALPHA_LEADS_IP_LARGE
+    return AGREEMENT_CONSISTENT
+
+
 def build_window_time_axis(
     source_time: Any,
     tstart: float,
@@ -1488,6 +1507,9 @@ def apply_default_constraint_uncertainties(
 
 
 __all__ = [
+    "AGREEMENT_CONSISTENT",
+    "AGREEMENT_HALPHA_LEADS_IP_LARGE",
+    "AGREEMENT_IP_BEFORE_HALPHA",
     "DEFAULT_CONSTRAINT_UNCERTAINTIES",
     "DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR",
     "DIAGNOSTICS_TIME_POLICIES_KEY",
@@ -1516,6 +1538,7 @@ __all__ = [
     "raw_database_info",
     "load_yaml",
     "normalize_constraint_uncertainties",
+    "onset_agreement",
     "package_data_path",
     "path_count",
     "path_exists",

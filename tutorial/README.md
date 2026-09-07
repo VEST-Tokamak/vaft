@@ -48,8 +48,8 @@ relevant external-code roots, such as `CHEASEHOME`, `EFITHOME`, and `GPECHOME`.
 | Session | Topic | Workflow role | Status |
 | --- | --- | --- | --- |
 | 01 | Getting Started with VAFT | diagnostic data and public plotting APIs | complete |
-| 02 | Operation Scenario and Vacuum Fields | discharge operation and vacuum-field interpretation | scaffold |
-| 03 | Equilibrium and Kinetic Profiles | reconstruction, profiles, and forward equilibrium | scaffold |
+| 02 | Operation Scenario and Vacuum Fields | discharge operation and vacuum-field interpretation | complete |
+| 03 | Equilibrium and Kinetic Profiles | reconstruction, profiles, and forward equilibrium | complete |
 | 04 | Fluctuations and Transient Events | spectral analysis and event interpretation | scaffold |
 | 05 | MHD Linear Stability and 3D Perturbed Equilibrium | equilibrium-to-stability/response modelling | scaffold |
 | 06 | Operational Space and Statistics | cross-shot filtering, limits, and statistical analysis | scaffold |

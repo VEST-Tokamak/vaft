@@ -192,6 +192,22 @@ mapping merged into the subprocess environment.
 | `"prepare_only"` | Write the input decks and stop |
 | `"strict"` | A missing or failing executable is an error |
 
+### 3-D coil input for any machine
+
+By default the ideal-GPEC stage copies the packaged VEST `coil.in` template. Passing
+`IdealGPECOptions(coil_specs=[CoilInputSpec(name, currents_a), ...])` instead generates `coil.in`
+and stages one `<machine>_<set>.dat` per activated set (`coil_num` is always the number of specs).
+For `machine="vest"` (the default) the geometry and the GPEC direction words come from the packaged
+VEST configuration and `vaft.machine_mapping.conventions.VEST_GPEC_COIL_DIRECTIONS`. For any other
+machine three things are mandatory and are never inherited from the template: `coil_config`, a
+mapping of set name to `CoilSet3D` (build one from Cartesian loops with
+`vaft.machine_mapping.coils_non_axisymmetric_geometry.coil_set_from_xyz_loops`, or from an existing
+GPEC file with `coil_set_from_dat`), and the machine's `ip_direction` / `bt_direction`
+(`"positive"` for counter-clockwise, `"negative"` for clockwise, viewed from above, as GPEC defines
+them). A set built in memory is written out with the canonical header `ncoil nsec npts nw`
+(`GPEC_COIL_DAT_HEADER`). The toroidal-mode content of a current pattern and the vacuum field of
+the filaments are available as plain-array kernels in `vaft.process.coils_non_axisymmetric`.
+
 To stage the inputs without executing anything — useful when the run itself is dispatched by a
 scheduler — call `prepare_gpec_suite_case(inputs, config)` directly. `run_gpec(inputs, config)` is a
 compatibility entry point that forwards to `run_gpec_suite_case`.
@@ -218,14 +234,20 @@ for path in outputs["dcon"]:
 The result is a dict keyed by module name (`dcon`, `rdcon`, `stride`, `gpec`).
 
 `GPECSuiteResult.records` is a tuple of `GPECModuleRun`, one per module/mode, each carrying `status`
-(`prepared`, `completed`, `failed`, `skipped`), `returncode`, `reason`, `logs` and `outputs`. The
-`ok` property is true only when `status == "completed"` **and** `returncode == 0`, so inspect it per
-module rather than trusting the suite-level return code alone:
+(`prepared`, `completed`, `stable`, `failed`, `skipped`), `returncode`, `reason`, `logs` and
+`outputs`. The `ok` property is true when `status` is `completed` or `stable` **and**
+`returncode == 0`, so inspect it per module rather than trusting the suite-level return code alone:
 
 ```python
 for record in result.records:
     print(record.module, record.mode, record.status, record.ok, record.reason)
 ```
+
+`stable` is a *successful* status, kept apart from `completed` because a stable equilibrium produces
+no unstable-mode output and so cannot be told from a broken run by what it wrote (#423). It is read
+from the solver's own free-boundary energy -- `Re(total1)`, which DCON, RDCON and STRIDE all write
+into their netCDF -- so a companion such as `rmatch` exiting badly with nothing to analyse does not
+make the cell a failure. A run that produced no usable output is still `failed`, stable or not.
 
 ## GEQDSK headers
 

@@ -1,16 +1,20 @@
 # EFIT flux-loop channel selection: the evidence behind the manual list (issue #295)
 
 The routine EFIT configuration
-(`workflow/automatic_pipeline_1_routine_data_processing/config.yaml`,
-`constraints.broken: [65, 66, 67, 68, 72, 74]`) zero-weights six flux loops on
-every shot through a hand-maintained list that the constraint writer unions
-with the automatic verdicts. Issue #295 asks that the list not survive as a
+(`workflow/automatic_pipeline_1_routine_data_processing/config.yaml`) used to
+carry `constraints.broken: [65, 66, 67, 68, 72, 74]`, a hand-maintained list
+that zero-weighted six flux loops on every shot and that the constraint
+writer unioned with the automatic verdicts. Issue #295 asks that the list not survive as a
 permanent automatic-plus-manual union: either the automatic evidence
 reproduces each exclusion with a reason, or the exclusion is shown to be
 unjustified and deleted.
 
-This directory is **step 1** of that: the evidence table. It deletes nothing,
-changes no weight, and writes nothing into any ODS.
+This directory holds the evidence table that preceded the deletion. **The
+list is retired**: since #295 §4 the routine configuration carries no
+`constraints.broken`, the constraint stage forms its decisions from the
+diagnostics-stage assessment alone, and `test_no_manual_blacklist.py` fails
+if a list reappears. The back-test keeps the retired list by name
+(`HISTORICAL_MANUAL_LIST`) so the table below stays reproducible.
 
 ## What the list actually names
 

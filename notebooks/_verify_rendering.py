@@ -47,6 +47,8 @@ OFFLINE_NOTEBOOKS: dict[str, dict[str, str]] = {
     # test_notebook_reliability.py::test_parametric_equilibrium_notebooks_execute_offline
     # instead.
     "local_miller_equilibrium_fitting.ipynb": {},
+    "tokamak_power_balance.ipynb": {},
+    "publication_figures.ipynb": {},
     "mhd_equilibrium_analysis.ipynb": {},
     "eddy_current_calculation_and_startup_analysis.ipynb": {},
     "shot_characteristics_classification.ipynb": {},

@@ -369,7 +369,7 @@ vaft.plot.time_magnetics_flux_loop_flux(ods, indices="all")
 vaft.plot.time_magnetics_b_field_pol_probe_field(ods)
 vaft.plot.time_tf_b_field_tor(ods)
 vaft.plot.time_barometry_pressure(ods)
-vaft.plot.time_spectrometer_uv_intensity(ods)
+vaft.omas.plot_spectrometer_uv_time_intensity(ods, emission='CIII')
 ```
 
 | Group | Functions |
@@ -411,7 +411,7 @@ outputs = collect_efit_outputs(workdir, cfg)
 
 | Code | Entry points |
 | --- | --- |
-| EFIT (equilibrium reconstruction) | `EFITConfig`, `EFITInputs`, `EFITResult`, `prepare_efit_inputs`, `run_efit`, `collect_efit_outputs`, `generate_kfile`, `generate_constraints_ods`, `gfile_to_omas` |
+| EFIT (equilibrium reconstruction) | `EFITConfig`, `EFITInputs`, `EFITResult`, `prepare_efit_inputs`, `run_efit`, `collect_efit_outputs`, `generate_kfile`, `generate_constraints_ods`, `apply_channel_decisions`, `gaussian_probe_recovery`, `probe_families`, `gfile_to_omas` |
 | CHEASE (fixed-boundary refinement) | `CHEASEConfig`, `CHEASEInputs`, `CHEASEResult`, `find_chease_executable`, `prepare_chease_inputs`, `run_chease`, `refine_equilibrium` |
 | GPEC (perturbed equilibrium, 3-D response) | `GPECSuiteConfig`, `GPECCaseInputs`, `GPECModuleRun`, `GPECSuiteResult`, `prepare_gpec_suite_case`, `run_gpec_suite_case`, `run_gpec`, `collect_gpec_suite_outputs`, `format_gfile_header_for_gpec` |
 | TES (forward equilibrium) | `TESConfig`, `TESInputs`, `TESResult`, `prepare_tes_inputs`, `run_tes`, `collect_tes_outputs`, `scan_tes`, `parse_result_scalars`, `parse_result_coils` |
@@ -426,10 +426,30 @@ integrals that map directly; the driven current is not -- NUBEAM reports it as a
 current and IMAS asks for `<J.B>/B0`, so it goes through
 `vaft.process.equilibrium.parallel_current_from_toroidal`, which needs equilibrium geometry and
 assumes the driven current is field-aligned. On a spherical tokamak the two differ by about a
-factor of 1.5, so the distinction is not academic. `vaft.machine_mapping.nbi` populates the
-static beam geometry. What has no IMAS home yet -- deposition markers, lost fast ions, the step
-log's power budget -- stays in the native container and is drawn by `vaft.plot.nubeam`, which is why
-those particular views are not in the plot catalog while `nbi_profile_*` are.
+factor of 1.5, so the distinction is not academic.
+
+`vaft.machine_mapping.distributions.distributions_from_nubeam` maps the other half: the fast-ion
+population itself, one `distributions.distribution` entry per beam species. `global_quantities`
+there is the exact part of the whole NUBEAM mapping -- summing a per-zone integral needs no
+division -- and it is also where NUBEAM's *toroidal* driven current survives unmodified, as
+`current_tor`, with none of the field-aligned assumption `core_sources` requires. It is
+`current_tor` and not `current_fast_tor` because `curbeam` is shielded, which is exactly the
+distinction IMAS draws between those two fields; the unshielded fast-ion current NUBEAM does not
+publish is left absent. The fast-ion pressures are derived: NUBEAM reports `eperp_beami` and
+`epll_beami` as mean energies per particle in keV, so `pressure_fast_parallel` is `2 n <E_par>`
+and `pressure_fast` the scalar `(p_par + 2 p_perp)/3`.
+
+When a run resolves more than one beam species, the profiles NUBEAM already summed over species --
+the collisional powers and torques, and the driven current -- are skipped rather than repeated
+into each entry, which would double-count for a consumer that adds the entries up. A multi-species
+`distributions` IDS therefore carries the per-species population but no driven current; those
+channels remain available through `core_sources`, which is not species-resolved and so does not
+face the same ambiguity.
+
+`vaft.machine_mapping.nbi` populates the static beam geometry. What has no IMAS home yet --
+deposition markers, lost fast ions, the step log's power budget -- stays in the native container
+and is drawn by `vaft.plot.nubeam`, which is why those particular views are not in the plot
+catalog while `nbi_profile_*` are.
 
 `refine_equilibrium(source, config=None)` is the one-shot CHEASE convenience: g-file or ODS in,
 refined equilibrium out. `scan_tes(ods, base_config, values, param="ip0_kA")` sweeps a single TES
