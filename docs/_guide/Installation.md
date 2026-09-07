@@ -110,7 +110,8 @@ input preparation when a binary is absent.
 
 EFIT is licensed software that VAFT neither bundles nor fetches: obtain authorized access to the
 source through the EFIT-AI channel and agree to its users agreement first, then build it from your
-own tree with `install/install_efit.sh` (see the EFIT section of
+own tree with `install/install_efit.sh`, or on native Windows with
+`install/install_efit_windows.ps1 <source> -AcceptEfitUsersAgreement` (see the EFIT section of
 [install/README.md](https://github.com/VEST-Tokamak/vaft/blob/develop/install/README.md)). One
 `EFITHOME` serves both the reconstruction code (`bin/efit`) and the Green-table generator
 (`bin/efund`); there is no separate root for EFUND.
@@ -120,8 +121,9 @@ databases at `share/preact` and `share/adas`, because `nubeam_comp_exec` aborts 
 unset, and both must stay writable — the table code caches newly computed reaction tables into them.
 And VAFT ships the build recipe rather than the source, since NTCC requires each user to accept its
 licence first; see [`external/nubeam/`](https://github.com/VEST-Tokamak/vaft/tree/develop/external/nubeam).
-That build is macOS/Apple Silicon only at present. The adapter runs NUBEAM and parses its native
-output; it does not yet map results into IMAS.
+That build runs on macOS/Apple Silicon and on native Windows. The adapter runs NUBEAM and parses
+its native output; `vaft.machine_mapping.core_sources` and `vaft.machine_mapping.distributions` map
+the profiles into IMAS, while the Monte Carlo marker records stay in the native container.
 
 On Windows, set the same roots as user environment variables so that a new
 terminal and a Jupyter kernel both inherit them:
@@ -129,6 +131,7 @@ terminal and a Jupyter kernel both inherit them:
 ```powershell
 [Environment]::SetEnvironmentVariable('CHEASEHOME', "$env:LOCALAPPDATA\vaft\external\chease", 'User')
 [Environment]::SetEnvironmentVariable('GPECHOME',   "$env:LOCALAPPDATA\vaft\external\gpec",   'User')
+[Environment]::SetEnvironmentVariable('EFITHOME',   "$env:LOCALAPPDATA\vaft\external\efit",   'User')
 ```
 
 The executable under `bin/` may be the native `chease.exe` or `dcon.exe`; VAFT

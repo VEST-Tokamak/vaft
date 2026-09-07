@@ -55,6 +55,11 @@ from _external_code_common import (  # noqa: E402
 #: True when this run is on native Windows, where EFIT is built by the
 #: PowerShell installer and launched without a shell.
 IS_WINDOWS = os.name == "nt"
+#: The installer that works on this platform. install_efit.sh has only
+#: Darwin and Linux arms, so naming it on Windows sends the reader nowhere.
+INSTALLER = (
+    "install\\install_efit_windows.ps1" if IS_WINDOWS else "install/install_efit.sh"
+)
 
 TITLE = "EFIT toolchain check"
 RERUN = "python install/check_efit.py"
@@ -276,7 +281,7 @@ def check_efit_starts(executables: dict[str, Path]) -> CheckResult:
     shutil.rmtree(workdir, ignore_errors=True)
     text = completed.stdout + completed.stderr
     if "dyld" in text or "error while loading shared libraries" in text:
-        return CheckResult(label, FAIL, first_error_line(text), "The executable cannot find its runtime libraries; rebuild with install/install_efit.sh.")
+        return CheckResult(label, FAIL, first_error_line(text), f"The executable cannot find its runtime libraries; rebuild with {INSTALLER}.")
     return CheckResult(label, PASS, f"exited {completed.returncode} with no input")
 
 
@@ -296,14 +301,14 @@ def check_vaft_discovery(prefix: Optional[str], build_tree: Optional[str]) -> Ch
 
             resolved = find_efit_executable(EFITConfig())
             if resolved is None:
-                return CheckResult(label, FAIL, "EFITHOME does not resolve bin/efit", "Point EFITHOME at the prefix install/install_efit.sh wrote.")
+                return CheckResult(label, FAIL, "EFITHOME does not resolve bin/efit", f"Point EFITHOME at the prefix {INSTALLER} wrote.")
             return CheckResult(label, WARN, f"efit {resolved}; this VAFT has no efund role yet")
         resolved = resolve_toolchain()
         import vaft
 
         vaft_root = Path(vaft.__file__).resolve().parents[1]
     except Exception as error:
-        return CheckResult(label, FAIL, f"{type(error).__name__}: {error}", "Point EFITHOME at the prefix install/install_efit.sh wrote, or at a CMake build tree.")
+        return CheckResult(label, FAIL, f"{type(error).__name__}: {error}", f"Point EFITHOME at the prefix {INSTALLER} wrote, or at a CMake build tree.")
     finally:
         if previous is None:
             os.environ.pop("EFITHOME", None)
