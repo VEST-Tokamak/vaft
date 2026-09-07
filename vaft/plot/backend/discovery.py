@@ -52,6 +52,8 @@ from vaft.plot.style import UNCERTAINTY_MODES, VALIDITY_MODES
 from .recipes import (
     CAMERA_OVERLAYS,
     ChannelProfileRecipe,
+    SPECTROGRAM_METHODS,
+    SPECTROGRAM_PARAMETERS,
     _coordinate_options,
     abscissa_options,
     _has,
@@ -105,10 +107,24 @@ OVERVIEW_CONTENTS: dict[str, tuple[str, ...]] = {
 #: power spectral densities (:func:`vaft.process.fluctuation.compute_psd`).
 #: Only methods that exist are listed -- discovery never advertises a
 #: capability that would raise.
-ANALYSIS_METHODS: dict[type, tuple[str, ...]] = {
-    SpectrogramRecipe: ("STFT",),
-    PowerSpectrumRecipe: ("Welch PSD",),
-}
+def _analysis_methods() -> dict[str, tuple[str, ...]]:
+    """The analysis each plot offers, by plot name (issue #484).
+
+    Keyed by name rather than by recipe kind because the spectrograms no
+    longer share one transform: the two path-driven ones and the
+    interferometer's own builder all take ``method=``.
+    """
+    methods: dict[str, tuple[str, ...]] = {}
+    for name, recipe in RECIPES.items():
+        if isinstance(recipe, SpectrogramRecipe) or name.endswith("_spectrogram"):
+            methods[name] = SPECTROGRAM_METHODS
+        elif isinstance(recipe, PowerSpectrumRecipe):
+            methods[name] = ("Welch PSD",)
+    return methods
+
+
+#: Plot name -> the analyses it offers.
+ANALYSIS_METHODS: dict[str, tuple[str, ...]] = _analysis_methods()
 
 
 
@@ -263,9 +279,14 @@ def _declare(record: PlotCapability) -> PlotCapability:
         updates["layouts"] = (
             ("overlay", "subplots", "grouped") if recipe.index == "channel" else ("overlay",)
         )
-    for kind, methods in ANALYSIS_METHODS.items():
-        if isinstance(recipe, kind):
-            updates["analysis_methods"] = methods
+    methods = ANALYSIS_METHODS.get(record.name)
+    if methods:
+        updates["analysis_methods"] = methods
+        if methods == SPECTROGRAM_METHODS:
+            updates["analysis"] = {
+                "default": SPECTROGRAM_METHODS[0],
+                "methods": {name: SPECTROGRAM_PARAMETERS[name] for name in methods},
+            }
     if isinstance(recipe, PanelRecipe):
         updates["overview_members"] = _member_subjects(recipe)
         # A composite is drawable by a backend only when every member is.

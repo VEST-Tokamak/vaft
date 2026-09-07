@@ -1602,8 +1602,6 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
     """
     from scipy.signal import butter, filtfilt
 
-    from vaft.process import mirnov_spectrogram as compute_spectrogram
-
     index = int(channel)
     signal_values = _array(ods, f"interferometer.channel.{index}.n_e_line.data")
     if signal_values is None:
@@ -1629,7 +1627,7 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
         b, a = butter(4, highpass_cutoff / nyquist, btype="highpass")
         fluctuation = filtfilt(b, a, signal_values)
 
-    window_size = options.get("window_size")
+    window_size = options.get("window_size") or options.get("nperseg")
     if window_size is None:
         target_df = float(options.get("target_df", 300.0))
         window_size = max(64, int(round(sample_rate / target_df)))
@@ -1639,9 +1637,11 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
     time_resolution = options.get("time_resolution")
     time_resolution = int(time_resolution) if time_resolution else max(1, window_size // 40)
 
-    result = compute_spectrogram(
-        time, fluctuation, sample_rate=sample_rate,
-        window_size=window_size, time_resolution=time_resolution,
+    result = _spectrogram_result(
+        time, fluctuation,
+        method=_spectrogram_method(options, "interferometer_spectrogram"),
+        sample_rate=sample_rate, options=options,
+        window_hint=window_size, resolution_hint=time_resolution,
     )
     return Spectrogram.from_result(
         result,
@@ -5199,11 +5199,114 @@ def _first_channel_with_signal(
     return 0
 
 
+#: How a spectrogram's time-frequency map is computed (issue #484).
+#: ``stft`` is scipy's short-time Fourier transform and the default;
+#: ``hann_fft`` is VAFT's hand-rolled Hann-window FFT, kept because the VEST
+#: Mirnov analyses were written against it; ``cwt`` is a continuous-wavelet
+#: scalogram through the optional ``fcwt`` package.
+SPECTROGRAM_METHODS = ("stft", "hann_fft", "cwt")
+
+#: The options each method reads, beyond the ones every method takes
+#: (``sample_rate``, ``time_range``, ``frequency_range``).
+SPECTROGRAM_PARAMETERS: dict[str, tuple[str, ...]] = {
+    "stft": ("nperseg", "noverlap", "window", "detrend"),
+    "hann_fft": ("window_size", "time_resolution"),
+    "cwt": ("frequency_range", "n_frequencies"),
+}
+
+#: The window both Fourier methods use when the caller names none.  The same
+#: number of samples either way, so switching method changes the algorithm
+#: and not, silently, the resolution as well.
+_SPECTROGRAM_WINDOW = 500
+
+
+def _spectrogram_method(options: dict, plot_name: str | None = None) -> str:
+    method = options.get("method") or SPECTROGRAM_METHODS[0]
+    if method not in SPECTROGRAM_METHODS:
+        raise ValueError(
+            f"{plot_name or 'a spectrogram'} takes method= one of "
+            f"{', '.join(SPECTROGRAM_METHODS)}; got {method!r}"
+        )
+    return method
+
+
+def _spectrogram_result(
+    time: np.ndarray,
+    values: np.ndarray,
+    *,
+    method: str,
+    sample_rate: float,
+    options: dict,
+    window_hint: int | None = None,
+    resolution_hint: int | None = None,
+) -> Any:
+    """The time-frequency map of one signal by the chosen method (issue #484).
+
+    Every method returns an object with ``time``/``frequency``/``magnitude``,
+    which :meth:`vaft.plot.models.Spectrogram.from_result` consumes, so the
+    view model does not know which transform produced it.
+    """
+    band = options.get("frequency_range")
+    if method == "stft":
+        from vaft.process.fluctuation import compute_spectrogram
+
+        nperseg = int(options.get("nperseg") or window_hint or _SPECTROGRAM_WINDOW)
+        nperseg = max(2, min(nperseg, int(values.size)))
+        noverlap = options.get("noverlap")
+        overlap = 0.5 if noverlap is None else float(noverlap) / nperseg
+        result = compute_spectrogram(
+            time, values, sample_rate=sample_rate, nperseg=nperseg,
+            overlap=min(max(overlap, 0.0), 0.99),
+            window=options.get("window", "hann"),
+            detrend=options.get("detrend", "constant"),
+        )
+    elif method == "hann_fft":
+        from vaft.process import mirnov_spectrogram
+
+        window_size = int(options.get("window_size") or window_hint or _SPECTROGRAM_WINDOW)
+        window_size -= window_size % 2
+        result = mirnov_spectrogram(
+            time, values, sample_rate=sample_rate,
+            window_size=window_size,
+            time_resolution=int(options.get("time_resolution") or resolution_hint or 1),
+        )
+    else:
+        from vaft.process.soft_x_rays import sxr_cwt_spectrogram
+
+        if band is None:
+            raise ValueError(
+                "method='cwt' analyses a named band: pass frequency_range=(f0, f1) in Hz"
+            )
+        low, high = float(band[0]), float(band[1])
+        if not 0.0 < low < high:
+            raise ValueError(f"frequency_range must be 0 < f0 < f1 in Hz; got {band!r}")
+        frequency, magnitude = sxr_cwt_spectrogram(
+            values, sample_rate, low, high, int(options.get("n_frequencies", 200))
+        )
+        return _SpectrogramResult(time=time, frequency=frequency, magnitude=magnitude)
+    if band is None:
+        return result
+    # A named band is the analysis band: the map holds that band and no more,
+    # so the colour scale describes what is drawn (the wavelet path can only
+    # work this way, and the Fourier ones agree with it).
+    keep = (result.frequency >= float(band[0])) & (result.frequency <= float(band[1]))
+    return _SpectrogramResult(
+        time=result.time, frequency=result.frequency[keep], magnitude=result.magnitude[keep, :]
+    )
+
+
+@dataclasses.dataclass(frozen=True)
+class _SpectrogramResult:
+    """The three arrays every spectrogram method returns."""
+
+    time: np.ndarray
+    frequency: np.ndarray
+    magnitude: np.ndarray
+
+
 def _build_spectrogram(
     ods: Any, recipe: SpectrogramRecipe, **options: Any
 ) -> Spectrogram:
-    from vaft.process import mirnov_spectrogram as compute_spectrogram
-
     requested = options.get("channel")
     if requested is None:
         # Availability accepts any channel that carries the signal, so the
@@ -5230,12 +5333,9 @@ def _build_spectrogram(
         steps = np.diff(time)
         positive = steps[steps > 0]
         sample_rate = 1.0 / float(np.median(positive)) if positive.size else 1.0
-    result = compute_spectrogram(
-        time,
-        signal,
-        sample_rate=float(sample_rate),
-        window_size=int(options.get("window_size", 500)),
-        time_resolution=int(options.get("time_resolution", 1)),
+    method = _spectrogram_method(options, options.get("_plot_name"))
+    result = _spectrogram_result(
+        time, signal, method=method, sample_rate=float(sample_rate), options=options
     )
     return Spectrogram.from_result(
         result,

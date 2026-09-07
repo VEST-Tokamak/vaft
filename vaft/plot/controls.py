@@ -198,6 +198,11 @@ def _model_controls(record: Any) -> list[ControlSpec]:
     if len(options) > 1:
         default = abscissa.get("default") if abscissa.get("default") in options else options[0]
         controls.append(ControlSpec("x", "choice", "Abscissa", default, options))
+    analysis: Mapping[str, Any] = getattr(record, "analysis", None) or {}
+    methods = tuple(analysis.get("methods") or ())
+    if len(methods) > 1:
+        default = analysis.get("default") if analysis.get("default") in methods else methods[0]
+        controls.append(ControlSpec("method", "choice", "Analysis method", default, methods))
     coordinates: Mapping[str, Any] = getattr(record, "coordinates", None) or {}
     options = tuple(coordinates.get("options") or ())
     if len(options) > 1:

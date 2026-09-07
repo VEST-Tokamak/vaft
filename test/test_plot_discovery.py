@@ -252,9 +252,10 @@ def test_grouped_is_advertised_only_where_the_family_splits():
 
 def test_analysis_methods_list_what_exists():
     registry = vaft.omas.available_plots(query="mirnov")
-    assert registry.find("mirnov_spectrogram").analysis_methods == ("STFT",)
+    assert registry.find("mirnov_spectrogram").analysis_methods == ("stft", "hann_fft", "cwt")
     assert registry.find("mirnov_spectrum").analysis_methods == ("Welch PSD",)
-    assert "methods: STFT" in str(registry) and "wavelet" not in str(registry).lower()
+    # The methods listed are the ones that exist; the default is marked (#484).
+    assert "methods: stft (default) | hann_fft | cwt" in str(registry)
 
 
 def test_overviews_summarise_their_members():
