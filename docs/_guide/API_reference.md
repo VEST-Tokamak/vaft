@@ -59,7 +59,7 @@ flowchart TD
 | `vaft.formula` | Pure physics functions: equilibrium, stability, Green's functions, constants | [Formula reference]({{ site.baseurl }}/reference/formula/) |
 | `vaft.machine_mapping` | Raw VEST DAQ to IMAS IDS mapping, plus uncertainty defaults | this page |
 | `vaft.plot` | Matplotlib figures straight from an ODS/ODC | this page |
-| `vaft.code` | Adapters for external codes (EFIT, CHEASE, GPEC, TES, NUBEAM) | this page |
+| `vaft.code` | Adapters for external codes (EFIT, CHEASE, GPEC, TES, NUBEAM, TRANSP) | this page |
 | `vaft.data` | GEQDSK read/write and packaged sample files | this page |
 | `vaft.imas` | OMAS to IMAS Access Layer bridge | [Data structures]({{ site.baseurl }}/guide/Data_structures/) |
 
@@ -416,7 +416,25 @@ outputs = collect_efit_outputs(workdir, cfg)
 | GPEC (perturbed equilibrium, 3-D response) | `GPECSuiteConfig`, `GPECCaseInputs`, `GPECModuleRun`, `GPECSuiteResult`, `prepare_gpec_suite_case`, `run_gpec_suite_case`, `run_gpec`, `collect_gpec_suite_outputs`, `format_gfile_header_for_gpec` |
 | TES (forward equilibrium) | `TESConfig`, `TESInputs`, `TESResult`, `prepare_tes_inputs`, `run_tes`, `collect_tes_outputs`, `scan_tes`, `parse_result_scalars`, `parse_result_coils` |
 | NUBEAM (neutral-beam Monte Carlo) | `NUBEAMConfig`, `NUBEAMInputs`, `NUBEAMResult`, `find_nubeam_executable`, `prepare_nubeam_inputs`, `run_nubeam`, `run_nubeam_case`, `collect_nubeam_outputs` |
+| TRANSP (transport, **read-only**) | `TranspOutput`, `TranspSlice`, `TranspVariable`, `TRANSPResult`, `read_transp_output`, `collect_transp_outputs`, `enclosed_torque`, `input_torque_density`, `zone_volume` |
 | Base classes | `CodeConfig`, `CodeInputs`, `CodeResult`, `CodeRunner` |
+
+TRANSP is the one adapter with no `*Config`, no `prepare_*` and no `run_*`: VAFT reads a TRANSP run,
+it does not launch one, so there is no `TRANSPHOME`. `read_transp_output` opens a `<runid>.CDF`
+lazily — a production file holds roughly 1900 variables — and `.slice(time_s)` returns one time,
+reporting which sample it took.
+
+This layer keeps TRANSP's own names, grids and units and converts nothing: `NE` is still per cubic
+centimetre when it reaches you. Two things it *does* enforce, because the file makes them easy to
+get wrong. A variable's grid comes from its dimension name and never its length — `X` (zone centres)
+and `XB` (zone outer boundaries) have the *same length* in a real run, so `state.on_x("PLFLX")`
+raises rather than quietly handing back a boundary quantity as a centre one. And `TQTOTNB` is
+refused by name: it is an empty dimensionless placeholder, and the total input torque is `TQIN`.
+
+`enclosed_torque(state)` is the one place the two grids interact: `TQIN` is a density in
+`N m / cm^3` and `DVOL` a volume in `cm^3`, both zone-centre, so the product is already newton
+metres and the cumulative sum lands on the zone *boundaries*. Pairing them once here is deliberate —
+converting one to SI and not the other is a factor of a million.
 
 `run_nubeam_case(input_dir, gfile=..., workdir=...)` is the NUBEAM equivalent: it stages a case,
 builds its Plasma State, and runs INIT then STEP. Results come back as a native container, and
