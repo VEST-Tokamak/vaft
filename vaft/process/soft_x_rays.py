@@ -86,11 +86,53 @@ def _as_channel_matrix(data: Any) -> np.ndarray:
 
 
 def sxr_baseline_correction(time, data, baseline_start: float) -> np.ndarray:
-    """Subtract each channel's mean over the post-``baseline_start`` tail.
+    """Zero each channel against the quiet tail after the plasma.
 
-    The tail after the plasma is the quiet region used as the per-channel zero
-    level.  When no sample lies at or beyond ``baseline_start`` the last 1000
-    samples are used instead (the validated viewer's fallback).
+    Parameters
+    ----------
+    time : array_like
+        Sample times, shared by every channel [s].
+    data : array_like
+        Signals as ``(n_channels, n_samples)``, or one trace [V].
+    baseline_start : float
+        Time from which the record is taken to be quiet [s].
+
+    Returns
+    -------
+    np.ndarray
+        The signals with each channel's own zero level removed [V].
+
+    Raises
+    ------
+    ValueError
+        The time base and the sample axis disagree in length.
+
+    Convention
+    ----------
+    The zero level is per channel, not shared, because the detectors have
+    different dark levels. The mean of the tail is used, not a fitted trend, so a
+    drift through the shot survives.
+
+    Defaults
+    --------
+    When no sample lies at or beyond *baseline_start* the last 1000 samples are
+    used instead. That fallback is a validated-workflow default carried from the
+    VEST SXR viewer.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Assumes the tail is genuinely quiet. A record that ends while the plasma is
+    still radiating has its baseline biased by that signal, and the fallback makes
+    that silent rather than an error.
+
+    Provenance
+    ----------
+    .. [1] The validated VEST SXR viewer, whose baseline convention and
+       last-1000-sample fallback this reproduces.
     """
     time = np.asarray(time, dtype=float)
     values = _as_channel_matrix(data)
@@ -114,16 +156,68 @@ def sxr_subtract_vacuum_reference(
     fs: float,
     order: int = 2,
 ) -> np.ndarray:
-    """Subtract the low-passed vacuum-shot trace from each channel.
+    """Subtract a low-passed vacuum shot to remove poloidal-field pickup.
 
-    **Optional step.** Pickup from the PF coil ramps appears identically in a
-    vacuum shot; low-passing the vacuum record at ``cutoff`` and subtracting it
-    channel-wise removes that common drive while leaving plasma fluctuations
-    untouched.  Both inputs should already be baseline-corrected
-    (:func:`sxr_baseline_correction`); records are truncated to the shorter one.
+    **An optional step.** Nothing else in this module calls it, so the main path
+    is always baseline, then window, then filter, on exactly the data the caller
+    supplied.
 
-    No other routine in this module calls this -- a caller wanting PF-noise
-    removal runs it explicitly and feeds the corrected matrix onward.
+    Parameters
+    ----------
+    data : array_like
+        Plasma-shot signals as ``(n_channels, n_samples)`` [V].
+    reference_data : array_like
+        Vacuum-shot signals with the same channel count [V].
+    cutoff : float
+        Low-pass cut-off applied to the reference [Hz].
+    fs : float
+        Sample rate [Hz].
+    order : int, optional
+        Butterworth order [-].
+
+    Returns
+    -------
+    np.ndarray
+        The plasma signals with the pickup removed, truncated to the shorter
+        record [V].
+
+    Raises
+    ------
+    ValueError
+        The two inputs have different channel counts.
+
+    Convention
+    ----------
+    Pickup from the poloidal field coil ramps appears identically in a vacuum
+    shot, so low-passing that record and subtracting it channel-wise removes the
+    common drive while leaving plasma fluctuations untouched.
+
+    **The low pass here is causal.** It inherits
+    :func:`vaft.process.signal_processing.butterworth_lowpass`'s default, which
+    delays every feature by the filter's group delay, so the reference is shifted
+    relative to the plasma shot it is subtracted from and the cancellation is
+    imperfect by that delay. Tracked in #626.
+
+    Both inputs should already be baseline-corrected.
+
+    Defaults
+    --------
+    ``order = 2`` is a numerical convenience matching the rest of the module's
+    conditioning.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Assumes the vacuum shot reproduces the plasma shot's coil programme. Records
+    are truncated to the shorter of the two rather than aligned in time, so two
+    records with different start triggers are subtracted misaligned.
+
+    Provenance
+    ----------
+    .. [1] The validated VEST SXR viewer's optional PF-noise removal step.
     """
     values = _as_channel_matrix(data)
     reference = _as_channel_matrix(reference_data)
@@ -149,26 +243,78 @@ def sxr_band_signals(
     channels: Sequence[int] | None = None,
     dead_channels: Sequence[int] = (),
 ) -> SXRBandResult:
-    """Baseline-correct, window, and band-pass chord signals into named bands.
+    """Baseline, window and band-pass chord signals into named frequency bands.
 
-    Args:
-        time: Sample times in seconds, shared by every channel.
-        data: ``(n_channels, n_samples)`` signals (or a single 1D trace).
-        baseline_start: Start of the quiet tail used as the zero level [s], or
-            ``None`` when ``data`` is already baseline-corrected (for instance
-            after the explicit :func:`sxr_subtract_vacuum_reference` pre-step).
-        bands: ``{name: (f_low, f_high)}`` in Hz; names are the caller's.
-        fs: Sampling frequency in Hz.
-        order: Butterworth order for every band.
-        time_range: Optional ``(t_min, t_max)`` analysis window [s].
-        channels: Row indices to process; all rows when omitted.
-        dead_channels: Rows whose band output is forced to zero (their raw trace
-            is kept, so the dead channel stays visible in raw maps).
+    Parameters
+    ----------
+    time : array_like
+        Sample times, shared by every channel [s].
+    data : array_like
+        Signals as ``(n_channels, n_samples)``, or one trace [V].
+    baseline_start : float or None
+        Start of the quiet tail, or ``None`` when the data is already corrected
+        [s].
+    bands : mapping of str to sequence of float
+        Named ``(f_low, f_high)`` pairs; the names are the caller's [Hz].
+    fs : float
+        Sample rate [Hz].
+    order : int, optional
+        Butterworth order for every band [-].
+    time_range : sequence of float, optional
+        Analysis window as ``(t_min, t_max)`` [s].
+    channels : sequence of int, optional
+        Row indices to process; all rows when omitted [-].
+    dead_channels : sequence of int, optional
+        Rows whose band output is forced to zero [-].
 
-    Returns:
-        :class:`SXRBandResult` with ``raw`` and one ``(len(channels), n_t)``
-        array per band.  Vacuum-reference correction is not applied here; run
-        :func:`sxr_subtract_vacuum_reference` first if wanted.
+    Returns
+    -------
+    SXRBandResult
+        The windowed time base, the raw windowed signals, one array per band, and
+        the channel indices selected [V].
+
+    Raises
+    ------
+    ValueError
+        The time range selects no samples.
+
+    Processing steps
+    ----------------
+    1. Baseline-correct, unless the caller says the data already is.
+    2. Restrict to the analysis window.
+    3. Select the requested channels.
+    4. Band-pass each into every named band, substituting zeros for dead channels.
+
+    Convention
+    ----------
+    **The band-pass here is zero phase**, inheriting
+    :func:`vaft.process.signal_processing.butterworth_bandpass`'s default, so no
+    feature moves in time. That is the opposite of the low pass used elsewhere in
+    this module, and it matters because the phase read off this output by
+    :func:`hilbert_instantaneous_phase` feeds a toroidal mode number. The
+    inconsistency between the two conventions is tracked in #626.
+
+    A dead channel's band output is zeroed but its raw trace is kept, so it stays
+    visible in a raw map instead of disappearing.
+
+    Defaults
+    --------
+    ``order = 2`` is a numerical convenience.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Vacuum-reference correction is not applied; run
+    :func:`sxr_subtract_vacuum_reference` first when it is wanted. Band edges are
+    passed straight to the filter, so a band reaching the Nyquist frequency raises
+    from SciPy rather than being clipped.
+
+    Provenance
+    ----------
+    .. [1] The validated VEST SXR viewer's band decomposition.
     """
     time = np.asarray(time, dtype=float)
     if baseline_start is None:
@@ -206,12 +352,51 @@ def sxr_band_signals(
 # ---------------------------------------------------------------------------
 
 def load_te_ratio_calibration(path=None):
-    """Load a ``te``/``ratio`` table and build the ratio -> Te interpolator.
+    """Load a ratio-to-temperature table and build its interpolator.
 
-    Defaults to the packaged VEST Be/Al calibration
-    (``vaft/data/legacy/sxr_te_ratio_be_al.csv``).  Returns
-    ``(interpolator, te, ratio)``; the interpolator extrapolates beyond the
-    table, so out-of-range ratios yield extrapolated (not clipped) Te.
+    Parameters
+    ----------
+    path : str or path-like, optional
+        Calibration table with ``te`` and ``ratio`` columns. Defaults to the
+        packaged VEST beryllium/aluminium table [-].
+
+    Returns
+    -------
+    tuple
+        The interpolator mapping ratio to temperature, the temperature column in
+        electron-volts, and the ratio column, dimensionless [-].
+
+    Raises
+    ------
+    ValueError
+        The table lacks either column, or holds fewer than two valid points.
+
+    Convention
+    ----------
+    **The interpolator extrapolates rather than clipping**, so a ratio outside the
+    table returns an extrapolated temperature, not the nearest tabulated one. A
+    caller that needs out-of-range samples rejected must test the ratio itself.
+    Column names are matched case-insensitively after stripping.
+
+    Defaults
+    --------
+    The packaged VEST beryllium/aluminium table is a diagnostic calibration,
+    shipped with the package and described in the data directory's own notes.
+
+    Applicability
+    -------------
+    Machine-independent.  The table is an argument; only the packaged default is
+    the VEST filter pair, and a different filter combination supplies its own.
+
+    Limitations
+    -----------
+    Non-finite rows are dropped silently. The two-filter method assumes a thermal
+    spectrum, so the temperature it returns is meaningless for a non-thermal one.
+
+    Provenance
+    ----------
+    .. [1] The packaged VEST beryllium/aluminium ratio calibration,
+       ``vaft/data/legacy/sxr_te_ratio_be_al.csv``.
     """
     if path is None:
         from vaft.data.resources import data_path
@@ -236,13 +421,52 @@ def load_te_ratio_calibration(path=None):
 
 
 def sxr_te_pairs_from_ods(ods: Any, array: str) -> tuple[tuple[int, int], ...]:
-    """Pair Be and Al channels of one two-filter array by physical chord.
+    """Pair the two filters' channels of one array by the chord they view.
 
-    Channels written by :func:`vaft.machine_mapping.soft_x_rays.
-    soft_x_rays_from_digitizer_csv` carry identifiers
-    ``{daq}:{array}:{filter}:{chord}``; matching ``chord`` numbers across the
-    Be and Al blocks pairs each Be channel with the Al channel viewing the same
-    line of sight, absorbing any per-block wiring reversal.
+    Parameters
+    ----------
+    ods : ODS
+        Carries ``soft_x_rays.channel`` with the identifiers the VEST mapper
+        writes [-].
+    array : str
+        Which array to pair within [-].
+
+    Returns
+    -------
+    tuple of tuple of int
+        One ``(beryllium_index, aluminium_index)`` pair per shared chord, ordered
+        by chord number [-].
+
+    Raises
+    ------
+    ValueError
+        No chord in that array carries both filters.
+
+    Convention
+    ----------
+    Channel identifiers are ``{daq}:{array}:{filter}:{chord}``, written by the
+    VEST digitizer mapper. Pairing on the chord number rather than on position in
+    the channel list is what absorbs a per-block wiring reversal: the two filter
+    blocks need not be ordered the same way.
+
+    Returns index pairs, not data, so it changes no measurement.
+
+    Applicability
+    -------------
+    VEST-specific.  Depends on the identifier grammar and the filter names written
+    by :func:`vaft.machine_mapping.soft_x_rays.soft_x_rays_from_digitizer_csv`;
+    another machine's mapper would need its own pairing rule.
+
+    Limitations
+    -----------
+    A channel whose identifier does not split into four parts, or whose chord is
+    not an integer, is skipped silently, so a mis-mapped channel is absent from
+    the result rather than reported.
+
+    Provenance
+    ----------
+    .. [1] :func:`vaft.machine_mapping.soft_x_rays.soft_x_rays_from_digitizer_csv`,
+       which writes the identifiers this parses.
     """
     be: dict[int, int] = {}
     al: dict[int, int] = {}
@@ -284,19 +508,86 @@ def sxr_electron_temperature(
     order: int = 2,
     time_range: Sequence[float] | None = None,
 ) -> SXRTemperatureResult:
-    """Electron temperature from the Be/Al two-filter signal ratio.
+    """Electron temperature from the two-filter signal ratio, chord by chord.
 
-    Each ``(be_channel, al_channel)`` pair views one chord through the two
-    filters; the ratio of the low-passed, baseline-corrected signals is mapped
-    to Te through ``calibration`` (see :func:`load_te_ratio_calibration`).
-    Samples where the conditioned Al signal is at or below ``al_threshold`` are
-    invalid and returned as NaN.  ``rel_fluctuation`` is the percentage
-    deviation of Te from its centered ``detrend_window``-sample rolling trend.
+    Parameters
+    ----------
+    time : array_like
+        Sample times, shared by every channel [s].
+    data : array_like
+        Signals as ``(n_channels, n_samples)`` [V].
+    pairs : sequence of sequence of int
+        ``(beryllium_index, aluminium_index)`` pairs, one per chord [-].
+    calibration : callable
+        Maps a signal ratio to a temperature; see
+        :func:`load_te_ratio_calibration` [-].
+    baseline_start : float or None
+        Start of the quiet tail, or ``None`` when already corrected [s].
+    fs : float
+        Sample rate [Hz].
+    lowpass_cutoff : float, optional
+        Conditioning low-pass cut-off [Hz].
+    al_gain : float, optional
+        Relative sensitivity of the aluminium channel [-].
+    al_threshold : float, optional
+        Conditioned aluminium level below which a sample is invalid [V].
+    detrend_window : int, optional
+        Width of the centred rolling trend, in samples [-].
+    order : int, optional
+        Butterworth order [-].
+    time_range : sequence of float, optional
+        Analysis window as ``(t_min, t_max)`` [s].
 
-    Defaults are the validated VEST viewer settings: 50 kHz conditioning
-    low-pass, Al relative-sensitivity gain 1.07, 0.10 V validity threshold,
-    400-sample trend window.  Vacuum-reference correction is not applied here;
-    run :func:`sxr_subtract_vacuum_reference` first if wanted.
+    Returns
+    -------
+    SXRTemperatureResult
+        The windowed time base, the temperature per chord in electron-volts, and
+        its percentage deviation from the rolling trend [-].
+
+    Processing steps
+    ----------------
+    1. Baseline-correct, unless the caller says the data already is.
+    2. Restrict to the analysis window.
+    3. Low-pass both channels of each pair.
+    4. Scale the aluminium channel by its relative sensitivity.
+    5. Take the ratio and map it through the calibration.
+    6. Subtract a centred rolling trend to get the relative fluctuation.
+    7. Invalidate samples whose conditioned aluminium level is at or below the
+       threshold.
+
+    Convention
+    ----------
+    **The low pass here is causal**, inheriting
+    :func:`vaft.process.signal_processing.butterworth_lowpass`'s default, so the
+    temperature is delayed by the filter's group delay. That is the opposite
+    convention from :func:`sxr_band_signals`, which is zero phase. Both channels
+    of a pair are delayed identically so the ratio is unaffected, but a time read
+    off this result is shifted. Tracked in #626.
+
+    The relative fluctuation is a percentage of the rolling trend, and the trend
+    is centred, so it uses samples on both sides.
+
+    Defaults
+    --------
+    The 50 kHz cut-off, the 1.07 aluminium gain, the 0.10 V threshold and the
+    400-sample trend window are validated-workflow defaults, the settings of the
+    validated VEST viewer. ``order = 2`` is a numerical convenience.
+
+    Applicability
+    -------------
+    Machine-independent.  The defaults are VEST viewer practice and the
+    calibration is supplied by the caller.
+
+    Limitations
+    -----------
+    The two-filter method assumes a thermal spectrum. Invalid samples are NaN
+    rather than removed, so a caller must honour them. Vacuum-reference correction
+    is not applied here.
+
+    Provenance
+    ----------
+    .. [1] The validated VEST SXR viewer, whose conditioning settings, validity
+       threshold and detrending this reproduces.
     """
     time = np.asarray(time, dtype=float)
     if baseline_start is None:
@@ -376,10 +667,42 @@ def _sawtooth_offset(theta0_deg: float, phase0_deg: float, n: int) -> float:
 def hilbert_instantaneous_phase(signal, time, t_eval: float):
     """Instantaneous phase and envelope of a band-limited signal at one time.
 
-    Returns ``(phase_deg, envelope, index, phase_deg_series, envelope_series)``
-    from the analytic (Hilbert) signal, evaluated at the sample nearest
-    ``t_eval``.  Meaningful only for a band-passed, roughly monochromatic
-    input -- filter first (:func:`sxr_band_signals`).
+    Parameters
+    ----------
+    signal : array_like
+        A band-passed, roughly monochromatic trace [V].
+    time : array_like
+        Its time base [s].
+    t_eval : float
+        Time at which to report the phase [s].
+
+    Returns
+    -------
+    tuple
+        The phase in degrees and the envelope in volts at the nearest sample, that
+        sample's index, and the full phase and envelope series [-].
+
+    Convention
+    ----------
+    Phase comes from the analytic signal and is wrapped to the principal branch,
+    so it runs within a full turn and jumps rather than accumulating. The sample
+    nearest the requested time is used; no interpolation.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    **Meaningful only for a band-passed input.** The analytic signal of a
+    broadband trace has a phase that does not correspond to any single mode, so
+    filter first with :func:`sxr_band_signals`. The Hilbert transform is also
+    poorly behaved at the record edges, so a time near either end is unreliable.
+
+    Provenance
+    ----------
+    .. [1] The analytic-signal phase estimate used by the validated VEST SXR
+       viewer's mode analysis.
     """
     time = np.asarray(time, dtype=float)
     analytic = hilbert(np.asarray(signal, dtype=float))
@@ -402,18 +725,62 @@ def rank_toroidal_mode_numbers(
     phase_b_deg: float,
     n_max: int,
 ) -> tuple[ToroidalModeCandidate, ...]:
-    """Rank toroidal mode numbers from phases at two toroidal locations.
+    """Rank candidate toroidal mode numbers from phases measured at two locations.
 
-    For each candidate ``n`` the wrapped phase-versus-angle curve is anchored
-    exactly at point A and scored by the wrapped residual at point B; candidates
-    are sorted by ``(|residual|, |n|)``.
+    Parameters
+    ----------
+    theta_a_deg : float
+        Toroidal angle of the first observation point [deg].
+    phase_a_deg : float
+        Measured phase there [deg].
+    theta_b_deg : float
+        Toroidal angle of the second point [deg].
+    phase_b_deg : float
+        Measured phase there [deg].
+    n_max : int
+        Largest magnitude of mode number to consider [-].
 
-    With only two toroidal observation points, ``n`` and ``n +/- 360/|dtheta|``
-    produce identical residuals -- for the VEST 0/120 deg ports that aliasing
-    period is ``dn = 3``.  All degenerate candidates appear in the returned
-    tuple with equal residuals; **no candidate is physically privileged**, and
-    choosing among them needs independent information (frequency scaling, mode
-    structure, additional ports).
+    Returns
+    -------
+    tuple of ToroidalModeCandidate
+        Every candidate with its anchor offset and wrapped residual, best first
+        [deg].
+
+    Raises
+    ------
+    ValueError
+        The two points share a toroidal angle, so no mode number can be inferred.
+
+    Convention
+    ----------
+    For each candidate the wrapped phase-versus-angle line is anchored exactly at
+    the first point and scored by the wrapped residual at the second. Zero is
+    excluded, since it carries no toroidal structure. Candidates sort by absolute
+    residual, then by absolute mode number, and **a positive mode number wins a
+    remaining tie** over its negative counterpart, which is a tie-break, not
+    physics.
+
+    Applicability
+    -------------
+    Machine-independent.  The port angles are arguments; the VEST pair used in
+    practice is a worked example, not a built-in.
+
+    Limitations
+    -----------
+    **Two points cannot resolve aliasing.** A candidate and one differing by
+    ``360/|dtheta|`` produce identical residuals; for the VEST ports at zero and
+    120 degrees that period is three. Every degenerate candidate is returned with
+    an equal residual and **none is physically privileged**; choosing among them
+    needs independent information such as frequency scaling, mode structure, or a
+    third port.
+
+    The phases must come from the same band and the same filtering convention, or
+    the residual compares two different quantities.
+
+    Provenance
+    ----------
+    .. [1] The two-point toroidal mode-number estimate of the validated VEST SXR
+       viewer, and its documented aliasing degeneracy.
     """
     theta_a, theta_b = float(theta_a_deg), float(theta_b_deg)
     if np.isclose(_wrap180(theta_a - theta_b), 0.0):
@@ -439,12 +806,59 @@ def rank_toroidal_mode_numbers(
 
 
 def sxr_cwt_spectrogram(signal, fs: float, f0: float, f1: float, n_freq: int):
-    """Continuous-wavelet magnitude scalogram via the optional ``fcwt`` package.
+    """Continuous-wavelet magnitude scalogram of one trace.
 
-    Returns ``(frequency_hz, magnitude)`` with frequency ascending.  ``fcwt`` is
-    not a VAFT dependency; the STFT path
-    (:func:`vaft.process.fluctuation.compute_spectrogram`) covers the default
-    time-frequency need without it.
+    Parameters
+    ----------
+    signal : array_like
+        The trace [V].
+    fs : float
+        Sample rate [Hz].
+    f0 : float
+        Lowest frequency of the scalogram [Hz].
+    f1 : float
+        Highest frequency [Hz].
+    n_freq : int
+        Number of frequencies between them [-].
+
+    Returns
+    -------
+    tuple of np.ndarray
+        The frequency axis, ascending, and the magnitude as
+        ``(n_freq, n_samples)`` [-].
+
+    Raises
+    ------
+    ImportError
+        The optional wavelet package is not installed.
+
+    Convention
+    ----------
+    Frequencies are returned ascending, which reverses the underlying library's
+    own descending order, and the magnitude rows are reversed to match. A wavelet
+    transform trades frequency resolution for time resolution as frequency rises,
+    unlike the fixed-window short-time transform.
+
+    Defaults
+    --------
+    Single-threaded execution is a numerical convenience, keeping the call
+    deterministic and avoiding a thread pool inside a per-channel loop.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Needs an optional package that is not a VAFT dependency. The short-time
+    transform in :func:`vaft.process.fluctuation.compute_spectrogram` covers the
+    default time-frequency need without it. The input is cast to single precision
+    by that library.
+
+    Provenance
+    ----------
+    .. [1] The optional ``fcwt`` continuous-wavelet implementation; the
+       alternative path is :mod:`vaft.process.fluctuation`.
     """
     try:
         import fcwt as fcwt_lib
