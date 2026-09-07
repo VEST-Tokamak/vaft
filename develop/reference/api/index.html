@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b5c4d46</code>. What is described
+  <code>0ff9fe6</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -806,10 +806,30 @@ integrals that map directly; the driven current is not – NUBEAM reports it as 
 current and IMAS asks for <code class="language-plaintext highlighter-rouge">&lt;J.B&gt;/B0</code>, so it goes through
 <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.parallel_current_from_toroidal</code>, which needs equilibrium geometry and
 assumes the driven current is field-aligned. On a spherical tokamak the two differ by about a
-factor of 1.5, so the distinction is not academic. <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.nbi</code> populates the
-static beam geometry. What has no IMAS home yet – deposition markers, lost fast ions, the step
-log’s power budget – stays in the native container and is drawn by <code class="language-plaintext highlighter-rouge">vaft.plot.nubeam</code>, which is why
-those particular views are not in the plot catalog while <code class="language-plaintext highlighter-rouge">nbi_profile_*</code> are.</p>
+factor of 1.5, so the distinction is not academic.</p>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.distributions.distributions_from_nubeam</code> maps the other half: the fast-ion
+population itself, one <code class="language-plaintext highlighter-rouge">distributions.distribution</code> entry per beam species. <code class="language-plaintext highlighter-rouge">global_quantities</code>
+there is the exact part of the whole NUBEAM mapping – summing a per-zone integral needs no
+division – and it is also where NUBEAM’s <em>toroidal</em> driven current survives unmodified, as
+<code class="language-plaintext highlighter-rouge">current_tor</code>, with none of the field-aligned assumption <code class="language-plaintext highlighter-rouge">core_sources</code> requires. It is
+<code class="language-plaintext highlighter-rouge">current_tor</code> and not <code class="language-plaintext highlighter-rouge">current_fast_tor</code> because <code class="language-plaintext highlighter-rouge">curbeam</code> is shielded, which is exactly the
+distinction IMAS draws between those two fields; the unshielded fast-ion current NUBEAM does not
+publish is left absent. The fast-ion pressures are derived: NUBEAM reports <code class="language-plaintext highlighter-rouge">eperp_beami</code> and
+<code class="language-plaintext highlighter-rouge">epll_beami</code> as mean energies per particle in keV, so <code class="language-plaintext highlighter-rouge">pressure_fast_parallel</code> is <code class="language-plaintext highlighter-rouge">2 n &lt;E_par&gt;</code>
+and <code class="language-plaintext highlighter-rouge">pressure_fast</code> the scalar <code class="language-plaintext highlighter-rouge">(p_par + 2 p_perp)/3</code>.</p>
+
+<p>When a run resolves more than one beam species, the profiles NUBEAM already summed over species –
+the collisional powers and torques, and the driven current – are skipped rather than repeated
+into each entry, which would double-count for a consumer that adds the entries up. A multi-species
+<code class="language-plaintext highlighter-rouge">distributions</code> IDS therefore carries the per-species population but no driven current; those
+channels remain available through <code class="language-plaintext highlighter-rouge">core_sources</code>, which is not species-resolved and so does not
+face the same ambiguity.</p>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.nbi</code> populates the static beam geometry. What has no IMAS home yet –
+deposition markers, lost fast ions, the step log’s power budget – stays in the native container
+and is drawn by <code class="language-plaintext highlighter-rouge">vaft.plot.nubeam</code>, which is why those particular views are not in the plot
+catalog while <code class="language-plaintext highlighter-rouge">nbi_profile_*</code> are.</p>
 
 <p><code class="language-plaintext highlighter-rouge">refine_equilibrium(source, config=None)</code> is the one-shot CHEASE convenience: g-file or ODS in,
 refined equilibrium out. <code class="language-plaintext highlighter-rouge">scan_tes(ods, base_config, values, param="ip0_kA")</code> sweeps a single TES
@@ -1278,7 +1298,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-06 22:45:29 +0000"
+        "time": "2026-09-07 00:47:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
