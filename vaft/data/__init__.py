@@ -20,10 +20,14 @@ __all__ = [
     "Gap",
     "GlobalEquilibriumDescriptors",
     "KEQDSK",
+    "KIN_COLUMNS",
+    "KineticProfiles",
     "MEQDSK",
     "MillerFitResult",
     "MillerSequenceResult",
     "MillerSurface",
+    "PsiNormalization",
+    "Species",
     "cocos_spec",
     "convention_for",
     "data_path",
@@ -32,7 +36,9 @@ __all__ = [
     "from_equilibrium",
     "from_omas",
     "known_codes",
+    "normalize_psi",
     "read_geqdsk",
+    "read_kin",
     "read_aeqdsk",
     "read_keqdsk",
     "read_meqdsk",
@@ -45,6 +51,7 @@ __all__ = [
     "to_imas",
     "to_omas",
     "write_geqdsk",
+    "write_kin",
     "VAFT_INTERNAL_COCOS",
     "VFITResult",
     "SolovevConstraint",
@@ -110,11 +117,18 @@ _EXPORT_MAP = {
     "ValidationReport": (".equilibrium", "ValidationReport"),
     "XPoint": (".equilibrium", "XPoint"),
     "read_vfit": (".vfit", "read_vfit"),
+    "KIN_COLUMNS": (".kinetic_profiles", "KIN_COLUMNS"),
+    "KineticProfiles": (".kinetic_profiles", "KineticProfiles"),
+    "PsiNormalization": (".kinetic_profiles", "PsiNormalization"),
+    "Species": (".kinetic_profiles", "Species"),
+    "normalize_psi": (".kinetic_profiles", "normalize_psi"),
+    "read_kin": (".kinetic_profiles", "read_kin"),
+    "write_kin": (".kinetic_profiles", "write_kin"),
 }
 
 
 def __getattr__(name: str):
-    if name in {"resources", "open_adas"}:
+    if name in {"resources", "open_adas", "kinetic_profiles"}:
         module = import_module(f".{name}", __name__)
         globals()[name] = module
         return module

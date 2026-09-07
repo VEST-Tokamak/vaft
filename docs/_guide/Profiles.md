@@ -277,6 +277,38 @@ vaft.plot.charge_exchange_time(ods, ion_index=0)
 `vaft.plot.plot_TeNe_from_eq(ods, ...)` plots the synthetic profiles produced by the
 `core_profiles_from_eq*` helpers.
 
+## Kinetic-profile files
+
+`vaft.data.kinetic_profiles` is the container the kinetic-profile file formats read into and write
+from — GPEC's `.kin` today, the Osborne pfile and MARS `PROF*.IN` to follow:
+
+```python
+from vaft.data import read_kin, write_kin, normalize_psi
+
+profiles = read_kin("g045453.00750.kin")
+profiles.psi_norm[0]              # 0.00494621873 — exactly what the file said
+profiles.available()              # ('n_e', 'n_i', 'T_e', 'T_i', 'omega_exb')
+profiles.normalization.method     # "as_read"
+write_kin(profiles, "again.kin")  # byte-identical to the file it came from
+```
+
+The container fixes one unit set — densities in m⁻³, temperatures in eV, angular frequencies in
+rad/s, pressures in Pa — because those are what GPEC's own reader consumes. A reader converts into
+them; nothing carries free-text units around.
+
+**The radial coordinate is never rescaled on read.** Making it span exactly [0, 1] is
+`normalize_psi()`, an explicit operation whose result records that it happened. This is not
+fastidiousness: GPEC's `read_kin` re-splines a `.kin` onto a uniform 100-point [0, 1] grid *with
+extrapolation*, so it expects a truncated edge and handles it. A real MAST-U file spans
+ψ_N = 0.00495 → 1.0, so stretching it moves every interior point — and once the stretched values are
+written back, permanently.
+
+**Toroidal rotation and the E×B frequency are separate fields.** `omega_tor` and `omega_exb` are
+never merged, and `write_kin` refuses a profile set carrying only the former: the `.kin` rotation
+column is ω_E, and a toroidal rotation written there is wrong in a way nothing downstream detects.
+`write_kin` also refuses an all-zero `omega_exb` unless you ask for it, because GPEC silently
+substitutes 1e-9 for every zero to keep its spline finite.
+
 ## Exporting
 
 To hand fitted electron profiles to an external code:
