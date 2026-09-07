@@ -257,6 +257,7 @@ from .renderers.lines import (
     plasma_current_time,
     mirnov_time_voltage,
     mhd_linear_time_energy_perturbed,
+    passive_structure_time_current,
     pf_coil_time_current,
     pf_coil_time_current_turns,
     soft_x_rays_time_power,
