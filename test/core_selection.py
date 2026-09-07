@@ -102,6 +102,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_data_resources.py",
     "test_docstring_engine.py",
     "test_formula_docstrings.py",
+    "test_notebook_outputs.py",
     "test_packaging_issue45.py",
     "test_process_docstrings.py",
     # The gate's own contract.

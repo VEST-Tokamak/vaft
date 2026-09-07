@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 from pathlib import Path
 
 import nbformat
@@ -100,6 +101,56 @@ def test_load_omas_json_accepts_pathlike_input():
     ods = vaft.omas.load_omas_json(fixture, consistency_check=False)
 
     assert len(ods) > 0
+
+
+def _offline_notebooks():
+    """The set `notebooks/_verify_rendering.py` declares runnable without services.
+
+    That tool is deliberately outside pytest -- a full run takes minutes -- so
+    until now nothing checked its list. A notebook could stop running, or stop
+    being offline, and the only thing that noticed was somebody running the tool
+    by hand. `verification_and_validation` did exactly that: it sat in the list
+    while dying on its second cell without a database (#284).
+    """
+    spec = importlib.util.spec_from_file_location(
+        "_verify_rendering", NOTEBOOKS / "_verify_rendering.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return sorted(module.OFFLINE_NOTEBOOKS.items())
+
+
+OFFLINE_NOTEBOOKS = _offline_notebooks()
+
+
+@pytest.mark.parametrize(
+    "name, environment", OFFLINE_NOTEBOOKS, ids=[name for name, _ in OFFLINE_NOTEBOOKS]
+)
+def test_the_declared_offline_notebooks_are_offline(name, environment, monkeypatch):
+    """Every notebook declared offline executes with no service reachable.
+
+    The proxy variables point at a closed port rather than being unset: an unset
+    proxy is not the same as no network, and a notebook that quietly reaches
+    HSDS would pass either way.
+    """
+    nbclient = pytest.importorskip("nbclient")
+
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+    for variable, value in environment.items():
+        monkeypatch.setenv(variable, value)
+    for variable in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"):
+        monkeypatch.setenv(variable, "http://127.0.0.1:9")
+    for variable in ("NO_PROXY", "no_proxy"):
+        monkeypatch.delenv(variable, raising=False)
+
+    notebook = nbformat.read(NOTEBOOKS / name, as_version=4)
+    nbclient.NotebookClient(
+        notebook,
+        timeout=900,
+        kernel_name="python3",
+        resources={"metadata": {"path": str(ROOT)}},
+        allow_errors=False,
+    ).execute()
 
 
 @pytest.mark.parametrize("name", EQUILIBRIUM_NOTEBOOKS)

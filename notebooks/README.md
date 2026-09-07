@@ -38,18 +38,18 @@ Pipeline notebooks are expanded as the reusable VAFT functions behind them becom
 
 - `initialize_external_fusion_codes.ipynb`: External-code root initialization, executable layout, and validation.
 - `database_initialization_and_load.ipynb`: Existing guide for VAFT library setup and VEST database loading.
-- `vest_raw_signal_sql_database.ipynb`: Planned documentation for the VEST MySQL raw-signal database structure and 1D signal loading.
+- `vest_raw_signal_sql_database.ipynb`: The VEST MySQL raw-signal database — table and field naming, shot organization, and 1D signal loading, worked against the packaged raw archive so the structure can be read without a database connection.
 - `vest_experimental_data_list.ipynb`: Existing VEST OMAS initial guide and experimental data overview.
 - `read_and_convert_data_structure.ipynb`: Existing notebook for reading and converting structured equilibrium or diagnostic data. 
 - `imas_omas_data_conversion.ipynb`: Existing notebook for IMAS/OMAS data conversion.
 
 ### Core Diagnostic and Startup Pipeline
 
-- `magnetic_diagnostics_processing.ipynb`: Planned raw magnetic diagnostics processing, calibration, filtering, and processed signal format. Includes a worked diamagnetic-Rogowski acquisition-saturation section (issue #285) showing raw and integrated signals, original vs corrected, on the packaged reference shots.
+- `magnetic_diagnostics_processing.ipynb`: Raw magnetic diagnostics from acquisition to processed signal — calibration, filtering, and the stage-by-stage waveforms — including a worked diamagnetic-Rogowski acquisition-saturation section (issue #285) showing raw and integrated signals, original vs corrected, on the packaged reference shots.
 - `fluctuation_diagnostics_analysis.ipynb`: Fluctuation spectral analysis — Welch PSD, power-law spectral index, spectral breaks, band powers and spectrograms — with the theory behind each routine, demonstrated on VEST magnetic probes and soft X-rays.
 - `soft_x_ray_signal_analysis.ipynb`: VEST SXR workflow — LOS geometry, traces, spectrogram, chord-time patterns, plus band-decomposed chord maps, optional vacuum-shot PF-noise subtraction, Be/Al two-filter electron temperature, and a two-point toroidal mode-number estimate ported from the validated VEST SXR Viewer.
 - `eddy_current_calculation_and_startup_analysis.ipynb`: PF passive eddy-current solve on the packaged shot — circuit assembly from the machine description, the induced currents written back into the ODS, and the vacuum field they produce, checked against the flux loops in the plasma-free window and read as loop voltage, decay index, the midplane null and a 2D null map.
-- `fast_camera_video_analysis.ipynb`: Planned VEST camera image/video loading, synchronization, and visual plasma behavior analysis.
+- `fast_camera_video_analysis.ipynb`: VEST FAST-camera frames from the packaged sample — loading, time synchronization, the calibration geometry projected onto a real frame, and the equilibrium and field-line overlays that read plasma behaviour off it.
 
 ### Electromagnetic Response, Equilibrium, and Stability
 
