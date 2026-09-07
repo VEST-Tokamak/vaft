@@ -129,13 +129,7 @@ def test_star_import_still_binds_the_full_surface():
 @pytest.mark.parametrize(
     ("name", "winner", "also_defined_in"),
     [
-        ("gradient", "stability", ("utils", "equilibrium")),
-        ("COLLISIONALITY_COEF", "stability", ("constants",)),
-        ("ME", "stability", ("constants", "equilibrium")),
-        ("MI_P", "stability", ("constants", "equilibrium")),
-        ("QE", "stability", ("constants", "equilibrium")),
-        ("MU0", "green", ("constants", "equilibrium", "stability")),
-        ("trapz_integral", "green", ("utils", "equilibrium")),
+        ("trapz_integral", "green", ("utils",)),
     ],
 )
 def test_a_shadowed_name_resolves_to_the_last_submodule_that_defined_it(
@@ -147,6 +141,48 @@ def test_a_shadowed_name_resolves_to_the_last_submodule_that_defined_it(
     # The losers really do define it -- otherwise this test proves nothing.
     for loser in also_defined_in:
         assert name in vaft.formula._exported(vaft.formula._submodule(loser))
+
+
+def test_only_one_name_is_exported_by_more_than_one_submodule():
+    """Shadowing used to be accidental; now it is a single deliberate case.
+
+    Before #368 no submodule declared ``__all__``, so every re-imported name --
+    ``gradient`` reaching stability from utils, ``MU0``/``QE``/``ME`` reaching
+    green and stability from constants -- was re-exported by each module that
+    imported it, and resolution depended on import order rather than on where
+    the name is defined. The values were identical objects, so nothing was
+    wrong; it just meant ``vaft.formula.MU0`` was answered by ``green``.
+
+    ``trapz_integral`` is the one real collision: ``green`` keeps its own copy
+    (see the note on ``vaft.formula.green.trapz_integral``) and both define it.
+    """
+    owners: dict[str, list[str]] = {}
+    for category in _IMPORT_ORDER:
+        module = vaft.formula._submodule(category)
+        for name in vaft.formula._exported(module):
+            owners.setdefault(name, []).append(category)
+
+    shared = {name: where for name, where in owners.items() if len(where) > 1}
+    assert shared == {"trapz_integral": ["utils", "green"]}
+
+
+@pytest.mark.parametrize(
+    ("name", "defining_module"),
+    [
+        ("gradient", "utils"),
+        ("COLLISIONALITY_COEF", "constants"),
+        ("ME", "constants"),
+        ("MI_P", "constants"),
+        ("QE", "constants"),
+        ("MU0", "constants"),
+        ("C_B", "constants"),
+    ],
+)
+def test_a_name_now_resolves_to_the_module_that_defines_it(name, defining_module):
+    """What ``__all__`` bought: the answer no longer depends on import order."""
+    module = vaft.formula._submodule(defining_module)
+    assert name in vaft.formula._exported(module)
+    assert getattr(vaft.formula, name) is getattr(module, name)
 
 
 def test_a_name_a_submodule_declines_to_export_is_not_attributed_to_it():
@@ -176,3 +212,43 @@ def test_importing_the_catalog_alone_loads_only_its_parser():
         "vaft.formula.catalog",
         "vaft.formula._docstring",
     }
+
+
+# ---------------------------------------------------------------------------
+# The star export publishes formulas, not the modules' own imports (issue #368)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "name",
+    ["np", "warnings", "Union", "Tuple", "List", "Dict", "Optional",
+     "curve_fit", "minimize", "cho_factor", "cho_solve", "cumulative_trapezoid",
+     "ellipe", "ellipk", "trapz_compat"],
+)
+def test_a_re_imported_name_is_not_a_formula(name):
+    """None of these is a formula, and all of them used to be exported."""
+    assert name not in vaft.formula.__all__
+
+
+@pytest.mark.parametrize(
+    ("old_name", "replacement"),
+    [("e", "QE"), ("eV_to_J", "QE"), ("m_e", "ME"), ("epsilon_0", "EPS0"),
+     ("k_B", "K_BOLTZMANN"), ("c", "C_LIGHT"), ("h", "H_PLANCK")],
+)
+def test_a_leaked_duplicate_constant_deprecates_to_its_canonical_name(old_name, replacement):
+    """`vaft.formula.e` was the elementary charge; say so rather than vanish."""
+    assert old_name not in vaft.formula.__all__
+    with pytest.warns(DeprecationWarning, match=replacement):
+        value = getattr(vaft.formula, old_name)
+    assert value == getattr(vaft.formula, replacement)
+
+
+def test_the_plumbing_gets_no_shim():
+    """A shim for `np` would only invite importing numpy through this package."""
+    with pytest.raises(AttributeError, match="no attribute 'np'"):
+        vaft.formula.np
+
+
+def test_every_submodule_declares_what_it_exports():
+    for category in _IMPORT_ORDER:
+        module = vaft.formula._submodule(category)
+        assert hasattr(module, "__all__"), f"{category} still falls back to vars()"

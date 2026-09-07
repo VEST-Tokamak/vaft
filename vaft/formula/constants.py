@@ -39,6 +39,26 @@ References
 import numpy as np
 
 # Electromagnetic constants
+
+#: The physical constants this module publishes. Declared so ``np`` does not
+#: reach ``vaft.formula.__all__`` as though it were one of them (#368).
+__all__ = [
+    "COLLISIONALITY_COEF",
+    "C_B",
+    "C_LIGHT",
+    "EPS0",
+    "E_ALPHA",
+    "H_PLANCK",
+    "K_BOLTZMANN",
+    "K_B_COEF",
+    "ME",
+    "MI_P",
+    "MU0",
+    "QE",
+    "SIGMA_V_COEF",
+    "SPITZER_RESISTIVITY_COEF",
+]
+
 MU0 = 4 * np.pi * 1e-7      # [H m⁻¹] - Vacuum permeability
 EPS0 = 8.8541878128e-12     # [F m⁻¹] - Vacuum permittivity
 
@@ -54,6 +74,25 @@ SIGMA_V_COEF = 1.1e-24      # [m³/s] - Fusion cross section coefficient
 # Transport coefficients
 SPITZER_RESISTIVITY_COEF = 5.2e-5  # [Ω·m] - Spitzer resistivity coefficient
 COLLISIONALITY_COEF = 6.921e-18    # [-] - Collisionality coefficient
+
+# Fundamental constants the bremsstrahlung prefactor is built from. They lived
+# as lower-case module-level names inside equilibrium.py, where they duplicated
+# QE/ME/EPS0 above and leaked into `vaft.formula.__all__` -- `vaft.formula.e`
+# was the elementary charge (#368).
+C_LIGHT = 299792458.0       # [m s⁻¹] - Speed of light in vacuum
+H_PLANCK = 6.62607015e-34   # [J s] - Planck constant
+K_BOLTZMANN = 1.380649e-23  # [J K⁻¹] - Boltzmann constant
+
+#: [MW m⁻³] - Bremsstrahlung coefficient for p in 1e5 Pa and T in keV.
+K_B_COEF = 0.052
+
+#: [W m³ K^-1/2] - Relativistic bremsstrahlung prefactor,
+#: sqrt(2)/(3 pi^2.5) e^6 / (eps0^3 c^3 h me^1.5).
+C_B = (
+    np.sqrt(2.0) / (3.0 * np.pi ** 2.5)
+    * QE**6
+    / (EPS0**3 * C_LIGHT**3 * H_PLANCK * ME**1.5)
+)
 
 # -----------------------------------------------------------------------------
 # Confinement-time scaling coefficients
