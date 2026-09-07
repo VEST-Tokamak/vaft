@@ -41,6 +41,11 @@ from ._dcon_output import (
     read_dcon_scan,
     read_solutions_bin,
 )
+from ._profile_output import (
+    GpecProfileOutput,
+    read_gpec_profile_output,
+    read_resonant_table,
+)
 from ._gpec_output import (
     GpecControlOutput,
     GpecCylindricalOutput,
@@ -539,7 +544,10 @@ __all__ = [
     "dcon_scan_row",
     "read_dcon_output",
     "read_dcon_scan",
+    "GpecProfileOutput",
     "read_gpec_netcdf",
+    "read_gpec_profile_output",
+    "read_resonant_table",
     "read_solutions_bin",
     "Pest3MatchingOutput",
     "read_pest3_matching_output",
