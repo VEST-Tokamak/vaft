@@ -14,6 +14,35 @@ def test_data_and_code_import_smoke():
     assert "data" in dir(vaft)
 
 
+def test_every_name_vaft_data_advertises_resolves():
+    """``vaft.data`` is a lazy namespace: a name in ``__all__`` with no
+    ``_EXPORT_MAP`` entry (or a submodule missing from the ``__getattr__``
+    set) fails only at attribute access, so nothing but a walk catches it.
+    ``vaft.formula`` has had this check; ``vaft.data`` had not."""
+    import vaft.data as data
+
+    unresolvable = []
+    for name in data.__all__:
+        try:
+            getattr(data, name)
+        except AttributeError:
+            unresolvable.append(name)
+    assert not unresolvable
+
+    stale = sorted(set(data._EXPORT_MAP) - set(data.__all__))
+    assert not stale, f"exported but not advertised: {stale}"
+
+
+def test_star_importing_vaft_data_binds_the_whole_surface():
+    import vaft.data as data
+
+    namespace: dict[str, object] = {}
+    exec("from vaft.data import *", namespace)  # noqa: S102
+
+    for name in data.__all__:
+        assert name in namespace, name
+
+
 def test_geqdsk_roundtrip(tmp_path):
     from vaft.data import read_geqdsk, write_geqdsk
     from vaft.data.resources import data_path

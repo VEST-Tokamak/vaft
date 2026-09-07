@@ -36,16 +36,43 @@ def profile_columns(points=41, span=TRUNCATED_SPAN):
 
 
 def write_kin_file(path, *, points=41, span=TRUNCATED_SPAN, header=True, footer=False,
-                   extra_column=False, columns=None):
-    """Write a synthetic ``.kin``; returns the columns it wrote."""
+                   extra_column=False, columns=None, fortran_exponents=False,
+                   numeric_footer=False, ragged_row=None, name="synthetic.kin"):
+    """Write a synthetic ``.kin``; returns the columns it wrote.
+
+    ``header`` may be a literal string, so a test can pin the header GPEC's
+    own files carry without importing it from the module under test.  The
+    remaining switches each break one thing: ``fortran_exponents`` writes
+    ``1.0D+00`` as a Fortran tool would, ``numeric_footer`` appends a summary
+    row *below* a footer (which GPEC stops before and a reader that collects
+    every numeric line anywhere would swallow), and ``ragged_row`` drops a
+    token from one row.
+    """
     data = columns if columns is not None else profile_columns(points, span)
     table = np.column_stack(list(data.values()))
     if extra_column:
         table = np.column_stack([table, np.arange(table.shape[0], dtype=float)])
-    lines = [KIN_HEADER] if header else []
-    lines.extend("  " + "   ".join(f"{value:.8e}" for value in row) for row in table)
-    if footer:
+
+    def render(value):
+        text = f"{value:.8e}"
+        return text.replace("e", "D") if fortran_exponents else text
+
+    if header is True:
+        lines = [KIN_HEADER]
+    elif header:
+        lines = [header]
+    else:
+        lines = []
+    rows = ["  " + "   ".join(render(value) for value in row) for row in table]
+    if ragged_row is not None:
+        rows[ragged_row] = rows[ragged_row].rsplit("   ", 1)[0]
+    lines.extend(rows)
+    if footer or numeric_footer:
         lines += ["", "written by a synthetic fixture", "provenance: none"]
-    target = path / "synthetic.kin"
+    if numeric_footer:
+        # A summary row after the footer: still numeric, but past the end of
+        # the table as far as GPEC's readtable is concerned.
+        lines.append("  " + "   ".join(render(value) for value in table.mean(axis=0)))
+    target = path / name
     target.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return data
