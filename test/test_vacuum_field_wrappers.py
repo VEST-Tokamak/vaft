@@ -180,3 +180,95 @@ def test_compute_grid_ods_returns_br_bz_phi_in_that_order(solved):
             np.asarray(through_ods[index], dtype=float),
             np.asarray(direct[index], dtype=float),
         )
+
+
+# ---------------------------------------------------------------------------
+# Where a passive loop is placed
+# ---------------------------------------------------------------------------
+
+def test_a_loop_is_placed_at_the_centre_of_its_own_outline():
+    """calc_grid divided the vertex sum by len-1 while summing every vertex.
+
+    Every VEST passive loop is a four-vertex open polygon, so every centroid
+    came out inflated by n/(n-1) -- putting a filament up to 461 mm from the
+    6 mm conductor it stands for, and the vessel field with it.
+    """
+    from vaft.process.electromagnetics import _outline_centroid
+
+    # A 6 mm square at (0.803, -0.5975), the shape VEST's loops actually are.
+    r = [0.800, 0.806, 0.806, 0.800]
+    z = [-0.6005, -0.6005, -0.5945, -0.5945]
+    centre = _outline_centroid(r, z)
+    assert centre == pytest.approx((0.803, -0.5975))
+
+    inflated = (sum(r) / (len(r) - 1), sum(z) / (len(z) - 1))
+    assert abs(inflated[0] - centre[0]) > 0.25  # the old answer, a quarter metre out
+
+
+def test_a_closed_outline_does_not_weight_its_corner_twice():
+    from vaft.process.electromagnetics import _outline_centroid
+
+    square = ([0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0])
+    closed = ([0.0, 1.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0, 0.0])
+    assert _outline_centroid(*square) == pytest.approx((0.5, 0.5))
+    assert _outline_centroid(*closed) == pytest.approx((0.5, 0.5))
+
+
+def test_every_packaged_loop_sits_inside_its_own_outline(solved):
+    """The property the old code violated for all 950 of them."""
+    from vaft.process.electromagnetics import _outline_centroid
+
+    loops = solved["pf_passive.loop"]
+    for index in range(len(loops)):
+        r = np.asarray(solved[f"pf_passive.loop.{index}.element[0].geometry.outline.r"], float)
+        z = np.asarray(solved[f"pf_passive.loop.{index}.element[0].geometry.outline.z"], float)
+        centre_r, centre_z = _outline_centroid(r, z)
+        assert r.min() <= centre_r <= r.max(), index
+        assert z.min() <= centre_z <= z.max(), index
+
+
+def test_calc_grid_agrees_with_the_exact_greens_path_away_from_sources(solved):
+    """The comparison that exposed the centroid bug, kept as the guard.
+
+    Points sitting on a filament are excluded: both paths are singular there,
+    and the exact one has no shift-averaging, so they legitimately diverge
+    within a few millimetres of a conductor.
+    """
+    from vaft.omas.process_wrapper import compute_point_response_matrices_ods
+
+    axis_r = np.linspace(0.10, 0.90, 11)
+    axis_z = np.linspace(0.05, 1.40, 11)
+    _, bz_grid_response, _ = vaft.omas.compute_grid_ods(solved, list(axis_r), list(axis_z))
+
+    mesh_r, mesh_z = np.meshgrid(axis_r, axis_z, indexing="ij")
+    points = np.column_stack([mesh_r.ravel(), mesh_z.ravel()])
+    _, bz_exact_response, _ = compute_point_response_matrices_ods(solved, points.tolist())
+
+    coils = len(solved["pf_active.coil"])
+    loops = len(solved["pf_passive.loop"])
+    k_active = int(np.argmin(np.abs(np.asarray(solved["pf_active.time"], float) - 0.3307)))
+    k_passive = int(np.argmin(np.abs(np.asarray(solved["pf_passive.time"], float) - 0.3307)))
+    currents = np.concatenate([
+        [float(np.asarray(solved[f"pf_active.coil.{i}.current.data"], float)[k_active])
+         for i in range(coils)],
+        [float(np.asarray(solved[f"pf_passive.loop.{i}.current"], float)[k_passive])
+         for i in range(loops)],
+    ])
+    width = currents.size
+    from_grid = np.asarray(bz_grid_response, float)[:, :width] @ currents
+    from_exact = np.asarray(bz_exact_response, float)[:, :width] @ currents
+
+    filaments = np.array([
+        [float(np.mean(solved[f"pf_passive.loop.{i}.element[0].geometry.outline.r"])),
+         float(np.mean(solved[f"pf_passive.loop.{i}.element[0].geometry.outline.z"]))]
+        for i in range(loops)
+    ])
+    distance = np.min(
+        np.linalg.norm(points[:, None, :] - filaments[None, :, :], axis=2), axis=1
+    )
+    away = distance > 0.03
+    assert away.sum() > 0.5 * away.size
+
+    scale = np.abs(from_exact).max()
+    relative = np.abs(from_grid - from_exact)[away] / scale
+    assert relative.max() < 1e-3, relative.max()

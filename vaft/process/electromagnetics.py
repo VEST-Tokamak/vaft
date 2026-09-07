@@ -152,6 +152,26 @@ def compute_br_bz_phi(
     
     return br_final, bz_final, phi_final
 
+def _outline_centroid(outline_r, outline_z) -> tuple[float, float]:
+    """The centre of a passive loop's outline, as a filament position.
+
+    The mean of the vertices, with a repeated closing vertex dropped first so a
+    closed outline is not weighted twice at one corner.
+
+    This used to divide the vertex sum by ``len - 1`` while summing every
+    vertex, which inflated each centroid by ``n/(n-1)``.  On VEST -- 950 loops,
+    every one a four-vertex open polygon 6 mm across -- that put each filament
+    up to 461 mm from the conductor it represents, and the vessel field with it.
+    """
+    r = np.asarray(outline_r, dtype=float).ravel()
+    z = np.asarray(outline_z, dtype=float).ravel()
+    if r.size == 0:
+        raise ValueError("a passive loop outline needs at least one vertex")
+    if r.size > 1 and np.isclose(r[0], r[-1]) and np.isclose(z[0], z[-1]):
+        r, z = r[:-1], z[:-1]
+    return float(r.mean()), float(z.mean())
+
+
 def calc_grid(
     xvar: List[float],
     zvar: List[float],
@@ -251,9 +271,7 @@ def calc_grid(
             # Passive loops
             for ii in range(nbloop):
                 if loop_geometry_type[ii] == 1:
-                    nbelti = len(loop_outline_r[ii])
-                    r2 = sum(loop_outline_r[ii]) / (nbelti - 1)
-                    z2 = sum(loop_outline_z[ii]) / (nbelti - 1)
+                    r2, z2 = _outline_centroid(loop_outline_r[ii], loop_outline_z[ii])
                 else:
                     r2 = loop_rectangle_r[ii]
                     z2 = loop_rectangle_z[ii]
@@ -353,8 +371,7 @@ def compute_response_matrix(
         # Passive Loops contribution
         for i_l, loop in enumerate(passive_loop_data):
             if loop['geometry_type'] == 1: # Polygon (Outline)
-                r2_l = np.mean(loop['outline_r'])
-                z2_l = np.mean(loop['outline_z'])
+                r2_l, z2_l = _outline_centroid(loop['outline_r'], loop['outline_z'])
             else: # Rectangle
                 r2_l = loop['rectangle_r']
                 z2_l = loop['rectangle_z']
