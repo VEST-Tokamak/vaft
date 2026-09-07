@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import json
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 import pytest
 from omas import ODS
@@ -44,6 +45,8 @@ from omas.omas_core import CodeParameters
 import vaft
 from vaft.imas import IMAS_DD_VERSION_CONVERSION
 from vaft.imas.omas_imas import save_omas_imas
+
+DATA = Path(__file__).resolve().parents[1] / "vaft" / "data"
 
 IDS = "equilibrium"
 FIELD = f"{IDS}.code.parameters"
@@ -259,6 +262,29 @@ def test_a_flat_leaf_beside_a_nested_block_is_dropped_with_it(tmp_path):
 
     assert accepted == []
     assert value is None, "cocos went down with the parser cache beside it"
+
+
+def test_a_real_equilibrium_product_is_the_mixed_case():
+    """The combination above is what the EFIT path actually builds.
+
+    Mapping a g-file writes the per-slice parser cache, and declaring the
+    convention afterwards -- which every VAFT path producing an equilibrium is
+    asked to do -- adds the COCOS leaf to the same field.  So the row of the
+    table that loses everything is not a constructed corner: it is the shape a
+    reconstruction product has by the time it is written.
+
+    In memory both are readable, which is why this has gone unnoticed; what
+    happens to them on the way to a replica is the test above.
+    """
+    from vaft.omas.general import equilibrium_psi_to_weber, ods_cocos
+
+    ods = vaft.omas.load(DATA / "efit" / "g039915.00317")
+    equilibrium_psi_to_weber(ods, source="test")
+
+    keys = set(ods[FIELD].keys())
+    assert "time_slice" in keys, "the per-slice parser cache"
+    assert {"cocos", "cocos_source"} <= keys, "the declared convention, beside it"
+    assert ods_cocos(ods) == 11, "and readable, in memory"
 
 
 # --- what the envelope does to values ---------------------------------------
