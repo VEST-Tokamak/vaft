@@ -9,13 +9,17 @@ All references are analytic or cross-checks — no external fixtures.
 
 from __future__ import annotations
 
+import pathlib
+
 import numpy as np
 import pytest
 from scipy.special import ellipe, ellipk
 
+from vaft.formula import green
 from vaft.formula.green import (
     GREEN_EXACT_MODES,
     MU0,
+    elliptic_integral,
     green_br_bz,
     green_br_bz_exact,
     green_psi_exact,
@@ -360,3 +364,58 @@ def test_point_response_matrix_performance_budget():
     compute_point_response_matrices(obs_r, obs_z, src_r, src_z)
     elapsed = time.perf_counter() - t0
     assert elapsed < 0.050, f"response matrix took {elapsed * 1e3:.1f} ms"
+
+
+# ---------------------------------------------------------------------------
+# Legacy path singularities (issue #356)
+#
+# `green_br_bz` and `elliptic_integral` divided without guards and reported a
+# near-singular modulus with a bare `print`, which no caller can filter or turn
+# into an error. `green_br_bz_exact` already handled both cases; these pin the
+# legacy path to the same behaviour.
+# ---------------------------------------------------------------------------
+
+def test_the_legacy_path_warns_instead_of_printing_at_the_singular_modulus():
+    with pytest.warns(RuntimeWarning, match="logarithmic singularity"):
+        ek, ee = elliptic_integral(np.array([0.4]), np.array([0.0]), 0.4, 0.0)
+    assert np.isnan(ek).all() and np.isnan(ee).all()
+
+
+def test_a_coincident_observer_returns_nan_rather_than_inf():
+    with pytest.warns(RuntimeWarning, match="coincides with the source ring"):
+        br, bz = green_br_bz(np.array([0.4]), np.array([0.0]), 0.4, 0.0)
+    assert np.isnan(br).all() and np.isnan(bz).all()
+
+
+def test_the_legacy_on_axis_limits_now_match_the_exact_path():
+    """r_obs = 0 used to divide by zero; it has a closed form the exact path uses."""
+    z = np.array([0.25, -0.4])
+    r = np.zeros_like(z)
+    legacy = green_br_bz(r, z, 0.4, 0.0)
+    exact = green_br_bz_exact(r, z, 0.4, 0.0)
+    np.testing.assert_allclose(np.ravel(legacy[0]), np.ravel(exact[0]), atol=0)
+    np.testing.assert_allclose(np.ravel(legacy[1]), np.ravel(exact[1]), rtol=1e-12)
+
+
+def test_a_zero_radius_source_ring_on_axis_is_guarded():
+    """The gap the exact path still has: a ring of zero radius is not a ring."""
+    with pytest.warns(RuntimeWarning, match="zero radius"):
+        _br, bz = green_br_bz(np.array([0.0]), np.array([0.0]), 0.0, 0.0)
+    assert np.isnan(bz).all()
+
+
+def test_the_legacy_and_exact_fields_still_agree_away_from_the_singularities():
+    """The guards must not have moved the ordinary answer."""
+    rng = np.random.default_rng(7)
+    r = rng.uniform(0.2, 1.5, 32)
+    z = rng.uniform(-0.6, 0.6, 32)
+    legacy_br, legacy_bz = green_br_bz(r, z, 0.4, 0.0)
+    exact_br, exact_bz = green_br_bz_exact(r, z, 0.4, 0.0)
+    np.testing.assert_allclose(legacy_br, exact_br, rtol=1e-5, atol=1e-13)
+    np.testing.assert_allclose(legacy_bz, exact_bz, rtol=1e-5, atol=1e-13)
+
+
+def test_the_permeability_comes_from_one_place():
+    """Both legacy paths hard-coded their own 4*pi*1e-7."""
+    source = pathlib.Path(green.__file__).read_text(encoding="utf-8")
+    assert "mu0 = 4.0 * np.pi * 1.0e-7" not in source

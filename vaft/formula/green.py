@@ -11,10 +11,18 @@ K      : complete elliptic integral of first kind      [-]
 E      : complete elliptic integral of second kind     [-]
 """
 
+import warnings
+
 import numpy as np
 from scipy.special import ellipe, ellipk
 from typing import Union, Tuple
 from vaft.compat import trapz_compat
+from vaft.formula.constants import MU0
+
+#: Below this ``1 - m`` the Hastings series is evaluated at its logarithmic
+#: singularity. The value is the threshold the legacy path already used for its
+#: (unactioned) warning; the exact path caps the modulus at ``_M_MAX`` instead.
+_KP2_FLOOR = 1e-15
 
 
 def trapz_integral(x: np.ndarray, y: np.ndarray) -> float:
@@ -221,11 +229,24 @@ def greens_function_3d(R: np.ndarray,
 
     Limitations
     -----------
-    The $\sin^2$ term augments the denominator with the 3-D chord between the
-    two toroidal angles, but the resulting expression is a heuristic
-    generalisation of :func:`greens_function_2d` without a recorded derivation
-    or source; it is not the Biot-Savart kernel of a point source.  Tracked in
-    #356.
+    Not the Biot-Savart kernel of a point source, and the difference is exact
+    rather than vague. The chord between two points in a torus is
+
+    $$d^2 = (R - R_0)^2 + (Z - Z_0)^2
+            + 4RR_0\sin^2\!\big(\tfrac{\varphi - \varphi_0}{2}\big),$$
+
+    while the ring kernel's denominator is
+    $(R + R_0)^2 + (Z - Z_0)^2 = (R - R_0)^2 + (Z - Z_0)^2 + 4RR_0$. A point
+    source therefore *replaces* the $4RR_0$ with
+    $4RR_0\sin^2(\Delta\varphi/2)$; this expression **adds** the second term to
+    the first, so the two coincide only at $\Delta\varphi = 0$, where the
+    $\sin^2$ vanishes and the ring result is recovered.
+
+    That $\Delta\varphi = 0$ reduction is the one property worth relying on.
+    Away from it the expression decays with toroidal separation in a way that
+    has no recorded derivation, so it should not be read as a field. Tracked in
+    #356: it needs either a derivation or a replacement, and it has no
+    production caller today.
 
     References
     ----------
@@ -406,28 +427,40 @@ def elliptic_integral(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src:
     # k2 calculation:
     # denom_k2 = s2 + zsq (array)
     # num_k2 = 4.0 * r_obs * r_src (array)
-    k2 = (4.0 * r_obs * r_src) / (s2 + zsq) # array
-    
-    kp2 = 1.0 - k2 # array
-    
-    # Handle potential division by zero or log of non-positive if kp2 is very small or zero.
-    # For simplicity, we'll rely on numpy's handling (e.g., log(0) -> -inf, log(negative) -> nan)
-    # but in a robust implementation, one might add checks or epsilons.
-    # A small epsilon can be added to kp2 to avoid log(0) if necessary,
-    # or use np.errstate to manage warnings/errors.
-    # For now, let's assume kp2 will be positive.
-    
-    # Check for kp2 being too close to zero, which can cause issues with log.
-    # This warning will now print for each element where condition is met.
-    # Consider if a vectorized warning is needed or if individual warnings are acceptable.
-    if np.any(np.abs(kp2) < 1e-15):
-        # This is a simplified warning for demonstration.
-        # In practice, you might want to log specific indices or handle differently.
-        print(f"Warning: kp2 ~ 0 for some r_obs/z_obs points with r_src={r_src}, z_src={z_src}")
+    # Guarded the way green_br_bz_exact guards its own singularity: the
+    # denominator vanishes only when observer and source coincide at r = 0,
+    # which is outside the ring geometry rather than a point to extrapolate to.
+    denominator = s2 + zsq
+    degenerate_denominator = denominator == 0.0
+    if np.any(degenerate_denominator):
+        warnings.warn(
+            "elliptic_integral: observer coincides with the source ring at "
+            f"r_src={r_src}, z_src={z_src}; the modulus is undefined there. "
+            "Returning nan on those points.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        denominator = np.where(degenerate_denominator, np.nan, denominator)
+    k2 = (4.0 * r_obs * r_src) / denominator
 
+    kp2 = 1.0 - k2
 
-    # Approximate logs
-    kln = -np.log(kp2) # array
+    # kp2 -> 0 is the coincident-point limit, where -log(kp2) diverges. The
+    # exact path caps the modulus at _M_MAX instead; here the caller gets a
+    # warning and nan rather than an inf that looks like a field.
+    coincident = np.abs(kp2) < _KP2_FLOOR
+    if np.any(coincident):
+        warnings.warn(
+            f"elliptic_integral: 1 - m is below {_KP2_FLOOR:g} at "
+            f"r_src={r_src}, z_src={z_src}, so the series is evaluated at its "
+            "logarithmic singularity. Returning nan there; "
+            "greens_function_exact handles this point analytically.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        kp2 = np.where(coincident, np.nan, kp2)
+
+    kln = -np.log(kp2)
 
     # Elliptic integral of the first kind
     ek = (
@@ -450,17 +483,6 @@ def elliptic_integral(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src:
             + kp2 * (be1 + kp2 * (be2 + kp2 * (be3 + kp2 * be4)))
         )
     ) # array
-    # Corrected typo for 'ee' calculation:
-    # ee = (
-    #     ae0
-    #     + kp2 * (ae1 + kp2 * (ae2 + kp2 * (ae3 + kp2 * ae4)))
-    #     + kln
-    #     * (
-    #         be0
-    #         + kp2 * (be1 + kp2 * (be2 + kp2 * (be3 + kp2 * be4)))
-    #     )
-    # )
-
 
     return ek, ee
 
@@ -512,38 +534,60 @@ def green_br_bz(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src: float
     .. [2] J. D. Jackson, *Classical Electrodynamics*, 3rd ed., Wiley (1999),
            Sec. 5.5.
     """
-    mu0 = 4.0 * np.pi * 1.0e-7 # Use np.pi
     z_diff = z_obs - z_src # array
 
     # Elliptic part - r_obs, z_obs are arrays, r_src, z_src are scalars
     ek, ee = elliptic_integral(r_obs, z_obs, r_src, z_src) # ek, ee are arrays
 
-    denom_sqrt = np.sqrt((r_obs + r_src) ** 2 + z_diff ** 2) # array
+    # Zero only when a zero-radius source sits at the observer's own height,
+    # which the on-axis branch below reports; keep numpy from raising its own
+    # bare divide-by-zero on the way there.
+    denom_sqrt = np.sqrt((r_obs + r_src) ** 2 + z_diff ** 2)
+    denom_sqrt = np.where(denom_sqrt == 0.0, np.nan, denom_sqrt)
     
-    # Br
-    # Denominator for the second term of Br and Bz factor
-    # This term can be zero if r_obs = r_src and z_obs = z_src.
-    # ((r_obs - r_src) ** 2 + z_diff ** 2)
-    # Add a small epsilon to avoid division by zero, or handle this case specifically.
-    # For simplicity in this step, let's assume it's not exactly zero,
-    # or that the calling function (compute_br_bz_phi) handles singularities.
-    
-    br_denom_factor = (r_obs - r_src) ** 2 + z_diff ** 2 # array
-    # To prevent division by zero, ensure br_denom_factor is not zero.
-    # A common approach is to add a small epsilon, or use np.where.
-    # For now, let's assume the shift mechanism in compute_br_bz_phi handles exact singularities.
-    
-    br_num = z_diff / denom_sqrt # array
-    br_factor = (((r_obs * r_obs + r_src * r_src + z_diff * z_diff) / br_denom_factor) * ee - ek) # array
-    br = br_num * br_factor * mu0 / (2.0 * np.pi * r_obs) # array
-    # Note: Division by r_obs can be problematic if r_obs contains zero.
-    # This needs to be handled, e.g. by setting Br to 0 or another appropriate value at r_obs=0.
-    # For now, assuming r_obs will be non-zero in typical use cases for Br.
+    # Coincident observer and source. The comments here used to defer this to
+    # "the calling function", which does not in fact guard it; green_br_bz_exact
+    # does, and this mirrors it.
+    br_denom_factor = (r_obs - r_src) ** 2 + z_diff ** 2
+    coincident = br_denom_factor == 0.0
+    if np.any(coincident):
+        warnings.warn(
+            "green_br_bz: observer coincides with the source ring at "
+            f"r_src={r_src}, z_src={z_src}; the field diverges there. "
+            "Returning nan on those points.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        br_denom_factor = np.where(coincident, np.nan, br_denom_factor)
 
-    # Bz
-    bz_num = 1.0 / denom_sqrt # array
-    bz_factor = (ek - ee * (r_obs * r_obs - r_src * r_src + z_diff * z_diff) / br_denom_factor) # array
-    bz = bz_num * bz_factor * mu0 / (2.0 * np.pi) # array
+    # r_obs = 0 is the geometric axis, where Br vanishes by symmetry and Bz has
+    # a closed form -- the limits green_br_bz_exact substitutes there.
+    on_axis = r_obs == 0.0
+    r_safe = np.where(on_axis, 1.0, r_obs)
+
+    br_num = z_diff / denom_sqrt
+    br_factor = (((r_obs * r_obs + r_src * r_src + z_diff * z_diff) / br_denom_factor) * ee - ek)
+    br = br_num * br_factor * MU0 / (2.0 * np.pi * r_safe)
+
+    bz_num = 1.0 / denom_sqrt
+    bz_factor = (ek - ee * (r_obs * r_obs - r_src * r_src + z_diff * z_diff) / br_denom_factor)
+    bz = bz_num * bz_factor * MU0 / (2.0 * np.pi)
+
+    if np.any(on_axis):
+        # A source ring of zero radius at the observer's own height is not a
+        # ring; the exact path leaves that case unguarded, so guard it here.
+        axis_denominator = (r_src**2 + z_diff**2) ** 1.5
+        degenerate_ring = axis_denominator == 0.0
+        if np.any(degenerate_ring & on_axis):
+            warnings.warn(
+                "green_br_bz: a source ring of zero radius coincides with an "
+                "on-axis observer; Bz is undefined there. Returning nan.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        bz_axis = MU0 * r_src**2 / (2.0 * np.where(degenerate_ring, np.nan, axis_denominator))
+        br = np.where(on_axis, 0.0, br)
+        bz = np.where(on_axis, bz_axis, bz)
 
     return br, bz
 
@@ -564,7 +608,6 @@ def green_br_bz(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src: float
 #   Br  [T]   = -mu0/(2 pi r) dG/dz
 # ------------------------------------------------------------------
 
-from vaft.formula.constants import MU0
 
 GREEN_EXACT_MODES = ("psi", "dpsi_dr", "dpsi_dz", "d2psi_drdz", "d2psi_dr2", "K", "E")
 
@@ -1090,7 +1133,6 @@ def green_r(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src: float) ->
     .. [1] J. D. Jackson, *Classical Electrodynamics*, 3rd ed., Wiley (1999),
            Sec. 5.5, Eq. (5.37).
     """
-    mu0 = 4.0 * np.pi * 1.0e-7 # Use np.pi
     z_diff = z_obs - z_src # array
     
     denom_k_calc = (r_obs + r_src) ** 2 + z_diff ** 2 # array
@@ -1123,7 +1165,7 @@ def green_r(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src: float) ->
     
     sqrt_rr_src = np.sqrt(r_obs * r_src) # array
     
-    # Original formula: res = sqrt_rr1 * 2.0 * mu0 / k * ((1.0 - k2 / 2.0) * ek - ee)
+    # Original formula: res = sqrt_rr1 * 2.0 * MU0 / k * ((1.0 - k2 / 2.0) * ek - ee)
     # Division by k can be problematic if k is zero.
     # k is zero if r_obs = 0 or r_src = 0.
     # If r_obs = 0: sqrt_rr_src is 0. Then result is 0 * (inf or nan) if k is 0.
@@ -1145,7 +1187,7 @@ def green_r(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src: float) ->
     # So, if k is zero, the expression 0/0 might arise if not careful.
     # Let's compute the main term and then set to zero where appropriate.
     
-    main_term = sqrt_rr_src * 2.0 * mu0 # array
+    main_term = sqrt_rr_src * 2.0 * MU0 # array
     
     # Calculate factor = main_term / k
     factor = np.divide(main_term, k, out=np.zeros_like(main_term), where=k!=0) # array
