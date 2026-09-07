@@ -655,9 +655,10 @@ def _write_rdcon_netcdf(
 def test_the_free_boundary_verdict_comes_from_the_output_not_the_log(tmp_path):
     """`Re(total1) < 0` is unstable, anything else stable -- and only if computed.
 
-    The solvers also say this in prose, but only under `verbose`
-    (`rdcon/dcon.f:449`), a Fortran default VAFT never sets. Reading the number
-    the solver wrote makes the verdict independent of how chatty the run was.
+    The solvers also say this in prose, but DCON and RDCON print it only under
+    `verbose` (`rdcon/dcon.f:452`), a Fortran default VAFT never sets. Reading
+    the number the solver wrote makes the verdict independent of how chatty the
+    run happened to be.
     """
     from vaft.code.gpec._solvers import free_boundary_stable
 
