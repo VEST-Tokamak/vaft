@@ -178,6 +178,13 @@ class EFITNumericsConfig:
         return keys
 
 
+#: A tolerance so large the criterion it guards can never fire.  EFIT tests
+#: ``value >= tolerance``, so this disables the check without disabling the
+#: computation: the quantity is still evaluated and still written to the
+#: a-file, and only the automatic rejection stops.
+IGNORE_CRITERION = 1.0e6
+
+
 @dataclass(frozen=True)
 class EFITAcceptanceEnvelope:
     """The ``&incheck`` bounds EFIT accepts a reconstruction within.
@@ -227,10 +234,14 @@ class EFITAcceptanceEnvelope:
     gapin_min: float = -0.2
     gapout_min: float = -0.2
     gaptop_min: float = -0.2
-    #: Consistency tolerances. Deliberately untouched by the geometric
-    #: derivation: what they should be is a separate argument, and moving
-    #: them alongside the geometry would confound the two.
+    #: Measured-vs-reconstructed plasma current, left at EFIT's value.
     plasma_diff: float = 0.08
+    #: The virial (Lao) consistency tolerances, failures #20 and #21.  At
+    #: VEST's aspect ratio these are ill-conditioned and cannot decide the
+    #: question they are asked (issue #649): ``sbpp`` is a difference of two
+    #: nearly equal terms, negative on some slices, and ``sbli`` divides by
+    #: ``alpha - 1``.  :data:`IGNORE_CRITERION` disables the rejection while
+    #: leaving every quantity computed and written to the a-file.
     dbpli_diff: float = 0.05
     delbp_diff: float = 0.08
 
@@ -475,6 +486,7 @@ def efit_parameter_grid(
 __all__ = [
     "DIAGNOSTIC_GROUPS",
     "EFITAcceptanceEnvelope",
+    "IGNORE_CRITERION",
     "EFITConstraintConfig",
     "EFITInitializationConfig",
     "EFITNumericsConfig",

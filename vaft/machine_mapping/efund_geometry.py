@@ -422,6 +422,7 @@ def vest_acceptance_envelope(
     rright: float = 1.2,
     resolved_cells: int = 5,
     base: Any | None = None,
+    virial_checks: bool = False,
 ) -> Any:
     """Derive EFIT's ``&incheck`` geometric bounds from the machine itself.
 
@@ -440,14 +441,23 @@ def vest_acceptance_envelope(
     * the centre and centroid bounds keep the plasma inside the limiter by at
       least ``aminor_min``.
 
-    Everything else -- ``li``, ``betap``, ``qstar``, ``elong`` and the
-    consistency tolerances -- is left at ``base``'s values, because those are
-    physics or fit-quality arguments and not geometry.  Lengths returned are
-    centimetres, EFIT's convention in this namelist.
+    ``li``, ``betap``, ``qstar`` and ``elong`` are left at ``base``'s values,
+    because those are physics arguments and not geometry.  Lengths returned
+    are centimetres, EFIT's convention in this namelist.
+
+    The virial consistency checks are a separate matter and are **disabled**
+    unless ``virial_checks`` says otherwise.  At VEST's aspect ratio of about
+    1.45 they are ill-conditioned rather than merely strict (issue #649):
+    ``sbpp`` is a difference of two terms near 0.8 leaving 0.01 to 0.2 and
+    negative on some slices, a median cancellation of twelvefold, and
+    ``sbli`` divides by ``alpha - 1``, which VEST measures at 0.22 to 0.51 and
+    falling.  A gate that cannot distinguish a good reconstruction from a bad
+    one should not decide acceptance.  Every quantity is still computed and
+    written to the a-file; only the rejection stops.
     """
     from dataclasses import replace
 
-    from vaft.code.efit.config import EFITAcceptanceEnvelope
+    from vaft.code.efit.config import IGNORE_CRITERION, EFITAcceptanceEnvelope
 
     outline = ods["wall.description_2d.0.limiter.unit.0.outline"]
     r = np.asarray(outline["r"], dtype=float).reshape(-1)
@@ -478,6 +488,11 @@ def vest_acceptance_envelope(
         rcurrt_max=r_max - aminor_min,
         zcurrt_min=z_min + aminor_min,
         zcurrt_max=z_max - aminor_min,
+        **(
+            {}
+            if virial_checks
+            else {"delbp_diff": IGNORE_CRITERION, "dbpli_diff": IGNORE_CRITERION}
+        ),
     )
 
 

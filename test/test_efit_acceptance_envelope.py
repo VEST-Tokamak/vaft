@@ -96,24 +96,57 @@ def test_the_geometric_bounds_come_from_the_limiter_and_the_grid(static):
 
 
 def test_the_physics_bounds_are_left_alone(static):
-    """Geometry is derived; li, betap, qstar and the tolerances are not touched."""
+    """Geometry is derived; li, betap, qstar and plasma_diff are not touched."""
     ods, _ = static
     packaged = EFITAcceptanceEnvelope()
     proposed = vest_acceptance_envelope(ods)
     for name in (
         "li_min", "li_max", "betap_max", "betat_max", "qstar_min", "qstar_max",
-        "qout_min", "qout_max", "elong_min", "elong_max",
-        "plasma_diff", "dbpli_diff", "delbp_diff",
+        "qout_min", "qout_max", "elong_min", "elong_max", "plasma_diff",
     ):
         assert getattr(proposed, name) == getattr(packaged, name), name
 
 
+def test_the_virial_checks_do_not_gate_vest_acceptance(static):
+    """Issue #649, and a policy decision rather than a derivation.
+
+    At A ~ 1.45 `sbpp` is a difference of two terms near 0.8 that leaves 0.01
+    to 0.2 and goes negative, and `sbli` divides by `alpha - 1`. A gate that
+    cannot tell a good reconstruction from a bad one must not decide
+    acceptance. The quantities stay computed and written to the a-file; only
+    the rejection stops, and it can be switched back on explicitly.
+    """
+    from vaft.code.efit.config import IGNORE_CRITERION
+
+    ods, _ = static
+    disabled = vest_acceptance_envelope(ods)
+    assert disabled.delbp_diff == IGNORE_CRITERION
+    assert disabled.dbpli_diff == IGNORE_CRITERION
+    # EFIT tests `value >= tolerance`, so the criterion cannot fire.
+    assert IGNORE_CRITERION > 1e3
+
+    kept = vest_acceptance_envelope(ods, virial_checks=True)
+    assert kept.delbp_diff == EFITAcceptanceEnvelope().delbp_diff
+    assert kept.dbpli_diff == EFITAcceptanceEnvelope().dbpli_diff
+    # Only these two move: the decision is about the virial gate, nothing else.
+    from dataclasses import fields
+
+    differing = {
+        field.name
+        for field in fields(EFITAcceptanceEnvelope)
+        if getattr(disabled, field.name) != getattr(kept, field.name)
+    }
+    assert differing == {"delbp_diff", "dbpli_diff"}
+
+
 def test_a_supplied_base_survives_the_derivation(static):
     ods, _ = static
-    base = EFITAcceptanceEnvelope(li_max=2.0, delbp_diff=0.2)
+    base = EFITAcceptanceEnvelope(li_max=2.0, plasma_diff=0.2)
     proposed = vest_acceptance_envelope(ods, base=base)
-    assert proposed.li_max == 2.0 and proposed.delbp_diff == 0.2
+    assert proposed.li_max == 2.0 and proposed.plasma_diff == 0.2
     assert proposed.aminor_min != base.aminor_min
+    # The virial decision overrides the base: it is a policy, not a default.
+    assert proposed.delbp_diff != base.delbp_diff
 
 
 def test_the_derivation_refuses_a_grid_too_coarse_for_the_machine(static):

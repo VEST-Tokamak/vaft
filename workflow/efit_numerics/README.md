@@ -145,7 +145,37 @@ failure **#21 fires on every slice that produces an equilibrium** — 7 of 7,
 | failures #5, #7, #8 | 21, 9, 11 slices | **none** |
 | failure #21 | every slice | every slice |
 
-### What #21 actually is, and why it blocks this issue
+### Measured again, with the virial gate ignored (issue #649)
+
+The virial consistency checks are ill-conditioned at VEST's aspect ratio and
+cannot decide the question they are asked, so they no longer gate acceptance.
+Rerunning with that policy and nothing else changed:
+
+| | packaged envelope | + VEST geometry | + virial gate ignored |
+| --- | --- | --- | --- |
+| a-files written | 31 | 31 | 31 |
+| **accepted** | **0** | **0** | **18** |
+| failures #5, #7, #8 | 41 slices | none | none |
+| failures #20, #21 | every slice | every slice | none |
+| failure #1 | 13 slices | 13 slices | 13 slices |
+
+Per shot: 4 of 7 on 39915, 2 of 5 on 41524, 12 of 19 on 41672. **These are the
+first accepted VEST reconstructions in this line of work.**
+
+What remains is a single criterion, and it is the right one: **#1, chi-square
+above `SAICON = 80`**, on exactly the 13 slices that are not accepted. Every
+other criterion passes on every slice. The acceptance question has gone from
+"nothing passes, for six different reasons, three of them arithmetic" to "one
+well-posed fit-quality threshold rejects 13 of 31" — which is precisely what
+the termination scan is for, and it is now a meaningful scan.
+
+**What this does not say.** An accepted slice is not a correct one. Poloidal
+beta is still about 0.007 across all of them, and #386's pressure deficit is
+untouched by any of this. Acceptance now means "converged, with a geometry the
+machine can contain and a chi-square under threshold", which is what EFIT's
+criteria were always meant to mean, and no more.
+
+### What #21 actually is
 
 `beta_li.F90:874` computes it as the relative disagreement between the virial
 estimate of beta_p — from the Shafranov integrals and the **measured**
@@ -163,11 +193,17 @@ measured diamagnetic flux is of order one, because under `legacy_weight` the
 diamagnetic constraint is emitted weightless and the fit never constrains
 pressure.
 
-**So #386 blocks #171.** No termination setting, and no acceptance bound, can
-make a VEST slice acceptable while the reconstruction carries essentially no
-pressure. The termination scan is still worth running — it decides whether
-`ERRMIN` can be tightened and what that costs — but it cannot produce an
-accepted slice, and a scan reported as though it could would mislead.
+This is the pressure deficit #386 records, and it is real. But `delbp` cannot
+measure it: `sbpp` is a difference of two terms near 0.8 leaving 0.01 to 0.2,
+negative on three slices, with a median cancellation of twelvefold; and the
+second branch divides by `alpha - 1`, which VEST measures at 0.22 to 0.51 and
+falling. Issue #649 records the analysis and the decision: at VEST's aspect
+ratio these two checks do not gate acceptance. The quantities are still
+computed and written to the a-file, so nothing is lost to anyone who wants
+them — only the automatic rejection stops.
+
+**#386 therefore no longer blocks acceptance**, though it remains an open
+defect and every accepted slice still carries essentially no pressure.
 
 ## What the termination settings can and cannot do
 
@@ -190,11 +226,13 @@ Two consequences for any scan:
 
 ## What comes next, in order
 
-1. **#386 first** — the pressure and diamagnetic-weight defect is what makes
-   failure #21 fire on every slice, and nothing in #171 can clear it. Until it
-   is fixed, "accepted" is unreachable and every other study is measuring a
-   reconstruction with no pressure in it.
-2. **Termination scan** — `ERRMIN` first, since it is the only active gate,
+1. **Termination scan** — now well posed. One criterion rejects the remaining
+   13 slices, chi-square above `SAICON`, and the settings that bear on it are
+   exactly the ones this issue names.
+2. **#386 in parallel** — the pressure deficit no longer blocks acceptance but
+   is still a defect: every accepted slice carries a poloidal beta of about
+   0.007 against a virial estimate of order one.
+3. **Termination scan, in detail** — `ERRMIN` first, since it is the only active gate,
    then `NXITER` with `SAICON` (which cannot bind without it), then `MXITER`
    and `RELAX`. Keep `MXITER × NXITER` below 500: EFIT indexes its
    per-iteration diagnostic arrays by the cumulative counter against a
