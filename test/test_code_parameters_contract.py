@@ -44,6 +44,7 @@ from omas.omas_core import CodeParameters
 
 import vaft
 from vaft.imas import IMAS_DD_VERSION_CONVERSION
+from vaft.imas.code_parameters import CACHE_OMITTED_KEY
 from vaft.imas.omas_imas import save_omas_imas
 
 DATA = Path(__file__).resolve().parents[1] / "vaft" / "data"
@@ -180,12 +181,17 @@ def test_an_envelope_of_several_fragments_comes_back_a_string(tmp_path):
     assert value == two_solvers
 
 
-def test_a_flat_block_survives_only_because_the_loader_promotes_it(tmp_path):
-    """`_promote_code_parameters` is load-bearing, not defensive (#478).
+def test_a_flat_block_reaches_the_entry_from_either_side(tmp_path):
+    """Two halves, and since #642 either of them is enough.
 
-    The product leg turns the block into a plain ODS branch.  Promoted, it is
-    a `CodeParameters` again and reaches the entry; unpromoted, the entry never
-    hears about it.
+    `vaft.omas.load` promotes a flat, leaf-only branch back to a
+    `CodeParameters` (#478), and the write does the same for the block it is
+    given.  So a flat declaration now survives even a path that never went
+    through the loader -- an ODS handed straight to `vaft.imas.save`, say.
+
+    The load-side promotion still matters for what a *local* reader sees: it
+    is the difference between a `CodeParameters` and a plain branch in an ODS
+    that was never written to an entry.
     """
     leaves = {"cocos": 11, "cocos_source": "declared"}
 
@@ -194,27 +200,28 @@ def test_a_flat_block_survives_only_because_the_loader_promotes_it(tmp_path):
     assert value["cocos"] == 11
     assert value["cocos_source"] == "declared"
 
-    bypassed, lost = _through_the_product_leg(
+    bypassed, unpromoted = _through_the_product_leg(
         tmp_path / "unpromoted", _product(**leaves), promote=False
     )
-    assert bypassed == []
-    assert lost is None
+    assert bypassed == [(IDS, "code", "parameters")]
+    assert unpromoted["cocos"] == 11
 
 
-# --- the shape that does not ------------------------------------------------
+# --- the shape that cannot travel, and what is said about it ----------------
 
 
-def test_a_nested_block_is_dropped_on_the_way_to_an_entry(tmp_path):
-    """#380's loss, reproduced end to end.
+def test_a_nested_block_stays_local_and_the_entry_says_so(tmp_path):
+    """#380's loss, and the note that replaced the silence (#642).
 
-    The promotion declines a nested block -- `CodeParameters` cannot address a
-    per-slice parser cache -- so the Access Layer sees a plain branch and drops
-    it.  This is the EFIT `time_slice` shape, and it is why that cache is a
-    local-product convenience and never provenance.
+    A per-slice parser cache cannot be a parameters string: the XML encoder
+    has no array representation, so carrying it would return every array as
+    the repr of its elements.  It therefore stays on the local product -- but
+    the entry now records that it did, under `parameters_cache_omitted`,
+    naming what is missing.
 
     The stage product is checked on the way past, because *where* the data
     stops is the whole point: it is written, it is on disk, and it is the
-    Access Layer that declines it.
+    write to an entry that leaves it behind.
     """
     ods = _product(**{"time_slice.0.aeqdsk.terror": 2.5e-6})
 
@@ -225,18 +232,59 @@ def test_a_nested_block_is_dropped_on_the_way_to_an_entry(tmp_path):
 
     accepted, value = _through_the_product_leg(tmp_path / "entry_leg", ods)
 
-    assert accepted == []
-    assert value is None
+    assert accepted == [(IDS, "code", "parameters")]
+    assert "time_slice" not in value
+    assert value[CACHE_OMITTED_KEY] == "time_slice"
 
 
-def test_nothing_raises_and_no_path_is_returned_for_what_was_dropped(tmp_path):
-    """The silence is the defect: the write reports success either way.
+def test_a_flat_leaf_beside_a_nested_block_now_reaches_the_entry(tmp_path):
+    """The defect #642 was opened for: the COCOS index went down with the cache.
 
-    `save_omas_imas` returns the paths it actually wrote, and that list is the
-    only machine-readable evidence a caller gets.  A dropped field is simply
-    absent from it -- no exception, no return code, nothing a pipeline checks.
+    `vaft.omas.general` writes the declared COCOS index as a flat leaf of
+    `equilibrium.code.parameters`; the EFIT mappers write their per-slice
+    parser cache into the same field.  Promotion is all-or-nothing on a block,
+    so the leaf used to be discarded for standing next to something that could
+    not travel.  The write now keeps the leaves an entry can carry and says
+    what it left.
     """
-    ods = _product(**{"time_slice.0.aeqdsk.terror": 2.5e-6})
+    ods = _product(**{"time_slice.0.aeqdsk.terror": 2.5e-6, "cocos": 11})
+
+    accepted, value = _through_the_product_leg(tmp_path, ods)
+
+    assert accepted == [(IDS, "code", "parameters")]
+    assert value["cocos"] == 11
+    assert value[CACHE_OMITTED_KEY] == "time_slice"
+
+
+def test_the_declaration_reaches_a_replica_of_a_real_product(tmp_path):
+    """End to end on the shape the EFIT path actually builds.
+
+    A mapped g-file carries the parser cache, and declaring the convention
+    afterwards puts the COCOS leaf beside it.  What a reader of the replica
+    asks for is `ods_cocos`, so that is what this asserts.
+    """
+    from vaft.omas.general import equilibrium_psi_to_weber, ods_cocos
+
+    ods = vaft.omas.load(DATA / "efit" / "g039915.00317")
+    equilibrium_psi_to_weber(ods, source="test")
+
+    _, value = _through_the_product_leg(tmp_path, ods)
+    entry = tmp_path / "entry"
+    with vaft.imas.load(entry) as handle:
+        replica = handle.to_omas()
+
+    assert ods_cocos(replica) == 11
+    assert value["cocos_source"] == "test"
+
+
+def test_the_write_reports_the_field_it_wrote(tmp_path):
+    """The list of written paths is the only machine-readable evidence there is.
+
+    A field that reached the entry appears in it.  Before #642 a mixed block
+    was absent from that list, from the entry, and from any exception -- which
+    is why the loss survived a year of replication.
+    """
+    ods = _product(**{"time_slice.0.aeqdsk.terror": 2.5e-6, "cocos": 11})
     product = tmp_path / "stage.json"
     vaft.omas.save(ods, product)
     reloaded = vaft.omas.load(product)
@@ -249,28 +297,9 @@ def test_nothing_raises_and_no_path_is_returned_for_what_was_dropped(tmp_path):
         imas_version=IMAS_DD_VERSION_CONVERSION,
     )
 
-    assert written, "the write did happen; only the parameters were discarded"
-    assert not [path for path in written if "parameters" in path]
-
-
-def test_a_flat_leaf_beside_a_nested_block_is_dropped_with_it(tmp_path):
-    """The consequence VAFT actually ships, and the reason to record all this.
-
-    `vaft.omas.general` writes the declared COCOS index as a flat leaf of
-    `equilibrium.code.parameters`; the EFIT mappers write their per-slice
-    parser cache into the same field.  Promotion is all-or-nothing on the
-    block, so an EFIT product loses the COCOS index it declares -- the leaf is
-    not nested, it is merely standing next to something that is.
-
-    Tracked as a live defect in issue #642; this test pins the behaviour, it
-    does not bless it.
-    """
-    ods = _product(**{"time_slice.0.aeqdsk.terror": 2.5e-6, "cocos": 11})
-
-    accepted, value = _through_the_product_leg(tmp_path, ods)
-
-    assert accepted == []
-    assert value is None, "cocos went down with the parser cache beside it"
+    assert [path for path in written if "parameters" in path] == [
+        [IDS, "code", "parameters"]
+    ]
 
 
 def test_a_real_equilibrium_product_is_the_mixed_case():
@@ -282,8 +311,8 @@ def test_a_real_equilibrium_product_is_the_mixed_case():
     table that loses everything is not a constructed corner: it is the shape a
     reconstruction product has by the time it is written.
 
-    In memory both are readable, which is why this has gone unnoticed; what
-    happens to them on the way to a replica is the test above.
+    In memory both are readable, which is why the loss went unnoticed for a
+    year; what reaches a replica is the test above.
     """
     from vaft.omas.general import equilibrium_psi_to_weber, ods_cocos
 
