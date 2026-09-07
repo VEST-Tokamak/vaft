@@ -40,6 +40,7 @@ __all__ = [
     "efund_probe_angle_deg",
     "equilibrium_probe_count",
     "rectangle_from_outline",
+    "vest_acceptance_envelope",
 ]
 
 #: The sixteen EFIT current groups, in k-file order.  Same names and order as
@@ -411,6 +412,88 @@ def _machine_block(ods: Any, manifest: Mapping[str, Any] | None) -> dict[str, An
         if path in ods:
             block[f"{ids_name}_comment"] = str(ods[path])
     return block
+
+
+def vest_acceptance_envelope(
+    ods: Any,
+    *,
+    nw: int = 129,
+    rleft: float = 0.05,
+    rright: float = 1.2,
+    resolved_cells: int = 5,
+    base: Any | None = None,
+    virial_checks: bool = False,
+) -> Any:
+    """Derive EFIT's ``&incheck`` geometric bounds from the machine itself.
+
+    EFIT's built-in bounds are DIII-D's and the packaged VEST ``mhdin.dat``
+    softens them only part-way, so a VEST equilibrium is rejected for being
+    small: ``aminor_min`` is 25 cm where VEST's minor radius runs about 21 cm.
+    The fix is not to loosen the bounds until a shot passes -- that would test
+    nothing -- but to derive the geometric ones from the limiter, which says
+    what the machine can physically contain.
+
+    * ``aminor_max`` is half the limiter's radial extent: a plasma cannot be
+      wider than the vessel that holds it.
+    * ``aminor_min`` is ``resolved_cells`` grid cells in R.  Below that the
+      boundary is not resolved, so accepting it would accept a number rather
+      than a plasma.  It is a numerical floor and is stated as one.
+    * the centre and centroid bounds keep the plasma inside the limiter by at
+      least ``aminor_min``.
+
+    ``li``, ``betap``, ``qstar`` and ``elong`` are left at ``base``'s values,
+    because those are physics arguments and not geometry.  Lengths returned
+    are centimetres, EFIT's convention in this namelist.
+
+    The virial consistency checks are a separate matter and are **disabled**
+    unless ``virial_checks`` says otherwise.  At VEST's aspect ratio of about
+    1.45 they are ill-conditioned rather than merely strict (issue #649):
+    ``sbpp`` is a difference of two terms near 0.8 leaving 0.01 to 0.2 and
+    negative on some slices, a median cancellation of twelvefold, and
+    ``sbli`` divides by ``alpha - 1``, which VEST measures at 0.22 to 0.51 and
+    falling.  A gate that cannot distinguish a good reconstruction from a bad
+    one should not decide acceptance.  Every quantity is still computed and
+    written to the a-file; only the rejection stops.
+    """
+    from dataclasses import replace
+
+    from vaft.code.efit.config import IGNORE_CRITERION, EFITAcceptanceEnvelope
+
+    outline = ods["wall.description_2d.0.limiter.unit.0.outline"]
+    r = np.asarray(outline["r"], dtype=float).reshape(-1)
+    z = np.asarray(outline["z"], dtype=float).reshape(-1)
+    if r.size < 3:
+        raise ValueError("the limiter outline is too short to bound anything")
+
+    centimetre = 100.0
+    r_min, r_max = float(r.min()) * centimetre, float(r.max()) * centimetre
+    z_min, z_max = float(z.min()) * centimetre, float(z.max()) * centimetre
+    cell = (float(rright) - float(rleft)) / (int(nw) - 1) * centimetre
+    aminor_min = float(resolved_cells) * cell
+    aminor_max = 0.5 * (r_max - r_min)
+    if aminor_min >= aminor_max:
+        raise ValueError(
+            f"the resolved floor {aminor_min:.1f} cm is not below the limiter's "
+            f"half-width {aminor_max:.1f} cm; check the grid or the outline"
+        )
+    return replace(
+        base or EFITAcceptanceEnvelope(),
+        aminor_min=aminor_min,
+        aminor_max=aminor_max,
+        rcntr_min=r_min + aminor_min,
+        rcntr_max=r_max - aminor_min,
+        zcntr_min=z_min + aminor_min,
+        zcntr_max=z_max - aminor_min,
+        rcurrt_min=r_min + aminor_min,
+        rcurrt_max=r_max - aminor_min,
+        zcurrt_min=z_min + aminor_min,
+        zcurrt_max=z_max - aminor_min,
+        **(
+            {}
+            if virial_checks
+            else {"delbp_diff": IGNORE_CRITERION, "dbpli_diff": IGNORE_CRITERION}
+        ),
+    )
 
 
 def efund_geometry_from_static(
