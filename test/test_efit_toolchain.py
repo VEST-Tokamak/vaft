@@ -136,3 +136,76 @@ def test_windows_reserves_the_stack_at_link_time_not_through_bash(tmp_path, monk
     assert command[0] == str(executable)
     assert "bash" not in command
     assert not any("ulimit" in part for part in command)
+
+
+def test_windows_puts_the_table_directory_shim_on_the_child_path(tmp_path, monkeypatch):
+    """`set_table_dir` shells out to `ls`, and cmd.exe has no such command.
+
+    The failure is silent rather than loud: EFIT falls back to
+    `<link_efit>/green/` instead of `<link_efit>/green/<shot range>/`, so it
+    reads the wrong Green tables or none at all. The installer writes a small
+    `ls` into the prefix's shim directory; this is what makes the EFIT child --
+    and only the EFIT child -- able to find it.
+    """
+    monkeypatch.setattr(magnetic.compat, "IS_WINDOWS", True)
+    prefix = tmp_path / "prefix"
+    executable = prefix / "bin" / "efit.exe"
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"MZ")
+    shim = prefix / "shim"
+    shim.mkdir()
+    (shim / "ls.cmd").write_text("@echo off\n", encoding="ascii")
+
+    env = {"PATH": "C:/Windows/system32"}
+    magnetic._add_shim_directory(env, executable)
+
+    assert env["PATH"].split(os.pathsep)[0] == str(shim)
+    assert "C:/Windows/system32" in env["PATH"]
+
+
+def test_the_shim_is_found_from_a_cmake_build_tree_too(tmp_path, monkeypatch):
+    """`$EFITHOME` may name a build tree, and `resolve_role` says so.
+
+    There the executable is `<build>/efit/efit.exe`, one level deeper than an
+    install's `<root>/bin/efit.exe`, so a lookup that only ever went up two
+    levels missed a shim that was sitting right beside the build directory --
+    and missed it silently, which is the failure this shim exists to prevent.
+    """
+    monkeypatch.setattr(magnetic.compat, "IS_WINDOWS", True)
+    prefix = tmp_path / "prefix"
+    executable = prefix / "build" / "efit" / "efit.exe"
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"MZ")
+    shim = prefix / "shim"
+    shim.mkdir()
+
+    env = {"PATH": "C:/Windows/system32"}
+    magnetic._add_shim_directory(env, executable)
+
+    assert env["PATH"].split(os.pathsep)[0] == str(shim)
+
+
+def test_a_prefix_without_a_shim_says_so_rather_than_going_quiet(tmp_path, monkeypatch):
+    """An installation older than the shim would otherwise fail invisibly."""
+    monkeypatch.setattr(magnetic.compat, "IS_WINDOWS", True)
+    executable = tmp_path / "bin" / "efit.exe"
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"MZ")
+
+    env = {"PATH": "C:/Windows/system32"}
+    with pytest.warns(RuntimeWarning, match="Green-table subdirectory"):
+        magnetic._add_shim_directory(env, executable)
+
+    assert env["PATH"] == "C:/Windows/system32"
+
+
+def test_posix_never_gets_the_shim(tmp_path, monkeypatch):
+    """`ls` is a real command there, and the shim would shadow it."""
+    monkeypatch.setattr(magnetic.compat, "IS_WINDOWS", False)
+    executable = _program(tmp_path / "bin" / "efit")
+    (tmp_path / "shim").mkdir()
+
+    env = {"PATH": "/usr/bin"}
+    magnetic._add_shim_directory(env, executable)
+
+    assert env["PATH"] == "/usr/bin"

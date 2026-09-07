@@ -245,13 +245,43 @@ if ($WithoutNetcdf) {
 }
 else {
     $candidate = $NetcdfHome
-    if (-not $candidate) { $candidate = Join-Path $root $MinGWEnvironment }
+    if (-not $candidate) {
+        # Prefer a netCDF built without the AWS S3 backend. The MinGW one links
+        # the S3 SDK, whose atexit handler never returns: EFIT then computes
+        # correctly, writes every output including the m-file, and hangs --
+        # measured here, against the same case that exits in 0.5 s without it.
+        # install_gpec_windows.ps1 -BuildDependencies leaves a suitable prefix,
+        # and it does carry the netCDF v2 Fortran API that EFIT calls.
+        $s3Free = Join-Path $env:LOCALAPPDATA 'vaft\external\gpec\deps'
+        $s3FreeHeader = Join-Path (Join-Path $s3Free 'include') 'netcdf.inc'
+        if (Test-Path -LiteralPath $s3FreeHeader) {
+            $candidate = $s3Free
+        }
+        else {
+            $candidate = Join-Path $root $MinGWEnvironment
+        }
+    }
     # EFIT calls the netCDF v2 Fortran API (NCCRE, NCAPTC in write_m.F90), which
     # a netCDF-Fortran built without --enable-v2 does not export. Check for the
     # header rather than discovering it at the link.
     if (Test-Path -LiteralPath (Join-Path $candidate 'include\netcdf.inc')) {
         $netcdfUnix = ConvertTo-Msys2Path -WindowsPath $candidate
-        Write-Result -Status PASS -Name 'netCDF' -Detail $candidate
+        # Only when we chose the prefix ourselves. -NetcdfHome is the operator
+        # saying they know what that prefix is, and refusing it while telling
+        # them to pass -NetcdfHome would be advice they had already taken.
+        $s3Linked = (-not $NetcdfHome) -and
+            (Test-Path -LiteralPath (Join-Path $candidate 'bin\libaws-c-s3.dll'))
+        if ($s3Linked) {
+            Write-Result -Status SKIP -Name 'netCDF' -Detail `
+                "$candidate carries the AWS S3 SDK; EFIT would hang at exit"
+            Write-Host '      Build an S3-free netCDF with:'
+            Write-Host '        powershell -File install\install_gpec_windows.ps1 <gpec source> -BuildDependencies'
+            Write-Host '      or pass -NetcdfHome. Continuing without m-file output.'
+            $netcdfUnix = ''
+        }
+        else {
+            Write-Result -Status PASS -Name 'netCDF' -Detail $candidate
+        }
     }
     else {
         Write-Result -Status SKIP -Name 'netCDF' -Detail `
@@ -268,6 +298,24 @@ $logPath = Join-Path $prefixPath "logs\efit-build-$timestamp.log"
 $buildDirectory = Join-Path $prefixPath 'build'
 if ($Clean -and (Test-Path -LiteralPath $buildDirectory)) {
     Remove-Item -LiteralPath $buildDirectory -Recurse -Force
+}
+# A CMake cache remembers the source it was generated from and refuses a
+# different one, with a message about re-running cmake that says nothing about
+# which of your trees is which. Reconfiguring is the right answer, and the
+# build directory is ours to discard.
+$cache = Join-Path $buildDirectory 'CMakeCache.txt'
+if (Test-Path -LiteralPath $cache) {
+    # A truncated cache -- what an interrupted configure leaves, which is exactly
+    # what this block exists to recover from -- has no such line, and reaching
+    # through a null match is terminating under StrictMode.
+    $match = Select-String -LiteralPath $cache -Pattern '^CMAKE_HOME_DIRECTORY:INTERNAL=(.*)$' |
+        Select-Object -First 1
+    $cachedSource = if ($match) { $match.Matches[0].Groups[1].Value } else { '' }
+    $normalise = { param($path) ($path -replace '/', '\').TrimEnd('\') }
+    if ($cachedSource -and (& $normalise $cachedSource) -ne (& $normalise $source)) {
+        Write-Result -Status SKIP -Name 'Existing build directory' -Detail "configured from $cachedSource; reconfiguring"
+        Remove-Item -LiteralPath $buildDirectory -Recurse -Force
+    }
 }
 New-Item -ItemType Directory -Path $buildDirectory -Force | Out-Null
 foreach ($name in $Executables) {
@@ -290,7 +338,24 @@ $steps.Add('args+=(-DCMAKE_EXE_LINKER_FLAGS="-Wl,--stack,$VAFT_STACK")')
 # is single-pass, so naming it again at the very end -- which is where
 # CMAKE_Fortran_STANDARD_LIBRARIES lands -- is what resolves dscal_, daxpy_ and
 # dswap_. A Linux build never notices, because there BLAS is a shared object.
-$steps.Add('args+=(-DCMAKE_Fortran_STANDARD_LIBRARIES="-L/$VAFT_ENV/lib -lopenblas")')
+# A static netCDF does not carry its HDF5 dependencies the way a shared one
+# does, so H5PLappend and friends come out undefined unless they are named --
+# and named last, for the same single-pass reason as BLAS.
+$steps.Add('extra=""')
+# By absolute path, never -l: -L/$VAFT_ENV/lib is already on the line, ld
+# searches -L left to right and prefers a .dll.a, so -lhdf5 would resolve to
+# the MinGW *shared* HDF5 -- a different major version from the one this netCDF
+# was compiled against, and one that imports the AWS S3 SDK this whole netCDF
+# choice exists to keep out.
+# The netCDF prefix's -L goes FIRST. ld searches -L left to right and prefers a
+# .dll.a, so with the MinGW directory ahead of it, -lhdf5 resolves to the shared
+# MinGW HDF5 -- a different major version from the one this netCDF was compiled
+# against, and one that imports the AWS S3 SDK the netCDF choice above exists to
+# keep out. Naming the archives by absolute path would also work, but MSYS2's
+# argument conversion mangles a bare Windows path on its way to ld.
+$steps.Add('libs="-L/$VAFT_ENV/lib -lopenblas"')
+$steps.Add('if [ -n "${VAFT_NETCDF:-}" ] && [ -f "$VAFT_NETCDF/lib/libhdf5.a" ]; then libs="-L$VAFT_NETCDF/lib -lhdf5_hl -lhdf5 $libs -lsz -lz"; fi')
+$steps.Add('args+=(-DCMAKE_Fortran_STANDARD_LIBRARIES="$libs")')
 # ${VAFT_NETCDF:-}, not "$VAFT_NETCDF": Windows deletes an environment variable
 # that is set to the empty string, so with no netCDF the name does not reach the
 # shell at all -- and `set -u` aborts the build on an unset variable.
@@ -307,7 +372,10 @@ $cmakeArguments = @(
     '-DENABLE_PARALLEL=OFF',
     '-DENABLE_MDSPLUS=OFF',
     "-DCMAKE_EXE_LINKER_FLAGS=-Wl,--stack,0x$('{0:X}' -f $stackBytes)",
-    "-DCMAKE_Fortran_STANDARD_LIBRARIES=-L/$MinGWEnvironment/lib -lopenblas",
+    "-DCMAKE_Fortran_STANDARD_LIBRARIES=-L/$MinGWEnvironment/lib -lopenblas$(
+        if ($netcdfUnix -and (Test-Path -LiteralPath (Join-Path (Join-Path $candidate 'lib') 'libhdf5.a'))) {
+            " $netcdfUnix/lib/libhdf5_hl.a $netcdfUnix/lib/libhdf5.a -lsz -lz"
+        })",
     $(if ($netcdfUnix) { "-DENABLE_NETCDF=ON", "-DNetCDF_DIR=$netcdfUnix" } else { '-DENABLE_NETCDF=OFF' })
 )
 $fortranVersion = 'gfortran'
@@ -374,8 +442,39 @@ $record = @{
 }
 
 $built = @($Executables | Where-Object { $missing -notcontains $_ })
+# Only claim the shim once something was built to use it.
+$record['table_directory_shim'] = $(if ($built.Count -gt 0) { 'shim\ls.cmd' } else { $null })
 if ($built.Count -gt 0) {
-    Copy-RuntimeDependencies -Msys2Root $root -MinGWEnvironment $MinGWEnvironment -BinDirectory $binDirectory | Out-Null
+    # ---------------------------------------------------------------------------
+# The `ls` EFIT shells out for
+#
+# set_table_dir picks the Green-table subdirectory for a shot by running
+#   call system('ls '//table_dir//' > shot_tables.txt')     (efit/tables.F90)
+# and cmd.exe has no `ls`. The failure is silent rather than loud: EFIT falls
+# back to <link_efit>/green/ itself instead of <link_efit>/green/<shot range>/,
+# so it reads the wrong tables or none at all, which is worse than a crash.
+#
+# This is VAFT's own file, not a copy of anything: `dir /b` prints one name per
+# line, which is all tables.F90 parses, and the forward slashes EFIT passes are
+# turned into the backslashes `dir` needs. It lives outside bin\ because
+# vaft.code.efit puts it on the EFIT child's PATH and nowhere else -- on a
+# user's PATH it would shadow a real ls for everything they run.
+# ---------------------------------------------------------------------------
+
+$shimDirectory = Join-Path $prefixPath 'shim'
+New-Item -ItemType Directory -Path $shimDirectory -Force | Out-Null
+@'
+@echo off
+rem Written by VAFT: the `ls` that efit/tables.F90 shells out for. See
+rem install/install_efit_windows.ps1 for why this exists.
+setlocal
+set "p=%~1"
+set "p=%p:/=\%"
+dir /-p /b "%p%"
+'@ | Set-Content -Path (Join-Path $shimDirectory 'ls.cmd') -Encoding ascii
+Write-Result -Status PASS -Name 'Table-directory shim' -Detail (Join-Path $shimDirectory 'ls.cmd')
+
+Copy-RuntimeDependencies -Msys2Root $root -MinGWEnvironment $MinGWEnvironment -BinDirectory $binDirectory | Out-Null
 }
 
 if ($missing.Count -gt 0) {
