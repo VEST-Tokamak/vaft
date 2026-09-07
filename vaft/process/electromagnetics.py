@@ -1,3 +1,48 @@
+"""Axisymmetric electromagnetic response: what a current does elsewhere, and how the vessel answers.
+
+Two halves.  The first builds free-space Green's-function response matrices --
+the poloidal flux and field per unit current -- for active coils, passive
+vessel loops and plasma filaments.  The second integrates the passive circuit
+those matrices describe, giving the eddy currents a coil programme drives in
+the vessel.
+
+Physics only.  Nothing here reads a machine description: every geometry,
+resistance and mutual-inductance matrix arrives as an argument, so the same
+code serves any axisymmetric machine.  The VEST geometry and the packaged
+coupling matrices live in :mod:`vaft.machine_mapping`.
+
+Notation
+--------
+psi      : poloidal flux per unit source current            [Wb/A]
+Br, Bz   : field components per unit source current          [T/A]
+R        : loop resistance matrix, diagonal                  [ohm]
+M        : passive-passive mutual inductance matrix            [H]
+L        : passive-active mutual inductance matrix             [H]
+dt_sub   : substep of the circuit integration                  [s]
+
+Conventions
+-----------
+**Response matrices are per unit current**, so a field is recovered by
+contracting one with a current history; nothing here carries a current of its
+own.  Sources are ideal filaments unless a turn count says otherwise, and a
+turn count multiplies the response rather than changing the geometry.
+
+**The passive circuit is driven by the rate of change of the active current**,
+not by the current itself, which is why a coil programme flat in time drives
+no eddy current however large it is.
+
+The singularity where an observation point coincides with its source is
+handled by evaluating either side of it and averaging, rather than by
+excluding the point; see :func:`compute_br_bz_phi`.
+
+Provenance
+----------
+.. [1] :mod:`vaft.formula.green`, which supplies every Green's function used
+   here, including the exact elliptic-integral forms.
+.. [2] The legacy ``vfit_eddy`` workflow, whose matrix setup
+   :func:`solve_eddy_currents` retains structural similarity to.
+"""
+
 from vaft.formula.green import (
     calculate_distance,
     green_br_bz,
@@ -40,16 +85,54 @@ def compute_br_bz_phi(
     z_src: float,
     shift: float = 0.01
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Compute Br, Bz, and Phi using a shift approach to avoid singularities.
-    Vectorized for observer points (r_obs, z_obs).
+    """Field and flux of one unit-current ring at a set of observation points.
 
-    :param r_obs: Array of radius coordinates of the observation points.
-    :param z_obs: Array of Z coordinates of the observation points.
-    :param r_src: Radius coordinate of the source element.
-    :param z_src: Z coordinate of the source element.
-    :param shift: Shift value to use if the points are too close.
-    :return: (Br, Bz, Phi) arrays at (r_obs, z_obs).
+    Parameters
+    ----------
+    r_obs : array_like
+        Major radius of the observation points [m].
+    z_obs : array_like
+        Height of the observation points [m].
+    r_src : float
+        Major radius of the source ring [m].
+    z_src : float
+        Height of the source ring [m].
+    shift : float, optional
+        Offset used to step around the source singularity [m].
+
+    Returns
+    -------
+    tuple of np.ndarray
+        The radial and vertical field per unit current in tesla per ampere, and
+        the poloidal flux per unit current in weber per ampere [-].
+
+    Convention
+    ----------
+    Per unit current, so the caller multiplies by an actual current. An
+    observation point sitting on the source has no finite response; rather than
+    excluding it, the response is evaluated at two points either side and
+    averaged, which keeps the returned array the same shape as the input and gives
+    a finite value whose error is second order in the offset.
+
+    Defaults
+    --------
+    ``shift = 0.01`` is a numerical convenience. The averaging is applied only
+    within a third of it from the source, so a point comfortably away from the
+    ring is untouched.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Free space: no iron, no shielding, no image currents. The source is an ideal
+    filament, so the response very close to a real conductor of finite section is
+    not physical, which is what the offset is papering over rather than solving.
+
+    Provenance
+    ----------
+    .. [1] The axisymmetric Green's functions in :mod:`vaft.formula.green`.
     """
     distances = calculate_distance(r_obs, r_src, z_obs, z_src)
     
@@ -81,21 +164,57 @@ def calc_grid(
     loop_rectangle_r: List[float],
     loop_rectangle_z: List[float]
     ) -> Tuple[ndarray, ndarray, ndarray]:
-    """
-    Compute the response matrix (Br, Bz, and Psi) for a 2D grid.
+    """Assemble the response of every coil and passive loop on a rectangular grid.
 
-    :param xvar: List of x (radial) coordinates.
-    :param zvar: List of z (vertical) coordinates.
-    :param coil_turns: List of turns for each coil element.
-    :param coil_r: List of r positions for each coil element.
-    :param coil_z: List of z positions for each coil element.
-    :param loop_geometry_type: List indicating geometry type for each loop.
-    :param loop_outline_r: List of r coordinates for loop outlines.
-    :param loop_outline_z: List of z coordinates for loop outlines.
-    :param loop_rectangle_r: List of r positions for loop rectangles.
-    :param loop_rectangle_z: List of z positions for loop rectangles.
-    :return: Tuple of (Br, Bz, Phi) matrices with shape
-             (len(xvar)*len(zvar), nbcoil+nbloop).
+    Parameters
+    ----------
+    xvar : array_like
+        Major-radius grid axis [m].
+    zvar : array_like
+        Height grid axis [m].
+    coil_turns : array_like
+        Turns of each active coil [-].
+    coil_r : array_like
+        Major radius of each coil [m].
+    coil_z : array_like
+        Height of each coil [m].
+    loop_geometry_type : sequence
+        Which shape each passive loop is described by [-].
+    loop_outline_r : sequence
+        Major radius of each outline-described loop's vertices [m].
+    loop_outline_z : sequence
+        Height of those vertices [m].
+    loop_rectangle_r : sequence
+        Major radius of each rectangle-described loop [m].
+    loop_rectangle_z : sequence
+        Height of those rectangles [m].
+
+    Returns
+    -------
+    np.ndarray
+        Response per unit current with one row per grid point and one column per
+        source, coils first and passive loops after [-].
+
+    Convention
+    ----------
+    Rows run over the flattened grid and columns over the sources, coils before
+    loops, which is the ordering every consumer of this matrix assumes. A loop
+    described by an outline is reduced to its centroid before its response is
+    taken, so an extended loop is treated as a filament at that point.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The centroid reduction means a loop large compared with its distance to the
+    grid is poorly represented. Builds the whole grid at once, so memory grows as
+    the product of grid points and sources.
+
+    Provenance
+    ----------
+    .. [1] :func:`compute_br_bz_phi`, evaluated per source and stacked.
     """
     nbcoil = len(coil_turns)
     nbloop = len(loop_geometry_type)
@@ -154,27 +273,43 @@ def compute_response_matrix(
     passive_loop_data: List[Dict[str, Any]],
     plasma_points: List[List[float]] = None
     ) -> Tuple[ndarray, ndarray, ndarray]:
-    """
-    Compute the Green's function response matrix (Psi, Bz, Br) at arbitrary observation points (not a fixed R,Z grid).
+    """Flux and field response at arbitrary observation points, per source.
 
-    Args:
-        observation_points: List of [r, z] observation points (arbitrary, e.g., sensor/diagnostic locations)
-        coil_data: List of dicts containing coil elements with fields:
-            - elements: List of dicts with 'turns', 'r', 'z' for each element
-        passive_loop_data: List of dicts containing loop data with fields:
-            - geometry_type: 1 for outline, 2 for rectangle
-            - outline_r, outline_z: Lists of coordinates for outline (type 1)
-            - rectangle_r, rectangle_z: Single point for rectangle (type 2)
-        plasma_points: List of [r, z] points for plasma elements (can be None, a single [r,z] point, or a list)
-    
-    Returns:
-        Tuple of (Psi, Bz, Br) arrays, each of shape (len(observation_points), nb_coil+nb_loop+nb_plasma):
-            - Psi_matrix: Magnetic flux response
-            - Bz_matrix: Bz field response
-            - Br_matrix: Br field response
+    Parameters
+    ----------
+    observation_points : array_like
+        Points at which to evaluate, as major radius and height pairs [m].
+    coil_data : sequence
+        Active coil geometry and turns [-].
+    passive_loop_data : sequence
+        Passive loop geometry [-].
+    plasma_points : array_like, optional
+        Plasma filament positions [m].
 
-    Note:
-        This function is for general (r, z) points, not for a regular R,Z grid. For grid-based response, use a dedicated grid function.
+    Returns
+    -------
+    tuple of np.ndarray
+        The flux, vertical field and radial field response, each with one row per
+        observation point and one column per source [-].
+
+    Convention
+    ----------
+    Unlike :func:`calc_grid`, the observation points are arbitrary rather than a
+    rectangular mesh, which is what a diagnostic set of sensor positions needs.
+    Column order is coils, then passive loops, then plasma filaments when given.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Same filament idealization as the rest of the module. Plasma filaments are
+    positions only: this returns their response, not their currents.
+
+    Provenance
+    ----------
+    .. [1] :func:`compute_br_bz_phi`, evaluated per source.
     """
     nb_obs = len(observation_points)
     nb_coil = len(coil_data)
@@ -244,17 +379,37 @@ def compute_response_vector(
     plasma_points: List[List[float]],
     observation_points: List[List[float]]
     ) -> Tuple[ndarray, ndarray, ndarray]:
-    """
-    Calculate response matrix using structured input data.
+    """The same response as the matrix form, with the arguments in the legacy order.
 
-    Args:
-        coil_data: List of dictionaries containing coil element data
-        passive_loop_data: List of dictionaries containing passive loop data
-        plasma_points: List of [r, z] points for plasma elements
-        observation_points: List of [r, z] observation points
-    
-    Returns:
-        Tuple of (Psi, Bz, Br) arrays with shape (len(observation_points), nb_coil+nb_loop+nb_plasma)
+    Parameters
+    ----------
+    coil_data : sequence
+        Active coil geometry and turns [-].
+    passive_loop_data : sequence
+        Passive loop geometry [-].
+    plasma_points : array_like
+        Plasma filament positions [m].
+    observation_points : array_like
+        Points at which to evaluate [m].
+
+    Returns
+    -------
+    tuple of np.ndarray
+        Exactly what :func:`compute_response_matrix` returns [-].
+
+    Convention
+    ----------
+    A thin wrapper that reorders its arguments and delegates. It exists because
+    the legacy call order put the observation points last; new code should call
+    the matrix form directly.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] :func:`compute_response_matrix`, which does the work.
     """
     return compute_response_matrix(
         observation_points=observation_points,
@@ -273,29 +428,63 @@ def compute_point_response_matrices(
     n_groups: int | None = None,
     components: Tuple[str, ...] = ("psi", "bz", "br"),
 ) -> Tuple[ndarray, ...]:
-    """Vectorized exact (psi, Bz, Br) response matrices for point sources.
+    """Broadcast response of point sources at observation points, with exact kernels.
 
-    Fully NumPy-broadcast alternative to :func:`compute_response_matrix`
-    (which is kept unchanged): no per-point Python loops, exact scipy
-    elliptic integrals (see ``vaft.formula.green.greens_function_exact``).
+    Parameters
+    ----------
+    obs_r : array_like
+        Major radius of the observation points [m].
+    obs_z : array_like
+        Height of the observation points [m].
+    src_r : array_like
+        Major radius of the sources [m].
+    src_z : array_like
+        Height of the sources [m].
+    turns : array_like, optional
+        Turn count weighting each source [-].
+    groups : array_like, optional
+        Which output column each source contributes to [-].
+    n_groups : int, optional
+        How many columns the grouping produces [-].
+    components : sequence of str, optional
+        Which of the flux and the two field components to return [-].
 
-    :param obs_r, obs_z: observation coordinates, shape (n_obs,)
-    :param src_r, src_z: source filament coordinates, shape (n_src,)
-    :param turns: optional per-source turns weighting, shape (n_src,)
-    :param groups: optional integer group index per source, shape
-        (n_src,); columns of the result are summed per group (e.g. 530
-        discretized coil filaments -> 10 PF coil circuits)
-    :param n_groups: number of groups (defaults to ``groups.max() + 1``)
-    :param components: which matrices to compute and return, a subset of
-        ("psi", "bz", "br") in the desired order — requesting only "psi"
-        (or only the fields) skips the unneeded elliptic-integral passes
-        (each field pass costs roughly twice the psi pass)
-    :return: matrices matching *components* (default (Psi, Bz, Br)),
-        each of shape (n_obs, n_src) or
-        (n_obs, n_groups) when *groups* is given. Units per unit source
-        current: psi [Wb], Bz [T], Br [T]. Observation points on the
-        geometric axis (r == 0) get their analytic limits (psi = 0,
-        Br = 0, Bz = on-axis loop field).
+    Returns
+    -------
+    dict of str to np.ndarray
+        One matrix per requested component, per unit current [-].
+
+    Convention
+    ----------
+    Exact elliptic-integral kernels rather than the approximations elsewhere in
+    this module, and fully broadcast rather than looped, which is what makes it
+    the right choice for many sources at many points.
+
+    Grouping sums columns as it goes, so a set of filaments belonging to one
+    circuit becomes a single column instead of being summed afterwards; on a real
+    machine that turns several hundred filament columns into a handful of circuit
+    ones. Turns weight each source before that sum.
+
+    Defaults
+    --------
+    Returning all three components is a numerical convenience, not a physical
+    choice, and narrowing it is worth doing: each field component costs roughly
+    twice the flux pass.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A source coincident with an observation point has no finite response here;
+    unlike :func:`compute_br_bz_phi`, nothing steps around the singularity. On
+    axis the kernels take their analytic limits.
+
+    Provenance
+    ----------
+    .. [1] The exact elliptic-integral Green's functions in
+       :mod:`vaft.formula.green`.
     """
     obs_r = np.asarray(obs_r, dtype=float).ravel()
     obs_z = np.asarray(obs_z, dtype=float).ravel()
@@ -345,12 +534,42 @@ def compute_mutual_passive_active(
     passive_loop_geometry: List[Tuple[str, float, float, float]],
     coil_geometry: List[List[Tuple[float, float, int]]],
 ) -> np.ndarray:
-    """Compute passive-to-active mutual inductance from the current geometry.
+    """Mutual inductance between passive loops and active coils, derived from geometry.
 
-    The packaged ``em_coupling.mutual_passive_active`` matrix represents the
-    historical VEST coil geometry.  Newer shots can use a different active-coil
-    geometry, so callers need a geometry-derived fallback when the packaged
-    matrix is not compatible.
+    Parameters
+    ----------
+    passive_loop_geometry : sequence
+        Geometry of each passive loop [-].
+    coil_geometry : sequence
+        Geometry and turns of each active coil [-].
+
+    Returns
+    -------
+    np.ndarray
+        Mutual inductance with one row per loop and one column per coil [H].
+
+    Convention
+    ----------
+    Derived from the geometry given, which is what makes it a usable fallback when
+    a packaged coupling matrix does not apply. The packaged matrix represents a
+    historical coil geometry; a machine whose coils have since moved needs this
+    instead, and the two must not be mixed within one calculation.
+
+    Applicability
+    -------------
+    Machine-independent.  The geometry is the argument; the packaged matrix it
+    substitutes for is VEST's.
+
+    Limitations
+    -----------
+    Filament idealization, so it is less accurate than a matrix computed from the
+    real conductor sections. Use it when the packaged matrix does not match the
+    geometry, not in preference to one that does.
+
+    Provenance
+    ----------
+    .. [1] The Green's functions in :mod:`vaft.formula.green`; the packaged
+       alternative is the machine layer's ``em_coupling`` asset.
     """
     coupling = np.zeros((len(passive_loop_geometry), len(coil_geometry)))
 
@@ -380,22 +599,54 @@ def compute_impedance_matrices(
     mutual_pa: np.ndarray,       # mutual_passive_active from ODS
     plasma_rz: List[Tuple[float, float]]
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Compute R, L, M matrices for the passive loops, given geometry info.
+    """Assemble the resistance and inductance matrices of the passive circuit.
 
-    :param loop_resistances: array of shape (nbloop,) with each loop's resistance.
-    :param passive_loop_geometry: list describing each passive loop:
-           - loop_name (str),
-           - average_r (float),
-           - average_z (float),
-           - geometry_coef (float)  # e.g. 1.0 or 1.04 ...
-    :param coil_geometry: retained for backward compatibility and shape
-        validation. The solver no longer derives or substitutes coupling from
-        geometry; callers must provide the canonical ``mutual_pa`` matrix.
-    :param mutual_pp: mutual_passive_passive matrix from external (shape = (nbloop, nbloop)).
-    :param mutual_pa: mutual_passive_active matrix from external (shape = (nbloop, nbcoil)).
-    :param plasma_rz: list of (r, z) for each plasma current element (optional).
-    :return: (R, L, M) for passive loops: R_mat, L_mat, M_mat
+    Parameters
+    ----------
+    loop_resistances : array_like
+        Resistance of each passive loop [ohm].
+    passive_loop_geometry : sequence
+        Geometry of each passive loop [-].
+    coil_geometry : sequence
+        Geometry of the active coils; superseded by the mutual matrix below [-].
+    mutual_pp : array_like
+        Passive-to-passive mutual inductance [H].
+    mutual_pa : array_like
+        Passive-to-active mutual inductance [H].
+    plasma_rz : array_like
+        Plasma filament positions, coupled in when given [m].
+
+    Returns
+    -------
+    tuple of np.ndarray
+        The diagonal resistance matrix in ohms, and the two inductance matrices in
+        henries, the second widened by the plasma coupling when supplied [-].
+
+    Convention
+    ----------
+    Resistance is diagonal: loops are resistively independent and coupled only
+    inductively. The passive-to-active matrix is widened to the right by the
+    plasma coupling when filaments are given, so the plasma enters the circuit as
+    another driving current rather than as a separate term.
+
+    The coil geometry argument is kept for compatibility and is superseded by the
+    supplied mutual matrix; passing geometry alone no longer determines the
+    coupling.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Takes the mutual matrices as given and cannot check they were computed for
+    this geometry, which is exactly the mismatch
+    :func:`compute_mutual_passive_active` exists to resolve.
+
+    Provenance
+    ----------
+    .. [1] The circuit form the eddy-current solve integrates; see
+       :func:`solve_eddy_currents`.
     """
     nbloop = len(passive_loop_geometry)
     nbplas = len(plasma_rz)
@@ -459,20 +710,63 @@ def wall_propagator(
     *,
     method: str = "auto",
 ) -> np.ndarray:
-    """The one-substep propagator ``expm(-M^-1 R dt)`` of the passive circuit.
+    """The one-substep propagator of the passive circuit.
 
-    ``solve_eddy_currents`` consumes nothing from its eigendecomposition except
-    this matrix, so it is the whole seam for a faster decomposition.
+    Parameters
+    ----------
+    R_mat : array_like
+        Loop resistance matrix, diagonal and positive [ohm].
+    M_mat : array_like
+        Passive-to-passive mutual inductance matrix [H].
+    dt_sub : float
+        Length of the substep [s].
+    method : str, optional
+        Which decomposition to use: automatic, general, or symmetric [-].
 
-    ``method="eigh"`` uses the symmetric-definite pencil: with ``R`` diagonal
-    and positive and ``M`` symmetric, the substitution ``I = R^-1/2 y`` gives
-    ``S = R^-1/2 M R^-1/2`` symmetric, so ``eigh`` applies and the eigenvector
-    inverse is a transpose. On the real 950-loop machine that is ~11x faster
-    than ``eig`` on the nonsymmetric ``-M^-1 R`` and agrees to ~1e-14 (#308).
-    It is only valid when ``M`` is symmetric, which the loader now guarantees
-    for the packaged asset (#347) but nothing guarantees for a caller-built
-    matrix -- so ``"auto"`` checks and otherwise keeps the general ``eig``
-    path unchanged.
+    Returns
+    -------
+    np.ndarray
+        The propagator advancing the loop currents by one substep [-].
+
+    Raises
+    ------
+    ValueError
+        The method is not one of the three accepted names.
+
+    Convention
+    ----------
+    The matrix exponential of the negative circuit operator times the substep.
+    :func:`solve_eddy_currents` consumes nothing from the decomposition except
+    this, so it is the whole seam for a faster one.
+
+    The symmetric path uses the symmetric-definite pencil: with resistance
+    diagonal and positive and inductance symmetric, a change of variable makes the
+    operator symmetric, so the symmetric eigensolver applies and the eigenvector
+    inverse is a transpose. **On the real 950-loop machine that is about eleven
+    times faster than the general solver and agrees to about one part in 1e14**
+    (#308). It is valid only when the inductance is symmetric, which the loader
+    guarantees for the packaged asset (#347) but nothing guarantees for a
+    caller-built matrix, so the automatic mode checks and otherwise leaves the
+    general path unchanged.
+
+    Defaults
+    --------
+    Automatic selection is a numerical convenience: it takes the fast path when
+    the check passes and is otherwise identical to the general one.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Assumes the circuit is constant over the substep, which is what makes a single
+    propagator reusable across every step.
+
+    Provenance
+    ----------
+    .. [1] Issue #308 for the measured speedup and agreement; issue #347 for the
+       loader guarantee that makes the symmetric path safe on the packaged asset.
     """
     if method not in ("auto", "eig", "eigh"):
         raise ValueError(f"method must be 'auto', 'eig' or 'eigh', got {method!r}")
@@ -519,10 +813,59 @@ def solve_eddy_currents(
     *,
     method: str = "auto",
     ) -> np.ndarray:
-    """
-    Solve the RL circuit equation for vacuum vessel using EVD method.
-    Optimized by pre-calculating active current derivatives.
-    Maintains structural similarities to vfit_eddy for matrix setup.
+    """Integrate the vessel eddy currents driven by a coil and plasma programme.
+
+    Parameters
+    ----------
+    R_mat : array_like
+        Loop resistance matrix [ohm].
+    L_mat : array_like
+        Passive-to-active mutual inductance [H].
+    M_mat : array_like
+        Passive-to-passive mutual inductance [H].
+    coil_plasma_currents : array_like
+        Driving current history, one row per time and one column per source [A].
+    time : array_like
+        Time base of that history [s].
+    dt_sub : float, optional
+        Substep of the integration [s].
+    method : str, optional
+        Decomposition passed to the propagator [-].
+
+    Returns
+    -------
+    np.ndarray
+        Eddy current in each passive loop over time [A].
+
+    Convention
+    ----------
+    **Driven by the rate of change of the driving current**, not by its value, so
+    a flat coil programme drives nothing however large. The integration is
+    substepped and advanced by a single reused propagator, which is what makes it
+    cheap over a long shot.
+
+    Defaults
+    --------
+    The substep is a hard-coded value. It is meant to be finer than the input
+    grid, and the shipped value is coarser than the 40 microsecond diagnostics
+    grid, making this a mild rate reduction rather than the refinement intended;
+    tracked in #425.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The driving derivative is taken from the supplied history, so a coarsely
+    sampled programme understates a fast ramp. Assumes the circuit is constant in
+    time, so no geometry or resistance change during the shot is represented.
+
+    Provenance
+    ----------
+    .. [1] The legacy ``vfit_eddy`` workflow, whose matrix setup this retains
+       structural similarity to.
+    .. [2] Issue #425, tracking the substep default.
     """
     nbloop = R_mat.shape[0]
     n_times_original = len(time)
@@ -647,16 +990,46 @@ def compute_vacuum_fields_1d(
     coil_plus_loop_br_resp: np.ndarray,   # shape (n_points, nb_coil+nb_loop)
     coil_plus_loop_bz_resp: np.ndarray,   # shape (n_points, nb_coil+nb_loop)
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Combine coil+loop currents with precomputed response vectors
-    to get psi, br, bz at given 1D points.
+    """Contract current histories with response matrices into field histories.
 
-    :param coil_plus_loop_currents: (n_times, nb_coil+nb_loop)
-    :param coil_plus_loop_psi_resp: (n_points, nb_coil+nb_loop)
-    :param coil_plus_loop_br_resp:  (n_points, nb_coil+nb_loop)
-    :param coil_plus_loop_bz_resp:  (n_points, nb_coil+nb_loop)
-    :return: psi(t, pt), br(t, pt), bz(t, pt)
-             each shape => (n_times, n_points)
+    Parameters
+    ----------
+    coil_plus_loop_currents : array_like
+        Current history, one row per time and one column per source [A].
+    coil_plus_loop_psi_resp : array_like
+        Flux response per unit current [Wb/A].
+    coil_plus_loop_br_resp : array_like
+        Radial field response per unit current [T/A].
+    coil_plus_loop_bz_resp : array_like
+        Vertical field response per unit current [T/A].
+
+    Returns
+    -------
+    tuple of np.ndarray
+        Flux in weber and the two field components in tesla, each with one row per
+        time and one column per observation point [-].
+
+    Convention
+    ----------
+    The linear step the response matrices exist for: each output is the current
+    history contracted against its own response. **Vacuum fields only** -- the
+    plasma's own contribution is not here unless it entered as a filament current
+    in the input.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Column order in the currents must match the response matrices' own, and
+    nothing checks it; a mismatched ordering gives plausible numbers that are
+    wrong.
+
+    Provenance
+    ----------
+    .. [1] The response matrices built by :func:`compute_response_matrix` or
+       :func:`calc_grid`.
     """
     n_times = coil_plus_loop_currents.shape[0]
     n_points = coil_plus_loop_psi_resp.shape[0]

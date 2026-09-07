@@ -30,17 +30,15 @@ from vaft.process._docstring import (
 )
 
 #: Submodules whose functions are not yet documented under the contract.
-#: Sub-issue B (#418): magnetics, electromagnetics, fluctuation.
+#: Sub-issue B (#418): magnetics, electromagnetics, fluctuation -- done.
+#: Every submodule is now under the contract, so PENDING is empty and the
+#: gate below holds it that way: a module that stops conforming fails.
 #: Sub-issue C (#419): equilibrium and cocos -- done.
 #: Sub-issue D (#420): profile, atomic -- done.
 #: Sub-issue E (#421): impa, soft_x_rays, langmuir, camera_geometry -- done.
 #: Sub-issue F (#571) removed ``onset`` and ``wall_modes``, which landed
 #: after #252 was scoped -- done.
-PENDING = frozenset({
-    "electromagnetics",
-    "fluctuation",
-    "magnetics",
-})
+PENDING: frozenset[str] = frozenset()
 
 #: Pure numerics and bookkeeping: no source adds anything.
 DEFINITIONAL = frozenset({
@@ -81,6 +79,18 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # magnetics / electromagnetics / fluctuation (#418)
+    "analyze_fluctuation_spectrum",
+    "b_field_pol_probe_field",
+    "flux_loop_flux",
+    "mirnov_preprocess_signal",
+    "rogowski_coil_ip",
+    "toroidal_mode_analysis",
+    "toroidal_phase_fit_at_time",
+    "vest_b_field_pol_probe_legacy",
+    "vest_equilibrium_magnetics_detailed",
+    "vest_flux_loop_flux_from_voltage",
+    "vest_flux_loop_legacy",
     # impa (#421)
     "find_tf_calibration_window",
     "fit_impa_geometry",
@@ -171,6 +181,41 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # magnetics / electromagnetics / fluctuation (#418): integration sign,
+    # shot-era baselines, per-unit-current responses, and the two mode-number
+    # entry points that disagree on the sign of n (#638)
+    "analyze_fluctuation_spectrum",
+    "b_field_pol_probe_field",
+    "calc_grid",
+    "compute_band_power",
+    "compute_br_bz_phi",
+    "compute_impedance_matrices",
+    "compute_mutual_passive_active",
+    "compute_point_response_matrices",
+    "compute_psd",
+    "compute_response_matrix",
+    "compute_response_vector",
+    "compute_spectrogram",
+    "compute_vacuum_fields_1d",
+    "find_spectral_break",
+    "fit_power_law_spectrum",
+    "flux_loop_flux",
+    "magnetics_sensor_centre",
+    "magnetics_sensor_poloidal_angle",
+    "mirnov_preprocess_signal",
+    "mirnov_spectrogram",
+    "rogowski_coil_ip",
+    "solve_eddy_currents",
+    "toroidal_mode_analysis",
+    "toroidal_phase_fit_at_time",
+    "vest_b_field_pol_probe_legacy",
+    "vest_equilibrium_magnetics_detailed",
+    "vest_equilibrium_magnetics_signals",
+    "vest_flux_loop_flux_from_voltage",
+    "vest_flux_loop_legacy",
+    "vest_flux_loop_voltage",
+    "vest_magnetics_time_window",
+    "wall_propagator",
     # impa (#421): calibration polarity, the geometry/coupling degeneracy,
     # filter phase, and the volts-not-tesla crosstalk slope
     "find_tf_calibration_window",
