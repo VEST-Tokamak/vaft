@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from vaft.code import chease, efit, gpec, nubeam
+from vaft.code import chease, efit, gacode, gpec, nubeam
 from vaft.code.tes import runner as tes_runner
 from vaft.code.tes.config import TESConfig
 
@@ -24,6 +24,12 @@ _EXTERNAL_ENVIRONMENT = (
     "TESHOME",
     "RTES",
     "NUBEAMHOME",
+    # GACODE keeps its own root and platform variables; VAFT sets both from
+    # $GACODEHOME rather than redefining them, and accepts GACODE_ROOT as a
+    # compatibility fallback.
+    "GACODEHOME",
+    "GACODE_ROOT",
+    "GACODE_PLATFORM",
     # TokaMaker (Open FUSION Toolkit) is imported in-process rather than run
     # as a $XHOME/bin binary; these steer library discovery and sys.path.
     "OFT_ROOTPATH",
@@ -48,17 +54,22 @@ def test_canonical_home_layouts_resolve_expected_executables(monkeypatch, tmp_pa
     efit_executable = _executable(tmp_path / "efit", "bin/efit")
     tes_executable = _executable(tmp_path / "tes", "bin/rtes")
     nubeam_executable = _executable(tmp_path / "nubeam", "bin/nubeam_comp_exec")
+    # GACODE is the one suite whose members each carry their own bin, so the
+    # documented layout is <home>/neo/bin/neo rather than <home>/bin/neo.
+    gacode_executable = _executable(tmp_path / "gacode", "neo/bin/neo")
     monkeypatch.setenv("GPECHOME", str(tmp_path / "gpec"))
     monkeypatch.setenv("CHEASEHOME", str(tmp_path / "chease"))
     monkeypatch.setenv("EFITHOME", str(tmp_path / "efit"))
     monkeypatch.setenv("TESHOME", str(tmp_path / "tes"))
     monkeypatch.setenv("NUBEAMHOME", str(tmp_path / "nubeam"))
+    monkeypatch.setenv("GACODEHOME", str(tmp_path / "gacode"))
 
     assert gpec._executable(gpec.GPECSuiteConfig(), "dcon") == gpec_executable
     assert chease.find_chease_executable() == chease_executable
     assert efit.find_efit_executable() == efit_executable
     assert tes_runner._resolve_executable(TESConfig()) == str(tes_executable)
     assert nubeam.find_nubeam_executable() == nubeam_executable
+    assert gacode.find_gacode_executable(gacode.GACODEConfig(), "neo") == gacode_executable
 
 
 def test_invalid_home_is_not_masked_by_legacy_executable(monkeypatch, tmp_path):
@@ -91,6 +102,11 @@ def test_invalid_home_is_not_masked_by_legacy_executable(monkeypatch, tmp_path):
             lambda: tes_runner._resolve_executable(TESConfig()),
         ),
         ("NUBEAMHOME", "bin/nubeam_comp_exec", nubeam.find_nubeam_executable),
+        (
+            "GACODEHOME",
+            "neo/bin/neo",
+            lambda: gacode.find_gacode_executable(gacode.GACODEConfig(), "neo"),
+        ),
     ],
 )
 def test_each_adapter_reports_missing_home_executable(

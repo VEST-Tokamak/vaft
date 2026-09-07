@@ -214,7 +214,16 @@ export CHEASEHOME=/path/to/chease
 export EFITHOME=/path/to/efit
 export TESHOME=/path/to/tes
 export NUBEAMHOME=/path/to/nubeam
+export GACODEHOME=/path/to/gacode
+export GACODE_PLATFORM=GFORTRAN_OSX_BREW
 ```
+
+`GACODEHOME` is the GACODE checkout itself: the suite builds in place, so there is no
+separate prefix, and each member carries its own `bin` (`neo/bin/neo`). `GACODE_PLATFORM`
+names the tag it was built with. VAFT sets GACODE's own `GACODE_ROOT` and
+`GACODE_PLATFORM` for the subprocess from these rather than redefining them, and falls
+back to `GACODE_ROOT` when `GACODEHOME` is unset. Build it through
+[`external/gacode/`](external/gacode/) and verify with `python install/check_gacode.py`.
 
 `NUBEAMHOME` also supplies the PREACT and ADAS reaction databases NUBEAM cannot
 run without, at `share/preact` and `share/adas`. VAFT builds NUBEAM through

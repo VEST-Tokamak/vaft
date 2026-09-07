@@ -36,6 +36,12 @@ __all__ = [
     "collect_gpec_suite_outputs",
     "efit",
     "efit_parameter_grid",
+    "gacode",
+    "GACODEConfig",
+    "find_gacode_executable",
+    "gacode_environment",
+    "gacode_home",
+    "gacode_platform",
     "format_gfile_header_for_gpec",
     "CHEASEScanCase",
     "EquilibriumVariation",
@@ -129,6 +135,11 @@ __all__ = [
 ]
 
 _EXPORT_MAP = {
+    "GACODEConfig": (".gacode", "GACODEConfig"),
+    "find_gacode_executable": (".gacode", "find_gacode_executable"),
+    "gacode_environment": (".gacode", "gacode_environment"),
+    "gacode_home": (".gacode", "gacode_home"),
+    "gacode_platform": (".gacode", "gacode_platform"),
     "CodeConfig": (".base", "CodeConfig"),
     "CodeInputs": (".base", "CodeInputs"),
     "CodeResult": (".base", "CodeResult"),
@@ -250,6 +261,7 @@ def __getattr__(name: str):
     if name in {
         "base",
         "efit",
+        "gacode",
         "gpec",
         "chease",
         "nubeam",

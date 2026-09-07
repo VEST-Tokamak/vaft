@@ -513,6 +513,29 @@ NTCC dependency modules only after you pass `-AcceptNtccTerms`. Everything it
 generates stays inside your NUBEAM source tree. See
 [`external/nubeam/README.md`](../external/nubeam/README.md).
 
+### GACODE
+
+GACODE has its own entry point, [`external/gacode/macos.sh`](../external/gacode/macos.sh),
+which installs the Homebrew dependencies, builds the shared and `f2py` libraries and the
+requested suite members, and can run NEO's shipped `reg18` regression case in the same
+invocation:
+
+```bash
+bash external/gacode/macos.sh --gacode-root ~/git/gacode --check
+export GACODEHOME=~/git/gacode
+export GACODE_PLATFORM=GFORTRAN_OSX_BREW
+python install/check_gacode.py --source ~/git/gacode
+```
+
+Two things about it differ from every other code here. It **builds in place**, so
+`GACODEHOME` is the checkout rather than a separate prefix; and each suite member carries
+its own `bin`, so the executable is `neo/bin/neo`, not `bin/neo`. It also needs
+`GACODE_PLATFORM`, which selects `platform/exec/exec.$GACODE_PLATFORM` at run time --
+`vaft.code.gacode` resolves it up front and lists the available tags, because a wrong
+value otherwise fails inside a shell script without naming itself. See
+[`external/gacode/README.md`](../external/gacode/README.md). macOS/Apple Silicon only for
+now.
+
 ### Linux and macOS
 
 CHEASE and GPEC are not yet automated — tracked in
