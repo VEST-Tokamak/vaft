@@ -66,7 +66,7 @@ Pipeline notebooks are expanded as the reusable VAFT functions behind them becom
 - `linear_ideal_stability_analysis_with_dcon.ipynb`: Blocked on a GPEC-suite build; the notebook documents the `GPECHOME` layout and the case preparation and output validation `vaft.code.gpec` does without the solver.
 - `linear_resistive_stability_analysis_with_rdcon.ipynb`: Blocked on the same GPEC-suite build, for RDCON and its matching data.
 - `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`: Blocked on GPEC itself; the notebook notes that its output readers work on results produced elsewhere, so a run from another machine can still be analysed here.
-- `vest_nbi_analysis_with_nubeam.ipynb`: Neutral-beam deposition, heating, current drive and loss accounting for VEST with NUBEAM. Needs a completed NUBEAM run, named by `VAFT_NUBEAM_RUN_DIR`; without one each section reports what it would show and skips.
+- `vest_nbi_analysis_with_nubeam.ipynb`: Neutral-beam deposition, heating, current drive and loss accounting for VEST with NUBEAM. Runs the case stored in `vaft/data/nubeam/vest_case` into a temporary directory; needs `$NUBEAMHOME`, and without it each section reports what it would show and skips.
 
 ### Analysis, Visualization, Reporting, and Comparison
 

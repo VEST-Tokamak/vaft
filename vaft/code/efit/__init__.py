@@ -66,6 +66,18 @@ from .magnetic import (
     gfile_to_omas,
 )
 from .kfile import generate_constraints_ods, generate_kfile
+from .efund import (
+    EFUNDConfig,
+    EFUNDInputs,
+    EFUNDResult,
+    prepare_efund_inputs,
+    run_efund,
+    collect_efund_outputs,
+    write_table_manifest,
+    read_table_manifest,
+    table_identity,
+)
+from .toolchain import resolve_toolchain, executable_identity
 from .kinetic import (
     EQE,
     SPLINE_SIG_FRAC,
@@ -107,6 +119,17 @@ __all__ = [
     "gfile_to_omas",
     "generate_constraints_ods",
     "generate_kfile",
+    "EFUNDConfig",
+    "EFUNDInputs",
+    "EFUNDResult",
+    "prepare_efund_inputs",
+    "run_efund",
+    "collect_efund_outputs",
+    "write_table_manifest",
+    "read_table_manifest",
+    "table_identity",
+    "resolve_toolchain",
+    "executable_identity",
     "EQE",
     "KineticEFITConfig",
     "KineticEFITInputs",

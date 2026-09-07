@@ -2021,6 +2021,30 @@ def plot_pf_coil_geometry_poloidal(
     )
 
 
+def plot_passive_structure_time_current(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Eddy current induced in the passive structure.
+
+    Summed over loops by default, because VEST's vessel is discretised into 950
+    of them and the sum is what balances against the coil currents.  Pass
+    ``channels=`` to inspect individual loops.
+
+    Requires the eddy currents to have been solved --
+    :func:`vaft.omas.compute_eddy_currents` writes ``pf_passive.time``.
+
+    Renders with :func:`vaft.plot.passive_structure_time_current`.
+    """
+    return render(
+        "passive_structure_time_current", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_pf_coil_time_current(
     source: Any,
     *,
@@ -2779,6 +2803,7 @@ __all__ = [
     "plot_plasma_current_time",
     "plot_limiter_current_time",
     "plot_mirnov_time_voltage",
+    "plot_passive_structure_time_current",
     "plot_pf_coil_geometry_poloidal",
     "plot_pf_coil_time_current",
     "plot_pf_coil_time_current_turns",

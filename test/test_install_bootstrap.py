@@ -34,7 +34,7 @@ UNINSTALL_SCRIPTS = ("uninstall.sh", "uninstall_windows_native.ps1")
 # from the VAFT bootstrap: building them takes tens of minutes and needs a
 # compiler toolchain, neither of which belongs in the path a student runs first.
 EXTERNAL_CODE_SCRIPTS = ("install_chease_windows.ps1", "install_gpec_windows.ps1")
-EXTERNAL_CODE_CHECKERS = ("check_chease.py", "check_gpec.py")
+EXTERNAL_CODE_CHECKERS = ("check_chease.py", "check_gpec.py", "check_nubeam.py")
 POWERSHELL_SCRIPTS = (
     "windows_native.ps1",
     "uninstall_windows_native.ps1",
@@ -1366,6 +1366,13 @@ def test_external_code_checkers_report_every_layer():
     expected = {
         "check_chease.py": ("toolchain", "source", "build record", "executables", "discovery", "run"),
         "check_gpec.py": ("toolchain", "source", "build record", "executables", "discovery", "handoff"),
+        # NUBEAM has no smoke run without a case, and two layers the others do
+        # not: the reaction databases it aborts without, and the fixed-width
+        # filename buffer a deep working directory overruns.
+        "check_nubeam.py": (
+            "toolchain", "source", "build record", "executables", "discovery",
+            "reaction databases", "path budget",
+        ),
     }
     for name, layers in expected.items():
         module = _load_external_checker(name)
@@ -1413,3 +1420,111 @@ def test_readme_documents_the_external_code_path():
         "MSYS2",
     ):
         assert fragment in text, f"install/README.md does not mention {fragment}"
+
+
+# ---------------------------------------------------------------------------
+# external/nubeam: the Windows NUBEAM recipe
+#
+# NUBEAM's entry point lives in external/nubeam/ rather than install/, beside
+# the macOS recipe it mirrors, because the two share the reference cases and
+# the validation scripts. The rules issue #226 sets for install/ apply to it
+# all the same, so they are asserted here rather than assumed.
+# ---------------------------------------------------------------------------
+
+NUBEAM_DIR = ROOT / "external" / "nubeam"
+NUBEAM_SCRIPTS = ("windows.ps1", "windows.sh")
+
+
+def test_nubeam_windows_recipe_is_present_beside_the_macos_one():
+    for name in (*NUBEAM_SCRIPTS, "macos.sh"):
+        assert (NUBEAM_DIR / name).is_file(), f"external/nubeam/{name} is missing"
+
+
+def test_nubeam_windows_recipe_never_obtains_or_moves_the_source():
+    """The NUBEAM tree is the operator's, and its revision is their statement.
+
+    The recipe does download the three NTCC dependency modules, which is a
+    different act: those are versionless tarballs from PPPL, gated on an
+    explicit acceptance flag, and they land in a vendor directory rather than
+    over anything the operator holds.
+    """
+    for name in NUBEAM_SCRIPTS:
+        text = _executable_source(NUBEAM_DIR / name)
+        for pattern in ACQUISITIVE:
+            assert not pattern.search(text), f"external/nubeam/{name} runs `{pattern.pattern}`"
+
+
+def test_nubeam_windows_recipe_never_guesses_where_the_source_is():
+    for name in NUBEAM_SCRIPTS:
+        text = _executable_source(NUBEAM_DIR / name)
+        for guess in ("~/git", "$HOME/git", "USERPROFILE\\git"):
+            assert guess not in text, f"external/nubeam/{name} guesses a source path: {guess}"
+
+
+def test_nubeam_windows_wrapper_requires_an_explicit_source_path():
+    text = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    assert "[Parameter(Position = 0)] [string] $SourcePath" in text
+    assert "Assert-SourceCheckout" in text
+    assert "[switch] $InstallToolchain" in text
+
+
+def test_nubeam_downloads_are_gated_on_explicit_acceptance():
+    """NTCC requires each user to accept its licence before downloading.
+
+    Both halves have to enforce it: the wrapper so the refusal is legible
+    before an hour of compilation, and the recipe so running it directly is
+    not a way around the wrapper.
+    """
+    wrapper = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    assert "[switch] $AcceptNtccTerms" in wrapper
+    assert "downloads.shtml" in wrapper
+
+    recipe = (NUBEAM_DIR / "windows.sh").read_text(encoding="utf-8")
+    assert "--accept-ntcc-terms" in recipe
+    assert "ACCEPT_NTCC_TERMS" in recipe
+    # The flag has to be checked before the first download, not after it.
+    gate = recipe.index("((ACCEPT_NTCC_TERMS))")
+    assert gate < recipe.index("download_ntcc_module()")
+
+
+def test_nubeam_generates_only_inside_the_source_tree():
+    """Everything generated stays where macos.sh puts it.
+
+    The prefix follows from the source path rather than being a separate
+    choice, so the two platforms cannot disagree about it, and -Uninstall has
+    an exact list to remove.
+    """
+    recipe = (NUBEAM_DIR / "windows.sh").read_text(encoding="utf-8")
+    assert 'PREFIX="$ROOT_DIR/local"' in recipe
+    assert "refusing path outside source tree" in recipe
+
+    wrapper = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    assert "Get-NubeamPrefix" in wrapper
+    assert "[switch] $Uninstall" in wrapper
+
+
+def test_the_vaft_bootstrap_never_builds_nubeam():
+    for name in ("windows_native.ps1", "_common.sh", "uninstall_windows_native.ps1"):
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        assert "nubeam" not in text.lower(), f"install/{name} references NUBEAM"
+
+
+def test_nubeam_windows_recipe_is_valid_shell():
+    bash = _usable_bash()
+    if bash is None:
+        pytest.skip("no usable POSIX bash on this machine")
+    completed = subprocess.run(
+        [bash, "-n", str(NUBEAM_DIR / "windows.sh")],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_nubeam_readme_documents_the_windows_path():
+    text = (NUBEAM_DIR / "README.md").read_text(encoding="utf-8")
+    for fragment in ("windows.ps1", "windows.sh", "-AcceptNtccTerms"):
+        assert fragment in text, f"external/nubeam/README.md does not mention {fragment}"

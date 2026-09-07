@@ -108,6 +108,13 @@ export NUBEAMHOME=/path/to/nubeam
 Each executable belongs under its root’s `bin/` directory. The workflow guides degrade to deterministic
 input preparation when a binary is absent.
 
+EFIT is licensed software that VAFT neither bundles nor fetches: obtain authorized access to the
+source through the EFIT-AI channel and agree to its users agreement first, then build it from your
+own tree with `install/install_efit.sh` (see the EFIT section of
+[install/README.md](https://github.com/VEST-Tokamak/vaft/blob/develop/install/README.md)). One
+`EFITHOME` serves both the reconstruction code (`bin/efit`) and the Green-table generator
+(`bin/efund`); there is no separate root for EFUND.
+
 NUBEAM differs from the others in two ways. Its root must also hold the PREACT and ADAS reaction
 databases at `share/preact` and `share/adas`, because `nubeam_comp_exec` aborts when either is
 unset, and both must stay writable — the table code caches newly computed reaction tables into them.

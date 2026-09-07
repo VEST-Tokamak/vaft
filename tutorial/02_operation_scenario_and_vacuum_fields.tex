@@ -23,19 +23,48 @@
 
 \begin{frame}{Why this session exists}
   \begin{itemize}
-    \item Relate routine diagnostic signals to discharge initiation and operation.
-    \item Connect coil currents to vacuum-field quantities used in startup analysis.
+    \item A discharge does not simply happen --- it is started.
+    \item Read one backwards: from what the plasma did, to the field that let
+      it begin.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Three phases, three fingerprints}
+  \begin{itemize}
+    \item \textbf{Breakdown} --- avalanche, if the field lines are long enough.
+    \item \textbf{Burn-through} --- heat past the radiating impurities, or die.
+    \item \textbf{Ramp-up} --- the transformer drives the current.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The vessel is part of the circuit}
+  Vessel eddy currents are comparable to the plasma current and oppose the
+  coils.
+
+  \vspace{1em}
+  Every magnetic measurement sees the sum of all three.
+\end{frame}
+
+\begin{frame}{The vacuum field is a precondition}
+  \begin{itemize}
+    \item \(V_{\mathrm{loop}} = -\,\mathrm{d}\psi/\mathrm{d}t\) --- the drive.
+    \item \(B_z\) --- balances the hoop force.
+    \item \(n = -\dfrac{R}{B_z}\dfrac{\partial B_z}{\partial R}\) --- decides
+      whether that balance is \emph{stable}: \(0 < n < 1.5\).
   \end{itemize}
 \end{frame}
 
 \begin{frame}{Session workflow}
   \centering
-  operational signals \(\rightarrow\) vacuum fields \(\rightarrow\)
-  startup interpretation
+  solve vessel currents \(\rightarrow\) check against magnetics
+
+  \vspace{0.5em}
+  \(\rightarrow\) \(V_{\mathrm{loop}}\), \(B_z\), decay index \(\rightarrow\)
+  breakdown time \(\rightarrow\) the null
 \end{frame}
 
-\begin{frame}{Practice goal: explain startup}
-  Learners will combine routine signals and vacuum-field parameters to explain
-  the startup behaviour of a selected discharge.
+\begin{frame}{Check the model before you use it}
+  The vacuum-field comparison against measured magnetics comes \emph{before}
+  the physics derived from it, not after.
 \end{frame}
 \end{document}

@@ -76,7 +76,12 @@ def test_page_counter_reads_decks_packed_into_object_streams():
     # pdfTeX compresses the page dictionaries, so a plain byte scan finds none.
     payload = DECK_02.read_bytes()
     assert b"/Type /Page" not in payload
-    assert VALIDATOR.count_pdf_pages(payload) == 4
+    # Tied to the deck's own source rather than a remembered number, so editing
+    # a deck does not fail a test about the counter -- and so a committed PDF
+    # that has drifted from its .tex fails here, which is the more useful catch.
+    frames = DECK_02.with_suffix(".tex").read_text().count(r"\begin{frame}")
+    assert frames > 0
+    assert VALIDATOR.count_pdf_pages(payload) == frames
     # The counter must also work on an uncompressed producer, and must not
     # simply return a constant.
     assert VALIDATOR.count_pdf_pages(synthetic_pdf(10)) == 10

@@ -249,6 +249,39 @@ class CompatRuntimeTests(unittest.TestCase):
                 raise ZeroDivisionError
         self.assertFalse(captured["path"].exists())
 
+    def test_short_temporary_directory_passes_over_a_root_that_does_not_exist(self):
+        """The shortest candidate is the one most likely to be missing.
+
+        On Windows the roots sort with %SystemDrive%\\Temp first, and a stock
+        install does not have it -- so the first root tried is the first that can
+        fail, and taking mkdtemp's error as the caller's would strand a machine
+        that has three other perfectly good roots behind it.
+        """
+        absent = Path(tempfile.gettempdir()) / "vaft-root-that-is-not-there"
+        self.assertFalse(absent.exists())
+        usable = Path(tempfile.gettempdir())
+
+        with patch.object(compat, "_short_scratch_roots", lambda: (absent, usable)):
+            with compat.short_temporary_directory(max_length=200) as scratch:
+                self.assertTrue(scratch.is_dir())
+                self.assertTrue(str(scratch).startswith(str(usable)))
+        self.assertFalse(scratch.exists())
+
+
+    def test_short_temporary_directory_names_the_root_it_could_not_use(self):
+        """A rejected root has to say why, not just that it was rejected."""
+        absent = Path(tempfile.gettempdir()) / "vaft-root-that-is-not-there"
+
+        with patch.object(compat, "_short_scratch_roots", lambda: (absent,)):
+            with self.assertRaises(RuntimeError) as error:
+                with compat.short_temporary_directory(max_length=200):
+                    pass  # pragma: no cover - the context never opens
+        message = str(error.exception)
+        self.assertIn(str(absent), message)
+        # The length rule is not what rejected it, so the message must not read as
+        # though it were.
+        self.assertNotIn("characters)", message.split(str(absent))[1].split(";")[0])
+
 # ---------------------------------------------------------------------------
 # What this platform can launch
 #

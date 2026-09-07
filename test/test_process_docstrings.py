@@ -32,11 +32,11 @@ from vaft.process._docstring import (
 #: Submodules whose functions are not yet documented under the contract.
 #: Sub-issue B (#418): magnetics, electromagnetics, fluctuation.
 #: Sub-issue C (#419): equilibrium, cocos.
-#: Sub-issue D (#420): profile, atomic.
+#: Sub-issue D (#420): profile, atomic -- done.
 #: Sub-issue E (#421): impa, soft_x_rays, langmuir, camera_geometry.
-#: ``onset`` landed after #252 was scoped (#409) and is unassigned.
+#: Sub-issue F (#571) removed ``onset`` and ``wall_modes``, which landed
+#: after #252 was scoped -- done.
 PENDING = frozenset({
-    "atomic",
     "camera_geometry",
     "cocos",
     "electromagnetics",
@@ -45,10 +45,7 @@ PENDING = frozenset({
     "impa",
     "langmuir",
     "magnetics",
-    "onset",
-    "profile",
     "soft_x_rays",
-    "wall_modes",
 })
 
 #: Pure numerics and bookkeeping: no source adds anything.
@@ -75,10 +72,30 @@ DEFINITIONAL = frozenset({
     "get_correlation_matrix",
     "get_individual_correlations",
     "confinement_time_histogram",
+    # profile / atomic (#420): pure numerics, bookkeeping, or synthetic constructions;
+    # the mappers are a definition (normalize psi, derive rho_tor from q), not a ported method
+    "equilibrium_mapping_thomson_scattering",
+    "equilibrium_mapping_charge_exchange",
+    "export_electron_profile_txt",
+    "core_profiles_from_eq",
+    "core_profiles_from_eq_ratio",
+    "compute_time_match_atol",
+    "find_time_match_index",
+    "normalize_atomic_symbol",
+    "integrate_emissivity_profile",
 })
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # onset / wall_modes (#571)
+    "active_window",
+    "allocate_per_segment",
+    "build_wall_mode_basis",
+    "principal_pulse_onset",
+    "robust_peak",
+    "segment_eigenmodes",
+    "sustained_excess_onset",
+    "zero_crossing_after_excursion",
     "repair_clipped_interval",
     "vest_coil_current_noise_reduction",
     "anti_alias_filter",
@@ -91,6 +108,17 @@ PIPELINE = frozenset({
     "generate_core_profiles_history_dataframe",
     "perform_ols_regression",
     "compute_metrics",
+    # profile / atomic (#420)
+    "fit_ti_te_ratio",
+    "equilibrium_mapping_thomson_scattering",
+    "equilibrium_mapping_charge_exchange",
+    "profile_fitting_thomson_scattering",
+    "profile_fitting_charge_exchange",
+    "core_profiles",
+    "core_profiles_from_eq",
+    "core_profiles_from_eq_ratio",
+    "integrate_emissivity_profile",
+    "compute_line_radiation_power_series",
 })
 
 #: Routines whose output sits at a different place in the processing chain
@@ -98,11 +126,50 @@ PIPELINE = frozenset({
 #: C and D add the equilibrium mappers, the profile fitters and the
 #: reconstructions.
 STATEFUL = frozenset({
+    # wall_modes (#571): element space <-> mode space
+    "combined_operators",
+    "project",
+    "reconstruct",
+    "reduce_response",
+    "reduced_operators",
+    "solve_reduced_eddy",
     "repair_clipped_interval",
+    # profile / atomic (#420): measured -> mapped -> fitted -> stored; reconstructed -> synthetic
+    "equilibrium_mapping_thomson_scattering",
+    "equilibrium_mapping_charge_exchange",
+    "profile_fitting_thomson_scattering",
+    "profile_fitting_charge_exchange",
+    "core_profiles",
+    "core_profiles_from_eq",
+    "core_profiles_from_eq_ratio",
+    "compute_line_radiation_power_series",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # onset / wall_modes (#571)
+    "active_window",
+    "allocate_per_segment",
+    "build_wall_mode_basis",
+    "canonical_sign",
+    "combined_operators",
+    "global_time_constants",
+    "median_smooth",
+    "moment_patterns",
+    "orthonormalize_r",
+    "pickup_scale",
+    "principal_pulse_onset",
+    "project",
+    "reconstruction_error",
+    "reduced_operators",
+    "robust_peak",
+    "run_features",
+    "segment_eigenmodes",
+    "select_by_score",
+    "subspace_angles_r",
+    "sustained_excess_onset",
+    "zero_crossing_after_excursion",
+    "zero_phase_lowpass",
     "line_average_density",
     "smooth",
     "butterworth_lowpass",
@@ -122,6 +189,19 @@ CONVENTION_SENSITIVE = frozenset({
     "log_transform",
     "perform_ols_regression",
     "compute_metrics",
+    # profile / atomic (#420): three radial coordinates, none interchangeable
+    "equilibrium_mapping_thomson_scattering",
+    "equilibrium_mapping_charge_exchange",
+    "profile_fitting_thomson_scattering",
+    "profile_fitting_charge_exchange",
+    "core_profiles",
+    "core_profiles_from_eq",
+    "core_profiles_from_eq_ratio",
+    "integrate_emissivity_profile",
+    "compute_line_radiation_power_series",
+    "export_electron_profile_txt",
+    "toroidal_mode_decomposition",
+    "biot_savart_filaments",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]

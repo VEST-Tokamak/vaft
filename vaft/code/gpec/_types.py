@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
 
 if TYPE_CHECKING:
+    from vaft.machine_mapping.coils_non_axisymmetric_geometry import CoilSet3D
+
     from ._coil_input import CoilInputSpec
 
 GPEC_HOME_ENV = "GPECHOME"
@@ -54,16 +56,45 @@ class STRIDEOptions:
 class IdealGPECOptions:
     """Ideal-GPEC-specific namelist overrides.
 
-    ``coil_specs`` selects and excites canonical VEST 3D coil sets (see
+    ``coil_specs`` selects and excites 3D coil sets (see
     :class:`vaft.code.gpec.CoilInputSpec`): when set, ``coil.in`` and the
-    referenced ``.dat`` files are generated from the canonical configuration
-    instead of copying the packaged template verbatim.  ``None`` preserves
-    the legacy template behavior; an explicit ``GPECCaseInputs.coil_in``
-    always wins over both.
+    referenced ``.dat`` files are generated from ``coil_config`` instead of
+    copying the packaged template verbatim.  ``None`` preserves the legacy
+    template behavior; an explicit ``GPECCaseInputs.coil_in`` always wins
+    over both.
+
+    ``machine`` is the GPEC ``machine`` word and the ``<machine>_<set>.dat``
+    file prefix.  For ``"vest"`` (default) ``coil_config`` defaults to the
+    packaged VEST geometry and the direction words to
+    :data:`vaft.machine_mapping.conventions.VEST_GPEC_COIL_DIRECTIONS`.  For
+    any other machine ``coil_config`` (name -> ``CoilSet3D``), ``ip_direction``
+    and ``bt_direction`` are all required: they are machine facts, never
+    inherited from a template.
     """
 
     coil_flag: bool = True
     coil_specs: Optional[Sequence["CoilInputSpec"]] = None
+    machine: str = "vest"
+    coil_config: Optional[Mapping[str, "CoilSet3D"]] = None
+    ip_direction: Optional[str] = None
+    bt_direction: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        # A config error is knowable here; refusing at construction keeps it
+        # from surfacing after DCON has run and gpec.in / vac.in are staged.
+        if self.machine == "vest":
+            return
+        missing = [
+            name
+            for name in ("coil_specs", "coil_config", "ip_direction", "bt_direction")
+            if getattr(self, name) is None
+        ]
+        if missing:
+            raise ValueError(
+                f"machine {self.machine!r}: {', '.join(missing)} must be given explicitly "
+                "(only 'vest' has packaged coil geometry and direction words); or pass an "
+                "explicit GPECCaseInputs.coil_in"
+            )
 
 
 @dataclass(frozen=True)
