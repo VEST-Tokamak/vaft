@@ -1,3 +1,60 @@
+"""Axisymmetric equilibrium: from a flux map to the quantities derived from it.
+
+Physics only. Nothing here reads or writes an ODS: every function takes arrays
+and returns arrays or plain records, so the same code serves a GEQDSK, an ODS
+slice and an analytic model. The adapters that turn those into one record, and
+the parametric models fitted to them, live in ``_equilibrium_parametric`` and
+are re-exported through this module, which is their stable import location.
+
+What the module does, in the order a flux map is usually consumed::
+
+    psi(R, Z) on a grid
+    -> radial coordinates: psi_norm, and the toroidal radius through q
+    -> flux surfaces: contours, their shape, their averages
+    -> fields: the poloidal field from psi, the toroidal field from F
+    -> global scalars: diamagnetism, the Shafranov integrals, force balance
+
+Notation
+--------
+psi           : poloidal flux                                          [Wb/rad]
+psi_norm      : (psi - psi_axis)/(psi_boundary - psi_axis)                  [-]
+F             : poloidal current function, R*B_phi                       [T m]
+B_p           : poloidal field magnitude                                   [T]
+q             : safety factor                                              [-]
+k             : Sauter Eq. 20 prefactor carrying sign and 2*pi              [-]
+
+Conventions
+-----------
+**Flux is per radian unless a function says otherwise.** The poloidal field
+from psi carries a factor ``k = sigma_RphiZ * sigma_Bp / (2*pi)**e_Bp`` [1]_,
+which folds the orientation sign and the 2*pi normalization together. A
+function that forms a field from psi takes a COCOS index, and with none it
+uses the historical weber-per-radian form. Getting this wrong scales the field
+by 2*pi and the poloidal beta by its square, plausibly and silently. A function
+that takes a *precomputed* field instead inherits whatever convention produced
+it and cannot check it.
+
+**Three radial coordinates, never interchangeable.** ``rho_tor_norm`` equals
+``sqrt(psi_norm)``, which is ``rho_pol_norm``, only for a flat safety factor.
+:func:`derive_radial_coordinates` returns all three with an explicit record of
+which is unavailable and why.
+
+**Flux maps are indexed (R, Z)**, matching the IMAS two-dimensional profile
+layout. **Boundary contours run counter-clockwise**, because the Shafranov
+outward normal is only outward then.
+
+Provenance
+----------
+.. [1] Sauter and Medvedev, *Tokamak Coordinate Conventions: COCOS*, Comput.
+   Phys. Commun. 184, 293 (2013): Eq. 20 for the field prefactor and Eq. 23
+   for the sign relations :mod:`vaft.process.cocos` checks against.
+.. [2] The EFIT workflow this reproduces, whose ``seva2d`` field evaluation,
+   weighted volume integrals and cell-weight map are named at the functions
+   that stand in for them.
+.. [3] The IMAS data dictionary, for the flux-surface-average family, the
+   boundary shape definitions, and the parallel current definition.
+"""
+
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -45,6 +102,7 @@ __all__ = [
     "GradShafranovResidual",
     "grad_shafranov_operator",
     "grad_shafranov_residual",
+    "equilibrium_field_on_grid",
     "make_equilibrium_field_interpolator",
     "parallel_current_from_toroidal",
     "poloidal_field_at_boundary",
@@ -64,16 +122,46 @@ __all__ = [
 
 
 def radial_to_psi(r, psi_R, psi_Z, psi):
-    """Convert radial coordinate R to poloidal flux ψ using interpolation at Z=0.
-    
-    Args:
-        r (float): Radial coordinate R
-        psi_R (ndarray): R grid points for psi
-        psi_Z (ndarray): Z grid points for psi
-        psi (ndarray): Poloidal flux values on the R,Z grid
-    
-    Returns:
-        float: Interpolated poloidal flux value at (r, Z=0)
+    """Poloidal flux at a major radius on the midplane row of the flux map.
+
+    Parameters
+    ----------
+    r : float
+        Major radius at which to evaluate [m].
+    psi_R : array_like
+        Major-radius grid axis of the flux map, increasing [m].
+    psi_Z : array_like
+        Height grid axis of the flux map [m].
+    psi : array_like
+        Poloidal flux on the grid, indexed ``(R, Z)`` [Wb/rad].
+
+    Returns
+    -------
+    float
+        Poloidal flux at *r*, in the same unit the input map was in [Wb/rad].
+
+    Convention
+    ----------
+    The flux map is indexed major radius first. The row taken is the one whose
+    height is nearest zero, not an interpolation between rows, so on a grid with
+    no node at the midplane the result is the flux on the nearest row rather than
+    on the midplane itself. The unit is whatever the caller's map carries; nothing
+    here rescales it, so a weber map returns weber.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Cubic interpolation along one row, so *r* must lie inside the grid's radial
+    span and the result is only as smooth as the map. A machine whose midplane is
+    not at zero height needs the row selected before calling.
+
+    Provenance
+    ----------
+    .. [1] The midplane-row convention follows the EFIT-style flux maps this
+       package reads, where the grid is centred on the machine midplane.
     """
     # Find the index of Z=0 in psi_Z array
     z0_idx = np.argmin(np.abs(psi_Z))
@@ -88,16 +176,54 @@ def radial_to_psi(r, psi_R, psi_Z, psi):
     return float(psi_interp(r))
 
 def psi_to_rho(psi_val, q_profile, psi_axis, psi_boundary):
-    """Convert poloidal flux ψ to normalized radius ρ using q-profile integration.
-    
-    Args:
-        psi_val (float): Poloidal flux value
-        q_profile (callable): Safety factor q(ψ) profile function
-        psi_axis (float): Poloidal flux at magnetic axis (ψa)
-        psi_boundary (float): Poloidal flux at plasma boundary (ψb)
-    
-    Returns:
-        float: Normalized radius ρN
+    """Normalized toroidal-flux radius at one poloidal flux value, by integrating q.
+
+    Parameters
+    ----------
+    psi_val : float
+        Poloidal flux at which to evaluate [Wb/rad].
+    q_profile : callable
+        Safety factor as a function of *normalized* poloidal flux, called on
+        ``[0, 1]`` [-].
+    psi_axis : float
+        Poloidal flux on the magnetic axis [Wb/rad].
+    psi_boundary : float
+        Poloidal flux at the plasma boundary [Wb/rad].
+
+    Returns
+    -------
+    float
+        The normalized toroidal-flux radius, 0 on axis and 1 at the boundary [-].
+
+    Convention
+    ----------
+    This is **rho_tor_norm**, the toroidal coordinate, not the poloidal one:
+    ``sqrt(int q dpsi_n / int_0^1 q dpsi_n)``. It equals ``sqrt(psi_norm)``, which
+    is ``rho_pol_norm``, only for a flat safety factor. The parameter name says
+    "rho" for historical reasons and the two must not be interchanged; see
+    :func:`vaft.process.equilibrium.derive_radial_coordinates` for the record-based
+    form that returns all three coordinates at once and says which is unavailable.
+
+    Because both integrals are of the same profile over the same variable, the
+    result is independent of the flux storage convention: the sign and any factor
+    of ``2*pi`` cancel in the ratio.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Takes the safety factor as a callable on normalized flux, so a caller holding
+    it on a grid must interpolate first. Adaptive quadrature is evaluated afresh
+    for every call, which makes converting a whole profile point by point far more
+    expensive than :func:`derive_radial_coordinates`, and it assumes the profile
+    is integrable to the boundary.
+
+    Provenance
+    ----------
+    .. [1] The toroidal flux definition ``Phi = int q dpsi`` and its normalized
+       radius, as the IMAS data dictionary defines ``rho_tor_norm``.
     """
     from scipy.integrate import quad
     
@@ -116,17 +242,56 @@ def psi_to_rho(psi_val, q_profile, psi_axis, psi_boundary):
     return np.sqrt(numerator / denominator)
 
 def rho_to_psi(rho, q_profile, psi_axis, psi_boundary, tol=1e-6):
-    """Convert normalized radius ρ to poloidal flux ψ using numerical root finding.
-    
-    Args:
-        rho (float): Normalized radius ρN
-        q_profile (callable): Safety factor q(ψ) profile function
-        psi_axis (float): Poloidal flux at magnetic axis (ψa)
-        psi_boundary (float): Poloidal flux at plasma boundary (ψb)
-        tol (float): Tolerance for root finding
-        
-    Returns:
-        float: Poloidal flux value ψ
+    """Poloidal flux at one normalized toroidal-flux radius, by root finding.
+
+    The inverse of :func:`psi_to_rho`, obtained numerically because the forward
+    map is an integral with no closed-form inverse.
+
+    Parameters
+    ----------
+    rho : float
+        Normalized toroidal-flux radius, between 0 and 1 [-].
+    q_profile : callable
+        Safety factor as a function of normalized poloidal flux [-].
+    psi_axis : float
+        Poloidal flux on the magnetic axis, one end of the bracket [Wb/rad].
+    psi_boundary : float
+        Poloidal flux at the plasma boundary, the other end [Wb/rad].
+    tol : float, optional
+        Relative tolerance passed to the root finder [-].
+
+    Returns
+    -------
+    float
+        The poloidal flux whose toroidal radius is *rho* [Wb/rad].
+
+    Convention
+    ----------
+    *rho* is the toroidal coordinate, matching :func:`psi_to_rho`, not
+    ``sqrt(psi_norm)``. The returned flux is in whatever unit *psi_axis* and
+    *psi_boundary* were given in, since the bracket sets the scale.
+
+    Defaults
+    --------
+    ``tol = 1e-6`` is a numerical convenience: the forward map is monotonic and
+    smooth, so Brent's method reaches it in few iterations, and a tighter value
+    buys accuracy the quadrature underneath does not have.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Brackets on the axis and boundary flux, so it assumes the forward map is
+    monotonic between them, which needs a safety factor of one sign. Each
+    iteration runs the forward quadrature, making this the most expensive way to
+    convert a coordinate; invert an interpolated table instead when converting
+    many points.
+
+    Provenance
+    ----------
+    .. [1] :func:`psi_to_rho`, whose definition this inverts.
     """
     from scipy.optimize import root_scalar
     
@@ -148,17 +313,63 @@ def psi_to_rz(
     psi_axis: float,
     psi_lcfs: float,
     ):
-    """
-    Map a 1D profile f(psi_N) onto a 2D (R,Z) grid using psi(R,Z).
+    """Map a flux-surface profile onto the two-dimensional grid through psi.
 
-    Outside LCFS (psi_N < 0 or > 1), the mapped value is set to 0.
+    Parameters
+    ----------
+    psiN_1d : array_like
+        Normalized poloidal flux the profile is given on [-].
+    f_1d : array_like
+        The profile, in whatever unit it has [any].
+    psi_RZ : array_like
+        Poloidal flux on the grid, indexed ``(R, Z)`` [Wb/rad].
+    psi_axis : float
+        Poloidal flux on the magnetic axis [Wb/rad].
+    psi_lcfs : float
+        Poloidal flux at the last closed flux surface [Wb/rad].
 
     Returns
     -------
-    f_RZ : (Nr, Nz) array
-        Profile mapped onto (R,Z), zero outside LCFS.
-    psiN_RZ : (Nr, Nz) array
-        Normalized poloidal flux on (R,Z).
+    f_RZ : np.ndarray
+        The profile on the grid, zero outside the boundary [any].
+    psiN_RZ : np.ndarray
+        Normalized poloidal flux on the grid [-].
+
+    Raises
+    ------
+    ValueError
+        The profile and its abscissa are not one-dimensional and of equal length.
+
+    Processing steps
+    ----------------
+    1. Normalize the flux map to ``(psi - psi_axis)/(psi_lcfs - psi_axis)``.
+    2. Sort the profile by its abscissa, clamp the normalized map into the
+       profile's own span, and interpolate linearly.
+    3. Zero every cell outside the closed region.
+
+    Convention
+    ----------
+    The flux map is indexed major radius first. Outside the boundary the value is
+    zero, not the edge value and not a NaN, so a sum over the grid is already a
+    plasma-only integral. Because only the normalized flux is used, the absolute
+    unit of the three flux arguments cancels: weber and weber per radian give the
+    same answer as long as all three agree.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Linear interpolation, so a profile sampled coarsely near a steep gradient is
+    smoothed. Clamping means a grid cell outside the profile's own span takes the
+    nearest profile value before the zeroing mask is applied, which matters only
+    for a profile that does not reach the boundary.
+
+    Provenance
+    ----------
+    .. [1] The sort, clamp and interpolate sequence reproduces the legacy MATLAB
+       workflow's mapping, kept so that results match it cell for cell.
     """
     psiN_1d = np.asarray(psiN_1d, float)
     f_1d = np.asarray(f_1d, float)
@@ -197,30 +408,69 @@ def calculate_reconstructed_diamagnetic_flux(
     f_1d: np.ndarray,
     f_vac_val: float,
 ) -> float:
-    """
-    Reconstructed diamagnetic flux from equilibrium field (physics-only, no ODS).
+    """Diamagnetic flux reconstructed from the equilibrium's own toroidal field.
 
-    Phi_dia = Integral_surf (B_phi_plasma - B_phi_vacuum) dA [Wb].
-    Uses psi_to_RZ to map F(psi_N) onto (R,Z). Only plasma region (0 <= psi_N <= 1)
-    is integrated. For diamagnetic plasma the result is negative.
+    The surface integral of the difference between the plasma toroidal field and
+    the vacuum field it displaces. Physics only: it reads no ODS and writes none.
 
     Parameters
     ----------
-    R_grid, Z_grid : 1D arrays
-        Grid coordinates [m].
-    psi_RZ : 2D array, shape (len(R_grid), len(Z_grid))
-        Poloidal flux on grid [Wb/rad].
-    psi_axis, psi_lcfs : float
-        Flux at axis and at LCFS.
-    psiN_1d, f_1d : 1D arrays
-        Normalized flux and F = R*B_phi [T·m] on 1D profile.
+    R_grid : array_like
+        Major-radius grid axis [m].
+    Z_grid : array_like
+        Height grid axis [m].
+    psi_RZ : array_like
+        Poloidal flux on the grid, indexed ``(R, Z)`` [Wb/rad].
+    psi_axis : float
+        Poloidal flux on the magnetic axis [Wb/rad].
+    psi_lcfs : float
+        Poloidal flux at the last closed flux surface [Wb/rad].
+    psiN_1d : array_like
+        Normalized poloidal flux the poloidal-current profile is given on [-].
+    f_1d : array_like
+        Poloidal current function ``F = R*B_phi`` on that abscissa [T m].
     f_vac_val : float
-        F at LCFS (vacuum toroidal field proxy) [T·m].
+        The same function at the boundary, standing in for the vacuum field
+        [T m].
 
     Returns
     -------
     float
-        Reconstructed diamagnetic flux [Wb].
+        The reconstructed diamagnetic flux, negative for a diamagnetic plasma
+        [Wb].
+
+    Processing steps
+    ----------------
+    1. Map the poloidal current profile onto the grid through
+       :func:`psi_to_rz`.
+    2. Form the plasma and vacuum toroidal fields as that function over the major
+       radius.
+    3. Integrate their difference over the cross-section inside the boundary.
+
+    Convention
+    ----------
+    The sign follows the physics, not a storage choice: a diamagnetic plasma
+    reduces the toroidal field inside it, so the integral is negative. Only the
+    normalized flux enters, so the absolute unit of the three flux arguments
+    cancels as long as they agree. The vacuum proxy must be taken at the boundary,
+    not on axis, or the difference is offset everywhere.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A cross-sectional integral on the grid, so the boundary is resolved only to
+    the cell. The vacuum field is taken as a single boundary value rather than a
+    profile, which is exact only where the poloidal current is flat outside the
+    plasma.
+
+    Provenance
+    ----------
+    .. [1] The definition of diamagnetic flux as the toroidal-field deficit
+       integrated over the plasma cross-section, in the form the EFIT-style
+       workflow this package reproduces uses.
     """
     f_2d, psiN_RZ = psi_to_rz(psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs)
     R_mesh, Z_mesh = np.meshgrid(R_grid, Z_grid, indexing="ij")
@@ -252,39 +502,69 @@ def calculate_diamagnetism(
     B_pa: float,
     V_p: float | None = None,
 ) -> float:
-    """
-    Diamagnetism μ_i from the volume integral definition (physics-only, no ODS).
-
-    μ_i = (1 / (B_pa² Ω)) ∫_Ω (B_tv² - B_t²) dV
-
-    with B_t = F(ψ)/R, B_tv = F_vac/R, dV = 2π R dR dZ. Only plasma (0 ≤ ψ_N ≤ 1)
-    is integrated. Uses psi_to_RZ for F(R,Z). If V_p is None, plasma volume Ω
-    is computed from the same grid and mask.
+    """Diamagnetism from its volume-integral definition.
 
     Parameters
     ----------
-    R_grid, Z_grid : 1D arrays
-        Grid coordinates [m].
-    psi_RZ : 2D array, shape (len(R_grid), len(Z_grid))
-        Poloidal flux on grid [Wb/rad].
-    psi_axis, psi_lcfs : float
-        Flux at axis and at LCFS.
-    psiN_1d, f_1d : 1D arrays
-        Normalized flux and F = R*B_t [T·m] on 1D profile.
+    R_grid : array_like
+        Major-radius grid axis [m].
+    Z_grid : array_like
+        Height grid axis [m].
+    psi_RZ : array_like
+        Poloidal flux on the grid, indexed ``(R, Z)`` [Wb/rad].
+    psi_axis : float
+        Poloidal flux on the magnetic axis [Wb/rad].
+    psi_lcfs : float
+        Poloidal flux at the last closed flux surface [Wb/rad].
+    psiN_1d : array_like
+        Normalized poloidal flux the poloidal-current profile is given on [-].
+    f_1d : array_like
+        Poloidal current function ``F = R*B_phi`` on that abscissa [T m].
     f_vac_val : float
-        F at LCFS (vacuum toroidal field proxy) [T·m].
+        The same function at the boundary, standing in for the vacuum field
+        [T m].
     B_pa : float
-        Average poloidal field at boundary [T] (e.g. μ₀ I_p / L_p).
+        Boundary-average poloidal field, the normalizing scale, strictly positive
+        [T].
     V_p : float, optional
-        Plasma volume [m³]. If None, computed from grid (2π R dA over plasma).
+        Plasma volume. Computed from the same grid and mask when not given
+        [m^3].
 
     Returns
     -------
     float
-        Diamagnetism μ_i (dimensionless). Positive ⇒ diamagnetic (B_t < B_tv),
-        negative ⇒ paramagnetic (B_t > B_tv). If you expect diamagnetic but get
-        negative, check that F_vac is taken at the LCFS (not axis) and that the
-        F profile sign convention (F = R*B_φ) is consistent with the equilibrium.
+        The diamagnetism, positive for a diamagnetic plasma and negative for a
+        paramagnetic one [-].
+
+    Raises
+    ------
+    ValueError
+        The boundary-average poloidal field is not positive.
+
+    Convention
+    ----------
+    ``mu_i = (1/(B_pa^2 * V)) * integral (B_tv^2 - B_t^2) dV``, with the toroidal
+    fields taken as the poloidal current function over the major radius and the
+    axisymmetric volume element. Positive means the plasma reduced the toroidal
+    field. A result of the unexpected sign usually means the vacuum proxy was
+    taken on axis rather than at the boundary, or that the poloidal current
+    profile's sign convention disagrees with the equilibrium it came from.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The same per-cell boundary mask as :func:`volume_average`, so the boundary is
+    resolved only to the grid. The vacuum field is a single boundary value rather
+    than a profile.
+
+    Provenance
+    ----------
+    .. [1] The volume-integral definition of diamagnetism; the surface-integral
+       form is :func:`calculate_reconstructed_diamagnetic_flux`, and the two
+       should agree for a consistent equilibrium.
     """
     f_2d, psiN_RZ = psi_to_rz(psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs)
     R_mesh, Z_mesh = np.meshgrid(R_grid, Z_grid, indexing="ij")
@@ -321,11 +601,50 @@ def volume_average(
     R: np.ndarray,
     Z: np.ndarray,
     ):
-    """
-    Compute volume average <f>_V on an (R,Z) grid using
-    dV = 2*pi*R*dR*dZ.
+    """Volume average of a gridded quantity over the confined region.
 
-    Only cells with 0 <= psi_N <= 1 contribute to the integral.
+    Parameters
+    ----------
+    f_RZ : array_like
+        The quantity on the grid, in whatever unit it has [any].
+    psiN_RZ : array_like
+        Normalized poloidal flux on the same grid, used only as the mask [-].
+    R : array_like
+        Major-radius axis, or the full mesh [m].
+    Z : array_like
+        Height axis, or the full mesh [m].
+
+    Returns
+    -------
+    favg : float
+        The volume-weighted average of *f_RZ* inside the boundary [any].
+    volume : float
+        The volume the average was taken over [m^3].
+
+    Convention
+    ----------
+    The volume element is the axisymmetric ``2*pi*R dR dZ``, so cells at large
+    major radius weigh proportionally more; this is a torus average, not a
+    cross-sectional one. Only cells with normalized flux between zero and one and
+    a positive major radius contribute, which makes the mask the definition of
+    "the plasma" here. Accepts either one-dimensional axes or a full mesh.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Cell areas come from a gradient of the axes, so the outermost cells are
+    one-sided and a strongly non-uniform grid is approximated. The mask is a
+    per-cell test with no sub-cell weighting, so the boundary is resolved only to
+    the grid; :func:`fractional_cell_weights_from_boundary` is the fractional
+    alternative where that matters.
+
+    Provenance
+    ----------
+    .. [1] The axisymmetric volume element, and the same normalized-flux mask
+       :func:`psi_to_rz` applies.
     """
     f_RZ = np.asarray(f_RZ, float)
     psiN_RZ = np.asarray(psiN_RZ, float)
@@ -361,32 +680,58 @@ def psi_to_radial(
     boundary_r: np.ndarray,
     r_axis: float,
     ):
-    """
-    Convert 1D psi profile to r_inboard and r_outboard using 2D psi mapping.
-    
-    This function creates interpolation functions from 2D psi data at the magnetic
-    axis Z position, splits the data into inboard and outboard regions, and maps
-    the 1D psi profile to radial coordinates.
-    
+    """Inboard and outboard major radius of each flux value, along the axis row.
+
     Parameters
     ----------
-    psi_1d : ndarray
-        1D poloidal flux profile to map
-    psi_2d_slice : ndarray
-        2D psi values at magnetic axis Z position (from profiles_2d.0.psi[:, z_idx])
-    grid_r : ndarray
-        R grid points corresponding to psi_2d_slice
-    boundary_r : ndarray
-        Boundary R coordinates to determine r_min and r_max
+    psi_1d : array_like
+        The poloidal flux profile to map [Wb/rad].
+    psi_2d_slice : array_like
+        Poloidal flux along the grid row at the magnetic axis height [Wb/rad].
+    grid_r : array_like
+        Major-radius grid points that row is on [m].
+    boundary_r : array_like
+        Major radius of the boundary, used for the inboard and outboard limits
+        [m].
     r_axis : float
-        Magnetic axis R coordinate
-    
+        Major radius of the magnetic axis, where the row is split [m].
+
     Returns
     -------
-    r_inboard : ndarray
-        Inboard radial coordinates corresponding to psi_1d
-    r_outboard : ndarray
-        Outboard radial coordinates corresponding to psi_1d
+    r_inboard : np.ndarray
+        Major radius on the high-field side for each flux value [m].
+    r_outboard : np.ndarray
+        Major radius on the low-field side [m].
+
+    Processing steps
+    ----------------
+    1. Split the axis row at the magnetic axis into an inboard and an outboard
+       branch, on each of which the flux is monotonic.
+    2. Build an interpolation of major radius against flux on each branch.
+    3. Evaluate both at every value of the profile, clipped to the boundary.
+
+    Convention
+    ----------
+    Two answers per flux value, because a flux surface crosses the axis height
+    twice. The split is at the magnetic axis, which is where the flux turns, so
+    each branch is single-valued. Everything is in the flux unit the caller
+    supplied; nothing is rescaled.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Only the row nearest the axis height is used, so this describes the midplane
+    and not the surface as a whole. A flux value outside the row's own span is
+    clipped to the boundary rather than extrapolated. Assumes the flux is
+    monotonic on each branch, which fails for a non-nested equilibrium.
+
+    Provenance
+    ----------
+    .. [1] The inboard and outboard midplane radii as the IMAS data dictionary
+       defines them for a one-dimensional profile.
     """
     psi_1d = np.asarray(psi_1d, float)
     psi_2d_slice = np.asarray(psi_2d_slice, float)
@@ -425,29 +770,66 @@ def psi_to_radial(
 def poloidal_field_at_boundary(
     R_grid_1d, Z_grid_1d, psi_grid, R_bdry, Z_bdry, cocos=None, psi_per_radian=None,
 ):
-    """
-    자속(Psi) 격자 데이터를 이용하여 경계면(Boundary)에서의 
-    Poloidal Magnetic Field (Bp) 벡터와 크기를 계산합니다.
+    """Poloidal field on a boundary contour, from the flux map by bicubic spline.
 
-    EFIT의 'seva2d' 서브루틴과 유사한 역할을 수행합니다.
+    Parameters
+    ----------
+    R_grid_1d : array_like
+        Major-radius grid axis of the flux map [m].
+    Z_grid_1d : array_like
+        Height grid axis of the flux map [m].
+    psi_grid : array_like
+        Poloidal flux on the grid, indexed ``(R, Z)`` [Wb/rad].
+    R_bdry : array_like
+        Major radius of the contour points [m].
+    Z_bdry : array_like
+        Height of the contour points [m].
+    cocos : int, optional
+        COCOS index of *psi_grid*. ``None`` keeps the historical
+        weber-per-radian form [-].
+    psi_per_radian : bool, optional
+        Whether *psi_grid* is per radian, when the index alone does not settle it
+        [-].
 
-    수식:
-        B_R = -(1/R) * (dPsi/dZ)
-        B_Z =  (1/R) * (dPsi/dR)
-        B_p = sqrt(B_R^2 + B_Z^2)
+    Returns
+    -------
+    B_p_bdry : np.ndarray
+        Poloidal field magnitude at each contour point [T].
+    B_R_bdry : np.ndarray
+        Its major-radius component [T].
+    B_Z_bdry : np.ndarray
+        Its height component [T].
 
-    Args:
-        R_grid_1d (np.array): R 격자 좌표 1D 배열 (m)
-        Z_grid_1d (np.array): Z 격자 좌표 1D 배열 (m)
-        psi_grid (2D array): 격자 위 자속 값 (Weber/rad). Shape은 (len(R), len(Z)) 여야 함.
-        R_bdry (np.array): 경계면 R 좌표 배열 (m)
-        Z_bdry (np.array): 경계면 Z 좌표 배열 (m)
+    Convention
+    ----------
+    ``B_R = k * (1/R) * dpsi/dZ`` and ``B_Z = -k * (1/R) * dpsi/dR``, where
+    ``k = sigma_RphiZ * sigma_Bp / (2*pi)**e_Bp`` carries both the orientation
+    sign and the ``2*pi`` normalization together, per Sauter Eq. 20.
 
-    Returns:
-        tuple: (B_p_bdry, B_R_bdry, B_Z_bdry)
-            - B_p_bdry: 경계면에서의 B_p 크기 (Tesla)
-            - B_R_bdry: 경계면에서의 B_R 성분 (Tesla)
-            - B_Z_bdry: 경계면에서의 B_Z 성분 (Tesla)
+    With *cocos* unset the historical EFIT weber-per-radian form ``k = -1`` is
+    used. Passing *psi_per_radian* alone leaves the sign untouched and applies
+    only the ``2*pi``, which is what a weber-stored flux needs. The flux map is
+    indexed major radius first.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A bicubic spline over the whole map, so contour points must lie inside the
+    grid and the field near a steep edge is only as good as the map's resolution.
+    The convention must be supplied; a weber flux passed without either argument
+    gives a field too large by ``2*pi``, and a poloidal beta too small by its
+    square.
+
+    Provenance
+    ----------
+    .. [1] Sauter and Medvedev (2013), Eq. 20, for the prefactor that carries the
+       orientation sign and the ``2*pi`` together; evaluated by
+       :func:`vaft.formula.equilibrium.poloidal_field_factor`.
+    .. [2] Plays the role of EFIT's ``seva2d`` subroutine, from which the
+       bicubic-spline-on-the-flux-map approach is taken.
     """
     
     # 1. 2차원 스플라인 객체 생성 (Bicubic Spline)
@@ -485,19 +867,46 @@ def poloidal_field_at_boundary(
 
 
 def calculate_average_boundary_poloidal_field(R_bdry, Z_bdry, B_p_bdry):
-    """
-    플라즈마 경계에서의 평균 Poloidal Magnetic Field (B_pa)를 계산합니다.
-    
-    Formula:
-        B_pa = ∮ dl B_p / ∮ dl
-        
-    Args:
-        R_bdry (np.array): 경계면의 R 좌표 배열 (m)
-        Z_bdry (np.array): 경계면의 Z 좌표 배열 (m)
-        B_p_bdry (np.array): 경계면에서의 Poloidal Field (T)
-        
-    Returns:
-        float: B_pa (Average boundary poloidal field)
+    """Contour-length average of the poloidal field around a closed boundary.
+
+    Parameters
+    ----------
+    R_bdry : array_like
+        Major radius of the contour points [m].
+    Z_bdry : array_like
+        Height of the contour points [m].
+    B_p_bdry : array_like
+        Poloidal field magnitude at those points [T].
+
+    Returns
+    -------
+    float
+        The average poloidal field, the contour integral of the field over the
+        contour length [T].
+
+    Convention
+    ----------
+    Weighted by arc length, not by point count, so an unevenly sampled contour
+    still gives the physical average. The midpoint rule is used between
+    consecutive points, and the contour is treated as closed. This is the
+    normalizing field that the poloidal beta and the diamagnetism are taken
+    against, so it must come from the same convention as the field that produced
+    it.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Midpoint rule on the given points, so a coarsely sampled contour underweights
+    regions of high curvature. Takes the field magnitudes as given and cannot
+    check they were computed in a consistent convention.
+
+    Provenance
+    ----------
+    .. [1] The definition used with :func:`shafranov_integrals` and
+       :func:`calculate_diamagnetism` as their reference field.
     """
     # 1. 배열이 닫혀있는지 확인 (마지막 점 != 첫 점이면 닫아줌)
     if (R_bdry[0] != R_bdry[-1]) or (Z_bdry[0] != Z_bdry[-1]):
@@ -637,9 +1046,63 @@ def prepare_boundary_for_shafranov(
     enforce_ccw: bool = True,
     eps: float = 1e-12,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Normalize boundary for Shafranov computations:
-    finite-only -> closed -> degenerate segment removal -> CCW orientation -> arc-length resample.
+    """Condition a boundary contour into the form the Shafranov integrals require.
+
+    Parameters
+    ----------
+    R_bdry : array_like
+        Major radius of the contour points [m].
+    Z_bdry : array_like
+        Height of the contour points [m].
+    n_points : int, optional
+        How many points to resample the contour to [-].
+    enforce_ccw : bool, optional
+        Whether to reverse the contour when it runs clockwise [-].
+    eps : float, optional
+        Distance below which two consecutive points count as duplicates [m].
+
+    Returns
+    -------
+    tuple of np.ndarray
+        The conditioned ``(R, Z)`` contour: finite, closed, without duplicate
+        points, counter-clockwise, and evenly spaced in arc length [m].
+
+    Processing steps
+    ----------------
+    1. Drop non-finite points.
+    2. Close the contour if it is not already closed.
+    3. Remove consecutive duplicates within *eps*.
+    4. Reverse the contour if its signed area says it runs clockwise.
+    5. Resample uniformly in arc length to *n_points*.
+
+    Defaults
+    --------
+    ``n_points = 256`` and ``eps = 1e-12`` are numerical conveniences: enough
+    points to resolve a tokamak boundary's curvature, and a duplicate threshold
+    far below any real machine dimension.
+
+    Convention
+    ----------
+    **Counter-clockwise is not cosmetic.** :func:`shafranov_integrals` takes the
+    outward unit normal as ``(dZ/dl, -dR/dl)``, which points outward only for a
+    counter-clockwise contour; a clockwise one silently flips the sign of every
+    integral that uses it. That is why the orientation is enforced here rather
+    than assumed there.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Assumes a single simple closed curve. A self-intersecting contour, or two
+    disjoint pieces, gives a signed area that does not mean what the orientation
+    test takes it to mean.
+
+    Provenance
+    ----------
+    .. [1] The outward-normal convention of :func:`shafranov_integrals`, which is
+       what this exists to guarantee.
     """
     R_bdry = np.asarray(R_bdry, dtype=float).reshape(-1)
     Z_bdry = np.asarray(Z_bdry, dtype=float).reshape(-1)
@@ -754,12 +1217,60 @@ def fractional_cell_weights_from_boundary(
     Z_bdry: np.ndarray,
     samples_per_axis: int = 5,
 ) -> np.ndarray:
-    """
-    Estimate EFIT-like fractional cell weights from boundary geometry.
+    """Fractional area of each grid cell that lies inside the plasma boundary.
 
-    The returned weight map is in [0, 1], where each entry approximates the
-    area fraction of the local control cell that lies inside the plasma
-    polygon. This is an internal replacement for externally provided `www`.
+    An internal replacement for the externally supplied weight map EFIT expects,
+    computed from the boundary polygon so that no external file is needed.
+
+    Parameters
+    ----------
+    R_grid : array_like
+        Major-radius grid, as an axis or a mesh [m].
+    Z_grid : array_like
+        Height grid, as an axis or a mesh [m].
+    R_bdry : array_like
+        Major radius of the boundary contour [m].
+    Z_bdry : array_like
+        Height of the boundary contour [m].
+    samples_per_axis : int, optional
+        Sub-samples per axis within each cell, at least one [-].
+
+    Returns
+    -------
+    np.ndarray
+        Area fraction in ``[0, 1]`` for every cell, on the grid's own shape [-].
+
+    Raises
+    ------
+    ValueError
+        *samples_per_axis* is less than one.
+
+    Defaults
+    --------
+    ``samples_per_axis = 5`` is a numerical convenience: twenty-five sub-samples
+    per cell resolve the boundary to about a fifth of a cell, which is finer than
+    the flux map that produced the boundary in the first place.
+
+    Convention
+    ----------
+    A fraction, not a mask: a cell the boundary crosses gets its area share rather
+    than a zero or a one. That is what makes an integral weighted by these
+    converge with grid resolution instead of stepping.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Sub-sampling, not exact polygon clipping, so a cell is resolved only to the
+    sub-sample spacing and a boundary feature smaller than a cell is missed.
+    Assumes a single closed polygon.
+
+    Provenance
+    ----------
+    .. [1] Replaces EFIT's externally provided cell-weight map; consumed by
+       :func:`shafranov_integrals` and :func:`efit_virial_volume_integrals`.
     """
     if samples_per_axis < 1:
         raise ValueError("samples_per_axis must be >= 1.")
@@ -813,20 +1324,74 @@ def shafranov_integrals(
     cell_weights: np.ndarray | None = None,
     volume: float | None = None,
 ):
-    """
-    Shafranov Integrals (S1, S2, S3) 및 Alpha 파라미터를 계산합니다.
-    플라즈마 마스크를 경계면 좌표(R_bdry, Z_bdry)로부터 직접 생성합니다.
+    """The three Shafranov boundary integrals and the virial coefficient.
 
-    Args:
-        R_bdry, Z_bdry (np.array): 플라즈마 경계(LCFS) 좌표 1D 배열
-        B_p_bdry (np.array): 경계에서의 Poloidal Magnetic Field 1D 배열
-        R_grid, Z_grid (2D array): 전체 계산 영역의 격자 좌표 (meshgrid 형태)
-        B_R_grid, B_Z_grid (2D array): 전체 영역의 자기장 (Alpha 계산용)
-        R_0, Z_0 (float, optional): Major Radius 및 중심 높이. 
-                                    None일 경우 경계의 기하학적 중심 사용.
+    Parameters
+    ----------
+    R_bdry : array_like
+        Major radius of the boundary contour [m].
+    Z_bdry : array_like
+        Height of the boundary contour [m].
+    B_p_bdry : array_like
+        Poloidal field magnitude on that contour [T].
+    R_grid : array_like
+        Major-radius grid, as an axis or a mesh [m].
+    Z_grid : array_like
+        Height grid, as an axis or a mesh [m].
+    B_R_grid : array_like
+        Major-radius field component on the grid [T].
+    B_Z_grid : array_like
+        Height field component on the grid [T].
+    R_0 : float, optional
+        Reference major radius. The boundary's geometric centre when not given
+        [m].
+    Z_0 : float, optional
+        Reference height, likewise [m].
+    p_boundary : float, optional
+        Pressure at the boundary [Pa].
+    B_ref : float, optional
+        Field the integrals are normalized by. The boundary-average poloidal
+        field when not given [T].
+    cell_weights : array_like, optional
+        Per-cell plasma area fractions, from
+        :func:`fractional_cell_weights_from_boundary` [-].
+    volume : float, optional
+        Plasma volume, computed from the boundary when not given [m^3].
 
-    Returns:
-        tuple: (S1, S2, S3, alpha)
+    Returns
+    -------
+    tuple of float
+        ``(S1, S2, S3, alpha)``, all dimensionless. Zeros when the conditioned
+        boundary has too few points or the reference volume or field is not
+        positive [-].
+
+    Convention
+    ----------
+    **The boundary must run counter-clockwise**, because the outward unit normal
+    is taken as ``(dZ/dl, -dR/dl)``, which points outward only then. The contour
+    is conditioned through :func:`prepare_boundary_for_shafranov` on entry, so a
+    clockwise input is corrected rather than silently inverting every integral.
+
+    The COCOS is **inherited, not declared**: the poloidal field arrays are taken
+    as given, so whatever convention produced them is the convention these
+    integrals are in. Passing a field computed in the wrong one gives plausible
+    numbers that are wrong by that factor.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Returns zeros rather than raising when the geometry is degenerate, so a caller
+    must distinguish a real zero from a refusal. Without *cell_weights* the plasma
+    mask is per-cell and the boundary is resolved only to the grid.
+
+    Provenance
+    ----------
+    .. [1] The Shafranov boundary integrals as EFIT evaluates them; the virial
+       internal inductance built from them is
+       :func:`vaft.formula.equilibrium.virial_li_from_S_alpha_rt`.
     """
 
     R_bdry, Z_bdry, B_p_bdry = _prepare_boundary_and_field_for_shafranov(
@@ -907,20 +1472,66 @@ def efit_virial_volume_integrals(
     F_boundary: float | None = None,
     cell_weights: np.ndarray | None = None,
 ) -> dict[str, float]:
-    """
-    EFIT-style weighted volume integrals on the poloidal grid.
+    """EFIT-style weighted volume integrals for the virial closures.
 
-    Returns alpha, RT, and diamagnetic-flux components in SI units, plus
-    ``rt_denominator_ratio``, the fraction of the RT denominator that survives
-    the sign cancellation inside its integrand. RT is a weighted mean radius
-    only while that ratio is comfortably above zero; below it the value is a
-    ratio of two small differences and carries no information, which is why the
-    conditioning number is returned rather than merely used as a gate.
+    Parameters
+    ----------
+    R_grid : array_like
+        Major-radius grid, as an axis or a mesh [m].
+    Z_grid : array_like
+        Height grid, as an axis or a mesh [m].
+    R_bdry : array_like
+        Major radius of the boundary contour [m].
+    Z_bdry : array_like
+        Height of the boundary contour [m].
+    B_R_grid : array_like
+        Major-radius field component on the grid [T].
+    B_Z_grid : array_like
+        Height field component on the grid [T].
+    p_tot_grid : array_like, optional
+        Total pressure on the grid [Pa].
+    B_phi_grid : array_like, optional
+        Plasma toroidal field on the grid [T].
+    B_phi_vac_grid : array_like, optional
+        Vacuum toroidal field on the same grid [T].
+    F_grid : array_like, optional
+        Poloidal current function on the grid [T m].
+    F_boundary : float, optional
+        That function at the boundary [T m].
+    cell_weights : array_like, optional
+        Per-cell plasma area fractions; computed from the boundary when not given
+        [-].
 
-    ``dV`` and ``b_p_squared`` are the weighted volume element and the poloidal
-    field magnitude squared on the same grid, so a caller can form
-    volume-integral beta_p and l_i against exactly the cells and weights that
-    produced ``volume``.
+    Returns
+    -------
+    dict of str to float
+        ``alpha`` and ``rt_denominator_ratio`` dimensionless, ``phi_dia_comp`` in
+        weber, ``dV`` and ``volume`` in cubic metres, ``b_p_squared`` in tesla
+        squared, and ``rt`` in metres [-].
+
+    Convention
+    ----------
+    Weighted by fractional cell area rather than a per-cell mask, which is what
+    makes these the EFIT-style forms rather than a plain grid sum. Like
+    :func:`shafranov_integrals`, the COCOS is inherited from the field arrays
+    passed in and is neither declared nor checked here.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The reference radius is guarded against a near-singular denominator, so a
+    degenerate geometry returns a finite but meaningless value rather than
+    diverging. Every optional input governs one output: omit the pressure and the
+    pressure-dependent terms are simply absent.
+
+    Provenance
+    ----------
+    .. [1] EFIT's weighted volume integrals, with the fractional cell weights
+       standing in for its externally supplied weight map; see
+       :func:`fractional_cell_weights_from_boundary`.
     """
     if np.ndim(R_grid) == 1 and np.ndim(Z_grid) == 1:
         R_grid, Z_grid = np.meshgrid(np.asarray(R_grid, float), np.asarray(Z_grid, float), indexing="ij")
@@ -995,16 +1606,54 @@ def computed_diamagnetism_from_phi(
     volume: float,
     B_ref: float,
 ) -> float:
-    """
-    Compute EFIT-style xmui from computed diamagnetic flux.
+    """EFIT-style diamagnetism from an already-computed diamagnetic flux.
 
-    xmui = (4*pi*B_t0*R_0 / (V*B_ref^2)) * Phi_dia_comp
+    Parameters
+    ----------
+    phi_dia_comp : float
+        The computed diamagnetic flux [Wb].
+    B_t0 : float
+        Vacuum toroidal field at the reference radius [T].
+    R_0 : float
+        Reference major radius [m].
+    volume : float
+        Plasma volume, strictly positive [m^3].
+    B_ref : float
+        Reference field the result is normalized by, normally the boundary-average
+        poloidal field, strictly positive [T].
 
-    The arithmetic is :func:`vaft.formula.equilibrium.virial_muihat_from_Bt_R0_dphi`;
-    this wrapper adds the positivity precondition its callers rely on. Keeping
-    one definition matters because the validation layer compares a mu_i from
-    this path against one from the formula path, and a correction applied to
-    only one of them would desynchronize them silently.
+    Returns
+    -------
+    float
+        The EFIT-style diamagnetism [-].
+
+    Raises
+    ------
+    ValueError
+        The volume or the reference field is not positive.
+
+    Convention
+    ----------
+    ``4*pi*B_t0*R_0/(V*B_ref^2)`` times the flux. The arithmetic itself lives in
+    :func:`vaft.formula.equilibrium.virial_muihat_from_Bt_R0_dphi`; this wrapper
+    adds only the positivity precondition its callers rely on. Keeping one
+    definition matters because the validation layer compares a diamagnetism from
+    this path against one from the formula path, and a correction applied to only
+    one of them would desynchronize them silently.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Takes the flux as given and cannot check that it was computed against the
+    same reference radius and field used here.
+
+    Provenance
+    ----------
+    .. [1] The EFIT ``xmui`` definition, evaluated through
+       :func:`vaft.formula.equilibrium.virial_muihat_from_Bt_R0_dphi`.
     """
     if volume <= 0.0 or B_ref <= 0.0:
         raise ValueError("volume and B_ref must be positive.")
@@ -1026,18 +1675,56 @@ def extract_flux_surface_contours(
     psi_boundary: float,
     levels_norm: Any,
 ) -> dict[float, list[tuple[np.ndarray, np.ndarray]]]:
-    """Extract iso-normalized-psi contours from a 2D (R, Z) psi grid.
+    """Iso-flux contours at requested normalized levels, by marching squares.
 
-    ``psi_grid`` must be shaped ``(len(R), len(Z))`` (first axis indexed by
-    ``R``, second by ``Z``), matching the standard IMAS
-    ``equilibrium.time_slice[:].profiles_2d[:].psi`` layout with
-    ``grid.dim1``/``grid.dim2`` as ``R``/``Z``. ``levels_norm`` are normalized
-    psi values (0 = magnetic axis, 1 = boundary/LCFS).
+    Parameters
+    ----------
+    psi_grid : array_like
+        Poloidal flux on the grid, indexed ``(R, Z)`` [Wb/rad].
+    R : array_like
+        Major-radius grid axis [m].
+    Z : array_like
+        Height grid axis [m].
+    psi_axis : float
+        Poloidal flux on the magnetic axis, the zero of the normalization
+        [Wb/rad].
+    psi_boundary : float
+        Poloidal flux at the boundary, the one [Wb/rad].
+    levels_norm : sequence of float
+        Normalized flux levels to trace, 0 on axis and 1 at the boundary [-].
 
-    Returns a dict keyed by each requested level, each value a list of
-    ``(R_pts, Z_pts)`` contour segments (a level can have more than one
-    disconnected contour, e.g. inside a diverted plasma). A level with no
-    contour in the grid maps to an empty list.
+    Returns
+    -------
+    dict of float to list of tuple of np.ndarray
+        Each requested level mapped to its contour segments as ``(R, Z)`` point
+        arrays. A level with no contour on this grid maps to an empty list [m].
+
+    Convention
+    ----------
+    The flux map is indexed major radius first, matching the IMAS data
+    dictionary's two-dimensional profile layout with the first and second grid
+    dimensions as major radius and height. Levels are normalized, so the absolute
+    unit of the three flux arguments cancels as long as they agree.
+
+    **A level may have more than one contour.** Inside a diverted plasma a single
+    normalized level can trace disconnected pieces, so the value is always a list
+    and a caller wanting "the" surface must choose among them, normally the closed
+    one containing the magnetic axis.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Marching squares on the grid, so a contour is resolved only to the cell and a
+    surface smaller than a few cells is poorly represented. Contours are returned
+    in the order the algorithm finds them, not sorted by size or by containment.
+
+    Provenance
+    ----------
+    .. [1] The IMAS data dictionary layout for a two-dimensional flux profile,
+       which fixes the axis order this assumes.
     """
     from skimage import measure
 
@@ -1079,13 +1766,54 @@ MIN_FLUX_SURFACE_POINTS = 16
 def contour_shape_parameters(r_seg: np.ndarray, z_seg: np.ndarray) -> dict[str, float]:
     """Shape parameters of one closed flux-surface contour.
 
-    Returns ``volume``, ``area``, ``surface``, ``elongation``,
-    ``triangularity_upper``, ``triangularity_lower``, ``r_inboard`` and
-    ``r_outboard``. Volume revolves the contour with the exact
-    ``V = pi * closed_integral(R^2 dZ)``; area is the shoelace formula; surface
-    is ``closed_integral 2*pi*R dl``.
+    Parameters
+    ----------
+    r_seg : array_like
+        Major radius of the contour points [m].
+    z_seg : array_like
+        Height of the contour points [m].
 
-    Raises ``ValueError`` on a degenerate contour (zero minor radius).
+    Returns
+    -------
+    dict of str to float
+        ``volume`` in cubic metres; ``area`` and ``surface`` in square metres;
+        ``elongation``, ``triangularity_upper`` and ``triangularity_lower``
+        dimensionless; ``r_inboard`` and ``r_outboard`` in metres [-].
+
+    Raises
+    ------
+    ValueError
+        The contour is degenerate, having zero minor radius.
+
+    Convention
+    ----------
+    Volume is the exact revolution ``pi * closed_integral(R^2 dZ)``, not Pappus's
+    approximation, so it is right even for a contour whose centroid is far from
+    its geometric centre. Area is the shoelace formula and surface is
+    ``closed_integral 2*pi*R dl``.
+
+    Elongation and both triangularities are taken against the geometric centre
+    ``(R_out + R_in)/2``, which is what the IMAS data dictionary reports for the
+    boundary. Positive triangularity means the extremum of height sits inboard of
+    that centre. The extremum's major radius comes from
+    :func:`r_at_z_extremum` rather than from the nearest vertex.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Assumes one simple closed contour; a self-intersecting or open segment gives
+    a signed area that does not mean what the formulas take it to mean. Every
+    quantity is only as accurate as the contour's sampling.
+
+    Provenance
+    ----------
+    .. [1] IMAS data dictionary definitions for the boundary's geometric axis and
+       triangularity, which fix the centre these are measured against.
+    .. [2] The exact revolution volume is
+       :func:`vaft.formula.equilibrium.exact_volume_from_RZ_contour`.
     """
     from vaft.formula.equilibrium import exact_volume_from_RZ_contour
 
@@ -1118,12 +1846,43 @@ def contour_shape_parameters(r_seg: np.ndarray, z_seg: np.ndarray) -> dict[str, 
 
 
 def r_at_z_extremum(r_seg: np.ndarray, z_seg: np.ndarray, *, upper: bool) -> float:
-    """R where the contour reaches its highest (or lowest) point.
+    """Major radius where a contour reaches its highest or lowest point.
 
-    Taking R at the sampled vertex of extreme Z is off by several percent in
-    triangularity, because the true extremum falls between vertices. Fitting a
-    parabola to Z over the three points around it locates the extremum to
-    sub-vertex resolution, and R is interpolated there.
+    Parameters
+    ----------
+    r_seg : array_like
+        Major radius of the contour points [m].
+    z_seg : array_like
+        Height of the contour points [m].
+    upper : bool
+        ``True`` for the highest point, ``False`` for the lowest [-].
+
+    Returns
+    -------
+    float
+        The major radius at that extremum [m].
+
+    Convention
+    ----------
+    Sub-vertex, not nearest-vertex. Taking the major radius at the sampled vertex
+    of extreme height is off by several percent in triangularity, because the true
+    extremum falls between vertices. A parabola is fitted to height over the three
+    points around the extreme vertex, and the major radius is interpolated there.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Falls back to the extreme vertex itself for a contour of fewer than three
+    points. The parabola is local, so a contour sampled too coarsely to resolve
+    its own curvature near the extremum is still limited by that sampling.
+
+    Provenance
+    ----------
+    .. [1] Consumed by :func:`contour_shape_parameters` for both triangularities,
+       which is where the several-percent error would otherwise land.
     """
     r_seg = np.asarray(r_seg, dtype=float).reshape(-1)
     z_seg = np.asarray(z_seg, dtype=float).reshape(-1)
@@ -1225,50 +1984,102 @@ def flux_surface_quantities(
     boundary: tuple[np.ndarray, np.ndarray] | None = None,
     min_points: int = MIN_FLUX_SURFACE_POINTS,
 ) -> dict[str, np.ndarray]:
-    r"""Flux-surface averages and shape, on each normalized-psi level.
+    """Flux-surface averages and shape parameters on each normalized flux level.
 
-    ``psi_grid`` must be in **weber per radian** and shaped ``(len(R), len(Z))``,
-    matching :func:`extract_flux_surface_contours`. ``psi_axis`` and
-    ``psi_boundary`` are in the same unit as ``psi_grid`` only insofar as they
-    normalize it -- the normalization is scale-free, but the ``|grad psi|`` that
-    weights the averages is not, which is why the per-radian contract matters.
+    Parameters
+    ----------
+    psi_grid : array_like
+        Poloidal flux on the grid, indexed ``(R, Z)``, **per radian** [Wb/rad].
+    R : array_like
+        Major-radius grid axis [m].
+    Z : array_like
+        Height grid axis [m].
+    psi_axis : float
+        Poloidal flux on the magnetic axis [Wb/rad].
+    psi_boundary : float
+        Poloidal flux at the boundary [Wb/rad].
+    levels_norm : sequence of float
+        Normalized flux levels to evaluate on, 0 on axis and 1 at the boundary
+        [-].
+    f_profile : array_like, optional
+        Poloidal current function ``F = R B_phi`` on the same levels. Required for
+        the mean square field [T m].
+    axis_rz : tuple of float, optional
+        Magnetic axis position, used to pick the confined segment when a level
+        traces several [m].
+    boundary : tuple of np.ndarray, optional
+        Boundary outline to use at the outermost level instead of tracing it [m].
+    min_points : int, optional
+        Fewest contour vertices a level needs before it is treated as resolved
+        [-].
 
-    The flux-surface average weights by the volume element,
+    Returns
+    -------
+    dict of str to np.ndarray
+        One array per name in :data:`FLUX_SURFACE_QUANTITIES`, each as long as
+        *levels_norm*. Volume in cubic metres, areas in square metres, radii and
+        ``length_pol`` in metres, ``bp_dl`` in tesla-metre, ``gm1`` in inverse
+        square metres, ``gm5`` in tesla squared, ``gm8`` in metres, ``gm9`` in
+        inverse metres, the shape parameters dimensionless, and the two
+        derivatives per radian [-].
+
+    Convention
+    ----------
+    **Per radian.** The normalization by axis and boundary flux is scale-free, but
+    the flux gradient that weights every average is not, which is why the
+    per-radian contract matters. ``dvolume_dpsi`` and ``darea_dpsi`` are likewise
+    per radian; a caller storing them against a weber flux divides by ``2*pi``.
+
+    The average weights by the volume element,
     ``<X> = closed_integral(X R dl / |grad psi|) / closed_integral(R dl / |grad psi|)``,
-    ``bp_dl`` is ``closed_integral(B_p dl)`` and ``length_pol`` the poloidal
-    perimeter; the first is what ``int(B_p^2 dV)`` needs, since the volume
-    element cancels one power of ``B_p``.
+    giving ``gm1 = <1/R^2>``, ``gm8 = <R>``, ``gm9 = <1/R>`` and, with
+    *f_profile*, ``gm5 = <B^2>`` from ``|B|^2 = (|grad psi|^2 + F^2)/R^2``.
+    ``bp_dl`` is instead the plain contour integral of the poloidal field, which is
+    what an integral of that field squared over volume needs, since the volume
+    element cancels one power of it. The flux map is indexed major radius first,
+    matching :func:`extract_flux_surface_contours`.
 
-    so ``gm1 = <1/R^2>``, ``gm8 = <R>``, ``gm9 = <1/R>`` and, when ``f_profile``
-    supplies ``F = R B_phi`` on the same levels, ``gm5 = <B^2>`` with
-    ``|B|^2 = (|grad psi|^2 + F^2) / R^2``. ``dvolume_dpsi`` and ``darea_dpsi``
-    are per radian; a caller storing them against a weber psi divides by 2*pi.
+    Processing steps
+    ----------------
+    1. Trace the contour at each level, taking the confined segment when several
+       are returned, and substituting the supplied outline at the boundary.
+    2. Form the averages and the shape parameters on each resolved contour.
+    3. Return NaN for a level whose contour is missing or below *min_points*, then
+       fill those by interpolation against the square root of the normalized flux,
+       the coordinate in which near-axis geometry is linear.
+    4. Set the on-axis level to its exact point limits.
 
-    ``axis_rz`` selects the confined segment when a level returns several (see
-    :func:`_enclosing_segment`); ``boundary`` replaces the traced contour at
-    ``levels_norm == 1``, which is both exact and cheaper when the ODS already
-    carries ``boundary.outline``.
+    Defaults
+    --------
+    ``min_points`` is a numerical convenience tied to what a flux map can resolve;
+    see :data:`MIN_FLUX_SURFACE_POINTS` for the measurement behind its value.
 
-    End points. Levels whose contour is missing or below ``min_points`` come back
-    as NaN and are then filled by interpolation against ``sqrt(psi_N)``, the
-    coordinate in which near-axis geometry is linear. At ``levels_norm == 0`` the
-    surface is a point: ``volume``, ``area`` and ``surface`` are exactly 0,
-    ``gm1 -> 1/R_axis^2``, ``gm8 -> R_axis``, ``gm9 -> 1/R_axis`` and
-    ``r_inboard = r_outboard = R_axis``; the shape parameters and the two
-    derivatives are undefined there and are extrapolated from the innermost
-    resolved surface.
+    Applicability
+    -------------
+    Machine-independent.
 
-    The innermost one or two levels are the least accurate everywhere, because
-    ``|grad psi|`` is small and varies fastest there. That is a property of the
-    map, not of this routine: on the packaged OMFIT reference the *stored*
-    ``dvolume_dpsi`` runs 8.53, 22.85, 29.59, 29.05, 28.85 from the axis out --
-    a ramp that cannot be physical, since ``dV/dpsi`` approaches a finite limit
-    -- while the trace here gives a smooth 30.8, 29.3, 29.3. Compare against a
-    reference only outside ``psi_N ~ 0.05``, and check the near-axis values
-    against ``int dV/dpsi = V`` instead.
+    Limitations
+    -----------
+    The innermost one or two levels are the least accurate everywhere, because the
+    flux gradient is small and varies fastest there. That is a property of the map,
+    not of this routine: on the packaged OMFIT reference the *stored*
+    ``dvolume_dpsi`` runs 8.53, 22.85, 29.59, 29.05, 28.85 from the axis out, a
+    ramp that cannot be physical since the derivative approaches a finite limit,
+    while the trace here gives a smooth 30.8, 29.3, 29.3. Compare against a
+    reference only outside a normalized flux of about 0.05, and check the
+    near-axis values against the integral of the derivative recovering the volume
+    instead.
 
-    Returns a dict over :data:`FLUX_SURFACE_QUANTITIES`, each an array as long as
-    ``levels_norm``.
+    On axis the surface is a point: the volume, area and surface are exactly zero
+    and the three geometric averages take their axis limits, but the shape
+    parameters and the two derivatives are undefined there and are extrapolated
+    from the innermost resolved surface.
+
+    Provenance
+    ----------
+    .. [1] The flux-surface average as the IMAS data dictionary defines the ``gm``
+       family, and the same contour extraction
+       :func:`extract_flux_surface_contours` provides.
     """
     psi_grid = np.asarray(psi_grid, dtype=float)
     R = np.asarray(R, dtype=float).reshape(-1)
@@ -1399,6 +2210,106 @@ def flux_surface_quantities(
     return out
 
 
+def equilibrium_field_on_grid(
+    R_grid_1d: np.ndarray,
+    Z_grid_1d: np.ndarray,
+    psi_grid: np.ndarray,
+    psi_1d: np.ndarray,
+    f_1d: np.ndarray,
+    cocos=None,
+):
+    """``(B_R, B_Z, B_phi)`` on the whole ``(R, Z)`` grid, each ``(nR, nZ)``.
+
+    The vectorised twin of :func:`make_equilibrium_field_interpolator`, for a
+    caller that wants the field everywhere rather than at a point: the same
+    bicubic psi spline, the same Sauter Eq. 20 prefactor, and the same
+    ``F(psi)/R`` with ``F`` clipped to the profile's own range outside the
+    confined region.  Evaluating the point interpolator over a 129x129 grid
+    would be sixteen thousand Python calls; this is one spline evaluation.
+
+    Parameters
+    ----------
+    R_grid_1d, Z_grid_1d : array_like
+        Grid axes [m].
+    psi_grid : array_like
+        Poloidal flux on ``(len(R), len(Z))``, in the convention ``cocos``
+        describes [Wb or Wb/rad].
+    psi_1d, f_1d : array_like
+        ``profiles_1d.psi`` and ``profiles_1d.f`` [same psi unit; T m].
+    cocos : int or None, optional
+        COCOS index of *psi_grid*. ``None`` keeps the historical
+        weber-per-radian form [-].
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        ``(B_R, B_Z, B_phi)``, each shaped ``(len(R), len(Z))`` [T].
+
+    Raises
+    ------
+    ValueError
+        The flux map is not shaped to the two grid axes, or the two profile
+        arrays have different lengths.
+
+    Convention
+    ----------
+    The same prefactor as :func:`make_equilibrium_field_interpolator`, per
+    Sauter Eq. 20: ``B_R = k (1/R) dpsi/dZ`` and ``B_Z = -k (1/R) dpsi/dR``
+    with ``k = sigma_RphiZ * sigma_Bp / (2*pi)**e_Bp``, so *psi_grid* must be
+    stored in the convention *cocos* names and a weber-stored flux can be
+    corrected only through that index. The toroidal field is the poloidal
+    current function over the major radius and inherits the sign of *f_1d*.
+    The flux map is indexed major radius first.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Outside the confined region the poloidal current function clips to its
+    nearest edge value, the clip-and-interpolate convention
+    :func:`psi_to_rz` uses, so the toroidal field there is that clipped
+    function over the major radius rather than the true vacuum field. The
+    spline extrapolates beyond the grid, where the field should not be read.
+
+    Provenance
+    ----------
+    .. [1] Sauter and Medvedev (2013), Eq. 20, for the prefactor.
+    .. [2] The point-wise twin :func:`make_equilibrium_field_interpolator` in
+       this module, which this routine is pinned to by test.
+    """
+    from vaft.formula.equilibrium import poloidal_field_factor
+
+    R_grid_1d = np.asarray(R_grid_1d, dtype=float).reshape(-1)
+    Z_grid_1d = np.asarray(Z_grid_1d, dtype=float).reshape(-1)
+    psi_grid = np.asarray(psi_grid, dtype=float)
+    if psi_grid.shape != (R_grid_1d.size, Z_grid_1d.size):
+        raise ValueError(
+            f"psi_grid shape {psi_grid.shape} must equal "
+            f"(len(R_grid_1d), len(Z_grid_1d)) = {(R_grid_1d.size, Z_grid_1d.size)}."
+        )
+    psi_1d = np.asarray(psi_1d, dtype=float).reshape(-1)
+    f_1d = np.asarray(f_1d, dtype=float).reshape(-1)
+    if psi_1d.size != f_1d.size:
+        raise ValueError("psi_1d and f_1d must have the same length.")
+
+    order = np.argsort(psi_1d)
+    psi_sorted, f_sorted = psi_1d[order], f_1d[order]
+    spline = RectBivariateSpline(R_grid_1d, Z_grid_1d, psi_grid)
+    grid_r = R_grid_1d[:, None] * np.ones_like(Z_grid_1d)[None, :]
+    k = poloidal_field_factor(cocos)
+
+    dpsi_dr = spline(R_grid_1d, Z_grid_1d, dx=1, dy=0)
+    dpsi_dz = spline(R_grid_1d, Z_grid_1d, dx=0, dy=1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        b_r = k * dpsi_dz / grid_r
+        b_z = -k * dpsi_dr / grid_r
+        psi_here = np.clip(spline(R_grid_1d, Z_grid_1d), psi_sorted[0], psi_sorted[-1])
+        b_tor = np.interp(psi_here, psi_sorted, f_sorted) / grid_r
+    return b_r, b_z, b_tor
+
+
 def make_equilibrium_field_interpolator(
     R_grid_1d: np.ndarray,
     Z_grid_1d: np.ndarray,
@@ -1407,23 +2318,66 @@ def make_equilibrium_field_interpolator(
     f_1d: np.ndarray,
     cocos=None,
 ):
-    """Build a callable ``(R, Z) -> (B_R, B_Z, B_phi)`` for one equilibrium time slice.
+    """Build a callable giving the full magnetic field anywhere on one time slice.
 
-    Same convention handling as :func:`poloidal_field_at_boundary`, via Sauter
-    Eq. 20: ``B_R = k (1/R) dPsi/dZ``, ``B_Z = -k (1/R) dPsi/dR`` with
-    ``k = sigma_RphiZ sigma_Bp / (2*pi)**e_Bp`` (from a bicubic spline
-    over the 2D psi grid, built once and reused for every evaluation), and
-    ``B_phi = F(psi)/R`` with ``F = R*B_phi`` interpolated from
-    ``profiles_1d.{psi, f}`` (``psi_1d``, ``f_1d``). ``psi_grid`` must be
-    shaped ``(len(R_grid_1d), len(Z_grid_1d))``, matching
-    :func:`extract_flux_surface_contours`.
+    Parameters
+    ----------
+    R_grid_1d : array_like
+        Major-radius grid axis [m].
+    Z_grid_1d : array_like
+        Height grid axis [m].
+    psi_grid : array_like
+        Poloidal flux on the grid, indexed ``(R, Z)`` [Wb/rad].
+    psi_1d : array_like
+        Flux abscissa the poloidal current function is given on [Wb/rad].
+    f_1d : array_like
+        Poloidal current function ``F = R*B_phi`` on that abscissa [T m].
+    cocos : int, optional
+        COCOS index of *psi_grid*. ``None`` keeps the historical
+        weber-per-radian form [-].
 
-    ``F(psi)`` is only defined over ``psi_1d`` (axis to boundary); points
-    outside that range (e.g. beyond the LCFS, in the scrape-off layer) clip to
-    the nearest edge value of ``F`` -- the same clip-and-interpolate
-    convention already used by :func:`psi_to_rz`. This is an approximation
-    for field lines that leave the confined region: the toroidal field there
-    is treated as this clipped ``F(psi)/R`` rather than the true vacuum field.
+    Returns
+    -------
+    callable
+        A function of ``(R, Z)`` returning ``(B_R, B_Z, B_phi)`` [T].
+
+    Raises
+    ------
+    ValueError
+        The flux map is not shaped to the two grid axes.
+
+    Convention
+    ----------
+    Same prefactor as :func:`poloidal_field_at_boundary`, per Sauter Eq. 20:
+    ``B_R = k (1/R) dpsi/dZ`` and ``B_Z = -k (1/R) dpsi/dR``, with
+    ``k = sigma_RphiZ * sigma_Bp / (2*pi)**e_Bp``. The toroidal field is the
+    poloidal current function over the major radius. The flux map is indexed major
+    radius first, matching :func:`extract_flux_surface_contours`.
+
+    Unlike :func:`poloidal_field_at_boundary`, this takes **only** the COCOS index
+    and no separate per-radian flag, so a weber-stored flux can be corrected here
+    only through the index. Supplying neither leaves the field too large by
+    ``2*pi``.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The poloidal current function is defined only from axis to boundary. Points
+    outside that range, in the scrape-off layer, clip to the nearest edge value,
+    the same clip-and-interpolate convention :func:`psi_to_rz` uses. That is an
+    approximation for a field line that leaves the confined region: the toroidal
+    field there is this clipped function over the major radius rather than the
+    true vacuum field. The spline is built once over the whole map and reused, so
+    evaluation is cheap but the map must not change.
+
+    Provenance
+    ----------
+    .. [1] Sauter and Medvedev (2013), Eq. 20, for the prefactor.
+    .. [2] The clip-and-interpolate convention of :func:`psi_to_rz`, kept
+       deliberately the same.
     """
     R_grid_1d = np.asarray(R_grid_1d, dtype=float).reshape(-1)
     Z_grid_1d = np.asarray(Z_grid_1d, dtype=float).reshape(-1)
@@ -1478,31 +2432,82 @@ def trace_field_line(
     r_bounds: tuple[float, float] | None = None,
     z_bounds: tuple[float, float] | None = None,
 ) -> dict[str, Any]:
-    """Trace a magnetic field line from ``(R0, Z0, phi0)`` using the equilibrium field.
+    """Trace one magnetic field line through the equilibrium field.
 
-    Integrates ``dR/dphi = R*B_R/B_phi``, ``dZ/dphi = R*B_Z/B_phi`` with
-    classic fixed-step 4th-order Runge-Kutta (RK4) in the toroidal angle
-    ``phi``, using ``dphi`` (radians) as the step size. ``b_field`` is a
-    callable ``(R, Z) -> (B_R, B_Z, B_phi)``, e.g. from
-    :func:`make_equilibrium_field_interpolator`.
+    Parameters
+    ----------
+    R0 : float
+        Starting major radius [m].
+    Z0 : float
+        Starting height [m].
+    phi0 : float
+        Starting toroidal angle [rad].
+    b_field : callable
+        A function of ``(R, Z)`` returning ``(B_R, B_Z, B_phi)``, normally from
+        :func:`make_equilibrium_field_interpolator` [-].
+    dphi : float, optional
+        Fixed step in toroidal angle [rad].
+    max_length_m : float, optional
+        Path length at which to stop [m].
+    direction : str, optional
+        ``"forward"``, ``"backward"``, or ``"both"`` for the two branches joined
+        at the start point [-].
+    wall_r : array_like, optional
+        Major radius of the limiting polygon [m].
+    wall_z : array_like, optional
+        Height of the limiting polygon [m].
+    r_bounds : tuple of float, optional
+        Major-radius range outside which to stop [m].
+    z_bounds : tuple of float, optional
+        Height range outside which to stop [m].
 
-    ``direction`` is ``"forward"`` (increasing phi, default), ``"backward"``
-    (decreasing phi), or ``"both"`` (both branches concatenated, anchored at
-    the start point).
+    Returns
+    -------
+    dict of str to Any
+        ``phi`` in radians, ``R`` and ``Z`` in metres, ``arc_length_m`` in metres,
+        and ``termination_reason`` as a string [-].
 
-    Terminates when any of the following is hit first: the traced point
-    leaves the ``(wall_r, wall_z)`` limiter polygon (if given), the
-    cumulative 3D arc length exceeds ``max_length_m``, the point leaves
-    ``r_bounds``/``z_bounds`` (if given -- a safety net against extrapolating
-    far outside the equilibrium grid), or ``B_phi`` is (numerically) zero.
-    The stopping reason is reported in the returned ``termination_reason``.
+    Processing steps
+    ----------------
+    1. Integrate ``dR/dphi = R*B_R/B_phi`` and ``dZ/dphi = R*B_Z/B_phi`` by
+       fixed-step fourth-order Runge-Kutta in the toroidal angle.
+    2. After each step, test the termination conditions in order: leaving the
+       limiting polygon, exceeding the path length, leaving the coordinate
+       bounds, or a numerically zero toroidal field.
+    3. For ``"both"``, trace each branch and concatenate them anchored at the
+       start.
 
-    Returns a dict with ``phi``, ``R``, ``Z`` (1D arrays, meters/radians, in
-    increasing-phi order regardless of ``direction``), ``arc_length_m``
-    (meters, monotonically increasing from ``0.0`` at the first returned
-    point to the total path length at the last -- i.e. cumulative distance
-    along the array in its returned order, not distance from ``phi0``), and
-    ``termination_reason``.
+    Convention
+    ----------
+    The toroidal angle is the integration variable, not path length or time,
+    which is why a vanishing toroidal field terminates the trace rather than
+    slowing it. Points are always returned in order of increasing angle whatever
+    the direction traced. The arc length is cumulative along the returned array
+    from zero at its first point, so for ``"both"`` it measures from the backward
+    end and not from the start point.
+
+    Defaults
+    --------
+    The one-degree step and the fifty-metre limit are numerical conveniences:
+    fine enough to resolve a tokamak field line's pitch, and long enough to reach
+    a wall from anywhere inside a small machine.
+
+    Applicability
+    -------------
+    Machine-independent. The wall polygon is where a machine's own geometry
+    enters, and it is supplied by the caller.
+
+    Limitations
+    -----------
+    Fixed step, so accuracy is set by the step alone and there is no error
+    control; a line near a separatrix, where the pitch changes fastest, is the
+    least accurate. Terminating on the coordinate bounds is a safety net against
+    extrapolating far outside the equilibrium grid, not a physical condition.
+
+    Provenance
+    ----------
+    .. [1] The field-line equations in toroidal-angle form; the field itself comes
+       from :func:`make_equilibrium_field_interpolator`.
     """
     if direction not in ("forward", "backward", "both"):
         raise ValueError("direction must be 'forward', 'backward', or 'both'.")
@@ -1672,8 +2677,8 @@ def parallel_current_from_toroidal(
     interchangeable, and in a spherical tokamak they differ by tens of percent
     because ``<B^2>`` is much larger than ``B0^2``.
 
-    Assumption
-    ----------
+    Assumptions
+    -----------
     The driven current is **field-aligned on each flux surface**,
     ``J = lambda(psi) B``. This is the usual statement for a current driven by
     parallel momentum input -- beams, EC, LH -- and it is what makes the
@@ -1682,8 +2687,8 @@ def parallel_current_from_toroidal(
     Pfirsch-Schlueter) part, so a caller converting a *total* plasma current
     with this routine will see that part as a residual.
 
-    Derivation
-    ----------
+    Notes
+    -----
     With ``J = lambda B`` and ``B_phi = F/R``, the toroidal current through a
     shell is ``dI = lambda * int B_phi dA``. Writing the poloidal area element
     as ``dA = dV / (2 pi R)`` turns that integral into flux-surface averages::
@@ -1700,11 +2705,12 @@ def parallel_current_from_toroidal(
     Parameters
     ----------
     shell_current_tor : array_like
-        Toroidal current in each flux shell [A]. Not the enclosed profile: pass
-        ``numpy.diff`` of an enclosed one.
+        Toroidal current in each flux shell [A].
+        Not the enclosed profile: pass ``numpy.diff`` of an enclosed one.
     f : array_like
-        ``F = R B_phi`` at the shell centres [T.m]. A profile, not a constant:
-        a paramagnetic plasma can carry an F well above its vacuum value.
+        ``F = R B_phi`` at the shell centres [T.m].
+        A profile, not a constant: a paramagnetic plasma can carry an F well
+        above its vacuum value.
     gm1 : array_like
         Flux-surface-averaged ``<R^-2>`` at the shell centres [m^-2].
     gm5 : array_like
@@ -1712,20 +2718,20 @@ def parallel_current_from_toroidal(
     shell_volume : array_like
         Volume of each shell [m^3].
     b0 : float
-        The vacuum toroidal field IMAS normalizes by [T]. For a
-        ``core_sources`` consumer this is ``vacuum_toroidal_field.b0`` of that
-        IDS, which the data dictionary names explicitly in the definition of
-        ``j_parallel``.
+        The vacuum toroidal field IMAS normalizes by [T].
+        For a ``core_sources`` consumer this is ``vacuum_toroidal_field.b0`` of
+        that IDS, which the data dictionary names explicitly in the definition
+        of ``j_parallel``.
     shell_area : array_like, optional
-        Cross-sectional area of each shell [m^2]. Supplying it also returns
-        ``current_parallel_inside``, the cumulative surface integral of
-        ``j_parallel``.
+        Cross-sectional area of each shell [m^2].
+        Supplying it also returns ``current_parallel_inside``, the cumulative
+        surface integral of ``j_parallel``.
 
     Returns
     -------
     ParallelCurrentResult
-        ``j_parallel`` and, when *shell_area* was given,
-        ``current_parallel_inside``, plus the intermediates.
+        ``j_parallel`` in A/m^2 and, when *shell_area* was given,
+        ``current_parallel_inside`` in A, plus the intermediates [-].
 
     Applicability
     -------------
@@ -1749,9 +2755,9 @@ def parallel_current_from_toroidal(
 
     Provenance
     ----------
-    IMAS definitions read from the data dictionary: ``j_parallel`` is
-    ``average(J.B)/B0`` and ``current_parallel_inside`` its cumulative surface
-    integral.
+    .. [1] IMAS definitions read from the data dictionary: ``j_parallel`` is
+       ``average(J.B)/B0`` and ``current_parallel_inside`` its cumulative
+       surface integral.
     """
     dI = np.asarray(shell_current_tor, dtype=float)
     f_arr = np.asarray(f, dtype=float)
@@ -1816,21 +2822,48 @@ class GradShafranovResidual:
 
 
 def grad_shafranov_operator(psi: Any, r: Any, z: Any) -> np.ndarray:
-    r"""The Grad-Shafranov elliptic operator on a rectangular ``(R, Z)`` grid.
+    """The Grad-Shafranov elliptic operator on a rectangular grid.
 
-    .. math::
-        \Delta^\* \psi = R\,\frac{\partial}{\partial R}
-            \left(\frac{1}{R}\frac{\partial \psi}{\partial R}\right)
-            + \frac{\partial^2 \psi}{\partial Z^2}
-        = \frac{\partial^2\psi}{\partial R^2}
-            - \frac{1}{R}\frac{\partial\psi}{\partial R}
-            + \frac{\partial^2\psi}{\partial Z^2}
+    Parameters
+    ----------
+    psi : array_like
+        Poloidal flux on the grid, indexed ``(R, Z)`` [Wb/rad].
+    r : array_like
+        Major-radius grid axis [m].
+    z : array_like
+        Height grid axis [m].
 
-    ``psi`` is indexed ``(R, Z)``, the orientation EFIT-sourced ODSs store.
+    Returns
+    -------
+    np.ndarray
+        The operator applied to the flux, on the same grid [Wb/(rad m^2)].
 
-    Second-order central differences, one-sided at the edges.  The outermost two
-    cells inherit that lower accuracy, so callers comparing against a source term
-    should ignore the frame -- :func:`grad_shafranov_residual` does.
+    Raises
+    ------
+    ValueError
+        The flux is not indexed ``(R, Z)`` with the given axes.
+
+    Convention
+    ----------
+    ``Delta* psi = d2psi/dR2 - (1/R) dpsi/dR + d2psi/dZ2``, the axisymmetric
+    elliptic operator whose source is the Grad-Shafranov right-hand side. The flux
+    is indexed major radius first, the orientation an EFIT-sourced ODS stores.
+    The result scales with the flux unit, so it is per radian for a per-radian
+    flux; comparing it against a source term requires both in the same convention.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Second-order central differences, one-sided at the edges, so the outermost two
+    cells inherit that lower accuracy. A caller comparing against a source term
+    should ignore that frame, as :func:`grad_shafranov_residual` does.
+
+    Provenance
+    ----------
+    .. [1] The Grad-Shafranov equation in its standard axisymmetric form.
     """
     psi = np.asarray(psi, dtype=float)
     r = np.asarray(r, dtype=float).ravel()
@@ -1865,35 +2898,87 @@ def grad_shafranov_residual(
     psi_norm_max: float = 0.99,
     edge_cells: int = 2,
 ) -> GradShafranovResidual:
-    r"""Residual of :math:`\Delta^\*\psi + \mu_0 R^2 p' + FF'`, reduced along psi.
+    """How far an equilibrium is from satisfying its own force balance, surface by surface.
 
-    The Grad-Shafranov equation states that an equilibrium's flux map and its own
-    ``p'`` and ``FF'`` profiles are not independent.  Evaluating both sides on the
-    stored grid says how well a *particular* reconstruction closed it, which is a
-    different and stricter question than whether a solver's iteration converged --
-    the number EFIT reports as its "Grad-Shafranov error" is the latter.
+    The Grad-Shafranov equation says a flux map and its own pressure and poloidal
+    current gradients are not independent. Evaluating both sides on the stored grid
+    says how well a *particular* reconstruction closed it, which is a different and
+    stricter question than whether a solver's iteration converged. The number EFIT
+    reports as its Grad-Shafranov error is the latter.
 
-    **Every flux quantity here must be per-radian** (Wb/rad, COCOS 1-8).  The
-    textbook equation takes this form only in that convention: rescaling psi to
-    full weber multiplies the left side by 2*pi and divides each right-hand
-    derivative by it, so the two sides move apart by ``(2*pi)**2``.  Callers
-    holding a DD-conformant ODS should convert first; the ODS wrapper
+    Parameters
+    ----------
+    psi : array_like
+        Poloidal flux on the grid, indexed ``(R, Z)`` [Wb/rad].
+    r : array_like
+        Major-radius grid axis [m].
+    z : array_like
+        Height grid axis [m].
+    psi_1d : array_like
+        Flux abscissa the two source profiles are given on [Wb/rad].
+    pprime : array_like
+        Pressure gradient against flux [Pa rad/Wb].
+    ffprime : array_like
+        Poloidal current term's gradient against flux [T^2 m^2 rad/Wb].
+    psi_axis : float, optional
+        Poloidal flux on the magnetic axis [Wb/rad].
+    psi_boundary : float, optional
+        Poloidal flux at the boundary [Wb/rad].
+    boundary_r : array_like, optional
+        Major radius of the separatrix, used to exclude vacuum points [m].
+    boundary_z : array_like, optional
+        Height of the separatrix [m].
+    n_surfaces : int, optional
+        How many flux surfaces to reduce the residual onto [-].
+    psi_norm_max : float, optional
+        Outermost normalized flux included [-].
+    edge_cells : int, optional
+        Grid cells framed off the border, where the stencil is one-sided [-].
+
+    Returns
+    -------
+    GradShafranovResidual
+        The residual reduced along the flux coordinate, with the normalization it
+        was scaled by and the point count that survived the masks [-].
+
+    Raises
+    ------
+    ValueError
+        The three profiles are not the same length, or no grid point survives the
+        boundary, the flux-range trim, and the edge frame together.
+
+    Convention
+    ----------
+    **Every flux quantity here must be per radian**, COCOS 1 to 8. The textbook
+    equation takes this form only in that convention: rescaling to full weber
+    multiplies the left side by ``2*pi`` and divides each right-hand derivative by
+    it, so the two sides move apart by ``(2*pi)**2``. A caller holding a
+    dictionary-conformant ODS converts first; the wrapper
     :func:`vaft.omas.compute_grad_shafranov_residual` does it for them.
 
-    ``pprime`` and ``ffprime`` are sampled against ``psi_1d`` and interpolated
-    onto the grid through psi itself, so the residual is only meaningful where
-    those profiles are the equilibrium's own.  **Pass ``boundary_r``/
-    ``boundary_z``**: outside the separatrix psi is not monotonic -- it folds
-    back into ``[0, 1]`` near the poloidal field coils -- so a psi-value cutoff
-    alone re-admits vacuum points where ``p'`` and ``FF'`` are extrapolation and
-    ``Delta* psi`` is reading coil current.  On a free-boundary EFIT grid that
-    is a third of the points and two orders of magnitude of spurious residual,
-    and it does not affect a fixed-boundary grid at all, so a comparison of the
-    two without it is not comparing like with like.
+    Applicability
+    -------------
+    Machine-independent.
 
-    ``psi_norm_max`` then trims the last sliver inside the separatrix, where the
-    profiles flatten and the contour is least resolved, and ``edge_cells`` frames
-    off the grid border where the difference stencil is one-sided.
+    Limitations
+    -----------
+    The two source profiles are interpolated onto the grid through the flux
+    itself, so the residual is meaningful only where they are the equilibrium's
+    own.
+
+    **Pass the boundary.** Outside the separatrix the flux is not monotonic; it
+    folds back into the normalized range near the poloidal field coils, so a
+    flux-value cutoff alone re-admits vacuum points where the two profiles are
+    extrapolation and the operator is reading coil current. On a free-boundary
+    grid that is a third of the points and two orders of magnitude of spurious
+    residual, and it does not affect a fixed-boundary grid at all, so comparing
+    the two without it is not comparing like with like.
+
+    Provenance
+    ----------
+    .. [1] The Grad-Shafranov equation; the operator is
+       :func:`grad_shafranov_operator` and the source term is formed from the two
+       profiles the equilibrium stores.
     """
     psi = np.asarray(psi, dtype=float)
     r = np.asarray(r, dtype=float).ravel()

@@ -69,7 +69,16 @@ class IdealGPECOptions:
     :data:`vaft.machine_mapping.conventions.VEST_GPEC_COIL_DIRECTIONS`.  For
     any other machine ``coil_config`` (name -> ``CoilSet3D``), ``ip_direction``
     and ``bt_direction`` are all required: they are machine facts, never
-    inherited from a template.
+    inherited from a template.  Derive the direction words from the machine's
+    sign contract with
+    :func:`vaft.machine_mapping.conventions.gpec_coil_directions` rather than
+    writing the pair by hand.
+
+    These four sit here rather than on :class:`GPECSuiteConfig`, next to
+    ``coil_data_dir``, because only the ideal-GPEC stage consumes them and
+    ``__post_init__`` validates them as one group: DCON, RDCON and STRIDE
+    never see a coil.  Move them up only if a stability module starts needing
+    the machine word.
     """
 
     coil_flag: bool = True

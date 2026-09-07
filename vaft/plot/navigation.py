@@ -202,6 +202,8 @@ class ControlState:
             value = self._values.get(control.name)
             if control.group == "style" or value is None or value == "none" or value == ():
                 continue
+            if not self._applies(control):
+                continue
             options[control.name] = value
         if options.get("channels"):
             options["selection"] = list(options.pop("channels"))
@@ -212,8 +214,22 @@ class ControlState:
         return {
             control.name: self._values[control.name]
             for control in self._controls
-            if control.group == "style" and self._values.get(control.name) is not None
+            if control.group == "style"
+            and self._values.get(control.name) is not None
+            and self._applies(control)
         }
+
+    def _applies(self, control: Any) -> bool:
+        """Whether ``control`` bears on what the other controls currently say.
+
+        A control may declare ``applies_to={"field": ("psi",)}``: while the
+        field control reads something else, its value is not sent to the
+        builder at all, rather than being refused there (issue #483).
+        """
+        for name, accepted in (getattr(control, "applies_to", None) or {}).items():
+            if name in self._values and self._values[name] not in accepted:
+                return False
+        return True
 
     def subscribe(self, callback: Callable[["ControlState"], Any]) -> Callable[[], None]:
         """Call ``callback(state)`` after every change; returns an unsubscribe."""

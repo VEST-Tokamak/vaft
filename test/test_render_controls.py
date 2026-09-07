@@ -213,7 +213,7 @@ def test_interactive_true_on_a_plot_adapter_returns_the_controls_of_its_record(s
 
 def test_slice_indexed_plots_offer_the_stored_slices(sample):
     psi = vaft.omas.plot_equilibrium_field_psi(sample, interactive=True, interaction_backend="none")
-    assert [c.name for c in psi.controls] == ["time_slice", "units", "style"]
+    assert [c.name for c in psi.controls] == ["time_slice", "units", "overlay", "style"]
     slices = psi.controls[0]
     record = next(r for r in vaft.omas.available_plots(sample) if r.name == "equilibrium_field_psi")
     assert slices.options == tuple(record.slices["usable"]) and slices.default == record.slices["selected"]

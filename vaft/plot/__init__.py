@@ -200,6 +200,7 @@ from .style import save_figure
 from .renderers.fields import (
     electron_density_field,
     electron_temperature_field,
+    equilibrium_field_2d,
     equilibrium_field_psi,
     equilibrium_field_psi_vacuum,
     passive_structure_field_wall_reduction,

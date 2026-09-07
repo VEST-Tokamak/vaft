@@ -137,7 +137,7 @@ DEPRECATED: dict[str, str] = {
     "plot_equilibrium_and_core_profiles_pressure": "equilibrium_profile_pressure",
     "plot_pressure_profile_with_geqdsk": "equilibrium_profile_pressure",
     # --- vaft.plot.twodim -----------------------------------------------------
-    "equilibrium_2d_profiles": "equilibrium_field_psi",
+    "equilibrium_2d_profiles": "equilibrium_field_2d",
     "vacuum_psi_contour": "equilibrium_field_psi_vacuum",
     "overlay_all_with_vacuum_psi_contour": "equilibrium_field_psi_vacuum",
     "pf_passive_overlay": "passive_structure_geometry_poloidal",

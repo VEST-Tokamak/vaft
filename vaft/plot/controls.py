@@ -12,7 +12,7 @@ imports none.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .display import COORDINATE_LABELS, PSI_STYLES
@@ -60,8 +60,14 @@ class ControlSpec:
     options: tuple[Any, ...] = ()
     labels: tuple[str, ...] = ()
     group: str = "model"
+    #: What another control must read for this one to apply, as
+    #: ``{control name: accepted values}``.  A 2-D map's unit and style
+    #: belong to the flux field; while another field is chosen they are not
+    #: sent to the builder (issue #483).
+    applies_to: Mapping[str, tuple[Any, ...]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "applies_to", dict(self.applies_to))
         if self.kind not in CONTROL_KINDS:
             raise ValueError(f"kind must be one of {', '.join(CONTROL_KINDS)}; got {self.kind!r}")
         if self.group not in CONTROL_GROUPS:
@@ -188,7 +194,11 @@ def _display_controls(record: Any) -> list[ControlSpec]:
         return []
     is_map = "convention" in display
     name = "units" if is_map else "yunit"
-    return [ControlSpec(name, "choice", "Unit", display["unit"], units, group="display")]
+    # These units describe the flux; a map that can draw other quantities
+    # offers them only while the flux is the one drawn (issue #483).
+    fields = tuple((getattr(record, "fields", None) or {}).get("options") or ())
+    applies_to = {"field": ("psi",)} if len(fields) > 1 else {}
+    return [ControlSpec(name, "choice", "Unit", display["unit"], units, group="display", applies_to=applies_to)]
 
 
 def _model_controls(record: Any) -> list[ControlSpec]:
@@ -211,9 +221,26 @@ def _model_controls(record: Any) -> list[ControlSpec]:
             "coordinate", "choice", "Radial coordinate", default, options,
             tuple(_plain(COORDINATE_LABELS.get(name, name)) for name in options),
         ))
+    fields: Mapping[str, Any] = getattr(record, "fields", None) or {}
+    options = tuple(fields.get("options") or ())
+    flux_only: Mapping[str, tuple[Any, ...]] = {}
+    if len(options) > 1:
+        default = fields.get("default") if fields.get("default") in options else options[0]
+        controls.append(ControlSpec("field", "choice", "Field", default, options))
+        # Every field but the flux one is a single filled map in its own unit.
+        flux_only = {"field": ("psi",)}
+    overlays = tuple(getattr(record, "overlays", None) or ())
+    if overlays and record.model in ("Field2D", "GeometryLayers"):
+        from .backend.recipes import overlay_defaults_for
+
+        default = tuple(name for name in overlay_defaults_for(record.name) if name in overlays)
+        controls.append(ControlSpec("overlay", "multi", "Overlays", default, overlays))
     display: Mapping[str, Any] = record.display or {}
     if "convention" in display and record.model in ("Field2D", "Panels") and record.name != "equilibrium_field_psi_vacuum":
-        controls.append(ControlSpec("style", "choice", "Flux map style", PSI_STYLES[0], tuple(PSI_STYLES)))
+        controls.append(ControlSpec(
+            "style", "choice", "Flux map style", PSI_STYLES[0], tuple(PSI_STYLES),
+            applies_to=flux_only,
+        ))
     synthetic: Mapping[str, Any] = record.synthetic or {}
     if synthetic.get("overlay") and synthetic.get("available", True):
         controls.append(ControlSpec("synthetic", "choice", "Reconstruction overlay", NONE, (NONE, "equilibrium", "both")))

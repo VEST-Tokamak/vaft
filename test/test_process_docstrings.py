@@ -31,16 +31,14 @@ from vaft.process._docstring import (
 
 #: Submodules whose functions are not yet documented under the contract.
 #: Sub-issue B (#418): magnetics, electromagnetics, fluctuation.
-#: Sub-issue C (#419): equilibrium, cocos.
+#: Sub-issue C (#419): equilibrium and cocos -- done.
 #: Sub-issue D (#420): profile, atomic -- done.
 #: Sub-issue E (#421): impa, soft_x_rays, langmuir, camera_geometry.
 #: Sub-issue F (#571) removed ``onset`` and ``wall_modes``, which landed
 #: after #252 was scoped -- done.
 PENDING = frozenset({
     "camera_geometry",
-    "cocos",
     "electromagnetics",
-    "equilibrium",
     "fluctuation",
     "impa",
     "langmuir",
@@ -87,6 +85,24 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # equilibrium (#419)
+    "calculate_reconstructed_diamagnetic_flux",
+    "convert_cocos",
+    "derive_global_descriptors",
+    "derive_radial_coordinates",
+    "fit_miller_sequence",
+    "fit_miller_surface",
+    "flux_surface_quantities",
+    "prepare_boundary_for_shafranov",
+    "psi_to_radial",
+    "psi_to_rz",
+    "solve_solovev_constraints",
+    "trace_field_line",
+    # cocos (#419)
+    "validate_cocos",
+    "identify_flux_exponent",
+    "identify_convention",
+    "cocos_consistency_signs",
     # onset / wall_modes (#571)
     "active_window",
     "allocate_per_segment",
@@ -147,6 +163,50 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # equilibrium (#419): every function states a flux unit, a COCOS, a radial
+    # coordinate or a contour orientation; the module is convention work
+    "as_equilibrium",
+    "calculate_average_boundary_poloidal_field",
+    "calculate_diamagnetism",
+    "calculate_reconstructed_diamagnetic_flux",
+    "check_equilibrium_requirements",
+    "computed_diamagnetism_from_phi",
+    "contour_shape_parameters",
+    "convert_cocos",
+    "derive_boundary_representation",
+    "derive_global_descriptors",
+    "derive_radial_coordinates",
+    "efit_virial_volume_integrals",
+    "evaluate_miller",
+    "evaluate_solovev",
+    "extract_flux_surface_contours",
+    "fit_miller_sequence",
+    "fit_miller_surface",
+    "flux_surface_quantities",
+    "fractional_cell_weights_from_boundary",
+    "grad_shafranov_operator",
+    "grad_shafranov_residual",
+    "equilibrium_field_on_grid",
+    "make_equilibrium_field_interpolator",
+    "parallel_current_from_toroidal",
+    "poloidal_field_at_boundary",
+    "prepare_boundary_for_shafranov",
+    "psi_to_radial",
+    "psi_to_rho",
+    "psi_to_rz",
+    "r_at_z_extremum",
+    "radial_to_psi",
+    "rho_to_psi",
+    "shafranov_integrals",
+    "solovev_to_equilibrium",
+    "solve_solovev_constraints",
+    "trace_field_line",
+    "volume_average",
+    # cocos (#419): the module exists to reason about conventions
+    "cocos_consistency_signs",
+    "validate_cocos",
+    "identify_flux_exponent",
+    "identify_convention",
     # onset / wall_modes (#571)
     "active_window",
     "allocate_per_segment",
