@@ -682,6 +682,26 @@ def test_the_free_boundary_verdict_comes_from_the_output_not_the_log(tmp_path):
     assert free_boundary_stable(tmp_path / "absent", name) is None
 
 
+def test_the_verdict_reads_strides_real_valued_attribute(tmp_path):
+    """RDCON's `total1` is COMPLEX, STRIDE's is REAL (`stride/stride_netcdf.f:56`).
+
+    So the attribute round-trips as a 2-element array from one solver and a bare
+    scalar from the other, and both have to decode to the same verdict.
+    """
+    import numpy as np
+    import xarray as xr
+
+    from vaft.code.gpec._solvers import free_boundary_stable
+
+    name = "stride_output_n1.nc"
+    xr.Dataset(
+        {"psi_n": (("psi_n",), np.linspace(0.0, 1.0, 8))},
+        attrs={"mlow": -2, "mhigh": 0, "mpert": 3, "mband": 0, "n": 1, "total1": 7.891},
+    ).to_netcdf(tmp_path / name)
+
+    assert free_boundary_stable(tmp_path, name) is True
+
+
 def test_the_verdict_reads_dcons_eigenvalue_form_too(tmp_path):
     """DCON writes no `total1` attribute; the same number is `W_t_eigenvalue`(mode 1)."""
     from vaft.code.gpec._solvers import free_boundary_stable
