@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 from omas import ODS
 
-from gpec_nc_fixtures import write_control_nc, write_cylindrical_nc
+from gpec_nc_fixtures import write_control_nc, write_cylindrical_nc, write_profile_nc
 from vaft.code.gpec import _runtime as gpec_runtime
 from vaft.machine_mapping.gpec_ideal import gpec_ideal
 from vaft.omas.vest_upstream import build_gpec_ideal_ods
@@ -107,6 +107,49 @@ def test_code_parameters_provenance(run_dir):
     assert ods["mhd_linear.code.name"] == "GPEC"
     assert ods["mhd_linear.code.version"] == "v1.5.5-test"
     assert ods["mhd_linear.code.output_flag"][0] == 0
+
+
+def test_provenance_reports_which_native_outputs_the_run_wrote(run_dir):
+    """``has_cylindrical`` and ``has_profile``: what is there, not what is mapped.
+
+    The profile file's resonant quantities have no IMAS home yet (vaft#170),
+    so a consumer of the provenance is the only way to learn the run produced
+    one.
+    """
+    ods = ODS(consistency_check=False)
+    extras = gpec_ideal(ods, str(run_dir))
+    assert extras[1]["has_cylindrical"] is True
+    assert extras[1]["has_profile"] is False
+
+    write_profile_nc(run_dir)
+    extras = gpec_ideal(ODS(consistency_check=False), str(run_dir))
+    assert extras[1]["has_profile"] is True
+
+
+def test_the_profile_flag_does_not_read_the_profile_file(run_dir, monkeypatch):
+    """It is derived from the recorded path, not from the lazy ``profile``.
+
+    That file is 144 MB for the DIII-D example and the mapping never uses its
+    contents, so answering "was there one?" must not open it.  Reading it here
+    would raise.
+    """
+    write_profile_nc(run_dir)
+    from vaft.code.gpec import _profile_output
+
+    def _refuse(path):
+        raise AssertionError(f"the provenance record read {path}")
+
+    monkeypatch.setattr(_profile_output, "_read_profile", _refuse)
+
+    extras = gpec_ideal(ODS(consistency_check=False), str(run_dir))
+    assert extras[1]["has_profile"] is True
+
+
+def test_a_profile_for_another_mode_is_not_counted(run_dir):
+    """``gpec_profile_output_n2.nc`` beside an n=1 run is not this run's."""
+    write_profile_nc(run_dir, n=2)
+    extras = gpec_ideal(ODS(consistency_check=False), str(run_dir))
+    assert extras[1]["has_profile"] is False
 
 
 def test_control_only_run_still_maps_energy(tmp_path):

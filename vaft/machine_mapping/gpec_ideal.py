@@ -5,7 +5,10 @@ IDS-populating layer only: it never re-parses ``.nc`` files itself, it reads
 the native container from :func:`vaft.code.gpec.read_gpec_netcdf` and copies
 only quantities with a scientifically correct IMAS home.  Everything else
 stays in :class:`~vaft.code.gpec.GpecIdealResult` (persisted as a JSON
-sidecar next to the solver output).
+sidecar next to the solver output, which carries the control transcript and,
+when the run wrote a profile file, its rational-surface table).  The
+provenance the mapper returns says which native outputs the run produced --
+``has_cylindrical``, ``has_profile`` -- without reading the bulk arrays.
 
 Mapping table -- one row per GPEC variable/attribute; the "legacy" column
 records how ``GPEC_Research/library/gpec_imas.py`` handled the same quantity
@@ -33,6 +36,9 @@ eigen-decompositions,
                                              :func:`vaft.machine_mapping.coils_non_axisymmetric.apply_coil_excitation`
                                              (legacy hard-coded ``turns=1``; canonical mapping
                                              carries turns=20 from the ``.dat`` header)
+profile ``Phi_res``,   (i,psi_n_r)  T, A     none -- native container; the JSON sidecar's       verified-unmapped
+``I_res``, ``Delta``,                        ``resonant_table`` carries the rational-surface
+``w_isl``, ``K_isl``                         metrics (vaft#170 decides any IMAS home)
 attr ``shot``/``time`` scalars      -- / s   written by the *caller* (options) -- GPEC records  revised-from-legacy
                                              0/0 when the gfile header has none
 ====================== ============ ======== ================================================== ===================
@@ -194,5 +200,10 @@ def gpec_ideal(ods: ODS, source: str, options: Optional[dict] = None) -> dict[in
             "energy_perturbed": result.control.energy_total,
             "coil_names": list(result.control.coil_names),
             "has_cylindrical": result.cylindrical is not None,
+            # From the recorded path, not from ``result.profile``: that is a
+            # lazily-read cached_property, and opening the profile file costs
+            # 144 MB on the DIII-D example.  A provenance record should not
+            # pay that to answer "was there one?".
+            "has_profile": "profile" in result.source_paths,
         }
     }
