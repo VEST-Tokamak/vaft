@@ -210,9 +210,15 @@ What GPEC does with the two words, read from its source:
 * ``coil/coil.F`` and ``gpec/gpec.f`` set ``ipd``/``btd`` to ``+1`` unless the
   word is ``"negative"``, then ``helicity = ipd * btd``.
 * The *product* is what mirrors the field: ``coil/field.F`` maps the
-  observation angle as ``phi = -helicity * (2*pi*zeta + phi_eq)``, and
-  ``gpec/gpout.f`` multiplies the imaginary part of every perturbed output by
-  ``-helicity``.
+  observation angle as ``phi = -helicity * (2*pi*zeta + phi_eq)``.
+* ``gpec/gpout.f`` carries the same product into its *real-space* perturbed
+  output only -- theta-functions are written as ``Re, -helicity * Im``, and
+  the cylindrical fields are conjugated by branches whose sense differs
+  between the plasma-frame and vacuum blocks.  The *spectral* output
+  (``gpec_control_output``'s ``binmn``/``boutmn``/``finmn``/``foutmn``, the
+  netCDF ``b_xm``/``b_m``/``xi_xm``, ``singcoup``, the permeability
+  eigenvectors) is written raw, so no blanket ``Im -> -helicity * Im`` rule
+  may be applied when reading GPEC output.
 * The words act *separately* in one place only, where ``gpec/gpout.f`` builds
   the equilibrium field on the diagnostic grid: ``ipd > 0`` flips the sign of
   ``B_R`` and ``B_Z``, ``btd < 0`` flips ``B_phi``.
