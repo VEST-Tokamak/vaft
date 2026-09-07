@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f6887d0</code>. What is described
+  <code>246b33a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -604,6 +604,48 @@ result in one call:</p>
 <p><code class="language-plaintext highlighter-rouge">vaft.plot.plot_TeNe_from_eq(ods, ...)</code> plots the synthetic profiles produced by the
 <code class="language-plaintext highlighter-rouge">core_profiles_from_eq*</code> helpers.</p>
 
+<h2 id="kinetic-profile-files">Kinetic-profile files</h2>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.data.kinetic_profiles</code> is the container the kinetic-profile file formats read into and write
+from — GPEC’s <code class="language-plaintext highlighter-rouge">.kin</code> today, the Osborne pfile and MARS <code class="language-plaintext highlighter-rouge">PROF*.IN</code> to follow:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.data</span> <span class="kn">import</span> <span class="n">read_kin</span><span class="p">,</span> <span class="n">write_kin</span><span class="p">,</span> <span class="n">normalize_psi</span>
+
+<span class="n">profiles</span> <span class="o">=</span> <span class="nf">read_kin</span><span class="p">(</span><span class="sh">"</span><span class="s">g045453.00750.kin</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">profiles</span><span class="p">.</span><span class="n">psi_norm</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>              <span class="c1"># 0.00494621873 — exactly what the file said
+</span><span class="n">profiles</span><span class="p">.</span><span class="nf">available</span><span class="p">()</span>              <span class="c1"># ('n_e', 'n_i', 'T_e', 'T_i', 'omega_exb')
+</span><span class="n">profiles</span><span class="p">.</span><span class="n">normalization</span><span class="p">.</span><span class="n">method</span>     <span class="c1"># "as_read"
+</span><span class="nf">write_kin</span><span class="p">(</span><span class="n">profiles</span><span class="p">,</span> <span class="sh">"</span><span class="s">again.kin</span><span class="sh">"</span><span class="p">)</span>  <span class="c1"># byte-identical to this file; see below
+</span></code></pre></div></div>
+
+<p>A file VAFT wrote round-trips byte for byte, and so do the files the MAST-U workflow produces —
+59 of the 65 <code class="language-plaintext highlighter-rouge">.kin</code> files in the reference tree, the named example among them. The other six are
+not VAFT’s: GPEC’s bundled DIII-D example right-aligns its columns, so a negative rotation eats a
+separator space, and the MARS-input file uses no leading indent at all. Both read correctly; they
+are simply written back in this writer’s layout.</p>
+
+<p>The container fixes one unit set — densities in m⁻³, temperatures in eV, angular frequencies in
+rad/s, pressures in Pa — because those are what GPEC’s own reader consumes. A reader converts into
+them; nothing carries free-text units around.</p>
+
+<p><strong>The radial coordinate is never rescaled on read.</strong> Making it span exactly [0, 1] is
+<code class="language-plaintext highlighter-rouge">normalize_psi()</code>, an explicit operation whose result records that it happened. It has no
+default <code class="language-plaintext highlighter-rouge">method=</code>: passing <code class="language-plaintext highlighter-rouge">axis=</code>/<code class="language-plaintext highlighter-rouge">edge=</code> and getting a min–max stretch instead would be the same
+silent rescale, only now with a provenance record vouching for it. This is not
+fastidiousness: GPEC’s <code class="language-plaintext highlighter-rouge">read_kin</code> re-splines a <code class="language-plaintext highlighter-rouge">.kin</code> onto a uniform 101-point [0, 1] grid <em>with
+extrapolation</em> (<code class="language-plaintext highlighter-rouge">nkin = 100</code> intervals), so it expects a truncated edge and handles it. A real MAST-U file spans
+ψ_N = 0.00495 → 1.0, so stretching it moves every interior point — and once the stretched values are
+written back, permanently.</p>
+
+<p><strong>Toroidal rotation and the E×B frequency are separate fields.</strong> <code class="language-plaintext highlighter-rouge">omega_tor</code> and <code class="language-plaintext highlighter-rouge">omega_exb</code> are
+never merged, and <code class="language-plaintext highlighter-rouge">write_kin</code> refuses a profile set carrying only the former: the <code class="language-plaintext highlighter-rouge">.kin</code> rotation
+column is ω_E, and a toroidal rotation written there is wrong in a way nothing downstream detects.
+<code class="language-plaintext highlighter-rouge">write_kin</code> also refuses to write a file GPEC would read as something other than what it says:
+<code class="language-plaintext highlighter-rouge">omega_exb</code> holding <strong>any</strong> zero (GPEC substitutes 1e-9 element by element — pass
+<code class="language-plaintext highlighter-rouge">allow_zero_rotation=True</code> for a set converted from an all-zero <code class="language-plaintext highlighter-rouge">PROFROT.IN</code>, which
+<code class="language-plaintext highlighter-rouge">sample/output/converted_from_transp.kin</code> is), a value that is not finite, or a radial coordinate
+that does not increase. Line endings are LF, so a CRLF file does not round-trip byte-identically.</p>
+
 <h2 id="exporting">Exporting</h2>
 
 <p>To hand fitted electron profiles to an external code:</p>
@@ -900,7 +942,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#pipeline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline</a></li><li class="page-toc-item page-toc-level-2"><a href="#loading-kinetic-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Loading kinetic diagnostics</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-1--equilibrium-mapping" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 1 — equilibrium mapping</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-2--profile-fitting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 2 — profile fitting</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fitting-methods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fitting methods</a></li><li class="page-toc-item page-toc-level-3"><a href="#calling-the-fitting-engine-directly" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Calling the fitting engine directly</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pedestal-top" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pedestal top</a></li><li class="page-toc-item page-toc-level-2"><a href="#writing-core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Writing core_profiles</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#synthetic-profiles-from-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic profiles from equilibrium pressure</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plotting</a></li><li class="page-toc-item page-toc-level-2"><a href="#exporting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting</a></li><li class="page-toc-item page-toc-level-2"><a href="#full-example" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Full example</a></li><li class="page-toc-item page-toc-level-2"><a href="#choosing-a-fitting-method" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Choosing a fitting method</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#pipeline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline</a></li><li class="page-toc-item page-toc-level-2"><a href="#loading-kinetic-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Loading kinetic diagnostics</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-1--equilibrium-mapping" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 1 — equilibrium mapping</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-2--profile-fitting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 2 — profile fitting</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fitting-methods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fitting methods</a></li><li class="page-toc-item page-toc-level-3"><a href="#calling-the-fitting-engine-directly" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Calling the fitting engine directly</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pedestal-top" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pedestal top</a></li><li class="page-toc-item page-toc-level-2"><a href="#writing-core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Writing core_profiles</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#synthetic-profiles-from-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic profiles from equilibrium pressure</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plotting</a></li><li class="page-toc-item page-toc-level-2"><a href="#kinetic-profile-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetic-profile files</a></li><li class="page-toc-item page-toc-level-2"><a href="#exporting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting</a></li><li class="page-toc-item page-toc-level-2"><a href="#full-example" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Full example</a></li><li class="page-toc-item page-toc-level-2"><a href="#choosing-a-fitting-method" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Choosing a fitting method</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
     </nav>
 </aside>
 
@@ -1018,7 +1060,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-07 08:28:16 +0000"
+        "time": "2026-09-07 09:16:29 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
