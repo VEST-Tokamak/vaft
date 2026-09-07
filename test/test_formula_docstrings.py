@@ -105,6 +105,8 @@ CONVENTION_SENSITIVE = frozenset({
     "normalized_larmor_radius_from_M_T_a_Bt",
     "rho_star_from_M_T_B_R_epsilon",
     # virial closures
+    "virial_alpha_approx_from_kappa",
+    "virial_alpha_from_R_Bz_Bp_dl",
     "virial_S1_approx",
     "virial_S2_approx_from_D0_a_R0",
     "virial_S3_approx_from_eK_d",

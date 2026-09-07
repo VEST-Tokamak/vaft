@@ -24,6 +24,8 @@ from vaft.process import (
     calculate_reconstructed_diamagnetic_flux,
     calculate_diamagnetism,
     prepare_boundary_for_shafranov,
+    virial_alpha_conformal_annulus,
+    virial_alpha_thin_annulus,
     extract_flux_surface_contours,
     make_equilibrium_field_interpolator,
     project_points,
@@ -36,6 +38,8 @@ from vaft.formula.equilibrium import poloidal_field_factor
 from vaft.omas.general import ods_cocos
 from vaft.formula import (
     spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
+    virial_alpha_approx_from_kappa,
+    elongation_from_RZ_boundary,
     virial_bongard_from_S_alpha_mu,
     virial_lao_from_S_alpha_mu_rt,
     virial_beta_pd_from_S_mu_rt,
@@ -1490,7 +1494,7 @@ def _virial_conditioning_block(alpha, rt_denominator_ratio, rt_over_r0):
     }
 
 
-def _virial_empty_row():
+def _virial_empty_row(alpha_method: str = "volume"):
     """A row for a slice nothing could be computed for, with every key present.
 
     The shape a caller sees must not depend on whether the slice had a boundary:
@@ -1504,6 +1508,11 @@ def _virial_empty_row():
     }
     return {
         "s_1": nan, "s_2": nan, "s_3": nan, "alpha": nan,
+        "alpha_method": alpha_method,
+        "alpha_sources": {
+            "volume": nan, "kappa": nan, "annulus": nan, "annulus_thin": nan,
+        },
+        "kappa": nan,
         "B_pa": nan, "beta_p": nan, "li": nan,
         "W_mag": nan, "W_kin": nan, "V_p": nan,
         "mui_hat": nan, "mui": nan, "rt": nan, "phi_dia_comp": nan,
@@ -1531,9 +1540,19 @@ def _virial_empty_row():
     }
 
 
+#: How the virial closure coefficient alpha is obtained.  ``"volume"`` is the
+#: volume integral over the plasma -- exact, but it needs the internal poloidal
+#: field, so a filament or current-element reconstruction cannot supply it.
+#: The others are the Bongard (2016) approximations, which need only the
+#: boundary shape or the field on and just inside the LCFS.
+ALPHA_METHODS: tuple[str, ...] = ("volume", "kappa", "annulus", "annulus_thin")
+
+
 def compute_virial_equilibrium_quantities_ods(
     ods: ODS,
     time_slice: Optional[int] = None,
+    alpha_method: str = "volume",
+    annulus_thickness: float = 0.1,
 ) -> Dict[str, Any]:
     """
     Compute Shafranov/virial equilibrium quantities from an arbitrary equilibrium.
@@ -1552,16 +1571,34 @@ def compute_virial_equilibrium_quantities_ods(
              For μ̂_i, delta_phi uses measured diamagnetic flux when present:
              magnetics.diamagnetic_flux.0.data interpolated at equilibrium time
         time_slice: Time slice index (None = all slices).
+        alpha_method: Which alpha reaches the closures, one of ALPHA_METHODS.
+             "volume" (default) is the volume integral over the plasma: exact,
+             but it needs the internal poloidal field, so a filament or
+             current-element reconstruction cannot supply it. "kappa" is the
+             Bongard (2016) alpha_1 = 2 kappa^2/(1 + kappa^2) from the boundary
+             elongation alone; "annulus" is alpha_2, from the field in a thin
+             annulus conformal to the LCFS; "annulus_thin" is the analytic
+             thickness -> 0 limit of "annulus". Every method is evaluated and
+             reported under "alpha_sources" whatever this selects, so the
+             alternatives stay visible.
+        annulus_thickness: Annulus width for alpha_method="annulus", as a
+             fraction of the distance from the boundary centre.
 
     Returns:
         Dict mapping time_slice index -> dict of computed quantities (s_1, s_2, s_3,
-        alpha, B_pa, beta_p, li, W_mag, W_kin, V_p, mui_hat).
+        alpha, B_pa, beta_p, li, W_mag, W_kin, V_p, mui_hat), plus "alpha_sources"
+        holding every alpha method, the "kappa" they used, and the
+        "alpha_method" actually applied.
 
     Raises:
         KeyError: If required equilibrium or boundary data is missing.
     """
     if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
         raise KeyError("equilibrium.time_slice not found in ODS")
+    if alpha_method not in ALPHA_METHODS:
+        raise ValueError(
+            f"alpha_method must be one of {ALPHA_METHODS}; got {alpha_method!r}."
+        )
 
     slices_to_process = (
         list(range(len(ods["equilibrium.time_slice"])))
@@ -1619,14 +1656,14 @@ def compute_virial_equilibrium_quantities_ods(
             logger.warning(
                 "Time slice %s: empty boundary.outline, skipping virial computation", eq_idx
             )
-            out[eq_idx] = _virial_empty_row()
+            out[eq_idx] = _virial_empty_row(alpha_method)
             nans = [k for k in ("s_1", "s_2", "s_3", "alpha", "B_pa", "beta_p", "li", "W_mag", "W_kin")
                      if not np.isfinite(np.asarray(out[eq_idx][k], float))]
             if nans:
                 logger.warning("Time slice %s: virial quantities are NaN or non-finite: %s", eq_idx, nans)
             continue
 
-        B_p_bdry, _, _ = poloidal_field_at_boundary(
+        B_p_bdry, B_R_bdry, B_Z_bdry = poloidal_field_at_boundary(
             R_grid_1d, Z_grid_1d, psi_RZ, R_bdry, Z_bdry, cocos=_per_radian_cocos(ods)
         )
         B_pa = float(calculate_average_boundary_poloidal_field(R_bdry, Z_bdry, B_p_bdry))
@@ -1763,7 +1800,9 @@ def compute_virial_equilibrium_quantities_ods(
             F_boundary=F_boundary if np.isfinite(F_boundary) else None,
             cell_weights=cell_weights,
         )
-        alpha = float(vol_terms["alpha"]) if np.isfinite(vol_terms["alpha"]) else np.nan
+        alpha_volume = (
+            float(vol_terms["alpha"]) if np.isfinite(vol_terms["alpha"]) else np.nan
+        )
         RT = float(vol_terms["rt"]) if np.isfinite(vol_terms["rt"]) else np.nan
         phi_dia_comp = float(vol_terms["phi_dia_comp"]) if np.isfinite(vol_terms["phi_dia_comp"]) else np.nan
         V_p = float(vol_terms["volume"]) if np.isfinite(vol_terms["volume"]) else np.nan
@@ -1786,8 +1825,62 @@ def compute_virial_equilibrium_quantities_ods(
             volume=V_p if np.isfinite(V_p) and V_p > 0 else None,
         )
         S1, S2, S3 = float(S1), float(S2), float(S3)
+        if not np.isfinite(alpha_volume):
+            alpha_volume = float(_alpha_check)
+
+        # The Bongard (2016) approximations. Both are evaluated whenever the
+        # slice supports them, whatever `alpha_method` asks for, so a caller can
+        # see the alternatives instead of trusting one blind -- they disagree by
+        # more than the paper's spread suggests, and which is the better one is
+        # a property of the geometry (vfit #36).
+        # From the outline, not from `boundary.elongation`: that node is copied
+        # from the last profiles_1d.elongation sample by
+        # update_equilibrium_boundary, i.e. the outermost *resolved* flux
+        # surface, which sits inside the LCFS on a coarse psi grid. alpha_1 is
+        # defined on the boundary elongation and was validated against the
+        # traced contour, so the outline is the definition here and the stored
+        # node is only a fallback.
+        kappa = np.nan
+        try:
+            kappa = float(elongation_from_RZ_boundary(R_bdry, Z_bdry))
+        except (ValueError, ZeroDivisionError):
+            kappa = np.nan
+        if (not np.isfinite(kappa) or kappa <= 0.0) and "boundary.elongation" in eq_ts:
+            try:
+                kappa = float(eq_ts["boundary.elongation"])
+            except (KeyError, TypeError, ValueError):
+                kappa = np.nan
+        alpha_kappa = (
+            float(virial_alpha_approx_from_kappa(kappa)) if np.isfinite(kappa) else np.nan
+        )
+
+        annulus = virial_alpha_conformal_annulus(
+            R_mesh, Z_mesh, B_R_grid, B_Z_grid, R_bdry, Z_bdry,
+            thickness=annulus_thickness,
+        )
+        alpha_annulus = float(annulus["alpha"])
+        if not annulus["valid"]:
+            logger.warning(
+                "Time slice %s: annulus alpha unavailable (%s)",
+                eq_idx, annulus["reason"],
+            )
+        alpha_annulus_thin = float(
+            virial_alpha_thin_annulus(R_bdry, Z_bdry, B_R_bdry, B_Z_bdry)
+        )
+
+        alpha_by_method = {
+            "volume": alpha_volume,
+            "kappa": alpha_kappa,
+            "annulus": alpha_annulus,
+            "annulus_thin": alpha_annulus_thin,
+        }
+        alpha = alpha_by_method[alpha_method]
         if not np.isfinite(alpha):
-            alpha = float(_alpha_check)
+            logger.warning(
+                "Time slice %s: alpha_method=%r is unavailable here; the closures "
+                "that divide by alpha will abstain.",
+                eq_idx, alpha_method,
+            )
 
         B_t0 = np.nan
         if "equilibrium.vacuum_toroidal_field.b0" in ods:
@@ -1942,6 +2035,14 @@ def compute_virial_equilibrium_quantities_ods(
 
         out[eq_idx] = {
             "s_1": S1, "s_2": S2, "s_3": S3, "alpha": alpha,
+            "alpha_method": alpha_method,
+            "alpha_sources": {
+                "volume": alpha_volume,
+                "kappa": alpha_kappa,
+                "annulus": alpha_annulus,
+                "annulus_thin": alpha_annulus_thin,
+            },
+            "kappa": float(kappa) if np.isfinite(kappa) else np.nan,
             "B_pa": B_pa, "beta_p": beta_p, "li": li,
             "W_mag": W_mag, "W_kin": W_kin, "V_p": V_p,
             "mui_hat": float(mui) if np.isfinite(mui) else np.nan,  # backward-compatible key
