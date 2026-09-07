@@ -392,6 +392,84 @@ Restricting to the paths you wrote keeps the load fast and the log readable.
 `load_omas_imas` also accepts `time=<seconds>` for a single-slice `getSlice`, `skip_uncertainties=True` to
 drop the `*_error_upper` companions, and `consistency_check=False` for non-compliant legacy entries.
 
+## What survives on `code.parameters`
+
+`code.parameters` is a `STR_0D` in the Data Dictionary — one string per IDS, XML by IMAS habit — and
+VAFT puts real provenance in it: EFIT's collection status, CHEASE's comparison metrics, the DCON
+solver fragments, the coupling basis identity, the time-convention memo. What arrives at the other
+end depends on the shape you wrote, and the shapes are not equivalent.
+
+`save_omas_imas` returns the paths it actually wrote, and that list is the only machine-readable
+evidence a caller gets. A discarded `code.parameters` is simply absent from it: no exception, no
+return code, one `WARNING: … is not part of IMAS` line on stderr that a pipeline log buries. This is
+how [#380](https://github.com/VEST-Tokamak/vaft/issues/380) lost 4096 paths of EFIT provenance
+between the local product and its HSDS replica without anything reporting a failure.
+
+Nothing looks wrong where the data is written. OMAS gives `code.parameters` a `CodeParameters`
+object for any sub-path, at any depth, so a freshly mapped ODS survives whatever shape it used. The
+shape is lost on the **stage product**: `{stage}.json` on disk restores the block as a plain ODS
+branch, and it is that branch the Access Layer discards. `vaft.omas.load` promotes a *flat,
+leaf-only* block back to a `CodeParameters` on the way out
+([#478](https://github.com/VEST-Tokamak/vaft/issues/478)); it declines a nested one, because a
+per-slice parser cache is not representable as an XML parameters string.
+
+| You write | Reaches an entry | Comes back as |
+|---|---|---|
+| a JSON string | the same string | the same string, byte for byte |
+| an XML string | the same string | a parsed `CodeParameters` tree |
+| a flat leaf-only block | an XML string, after promotion | a `CodeParameters` tree |
+| a nested block | **nothing** | absent |
+| a nested block **and a flat leaf beside it** | **nothing** — both | absent |
+
+`test/test_code_parameters_contract.py` measures every row through the real Access Layer, so the
+table stays true rather than being a claim about a version of OMAS somebody once used.
+
+Two consequences are worth stating on their own.
+
+**The round trip is not symmetric.** An XML string comes back as a tree, because the loader parses
+anything XML-shaped. A consumer that runs `ET.fromstring` or a regular expression over this field
+works on a freshly mapped ODS and silently finds nothing on one loaded from an entry —
+`vaft.plot.backend.convention` handles both forms deliberately, and code that reads this field
+should do the same.
+
+**Values inside the envelope are reinterpreted.** `CodeParameters.from_string` runs every text node
+through `ast.literal_eval`, so the EFIT case label `"039915.00316"` returns as the float
+`39915.00316`, and a whitespace-separated numeric string returns as an array. Arbitrary keys *and
+arbitrary values* therefore belong inside a payload the XML loader cannot parse — which in this
+repository means JSON.
+
+The last row of the table is a defect VAFT currently ships, not a hypothetical: the declared COCOS
+index is a flat leaf of `equilibrium.code.parameters`, the EFIT mappers write their per-slice parser
+cache into the same field, and promotion is all-or-nothing on the block. An EFIT product loses the
+COCOS index it declares on the way to a replica — the leaf is not nested, it is merely standing next
+to something that is.
+
+### Writing it
+
+Three patterns are sanctioned, each with a stage that shows it:
+
+* **A JSON string** — `generate_efit_ods.py`, `generate_chease_ods.py`. Use `sort_keys=True`, so two
+  runs over equal inputs are byte-identical and replication does not re-send an unchanged product.
+* **XML fragments inside one `<parameters>` envelope** — `vaft.machine_mapping.mhd_linear`,
+  `core_sources`, `coils_non_axisymmetric`, `gpec_ideal`. Each solver appends its fragment by
+  splicing on the trailing `</parameters>`, so **no fragment's text may contain that literal**: one
+  unescaped copy closes the document early and everything appended afterwards lands outside the root
+  element, where a parser refuses it.
+* **`key=value` lines** — `em_coupling`, for a short flat record read by eye as often as by code.
+
+A nested sub-path is not forbidden — EFIT's parser cache is genuinely useful and genuinely local —
+but it must be a decision somebody wrote down. `test/test_code_parameters_writers.py` scans `vaft/`,
+`workflow/` and `test/` and fails on a nested path whose file is not in its allow-list, with the
+role it plays and the reason that data may stop at the FileDB.
+
+### Budgeting a large payload
+
+Stage products are written uncompressed (`vaft.database.filedb.OMAS_PRODUCT_SUFFIX` is `.json`) and
+nothing anywhere guards their size, so a payload's budget is **raw bytes of the finished field
+string** — measured after XML escaping, which can inflate quote-heavy content several times over,
+not bytes of the payload before it. For scale, the packaged whole-shot sample
+`vaft/data/samples/39915/omas.json.gz` is about 10 MB gzipped and carries no `mhd_linear` at all.
+
 ## Converting a real VEST shot
 
 The full flow, from
@@ -571,7 +649,8 @@ the DAQ clock) — which is exactly why the raw clock is useless for comparing s
 
 `change_time_convention(odc_or_ods, convention='vloop')` accepts an ODS or an ODC (a bare ODS is wrapped
 internally, and an ODC is returned). On the first call it derives the origins on the product's DAQ clock and
-records them under `summary.code.parameters`, with their sources:
+records them under `summary.code.parameters` — a flat, leaf-only block, which is the shape that survives
+replication ([What survives on `code.parameters`](#what-survives-on-codeparameters)) — with their sources:
 
 ```python
 params = odc['0']['summary.code.parameters']
