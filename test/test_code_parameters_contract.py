@@ -211,10 +211,19 @@ def test_a_nested_block_is_dropped_on_the_way_to_an_entry(tmp_path):
     per-slice parser cache -- so the Access Layer sees a plain branch and drops
     it.  This is the EFIT `time_slice` shape, and it is why that cache is a
     local-product convenience and never provenance.
+
+    The stage product is checked on the way past, because *where* the data
+    stops is the whole point: it is written, it is on disk, and it is the
+    Access Layer that declines it.
     """
     ods = _product(**{"time_slice.0.aeqdsk.terror": 2.5e-6})
 
-    accepted, value = _through_the_product_leg(tmp_path, ods)
+    product = tmp_path / "stage.json"
+    vaft.omas.save(ods, product)
+    on_disk = json.loads(product.read_text(encoding="utf-8"))
+    assert on_disk[IDS]["code"]["parameters"]["time_slice"]["0"]["aeqdsk"]["terror"] == 2.5e-6
+
+    accepted, value = _through_the_product_leg(tmp_path / "entry_leg", ods)
 
     assert accepted == []
     assert value is None

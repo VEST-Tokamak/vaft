@@ -603,10 +603,11 @@ def test_per_code_and_mode_stability_detail_travels_in_the_shapes_that_exist(
 
     # Per-(code, mode) status lives in the manifest, and the manifest is not
     # replicated: `replicate_stage` reads it to decide eligibility and sends
-    # only the projected IDS.
+    # only the IDS the stage owns, so nothing carries that status onward.
     manifest = json.loads(db.omas_manifest("mhd_linear", shot=39915).read_text(encoding="utf-8"))
     assert manifest["modules_modes"]["t=316/stride/n=1"]["status"] == "failed"
-    assert "modules_modes" not in replicated
+    assert set(replicated.keys()) <= {"mhd_linear", "ntms", "dataset_description"}
+    assert "failed" not in json.dumps(replicated["mhd_linear.code.parameters"])
 
 
 def test_a_landed_replica_that_fails_its_check_is_still_recorded(staged, monkeypatch):

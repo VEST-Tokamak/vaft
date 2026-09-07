@@ -168,13 +168,21 @@ def _nested_paths(path: Path) -> list[tuple[int, str]]:
         if match is None or "." not in match.group("rest").rstrip("."):
             continue
         findings.append((lineno, text))
-    # An f-string contributes its own constant fragments as well; the template
-    # already covers them.
-    templates = {text for _, text in findings if "{}" in text}
+    # An f-string yields both its template and its own constant fragments; the
+    # template covers them.  Compare only within a line, so a literal that
+    # merely happens to be a prefix of a template elsewhere in the file is
+    # still reported -- a guard may not lose a finding to a coincidence.
+    by_line: dict[int, set[str]] = {}
+    for lineno, text in findings:
+        if "{}" in text:
+            by_line.setdefault(lineno, set()).add(text)
     return [
         (lineno, text)
         for lineno, text in findings
-        if not any(text != other and other.startswith(text) for other in templates)
+        if not any(
+            text != template and template.startswith(text)
+            for template in by_line.get(lineno, ())
+        )
     ]
 
 
@@ -231,11 +239,12 @@ def test_no_workflow_script_writes_a_nested_parameter_path():
     of them: nothing under `workflow/` may put provenance in a shape that stops
     at the FileDB.
     """
-    offenders = {
+    scanned = {
         str(path.relative_to(ROOT).as_posix()): _nested_paths(path)
         for path in SOURCES
-        if path.is_relative_to(ROOT / "workflow") and _nested_paths(path)
+        if path.is_relative_to(ROOT / "workflow")
     }
+    offenders = {name: found for name, found in scanned.items() if found}
 
     assert offenders == {}
 
