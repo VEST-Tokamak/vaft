@@ -254,9 +254,10 @@ discharges, the routine seed as row one, one axis at a time.
 (where the seed ellipse sits), `RZERO` (the reference major radius) and
 `RCENTR`, which sets `BTOR = (B_t R)_measured / RCENTR`. A radial sweep
 therefore moved the seed, the normalisation and the vacuum toroidal field
-together. `ellipse_rzero` now drives `RELIP` alone and defaults to following
-`rzero`, so the routine k-file is byte-identical and the seed is separable.
-The results below are from the corrected sweep; the first one was discarded.
+together. `ellipse_rzero` now drives `RELIP` alone, and setting it to `None`
+restores the old coupling, so the pre-#588 k-file is still reproducible
+byte-for-byte. The results below are from the corrected sweep; the first one
+was discarded.
 
 ### The basin is narrow, and the routine seed sits near its outboard edge
 
@@ -298,6 +299,48 @@ slice or two. It cannot touch the block. Across a threefold range in minor
 radius, a factor of two in elongation, ±10 cm radially and ±5 cm vertically,
 86 % of the collapse block is untouched. **That population belongs to #459**,
 with the 17 `findax` losses, not to initialization.
+
+### Refining the region, and the new default
+
+The coarse sweep is on a 5 cm grid, which is too coarse to say where the good
+region begins or ends — a single best point on that grid is not an optimum.
+So the radial axis was re-run at 2 cm over the same three discharges and the
+same 77 plasma slices. The rerun of 0.30 m reproduces the coarse row exactly,
+so the differences between neighbouring points are solver behaviour, not run
+noise.
+
+| `ellipse_rzero` | equilibria | accepted | recovered | lost |
+| --- | --- | --- | --- | --- |
+| 0.28 | 31 | 14 | 9 | 7 |
+| 0.30 | 38 | 21 | 13 | 4 |
+| **0.32** | **39** | **22** | 11 | **2** |
+| 0.34 | 33 | 18 | 6 | 3 |
+| 0.36 | 34 | 19 | 8 | 4 |
+| routine, 0.40 | 31 | 18 | — | — |
+
+Two things are established and one is not. Established: the whole 0.30–0.36 m
+region beats the routine seed, and below 0.30 m the gain disappears — 0.28 m
+is back to the routine's 31 equilibria with four fewer accepted. Not
+established: a point inside the region. The response is not smooth, 0.34 m
+falls back to 33 while 0.36 m recovers to 34, and one or two slices out of 77
+is not a resolvable difference.
+
+**The routine default is now `ellipse_rzero = 0.32 m`, and only that field.**
+`rzero` stays at 0.40 m, so `RZERO`, `RCENTR` and the `BTOR` derived from it
+are untouched; `test_the_inboard_seed_default_moves_relip_and_nothing_else`
+compares the two k-files line by line and fails if anything else moves. The
+argument for 0.32 m specifically is physical rather than fitted: the reference
+set's own reconstructions put the current centroid at a median of 31.8 cm and
+the boundary centre at 33.5 cm, so 0.40 m seeds the ellipse at the *vessel's*
+centre and asks the solver to walk inboard on every slice. That it is also the
+best measured point is corroboration, not the argument. Read no more precision
+into the second digit than 77 slices from three discharges can carry.
+
+One trap found while making the change: `generate_constraints_ods` writes its
+own hard-coded `RELIP = 0.4` into the ODS `code.parameters` tree, beside
+`RZERO`, `AELIP` and `EELIP`. The k-file writer overrides all of them from the
+configuration — which is why the sweep varied anything at all — but nothing
+said so, so that is pinned too.
 
 ### What this leaves for #196
 

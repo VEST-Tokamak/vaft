@@ -4,8 +4,8 @@
         python workflow/efit_numerics/seed_basin.py --output /scratch/seed \\
             --table test/data/efit_seed_basin.json
 
-Every VEST slice is seeded from the same fixed ellipse -- ``RELIP 0.4``,
-``ZELIP 0.0``, ``AELIP 0.3``, ``EELIP 1.6`` -- and 29 of the 77 plasma slices
+Every VEST slice is seeded from the same fixed ellipse -- when this study ran,
+``RELIP 0.4``, ``ZELIP 0.0``, ``AELIP 0.3``, ``EELIP 1.6`` -- and 29 of the 77 plasma slices
 in the reference set collapse to a null solution and fail in ``bound``,
 producing nothing at all. A 0.3 m minor radius is most of the machine, seeded
 into a discharge that is 7 kA and small when the collapse block begins.
@@ -49,13 +49,23 @@ BASELINE = REPOSITORY / "workflow" / "efit_numerics" / "baseline_termination.py"
 REFERENCE_SET = REPOSITORY / "test" / "data" / "efit_reference_set.json"
 DEFAULT_TABLE = REPOSITORY / "test" / "data" / "efit_seed_basin.json"
 
-#: The routine seed, and the point every sweep is centred on.
-ROUTINE_SEED = {
-    "ellipse_rzero": 0.4,
-    "zzero": 0.0,
-    "minor_radius": 0.3,
-    "elongation": 1.6,
-}
+def routine_seed() -> dict[str, float]:
+    """The routine seed, and the point every sweep is centred on.
+
+    Read from the defaults rather than written down here: this study moved
+    ``ellipse_rzero`` to 0.32 m, and a hard-coded 0.4 would leave a re-run
+    comparing every point against a seed nothing uses while never skipping
+    the one it does.
+    """
+    from vaft.code.efit.config import EFITInitializationConfig
+
+    routine = EFITInitializationConfig()
+    return {
+        "ellipse_rzero": routine.seed_rzero,
+        "zzero": routine.zzero,
+        "minor_radius": routine.minor_radius,
+        "elongation": routine.elongation,
+    }
 
 #: One axis at a time. Five crossed axes would be hundreds of runs for less
 #: information than the marginals give first.
@@ -329,6 +339,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--shots", default=None, help="comma-separated; default: the reference set's magnetics shots")
     parser.add_argument("--tables", default=None, help="EFIT table directory (default: the packaged one)")
     parser.add_argument("--efit-home", default=None)
+    parser.add_argument(
+        "--axis",
+        default=None,
+        help="restrict the sweep to one axis, e.g. initialization.ellipse_rzero",
+    )
+    parser.add_argument(
+        "--values",
+        default=None,
+        help="comma-separated values for --axis, for refining a marginal locally",
+    )
     parser.add_argument("--tstep", type=float, default=0.001)
     parser.add_argument("--average-window", type=float, default=0.0005)
     args = parser.parse_args(argv)
@@ -355,16 +375,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     shots = [int(v) for v in args.shots.split(",")] if args.shots else sorted(products)
 
+    axes: dict[str, tuple[float, ...]] = dict(AXES)
+    if args.axis:
+        if args.axis not in AXES and not args.values:
+            print(f"unknown axis {args.axis}; give --values to sweep it", file=sys.stderr)
+            return 2
+        chosen = (
+            tuple(float(item) for item in args.values.split(","))
+            if args.values
+            else AXES[args.axis]
+        )
+        axes = {args.axis: chosen}
+
     output = args.output.expanduser()
     output.mkdir(parents=True, exist_ok=True)
     base = EFITScientificConfig()
+    seed = routine_seed()
     payload: dict[str, Any] = {
         "schema_version": SCHEMA,
         "run_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "toolchain": toolchain_identities(resolved),
         "tables": tables,
-        "routine_seed": dict(ROUTINE_SEED),
-        "axes": {name: list(values) for name, values in AXES.items()},
+        "routine_seed": seed,
+        "axes": {name: list(values) for name, values in axes.items()},
         "shots": {},
     }
 
@@ -400,9 +433,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             flush=True,
         )
 
-        for axis, values in AXES.items():
+        for axis, values in axes.items():
             for value in values:
-                if abs(value - ROUTINE_SEED[axis.split(".")[-1]]) < 1e-12:
+                if abs(value - seed[axis.split(".")[-1]]) < 1e-12:
                     continue  # the routine point is already measured
                 scientific = efit_parameter_grid(base, {axis: [value]})[0]
                 run = run_seed(
