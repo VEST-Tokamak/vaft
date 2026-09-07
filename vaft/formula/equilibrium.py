@@ -29,9 +29,14 @@ from .constants import (
     MU0, QE, ME, MI_P,
     E_ALPHA, SIGMA_V_COEF,
     SPITZER_RESISTIVITY_COEF,
+    C_B, K_B_COEF,
     _SCALING_COEFS
 )
+from scipy.integrate import cumulative_trapezoid
+
 from .utils import (
+    _guarded_ratio,
+    calculate_peaking_factor,
     gradient,
     trapz_integral,
     normalize_profile,
@@ -39,6 +44,128 @@ from .utils import (
     calculate_toroidal_flux,
     calculate_volume_weighted_average
 )
+
+#: What ``from vaft.formula.equilibrium import *`` binds, and therefore what
+#: reaches ``vaft.formula.__all__``. Equilibrium, current, energy and geometry kernels.
+#: Declared so the package stops re-exporting this module's own imports --
+#: ``np``, ``warnings``, ``Union``, ``curve_fit`` -- as though they were
+#: formulas (#368).
+__all__ = [
+    "VIRIAL_SINGULAR_EPS",
+    "alpha_heating_power",
+    "alpha_heating_power_from_n_D_n_T_T_keV_V",
+    "approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi",
+    "aspect_ratio_from_a_R",
+    "auxiliary_heating_power",
+    "beta_normal_from_beta_tor",
+    "beta_poloidal_from_circumference",
+    "beta_poloidal_from_pressure_integral",
+    "beta_t_from_n_T_B",
+    "beta_toroidal_from_p_B0",
+    "bootstrap_current_fraction",
+    "bremsstrahlung_power_density_from_T_e_p_Z_eff",
+    "bremsstrahlung_power_density_from_Z_eff_n_e_T_e",
+    "bremsstrahlung_radiation_power_from_z_eff_n_e_t_e",
+    "calc_beta_t",
+    "calc_inverse_aspect_ratio",
+    "calc_nu_star",
+    "calc_omega_i_tau_E",
+    "calc_q_cyl",
+    "calc_rho_star",
+    "check_kadomtsev_constraint",
+    "confinement_factor_ITER89P",
+    "confinement_time_from_P_loss_W_th",
+    "confinement_time_from_engineering_parameters",
+    "coulomb_logarithm",
+    "coulomb_logarithm_from_n_T",
+    "current_density_from_B",
+    "current_density_from_psi",
+    "current_drive_efficiency",
+    "current_limit_from_beta",
+    "current_limit_from_q",
+    "cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e",
+    "cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta",
+    "dimensionless_scaling_coeffs_from_engineering_scaling_coeffs",
+    "eK_from_K",
+    "ec_heating_power_from_I_ec_V_ec",
+    "elongation_from_RZ_boundary",
+    "exact_volume_from_RZ_contour",
+    "heating_power_from_p_ohm_p_aux",
+    "inductive_voltage_from_dW_magdt_I_p",
+    "inverse_aspect_ratio_from_a_R",
+    "kadomtsev_constraint_from_engineering_exponents",
+    "kinetic_energy_from_beta_p_B_pa_V_p",
+    "kink_safety_factor",
+    "li_3_from_Bp2_volume_integral",
+    "line_to_volume_avg_density",
+    "loop_voltage_from_total_flux",
+    "loss_power_from_p_heat_dWdt_p_rad",
+    "magnetic_energy_from_li_B_pa_V_p",
+    "magnetic_shear",
+    "nbi_heating_power_from_I_nbi_V_nbi",
+    "normalize_psi",
+    "normalized_collisionality_from_a_n_q_epsilon_T",
+    "normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q",
+    "normalized_larmor_radius_from_M_T_a_Bt",
+    "normalized_plasma_current",
+    "nu_star_from_n_T_B_R_epsilon_kappa_I",
+    "ohmic_heating_power_from_I_p_V_res",
+    "omega_i_tau_E_from_B_tau_E_M",
+    "peaking_factor",
+    "phi_from_Bphi",
+    "poloidal_field_factor",
+    "psi_from_RBtheta",
+    "psi_normalised",
+    "q_cyl_from_B_R_epsilon_kappa_I",
+    "q_from_phi",
+    "q_from_rhoN",
+    "radial_magnetic_field_from_psi",
+    "rhoN_from_phi",
+    "rhoN_from_qpsiN",
+    "rho_star_from_M_T_B_R_epsilon",
+    "rho_tor_from_phi",
+    "shear_from_r_q",
+    "spitzer_resistivity_from_T_e_Z_eff_ln_Lambda",
+    "stored_energy_from_beta_V",
+    "stored_energy_from_p_V",
+    "surface_poloidal_flux_from_psi_boundary",
+    "toroidal_flux_from_q_psi",
+    "triangularity_from_RZ_boundary",
+    "verify_kadomtsev_constraint",
+    "vertical_magnetic_field_from_psi",
+    "virial_D0_boundary_from_bp_li_eK",
+    "virial_S1_approx",
+    "virial_S2_approx_from_D0_a_R0",
+    "virial_S3_approx_from_eK_d",
+    "virial_beta_p_from_S_alpha_mu",
+    "virial_beta_p_from_S_li",
+    "virial_beta_p_from_volume",
+    "virial_beta_p_lao_from_S_mu_rt",
+    "virial_beta_p_li_from_S_alpha_mu_rt",
+    "virial_beta_pd_from_S_mu_rt",
+    "virial_bongard_from_S_alpha_mu",
+    "virial_bp_li_lihat_from_S123",
+    "virial_closure_denominators",
+    "virial_full_123_from_S_alpha_rt",
+    "virial_identity_residuals",
+    "virial_kinetic_energy",
+    "virial_lao_from_S_alpha_mu_rt",
+    "virial_li_from_S_alpha_mu",
+    "virial_li_from_S_alpha_rt",
+    "virial_li_from_volume",
+    "virial_magnetic_energy",
+    "virial_muihat_from_Bt_R0_dphi",
+    "virial_normalized_residual",
+    "virial_pair_12_from_S_mu_rt",
+    "virial_pair_13_from_S_alpha_mu",
+    "virial_pair_23_from_S_alpha_mu_rt",
+    "virial_residual_rms",
+    "virial_stability_criterion",
+    "virial_theorem",
+    "virial_thermal_energy",
+    "volume_from_RZ_boundary",
+]
+
 
 # ------------------------------------------------------------------
 # Poloidal Flux Calculations
@@ -127,11 +254,10 @@ def psi_normalised(psi: Union[np.ndarray, float],
     both cancel in the ratio, provided all three inputs share one convention.
     Equals the IMAS ``profiles_1d.psi_norm`` label.
 
-    Limitations
-    -----------
-    Divides by ``psi_boundary - psi_axis`` without a guard; a degenerate
-    equilibrium with equal axis and boundary flux returns ``inf``/``nan``.
-    Tracked in #357.
+    Numerical notes
+    ---------------
+    A degenerate equilibrium with equal axis and boundary flux warns and
+    returns ``nan`` rather than ``inf``.
 
     See Also
     --------
@@ -455,17 +581,38 @@ def rhoN_from_qpsiN(psiN: np.ndarray,
 
     Numerical notes
     ---------------
-    Cumulative trapezoidal integral rebuilt from scratch at every sample
-    ($O(N^2)$; tracked in #357); the denominator is not guarded against zero.
+    One vectorised cumulative trapezoid
+    (``scipy.integrate.cumulative_trapezoid``), not a rebuild per sample. A
+    vanishing or non-finite total integral warns and yields ``nan`` rather than
+    ``inf``. A uniformly signed $q$ is fine -- numerator and denominator flip
+    together -- but one that changes sign makes the cumulative ratio negative
+    on some samples, and those warn rather than becoming a silent ``nan``.
 
     References
     ----------
     .. [1] F. L. Hinton and R. D. Hazeltine, Rev. Mod. Phys. 48 (1976) 239, Sec. II.B.
     """
-    # Cumulative integral using trapezoidal rule to preserve quartiles
-    num = np.array([trapz_integral(psiN[:i+1], qpsiN[:i+1]) for i in range(len(psiN))])
+    psiN = np.asarray(psiN, dtype=float)
+    qpsiN = np.asarray(qpsiN, dtype=float)
+    # cumulative_trapezoid with initial=0 is the same quantity the old
+    # per-sample rebuild produced, in one pass instead of O(N^2).
+    num = cumulative_trapezoid(qpsiN, psiN, initial=0.0)
     den = trapz_integral(psiN, qpsiN)
-    return np.sqrt(num / den)
+    ratio = _guarded_ratio(
+        num, den, what="rhoN_from_qpsiN", because="the total integral of q dpsi_N"
+    )
+    negative = np.asarray(ratio) < 0.0
+    if np.any(negative):
+        warnings.warn(
+            "rhoN_from_qpsiN: the cumulative flux ratio is negative on "
+            f"{int(np.count_nonzero(negative))} sample(s), which means q "
+            "changes sign over the profile; the square root is undefined "
+            "there. Returning nan on those samples.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        ratio = np.where(negative, np.nan, ratio)
+    return np.sqrt(ratio)
 
 
 # ------------------------------------------------------------------
@@ -1459,15 +1606,15 @@ def peaking_factor(central: float,
     float
         Peaking factor [-].
 
-    Limitations
-    -----------
-    No guard against a zero volume average.  Tracked in #357.
+    Numerical notes
+    ---------------
+    A zero volume average warns and returns ``nan``.
 
     See Also
     --------
     vaft.formula.utils.calculate_peaking_factor
     """
-    return central / volume_avg
+    return calculate_peaking_factor(central, volume_avg)
 
 # ------------------------------------------------------------------
 # Plasma Resistance
@@ -3204,10 +3351,6 @@ def virial_D0_boundary_from_bp_li_eK(beta_p: float,
 # Power Density $S$
 # ------------------------------------------------------------------
 
-# constants
-k_B = 1.380649e-23        # J/K
-eV_to_J = 1.602176634e-19 # J
-K_B_COEF = 0.052          # MW/m^3 (with p in 1e5 Pa, T in keV)
 
 def bremsstrahlung_power_density_from_T_e_p_Z_eff(
     T_e: float,
@@ -3264,19 +3407,6 @@ def bremsstrahlung_power_density_from_T_e_p_Z_eff(
     return Z_eff * S_B_MW_m3 * 1e6  # W/m^3
 
 
-# physical constants
-epsilon_0 = 8.8541878128e-12
-c = 299792458.0
-h = 6.62607015e-34
-m_e = 9.10938356e-31
-e = 1.602176634e-19
-
-# prefactor
-C_B = (
-    np.sqrt(2.0) / (3.0 * np.pi ** 2.5)
-    * e**6
-    / (epsilon_0**3 * c**3 * h * m_e**1.5)
-)
 
 def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
     n_e_m3: float,
@@ -3326,7 +3456,7 @@ def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
            Cambridge University Press (2002), Sec. 5.3.
     """
 
-    T_J = T_e_eV * eV_to_J
+    T_J = T_e_eV * QE
     return C_B * Z_eff * n_e_m3**2 * np.sqrt(T_J)
 
 # ------------------------------------------------------------------
@@ -3712,7 +3842,7 @@ def cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e(
            Bureau (1979), p. 345.
     """
     coeff = e**4 / (3.0 * np.pi * epsilon_0 * m_e**3 * c**3)
-    return coeff * n_e_m3 * B_t_T**2 * (T_e_eV * eV_to_J)
+    return coeff * n_e_m3 * B_t_T**2 * (T_e_eV * QE)
 
 def loss_power_from_p_heat_dWdt_p_rad(P_heat: float, dWdt: float, p_rad: float) -> float:
     r"""Loss power $P_{loss} = P_{heat} - dW/dt - P_{rad}$.
@@ -4868,8 +4998,15 @@ def confinement_factor_ITER89P(tau_E_exp: float, tau_E_ITER89P: float) -> float:
     return tau_E_exp / tau_E_ITER89P
 
 def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
-    a_I, a_B, a_P, a_n, a_M, a_R, a_eps, a_kappa
-):
+    a_I: float,
+    a_B: float,
+    a_P: float,
+    a_n: float,
+    a_M: float,
+    a_R: float,
+    a_eps: float,
+    a_kappa: float,
+) -> Tuple[float, float, float, float, float]:
     r"""Dimensionless scaling indices $(\mu_\rho, \mu_\beta, \mu_\nu)$ from engineering exponents.
 
     $$\Omega_i\tau_E \propto \rho_*^{\mu_\rho}\,\beta^{\mu_\beta}\,\nu_*^{\mu_\nu}$$
@@ -4913,6 +5050,13 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     mu_kappa : float
         Elongation index, equal to ``a_kappa`` [-].
 
+    Raises
+    ------
+    ValueError
+        When $1 + \alpha_P$ vanishes, which is the exact-power-degradation case
+        $\alpha_P = -1$: every index divides by it, so the transformation has no
+        value there rather than a special one [-].
+
     Assumptions
     -----------
     Constant safety factor, $I_p \propto a^2B/R$, so current is absorbed into
@@ -4920,8 +5064,8 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
 
     Limitations
     -----------
-    Returns ``None`` instead of a tuple when $1 + \alpha_P$ vanishes (tracked in
-    #352); indices are rounded to three decimals.
+    ``a_eps`` is accepted and unused; ``a_M`` and ``a_kappa`` are returned
+    unchanged, so the transformation is a no-op for those two axes.
 
     References
     ----------
@@ -4943,7 +5087,12 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     
     denom = 1 + a_P
     if abs(denom) < 1e-9:
-        return None
+        # Returning None here made every caller fail on the unpack instead, with
+        # a TypeError naming the call site rather than the degenerate exponent.
+        raise ValueError(
+            "a_P = -1 leaves 1 + a_P = 0, and every dimensionless index divides "
+            f"by it; the transformation is undefined there. Got a_P={a_P!r}."
+        )
 
     # Mapping based on Gyro-kinetic transport theory and Kadomtsev's similarity principles
     # mu_rho: Characterizes size scaling (e.g., -3 for Gyro-Bohm, -2 for Bohm)
@@ -4955,14 +5104,9 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     # mu_nu: Characterizes collisionality scaling
     mu_nu = (a_L + 3 * a_n + a_B_star - 2 * a_P - 4) / (2 * denom)
 
-    # round to 3 decimal places
-    mu_rho = round(mu_rho, 3)
-    mu_beta = round(mu_beta, 3)
-    mu_nu = round(mu_nu, 3)
-    mu_M = round(a_M, 3)
-    mu_kappa = round(a_kappa, 3)
-
-    return mu_rho, mu_beta, mu_nu, mu_M, mu_kappa
+    # Deliberately unrounded: three decimals is a presentation choice, and a
+    # kernel that bakes one in cannot be used for anything needing more.
+    return mu_rho, mu_beta, mu_nu, a_M, a_kappa
 
 def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
     r"""Reconstruct the Kadomtsev constraint value from dimensionless indices.

@@ -11,6 +11,7 @@ from vaft.formula.equilibrium import (
     calc_rho_star,
     check_kadomtsev_constraint,
     coulomb_logarithm,
+    dimensionless_scaling_coeffs_from_engineering_scaling_coeffs,
     coulomb_logarithm_from_n_T,
     kadomtsev_constraint_from_engineering_exponents,
     line_to_volume_avg_density,
@@ -194,6 +195,54 @@ class DimensionlessScalingTests(unittest.TestCase):
         beta_percent = beta_t_from_n_T_B(n, t, b, output="percent")
         beta_fraction = beta_t_from_n_T_B(n, t, b, output="fraction")
         self.assertAlmostEqual(beta_fraction, beta_percent / 100.0, places=12)
+
+
+class EngineeringToDimensionlessTests(unittest.TestCase):
+    """The engineering-exponent transformation (issue #352).
+
+    It returned a bare ``None`` on the degenerate branch, so every caller --
+    all of which unpack a 5-tuple -- failed on the unpack with a ``TypeError``
+    naming the call site instead of the exponent that caused it. It also
+    rounded every index to three decimals, a presentation choice baked into a
+    kernel. Nothing called this function and no test covered it.
+    """
+
+    #: ITER89P, with the minor-radius exponent folded into the length exponent
+    #: (1.2 for R plus 0.3 for a), which is what the transformation expects.
+    ITER89P = dict(a_I=0.85, a_B=0.2, a_P=-0.5, a_n=0.1, a_M=0.5, a_R=1.5,
+                   a_eps=0.3, a_kappa=0.5)
+
+    def test_iter89p_reproduces_the_luce_transformation(self):
+        mu_rho, mu_beta, mu_nu, mu_M, mu_kappa = (
+            dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(**self.ITER89P)
+        )
+        # a_L = a_R + a_I = 2.35, a_B* = a_B + a_I = 1.05, D = 1 + a_P = 0.5
+        self.assertAlmostEqual(mu_rho, (3 * 2.35 + 1.05 + 0.1 + 1.0 - 5) / 0.5, places=12)
+        self.assertAlmostEqual(mu_beta, (-2.35 - 0.2 - 1.05 - 1.5 + 3) / 0.5, places=12)
+        self.assertAlmostEqual(mu_nu, (2.35 + 0.3 + 1.05 + 1.0 - 4) / 1.0, places=12)
+        self.assertEqual(mu_M, self.ITER89P["a_M"])
+        self.assertEqual(mu_kappa, self.ITER89P["a_kappa"])
+
+    def test_the_degenerate_exponent_raises_and_names_itself(self):
+        """a_P = -1 is exact power degradation, not an exotic input."""
+        arguments = dict(self.ITER89P, a_P=-1.0)
+        with self.assertRaises(ValueError) as caught:
+            dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(**arguments)
+        self.assertIn("a_P", str(caught.exception))
+
+    def test_the_old_none_return_would_have_failed_on_the_unpack(self):
+        """The negative control: what the previous contract did to a caller."""
+        with self.assertRaises(TypeError):
+            _a, _b, _c, _d, _e = None  # noqa: F841 - the shape every caller uses
+
+    def test_indices_are_not_rounded_to_three_decimals(self):
+        """A kernel that rounds cannot be used for anything needing more."""
+        # a_P = -0.7 gives D = 0.3, so the indices are non-terminating.
+        arguments = dict(self.ITER89P, a_P=-0.7)
+        mu_rho, _, _, _, _ = (
+            dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(**arguments)
+        )
+        self.assertNotAlmostEqual(mu_rho, round(mu_rho, 3), places=12)
 
 
 if __name__ == "__main__":
