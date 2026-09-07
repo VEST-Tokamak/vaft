@@ -15,6 +15,7 @@ import numpy as np
 import pytest
 
 from external_code_stubs import write_launchable_stub
+from lfs_assets import skip_unless_materialized
 from vaft.code.efit import efund as efund_module
 from vaft.code.efit.efund import (
     MHDIN_NAME,
@@ -250,6 +251,7 @@ def test_packaged_tables_are_big_endian_and_frame_as_their_counts_say():
     from vaft.data.resources import data_path
 
     path = data_path("efit/rfcoil.ddd")
+    skip_unless_materialized(path)
     assert fortran_byte_order(path) == ">"
     arrays = read_fortran_arrays(path)
     assert [array.size for array in arrays] == [11 * 16, 64 * 16]

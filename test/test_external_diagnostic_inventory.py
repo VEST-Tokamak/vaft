@@ -284,7 +284,10 @@ class TestTargetPaths:
         for diagnostic in ("camera_visible_arranged", "camera_visible_mcf", "hard_x_rays"):
             target = CONSOLIDATE.target_for(self._entry(diagnostic=diagnostic), self.ROOT)
             assert target is not None
-            assert target.parts[:3] == ("/", "filedb", "unmapped"), diagnostic
+            # Not a literal ("/", ...) tuple: `Path("/filedb").parts` starts
+            # with the platform anchor, which is "\\" on Windows, and the
+            # claim being made is about the directory, not the separator.
+            assert target.is_relative_to(self.ROOT / "unmapped"), diagnostic
 
     def test_ccd_condition_label_keeps_two_exports_apart(self):
         first = CONSOLIDATE.target_for(
