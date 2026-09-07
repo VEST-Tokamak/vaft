@@ -1,105 +1,118 @@
-"""Generic algorithms for the VEST Internal Magnetic Probe Array (IMPA).
+"""Generic algorithms for the VEST Internal Magnetic Probe Array.
 
-The IMPA is an insertable midplane probe carrying, at each of eight radial
-positions, a toroidal-field Hall sensor (raw fields 114-121) and a
-vertical-field sensor (122-129).  The radial-field sensors (130-137) are
-retired: the original design used them only to confirm the probe sat at the
-midplane, where ``B_R ~ 0``.
+The array is an insertable midplane probe carrying, at each of eight radial
+positions, a toroidal-field Hall sensor and a vertical-field sensor.  The
+radial-field sensors are retired: the original design used them only to
+confirm the probe sat at the midplane, where the radial field is negligible.
 
-The two sets play different roles, following Yang et al., Rev. Sci. Instrum.
-85, 11D809 (2014):
+The two sets play different roles [1]_:
 
-* the Hall channels establish *where the array is* -- the toroidal field goes
-  as ``1/R``, so measuring it against the known TF coil current gives each
-  sensor's radius, and the fitted spacing against the rigid as-built 5 cm
-  pitch gives the probe's incident angle;
-* they also establish *how each vertical sensor is aligned*: on a TF-only
-  interval the true vertical field is negligible, so whatever the Bz sensor
-  reads there is toroidal crosstalk, and its ratio to the measured toroidal
-  field is the sensor's misalignment angle;
+* the Hall channels establish *where the array is*.  The toroidal field goes
+  as one over the major radius, so measuring it against the known coil
+  current gives each sensor's radius, and the fitted spacing against the
+  rigid as-built pitch gives the probe's incident angle.
+* they also establish *how each vertical sensor is aligned*.  On an interval
+  driven by the toroidal field alone the true vertical field is negligible,
+  so whatever the vertical sensor reads there is crosstalk, and its ratio to
+  the measured toroidal field is that sensor's misalignment.
 * the vertical sensors, once corrected for that crosstalk, carry the physics
-  measurement -- ``mu0 J_phi ~= -dB_Z/dR`` at the midplane.  Every
-routine here works on plain arrays so the machine-specific parts -- raw field
-codes, shot-era geometry and thresholds -- stay in
-``vaft.machine_mapping.impa`` and ``vaft/machine_mapping/vest.yaml``.
+  measurement: the toroidal current density from the radial gradient of the
+  vertical field at the midplane.
 
-Measurement model
------------------
-Each probe sees a mixture of the local poloidal field and the toroidal field::
+Every routine here works on plain arrays, so the machine-specific parts --
+raw field codes, shot-era geometry and thresholds -- stay in
+:mod:`vaft.machine_mapping.impa` and ``vest.yaml``.
+
+Notation
+--------
+B_meas   : field a probe actually measures                          [T]
+Bt       : vacuum toroidal field at a radius, mu0 N I / (2 pi R)    [T]
+Bz       : vertical field, after compensation                       [T]
+alpha    : probe coupling to the toroidal field, sin of its tilt    [-]
+beta     : per-probe offset                                         [T]
+kappa    : the observable ratio alpha / R                         [1/m]
+R0       : major radius of the innermost channel                    [m]
+I_TF     : toroidal field coil current                              [A]
+
+Conventions
+-----------
+**The measurement model.**  Each probe sees a mixture of the local poloidal
+field and the toroidal field::
 
     B_meas_i(t) = alpha_i * Bt(R_i, t) + Bz_i(t) * sqrt(1 - alpha_i**2) + beta_i
 
-with ``Bt(R, t) = mu0 * N_TF * I_TF(t) / (2 * pi * R)`` and ``alpha_i = sin(theta_i)``
-for a probe tilted by ``theta_i`` away from the vertical.  Inverting it gives the
-compensated internal field::
+Inverting it gives the compensated internal field::
 
     Bz_i = (B_meas_i - alpha_i * Bt(R_i)) / sqrt(1 - alpha_i**2)
 
-Sign convention
----------------
-VAFT uses ``I_TF = raw_field_1 * -3e4`` (as :mod:`vaft.machine_mapping.tf`
-already does) together with an IMPA Hall gain of ``-2/15`` T/V.  This is the
-"Data gain" recorded on the array's own DAQ wiring datasheet -- the
-authoritative hardware configuration -- and does not match either legacy
-MATLAB script exactly (``VEST_IMPAProcessing.m`` used ``-2/15`` with ``+3e4``;
-``vest_impa_position.m`` used ``+2/15`` with ``-3e4``).  All three pairings
-give the same ``B_meas / Bt`` ratio up to an overall sign, so the fits here are
-sign-agnostic (they detect the working polarity from the data rather than
-assuming ``alpha`` is positive) and only ``|alpha|`` carries physical meaning.
+**Sign.**  VAFT takes the coil current as the raw field times ``-3e4``, as
+:mod:`vaft.machine_mapping.tf` already does, together with a Hall gain of
+``-2/15`` T/V.  That is the "Data gain" on the array's own wiring datasheet,
+the authoritative hardware configuration, and it matches neither legacy
+script exactly [2]_.  All three pairings give the same ratio of measured to
+toroidal field up to an overall sign, so **the fits here are sign-agnostic**:
+they detect the working polarity from the data rather than assuming a
+positive coupling, and only the magnitude of the coupling carries physical
+meaning.  The shipped configuration default disagrees with that gain's sign,
+which is tracked in #624.
 
-The datasheet leaves the Bz sensors' own volts-to-tesla gain unspecified, so
-Bz waveforms stay in native volts throughout; see
+The datasheet leaves the vertical sensors' own volts-to-tesla gain
+unspecified, so those waveforms stay in native volts throughout; see
 :class:`ImpaCrosstalkFit` for what that means for the crosstalk angle.
 
-Geometry / coupling degeneracy
-------------------------------
-During a TF-only interval the toroidal field is the *only* driver, so a probe
-measures ``alpha_i * mu0 * N * I_TF / (2 * pi * R_i)``.  Only the ratio
-``kappa_i = alpha_i / R_i`` is observable: assuming ``alpha_i = 1`` yields the
-radial position (the legacy ``vest_impa_position`` method), while a known
-``R_i`` yields the coupling.  The two cannot be recovered simultaneously from
-TF data alone.
+**Geometry and coupling are degenerate.**  During a toroidal-field-only
+interval that field is the only driver, so a probe measures
+``alpha_i * mu0 * N * I_TF / (2 * pi * R_i)`` and only the ratio
+``kappa_i = alpha_i / R_i`` is observable.  Assuming unit coupling yields the
+radial position, which is the legacy method; a known radius yields the
+coupling instead.  The two cannot be recovered together from that data alone.
 
-The IMPA is an insertable array whose radial position is set per shot, so
-geometry is a per-shot quantity: self-calibration from the shot's own clean-TF
-window is the primary geometry source, not a fallback.  Configured ``r`` in
-``vest.yaml`` applies only to a shot era where the array was surveyed or left
-fixed, and then takes precedence.  Comparing fitted positions between shots is
-meaningless -- the probe really did move.
+**Geometry is per shot.**  The array is insertable and its radial position is
+set per shot, so self-calibration from the shot's own clean window is the
+primary geometry source, not a fallback, and comparing fitted positions
+between shots is meaningless because the probe really did move.  A configured
+radius in ``vest.yaml`` applies only to an era where the array was surveyed
+or left fixed, and then takes precedence.  A reference shot taken with the
+array in the same position can supply the calibration for another, which is
+the legacy two-shot arrangement; the single-shot path never requires it.
 
-What the reference shots show
------------------------------
-The 2022-04-23 alignment block (35376-35379, 35385) is the verified reference
-condition.  With that campaign's cabling polarity the array behaves exactly as
-a rigid seven-channel probe at 5 cm pitch facing the toroidal field:
+Notes
+-----
+**What the reference shots show.**  The 2022-04-23 alignment block, shots
+35376 to 35379 and 35385, is the verified reference condition.  With that
+campaign's cabling the array behaves exactly as a rigid seven-channel probe
+at the as-built pitch facing the toroidal field: the fitted coupling is 1.01
+to 1.045 on every channel, meaning the probes measure the toroidal field
+itself rather than a small tilt pickup; the rigid fit lands at a major radius
+of 0.486 to 0.501 m across the block with a 9 to 12 percent normalized
+residual; and one field is not wired in this campaign, so the array runs
+seven channels.
 
-* fitted coupling ``|alpha| = 1.01-1.045`` on every channel -- the probes
-  measure the toroidal field itself, not a small tilt pickup;
-* the rigid 1/R fit lands at ``R0 = 0.486-0.501 m`` across the block, with a
-  9-12% normalised residual;
-* field 121 is not wired in this campaign, so the array runs seven channels.
+Because those probes face the toroidal field they have essentially no
+sensitivity left for the poloidal component.  Such a probe cannot measure the
+vertical field, and the measurement belongs with the toroidal probes instead.
+The legacy ten-degree tilt model assumed a near-vertical probe; on shot 39204
+it saturates at its bound on all eight channels and returns a compensated
+vertical field of order 0.1 T, two orders of magnitude above VEST's real one.
 
-Because the probes face the toroidal field, they have essentially no
-sensitivity left for the poloidal component: such a probe cannot measure Bz,
-and the measurement belongs in ``magnetics.b_field_tor_probe``.  The legacy
-``+/-10 degree`` tilt model assumed a near-vertical probe, and on shot 39204 it
-saturates at its bound on all eight channels and returns a "compensated Bz" of
-order 0.1 T -- two orders of magnitude above VEST's real vertical field.
+Shots failing the reference condition are rejected with reasons: 39204 and
+39923 leave a 34 to 35 percent rigid-array residual and carry channels far
+from unit coupling, and 35325, a reference taken with the array withdrawn,
+shows a coupling of about 0.004.
 
-Shots that do not meet the reference condition are rejected with reasons:
-39204 and 39923 leave a 34-35% rigid-array residual and carry channels far from
-unit coupling, and 35325 (a TF reference taken with the array withdrawn) shows
-``alpha ~ 0.004``.
-
-Cross-shot agreement of fitted position is *not* a criterion: the array is
-insertable and is repositioned between campaigns.  Geometry is therefore a
-per-shot quantity, self-calibrated from the shot's own clean-TF window.
-Configured ``r`` in ``vest.yaml`` applies only where an era was surveyed or
-left fixed, and then takes precedence.
-
-A TF reference shot taken with the array in the same position can supply the
-calibration for another shot -- the legacy two-shot arrangement -- through the
-optional ``reference`` argument.  It is never required by the single-shot path.
+Provenance
+----------
+.. [1] Yang et al., Rev. Sci. Instrum. 85, 11D809 (2014), which establishes
+   the roles of the two sensor sets.
+.. [2] The legacy MATLAB scripts this module ports and deliberately differs
+   from: ``VEST_IMPAProcessing.m`` used ``-2/15`` with ``+3e4`` and
+   ``vest_impa_position.m`` used ``+2/15`` with ``-3e4``.  Both are
+   reproduced faithfully by :func:`legacy_impa_compensation` and
+   :func:`legacy_impa_position` respectively.
+.. [3] The array's own DAQ wiring datasheet, the authoritative source for the
+   Hall gain and the reason the vertical sensors stay in volts.
+.. [4] ``vest.yaml`` ``impa``, which carries the shot-era geometry,
+   calibration and thresholds this module takes as arguments.
 """
 
 from __future__ import annotations
@@ -328,11 +341,50 @@ class ImpaResult:
 # signal conditioning
 # --------------------------------------------------------------------------
 def impa_lowpass(values: np.ndarray, cutoff_hz: float, sample_rate: float) -> np.ndarray:
-    """Zero-phase FIR low pass matching the legacy ``vest_filter`` design.
+    """Zero-phase low pass reproducing the legacy filter design.
 
-    ``filtfilt`` needs more samples than the filter's padding length; tiny
-    synthetic dumps fall back to a forward filter, the same accommodation
-    :mod:`vaft.machine_mapping.pf_active` already makes.
+    Parameters
+    ----------
+    values : array_like
+        Waveform or stack of them; the sample axis is the last [any].
+    cutoff_hz : float
+        Cut-off frequency [Hz].
+    sample_rate : float
+        Sample rate [Hz].
+
+    Returns
+    -------
+    np.ndarray
+        The filtered waveform, same shape [any].
+
+    Convention
+    ----------
+    **Zero phase where it can be.**  The forward-backward filter moves no feature
+    in time, which matters because the array's channels are compared against each
+    other and against the coil current.  A record too short for the padding that
+    needs falls back to a single forward pass, which is causal and therefore
+    delays every feature; the convention silently changes with record length, and
+    only tiny synthetic records are short enough for it.
+
+    Defaults
+    --------
+    The tap count is a legacy compatibility value: the donor design is a
+    Hamming-window filter whose order follows from the sample rate, giving the
+    same 26 taps this uses.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The fallback above is the one case where the phase convention is not what the
+    summary says.
+
+    Provenance
+    ----------
+    .. [1] The legacy ``vest_filter`` design, whose window, order and
+       forward-backward application this reproduces.
     """
     values = np.asarray(values, dtype=float)
     taps = signal.firwin(_FIR_TAPS, cutoff_hz, pass_zero="lowpass", fs=sample_rate)
@@ -359,10 +411,61 @@ def impa_calibrate_signals(
     baseline: str = "first_sample",
     baseline_samples: int = 2_500,
 ) -> np.ndarray:
-    """Filter, gain-calibrate and baseline-correct raw IMPA voltages.
+    """Filter, scale and baseline raw probe records into field units.
 
-    The stage order follows ``VEST_IMPAProcessing.m``: low pass, then gain,
-    then baseline removal.
+    Parameters
+    ----------
+    raw : array_like
+        Raw digitizer records as ``(n_channels, n_samples)`` [V].
+    gain : float
+        Hall calibration factor [T/V].
+    cutoff_hz : float
+        Conditioning low-pass cut-off [Hz].
+    sample_rate : float
+        Sample rate [Hz].
+    baseline : str, optional
+        Which baseline to remove [-].
+    baseline_samples : int, optional
+        Leading samples used when the baseline is a mean [-].
+
+    Returns
+    -------
+    np.ndarray
+        Conditioned records in field units [T].
+
+    Processing steps
+    ----------------
+    1. Low-pass each channel.
+    2. Multiply by the calibration factor.
+    3. Remove the baseline.
+
+    Convention
+    ----------
+    **The stage order is the donor's**, low pass then gain then baseline, and it
+    is not interchangeable: removing a baseline before filtering leaves the
+    filter's transient riding on a different level.
+
+    The sign of the calibration factor is the caller's, and the fits downstream
+    are deliberately sign-agnostic; see the module's conventions and #624.
+
+    Defaults
+    --------
+    ``baseline_samples = 2500`` is an acquisition-era value, the leading interval
+    that precedes the discharge at the array's own sample rate. It is a sample
+    count, so it means a different duration at a different rate.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Assumes the leading window is field-free. Inherits the record-length caveat
+    of :func:`impa_lowpass`.
+
+    Provenance
+    ----------
+    .. [1] ``VEST_IMPAProcessing.m``, whose stage order this follows.
     """
     raw = np.atleast_2d(np.asarray(raw, dtype=float))
     filtered = impa_lowpass(raw, cutoff_hz, sample_rate) * float(gain)
@@ -370,7 +473,48 @@ def impa_calibrate_signals(
 
 
 def toroidal_field(r: np.ndarray | float, i_tf: np.ndarray | float, turns: int = 24) -> np.ndarray:
-    """Vacuum toroidal field ``mu0 * N * I_TF / (2 * pi * R)``."""
+    """Vacuum toroidal field at a radius, from the coil current.
+
+    Parameters
+    ----------
+    r : array_like
+        Major radius, strictly positive [m].
+    i_tf : array_like
+        Toroidal field coil current [A].
+    turns : int, optional
+        Coil turns [-].
+
+    Returns
+    -------
+    np.ndarray
+        The vacuum toroidal field [T].
+
+    Convention
+    ----------
+    ``mu0 * N * I / (2 * pi * R)``, the vacuum field of an ideal toroidal
+    solenoid, so it carries the sign of the current as given. It is the field the
+    array is calibrated against, not a measurement.
+
+    Defaults
+    --------
+    ``turns = 24`` is machine-specific, the VEST toroidal field coil's turn count.
+    A caller on another machine passes its own.
+
+    Applicability
+    -------------
+    Machine-independent.  Only the default turn count is a VEST number.
+
+    Limitations
+    -----------
+    Vacuum field only: it ignores the plasma's own diamagnetic or paramagnetic
+    contribution, which is the assumption that makes a coil-driven interval usable
+    for calibration in the first place.
+
+    Provenance
+    ----------
+    .. [1] The ideal toroidal solenoid field; the same relation
+       :mod:`vaft.machine_mapping.tf` uses for the coil current.
+    """
     r_array = np.asarray(r, dtype=float)
     if np.any(r_array <= 0):
         raise ValueError("IMPA probe radii must be positive")
@@ -409,11 +553,82 @@ def find_tf_calibration_window(
     criteria: TfWindowCriteria | None = None,
     b_measured: np.ndarray | None = None,
 ) -> tuple[TfCalibrationWindow | None, tuple[str, ...]]:
-    """Find the longest same-shot interval where the TF alone drives the probes.
+    """Find the interval where the toroidal field alone drives the probes.
 
-    Returns ``(window, reasons)``.  ``window`` is ``None`` when no interval
-    satisfies every criterion -- an arbitrary fallback sample is never chosen.
-    ``reasons`` always explains which criteria eliminated candidates.
+    Calibration needs a stretch of the same shot in which the coil is energised
+    and nothing else is: no plasma current, no poloidal field. That interval is
+    what makes the geometry and coupling fits meaningful, so this reports why it
+    chose the one it did.
+
+    Parameters
+    ----------
+    time : array_like
+        Sample times [s].
+    i_tf : array_like
+        Toroidal field coil current [A].
+    ip : array_like, optional
+        Plasma current, used to exclude the discharge [A].
+    pf_currents : array_like, optional
+        Poloidal field coil currents as ``(n_coils, n_samples)`` [A].
+    criteria : TfWindowCriteria, optional
+        Thresholds the interval must satisfy [-].
+    b_measured : array_like, optional
+        Conditioned probe records, used to require finite channels [T].
+
+    Returns
+    -------
+    tuple
+        The chosen :class:`TfCalibrationWindow` with its metrics, and a tuple of
+        reason strings recording what was applied and why [-].
+
+    Processing steps
+    ----------------
+    1. Validate the time axis.
+    2. Require the coil current above an absolute floor and above a fraction of
+       the shot's own peak.
+    3. Exclude samples where the plasma current or any poloidal coil exceeds its
+       limit, on median-filtered traces.
+    4. Require every probe channel finite.
+    5. Group what survives into contiguous runs and drop the too-short ones.
+    6. Choose among the survivors by **conditioning, not length**.
+
+    Convention
+    ----------
+    The chosen interval is the best-conditioned one, meaning the widest spread in
+    coil current, rather than the longest. A long interval at nearly constant
+    current constrains the fit poorly however many samples it holds, because the
+    fit is a regression against that current.
+
+    Both an absolute floor and a fraction of the shot's own peak are applied,
+    because a shot can be energised weakly overall while still having a usable
+    interval, and a fixed floor alone would either reject it or admit noise on a
+    strong shot.
+
+    Defaults
+    --------
+    The thresholds are hard-coded: an absolute current floor, a fraction of peak,
+    plasma and poloidal current limits, a minimum duration and a dynamic-range
+    floor. The fraction of peak is a validated-workflow value distinguishing the
+    reference shots from a weakly energised one; the rest have no recorded
+    derivation. The median-filter width is an acquisition-era value, one
+    millisecond at the array's own rate. One configured threshold, the relative
+    noise limit, is read by nothing at all, which is tracked in #625.
+
+    Applicability
+    -------------
+    Machine-independent.  The thresholds arrive as an argument.
+
+    Limitations
+    -----------
+    Reasons are returned rather than raised, so a caller must read them: a window
+    can be chosen and still be poor. Without the optional currents the
+    corresponding exclusions simply do not happen, and an interval containing
+    plasma can be selected.
+
+    Provenance
+    ----------
+    .. [1] ``vest.yaml`` ``impa.calibration_window``, which carries the VEST
+       thresholds and the evidence for the fraction-of-peak value.
     """
     criteria = criteria or TfWindowCriteria()
     time = np.asarray(time, dtype=float)
@@ -531,10 +746,55 @@ def fit_impa_tf_coupling(
     turns: int = 24,
     tilt_bounds_deg: Sequence[float] = (-10.0, 10.0),
 ) -> ImpaCouplingFit:
-    """Regress ``B_meas_i = alpha_i * Bt(R_i) + beta_i`` over a whole window.
+    """Fit each probe's coupling to the toroidal field, at known radii.
 
-    Fitting a full interval rather than the single legacy time sample gives
-    residual statistics that make a bad calibration visible.
+    Parameters
+    ----------
+    b_measured : array_like
+        Conditioned probe records as ``(n_channels, n_samples)`` [T].
+    i_tf : array_like
+        Toroidal field coil current [A].
+    r : array_like
+        Major radius of each probe [m].
+    window : TfCalibrationWindow
+        The interval to regress over [-].
+    turns : int, optional
+        Coil turns [-].
+    tilt_bounds_deg : tuple of float, optional
+        Bounds on the probe tilt [deg].
+
+    Returns
+    -------
+    ImpaCouplingFit
+        Per-channel coupling and offset with their residual statistics [-].
+
+    Convention
+    ----------
+    Regresses the measured field on the modelled toroidal field at the known
+    radius, giving the coupling as slope and the offset as intercept. This is the
+    half of the degeneracy that a **known radius** resolves; see
+    :func:`fit_impa_geometry` for the other half. Only the magnitude of the
+    coupling carries meaning, since its sign follows the calibration polarity.
+
+    Defaults
+    --------
+    ``turns = 24`` is machine-specific. The tilt bounds are a legacy compatibility
+    value from a model that assumed a near-vertical probe, and they saturate on an
+    array that faces the toroidal field, which is the reference condition here.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Needs the radii, which on this array are usually themselves fitted, so the two
+    must not be circular. The tilt bounds saturating is a signal that the model
+    does not fit the array, not a result to use.
+
+    Provenance
+    ----------
+    .. [1] The measurement model in this module's conventions.
     """
     b_measured = np.atleast_2d(np.asarray(b_measured, dtype=float))
     i_tf = np.asarray(i_tf, dtype=float)
@@ -604,13 +864,76 @@ def fit_impa_geometry(
     r_bounds: Sequence[float] = (0.1, 0.9),
     fit_pitch: bool = False,
 ) -> ImpaGeometryFit:
-    """Self-calibrate ``R_0`` from the TF ``1/R`` profile over a full window.
+    """Self-calibrate the array's radial position from the toroidal-field profile.
 
-    This is the ``vest_impa_position`` model -- uniform channel pitch and unit
-    TF coupling -- fitted across every window sample instead of one hard-coded
-    time.  Because the array is insertable, this is the normal geometry source
-    for a shot rather than a fallback; its residuals still have to be checked
-    before the result is trusted.
+    Parameters
+    ----------
+    b_measured : array_like
+        Conditioned probe records as ``(n_channels, n_samples)`` [T].
+    i_tf : array_like
+        Toroidal field coil current [A].
+    window : TfCalibrationWindow
+        The interval to fit over [-].
+    pitch : float, optional
+        As-built spacing between channels [m].
+    z : float, optional
+        Height of the array [m].
+    turns : int, optional
+        Coil turns [-].
+    r0_initial : float, optional
+        Starting guess for the innermost channel's radius [m].
+    r_bounds : tuple of float, optional
+        Bounds on that radius [m].
+    fit_pitch : bool, optional
+        Whether to fit the spacing as well as the position [-].
+
+    Returns
+    -------
+    ImpaGeometryFit
+        The fitted radii, the spacing, the incident angle and the residual
+        statistics [-].
+
+    Processing steps
+    ----------------
+    1. Keep the channels finite across the window.
+    2. Detect the working polarity from the data.
+    3. Solve a bounded least squares for the innermost radius, and the spacing
+       when asked.
+    4. Form the residual and its normalized form.
+    5. Recover the incident angle from the ratio of fitted to as-built spacing.
+
+    Convention
+    ----------
+    This is the half of the degeneracy that **assuming unit coupling** resolves,
+    which is the legacy method: a rigid array of known spacing is slid along the
+    one-over-radius profile until it matches. The other half is
+    :func:`fit_impa_tf_coupling`.
+
+    **The coupling sign is detected, not assumed.**  The measured sign follows the
+    configured Hall gain's polarity, which this function has no reason to know.
+    An incident angle of zero is a purely radial insertion in the midplane.
+
+    Defaults
+    --------
+    The spacing is machine-specific, the array's rigid as-built value. The
+    starting guess and the radial bounds are machine-specific too, spanning the
+    vessel. ``turns = 24`` is the VEST coil.
+
+    Applicability
+    -------------
+    Machine-independent.  Every machine number is an argument.
+
+    Limitations
+    -----------
+    Assumes the array is rigid and the coupling uniform, so a fitted position is
+    meaningful only where the residual is small; the reference shots sit at 9 to
+    12 percent and the rejected ones at 34 to 35. **Positions are not comparable
+    between shots**, because the array is insertable and really is repositioned.
+
+    Provenance
+    ----------
+    .. [1] The ``vest_impa_position`` model: uniform channel spacing and unit
+       coupling, reproduced faithfully by :func:`legacy_impa_position`.
     """
     b_measured = np.atleast_2d(np.asarray(b_measured, dtype=float))
     i_tf = np.asarray(i_tf, dtype=float)
@@ -730,12 +1053,57 @@ def fit_impa_crosstalk(
     max_angle_deg: float = 30.0,
     bz_gain: float | None = None,
 ) -> ImpaCrosstalkFit:
-    """Measure each Bz sensor's toroidal-field crosstalk on a TF-only window.
+    """Fit the toroidal-field bleed into each vertical sensor.
 
-    Pass ``bz_gain`` [T/V] only once the Bz sensor's own calibration is known;
-    without it the fit still yields the crosstalk slope and its goodness of
-    fit, which is enough to judge whether a sensor is picking up the field at
-    all, just not to convert that into a misalignment angle.
+    On an interval driven by the toroidal field alone the true vertical field is
+    negligible, so whatever a vertical sensor reads there is crosstalk. Its ratio
+    to the measured toroidal field is that sensor's misalignment.
+
+    Parameters
+    ----------
+    b_toroidal : array_like
+        Toroidal field at each sensor [T].
+    b_z_raw : array_like
+        Raw vertical-sensor records, in native units [V].
+    window : TfCalibrationWindow
+        The toroidal-field-only interval [-].
+    max_angle_deg : float, optional
+        Largest misalignment still treated as physical [deg].
+    bz_gain : float, optional
+        Volts-to-tesla gain for the vertical sensors, if known [T/V].
+
+    Returns
+    -------
+    ImpaCrosstalkFit
+        Per-sensor slope, offset and goodness of fit; the misalignment angle only
+        when a gain was supplied [-].
+
+    Convention
+    ----------
+    **The slope is volts per tesla, not a dimensionless projection**, because the
+    wiring datasheet leaves the vertical sensors' gain unspecified and those
+    waveforms stay in volts. Without a gain the angle cannot be formed and is
+    returned as NaN **rather than silently wrong**.
+
+    Defaults
+    --------
+    The maximum angle is hard-coded with no recorded derivation.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Rests on the vertical field being negligible over the window, which is what
+    makes the window selection load-bearing. A linear fit only: a sensor
+    responding non-linearly keeps a residual.
+
+    Provenance
+    ----------
+    .. [1] Yang et al., Rev. Sci. Instrum. 85, 11D809 (2014), for the alignment
+       role of the two sensor sets; ``vest.yaml`` ``impa.crosstalk`` for the
+       configured thresholds.
     """
     b_toroidal = np.atleast_2d(np.asarray(b_toroidal, dtype=float))
     b_z_raw = np.atleast_2d(np.asarray(b_z_raw, dtype=float))
@@ -794,12 +1162,42 @@ def remove_bz_crosstalk(
     b_toroidal: np.ndarray,
     crosstalk: ImpaCrosstalkFit,
 ) -> np.ndarray:
-    """Subtract the toroidal-field bleed from each vertical-field waveform.
+    """Subtract a vertical sensor's toroidal crosstalk.
 
-    Works entirely in the Bz sensor's native volts, so it needs no gain: the
-    fitted ``slope_v_per_t * b_toroidal`` is already in those same volts.  The
-    toroidal field is taken from the co-located Hall channel rather than a
-    model, so the correction follows the real field the sensor saw.
+    Parameters
+    ----------
+    b_z_raw : array_like
+        Raw vertical-sensor records, in the sensor's native units [V].
+    b_toroidal : array_like
+        The toroidal field at each sensor [T].
+    crosstalk : ImpaCrosstalkFit
+        The fitted per-sensor slope and offset [-].
+
+    Returns
+    -------
+    np.ndarray
+        The records with the crosstalk removed, still in native units [V].
+
+    Convention
+    ----------
+    **The output stays in volts.**  The wiring datasheet leaves the vertical
+    sensors' volts-to-tesla gain unspecified, so nothing here converts them; the
+    fitted slope is therefore volts per tesla rather than a dimensionless
+    projection.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Removes only the linear crosstalk the fit describes. A sensor whose response
+    to the toroidal field is not linear keeps its residual.
+
+    Provenance
+    ----------
+    .. [1] :func:`fit_impa_crosstalk`, which supplies the coefficients, and the
+       wiring datasheet that leaves the vertical gain unspecified.
     """
     b_z_raw = np.atleast_2d(np.asarray(b_z_raw, dtype=float))
     b_toroidal = np.atleast_2d(np.asarray(b_toroidal, dtype=float))
@@ -816,12 +1214,46 @@ def remove_bz_crosstalk(
 
 
 def remove_tf_pickup(b_measured: np.ndarray, tf_pickup: np.ndarray, alpha: np.ndarray) -> np.ndarray:
-    """Return ``Bz = (B_meas - alpha * Bt) / sqrt(1 - alpha**2)``.
+    """Recover the vertical field by removing a probe's toroidal pickup.
 
-    ``tf_pickup`` is the already-scaled ``alpha * Bt`` contribution.  Channels
-    whose coupling approaches unity are toroidally aligned; the projection back
-    onto the vertical axis is then unbounded, so they yield NaN rather than a
-    plausible-looking but meaningless number.
+    Parameters
+    ----------
+    b_measured : array_like
+        What the probe measured [T].
+    tf_pickup : array_like
+        The toroidal field at that probe [T].
+    alpha : array_like
+        The probe's coupling to the toroidal field [-].
+
+    Returns
+    -------
+    np.ndarray
+        The compensated vertical field, NaN where the probe is toroidally
+        aligned [T].
+
+    Convention
+    ----------
+    Inverts the measurement model: subtract the coupled toroidal part, then
+    divide by the remaining poloidal sensitivity. A probe with unit coupling
+    faces the toroidal field and has **no** sensitivity left for the vertical
+    one, so the result is NaN rather than a division blowing up. That is not an
+    edge case on this array: the reference shots put the coupling at 1.01 to
+    1.045, which is exactly that condition.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The compensated field is only as good as the coupling it was given, and the
+    division amplifies its error as the coupling approaches one. Trust the
+    result only where the array is genuinely near-vertical.
+
+    Provenance
+    ----------
+    .. [1] The measurement model in this module's conventions, of which this is
+       the inversion.
     """
     b_measured = np.atleast_2d(np.asarray(b_measured, dtype=float))
     tf_pickup = np.atleast_2d(np.asarray(tf_pickup, dtype=float))
@@ -851,12 +1283,85 @@ def legacy_impa_position(
     r_bounds: Sequence[float] = (0.1, 0.9),
     baseline_samples: int = 2_500,
 ) -> dict[str, Any]:
-    """Faithful port of ``vest_impa_position.m`` (single time sample).
+    """Faithful port of the legacy position script, at one time sample.
 
-    Kept for numerical parity checks against the legacy pipeline.  Its stage
-    order differs from :func:`impa_calibrate_signals` on purpose: offset first,
-    then gain, then the 2.5 kHz filter, then a 2500-sample mean removal.  The
-    TF trace is deliberately *not* offset-corrected, exactly as in MATLAB.
+    Kept so the current chain can be compared against what the donor actually
+    did, not so it can be used in preference; :func:`fit_impa_geometry` is the
+    maintained path.
+
+    Parameters
+    ----------
+    time : array_like
+        Sample times [s].
+    raw : array_like
+        Raw probe records as ``(n_channels, n_samples)`` [V].
+    tf_raw : array_like
+        Raw toroidal-field coil trace [V].
+    target_time : float, optional
+        The single sample the fit is evaluated at [s].
+    sample_rate : float, optional
+        Sample rate [Hz].
+    cutoff_hz : float, optional
+        Conditioning low-pass cut-off [Hz].
+    gain : float, optional
+        Hall calibration factor [T/V].
+    tf_gain : float, optional
+        Raw-to-amperes factor for the coil trace [A/V].
+    turns : int, optional
+        Coil turns [-].
+    pitch : float, optional
+        As-built channel spacing [m].
+    r0_initial : float, optional
+        Starting guess for the innermost radius [m].
+    r_bounds : tuple of float, optional
+        Bounds on that radius [m].
+    baseline_samples : int, optional
+        Leading samples forming the baseline [-].
+
+    Returns
+    -------
+    ImpaGeometryFit
+        The fitted radii and spacing at that one sample [-].
+
+    Processing steps
+    ----------------
+    1. Subtract each probe's first sample, apply the gain, low-pass, then
+       subtract the mean of the leading samples.
+    2. Condition the coil trace with gain and low pass, **without** removing any
+       offset.
+    3. Take the sample nearest the target time.
+    4. Solve the bounded least squares for the innermost radius.
+
+    Convention
+    ----------
+    **The donor's order, kept deliberately**, including the asymmetry that the
+    coil trace is not offset-corrected while the probes are. The sign pairing is
+    the donor's too, a positive gain with a negative coil factor, which differs
+    from both the datasheet and the other legacy script; see the module's
+    conventions.
+
+    Defaults
+    --------
+    Every default here is a legacy compatibility value reproducing the donor
+    script: its single evaluation time, its sample rate, its cut-off, its two
+    gains and its baseline length.
+
+    Applicability
+    -------------
+    VEST-specific.  A port of a VEST script, carrying that machine's coil factor,
+    sample rate and array spacing as its defaults; it reproduces one historical
+    routine rather than describing a general method.
+
+    Limitations
+    -----------
+    One time sample, not a time series, and no residual quality reported. It
+    assumes unit coupling, which the reference shots show is nearly true and the
+    rejected shots show is not.
+
+    Provenance
+    ----------
+    .. [1] ``vest_impa_position.m``, ported faithfully including its stage order
+       and its sign pairing.
     """
     time = np.asarray(time, dtype=float)
     raw = np.atleast_2d(np.asarray(raw, dtype=float))
@@ -907,11 +1412,77 @@ def legacy_impa_compensation(
     turns: int = 24,
     tilt_bounds_deg: Sequence[float] = (-10.0, 10.0),
 ) -> dict[str, Any]:
-    """Faithful port of ``VEST_IMPAProcessing.m`` for a single shot.
+    """Faithful port of the legacy compensation script, at one time sample.
 
-    The legacy routine also processed a reference shot through this same path;
-    that branch is intentionally absent because calibration never needed it --
-    the reference waveform only mattered for the later equilibrium residual.
+    Kept for comparison against the donor, not as the maintained path; the
+    current chain is :func:`fit_impa_tf_coupling` with :func:`remove_tf_pickup`.
+
+    Parameters
+    ----------
+    time : array_like
+        Sample times [s].
+    raw : array_like
+        Raw probe records as ``(n_channels, n_samples)`` [V].
+    tf_raw : array_like
+        Raw toroidal-field coil trace [V].
+    r : array_like
+        Major radius of each probe [m].
+    target_time : float, optional
+        The single sample the fit is evaluated at [s].
+    sample_rate : float, optional
+        Sample rate [Hz].
+    cutoff_hz : float, optional
+        Conditioning low-pass cut-off [Hz].
+    gain : float, optional
+        Hall calibration factor [T/V].
+    tf_gain : float, optional
+        Raw-to-amperes factor for the coil trace [A/V].
+    turns : int, optional
+        Coil turns [-].
+    tilt_bounds_deg : tuple of float, optional
+        Bounds on the probe tilt [deg].
+
+    Returns
+    -------
+    ImpaCouplingFit
+        The per-channel coupling and the compensated field at that sample [-].
+
+    Processing steps
+    ----------------
+    1. Low-pass each probe, apply the gain, subtract the first sample.
+    2. Low-pass the coil trace and subtract its first sample.
+    3. Take the sample nearest the target time.
+    4. Solve a bounded tilt per channel, build the pickup, and divide it out.
+
+    Convention
+    ----------
+    **The donor's order, which differs from the position script's**: here the low
+    pass comes before the gain, and both traces are offset-corrected. The sign
+    pairing is also the donor's, a negative gain with a positive coil factor,
+    the mirror of the other script. Both are reproduced rather than harmonized.
+
+    Defaults
+    --------
+    Every default is a legacy compatibility value from the donor script,
+    including its evaluation time, which differs from the position script's.
+
+    Applicability
+    -------------
+    VEST-specific.  A port of a VEST script carrying that machine's coil factor,
+    sample rate and calibration as defaults, reproducing one historical routine
+    rather than a general method.
+
+    Limitations
+    -----------
+    One time sample only. The donor also processed a reference shot through the
+    same path; that branch is deliberately absent here, so this is the
+    single-shot half of the original. The tilt model assumes a near-vertical
+    probe and saturates on an array that faces the toroidal field.
+
+    Provenance
+    ----------
+    .. [1] ``VEST_IMPAProcessing.m``, ported faithfully including its stage order
+       and its sign pairing; the omitted reference-shot branch is noted above.
     """
     time = np.asarray(time, dtype=float)
     raw = np.atleast_2d(np.asarray(raw, dtype=float))
@@ -984,14 +1555,89 @@ def grade_impa_quality(
     crosstalk: ImpaCrosstalkFit | None = None,
     min_crosstalk_r_squared: float = 0.8,
 ) -> ImpaQuality:
-    """Grade one processed IMPA shot as ``valid``/``warning``/``invalid``.
+    """Grade whether an array's measurements can be trusted, and say why not.
 
-    Renamed from ``validate_impa`` (issue #337): ``vaft.process`` transforms and
-    infers, and does not reach verdicts.  This *is* a verdict -- source validity,
-    the same question :mod:`vaft.validation.magnetics` answers for magnetics --
-    so the rename is a holding action.  #339 moves the grading itself into
-    ``vaft.validation.impa`` and onto the shared status vocabulary; the fitting
-    and compensation kernels stay here, where they belong.
+    Parameters
+    ----------
+    time : array_like
+        Sample times [s].
+    raw : array_like
+        Raw probe records [V].
+    b_measured : array_like
+        Conditioned probe records [T].
+    b_z : array_like
+        Compensated vertical field [T].
+    channel_valid : array_like
+        Which channels to consider [-].
+    window : TfCalibrationWindow
+        The calibration interval that was used [-].
+    geometry : ImpaGeometryFit
+        The fitted geometry [-].
+    coupling : ImpaCouplingFit
+        The fitted coupling [-].
+    expected_channels : int, optional
+        How many channels the array should have [-].
+    max_normalized_rmse : float, optional
+        Largest geometry residual still acceptable [-].
+    r_bounds : tuple of float, optional
+        Radial bounds the fit should sit inside [m].
+    pitch_tolerance : float, optional
+        Largest departure of fitted from as-built spacing [m].
+    window_reasons : sequence of str, optional
+        Reasons carried from the window selection [-].
+    orientation : str, optional
+        Which field the array is taken to face [-].
+    alpha_tolerance : float, optional
+        Largest departure of the coupling from unity [-].
+    crosstalk : ImpaCrosstalkFit, optional
+        The crosstalk fit, when one was made [-].
+    min_crosstalk_r_squared : float, optional
+        Smallest acceptable crosstalk goodness of fit [-].
+
+    Returns
+    -------
+    ImpaQuality
+        A verdict of valid, warning or invalid, with the reasons behind it [-].
+
+    Processing steps
+    ----------------
+    1. Check the channels are present and the time axis usable.
+    2. Check each channel's own signal health, including railing.
+    3. Check the calibration window, then the geometry, then the coupling.
+    4. Check the compensated signal and the vertical sensors.
+    5. Combine by taking the worst verdict.
+
+    Convention
+    ----------
+    The verdict is the **worst** of the checks, not an average, so one invalid
+    check makes the result invalid however many pass. Reasons accumulate rather
+    than short-circuiting, so a caller sees everything wrong at once.
+
+    Renamed from ``validate_impa`` under issue #337: this layer transforms and
+    infers, and grading sits uneasily here even so. The grading itself moves to
+    the validation layer under issue #339.
+
+    Defaults
+    --------
+    The residual, spacing, coupling and goodness-of-fit thresholds are
+    hard-coded, and two of them disagree with the values ``vest.yaml`` carries,
+    which is tracked in #625. The channel count and the radial bounds are
+    machine-specific.
+
+    Applicability
+    -------------
+    Machine-independent.  Every threshold arrives as an argument.
+
+    Limitations
+    -----------
+    Grades the fits it is handed; it cannot tell a well-fitted wrong model from a
+    right one. A shot whose array faces the toroidal field can pass the geometry
+    checks and still have no usable vertical measurement.
+
+    Provenance
+    ----------
+    .. [1] Issues #337 and #339 for the naming and the eventual move; ``vest.yaml``
+       ``impa.quality`` for the configured thresholds.
     """
     checks: dict[str, str] = {}
     reasons: list[str] = list(window_reasons)
@@ -1187,19 +1833,107 @@ def process_impa(
     bz_gain: float | None = None,
     bz_radial_offset: float = 0.0,
 ) -> ImpaResult:
-    """Run the full single-shot IMPA pipeline.
+    """Run the whole array chain for one shot, from raw records to a graded result.
 
-    Pass ``r`` to use configured shot-era geometry, which takes precedence when
-    an era was surveyed or left fixed; leave it ``None`` to self-calibrate the
-    radial positions from this shot's clean TF window, which is the normal path
-    for an insertable array.
+    Parameters
+    ----------
+    time : array_like
+        Sample times [s].
+    raw : array_like
+        Raw probe records as ``(n_channels, n_samples)`` [V].
+    i_tf : array_like
+        Toroidal field coil current [A].
+    config : ImpaProcessingConfig, optional
+        Conditioning settings [-].
+    criteria : TfWindowCriteria, optional
+        Window-selection thresholds [-].
+    ip : array_like, optional
+        Plasma current [A].
+    pf_currents : array_like, optional
+        Poloidal field coil currents [A].
+    channel_valid : array_like, optional
+        Which probe channels to use [-].
+    r : array_like, optional
+        Configured radii, which take precedence when supplied [m].
+    z : float, optional
+        Height of the array [m].
+    pitch : float, optional
+        As-built channel spacing [m].
+    r_bounds : tuple of float, optional
+        Bounds on the fitted radius [m].
+    r0_initial : float, optional
+        Starting guess for it [m].
+    max_normalized_rmse : float, optional
+        Largest acceptable geometry residual [-].
+    reference : Mapping, optional
+        A reference shot supplying the calibration instead of this shot's own [-].
+    b_z_raw : array_like, optional
+        Raw vertical-sensor records [V].
+    bz_channel_valid : array_like, optional
+        Which vertical sensors to use [-].
+    fit_pitch : bool, optional
+        Whether to fit the spacing too [-].
+    max_crosstalk_angle_deg : float, optional
+        Largest misalignment treated as physical [deg].
+    min_crosstalk_r_squared : float, optional
+        Smallest acceptable crosstalk goodness of fit [-].
+    bz_gain : float, optional
+        Volts-to-tesla gain for the vertical sensors [T/V].
+    bz_radial_offset : float, optional
+        Radial offset of the vertical sensors from their Hall neighbours [m].
 
-    ``reference`` optionally supplies a calibration measured on another shot --
-    a TF reference taken with the array in the same position -- whose geometry
-    and coupling are then applied here instead of being re-fitted.  This is the
-    legacy two-shot arrangement, and it is what makes a plasma shot tractable
-    when its own TF interval is too contaminated to calibrate against.  It
-    stays optional: the single-shot path never requires it.
+    Returns
+    -------
+    ImpaResult
+        The conditioned fields, the geometry and coupling, the compensated
+        vertical field, the quality verdict, and a provenance record [-].
+
+    Processing steps
+    ----------------
+    1. Condition the raw records into field units.
+    2. Mask the invalid channels.
+    3. Find the interval driven by the toroidal field alone.
+    4. Resolve the geometry by precedence: a reference shot, then a configured
+       radius, then a fit on this shot's own window, then the nominal
+       uncalibrated positions.
+    5. Resolve the coupling, from the reference if there is one, else by fitting.
+    6. Remove the toroidal pickup, branching on the array's orientation.
+    7. Optionally fit and remove the vertical sensors' crosstalk.
+    8. Grade the result and record what was used.
+
+    Convention
+    ----------
+    **Geometry precedence is deliberate and ordered.**  Self-calibration from the
+    shot's own window is the primary source, not a fallback, because the array is
+    insertable and its position is a per-shot quantity. A configured radius wins
+    only where an era was surveyed or left fixed.
+
+    The vertical sensors are **not** co-located with the Hall channel of the same
+    index; the offset is a hardware fact supplied by the caller.
+
+    Defaults
+    --------
+    The spacing, bounds, starting guess and channel count are machine-specific
+    VEST values. The residual threshold and the radial offset disagree with what
+    ``vest.yaml`` carries, which is tracked in #625; the VEST pipeline passes the
+    configured values, so the disagreement bites only a direct caller.
+
+    Applicability
+    -------------
+    Machine-independent.  Every machine number is an argument, and the VEST
+    pipeline supplies them from configuration.
+
+    Limitations
+    -----------
+    Inherits every assumption of the steps it orchestrates, above all that the
+    selected window is genuinely driven by the toroidal field alone. A shot whose
+    array faces that field yields a compensated vertical field that is not a
+    measurement, which the grading flags rather than the chain refusing.
+
+    Provenance
+    ----------
+    .. [1] The stages this orchestrates, each documented on its own function;
+       ``vest.yaml`` ``impa`` for the configuration the VEST pipeline passes in.
     """
     config = config or ImpaProcessingConfig()
     time = np.asarray(time, dtype=float)
