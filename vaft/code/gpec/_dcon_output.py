@@ -34,6 +34,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
+import re
 import struct
 from typing import Any, Optional, Sequence
 import warnings
@@ -43,10 +44,12 @@ import numpy as np
 from ._netcdf import complex_var
 
 #: Sidecar payload version.  v1 carried only the mode-range provenance, energy
-#: eigenvalues, Mercier diagnostics and the eigenfunction; v2 adds the
-#: equilibrium scalars, coordinate system, 1-D profiles and the edge scan.
-#: Every v2 key is read through ``.get()``, so a v1 payload still loads.
-_SCHEMA_VERSION = 2
+#: eigenvalues, Mercier diagnostics and the eigenfunction; v2 added the
+#: equilibrium scalars, coordinate system, 1-D profiles and the edge scan; v3
+#: added the local-stability evaluation provenance; v4 adds the energy
+#: eigenvectors and the total-energy matrix.  Every key added after v1 is read
+#: through ``.get()``, so an older payload still loads.
+_SCHEMA_VERSION = 4
 
 
 def _opt_float(attrs: Any, key: str) -> Optional[float]:
@@ -428,6 +431,145 @@ class DconEdgeScan:
         )
 
 
+#: ``key=value`` in a Fortran namelist, up to the trailing ``!`` comment.
+_NAMELIST_ENTRY = re.compile(r"^\s*(?P<key>\w+)\s*=\s*(?P<value>[^!\n]*)", re.MULTILINE)
+
+_NAMELIST_TRUE = {"t", ".true.", "true", "y", "yes", "1"}
+_NAMELIST_FALSE = {"f", ".false.", "false", "n", "no", "0"}
+
+
+def _namelist_values(path: Path) -> dict[str, str]:
+    """Every ``key=value`` pair in a namelist, lowercased, comments stripped.
+
+    Deliberately a small hand-rolled reader rather than a new ``f90nml``
+    dependency, matching :func:`vaft.code.gpec.read_coil_in`'s treatment of
+    ``coil.in``: the only files parsed here are ones VAFT itself wrote.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    return {
+        match.group("key").strip().lower(): match.group("value").strip().rstrip(",").strip()
+        for match in _NAMELIST_ENTRY.finditer(text)
+    }
+
+
+def _namelist_bool(values: dict[str, str], key: str) -> Optional[bool]:
+    raw = values.get(key, "").strip().strip("'\"").lower()
+    if raw in _NAMELIST_TRUE:
+        return True
+    if raw in _NAMELIST_FALSE:
+        return False
+    return None
+
+
+def _namelist_float(values: dict[str, str], key: str) -> Optional[float]:
+    raw = values.get(key, "").strip().replace("d", "e").replace("D", "E")
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+@dataclass
+class DconEvaluation:
+    """Which local-stability criteria this DCON run was asked to evaluate.
+
+    This exists because an unevaluated criterion is indistinguishable from a
+    marginally stable one in the file itself. ``dcon/dcon.F:148-160`` allocates
+    the local-stability spline, sets ``locstab%fs=0``, and only *then* runs
+    ``mercier_scan`` (under ``mer_flag``) and ``bal_scan`` (under ``bal_flag``).
+    So a disabled criterion reaches the netCDF as exactly zero -- and ``D_I=0``
+    and ``C_A=0`` are precisely the marginal points. Reading those zeros as
+    physics would report "marginally stable on every surface" for a calculation
+    that never ran.
+
+    DCON writes none of these flags into its netCDF, so they are recovered from
+    the ``dcon.in`` VAFT wrote into the run directory. ``None`` means *unknown*
+    and is treated exactly like "not evaluated": a criterion is trusted only
+    when the run's own namelist says it was asked for.
+    """
+
+    mer_flag: Optional[bool] = None
+    bal_flag: Optional[bool] = None
+    thmax0: Optional[float] = None
+    #: The edge boundary the run *asked* for.  Not the one it used: DCON
+    #: overwrites ``psiedge`` (along with ``qhigh`` and ``sas_flag``) at runtime
+    #: before re-integrating -- see :attr:`DconOutput.edge_treatment`.
+    psiedge: Optional[float] = None
+    #: Where the flags came from -- ``"dcon.in"``, or ``""`` when no namelist
+    #: was found beside the output and nothing can be claimed.
+    source: str = ""
+
+    @property
+    def mercier(self) -> bool:
+        """Whether ``di``/``dr`` may be read as physics."""
+        return self.mer_flag is True
+
+    @property
+    def ballooning(self) -> bool:
+        """Whether ``ca1`` may be read as physics."""
+        return self.bal_flag is True
+
+    @classmethod
+    def from_run_dir(cls, run_dir: Path) -> "DconEvaluation":
+        values = _namelist_values(run_dir / "dcon.in")
+        if not values:
+            return cls()
+        return cls(
+            mer_flag=_namelist_bool(values, "mer_flag"),
+            bal_flag=_namelist_bool(values, "bal_flag"),
+            thmax0=_namelist_float(values, "thmax0"),
+            psiedge=_namelist_float(values, "psiedge"),
+            source="dcon.in",
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "mer_flag": self.mer_flag,
+            "bal_flag": self.bal_flag,
+            "thmax0": self.thmax0,
+            "psiedge": self.psiedge,
+            "source": self.source,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "DconEvaluation":
+        return cls(
+            mer_flag=payload.get("mer_flag"),
+            bal_flag=payload.get("bal_flag"),
+            thmax0=payload.get("thmax0"),
+            psiedge=payload.get("psiedge"),
+            source=str(payload.get("source", "")),
+        )
+
+
+def _ballooning_evaluated(ca1: Optional[np.ndarray]) -> Optional[np.ndarray]:
+    """Per-surface mask of where DCON actually integrated the ballooning equation.
+
+    ``bal_scan`` does not evaluate every surface even when it runs:
+    ``dcon/bal.f:51-53`` calls ``bal_int`` only where ``di <= 0``, and
+    ``bal_prep`` itself returns early on ``di > 0`` (``bal.f:240-243``), leaving
+    those surfaces at the zero the spline was initialised with.
+
+    That predicate is *not* reconstructible from this file: ``bal.f``'s ``di``
+    is its own private quantity, computed from the ballooning ``d0bar``
+    determinant (``bal.f:240``), not the ``di`` ``mercier_scan`` writes -- and
+    with ``mer_flag=f`` the stored ``di`` is all zeros regardless. So the mask
+    is taken from ``ca1`` itself: an exactly-zero entry is the untouched
+    initialisation, since a value the integrator actually produced is never
+    exactly ``0.0`` in floating point except by measure-zero coincidence.
+
+    The error direction is deliberate -- a genuinely marginal surface would be
+    reported as unevaluated rather than an unevaluated one being reported as
+    marginal.
+    """
+    if ca1 is None:
+        return None
+    return np.asarray(ca1, dtype=float) != 0.0
+
+
 @dataclass
 class DconOutput:
     """Typed container over one DCON run's native output (one ``n_tor``).
@@ -451,9 +593,38 @@ class DconOutput:
     W_p_eigenvalue: Optional[np.ndarray] = None  # complex, (mode,)
     W_v_eigenvalue: Optional[np.ndarray] = None
     W_t_eigenvalue: Optional[np.ndarray] = None
+    #: Energy eigenmodes: the poloidal-harmonic composition of each energy
+    #: eigenvector, complex over ``(m, mode)`` (``dcon_netcdf.f:194-205``).
+    #:
+    #: A different object from :attr:`eigenfunction`, and both are needed: this
+    #: is how one eigenvalue's mode is built from poloidal harmonics, while
+    #: ``solutions.bin``'s eigenfunction is the radial structure of
+    #: ``xi.grad(psi)(psi, m)``.  Comparing how an instability changes when the
+    #: edge contribution is removed needs both.
+    W_p_eigenvector: Optional[np.ndarray] = None
+    W_v_eigenvector: Optional[np.ndarray] = None
+    W_t_eigenvector: Optional[np.ndarray] = None
+    #: The total-energy matrix itself, complex over ``(m, mode)``
+    #: (``long_name="Total Energy Matrix"``, ``dcon_netcdf.f:204-206``).
+    W_t: Optional[np.ndarray] = None
+    #: Mercier ideal-interchange criterion ``D_I(psi)``. Stored as the physical
+    #: criterion: ``mercier.f:95`` writes ``di*psi_n`` into the spline and
+    #: ``dcon_netcdf.f:235`` divides that scaling back out.  ``None`` when the
+    #: run did not evaluate it -- see :class:`DconEvaluation`.
     di: Optional[np.ndarray] = None
+    #: Resistive-interchange criterion ``D_R(psi)`` (``mercier.f:96``,
+    #: ``dcon_netcdf.f:236``).  ``None`` when unevaluated.
     dr: Optional[np.ndarray] = None
+    #: High-n ideal ballooning criterion ``C_A(psi)`` (``bal.f:490``, written
+    #: unscaled by ``dcon_netcdf.f:237``).  ``None`` when the run did not
+    #: evaluate it, and NaN on the individual surfaces ``bal_scan`` skipped --
+    #: see :func:`_ballooning_evaluated`.
     ca1: Optional[np.ndarray] = None
+    #: Per-surface mask of where ``ca1`` is a computed value rather than the
+    #: spline's initial zero.  ``None`` when ballooning was not evaluated at all.
+    ca1_evaluated: Optional[np.ndarray] = None
+    #: What the run was asked to compute, recovered from its own ``dcon.in``.
+    evaluation: Optional["DconEvaluation"] = None
     #: DCON's integration limits for *this* toroidal mode.  Deliberately not on
     #: :class:`DconEquilibrium`: under ``sas_flag`` the edge limit is rounded onto
     #: the mode's own rational spacing (``qlim=(INT(nn*qlim)+dmlim)/nn``,
@@ -513,6 +684,37 @@ class DconOutput:
         ``W_t_eigenvalue`` entry labelled by mode 1."""
         return self._least_stable(self.W_t_eigenvalue)
 
+    #: Label for the edge treatment this file's solution actually used.
+    FULL_EDGE = "full_edge"
+    PEAK_DW_TRUNCATED = "peak_dw_truncated"
+
+    @property
+    def edge_treatment(self) -> str:
+        """Which of DCON's two edge solutions this output describes.
+
+        When ``psiedge < psilim`` DCON does not merely record an edge scan
+        beside an otherwise-normal solve. It integrates once, finds the peak of
+        ``dW_edge``, **overwrites its own controls** -- ``qhigh = q_edge(peak)``,
+        ``sas_flag = .FALSE.``, ``psiedge = psihigh`` -- recomputes the limits
+        through ``sing_lim``, and integrates the whole problem again
+        (``dcon/dcon.F:262-279``).
+
+        Two consequences, and they are why the run's requested configuration is
+        not enough to interpret its output:
+
+        * The eigenvalues, eigenvectors and ``euler.bin`` (hence
+          ``solutions.bin``) in a scanned run describe the **truncated**
+          solution. The full-edge solution computed by the first pass is
+          discarded; only ``dW_edge`` survives from it.
+        * ``qlim``/``psilim`` in the file are the post-mutation values, so they
+          describe the truncated boundary, not the one the namelist asked for.
+
+        A single run therefore yields one of the two solutions, never both --
+        which is what makes the edge treatment part of a result's identity
+        rather than a parameter of it.
+        """
+        return self.PEAK_DW_TRUNCATED if self.edge_scan is not None else self.FULL_EDGE
+
     @property
     def m_pol_dominant(self) -> Optional[int]:
         """The poloidal mode number carrying the largest peak ``|xi . grad(psi)|``.
@@ -570,9 +772,18 @@ class DconOutput:
             "W_p_eigenvalue": _c(self.W_p_eigenvalue),
             "W_v_eigenvalue": _c(self.W_v_eigenvalue),
             "W_t_eigenvalue": _c(self.W_t_eigenvalue),
+            "W_p_eigenvector": _c(self.W_p_eigenvector),
+            "W_v_eigenvector": _c(self.W_v_eigenvector),
+            "W_t_eigenvector": _c(self.W_t_eigenvector),
+            "W_t": _c(self.W_t),
             "di": None if self.di is None else np.asarray(self.di).tolist(),
             "dr": None if self.dr is None else np.asarray(self.dr).tolist(),
             "ca1": None if self.ca1 is None else np.asarray(self.ca1).tolist(),
+            "ca1_evaluated": (
+                None if self.ca1_evaluated is None
+                else np.asarray(self.ca1_evaluated, dtype=bool).tolist()
+            ),
+            "evaluation": None if self.evaluation is None else self.evaluation.to_dict(),
             "qlim": self.qlim,
             "psilim": self.psilim,
             "f": _r(self.f),
@@ -618,9 +829,21 @@ class DconOutput:
             W_p_eigenvalue=_c(payload.get("W_p_eigenvalue")),
             W_v_eigenvalue=_c(payload.get("W_v_eigenvalue")),
             W_t_eigenvalue=_c(payload.get("W_t_eigenvalue")),
+            W_p_eigenvector=_c(payload.get("W_p_eigenvector")),
+            W_v_eigenvector=_c(payload.get("W_v_eigenvector")),
+            W_t_eigenvector=_c(payload.get("W_t_eigenvector")),
+            W_t=_c(payload.get("W_t")),
             di=None if payload.get("di") is None else np.asarray(payload["di"], dtype=float),
             dr=None if payload.get("dr") is None else np.asarray(payload["dr"], dtype=float),
             ca1=None if payload.get("ca1") is None else np.asarray(payload["ca1"], dtype=float),
+            ca1_evaluated=(
+                None if payload.get("ca1_evaluated") is None
+                else np.asarray(payload["ca1_evaluated"], dtype=bool)
+            ),
+            evaluation=(
+                None if payload.get("evaluation") is None
+                else DconEvaluation.from_dict(payload["evaluation"])
+            ),
             qlim=payload.get("qlim"),
             psilim=payload.get("psilim"),
             f=_r(payload.get("f")),
@@ -780,6 +1003,10 @@ def _time_ms(label: str) -> Optional[float]:
 def read_dcon_output(run_dir: str | Path, *, mode: int) -> DconOutput:
     """Build a :class:`DconOutput` from one completed DCON run directory.
 
+    Also reads the run's own ``dcon.in`` for the local-stability flags DCON does
+    not record in its output, so an unevaluated criterion is never presented as
+    a physical result (see :class:`DconEvaluation`).
+
     Reads ``dcon_output_n<mode>.nc`` for mode-range provenance, the equilibrium
     scalars and coordinate system DCON derived from the g-file, energy
     eigenvalues, Mercier diagnostics, the 1-D profiles, and the edge scan when
@@ -805,6 +1032,10 @@ def read_dcon_output(run_dir: str | Path, *, mode: int) -> DconOutput:
         W_p_eigenvalue = complex_var(ds, "W_p_eigenvalue")
         W_v_eigenvalue = complex_var(ds, "W_v_eigenvalue")
         W_t_eigenvalue = complex_var(ds, "W_t_eigenvalue")
+        W_p_eigenvector = complex_var(ds, "W_p_eigenvector")
+        W_v_eigenvector = complex_var(ds, "W_v_eigenvector")
+        W_t_eigenvector = complex_var(ds, "W_t_eigenvector")
+        W_t = complex_var(ds, "W_t")
         di = np.asarray(ds["di"].values, dtype=float) if "di" in ds.variables else None
         dr = np.asarray(ds["dr"].values, dtype=float) if "dr" in ds.variables else None
         ca1 = np.asarray(ds["ca1"].values, dtype=float) if "ca1" in ds.variables else None
@@ -820,6 +1051,21 @@ def read_dcon_output(run_dir: str | Path, *, mode: int) -> DconOutput:
         # from these.
         nc_shot = _opt_int(ds.attrs, "shot")
         nc_time = _opt_int(ds.attrs, "time")
+
+    # A criterion the run never evaluated reaches the file as exactly zero,
+    # which is also its marginal value (dcon.F:148-160), so what is kept here is
+    # gated on what the run's own namelist asked for. Nothing of substance is
+    # dropped: the discarded entries are identically the zero the spline was
+    # initialised with, and carry no result.
+    evaluation = DconEvaluation.from_run_dir(run_dir)
+    if not evaluation.mercier:
+        di = dr = None
+    ca1_evaluated = None
+    if not evaluation.ballooning:
+        ca1 = None
+    elif ca1 is not None:
+        ca1_evaluated = _ballooning_evaluated(ca1)
+        ca1 = np.where(ca1_evaluated, ca1, np.nan)
 
     eigenfunction = None
     bin_path = run_dir / "solutions.bin"
@@ -862,9 +1108,15 @@ def read_dcon_output(run_dir: str | Path, *, mode: int) -> DconOutput:
         W_p_eigenvalue=W_p_eigenvalue,
         W_v_eigenvalue=W_v_eigenvalue,
         W_t_eigenvalue=W_t_eigenvalue,
+        W_p_eigenvector=W_p_eigenvector,
+        W_v_eigenvector=W_v_eigenvector,
+        W_t_eigenvector=W_t_eigenvector,
+        W_t=W_t,
         di=di,
         dr=dr,
         ca1=ca1,
+        ca1_evaluated=ca1_evaluated,
+        evaluation=evaluation,
         qlim=qlim,
         psilim=psilim,
         f=profiles["f"],

@@ -369,7 +369,7 @@ vaft.plot.time_magnetics_flux_loop_flux(ods, indices="all")
 vaft.plot.time_magnetics_b_field_pol_probe_field(ods)
 vaft.plot.time_tf_b_field_tor(ods)
 vaft.plot.time_barometry_pressure(ods)
-vaft.plot.time_spectrometer_uv_intensity(ods)
+vaft.omas.plot_spectrometer_uv_time_intensity(ods, emission='CIII')
 ```
 
 | Group | Functions |

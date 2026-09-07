@@ -897,6 +897,47 @@
               flux_baseline_samples: 1750
               daq_mode: native_daq
 
+    # Kinetic-profile construction policy (issue #420): the VEST decisions a
+    # pipeline hands to the machine-independent vaft.process.profile and
+    # vaft.process.atomic routines. Those routines hold no VEST number; this
+    # block is the only place these values live. Every value carries a
+    # `status` -- assumed | measured | inferred -- so a stored profile can say
+    # whether the number that shaped it was known or guessed.
+    core_profiles:
+      # Radial coordinate the kinetic profiles are fitted in. rho_tor_norm is
+      # the IMAS convention; psi_norm is what every fit used before #420.
+      coordinate: rho_tor_norm
+      # Statistical Ti/Te coefficient for Thomson-only slices (no
+      # IDS/charge_exchange). Fitted on the 9 kinetic slices that carry both
+      # diagnostics, then applied to shots that do not: `inferred`.
+      ti_te_ratio:
+        value: 0.17
+        sigma: 0.08                       # slice-to-slice std of the fitted-profile coefficient
+        status: inferred
+        shots: [48224, 48226, 48233]
+        time_window_ms: [299, 301]
+        estimator: >-
+          pressure-matching coefficient a = sum(ne^2 Te Ti) / sum(ne^2 Te^2) on
+          psi_N <= 1, per slice, on the FITTED 129-point core_profiles curves
+          (the profiles the spline pressure encoding consumes); the alpha that
+          preserves the kinetic pressure when Ti is replaced by a*Te
+        slice_statistics: {mean: 0.190, median: 0.155}
+        cross_check: >-
+          0.170 +/- 0.010 from an independent raw-point pairing (measured
+          Thomson Te against the weighted charge-exchange Ti fit,
+          effective-variance through-origin regression:
+          vaft.process.profile.fit_ti_te_ratio); 0.163-0.171 across mapping
+          gfile, fit degree and pairing direction
+        known_trend: the early 299 ms slices sit high (~0.28) against the 300/301 ms cluster (~0.14)
+        derivation_script: ids_test/fit_ti_te_ratio.py   # cited by the original derivation; not in the repository
+      # Impurity content for line-radiation estimates when the ODS carries no
+      # ion density profile. Assumed, not measured; no derivation recorded.
+      impurities:
+        species: [C, O]
+        fractions:
+          C: {value: 1.0e-2, status: assumed}
+          O: {value: 1.0e-2, status: assumed}
+
     # Triple Langmuir probes (issue #152). Deliberately no unconditional
     # default block below `revisions:` -- a shot that matches no era has no
     # valid bias voltage / tip geometry, and `resolve_vest_diagnostic` must
@@ -1203,8 +1244,8 @@
             label: "H-beta_4861"
             wavelength_central: 486.1E-9
           2:
-            label: "H-gamma_4341"
-            wavelength_central: 434.1E-9
+            label: "H-gamma_4340"
+            wavelength_central: 434.0E-9
           3:
             label: "OI_7770"
             wavelength_central: 777.0E-9
@@ -1710,7 +1751,10 @@ plasma_timing:
   # H-alpha_6563 envelope rule (keyword arguments of active_window): median-5,
   # threshold max(2 % peak, 5 sigma), persistence 0.5 ms, width >= 1 ms,
   # prominence >= 10 sigma, integral >= 1 % -- 0/51 early-light and 1/51
-  # non-plasma false onsets on the 205-shot raw-database corpus.
+  # non-plasma false onsets on the hand-reviewed first pass of the raw-database
+  # corpus; the full scan is workflow/plasma_onset/scan_corpus.py and its
+  # table test/data/onset_corpus.json (shots 39900-41700; the summary holds
+  # the counts, a retune means a re-scan).
   h_alpha:
     prefilter_samples: 5
     fraction: 0.02
@@ -1725,7 +1769,8 @@ plasma_timing:
   lines: {}
   # Plasma-current principal-pulse rule: zero-phase low-pass 2 kHz, pickup
   # floor 3x, offset at 10 % of peak with the collapse fallback -- 84/84
-  # windows on the corpus, offsets within [-2.2, 0] ms of the light.
+  # windows on the hand-reviewed first pass, offsets within [-2.2, 0] ms of
+  # the light; the full scan's per-shot deltas and agreement are in the table.
   ip:
     principal_only: true
     pickup_floor: 3.0
@@ -2054,6 +2099,26 @@ diagnostic_registry:
     ids: camera_visible
     ids_path: camera_visible
     responsible: [{name: Joint}]
+    # Export directories carry an acquisition suffix on the directory and on
+    # every file inside it (`27134_50kHz/`, `36976-N001/`). The suffix is
+    # stripped when data is consolidated into `legacy/camera_visible/{shot}/`
+    # and preserved in that shot's provenance.json, so the pattern below is
+    # what the mapping sees in the archive, not what the camera wrote.
+    # Acquisitions at >= 50 kfps are held in a sibling
+    # `legacy/camera_visible_fluctuation/` tree, reserved for issue #161 and
+    # excluded from routine ingest. That split is policy, not data model, and
+    # it is one entry rather than two on purpose -- the same reasoning as
+    # magnetics.b_field_pol_probe covering both the equilibrium probe set and
+    # the outboard fluctuation array. All 52 high-rate acquisitions were
+    # inspected: identical 150-line GX-8 headers, the same uint8 BMPs under
+    # the same filename grammar, contiguous frames, and a timebase that
+    # `frame_time_ms` reproduces exactly (0.02 ms at 50 kfps, 40 ms over 2001
+    # frames). Original frame indices survive the reindex because each frame's
+    # time is computed from its pre-selection index. So this mapping reads
+    # both trees unchanged; only the source path and the ingest policy differ,
+    # and inventing a second IDS path for a directory name would be noise.
+    # Frames named `{shot}_{time}_ms.bmp` are `bmp_arranger` output, not raw,
+    # and this mapping cannot read them.
     source: {type: file, formats: [bmp, text], patterns: ["{shot}/{shot}_{frame:08d}.bmp", "{shot}/{shot}_bmp.txt"]}
     availability: If-requested
     lifecycle: available
@@ -2172,7 +2237,11 @@ diagnostic_registry:
     ids: hard_x_rays
     ids_path: hard_x_rays
     responsible: [{name: 임수빈}]
-    source: {type: unknown}
+    # Written by the same acquisition program as soft_x_rays, with an extra
+    # `hxr_{variant}` segment: `raw` is the digitizer trace, `Eflux` the
+    # energy-flux product derived from it. Archived under
+    # `unmapped/hard_x_rays/{shot}/` pending a mapping.
+    source: {type: file, formats: [csv], patterns: ["digitizer_hxr_{variant}_{daq_label}_{shot}.csv"]}
     availability: If-requested
     lifecycle: in_maintenance
     mapping_status: not_implemented
@@ -2184,7 +2253,11 @@ diagnostic_registry:
     ids: soft_x_rays
     ids_path: soft_x_rays
     responsible: [{name: 임수빈}, {name: 이명원}]
-    source: {type: file, formats: [csv], patterns: ["digitizer_{daq_label}_{shot}.csv"]}
+    # Resolved flat (`legacy/`, `soft_x_rays/`, `raw/`) or per-shot
+    # (`{shot}/digitizer_..._{shot}.csv`), the latter being how a consolidated
+    # archive is laid out. Most shots carry only digitizer 17592; a shot with
+    # both yields twice the channels.
+    source: {type: file, formats: [csv], patterns: ["digitizer_{daq_label}_{shot}.csv", "{shot}/digitizer_{daq_label}_{shot}.csv"]}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented

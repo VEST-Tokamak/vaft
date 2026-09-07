@@ -48,6 +48,11 @@ DEFINITIONAL = frozenset({
     "trapz_integral",
     "greens_integral_2d",
     "greens_integral_3d",
+    # virial bookkeeping: the identities are cited where they are stated, in
+    # virial_identity_residuals; these three only rearrange or scale them
+    "virial_closure_denominators",
+    "virial_normalized_residual",
+    "virial_residual_rms",
     # utils: numerical helpers, not physics
     "gradient",
     "normalize_profile",

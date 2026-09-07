@@ -25,8 +25,8 @@ from an ODS by ``vaft.omas.plot_plasma_current_time``.
 
 The radial coordinate is *not* part of a profile renderer's name.  One
 :func:`equilibrium_profile_q` serves every coordinate; pick one with the
-adapter's ``coordinate=`` argument (``rho_tor_norm``, ``psi_norm``, ``r_major``,
-``r_minor``).
+adapter's ``coordinate=`` argument (``rho_tor_norm``, ``psi_norm``,
+``sqrt_phi_norm``, ``r_major``, ``r_minor``; :data:`vaft.plot.display.PROFILE_COORDINATES`).
 
 The renderer contract
 ---------------------
@@ -300,6 +300,8 @@ from .renderers.panels import (
     passive_structure_overview_wall_reduction,
 )
 from .renderers.profiles import (
+    b_field_probe_spatial_field,
+    flux_loop_spatial_flux,
     nbi_profile_current_drive,
     nbi_profile_electron_heating,
     nbi_profile_ion_heating,

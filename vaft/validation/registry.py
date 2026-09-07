@@ -109,7 +109,29 @@ _SPECS = (
     _spec("diagnostic_fit.global", "1", "vaft.omas.efit_quality.fit_quality_metrics",
           "reduced chi-square over every fitted channel", "reduced_chi_squared", (2.0, 5.0)),
     # -- physical validity: does the result satisfy force balance and be plausible? --
-    _spec("physical_validity.virial", "1",
+    # Virial evidence is four separable questions, not one (#546 s13). Do the
+    # three relations close on the equilibrium's own volume integrals; do the
+    # three pairwise inversions agree with the identity each of them left out;
+    # can those inversions be performed here at all; and are the resulting
+    # numbers physically plausible. A singular inversion is not a physics
+    # failure, and a plausible beta_p is not force balance.
+    _spec("physical_validity.virial_identity", "1",
+          "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
+          "the three virial identities evaluated on the volume-integral beta_p, li and mu_i, "
+          "graded on the RMS of their normalized residuals; indeterminate when any of the three "
+          "is non-finite", "relative", (0.10, 0.30)),
+    _spec("physical_validity.virial_pair_consistency", "1",
+          "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
+          "leave-one-identity-out: each of pair_12, pair_13 and pair_23 solved from two relations "
+          "and scored on the third, graded on the largest normalized residual; indeterminate when "
+          "fewer than two closures are invertible", "relative", (0.10, 0.30)),
+    _spec("physical_validity.virial_conditioning", "1",
+          "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
+          "whether each closure can be inverted here: warn when a closure denominator (3*alpha-2, "
+          "alpha, alpha-1) or the RT denominator ratio is near zero, so the RT-dependent closures "
+          "are indeterminate rather than wrong; never fail, since a singular inversion is a "
+          "property of the closure and not of the equilibrium"),
+    _spec("physical_validity.virial_parameter_plausibility", "1",
           "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
           "Lao virial closure; indeterminate when any Shafranov integral, alpha, B_pa, beta_p or li "
           "is non-finite (near-singular denominator or missing boundary); fail outside the "
@@ -141,6 +163,14 @@ _SPECS = (
           "vaft.formula.equilibrium.virial_beta_pd_from_S_mu_rt",
           "stored energy from the measured diamagnetic flux through the virial diamagnetic beta_p, "
           "against the virial kinetic energy", "log_ratio", (0.262, 0.693)),
+    # The measured loop feeding the closures themselves, not just the energy
+    # (#546 s14). This belongs here and not under physical_validity: it asks
+    # whether the reconstruction agrees with a measurement it never used.
+    _spec("independent_validation.virial_measured_mu_i", "1",
+          "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
+          "the RT-free pair_13 closure re-solved on the measured diamagnetic mu_i, against the "
+          "same closure on the equilibrium-derived one; indeterminate without a diamagnetic loop "
+          "or when either closure is singular", "log_ratio", (0.262, 0.693)),
 )
 
 #: Every check, by key.  Insertion order is report order.

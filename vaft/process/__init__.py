@@ -49,6 +49,7 @@ _SUBMODULES = {
     "soft_x_rays": ".soft_x_rays",
     "statistical_analysis": ".statistical_analysis",
     "wall_modes": ".wall_modes",
+    "coils_non_axisymmetric": ".coils_non_axisymmetric",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -79,6 +80,7 @@ _IMPORT_ORDER = (
     # Added after the lazy loader; nothing it exports collides with a sibling.
     "onset",
     "wall_modes",
+    "coils_non_axisymmetric",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a

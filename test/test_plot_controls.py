@@ -102,7 +102,7 @@ def test_a_channel_line_offers_selection_layout_unit_sign_and_validity(catalog):
     controls = controls_for(catalog["flux_loop_time_flux"])
     names = [c.name for c in controls]
     # No synthetic control: this input has no reconstruction overlay to show.
-    assert names == ["selection", "channels", "layout", "yunit", "orientation", "validity"]
+    assert names == ["selection", "channels", "layout", "yunit", "x", "orientation", "validity"]
     by_name = {c.name: c for c in controls}
     assert by_name["selection"].options == ("inboard_mid", "outboard_mid", "inboard", "outboard", "active", "valid", "all")
     assert by_name["selection"].default == "active"
@@ -117,12 +117,15 @@ def test_a_channel_line_offers_selection_layout_unit_sign_and_validity(catalog):
 
 def test_a_profile_offers_its_slice_and_its_sign(catalog):
     controls = controls_for(catalog["equilibrium_profile_q"])
-    assert [c.name for c in controls] == ["time_slice", "orientation"]
+    assert [c.name for c in controls] == ["time_slice", "coordinate", "orientation"]
     slices = controls[0]
     assert slices.kind == "choice" and slices.group == "slice"
     assert slices.options == tuple(catalog["equilibrium_profile_q"].slices["usable"])
     assert slices.labels[0].startswith("0: 316.0 ms")
-    assert controls[1].default == "intuitive"
+    coordinate = controls[1]
+    assert coordinate.options == ("rho_tor_norm", "psi_norm", "sqrt_phi_norm", "r_major", "r_minor")
+    assert coordinate.default == "rho_tor_norm" and coordinate.labels[0] == "Normalized Toroidal Flux rho_N"
+    assert controls[2].default == "intuitive"
 
 
 def test_the_psi_map_offers_units_and_style_but_the_vacuum_map_no_style(catalog):
@@ -146,4 +149,5 @@ def test_the_synthetic_control_needs_the_overlay_to_be_available(catalog):
     available = replace(record, synthetic={"overlay": "equilibrium", "available": True})
     synthetic = next(c for c in controls_for(available) if c.name == "synthetic")
     assert synthetic.options == ("none", "equilibrium", "both") and synthetic.default == "none"
-    assert [c.name for c in controls_for(available)].index("synthetic") == 4
+    # after selection, channels, layout, yunit and the abscissa (#481)
+    assert [c.name for c in controls_for(available)].index("synthetic") == 5

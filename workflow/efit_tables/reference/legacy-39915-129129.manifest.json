@@ -1,0 +1,285 @@
+{
+  "code": "efund",
+  "efund": {
+    "argv": [
+      "129"
+    ],
+    "config": {
+      "device": "VEST",
+      "flags": {
+        "iacoil": 0,
+        "iecoil": 0,
+        "ifcoil": 1,
+        "igrid": 1,
+        "isize": 0,
+        "islpfc": 0,
+        "ivesel": 1,
+        "nsmp2": 1
+      },
+      "grid": {
+        "nh": 129,
+        "nw": 129,
+        "rleft": 0.05,
+        "rright": 1.2,
+        "zbotto": -1.5,
+        "ztop": 1.5
+      },
+      "quadrature": {
+        "mgaus1": 8,
+        "mgaus2": 10
+      },
+      "schema_version": 1
+    },
+    "config_sha256": "b98479ce0d52076be9652d5f43f4a507a37ab8858c5205dd149928a95ea25159",
+    "executable": {
+      "build_revision": "4d10ed5-dirty",
+      "build_root": "<efit-source>",
+      "mtime": "2026-09-06T13:43:02+00:00",
+      "path": "<efit-source>/vaft-install/bin/efund",
+      "role": "efund",
+      "sha256": "2d9ff9d7ed5bebc71ada3c40e301f05685974d78363336ced21889b0eb67dcbb",
+      "size": 109048
+    },
+    "input": {
+      "name": "mhdin.dat",
+      "sha256": "b213e4b9c73d8280f23c7dd5b18c8e4b963763abf504204052fd74a3a43d776a"
+    },
+    "stack_size_kb": "hard"
+  },
+  "extra": {
+    "generator": "workflow/efit_tables/regenerate_legacy_table.py",
+    "seconds": 128.8538046249887
+  },
+  "generated_at": "2026-09-06T15:53:45+00:00",
+  "geometry_groups": [
+    {
+      "elements": 20,
+      "name": "PF1-1",
+      "r": 0.053000000000000005,
+      "turns": 80.0,
+      "z": 0.15122,
+      "z_max": 0.2956,
+      "z_min": 0.0072
+    },
+    {
+      "elements": 20,
+      "name": "PF1-2",
+      "r": 0.053000000000000005,
+      "turns": 80.0,
+      "z": 0.4552,
+      "z_max": 0.5996,
+      "z_min": 0.3108
+    },
+    {
+      "elements": 19,
+      "name": "PF1-3",
+      "r": 0.053,
+      "turns": 76.0,
+      "z": 0.7516,
+      "z_max": 0.8884,
+      "z_min": 0.6148
+    },
+    {
+      "elements": 20,
+      "name": "PF1-4",
+      "r": 0.053000000000000005,
+      "turns": 80.0,
+      "z": 1.048,
+      "z_max": 1.1924,
+      "z_min": 0.9036
+    },
+    {
+      "elements": 20,
+      "name": "PF1-5",
+      "r": 0.053000000000000005,
+      "turns": 80.0,
+      "z": -0.15122,
+      "z_max": -0.0072,
+      "z_min": -0.2956
+    },
+    {
+      "elements": 20,
+      "name": "PF1-6",
+      "r": 0.053000000000000005,
+      "turns": 80.0,
+      "z": -0.4552,
+      "z_max": -0.3108,
+      "z_min": -0.5996
+    },
+    {
+      "elements": 19,
+      "name": "PF1-7",
+      "r": 0.053,
+      "turns": 76.0,
+      "z": -0.7515999999999999,
+      "z_max": -0.6148,
+      "z_min": -0.8884
+    },
+    {
+      "elements": 20,
+      "name": "PF1-8",
+      "r": 0.053000000000000005,
+      "turns": 80.0,
+      "z": -1.048,
+      "z_max": -0.9036,
+      "z_min": -1.1924
+    },
+    {
+      "elements": 12,
+      "name": "PF5U",
+      "r": 0.71,
+      "turns": 12.0,
+      "z": 1.1500249999999999,
+      "z_max": 1.15365,
+      "z_min": 1.1464
+    },
+    {
+      "elements": 12,
+      "name": "PF5L",
+      "r": 0.71,
+      "turns": 12.0,
+      "z": -1.1500249999999999,
+      "z_max": -1.1464,
+      "z_min": -1.15365
+    },
+    {
+      "elements": 12,
+      "name": "PF6U",
+      "r": 0.71,
+      "turns": 12.0,
+      "z": 0.875025,
+      "z_max": 0.8786500000000002,
+      "z_min": 0.8714
+    },
+    {
+      "elements": 12,
+      "name": "PF6L",
+      "r": 0.71,
+      "turns": 12.0,
+      "z": -0.875025,
+      "z_max": -0.8714,
+      "z_min": -0.8786500000000002
+    },
+    {
+      "elements": 24,
+      "name": "PF9U",
+      "r": 0.9299999999999999,
+      "turns": 24.0,
+      "z": 0.5223,
+      "z_max": 0.53445,
+      "z_min": 0.51015
+    },
+    {
+      "elements": 24,
+      "name": "PF9L",
+      "r": 0.9299999999999999,
+      "turns": 24.0,
+      "z": -0.5223,
+      "z_max": -0.51015,
+      "z_min": -0.53445
+    },
+    {
+      "elements": 24,
+      "name": "PF10U",
+      "r": 0.9299999999999999,
+      "turns": 24.0,
+      "z": 0.4807,
+      "z_max": 0.49285,
+      "z_min": 0.46855
+    },
+    {
+      "elements": 24,
+      "name": "PF10L",
+      "r": 0.9299999999999999,
+      "turns": 24.0,
+      "z": -0.4807,
+      "z_max": -0.46855,
+      "z_min": -0.49285
+    }
+  ],
+  "label": "legacy-39915-129",
+  "machine": {
+    "counts": {
+      "magpri": 64,
+      "nacoil": 0,
+      "necoil": 0,
+      "nesum": 0,
+      "nfcoil": 302,
+      "nfsum": 16,
+      "nsilop": 11,
+      "nvesel": 950,
+      "nvsum": 950
+    },
+    "em_coupling_comment": "VEST electromagnetic coupling; machine era vest-pre-43017-pf1906; PF geometry 1906; mutual_passive_passive reciprocity exact in the packaged asset (input asymmetry 0; material factor 1.04 repaired by workflow/em_coupling/regenerate_passive_coupling.py, issue #373)",
+    "era": "vest-pre-43017-pf1906",
+    "pf_active_comment": "PF config from vest_pf_active",
+    "pf_geometry": "1906",
+    "reference_shot": 43016,
+    "static_inputs": {
+      "coupling": {
+        "name": "VEST_em_coupling_pf_versions.npz",
+        "sha256": "1c391442762fb1c9563eb5fc62fef35ee4e002c7cda8afc06968539a5e2a6f05"
+      },
+      "magnetics_calibration": {
+        "name": "MD.yaml",
+        "sha256": "1f3566749fa22a9ed9bb86f60fdc11db4eba096b22a0af02046b59a5a89a2399",
+        "source_version": "2409"
+      },
+      "magnetics_geometry": {
+        "name": "VEST_MagneticsGeometry_Full_ver_2302.yaml",
+        "sha256": "e9e016cba28aa5a5d9a4562a29c71aa5aca2534c4062323bcfab130276df6ac9",
+        "source_version": "2409"
+      },
+      "pf_geometry": {
+        "name": "VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
+        "sha256": "5d4d9e45a9fe228f10a402db0a19e0b0918a8d0f46275929080f0671ab289601"
+      },
+      "static_geometry": {
+        "name": "VEST_static_geometry.json.gz",
+        "sha256": "2d3495f7cc39b16bc05dc22db2d84cd1c7042194aedfaf84a3c4c2b876424304"
+      }
+    },
+    "wall_comment": "VEST static wall; machine era vest-pre-43017-pf1906"
+  },
+  "schema_version": 1,
+  "table": {
+    "files": {
+      "brzgfc.dat": {
+        "expected_size": 4260112,
+        "sha256": "5c15b0113070f014a6d03498a1d5cf1365e78d3da1f34283e883f995aa95734c",
+        "size": 4260112
+      },
+      "ec129129.ddd": {
+        "expected_size": 19305664,
+        "sha256": "f7b07a58c21f86a7aed18fab24e1ceaf44df5bd6f8f436edbe1c6b91ed8002f7",
+        "size": 19305664
+      },
+      "ep129129.ddd": {
+        "expected_size": 9984616,
+        "sha256": "bd3948a785ceb6149db91cc0e56f7805037dccf78e0de755d785f918c31fdf04",
+        "size": 9984616
+      },
+      "mhdout.dat": {
+        "expected_size": null,
+        "sha256": "ca5842cb11fca9aa081f073681e54da3522455932b7b205c5bfa38de5eac3e3e",
+        "size": 60885
+      },
+      "rfcoil.ddd": {
+        "expected_size": 9616,
+        "sha256": "4e17f5deeedc76c96b8b655fdd659cf0a2b2ada7907a1792845d69cb1d5b6a6f",
+        "size": 9616
+      },
+      "rv129129.ddd": {
+        "expected_size": 134383248,
+        "sha256": "047b7700d45530330759738d7cf257e0a8191be054705e622d714fe065996e2a",
+        "size": 134383248
+      }
+    },
+    "identity": "d7563d22c050872a3581c690fd8da4f0c2ba6d05fd12bc98cb200ef425952151",
+    "suffix": "129129"
+  },
+  "vaft": {
+    "revision": "v0.6.2-221-gfdafdd2",
+    "version": "0.6.2"
+  }
+}

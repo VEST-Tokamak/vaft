@@ -77,13 +77,35 @@ def test_legacy_args_and_explicit_decisions_agree_on_the_packaged_shot(monkeypat
     assert legacy.keys() == explicit.keys() and len(legacy) == 2025
     assert all(legacy[key] == explicit[key] for key in legacy)
 
-    # Against the stored product every leaf agrees except the condemned
-    # probe's weight at the fitted slices: the sample predates the per-slice
-    # validity exclusion and still carries the nominal weight there.
+    # Against the stored product, two differences and no others.
+    #
+    # The only *decision* difference is the condemned probe's weight at the
+    # fitted slices: the sample predates the per-slice validity exclusion and
+    # still carries the nominal weight there.
+    #
+    # The values differ because the sample also predates the box average
+    # (issue #433): it was built by interpolating the 25 kHz diagnostics onto
+    # a 0.1 ms grid, this build averages the samples the window contains.
+    # That is the same measurement averaged differently, so the difference is
+    # bounded and small -- a restructuring would not be.
     stored = _leaves(vaft.omas.sample_ods()["equilibrium"], times.size)
     differing = sorted(key for key in stored if stored[key] != explicit.get(key))
-    assert {key.split(".", 2)[2] for key in differing} == {"constraints.bpol_probe.25.weight"}
-    assert all(stored[key] == 0.1 and explicit[key] == 0.0 for key in differing)
+    by_leaf: dict[str, list[str]] = {}
+    for key in differing:
+        by_leaf.setdefault(key.rsplit(".", 1)[1], []).append(key)
+    assert set(by_leaf) == {"weight", "measured", "measured_error_upper"}
+
+    assert {key.split(".", 2)[2] for key in by_leaf["weight"]} == {"constraints.bpol_probe.25.weight"}
+    assert all(stored[key] == 0.1 and explicit[key] == 0.0 for key in by_leaf["weight"])
+
+    ratios = []
+    for key in by_leaf["measured"] + by_leaf["measured_error_upper"]:
+        scale = max(abs(stored[key]), abs(explicit[key]))
+        if scale > 0:
+            ratios.append(abs(stored[key] - explicit[key]) / scale)
+    assert ratios, "no value differences to characterize"
+    assert max(ratios) < 0.1
+    assert float(np.median(ratios)) < 1e-3
 
 
 def test_the_product_records_the_decisions_it_was_built_from(monkeypatch, times):

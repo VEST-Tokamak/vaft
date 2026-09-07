@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import subprocess
 from dataclasses import dataclass, field
 from numbers import Integral
@@ -19,7 +20,7 @@ from typing import Any, Mapping, Optional, Sequence
 import numpy as np
 
 from ...compat import is_executable, resolve_executable
-from .._executables import executable_from_home, missing_home_message
+from .._executables import missing_home_message
 from .status import (
     EFITSliceStatus,
     EFITValidationConfig,
@@ -217,6 +218,35 @@ def _vaft_revision() -> str | None:
     return revision if completed.returncode == 0 and revision else None
 
 
+_TABLE_DIR_LINE = re.compile(r"^\s*TABLE_DIR\s*=\s*'([^']*)'", re.IGNORECASE | re.MULTILINE)
+
+
+def _table_record(kfiles: Sequence[Path]) -> dict[str, Any] | None:
+    """What the k-files say EFIT will read its Green tables from, identified.
+
+    EFIT reads every table dimension from ``TABLE_DIR/mhdin.dat`` with no
+    consistency check, so the run manifest records the table by its own
+    manifest (``vaft.code.efit.efund``) when it has one and by the hash of
+    ``mhdin.dat`` otherwise -- and says which of the two it could do.
+    """
+    from .efund import table_identity
+
+    directories: list[str] = []
+    for path in sorted(Path(path) for path in kfiles):
+        try:
+            match = _TABLE_DIR_LINE.search(path.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            continue
+        if match and match.group(1) not in directories:
+            directories.append(match.group(1))
+    if not directories:
+        return None
+    record = table_identity(directories[0])
+    if len(directories) > 1:
+        record["other_dirs"] = directories[1:]
+    return record
+
+
 def _write_efit_configuration_manifest(
     config: EFITConfig,
     kfiles: Sequence[Path],
@@ -246,6 +276,7 @@ def _write_efit_configuration_manifest(
             }
             for path in sorted(Path(path) for path in kfiles)
         ],
+        "table": _table_record(kfiles),
     }
     destination.write_text(
         json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\n",
@@ -319,24 +350,13 @@ def _resolve_efit_executable(config: EFITConfig) -> Path | None:
     fails immediately when that installation is incomplete.  The historical
     ``$EFIT`` lookup is used only when ``$EFITHOME`` is absent.
     """
-    if config.executable:
-        candidate = Path(config.executable).expanduser()
-        return candidate / "efit" if candidate.is_dir() else candidate
+    # One rule for both toolchain roles (issue #194): explicit path, then
+    # $EFITHOME in the installed or the CMake build-tree layout, then the
+    # legacy $EFIT for efit only.
+    from .toolchain import resolve_role
+
     environment = {**os.environ, **dict(config.env)}
-    home_executable = executable_from_home(
-        environment.get(EFIT_HOME_ENV),
-        home_variable=EFIT_HOME_ENV,
-        relative_path=EFIT_HOME_EXECUTABLE,
-        code_name="EFIT",
-    )
-    if home_executable is not None:
-        return home_executable
-    env_path = environment.get(EFIT_EXEC_ENV)
-    if env_path:
-        env_candidate = Path(env_path).expanduser()
-        requested = env_candidate / "efit" if env_candidate.is_dir() else env_candidate
-        return resolve_executable(requested) or requested
-    return None
+    return resolve_role("efit", explicit=config.executable or None, env=environment)
 
 
 def _efit_unconfigured_reason() -> str:

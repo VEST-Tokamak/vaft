@@ -1885,6 +1885,42 @@ def plot_flux_loop_time_flux(
     )
 
 
+def plot_flux_loop_spatial_flux(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> Any:
+    """Flux-loop flux against sensor position at one time (issue #486).
+
+    ``time=`` snaps to the nearest stored sample (``time_slice=`` maps
+    through a stored equilibrium slice); ``coordinate="z"`` (default) draws
+    the inboard and outboard loops as two panels, ``"theta"`` one panel
+    against the poloidal angle about the layout centre (``centre=``).
+    Renders with :func:`vaft.plot.flux_loop_spatial_flux` from OMAS input.
+    """
+    return render("flux_loop_spatial_flux", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_b_field_probe_spatial_field(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> Any:
+    """B-probe poloidal field against sensor position at one time (issue #486).
+
+    Same options as :func:`plot_flux_loop_spatial_flux`; ``angle="stored"``
+    reads each probe's IMAS ``poloidal_angle`` instead of the geometric one.
+    Renders with :func:`vaft.plot.b_field_probe_spatial_field` from OMAS input.
+    """
+    return render("b_field_probe_spatial_field", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_flux_loop_time_voltage(
     source: Any,
     *,
@@ -2737,6 +2773,8 @@ __all__ = [
     "plot_diagnostics_overview",
     "plot_diamagnetic_flux_time",
     "plot_flux_loop_time_flux",
+    "plot_flux_loop_spatial_flux",
+    "plot_b_field_probe_spatial_field",
     "plot_flux_loop_time_voltage",
     "plot_plasma_current_time",
     "plot_limiter_current_time",

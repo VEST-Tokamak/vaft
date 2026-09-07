@@ -23,19 +23,49 @@
 
 \begin{frame}{Why this session exists}
   \begin{itemize}
-    \item Connect experimental reconstruction with equilibrium and profile data.
-    \item Introduce the forward-equilibrium modelling workflow through VAFT.
+    \item An equilibrium is a \emph{solution} of the Grad--Shafranov equation.
+    \item Whether a stored one is such a solution is a question you can ask.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{The equation everything rests on}
+  \centering
+  \[
+    \Delta^{*}\psi \;=\; -\mu_{0}R^{2}p'(\psi) \;-\; FF'(\psi)
+  \]
+  \vspace{1em}
+
+  Flux surfaces are its contours; \(p'\) and \(FF'\) carry pressure and current.
+\end{frame}
+
+\begin{frame}{Two codes, two questions}
+  \begin{itemize}
+    \item \textbf{EFIT reconstructs} --- free boundary, from magnetics.
+      \emph{What was the plasma doing?}
+    \item \textbf{CHEASE forward-models} --- fixed boundary, from profiles.
+      \emph{What do these inputs imply?}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{What a g-file does not carry}
+  Six profiles are stored. Volume, shape, \(\beta\) and \(l_i\) are
+  \emph{derived}.
+
+  \vspace{1em}
+  A refused plot is often an underived quantity, not a missing measurement.
 \end{frame}
 
 \begin{frame}{Session workflow}
   \centering
-  EFIT equilibrium \(\rightarrow\) kinetic profiles \(\rightarrow\)
-  CHEASE model comparison
+  flux map \(\rightarrow\) derived 0-D parameters \(\rightarrow\) coordinates
+  \(\rightarrow\) camera overlay
+
+  \vspace{0.5em}
+  \(\rightarrow\) Grad--Shafranov residual \(\rightarrow\) CHEASE refinement
 \end{frame}
 
-\begin{frame}{Practice goal: vary shape}
-  Learners will vary selected model inputs and explain how equilibrium shape,
-  profiles, and derived physical quantities respond.
+\begin{frame}{Practice goal: vary the equilibrium}
+  Vary shape, \(\beta\) and \(l_i\); re-solve; explain which knob moved which
+  quantity --- and which left the others alone.
 \end{frame}
 \end{document}

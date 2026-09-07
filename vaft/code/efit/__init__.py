@@ -67,6 +67,18 @@ from .magnetic import (
 )
 from .kfile import apply_channel_decisions, generate_constraints_ods, generate_kfile
 from .recovery import ProbeFamilies, gaussian_probe_recovery, probe_families
+from .efund import (
+    EFUNDConfig,
+    EFUNDInputs,
+    EFUNDResult,
+    prepare_efund_inputs,
+    run_efund,
+    collect_efund_outputs,
+    write_table_manifest,
+    read_table_manifest,
+    table_identity,
+)
+from .toolchain import resolve_toolchain, executable_identity
 from .kinetic import (
     EQE,
     SPLINE_SIG_FRAC,
@@ -112,6 +124,17 @@ __all__ = [
     "gaussian_probe_recovery",
     "probe_families",
     "ProbeFamilies",
+    "EFUNDConfig",
+    "EFUNDInputs",
+    "EFUNDResult",
+    "prepare_efund_inputs",
+    "run_efund",
+    "collect_efund_outputs",
+    "write_table_manifest",
+    "read_table_manifest",
+    "table_identity",
+    "resolve_toolchain",
+    "executable_identity",
     "EQE",
     "KineticEFITConfig",
     "KineticEFITInputs",

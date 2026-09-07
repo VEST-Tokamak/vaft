@@ -171,6 +171,124 @@ integrals = efit_virial_volume_integrals(
 )
 ```
 
+Virial closures and identity residuals
+=====
+
+VAFT does not treat any one historical $\beta_p$/$l_i$ formula as *the* virial
+theorem. Everything below derives from three relations and nothing else:
+
+$$E_1:\quad 3\beta_p + l_i - \mu_i = S_1 + S_2$$
+
+$$E_2:\quad \beta_p + l_i + \mu_i = \frac{R_T}{R_0} S_2$$
+
+$$E_3:\quad \beta_p - (\alpha-1) l_i - \mu_i = S_3$$
+
+Given $\mu_i$, any two of the three determine $\beta_p$ and $l_i$, so there are
+exactly three closures. The point of having all three is that they fail
+differently, and the identity each one leaves out becomes its own test.
+
+| Closure | Uses | Tests | Denominator | Depends on $R_T/R_0$ |
+| --- | --- | --- | --- | --- |
+| `virial_pair_12_from_S_mu_rt` | $E_1$, $E_2$ | $E_3$ | none | yes |
+| `virial_pair_13_from_S_alpha_mu` | $E_1$, $E_3$ | $E_2$ | $3\alpha-2$ | **no** |
+| `virial_pair_23_from_S_alpha_mu_rt` | $E_2$, $E_3$ | $E_1$ | $\alpha$ | yes |
+
+Three relationships between these and the historical names are worth stating
+explicitly, because two of them are easy to get wrong:
+
+- **Bongard *is* `pair_13`**, not an approximation of it.
+  `virial_bongard_from_S_alpha_mu` delegates to it. Being the only $R_T$-free
+  closure is what makes it the reference at low aspect ratio.
+- **Lao's $\beta_p$ is `pair_12`'s, but Lao's $l_i$ is not.** The conventional
+  $l_i$ takes $\beta_p-\mu_i$ from $E_1$ and $E_2$ and substitutes it into
+  $E_3$, so it is a three-relation result under a pairwise name. It is
+  identically the $l_i$ of the full solve.
+- **The full solve is a different inverse problem.**
+  `virial_full_123_from_S_alpha_rt` takes no $\mu_i$ at all and returns one, so
+  its $\mu_i$ is a prediction a measured diamagnetic loop can be compared
+  against rather than an input.
+
+```python
+from vaft.formula.equilibrium import (
+    virial_identity_residuals,
+    virial_pair_12_from_S_mu_rt,
+    virial_pair_13_from_S_alpha_mu,
+    virial_pair_23_from_S_alpha_mu_rt,
+    virial_full_123_from_S_alpha_rt,
+)
+
+beta_p, li = virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mu_i)
+e1, e2, e3 = virial_identity_residuals(beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0)
+# pair_13 omitted E2, so e2 is the evidence; e1 and e3 are zero by construction.
+```
+
+### Identity validity is not closure conditioning
+
+The identities themselves never become singular. The *inversions* do, at
+$3\alpha-2 = 0$, $\alpha = 0$, $\alpha = 1$ (the Lao $l_i$, and the
+determinant $4(\alpha-1)$ of the full solve). A closure at its singularity
+returns NaN, never a large finite number that would be misread as a physical
+failure. `virial_closure_denominators` reports how far each one is from
+failing.
+
+$R_T/R_0$ is the conditioning that cannot be read off $\alpha$. $R_T$ is
+$\int R\,G\,dV / \int G\,dV$ with $G = 2\mu_0 p + B_p^2 + B_{\phi,vac}^2 -
+B_\phi^2$, an integrand that changes sign, so the denominator can pass through
+zero while both integrals stay finite. `efit_virial_volume_integrals` returns
+`rt_denominator_ratio`, the fraction of the denominator surviving that
+cancellation.
+
+At VEST's aspect ratio the cancellation is the rule, not the exception. Over
+the 234 reconstructed slices of the equilibrium-global history (72 shots):
+
+| | |
+| --- | --- |
+| median `rt_denominator_ratio` | **0.0135** |
+| slices below 0.25 | 230 / 234 |
+| slices below 0.05 | 173 / 234 |
+| slices with $R_T/R_0 < 0$ | **70 / 234** — a current centroid at negative major radius |
+| slices where `pair_13` is computable | 226 / 234 |
+| slices where any $R_T$-dependent closure is | 194 / 234 |
+
+So comparing `pair_13` against `pair_12` and `pair_23` is the first thing to do
+with a suspicious $\beta_p$, and a $\beta_p$ that exists only through an
+$R_T$-dependent closure should be read with the conditioning number beside it.
+
+### The three sources of $\mu_i$
+
+Never collapsed into one number, because they disagree:
+
+| Source | Where from |
+| --- | --- |
+| `mu_i_sources.volume` | the reconstructed equilibrium's own volume integral |
+| `mu_i_sources.full_123` | predicted by solving all three relations |
+| `mu_i_sources.measured` | `magnetics.diamagnetic_flux`, a measurement no reconstruction fitted |
+
+The measured one also feeds the three closures again under
+`measured_mu_i_closures`, so `beta_p` from the measurement and `beta_p` from
+the reconstruction are compared like for like.
+
+### Where this appears
+
+`vaft.omas.compute_virial_equilibrium_quantities_ods` returns the whole
+structure per slice — `volume`, `pair_12`, `pair_13`, `pair_23`, `full_123`,
+`identity`, `conditioning`, `mu_i_sources`, `measured_mu_i_closures`,
+`disagreement` — alongside every key it returned before.
+`vaft.validation.validate_equilibrium` turns it into four separate checks:
+
+```text
+physical_validity.virial_identity                # do the relations close?
+physical_validity.virial_pair_consistency        # leave-one-identity-out
+physical_validity.virial_conditioning            # can they be inverted here?
+physical_validity.virial_parameter_plausibility  # are the numbers sane?
+independent_validation.virial_measured_mu_i      # against the diamagnetic loop
+```
+
+Every threshold in those checks is **report-only**. They are readable round
+figures, not values qualified against a representative equilibrium population;
+nothing gates on them, and they are expected to move once that qualification is
+done.
+
 Plotting
 =====
 ```python
@@ -199,6 +317,14 @@ Equilibrium codes
 ### EFIT — magnetic reconstruction
 `vaft.code.efit` prepares k-files from an ODS, runs EFIT, and collects the
 resulting g/a/m files back into an `EFITResult`.
+
+EFIT is licensed software you obtain and build yourself (`install/install_efit.sh`,
+see the installation guide). Set `EFITHOME` to the install prefix: VAFT resolves
+both toolchain roles from it, `bin/efit` for reconstruction and `bin/efund` for
+Green-function tables, so a table and the reconstruction that consumes it always
+come from one build. `vaft.code.efit.toolchain.resolve_toolchain()` returns the
+resolved pair and `executable_identity()` records each executable's sha256 and
+source revision for run manifests.
 
 ```python
 from vaft.code import EFITConfig, prepare_efit_inputs, run_efit, collect_efit_outputs
@@ -262,6 +388,44 @@ generate_constraints_ods(ods, shot, save_dir, table_dir, times, uncertainty, wei
 The product records the decisions it was built from under
 `equilibrium.code.parameters.channel_decisions`, so a zero weight in a k-file
 can be traced to its reason.
+
+#### Green tables (EFUND)
+
+EFIT reads its Green-function tables from `TABLE_DIR` and takes every
+dimension from the `mhdin.dat` beside them, with no consistency check of its
+own, so a reconstruction's provenance has to name the table it used.
+`vaft.code.efit.efund` generates tables from the canonical static geometry
+and records what it did:
+
+```python
+from vaft.omas.vest_upstream import build_static_ods
+from vaft.code.efit import EFUNDConfig, prepare_efund_inputs, run_efund, write_table_manifest
+
+ods, manifest = build_static_ods('vest-pre-43017-pf1906')   # the era, chosen by the caller
+config = EFUNDConfig(workdir='/scratch/tables/legacy', nw=129, nh=129)
+inputs = prepare_efund_inputs(ods, config, manifest=manifest)   # writes mhdin.dat
+result = run_efund(inputs, config)                                # $EFITHOME/bin/efund
+write_table_manifest(result, inputs, config, label='legacy-129')
+```
+
+The projection `vaft.machine_mapping.efund_geometry.efund_geometry_from_static`
+is the one invariant: canonical static geometry → EFUND input, vessel
+segments in `em_coupling.passive_loops` order, the equilibrium probe set the
+k-file fits, and the sixteen F-coil groups the k-file already selects
+(PF1 as eight axial segments, PF5/6/9/10 upper and lower).  It never decides
+which era a shot belongs to; that is `machine_era_for_shot`.
+
+`EFUNDConfig` holds the EFUND-only quantities (grid, flags, quadrature) and
+hashes them; the table manifest (`efund_table_manifest.json`) records the
+era and asset hashes, the executable identity, the input hash and every
+output file's sha256 and size.  An EFIT run's `efit_configuration.json`
+records the table its k-files point at through `table_identity()`: by
+manifest when the directory has one, by the hash of `mhdin.dat` otherwise.
+The bundled `vaft/data/efit/` table is of the second kind.
+
+`workflow/efit_tables/` regenerates a table, compares two table directories
+layer by layer, and runs a controlled EFIT A/B in which only the table
+changes; its README carries the results for shot 39915.
 
 ### CHEASE — equilibrium refinement
 `vaft.code.chease` takes a GEQDSK (path, `GEQDSK`, or mapping) and produces a

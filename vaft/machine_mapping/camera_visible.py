@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 import re
-from typing import Any, Sequence
+from typing import Any, Iterator, Sequence
 
 import numpy as np
 
@@ -31,15 +31,28 @@ DEFAULT_BUFFER_FRAMES = 2
 # sample shots in the VEST_Fast Camera_Diagnostics repository. The "Top Frame"/
 # "Bottom Frame" lines at 74/75 belong to the header's *File Information* block
 # (the exported BMP sub-range), not the earlier *Recording Information* block.
+# `ShutterSpeed:` sits at 24, not 25 -- 25 is `CustomShutterValueNumerator`.
+# The parser returns None rather than raising on a line mismatch, so the
+# off-by-one silently dropped exposure_time from every camera IDS ever built.
 _FRAMES_LINE_INDEX = 15
 _TOP_FRAME_LINE_INDEX = 74
 _BOTTOM_FRAME_LINE_INDEX = 75
-_SHUTTER_SPEED_LINE_INDEX = 25
+_SHUTTER_SPEED_LINE_INDEX = 24
 
 _TOTAL_FRAMES_PATTERN = re.compile(r"Frames:\s*(\d+)")
-_TOP_FRAME_PATTERN = re.compile(r"^Top Frame,.+,\+(\d+\.\d+)")
-_BOTTOM_FRAME_PATTERN = re.compile(r"^Bottom Frame,.+,\+(\d+\.\d+)")
-_SHUTTER_SPEED_PATTERN = re.compile(r"ShutterSpeed:\s*[\d.]+k\(([\d.]+)us\)")
+# The relative time carries a sign, and it means something: a centre-triggered
+# acquisition (`TriggerSelect: CENTER`) starts before the trigger, so its top
+# frame sits at a negative time. Requiring a leading "+" both rejected those
+# headers outright and would have placed a pre-trigger frame after the trigger
+# had it matched.
+_TOP_FRAME_PATTERN = re.compile(r"^Top Frame,.+,([+-]?\d+\.\d+)")
+_BOTTOM_FRAME_PATTERN = re.compile(r"^Bottom Frame,.+,([+-]?\d+\.\d+)")
+# The frame-rate prefix in front of the parenthesised exposure is not always a
+# number: a camera run with no frame-rate-derived shutter records
+# `ShutterSpeed: OPEN(19.1us)`. Requiring `<number>k(` skipped the exposure of
+# every such acquisition -- 102 routine shots and every fluctuation shot in the
+# archive -- so the prefix is now anything up to the parenthesis.
+_SHUTTER_SPEED_PATTERN = re.compile(r"ShutterSpeed:\s*[^(\n]*\(([\d.]+)us\)")
 
 
 class CameraFrameSelectionError(RuntimeError):
@@ -54,6 +67,58 @@ class CameraHeaderInfo:
     end_time_ms: float
     total_frames: int
     exposure_time_s: float | None
+
+
+#: VEST's two camera-viewing ports, as the visible-camera calibration uses
+#: them: a rectangular aperture on the vessel's outer wall, given by its major
+#: radius, its chord width, and the top and bottom of its opening. The two
+#: ports sit 120 degrees apart, the first centred on 30 degrees. Machine
+#: geometry, kept here rather than in the notebooks that project it.
+PORT_MAJOR_RADIUS_M = 0.803
+PORT_CHORD_WIDTH_M = 0.24
+PORT_TOP_M = 0.57 - 0.2355
+PORT_HEIGHT_M = 0.692
+PORT_FIRST_CENTRE_RAD = np.deg2rad(30.0)
+PORT_SEPARATION_RAD = np.deg2rad(120.0)
+
+
+def vest_port_corner_points() -> np.ndarray:
+    """The camera ports' corner and edge-midpoint markers, in world centimeters.
+
+    Eight markers per port -- four corners, then the mid-height points of the
+    two vertical edges and the mid-width points of the top and bottom edges --
+    for both ports, in the ``(X, Y, Z)`` centimeter frame
+    :func:`vaft.process.camera_geometry.project_points` expects, matching
+    :func:`vaft.process.camera_geometry.sweep_toroidal`.
+
+    The aperture's angular half-width follows from its chord across the port
+    circle, ``cos(w) = 1 - c^2 / (2 R^2)``.
+    """
+    z_top = PORT_TOP_M
+    z_bottom = z_top - PORT_HEIGHT_M
+    z_middle = 0.5 * (z_top + z_bottom)
+    radius = PORT_MAJOR_RADIUS_M
+    width_rad = np.arccos(1.0 - PORT_CHORD_WIDTH_M ** 2 / (2.0 * radius ** 2))
+
+    def corners(base_angle: float) -> np.ndarray:
+        left, right = base_angle, base_angle + width_rad
+        centre = base_angle + width_rad / 2.0
+        x_left, y_left = radius * np.cos(left), radius * np.sin(left)
+        x_right, y_right = radius * np.cos(right), radius * np.sin(right)
+        x_centre, y_centre = radius * np.cos(centre), radius * np.sin(centre)
+        return np.array([
+            [x_right, y_right, z_top],
+            [x_right, y_right, z_bottom],
+            [x_left, y_left, z_bottom],
+            [x_left, y_left, z_top],
+            [x_right, y_right, z_middle],
+            [x_centre, y_centre, z_bottom],
+            [x_left, y_left, z_middle],
+            [x_centre, y_centre, z_top],
+        ]) * 100.0
+
+    first = PORT_FIRST_CENTRE_RAD - width_rad / 2.0
+    return np.vstack([corners(first), corners(first + PORT_SEPARATION_RAD)])
 
 
 def _parse_bmp_header(path: str | Path) -> CameraHeaderInfo:
@@ -281,8 +346,81 @@ def vfit_camera_visible_dynamic(
     set_path(ods, "camera_visible.time", time_values)
     for index, (image, time_value) in enumerate(zip(images, times_s)):
         prefix = f"camera_visible.channel.0.detector.0.frame.{index}"
-        set_path(ods, f"{prefix}.image_raw", np.asarray(image).astype(int))
+        # No cast here: `image_raw` is an INT_2D node, and OMAS applies
+        # `value.astype(int)` itself on every assignment to one.
+        set_path(ods, f"{prefix}.image_raw", np.asarray(image))
         set_path(ods, f"{prefix}.time", float(time_value))
+
+
+def _image_raw_paths(ods: Any) -> Iterator[str]:
+    """Yield every populated ``image_raw`` path in a ``camera_visible`` ODS.
+
+    The mapping only ever writes channel 0 / detector 0, but this is a public
+    entry point and a caller may hand it an ODS assembled elsewhere. Walking
+    what is actually there beats hardcoding the one shape this module happens
+    to produce, which would silently leave other channels at their original
+    width while the product claims to be narrowed throughout.
+    """
+    channels = ods["camera_visible"].get("channel", {})
+    for channel_index in sorted(channels):
+        detectors = channels[channel_index].get("detector", {})
+        for detector_index in sorted(detectors):
+            frames = detectors[detector_index].get("frame", {})
+            for frame_index in sorted(frames):
+                if "image_raw" in frames[frame_index]:
+                    yield (
+                        f"camera_visible.channel.{channel_index}"
+                        f".detector.{detector_index}.frame.{frame_index}.image_raw"
+                    )
+
+
+def narrow_image_storage(ods: Any) -> None:
+    """Re-state every ``camera_visible`` ``image_raw`` frame as ``int32``.
+
+    This cannot live in :func:`vfit_camera_visible_dynamic`, and not for want
+    of trying: OMAS upcasts on assignment. Every write to an ``INT_2D`` node
+    runs ``value = value.astype(int)`` (``omas/omas_core.py``), which is
+    platform ``int`` -- ``int64`` here -- so a frame assigned as ``uint8``,
+    ``int32`` or ``float32`` comes back out as ``int64`` regardless. The width
+    can therefore only be set immediately before storage, after the mapping
+    has finished building and validating the ODS and with the consistency
+    check suspended so the re-assignment reaches the node untouched.
+
+    Halving the stored width costs nothing in fidelity: VEST FAST-camera
+    frames are 8-bit grayscale, so every value fits ``int32`` with three
+    orders of magnitude to spare, and the re-cast is exact.
+
+    The check is *not* switched back on afterwards, and that is the same
+    upcast again rather than an oversight: re-enabling it re-runs OMAS's
+    ``consistency_checker`` over every leaf and re-applies ``astype(int)``,
+    putting ``image_raw`` straight back to ``int64``. Validation before the
+    narrowing is what the mapping already did -- every assignment in
+    :func:`vfit_camera_visible_dynamic` ran under the check -- and validation
+    afterwards belongs to the stored product, which reloads through the
+    ordinary loader reporting ``consistency_check == True``. Nothing but
+    storage should follow this call.
+
+    Call this on a finished ODS, immediately before ``vaft.omas.save``. It is
+    deliberately not folded into ``save``: applying it to every ODS would
+    silently re-type unrelated integer nodes in other IDSs.
+    """
+    # Membership, not indexing. Reading a missing path through an ODS creates
+    # it, so a `try: ods[path] except KeyError` guard would never fire here --
+    # it would quietly graft an empty camera_visible onto an ODS that has none
+    # and then disable its consistency check for nothing.
+    if "camera_visible" not in ods:
+        return
+
+    paths = list(_image_raw_paths(ods))
+    if not paths:
+        return
+
+    ods.consistency_check = False
+    for path in paths:
+        image = np.asarray(ods[path])
+        if image.dtype == np.int32:
+            continue
+        ods[path] = image.astype(np.int32)
 
 
 def camera_visible(
@@ -409,6 +547,7 @@ __all__ = [
     "find_valid_frame_interval",
     "frame_time_ms",
     "is_near_black",
+    "narrow_image_storage",
     "save_camera_visible_ods",
     "vfit_camera_visible_dynamic",
     "vfit_camera_visible_static",

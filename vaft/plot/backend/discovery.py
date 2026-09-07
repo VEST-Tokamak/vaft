@@ -51,6 +51,10 @@ from vaft.plot.style import UNCERTAINTY_MODES, VALIDITY_MODES
 
 from .recipes import (
     CAMERA_OVERLAYS,
+    ChannelProfileRecipe,
+    _coordinate_options,
+    abscissa_options,
+    _has,
     CAMERA_PROJECTIONS,
     RECIPES,
     SYNTHETIC_CONSTRAINTS,
@@ -230,6 +234,18 @@ def _declare(record: PlotCapability) -> PlotCapability:
     unit = getattr(recipe, "y_unit", None)
     if isinstance(recipe, (LineRecipe, ProfileRecipe)):
         updates["display"] = _display_block(record, unit or "")
+    if isinstance(recipe, ProfileRecipe):
+        options = _coordinate_options(recipe)
+        updates["coordinates"] = {
+            "default": recipe.default_coordinate, "options": options, "declared": options,
+        }
+    if isinstance(recipe, ChannelProfileRecipe):
+        updates["display"] = _display_block(record, unit or "")
+        updates["coordinates"] = {
+            "default": recipe.default_coordinate,
+            "options": tuple(recipe.coordinates),
+            "declared": tuple(recipe.coordinates),
+        }
     elif record.name in PSI_FIELD_CONVENTIONS:
         # The psi maps take units= (issue #478); the default unit follows the
         # stored convention, which only an input can tell -- see _evaluate.
@@ -240,6 +256,8 @@ def _declare(record: PlotCapability) -> PlotCapability:
             "convention": PSI_FIELD_CONVENTIONS[record.name],
         }
     if isinstance(recipe, LineRecipe):
+        options = abscissa_options(recipe)
+        updates["abscissa"] = {"default": "time", "options": options, "declared": options}
         # Only the line-series builder takes layout= (issue #260); grouped
         # needs a radial split, which an ODS decides -- see _evaluate.
         updates["layouts"] = (
@@ -345,11 +363,17 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
         recipe = RECIPES.get(record.name)
         if isinstance(recipe, LineRecipe):
             updates.update(_line_facts(record, recipe, ods))
+            updates["abscissa"] = _abscissa_block(record, recipe, ods)
+        elif isinstance(recipe, ChannelProfileRecipe):
+            updates.update(_channel_facts(record, recipe, ods))
+            updates["times"] = _times_block(ods, recipe)
         elif isinstance(recipe, ProfileRecipe):
             # Profiles take the same sign policy (issue #307); the catalog has
             # to say which default a profile applies, or a caller cannot know
             # whether the curve it gets back was flipped.
             updates["orientation"] = _orientation_block(recipe)
+            if record.coordinates and recipe.index == "time_slice":
+                updates["coordinates"] = _coordinates_block(record, recipe, ods)
         if _takes_time_slice(record.name):
             updates["slices"] = _slices_block(ods)
         if record.name in PSI_FIELD_CONVENTIONS:
@@ -382,6 +406,44 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             }
             updates["controls"] = tuple(c.name for c in offered)
     return with_capabilities(record, **updates)
+
+
+def _coordinates_block(record: PlotCapability, recipe: ProfileRecipe, ods: Any) -> dict[str, Any]:
+    """The coordinates this input can resolve for a slice-indexed profile.
+
+    Evaluated on the representative slice: a stored leaf, or the leaves a
+    derivation needs (``q``/``psi`` for the toroidal ones, the 2-D map with
+    the axis and the boundary outline for the radial ones, issue #479).
+    """
+    from .recipes import _count, resolve_time_slice
+
+    declared = tuple(record.coordinates.get("declared") or record.coordinates.get("options") or ())
+    if not _count(ods, "equilibrium.time_slice"):
+        return {**record.coordinates, "options": ()}
+    try:
+        index = int(resolve_time_slice(ods)[0])
+    except Exception:
+        index = 0
+    base = f"equilibrium.time_slice.{index}.profiles_1d"
+    has = lambda leaf: _has(ods, f"{base}.{leaf}")  # noqa: E731
+    radial = (has("r_inboard") and has("r_outboard")) or (
+        _has(ods, f"equilibrium.time_slice.{index}.profiles_2d.0.psi")
+        and _has(ods, f"equilibrium.time_slice.{index}.global_quantities.magnetic_axis.r")
+        and _has(ods, f"equilibrium.time_slice.{index}.boundary.outline.r")
+        and has("psi")
+    )
+    supported = {
+        "psi_norm": has("psi"),
+        "rho_tor_norm": has("psi") and (has("q") or has("rho_tor_norm")),
+        "sqrt_phi_norm": has("psi") and (has("phi") or has("q")),
+        "r_major": radial,
+        "r_minor": radial,
+    }
+    options = tuple(name for name in declared if supported.get(name, True))
+    default = record.coordinates.get("default")
+    if default not in options and options:
+        default = options[0]
+    return {"default": default, "options": options, "declared": declared}
 
 
 def _takes_time_slice(name: str) -> bool:
@@ -447,6 +509,17 @@ def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[st
         facts["uncertainty"] = _uncertainty_block(_uncertainty_of(ods, recipe.y_path) is not None)
         return facts
 
+    facts.update(_channel_facts(record, recipe, ods))
+    return facts
+
+
+def _channel_facts(record: PlotCapability, recipe: Any, ods: Any) -> dict[str, Any]:
+    """Channel, layout and metadata facts of a channel-indexed recipe.
+
+    Shared by the time histories (``LineRecipe``) and the spatial plots
+    (``ChannelProfileRecipe``, issue #486): the same family, the same split.
+    """
+    facts: dict[str, Any] = {}
     container = _container_of(recipe.y_path, "{i}")
     total = _count(ods, container)
     candidates = (recipe.y_path,) + tuple(recipe.fallback_y_paths)
@@ -489,7 +562,8 @@ def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[st
         channel_label(i, r_values[i], z_values[i]) for i in range(total)
     )
     facts["channels"] = channels
-    facts["layouts"] = layouts
+    if isinstance(recipe, LineRecipe):
+        facts["layouts"] = layouts
     facts["validity"] = _validity_block(
         present=any(code is not None for code in codes.values()), flagged=len(flagged)
     )
@@ -497,6 +571,54 @@ def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[st
         any(_uncertainty_of(ods, recipe.y_path, i) is not None for i in with_data)
     )
     return facts
+
+
+def _abscissa_block(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[str, Any]:
+    """The abscissae this input can actually supply (issue #481).
+
+    ``time`` and ``index`` always can be; a declared sibling needs its own
+    leaf, so a shot without one is not offered a control that would silently
+    fall back to the index.
+    """
+    declared = tuple(record.abscissa.get("declared") or abscissa_options(recipe))
+    available = []
+    for name in declared:
+        entry = next((a for a in recipe.abscissae if a.name == name), None)
+        if entry is None or _abscissa_is_stored(ods, entry):
+            available.append(name)
+    return {"default": "time", "options": tuple(available), "declared": declared}
+
+
+def _abscissa_is_stored(ods: Any, entry: Any) -> bool:
+    """Whether this input holds a declared sibling abscissa anywhere.
+
+    The builder gathers a slice-indexed sibling across every slice and fills
+    what is missing, so one slice without the leaf does not make the abscissa
+    unavailable -- discovery must not refuse what rendering would draw.
+    """
+    from .recipes import _container_of
+
+    for path in entry.paths:
+        if "{i}" not in path:
+            if _has(ods, path):
+                return True
+            continue
+        total = _count(ods, _container_of(path, "{i}"))
+        if any(_has(ods, path.format(i=index)) for index in range(total)):
+            return True
+    return False
+
+
+def _times_block(ods: Any, recipe: Any) -> dict[str, Any]:
+    """The stored time axis a spatial plot samples: start, stop, count."""
+    from .recipes import _first_time
+
+    container = _container_of(recipe.y_path, "{i}")
+    for index in range(_count(ods, container)):
+        axis = _first_time(ods, recipe.time_paths, i=index)
+        if axis is not None and axis.size:
+            return {"start": float(axis.min()), "stop": float(axis.max()), "count": int(axis.size)}
+    return {}
 
 
 def _validity_block(*, present: bool, flagged: int) -> dict[str, Any]:

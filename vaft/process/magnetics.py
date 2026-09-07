@@ -18,6 +18,7 @@ from .signal_processing import define_baseline, subtract_baseline
 
 __all__ = [
     "DEFAULT_VEST_MAGNETICS_PROCESSING",
+    "MAGNETICS_CLUSTER_GAP_FRACTION",
     "MirnovSpectrogramResult",
     "ToroidalModeResult",
     "ToroidalPhaseFitResult",
@@ -27,6 +28,8 @@ __all__ = [
     "VestMagneticsProcessingConfig",
     "b_field_pol_probe_field",
     "flux_loop_flux",
+    "magnetics_sensor_centre",
+    "magnetics_sensor_poloidal_angle",
     "mirnov_preprocess_signal",
     "mirnov_spectrogram",
     "rogowski_coil_ip",
@@ -43,6 +46,100 @@ __all__ = [
 ]
 
 # Naming convention for function name: {diagnostics_name}_{processing_quantity}
+
+#: A sensor layout counts as two clusters (an inboard and an outboard array)
+#: when the widest gap in R spans at least this fraction of the radial extent;
+#: a ring of sensors round the plasma has gaps far smaller than that.
+MAGNETICS_CLUSTER_GAP_FRACTION = 0.4
+
+
+def magnetics_sensor_centre(r, z):
+    """Geometric centre of a magnetic-sensor layout in the poloidal plane.
+
+    A layout centre, not the magnetic axis: the point a poloidal angle is
+    measured about when the sensors' own positions are all that is known
+    (issue #486).
+
+    Parameters
+    ----------
+    r, z : array_like
+        Sensor positions [m]. Non-finite entries are ignored.
+
+    Returns
+    -------
+    tuple of float
+        ``(r0, z0)`` [m].
+
+    Notes
+    -----
+    Definition. When the layout is two clusters -- an inboard and an outboard
+    wall array, i.e. the widest gap in R (:func:`vaft.plot.selection.radial_divider`)
+    spans at least ``MAGNETICS_CLUSTER_GAP_FRACTION`` of the radial extent --
+    ``r0`` is the midpoint of the two clusters' *median* radii; otherwise (a
+    ring, a single array) the mean radius. ``z0`` is the median height.
+    Medians rather than means so a radial scan of a few probes far outboard
+    (the IMPA Hall array on VEST, R = 0.91-1.26 m against a wall array at
+    0.80 m) does not drag the centre outward.
+
+    Caveat. The plasma need not sit here: a vertically shifted or strongly
+    shaped plasma makes an angle about this point a *layout* coordinate, not
+    a flux-surface one. Pass the magnetic axis instead when that is wanted.
+    """
+    from vaft.plot.selection import classify_regions, radial_divider
+
+    r = np.asarray(r, dtype=float).ravel()
+    z = np.asarray(z, dtype=float).ravel()
+    finite = np.isfinite(r) & np.isfinite(z)
+    if not np.any(finite):
+        raise ValueError("a sensor centre needs at least one finite (r, z) position")
+    r, z = r[finite], z[finite]
+    r0 = float(np.mean(r))
+    split = radial_divider(r)
+    extent = float(r.max() - r.min())
+    if split and extent > 0.0:
+        regions = np.asarray(classify_regions(r, split=split))
+        inboard = r[regions == "inboard"]
+        outboard = r[regions == "outboard"]
+        if inboard.size and outboard.size:
+            gap = float(outboard.min() - inboard.max())
+            if gap >= MAGNETICS_CLUSTER_GAP_FRACTION * extent:
+                r0 = 0.5 * (float(np.median(inboard)) + float(np.median(outboard)))
+    return r0, float(np.median(z))
+
+
+def magnetics_sensor_poloidal_angle(r, z, centre=None):
+    """Poloidal angle of each sensor about a centre, counter-clockwise from +R.
+
+    Parameters
+    ----------
+    r, z : array_like
+        Sensor positions [m].
+    centre : tuple of float, optional
+        ``(r0, z0)`` [m]; :func:`magnetics_sensor_centre` of the layout when
+        omitted.
+
+    Returns
+    -------
+    numpy.ndarray
+        Angles in radians in ``[0, 2*pi)``: 0 on the outboard midplane,
+        ``pi/2`` at the top.
+
+    Notes
+    -----
+    ``atan2(z - z0, r - r0)``, wrapped to ``[0, 2*pi)``. The same caveat as
+    the centre: about a layout centre this is a layout angle. It is not the
+    IMAS ``poloidal_angle`` of a probe, which is the orientation of the
+    probe's sensitive axis (``3*pi/2`` for every +Bz probe on VEST).
+    """
+    r = np.asarray(r, dtype=float)
+    z = np.asarray(z, dtype=float)
+    if centre is None:
+        centre = magnetics_sensor_centre(r, z)
+    r0, z0 = float(centre[0]), float(centre[1])
+    angle = np.mod(np.arctan2(z - z0, r - r0), 2.0 * np.pi)
+    # A sensor on the outboard midplane a rounding error below Z = 0 wraps to
+    # 2*pi; it belongs at 0.
+    return np.where(np.isclose(angle, 2.0 * np.pi), 0.0, angle)
 
 
 class UnsupportedMagneticsDaqModeError(NotImplementedError):

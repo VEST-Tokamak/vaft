@@ -139,7 +139,8 @@ result = run_efit(EFITInputs(workdir=workdir, kfiles=kfiles),
                              args=("129",), timeout=600))
 result = collect_efit_outputs(workdir, EFITConfig(workdir=workdir, shot=shot))
 
-# CHEASE: resolve the binary (falls back to $PATH), prepare, run
+# CHEASE: resolve the binary ($CHEASEHOME/bin/chease, then $CHEASE,
+# then $CHEASE_EXEC_DIR -- there is no $PATH fallback), prepare, run
 config = CHEASEConfig(executable=exe, timeout=600, target_psin=0.993, nideal=6, nw=513)
 result = run_chease(prepare_chease_inputs(gfile, config), config)
 
@@ -186,6 +187,11 @@ dump with no SQL server in reach. Magnetics processing parameters travel as a
   family's Gaussian profile, `2` every probe); a recovered value never re-enables a channel the quality
   layer rejected. The decisions are recorded in the product under
   `equilibrium.code.parameters.channel_decisions`.
+
+Each constraint is the box average of the diagnostic samples inside `[t_i − w, t_i + w]` — every
+sample once, equal weights, no interpolation grid of its own (issue #433) — with `w =
+constraints.average_window` (0.5 ms by default). The window and the reconstruction cadence `tstep` are
+two separate controls; qualifying them together is issue #468.
 
 Constraint time selection is worth spelling out, because `timeset: auto` is the default and it is not
 obvious. The script takes the shared plasma-analysis range — `diagnostics_time_policies.windows.plasma_analysis`
@@ -247,11 +253,11 @@ machine_mapping.thomson_scattering(ods, shotnumber, filepath)
 database.save(ods, shotnumber)
 
 # and, when a refined equilibrium exists for that shot, per time slice:
-mapped_rho = process.equilibrium_mapping_thomson_scattering(ods, geq)
+mapped = process.equilibrium_mapping_thomson_scattering(ods, geq)   # psi_norm, rho_pol_norm, rho_tor_norm
 n_e_fn, T_e_fn, *_ = process.profile_fitting_thomson_scattering(
-    ods, time_ms, mapped_rho, Te_order=2, Ne_order=2,
+    ods, time_ms, mapped, Te_order=2, Ne_order=2,                    # fitted in rho_tor_norm by default
     fitting_function_te='polynomial', fitting_function_ne='exponential')
-ods = process.core_profiles(ods, time_ms, mapped_rho, n_e_fn, T_e_fn)
+ods = process.core_profiles(ods, time_ms, mapped, n_e_fn, T_e_fn)
 ```
 
 The equilibrium it maps against is the CHEASE-refined g-file at

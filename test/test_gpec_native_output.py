@@ -15,7 +15,13 @@ import struct
 import numpy as np
 import pytest
 
-from gpec_nc_fixtures import DEFAULT_DCON_EQUILIBRIUM, write_dcon_output_nc
+from gpec_nc_fixtures import (
+    DEFAULT_DCON_EQUILIBRIUM,
+    write_dcon_in,
+    write_dcon_output_nc,
+)
+
+from vaft.code.gpec._dcon_output import _SCHEMA_VERSION
 
 from vaft.code.gpec import (
     SCAN_COLUMNS,
@@ -446,13 +452,13 @@ def test_the_edge_scan_is_read_when_present_and_absent_by_default(tmp_path):
     assert read_dcon_output(plain, mode=1).edge_scan is None
 
 
-def test_the_v2_sidecar_round_trips_every_new_block(tmp_path):
+def test_the_sidecar_round_trips_every_block(tmp_path):
     write_dcon_output_nc(tmp_path, equilibrium=True, coordinates=True, profiles=True, edge_scan=True)
     result = read_dcon_output(tmp_path, mode=1)
 
     restored = DconOutput.read_json(result.write_json(tmp_path / "dcon_native_n1.json"))
 
-    assert restored.to_dict()["schema_version"] == 2
+    assert restored.to_dict()["schema_version"] == _SCHEMA_VERSION
     assert restored.equilibrium == result.equilibrium
     assert restored.coordinates == result.coordinates
     assert restored.qlim == result.qlim
@@ -491,7 +497,8 @@ def test_a_sidecar_from_a_newer_vaft_refuses_rather_than_dropping_fields(tmp_pat
     path = tmp_path / "future.json"
     path.write_text(
         json.dumps({
-            "schema": "vaft.code.gpec.DconOutput", "schema_version": 3,
+            "schema": "vaft.code.gpec.DconOutput",
+            "schema_version": _SCHEMA_VERSION + 1,
             "n_tor": 1, "mlow": 0, "mhigh": 0, "mpert": 1, "mband": 0,
         }),
         encoding="utf-8",
@@ -585,3 +592,209 @@ def test_the_scan_takes_identity_from_the_directory_not_the_file(tmp_path):
     assert row["shot"] == 39915
     assert row["time_ms"] == pytest.approx(325.0)
     assert read_dcon_output(run_dir, mode=1).metadata["nc_shot"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Local-stability evaluation provenance.  DCON zero-fills the criteria it does
+# not evaluate (dcon.F:148-160), and zero is their marginal value, so what the
+# run was asked to compute has to travel with the numbers.
+# ---------------------------------------------------------------------------
+
+
+def test_an_unevaluated_ballooning_criterion_is_absent_not_marginal(tmp_path):
+    """`bal_flag=f` must not read as "marginally ballooning-stable everywhere".
+
+    This is the shipped configuration: `vaft/data/gpec/dcon.in` sets
+    `bal_flag=f`, so every DCON product VAFT has produced carries ca1 = 0 on
+    every surface. Zero is exactly the marginal value of C_A, so presenting the
+    array as physics would report a stability result for a calculation that
+    never ran.
+    """
+    write_dcon_output_nc(tmp_path, local_stability=True)
+    write_dcon_in(tmp_path, mer_flag=True, bal_flag=False)
+
+    result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.ca1 is None
+    assert result.ca1_evaluated is None
+    assert result.evaluation.ballooning is False
+    assert result.evaluation.source == "dcon.in"
+    # The Mercier criteria were requested, so they survive.
+    assert result.di is not None and result.dr is not None
+
+
+def test_an_unevaluated_mercier_criterion_is_absent_too(tmp_path):
+    write_dcon_output_nc(tmp_path, local_stability=True)
+    write_dcon_in(tmp_path, mer_flag=False, bal_flag=True)
+
+    result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.di is None and result.dr is None
+    assert result.evaluation.mercier is False
+    assert result.ca1 is not None  # ballooning was asked for
+
+
+def test_ballooning_is_masked_per_surface_where_the_integrator_never_ran(tmp_path):
+    """`bal_flag=t` does not mean every surface was evaluated.
+
+    `bal_scan` calls `bal_int` only where its own `di <= 0` (dcon/bal.f:51-53,
+    and `bal_prep` returns early on `di > 0` at bal.f:240-243), leaving the rest
+    at the spline's initial zero. That predicate cannot be recovered from this
+    file -- bal.f's `di` is its own d0bar determinant, not the one mercier_scan
+    writes -- so an exactly-zero entry is taken as the untouched initialisation.
+    """
+    write_dcon_output_nc(
+        tmp_path,
+        local_stability={"ca1": [-0.2, 0.0, 0.3, 0.0, -0.4, 0.0, 0.0, -0.9, 0.5]},
+    )
+    write_dcon_in(tmp_path, mer_flag=True, bal_flag=True)
+
+    result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.ca1_evaluated.tolist() == [True, False, True, False, True, False, False, True, True]
+    np.testing.assert_array_equal(np.isnan(result.ca1), ~result.ca1_evaluated)
+    # Evaluated values are untouched, including a genuinely negative one.
+    assert result.ca1[0] == pytest.approx(-0.2)
+    assert float(np.nanmin(result.ca1)) == pytest.approx(-0.9)
+
+
+def test_a_run_without_a_namelist_claims_no_evaluation_at_all(tmp_path):
+    """Unknown provenance is treated as unevaluated, never as evaluated.
+
+    A hand-assembled directory, or one produced before VAFT recorded this, must
+    not inherit a claim it cannot support.
+    """
+    write_dcon_output_nc(tmp_path, local_stability=True)
+
+    result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.evaluation.source == ""
+    assert result.evaluation.mer_flag is None and result.evaluation.bal_flag is None
+    assert result.di is None and result.dr is None and result.ca1 is None
+
+
+def test_the_evaluation_block_survives_the_sidecar_round_trip(tmp_path):
+    write_dcon_output_nc(tmp_path, local_stability=True)
+    write_dcon_in(tmp_path, mer_flag=True, bal_flag=True, thmax0=2.5)
+    result = read_dcon_output(tmp_path, mode=1)
+
+    restored = DconOutput.read_json(result.write_json(tmp_path / "dcon_native_n1.json"))
+
+    assert restored.to_dict()["schema_version"] == _SCHEMA_VERSION
+    assert restored.evaluation == result.evaluation
+    assert restored.evaluation.thmax0 == pytest.approx(2.5)
+    np.testing.assert_array_equal(restored.ca1_evaluated, result.ca1_evaluated)
+    np.testing.assert_allclose(restored.ca1, result.ca1)
+
+
+# ---------------------------------------------------------------------------
+# Energy eigenmodes.  A different object from the solutions.bin eigenfunction,
+# and both are needed to see how a mode changes when the edge is truncated.
+# ---------------------------------------------------------------------------
+
+
+def test_the_energy_eigenvectors_and_matrix_are_read_as_complex_over_m_and_mode(tmp_path):
+    written = write_dcon_output_nc(tmp_path, mlow=-2, mhigh=1, eigenvectors=True)
+
+    result = read_dcon_output(tmp_path, mode=1)
+
+    harmonics = result.mhigh - result.mlow + 1
+    expected_shape = (harmonics, written["mode"].size)
+    for name in ("W_p_eigenvector", "W_v_eigenvector", "W_t_eigenvector", "W_t"):
+        array = getattr(result, name)
+        assert array is not None, name
+        assert array.shape == expected_shape, name
+        assert np.iscomplexobj(array), name
+    # The fixture scales each block differently, so a mixed-up assignment shows.
+    np.testing.assert_allclose(result.W_v_eigenvector, 2.0 * result.W_p_eigenvector)
+    np.testing.assert_allclose(result.W_t, 4.0 * result.W_p_eigenvector)
+
+
+def test_the_energy_eigenvectors_are_absent_when_the_run_did_not_write_them(tmp_path):
+    write_dcon_output_nc(tmp_path)
+
+    result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.W_p_eigenvector is None
+    assert result.W_t is None
+    # The eigenvalues are still there: absence of the vectors is not absence of
+    # the solve.
+    assert result.W_t_eigenvalue is not None
+
+
+def test_the_energy_eigenvectors_round_trip_through_the_sidecar(tmp_path):
+    write_dcon_output_nc(tmp_path, mlow=-2, mhigh=1, eigenvectors=True)
+    result = read_dcon_output(tmp_path, mode=1)
+
+    restored = DconOutput.read_json(result.write_json(tmp_path / "dcon_native_n1.json"))
+
+    for name in ("W_p_eigenvector", "W_v_eigenvector", "W_t_eigenvector", "W_t"):
+        np.testing.assert_allclose(getattr(restored, name), getattr(result, name))
+
+
+def test_the_eigenvector_and_the_eigenfunction_stay_distinguishable(tmp_path):
+    """They answer different questions and neither substitutes for the other.
+
+    `W_t_eigenvector` is the poloidal-harmonic composition of one energy
+    eigenmode; the `solutions.bin` eigenfunction is the radial structure of
+    xi.grad(psi) over (psi, m).
+    """
+    write_dcon_output_nc(tmp_path, mlow=-3, mhigh=-1, eigenvectors=True)
+    _write_solutions_bin(
+        tmp_path,
+        blocks=[[[0.1, 0.3, 1.0, float(block), 0.0, 0.0, 0.0]] for block in range(3)],
+    )
+
+    result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.W_t_eigenvector.ndim == 2  # (m, mode), one radius
+    assert result.eigenfunction.xi_psi_real.ndim == 2  # (m, radial step)
+    assert result.eigenfunction.m.tolist() == [-3, -2, -1]
+
+
+# ---------------------------------------------------------------------------
+# Edge treatment.  DCON rewrites its own controls mid-run, so which of its two
+# solutions a file holds is a property of the output, not of the request.
+# ---------------------------------------------------------------------------
+
+
+def test_a_run_without_an_edge_scan_describes_the_full_edge_solution(tmp_path):
+    write_dcon_output_nc(tmp_path, equilibrium=True)
+    write_dcon_in(tmp_path, psiedge=1.0)
+
+    result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.edge_treatment == DconOutput.FULL_EDGE
+    assert result.evaluation.psiedge == pytest.approx(1.0)
+
+
+def test_a_scanned_run_describes_the_truncated_solution_not_the_requested_one(tmp_path):
+    """The scan means DCON re-integrated, so the file holds the truncated solve.
+
+    `dcon.F:262-279` overwrites `qhigh`, `sas_flag` and `psiedge`, recomputes the
+    limits and runs the whole problem again. The eigenvalues and `euler.bin` in
+    the file are from that second pass, and `qlim`/`psilim` are post-mutation --
+    so the requested boundary and the one actually used are different numbers
+    and both have to be recorded.
+    """
+    write_dcon_output_nc(tmp_path, equilibrium=True, edge_scan=True)
+    write_dcon_in(tmp_path, psiedge=0.95)
+
+    result = read_dcon_output(tmp_path, mode=1)
+
+    assert result.edge_treatment == DconOutput.PEAK_DW_TRUNCATED
+    # Requested comes from the namelist, effective from the file.
+    assert result.evaluation.psiedge == pytest.approx(0.95)
+    assert result.psilim == pytest.approx(0.994)
+    assert result.edge_scan is not None
+
+
+def test_the_edge_treatment_label_survives_the_sidecar_round_trip(tmp_path):
+    write_dcon_output_nc(tmp_path, equilibrium=True, edge_scan=True)
+    write_dcon_in(tmp_path, psiedge=0.95)
+    result = read_dcon_output(tmp_path, mode=1)
+
+    restored = DconOutput.read_json(result.write_json(tmp_path / "dcon_native_n1.json"))
+
+    assert restored.edge_treatment == result.edge_treatment
+    assert restored.evaluation.psiedge == pytest.approx(0.95)

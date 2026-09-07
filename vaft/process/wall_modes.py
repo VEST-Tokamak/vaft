@@ -107,15 +107,60 @@ class WallModeError(ValueError):
 def symmetrize_inductance(
     L: np.ndarray, *, rtol: float = 1e-8, reject: float = 1e-6
 ) -> tuple[np.ndarray, float]:
-    """Return ``(L_sym, asymmetry)`` where ``asymmetry = max|L - L^T| / max|L|``.
+    """Fold a mutual-inductance matrix onto its symmetric part, with a refusal.
 
-    Reciprocity makes a mutual-inductance matrix symmetric; a departure is a
-    defect in the asset, not noise (vaft #347).  Below ``rtol`` it is rounding
-    and is folded silently; up to ``reject`` it is folded with a warning so
-    the provenance can record it; above that the basis refuses, because the
-    sanctioned place to repair reciprocity is the coupling mapper
-    (:func:`vaft.machine_mapping.em_coupling.em_coupling`, #373), not a
-    consumer.
+    Reciprocity makes a mutual-inductance matrix symmetric, so a departure is a
+    defect in the asset, not noise.  The sanctioned place to repair reciprocity is
+    the coupling mapper (:func:`vaft.machine_mapping.em_coupling.em_coupling`,
+    issue #373), which is why this one refuses rather than repairs beyond a
+    rounding-sized asymmetry.
+
+    Parameters
+    ----------
+    L : numpy.ndarray
+        The inductance matrix, ``(N, N)`` [H].
+    rtol : float, optional
+        Below this relative asymmetry the fold is silent [-].
+    reject : float, optional
+        Above this relative asymmetry the matrix is refused [-].
+
+    Returns
+    -------
+    L_sym : numpy.ndarray
+        ``(L + L^T) / 2`` [H].
+    asymmetry : float
+        ``max|L - L^T| / max|L|``, recorded in the basis provenance [-].
+
+    Raises
+    ------
+    WallModeError
+        When the asymmetry exceeds ``reject``, and before that when the
+        matrix is not square, carries a non-finite entry, or is identically
+        zero.
+
+    Warnings
+    --------
+    An asymmetry between ``rtol`` and ``reject`` is folded with a
+    ``UserWarning``, so the repair reaches the provenance rather than
+    happening silently.
+
+    Defaults
+    --------
+    ``rtol = 1e-8`` is a numerical convenience, the size of double-precision
+    round-off accumulated over an assembly of this scale.  ``reject = 1e-6`` is
+    empirical: the asymmetry of the packaged VEST coupling asset once its
+    one-sided material factor was repaired (issue #373).
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
     """
     L = np.asarray(L, dtype=float)
     if L.ndim != 2 or L.shape[0] != L.shape[1]:
@@ -164,8 +209,43 @@ def _diagonal_resistance(R: np.ndarray, *, where: str = "R") -> np.ndarray:
 def canonical_sign(V: np.ndarray) -> np.ndarray:
     """Flip each column so its largest-magnitude entry is positive.
 
-    Ties go to the lowest index (``argmax`` on ``|v|``), so the rule is a pure
-    function of the column and repeated runs agree bitwise.
+    An eigenvector is defined up to sign; without a rule two runs of the same
+    build can disagree, and a stored basis cannot be compared with a fresh one.
+
+    Parameters
+    ----------
+    V : numpy.ndarray
+        Modes as columns, ``(n, m)`` [any].
+
+    Returns
+    -------
+    numpy.ndarray
+        The same modes with each column's sign fixed [any].
+
+    Convention
+    ----------
+    The sign rule of this module (``SIGN_RULE = "max_abs_positive"``): the
+    largest-magnitude entry of every column is made positive, ties going to the
+    lowest index (``argmax`` on ``|v|``).  A pure function of the column, so
+    repeated runs agree bitwise.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Two entries of exactly equal magnitude and opposite sign make the rule
+    index-dependent rather than ill-defined; a near-degenerate *eigenspace* is
+    the real ambiguity, and :func:`build_wall_mode_basis` refuses that case
+    instead of signing it.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
     """
     V = np.array(V, dtype=float, copy=True)
     if V.ndim != 2:
@@ -186,15 +266,70 @@ def segment_eigenmodes(
 ) -> tuple[np.ndarray, np.ndarray, float]:
     """Solve one segment's pencil ``R_gg v = L_gg v / tau``.
 
-    ``R_gg`` is the segment's diagonal resistance (matrix or vector), ``L_gg``
-    its symmetric inductance block.  Returns ``(tau, V, residual)``: decay
-    times descending, R-orthonormal sign-canonical modes as columns, and the
-    relative pencil residual ``max|R V - L V / tau| / max|R V|``.
+    The local half of the contract: each segment's own L/R eigenbasis, from which
+    the global dynamics are then built by projecting the *full* matrices.
 
-    Refuses explicitly rather than returning something plausible: a
-    non-positive eigenvalue means the block is not an inductance (a current
-    pattern with no stored energy), and a spread beyond ``cond_max`` means
-    the fastest mode is numerically indistinguishable from zero.
+    Processing steps
+    ----------------
+    1. Whiten by the resistance: ``S = R^{-1/2} L R^{-1/2}``, symmetric.
+    2. ``eigh(S)``; the eigenvalues *are* the local L/R decay times.
+    3. Map back, ``v = R^{-1/2} q``, so ``v^T R v = 1`` and ``v^T L v = tau``.
+    4. Order by descending ``tau`` and fix the signs (:func:`canonical_sign`).
+
+    Parameters
+    ----------
+    R_gg : numpy.ndarray
+        The segment's diagonal resistance, as a matrix or as its diagonal
+        [Ohm].
+    L_gg : numpy.ndarray
+        The segment's symmetric inductance block [H].
+    residual_atol : float, optional
+        Largest relative pencil residual accepted [-].
+    cond_max : float, optional
+        Largest accepted spread of decay times within the segment [-].
+    tau_floor_rel : float, optional
+        Smallest accepted decay time, relative to the largest [-].
+
+    Returns
+    -------
+    tau : numpy.ndarray
+        Local decay times, descending, ``(n_g,)`` [s].
+    V : numpy.ndarray
+        R-orthonormal, sign-canonical modes as columns, ``(n_g, n_g)``
+        [Ohm**-0.5].
+    residual : float
+        ``max|R V - L V / tau| / max|R V|`` [-].
+
+    Raises
+    ------
+    WallModeError
+        When the block is not a usable inductance (a non-positive eigenvalue is
+        a current pattern with no stored energy), when the spread exceeds
+        ``cond_max`` so the fastest mode is numerically indistinguishable from
+        zero, or when the residual exceeds ``residual_atol``.
+
+    Defaults
+    --------
+    All three are numerical convenience, set where double precision stops
+    supporting the answer rather than where physics changes.
+
+    Convention
+    ----------
+    Modes are R-orthonormal (``v^T R v = 1``) and sign-canonical
+    (:func:`canonical_sign`), so amplitudes carry units of sqrt(W) and ``a^T a``
+    is the wall current's ohmic dissipation.  Ordering is by descending ``tau`` within the
+    segment, which is the mode index every ``keep`` and every label refers to.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
     """
     r = _diagonal_resistance(R_gg, where="R_gg")
     L_gg = np.asarray(L_gg, dtype=float)
@@ -240,7 +375,11 @@ class SegmentModes:
     tau: np.ndarray
     """Local decay times [s], descending, ``(n_g,)``."""
     V: np.ndarray
-    """R-orthonormal modes as columns [A/sqrt(Ohm)], ``(n_g, n_g)``."""
+    """R-orthonormal modes as columns [Ohm**-0.5], ``(n_g, n_g)``.
+
+    ``v^T R v = 1`` fixes the unit: a mode carries ``Ohm**-0.5`` so that an
+    amplitude ``a = V^T R I_w`` carries ``sqrt(W)`` and ``I_w = V a`` comes
+    back in amperes."""
     residual: float
     min_relative_gap: float
     """``min_k (tau_k - tau_{k+1}) / tau_k``; small means a near-degenerate pair."""
@@ -400,17 +539,88 @@ def build_wall_mode_basis(
 ) -> WallModeBasis:
     """Build the segment-wise eigenbasis of a wall.
 
-    ``R_mat`` is the diagonal loop resistance (code naming), ``M_mat`` the
-    passive-passive inductance (code naming; physics ``L``).  ``segments`` is
-    a sequence of objects with ``.id`` and ``.index`` (``WallSegment``) or of
-    ``(id, index)`` pairs; together they must cover every element exactly
-    once.
+    Partitions the wall's current vector by physical segment, gives each segment
+    its own eigenbasis (:func:`segment_eigenmodes`), and records how it was done.
+    No coupling is discarded here: the inter-segment mutual inductance survives
+    because every reduced operator is later a projection of the full matrices.
 
-    A within-segment pair of decay times closer than ``cluster_rtol``
-    (relative) is a near-degenerate eigenspace, inside which the individual
-    modes are arbitrary up to rotation; by default the basis refuses so the
-    provenance never claims a determinism it does not have.  Pass
-    ``on_cluster="warn"`` to record the pairs instead.
+    Processing steps
+    ----------------
+    1. Fold the inductance onto its symmetric part
+       (:func:`symmetrize_inductance`) and record the asymmetry.
+    2. Read the segment map; the segments must cover every element exactly once.
+    3. Solve each segment's pencil.
+    4. Check the within-segment decay-time gaps and act on ``on_cluster``.
+    5. Record normalization, sign rule, mode order, projection formula, input
+       asymmetry and the segment ids in the basis provenance.
+
+    Parameters
+    ----------
+    R_mat : numpy.ndarray
+        Diagonal loop resistance of the wall, ``(N, N)`` or its diagonal [Ohm].
+    M_mat : numpy.ndarray
+        Passive-passive inductance in code naming; the physics ``L``, ``(N, N)``
+        [H].
+    segments : sequence
+        Objects with ``.id`` and ``.index`` (``WallSegment``) or ``(id, index)``
+        pairs, together covering every element exactly once [-].
+    symmetry_rtol, symmetry_reject : float, optional
+        Passed to :func:`symmetrize_inductance` [-].
+    cluster_rtol : float, optional
+        Relative decay-time gap below which a within-segment pair counts as
+        near-degenerate [-].
+    on_cluster : {'raise', 'warn'}, optional
+        What to do about such a pair [-].
+    residual_atol, cond_max : float, optional
+        Passed to :func:`segment_eigenmodes` [-].
+    provenance : mapping of str to str or None, optional
+        Extra entries -- the asset the matrices came from, a shot, a build --
+        merged into the recorded provenance [-].
+
+    Returns
+    -------
+    WallModeBasis
+        Every segment's complete eigenbasis, the element count, and the
+        provenance [-].
+
+    Raises
+    ------
+    WallModeError
+        When the segment map does not cover the elements exactly once, when a
+        segment's pencil is refused, or, with ``on_cluster="raise"``, when a
+        near-degenerate pair is found.
+
+    Defaults
+    --------
+    ``cluster_rtol = 1e-6`` is a numerical convenience: inside a closer pair the
+    individual modes are arbitrary up to rotation, so the default refuses rather
+    than let the provenance claim a determinism it does not have.  The remaining
+    tolerances are those of the routines they are passed to.
+
+    Convention
+    ----------
+    Argument naming follows :mod:`vaft.process.electromagnetics`, not the
+    physics: ``M_mat`` is the passive-passive inductance (physics ``L``) and
+    ``L_mat`` the passive-to-source coupling (physics ``M``).  ``R_mat`` is the
+    diagonal loop resistance either way.
+
+    Applicability
+    -------------
+    Machine-independent.  The VEST wall's segment map comes from
+    ``vaft.machine_mapping``; nothing here knows a VEST number.
+
+    Limitations
+    -----------
+    A near-degenerate eigenspace is refused, not resolved: the honest comparison
+    between two such bases is :func:`subspace_angles_r`, not a column-by-column
+    one.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
     """
     if on_cluster not in ("raise", "warn"):
         raise ValueError("on_cluster must be 'raise' or 'warn'")
@@ -487,12 +697,65 @@ def reduced_operators(
     L_mat: np.ndarray | None = None,
     keep: Sequence[np.ndarray] | None = None,
 ) -> ReducedWall:
-    """Project the FULL wall matrices onto the retained modes.
+    """Project the full wall matrices onto the retained modes.
 
-    ``M_mat`` is the passive-passive inductance and ``L_mat`` the passive-to-
-    source coupling ``(N, n_src)``, in :mod:`vaft.process.electromagnetics`'s
-    naming.  ``R_r`` is computed rather than assumed to be the identity, so a
-    basis built on other matrices shows up as a non-identity.
+    The global half of the contract.  Because the *full* matrices are projected,
+    the mutual inductance between segments survives in the off-diagonal blocks of
+    ``L_r``; only the diagonal blocks are the local ``diag(tau_g)``.
+
+    Input semantics
+    ---------------
+    Element space: the assembled wall matrices, one row and column per wall
+    element, as :mod:`vaft.process.electromagnetics` builds them.
+
+    Output semantics
+    ----------------
+    Mode space: operators of the retained modal coordinates, whose amplitudes
+    carry units of sqrt(W).  A solve on them is the reduced circuit
+    (:func:`solve_reduced_eddy`); to come back to element space, use
+    :func:`reconstruct`.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    M_mat : numpy.ndarray
+        Passive-passive inductance in code naming, ``(N, N)`` [H].
+    L_mat : numpy.ndarray or None, optional
+        Passive-to-source coupling in code naming, ``(N, n_src)`` [H].
+    keep : sequence of numpy.ndarray or None, optional
+        Retained mode indices per segment; every mode when ``None`` [-].
+
+    Returns
+    -------
+    ReducedWall
+        ``L_r`` ``(M_tot, M_tot)`` [H], ``R_r`` ``(M_tot, M_tot)`` [Ohm],
+        ``M_r`` ``(M_tot, n_src)`` [H] when a source coupling was given, and the
+        ``(segment_id, k)`` label of every coefficient [-].
+
+    Convention
+    ----------
+    Argument naming follows :mod:`vaft.process.electromagnetics`, not the
+    physics: ``M_mat`` is the passive-passive inductance (physics ``L``) and
+    ``L_mat`` the passive-to-source coupling (physics ``M``).  ``R_mat`` is the
+    diagonal loop resistance either way.
+
+    ``R_r`` is computed rather than assumed to be the identity, so a basis built
+    on other matrices than the ones passed here shows up as a non-identity
+    instead of silently changing the dynamics.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
     """
     V = basis.V(keep)
     r = _diagonal_resistance(R_mat, where="R_mat")
@@ -506,10 +769,54 @@ def reduced_operators(
 def project(
     basis: WallModeBasis, I_w: np.ndarray, R_mat: np.ndarray, keep: Sequence[np.ndarray] | None = None
 ) -> np.ndarray:
-    """Modal amplitudes ``a = V^T R I_w`` [sqrt(W)].
+    """Modal amplitudes ``a = V^T R I_w``.
 
-    Exact for a current inside the retained subspace; the R-orthogonal
-    projection otherwise.  ``I_w`` is ``(N,)`` or ``(n_times, N)``.
+    Exact for a current that lies inside the retained subspace; for a truncated
+    basis it is the R-orthogonal projection, which is the least-dissipation one.
+
+    Input semantics
+    ---------------
+    Element space: a wall current, one entry per element, measured or solved.
+
+    Output semantics
+    ----------------
+    Mode space: amplitudes in the R inner product, so ``a^T a`` is the current's
+    ohmic dissipation.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    I_w : numpy.ndarray
+        Wall current, ``(N,)`` or ``(n_times, N)`` [A].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    keep : sequence of numpy.ndarray or None, optional
+        Retained mode indices per segment; every mode when ``None`` [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        Amplitudes, ``(M_tot,)`` or ``(n_times, M_tot)`` [W**0.5].
+
+    Convention
+    ----------
+    Modes are R-orthonormal (``v^T R v = 1``) and sign-canonical
+    (:func:`canonical_sign`), so amplitudes carry units of sqrt(W) and ``a^T a``
+    is the wall current's ohmic dissipation.  Two other normalizations are in use elsewhere and
+    convert from this one: Euclidean-normalized modes have ``a_E = a ||v||_2``,
+    inductance-normalized ones ``a_L = a sqrt(tau)``.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
     """
     V = basis.V(keep)
     r = _diagonal_resistance(R_mat, where="R_mat")
@@ -520,7 +827,44 @@ def project(
 
 
 def reconstruct(basis: WallModeBasis, a: np.ndarray, keep: Sequence[np.ndarray] | None = None) -> np.ndarray:
-    """Wall currents ``I_w = V a`` [A]; ``a`` is ``(M_tot,)`` or ``(n_times, M_tot)``."""
+    """Wall currents ``I_w = V a`` from modal amplitudes.
+
+    The inverse direction of :func:`project`; exact only for the retained
+    subspace, which is what :func:`reconstruction_error` measures.
+
+    Input semantics
+    ---------------
+    Mode space: amplitudes of the retained modes.
+
+    Output semantics
+    ----------------
+    Element space: a wall current on every element, whatever the retained order.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    a : numpy.ndarray
+        Amplitudes, ``(M_tot,)`` or ``(n_times, M_tot)`` [W**0.5].
+    keep : sequence of numpy.ndarray or None, optional
+        Retained mode indices per segment; every mode when ``None`` [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        Wall current, ``(N,)`` or ``(n_times, N)`` [A].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    """
     V = basis.V(keep)
     a = np.asarray(a, dtype=float)
     return V @ a if a.ndim == 1 else a @ V.T
@@ -531,10 +875,44 @@ def reconstruction_error(
 ) -> dict[str, Any]:
     """How far a reconstruction is from the full current, in the norms that matter.
 
-    ``relative_l2`` is the Euclidean measure; ``relative_dissipation`` weighs
-    each element by its resistance -- the natural norm of this basis, where
-    the error's ohmic power is compared to the current's.  Per-segment
-    entries follow when a basis is given.
+    Parameters
+    ----------
+    I_w : numpy.ndarray
+        The full wall current, ``(N,)`` or ``(n_times, N)`` [A].
+    I_rec : numpy.ndarray
+        The reconstruction, same shape [A].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    basis : WallModeBasis or None, optional
+        When given, the same measures are reported per segment [-].
+
+    Returns
+    -------
+    dict
+        ``relative_l2``, ``relative_dissipation`` and ``max_abs``, plus one
+        such entry per segment id when a basis was given [-].
+
+        ``max_abs`` is the largest absolute element error, in amperes; the
+        other two are relative.
+
+    Convention
+    ----------
+    ``relative_dissipation`` weighs each element by its resistance -- the natural
+    norm of this basis, where the error's ohmic power is compared with the
+    current's -- and ``relative_l2`` is the plain Euclidean measure.  They differ
+    by however unevenly the wall's resistance is distributed, so a reported
+    error means nothing without saying which of the two it is.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
     """
     r = _diagonal_resistance(R_mat, where="R_mat")
     I_w = np.asarray(I_w, dtype=float).reshape(-1, r.size)
@@ -558,10 +936,43 @@ def reconstruction_error(
 def reduce_response(
     G_full: np.ndarray, basis: WallModeBasis, keep: Sequence[np.ndarray] | None = None
 ) -> np.ndarray:
-    """``G_red = G_full V_seg`` for any response with the wall elements as columns.
+    """Reduce any linear response with the wall elements as its columns.
 
-    Probe field, flux-loop flux, grid psi/B_R/B_Z, EFIT tables -- one matmul,
-    no per-class logic, so every response class is reduced by the same basis.
+    Probe field, flux-loop flux, grid psi or B, an EFIT table -- one matmul, no
+    per-class logic, so every response class is reduced by the same basis.
+
+    Input semantics
+    ---------------
+    Element space: a response matrix mapping every wall element to observations.
+
+    Output semantics
+    ----------------
+    Mode space: the same map from the retained modal amplitudes.
+
+    Parameters
+    ----------
+    G_full : numpy.ndarray
+        Response with wall elements as columns, ``(n_obs, N)`` [any/A].
+    basis : WallModeBasis
+        The eigenbasis [-].
+    keep : sequence of numpy.ndarray or None, optional
+        Retained mode indices per segment; every mode when ``None`` [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        ``G_red = G_full V_seg``, ``(n_obs, M_tot)`` [any/W**0.5].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
     """
     G_full = np.asarray(G_full, dtype=float)
     if G_full.shape[-1] != basis.n_elements:
@@ -576,13 +987,65 @@ def reduce_response(
 # ---------------------------------------------------------------------------
 
 def select_all(basis: WallModeBasis) -> tuple[np.ndarray, ...]:
-    """Keep every mode of every segment (the full-rank selection)."""
+    """Keep every mode of every segment: the full-rank selection.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        One index array per segment, holding every mode index [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    """
     return basis._keep(None)
 
 
 def select_slowest(basis: WallModeBasis, M: int | Sequence[int]) -> tuple[np.ndarray, ...]:
-    """Keep the ``M`` slowest modes: globally across segments (an ``int``), or
-    ``M_g`` per segment (a sequence, one entry per segment)."""
+    """Keep the slowest modes, globally or per segment.
+
+    The selection the spectrum alone suggests; whether it is the right one for a
+    given drive is what :func:`mode_scores` exists to question.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    M : int or sequence of int
+        A count taken globally across segments by descending decay time, or one
+        count per segment [-].
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        One index array per segment [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    .. [vfit10] The reduced-order validation study (VEST-Tokamak/vfit#10, vaft
+       #494), which asks which modes to keep; this module answers no part of that
+       question by itself.
+    """
     if isinstance(M, (int, np.integer)):
         tau = basis.tau()
         labels = basis.labels()
@@ -598,7 +1061,33 @@ def select_slowest(basis: WallModeBasis, M: int | Sequence[int]) -> tuple[np.nda
 
 
 def select_tau_range(basis: WallModeBasis, tau_min: float, tau_max: float = np.inf) -> tuple[np.ndarray, ...]:
-    """Keep the modes whose decay time lies in ``[tau_min, tau_max]``, per segment."""
+    """Keep the modes whose decay time lies in a range, per segment.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    tau_min : float
+        Lower bound, inclusive [s].
+    tau_max : float, optional
+        Upper bound, inclusive [s].
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        One index array per segment [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    """
     return tuple(
         np.flatnonzero((seg.tau >= tau_min) & (seg.tau <= tau_max)).astype(np.int64)
         for seg in basis.segments
@@ -606,8 +1095,41 @@ def select_tau_range(basis: WallModeBasis, tau_min: float, tau_max: float = np.i
 
 
 def global_time_constants(basis: WallModeBasis, M_mat: np.ndarray) -> np.ndarray:
-    """The whole wall's decay times, descending, from the full-rank reduced
-    inductance: ``eigvalsh(L_r)`` with ``R_r = I`` is the global pencil."""
+    """The whole wall's decay times, from the full-rank reduced inductance.
+
+    With ``R_r = I`` the reduced pencil is an ordinary symmetric eigenproblem, so
+    ``eigvalsh(L_r)`` are the global L/R times.  They are not the segments' local
+    times: the difference between the two is exactly the inter-segment coupling
+    the basis keeps.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    M_mat : numpy.ndarray
+        Passive-passive inductance in code naming, ``(N, N)`` [H].
+
+    Returns
+    -------
+    numpy.ndarray
+        Global decay times, descending, ``(N,)`` [s].
+
+    Convention
+    ----------
+    Full rank by construction: every mode of every segment takes part, because a
+    truncated basis would report the decay times of a different wall.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    """
     V = basis.V(None)
     L_r = V.T @ np.asarray(M_mat, dtype=float) @ V
     L_r = 0.5 * (L_r + L_r.T)
@@ -617,10 +1139,40 @@ def global_time_constants(basis: WallModeBasis, M_mat: np.ndarray) -> np.ndarray
 def check_wall_mode_basis(basis: WallModeBasis, R_mat: np.ndarray, M_mat: np.ndarray) -> dict[str, Any]:
     """Metrics of a basis against the matrices it claims to diagonalize; no verdict.
 
-    ``r_r_identity_error`` is ``max|V^T R V - I|``; ``coupling`` holds the
-    Frobenius norm of every off-diagonal block of ``L_r`` relative to the
-    geometric mean of the diagonal blocks, so a reader can see which
-    segments actually talk to each other.
+    Numbers a caller or a report can threshold as it sees fit; nothing here
+    decides whether a basis is good enough.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    M_mat : numpy.ndarray
+        Passive-passive inductance in code naming, ``(N, N)`` [H].
+
+    Returns
+    -------
+    dict
+        ``n_elements``, ``n_modes``, ``r_r_identity_error``
+        (``max|V^T R V - I|``), ``l_r_symmetry_error``,
+        ``max_segment_residual``, ``min_relative_gap`` and ``coupling`` [-].
+
+        ``coupling`` holds, per segment pair, the Frobenius norm of that
+        off-diagonal block of ``L_r`` relative to the geometric mean of the two
+        diagonal blocks, so a reader can see which segments actually talk to
+        each other [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
     """
     ops = reduced_operators(basis, R_mat, M_mat)
     M_tot = ops.L_r.shape[0]
@@ -649,12 +1201,43 @@ def check_wall_mode_basis(basis: WallModeBasis, R_mat: np.ndarray, M_mat: np.nda
 
 
 def subspace_angles_r(V_a: np.ndarray, V_b: np.ndarray, R_mat: np.ndarray) -> np.ndarray:
-    """Principal angles [rad] between two mode subspaces in the R inner product.
+    """Principal angles between two mode subspaces in the R inner product.
 
-    Two bases of a near-degenerate eigenspace differ by a rotation, so the
-    right question is whether they span the same space, not whether the
-    columns match.  Both sets are mapped by ``R^{1/2}`` so the ordinary
-    Euclidean angles are the R-metric ones.
+    Two bases of a near-degenerate eigenspace differ by a rotation, so the right
+    question is whether they span the same space, not whether their columns
+    match.
+
+    Parameters
+    ----------
+    V_a : numpy.ndarray
+        First set of modes as columns, ``(N, m_a)`` [Ohm**-0.5].
+    V_b : numpy.ndarray
+        Second set, ``(N, m_b)`` [Ohm**-0.5].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+
+    Returns
+    -------
+    numpy.ndarray
+        Principal angles, ascending, ``(min(m_a, m_b),)`` [rad].
+
+    Convention
+    ----------
+    The angles are taken in the R metric, not the Euclidean one: both sets are
+    mapped by ``R^{1/2}`` first, so the ordinary angles of the mapped columns are
+    the R-metric angles of the originals.  A zero angle means a shared direction;
+    ``pi/2`` means an R-orthogonal one.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
     """
     from scipy.linalg import subspace_angles
 
@@ -679,12 +1262,62 @@ def solve_reduced_eddy(
     """Integrate the reduced circuit ``L_r da/dt + R_r a = -M_r dI_src/dt``.
 
     The same integrator as the full wall
-    (:func:`vaft.process.electromagnetics.solve_eddy_currents`), fed the
-    projected operators, so the only difference between the two solutions is
-    the retained subspace: with every mode kept they agree to rounding.
-    ``drive`` is ``(n_times, n_src)`` on ``time``.  Returns the amplitudes
-    ``a`` ``(n_times, M_tot)`` [sqrt(W)] and, when the retained ``V`` is
-    given, the reconstructed wall current ``I_w = V a`` ``(n_times, N)`` [A].
+    (:func:`vaft.process.electromagnetics.solve_eddy_currents`), fed the projected
+    operators, so the only difference between the two solutions is the retained
+    subspace: with every mode kept they agree to rounding.
+
+    Input semantics
+    ---------------
+    Mode space: reduced operators and a source drive in element-independent
+    coordinates.
+
+    Output semantics
+    ----------------
+    Mode space amplitudes, and -- when the retained ``V`` is given -- the
+    reconstructed element-space wall current alongside them.
+
+    Parameters
+    ----------
+    reduced : ReducedWall
+        The projected operators; ``M_r`` must be present [-].
+    drive : numpy.ndarray
+        Source currents, ``(n_times, n_src)`` on ``time`` [A].
+    time : numpy.ndarray
+        Time grid of the drive [s].
+    V : numpy.ndarray or None, optional
+        The retained modes, ``(N, M_tot)``; when given, the wall current is
+        reconstructed too [Ohm**-0.5].
+    dt_sub : float, optional
+        Sub-step of the integrator [s].
+    method : str, optional
+        Integration method, forwarded to the full-wall solver [-].
+
+    Returns
+    -------
+    a : numpy.ndarray
+        Modal amplitudes, ``(n_times, M_tot)`` [W**0.5].
+    I_w : numpy.ndarray or None
+        ``V a``, ``(n_times, N)``, or ``None`` when no ``V`` was given [A].
+
+    Defaults
+    --------
+    ``dt_sub = 50 us`` is a validated-workflow default: the sub-step the full-wall
+    solver is used with in the VEST eddy-current workflow.  ``method="auto"``
+    leaves the choice to that solver.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    .. [vfit10] The reduced-order validation study (VEST-Tokamak/vfit#10, vaft
+       #494), which asks which modes to keep; this module answers no part of that
+       question by itself.
     """
     from vaft.process.electromagnetics import solve_eddy_currents
 
@@ -711,26 +1344,82 @@ def mode_scores(
     keep: Sequence[np.ndarray] | None = None,
     dt_sub: float = 5.0e-5,
 ) -> dict[str, np.ndarray]:
-    """Rankings of the retained modes, one value per coefficient of ``labels(keep)``.
+    """Rankings of the retained modes, one value per retained coefficient.
 
-    Rankings, not verdicts: each is a different answer to "which modes carry
-    the wall's response", and the order study (vfit #10) compares them.
+    Rankings, not verdicts: each is a different answer to *which modes carry the
+    wall's response*, and the order study compares them.
 
     ``tau``
         the decay time -- what the spectrum alone would rank by;
     ``drive_gain``
         ``tau_k ||M_r[k, :]|| ||G_red[:, k]||`` -- the quasi-static amplitude a
-        unit source ramp excites in mode ``k`` times how visible the mode is
-        at the observation points (all ones without ``G``); needs no drive;
+        unit source ramp excites in mode ``k``, times how visible the mode is at
+        the observation points (all ones without ``G``); needs no drive;
     ``response_energy``
         the rms of the projected full response ``a = V^T R I_w(t)`` under
         ``drive`` -- how much dissipation each mode actually carried;
     ``output_weight``
-        ``response_energy`` times the observability, the ranking that
-        minimizes the diagnostic-space error fastest on the packaged wall.
+        ``response_energy`` times the observability, the ranking that minimizes
+        the diagnostic-space error fastest on the packaged wall.
 
-    The last two need ``drive`` ``(n_times, n_src)`` and ``time`` and cost
-    one full wall solve.
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    M_mat : numpy.ndarray
+        Passive-passive inductance in code naming, ``(N, N)`` [H].
+    L_mat : numpy.ndarray
+        Passive-to-source coupling in code naming, ``(N, n_src)`` [H].
+    G : numpy.ndarray or None, optional
+        Observation response with wall elements as columns, ``(n_obs, N)``;
+        without it every mode is equally observable [any/A].
+    drive : numpy.ndarray or None, optional
+        Source currents, ``(n_times, n_src)``; needed by the last two rankings
+        [A].
+    time : numpy.ndarray or None, optional
+        Time grid of the drive [s].
+    keep : sequence of numpy.ndarray or None, optional
+        Candidate modes per segment; every mode when ``None`` [-].
+    dt_sub : float, optional
+        Sub-step of the full-wall solve the last two rankings need [s].
+
+    Returns
+    -------
+    dict of str to numpy.ndarray
+        ``tau``, ``drive_gain`` and, when a drive was given,
+        ``response_energy`` and ``output_weight``; each array is aligned with
+        ``basis.labels(keep)`` [-].
+
+        ``tau`` is in seconds; the three rankings are relative numbers whose
+        scale carries no meaning, only their order does.
+
+    Defaults
+    --------
+    ``dt_sub = 50 us`` is a validated-workflow default, as in
+    :func:`solve_reduced_eddy`.
+
+    Applicability
+    -------------
+    Machine-independent.  The claim that ``output_weight`` falls fastest is an
+    observation on the packaged VEST wall, not a theorem.
+
+    Limitations
+    -----------
+    The last two rankings cost one full wall solve.  Every ranking is relative to
+    the drive and observation set it was computed with; a mode invisible to one
+    diagnostic set is not an unimportant mode.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    .. [vfit10] The reduced-order validation study (VEST-Tokamak/vfit#10, vaft
+       #494), which asks which modes to keep; this module answers no part of that
+       question by itself.
     """
     ops = reduced_operators(basis, R_mat, M_mat, L_mat, keep)
     tau = basis.tau(keep)
@@ -762,11 +1451,45 @@ def mode_scores(
 def select_by_score(
     basis: WallModeBasis, score: np.ndarray, M: int, keep: Sequence[np.ndarray] | None = None
 ) -> tuple[np.ndarray, ...]:
-    """Keep the ``M`` highest-scoring modes across segments.
+    """Keep the highest-scoring modes across segments.
 
-    ``score`` is aligned with ``basis.labels(keep)`` (one entry per coefficient
-    of the candidate selection, every mode by default); ties resolve toward
-    the earlier label so the selection is deterministic.
+    The global counterpart of :func:`select_slowest`, for any ranking -- usually
+    one of :func:`mode_scores`.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    score : numpy.ndarray
+        One value per coefficient of ``basis.labels(keep)`` [-].
+    M : int
+        How many modes to keep in total [-].
+    keep : sequence of numpy.ndarray or None, optional
+        Candidate modes per segment; every mode when ``None`` [-].
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        One index array per segment [-].
+
+    Convention
+    ----------
+    Ties resolve toward the earlier label, so the selection is deterministic for
+    a given score vector.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    .. [vfit10] The reduced-order validation study (VEST-Tokamak/vfit#10, vaft
+       #494), which asks which modes to keep; this module answers no part of that
+       question by itself.
     """
     labels = basis.labels(keep)
     score = np.asarray(score, dtype=float).reshape(-1)
@@ -796,25 +1519,95 @@ def allocate_per_segment(
     max_modes: int | None = None,
     dt_sub: float = 5.0e-5,
 ) -> tuple[tuple[np.ndarray, ...], list[dict[str, Any]]]:
-    """Greedy segment-wise allocation ``M_repr = (M_1, ..., M_G)`` to a tolerance.
+    """Greedy segment-wise allocation ``M_repr`` to a response tolerance.
 
-    Starting from no modes, each round re-solves the reduced wall under
-    ``drive`` and adds ``step`` modes to the segment carrying the largest
-    remaining error, taken in the order of ``score`` within that segment
-    (the ``output_weight`` ranking of :func:`mode_scores` by default, which
-    needs no more than the full solve already made here).  It stops when the
-    global ``metric`` drops to ``tolerance`` or every candidate is used.
+    A global allocation for a *given* total is simply :func:`select_by_score`;
+    this routine answers the other question -- the smallest total that meets a
+    response tolerance, and how it should be split between segments.
 
-    ``metric="dissipation"`` is the relative R-energy error of the wall
-    current, the norm this basis is built in; ``metric="output"`` is the
-    relative error of ``G I_w`` and needs ``G``.  The per-segment error is
-    the segment's share of the global squared error in the same norm, so a
-    segment that the drive barely reaches never attracts modes.
+    Processing steps
+    ----------------
+    1. Solve the full wall once under ``drive`` and rank the candidates within
+       each segment (the ``output_weight`` ranking of :func:`mode_scores` by
+       default, which needs no more than that solve).
+    2. Start from no modes at all.
+    3. Each round, re-solve the reduced wall, measure the global ``metric`` and
+       each segment's share of it, and add ``step`` modes to the segment
+       carrying the largest remaining error, in that segment's ranked order.
+    4. Stop when the metric drops to ``tolerance``, when ``max_modes`` is
+       reached, or when every candidate is used.
 
-    Returns the selection and the history: one row per round with the
-    running ``M_repr``, its total, and the metric.  A global allocation for
-    a *given* total is simply :func:`select_by_score`; this routine answers
-    the other question, the smallest total that meets a response tolerance.
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    M_mat : numpy.ndarray
+        Passive-passive inductance in code naming, ``(N, N)`` [H].
+    L_mat : numpy.ndarray
+        Passive-to-source coupling in code naming, ``(N, n_src)`` [H].
+    drive : numpy.ndarray
+        Source currents, ``(n_times, n_src)`` [A].
+    time : numpy.ndarray
+        Time grid of the drive [s].
+    tolerance : float
+        Relative error the allocation stops at [-].
+    metric : {'dissipation', 'output'}, optional
+        Which error to measure [-].
+    G : numpy.ndarray or None, optional
+        Observation response, required by ``metric="output"`` [any/A].
+    score : numpy.ndarray or None, optional
+        Ranking within each segment; ``output_weight`` when ``None`` [-].
+    step : int, optional
+        Modes added per round [-].
+    max_modes : int or None, optional
+        Cap on the total [-].
+    dt_sub : float, optional
+        Sub-step of the solves [s].
+
+    Returns
+    -------
+    keep : tuple of numpy.ndarray
+        The allocation, one index array per segment [-].
+    history : list of dict
+        One row per round: the running ``M_repr``, its total ``M_total``, the
+        metric under its own name, and ``by_segment`` [-].
+
+    Defaults
+    --------
+    ``metric="dissipation"`` is the relative R-energy error of the wall current,
+    the norm this basis is built in; it is a conventional choice, not a tuned
+    one.  ``dt_sub`` is a validated-workflow default, as in
+    :func:`solve_reduced_eddy`.
+
+    Convention
+    ----------
+    The per-segment error is the segment's share of the global squared error in
+    the same norm, so a segment the drive barely reaches never attracts modes.
+    ``metric="output"`` measures the relative error of ``G I_w`` instead, which
+    ranks a mode by what a diagnostic would see rather than by what it
+    dissipates.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Greedy, so the allocation is not proven minimal; it is the smallest total
+    this order of additions reaches.  Each round costs a reduced solve, and the
+    result is only as general as the ``drive`` it was allocated under.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    .. [vfit10] The reduced-order validation study (VEST-Tokamak/vfit#10, vaft
+       #494), which asks which modes to keep; this module answers no part of that
+       question by itself.
     """
     from vaft.process.electromagnetics import solve_eddy_currents
 
@@ -878,9 +1671,48 @@ def allocate_per_segment(
 def orthonormalize_r(X: np.ndarray, R_mat: np.ndarray, *, rtol: float = 1e-10) -> np.ndarray:
     """An R-orthonormal basis of ``span(X)``, canonical in sign.
 
-    QR of ``R^{1/2} X`` with the dependent columns (diagonal of the triangular
-    factor below ``rtol`` times its largest entry) dropped, so a set of
-    patterns that repeats a direction does not return a singular basis.
+    QR of ``R^{1/2} X`` with the dependent columns dropped, so a set of patterns
+    that repeats a direction does not return a singular basis.
+
+    Parameters
+    ----------
+    X : numpy.ndarray
+        Patterns as columns, ``(N, m)`` [any].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    rtol : float, optional
+        A column whose triangular-factor diagonal falls below this times the
+        largest is dependent and is dropped [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        R-orthonormal, sign-canonical basis, ``(N, m')`` with ``m' <= m``
+        [Ohm**-0.5].
+
+    Defaults
+    --------
+    ``rtol = 1e-10`` is a numerical convenience: the rank cut of the QR in double
+    precision.
+
+    Convention
+    ----------
+    Modes are R-orthonormal (``v^T R v = 1``) and sign-canonical
+    (:func:`canonical_sign`), so amplitudes carry units of sqrt(W) and ``a^T a``
+    is the wall current's ohmic dissipation.  This is the same normalization the eigenbasis carries, which
+    is what lets a pattern basis and an eigenbasis be combined in one reduction
+    (:func:`combined_operators`).
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
     """
     r = _diagonal_resistance(R_mat, where="R_mat")
     X = np.asarray(X, dtype=float)
@@ -894,24 +1726,67 @@ def orthonormalize_r(X: np.ndarray, R_mat: np.ndarray, *, rtol: float = 1e-10) -
 
 
 def moment_patterns(R_mat: np.ndarray, M_mat: np.ndarray, L_mat: np.ndarray, order: int = 1) -> np.ndarray:
-    """Drive-independent wall patterns from the source coupling: an R-orthonormal
-    basis of the block Krylov space ``span{R^{-1} M, (R^{-1} L) R^{-1} M, ...}``
-    up to ``order`` blocks.
+    """Drive-independent wall patterns from the source coupling.
 
-    The first block is the resistive limit -- the wall current a constant
-    source ramp settles into, ``I_w = -R^{-1} M dI_src/dt`` -- and each
-    further block is the next inductive correction of the slowly driven
-    response (the Laplace-domain moments of the wall's transfer function,
-    matched at zero frequency).  Built as a block Arnoldi iteration in the R
-    inner product, so the blocks stay independent where the raw powers would
-    collapse onto the slowest mode; a block that adds no new direction ends
-    the iteration early and the basis is narrower than ``order * n_src``.
+    An R-orthonormal basis of the block Krylov space
+    ``span{R^{-1} M, (R^{-1} L) R^{-1} M, ...}`` up to ``order`` blocks.  The
+    first block is the resistive limit -- the wall current a constant source ramp
+    settles into, ``I_w = -R^{-1} M dI_src/dt`` -- and each further block is the
+    next inductive correction of the slowly driven response: the Laplace-domain
+    moments of the wall's transfer function, matched at zero frequency.
 
-    On the packaged VEST wall ten resistive patterns reproduce the probe
-    response of a real PF drive to ~1 % where 150 eigenmodes are needed for
-    the same; fast transients remain the eigenmodes' territory.  ``L`` is the
-    physics inductance (code ``M_mat``), ``M`` the source coupling (code
-    ``L_mat``), matching the module convention.
+    Built as a block Arnoldi iteration in the R inner product, so the blocks stay
+    independent where the raw powers would collapse onto the slowest mode; a
+    block that adds no new direction ends the iteration early and the basis is
+    narrower than ``order * n_src``.
+
+    Parameters
+    ----------
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    M_mat : numpy.ndarray
+        Passive-passive inductance in code naming; the physics ``L``, ``(N, N)``
+        [H].
+    L_mat : numpy.ndarray
+        Passive-to-source coupling in code naming; the physics ``M``,
+        ``(N, n_src)`` [H].
+    order : int, optional
+        How many Krylov blocks to build [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        R-orthonormal patterns as columns, ``(N, m)`` with
+        ``m <= order * n_src`` [Ohm**-0.5].
+
+    Convention
+    ----------
+    Argument naming follows :mod:`vaft.process.electromagnetics`, not the
+    physics: ``M_mat`` is the passive-passive inductance (physics ``L``) and
+    ``L_mat`` the passive-to-source coupling (physics ``M``).  ``R_mat`` is the
+    diagonal loop resistance either way.
+
+    Applicability
+    -------------
+    Machine-independent.  The comparison quoted below is a VEST observation, not
+    a property of the method.
+
+    Limitations
+    -----------
+    A zero-frequency expansion: on the packaged VEST wall ten resistive patterns
+    reproduce the probe response of a real PF drive to about 1 %, where 150
+    eigenmodes are needed for the same, but fast transients remain the
+    eigenmodes' territory.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    .. [vfit10] The reduced-order validation study (VEST-Tokamak/vfit#10, vaft
+       #494), which asks which modes to keep; this module answers no part of that
+       question by itself.
     """
     if int(order) < 1:
         raise WallModeError("order must be at least 1")
@@ -939,12 +1814,57 @@ def combined_operators(
     *,
     label: str = "pattern",
 ) -> ReducedWall:
-    """Reduced operators for an arbitrary R-orthonormal basis ``V`` ``(N, m)``.
+    """Reduced operators for an arbitrary R-orthonormal basis.
 
-    The same projections as :func:`reduced_operators`, for a basis that is
-    not (only) segment eigenmodes -- an enrichment by
-    :func:`moment_patterns`, say, or a POD basis; coefficients are labelled
-    ``(label, k)``.  ``R_r`` is computed, not assumed.
+    The same projections as :func:`reduced_operators`, for a basis that is not
+    (only) segment eigenmodes -- an enrichment by :func:`moment_patterns`, say,
+    or a POD basis.
+
+    Input semantics
+    ---------------
+    Element space: the assembled wall matrices and a basis whose columns are wall
+    patterns.
+
+    Output semantics
+    ----------------
+    Mode space: operators of the basis's own coordinates, labelled ``(label, k)``
+    rather than by segment.
+
+    Parameters
+    ----------
+    V : numpy.ndarray
+        R-orthonormal basis as columns, ``(N, m)`` [Ohm**-0.5].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    M_mat : numpy.ndarray
+        Passive-passive inductance in code naming, ``(N, N)`` [H].
+    L_mat : numpy.ndarray or None, optional
+        Passive-to-source coupling in code naming, ``(N, n_src)`` [H].
+    label : str, optional
+        Label component of every coefficient's ``(label, k)`` name [-].
+
+    Returns
+    -------
+    ReducedWall
+        ``L_r`` [H], ``R_r`` [Ohm], ``M_r`` [H] when a source coupling was given,
+        and the labels [-].
+
+    Convention
+    ----------
+    ``R_r`` is computed, not assumed: a basis that is not R-orthonormal in the
+    matrices passed here shows up as a non-identity rather than silently changing
+    the dynamics.  Use :func:`orthonormalize_r` to make one that is.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
     """
     V = np.asarray(V, dtype=float)
     r = _diagonal_resistance(R_mat, where="R_mat")

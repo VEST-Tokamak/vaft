@@ -18,7 +18,7 @@ representations:
     - imas
     - omas
     size: 27946188
-    sha256: 27a17ef7115a72d9ceceefef8efd7729303d38f2fb1f2dd187fdefad4fb7414e
+    sha256: b990c6d0a63f5b31407271c481b41e17f12f6022184de0fb097671e127fcea0b
 generation:
   command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
     vaft/data/samples/41524/manifest.yaml --canonical-source vaft/data/samples/41524/source/pipeline-until-efit.json.gz
@@ -131,3 +131,18 @@ corrections:
     so a regeneration now reproduces this value rather than reverting it. The stage
     hashes above are therefore unchanged and still describe the run that produced
     the rest of the artifact.'
+- change: semantic emission selector (emission=)
+  field: spectrometer_uv.channel.2.processed_line.3.{label,wavelength_central}
+  from: CII_3726 / 372.6e-9
+  to: CII_4267 / 426.7e-9
+  reason: '3726 Angstrom is the well-known [O II] line, which processed_line.5 of
+    the same channel already and correctly claims; the representative visible C II
+    line the filterscope observes is near 4267 Angstrom. The old pair therefore
+    named two different species at one wavelength, which a species-aware selector
+    would have resolved to the wrong ion. Applied in place rather than by rerunning
+    the pipeline, for the same reason as the #288 correction: the mapper writes both
+    leaves as constants from vaft.machine_mapping.spectrometer_uv.SIGNALS, and no
+    stage output depends on either, so the intensity series recorded from DAQ field
+    142 is untouched. SIGNALS was corrected in the same change, so a regeneration
+    reproduces these values rather than reverting them, and the stage hashes still
+    describe the run that produced the rest of the artifact.'

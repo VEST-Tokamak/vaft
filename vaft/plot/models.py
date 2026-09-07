@@ -232,6 +232,24 @@ class LineSeries(ViewModel):
 
 
 @dataclass(frozen=True)
+class ReferenceLine(ViewModel):
+    """A vertical marker on a profile's abscissa: the magnetic axis, a limiter.
+
+    ``x`` is in the profile's coordinate; ``label`` joins the legend when set
+    (an empty label draws the line unlabelled, for the second of a pair);
+    ``style`` overrides the renderer's dotted grey default.
+    """
+
+    x: float
+    label: str = ""
+    style: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "x", float(self.x))
+        object.__setattr__(self, "style", dict(self.style))
+
+
+@dataclass(frozen=True)
 class Profile1D(ViewModel):
     """One or more 1D profiles sharing a radial coordinate label."""
 
@@ -243,6 +261,8 @@ class Profile1D(ViewModel):
     x_limits: tuple[float, float] | None = None
     #: Resolved display policy (unit/scale/notation); see :class:`LineSeries`.
     display: "DisplaySpec | None" = None
+    #: Vertical markers in the abscissa's coordinate (issue #479).
+    reference_lines: tuple["ReferenceLine", ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -252,6 +272,13 @@ class Profile1D(ViewModel):
             object.__setattr__(
                 self, "x_limits", (float(self.x_limits[0]), float(self.x_limits[1]))
             )
+        lines = tuple(self.reference_lines)
+        for line in lines:
+            if not isinstance(line, ReferenceLine):
+                raise TypeError(
+                    f"Profile1D.reference_lines holds ReferenceLine entries; got {type(line).__name__}"
+                )
+        object.__setattr__(self, "reference_lines", lines)
 
 
 @dataclass(frozen=True)

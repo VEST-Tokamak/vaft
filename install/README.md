@@ -10,10 +10,10 @@ and has its own entry points: see
 [External fusion codes](#external-fusion-codes-chease-and-dcongpec).
 
 Build recipes for external codes live in [`external/`](../external/) instead, one
-directory per code. [`external/nubeam/`](../external/nubeam/) is the first: it is
-macOS/Apple Silicon only, is not run by CI, and operates on a NUBEAM source tree
-you supply rather than one VAFT vendors. Bringing that class of script to Linux
-and Windows belongs to #226.
+directory per code. [`external/nubeam/`](../external/nubeam/) is the first: it
+builds on macOS/Apple Silicon (`macos.sh`) and on native Windows
+(`windows.ps1`), is not run by CI, and operates on a NUBEAM source tree you
+supply rather than one VAFT vendors. Linux belongs to #226.
 
 Budget about 15–20 minutes from a nearly clean machine.
 
@@ -502,9 +502,19 @@ unless you pass `-MaterializeSymlinks`.
 `-Uninstall` removes the prefix and the environment variable. It never touches
 your source tree, MSYS2, or anything `pacman` installed.
 
+### NUBEAM
+
+NUBEAM has its own entry point, [`external/nubeam/windows.ps1`](../external/nubeam/windows.ps1),
+because it shares the reference cases and validation scripts with the macOS
+recipe beside it. It needs a netCDF without S3, which
+`install_gpec_windows.ps1 -BuildDependencies` produces, and it downloads three
+NTCC dependency modules only after you pass `-AcceptNtccTerms`. Everything it
+generates stays inside your NUBEAM source tree. See
+[`external/nubeam/README.md`](../external/nubeam/README.md).
+
 ### Linux and macOS
 
-Not yet automated — tracked in
+CHEASE and GPEC are not yet automated — tracked in
 [issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). Build by hand
 with the recipe in
 `workflow/automatic_pipeline_1_routine_data_processing/DEPLOYMENT.md`, then set
@@ -524,6 +534,109 @@ available today.
 | netCDF-C / netCDF-Fortran | 4.9.3 / 4.6.1, built with `--disable-s3 --disable-nczarr` |
 | CHEASE | `fb46366` |
 | GPEC | `e68d7ac2` (v1.5.7-611) |
+| NUBEAM | 2021 serial distribution, with NTCC PSPLINE / PREACT / XPLASMA |
+
+## EFIT and EFUND (licensed software; obtain it yourself)
+
+EFIT is **licensed software**. It is distributed by the EFIT-AI collaboration
+under the EFIT users agreement, which forbids redistributing the original or
+modified sources and asks every user to register with the authors. VAFT does
+not bundle EFIT, does not mirror it, and never downloads it: nothing in this
+repository or in the installer fetches EFIT, and `install_efit.sh` refuses to
+run until you state that you have agreed to the users agreement yourself.
+
+Before you run anything here:
+
+1. Read and agree to the EFIT license and users agreement that accompany the
+   source (`LICENSE.rst` and the users agreement in the EFIT-AI tree).
+2. Obtain authorized access to the EFIT source through the EFIT-AI channel
+   (registration with the authors at `efit-support@fusion.gat.com`), and
+   clone it yourself into a directory you control.
+3. Keep that tree private. Do not copy it into the VAFT checkout, and do not
+   commit any of its files, its build products, or the tables it generates
+   from proprietary inputs.
+
+The installer only automates what you would otherwise do by hand in a tree you
+already hold: configure, build, run EFIT's own tests, and copy the two
+executables into a prefix. It never clones, fetches, pulls, or changes the
+revision of the source, and it does not fetch EFIT on your behalf under any
+flag. Adding such a fetch would require explicit permission from the license
+holder and is deliberately not offered.
+
+### Installing
+
+```bash
+bash install/install_efit.sh --source ~/git/efit --accept-efit-users-agreement
+```
+
+`--accept-efit-users-agreement` is a statement by you, recorded in the build
+manifest, that you have agreed to the users agreement and obtained the source
+through the authorized channel. Without it the script prints the requirement
+and exits with status 2.
+
+| Option | Effect |
+| --- | --- |
+| `--source PATH` | The EFIT source tree you obtained (or `$EFIT_SOURCE_DIR`). Required. |
+| `--prefix PATH` | Install location. Default `<source>/vaft-install`. |
+| `--build-dir PATH` | Out-of-tree CMake build directory. Default `<source>/build-vaft-<platform>`. |
+| `--allow-dirty` | Build a tree with uncommitted changes; the modified file list and `sha256(git diff)` go into the manifest so the binary's provenance stays statable. Refused otherwise. |
+| `--without-netcdf` | Build without NetCDF. EFIT then writes no m-files, so iteration counts must be scraped from the log; on by default when Homebrew `netcdf` / `netcdf-fortran` are present. |
+| `--jobs N` | Parallel build jobs. |
+| `--skip-tests` | Do not run EFIT's `ctest` suite after the build. |
+| `--check-only` | Run `install/check_efit.py` and change nothing. |
+| `--uninstall` | Remove the build directory and prefix this script created. The source tree is untouched. |
+
+The build is configured as `Release` with `TEST_EFUND=ON` so that both
+executables, `efit` and `efund`, come out of **one** configure of **one**
+revision. A Green-function table is only as reproducible as the pair that
+produced and consumed it, which is why the two are never installed separately.
+
+### What gets installed, and where
+
+```text
+<prefix>/
+    bin/efit  bin/efund
+    logs/     the full configure, build and ctest output
+    vaft-external-install.json
+```
+
+`vaft-external-install.json` records the source path, revision, branch and
+remote, whether the tree was dirty and what the diff hashed to, the exact CMake
+arguments, compiler, NetCDF and BLAS/LAPACK providers, the platform and host,
+the `ctest` outcome, and the sha256 and size of both executables. It is what
+`--uninstall` reads and what the checker compares your checkout against, and it
+is the record an EFIT run's provenance cites.
+
+### How VAFT finds them
+
+Point one variable at the prefix:
+
+```bash
+export EFITHOME=~/git/efit/vaft-install
+```
+
+VAFT resolves **both roles** from that one root: `$EFITHOME/bin/efit` and
+`$EFITHOME/bin/efund`. If `EFITHOME` names a CMake build tree instead,
+`efit/efit` and `green/efund` under it are accepted as well. There is
+deliberately no second root variable for `efund`: two roots would allow the
+table generator and the reconstruction code to come from two different builds,
+which is exactly what a provenance record must exclude. An explicit executable
+path passed in code still wins for either role, and the legacy `EFIT` variable
+still names the reconstruction executable alone when `EFITHOME` is unset.
+
+### Verifying
+
+```bash
+python install/check_efit.py --source ~/git/efit --prefix ~/git/efit/vaft-install
+```
+
+One line per layer: the Fortran toolchain, the source checkout and its
+revision, the build record against the checkout, both executables, the build's
+capabilities (build type, compiler, NetCDF), that `efit` starts, an `efund`
+smoke run on EFIT's own public DIII-D support file at 33x33 with every output
+file checked for its exact expected size, and finally that VAFT's own discovery
+resolves both roles from `EFITHOME`. Pass `--build-tree` instead of `--prefix`
+to check an uninstalled CMake build.
 
 ## Uninstalling
 
