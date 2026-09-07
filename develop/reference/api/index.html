@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>246b33a</code>. What is described
+  <code>37f26be</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -331,7 +331,7 @@ code keeps working. You never need to call them yourself.</p>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.code</code></td>
-      <td>Adapters for external codes (EFIT, CHEASE, GPEC, TES, NUBEAM)</td>
+      <td>Adapters for external codes (EFIT, CHEASE, GPEC, TES, NUBEAM, TRANSP)</td>
       <td>this page</td>
     </tr>
     <tr>
@@ -792,6 +792,10 @@ binaries are a readiness state, not a failure of deterministic input preparation
       <td><code class="language-plaintext highlighter-rouge">NUBEAMConfig</code>, <code class="language-plaintext highlighter-rouge">NUBEAMInputs</code>, <code class="language-plaintext highlighter-rouge">NUBEAMResult</code>, <code class="language-plaintext highlighter-rouge">find_nubeam_executable</code>, <code class="language-plaintext highlighter-rouge">prepare_nubeam_inputs</code>, <code class="language-plaintext highlighter-rouge">run_nubeam</code>, <code class="language-plaintext highlighter-rouge">run_nubeam_case</code>, <code class="language-plaintext highlighter-rouge">collect_nubeam_outputs</code></td>
     </tr>
     <tr>
+      <td>TRANSP (transport, <strong>read-only</strong>)</td>
+      <td><code class="language-plaintext highlighter-rouge">TranspOutput</code>, <code class="language-plaintext highlighter-rouge">TranspSlice</code>, <code class="language-plaintext highlighter-rouge">TranspVariable</code>, <code class="language-plaintext highlighter-rouge">TRANSPResult</code>, <code class="language-plaintext highlighter-rouge">read_transp_output</code>, <code class="language-plaintext highlighter-rouge">collect_transp_outputs</code>, <code class="language-plaintext highlighter-rouge">enclosed_torque</code>, <code class="language-plaintext highlighter-rouge">input_torque_density</code>, <code class="language-plaintext highlighter-rouge">zone_volume</code></td>
+    </tr>
+    <tr>
       <td>Base classes</td>
       <td><code class="language-plaintext highlighter-rouge">CodeConfig</code>, <code class="language-plaintext highlighter-rouge">CodeInputs</code>, <code class="language-plaintext highlighter-rouge">CodeResult</code>, <code class="language-plaintext highlighter-rouge">CodeRunner</code></td>
     </tr>
@@ -830,6 +834,24 @@ face the same ambiguity.</p>
 deposition markers, lost fast ions, the step log’s power budget – stays in the native container
 and is drawn by <code class="language-plaintext highlighter-rouge">vaft.plot.nubeam</code>, which is why those particular views are not in the plot
 catalog while <code class="language-plaintext highlighter-rouge">nbi_profile_*</code> are.</p>
+
+<p>TRANSP is the one adapter with no <code class="language-plaintext highlighter-rouge">*Config</code>, no <code class="language-plaintext highlighter-rouge">prepare_*</code> and no <code class="language-plaintext highlighter-rouge">run_*</code>: VAFT reads a TRANSP run,
+it does not launch one, so there is no <code class="language-plaintext highlighter-rouge">TRANSPHOME</code>. <code class="language-plaintext highlighter-rouge">read_transp_output</code> opens a <code class="language-plaintext highlighter-rouge">&lt;runid&gt;.CDF</code>
+lazily — a production file holds roughly 1900 variables — and <code class="language-plaintext highlighter-rouge">.slice(time_s)</code> returns one time,
+reporting which sample it took.</p>
+
+<p>This layer keeps TRANSP’s own names, grids and units and converts nothing: <code class="language-plaintext highlighter-rouge">NE</code> is still per cubic
+centimetre when it reaches you. Two things it <em>does</em> enforce, because the file makes them easy to
+get wrong. A variable’s grid comes from its dimension name and never its length — <code class="language-plaintext highlighter-rouge">X</code> (zone centres)
+and <code class="language-plaintext highlighter-rouge">XB</code> (zone outer boundaries) have the <em>same length</em> in a real run, so <code class="language-plaintext highlighter-rouge">state.on_x("PLFLX")</code>
+raises rather than quietly handing back a boundary quantity as a centre one. And <code class="language-plaintext highlighter-rouge">TQTOTNB</code> is
+refused by name: it is an empty placeholder — a zero-valued scalar with no radial or time axis,
+declared torque-density units notwithstanding — and the total input torque is <code class="language-plaintext highlighter-rouge">TQIN</code>.</p>
+
+<p><code class="language-plaintext highlighter-rouge">enclosed_torque(state)</code> is the one place the two grids interact: <code class="language-plaintext highlighter-rouge">TQIN</code> is a density in
+<code class="language-plaintext highlighter-rouge">N m / cm^3</code> and <code class="language-plaintext highlighter-rouge">DVOL</code> a volume in <code class="language-plaintext highlighter-rouge">cm^3</code>, both zone-centre, so the product is already newton
+metres and the cumulative sum lands on the zone <em>boundaries</em>. Pairing them once here is deliberate —
+converting one to SI and not the other is a factor of a million.</p>
 
 <p><code class="language-plaintext highlighter-rouge">refine_equilibrium(source, config=None)</code> is the one-shot CHEASE convenience: g-file or ODS in,
 refined equilibrium out. <code class="language-plaintext highlighter-rouge">scan_tes(ods, base_config, values, param="ip0_kA")</code> sweeps a single TES
@@ -1298,7 +1320,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-07 09:16:29 +0000"
+        "time": "2026-09-07 09:22:05 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
