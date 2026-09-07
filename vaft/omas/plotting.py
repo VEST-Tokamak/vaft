@@ -771,6 +771,25 @@ def plot_equilibrium_field_psi(
     )
 
 
+def plot_equilibrium_field_2d(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> Any:
+    """One reconstructed 2-D equilibrium quantity on the (R, Z) grid (issue #483).
+
+    ``field=`` chooses it -- ``psi`` (default), ``j_tor``, ``pressure``,
+    ``b_field_r``, ``b_field_z``, ``b_field_tor`` -- deriving what the slice
+    does not store on a private copy; ``overlay=`` chooses what is drawn over
+    it from ``coils``, ``passive``, ``wall``, ``boundary``, ``axis``.
+    Renders with :func:`vaft.plot.equilibrium_field_2d` from OMAS input.
+    """
+    return render("equilibrium_field_2d", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_equilibrium_field_psi_vacuum(
     source: Any,
     *,
@@ -2712,6 +2731,7 @@ __all__ = [
     "plot_electron_temperature_time",
     "plot_core_profiles_time_volume_averaged",
     "plot_current_overview",
+    "plot_equilibrium_field_2d",
     "plot_equilibrium_field_psi",
     "plot_equilibrium_field_psi_vacuum",
     "plot_equilibrium_geometry_boundary",

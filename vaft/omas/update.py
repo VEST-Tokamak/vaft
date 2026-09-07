@@ -375,6 +375,60 @@ def update_equilibrium_profiles_2d_j_tor(ods, time_slice=None):
 
 
 
+def update_equilibrium_profiles_2d_b_field(ods, time_slice=None):
+    """Write ``B_R``, ``B_Z`` and ``B_phi`` on the 2-D grid (issue #483).
+
+    From the stored psi map and ``F(psi)``: the poloidal components are
+    Sauter Eq. 20 on a bicubic spline of psi, and the toroidal one is the
+    real ``F(psi)/R`` -- not the constant-``F`` approximation
+    ``B0 R0 / R`` that :func:`vaft.omas.process_wrapper.compute_magnetic_energy`
+    leaves behind as a side effect, which is only good where ``F`` barely
+    varies.  Outside the profile's psi range ``F`` clips to its edge value,
+    the same convention :func:`vaft.process.equilibrium.psi_to_rz` uses.
+
+    Parameters:
+        ods (OMAS structure): Input OMAS data structure, updated in place.
+        time_slice (int/list/None): Specific time slice(s) to process. None=all
+    """
+    from vaft.process.equilibrium import equilibrium_field_on_grid
+
+    from .general import ods_cocos
+
+    declared = ods_cocos(ods)
+    # The frame hands over psi already in weber per radian, so the prefactor
+    # must carry the orientation sign only: a declared 11-18 index becomes its
+    # 1-8 sibling (issue #478).
+    per_radian = None if declared is None else (declared - 10 if declared >= 11 else declared)
+    for idx in _equilibrium_time_slices(ods, time_slice):
+        frame = _equilibrium_flux_frame(ods, idx)
+        if frame is None:
+            continue
+        ts = frame["ts"]
+        if "profiles_1d.f" not in ts:
+            logger.warning(
+                "profiles_1d.f not found for time slice %s; skipping the 2-D field.", idx
+            )
+            continue
+        f_1d = np.asarray(ts["profiles_1d.f"], float).reshape(-1)
+        psi_1d = frame["psi_1d_radian"]
+        if f_1d.size != psi_1d.size:
+            logger.warning(
+                "profiles_1d lengths disagree for time slice %s; skipping the 2-D field.", idx
+            )
+            continue
+        try:
+            b_r, b_z, b_tor = equilibrium_field_on_grid(
+                frame["r_grid"], frame["z_grid"], frame["psi_2d_radian"],
+                psi_1d, f_1d, cocos=per_radian,
+            )
+        except Exception as error:  # noqa: BLE001 - a degenerate grid is skipped, not fatal
+            logger.warning("2-D field failed for time slice %s (%s); skipping.", idx, error)
+            continue
+        ts["profiles_2d.0.b_field_r"] = b_r
+        ts["profiles_2d.0.b_field_z"] = b_z
+        ts["profiles_2d.0.b_field_tor"] = b_tor
+
+
 def _inside_boundary(frame, psi_norm_2d):
     """Mask of the confined region, from the LCFS outline where there is one.
 

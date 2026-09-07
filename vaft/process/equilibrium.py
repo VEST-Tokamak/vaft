@@ -45,6 +45,7 @@ __all__ = [
     "GradShafranovResidual",
     "grad_shafranov_operator",
     "grad_shafranov_residual",
+    "equilibrium_field_on_grid",
     "make_equilibrium_field_interpolator",
     "parallel_current_from_toroidal",
     "poloidal_field_at_boundary",
@@ -1397,6 +1398,72 @@ def flux_surface_quantities(
                 coordinate[missing], coordinate[good_sorted], values[good_sorted]
             )
     return out
+
+
+def equilibrium_field_on_grid(
+    R_grid_1d: np.ndarray,
+    Z_grid_1d: np.ndarray,
+    psi_grid: np.ndarray,
+    psi_1d: np.ndarray,
+    f_1d: np.ndarray,
+    cocos=None,
+):
+    """``(B_R, B_Z, B_phi)`` on the whole ``(R, Z)`` grid, each ``(nR, nZ)``.
+
+    The vectorised twin of :func:`make_equilibrium_field_interpolator`, for a
+    caller that wants the field everywhere rather than at a point: the same
+    bicubic psi spline, the same Sauter Eq. 20 prefactor, and the same
+    ``F(psi)/R`` with ``F`` clipped to the profile's own range outside the
+    confined region.  Evaluating the point interpolator over a 129x129 grid
+    would be sixteen thousand Python calls; this is one spline evaluation.
+
+    Parameters
+    ----------
+    R_grid_1d, Z_grid_1d : array_like
+        Grid axes [m].
+    psi_grid : array_like
+        Poloidal flux on ``(len(R), len(Z))``, in the convention ``cocos``
+        describes [Wb or Wb/rad].
+    psi_1d, f_1d : array_like
+        ``profiles_1d.psi`` and ``profiles_1d.f`` [same psi unit; T m].
+    cocos : int or None, optional
+        Convention index for the prefactor, as in
+        :func:`make_equilibrium_field_interpolator`.
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        ``(B_R, B_Z, B_phi)`` [T], each shaped ``(len(R), len(Z))``.
+    """
+    from vaft.formula.equilibrium import poloidal_field_factor
+
+    R_grid_1d = np.asarray(R_grid_1d, dtype=float).reshape(-1)
+    Z_grid_1d = np.asarray(Z_grid_1d, dtype=float).reshape(-1)
+    psi_grid = np.asarray(psi_grid, dtype=float)
+    if psi_grid.shape != (R_grid_1d.size, Z_grid_1d.size):
+        raise ValueError(
+            f"psi_grid shape {psi_grid.shape} must equal "
+            f"(len(R_grid_1d), len(Z_grid_1d)) = {(R_grid_1d.size, Z_grid_1d.size)}."
+        )
+    psi_1d = np.asarray(psi_1d, dtype=float).reshape(-1)
+    f_1d = np.asarray(f_1d, dtype=float).reshape(-1)
+    if psi_1d.size != f_1d.size:
+        raise ValueError("psi_1d and f_1d must have the same length.")
+
+    order = np.argsort(psi_1d)
+    psi_sorted, f_sorted = psi_1d[order], f_1d[order]
+    spline = RectBivariateSpline(R_grid_1d, Z_grid_1d, psi_grid)
+    grid_r = R_grid_1d[:, None] * np.ones_like(Z_grid_1d)[None, :]
+    k = poloidal_field_factor(cocos)
+
+    dpsi_dr = spline(R_grid_1d, Z_grid_1d, dx=1, dy=0)
+    dpsi_dz = spline(R_grid_1d, Z_grid_1d, dx=0, dy=1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        b_r = k * dpsi_dz / grid_r
+        b_z = -k * dpsi_dr / grid_r
+        psi_here = np.clip(spline(R_grid_1d, Z_grid_1d), psi_sorted[0], psi_sorted[-1])
+        b_tor = np.interp(psi_here, psi_sorted, f_sorted) / grid_r
+    return b_r, b_z, b_tor
 
 
 def make_equilibrium_field_interpolator(
