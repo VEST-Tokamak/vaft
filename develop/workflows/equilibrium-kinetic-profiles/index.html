@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>61c8aad</code>. What is described
+  <code>565c131</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -436,6 +436,10 @@ them. <code class="language-plaintext highlighter-rouge">n_e_rho</code> and <cod
       <td>core polynomial blended into an edge exponential via a $\tanh$ transition</td>
     </tr>
     <tr>
+      <td><code class="language-plaintext highlighter-rouge">eped_tanh</code></td>
+      <td>EPED-style pedestal: a $\tanh$ pedestal plus a gated core shape — see <a href="#pedestal-top">Pedestal top</a></td>
+    </tr>
+    <tr>
       <td><code class="language-plaintext highlighter-rouge">gp</code></td>
       <td>Gaussian process regression (scikit-learn), with optional anchor points</td>
     </tr>
@@ -447,10 +451,13 @@ them. <code class="language-plaintext highlighter-rouge">n_e_rho</code> and <cod
 </table>
 
 <p>The <code class="language-plaintext highlighter-rouge">(1-\rho)</code> factor in the polynomial and exponential bases drives the fitted profile toward zero at
-the boundary, which is usually what you want for $T_e$ and $n_e$ but is a real assumption — <code class="language-plaintext highlighter-rouge">gp</code> and
-<code class="language-plaintext highlighter-rouge">core_poly_edge_exp</code> do not impose it.</p>
+the boundary, which is usually what you want for $T_e$ and $n_e$ but is a real assumption — <code class="language-plaintext highlighter-rouge">gp</code>,
+<code class="language-plaintext highlighter-rouge">core_poly_edge_exp</code> and <code class="language-plaintext highlighter-rouge">eped_tanh</code> do not impose it.</p>
 
-<p><code class="language-plaintext highlighter-rouge">order</code> only affects the polynomial-family methods; it is ignored by <code class="language-plaintext highlighter-rouge">gp</code> and <code class="language-plaintext highlighter-rouge">linear</code>.</p>
+<p><code class="language-plaintext highlighter-rouge">order</code> only affects the polynomial-family methods; it is ignored by <code class="language-plaintext highlighter-rouge">gp</code>, <code class="language-plaintext highlighter-rouge">linear</code> and <code class="language-plaintext highlighter-rouge">eped_tanh</code>.
+<code class="language-plaintext highlighter-rouge">eped_tanh</code> exists for <code class="language-plaintext highlighter-rouge">pedestal_top</code> below rather than as a general profile fitter: it has seven
+parameters of its own, so passing it through the <code class="language-plaintext highlighter-rouge">enforce_physical</code> retry loop of the IDS fitters
+re-runs an identical fit at every order.</p>
 
 <h3 id="calling-the-fitting-engine-directly">Calling the fitting engine directly</h3>
 
@@ -471,6 +478,42 @@ the boundary, which is usually what you want for $T_e$ and $n_e$ but is a real a
 estimate), a callable, and the coefficients. <code class="language-plaintext highlighter-rouge">vaft.formula.make_fit_function(mode)</code> builds the bare
 <code class="language-plaintext highlighter-rouge">polynomial</code> / <code class="language-plaintext highlighter-rouge">exponential</code> basis function if you want to fit it yourself. See
 <a href="/vaft/develop/guide/Formula/">Physics formulas</a> for the rest of the formula namespace.</p>
+
+<h2 id="pedestal-top">Pedestal top</h2>
+
+<p>Region reductions — core versus edge, pedestal metrics — need a boundary, and a <em>fixed</em> one makes
+results from different studies incomparable. <code class="language-plaintext highlighter-rouge">vaft.process.profile.pedestal_top</code> finds it from the
+profile instead, and records how:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.profile</span> <span class="kn">import</span> <span class="n">pedestal_top</span>
+
+<span class="n">top</span> <span class="o">=</span> <span class="nf">pedestal_top</span><span class="p">(</span><span class="n">psi_norm</span><span class="p">,</span> <span class="n">p_total</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="sh">"</span><span class="s">p_total</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">top</span><span class="p">.</span><span class="n">position</span>   <span class="c1"># 0.9134
+</span><span class="n">top</span><span class="p">.</span><span class="n">method</span>     <span class="c1"># "eped_fit", or "fallback"
+</span><span class="n">top</span><span class="p">.</span><span class="n">reason</span>     <span class="c1"># why the fallback was taken; empty when it was not
+</span><span class="n">top</span><span class="p">.</span><span class="n">fit</span>        <span class="c1"># the FittedProfile behind it, or None
+</span></code></pre></div></div>
+
+<p>It takes arrays rather than an ODS, so it works on a profile from a kinetic-profile file just as well
+as on a fitted diagnostic one. <code class="language-plaintext highlighter-rouge">quantity</code> is required and is not defaulted: EPED defines the pedestal
+from total pressure, and a fit to a density or a temperature puts the top somewhere else — on one
+MAST discharge (45453 at 750 ms) $n_e$ gives 0.949 and $p_e$ 0.911, while $T_e$ <strong>falls back</strong>: its
+best tanh is 0.215 wide, which is a ramp rather than a pedestal. That is the behaviour to expect, and
+the reason the result carries the quantity and the method rather than just a number.</p>
+
+<p><code class="language-plaintext highlighter-rouge">position</code> is the tanh’s centre. The pedestal’s inner knee is <code class="language-plaintext highlighter-rouge">inner_edge</code>, half a width further in;
+which of the two a study calls “the pedestal top” differs, so both are available and neither is
+implied.</p>
+
+<p>The fallback is <code class="language-plaintext highlighter-rouge">PEDESTAL_FALLBACK_PSI_NORM = 0.85</code>, and it fires when there is nothing to fit: too
+few points in the window, a fit that did not converge, a fitted <code class="language-plaintext highlighter-rouge">x_ped</code> resting on a bound, or a
+fitted curve that does not vary across the window by <code class="language-plaintext highlighter-rouge">PEDESTAL_RESOLUTION_FACTOR</code> times the residual
+scatter, or a tanh wider than <code class="language-plaintext highlighter-rouge">PEDESTAL_MAX_WIDTH</code>. That last width test matters more than it looks:
+the model’s own box allows a width of 0.3, and over the 171 fits of one MAST campaign 25 came back
+between 0.20 and 0.29 — curves that ramp across half the minor radius while reporting themselves as
+measured pedestals. The variation test is the interesting one — the model’s <code class="language-plaintext highlighter-rouge">f_ped - f_sep</code> is the $\tanh$’s
+<em>asymptotic</em> amplitude, which a wide, shallow fit through noise can make look large while the curve
+it actually draws is almost flat. The test is on the curve, not the parameters.</p>
 
 <h2 id="writing-core_profiles">Writing <code class="language-plaintext highlighter-rouge">core_profiles</code></h2>
 
@@ -857,7 +900,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#pipeline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline</a></li><li class="page-toc-item page-toc-level-2"><a href="#loading-kinetic-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Loading kinetic diagnostics</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-1--equilibrium-mapping" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 1 — equilibrium mapping</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-2--profile-fitting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 2 — profile fitting</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fitting-methods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fitting methods</a></li><li class="page-toc-item page-toc-level-3"><a href="#calling-the-fitting-engine-directly" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Calling the fitting engine directly</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#writing-core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Writing core_profiles</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#synthetic-profiles-from-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic profiles from equilibrium pressure</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plotting</a></li><li class="page-toc-item page-toc-level-2"><a href="#exporting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting</a></li><li class="page-toc-item page-toc-level-2"><a href="#full-example" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Full example</a></li><li class="page-toc-item page-toc-level-2"><a href="#choosing-a-fitting-method" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Choosing a fitting method</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#pipeline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline</a></li><li class="page-toc-item page-toc-level-2"><a href="#loading-kinetic-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Loading kinetic diagnostics</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-1--equilibrium-mapping" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 1 — equilibrium mapping</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-2--profile-fitting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 2 — profile fitting</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fitting-methods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fitting methods</a></li><li class="page-toc-item page-toc-level-3"><a href="#calling-the-fitting-engine-directly" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Calling the fitting engine directly</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pedestal-top" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pedestal top</a></li><li class="page-toc-item page-toc-level-2"><a href="#writing-core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Writing core_profiles</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#synthetic-profiles-from-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic profiles from equilibrium pressure</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plotting</a></li><li class="page-toc-item page-toc-level-2"><a href="#exporting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting</a></li><li class="page-toc-item page-toc-level-2"><a href="#full-example" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Full example</a></li><li class="page-toc-item page-toc-level-2"><a href="#choosing-a-fitting-method" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Choosing a fitting method</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
     </nav>
 </aside>
 
@@ -975,7 +1018,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-07 06:56:05 +0000"
+        "time": "2026-09-07 07:58:12 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
