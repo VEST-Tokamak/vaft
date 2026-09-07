@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>565c131</code>. What is described
+  <code>f6887d0</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -724,13 +724,20 @@ return code, one <code class="language-plaintext highlighter-rouge">WARNING: …
 how <a href="https://github.com/VEST-Tokamak/vaft/issues/380">#380</a> lost 4096 paths of EFIT provenance
 between the local product and its HSDS replica without anything reporting a failure.</p>
 
-<p>Nothing looks wrong where the data is written. OMAS gives <code class="language-plaintext highlighter-rouge">code.parameters</code> a <code class="language-plaintext highlighter-rouge">CodeParameters</code>
-object for any sub-path, at any depth, so a freshly mapped ODS survives whatever shape it used. The
-shape is lost on the <strong>stage product</strong>: <code class="language-plaintext highlighter-rouge">{stage}.json</code> on disk restores the block as a plain ODS
-branch, and it is that branch the Access Layer discards. <code class="language-plaintext highlighter-rouge">vaft.omas.load</code> promotes a <em>flat,
-leaf-only</em> block back to a <code class="language-plaintext highlighter-rouge">CodeParameters</code> on the way out
-(<a href="https://github.com/VEST-Tokamak/vaft/issues/478">#478</a>); it declines a nested one, because a
-per-slice parser cache is not representable as an XML parameters string.</p>
+<p>What can be written is decided at the write, by <code class="language-plaintext highlighter-rouge">vaft.imas.code_parameters.as_entry_payload</code>: the
+leaves an entry can carry are kept, anything it cannot is left on the local product, and a
+<code class="language-plaintext highlighter-rouge">parameters_cache_omitted</code> leaf names what stayed behind. So an EFIT product’s declared COCOS index
+travels and its per-slice parser cache does not, from the same field, and a reader of the entry is
+told which — where before, a nested block took every leaf beside it down in silence
+(<a href="https://github.com/VEST-Tokamak/vaft/issues/642">#642</a>).</p>
+
+<p>The cache stays behind because it cannot be carried, not merely because it is large: the XML encoder
+has no array representation, so an array put through the envelope returns as the repr of its
+elements joined by spaces. Present, named and useless is worse than absent and declared.</p>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.omas.load</code> still promotes a <em>flat, leaf-only</em> block back to a <code class="language-plaintext highlighter-rouge">CodeParameters</code> on the way out
+of a stage product (<a href="https://github.com/VEST-Tokamak/vaft/issues/478">#478</a>); that now decides what a
+local reader sees rather than whether the block survives.</p>
 
 <table>
   <thead>
@@ -758,18 +765,18 @@ per-slice parser cache is not representable as an XML parameters string.</p>
     </tr>
     <tr>
       <td>a flat leaf-only block</td>
-      <td>an XML string, after promotion</td>
+      <td>an XML string</td>
       <td>a <code class="language-plaintext highlighter-rouge">CodeParameters</code> tree</td>
     </tr>
     <tr>
       <td>a nested block</td>
-      <td><strong>nothing</strong></td>
-      <td>absent</td>
+      <td>a note naming what stayed local</td>
+      <td>that note</td>
     </tr>
     <tr>
       <td>a nested block <strong>and a flat leaf beside it</strong></td>
-      <td><strong>nothing</strong> — both</td>
-      <td>absent</td>
+      <td>the leaf, plus that note</td>
+      <td>both</td>
     </tr>
   </tbody>
 </table>
@@ -794,11 +801,11 @@ through <code class="language-plaintext highlighter-rouge">ast.literal_eval</cod
 arbitrary values</em> therefore belong inside a payload the XML loader cannot parse — which in this
 repository means JSON.</p>
 
-<p>The last row of the table is a defect VAFT currently ships, not a hypothetical: the declared COCOS
-index is a flat leaf of <code class="language-plaintext highlighter-rouge">equilibrium.code.parameters</code>, the EFIT mappers write their per-slice parser
-cache into the same field, and promotion is all-or-nothing on the block. An EFIT product loses the
-COCOS index it declares on the way to a replica — the leaf is not nested, it is merely standing next
-to something that is; it is tracked as <a href="https://github.com/VEST-Tokamak/vaft/issues/642">#642</a>.</p>
+<p>The last two rows used to read “<strong>nothing</strong>”: promotion was all-or-nothing on the block, so an EFIT
+product lost the COCOS index it declares on the way to a replica — the leaf was not nested, it was
+merely standing next to something that is
+(<a href="https://github.com/VEST-Tokamak/vaft/issues/642">#642</a>). Replicas written before that fix carry no
+<code class="language-plaintext highlighter-rouge">equilibrium.code.parameters</code> at all and need re-replicating for their declaration to appear.</p>
 
 <h3 id="writing-it">Writing it</h3>
 
@@ -1556,7 +1563,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-07 07:58:12 +0000"
+        "time": "2026-09-07 08:28:16 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
