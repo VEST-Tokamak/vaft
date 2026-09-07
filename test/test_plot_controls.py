@@ -130,7 +130,7 @@ def test_a_profile_offers_its_slice_and_its_sign(catalog):
 
 def test_the_psi_map_offers_units_and_style_but_the_vacuum_map_no_style(catalog):
     names = [c.name for c in controls_for(catalog["equilibrium_field_psi"])]
-    assert names[-2:] == ["units", "style"]
+    assert names[-3:] == ["units", "overlay", "style"]
     units = next(c for c in controls_for(catalog["equilibrium_field_psi"]) if c.name == "units")
     assert units.options == ("Wb", "mWb", "Wb/rad", "mWb/rad") and units.default == "mWb"
     assert "style" not in [c.name for c in controls_for(catalog["equilibrium_field_psi_vacuum"])]

@@ -18,6 +18,7 @@ __all__ = [
     "passive_structure_field_wall_reduction",
     "electron_density_field",
     "electron_temperature_field",
+    "equilibrium_field_2d",
     "equilibrium_field_psi",
     "equilibrium_field_psi_vacuum",
     "render_field_2d",
@@ -95,7 +96,9 @@ def _field_renderer(*, domain: str, subject: str, quantity: str, description: st
     domain="equilibrium", quantity="psi",
     subject="equilibrium",
     description="Reconstructed poloidal flux map on the equilibrium (R, Z) grid.",
-    ids=("equilibrium", "wall"),
+    # The machine geometry the default overlays draw over the map (issue #483);
+    # none of it is required, so availability is still the flux map's own.
+    ids=("equilibrium", "wall", "pf_active", "pf_passive"),
     required_paths=(
         "equilibrium.time_slice.{i}.profiles_2d.{j}.grid.dim1",
         "equilibrium.time_slice.{i}.profiles_2d.{j}.grid.dim2",
@@ -111,6 +114,34 @@ def equilibrium_field_psi(
     model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Reconstructed poloidal flux map on the equilibrium (R, Z) grid."""
+    return render_field_2d(model, ax=ax, show=show, **style)
+
+
+@_field_renderer(
+    domain="equilibrium", quantity="2d",
+    subject="equilibrium",
+    description="Any reconstructed 2-D equilibrium quantity on the (R, Z) grid: flux, current density, pressure or field, with the machine drawn over it.",
+    ids=("equilibrium", "wall", "pf_active", "pf_passive"),
+    required_paths=(
+        "equilibrium.time_slice.{i}.profiles_2d.{j}.grid.dim1",
+        "equilibrium.time_slice.{i}.profiles_2d.{j}.grid.dim2",
+        "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",
+    ),
+    optional_paths=(
+        "equilibrium.time_slice.{i}.profiles_1d.pressure",
+        "equilibrium.time_slice.{i}.profiles_1d.f",
+        "equilibrium.time_slice.{i}.profiles_1d.dpressure_dpsi",
+        "equilibrium.time_slice.{i}.profiles_1d.f_df_dpsi",
+        "equilibrium.time_slice.{i}.boundary.outline.r",
+        "equilibrium.time_slice.{i}.boundary.outline.z",
+        "pf_active.coil.{i}.element.{j}.geometry.outline.r",
+        "wall.description_2d.{i}.limiter.unit.{j}.outline.r",
+    ),
+)
+def equilibrium_field_2d(
+    model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """One reconstructed 2-D equilibrium quantity, chosen with ``field=``."""
     return render_field_2d(model, ax=ax, show=show, **style)
 
 

@@ -719,6 +719,79 @@ class FieldRecipe:
     boundary_paths: tuple[str, str] = ()
     title: str = ""
     values_order: str = "zr"
+    #: The quantities this map can draw (issue #483), keys of
+    #: :data:`EQUILIBRIUM_FIELDS`; empty for a map with a single fixed value.
+    fields: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class EquilibriumField:
+    """One quantity an equilibrium 2-D map can draw (issue #483).
+
+    ``updater`` names the :mod:`vaft.omas` function that writes ``leaf`` when
+    a slice does not store it; the builder runs it on a private copy, so the
+    caller's ODS is never written.  ``styles`` is the field's own style
+    vocabulary: the flux map has three readings (:data:`PSI_STYLES`), a
+    scalar field has one.
+    """
+
+    name: str
+    leaf: str
+    label: str
+    unit: str
+    styles: tuple[str, ...] = ("filled",)
+    updater: str = ""
+    #: A 1-D flux function mapped onto the grid at display time, for a
+    #: quantity the data dictionary gives no 2-D leaf to store.
+    mapped_from: str = ""
+
+
+#: The quantities ``equilibrium_field_2d`` draws, in offer order.  ``psi`` is
+#: the only one an EFIT export stores; the rest are derived from it and from
+#: the 1-D profiles it indexes.
+EQUILIBRIUM_FIELDS: dict[str, EquilibriumField] = {
+    field.name: field
+    for field in (
+        EquilibriumField("psi", "psi", "Poloidal Flux", "Wb", PSI_STYLES),
+        EquilibriumField(
+            "j_tor", "j_tor", "Toroidal Current Density", "A/m^2",
+            updater="update_equilibrium_profiles_2d_j_tor",
+        ),
+        # The DD defines no ``profiles_2d.pressure``, so this one is mapped
+        # where it is drawn rather than written into an ODS -- on the slice's
+        # own psi grid, never an assumed uniform one.
+        EquilibriumField(
+            "pressure", "pressure", "Pressure", "Pa",
+            mapped_from="profiles_1d.pressure",
+        ),
+        EquilibriumField(
+            "b_field_r", "b_field_r", "Radial Field B_R", "T",
+            updater="update_equilibrium_profiles_2d_b_field",
+        ),
+        EquilibriumField(
+            "b_field_z", "b_field_z", "Vertical Field B_Z", "T",
+            updater="update_equilibrium_profiles_2d_b_field",
+        ),
+        EquilibriumField(
+            "b_field_tor", "b_field_tor", "Toroidal Field B_phi", "T",
+            updater="update_equilibrium_profiles_2d_b_field",
+        ),
+    )
+}
+
+EQUILIBRIUM_FIELD_NAMES = tuple(EQUILIBRIUM_FIELDS)
+
+#: What a poloidal map may draw over the field: the machine's parts, plus the
+#: boundary and axis that belong to the equilibrium itself.
+POLOIDAL_OVERLAYS = ("coils", "passive", "wall", "boundary", "axis")
+
+#: The machine context every poloidal map carries unless the caller says
+#: otherwise; an equilibrium field adds its own boundary and axis to it.
+DEFAULT_POLOIDAL_OVERLAYS = ("coils", "wall")
+
+#: What the composed machine view may draw.  It has no field of its own, so
+#: no boundary or axis; the diagnostics it places are one name.
+MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics")
 
 
 @dataclass(frozen=True)
@@ -1336,6 +1409,22 @@ RECIPES: dict[str, Any] = {
         # Matplotlib consume (Z, R); square EFIT grids previously concealed
         # this transpose because their shapes are identical.
         values_order="rz",
+        fields=("psi",),
+    ),
+    "equilibrium_field_2d": FieldRecipe(
+        r_path="equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1",
+        z_path="equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2",
+        # psi is what every field needs -- the others are read from it or
+        # from the profiles it indexes -- so availability is psi's.
+        value_path="equilibrium.time_slice.{i}.profiles_2d.0.psi",
+        value_label="Poloidal Flux [Wb]",
+        boundary_paths=(
+            "equilibrium.time_slice.{i}.boundary.outline.r",
+            "equilibrium.time_slice.{i}.boundary.outline.z",
+        ),
+        title="Equilibrium 2-D Field",
+        values_order="rz",
+        fields=EQUILIBRIUM_FIELD_NAMES,
     ),
     # --- geometry ------------------------------------------------------------
     "wall_geometry_poloidal": GeometryRecipe(
@@ -2312,26 +2401,37 @@ def _build_wall_reduction_map(ods: Any, **options: Any) -> Field2D:
 
 
 def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
-    """Compose wall, coils, passive structure and diagnostics into one view."""
-    layers: list[GeometryLayer] = list(_wall_layers(ods))
+    """Compose wall, coils, passive structure and diagnostics into one view.
+
+    ``overlay=`` selects the parts (:data:`MACHINE_OVERLAYS`); everything the
+    input supports is drawn when the caller names nothing (issue #483).
+    """
+    names = (
+        MACHINE_OVERLAYS if options.get("overlay") is None
+        else _overlay_option(options, MACHINE_OVERLAYS)
+    )
+    layers: list[GeometryLayer] = list(_wall_layers(ods)) if "wall" in names else []
     # Coils and passive structure are drawn as sets: the composed view names
     # the machine's parts, not 950 loops and 400 coil turns one by one.
-    if entry_supports(ods, "passive_structure_geometry_poloidal"):
+    if "passive" in names and entry_supports(ods, "passive_structure_geometry_poloidal"):
         layers.extend(_build_passive_structure_geometry(ods).layers)
-    if entry_supports(ods, "pf_coil_geometry_poloidal"):
+    if "coils" in names and entry_supports(ods, "pf_coil_geometry_poloidal"):
         layers.extend(_build_pf_coil_geometry(ods, collective=True).layers)
-    for member in (
+    for member in () if "diagnostics" not in names else (
         "magnetics_geometry_poloidal",
         "thomson_scattering_geometry_poloidal",
         "charge_exchange_geometry_poloidal",
     ):
         if not entry_supports(ods, member):
             continue
-        layers.extend(_build_geometry(ods, RECIPES[member], **options).layers)
-    if entry_supports(ods, "soft_x_rays_geometry_lines_of_sight"):
+        layers.extend(_build_geometry(
+            ods, RECIPES[member], **{k: v for k, v in options.items() if k != "overlay"}
+        ).layers)
+    if "diagnostics" in names and entry_supports(ods, "soft_x_rays_geometry_lines_of_sight"):
         layers.extend(
             _build_lines_of_sight(
-                ods, label_channels=False, include_wall=False, **options
+                ods, label_channels=False, include_wall=False,
+                **{k: v for k, v in options.items() if k != "overlay"},
             ).layers
         )
     if not layers:
@@ -3118,8 +3218,15 @@ CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line")
 CAMERA_PROJECTIONS = ("calibrated",)
 
 
-def _overlay_option(options: Mapping[str, Any]) -> tuple[str, ...]:
-    """Normalise ``overlay=``: a name, a sequence of names, or nothing."""
+def _overlay_option(
+    options: Mapping[str, Any], vocabulary: Sequence[str] = CAMERA_OVERLAYS
+) -> tuple[str, ...]:
+    """Normalise ``overlay=``: a name, a sequence of names, or nothing.
+
+    ``vocabulary`` is the plot's own overlay set -- the camera's
+    (:data:`CAMERA_OVERLAYS`) or the poloidal one
+    (:data:`POLOIDAL_OVERLAYS`, issue #483).
+    """
     overlay = options.get("overlay", ())
     if overlay is None or overlay == "" or overlay is False:
         return ()
@@ -3129,13 +3236,13 @@ def _overlay_option(options: Mapping[str, Any]) -> tuple[str, ...]:
         names = tuple(overlay)
     else:
         raise ValueError(
-            f"overlay must be a name or a sequence of names from {', '.join(CAMERA_OVERLAYS)}; "
+            f"overlay must be a name or a sequence of names from {', '.join(vocabulary)}; "
             f"got {overlay!r}"
         )
-    unknown = [name for name in names if name not in CAMERA_OVERLAYS]
+    unknown = [name for name in names if name not in vocabulary]
     if unknown:
         raise ValueError(
-            f"unknown overlay {unknown[0]!r}; overlays are {', '.join(CAMERA_OVERLAYS)}"
+            f"unknown overlay {unknown[0]!r}; overlays are {', '.join(vocabulary)}"
         )
     return tuple(dict.fromkeys(names))
 
@@ -5131,15 +5238,9 @@ def _style_psi_field(
         value_label=f"Poloidal Flux [{flux_display.unit}]",
         display=flux_display,
     )
+    # The axis marker and the boundary are overlays now, assembled by
+    # _build_field_2d from ``overlay=`` (issue #483).
     overlays = list(field.overlays)
-    base = f"equilibrium.time_slice.{time_slice}"
-    axis_r = _finite_scalar(_get(ods, f"{base}.global_quantities.magnetic_axis.r"))
-    axis_z = _finite_scalar(_get(ods, f"{base}.global_quantities.magnetic_axis.z"))
-    if axis_r is not None and axis_z is not None and not any(o.label == "Magnetic axis" for o in overlays):
-        overlays.append(GeometryLayer(
-            r=np.array([axis_r]), z=np.array([axis_z]), kind="points", label="Magnetic axis",
-            style={"marker": "+", "color": "k", "markersize": 10, "markeredgewidth": 1.5},
-        ))
     if style == "filled":
         return dataclasses.replace(field, overlays=tuple(overlays))
     span = _psi_axis_boundary(ods, time_slice)
@@ -5187,33 +5288,204 @@ def _style_psi_field(
     )
 
 
+def field_options_for(name: str) -> tuple[str, ...] | None:
+    """The ``field=`` vocabulary of plot ``name``, or ``None`` if it takes none."""
+    recipe = RECIPES.get(name)
+    return tuple(recipe.fields) if isinstance(recipe, FieldRecipe) and recipe.fields else None
+
+
+def overlay_options_for(name: str) -> tuple[str, ...] | None:
+    """The ``overlay=`` vocabulary of plot ``name``."""
+    if name == "machine_geometry_poloidal":
+        return MACHINE_OVERLAYS
+    if isinstance(RECIPES.get(name), FieldRecipe):
+        return POLOIDAL_OVERLAYS
+    if name == "camera_visible_image":
+        # The view's own entry point declares them; the presets beneath it do
+        # not (issue #261 G.5).
+        return CAMERA_OVERLAYS
+    return None
+
+
+def overlay_defaults_for(name: str) -> tuple[str, ...]:
+    """What plot ``name`` draws over itself when the caller names nothing."""
+    if name == "machine_geometry_poloidal":
+        return MACHINE_OVERLAYS
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, FieldRecipe):
+        return DEFAULT_POLOIDAL_OVERLAYS + (("boundary", "axis") if recipe.boundary_paths else ())
+    return ()
+
+
+def _equilibrium_field(recipe: FieldRecipe, options: dict, plot_name: str | None) -> EquilibriumField | None:
+    """The field a 2-D map is asked for, validated against the plot's own set."""
+    if not recipe.fields:
+        if options.get("field") is not None:
+            raise ValueError(f"{plot_name or recipe.title} draws one fixed quantity and takes no field=")
+        return None
+    requested = options.get("field") or recipe.fields[0]
+    if requested not in recipe.fields:
+        raise ValueError(
+            f"{plot_name or recipe.title} takes field= one of {', '.join(recipe.fields)}; "
+            f"got {requested!r}"
+        )
+    return EQUILIBRIUM_FIELDS[requested]
+
+
+def _mapped_field_values(ods: Any, recipe: FieldRecipe, spec: EquilibriumField, index: int):
+    """A 1-D flux function on the 2-D grid, mapped through the slice's own psi.
+
+    The abscissa is the stored ``profiles_1d.psi``, normalised with the
+    slice's own axis and boundary -- never the uniform grid the legacy 2-D
+    view assumed -- and the map stops at the last closed surface, where the
+    profile itself stops.
+    """
+    base = f"equilibrium.time_slice.{index}"
+    psi_2d = _array(ods, recipe.value_path.format(i=index))
+    psi_1d = _array(ods, f"{base}.profiles_1d.psi")
+    profile = _array(ods, f"{base}.{spec.mapped_from}")
+    if psi_2d is None or psi_1d is None or profile is None or psi_1d.size != profile.size:
+        return None
+    axis = _finite_scalar(_get(ods, f"{base}.global_quantities.psi_axis"))
+    edge = _finite_scalar(_get(ods, f"{base}.global_quantities.psi_boundary"))
+    axis = float(psi_1d[0]) if axis is None else axis
+    edge = float(psi_1d[-1]) if edge is None else edge
+    if axis == edge:
+        return None
+    psi_norm_2d = (psi_2d - axis) / (edge - axis)
+    psi_norm_1d = (psi_1d - axis) / (edge - axis)
+    order = np.argsort(psi_norm_1d)
+    mapped = np.interp(psi_norm_2d, psi_norm_1d[order], profile[order])
+    return np.where(psi_norm_2d <= 1.0, mapped, np.nan)
+
+
+def _derived_2d_for(ods: Any, index: int, field: EquilibriumField) -> Any:
+    """The ODS to read ``field`` from: the caller's, or a private derived copy.
+
+    A slice that stores the leaf is read as it is.  Otherwise the field's
+    own updater runs on an isolated copy (the ``_derived_profiles_for``
+    pattern), so a plot never writes the caller's ODS; ``None`` comes back
+    when the slice cannot support the derivation, and the builder says so.
+    """
+    leaf = f"equilibrium.time_slice.{index}.profiles_2d.0.{field.leaf}"
+    if _array(ods, leaf) is not None:
+        return ods
+    if not field.updater:
+        return None
+    try:
+        import vaft.omas as vaft_omas
+
+        private = _isolated_copy(ods, ("equilibrium",))
+        getattr(vaft_omas, field.updater)(private, time_slice=index)
+    except Exception:  # noqa: BLE001 - an underivable slice is reported, not raised
+        return None
+    return private if _array(private, leaf) is not None else None
+
+
+def _poloidal_overlays(
+    ods: Any, names: Sequence[str], *, time_slice: int, boundary_paths: Sequence[str] = ()
+) -> list[GeometryLayer]:
+    """The requested machine and equilibrium layers, in drawing order."""
+    layers: list[GeometryLayer] = []
+    if "wall" in names:
+        layers.extend(_wall_layers(ods))
+    if "passive" in names and entry_supports(ods, "passive_structure_geometry_poloidal"):
+        layers.extend(_build_passive_structure_geometry(ods).layers)
+    if "coils" in names and entry_supports(ods, "pf_coil_geometry_poloidal"):
+        layers.extend(_build_pf_coil_geometry(ods, collective=True).layers)
+    if "boundary" in names and boundary_paths:
+        boundary_r = _array(ods, boundary_paths[0].format(i=time_slice))
+        boundary_z = _array(ods, boundary_paths[1].format(i=time_slice))
+        if boundary_r is not None and boundary_z is not None:
+            layers.append(GeometryLayer(
+                r=boundary_r, z=boundary_z, kind="polygon", label="Boundary",
+                style={"color": "#e41a1c"},
+            ))
+    if "axis" in names:
+        base = f"equilibrium.time_slice.{time_slice}.global_quantities.magnetic_axis"
+        axis_r = _finite_scalar(_get(ods, f"{base}.r"))
+        axis_z = _finite_scalar(_get(ods, f"{base}.z"))
+        if axis_r is not None and axis_z is not None:
+            layers.append(GeometryLayer(
+                r=np.array([axis_r]), z=np.array([axis_z]), kind="points", label="Magnetic axis",
+                style={"marker": "+", "color": "k", "markersize": 10, "markeredgewidth": 1.5},
+            ))
+    return layers
+
+
+def _style_scalar_field(field: Field2D, spec: EquilibriumField, unit: str | None) -> Field2D:
+    """Scale and label a non-flux 2-D field through the display policy."""
+    display = resolve_display(spec.unit, unit=unit, subject="equilibrium", data=field.values)
+    return dataclasses.replace(
+        field,
+        values=np.asarray(field.values, dtype=float) * display.scale,
+        value_label=f"{spec.label} [{display.unit}]",
+        display=display,
+        filled=True,
+    )
+
+
 def _build_field_2d(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
     time_slice = options.get("time_slice", 0)
-    r = _array(ods, recipe.r_path.format(i=time_slice))
-    z = _array(ods, recipe.z_path.format(i=time_slice))
-    values = _array(ods, recipe.value_path.format(i=time_slice))
+    plot_name = options.get("_plot_name")
+    if "yunit" in options:
+        raise ValueError(
+            f"{recipe.title or recipe.value_path!r} is a 2-D map with no y-axis unit; "
+            "use units= to choose the value unit"
+        )
+    spec = _equilibrium_field(recipe, options, plot_name)
+    # ``style`` belongs to the flux map: every other field is one filled map,
+    # so a style asked of it is not an error, it simply does not apply.  That
+    # keeps the interactive control usable, where the style control's value
+    # travels with every field change (issue #483).
+    style = options.get("style") if spec is None or spec.name in ("psi",) else None
+    source = ods
+    values = None
+    value_path = recipe.value_path
+    if spec is not None and spec.mapped_from:
+        values = _mapped_field_values(ods, recipe, spec, time_slice)
+        if values is None:
+            raise ValueError(
+                f"field={spec.name!r} needs {spec.mapped_from} and the slice's psi range; "
+                f"slice {time_slice} of this input has neither"
+            )
+    elif spec is not None and spec.name != "psi":
+        source = _derived_2d_for(ods, time_slice, spec)
+        if source is None:
+            raise ValueError(
+                f"field={spec.name!r} is neither stored nor derivable for slice {time_slice} "
+                f"of this input ({spec.updater or 'no derivation exists'})"
+            )
+        value_path = f"equilibrium.time_slice.{{i}}.profiles_2d.0.{spec.leaf}"
+
+    r = _array(source, recipe.r_path.format(i=time_slice))
+    z = _array(source, recipe.z_path.format(i=time_slice))
+    if values is None:
+        values = _array(source, value_path.format(i=time_slice))
     if r is None or z is None or values is None:
         raise ValueError(
-            f"{recipe.value_path.format(i=time_slice)} and its (R, Z) grid are required"
+            f"{value_path.format(i=time_slice)} and its (R, Z) grid are required"
         )
     if recipe.values_order == "rz":
         values = values.T
     elif values.shape != (z.size, r.size):
         values = values.T
-    overlays = list(_wall_layers(ods))
-    if recipe.boundary_paths:
-        boundary_r = _array(ods, recipe.boundary_paths[0].format(i=time_slice))
-        boundary_z = _array(ods, recipe.boundary_paths[1].format(i=time_slice))
-        if boundary_r is not None and boundary_z is not None:
-            overlays.append(
-                GeometryLayer(
-                    r=boundary_r,
-                    z=boundary_z,
-                    kind="polygon",
-                    label="Boundary",
-                    style={"color": "#e41a1c"},
-                )
-            )
+
+    # Overlays: the machine context the caller asked for, plus the boundary and
+    # axis that belong to an equilibrium field itself.  A style that confines
+    # its levels to the plasma needs the boundary whatever was asked for, since
+    # that outline *is* the region (issue #483).
+    owns_equilibrium = bool(recipe.boundary_paths)
+    if options.get("overlay") is None:
+        names = DEFAULT_POLOIDAL_OVERLAYS + (("boundary", "axis") if owns_equilibrium else ())
+    else:
+        names = _overlay_option(options, POLOIDAL_OVERLAYS)
+    if spec is not None and spec.name == "psi" and (style or PSI_STYLES[0]) != "filled":
+        names = tuple(dict.fromkeys(names + ("boundary",)))
+    overlays = _poloidal_overlays(
+        ods, names, time_slice=time_slice, boundary_paths=recipe.boundary_paths
+    )
+
     field = Field2D(
         r=r,
         z=z,
@@ -5221,35 +5493,31 @@ def _build_field_2d(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
         value_label=recipe.value_label,
         contour_levels=options.get("contour_levels"),
         overlays=tuple(overlays),
-        title=options.get("title", recipe.title),
+        title=options.get("title", recipe.title if spec is None else spec.label),
     )
-    if "yunit" in options:
-        raise ValueError(
-            f"{recipe.title or recipe.value_path!r} is a 2-D map with no y-axis unit; "
-            "use units= to choose the value unit"
-        )
-    if recipe is RECIPES.get("equilibrium_field_psi"):
-        # ``_convention`` is the overview's internal hand-off (the family it
-        # resolved once for the map and the text panel); a leading underscore
-        # keeps it off the public keyword surface (review of #538).
-        extra = {
-            k: v for k, v in options.items()
-            if k not in ("time_slice", "style", "units", "_convention")
-        }
-        style = options.get("style")
-        field = _style_psi_field(
-            ods,
-            field,
-            time_slice,
-            style or PSI_STYLES[0],
-            requested=style is not None,
-            unit=options.get("units"),
-            convention=options.get("_convention"),
-            **extra,
-        )
-    elif options.get("units") is not None:
-        raise ValueError(f"{recipe.title or recipe.value_path!r} takes no units= option")
-    return field
+    if spec is None:
+        if options.get("units") is not None:
+            raise ValueError(f"{recipe.title or recipe.value_path!r} takes no units= option")
+        return field
+    if spec.name != "psi":
+        return _style_scalar_field(field, spec, options.get("units"))
+    # ``_convention`` is the overview's internal hand-off (the family it
+    # resolved once for the map and the text panel); a leading underscore
+    # keeps it off the public keyword surface (review of #538).
+    extra = {
+        k: v for k, v in options.items()
+        if k not in ("time_slice", "style", "units", "field", "overlay", "_convention", "_plot_name")
+    }
+    return _style_psi_field(
+        ods,
+        field,
+        time_slice,
+        style or PSI_STYLES[0],
+        requested=style is not None,
+        unit=options.get("units"),
+        convention=options.get("_convention"),
+        **extra,
+    )
 
 
 def _first_channel_with_signal(
@@ -5878,6 +6146,9 @@ def _build_equilibrium_verification(ods: Any, **options: Any) -> Panels:
         field_recipe,
         time_slice=time_slice,
         contour_levels=options.get("contour_levels", np.linspace(0.0, 1.0, 16)),
+        # A verification panel shows the fit against the vessel, not the
+        # machine's coils (issue #483).
+        overlay=("wall", "boundary", "axis"),
     )
     root = f"equilibrium.time_slice.{time_slice}"
     psi_axis = float(_get(ods, f"{root}.global_quantities.psi_axis", np.nan))
@@ -6174,6 +6445,10 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
     field = _build_field_2d(
         ods, RECIPES["equilibrium_field_psi"], time_slice=index,
         units=units, _convention=convention,
+        # A slice summary draws the plasma and the vessel it sits in, not the
+        # machine: the coils belong to the standalone map, where there is room
+        # for them (issue #483).
+        overlay=("wall", "boundary", "axis"),
         **({"style": options["style"]} if options.get("style") else {}),
     )
     field = dataclasses.replace(field, title="Poloidal flux")

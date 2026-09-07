@@ -69,7 +69,7 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("time_range", "range", description="(start, stop) in seconds"),
         OptionSpec("centre", "range", description="(r0, z0) in metres the poloidal angle is measured about"),
         OptionSpec("angle", "choice", "recipes.ANGLE_SOURCES", "where a sensor's poloidal angle comes from"),
-        OptionSpec("overlay", "multi", "recipes.CAMERA_OVERLAYS", "camera overlays"),
+        OptionSpec("overlay", "multi", "recipes.CAMERA_OVERLAYS", "what is drawn over a map"),
         OptionSpec("projection", "any", description="camera projection method"),
         OptionSpec("theta_deg_range", "range",
                    description="toroidal sweep of a camera overlay, in degrees"),
@@ -82,6 +82,7 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("coordinate", "choice", "display.PROFILE_COORDINATES", "radial coordinate of a 1-D profile"),
         OptionSpec("x", "choice", "recipes.ABSCISSA_NAMES", "quantity on the abscissa of a line plot"),
         OptionSpec("method", "choice", "recipes.SPECTROGRAM_METHODS", "how a time-frequency map is computed"),
+        OptionSpec("field", "choice", "recipes.EQUILIBRIUM_FIELD_NAMES", "quantity a 2-D equilibrium map draws"),
         OptionSpec("frequency_range", "range", description="(f0, f1) in Hz: the analysed band"),
         OptionSpec("n_frequencies", "int", description="wavelet scales across the band (method='cwt')"),
         OptionSpec("target_df", "float", description="frequency resolution a window is sized for"),
@@ -202,15 +203,20 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
 def _plot_scoped_choices(name: str, key: str) -> tuple[Any, ...] | None:
     """A vocabulary the plot itself narrows or widens.
 
-    ``coordinate`` (issue #479) and ``x`` (issue #481) are declared per
-    recipe, so the schema's static list is only the union: what a given plot
-    accepts is asked of the plot.
+    ``coordinate`` (issue #479), ``x`` (issue #481), ``field`` and
+    ``overlay`` (issue #483) are declared per recipe, so the schema's static
+    list is only the union: what a given plot accepts is asked of the plot.
     """
-    if key not in ("coordinate", "x"):
+    if key not in ("coordinate", "x", "field", "overlay"):
         return None
     from . import recipes
 
-    resolve = recipes.coordinate_options_for if key == "coordinate" else recipes.abscissa_options_for
+    resolve = {
+        "coordinate": recipes.coordinate_options_for,
+        "x": recipes.abscissa_options_for,
+        "field": recipes.field_options_for,
+        "overlay": recipes.overlay_options_for,
+    }[key]
     try:
         return resolve(name)
     except Exception:  # pragma: no cover - an unknown name is refused later by get_spec
