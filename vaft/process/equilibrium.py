@@ -2237,43 +2237,47 @@ def equilibrium_field_on_grid(
     psi_1d, f_1d : array_like
         ``profiles_1d.psi`` and ``profiles_1d.f`` [same psi unit; T m].
     cocos : int or None, optional
-        Convention index the prefactor is taken from [-], as in
-        :func:`make_equilibrium_field_interpolator`. ``None`` falls back to
-        that function's own default.
+        COCOS index of *psi_grid*. ``None`` keeps the historical
+        weber-per-radian form [-].
 
     Returns
     -------
     tuple of numpy.ndarray
-        ``(B_R, B_Z, B_phi)`` [T], each shaped ``(len(R), len(Z))``.
+        ``(B_R, B_Z, B_phi)``, each shaped ``(len(R), len(Z))`` [T].
 
-    Applicability
-    -------------
-    Machine-independent. The inputs are the physics quantities any
-    axisymmetric equilibrium reports -- a psi map on a rectangular grid and an
-    ``F(psi)`` profile -- so any solver's output can be passed in. Nothing
-    here reads a machine description or an IDS.
+    Raises
+    ------
+    ValueError
+        The flux map is not shaped to the two grid axes, or the two profile
+        arrays have different lengths.
 
     Convention
     ----------
-    The poloidal field carries the sign of *cocos* through
-    :func:`~vaft.formula.equilibrium.poloidal_field_factor`, so *psi_grid*
-    must be expressed in the convention *cocos* names -- per radian or per
-    turn -- and not in some other one. ``B_phi = F/R`` is magnitude-driven and
-    inherits the sign of *f_1d*.
+    The same prefactor as :func:`make_equilibrium_field_interpolator`, per
+    Sauter Eq. 20: ``B_R = k (1/R) dpsi/dZ`` and ``B_Z = -k (1/R) dpsi/dR``
+    with ``k = sigma_RphiZ * sigma_Bp / (2*pi)**e_Bp``, so *psi_grid* must be
+    stored in the convention *cocos* names and a weber-stored flux can be
+    corrected only through that index. The toroidal field is the poloidal
+    current function over the major radius and inherits the sign of *f_1d*.
+    The flux map is indexed major radius first.
+
+    Applicability
+    -------------
+    Machine-independent.
 
     Limitations
     -----------
-    ``F`` is clipped to the profile's own range outside the confined region,
-    so ``B_phi`` there is the vacuum-like continuation rather than a
-    reconstruction. The psi spline extrapolates beyond the grid; callers
-    should not read the field outside it.
+    Outside the confined region the poloidal current function clips to its
+    nearest edge value, the clip-and-interpolate convention
+    :func:`psi_to_rz` uses, so the toroidal field there is that clipped
+    function over the major radius rather than the true vacuum field. The
+    spline extrapolates beyond the grid, where the field should not be read.
 
     Provenance
     ----------
-    Sauter and Medvedev, Comput. Phys. Commun. 184 (2013) 293, Eq. 20, for the
-    poloidal-field prefactor. The routine is the vectorised twin of
-    :func:`make_equilibrium_field_interpolator` in this module and is pinned
-    to it by test.
+    .. [1] Sauter and Medvedev (2013), Eq. 20, for the prefactor.
+    .. [2] The point-wise twin :func:`make_equilibrium_field_interpolator` in
+       this module, which this routine is pinned to by test.
     """
     from vaft.formula.equilibrium import poloidal_field_factor
 
