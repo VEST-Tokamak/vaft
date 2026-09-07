@@ -61,6 +61,7 @@ from uncertainties import unumpy
 
 import vaft
 from vaft.formula import fit_profile
+from vaft.formula.utils import _initial_eped_tanh_guess
 
 
 __all__ = [
@@ -70,6 +71,9 @@ __all__ = [
     "LEGACY_COORDINATE",
     "MappedPositions",
     "NE_DYNAMIC_RANGE_MAX",
+    "PEDESTAL_FALLBACK_PSI_NORM",
+    "PEDESTAL_RESOLUTION_FACTOR",
+    "PedestalTop",
     "PHYSICAL_EDGE_MAX",
     "PHYSICAL_PSIN_MAX",
     "TE_POSITIVE_EDGE_MAX",
@@ -81,6 +85,7 @@ __all__ = [
     "equilibrium_mapping_thomson_scattering",
     "export_electron_profile_txt",
     "fit_ti_te_ratio",
+    "pedestal_top",
     "profile_fitting_charge_exchange",
     "profile_fitting_thomson_scattering",
 ]
@@ -2281,3 +2286,225 @@ def export_electron_profile_txt(
         f.write(f'{label}, T_e [eV], n_e [m-3]\n')
         for rho, T_e, n_e in zip(rho_eval, T_e_rho, n_e_rho):
             f.write(f'{rho}, {T_e}, {n_e}\n')
+
+
+#: Pedestal top used when a profile cannot support a fit (decision D-05).
+#: A stated fallback, not a canonical boundary: the legacy code base carried
+#: at least six different fixed windows, which is what made region metrics
+#: incomparable between studies.
+PEDESTAL_FALLBACK_PSI_NORM = 0.85
+
+#: How far the fitted curve must rise above the residual scatter before a
+#: pedestal counts as resolved.  Measured on a pure-noise profile the ratio is
+#: about 1.3 and on a real pedestal a few hundred, so the exact value is not
+#: delicate; three is comfortably between them.
+PEDESTAL_RESOLUTION_FACTOR = 3.0
+
+
+@dataclass(frozen=True)
+class PedestalTop:
+    """Where the pedestal top is, and how that was decided.
+
+    ``method`` is ``"eped_fit"`` or ``"fallback"``; ``reason`` says why the
+    fallback was taken and is empty otherwise.  Carrying both is the point:
+    a region reduction that does not record which one produced its boundary
+    cannot be compared with another study's.
+    """
+
+    position: float
+    method: str
+    quantity: str
+    coordinate: str
+    width: float | None = None
+    fit: "FittedProfile | None" = None
+    reason: str = ""
+
+    @property
+    def from_fit(self) -> bool:
+        """Whether a pedestal was actually resolved, rather than assumed."""
+        return self.method == "eped_fit"
+
+
+def pedestal_top(
+    x,
+    values,
+    *,
+    quantity,
+    value_std=None,
+    coordinate=LEGACY_COORDINATE,
+    fallback=PEDESTAL_FALLBACK_PSI_NORM,
+    window=(0.4, 1.05),
+    min_points=12,
+):
+    """Pedestal-top position of a profile, from an EPED-style fit.
+
+    Fits the seven-parameter pedestal model
+    (:func:`vaft.formula.fit_profile` with ``fitting_function='eped_tanh'``)
+    over ``window`` and reports its ``x_ped``.  When the profile cannot
+    support that fit the documented fallback is returned instead, with the
+    reason recorded -- never silently.
+
+    Parameters
+    ----------
+    x : array_like
+        Radial coordinate of the profile, in ``coordinate`` [-].
+    values : array_like
+        Profile samples; any quantity with a pedestal [any].
+    quantity : str
+        What ``values`` is, recorded on the result.  Required: EPED defines
+        the pedestal from total pressure, and a fit to a density or a
+        temperature puts the top somewhere else, so the caller must say which
+        one this boundary came from [n/a].
+    value_std : array_like, optional
+        Per-sample uncertainty, passed to the fit as weights [any].
+    coordinate : str, optional
+        Which radial coordinate ``x`` is, one of :data:`COORDINATES` [n/a].
+    fallback : float, optional
+        Position returned when the fit is not usable [-].
+    window : tuple of float, optional
+        ``(low, high)`` slice of ``x`` the fit sees; the core is excluded
+        because the model's core term is only a shape, not a physical
+        description [-].
+    min_points : int, optional
+        Fewest samples inside ``window`` that can support seven parameters [-].
+
+    Returns
+    -------
+    PedestalTop
+        Position, the method that produced it, and the fit when there was one [-].
+
+    Raises
+    ------
+    ValueError
+        ``x`` and ``values`` differ in length, or ``coordinate`` is not one of
+        :data:`COORDINATES`.
+
+    Processing steps
+    ----------------
+    1. Restrict to ``window`` and drop non-finite samples.
+    2. Fit ``eped_tanh`` there, weighted by ``value_std`` when given.
+    3. Accept ``x_ped`` unless the fit is unusable -- too few points, a fit
+       that did not converge, ``x_ped`` resting on a bound of the model's box,
+       or a fitted curve that does not vary across the window by
+       :data:`PEDESTAL_RESOLUTION_FACTOR` times the residual scatter, which
+       means no pedestal was resolved.
+    4. Otherwise return ``fallback`` and say which of those it was.
+
+    Defaults
+    --------
+    ``fallback = 0.85`` is a validated-workflow default: the value decision
+    D-05 names when profiles are missing or the fit is unreliable, chosen from
+    the legacy windows rather than derived.  ``window = (0.4, 1.05)`` and
+    ``min_points = 12`` are numerical convenience -- enough of the edge to
+    resolve a pedestal, and more samples than the model has parameters.
+    :data:`PEDESTAL_RESOLUTION_FACTOR` is an empirical estimate: the measured
+    separation between a pure-noise fit and a real one.
+
+    Convention
+    ----------
+    The position is in ``coordinate``, which defaults to ``psi_norm`` because
+    that is what kinetic-profile files carry; a caller working in
+    ``rho_tor_norm`` must say so, and the value is *not* converted.  ``x_ped``
+    is the tanh's centre, i.e. the mid-point of the pedestal, not its knee.
+
+    Applicability
+    -------------
+    Machine-independent.  Any profile with a pedestal, from any source: a
+    kinetic-profile file, a fitted diagnostic profile, or a transport code.
+    It takes arrays rather than an ODS so that a caller holding only a file
+    can use it.
+
+    Limitations
+    -----------
+    An L-mode profile has no pedestal to find and will take the fallback;
+    that is the intended answer, not a failure.  The fit is unweighted in
+    ``x``, so a grid that is much denser in the core than the edge biases it.
+
+    Provenance
+    ----------
+    .. [D05] Migration decision D-05 (2026-09-06): no fixed canonical pedestal
+       boundary; pedestal top from an EPED-style profile fit when profiles are
+       available, fallback 0.85 otherwise, and every reduction records which
+       method produced it.
+    .. [EPED] The seven-parameter model and its parameter box are ported from
+       the pedestal-fitting study in ``hsyun_GPEC``
+       (``sample/transp_example/pedestal_fitting.ipynb``).  The older
+       ``kinetic_analysis.ped_fitting`` modified tanh is deliberately not
+       carried over: its slope term multiplies across the whole domain and so
+       diverges, and its parameter bounds invert for a profile whose edge
+       value is negative.
+    """
+    if coordinate not in COORDINATES:
+        raise ValueError(f"coordinate must be one of {COORDINATES}, got {coordinate!r}")
+    x = np.asarray(x, dtype=float).ravel()
+    values = np.asarray(values, dtype=float).ravel()
+    if x.shape != values.shape:
+        raise ValueError(
+            f"x and values must have the same length, got {x.size} and {values.size}"
+        )
+
+    def _fallback(reason):
+        return PedestalTop(
+            position=float(fallback),
+            method="fallback",
+            quantity=quantity,
+            coordinate=coordinate,
+            reason=reason,
+        )
+
+    low, high = window
+    selected = np.isfinite(x) & np.isfinite(values) & (x >= low) & (x <= high)
+    if int(np.count_nonzero(selected)) < min_points:
+        return _fallback(
+            f"{int(np.count_nonzero(selected))} finite samples in {window}, "
+            f"fewer than min_points={min_points}"
+        )
+
+    x_fit, y_fit = x[selected], values[selected]
+    std_fit = None
+    if value_std is not None:
+        std_fit = np.asarray(value_std, dtype=float).ravel()[selected]
+
+    try:
+        fitted, _, function, coefficients = fit_profile(
+            x_fit, y_fit, std_fit, x_fit, fitting_function="eped_tanh"
+        )
+    except (RuntimeError, ValueError) as error:
+        return _fallback(f"eped_tanh fit did not converge: {error}")
+
+    x_ped, width = float(coefficients[3]), float(coefficients[4])
+    _, lower, upper = _initial_eped_tanh_guess(x_fit, y_fit)
+    for index, name in ((3, "x_ped"), (4, "width")):
+        span = upper[index] - lower[index]
+        if min(coefficients[index] - lower[index], upper[index] - coefficients[index]) <= 1e-3 * span:
+            return _fallback(f"{name} rests on a bound of the model's parameter box")
+
+    # How much the fitted curve actually varies where the data is -- not
+    # ``f_ped - f_sep``, which is the tanh's asymptotic amplitude and can be
+    # several times what the model says inside the window when the fit comes
+    # back wide and shallow.  On pure noise the two differ by a factor of
+    # three, and it is the parameter difference that looks like a pedestal.
+    variation = float(np.ptp(fitted))
+    residual = float(np.sqrt(np.mean((y_fit - fitted) ** 2)))
+    if variation <= PEDESTAL_RESOLUTION_FACTOR * residual:
+        return _fallback(
+            f"the fitted curve varies by {variation:.4g} across the window, not "
+            f"{PEDESTAL_RESOLUTION_FACTOR}x the residual scatter {residual:.4g}: "
+            "no pedestal resolved"
+        )
+
+    return PedestalTop(
+        position=x_ped,
+        method="eped_fit",
+        quantity=quantity,
+        coordinate=coordinate,
+        width=width,
+        fit=FittedProfile(
+            function=function,
+            coordinate=coordinate,
+            method="eped_tanh",
+            order=None,
+            coefficients=coefficients,
+            span=(float(x_fit.min()), float(x_fit.max())),
+        ),
+    )

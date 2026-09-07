@@ -320,6 +320,60 @@ def _core_poly_edge_exp_model(x, x0, w, *coeffs):
     return blend
 
 
+def _eped_tanh_model(x, f0, f_ped, f_sep, x_ped, width, alpha, beta):
+    """EPED-style profile: a tanh pedestal plus a core shape anchored at ``f0``.
+
+    The pedestal is ``f_sep + (f_ped - f_sep)/2 * (1 - tanh((x - x_ped)/width))``.
+    Inside ``x_ped`` a ``(1 - (x/x_ped)^alpha)^beta`` term lifts the curve from
+    the tanh's own value at the axis to ``f0``, so the core is shaped
+    independently of the pedestal and the two meet continuously at ``x_ped``.
+
+    Unlike the modified tanh it replaces, the core correction is *gated* to
+    ``x <= x_ped``: a term that multiplies the slope across the whole domain
+    diverges at large ``|x - x_ped|``, which is why the legacy fit had to bound
+    its slope parameter to keep the divergence off-screen.
+    """
+    x = np.asarray(x, dtype=float)
+    if width == 0:
+        width = 1e-6
+    pedestal = f_sep + 0.5 * (f_ped - f_sep) * (1.0 - np.tanh((x - x_ped) / width))
+    axis_pedestal = f_sep + 0.5 * (f_ped - f_sep) * (1.0 + np.tanh(x_ped / width))
+
+    core = np.zeros_like(x)
+    inside = x <= x_ped
+    if np.any(inside) and x_ped > 0:
+        scaled = np.clip(x[inside] / x_ped, 0.0, 1.0)
+        core[inside] = np.power(np.clip(1.0 - np.power(scaled, alpha), 0.0, None), beta)
+    return pedestal + core * (f0 - axis_pedestal)
+
+
+def _initial_eped_tanh_guess(x, y):
+    """``(p0, lower, upper)`` for :func:`_eped_tanh_model`.
+
+    The percentile seeds and the ``x_ped in [0.75, 0.999]`` /
+    ``width in [0.01, 0.3]`` box come from the pedestal-fitting study this
+    model is ported from; they keep the fit inside the region where a pedestal
+    is physically meaningful rather than letting it chase a core feature.
+    """
+    x = np.asarray(x, float).ravel()
+    y = np.asarray(y, float).ravel()
+    peak = float(np.nanmax(y)) if y.size else 1.0
+    scale = 5.0 * max(abs(peak), 1e-12)
+    p0 = [
+        peak,
+        float(np.nanpercentile(y, 80)) if y.size else peak,
+        float(np.nanpercentile(y, 5)) if y.size else 0.0,
+        0.94,
+        0.04,
+        1.5,
+        2.0,
+    ]
+    lower = [-scale, -scale, -scale, 0.75, 0.01, 0.2, 0.2]
+    upper = [scale, scale, scale, 0.999, 0.3, 8.0, 8.0]
+    p0 = [min(max(value, low), high) for value, low, high in zip(p0, lower, upper)]
+    return p0, lower, upper
+
+
 def _initial_core_poly_edge_exp_guess(x, y, order):
     """
     Initial guess helper for core_poly_edge_exp fit.
@@ -382,7 +436,10 @@ def fit_profile(
         Model name, default ``'polynomial'`` [str].
         One of ``'gp'``, ``'polynomial'``, ``'free_polynomial'``,
         ``'exponential'``, ``'free_exponential'``, ``'linear'``,
-        ``'core_poly_edge_exp'``, ``'sqrt'``, ``'sqrt_exponential'``.
+        ``'core_poly_edge_exp'``, ``'eped_tanh'``, ``'sqrt'``,
+        ``'sqrt_exponential'``.  ``'eped_tanh'`` fits the seven-parameter
+        pedestal model ``(f0, f_ped, f_sep, x_ped, width, alpha, beta)`` and is
+        what :func:`vaft.process.profile.pedestal_top` uses.
     gp_kernel : sklearn kernel or None, optional
         Kernel for the GP mode; default constant times RBF [n/a].
     gp_anchor : tuple or None, optional
@@ -561,6 +618,22 @@ def fit_profile(
         coeffs = coeffs2
         return y_eval, y_std_eval, fit_function, coeffs
 
+
+    if fitting_function.lower() in {'eped_tanh', 'eped'}:
+        p0, lower, upper = _initial_eped_tanh_guess(x, y)
+        kwargs = {"p0": p0, "bounds": (lower, upper), "max_nfev": 20000}
+        if uncertainty_option == 1 and y_std is not None:
+            coeffs, _ = curve_fit(
+                _eped_tanh_model, x.ravel(), y, sigma=y_std, absolute_sigma=True, **kwargs
+            )
+        else:
+            coeffs, _ = curve_fit(_eped_tanh_model, x.ravel(), y, **kwargs)
+
+        def fit_function(x_input):
+            return _eped_tanh_model(np.asarray(x_input, float), *coeffs)
+
+        y_eval = fit_function(x_eval)
+        return y_eval, np.zeros_like(y_eval), fit_function, coeffs
 
     if fitting_function.lower() in {'core_poly_edge_exp', 'core_poly_edge_exponential'}:
         p0 = _initial_core_poly_edge_exp_guess(x, y, order)

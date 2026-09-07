@@ -156,6 +156,7 @@ Here too the velocity function comes back before the temperature function.
 | `sqrt` / `sqrt_poly` | fits $P_n$ to $y^2$, returns $\sqrt{P_n}$ |
 | `sqrt_exp` | same square-space trick with an exponential basis |
 | `core_poly_edge_exp` | core polynomial blended into an edge exponential via a $\tanh$ transition |
+| `eped_tanh` | EPED-style pedestal: a $\tanh$ pedestal plus a gated core shape — see [Pedestal top](#pedestal-top) |
 | `gp` | Gaussian process regression (scikit-learn), with optional anchor points |
 | `linear` | 1D interpolation through the data — no smoothing |
 
@@ -185,6 +186,35 @@ It returns the profile on `x_eval`, its standard deviation (zeros for methods th
 estimate), a callable, and the coefficients. `vaft.formula.make_fit_function(mode)` builds the bare
 `polynomial` / `exponential` basis function if you want to fit it yourself. See
 [Physics formulas]({{ site.baseurl }}/guide/Formula/) for the rest of the formula namespace.
+
+## Pedestal top
+
+Region reductions — core versus edge, pedestal metrics — need a boundary, and a *fixed* one makes
+results from different studies incomparable. `vaft.process.profile.pedestal_top` finds it from the
+profile instead, and records how:
+
+```python
+from vaft.process.profile import pedestal_top
+
+top = pedestal_top(psi_norm, p_total, quantity="p_total")
+top.position   # 0.9134
+top.method     # "eped_fit", or "fallback"
+top.reason     # why the fallback was taken; empty when it was not
+top.fit        # the FittedProfile behind it, or None
+```
+
+It takes arrays rather than an ODS, so it works on a profile from a kinetic-profile file just as well
+as on a fitted diagnostic one. `quantity` is required and is not defaulted: EPED defines the pedestal
+from total pressure, and a fit to a density or a temperature puts the top somewhere else — on one
+MAST-U profile, $n_e$ gives 0.949, $T_e$ 0.953 and $p_e$ 0.913. The result carries which quantity it
+came from so that a downstream reduction cannot lose it.
+
+The fallback is `PEDESTAL_FALLBACK_PSI_NORM = 0.85`, and it fires when there is nothing to fit: too
+few points in the window, a fit that did not converge, a fitted `x_ped` resting on a bound, or a
+fitted curve that does not vary across the window by `PEDESTAL_RESOLUTION_FACTOR` times the residual
+scatter. That last one is the interesting case — the model's `f_ped - f_sep` is the $\tanh$'s
+*asymptotic* amplitude, which a wide, shallow fit through noise can make look large while the curve
+it actually draws is almost flat. The test is on the curve, not the parameters.
 
 ## Writing `core_profiles`
 

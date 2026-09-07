@@ -79,6 +79,8 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # profile (V4/D-05): window, fit, accept-or-fall-back
+    "pedestal_top",
     # magnetics / electromagnetics / fluctuation (#418)
     "analyze_fluctuation_spectrum",
     "b_field_pol_probe_field",
@@ -181,6 +183,9 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # profile (V4/D-05): the position is in the declared radial coordinate
+    # and is never converted
+    "pedestal_top",
     # magnetics / electromagnetics / fluctuation (#418): integration sign,
     # shot-era baselines, per-unit-current responses, and the two mode-number
     # entry points that disagree on the sign of n (#638)
