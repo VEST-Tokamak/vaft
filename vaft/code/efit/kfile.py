@@ -869,8 +869,14 @@ def generate_kfile(
         }
         ivesel, ifitvs = passive_flags[constraint_config.passive_structure_mode]
         f.write(f" IFITVS = {ifitvs}\n")
-        # f.write(' ERRMIN = 1.0e-3\n') # Minimum relative error for the fitting (Default is 1.0e-2 - fitted < 1 min, if 1.0e-3 - fitted < 3 min)
-        # f.write(' SAICON = 60.0\n') # Minimum chi2 error for the fitting (Default is 80.0)
+        # The settings a VEST fit actually terminates on (issue #171). Nothing
+        # is written unless the configuration sets it, so the routine k-file is
+        # unchanged and EFIT's own defaults still apply -- ERRMIN 1e-2, two
+        # orders looser than the ERROR written below, and SAICON 80, which the
+        # flat-top passes on the way down. Which is why the fit stops on
+        # chi-square at eleven iterations having never reached ERROR.
+        for key, value in numerics.termination_keys().items():
+            f.write(f" {key} = {value}\n")
         f.write(INPUT_DIR)
         f.write(f" IVESEL = {ivesel}\n")
         f.write(" KCALPA = 0\n")

@@ -1,0 +1,363 @@
+{
+ "built_at": "2026-09-07T03:03:24+00:00",
+ "schema_version": 1,
+ "shots": [
+  {
+   "arms": [
+    "kinetic",
+    "magnetics"
+   ],
+   "equilibrium_reference": [
+    "efit/a039915.00319",
+    "efit/g039915.00319",
+    "efit/g039915.00317"
+   ],
+   "files": {
+    "equilibrium_reference": [
+     {
+      "bytes": 3983,
+      "exists": true,
+      "path": "efit/a039915.00319"
+     },
+     {
+      "bytes": 301723,
+      "exists": true,
+      "path": "efit/g039915.00319"
+     },
+     {
+      "bytes": 305308,
+      "exists": true,
+      "path": "efit/g039915.00317"
+     }
+    ],
+    "kinetic_ods": null,
+    "product": {
+     "bytes": 36676088,
+     "exists": true,
+     "path": "samples/39915/source/pipeline-until-efit.json.gz"
+    },
+    "thomson_mat": {
+     "bytes": 8298,
+     "exists": true,
+     "path": "legacy/NeTe_Shot39915_v9_rev.mat"
+    }
+   },
+   "kinetic_ods": null,
+   "kinetic_ods_contents": {
+    "available": false,
+    "reason": "no kinetic ODS is packaged for this shot"
+   },
+   "magnetics": {
+    "available": true,
+    "condemned": [
+     "b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz"
+    ],
+    "min_usable_fraction": 0.9733333333333334,
+    "reasons": [
+     "1 channel(s) rejected at some slice: b_field_pol_probe[25]",
+     "missing: b_field_pol_probe[0]"
+    ],
+    "slices": 26,
+    "verdict": "degraded",
+    "window": [
+     0.30631999999998205,
+     0.33079999999997256
+    ]
+   },
+   "notes": [
+    "the only packaged shot with both arms; the stored 2023 reconstruction is the reference every local run is compared against (#119)",
+    "its magnetics hold their last value from 0.340 s, outside the routine window"
+   ],
+   "product": "samples/39915/source/pipeline-until-efit.json.gz",
+   "role": "dual-arm anchor: magnetics assessed and independent kinetic data inside the EFIT window",
+   "shot": 39915,
+   "thomson": {
+    "available": true,
+    "channels": 5,
+    "overlaps_window": true,
+    "radii": [
+     0.475,
+     0.425,
+     0.37,
+     0.31,
+     0.255
+    ],
+    "samples": 10,
+    "samples_in_window": 10,
+    "source": "legacy/NeTe_Shot39915_v9_rev.mat",
+    "times": [
+     0.308,
+     0.317
+    ],
+    "window": [
+     0.30631999999998205,
+     0.33079999999997256
+    ]
+   },
+   "thomson_mat": "legacy/NeTe_Shot39915_v9_rev.mat"
+  },
+  {
+   "arms": [
+    "magnetics"
+   ],
+   "equilibrium_reference": [],
+   "files": {
+    "equilibrium_reference": [],
+    "kinetic_ods": null,
+    "product": {
+     "bytes": 35984160,
+     "exists": true,
+     "path": "samples/41524/source/pipeline-until-efit.json.gz"
+    },
+    "thomson_mat": null
+   },
+   "kinetic_ods": null,
+   "kinetic_ods_contents": {
+    "available": false,
+    "reason": "no kinetic ODS is packaged for this shot"
+   },
+   "magnetics": {
+    "available": true,
+    "condemned": [
+     "b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz",
+     "b_field_pol_probe[37] MagneticFieldProbe_C3-01_Bz",
+     "b_field_pol_probe[41] MagneticFieldProbe_C3-05_Bz"
+    ],
+    "min_usable_fraction": 0.9466666666666667,
+    "reasons": [
+     "3 channel(s) rejected at some slice: b_field_pol_probe[25], b_field_pol_probe[37], b_field_pol_probe[41]",
+     "missing: b_field_pol_probe[0]"
+    ],
+    "slices": 22,
+    "verdict": "degraded",
+    "window": [
+     0.31455999999997886,
+     0.3364399999999704
+    ]
+   },
+   "notes": [
+    "no kinetic data is packaged for this shot"
+   ],
+   "product": "samples/41524/source/pipeline-until-efit.json.gz",
+   "role": "magnetics variation: three condemned probes, a later and shorter window",
+   "shot": 41524,
+   "thomson": {
+    "available": false,
+    "reason": "no Thomson file is packaged for this shot"
+   },
+   "thomson_mat": null
+  },
+  {
+   "arms": [
+    "magnetics"
+   ],
+   "equilibrium_reference": [],
+   "files": {
+    "equilibrium_reference": [],
+    "kinetic_ods": null,
+    "product": {
+     "bytes": 38909012,
+     "exists": true,
+     "path": "samples/41672/source/pipeline-until-efit.json.gz"
+    },
+    "thomson_mat": null
+   },
+   "kinetic_ods": null,
+   "kinetic_ods_contents": {
+    "available": false,
+    "reason": "no kinetic ODS is packaged for this shot"
+   },
+   "magnetics": {
+    "available": true,
+    "condemned": [
+     "b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz",
+     "b_field_pol_probe[32] MagneticFieldProbe_C1-01_Bz",
+     "b_field_pol_probe[37] MagneticFieldProbe_C3-01_Bz",
+     "b_field_pol_probe[38] MagneticFieldProbe_C3-02_Bz",
+     "b_field_pol_probe[41] MagneticFieldProbe_C3-05_Bz",
+     "b_field_pol_probe[43] MagneticFieldProbe_C4-02_Bz"
+    ],
+    "min_usable_fraction": 0.9066666666666666,
+    "reasons": [
+     "6 channel(s) rejected at some slice: b_field_pol_probe[25], b_field_pol_probe[32], b_field_pol_probe[37], b_field_pol_probe[38], b_field_pol_probe[41], b_field_pol_probe[43]",
+     "missing: b_field_pol_probe[0]"
+    ],
+    "slices": 41,
+    "verdict": "degraded",
+    "window": [
+     0.31219999999997977,
+     0.35171999999996445
+    ]
+   },
+   "notes": [
+    "no kinetic data is packaged for this shot"
+   ],
+   "product": "samples/41672/source/pipeline-until-efit.json.gz",
+   "role": "magnetics variation: six condemned probes, the longest window of the three",
+   "shot": 41672,
+   "thomson": {
+    "available": false,
+    "reason": "no Thomson file is packaged for this shot"
+   },
+   "thomson_mat": null
+  },
+  {
+   "arms": [
+    "kinetic"
+   ],
+   "equilibrium_reference": [
+    "kineticEfit/g048224.00300",
+    "kineticEfit/g048224.00300.kinetic_efit",
+    "kineticEfit/g048224.00300.chease"
+   ],
+   "files": {
+    "equilibrium_reference": [
+     {
+      "bytes": 306066,
+      "exists": true,
+      "path": "kineticEfit/g048224.00300"
+     },
+     {
+      "bytes": 306066,
+      "exists": true,
+      "path": "kineticEfit/g048224.00300.kinetic_efit"
+     },
+     {
+      "bytes": 4317087,
+      "exists": true,
+      "path": "kineticEfit/g048224.00300.chease"
+     }
+    ],
+    "kinetic_ods": {
+     "bytes": 2004254,
+     "exists": true,
+     "path": "kineticEfit/ods_48224_300ms.json"
+    },
+    "product": null,
+    "thomson_mat": {
+     "bytes": 2325,
+     "exists": true,
+     "path": "kineticEfit/NeTe_48224.mat"
+    }
+   },
+   "kinetic_ods": "kineticEfit/ods_48224_300ms.json",
+   "kinetic_ods_contents": {
+    "available": true,
+    "charge_exchange_channels": 40,
+    "core_profiles": {
+     "fitted_points": 129,
+     "measured_points": 7
+    },
+    "equilibrium_times": [
+     0.3
+    ],
+    "ids": [
+     "charge_exchange",
+     "core_profiles",
+     "dataset_description",
+     "equilibrium",
+     "thomson_scattering",
+     "wall"
+    ],
+    "source": "kineticEfit/ods_48224_300ms.json",
+    "thomson_channels": 7
+   },
+   "magnetics": {
+    "available": false,
+    "reason": "no pre-EFIT product is packaged, so the magnetics cannot be assessed"
+   },
+   "notes": [
+    "no magnetics are packaged, so its input quality cannot be assessed offline and its reconstruction cannot be rebuilt from constraints here",
+    "issue #317: the packaged kinetic ODS is not trustworthy within psi_N < 0.05 -- an unphysical near-axis dvolume_dpsi ramp traceable to a q[0] outlier"
+   ],
+   "product": null,
+   "role": "kinetic cross-check: Thomson, charge exchange and fitted profiles with a kinetic-EFIT reference",
+   "shot": 48224,
+   "thomson": {
+    "available": true,
+    "channels": 7,
+    "radii": [
+     0.475,
+     0.425,
+     0.37,
+     0.31,
+     0.255,
+     0.475,
+     0.65
+    ],
+    "samples": 10,
+    "source": "kineticEfit/NeTe_48224.mat",
+    "times": [
+     0.298,
+     0.307
+    ]
+   },
+   "thomson_mat": "kineticEfit/NeTe_48224.mat"
+  },
+  {
+   "arms": [
+    "kinetic"
+   ],
+   "equilibrium_reference": [],
+   "files": {
+    "equilibrium_reference": [],
+    "kinetic_ods": null,
+    "product": null,
+    "thomson_mat": {
+     "bytes": 1787,
+     "exists": true,
+     "path": "legacy/46051_NeTe.mat"
+    }
+   },
+   "kinetic_ods": null,
+   "kinetic_ods_contents": {
+    "available": false,
+    "reason": "no kinetic ODS is packaged for this shot"
+   },
+   "magnetics": {
+    "available": false,
+    "reason": "no pre-EFIT product is packaged, so the magnetics cannot be assessed"
+   },
+   "notes": [
+    "held in the set so a second kinetic case exists if 48224's near-axis defect blocks a study"
+   ],
+   "product": null,
+   "role": "spare kinetic candidate: Thomson only, no equilibrium or magnetics packaged",
+   "shot": 46051,
+   "thomson": {
+    "available": true,
+    "channels": 5,
+    "radii": [
+     0.475,
+     0.425,
+     0.37,
+     0.31,
+     0.255
+    ],
+    "samples": 10,
+    "source": "legacy/46051_NeTe.mat",
+    "times": [
+     0.3,
+     0.309
+    ]
+   },
+   "thomson_mat": "legacy/46051_NeTe.mat"
+  }
+ ],
+ "summary": {
+  "both_arms": [
+   39915
+  ],
+  "kinetic_only": [
+   48224,
+   46051
+  ],
+  "magnetics_only": [
+   41524,
+   41672
+  ],
+  "missing_files": [],
+  "no_arm": [],
+  "shots": 5
+ }
+}

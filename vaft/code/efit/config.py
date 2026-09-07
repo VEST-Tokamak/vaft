@@ -104,12 +104,35 @@ class EFITInitializationConfig:
 
 @dataclass(frozen=True)
 class EFITNumericsConfig:
-    """Convergence, relaxation, and iteration controls."""
+    """Convergence, relaxation, and iteration controls.
+
+    The four settings VEST actually stops on were, until issue #171, not
+    expressible here at all: ``ERRMIN``, ``SAICON``, ``ICONVR`` and ``NXITER``
+    were left to EFIT's own defaults, one of them behind a commented-out line
+    in the writer.  That is why a VEST fit terminates on the chi-square
+    criterion after eleven iterations while the ``ERROR`` written beside it
+    asks for 1e-5 and is never reached.
+
+    They are ``None`` by default and a ``None`` writes no key, so the emitted
+    k-file is byte-identical to before and EFIT's default still applies.  A
+    study sets them explicitly; nothing infers them.
+    """
 
     relaxation: float = 1.0
     error_tolerance: float = 1.0e-5
     measurement_error_floor: float = 5.0e-4
     max_iterations: int = 100
+    #: ``ERRMIN``: the relative-error floor the fit must reach. EFIT's default
+    #: is 1e-2, two orders looser than the ``ERROR`` VEST writes.
+    error_minimum: float | None = None
+    #: ``SAICON``: the chi-square the fit is allowed to stop at. EFIT's
+    #: default is 80, which VEST's flat-top passes on the way down.
+    chi_squared_target: float | None = None
+    #: ``ICONVR``: which criterion terminates the outer loop. VEST runs 2
+    #: (chi-square) by not writing the key at all.
+    convergence_mode: int | None = None
+    #: ``NXITER``: the inner equilibrium iteration count per outer step.
+    inner_iterations: int | None = None
 
     def __post_init__(self) -> None:
         _require_finite("relaxation", self.relaxation, positive=True)
@@ -124,6 +147,35 @@ class EFITNumericsConfig:
         ):
             raise ValueError("max_iterations must be a positive integer")
         object.__setattr__(self, "max_iterations", int(self.max_iterations))
+        for name in ("error_minimum", "chi_squared_target"):
+            value = getattr(self, name)
+            if value is not None:
+                _require_finite(name, value, positive=True)
+                object.__setattr__(self, name, float(value))
+        for name in ("convergence_mode", "inner_iterations"):
+            value = getattr(self, name)
+            if value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer or None")
+            object.__setattr__(self, name, int(value))
+
+    def termination_keys(self) -> dict[str, Any]:
+        """The ``&IN1`` keys this configuration adds, in namelist spelling.
+
+        Empty when every optional setting is ``None``, which is the routine
+        case and the reason the k-file is unchanged by this addition.
+        """
+        keys: dict[str, Any] = {}
+        if self.error_minimum is not None:
+            keys["ERRMIN"] = self.error_minimum
+        if self.chi_squared_target is not None:
+            keys["SAICON"] = self.chi_squared_target
+        if self.convergence_mode is not None:
+            keys["ICONVR"] = self.convergence_mode
+        if self.inner_iterations is not None:
+            keys["NXITER"] = self.inner_iterations
+        return keys
 
 
 @dataclass(frozen=True)

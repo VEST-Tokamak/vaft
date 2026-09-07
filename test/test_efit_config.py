@@ -60,6 +60,59 @@ def _kfile_text(tmp_path, scientific=None):
     return next((tmp_path / "kfile").iterdir()).read_text(encoding="utf-8")
 
 
+
+def test_the_termination_settings_are_absent_until_a_study_sets_them(tmp_path):
+    """Issue #171: the four settings a VEST fit stops on are now expressible.
+
+    Absent by default, so the routine k-file is unchanged and EFIT's own
+    defaults still apply -- which is exactly the situation #171 exists to
+    characterize, and it must stay reproducible while it is characterized.
+    """
+    routine = _kfile_text(tmp_path, EFITScientificConfig())
+    for key in ("ERRMIN", "SAICON", "ICONVR", "NXITER"):
+        assert f" {key} " not in routine
+
+    tuned = _kfile_text(
+        tmp_path,
+        EFITScientificConfig(
+            numerics=EFITNumericsConfig(
+                error_minimum=1.0e-3,
+                chi_squared_target=60.0,
+                convergence_mode=1,
+                inner_iterations=20,
+            )
+        ),
+    )
+    added = [line for line in tuned.splitlines() if line not in routine.splitlines()]
+    assert sorted(line.split("=")[0].strip() for line in added) == [
+        "ERRMIN",
+        "ICONVR",
+        "NXITER",
+        "SAICON",
+    ]
+    assert " ERRMIN = 0.001" in tuned and " SAICON = 60.0" in tuned
+
+    # The scientific hash must move with them, or a scan would record two
+    # different configurations under one identity.
+    assert EFITScientificConfig().sha256 != EFITScientificConfig(
+        numerics=EFITNumericsConfig(chi_squared_target=60.0)
+    ).sha256
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"error_minimum": 0.0},
+        {"chi_squared_target": -1.0},
+        {"convergence_mode": 0},
+        {"inner_iterations": True},
+    ],
+)
+def test_the_termination_settings_refuse_values_efit_cannot_use(bad):
+    with pytest.raises(ValueError):
+        EFITNumericsConfig(**bad)
+
+
 def test_routine_defaults_preserve_documented_kfile_semantics(tmp_path):
     text = _kfile_text(tmp_path, EFITScientificConfig())
 
