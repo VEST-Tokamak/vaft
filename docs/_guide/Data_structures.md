@@ -416,7 +416,8 @@ per-slice parser cache is not representable as an XML parameters string.
 | You write | Reaches an entry | Comes back as |
 |---|---|---|
 | a JSON string | the same string | the same string, byte for byte |
-| an XML string | the same string | a parsed `CodeParameters` tree |
+| an XML string, one fragment | the same string | a parsed `CodeParameters` tree |
+| an XML string, several fragments | the same string | the same string |
 | a flat leaf-only block | an XML string, after promotion | a `CodeParameters` tree |
 | a nested block | **nothing** | absent |
 | a nested block **and a flat leaf beside it** | **nothing** — both | absent |
@@ -426,11 +427,14 @@ table stays true rather than being a claim about a version of OMAS somebody once
 
 Two consequences are worth stating on their own.
 
-**The round trip is not symmetric.** An XML string comes back as a tree, because the loader parses
-anything XML-shaped. A consumer that runs `ET.fromstring` or a regular expression over this field
-works on a freshly mapped ODS and silently finds nothing on one loaded from an entry —
-`vaft.plot.backend.convention` handles both forms deliberately, and code that reads this field
-should do the same.
+**The round trip is not symmetric, and which form you get depends on the document.** The loader
+parses anything XML-shaped, so a one-fragment envelope comes back as a tree — where attribute keys
+carry an `@` prefix and no regular expression over the string will find them. Two fragments do not:
+OMAS's decoder cannot represent repeated sibling elements, raises internally, and leaves the string
+alone. A single-module `mhd_linear` shot therefore returns a tree and a multi-module one returns the
+string, from the same field of the same IDS. A consumer must accept both forms whatever it knows
+about the producer; `vaft.plot.backend.recipes._mhd_linear_radial_stride` and
+`vaft.plot.backend.convention` both do, and say why.
 
 **Values inside the envelope are reinterpreted.** `CodeParameters.from_string` runs every text node
 through `ast.literal_eval`, so the EFIT case label `"039915.00316"` returns as the float

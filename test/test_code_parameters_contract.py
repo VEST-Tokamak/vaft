@@ -145,11 +145,36 @@ def test_an_xml_string_survives_but_comes_back_a_tree(tmp_path):
     accepted, value = _through_the_product_leg(tmp_path, _product(**{"": MHD_LINEAR_XML}))
 
     assert accepted == [(IDS, "code", "parameters")]
-    assert not isinstance(value, str)
+    assert not isinstance(value, str)  # one fragment; see the several-fragment case below
     assert isinstance(value, CodeParameters)
     # The content is all there; only its form changed.  Attributes carry an
     # `@` prefix, which is the shape a consumer must accept after a load.
     assert value["solver"]["@name"] == "dcon"
+
+
+def test_an_envelope_of_several_fragments_comes_back_a_string(tmp_path):
+    """Which of the two forms you get depends on the document, not on the field.
+
+    omas decodes the envelope with a parser that cannot represent repeated
+    sibling elements: two `<solver>` fragments make it raise internally, and it
+    leaves the string alone.  So a single-module shot returns a tree and a
+    multi-module shot -- the ordinary case, since every solver appends its own
+    fragment -- returns the string.
+
+    A consumer of this field must therefore accept both forms whatever it
+    knows about the producer; `vaft.plot.backend.recipes._mhd_linear_radial_stride`
+    does, and says why.
+    """
+    two_solvers = (
+        '<parameters><solver name="dcon" n_tor="1"/>'
+        '<solver name="rdcon" n_tor="2"/></parameters>'
+    )
+
+    accepted, value = _through_the_product_leg(tmp_path, _product(**{"": two_solvers}))
+
+    assert accepted == [(IDS, "code", "parameters")]
+    assert isinstance(value, str)
+    assert value == two_solvers
 
 
 def test_a_flat_block_survives_only_because_the_loader_promotes_it(tmp_path):
