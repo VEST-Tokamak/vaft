@@ -419,23 +419,6 @@ outputs = collect_efit_outputs(workdir, cfg)
 | TRANSP (transport, **read-only**) | `TranspOutput`, `TranspSlice`, `TranspVariable`, `TRANSPResult`, `read_transp_output`, `collect_transp_outputs`, `enclosed_torque`, `input_torque_density`, `zone_volume` |
 | Base classes | `CodeConfig`, `CodeInputs`, `CodeResult`, `CodeRunner` |
 
-TRANSP is the one adapter with no `*Config`, no `prepare_*` and no `run_*`: VAFT reads a TRANSP run,
-it does not launch one, so there is no `TRANSPHOME`. `read_transp_output` opens a `<runid>.CDF`
-lazily — a production file holds roughly 1900 variables — and `.slice(time_s)` returns one time,
-reporting which sample it took.
-
-This layer keeps TRANSP's own names, grids and units and converts nothing: `NE` is still per cubic
-centimetre when it reaches you. Two things it *does* enforce, because the file makes them easy to
-get wrong. A variable's grid comes from its dimension name and never its length — `X` (zone centres)
-and `XB` (zone outer boundaries) have the *same length* in a real run, so `state.on_x("PLFLX")`
-raises rather than quietly handing back a boundary quantity as a centre one. And `TQTOTNB` is
-refused by name: it is an empty dimensionless placeholder, and the total input torque is `TQIN`.
-
-`enclosed_torque(state)` is the one place the two grids interact: `TQIN` is a density in
-`N m / cm^3` and `DVOL` a volume in `cm^3`, both zone-centre, so the product is already newton
-metres and the cumulative sum lands on the zone *boundaries*. Pairing them once here is deliberate —
-converting one to SI and not the other is a factor of a million.
-
 `run_nubeam_case(input_dir, gfile=..., workdir=...)` is the NUBEAM equivalent: it stages a case,
 builds its Plasma State, and runs INIT then STEP. Results come back as a native container, and
 `vaft.machine_mapping.core_sources.core_sources_from_nubeam` maps the heating, current-drive and
@@ -468,6 +451,24 @@ face the same ambiguity.
 deposition markers, lost fast ions, the step log's power budget -- stays in the native container
 and is drawn by `vaft.plot.nubeam`, which is why those particular views are not in the plot
 catalog while `nbi_profile_*` are.
+
+TRANSP is the one adapter with no `*Config`, no `prepare_*` and no `run_*`: VAFT reads a TRANSP run,
+it does not launch one, so there is no `TRANSPHOME`. `read_transp_output` opens a `<runid>.CDF`
+lazily — a production file holds roughly 1900 variables — and `.slice(time_s)` returns one time,
+reporting which sample it took.
+
+This layer keeps TRANSP's own names, grids and units and converts nothing: `NE` is still per cubic
+centimetre when it reaches you. Two things it *does* enforce, because the file makes them easy to
+get wrong. A variable's grid comes from its dimension name and never its length — `X` (zone centres)
+and `XB` (zone outer boundaries) have the *same length* in a real run, so `state.on_x("PLFLX")`
+raises rather than quietly handing back a boundary quantity as a centre one. And `TQTOTNB` is
+refused by name: it is an empty placeholder — a zero-valued scalar with no radial or time axis,
+declared torque-density units notwithstanding — and the total input torque is `TQIN`.
+
+`enclosed_torque(state)` is the one place the two grids interact: `TQIN` is a density in
+`N m / cm^3` and `DVOL` a volume in `cm^3`, both zone-centre, so the product is already newton
+metres and the cumulative sum lands on the zone *boundaries*. Pairing them once here is deliberate —
+converting one to SI and not the other is a factor of a million.
 
 `refine_equilibrium(source, config=None)` is the one-shot CHEASE convenience: g-file or ODS in,
 refined equilibrium out. `scan_tes(ods, base_config, values, param="ip0_kA")` sweeps a single TES

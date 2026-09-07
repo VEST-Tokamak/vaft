@@ -25,6 +25,7 @@ Typical use::
 
 from .config import TRANSPResult, collect_transp_outputs
 from .outputs import (
+    EMPTY_PLACEHOLDERS,
     PROFILE_GRIDS,
     TIME_DIMENSIONS,
     VARIABLE_DESCRIPTIONS,
@@ -37,6 +38,7 @@ from .outputs import (
 from .torque import enclosed_torque, input_torque_density, zone_volume
 
 __all__ = [
+    "EMPTY_PLACEHOLDERS",
     "PROFILE_GRIDS",
     "TIME_DIMENSIONS",
     "TRANSPResult",

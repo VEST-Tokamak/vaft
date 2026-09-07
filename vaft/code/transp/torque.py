@@ -2,8 +2,9 @@
 
 Two facts decide everything here, and the code this replaces had both wrong.
 
-``TQTOTNB`` is an empty placeholder -- a dimensionless scalar of value zero in
-every run checked -- so the total input torque is ``TQIN``.  It is *not* the
+``TQTOTNB`` is an empty placeholder -- a zero-valued scalar carrying no radial
+or time axis in every run checked, despite declaring torque-density units --
+so the total input torque is ``TQIN``.  It is *not* the
 beam sum: at 750 ms of the MAST reference run ``sum(TQIN)`` is -5.607e-7
 against ``sum(TQTOT01 + TQTOT02)`` = -5.731e-7, a pointwise difference of the
 same order as the signal.  ``TQIN`` is what TRANSP calls the total input
@@ -22,7 +23,7 @@ import numpy as np
 
 from .outputs import TranspSlice
 
-__all__ = ["enclosed_torque", "input_torque_density"]
+__all__ = ["enclosed_torque", "input_torque_density", "zone_volume"]
 
 
 def input_torque_density(slice: TranspSlice) -> np.ndarray:

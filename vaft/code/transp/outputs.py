@@ -44,17 +44,34 @@ from typing import Any, Mapping, Optional
 
 import numpy as np
 
-from vaft.code.gpec._netcdf import float_attr, scalar_attr
-
 __all__ = [
+    "EMPTY_PLACEHOLDERS",
     "PROFILE_GRIDS",
     "TIME_DIMENSIONS",
     "VARIABLE_DESCRIPTIONS",
+    "TranspFormatError",
     "TranspOutput",
     "TranspSlice",
     "TranspVariable",
     "read_transp_output",
 ]
+
+
+def _first(value: Any) -> Any:
+    """First element of an attribute that may be a scalar or a one-element list.
+
+    netCDF backends differ in whether a one-element attribute surfaces as a
+    scalar or as a length-1 array, so every attribute read goes through this
+    rather than calling ``str`` on whatever the file happened to carry.
+    (:func:`vaft.code.gpec._netcdf.scalar_attr` does the same job for the
+    GPEC suite; it is not imported here because importing it would pull the
+    whole ``vaft.code.gpec`` package in behind a reader that needs nothing
+    from it.)
+    """
+    if isinstance(value, (list, tuple)):
+        return _first(value[0]) if value else None
+    array = np.asarray(value)
+    return array.reshape(-1)[0] if array.ndim else array.item()
 
 #: Dimension names TRANSP uses for its time axis.  ``TIME`` carries the
 #: scalars and ``TIME3`` the profiles; in the runs checked they hold the same
@@ -97,8 +114,9 @@ VARIABLE_DESCRIPTIONS: Mapping[str, str] = {
     "PLFLXA": "poloidal flux enclosed by the boundary; equals PLFLX[-1] [Wb/rad]",
     "TQIN": "total input torque density [N m / cm^3]",
     "TQTOTNB": (
-        "an empty placeholder -- a dimensionless scalar of value zero in the runs "
-        "checked. The total input torque is TQIN"
+        "an empty placeholder -- a zero-valued scalar carrying no radial or time "
+        "axis in the runs checked, though it declares torque-density units "
+        "(Nt-M/CM3). The total input torque is TQIN"
     ),
 }
 
@@ -107,6 +125,19 @@ VARIABLE_DESCRIPTIONS: Mapping[str, str] = {
 EMPTY_PLACEHOLDERS: Mapping[str, str] = {
     "TQTOTNB": "TQIN",
 }
+
+
+def _at_time(variable: "TranspVariable", index: int) -> np.ndarray:
+    """``variable`` at time ``index``, or whole when it carries no time axis.
+
+    The dimension is checked rather than assumed: ``X`` and ``XB`` are
+    ``(TIME3, X)`` in the runs looked at, but TRANSP may write a run's grids
+    once as plain ``(X,)``, and indexing axis 0 of *that* silently returns a
+    single radial point where a whole grid was asked for.
+    """
+    if any(dim in TIME_DIMENSIONS for dim in variable.dims):
+        return np.asarray(variable.values[index])
+    return np.asarray(variable.values)
 
 
 class TranspFormatError(ValueError):
@@ -163,10 +194,7 @@ class TranspSlice:
 
         A variable with no time dimension is returned whole.
         """
-        variable = self._output.variable(name)
-        if any(dim in TIME_DIMENSIONS for dim in variable.dims):
-            return np.asarray(variable.values[self.time_index])
-        return np.asarray(variable.values)
+        return _at_time(self._output.variable(name), self.time_index)
 
     def _on(self, name: str, grid: str) -> np.ndarray:
         actual = self.grid_of(name)
@@ -204,7 +232,18 @@ class TranspSlice:
         ``PLFLX[0] / PLFLXA`` (0.0049 for the MAST reference run).
         """
         flux = self.on_xb("PLFLX")
-        edge = float(np.asarray(self.variable("PLFLXA")).reshape(-1)[0])
+        # self.variable has already taken this time's sample, so PLFLXA is a
+        # scalar by the time it arrives here -- reading it off the whole
+        # series instead would pin psi_norm to the first sample's edge flux,
+        # which is 0.0272 Wb/rad against 0.0765 at 750 ms in the MAST
+        # reference run.  Hence the size check rather than a bare [0].
+        enclosed = np.asarray(self.variable("PLFLXA"), dtype=float)
+        if enclosed.size != 1:
+            raise TranspFormatError(
+                f"PLFLXA came back as {enclosed.shape} rather than this time's "
+                "single value; psi_norm would be normalized by the wrong sample"
+            )
+        edge = float(enclosed.reshape(-1)[0])
         if edge == 0:
             raise TranspFormatError("PLFLXA is zero at this time; psi_norm is undefined")
         return flux / edge
@@ -216,6 +255,9 @@ class TranspOutput:
 
     Use as a context manager; the underlying dataset stays open so a caller
     can pull a few of the file's ~1900 variables without materializing it.
+    Every variable read is then held for the life of the object -- the cache
+    does not evict, so a caller that walks all ~1900 ends up holding the
+    whole file.  Read what you need, or open the file again.
     """
 
     path: Path
@@ -234,28 +276,44 @@ class TranspOutput:
             self._dataset.close()
             self._dataset = None
 
+    @property
+    def _open(self):
+        """The open dataset, refusing a closed one by name.
+
+        Without this a closed file half-works: whatever a caller happened to
+        read before :meth:`close` still answers out of the cache, and
+        anything else fails deep in xarray with an ``AttributeError`` about
+        ``NoneType`` that says nothing about the real cause.
+        """
+        if self._dataset is None:
+            raise TranspFormatError(
+                f"{self.path.name} is closed; open it again with "
+                "read_transp_output to read more of it"
+            )
+        return self._dataset
+
     # -- structure -------------------------------------------------------
     @property
     def variables(self) -> tuple[str, ...]:
-        return tuple(self._dataset.variables)
+        return tuple(self._open.variables)
 
     @property
     def dims(self) -> Mapping[str, int]:
-        return {str(name): int(size) for name, size in self._dataset.sizes.items()}
+        return {str(name): int(size) for name, size in self._open.sizes.items()}
 
     def units(self, name: str) -> str:
         """The file's own ``units`` attribute, stripped; ``""`` when it has none."""
-        return str(scalar_attr(self._dataset[name].attrs.get("units", "")) or "").strip()
+        return str(_first(self._open[name].attrs.get("units", "")) or "").strip()
 
     def long_name(self, name: str) -> str:
-        return str(scalar_attr(self._dataset[name].attrs.get("long_name", "")) or "").strip()
+        return str(_first(self._open[name].attrs.get("long_name", "")) or "").strip()
 
     def describe(self, name: str) -> str:
         """What a variable is, or a note that this adapter does not catalogue it."""
         described = VARIABLE_DESCRIPTIONS.get(name)
         if described is not None:
             return described
-        if name not in self._dataset.variables:
+        if name not in self._open.variables:
             return f"{name}: not in {self.path.name}"
         long_name = self.long_name(name)
         units = self.units(name)
@@ -277,9 +335,9 @@ class TranspOutput:
                 f"{name} is an empty placeholder in TRANSP output -- {VARIABLE_DESCRIPTIONS[name]}. "
                 f"Use {replacement}"
             )
-        if name not in self._dataset.variables:
+        if name not in self._open.variables:
             raise KeyError(f"{self.path.name} has no variable {name!r}")
-        entry = self._dataset[name]
+        entry = self._open[name]
         variable = TranspVariable(
             name=name,
             dims=tuple(str(dim) for dim in entry.dims),
@@ -313,20 +371,49 @@ class TranspOutput:
         return TranspSlice(
             time_s=float(self.time[index]),
             time_index=index,
-            x=np.asarray(self.variable("X").values[index], dtype=float),
-            xb=np.asarray(self.variable("XB").values[index], dtype=float),
+            x=np.asarray(_at_time(self.variable("X"), index), dtype=float),
+            xb=np.asarray(_at_time(self.variable("XB"), index), dtype=float),
             _output=self,
         )
 
 
-def _check_integrity(output: TranspOutput) -> None:
-    """Assertions the file itself makes possible, checked once on open.
+def _check_not_truncated(output: TranspOutput) -> None:
+    """Refuse a file that is shorter than its own header says it should be.
 
-    A TRANSP run killed mid-write leaves a readable header over truncated
-    data, and a classic netCDF reads the missing tail back as silent zeros
-    rather than raising, so presence of a variable is not evidence it is
-    whole.
+    A TRANSP run killed mid-write leaves a complete header over incomplete
+    data, and a classic netCDF reads the missing tail back as zeros rather
+    than raising -- so presence of a variable is not evidence that it is
+    whole.  The header states every variable's shape and type, so the file
+    has a minimum size that can simply be checked against the one on disk.
+    Record variables are interleaved and padded, so the sum is a floor rather
+    than an exact size, which is all that is wanted here.  The technique is
+    the one :func:`vaft.code.gpec._solvers._check_nc_variable` uses on solver
+    output.
     """
+    with open(output.path, "rb") as handle:
+        if handle.read(3) != b"CDF":
+            # Not classic; a truncated HDF5 file raises on read instead, so
+            # there is nothing for a size floor to add.
+            return
+    needed = 0
+    for entry in output._open.variables.values():
+        # The on-disk type, not the decoded one: xarray promotes a variable
+        # carrying a _FillValue to float64, which would inflate the floor and
+        # refuse a healthy file.
+        dtype = entry.encoding.get("dtype", entry.dtype)
+        needed += int(np.prod(entry.shape)) * int(np.dtype(dtype).itemsize)
+    actual = output.path.stat().st_size
+    if actual < needed:
+        raise TranspFormatError(
+            f"{output.path.name} is truncated: {actual} bytes on disk against the "
+            f"{needed} bytes of variable data its own header declares. A run "
+            "killed mid-write reads its missing tail back as zeros rather than "
+            "raising, so this is checked rather than discovered later"
+        )
+
+
+def _check_integrity(output: TranspOutput) -> None:
+    """Assertions the file itself makes possible, checked once on open."""
     for name in ("TIME", "X", "XB"):
         if name not in output.variables:
             raise TranspFormatError(
@@ -334,34 +421,65 @@ def _check_integrity(output: TranspOutput) -> None:
                 "a TRANSP output file"
             )
 
+    _check_not_truncated(output)
+
+    # TRANSP writes the scalars on TIME and the profiles on TIME3.  They are
+    # separate dimensions but the same axis, and this reader picks a sample
+    # index from TIME and applies it to profiles on TIME3, so a file where
+    # they disagree would hand back a profile from a different instant than
+    # the one it reports.  Refuse rather than mislabel.
+    if "TIME3" in output.variables:
+        times = output.time
+        times3 = np.asarray(output.variable("TIME3").values, dtype=float)
+        if times.shape != times3.shape or not np.allclose(times, times3, rtol=1e-6, atol=0.0):
+            raise TranspFormatError(
+                f"TIME is {times.shape} and TIME3 is {times3.shape}, and they do not "
+                "hold the same instants; this reader chooses a sample on TIME and "
+                "reads profiles on TIME3, so it cannot say which time a profile is from"
+            )
+
     x = np.asarray(output.variable("X").values, dtype=float)
     xb = np.asarray(output.variable("XB").values, dtype=float)
     if x.shape != xb.shape:
         raise TranspFormatError(
             f"X is {x.shape} and XB is {xb.shape}; this reader expects one zone "
-            "centre per zone boundary"
+            "centre per zone boundary, which is how the runs it was written "
+            "against are shaped. A file that also writes the innermost boundary "
+            "(nzones + 1 points on XB) is a convention this reader has not been "
+            "checked against, not a broken file"
         )
-    first_x, first_xb = x.reshape(-1, x.shape[-1])[0], xb.reshape(-1, xb.shape[-1])[0]
-    if not (np.all(np.diff(first_x) > 0) and np.all(np.diff(first_xb) > 0)):
-        raise TranspFormatError("X and XB must both increase outward")
-    if not np.all(first_x < first_xb):
-        raise TranspFormatError(
-            "every zone centre must lie inside its own outer boundary; X and XB "
-            "look swapped or misaligned"
-        )
+    # Every time, not just the first: the grids are declared time-varying, and
+    # a truncated tail read back as zeros is exactly a row that has stopped
+    # increasing.  They are a few kilobytes, so this costs nothing.
+    rows_x = x.reshape(-1, x.shape[-1])
+    rows_xb = xb.reshape(-1, xb.shape[-1])
+    for index, (row_x, row_xb) in enumerate(zip(rows_x, rows_xb)):
+        if not (np.all(np.diff(row_x) > 0) and np.all(np.diff(row_xb) > 0)):
+            raise TranspFormatError(
+                f"X and XB must both increase outward; they do not at sample {index}"
+            )
+        if not np.all(row_x < row_xb):
+            raise TranspFormatError(
+                "every zone centre must lie inside its own outer boundary; X and XB "
+                f"look swapped or misaligned at sample {index}"
+            )
 
     if "PLFLX" in output.variables and "PLFLX2PI" in output.variables:
         flux = np.asarray(output.variable("PLFLX").values, dtype=float)
         webers = np.asarray(output.variable("PLFLX2PI").values, dtype=float)
         finite = np.isfinite(flux) & np.isfinite(webers) & (flux != 0)
-        if np.any(finite):
-            ratio = float(np.nanmedian(webers[finite] / flux[finite]))
-            if not np.isclose(ratio, 2.0 * np.pi, rtol=1e-4):
-                raise TranspFormatError(
-                    f"PLFLX2PI / PLFLX is {ratio:.6f}, not 2*pi: the file's own "
-                    "Wb versus Wb/rad statement does not hold, so its flux cannot "
-                    "be trusted"
-                )
+        if not np.any(finite):
+            raise TranspFormatError(
+                "PLFLX holds no non-zero finite value, so the file's own Wb versus "
+                "Wb/rad statement cannot be checked and its flux cannot be trusted"
+            )
+        ratio = float(np.nanmedian(webers[finite] / flux[finite]))
+        if not np.isclose(ratio, 2.0 * np.pi, rtol=1e-4):
+            raise TranspFormatError(
+                f"PLFLX2PI / PLFLX is {ratio:.6f}, not 2*pi: the file's own "
+                "Wb versus Wb/rad statement does not hold, so its flux cannot "
+                "be trusted"
+            )
 
 
 def read_transp_output(path: str | Path) -> TranspOutput:
@@ -381,7 +499,17 @@ def read_transp_output(path: str | Path) -> TranspOutput:
     # engine="scipy" pins the declared backend and the netCDF-3 classic format
     # TRANSP writes; netCDF4 is not a VAFT dependency, so letting xarray
     # auto-detect would use whichever backend happens to be installed.
-    dataset = xr.open_dataset(path, engine="scipy", decode_times=False)
+    try:
+        dataset = xr.open_dataset(path, engine="scipy", decode_times=False)
+    except Exception as exc:
+        # The backend reads a classic file's non-record variables at open time,
+        # so a run killed mid-write usually fails here -- with a message about
+        # reshaping an array, which says nothing about the real cause.
+        raise TranspFormatError(
+            f"could not read {path.name} ({path.stat().st_size} bytes on disk): {exc}. "
+            "A TRANSP run killed mid-write leaves a complete header over incomplete "
+            "data, which is what this normally is"
+        ) from exc
     output = TranspOutput(path=path, _dataset=dataset)
     try:
         _check_integrity(output)
