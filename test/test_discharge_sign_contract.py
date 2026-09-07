@@ -362,3 +362,74 @@ def test_a_transformation_rejects_a_value_that_is_not_a_sign():
             quantity="ip", sign=0, confirmed=False,
             vest_native_source="x", evidence="y", needed_to_confirm="z",
         )
+
+
+def test_the_gpec_direction_words_and_the_imas_signs_agree_on_helicity():
+    """Whichever is right about VEST, the two must keep the same helicity.
+
+    ``VEST_GPEC_COIL_DIRECTIONS`` reads as Ip counter-clockwise and Bt
+    clockwise; ``IMAS_DISCHARGE_SIGNS`` states the opposite pair for the same
+    machine, so one of the two is wrong about the machine (see the constant's
+    docstring). Their *product* is what GPEC uses as ``helicity``, which sets
+    the toroidal-angle mapping and the conjugation of every perturbed output,
+    and it is -1 under both readings.
+
+    Correcting only one of the two constants would silently flip the helicity
+    of every VEST GPEC run. This test fails in that case, which is the point:
+    the pair moves together or not at all.
+    """
+    from vaft.machine_mapping.conventions import (
+        IMAS_DISCHARGE_SIGNS,
+        VEST_GPEC_COIL_DIRECTIONS,
+    )
+
+    word_sign = {"positive": +1, "negative": -1}
+    gpec_helicity = (
+        word_sign[VEST_GPEC_COIL_DIRECTIONS["ip_direction"]]
+        * word_sign[VEST_GPEC_COIL_DIRECTIONS["bt_direction"]]
+    )
+    imas_helicity = IMAS_DISCHARGE_SIGNS.ip * IMAS_DISCHARGE_SIGNS.b0
+
+    assert gpec_helicity == imas_helicity == -1
+
+
+def test_gpec_coil_directions_derives_the_words_from_a_contract():
+    """CCW from above is positive, the sense both GPEC and IMAS use."""
+    from vaft.machine_mapping.conventions import (
+        DischargeSignContract,
+        GPEC_DIRECTION_WORDS,
+        gpec_coil_directions,
+    )
+
+    assert gpec_coil_directions(DischargeSignContract(ip=+1, b0=-1)) == {
+        "ip_direction": "positive",
+        "bt_direction": "negative",
+    }
+    assert gpec_coil_directions(DischargeSignContract(ip=-1, b0=+1)) == {
+        "ip_direction": "negative",
+        "bt_direction": "positive",
+    }
+    assert set(GPEC_DIRECTION_WORDS) == {+1, -1}
+
+    # Helicity is the product, and the derivation preserves it in both senses.
+    for ip in (+1, -1):
+        for b0 in (+1, -1):
+            contract = DischargeSignContract(ip=ip, b0=b0)
+            words = gpec_coil_directions(contract)
+            sign = {"positive": +1, "negative": -1}
+            assert sign[words["ip_direction"]] * sign[words["bt_direction"]] == ip * b0
+
+
+def test_the_vest_reference_pair_is_gpecs_shipped_default():
+    """Why VEST's pair is not treated as evidence about VEST.
+
+    GPEC ships ``machine="d3d"``, ``ip_direction="positive"``,
+    ``bt_direction="negative"``; the VEST reference input changed the machine
+    word and left the two directions untouched. The packaged template carries
+    the same pair, so this test states the provenance rather than a fact about
+    the machine.
+    """
+    from vaft.machine_mapping.conventions import VEST_GPEC_COIL_DIRECTIONS
+
+    gpec_shipped_default = {"ip_direction": "positive", "bt_direction": "negative"}
+    assert VEST_GPEC_COIL_DIRECTIONS == gpec_shipped_default

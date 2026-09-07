@@ -524,7 +524,6 @@ rule generate_constraints_ods:
         tstep=CONSTRAINTS_CONFIG.get("tstep", 0.001),
         average_window=CONSTRAINTS_CONFIG.get("average_window", 0.0005),
         detect_broken=bool_text(CONSTRAINTS_CONFIG.get("detect_broken", False)),
-        broken=csv(CONSTRAINTS_CONFIG.get("broken", [])),
         fl_correct_option=CONSTRAINTS_CONFIG.get("fl_correct_option", 0),
         gaussian_fit_option=CONSTRAINTS_CONFIG.get("gaussian_fit_option", 1),
         npprime=CONSTRAINTS_CONFIG.get("npprime", 2),
@@ -547,7 +546,6 @@ rule generate_constraints_ods:
             --average-window {params.average_window} \
             --uncertainty "{params.uncertainty}" \
             --weighting "{params.weighting}" \
-            --broken "{params.broken}" \
             --detect-broken {params.detect_broken} \
             --fl-correct-option {params.fl_correct_option} \
             --gaussian-fit-option {params.gaussian_fit_option} \

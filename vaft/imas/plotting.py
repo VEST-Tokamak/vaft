@@ -1619,6 +1619,24 @@ def plot_pf_coil_time_current(
     return render("pf_coil_time_current", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_passive_structure_time_current(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Eddy current in the passive structure, summed over loops.
+
+    Renders with :func:`vaft.plot.passive_structure_time_current` from native
+    IMAS input.
+    """
+    return render(
+        "passive_structure_time_current", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_pf_coil_time_current_turns(
     source: Any,
     *,
@@ -2050,6 +2068,7 @@ __all__ += [
     "plot_pf_plasma_geometry_poloidal",
     "plot_pf_coil_geometry_poloidal",
     "plot_pf_coil_time_current",
+    "plot_passive_structure_time_current",
     "plot_pf_coil_time_current_turns",
     "plot_plasma_current_time",
     "plot_soft_x_rays_geometry_lines_of_sight",

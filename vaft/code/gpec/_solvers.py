@@ -64,6 +64,66 @@ class Solver(Protocol):
         """Whether a completed run actually produced usable physics output."""
         ...
 
+    def stability_output(self, mode: int) -> str | None:
+        """The output carrying this run's free-boundary energy, or ``None``.
+
+        ``None`` for a solver that computes no such energy, and so can never
+        report an equilibrium as stable.
+        """
+        ...
+
+
+def free_boundary_stable(run_dir: Path, filename: str) -> bool | None:
+    """Whether ``filename``'s own energies say every free-boundary mode is stable.
+
+    A stable discharge produces no unstable-mode output, so any check that keys
+    on the presence of such output reads the desirable outcome as a failure
+    (issue #423). All three ideal solvers decide stability the same way --
+    ``Re(total1) < 0`` is unstable, anything else is stable
+    (``dcon/dcon.F:306-315``, ``rdcon/dcon.f:450-458``,
+    ``stride/stride.F:376-385``) -- and all three put that number in their
+    netCDF: RDCON and STRIDE as a ``total1`` global attribute
+    (``rdcon/rdcon_netcdf.f:155``, ``stride/stride_netcdf.f:148``), DCON as the
+    ``W_t_eigenvalue`` entry labelled by mode 1.
+
+    Taken from the output rather than from the solver's log, which states the
+    same verdict in prose but -- in DCON and RDCON -- only under ``verbose``
+    (``dcon/dcon.F:309``, ``rdcon/dcon.f:452``): a Fortran default VAFT does not
+    set, and one an operator quietening a scan may switch off without ever
+    connecting that to a shot's stability being misreported.
+
+    ``None`` when this run computed no free-boundary energy, which is not the
+    same as being unstable. STRIDE writes the attribute only when it ran
+    ``free_run`` (``stride/stride_netcdf.f:144-149``), so there its absence is
+    the whole signal; RDCON writes it under ``vac_flag`` alone
+    (``rdcon/rdcon_netcdf.f:152``) and stores an exact zero when it skipped
+    ``free_run`` anyway (``rdcon/dcon.f:431-438``), which is that sentinel
+    rather than a marginally stable equilibrium.
+    """
+    path = run_dir / filename
+    if not path.exists():
+        return None
+    try:
+        import xarray as xr
+
+        from ._netcdf import complex_scalar_attr, complex_var, least_stable_eigenvalue
+
+        with xr.open_dataset(path) as ds:
+            energy = complex_scalar_attr(ds, "total1")
+            if energy is None:
+                energy = least_stable_eigenvalue(
+                    complex_var(ds, "W_t_eigenvalue"),
+                    ds["mode"].values if "mode" in ds.variables else None,
+                )
+    except Exception:
+        # An unreadable file says nothing about stability. Reporting that as
+        # "not stable" would be a verdict this function did not establish; the
+        # callers that care about integrity check it themselves.
+        return None
+    if energy is None or energy.real == 0.0:
+        return None
+    return energy.real > 0.0
+
 
 def required_outputs(solver: Solver, mode: int) -> tuple[str, ...]:
     """The files ``solver`` itself must produce for its run directory to be complete.
@@ -144,6 +204,51 @@ def _check_nc_variable(
     return True, ""
 
 
+def _defines_variable(run_dir: Path, filename: str, variable: str) -> bool:
+    """Whether ``filename`` defines ``variable`` at all, regardless of its contents."""
+    try:
+        import xarray as xr
+
+        with xr.open_dataset(run_dir / filename) as ds:
+            return variable in ds.variables
+    except Exception:
+        return False
+
+
+def _check_matching_output(run_dir: Path, filename: str) -> tuple[bool, str]:
+    """Verify an RDCON/STRIDE output, allowing a stable run to have no ``Delta_prime``.
+
+    ``Delta_prime`` is the tearing-stability matrix, and both solvers define it
+    only when the solve found rational surfaces to match across
+    (``rdcon/rdcon_netcdf.f:317``, ``stride/stride_netcdf.f:212``). An
+    equilibrium the solver itself declares free-boundary stable therefore has
+    none to write, and demanding it would fail every stable cell (issue #423).
+
+    The rescue is narrow on purpose. The file still has to pass the same
+    integrity check on its own -- present, openable, not truncated -- and the
+    stable verdict still has to come from the file's own energies. Only the one
+    reason "this healthy output does not name ``Delta_prime``" is forgiven; a
+    missing, truncated or unreadable output is still a failure, and is still
+    reported with the reason that made it one.
+    """
+    ok, reason = _check_nc_variable(run_dir, filename, "Delta_prime")
+    if ok:
+        return True, ""
+    intact, intact_reason = _check_nc_variable(run_dir, filename)
+    if not intact:
+        # The file itself is the problem. Reporting the absent ``Delta_prime``
+        # here would point the reader at the tearing solve rather than at the
+        # damage that is actually stopping the read.
+        return False, intact_reason
+    if _defines_variable(run_dir, filename, "Delta_prime"):
+        # Written but unusable is a defect in the tearing solve, not the
+        # absence a stable equilibrium legitimately produces.
+        return ok, reason
+    if free_boundary_stable(run_dir, filename) is True:
+        return True, ""
+    return ok, reason
+
+
 class DCONSolver:
     name = "dcon"
 
@@ -185,6 +290,9 @@ class DCONSolver:
     def check_success(self, run_dir: Path, mode: int) -> tuple[bool, str]:
         return _check_nc_variable(run_dir, f"dcon_output_n{mode}.nc", "W_t_eigenvalue")
 
+    def stability_output(self, mode: int) -> str | None:
+        return f"dcon_output_n{mode}.nc"
+
 
 class RDCONSolver:
     name = "rdcon"
@@ -214,7 +322,10 @@ class RDCONSolver:
         return ("globalsol.bin",)
 
     def check_success(self, run_dir: Path, mode: int) -> tuple[bool, str]:
-        return _check_nc_variable(run_dir, f"rdcon_output_n{mode}.nc", "Delta_prime")
+        return _check_matching_output(run_dir, self.stability_output(mode))
+
+    def stability_output(self, mode: int) -> str | None:
+        return f"rdcon_output_n{mode}.nc"
 
 
 class STRIDESolver:
@@ -233,7 +344,10 @@ class STRIDESolver:
         return ()
 
     def check_success(self, run_dir: Path, mode: int) -> tuple[bool, str]:
-        return _check_nc_variable(run_dir, f"stride_output_n{mode}.nc", "Delta_prime")
+        return _check_matching_output(run_dir, self.stability_output(mode))
+
+    def stability_output(self, mode: int) -> str | None:
+        return f"stride_output_n{mode}.nc"
 
 
 class IdealGPECSolver:
@@ -336,6 +450,12 @@ class IdealGPECSolver:
             if not ok:
                 return False, reason
         return True, ""
+
+    def stability_output(self, mode: int) -> str | None:
+        # Ideal GPEC computes a perturbed-field response to an applied
+        # spectrum, not a free-boundary energy: it has no stability verdict of
+        # its own to report, and takes DCON's as given.
+        return None
 
 
 SOLVERS: dict[str, Solver] = {

@@ -670,6 +670,92 @@ def compute_eddy_currents(
         logger.error(f"Missing required data in ODS: {e}")
         raise
 
+def compute_startup_loop_voltage_ods(
+    ods: ODS,
+    rz: Tuple[float, float] = (0.4, 0.0),
+    mode: str = "vacuum",
+) -> Tuple[ndarray, ndarray]:
+    """Loop voltage at one point, from the vacuum flux it sees.
+
+    ``V_loop = -dpsi/dt`` at ``rz``.  This is the electric-field drive available
+    for Townsend breakdown, and it is a *model* quantity: it comes from the coil
+    and eddy currents, not from a flux loop.  Compare it against the measured
+    ``magnetics.flux_loop.{i}.voltage`` rather than substituting one for the other.
+
+    Args:
+        ods: structure carrying pf_active and pf_passive currents and geometry.
+        rz: observation point ``(R, Z)`` in metres. VEST's startup reference is
+            near the vessel centre, ``(0.4, 0.0)``.
+        mode: ``'vacuum'`` (coils and eddy currents), ``'pf_active'`` or
+            ``'pf_passive'`` to isolate one contribution.
+
+    Returns:
+        ``(time, v_loop)`` in seconds and volts.
+
+    Raises:
+        ValueError: if the flux solution is entirely non-finite, which happens
+            when the eddy-current solve fell back to its NaN path.
+    """
+    from vaft.process import time_derivative
+
+    time_arr, psi_out, _, _ = compute_point_vacuum_fields_ods(
+        ods, rz=[(float(rz[0]), float(rz[1]))], mode=mode
+    )
+    psi = np.asarray(psi_out, dtype=float)[:, 0]
+    if not np.isfinite(psi).any():
+        raise ValueError(
+            "the vacuum flux at this point is entirely non-finite; the eddy-current "
+            "solve produced NaN (singular impedance matrix)"
+        )
+    return np.asarray(time_arr, dtype=float), -time_derivative(time_arr, psi)
+
+
+def compute_decay_index_ods(
+    ods: ODS,
+    time: float,
+    z: float = 0.0,
+    r_range: Tuple[float, float] = (0.25, 0.65),
+    n_points: int = 41,
+    mode: str = "vacuum",
+) -> Tuple[ndarray, ndarray]:
+    """Field decay index along a radial line at one instant.
+
+    ``n = -(R / B_z) * dB_z/dR`` -- the quantity that decides whether a startup
+    configuration is vertically stable.  Conventionally ``0 < n < 1.5`` is the
+    passively stable window: below zero the plasma is vertically unstable, above
+    1.5 it loses radial position control.
+
+    Args:
+        ods: structure carrying pf_active and pf_passive currents and geometry.
+        time: instant to evaluate, in seconds. Pass the identified breakdown
+            time rather than relying on a default.
+        z: height of the radial line [m].
+        r_range: inclusive ``(R_min, R_max)`` span [m].
+        n_points: samples across ``r_range``.
+        mode: as :func:`compute_startup_loop_voltage_ods`.
+
+    Returns:
+        ``(r_line, n_index)``. Entries where ``B_z`` crosses zero are ``nan``:
+        the index is undefined there, and dividing through would produce a
+        spike that reads as physics.
+    """
+    r_line = np.linspace(float(r_range[0]), float(r_range[1]), int(n_points))
+    time_arr, _, _, bz_out = compute_point_vacuum_fields_ods(
+        ods, rz=[(float(r), float(z)) for r in r_line], mode=mode
+    )
+    time_arr = np.asarray(time_arr, dtype=float)
+    index = int(np.argmin(np.abs(time_arr - float(time))))
+    bz_line = np.asarray(bz_out, dtype=float)[index]
+    if not np.isfinite(bz_line).any():
+        raise ValueError(
+            "the vertical field on this line is entirely non-finite; the "
+            "eddy-current solve produced NaN (singular impedance matrix)"
+        )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        n_index = -r_line * np.gradient(bz_line, r_line) / bz_line
+    return r_line, np.where(np.isfinite(n_index), n_index, np.nan)
+
+
 def compute_point_vacuum_fields_ods(
     ods: ODS,
     rz: List[Tuple[float, float]] = [(0.4, 0.0)],

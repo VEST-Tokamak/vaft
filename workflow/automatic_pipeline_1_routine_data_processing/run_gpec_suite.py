@@ -172,15 +172,26 @@ def main() -> int:
 
     records = [record for result in results for record in result.records]
     completed = [record for record in records if record.status == "completed"]
+    # A stable equilibrium is a successful, and arguably the desirable, outcome.
+    # It is counted apart from `completed` so that "this shot produced no
+    # unstable mode" stays visible instead of reading as a run that failed to
+    # produce anything (issue #423).
+    stable = [record for record in records if record.status == "stable"]
     skipped = [record for record in records if record.status == "skipped"]
     failed = [record for record in records if record.status == "failed"]
-    status = f"completed={len(completed)}; skipped={len(skipped)}; failed={len(failed)}; cases={len(results)}"
+    # A human-readable summary whose fields are keyed, not positional: the
+    # dispositions are listed together, and a new one may be added among them.
+    # Anything reading this file must look a key up by name.
+    status = (
+        f"completed={len(completed)}; stable={len(stable)}; "
+        f"skipped={len(skipped)}; failed={len(failed)}; cases={len(results)}"
+    )
     if failed:
         # A failed numerical time slice is data, not a workflow crash.  The
         # aggregate manifest retains it and mhd_linear incorporates the
         # successfully produced slices from this code/mode cell.
         status = "partial: " + status
-    elif completed:
+    elif completed or stable:
         status = "completed: " + status
     else:
         status = "skipped: " + status

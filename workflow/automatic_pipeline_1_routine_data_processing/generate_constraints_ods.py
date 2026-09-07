@@ -42,89 +42,75 @@ def _table_dir(text: str) -> str:
     return text if text.endswith("/") else text + "/"
 
 
-def _detect_broken_bpol_probes(ods) -> list[int]:
-    """One-based indexes of Bpol probes the shared quality layer condemns outright.
+def _assessment_present(ods) -> bool:
+    """Whether the diagnostics stage projected a validity verdict into the magnetics."""
+    from vaft.validation.efit_channels import EFIT_KINDS, EFIT_QUANTITY
+    from vaft.validation.imas import read_validity_record
 
-    The fallback for products that carry no projected assessment (see
-    :func:`_condemned_by_diagnostics_stage`).  It used to be a detector of its
-    own -- a 99th-percentile amplitude against a 12-MAD band inside three
-    hard-coded index banks -- which flagged the same probe as
-    :mod:`vaft.validation.magnetics` by a different rule, so a product
-    assessed before and after regeneration could disagree about one channel.
-    It now runs the same detectors the diagnostics stage projects (physical
-    ceiling, geometric-family population vote), on the fly, and returns the
-    probes they reject for the whole record.
+    for kind in EFIT_KINDS:
+        count = len(ods[f"magnetics.{kind}"]) if f"magnetics.{kind}" in ods else 0
+        for index in range(count):
+            if read_validity_record(ods, f"magnetics.{kind}.{index}.{EFIT_QUANTITY[kind]}").assessed:
+                return True
+    return False
+
+
+def _decisions_for(ods, times, *, require_assessment: bool):
+    """The per-channel, per-slice decisions the constraint builder consumes (#296).
+
+    Formed by the acceptance policy from the validity the diagnostics stage
+    projected (#189) and nothing else: the routine manual exclusion list is
+    gone (#295), so a channel is a constraint unless the assessment says it
+    is not.  No detector runs here: a
+    product that carries no assessment is refused when ``require_assessment``
+    (the routine setting), otherwise every channel is usable by default
+    (#424) and the log says so.  Sensor health is decided once, at the
+    diagnostics stage; a product that predates it is re-run through that
+    stage, not patched here.
     """
-    from vaft.validation.magnetics import validate_magnetics_signals
-    from vaft.validation.model import ValidationStatus
+    from vaft.validation.efit_channels import decide_efit_channels, efit_probe_count
 
-    report = validate_magnetics_signals(ods, kinds=("b_field_pol_probe",))
-    return sorted(
-        quality.index + 1
-        for quality in report
-        if quality.status is not ValidationStatus.NOT_AVAILABLE
-        and quality.valid_fraction == 0.0
+    if not _assessment_present(ods):
+        message = (
+            "the magnetics carry no diagnostics-stage assessment (validity/validity_timed); "
+            "re-run the diagnostics stage on this product"
+        )
+        if require_assessment:
+            raise ValueError(message + " -- or pass --detect-broken false to proceed with every channel usable")
+        LOGGER.warning("%s; proceeding with every channel usable by default (#424)", message)
+    nbprobe = efit_probe_count(ods)
+    return decide_efit_channels(ods, times, nbprobe=nbprobe)
+
+
+def _recovery_for(option: int, ods, count: int):
+    """The compatibility recovery backend selected by ``--gaussian-fit-option``."""
+    if int(option) <= 0:
+        return None
+    from functools import partial
+
+    from vaft.code.efit.recovery import gaussian_probe_recovery, probe_families
+
+    return partial(
+        gaussian_probe_recovery,
+        mode=int(option),
+        families=probe_families(ods["magnetics"], count=count),
+        uncertainty="legacy",
     )
 
 
-def _condemned_by_diagnostics_stage(ods) -> list[int] | None:
-    """One-based legacy indexes the diagnostics stage condemned, or ``None``
-    when the magnetics carry no assessment at all.
+def _log_decisions(decisions) -> None:
+    from vaft.validation.channel_decision import STATE_NAMES
 
-    Since #189/#343 the diagnostics stage assesses every channel and projects
-    the verdict into the native validity nodes; ``vaft.code.efit.kfile`` folds
-    those channels into the legacy ``broken`` list on its own, flux loops at
-    ``index + nbprobe``. The list here comes from kfile's own rule so the log
-    names exactly what the writer will exclude. When an assessment is present
-    the amplitude detector below is redundant and must not vote -- two
-    detectors disagreeing on one channel is worse than one. It stays only as a
-    fallback for products that predate the assessment.
-    """
-    from vaft.code.efit.kfile import _condemned_channels
-    from vaft.validation.imas import read_validity_record
-
-    assessed = False
-    for kind, quantity in (("b_field_pol_probe", "field"), ("flux_loop", "flux")):
-        count = len(ods[f"magnetics.{kind}"]) if f"magnetics.{kind}" in ods else 0
-        if any(
-            read_validity_record(ods, f"magnetics.{kind}.{index}.{quantity}").assessed
-            for index in range(count)
-        ):
-            assessed = True
-            break
-    if not assessed:
-        return None
-    nbprobe = len(ods["magnetics.b_field_pol_probe"]) if "magnetics.b_field_pol_probe" in ods else 0
-    # kfile works zero-based and converts the script's one-based list itself.
-    return sorted(index + 1 for index in _condemned_channels(ods, nbprobe))
-
-
-def _resolve_broken(ods, explicit: list[int], *, detect: bool) -> list[int]:
-    """The ``broken`` list handed to the constraint writer.
-
-    Explicit indexes always apply. With ``detect``, projected validity wins
-    when present (kfile folds it in regardless; it is listed here so the log
-    says what will be excluded); otherwise the amplitude detector runs.
-    """
-    broken = set(explicit)
-    if detect:
-        condemned = _condemned_by_diagnostics_stage(ods)
-        if condemned is not None:
-            LOGGER.info(
-                "magnetics carry a diagnostics-stage assessment; kfile folds its "
-                "condemned channels %s (one-based, flux loops offset by the probe "
-                "count) into broken -- amplitude detector not run",
-                condemned,
-            )
-        else:
-            detected = _detect_broken_bpol_probes(ods)
-            LOGGER.warning(
-                "magnetics carry no diagnostics-stage assessment (product predates "
-                "#189); falling back to the 12-MAD amplitude detector: %s",
-                detected,
-            )
-            broken |= set(detected)
-    return sorted(broken)
+    LOGGER.info("channel decisions (channel-slices per state): %s", json.dumps(decisions.summary()))
+    for (kind, index), decision in sorted(decisions.entries.items()):
+        if decision.all_usable:
+            continue
+        states = {STATE_NAMES[code] for code in decision.state.tolist()}
+        LOGGER.info(
+            "  %s[%d] %s: %s at %d/%d slices (%s)",
+            kind, index, decision.name, "/".join(sorted(states)),
+            int((decision.state != 0).sum()), decision.n_slices, "; ".join(decision.reasons),
+        )
 
 
 ANALYSIS_RANGE_FALLBACK = "analysis_range_fallback"
@@ -254,17 +240,22 @@ def main() -> int:
     parser.add_argument("--tend", default=None, type=float, help="Manual upper time bound.")
     parser.add_argument("--uncertainty", default=",".join(str(v) for v in DEFAULT_UNCERTAINTY))
     parser.add_argument("--weighting", default=",".join(str(v) for v in DEFAULT_WEIGHTING))
-    parser.add_argument("--broken", default="", help="Comma-separated one-based broken diagnostic indices.")
     parser.add_argument(
         "--detect-broken",
         default="false",
         help=(
-            "Exclude probes the diagnostics stage condemned (projected validity); "
-            "for products without an assessment, fall back to the 12-MAD amplitude detector."
+            "Require the diagnostics-stage assessment: refuse a product whose magnetics carry no "
+            "projected validity. With false, such a product runs with every channel usable (#424). "
+            "The assessment itself is never run here (issue #296)."
         ),
     )
     parser.add_argument("--fl-correct-option", default=0, type=int, help="Reserved for future flux-loop correction.")
-    parser.add_argument("--gaussian-fit-option", default=1, type=int, help="Gaussian fit option forwarded to EFIT constraints.")
+    parser.add_argument(
+        "--gaussian-fit-option",
+        default=1,
+        type=int,
+        help="Recovery backend: 0 none, 1 Gaussian family fit for rejected probes, 2 for every probe.",
+    )
     parser.add_argument("--npprime", default=2, type=int, help="EFIT KPPCUR value.")
     parser.add_argument("--nffprime", default=2, type=int, help="EFIT KFFCUR value.")
     args = parser.parse_args()
@@ -275,7 +266,6 @@ def main() -> int:
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
     )
     ods = load_omas_json(str(args.eddy_ods), consistency_check=False)
-    broken = _resolve_broken(ods, _csv_ints(args.broken), detect=_bool(args.detect_broken))
     times, window = _select_times(ods, args.timeset, args.tstep, args.tstart, args.tend)
     if times.size == 0:
         raise ValueError("No EFIT constraint times selected")
@@ -298,6 +288,12 @@ def main() -> int:
         else:
             fl_correct_coeff = correct_flux_loop(ods, window=(window.start, window.end))
 
+    decisions = _decisions_for(ods, times, require_assessment=_bool(args.detect_broken))
+    _log_decisions(decisions)
+    from vaft.validation.efit_channels import efit_probe_count
+
+    recovery = _recovery_for(args.gaussian_fit_option, ods, efit_probe_count(ods))
+
     args.output.parent.mkdir(parents=True, exist_ok=True)
     LOGGER.info("Generating constraints for shot %s at %d time slices", args.shot, len(times))
     build_constraints(
@@ -308,11 +304,11 @@ def main() -> int:
         times,
         _csv_floats(args.uncertainty),
         _csv_floats(args.weighting),
-        broken=broken,
-        fit=args.gaussian_fit_option,
         fl_correct_coeff=fl_correct_coeff,
         FFCUR=args.nffprime,
         PPCUR=args.npprime,
+        decisions=decisions,
+        recovery=recovery,
         average_window=args.average_window,
     )
 

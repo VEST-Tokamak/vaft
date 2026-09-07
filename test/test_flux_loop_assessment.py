@@ -261,10 +261,12 @@ def test_agreement_vocabulary_covers_every_state():
     assert BACKTEST.agreement(NOT_AVAILABLE, True) == NOT_AVAILABLE
 
 
-def test_the_manual_list_is_read_from_the_routine_config_not_hard_coded():
-    manual = BACKTEST.routine_manual_broken()
-    assert manual == sorted(manual) and all(65 <= item <= 75 for item in manual)
+def test_the_routine_config_carries_no_manual_list_and_the_historical_one_is_named():
+    """#295 §4: the list is gone from the pipeline; the back-test keeps it by
+    name as the record of what the evidence was measured against."""
+    assert BACKTEST.routine_manual_broken() == []
     assert "constraints" in BACKTEST.ROUTINE_CONFIG.read_text()
+    assert BACKTEST.HISTORICAL_MANUAL_LIST == (65, 66, 67, 68, 72, 74)
 
 
 def test_the_backtest_script_writes_the_schema(tmp_path):

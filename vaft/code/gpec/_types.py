@@ -69,7 +69,16 @@ class IdealGPECOptions:
     :data:`vaft.machine_mapping.conventions.VEST_GPEC_COIL_DIRECTIONS`.  For
     any other machine ``coil_config`` (name -> ``CoilSet3D``), ``ip_direction``
     and ``bt_direction`` are all required: they are machine facts, never
-    inherited from a template.
+    inherited from a template.  Derive the direction words from the machine's
+    sign contract with
+    :func:`vaft.machine_mapping.conventions.gpec_coil_directions` rather than
+    writing the pair by hand.
+
+    These four sit here rather than on :class:`GPECSuiteConfig`, next to
+    ``coil_data_dir``, because only the ideal-GPEC stage consumes them and
+    ``__post_init__`` validates them as one group: DCON, RDCON and STRIDE
+    never see a coil.  Move them up only if a stability module starts needing
+    the machine word.
     """
 
     coil_flag: bool = True
@@ -156,6 +165,11 @@ class GPECModuleRun:
     mode: int
     workdir: Path
     returncode: Optional[int] = None
+    #: ``prepared`` | ``completed`` | ``stable`` | ``skipped`` | ``failed``.
+    #:
+    #: ``stable`` is a *successful* outcome, kept apart from ``completed``
+    #: because a stable equilibrium produces no unstable-mode output and so
+    #: cannot be told from a broken run by what it wrote (issue #423).
     status: str = "prepared"
     reason: str = ""
     logs: tuple[Path, ...] = ()
@@ -170,7 +184,13 @@ class GPECModuleRun:
 
     @property
     def ok(self) -> bool:
-        return self.status == "completed" and self.returncode == 0
+        """Whether this cell produced a usable result.
+
+        ``stable`` counts: the solver ran and found no unstable mode, which is a
+        physics result. Excluding it would make every stable discharge read as
+        an unusable cell (issue #423).
+        """
+        return self.status in {"completed", "stable"} and self.returncode == 0
 
 
 @dataclass
