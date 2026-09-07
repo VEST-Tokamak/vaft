@@ -10,14 +10,19 @@ from pathlib import Path
 import pytest
 
 import vaft.code.efit.magnetic as magnetic
+from external_code_stubs import write_launchable_stub
 from vaft.code.efit import toolchain
 
 
 def _program(path: Path) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("#!/bin/sh\nexit 0\n")
-    path.chmod(path.stat().st_mode | stat.S_IXUSR)
-    return path
+    """A stand-in the running platform will actually start.
+
+    A `#!/bin/sh` script is not a program on Windows -- CreateProcess refuses
+    it -- and `is_executable`, which the resolution under test uses, says so.
+    The shared helper writes whichever form this platform launches, and
+    returns the path it created, which on Windows is not the one given.
+    """
+    return write_launchable_stub(path)
 
 
 def test_both_roles_resolve_from_one_home_in_the_installed_layout(tmp_path):
@@ -39,7 +44,12 @@ def test_a_cmake_build_tree_is_a_valid_home_too(tmp_path):
 
 def test_a_half_installed_home_is_named_rather_than_silently_absent(tmp_path):
     _program(tmp_path / "bin" / "efit")
-    with pytest.raises(FileNotFoundError, match="efund.*bin/efund.*green/efund"):
+    # The message spells the two layouts with the platform's own separator, so
+    # the pattern has to accept either rather than assuming POSIX.
+    sep = "[/" + chr(92) + chr(92) + "]"
+    with pytest.raises(
+        FileNotFoundError, match=f"efund.*bin{sep}efund.*green{sep}efund"
+    ):
         toolchain.resolve_role("efund", env={"EFITHOME": str(tmp_path)})
 
 
@@ -86,3 +96,44 @@ def test_executable_identity_records_checksum_and_the_checkout_revision(tmp_path
         assert toolchain.executable_identity(outside, "efit").build_revision is None or True
     finally:
         outside.unlink(missing_ok=True); outside.parent.rmdir()
+
+
+# --- the stack, and where it comes from on each platform --------------------
+
+
+def test_posix_raises_the_stack_through_a_shell_wrapper(tmp_path, monkeypatch):
+    """EFIT recurses deeply enough to need far more than the 8 MB default."""
+    monkeypatch.setattr(magnetic.compat, "IS_WINDOWS", False)
+    executable = _program(tmp_path / "bin" / "efit")
+
+    command = magnetic._efit_command(
+        magnetic.EFITConfig(executable=str(executable), stack_size_kb=32768)
+    )
+
+    assert command[:2] == ["bash", "-lc"]
+    assert "ulimit -s 32768" in command[2]
+    assert command[-1] == str(executable)
+
+
+def test_windows_reserves_the_stack_at_link_time_not_through_bash(tmp_path, monkeypatch):
+    """`ulimit` cannot raise a native Windows image's stack.
+
+    The reserve is written into the PE header by the linker, so
+    install_efit_windows.ps1 passes `-Wl,--stack` and nothing at run time can
+    change it. Wrapping anyway would be worse than useless: it would make every
+    EFIT run depend on an MSYS2 bash that the external-code installers
+    deliberately keep off PATH, so the command would fail before reaching a
+    setting that could not have worked.
+    """
+    monkeypatch.setattr(magnetic.compat, "IS_WINDOWS", True)
+    executable = tmp_path / "bin" / "efit.exe"
+    executable.parent.mkdir(parents=True, exist_ok=True)
+    executable.write_bytes(b"MZ")
+
+    command = magnetic._efit_command(
+        magnetic.EFITConfig(executable=str(executable), stack_size_kb=32768)
+    )
+
+    assert command[0] == str(executable)
+    assert "bash" not in command
+    assert not any("ulimit" in part for part in command)
