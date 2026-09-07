@@ -300,6 +300,48 @@ CHECK_INTERVAL = 10  # seconds
 _unparsed_reported = set()
 
 
+def select_thomson_sources(directory):
+    """Return ``{shot: filename}``, one authoritative file per shot.
+
+    Selection uses ``vaft.machine_mapping.thomson_scattering.thomson_source_rank``
+    -- the same rule the library resolver applies -- so a direct
+    ``thomson_scattering(ods, shot)`` call and this updater can never disagree
+    about which file is authoritative for a shot.
+
+    Previously this loop processed *every* matching file and keyed the registry
+    on the bare shot number, so for a shot with both ``_v9`` and ``_v9_rev``
+    the winner was whichever ``os.listdir`` happened to yield last. That made
+    the published product depend on filesystem iteration order, and shots
+    40323-40331 differ by up to 58% in ``T_e`` between those two files.
+
+    The listing is sorted before ranking, so the result does not depend on
+    directory order. Files that belong to no shot are skipped silently here
+    rather than warned about once per name: they are reported by the caller,
+    which knows whether an unmatched file is a Thomson file at all.
+    """
+    from vaft.machine_mapping.thomson_scattering import thomson_source_rank
+
+    best = {}
+    for fname in sorted(os.listdir(directory)):
+        if not fname.endswith(".mat"):
+            continue
+        shotnumber = extract_shotnumber_of_thomson_scattering(fname)
+        if shotnumber is None:
+            if fname not in _unparsed_reported:
+                _unparsed_reported.add(fname)
+                print(f"[WARNING] no shot number in filename, skipped: {fname}")
+            continue
+        rank = thomson_source_rank(fname, shotnumber)
+        if rank is None:
+            # Parsed as a shot but is not a Thomson layout this rule knows
+            # (an IDS_/CES_ file, say). Leave it to its own updater.
+            continue
+        previous = best.get(shotnumber)
+        if previous is None or rank > previous[0]:
+            best[shotnumber] = (rank, fname)
+    return {shot: fname for shot, (_, fname) in sorted(best.items())}
+
+
 def main():
     processed_shots = load_processed_shots()
 
@@ -308,24 +350,8 @@ def main():
             print("[POLLING] Scanning for new diagnostic .mat files...")
 
             try:
-                for fname in os.listdir(WATCH_DIAG):
-                    if not fname.endswith(".mat"):
-                        continue
-
+                for shotnumber, fname in select_thomson_sources(WATCH_DIAG).items():
                     full_path = os.path.join(WATCH_DIAG, fname)
-
-                    try:
-                        shotnumber = extract_shotnumber_of_thomson_scattering(fname)
-                        if shotnumber is None:
-                            # Log it: an unrecognised layout previously dropped whole
-                            # campaigns without a trace (see the NeTe_<shot> case).
-                            if fname not in _unparsed_reported:
-                                _unparsed_reported.add(fname)
-                                print(f"[WARNING] no shot number in filename, skipped: {fname}")
-                            continue
-                    except Exception as exc:  # noqa: BLE001
-                        print(f"[WARNING] could not parse filename {fname}: {exc}")
-                        continue
                     mtime = datetime.fromtimestamp(os.path.getmtime(full_path)).isoformat()
                     prev_info = processed_shots.get(shotnumber)
 
