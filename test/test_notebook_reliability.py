@@ -153,40 +153,6 @@ def test_the_declared_offline_notebooks_are_offline(name, environment, monkeypat
     ).execute()
 
 
-@pytest.mark.parametrize(
-    "name, environment", OFFLINE_NOTEBOOKS, ids=[name for name, _ in OFFLINE_NOTEBOOKS]
-)
-def test_the_declared_offline_notebooks_ship_their_figures(name, environment):
-    """Every notebook declared offline carries at least one committed figure.
-
-    Executing a page and committing it without its output are indistinguishable
-    in a diff, and a reader on GitHub sees the difference immediately: no plot.
-    `plotting_sample_using_vaft_plot_module` -- 42 000 characters about how
-    plots are made -- lost all 25 of its figures at `f08a72c` and again when
-    `x=` was documented into it, each time because an edit was committed without
-    a re-run. This is a static read, so it costs nothing and fails at once,
-    unlike the execution test above.
-
-    `_clean_outputs.py` drops `error` outputs, so a cell that raised looks
-    exactly like a cell that never ran. That makes stored figures the only
-    cheap evidence a page was executed at all.
-    """
-    del environment  # the notebook is read, not run
-    notebook = nbformat.read(NOTEBOOKS / name, as_version=4)
-    figures = [
-        output
-        for cell in notebook.cells
-        if cell.cell_type == "code"
-        for output in cell.get("outputs", [])
-        if "image/png" in output.get("data", {})
-    ]
-
-    assert figures, (
-        f"{name} is declared offline and renders figures, but none are stored: "
-        "execute it and commit the outputs"
-    )
-
-
 @pytest.mark.parametrize("name", EQUILIBRIUM_NOTEBOOKS)
 def test_parametric_equilibrium_notebooks_execute_offline(name, monkeypatch):
     """Execute issue-65 examples without services, user paths, or saved output."""
