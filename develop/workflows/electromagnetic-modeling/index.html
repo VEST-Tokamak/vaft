@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>8402208</code>. What is described
+  <code>5abb2d2</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -898,8 +898,10 @@ channel table and raw-database loader are already wired up in <code class="langu
 
 <p><code class="language-plaintext highlighter-rouge">rogowski_coil_ip</code> subtracts a flux-loop reference from the Rogowski signal and <strong>auto-flips the sign</strong>
 when $\lvert \min I_p \rvert &gt; \lvert \max I_p \rvert$. Note the asymmetric returns:
-<code class="language-plaintext highlighter-rouge">b_field_pol_probe_field</code> gives <strong>five</strong> arrays, <code class="language-plaintext highlighter-rouge">flux_loop_flux</code> gives <strong>three</strong>. Both accept
-<code class="language-plaintext highlighter-rouge">plot_opt=True</code>, which builds an <code class="language-plaintext highlighter-rouge">ipywidgets</code> slider and so only does anything inside Jupyter.</p>
+<code class="language-plaintext highlighter-rouge">b_field_pol_probe_field</code> gives <strong>five</strong> arrays, <code class="language-plaintext highlighter-rouge">flux_loop_flux</code> gives <strong>three</strong>. Both once accepted
+<code class="language-plaintext highlighter-rouge">plot_opt=True</code>, which built an <code class="language-plaintext highlighter-rouge">ipywidgets</code> slider; that argument has been removed (issue #485).
+Processing returns arrays, and drawing them is <code class="language-plaintext highlighter-rouge">vaft.plot</code>’s job – <code class="language-plaintext highlighter-rouge">plot_flux_loop_time_flux</code> and
+<code class="language-plaintext highlighter-rouge">plot_b_field_probe_time_field</code> draw the same signals, with <code class="language-plaintext highlighter-rouge">interactive=True</code> for the controls.</p>
 
 <p><img src="/vaft/develop/assets/images/magnetics/plasma_current.png" alt="Plasma current" /></p>
 
@@ -1399,7 +1401,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-07 03:47:31 +0000"
+        "time": "2026-09-07 03:55:55 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

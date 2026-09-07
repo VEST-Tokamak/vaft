@@ -226,7 +226,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>8402208</code>. What is described
+  <code>5abb2d2</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -446,10 +446,16 @@ plasma-free benchmark for the full PF-only wall and for each reduced wall
 over the same window, and reports two blocks per model: <code class="language-plaintext highlighter-rouge">measurement</code>
 (residual against the data) and <code class="language-plaintext highlighter-rouge">reduction</code> (distance from the full model
 at the same channels). On shot 39915 the full wall improves the coil-only
-residual by a median 91 %, and every reduced wall — even the nineteen
-slowest modes, 6 % from the full wall term at the probes — improves it by
-the same 91 % to within a point: the residual that remains is the vessel
-model’s, not the truncation’s.</p>
+residual by a median 78 % over the 73 usable channels, and a converged
+reduction improves it by the same 78 % to within a tenth of a point
+(<code class="language-plaintext highlighter-rouge">moments_30</code>, 0.5 % from the full wall term at the probes): the residual
+that remains is the vessel model’s, not the truncation’s. The nineteen
+slowest modes are the counter-example rather than a second instance of it:
+they reach only 64 %, and sit 34 % from the full wall term at the probes over
+this benchmark’s 25 ms window — the 28 % in the table above is the same rule
+and the same metric scored over the whole record instead, so the two are not
+in conflict. The separation is a claim about converged reductions, not about
+reduction in general.</p>
 
 <p><code class="language-plaintext highlighter-rouge">find_plasma_free_shots</code> classifies database shots as <code class="language-plaintext highlighter-rouge">plasma_free</code>,
 <code class="language-plaintext highlighter-rouge">plasma</code>, <code class="language-plaintext highlighter-rouge">undriven</code> or <code class="language-plaintext highlighter-rouge">daq_missing</code> from their plasma-current and coil
@@ -641,7 +647,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-07 03:47:31 +0000"
+        "time": "2026-09-07 03:55:55 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
