@@ -163,14 +163,38 @@ def test_windows_puts_the_table_directory_shim_on_the_child_path(tmp_path, monke
     assert "C:/Windows/system32" in env["PATH"]
 
 
-def test_a_prefix_without_a_shim_leaves_the_path_alone(tmp_path, monkeypatch):
+def test_the_shim_is_found_from_a_cmake_build_tree_too(tmp_path, monkeypatch):
+    """`$EFITHOME` may name a build tree, and `resolve_role` says so.
+
+    There the executable is `<build>/efit/efit.exe`, one level deeper than an
+    install's `<root>/bin/efit.exe`, so a lookup that only ever went up two
+    levels missed a shim that was sitting right beside the build directory --
+    and missed it silently, which is the failure this shim exists to prevent.
+    """
+    monkeypatch.setattr(magnetic.compat, "IS_WINDOWS", True)
+    prefix = tmp_path / "prefix"
+    executable = prefix / "build" / "efit" / "efit.exe"
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"MZ")
+    shim = prefix / "shim"
+    shim.mkdir()
+
+    env = {"PATH": "C:/Windows/system32"}
+    magnetic._add_shim_directory(env, executable)
+
+    assert env["PATH"].split(os.pathsep)[0] == str(shim)
+
+
+def test_a_prefix_without_a_shim_says_so_rather_than_going_quiet(tmp_path, monkeypatch):
+    """An installation older than the shim would otherwise fail invisibly."""
     monkeypatch.setattr(magnetic.compat, "IS_WINDOWS", True)
     executable = tmp_path / "bin" / "efit.exe"
     executable.parent.mkdir(parents=True)
     executable.write_bytes(b"MZ")
 
     env = {"PATH": "C:/Windows/system32"}
-    magnetic._add_shim_directory(env, executable)
+    with pytest.warns(RuntimeWarning, match="Green-table subdirectory"):
+        magnetic._add_shim_directory(env, executable)
 
     assert env["PATH"] == "C:/Windows/system32"
 

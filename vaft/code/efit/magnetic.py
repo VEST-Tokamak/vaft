@@ -12,6 +12,7 @@ import math
 import os
 import re
 import subprocess
+import warnings
 from dataclasses import dataclass, field
 from numbers import Integral
 from pathlib import Path
@@ -398,12 +399,27 @@ def _add_shim_directory(env: dict[str, str], executable: str | Path) -> None:
     """
     if not compat.IS_WINDOWS:
         return
-    root = Path(executable).resolve().parent.parent
-    shim = root / SHIM_DIRECTORY
-    if not shim.is_dir():
-        return
-    existing = env.get("PATH", "")
-    env["PATH"] = f"{shim}{os.pathsep}{existing}" if existing else str(shim)
+    # Both layouts resolve_role accepts: <root>/bin/efit.exe from an install,
+    # and <build>/efit/efit.exe from a CMake tree whose shim sits one level
+    # further up, beside the build directory rather than inside it.
+    here = Path(executable).resolve().parent
+    for root in (here.parent, here.parent.parent):
+        shim = root / SHIM_DIRECTORY
+        if shim.is_dir():
+            existing = env.get("PATH", "")
+            env["PATH"] = f"{shim}{os.pathsep}{existing}" if existing else str(shim)
+            return
+    # Saying nothing here is what the shim exists to prevent: EFIT would read
+    # the wrong Green tables and never mention it. A prefix from an installer
+    # older than the shim reaches this too.
+    warnings.warn(
+        f"No {SHIM_DIRECTORY}/ls.cmd found near {executable}. EFIT picks its "
+        "Green-table subdirectory by shelling out to `ls`, which cmd.exe does "
+        "not have, and falls back to the wrong directory silently. Reinstall "
+        "with install/install_efit_windows.ps1, which writes it.",
+        RuntimeWarning,
+        stacklevel=3,
+    )
 
 
 def _efit_command(config: EFITConfig, executable: str | Path | None = None) -> list[str]:

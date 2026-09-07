@@ -629,7 +629,8 @@ So the installer prefers the S3-free prefix that
 `install_gpec_windows.ps1 -BuildDependencies` leaves behind, which does carry
 the netCDF v2 Fortran API EFIT calls; it refuses an S3-linked one and says why,
 building without m-file output rather than producing a binary that hangs.
-`-NetcdfHome` overrides.
+`-NetcdfHome` overrides the choice and the refusal both: passing it is you
+saying you know what that prefix is.
 
 Green-function tables are not shipped with EFIT: generate them with `efund` for
 the grid you intend to run, and generate them with the *same* build, because

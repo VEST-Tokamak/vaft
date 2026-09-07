@@ -266,7 +266,11 @@ else {
     # header rather than discovering it at the link.
     if (Test-Path -LiteralPath (Join-Path $candidate 'include\netcdf.inc')) {
         $netcdfUnix = ConvertTo-Msys2Path -WindowsPath $candidate
-        $s3Linked = Test-Path -LiteralPath (Join-Path $candidate 'bin\libaws-c-s3.dll')
+        # Only when we chose the prefix ourselves. -NetcdfHome is the operator
+        # saying they know what that prefix is, and refusing it while telling
+        # them to pass -NetcdfHome would be advice they had already taken.
+        $s3Linked = (-not $NetcdfHome) -and
+            (Test-Path -LiteralPath (Join-Path $candidate 'bin\libaws-c-s3.dll'))
         if ($s3Linked) {
             Write-Result -Status SKIP -Name 'netCDF' -Detail `
                 "$candidate carries the AWS S3 SDK; EFIT would hang at exit"
@@ -301,9 +305,14 @@ if ($Clean -and (Test-Path -LiteralPath $buildDirectory)) {
 # build directory is ours to discard.
 $cache = Join-Path $buildDirectory 'CMakeCache.txt'
 if (Test-Path -LiteralPath $cache) {
-    $cachedSource = (Select-String -LiteralPath $cache -Pattern '^CMAKE_HOME_DIRECTORY:INTERNAL=(.*)$' |
-        Select-Object -First 1).Matches.Groups[1].Value
-    if ($cachedSource -and ($cachedSource -replace '/', '\') -ne ($source -replace '/', '\')) {
+    # A truncated cache -- what an interrupted configure leaves, which is exactly
+    # what this block exists to recover from -- has no such line, and reaching
+    # through a null match is terminating under StrictMode.
+    $match = Select-String -LiteralPath $cache -Pattern '^CMAKE_HOME_DIRECTORY:INTERNAL=(.*)$' |
+        Select-Object -First 1
+    $cachedSource = if ($match) { $match.Matches[0].Groups[1].Value } else { '' }
+    $normalise = { param($path) ($path -replace '/', '\').TrimEnd('\') }
+    if ($cachedSource -and (& $normalise $cachedSource) -ne (& $normalise $source)) {
         Write-Result -Status SKIP -Name 'Existing build directory' -Detail "configured from $cachedSource; reconfiguring"
         Remove-Item -LiteralPath $buildDirectory -Recurse -Force
     }
@@ -333,8 +342,20 @@ $steps.Add('args+=(-DCMAKE_EXE_LINKER_FLAGS="-Wl,--stack,$VAFT_STACK")')
 # does, so H5PLappend and friends come out undefined unless they are named --
 # and named last, for the same single-pass reason as BLAS.
 $steps.Add('extra=""')
-$steps.Add('if [ -n "${VAFT_NETCDF:-}" ] && [ -f "$VAFT_NETCDF/lib/libhdf5.a" ]; then extra=" -L$VAFT_NETCDF/lib -lhdf5_hl -lhdf5 -lsz -lz"; fi')
-$steps.Add('args+=(-DCMAKE_Fortran_STANDARD_LIBRARIES="-L/$VAFT_ENV/lib -lopenblas$extra")')
+# By absolute path, never -l: -L/$VAFT_ENV/lib is already on the line, ld
+# searches -L left to right and prefers a .dll.a, so -lhdf5 would resolve to
+# the MinGW *shared* HDF5 -- a different major version from the one this netCDF
+# was compiled against, and one that imports the AWS S3 SDK this whole netCDF
+# choice exists to keep out.
+# The netCDF prefix's -L goes FIRST. ld searches -L left to right and prefers a
+# .dll.a, so with the MinGW directory ahead of it, -lhdf5 resolves to the shared
+# MinGW HDF5 -- a different major version from the one this netCDF was compiled
+# against, and one that imports the AWS S3 SDK the netCDF choice above exists to
+# keep out. Naming the archives by absolute path would also work, but MSYS2's
+# argument conversion mangles a bare Windows path on its way to ld.
+$steps.Add('libs="-L/$VAFT_ENV/lib -lopenblas"')
+$steps.Add('if [ -n "${VAFT_NETCDF:-}" ] && [ -f "$VAFT_NETCDF/lib/libhdf5.a" ]; then libs="-L$VAFT_NETCDF/lib -lhdf5_hl -lhdf5 $libs -lsz -lz"; fi')
+$steps.Add('args+=(-DCMAKE_Fortran_STANDARD_LIBRARIES="$libs")')
 # ${VAFT_NETCDF:-}, not "$VAFT_NETCDF": Windows deletes an environment variable
 # that is set to the empty string, so with no netCDF the name does not reach the
 # shell at all -- and `set -u` aborts the build on an unset variable.
@@ -351,7 +372,10 @@ $cmakeArguments = @(
     '-DENABLE_PARALLEL=OFF',
     '-DENABLE_MDSPLUS=OFF',
     "-DCMAKE_EXE_LINKER_FLAGS=-Wl,--stack,0x$('{0:X}' -f $stackBytes)",
-    "-DCMAKE_Fortran_STANDARD_LIBRARIES=-L/$MinGWEnvironment/lib -lopenblas",
+    "-DCMAKE_Fortran_STANDARD_LIBRARIES=-L/$MinGWEnvironment/lib -lopenblas$(
+        if ($netcdfUnix -and (Test-Path -LiteralPath (Join-Path (Join-Path $candidate 'lib') 'libhdf5.a'))) {
+            " $netcdfUnix/lib/libhdf5_hl.a $netcdfUnix/lib/libhdf5.a -lsz -lz"
+        })",
     $(if ($netcdfUnix) { "-DENABLE_NETCDF=ON", "-DNetCDF_DIR=$netcdfUnix" } else { '-DENABLE_NETCDF=OFF' })
 )
 $fortranVersion = 'gfortran'
@@ -413,12 +437,13 @@ $record = @{
     msys2_root                    = $root
     mingw_env                     = $MinGWEnvironment
     executables                   = @($Executables | ForEach-Object { "bin\$_.exe" })
-    table_directory_shim          = 'shim\ls.cmd'
     home_variable                 = $HomeVariable
     build_log                     = $logPath
 }
 
 $built = @($Executables | Where-Object { $missing -notcontains $_ })
+# Only claim the shim once something was built to use it.
+$record['table_directory_shim'] = $(if ($built.Count -gt 0) { 'shim\ls.cmd' } else { $null })
 if ($built.Count -gt 0) {
     # ---------------------------------------------------------------------------
 # The `ls` EFIT shells out for
@@ -445,7 +470,7 @@ rem install/install_efit_windows.ps1 for why this exists.
 setlocal
 set "p=%~1"
 set "p=%p:/=\%"
-dir /b "%p%"
+dir /-p /b "%p%"
 '@ | Set-Content -Path (Join-Path $shimDirectory 'ls.cmd') -Encoding ascii
 Write-Result -Status PASS -Name 'Table-directory shim' -Detail (Join-Path $shimDirectory 'ls.cmd')
 
