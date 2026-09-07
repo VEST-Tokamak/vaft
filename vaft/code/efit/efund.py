@@ -263,11 +263,25 @@ def _ints(values: Any) -> list[int]:
     return [int(value) for value in np.asarray(values).reshape(-1)]
 
 
-def efund_namelist(geometry: EFUNDGeometry, config: EFUNDConfig) -> f90nml.Namelist:
-    """The three namelists EFUND reads, in the order ``machinein``, ``in5``, ``in3``."""
+def efund_namelist(
+    geometry: EFUNDGeometry,
+    config: EFUNDConfig,
+    *,
+    envelope: Any | None = None,
+) -> f90nml.Namelist:
+    """The namelists EFUND reads, plus the ``&incheck`` block EFIT reads.
+
+    EFUND ignores ``&incheck``; EFIT reads it from the same file in the table
+    directory (``read_namelist.F90``) and ``chkerr`` accepts or rejects every
+    reconstruction against it.  Passing an ``envelope`` therefore decides what
+    counts as an acceptable equilibrium for every run against this table, and
+    omitting it leaves EFIT's own defaults -- which are DIII-D's -- in force.
+    """
     counts = geometry.counts()
     namelist = f90nml.Namelist()
     namelist["machinein"] = {"device": str(config.device), **counts}
+    if envelope is not None:
+        namelist["incheck"] = dict(envelope.to_namelist())
     namelist["in5"] = config.in5()
     namelist["in3"] = {
         "islpfc": config.islpfc,
@@ -328,13 +342,17 @@ def write_mhdin(
     path: str | os.PathLike[str],
     *,
     header: Sequence[str] = (),
+    envelope: Any | None = None,
 ) -> Path:
     """Write ``mhdin.dat`` for ``geometry`` and ``config``; returns the path."""
     destination = Path(path)
     buffer = io.StringIO()
-    for line in _header_lines(geometry, config, header):
+    extra = list(header)
+    if envelope is not None:
+        extra.append(f"acceptance envelope sha256 {envelope.sha256}")
+    for line in _header_lines(geometry, config, extra):
         buffer.write(f"! {line}\n")
-    efund_namelist(geometry, config).write(buffer)
+    efund_namelist(geometry, config, envelope=envelope).write(buffer)
     destination.write_text(buffer.getvalue(), encoding="utf-8")
     return destination
 
@@ -354,6 +372,7 @@ def prepare_efund_inputs(
     manifest: Mapping[str, Any] | None = None,
     geometry: EFUNDGeometry | None = None,
     header: Sequence[str] = (),
+    envelope: Any | None = None,
 ) -> EFUNDInputs:
     """Project ``static_ods`` and write ``mhdin.dat`` into ``config.workdir``.
 
@@ -367,7 +386,7 @@ def prepare_efund_inputs(
     if geometry is None:
         geometry = efund_geometry_from_static(static_ods, manifest=manifest)
     lines = _header_lines(geometry, config, header)
-    mhdin = write_mhdin(geometry, config, workdir / MHDIN_NAME, header=header)
+    mhdin = write_mhdin(geometry, config, workdir / MHDIN_NAME, header=header, envelope=envelope)
     return EFUNDInputs(
         workdir=workdir,
         mhdin=mhdin,

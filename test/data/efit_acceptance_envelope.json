@@ -1,0 +1,313 @@
+{
+ "audited_at": "2026-09-07T05:48:25+00:00",
+ "criteria": [
+  {
+   "changed": true,
+   "efit_builtin": [
+    30.0,
+    null
+   ],
+   "failure": 5,
+   "median": 23.1325493,
+   "outside_packaged": 28,
+   "outside_packaged_excluding_collapsed": 21,
+   "outside_proposed_excluding_collapsed": 0,
+   "packaged": [
+    25.0,
+    75.0
+   ],
+   "proposed": [
+    4.492187499999999,
+    32.8
+   ],
+   "range": [
+    7.58048909,
+    29.410082
+   ],
+   "rejects_real_equilibria": true,
+   "samples": 38,
+   "scalar": "aminor"
+  },
+  {
+   "changed": false,
+   "efit_builtin": [
+    null,
+    null
+   ],
+   "failure": 6,
+   "median": 1.52546905,
+   "outside_packaged": 7,
+   "outside_packaged_excluding_collapsed": 0,
+   "outside_proposed_excluding_collapsed": 0,
+   "packaged": [
+    0.8,
+    4.0
+   ],
+   "proposed": [
+    0.8,
+    4.0
+   ],
+   "range": [
+    1.202742,
+    1.64970765
+   ],
+   "rejects_real_equilibria": false,
+   "samples": 38,
+   "scalar": "elong"
+  },
+  {
+   "changed": true,
+   "efit_builtin": [
+    90.0,
+    null
+   ],
+   "failure": 7,
+   "median": 33.5325524,
+   "outside_packaged": 16,
+   "outside_packaged_excluding_collapsed": 9,
+   "outside_proposed_excluding_collapsed": 0,
+   "packaged": [
+    30.0,
+    160.0
+   ],
+   "proposed": [
+    14.892187499999999,
+    71.5078125
+   ],
+   "range": [
+    17.9804906,
+    39.810089
+   ],
+   "rejects_real_equilibria": true,
+   "samples": 38,
+   "scalar": "rcntr"
+  },
+  {
+   "changed": true,
+   "efit_builtin": [
+    null,
+    null
+   ],
+   "failure": 8,
+   "median": 31.8447647,
+   "outside_packaged": 18,
+   "outside_packaged_excluding_collapsed": 11,
+   "outside_proposed_excluding_collapsed": 0,
+   "packaged": [
+    30.0,
+    160.0
+   ],
+   "proposed": [
+    14.892187499999999,
+    71.5078125
+   ],
+   "range": [
+    17.930273,
+    36.9601344
+   ],
+   "rejects_real_equilibria": true,
+   "samples": 38,
+   "scalar": "rcurrt"
+  },
+  {
+   "changed": true,
+   "efit_builtin": [
+    null,
+    null
+   ],
+   "failure": 9,
+   "median": 0.648794344,
+   "outside_packaged": 0,
+   "outside_packaged_excluding_collapsed": 0,
+   "outside_proposed_excluding_collapsed": 0,
+   "packaged": [
+    -165.0,
+    165.0
+   ],
+   "proposed": [
+    -114.0078125,
+    114.0078125
+   ],
+   "range": [
+    -0.141832209,
+    3.57958761
+   ],
+   "rejects_real_equilibria": false,
+   "samples": 38,
+   "scalar": "zcntr"
+  },
+  {
+   "changed": true,
+   "efit_builtin": [
+    null,
+    null
+   ],
+   "failure": 10,
+   "median": 0.571617454,
+   "outside_packaged": 0,
+   "outside_packaged_excluding_collapsed": 0,
+   "outside_proposed_excluding_collapsed": 0,
+   "packaged": [
+    -165.0,
+    165.0
+   ],
+   "proposed": [
+    -114.0078125,
+    114.0078125
+   ],
+   "range": [
+    -0.105137914,
+    3.29822354
+   ],
+   "rejects_real_equilibria": false,
+   "samples": 38,
+   "scalar": "zcurrt"
+  },
+  {
+   "changed": false,
+   "efit_builtin": [
+    null,
+    null
+   ],
+   "failure": 2,
+   "median": 0.656641542,
+   "outside_packaged": 7,
+   "outside_packaged_excluding_collapsed": 0,
+   "outside_proposed_excluding_collapsed": 0,
+   "packaged": [
+    0.05,
+    1.5
+   ],
+   "proposed": [
+    0.05,
+    1.5
+   ],
+   "range": [
+    0.64187859,
+    0.749094954
+   ],
+   "rejects_real_equilibria": false,
+   "samples": 38,
+   "scalar": "li"
+  },
+  {
+   "changed": false,
+   "efit_builtin": [
+    null,
+    null
+   ],
+   "failure": 13,
+   "median": 4.36676005,
+   "outside_packaged": 7,
+   "outside_packaged_excluding_collapsed": 0,
+   "outside_proposed_excluding_collapsed": 0,
+   "packaged": [
+    1.0,
+    200.0
+   ],
+   "proposed": [
+    1.0,
+    200.0
+   ],
+   "range": [
+    2.89801514,
+    7.50598387
+   ],
+   "rejects_real_equilibria": false,
+   "samples": 38,
+   "scalar": "qstar"
+  }
+ ],
+ "era": "vest-pre-43017-pf1906",
+ "grid": {
+  "cell_cm": 0.8984374999999999,
+  "cells": 5
+ },
+ "limiter": {
+  "r": [
+   0.104,
+   0.76
+  ],
+  "z": [
+   -1.185,
+   1.185
+  ]
+ },
+ "packaged": {
+  "aminor_max": 75.0,
+  "aminor_min": 25.0,
+  "betap_max": 6.0,
+  "betat_max": 25.0,
+  "dbpli_diff": 0.05,
+  "delbp_diff": 0.08,
+  "elong_max": 4.0,
+  "elong_min": 0.8,
+  "gapin_min": -0.2,
+  "gapout_min": -0.2,
+  "gaptop_min": -0.2,
+  "li_max": 1.5,
+  "li_min": 0.05,
+  "plasma_diff": 0.08,
+  "qout_max": 200.0,
+  "qout_min": 1.0,
+  "qstar_max": 200.0,
+  "qstar_min": 1.0,
+  "rcntr_max": 160.0,
+  "rcntr_min": 30.0,
+  "rcurrt_max": 160.0,
+  "rcurrt_min": 30.0,
+  "sepin_check": -90.0,
+  "zcntr_max": 165.0,
+  "zcntr_min": -165.0,
+  "zcurrt_max": 165.0,
+  "zcurrt_min": -165.0
+ },
+ "packaged_sha256": "88cff875b1976298c3db906b8fa40790e444ea4b913be35bf77ae9e6b9ce0499",
+ "proposed": {
+  "aminor_max": 32.8,
+  "aminor_min": 4.492187499999999,
+  "betap_max": 6.0,
+  "betat_max": 25.0,
+  "dbpli_diff": 0.05,
+  "delbp_diff": 0.08,
+  "elong_max": 4.0,
+  "elong_min": 0.8,
+  "gapin_min": -0.2,
+  "gapout_min": -0.2,
+  "gaptop_min": -0.2,
+  "li_max": 1.5,
+  "li_min": 0.05,
+  "plasma_diff": 0.08,
+  "qout_max": 200.0,
+  "qout_min": 1.0,
+  "qstar_max": 200.0,
+  "qstar_min": 1.0,
+  "rcntr_max": 71.5078125,
+  "rcntr_min": 14.892187499999999,
+  "rcurrt_max": 71.5078125,
+  "rcurrt_min": 14.892187499999999,
+  "sepin_check": -90.0,
+  "zcntr_max": 114.0078125,
+  "zcntr_min": -114.0078125,
+  "zcurrt_max": 114.0078125,
+  "zcurrt_min": -114.0078125
+ },
+ "proposed_sha256": "a844f2a1900f8df4dfa439807ec243722e5105c489cda989be8cd9afab72e40a",
+ "schema_version": 1,
+ "summary": {
+  "changed_by_the_proposal": [
+   "aminor",
+   "rcntr",
+   "rcurrt",
+   "zcntr",
+   "zcurrt"
+  ],
+  "criteria": 8,
+  "rejecting_real_equilibria": [
+   "aminor",
+   "rcntr",
+   "rcurrt"
+  ],
+  "still_rejected_by_the_proposal": []
+ }
+}

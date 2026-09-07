@@ -179,6 +179,95 @@ class EFITNumericsConfig:
 
 
 @dataclass(frozen=True)
+class EFITAcceptanceEnvelope:
+    """The ``&incheck`` bounds EFIT accepts a reconstruction within.
+
+    EFIT reads these from ``mhdin.dat`` in the table directory
+    (``read_namelist.F90``) and ``chkerr`` tests every solution against them,
+    raising the numbered failures that decide ``jflag``.  Its built-in
+    defaults are DIII-D's -- ``aminor_min = 30 cm``, ``rcntr_min = 90 cm`` --
+    and a machine that does not reach them has its equilibria rejected for
+    being small rather than for being wrong.
+
+    Lengths are **centimetres**, which is EFIT's convention here and not the
+    metres used everywhere else in this package.  The geometric bounds are
+    meant to be derived from the machine
+    (:func:`vaft.machine_mapping.efund_geometry.vest_acceptance_envelope`),
+    never fitted to a shot: a bound tuned until one discharge passes tests
+    nothing.
+    """
+
+    #: Minor radius [cm]: at most half the limiter's radial extent, at least
+    #: a few grid cells so an unresolved boundary is not accepted.
+    aminor_min: float = 25.0
+    aminor_max: float = 75.0
+    #: Boundary centre [cm], inside the limiter by at least ``aminor_min``.
+    rcntr_min: float = 30.0
+    rcntr_max: float = 160.0
+    zcntr_min: float = -165.0
+    zcntr_max: float = 165.0
+    #: Current centroid [cm], same reasoning as the boundary centre.
+    rcurrt_min: float = 30.0
+    rcurrt_max: float = 160.0
+    zcurrt_min: float = -165.0
+    zcurrt_max: float = 165.0
+    #: Physical admissibility, not geometry: left at EFIT's values unless
+    #: there is a physics argument to move them.
+    elong_min: float = 0.8
+    elong_max: float = 4.0
+    li_min: float = 0.05
+    li_max: float = 1.5
+    betap_max: float = 6.0
+    betat_max: float = 25.0
+    qstar_min: float = 1.0
+    qstar_max: float = 200.0
+    qout_min: float = 1.0
+    qout_max: float = 200.0
+    sepin_check: float = -90.0
+    gapin_min: float = -0.2
+    gapout_min: float = -0.2
+    gaptop_min: float = -0.2
+    #: Consistency tolerances. Deliberately untouched by the geometric
+    #: derivation: what they should be is a separate argument, and moving
+    #: them alongside the geometry would confound the two.
+    plasma_diff: float = 0.08
+    dbpli_diff: float = 0.05
+    delbp_diff: float = 0.08
+
+    def __post_init__(self) -> None:
+        for name in fields(self):
+            _require_finite(name.name, getattr(self, name.name))
+            object.__setattr__(self, name.name, float(getattr(self, name.name)))
+        for low, high in (
+            ("aminor_min", "aminor_max"),
+            ("rcntr_min", "rcntr_max"),
+            ("zcntr_min", "zcntr_max"),
+            ("rcurrt_min", "rcurrt_max"),
+            ("zcurrt_min", "zcurrt_max"),
+            ("elong_min", "elong_max"),
+            ("li_min", "li_max"),
+            ("qstar_min", "qstar_max"),
+            ("qout_min", "qout_max"),
+        ):
+            if getattr(self, low) >= getattr(self, high):
+                raise ValueError(f"{low} must be below {high}")
+        if self.aminor_min <= 0:
+            raise ValueError("aminor_min must be positive: a plasma has a size")
+
+    def to_namelist(self) -> dict[str, float]:
+        """The ``&incheck`` keys, in the spelling EFIT reads."""
+        return {name.name: float(getattr(self, name.name)) for name in fields(self)}
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"schema_version": 1, **self.to_namelist()}
+
+    @property
+    def sha256(self) -> str:
+        payload = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"), allow_nan=False)
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
 class EFITConstraintConfig:
     """Diagnostic, diamagnetic-flux, coil, and passive-structure controls.
 
@@ -385,6 +474,7 @@ def efit_parameter_grid(
 
 __all__ = [
     "DIAGNOSTIC_GROUPS",
+    "EFITAcceptanceEnvelope",
     "EFITConstraintConfig",
     "EFITInitializationConfig",
     "EFITNumericsConfig",
