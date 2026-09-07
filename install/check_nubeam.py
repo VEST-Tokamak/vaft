@@ -178,17 +178,31 @@ def check_vaft_discovery(prefix: Optional[str]) -> CheckResult:
 
 
 def check_imas_mapping() -> CheckResult:
-    """State plainly what the adapter does not do yet.
+    """State plainly which halves of the mapping exist.
 
-    A checker that reports only green invites the reading that NUBEAM results
-    are available the way CHEASE's and GPEC's are. They are not: the adapter
-    returns a native container, and nothing maps it into IMAS.
+    A checker that reports only green invites the reading that every NUBEAM
+    result reaches IMAS. Most do: the plasma-side source term and the fast-ion
+    population are both mapped. The Monte Carlo marker records are not, and a
+    caller expecting to find them in an IDS should be told so here rather than
+    by their absence.
     """
+    try:
+        from vaft.machine_mapping.core_sources import core_sources_from_nubeam  # noqa: F401
+        from vaft.machine_mapping.distributions import distributions_from_nubeam  # noqa: F401
+    except Exception as error:  # pragma: no cover - import environment problem
+        return CheckResult(
+            "IMAS mapping",
+            FAIL,
+            f"the NUBEAM IDS mappings could not be imported: {error}",
+            "Run install/check_vaft_environment.py first.",
+        )
     return CheckResult(
         "IMAS mapping",
         WARN,
-        "NUBEAM results are returned as a native container, not mapped into IMAS",
-        "Tracked as issue #490 section 6. Read the results through "
+        "profiles map to core_sources and distributions; the birth and "
+        "lost-particle markers stay in the native container",
+        "Expected. distribution_sources is the remaining half of issue #490 "
+        "section 6. Read the markers through "
         "vaft.code.nubeam.collect_nubeam_outputs and vaft.plot.nubeam.",
     )
 

@@ -90,6 +90,7 @@ __all__ = [
     "resolve_signal_time",
     "resolve_signal_waveform",
     "signal_label",
+    "signal_matches_root_time",
     "valid_fraction",
     "validity_codes",
     "validity_mask",
@@ -149,6 +150,24 @@ def resolve_signal_waveform(source: Any, base: str) -> tuple[np.ndarray, np.ndar
     if time is None or time.size != values.size:
         return None
     return time, values
+
+
+def signal_matches_root_time(source: Any, base: str) -> bool:
+    """Whether ``base`` holds a waveform the length of its IDS root time.
+
+    The one predicate for "this channel has a measurement on the diagnostics
+    grid": the constraint builder's missing-channel placeholder (#145) and
+    the acceptance policy (#296) must agree on it, or a channel could be a
+    placeholder to one and a rejection to the other.  Stricter than
+    :func:`resolve_signal_waveform` in that the node's own time axis does not
+    count; the diagnostics grid is the root's.
+    """
+    data = _array(_lookup(source, f"{base}.data"), float)
+    if data is None:
+        return False
+    ids = base.split(".", 1)[0]
+    root = _array(_lookup(source, f"{ids}.time"), float)
+    return root is not None and bool(data.size == root.size)
 
 
 def signal_label(source: Any, base: str, fallback: str) -> str:
