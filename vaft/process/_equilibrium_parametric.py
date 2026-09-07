@@ -1247,9 +1247,10 @@ def fit_miller_sequence(
 
     Defaults
     --------
-    The five percent X-point proximity is a geometric convenience marking where
-    the surface stops being locally Miller-like.  Radial derivatives need at least
-    four accepted surfaces, which is the smallest set a cubic spline can use.
+    The five percent X-point proximity is a numerical convenience marking where
+    the surface stops being locally Miller-like; so is the requirement of four
+    accepted surfaces for radial derivatives, which is the smallest set a cubic
+    spline can use.
 
     Convention
     ----------
@@ -2086,11 +2087,13 @@ def derive_boundary_representation(
 
     Defaults
     --------
-    Leaving *flux_tolerance* at ``None`` is the numerically justified choice: each
-    saddle then gets its own window from its Hessian curvature and the grid
-    spacing, because psi is stationary there and a one-cell position error
-    perturbs its flux only at second order.  A single global tolerance cannot be
-    right for saddles of different sharpness.
+    Leaving *flux_tolerance* at ``None`` is the justified choice, and an override
+    is a numerical convenience only: each saddle otherwise gets its own window
+    from its Hessian curvature and the grid spacing, because psi is stationary
+    there and a one-cell position error perturbs its flux only at second order.
+    A single global tolerance cannot be right for saddles of different sharpness.
+    ``fourier_modes = 16`` is likewise a numerical convenience, enough harmonics
+    to represent a tokamak boundary without fitting the contour's own sampling.
 
     Applicability
     -------------
