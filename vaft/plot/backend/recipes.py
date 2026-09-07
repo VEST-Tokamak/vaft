@@ -1802,6 +1802,10 @@ def _mirnov_phase_available(ods: Any) -> str | None:
     return None
 
 
+#: One colour per fitted band, so a band and its fit are read together.
+_PHASE_BAND_COLOURS = ("#377eb8", "#e41a1c", "#4daf4a", "#984ea3", "#ff7f00")
+
+
 def _build_mirnov_spatial_phase(
     ods: Any,
     *,
@@ -1879,13 +1883,17 @@ def _build_mirnov_spatial_phase(
     positions = int(np.unique(np.round(degrees, 6)).size)
     order = np.argsort(degrees)
     series: list[Series] = []
-    for mode in result.modes:
+    for position, mode in enumerate(result.modes):
         band = f"{mode.frequency / 1e3:.1f} kHz, n={mode.n}"
+        # A band and its own fitted line share a colour, so which line belongs
+        # to which measurement is visible without reading the legend.
+        colour = _PHASE_BAND_COLOURS[position % len(_PHASE_BAND_COLOURS)]
         series.append(Series(
             x=degrees[order],
             y=np.degrees(mode.phase)[order],
             label=band,
-            style={"marker": "o", "linestyle": "none"},
+            channel=band,
+            style={"marker": "o", "linestyle": "none", "color": colour},
         ))
         if show_fit:
             dense = np.linspace(0.0, 360.0, 721)
@@ -1894,7 +1902,8 @@ def _build_mirnov_spatial_phase(
             )
             x_fit, y_fit = _with_phase_jumps(dense, fitted)
             series.append(Series(
-                x=x_fit, y=y_fit, label=band, role="fit", style={"linestyle": "--"},
+                x=x_fit, y=y_fit, label=band, channel=band, role="fit",
+                style={"linestyle": "--", "color": colour},
             ))
     return Profile1D(
         series=tuple(series),

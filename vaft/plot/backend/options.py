@@ -84,6 +84,13 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("method", "choice", "recipes.SPECTROGRAM_METHODS", "how a time-frequency map is computed"),
         OptionSpec("field", "choice", "recipes.EQUILIBRIUM_FIELD_NAMES", "quantity a 2-D equilibrium map draws"),
         OptionSpec("frequency_range", "range", description="(f0, f1) in Hz: the analysed band"),
+        # The wrapped-n fit (issue #485): which bands to fit, how many to find,
+        # which n to test, and whether the fitted line is drawn beside the points.
+        OptionSpec("frequencies", description="bands to fit, in Hz; None finds the strongest"),
+        OptionSpec("num_modes", "int", description="how many bands to fit when none are named"),
+        OptionSpec("candidate_n", description="toroidal mode numbers the fit may choose from"),
+        OptionSpec("show_fit", "bool", description="draw the fitted line beside the measured points"),
+        OptionSpec("preprocess", "bool", description="filter the raw probe voltages before analysis"),
         OptionSpec("n_frequencies", "int", description="wavelet scales across the band (method='cwt')"),
         OptionSpec("target_df", "float", description="frequency resolution a window is sized for"),
         OptionSpec("highpass_cutoff", "float", description="trend filter cut-off in Hz"),
