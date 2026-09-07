@@ -138,43 +138,64 @@ def write_profile_nc(
     m_count=5,
     rational_q=(2.0, 3.0),
     helicity=-1.0,
+    shot=48226,
+    time=300,
+    machine="VEST",
     trimmed=False,
+    coil_names=("MID", "UP"),
 ):
     """Write a miniature ``gpec_profile_output_n<mode>.nc``; returns its data.
 
-    ``trimmed`` writes only the rational-surface block, the way a committed
-    regression extract does, so the reader is exercised against a file that
-    is missing most of its variables.
+    Shaped like the real files rather than like a convenient test: ``m_out``
+    is int32, most variables carry no ``units`` attribute (GPEC leaves 21 of
+    55 without one), and a ``coil_name`` character matrix is present, because
+    each of those is somewhere a reader can go wrong.
+
+    ``trimmed`` writes the subset a committed regression extract carries --
+    everything dimensioned on ``psi_n_rational``, ``psi_n`` or ``i``, which is
+    the rule ``gpec_reference_147131/extract_profile_subset.py`` applies.
     """
     psi_n = np.linspace(0.05, 0.99, psi_count)
     theta = np.linspace(0.0, 1.0, theta_count)
-    m_out = np.arange(-2, -2 + m_count)
+    m_out = np.arange(-2, -2 + m_count, dtype=np.int32)
     q_rational = np.asarray(rational_q, dtype=float)
     psi_rational = np.linspace(0.4, 0.95, q_rational.size)
     phi_res = (q_rational * 1e-4) - 1j * (q_rational * 0.5e-4)
     i_res = (q_rational * 1e3) + 1j * (q_rational * 1e2)
+    b_n = np.outer(m_out + 1.0, psi_n) * 1e-4 + 1j * np.outer(m_out, psi_n) * 1e-5
+    b_n_fun = np.outer(np.cos(2 * np.pi * theta), psi_n) * 1e-4 + 1j * np.outer(
+        np.sin(2 * np.pi * theta), psi_n
+    ) * 1e-4
 
+    # Rational-surface block: units only where GPEC writes them.
     data_vars = {
-        "q_rational": (("psi_n_rational",), q_rational, {"units": "-"}),
+        "q_rational": (("psi_n_rational",), q_rational),
         "area_rational": (("psi_n_rational",), q_rational * 2.0, {"units": "m^2"}),
         "Phi_res": (("i", "psi_n_rational"), _complex_pair(phi_res), {"units": "T"}),
         "Phi_res_v": (("i", "psi_n_rational"), _complex_pair(phi_res * 0.5), {"units": "T"}),
         "I_res": (("i", "psi_n_rational"), _complex_pair(i_res), {"units": "A"}),
         "w_isl": (("psi_n_rational",), q_rational * 1e-2, {"units": "psi_n"}),
-        "K_isl": (("psi_n_rational",), q_rational * 0.1, {"units": "-"}),
+        "K_isl": (("psi_n_rational",), q_rational * 0.1),
+        "T_e_rational": (("psi_n_rational",), q_rational * 100.0, {"units": "eV"}),
+        # psi_n-dimensioned: a real extract keeps these.
+        "q": (("psi_n",), 1.0 + 4.0 * psi_n),
+        "rmean_n": (("psi_n",), psi_n * 0.5),
     }
     coords = {
         "i": [0, 1],
-        "psi_n_rational": ("psi_n_rational", psi_rational, {"units": "-"}),
+        "psi_n_rational": ("psi_n_rational", psi_rational),
+        "psi_n": ("psi_n", psi_n),
     }
     if not trimmed:
-        b_n = np.outer(m_out + 1.0, psi_n) * 1e-4 + 1j * np.outer(m_out, psi_n) * 1e-5
-        b_n_fun = np.outer(np.cos(2 * np.pi * theta), psi_n) * 1e-4 + 1j * np.outer(
-            np.sin(2 * np.pi * theta), psi_n
-        ) * 1e-4
+        strlen = 24
+        name_chars = np.stack(
+            [
+                np.frombuffer(name.ljust(strlen)[:strlen].encode(), dtype="S1")
+                for name in coil_names
+            ]
+        )
         data_vars.update(
             {
-                "q": (("psi_n",), 1.0 + 4.0 * psi_n, {"units": "-"}),
                 "R": (("theta_dcon", "psi_n"), np.outer(np.cos(2 * np.pi * theta), psi_n) + 1.7,
                       {"units": "m"}),
                 "z": (("theta_dcon", "psi_n"), np.outer(np.sin(2 * np.pi * theta), psi_n),
@@ -182,15 +203,18 @@ def write_profile_nc(
                 "b_n": (("i", "m_out", "psi_n"), _complex_pair(b_n), {"units": "Tesla"}),
                 "b_n_fun": (("i", "theta_dcon", "psi_n"), _complex_pair(b_n_fun), {"units": "Tesla"}),
                 "xi_n": (("i", "m_out", "psi_n"), _complex_pair(b_n * 10.0), {"units": "m"}),
+                "xi_n_fun": (("i", "theta_dcon", "psi_n"), _complex_pair(b_n_fun * 10.0), {"units": "m"}),
                 # An "extra": present in real files, not a named field.
                 "b_eul": (("i", "m_out", "psi_n"), _complex_pair(b_n * 2.0), {"units": "Tesla"}),
-                "T_e_rational": (("psi_n_rational",), q_rational * 100.0, {"units": "eV"}),
+                # A character matrix, and an index that has as many entries as
+                # there are rational surfaces when the two happen to coincide.
+                "coil_name": (("coil_index", "coil_strlen"), name_chars),
+                "coil_index": (("coil_index",), np.arange(len(coil_names), dtype=np.int32)),
             }
         )
         coords.update(
             {
-                "psi_n": ("psi_n", psi_n, {"units": "-"}),
-                "theta_dcon": ("theta_dcon", theta, {"units": "-"}),
+                "theta_dcon": ("theta_dcon", theta),
                 "m_out": ("m_out", m_out),
             }
         )
@@ -200,9 +224,9 @@ def write_profile_nc(
         coords=coords,
         attrs={
             "title": "GPEC outputs in magnetic coordinate systems",
-            "machine": "VEST",
-            "shot": 0,
-            "time": 0,
+            "machine": machine,
+            "shot": shot,
+            "time": time,
             "n": n,
             "helicity": helicity,
             "version": "v1.5.5-test",
@@ -213,9 +237,16 @@ def write_profile_nc(
         "psi_n": psi_n,
         "psi_n_rational": psi_rational,
         "q_rational": q_rational,
+        "m_out": m_out,
+        "theta": theta,
         "Phi_res": phi_res,
         "I_res": i_res,
+        "b_n": b_n,
+        "b_n_fun": b_n_fun,
         "helicity": helicity,
+        "shot": shot,
+        "time": time,
+        "coil_names": coil_names,
     }
 
 

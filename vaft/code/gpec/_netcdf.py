@@ -9,7 +9,7 @@ decoding lives here once rather than being duplicated per solver module.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 
@@ -84,3 +84,33 @@ def least_stable_eigenvalue(
     if matches.size == 0:
         return None
     return complex(eigenvalues[int(matches[0])])
+
+
+def scalar_attr(value: Any) -> Any:
+    """First element of a global attribute that may be a list or array.
+
+    ``_plain_attrs`` turns any non-scalar attribute into a list, and GPEC
+    builds differ in whether they write a scalar or a one-element vector, so
+    every reader goes through this rather than calling ``int``/``float``
+    on whatever the file happened to carry.
+    """
+    if isinstance(value, (list, tuple)):
+        return scalar_attr(value[0]) if value else None
+    array = np.asarray(value)
+    return array.reshape(-1)[0] if array.ndim else array.item()
+
+
+def int_attr(value: Any, default: int = 0) -> int:
+    """Integer global attribute; ``default`` when absent or empty."""
+    scalar = scalar_attr(value)
+    if scalar is None or scalar == "":
+        return default
+    return int(float(scalar))
+
+
+def float_attr(value: Any) -> Optional[float]:
+    """Float global attribute; ``None`` when absent or empty."""
+    scalar = scalar_attr(value)
+    if scalar is None or scalar == "":
+        return None
+    return float(scalar)

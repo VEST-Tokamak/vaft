@@ -30,12 +30,13 @@ import json
 import re
 import warnings
 from dataclasses import dataclass, field
+from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
-from ._netcdf import complex_var
+from ._netcdf import complex_var, float_attr, int_attr, scalar_attr
 
 __all__ = [
     "GpecControlOutput",
@@ -183,18 +184,38 @@ class GpecIdealResult:
     """One ideal-GPEC run's native output set for a single toroidal mode.
 
     ``profile`` (``gpec_profile_output_n<mode>.nc``) carries the resonant and
-    rational-surface quantities; it stays ``None`` when the run did not write
-    one.  Source paths are recorded for every file found.
+    rational-surface quantities.  It is read **lazily**, on first access, and
+    is ``None`` when the run wrote no profile file: that file is by far the
+    largest of the set (144 MB for the DIII-D example against 2 MB for the
+    cylindrical one), and the IMAS mapping never touches it, so reading it
+    whenever a run directory is opened would cost more than it buys.  A
+    truncated profile therefore also leaves the control output readable.
+
+    Source paths are recorded for every file found.
     """
 
     control: GpecControlOutput
     cylindrical: Optional[GpecCylindricalOutput] = None
-    profile: Optional["GpecProfileOutput"] = None
     source_paths: dict[str, str] = field(default_factory=dict)
 
     @property
     def n_tor(self) -> int:
         return self.control.n_tor
+
+    @cached_property
+    def profile(self) -> Optional["GpecProfileOutput"]:
+        """The run's profile output, read on first access; ``None`` if absent."""
+        path = self.source_paths.get("profile")
+        if path is None:
+            return None
+        from ._profile_output import _read_profile
+
+        profile = _read_profile(Path(path))
+        if profile.n_tor != self.control.n_tor:
+            raise ValueError(
+                f"control file is n={self.control.n_tor} but profile file is n={profile.n_tor}"
+            )
+        return profile
 
     @classmethod
     def from_netcdf(
@@ -234,34 +255,27 @@ class GpecIdealResult:
         if profile_path is None:
             candidate = run_dir / f"gpec_profile_output_n{control.n_tor}.nc"
             profile_path = candidate if candidate.exists() else None
-        profile = None
-        if profile_path is not None:
-            from ._profile_output import _read_profile
-
-            profile = _read_profile(Path(profile_path))
-            if profile.n_tor != control.n_tor:
-                raise ValueError(
-                    f"control file is n={control.n_tor} but profile file is n={profile.n_tor}"
-                )
 
         source_paths = {"control": str(control_path)}
         if cylindrical_path is not None:
             source_paths["cylindrical"] = str(cylindrical_path)
         if profile_path is not None:
-            source_paths["profile"] = str(profile_path)
+            source_paths["profile"] = str(Path(profile_path))
         return cls(
-            control=control,
-            cylindrical=cylindrical,
-            profile=profile,
-            source_paths=source_paths,
+            control=control, cylindrical=cylindrical, source_paths=source_paths
         )
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-safe transcript of the control output plus source provenance.
 
-        The cylindrical bulk arrays are deliberately *not* duplicated into
-        JSON -- they are large, live losslessly in the source ``.nc`` named
-        under ``source_paths``, and their IMAS mapping is the consumer.
+        The cylindrical and profile bulk arrays are deliberately *not*
+        duplicated into JSON -- they are large, live losslessly in the source
+        ``.nc`` named under ``source_paths``, and their IMAS mapping is the
+        consumer.  The profile's *resonant table* is included, because a few
+        dozen numbers on a handful of rational surfaces is the part a reader
+        of this JSON would otherwise have to open the 144 MB file for; it is
+        read directly from the file rather than through :attr:`profile`, so
+        asking for the transcript does not pull the bulk arrays into memory.
         """
         control = {
             "n_tor": self.control.n_tor,
@@ -302,7 +316,19 @@ class GpecIdealResult:
             name: _array_to_json(value)
             for name, value in self.control.extras.items()
         }
-        return {"control": control, "source_paths": dict(self.source_paths)}
+        transcript: dict[str, Any] = {
+            "control": control,
+            "source_paths": dict(self.source_paths),
+        }
+        profile_path = self.source_paths.get("profile")
+        if profile_path is not None:
+            from ._profile_output import read_resonant_table
+
+            transcript["resonant_table"] = {
+                name: _array_to_json(values)
+                for name, values in read_resonant_table(profile_path).items()
+            }
+        return transcript
 
     def write_json(self, path: str | Path) -> Path:
         target = Path(path).expanduser()
@@ -369,12 +395,12 @@ def _read_control(path: Path) -> GpecControlOutput:
         }
         return GpecControlOutput(
             n_tor=n_tor,
-            machine=str(attrs.get("machine", "")),
-            shot=int(attrs.get("shot", 0)),
-            time=float(attrs.get("time", 0.0)),
-            version=str(attrs.get("version", "")),
-            jacobian=str(attrs.get("jacobian", "")),
-            helicity=int(attrs.get("helicity", 0)),
+            machine=str(scalar_attr(attrs.get("machine", "")) or ""),
+            shot=int_attr(attrs.get("shot", 0)),
+            time=float(float_attr(attrs.get("time", 0.0)) or 0.0),
+            version=str(scalar_attr(attrs.get("version", "")) or ""),
+            jacobian=str(scalar_attr(attrs.get("jacobian", "")) or ""),
+            helicity=int_attr(attrs.get("helicity", 0)),
             energy_vacuum=float(attrs.get("energy_vacuum", 0.0)),
             energy_surface=float(attrs.get("energy_surface", 0.0)),
             energy_plasma=float(attrs.get("energy_plasma", 0.0)),
