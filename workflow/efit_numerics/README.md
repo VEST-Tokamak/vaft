@@ -240,3 +240,69 @@ Two consequences for any scan:
 3. **Then #196**, holding the pinned configuration fixed, on the slices this
    baseline shows failing in initialization.
 4. **Then #468, #459 and #579**, each with the other two fixed.
+
+## The first-slice seed and the convergence basin (#588)
+
+`seed_basin.py` varies the seed and nothing else — no `ICINIT`, no termination
+setting — because #588 requires that seed geometry, temporal continuation and
+stopping criteria stay separable or nothing can be attributed. Three
+discharges, the routine seed as row one, one axis at a time.
+
+### The seed could not be varied independently, and that is the first finding
+
+`EFITInitializationConfig.rzero` drove **three** namelist quantities: `RELIP`
+(where the seed ellipse sits), `RZERO` (the reference major radius) and
+`RCENTR`, which sets `BTOR = (B_t R)_measured / RCENTR`. A radial sweep
+therefore moved the seed, the normalisation and the vacuum toroidal field
+together. `ellipse_rzero` now drives `RELIP` alone and defaults to following
+`rzero`, so the routine k-file is byte-identical and the seed is separable.
+The results below are from the corrected sweep; the first one was discarded.
+
+### The basin is narrow, and the routine seed sits near its outboard edge
+
+Routine totals across the three discharges: 31 equilibria, 18 accepted.
+
+| seed change | equilibria | accepted | slices recovered | slices lost |
+| --- | --- | --- | --- | --- |
+| `ellipse_rzero` 0.30 (inboard) | **38** | **21** | 13 | 4 |
+| `ellipse_rzero` 0.35 | 35 | 19 | 10 | 5 |
+| routine, 0.40 | 31 | 18 | — | — |
+| `ellipse_rzero` 0.45 | 22 | 19 | 6 | 16 |
+| `ellipse_rzero` 0.50 (outboard) | 15 | 15 | 3 | 20 |
+| `zzero` −0.05 m | 18 | 7 | 4 | 17 |
+| `minor_radius` 0.20 | 34 | 22 | 4 | 2 |
+
+Moving the seed 5 cm outboard costs slices on every shot; 10 cm outboard
+halves the yield. Moving it 5–10 cm inboard gains on every shot. A 5 cm
+**vertical** offset costs 13 slices on 41672 alone, which is worth stating
+because that axis was expected to do nothing by symmetry.
+
+The asymmetry has a physical reading: the reconstructions put VEST's plasma
+centre at R ≈ 0.32 m, so a seed at 0.40 m starts outboard of where the plasma
+actually is, and pushing it further out leaves the basin.
+
+### The collapse block is not a seed problem
+
+Of the 29 slices that produce nothing, **only four are ever recovered by any
+seed**, and every one of them sits at the trailing edge of its block —
+position 0 or 1 from the end, adjacent to where the fit starts working:
+
+| shot | collapse block | ever recovered |
+| --- | --- | --- |
+| 39915 | 307–315 (9 slices) | 315 |
+| 41524 | 315–327 (13) | 327 |
+| 41672 | 315–321 (7) | 320, 321 |
+
+The seed can move the boundary between the failing and working phases by a
+slice or two. It cannot touch the block. Across a threefold range in minor
+radius, a factor of two in elongation, ±10 cm radially and ±5 cm vertically,
+86 % of the collapse block is untouched. **That population belongs to #459**,
+with the 17 `findax` losses, not to initialization.
+
+### What this leaves for #196
+
+Temporal continuation still has a case — a warm start might carry a converged
+solution into the block from the working side, which is a different mechanism
+from re-seeding. But #588's premise, that the first slice must be seeded into
+a good basin before continuation can help, is now answered: the basin is
+narrow and off-centre, and a better seed is available and justified.
