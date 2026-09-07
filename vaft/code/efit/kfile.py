@@ -44,6 +44,26 @@ _EFIT_CONSTRAINT_FAMILY = {
 }
 
 
+#: Positions, in the 26-channel legacy coil list of
+#: ``legacy.vfit_pf_active_efit26``, of the sixteen groups EFIT's VEST tables
+#: carry: PF1-1..PF1-8, PF5U/L, PF6U/L, PF9U/L, PF10U/L.
+EFIT16_GROUP_POSITIONS: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16, 17, 22, 23, 24, 25)
+
+
+def efit16_group_indices(count: int, target: int) -> list[int]:
+    """Indices of the coil channels the k-file writes for an ``nfsum``-group table.
+
+    The routine VEST table has sixteen groups and the constraints ODS carries
+    the twenty-six legacy channels, so the sixteen are picked by position.
+    Any other pairing takes the leading channels.  The same selection defines
+    the F-coil groups ``vaft.machine_mapping.efund_geometry`` projects for
+    EFUND, so table and k-file cannot disagree about which coils exist.
+    """
+    if target == 16 and count >= 26:
+        return list(EFIT16_GROUP_POSITIONS)
+    return list(range(min(count, target)))
+
+
 def _condemned_channels(ods, nbprobe: int) -> set[int]:
     """Legacy-style broken indices for channels with no usable sample at all.
 
@@ -144,6 +164,11 @@ def _has_matching_signal(magnetics, path: str) -> bool:
     return bool(data.size and data.size == time.size)
 
 
+#: Half-width [s] of the box average each constraint is taken over.  The
+#: legacy value; qualifying it against the cadence is issue #468.
+DEFAULT_AVERAGE_WINDOW = 0.0005
+
+
 def generate_constraints_ods(
     ods,
     shotnumber,
@@ -157,9 +182,15 @@ def generate_constraints_ods(
     fl_correct_coeff=None,
     FFCUR=2,
     PPCUR=2,
+    *,
+    average_window: float = DEFAULT_AVERAGE_WINDOW,
 ):
     """
     Generate Constraints ODS file such that save_dir/{shotnumber}_constraints.json is created
+
+    ``average_window`` is the half-width of the box average each constraint
+    is taken over, ``[t_i - w, t_i + w]`` (issue #433); the reconstruction
+    cadence is a separate control (issue #468).
     """
     # fit = 0: no fitting, only exp. data
     # fit = 1: broken data replaced by gaussian fitted data
@@ -371,11 +402,9 @@ def generate_constraints_ods(
 
     # Convert diagnostics ODS to equilibrium constraints ODS
 
-    default_average = (
-        (time[1] - time[0]) / 2
-    )  # Diagnostics data of each time point in equilibrium constraints ODS is the average of the +- 0.5*timestep
-    #    default_average=0.0002
-    default_average = 0.0005
+    # The constraint-averaging half-window is a control of its own, distinct
+    # from the reconstruction cadence (issues #433, #468).
+    default_average = float(average_window)
 
     EQ = ods["equilibrium"]
     EQtime = EQ["time"]
@@ -863,11 +892,6 @@ def generate_kfile(
                 chunks.append("\n ")
         return "".join(chunks).rstrip(" \n,") + "\n"
 
-    def _efit16_indices(count: int, target: int) -> list[int]:
-        if target == 16 and count >= 26:
-            return [0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16, 17, 22, 23, 24, 25]
-        return list(range(min(count, target)))
-
     def _weight(cstr, path: str, group: str) -> float:
         original = float(cstr[f"{path}.weight"])
         if original == 0.0:
@@ -901,7 +925,7 @@ def generate_kfile(
 
         ## (1) PF Coil currents with weight
         nfsum = _machine_count("nfsum", len(CSTR["pf_current"]))
-        pf_indices = _efit16_indices(len(CSTR["pf_current"]), nfsum)
+        pf_indices = efit16_group_indices(len(CSTR["pf_current"]), nfsum)
         nbcoil = len(pf_indices)
         matrix = constraint_config.coil_constraint_matrix
         if len(matrix) != nbcoil:
@@ -1045,15 +1069,14 @@ def generate_kfile(
             "PSIBIT", psibit_values, per_line=3, formatter=uncertainty_formatter
         )
 
-        TTIME = str(int(np.round(time[time_idx], 4) * 1e6))
-        #        print('TTIME=',TTIME)
-        ITIME = TTIME[0:3]
-        UTIME = TTIME[3:]
-        #        print(ITIME,UTIME)
-
-        filename = f"k0{shotnumber}.00{time[time_idx] * 1000.0:.0f}"  # 0.305 -> 305
-        if UTIME != "000":
-            filename = f"k0{shotnumber}.00{ITIME}_{UTIME}"  # 0.3051 -> 305_100
+        # Named the way EFIT names its outputs: the millisecond, then the
+        # exact microsecond remainder when there is one (0.3051 -> 00305_100,
+        # 0.30632 -> 00306_320).  The remainder used to be truncated to 0.1 ms,
+        # so slices closer than that collided and never matched their a-file.
+        slice_us = int(round(time[time_idx] * 1.0e6))
+        filename = f"k0{shotnumber}.{slice_us // 1000:05d}"
+        if slice_us % 1000:
+            filename = f"{filename}_{slice_us % 1000:03d}"
 
         # Write the kfile
         #        filename=f'k0{shotnumber}.00{time[time_idx]*1e+5:.0f}'
@@ -1103,9 +1126,13 @@ def generate_kfile(
         f.write("\n")
         f.write(f" RCENTR = {RCENTR}\n")
         f.write(f" ISHOT = {shotnumber}\n")
-        f.write(f" ITIME = {int(round(time[time_idx] * 1000.0))}\n")
-        # if digit > 3: # Add ITIMEU (microsecond) if digit is greater than 3
-        #     f.write(f' ITIMEU = {(time[time_idx]*1000-int(time[time_idx]*1000))*1000}\n')
+        # EFIT reads the slice time as ITIME [ms] + ITIMEU [us] and names its
+        # outputs with both, so a sub-millisecond slice needs ITIMEU or it
+        # collides with its millisecond neighbour and is mislabelled (#468).
+        # Whole-millisecond slices write exactly what they always did.
+        f.write(f" ITIME = {slice_us // 1000}\n")
+        if slice_us % 1000:
+            f.write(f" ITIMEU = {slice_us % 1000}\n")
         f.write(BRSP)
         f.write("\n")
         f.write(BITFC)

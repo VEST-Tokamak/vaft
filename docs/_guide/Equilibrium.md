@@ -318,6 +318,14 @@ Equilibrium codes
 `vaft.code.efit` prepares k-files from an ODS, runs EFIT, and collects the
 resulting g/a/m files back into an `EFITResult`.
 
+EFIT is licensed software you obtain and build yourself (`install/install_efit.sh`,
+see the installation guide). Set `EFITHOME` to the install prefix: VAFT resolves
+both toolchain roles from it, `bin/efit` for reconstruction and `bin/efund` for
+Green-function tables, so a table and the reconstruction that consumes it always
+come from one build. `vaft.code.efit.toolchain.resolve_toolchain()` returns the
+resolved pair and `executable_identity()` records each executable's sha256 and
+source revision for run manifests.
+
 ```python
 from vaft.code import EFITConfig, prepare_efit_inputs, run_efit, collect_efit_outputs
 
@@ -339,6 +347,44 @@ if result.ok:                      # returncode == 0
 # Or re-collect an existing working directory
 result = collect_efit_outputs('/tmp/efit-run', config)
 ```
+
+#### Green tables (EFUND)
+
+EFIT reads its Green-function tables from `TABLE_DIR` and takes every
+dimension from the `mhdin.dat` beside them, with no consistency check of its
+own, so a reconstruction's provenance has to name the table it used.
+`vaft.code.efit.efund` generates tables from the canonical static geometry
+and records what it did:
+
+```python
+from vaft.omas.vest_upstream import build_static_ods
+from vaft.code.efit import EFUNDConfig, prepare_efund_inputs, run_efund, write_table_manifest
+
+ods, manifest = build_static_ods('vest-pre-43017-pf1906')   # the era, chosen by the caller
+config = EFUNDConfig(workdir='/scratch/tables/legacy', nw=129, nh=129)
+inputs = prepare_efund_inputs(ods, config, manifest=manifest)   # writes mhdin.dat
+result = run_efund(inputs, config)                                # $EFITHOME/bin/efund
+write_table_manifest(result, inputs, config, label='legacy-129')
+```
+
+The projection `vaft.machine_mapping.efund_geometry.efund_geometry_from_static`
+is the one invariant: canonical static geometry → EFUND input, vessel
+segments in `em_coupling.passive_loops` order, the equilibrium probe set the
+k-file fits, and the sixteen F-coil groups the k-file already selects
+(PF1 as eight axial segments, PF5/6/9/10 upper and lower).  It never decides
+which era a shot belongs to; that is `machine_era_for_shot`.
+
+`EFUNDConfig` holds the EFUND-only quantities (grid, flags, quadrature) and
+hashes them; the table manifest (`efund_table_manifest.json`) records the
+era and asset hashes, the executable identity, the input hash and every
+output file's sha256 and size.  An EFIT run's `efit_configuration.json`
+records the table its k-files point at through `table_identity()`: by
+manifest when the directory has one, by the hash of `mhdin.dat` otherwise.
+The bundled `vaft/data/efit/` table is of the second kind.
+
+`workflow/efit_tables/` regenerates a table, compares two table directories
+layer by layer, and runs a controlled EFIT A/B in which only the table
+changes; its README carries the results for shot 39915.
 
 ### CHEASE — equilibrium refinement
 `vaft.code.chease` takes a GEQDSK (path, `GEQDSK`, or mapping) and produces a

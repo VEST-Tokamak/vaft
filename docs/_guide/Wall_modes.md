@@ -20,6 +20,12 @@ page describes the VAFT implementation
 ([#473](https://github.com/VEST-Tokamak/vaft/issues/473)). The principle in one
 line: **local eigenbasis, global electromagnetic dynamics**.
 
+Every function of `vaft.process.wall_modes` is documented under the processing
+contract, with its units, its coupling and normalization conventions and what
+it refuses: the generated
+[wall_modes reference page]({{ site.baseurl }}/reference/process/wall_modes/)
+is that text, and this page is the workflow.
+
 ## What it is
 
 The passive wall is ~950 filament loops. They are grouped into physical

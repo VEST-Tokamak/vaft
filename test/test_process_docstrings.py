@@ -34,7 +34,8 @@ from vaft.process._docstring import (
 #: Sub-issue C (#419): equilibrium, cocos.
 #: Sub-issue D (#420): profile, atomic -- done.
 #: Sub-issue E (#421): impa, soft_x_rays, langmuir, camera_geometry.
-#: ``onset`` landed after #252 was scoped (#409) and is unassigned.
+#: Sub-issue F (#571) removed ``onset`` and ``wall_modes``, which landed
+#: after #252 was scoped -- done.
 PENDING = frozenset({
     "camera_geometry",
     "cocos",
@@ -44,9 +45,7 @@ PENDING = frozenset({
     "impa",
     "langmuir",
     "magnetics",
-    "onset",
     "soft_x_rays",
-    "wall_modes",
 })
 
 #: Pure numerics and bookkeeping: no source adds anything.
@@ -88,6 +87,15 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # onset / wall_modes (#571)
+    "active_window",
+    "allocate_per_segment",
+    "build_wall_mode_basis",
+    "principal_pulse_onset",
+    "robust_peak",
+    "segment_eigenmodes",
+    "sustained_excess_onset",
+    "zero_crossing_after_excursion",
     "repair_clipped_interval",
     "vest_coil_current_noise_reduction",
     "anti_alias_filter",
@@ -118,6 +126,13 @@ PIPELINE = frozenset({
 #: C and D add the equilibrium mappers, the profile fitters and the
 #: reconstructions.
 STATEFUL = frozenset({
+    # wall_modes (#571): element space <-> mode space
+    "combined_operators",
+    "project",
+    "reconstruct",
+    "reduce_response",
+    "reduced_operators",
+    "solve_reduced_eddy",
     "repair_clipped_interval",
     # profile / atomic (#420): measured -> mapped -> fitted -> stored; reconstructed -> synthetic
     "equilibrium_mapping_thomson_scattering",
@@ -132,6 +147,29 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # onset / wall_modes (#571)
+    "active_window",
+    "allocate_per_segment",
+    "build_wall_mode_basis",
+    "canonical_sign",
+    "combined_operators",
+    "global_time_constants",
+    "median_smooth",
+    "moment_patterns",
+    "orthonormalize_r",
+    "pickup_scale",
+    "principal_pulse_onset",
+    "project",
+    "reconstruction_error",
+    "reduced_operators",
+    "robust_peak",
+    "run_features",
+    "segment_eigenmodes",
+    "select_by_score",
+    "subspace_angles_r",
+    "sustained_excess_onset",
+    "zero_crossing_after_excursion",
+    "zero_phase_lowpass",
     "line_average_density",
     "smooth",
     "butterworth_lowpass",
