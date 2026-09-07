@@ -1,0 +1,1200 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: electromagnetics · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/process/magnetics/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/process/fluctuation/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: electromagnetics</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>36a753c</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_electromagnetics">Process reference: electromagnetics</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.electromagnetics, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/electromagnetics.py"><code class="language-plaintext highlighter-rouge">vaft/process/electromagnetics.py</code></a>:
+10 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("electromagnetics.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>Two halves.  The first builds free-space Green’s-function response matrices –
+the poloidal flux and field per unit current – for active coils, passive
+vessel loops and plasma filaments.  The second integrates the passive circuit
+those matrices describe, giving the eddy currents a coil programme drives in
+the vessel.</p>
+
+<p>Physics only.  Nothing here reads a machine description: every geometry,
+resistance and mutual-inductance matrix arrives as an argument, so the same
+code serves any axisymmetric machine.  The VEST geometry and the packaged
+coupling matrices live in <code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>psi</td><td>poloidal flux per unit source current</td><td>Wb/A</td></tr>
+  <tr><td>Br, Bz</td><td>field components per unit source current</td><td>T/A</td></tr>
+  <tr><td>R</td><td>loop resistance matrix, diagonal</td><td>ohm</td></tr>
+  <tr><td>M</td><td>passive-passive mutual inductance matrix</td><td>H</td></tr>
+  <tr><td>L</td><td>passive-active mutual inductance matrix</td><td>H</td></tr>
+  <tr><td>dt_sub</td><td>substep of the circuit integration</td><td>s</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Response matrices are per unit current</strong>, so a field is recovered by
+contracting one with a current history; nothing here carries a current of its
+own.  Sources are ideal filaments unless a turn count says otherwise, and a
+turn count multiplies the response rather than changing the geometry.</p>
+
+<p><strong>The passive circuit is driven by the rate of change of the active current</strong>,
+not by the current itself, which is why a coil programme flat in time drives
+no eddy current however large it is.</p>
+
+<p>The singularity where an observation point coincides with its source is
+handled by evaluating either side of it and averaging, rather than by
+excluding the point; see <code class="language-plaintext highlighter-rouge">compute_br_bz_phi</code>.</p>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#calc_grid"><code>calc_grid</code></a> &mdash; Assemble the response of every coil and passive loop on a rectangular grid.
+</li>
+  <li><a href="#compute_br_bz_phi"><code>compute_br_bz_phi</code></a> &mdash; Field and flux of one unit-current ring at a set of observation points.
+</li>
+  <li><a href="#compute_impedance_matrices"><code>compute_impedance_matrices</code></a> &mdash; Assemble the resistance and inductance matrices of the passive circuit.
+</li>
+  <li><a href="#compute_mutual_passive_active"><code>compute_mutual_passive_active</code></a> &mdash; Mutual inductance between passive loops and active coils, derived from geometry.
+</li>
+  <li><a href="#compute_point_response_matrices"><code>compute_point_response_matrices</code></a> &mdash; Broadcast response of point sources at observation points, with exact kernels.
+</li>
+  <li><a href="#compute_response_matrix"><code>compute_response_matrix</code></a> &mdash; Flux and field response at arbitrary observation points, per source.
+</li>
+  <li><a href="#compute_response_vector"><code>compute_response_vector</code></a> &mdash; The same response as the matrix form, with the arguments in the legacy order.
+</li>
+  <li><a href="#compute_vacuum_fields_1d"><code>compute_vacuum_fields_1d</code></a> &mdash; Contract current histories with response matrices into field histories.
+</li>
+  <li><a href="#solve_eddy_currents"><code>solve_eddy_currents</code></a> &mdash; Integrate the vessel eddy currents driven by a coil and plasma programme.
+</li>
+  <li><a href="#wall_propagator"><code>wall_propagator</code></a> &mdash; The one-substep propagator of the passive circuit.
+</li>
+</ul>
+
+<h3 id="calc_grid"><code class="language-plaintext highlighter-rouge">calc_grid</code></h3>
+
+<p class="formula-signature"><code>calc_grid(xvar, zvar, coil_turns, coil_r, coil_z, loop_geometry_type, loop_outline_r, loop_outline_z, loop_rectangle_r, loop_rectangle_z)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Assemble the response of every coil and passive loop on a rectangular grid.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>xvar</code></td><td>array_like</td><td>m</td><td><p>Major-radius grid axis.</p>
+</td></tr>
+  <tr><td><code>zvar</code></td><td>array_like</td><td>m</td><td><p>Height grid axis.</p>
+</td></tr>
+  <tr><td><code>coil_turns</code></td><td>array_like</td><td>-</td><td><p>Turns of each active coil.</p>
+</td></tr>
+  <tr><td><code>coil_r</code></td><td>array_like</td><td>m</td><td><p>Major radius of each coil.</p>
+</td></tr>
+  <tr><td><code>coil_z</code></td><td>array_like</td><td>m</td><td><p>Height of each coil.</p>
+</td></tr>
+  <tr><td><code>loop_geometry_type</code></td><td>sequence</td><td>-</td><td><p>Which shape each passive loop is described by.</p>
+</td></tr>
+  <tr><td><code>loop_outline_r</code></td><td>sequence</td><td>m</td><td><p>Major radius of each outline-described loop’s vertices.</p>
+</td></tr>
+  <tr><td><code>loop_outline_z</code></td><td>sequence</td><td>m</td><td><p>Height of those vertices.</p>
+</td></tr>
+  <tr><td><code>loop_rectangle_r</code></td><td>sequence</td><td>m</td><td><p>Major radius of each rectangle-described loop.</p>
+</td></tr>
+  <tr><td><code>loop_rectangle_z</code></td><td>sequence</td><td>m</td><td><p>Height of those rectangles.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>Response per unit current with one row per grid point and one column per source, coils first and passive loops after.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Rows run over the flattened grid and columns over the sources, coils before
+loops, which is the ordering every consumer of this matrix assumes. A loop
+described by an outline is reduced to its centroid before its response is
+taken, so an extended loop is treated as a filament at that point.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The centroid reduction means a loop large compared with its distance to the
+grid is poorly represented. Builds the whole grid at once, so memory grows as
+the product of grid points and sources.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">compute_br_bz_phi</code>, evaluated per source and stacked.
+</li>
+</ol>
+
+<h3 id="compute_br_bz_phi"><code class="language-plaintext highlighter-rouge">compute_br_bz_phi</code></h3>
+
+<p class="formula-signature"><code>compute_br_bz_phi(r_obs, z_obs, r_src, z_src, shift=0.01)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Field and flux of one unit-current ring at a set of observation points.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>r_obs</code></td><td>array_like</td><td>m</td><td><p>Major radius of the observation points.</p>
+</td></tr>
+  <tr><td><code>z_obs</code></td><td>array_like</td><td>m</td><td><p>Height of the observation points.</p>
+</td></tr>
+  <tr><td><code>r_src</code></td><td>float</td><td>m</td><td><p>Major radius of the source ring.</p>
+</td></tr>
+  <tr><td><code>z_src</code></td><td>float</td><td>m</td><td><p>Height of the source ring.</p>
+</td></tr>
+  <tr><td><code>shift</code></td><td>float, optional</td><td>m</td><td><p>Offset used to step around the source singularity.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of np.ndarray</td><td>-</td><td><p>The radial and vertical field per unit current in tesla per ampere, and the poloidal flux per unit current in weber per ampere.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">shift = 0.01</code> is a numerical convenience. The averaging is applied only
+within a third of it from the source, so a point comfortably away from the
+ring is untouched.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Per unit current, so the caller multiplies by an actual current. An
+observation point sitting on the source has no finite response; rather than
+excluding it, the response is evaluated at two points either side and
+averaged, which keeps the returned array the same shape as the input and gives
+a finite value whose error is second order in the offset.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Free space: no iron, no shielding, no image currents. The source is an ideal
+filament, so the response very close to a real conductor of finite section is
+not physical, which is what the offset is papering over rather than solving.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The axisymmetric Green’s functions in <code class="language-plaintext highlighter-rouge">vaft.formula.green</code>.
+</li>
+</ol>
+
+<h3 id="compute_impedance_matrices"><code class="language-plaintext highlighter-rouge">compute_impedance_matrices</code></h3>
+
+<p class="formula-signature"><code>compute_impedance_matrices(loop_resistances, passive_loop_geometry, coil_geometry, mutual_pp, mutual_pa, plasma_rz)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Assemble the resistance and inductance matrices of the passive circuit.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>loop_resistances</code></td><td>array_like</td><td>ohm</td><td><p>Resistance of each passive loop.</p>
+</td></tr>
+  <tr><td><code>passive_loop_geometry</code></td><td>sequence</td><td>-</td><td><p>Geometry of each passive loop.</p>
+</td></tr>
+  <tr><td><code>coil_geometry</code></td><td>sequence</td><td>-</td><td><p>Geometry of the active coils; superseded by the mutual matrix below.</p>
+</td></tr>
+  <tr><td><code>mutual_pp</code></td><td>array_like</td><td>H</td><td><p>Passive-to-passive mutual inductance.</p>
+</td></tr>
+  <tr><td><code>mutual_pa</code></td><td>array_like</td><td>H</td><td><p>Passive-to-active mutual inductance.</p>
+</td></tr>
+  <tr><td><code>plasma_rz</code></td><td>array_like</td><td>m</td><td><p>Plasma filament positions, coupled in when given.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of np.ndarray</td><td>-</td><td><p>The diagonal resistance matrix in ohms, and the two inductance matrices in henries, the second widened by the plasma coupling when supplied.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Resistance is diagonal: loops are resistively independent and coupled only
+inductively. The passive-to-active matrix is widened to the right by the
+plasma coupling when filaments are given, so the plasma enters the circuit as
+another driving current rather than as a separate term.</p>
+
+<p>The coil geometry argument is kept for compatibility and is superseded by the
+supplied mutual matrix; passing geometry alone no longer determines the
+coupling.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Takes the mutual matrices as given and cannot check they were computed for
+this geometry, which is exactly the mismatch
+<code class="language-plaintext highlighter-rouge">compute_mutual_passive_active</code> exists to resolve.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The circuit form the eddy-current solve integrates; see <code class="language-plaintext highlighter-rouge">solve_eddy_currents</code>.
+</li>
+</ol>
+
+<h3 id="compute_mutual_passive_active"><code class="language-plaintext highlighter-rouge">compute_mutual_passive_active</code></h3>
+
+<p class="formula-signature"><code>compute_mutual_passive_active(passive_loop_geometry, coil_geometry)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Mutual inductance between passive loops and active coils, derived from geometry.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>passive_loop_geometry</code></td><td>sequence</td><td>-</td><td><p>Geometry of each passive loop.</p>
+</td></tr>
+  <tr><td><code>coil_geometry</code></td><td>sequence</td><td>-</td><td><p>Geometry and turns of each active coil.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>H</td><td><p>Mutual inductance with one row per loop and one column per coil.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Derived from the geometry given, which is what makes it a usable fallback when
+a packaged coupling matrix does not apply. The packaged matrix represents a
+historical coil geometry; a machine whose coils have since moved needs this
+instead, and the two must not be mixed within one calculation.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The geometry is the argument; the packaged matrix it
+substitutes for is VEST’s.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Filament idealization, so it is less accurate than a matrix computed from the
+real conductor sections. Use it when the packaged matrix does not match the
+geometry, not in preference to one that does.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The Green’s functions in <code class="language-plaintext highlighter-rouge">vaft.formula.green</code>; the packaged alternative is the machine layer’s <code class="language-plaintext highlighter-rouge">em_coupling</code> asset.
+</li>
+</ol>
+
+<h3 id="compute_point_response_matrices"><code class="language-plaintext highlighter-rouge">compute_point_response_matrices</code></h3>
+
+<p class="formula-signature"><code>compute_point_response_matrices(obs_r, obs_z, src_r, src_z, turns=None, groups=None, n_groups=None, components=('psi', 'bz', 'br'))</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Broadcast response of point sources at observation points, with exact kernels.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>obs_r</code></td><td>array_like</td><td>m</td><td><p>Major radius of the observation points.</p>
+</td></tr>
+  <tr><td><code>obs_z</code></td><td>array_like</td><td>m</td><td><p>Height of the observation points.</p>
+</td></tr>
+  <tr><td><code>src_r</code></td><td>array_like</td><td>m</td><td><p>Major radius of the sources.</p>
+</td></tr>
+  <tr><td><code>src_z</code></td><td>array_like</td><td>m</td><td><p>Height of the sources.</p>
+</td></tr>
+  <tr><td><code>turns</code></td><td>array_like, optional</td><td>-</td><td><p>Turn count weighting each source.</p>
+</td></tr>
+  <tr><td><code>groups</code></td><td>array_like, optional</td><td>-</td><td><p>Which output column each source contributes to.</p>
+</td></tr>
+  <tr><td><code>n_groups</code></td><td>int, optional</td><td>-</td><td><p>How many columns the grouping produces.</p>
+</td></tr>
+  <tr><td><code>components</code></td><td>sequence of str, optional</td><td>-</td><td><p>Which of the flux and the two field components to return.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to np.ndarray</td><td>-</td><td><p>One matrix per requested component, per unit current.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p>Returning all three components is a numerical convenience, not a physical
+choice, and narrowing it is worth doing: each field component costs roughly
+twice the flux pass.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Exact elliptic-integral kernels rather than the approximations elsewhere in
+this module, and fully broadcast rather than looped, which is what makes it
+the right choice for many sources at many points.</p>
+
+<p>Grouping sums columns as it goes, so a set of filaments belonging to one
+circuit becomes a single column instead of being summed afterwards; on a real
+machine that turns several hundred filament columns into a handful of circuit
+ones. Turns weight each source before that sum.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A source coincident with an observation point has no finite response here;
+unlike <code class="language-plaintext highlighter-rouge">compute_br_bz_phi</code>, nothing steps around the singularity. On
+axis the kernels take their analytic limits.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The exact elliptic-integral Green’s functions in <code class="language-plaintext highlighter-rouge">vaft.formula.green</code>.
+</li>
+</ol>
+
+<h3 id="compute_response_matrix"><code class="language-plaintext highlighter-rouge">compute_response_matrix</code></h3>
+
+<p class="formula-signature"><code>compute_response_matrix(observation_points, coil_data, passive_loop_data, plasma_points=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Flux and field response at arbitrary observation points, per source.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>observation_points</code></td><td>array_like</td><td>m</td><td><p>Points at which to evaluate, as major radius and height pairs.</p>
+</td></tr>
+  <tr><td><code>coil_data</code></td><td>sequence</td><td>-</td><td><p>Active coil geometry and turns.</p>
+</td></tr>
+  <tr><td><code>passive_loop_data</code></td><td>sequence</td><td>-</td><td><p>Passive loop geometry.</p>
+</td></tr>
+  <tr><td><code>plasma_points</code></td><td>array_like, optional</td><td>m</td><td><p>Plasma filament positions.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of np.ndarray</td><td>-</td><td><p>The flux, vertical field and radial field response, each with one row per observation point and one column per source.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Unlike <code class="language-plaintext highlighter-rouge">calc_grid</code>, the observation points are arbitrary rather than a
+rectangular mesh, which is what a diagnostic set of sensor positions needs.
+Column order is coils, then passive loops, then plasma filaments when given.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Same filament idealization as the rest of the module. Plasma filaments are
+positions only: this returns their response, not their currents.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">compute_br_bz_phi</code>, evaluated per source.
+</li>
+</ol>
+
+<h3 id="compute_response_vector"><code class="language-plaintext highlighter-rouge">compute_response_vector</code></h3>
+
+<p class="formula-signature"><code>compute_response_vector(coil_data, passive_loop_data, plasma_points, observation_points)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The same response as the matrix form, with the arguments in the legacy order.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>coil_data</code></td><td>sequence</td><td>-</td><td><p>Active coil geometry and turns.</p>
+</td></tr>
+  <tr><td><code>passive_loop_data</code></td><td>sequence</td><td>-</td><td><p>Passive loop geometry.</p>
+</td></tr>
+  <tr><td><code>plasma_points</code></td><td>array_like</td><td>m</td><td><p>Plasma filament positions.</p>
+</td></tr>
+  <tr><td><code>observation_points</code></td><td>array_like</td><td>m</td><td><p>Points at which to evaluate.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of np.ndarray</td><td>-</td><td><p>Exactly what <code class="language-plaintext highlighter-rouge">compute_response_matrix</code> returns.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>A thin wrapper that reorders its arguments and delegates. It exists because
+the legacy call order put the observation points last; new code should call
+the matrix form directly.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">compute_response_matrix</code>, which does the work.
+</li>
+</ol>
+
+<h3 id="compute_vacuum_fields_1d"><code class="language-plaintext highlighter-rouge">compute_vacuum_fields_1d</code></h3>
+
+<p class="formula-signature"><code>compute_vacuum_fields_1d(coil_plus_loop_currents, coil_plus_loop_psi_resp, coil_plus_loop_br_resp, coil_plus_loop_bz_resp)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Contract current histories with response matrices into field histories.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>coil_plus_loop_currents</code></td><td>array_like</td><td>A</td><td><p>Current history, one row per time and one column per source.</p>
+</td></tr>
+  <tr><td><code>coil_plus_loop_psi_resp</code></td><td>array_like</td><td>Wb/A</td><td><p>Flux response per unit current.</p>
+</td></tr>
+  <tr><td><code>coil_plus_loop_br_resp</code></td><td>array_like</td><td>T/A</td><td><p>Radial field response per unit current.</p>
+</td></tr>
+  <tr><td><code>coil_plus_loop_bz_resp</code></td><td>array_like</td><td>T/A</td><td><p>Vertical field response per unit current.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of np.ndarray</td><td>-</td><td><p>Flux in weber and the two field components in tesla, each with one row per time and one column per observation point.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>The linear step the response matrices exist for: each output is the current
+history contracted against its own response. <strong>Vacuum fields only</strong> – the
+plasma’s own contribution is not here unless it entered as a filament current
+in the input.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Column order in the currents must match the response matrices’ own, and
+nothing checks it; a mismatched ordering gives plausible numbers that are
+wrong.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The response matrices built by <code class="language-plaintext highlighter-rouge">compute_response_matrix</code> or <code class="language-plaintext highlighter-rouge">calc_grid</code>.
+</li>
+</ol>
+
+<h3 id="solve_eddy_currents"><code class="language-plaintext highlighter-rouge">solve_eddy_currents</code></h3>
+
+<p class="formula-signature"><code>solve_eddy_currents(R_mat, L_mat, M_mat, coil_plasma_currents, time, dt_sub=5e-05, *, method='auto')</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Integrate the vessel eddy currents driven by a coil and plasma programme.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>R_mat</code></td><td>array_like</td><td>ohm</td><td><p>Loop resistance matrix.</p>
+</td></tr>
+  <tr><td><code>L_mat</code></td><td>array_like</td><td>H</td><td><p>Passive-to-active mutual inductance.</p>
+</td></tr>
+  <tr><td><code>M_mat</code></td><td>array_like</td><td>H</td><td><p>Passive-to-passive mutual inductance.</p>
+</td></tr>
+  <tr><td><code>coil_plasma_currents</code></td><td>array_like</td><td>A</td><td><p>Driving current history, one row per time and one column per source.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Time base of that history.</p>
+</td></tr>
+  <tr><td><code>dt_sub</code></td><td>float, optional</td><td>s</td><td><p>Substep of the integration.</p>
+</td></tr>
+  <tr><td><code>method</code></td><td>str, optional</td><td>-</td><td><p>Decomposition passed to the propagator.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>A</td><td><p>Eddy current in each passive loop over time.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The substep is a hard-coded value. It is meant to be finer than the input
+grid, and the shipped value is coarser than the 40 microsecond diagnostics
+grid, making this a mild rate reduction rather than the refinement intended;
+tracked in #425.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>Driven by the rate of change of the driving current</strong>, not by its value, so
+a flat coil programme drives nothing however large. The integration is
+substepped and advanced by a single reused propagator, which is what makes it
+cheap over a long shot.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The driving derivative is taken from the supplied history, so a coarsely
+sampled programme understates a fast ramp. Assumes the circuit is constant in
+time, so no geometry or resistance change during the shot is represented.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The legacy <code class="language-plaintext highlighter-rouge">vfit_eddy</code> workflow, whose matrix setup this retains structural similarity to.
+</li>
+  <li>Issue #425, tracking the substep default.
+</li>
+</ol>
+
+<h3 id="wall_propagator"><code class="language-plaintext highlighter-rouge">wall_propagator</code></h3>
+
+<p class="formula-signature"><code>wall_propagator(R_mat, M_mat, dt_sub, *, method='auto')</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The one-substep propagator of the passive circuit.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>R_mat</code></td><td>array_like</td><td>ohm</td><td><p>Loop resistance matrix, diagonal and positive.</p>
+</td></tr>
+  <tr><td><code>M_mat</code></td><td>array_like</td><td>H</td><td><p>Passive-to-passive mutual inductance matrix.</p>
+</td></tr>
+  <tr><td><code>dt_sub</code></td><td>float</td><td>s</td><td><p>Length of the substep.</p>
+</td></tr>
+  <tr><td><code>method</code></td><td>str, optional</td><td>-</td><td><p>Which decomposition to use: automatic, general, or symmetric.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>The propagator advancing the loop currents by one substep.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The method is not one of the three accepted names.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p>Automatic selection is a numerical convenience: it takes the fast path when
+the check passes and is otherwise identical to the general one.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The matrix exponential of the negative circuit operator times the substep.
+<code class="language-plaintext highlighter-rouge">solve_eddy_currents</code> consumes nothing from the decomposition except
+this, so it is the whole seam for a faster one.</p>
+
+<p>The symmetric path uses the symmetric-definite pencil: with resistance
+diagonal and positive and inductance symmetric, a change of variable makes the
+operator symmetric, so the symmetric eigensolver applies and the eigenvector
+inverse is a transpose. <strong>On the real 950-loop machine that is about eleven
+times faster than the general solver and agrees to about one part in 1e14</strong>
+(#308). It is valid only when the inductance is symmetric, which the loader
+guarantees for the packaged asset (#347) but nothing guarantees for a
+caller-built matrix, so the automatic mode checks and otherwise leaves the
+general path unchanged.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Assumes the circuit is constant over the substep, which is what makes a single
+propagator reusable across every step.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #308 for the measured speedup and agreement; issue #347 for the loader guarantee that makes the symmetric path safe on the packaged asset.
+</li>
+</ol>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/magnetics/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: magnetics">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/process/fluctuation/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: fluctuation">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#calc_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calc_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_br_bz_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_br_bz_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_impedance_matrices" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_impedance_matrices</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_mutual_passive_active" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_mutual_passive_active</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_point_response_matrices" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_point_response_matrices</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_response_matrix" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_response_matrix</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_response_vector" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_response_vector</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_vacuum_fields_1d" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_vacuum_fields_1d</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_eddy_currents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_eddy_currents</a></li><li class="page-toc-item page-toc-level-3"><a href="#wall_propagator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">wall_propagator</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: fluctuation",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_fluctuation.md",
+            "ref": "_guide/Process_reference_fluctuation.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_electromagnetics.md",
+        "mtime": "2026-09-03 10:11:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-07 06:22:45 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

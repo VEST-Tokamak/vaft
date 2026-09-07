@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: camera_geometry · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: fluctuation · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/process/langmuir/" />
+            <link rel="prev" href="/vaft/develop/reference/process/electromagnetics/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/process/impa/" />
+            <link rel="next" href="/vaft/develop/reference/process/onset/" />
         
     </head>
     <body>
@@ -220,7 +220,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Process reference: camera_geometry</a>
+                            <a href="." >Process reference: fluctuation</a>
                         
                     </h1>
                 </div>
@@ -246,12 +246,12 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/process/Process_reference_camera_geometry">Process reference: camera_geometry</h1>
+                        <h1 id="/reference/process/Process_reference_fluctuation">Process reference: fluctuation</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.camera_geometry, read from the standardized docstrings (issue 252).</dd>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.fluctuation, read from the standardized docstrings (issue 252).</dd>
     <dt>Prerequisites / inputs</dt><dd>None.</dd>
     <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
@@ -260,63 +260,96 @@
 
 
 <p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/camera_geometry.py"><code class="language-plaintext highlighter-rouge">vaft/process/camera_geometry.py</code></a>:
-4 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("camera_geometry.&lt;name&gt;")</code> prints.
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/fluctuation.py"><code class="language-plaintext highlighter-rouge">vaft/process/fluctuation.py</code></a>:
+6 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("fluctuation.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
 <h2 id="overview">Overview</h2>
 
-<p>Pure array-in/array-out functions (no ODS, no file I/O) mirroring the style of
-<code class="language-plaintext highlighter-rouge">vaft.process.equilibrium</code>. Reproduces the forward/virtual-camera projection
-used by the VEST_Fast Camera_Diagnostics repository’s <code class="language-plaintext highlighter-rouge">camera_geometry.ipynb</code>
-(see that repo’s <code class="language-plaintext highlighter-rouge">CALIBRATION.md</code>): a standard OpenCV pinhole model with
-Brown-Conrady radial/tangential distortion, <code class="language-plaintext highlighter-rouge">cv2.projectPoints</code>, applied
-directly with a shot’s calibrated <code class="language-plaintext highlighter-rouge">(rvec, tvec)</code> pose onto the ORIGINAL
-(distorted) camera frame. Per that notebook’s own documented finding (cell 50),
-the recovered pose is the true physical camera attitude regardless of which
-click-point convention was used to solve for it, so no undistortion or
-<code class="language-plaintext highlighter-rouge">newOrigin</code> handling is needed at projection time – one formula for every
-calibrated shot.</p>
+<p>Every routine here takes a plain time-and-data pair and knows nothing about the
+diagnostic that produced it.  The same functions serve magnetic pickup coils,
+interferometry, soft X-ray channels, Langmuir probes and optical intensity, so
+mapping modules must not grow their own spectral implementations.</p>
 
-<p>World points are in centimeters throughout, matching the packaged calibration
-convention: <code class="language-plaintext highlighter-rouge">(X, Y, Z)_cm = (R_m * cos(theta), R_m * sin(theta), Z_m) * 100</code>.</p>
+<table class="formula-table">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>t</td><td>time</td><td>s</td></tr>
+  <tr><td>f</td><td>frequency</td><td>Hz</td></tr>
+  <tr><td>S(f)</td><td>one-sided power spectral density</td><td>signal^2/Hz</td></tr>
+  <tr><td>alpha</td><td>power-law spectral index, S ~ f^alpha</td><td>-</td></tr>
+  <tr><td>f_break</td><td>frequency separating two power-law regimes</td><td>Hz</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Transfer functions stay outside this module.</strong>  These routines analyse
+whatever quantity they are handed and never correct for a diagnostic’s
+transfer function.  That matters most for a magnetic pickup coil, which
+measures a time derivative::</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>V(t) proportional to dB/dt   =&gt;   S_dBdt(f) = (2 pi f)**2 * S_B(f)
+</code></pre></div></div>
+
+<p>so a field spectrum going as <code class="language-plaintext highlighter-rouge">f**alpha</code> gives a derivative-signal spectrum
+going as <code class="language-plaintext highlighter-rouge">f**(alpha + 2)</code>.  <strong>A spectral index fitted to raw pickup voltage
+is not the magnetic-field spectral index.</strong>  Integrate and calibrate first –
+<code class="language-plaintext highlighter-rouge">vaft.process.magnetics.b_field_pol_probe_field</code> is the canonical VEST
+path – and pass the resulting field in.  Nothing here will do it for you, by
+design.</p>
+
+<p><strong>No physical interpretation.</strong>  Nothing classifies a fitted slope, names a
+spectral regime, or attaches meaning to a break frequency.  Reference slopes
+and characteristic frequencies are the caller’s, supplied at the plotting
+layer; this module ships no slope constants of its own.</p>
+
+<p><strong>Nothing is inferred that the caller could state.</strong>  A fit range is always
+explicit, so a reported index always belongs to a band someone chose; and the
+two-regime mode is selected by which argument is supplied, never guessed.</p>
 
 <h2 id="functions">Functions</h2>
 
 <ul class="formula-index">
-  <li><a href="#project_points"><code>project_points</code></a> &mdash; Project world points into camera pixels, flagging the ones the model cannot be trusted for.
+  <li><a href="#analyze_fluctuation_spectrum"><code>analyze_fluctuation_spectrum</code></a> &mdash; Run the spectral chain on one signal: density, then whatever else was asked for.
 </li>
-  <li><a href="#sweep_toroidal"><code>sweep_toroidal</code></a> &mdash; Sweep poloidal points through toroidal angles into world points.
+  <li><a href="#compute_band_power"><code>compute_band_power</code></a> &mdash; Integrate spectral power over named frequency bands, and optionally their ratios.
 </li>
-  <li><a href="#toroidal_ring"><code>toroidal_ring</code></a> &mdash; Sweep one poloidal point into a full toroidal ring.
+  <li><a href="#compute_psd"><code>compute_psd</code></a> &mdash; One-sided power spectral density by Welch’s method.
 </li>
-  <li><a href="#trajectory_world_points"><code>trajectory_world_points</code></a> &mdash; Convert a matched trajectory of cylindrical coordinates into world points.
+  <li><a href="#compute_spectrogram"><code>compute_spectrogram</code></a> &mdash; Short-time Fourier magnitude map of a fluctuation signal.
+</li>
+  <li><a href="#find_spectral_break"><code>find_spectral_break</code></a> &mdash; Fit a two-regime power law, below and above a break frequency.
+</li>
+  <li><a href="#fit_power_law_spectrum"><code>fit_power_law_spectrum</code></a> &mdash; Fit a power law to a spectrum over an explicitly chosen band.
 </li>
 </ul>
 
-<h3 id="project_points"><code class="language-plaintext highlighter-rouge">project_points</code></h3>
+<h3 id="analyze_fluctuation_spectrum"><code class="language-plaintext highlighter-rouge">analyze_fluctuation_spectrum</code></h3>
 
-<p class="formula-signature"><code>project_points(world_xyz_cm, rvec, tvec, camera_matrix, dist_coeffs, *, max_normalized_radius=1.3)</code></p>
+<p class="formula-signature"><code>analyze_fluctuation_spectrum(time, data, *, fit_ranges=(), bands=None, ratios=None, break_frequency=None, search_range=None, break_fit_range=None, **psd_options)</code></p>
 
 <p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
-<p>Project world points into camera pixels, flagging the ones the model cannot be trusted for.</p>
+<p>Run the spectral chain on one signal: density, then whatever else was asked for.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>world_xyz_cm</code></td><td>array_like</td><td>cm</td><td><p>World points as <code class="language-plaintext highlighter-rouge">(N, 3)</code>, in the machine frame.</p>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Uniformly sampled time axis.</p>
 </td></tr>
-  <tr><td><code>rvec</code></td><td>array_like</td><td>rad</td><td><p>Rotation vector of the calibrated camera pose, Rodrigues form.</p>
+  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>Signal samples.</p>
 </td></tr>
-  <tr><td><code>tvec</code></td><td>array_like</td><td>cm</td><td><p>Translation vector of that pose.</p>
+  <tr><td><code>fit_ranges</code></td><td>sequence, optional</td><td>Hz</td><td><p>Bands to fit a power law over, each <code class="language-plaintext highlighter-rouge">(f_low, f_high)</code>.</p>
 </td></tr>
-  <tr><td><code>camera_matrix</code></td><td>array_like</td><td>-</td><td><p>Intrinsic matrix, <code class="language-plaintext highlighter-rouge">3x3</code>.</p>
+  <tr><td><code>bands</code></td><td>mapping, optional</td><td>Hz</td><td><p>Named bands whose power to integrate.</p>
 </td></tr>
-  <tr><td><code>dist_coeffs</code></td><td>array_like</td><td>-</td><td><p>Brown-Conrady radial and tangential distortion coefficients.</p>
+  <tr><td><code>ratios</code></td><td>mapping, optional</td><td>-</td><td><p>Named band-power ratios to report.</p>
 </td></tr>
-  <tr><td><code>max_normalized_radius</code></td><td>float, optional</td><td>-</td><td><p>Largest normalized image-plane radius still considered inside the model’s fitted range.</p>
+  <tr><td><code>break_frequency</code></td><td>float, optional</td><td>Hz</td><td><p>An imposed two-regime boundary.</p>
+</td></tr>
+  <tr><td><code>search_range</code></td><td>sequence of float, optional</td><td>Hz</td><td><p>Interval to scan for a break instead.</p>
+</td></tr>
+  <tr><td><code>break_fit_range</code></td><td>sequence of float, optional</td><td>Hz</td><td><p>Outer band for the two-regime fit.  Further keyword arguments are passed through to the density estimate.</p>
 </td></tr>
   </tbody>
 </table>
@@ -324,70 +357,265 @@ convention: <code class="language-plaintext highlighter-rouge">(X, Y, Z)_cm = (R
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>pixel_uv</code></td><td>np.ndarray</td><td>-</td><td><p>Pixel positions as <code class="language-plaintext highlighter-rouge">(N, 2)</code> in column-then-row order.</p>
+  <tr><td></td><td>dict</td><td>-</td><td><p>The spectrum, and an entry for each optional analysis that was requested</p>
 </td></tr>
-  <tr><td><code>valid_mask</code></td><td>np.ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> where the projection can be trusted.</p>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Estimate the power spectral density.</li>
+  <li>Fit a power law over each requested band.</li>
+  <li>Fit a two-regime break, if either mode argument was given.</li>
+  <li>Integrate the requested band powers and ratios.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>Everything past the density is opt-in.</strong> Nothing is computed because it
+might be interesting, so the returned mapping holds exactly what was asked
+for. The same rules apply as to the functions this calls: fit ranges are
+explicit, the break mode is never inferred, and no result is given a physical
+name.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A convenience wrapper only. It adds no analysis of its own and inherits every
+limitation of the steps it runs.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The functions it orchestrates, each documented on its own.
+</li>
+</ol>
+
+<h3 id="compute_band_power"><code class="language-plaintext highlighter-rouge">compute_band_power</code></h3>
+
+<p class="formula-signature"><code>compute_band_power(frequency, psd, bands, *, ratios=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Integrate spectral power over named frequency bands, and optionally their ratios.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>frequency</code></td><td>array_like</td><td>Hz</td><td><p>Frequency axis.</p>
+</td></tr>
+  <tr><td><code>psd</code></td><td>array_like</td><td>any</td><td><p>Power spectral density.</p>
+</td></tr>
+  <tr><td><code>bands</code></td><td>mapping of str to sequence of float</td><td>Hz</td><td><p>Named <code class="language-plaintext highlighter-rouge">(f_low, f_high)</code> pairs; the names are the caller’s.</p>
+</td></tr>
+  <tr><td><code>ratios</code></td><td>mapping, optional</td><td>-</td><td><p>Named pairs of band names whose power ratio to report.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict</td><td>-</td><td><p>Power per named band, in the signal’s own squared unit, and any requested ratios, dimensionless.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>Band edges are closed</strong>, so two adjacent bands sharing an edge both include
+the sample sitting on it. A band containing fewer than two samples integrates
+to zero rather than raising, and a ratio with a zero denominator is NaN rather
+than infinite, so a caller sweeping many channels gets a comparable result
+from every one.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Integration is over the samples present, so a band narrower than the frequency
+resolution reports zero rather than an error. Nothing normalizes by bandwidth;
+these are powers, not densities.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Numerical integration of the density returned by <code class="language-plaintext highlighter-rouge">compute_psd</code>.
+</li>
+</ol>
+
+<h3 id="compute_psd"><code class="language-plaintext highlighter-rouge">compute_psd</code></h3>
+
+<p class="formula-signature"><code>compute_psd(time, data, *, sample_rate=None, window='hann', nperseg=None, noverlap=None, detrend='constant', units='signal**2/Hz')</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>One-sided power spectral density by Welch’s method.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Strictly increasing, uniformly sampled time axis.</p>
+</td></tr>
+  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>Signal samples, same length.</p>
+</td></tr>
+  <tr><td><code>sample_rate</code></td><td>float, optional</td><td>Hz</td><td><p>Overrides the rate derived from the time axis.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td>str, optional</td><td>-</td><td><p>Any window name SciPy accepts.</p>
+</td></tr>
+  <tr><td><code>nperseg</code></td><td>int, optional</td><td>-</td><td><p>Segment length in samples.</p>
+</td></tr>
+  <tr><td><code>noverlap</code></td><td>int, optional</td><td>-</td><td><p>Overlap in samples.</p>
+</td></tr>
+  <tr><td><code>detrend</code></td><td>str or bool, optional</td><td>-</td><td><p>Passed through to the underlying estimator.</p>
+</td></tr>
+  <tr><td><code>units</code></td><td>str, optional</td><td>-</td><td><p>Free-text unit label recorded on the result.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>FluctuationSpectrum</td><td>-</td><td><p>The frequency axis in hertz, the density in the signal’s own squared unit per hertz, and the parameters needed to reproduce them.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The time axis is not uniform within the module’s tolerance.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The segment length and overlap are numerical conveniences, deferred to SciPy’s
+own choices rather than fixed here, so a caller who has not thought about
+resolution gets that library’s behaviour rather than one invented for VAFT.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>One-sided, so the power at each frequency already accounts for its negative
+counterpart. The input is whatever quantity the caller wants a spectrum of and
+<strong>no transfer-function correction is applied</strong>; see the module’s conventions
+for what that means for a pickup coil.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Welch’s method assumes a uniformly sampled, stationary signal. A materially
+nonuniform time axis is rejected rather than interpolated, because
+interpolating one silently changes the spectrum it is being asked about.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Welch’s method as implemented by <code class="language-plaintext highlighter-rouge">scipy.signal.welch</code>.
+</li>
+</ol>
+
+<h3 id="compute_spectrogram"><code class="language-plaintext highlighter-rouge">compute_spectrogram</code></h3>
+
+<p class="formula-signature"><code>compute_spectrogram(time, data, *, sample_rate=None, nperseg=None, window_duration=None, overlap=0.5, window='hann', detrend='constant')</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Short-time Fourier magnitude map of a fluctuation signal.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Uniformly sampled time axis.</p>
+</td></tr>
+  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>Signal samples.</p>
+</td></tr>
+  <tr><td><code>sample_rate</code></td><td>float, optional</td><td>Hz</td><td><p>Overrides the rate derived from the time axis.</p>
+</td></tr>
+  <tr><td><code>nperseg</code></td><td>int, optional</td><td>-</td><td><p>Window length in samples.</p>
+</td></tr>
+  <tr><td><code>window_duration</code></td><td>float, optional</td><td>s</td><td><p>Window length as a duration, converted to samples.</p>
+</td></tr>
+  <tr><td><code>overlap</code></td><td>float, optional</td><td>-</td><td><p>Fractional overlap between windows.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td>str, optional</td><td>-</td><td><p>Window name.</p>
+</td></tr>
+  <tr><td><code>detrend</code></td><td>str or bool, optional</td><td>-</td><td><p>Passed through to the underlying transform.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>FluctuationSpectrogram</td><td>-</td><td><p>The time and frequency axes and the magnitude map.</p>
 </td></tr>
   </tbody>
 </table>
 
 <p><strong>Defaults.</strong></p>
 
-<p><code class="language-plaintext highlighter-rouge">max_normalized_radius = 1.3</code> is a validated-workflow default, the same
-guard the source notebook applies in its own projection routine.</p>
+<p>The overlap is a numerical convenience. The window may be given in samples or
+as a duration; the duration form is the portable one, since it means the same
+thing at a different sample rate.</p>
 
 <p><strong>Convention.</strong></p>
 
-<p><strong>Pixels are returned column first, then row</strong>, which is the opposite of the
-row-then-column order an image array is indexed with. <strong>World points are in
-centimetres</strong>, matching the packaged calibration, while every other geometry
-argument in this package is in metres; the sweep helpers here do that
-conversion.</p>
+<p><strong>The time axis is returned in the caller’s own absolute base</strong>, offset back
+from the transform’s window-relative one, so a feature can be read against the
+shot clock without correction.</p>
 
-<p>The pose is applied directly to the original distorted frame. Per the source
-notebook’s own finding, the recovered pose is the true physical camera
-attitude whichever click-point convention solved for it, so no undistortion
-step is needed and one formula serves every calibrated shot.</p>
+<p>The field names match the magnetics module’s own spectrogram result, so the
+plotting layer accepts either without knowing which produced it.</p>
 
 <p><strong>Applicability.</strong></p>
 
-<p>Machine-independent. Standard OpenCV pinhole geometry; the calibration that
-makes it a VEST camera is supplied by the caller.</p>
+<p>Machine-independent.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>Two kinds of point are excluded rather than projected. A point behind the
-camera has non-positive depth and no meaningful pixel. A point far off the
-optical axis lies outside the angular range the distortion polynomial was
-fitted over, where that polynomial can turn non-monotonic and place the point
-at a wildly wrong pixel rather than smoothly off-frame; the mask catches that
-case, which is why it is a validity test and not a crop.</p>
-
-<p>Requires OpenCV, imported at call time.</p>
+<p>The window sets the trade-off between time and frequency resolution and
+nothing here chooses it for the caller. A window longer than the record
+returns an empty result rather than raising, so callers sweeping many channels
+get deterministic behaviour at the edges.</p>
 
 <p><strong>Provenance.</strong></p>
 
 <ol class="formula-references">
-  <li>The VEST FAST camera diagnostics repository’s <code class="language-plaintext highlighter-rouge">camera_geometry.ipynb</code> and its <code class="language-plaintext highlighter-rouge">CALIBRATION.md</code>; this reproduces that notebook’s projection, including the depth and field-of-view guard from its own routine.
+  <li>The short-time Fourier transform as implemented by <code class="language-plaintext highlighter-rouge">scipy.signal.spectrogram</code>.
 </li>
 </ol>
 
-<h3 id="sweep_toroidal"><code class="language-plaintext highlighter-rouge">sweep_toroidal</code></h3>
+<h3 id="find_spectral_break"><code class="language-plaintext highlighter-rouge">find_spectral_break</code></h3>
 
-<p class="formula-signature"><code>sweep_toroidal(r_m, z_m, theta_rad)</code></p>
+<p class="formula-signature"><code>find_spectral_break(frequency, psd, *, fit_range, break_frequency=None, search_range=None, n_candidates=64)</code></p>
 
 <p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
-<p>Sweep poloidal points through toroidal angles into world points.</p>
+<p>Fit a two-regime power law, below and above a break frequency.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>r_m</code></td><td>array_like</td><td>m</td><td><p>Major radius of each poloidal point.</p>
+  <tr><td><code>frequency</code></td><td>array_like</td><td>Hz</td><td><p>Frequency axis.</p>
 </td></tr>
-  <tr><td><code>z_m</code></td><td>array_like</td><td>m</td><td><p>Height of each poloidal point, same shape as <em>r_m</em>.</p>
+  <tr><td><code>psd</code></td><td>array_like</td><td>any</td><td><p>Power spectral density.</p>
 </td></tr>
-  <tr><td><code>theta_rad</code></td><td>array_like</td><td>rad</td><td><p>Toroidal angles to sweep through.</p>
+  <tr><td><code>fit_range</code></td><td>sequence of float</td><td>Hz</td><td><p>Outer band spanning both regimes.</p>
+</td></tr>
+  <tr><td><code>break_frequency</code></td><td>float, optional</td><td>Hz</td><td><p>An imposed boundary, for the physics-informed mode.</p>
+</td></tr>
+  <tr><td><code>search_range</code></td><td>sequence of float, optional</td><td>Hz</td><td><p>Interval to scan, for the data-driven mode.</p>
+</td></tr>
+  <tr><td><code>n_candidates</code></td><td>int, optional</td><td>-</td><td><p>Log-spaced candidates scanned in search mode.</p>
 </td></tr>
   </tbody>
 </table>
@@ -395,7 +623,7 @@ case, which is why it is a validity test and not a crop.</p>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>np.ndarray</td><td>cm</td><td><p>World points as <code class="language-plaintext highlighter-rouge">(len(theta) * len(r), 3)</code>, one row per angle and point combination.</p>
+  <tr><td></td><td>SpectralBreak</td><td>-</td><td><p>The break, the two fits either side, the mode used, and the score.</p>
 </td></tr>
   </tbody>
 </table>
@@ -403,46 +631,63 @@ case, which is why it is a validity test and not a crop.</p>
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    The two poloidal arrays do not have the same shape.</p>
+    Neither or both of the two mode arguments were supplied, or the band holds
+    too few points.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The candidate count is a numerical convenience, dense enough that the scan’s
+resolution is not the limiting error.</p>
 
 <p><strong>Convention.</strong></p>
 
-<p><code class="language-plaintext highlighter-rouge">X = R cos(theta)</code>, <code class="language-plaintext highlighter-rouge">Y = R sin(theta)</code>, <code class="language-plaintext highlighter-rouge">Z = Z</code>, then converted from
-metres to centimetres because the packaged calibration is in centimetres.
-Rows vary fastest over the poloidal points and slowest over the angles.</p>
+<p><strong>The mode is chosen by which argument is supplied, never inferred.</strong> Passing
+a break frequency imposes it and the caller owns the boundary; passing a search
+range scans for one. Supplying neither, or both, is an error rather than a
+default, because a break that looks physics-informed and was in fact fitted is
+the failure this refuses to permit.</p>
 
-<p>This is an <strong>outer product</strong>: every point is swept through every angle, giving
-a surface. <code class="language-plaintext highlighter-rouge">trajectory_world_points</code> pairs them element-wise instead,
-for a single ordered path. Confusing the two produces an array of the wrong
-length rather than an error.</p>
+<p>Candidates are scored by <strong>total squared residual in log space</strong>, not by a
+point-weighted goodness of fit. The latter biases the score toward splits that
+hand most points to whichever segment fits best, and in practice pins the
+answer to the edge of the search range.</p>
+
+<p>A break found this way is a numerical feature of the spectrum. <strong>It is not
+identified with any plasma scale here.</strong></p>
 
 <p><strong>Applicability.</strong></p>
 
 <p>Machine-independent.</p>
 
+<p><strong>Limitations.</strong></p>
+
+<p>Two straight lines are fitted to something that may not have two regimes; a
+best break is always returned in search mode, whether or not one exists.
+Inherits the log-space caveats of the single-regime fit.</p>
+
 <p><strong>Provenance.</strong></p>
 
 <ol class="formula-references">
-  <li>Reproduces the source notebook’s torus sweep; see <code class="language-plaintext highlighter-rouge">project_points</code> for the repository and calibration reference.
+  <li><code class="language-plaintext highlighter-rouge">fit_power_law_spectrum</code>, applied either side of the break.
 </li>
 </ol>
 
-<h3 id="toroidal_ring"><code class="language-plaintext highlighter-rouge">toroidal_ring</code></h3>
+<h3 id="fit_power_law_spectrum"><code class="language-plaintext highlighter-rouge">fit_power_law_spectrum</code></h3>
 
-<p class="formula-signature"><code>toroidal_ring(r_m, z_m, theta_rad)</code></p>
+<p class="formula-signature"><code>fit_power_law_spectrum(frequency, psd, *, f_range)</code></p>
 
 <p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
-<p>Sweep one poloidal point into a full toroidal ring.</p>
+<p>Fit a power law to a spectrum over an explicitly chosen band.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>r_m</code></td><td>float</td><td>m</td><td><p>Major radius of the point.</p>
+  <tr><td><code>frequency</code></td><td>array_like</td><td>Hz</td><td><p>Frequency axis.</p>
 </td></tr>
-  <tr><td><code>z_m</code></td><td>float</td><td>m</td><td><p>Height of the point.</p>
+  <tr><td><code>psd</code></td><td>array_like</td><td>any</td><td><p>Power spectral density on that axis.</p>
 </td></tr>
-  <tr><td><code>theta_rad</code></td><td>array_like</td><td>rad</td><td><p>Toroidal angles making up the ring.</p>
+  <tr><td><code>f_range</code></td><td>sequence of float</td><td>Hz</td><td><p>The band to fit over, as <code class="language-plaintext highlighter-rouge">(f_low, f_high)</code>.</p>
 </td></tr>
   </tbody>
 </table>
@@ -450,51 +695,7 @@ length rather than an error.</p>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>np.ndarray</td><td>cm</td><td><p>World points as <code class="language-plaintext highlighter-rouge">(len(theta), 3)</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Convention.</strong></p>
-
-<p>The single-point case of <code class="language-plaintext highlighter-rouge">sweep_toroidal</code>, with the same axis
-definitions and the same conversion from metres to centimetres.</p>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.</p>
-
-<p><strong>Provenance.</strong></p>
-
-<ol class="formula-references">
-  <li><code class="language-plaintext highlighter-rouge">sweep_toroidal</code>, which this delegates to.
-</li>
-</ol>
-
-<h3 id="trajectory_world_points"><code class="language-plaintext highlighter-rouge">trajectory_world_points</code></h3>
-
-<p class="formula-signature"><code>trajectory_world_points(r_m, z_m, phi_rad)</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>Convert a matched trajectory of cylindrical coordinates into world points.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>r_m</code></td><td>array_like</td><td>m</td><td><p>Major radius along the trajectory.</p>
-</td></tr>
-  <tr><td><code>z_m</code></td><td>array_like</td><td>m</td><td><p>Height along the trajectory, same shape.</p>
-</td></tr>
-  <tr><td><code>phi_rad</code></td><td>array_like</td><td>rad</td><td><p>Toroidal angle at each point, same shape.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>cm</td><td><p>World points as <code class="language-plaintext highlighter-rouge">(N, 3)</code>, one row per trajectory point.</p>
+  <tr><td></td><td>SpectralFit</td><td>-</td><td><p>The index, the amplitude, the goodness of fit and the band used.</p>
 </td></tr>
   </tbody>
 </table>
@@ -502,22 +703,37 @@ definitions and the same conversion from metres to centimetres.</p>
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    The three arrays do not all have the same shape.</p>
+    Fewer than the minimum number of usable points fall inside the band.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The minimum point count is a numerical convenience: two points define a line,
+and the third is what makes the goodness of fit and the residuals mean
+anything.</p>
 
 <p><strong>Convention.</strong></p>
 
-<p><strong>Element-wise pairing</strong>, one angle per point, for an ordered path such as a
-traced field line. <code class="language-plaintext highlighter-rouge">sweep_toroidal</code> takes the outer product instead and
-gives a surface. Same axis definitions and the same conversion to centimetres.</p>
+<p>Ordinary least squares in log-log space, so the fit is on the exponent
+directly. <strong>There is no default range and no automatic range selection</strong>: a
+reported index therefore always belongs to a band the caller chose
+deliberately, rather than to whatever the algorithm happened to like.</p>
+
+<p>Nothing here names the regime that index belongs to.</p>
 
 <p><strong>Applicability.</strong></p>
 
 <p>Machine-independent.</p>
 
+<p><strong>Limitations.</strong></p>
+
+<p>Samples with a non-positive density are excluded, since their logarithm does
+not exist. A log-log fit weights decades equally, so a band spanning many
+decades is dominated by the sparse high-frequency end.</p>
+
 <p><strong>Provenance.</strong></p>
 
 <ol class="formula-references">
-  <li>The world-frame convention of the source notebook; see <code class="language-plaintext highlighter-rouge">project_points</code>.
+  <li>Ordinary least squares in log-log space; the module’s conventions on why the band is never chosen for the caller.
 </li>
 </ol>
 
@@ -610,13 +826,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/process/langmuir/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: langmuir">
+                        <a href="/vaft/develop/reference/process/electromagnetics/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: electromagnetics">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/process/impa/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: impa">
+                        <a href="/vaft/develop/reference/process/onset/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: onset">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -632,7 +848,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#project_points" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">project_points</a></li><li class="page-toc-item page-toc-level-3"><a href="#sweep_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sweep_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#toroidal_ring" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">toroidal_ring</a></li><li class="page-toc-item page-toc-level-3"><a href="#trajectory_world_points" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trajectory_world_points</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#analyze_fluctuation_spectrum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">analyze_fluctuation_spectrum</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_band_power" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_band_power</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_psd" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_psd</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_spectrogram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_spectrogram</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_spectral_break" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_spectral_break</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_power_law_spectrum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_power_law_spectrum</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -648,11 +864,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Process reference: impa",
+            "title": "Process reference: onset",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Process_reference_impa.md",
-            "ref": "_guide/Process_reference_impa.md",
+            "path": "_guide/Process_reference_onset.md",
+            "ref": "_guide/Process_reference_onset.md",
             "articles": []
         },
         
@@ -744,8 +960,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Process_reference_camera_geometry.md",
-        "mtime": "2026-09-03 10:08:00 +0000",
+        "path": "_guide/Process_reference_fluctuation.md",
+        "mtime": "2026-09-03 10:12:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
