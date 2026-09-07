@@ -84,15 +84,39 @@ class EFITProfileConfig:
 
 @dataclass(frozen=True)
 class EFITInitializationConfig:
-    """Ellipse and low-current initialization controls."""
+    """Ellipse and low-current initialization controls.
+
+    ``rzero`` is **not only** the seed ellipse's centre.  The writer sends it
+    to three namelist quantities: ``RELIP`` (where the initial ellipse sits),
+    ``RZERO`` (EFIT's reference major radius) and ``RCENTR``, which also sets
+    ``BTOR = (B_t R)_measured / RCENTR``.  Moving it therefore moves the seed,
+    the normalisation and the vacuum toroidal field together, and no study can
+    attribute a change to the seed alone (issue #588 requires exactly that
+    attribution).
+
+    ``ellipse_rzero`` separates them: when set it drives ``RELIP`` alone and
+    leaves ``RZERO``, ``RCENTR`` and ``BTOR`` at ``rzero``.  It defaults to
+    ``None``, meaning "follow ``rzero``", so the routine k-file is unchanged.
+    """
 
     rzero: float = 0.4
     zzero: float = 0.0
     minor_radius: float = 0.3
     elongation: float = 1.6
     current_threshold: float = 5_000.0
+    #: ``RELIP`` alone. ``None`` follows :attr:`rzero`, which is the routine
+    #: behaviour and keeps the emitted k-file byte-identical.
+    ellipse_rzero: float | None = None
+
+    @property
+    def seed_rzero(self) -> float:
+        """Where the initial ellipse is centred, whatever drives the rest."""
+        return float(self.rzero if self.ellipse_rzero is None else self.ellipse_rzero)
 
     def __post_init__(self) -> None:
+        if self.ellipse_rzero is not None:
+            _require_finite("ellipse_rzero", self.ellipse_rzero, positive=True)
+            object.__setattr__(self, "ellipse_rzero", float(self.ellipse_rzero))
         _require_finite("rzero", self.rzero, positive=True)
         _require_finite("zzero", self.zzero)
         _require_finite("minor_radius", self.minor_radius, positive=True)

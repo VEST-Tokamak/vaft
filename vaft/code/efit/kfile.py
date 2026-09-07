@@ -886,7 +886,10 @@ def generate_kfile(
         f.write(f" KPPCUR = {profile.kppcur}\n")
         f.write(f" KPPFNC = {profile.kppfnc}\n")
         f.write(f" PCURBD = {profile.pcurbd}\n")
-        f.write(f" RELIP = {initialization.rzero}\n")
+        # RELIP is the seed ellipse's centre; RZERO is the reference major
+        # radius, and RCENTR below sets BTOR with it. They are one field by
+        # default and separable when a study needs to move only the seed.
+        f.write(f" RELIP = {initialization.seed_rzero}\n")
         f.write(f" RZERO = {initialization.rzero}\n")
         f.write(f" SERROR = {numerics.measurement_error_floor}\n")
         f.write(TABLE_DIR)
