@@ -500,6 +500,13 @@ def missing_required_path(ods: Any, name: str) -> str | None:
         if any(_path_has_data(ods, option) for option in alternatives):
             continue
         return template
+    predicate = getattr(recipe, "available", None)
+    if predicate is not None:
+        # A data condition the paths cannot express (issue #485).
+        try:
+            return predicate(ods) or None
+        except Exception:  # noqa: BLE001 - an unreadable input is simply unsupported
+            return name
     return None
 
 
@@ -824,10 +831,17 @@ class CallableRecipe:
 
     ``builder(ods, **options)`` returns the view model.  Used for composed views
     and for models derived through :mod:`vaft.omas` processing helpers.
+
+    ``available(ods)`` answers a requirement that no path can express -- two
+    probes at *distinct* toroidal angles, say (issue #485).  It returns the
+    reason the input cannot serve the plot, or ``None`` when it can, and
+    :func:`missing_required_path` consults it after the declared paths, so
+    discovery never advertises a plot that would then raise.
     """
 
     builder: Any
     description: str = ""
+    available: Any = None
 
 
 @dataclass(frozen=True)
@@ -1739,6 +1753,165 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
         title=_channel_label(ods, "interferometer.channel.{i}.name", index, f"channel {index}"),
         value_label="Fluctuation Magnitude",
     )
+
+
+_MIRNOV_PROBES = "magnetics.b_field_pol_probe"
+
+
+def _toroidal_phase_channels(ods: Any) -> tuple[list[int], np.ndarray]:
+    """Probes that carry both a toroidal angle and a waveform, with their angles."""
+    indices: list[int] = []
+    angles: list[float] = []
+    for index in range(_count(ods, _MIRNOV_PROBES)):
+        angle = None
+        for suffix in ("toroidal_angle", "position.phi"):
+            angle = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.{suffix}"))
+            if angle is not None:
+                break
+        if angle is None:
+            continue
+        signal = _array(ods, f"{_MIRNOV_PROBES}.{index}.voltage.data")
+        if signal is None or signal.size < 2:
+            continue
+        indices.append(index)
+        angles.append(float(angle))
+    return indices, np.asarray(angles, dtype=float)
+
+
+def _mirnov_phase_available(ods: Any) -> str | None:
+    """Why this input cannot carry a toroidal mode fit, or ``None`` (issue #485).
+
+    An array measures a mode number by comparing phases *around* the torus,
+    so the requirement is two probes at genuinely different toroidal angles
+    that both recorded something -- a fact about the data, not about which
+    paths exist, which is why it is answered here rather than declared.
+    """
+    indices, angles = _toroidal_phase_channels(ods)
+    if len(indices) < 2 or np.unique(np.round(np.mod(angles, 2.0 * np.pi), 6)).size < 2:
+        return (
+            "two or more Mirnov probes at distinct toroidal angles, each carrying a waveform"
+        )
+    return None
+
+
+def _build_mirnov_spatial_phase(
+    ods: Any,
+    *,
+    time: float | None = None,
+    frequencies: Any = None,
+    num_modes: int = 2,
+    candidate_n: Any = None,
+    window_size: int = 500,
+    show_fit: bool = True,
+    preprocess: bool = True,
+    **_: Any,
+) -> Profile1D:
+    """Measured toroidal phase per fluctuation band, and the fitted ``n`` lines.
+
+    The phases of one band, read around the torus, fall on a line of slope
+    ``-n``; ``show_fit`` draws that line, wrapped at the +-180 degree
+    boundary the same way the measurement is.  Nothing is drawn that the
+    caller did not ask for: with ``show_fit=False`` the points stand alone
+    (the ``PowerSpectrum.fits`` rule, issue #485).
+
+    The title states how many *distinct* toroidal positions the array
+    offered, because that is what limits the answer: a wrapped phase read at
+    two positions fits every ``n`` that differs by the aliasing period, so a
+    number from two positions identifies a mode only with an assumption the
+    plot cannot make for the reader.  The packaged VEST shot has two.
+    """
+    from vaft.process.magnetics import mirnov_preprocess_signal, toroidal_phase_fit_at_time
+
+    indices, angles = _toroidal_phase_channels(ods)
+    reason = _mirnov_phase_available(ods)
+    if reason:
+        raise ValueError(f"a toroidal mode fit needs {reason}")
+
+    axis = None
+    signals: list[np.ndarray] = []
+    kept: list[int] = []
+    for index in indices:
+        values = _array(ods, f"{_MIRNOV_PROBES}.{index}.voltage.data")
+        times = _first_time(
+            ods, (f"{_MIRNOV_PROBES}.{index}.voltage.time", "magnetics.time"), i=index
+        )
+        if times is None or times.size != values.size:
+            continue
+        if axis is None:
+            axis = times
+        elif times.size != axis.size:
+            # One timebase per figure: a probe digitised differently is not
+            # comparable phase by phase, so it is left out rather than resampled.
+            continue
+        signals.append(values)
+        kept.append(index)
+    if axis is None or len(kept) < 2:
+        raise ValueError(
+            "a toroidal mode fit needs two probes sharing one timebase; this input has "
+            f"{len(kept)}"
+        )
+    angles = angles[[indices.index(index) for index in kept]]
+    sample_rate = 1.0 / float(np.median(np.diff(axis))) if axis.size > 1 else 1.0
+    _, center_time, stamp = resolve_time_sample(axis, time)
+    stacked = np.vstack([
+        mirnov_preprocess_signal(values, sample_rate=sample_rate) if preprocess else values
+        for values in signals
+    ])
+    result = toroidal_phase_fit_at_time(
+        axis, stacked, angles,
+        center_time=center_time,
+        sample_rate=sample_rate,
+        window_size=int(window_size),
+        frequencies=frequencies,
+        num_modes=int(num_modes),
+        **({"candidate_n": tuple(candidate_n)} if candidate_n is not None else {}),
+    )
+
+    degrees = np.degrees(np.mod(result.toroidal_angle, 2.0 * np.pi))
+    positions = int(np.unique(np.round(degrees, 6)).size)
+    order = np.argsort(degrees)
+    series: list[Series] = []
+    for mode in result.modes:
+        band = f"{mode.frequency / 1e3:.1f} kHz, n={mode.n}"
+        series.append(Series(
+            x=degrees[order],
+            y=np.degrees(mode.phase)[order],
+            label=band,
+            style={"marker": "o", "linestyle": "none"},
+        ))
+        if show_fit:
+            dense = np.linspace(0.0, 360.0, 721)
+            fitted = np.degrees(
+                np.angle(np.exp(1j * (mode.intercept - mode.n * np.deg2rad(dense))))
+            )
+            x_fit, y_fit = _with_phase_jumps(dense, fitted)
+            series.append(Series(
+                x=x_fit, y=y_fit, label=band, role="fit", style={"linestyle": "--"},
+            ))
+    return Profile1D(
+        series=tuple(series),
+        coordinate_label="Toroidal angle phi [deg]",
+        y_label="Toroidal phase",
+        y_unit="deg",
+        title=(
+            f"Toroidal mode phase at t = {center_time * 1e3:.2f} ms ({stamp}) — "
+            f"{positions} toroidal position{'' if positions == 1 else 's'}"
+        ),
+        x_limits=(0.0, 360.0),
+    )
+
+
+def _with_phase_jumps(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Break a wrapped phase line at the +-180 degree jumps, with NaN gaps."""
+    x_out: list[float] = [float(x[0])]
+    y_out: list[float] = [float(y[0])]
+    for index in range(1, x.size):
+        if abs(float(y[index] - y[index - 1])) > 180.0:
+            x_out.append(np.nan)
+            y_out.append(np.nan)
+        x_out.append(float(x[index]))
+        y_out.append(float(y[index]))
+    return np.asarray(x_out), np.asarray(y_out)
 
 
 #: Identifier prefix written by :mod:`vaft.machine_mapping.impa`.  IMPA probes
@@ -6505,6 +6678,12 @@ _OVERVIEW_COLUMNS: tuple[tuple[str, ...], ...] = (
     ("equilibrium_profile_pprime", "equilibrium_profile_ffprime", _GLOBAL_QUANTITIES),
 )
 
+
+RECIPES["mirnov_spatial_phase"] = CallableRecipe(
+    builder=_build_mirnov_spatial_phase,
+    description="Measured toroidal phase per fluctuation band at one time, with the fitted n lines.",
+    available=_mirnov_phase_available,
+)
 
 RECIPES["equilibrium_overview"] = CallableRecipe(
     builder=_build_equilibrium_slice_overview,

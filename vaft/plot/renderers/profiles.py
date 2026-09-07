@@ -120,6 +120,27 @@ _SENSOR_POSITIONS = {
 
 @renderer(
     domain="magnetics",
+    subject="mirnov",
+    view="spatial",
+    quantity="phase",
+    model=Profile1D,
+    description="Toroidal phase of each fluctuation band around the torus at one time, with the fitted n mode lines.",
+    ids=("magnetics",),
+    required_paths=("magnetics.b_field_pol_probe.{i}.voltage.data",),
+    optional_paths=(
+        "magnetics.b_field_pol_probe.{i}.toroidal_angle",
+        "magnetics.b_field_pol_probe.{i}.position.phi",
+        "magnetics.b_field_pol_probe.{i}.voltage.time",
+        "magnetics.time",
+    ),
+)
+def mirnov_spatial_phase(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
+    """Toroidal phase per fluctuation band at one time (issue #485)."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="magnetics",
     subject="flux_loop",
     view="spatial",
     quantity="flux",

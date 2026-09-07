@@ -9,12 +9,13 @@ from vaft.compat import cumtrapz_compat
 from vaft.formula.statistics import rms
 from .signal_processing import define_baseline, subtract_baseline
 
-# ``ipywidgets`` and ``vaft.database`` are imported inside the two functions
-# that need them, not here.  Both are heavy -- ipywidgets brings IPython and
-# prompt_toolkit, and vaft.database.raw imports Matplotlib at module scope as
-# an availability probe -- and neither is needed to process a waveform.  Every
-# consumer of vaft.process used to pay for both (issue #249; the Matplotlib
-# chain is the one described in #268).
+# ``vaft.database`` is imported inside the one function that needs it, not
+# here: vaft.database.raw imports Matplotlib at module scope as an
+# availability probe, and nothing about processing a waveform needs it.  Every
+# consumer of vaft.process used to pay for it (issue #249; the Matplotlib
+# chain is the one described in #268).  The ipywidgets slider closures that
+# also lived here were retired with issue #485 -- reading a processed signal
+# is what vaft.plot is for.
 
 __all__ = [
     "DEFAULT_VEST_MAGNETICS_PROCESSING",
@@ -942,7 +943,6 @@ def b_field_pol_probe_field(
     baseline_type='linear',
     baseline_onset_window=500,
     baseline_offset_window=100,
-    plot_opt=False,
 ):
     """
     Process B-field poloidal probe data with gain applied first.
@@ -983,27 +983,6 @@ def b_field_pol_probe_field(
         field[:, i] = flux_corrected
         baselines[:, i] = baseline
 
-    if plot_opt:
-        def interactive_plot(index):
-            return _plot_signal_processing_panels(
-                time,
-                title=f"B-field Signal Processing: Index {index}\n"
-                      f"Baseline: {baseline_type}",
-                raw_traces=(
-                    ("Raw (gain applied)", raw[:, index]),
-                    ("Filtered Signal", filtered_raw[:, index]),
-                ),
-                corrected_traces=(
-                    ("Integrated Signal", integrated_flux[:, index]),
-                    ("Baseline", baselines[:, index]),
-                    ("Baseline-Corrected Signal", field[:, index]),
-                ),
-            )
-
-        from ipywidgets import IntSlider, interact
-
-        interact(interactive_plot, index=IntSlider(min=0, max=n-1, step=1, value=0))
-
     return raw, filtered_raw, integrated_flux, field, baselines
 
 def flux_loop_flux(
@@ -1015,7 +994,6 @@ def flux_loop_flux(
     baseline_type='linear',
     baseline_onset_window=500,
     baseline_offset_window=100,
-    plot_opt=False,
 ):
     """
     Process flux loop data for multiple signals.
@@ -1043,8 +1021,6 @@ def flux_loop_flux(
         Number of samples before baseline_onset to include in the baseline fit.
     baseline_offset_window : int
         Number of samples after baseline_offset to include in the baseline fit.
-    plot_opt : bool
-        Whether to plot the results interactively.
 
     Returns
     -------
@@ -1087,24 +1063,6 @@ def flux_loop_flux(
         )
         processed_data[:, i] = flux_corrected
         baselines[:, i] = baseline
-
-    if plot_opt:
-        def interactive_plot(index):
-            return _plot_signal_processing_panels(
-                time,
-                title=f"Flux Loop Signal Processing: Index {index}\n"
-                      f"Baseline: {baseline_type}",
-                raw_traces=(("Raw (gain applied)", raw[:, index]),),
-                corrected_traces=(
-                    ("Integrated Signal", integrated_data[:, index]),
-                    ("Baseline", baselines[:, index]),
-                    ("Baseline-Corrected Signal", processed_data[:, index]),
-                ),
-            )
-
-        from ipywidgets import IntSlider, interact
-
-        interact(interactive_plot, index=IntSlider(min=0, max=n-1, step=1, value=0))
 
     return time, processed_data, baselines
 
@@ -1314,31 +1272,3 @@ def flux_loop_flux(
 #     return results
 
 
-def _plot_signal_processing_panels(time, *, title, raw_traces, corrected_traces):
-    """Render the raw/corrected signal-processing panels through ``vaft.plot``.
-
-    Processing owns the numerics; rendering is delegated so no Matplotlib code
-    lives in this namespace (issue #63).
-    """
-    from vaft.plot import LineSeries, Panels, Series, render_panels
-
-    def _panel(traces, y_label, panel_title=""):
-        return LineSeries(
-            series=tuple(
-                Series(x=time, y=values, label=label, style={"alpha": 0.7})
-                for label, values in traces
-            ),
-            x_label="Time", x_unit="s", y_label=y_label, title=panel_title,
-        )
-
-    return render_panels(
-        Panels(
-            models=(
-                _panel(raw_traces, "Signal", title),
-                _panel(corrected_traces, "Flux"),
-            ),
-            share_x=True,
-        ),
-        figsize=(10, 8),
-        show=True,
-    )

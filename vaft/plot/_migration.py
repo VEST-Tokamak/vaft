@@ -169,7 +169,7 @@ DEPRECATED: dict[str, str] = {
     # the canonical spectrogram renderer took that exact name (issue #251);
     # the canonical attribute now shadows the legacy one.
     "toroidal_mode_spectrum": "mirnov_spectrogram",
-    "toroidal_phase_mode_fit": "mirnov_time_voltage",
+    "toroidal_phase_mode_fit": "mirnov_spatial_phase",
 }
 
 # The 24 coordinate-specific equilibrium profile globals that ``onedim`` used to

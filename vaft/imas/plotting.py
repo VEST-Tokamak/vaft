@@ -1085,6 +1085,25 @@ def plot_flux_loop_spatial_flux(
     return render("flux_loop_spatial_flux", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_mirnov_spatial_phase(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> Any:
+    """Toroidal phase of each fluctuation band at one time, with the fitted n lines.
+
+    ``time=`` snaps to a stored sample; ``frequencies=`` names the bands (the
+    strongest ``num_modes=`` are chosen otherwise); ``show_fit=False`` draws
+    the measured points alone.  Needs two probes at distinct toroidal angles
+    that both recorded a waveform, which ``available_plots`` states.
+    Renders with :func:`vaft.plot.mirnov_spatial_phase` from native IMAS input.
+    """
+    return render("mirnov_spatial_phase", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_b_field_probe_spatial_field(
     source: Any,
     *,
@@ -1994,6 +2013,7 @@ __all__ += [
     "plot_equilibrium_time_w_tot",
     "plot_flux_loop_time_flux",
     "plot_flux_loop_spatial_flux",
+    "plot_mirnov_spatial_phase",
     "plot_b_field_probe_spatial_field",
     "plot_flux_loop_time_voltage",
     "plot_impa_overview",

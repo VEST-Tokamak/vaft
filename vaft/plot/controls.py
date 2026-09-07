@@ -244,6 +244,13 @@ def _model_controls(record: Any) -> list[ControlSpec]:
     synthetic: Mapping[str, Any] = record.synthetic or {}
     if synthetic.get("overlay") and synthetic.get("available", True):
         controls.append(ControlSpec("synthetic", "choice", "Reconstruction overlay", NONE, (NONE, "equilibrium", "both")))
+    analysis_parameters = tuple(
+        parameter
+        for parameters in ((getattr(record, "analysis", None) or {}).get("methods") or {}).values()
+        for parameter in parameters
+    )
+    if "show_fit" in analysis_parameters:
+        controls.append(ControlSpec("show_fit", "toggle", "Fitted mode lines", True))
     orientation: Mapping[str, Any] = record.orientation or {}
     options = tuple(orientation.get("options") or ())
     if len(options) > 1:

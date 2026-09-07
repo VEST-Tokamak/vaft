@@ -122,7 +122,14 @@ def _analysis_methods() -> dict[str, tuple[str, ...]]:
             methods[name] = SPECTROGRAM_METHODS
         elif isinstance(recipe, PowerSpectrumRecipe):
             methods[name] = ("Welch PSD",)
+    methods["mirnov_spatial_phase"] = ("wrapped n fit",)
     return methods
+
+
+#: The options each named analysis reads (issue #484, extended by #485).
+ANALYSIS_PARAMETERS: dict[str, tuple[str, ...]] = {
+    "wrapped n fit": ("frequencies", "num_modes", "candidate_n", "window_size", "show_fit"),
+}
 
 
 #: Plot name -> the analyses it offers.
@@ -302,11 +309,12 @@ def _declare(record: PlotCapability) -> PlotCapability:
     methods = ANALYSIS_METHODS.get(record.name)
     if methods:
         updates["analysis_methods"] = methods
-        if methods == SPECTROGRAM_METHODS:
-            updates["analysis"] = {
-                "default": SPECTROGRAM_METHODS[0],
-                "methods": {name: SPECTROGRAM_PARAMETERS[name] for name in methods},
-            }
+        parameters = {
+            **{name: SPECTROGRAM_PARAMETERS[name] for name in methods if name in SPECTROGRAM_PARAMETERS},
+            **{name: ANALYSIS_PARAMETERS[name] for name in methods if name in ANALYSIS_PARAMETERS},
+        }
+        if parameters:
+            updates["analysis"] = {"default": methods[0], "methods": parameters}
     if isinstance(recipe, PanelRecipe):
         updates["overview_members"] = _member_subjects(recipe)
         # A composite is drawable by a backend only when every member is.
