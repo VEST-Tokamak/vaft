@@ -198,3 +198,44 @@ def test_promotion_leaves_a_nested_branch_alone(tmp_path):
 
     assert not isinstance(restored[FIELD], CodeParameters)
     assert restored[f"{FIELD}.time_slice.0.aeqdsk.terror"] == 2.5e-6
+
+
+def test_a_string_field_is_still_a_string_after_a_save(tmp_path):
+    """The promise this module makes, on the shape it deliberately skips.
+
+    OMAS's own `codeparams_xml_save` parses any XML-shaped string back into a
+    `CodeParameters` when it exits, so without putting it back a save rewrites
+    the caller's ODS.  `vaft.plot.backend.recipes._mhd_linear_radial_stride`
+    branches on that type, which is a plot behaving differently after a save
+    than before it.
+    """
+    import vaft
+
+    document = '<parameters><solver name="dcon" n_tor="1"/></parameters>'
+    ods = ODS(consistency_check=False)
+    ods["mhd_linear.ids_properties.homogeneous_time"] = 2
+    ods["mhd_linear.code.parameters"] = document
+
+    vaft.imas.save(ods, tmp_path / "entry")
+
+    assert ods["mhd_linear.code.parameters"] == document
+
+
+def test_an_empty_block_gains_nothing_from_the_split():
+    """Nothing to carry means nothing invented.
+
+    A missing `code.parameters` is materialized by the act of reading it (the
+    hazard #478 documents), and an empty node is an accident rather than a
+    declaration.  The split leaves it exactly as it found it -- no promotion,
+    no `parameters_cache_omitted` note.
+
+    What OMAS then does with an empty `CodeParameters` -- it writes
+    `<parameters></parameters>` -- predates this module and is not changed
+    here.
+    """
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.ids_properties.homogeneous_time"] = 2
+    ods[FIELD] = ODS(consistency_check=False)
+
+    with as_entry_payload(ods) as prepared:
+        assert dict(prepared[FIELD]) == {}

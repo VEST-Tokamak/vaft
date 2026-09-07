@@ -121,10 +121,14 @@ def as_entry_payload(ods):
     reader of the entry learns that the local product holds more, which is
     exactly what nobody was told before.
 
-    A string is left alone; a block that is already representable is promoted
-    if it needs it and otherwise untouched.  The ODS is restored on the way
-    out, including when the write raises, because the caller's object is not
-    ours to change.
+    A string is left as it is on the way in and put back on the way out --
+    OMAS's own ``codeparams_xml_save`` parses any XML-shaped string into a
+    `CodeParameters` when it exits, and a caller that handed us a string is
+    entitled to still have one.  A block that is already representable is
+    promoted if it needs it and otherwise untouched, and an empty one is left
+    alone: nothing to carry means nothing written.  The ODS is restored on the
+    way out, including when the write raises, because the caller's object is
+    not ours to change.
 
     Content is restored, not object identity: OMAS copies a `CodeParameters`
     on assignment, so no code can put the same object back through
@@ -139,8 +143,15 @@ def as_entry_payload(ods):
         for path in _code_parameters_paths(ods):
             branch = ods[path]
             if not isinstance(branch, (ODS, CodeParameters)):
-                continue  # a string is already what the leaf holds
+                # A string is already what the leaf holds.  It is recorded
+                # anyway, because the decorator below this one parses it back
+                # into a tree on its way out and the caller's ODS would keep
+                # that.
+                replaced.append((path, branch))
+                continue
             leaves, omitted = _split(branch)
+            if not leaves and not omitted:
+                continue  # an empty node, often a materialized read: write nothing
             if not omitted and isinstance(branch, CodeParameters):
                 continue  # nothing to do: it will serialize as it is
             payload = CodeParameters()
