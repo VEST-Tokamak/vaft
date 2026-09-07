@@ -105,8 +105,9 @@ def _resolve(candidate: Path) -> Path:
     """
     if not IS_WINDOWS or candidate.is_file():
         return candidate
-    suffixed = candidate.with_name(candidate.name + ".exe")
-    return suffixed if suffixed.is_file() else candidate
+    # When neither exists, name the .exe: reporting "missing efit at bin\efit"
+    # points at a path a Windows build could never have written.
+    return candidate.with_name(candidate.name + ".exe")
 
 
 def _executables(prefix: Optional[str], build_tree: Optional[str]) -> dict[str, Path]:
@@ -181,9 +182,27 @@ def check_capabilities(prefix: Optional[str], build_tree: Optional[str]) -> Chec
     compiler = None
     manifest = read_manifest(prefix) if prefix else None
     if manifest and manifest.get("code") == "efit":
-        netcdf = bool(manifest.get("netcdf", {}).get("enabled"))
-        build_type = next((a.split("=", 1)[1] for a in manifest.get("cmake_arguments", []) if a.startswith("-DCMAKE_BUILD_TYPE=")), None)
-        compiler = manifest.get("compiler", {}).get("version")
+        # A manifest is data, not a promise about its own shape: read it
+        # defensively so one installer's record cannot crash the report for
+        # every other layer.
+        recorded = manifest.get("netcdf")
+        if isinstance(recorded, dict):
+            netcdf = bool(recorded.get("enabled"))
+        elif recorded is not None:
+            netcdf = bool(recorded)
+        arguments = manifest.get("cmake_arguments") or []
+        if isinstance(arguments, (list, tuple)):
+            build_type = next(
+                (a.split("=", 1)[1] for a in arguments
+                 if isinstance(a, str) and a.startswith("-DCMAKE_BUILD_TYPE=")),
+                None,
+            )
+        build_type = build_type or manifest.get("build_type")
+        recorded_compiler = manifest.get("compiler")
+        if isinstance(recorded_compiler, dict):
+            compiler = recorded_compiler.get("version") or recorded_compiler.get("fortran")
+        elif recorded_compiler is not None:
+            compiler = str(recorded_compiler)
     else:
         cache = None
         for root in (build_tree, prefix):
@@ -280,6 +299,14 @@ def check_efit_starts(executables: dict[str, Path]) -> CheckResult:
         return CheckResult(label, FAIL, str(error), BUILD_REMEDIATION)
     shutil.rmtree(workdir, ignore_errors=True)
     text = completed.stdout + completed.stderr
+    # Windows says nothing at all: the loader kills the process before main and
+    # both streams come back empty, so only the status code carries the fact.
+    if (completed.returncode & 0xFFFFFFFF) in (0xC0000135, 0xC0000139):
+        return CheckResult(
+            label, FAIL,
+            f"exited 0x{completed.returncode & 0xFFFFFFFF:08X}: a runtime library is missing",
+            f"The executable cannot find its runtime libraries; rebuild with {INSTALLER}.",
+        )
     if "dyld" in text or "error while loading shared libraries" in text:
         return CheckResult(label, FAIL, first_error_line(text), f"The executable cannot find its runtime libraries; rebuild with {INSTALLER}.")
     return CheckResult(label, PASS, f"exited {completed.returncode} with no input")
@@ -332,6 +359,10 @@ def run_checks(*, source=None, prefix=None, build_tree=None, skip_smoke=False) -
         check_source_revision(source, project=PROJECT),
         check_build_record(prefix, source, project=PROJECT, remediation=BUILD_REMEDIATION) if prefix else CheckResult("EFIT build record", SKIP, "a raw build tree carries no install manifest"),
         check_toolchain_executables(executables),
+        # Windows only, and the one failure a build can have that says nothing:
+        # the loader kills the process before main with both streams empty.
+        check_executables_load(prefix, ROLES, project=PROJECT) if prefix
+        else CheckResult("EFIT executables load", SKIP, "no --prefix to look in"),
         check_capabilities(prefix, build_tree),
         check_efit_starts(executables),
         check_efund_smoke(executables, source, skip=skip_smoke),
