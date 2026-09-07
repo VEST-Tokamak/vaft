@@ -50,8 +50,10 @@ from ._gpec_output import (
 from ._matching_output import Pest3MatchingOutput, read_pest3_matching_output
 from ._solvers import (
     SOLVERS,
+    Solver,
     SolverContext,
     _check_nc_variable,
+    free_boundary_stable,
     missing_companion_outputs,
     required_outputs,
 )
@@ -125,6 +127,19 @@ def _completion_reason(base: str, missing_optional: tuple[str, ...]) -> str:
     listed = ", ".join(missing_optional)
     suffix = f"missing optional outputs: {listed} (the companion did not produce them)"
     return f"{base}; {suffix}" if base else suffix
+
+
+def _is_stable(solver: Solver, run_dir: Path, mode: int) -> bool:
+    """Whether this run's own output declares the equilibrium free-boundary stable.
+
+    ``False`` covers both "unstable" and "no free-boundary energy was computed":
+    the distinction matters to physics, but not to how the cell is classified,
+    and only a positive verdict is allowed to change the status.
+    """
+    filename = solver.stability_output(mode)
+    if filename is None:
+        return False
+    return free_boundary_stable(run_dir, filename) is True
 
 
 def _prepared_record(module: str, mode: int, workdir: Path) -> GPECModuleRun:
@@ -304,7 +319,12 @@ def _run_module(
             mode,
             run_dir,
             returncode=0,
-            status="completed",
+            # Classified from the outputs, so reusing a cell reports what
+            # running it reported. Reading `stable` only on the run that
+            # produced it would make a stage's stable count depend on whether
+            # the pipeline happened to re-solve, which is not a property of the
+            # physics.
+            status="stable" if _is_stable(solver, run_dir, mode) else "completed",
             reason=_completion_reason("reused existing solver outputs", missing_optional),
             outputs=existing_outputs,
             missing_optional_outputs=missing_optional,
@@ -317,6 +337,7 @@ def _run_module(
         logs.append(log_path)
         status = "completed" if returncode == 0 else "failed"
         reason = ""
+        companion_failures: list[str] = []
         if returncode == 0:
             for companion in solver.companion_executables():
                 companion_exec = rt.optional_executable(config, companion)
@@ -327,18 +348,45 @@ def _run_module(
                     commands.append(str(companion_exec))
                     logs.append(companion_log)
                     if companion_rc != 0:
+                        # Named rather than merely counted: without this the
+                        # status flips with no explanation, and the reader
+                        # cannot tell which of the chained programs failed.
+                        companion_failures.append(f"{companion} exited {companion_rc}")
                         returncode = companion_rc
-                        status = "failed"
                 elif policy == "strict":
                     raise FileNotFoundError(f"{companion} executable not found: {companion_exec}")
+
+        # A companion that exists only to analyse an unstable mode has nothing
+        # to do on a stable equilibrium, so its exit code is a note about the
+        # chain rather than this cell's verdict (issue #423). The verdict comes
+        # from the solver's own output, so it cannot be reached at all unless
+        # the solver wrote one.
+        stable = status == "completed" and _is_stable(solver, run_dir, mode)
+        if companion_failures:
+            reason = "; ".join(companion_failures)
+            if stable:
+                reason += " -- not required for a stable equilibrium"
+                # The solver succeeded, so that is the code this cell reports;
+                # the companion's own is kept above in prose rather than
+                # standing in for the chain's outcome.
+                returncode = 0
+            else:
+                status = "failed"
+
+        # Last, and unconditional: whether the run produced usable output is
+        # not something a stable verdict can excuse. A truncated or absent
+        # netCDF fails here even for an equilibrium the solver called stable.
         if status == "completed" and config.verify_outputs:
             ok, check_reason = solver.check_success(run_dir, mode)
             if not ok:
                 status = "failed"
                 reason = check_reason
+
+        if status == "completed" and stable:
+            status = "stable"
         outputs = tuple(path for pattern in solver.output_patterns(mode) if (path := run_dir / pattern).exists())
         missing_optional = missing_companion_outputs(solver, run_dir, mode)
-        if status == "completed":
+        if status in ("completed", "stable"):
             reason = _completion_reason(reason, missing_optional)
         return GPECModuleRun(
             module=module,

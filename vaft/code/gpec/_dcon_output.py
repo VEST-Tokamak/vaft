@@ -41,7 +41,7 @@ import warnings
 
 import numpy as np
 
-from ._netcdf import complex_var
+from ._netcdf import complex_var, least_stable_eigenvalue
 
 #: Sidecar payload version.  v1 carried only the mode-range provenance, energy
 #: eigenvalues, Mercier diagnostics and the eigenfunction; v2 added the
@@ -644,30 +644,14 @@ class DconOutput:
     eigenfunction: Optional[DconEigenfunction] = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    #: DCON sorts its energy eigenvalues so the least-stable one is mode 1
-    #: (``dcon/free.f``'s ``plasma1``/``vacuum1``/``total1`` are the
-    #: ``ep(1)``/``ev(1)``/``et(1)`` entries).
-    _LEAST_STABLE_MODE_LABEL = 1
-
     def _least_stable(self, eigenvalues: Optional[np.ndarray]) -> Optional[complex]:
         """The least-stable entry of an eigenvalue array, selected by mode *label*.
 
-        The netCDF writes a ``mode`` coordinate of ``1..mpert``
-        (``dcon/dcon_netcdf.f``'s ``nf90_put_var(ncid,mo_id,(/(i,i=1,mpert)/))``),
-        and the value we want is the one labelled ``1``. Position 0 is the
-        same entry for every file the suite writes today, but selecting by
-        label keeps that an explicit, checkable assumption rather than a
-        silent one -- a differently-ordered ``mode`` coordinate would
-        otherwise change which eigenvalue is reported with no visible signal.
+        Shared with the free-boundary verdict the solver adapters read straight
+        off a run directory (:func:`vaft.code.gpec._netcdf.least_stable_eigenvalue`),
+        so both answer "which eigenvalue is the least stable one" the same way.
         """
-        if eigenvalues is None or eigenvalues.size == 0:
-            return None
-        if self.mode is None:
-            return complex(eigenvalues[0])
-        matches = np.flatnonzero(np.asarray(self.mode) == self._LEAST_STABLE_MODE_LABEL)
-        if matches.size == 0:
-            return None
-        return complex(eigenvalues[int(matches[0])])
+        return least_stable_eigenvalue(eigenvalues, self.mode)
 
     @property
     def plasma1(self) -> Optional[complex]:

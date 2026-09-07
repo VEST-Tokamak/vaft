@@ -234,14 +234,20 @@ for path in outputs["dcon"]:
 The result is a dict keyed by module name (`dcon`, `rdcon`, `stride`, `gpec`).
 
 `GPECSuiteResult.records` is a tuple of `GPECModuleRun`, one per module/mode, each carrying `status`
-(`prepared`, `completed`, `failed`, `skipped`), `returncode`, `reason`, `logs` and `outputs`. The
-`ok` property is true only when `status == "completed"` **and** `returncode == 0`, so inspect it per
-module rather than trusting the suite-level return code alone:
+(`prepared`, `completed`, `stable`, `failed`, `skipped`), `returncode`, `reason`, `logs` and
+`outputs`. The `ok` property is true when `status` is `completed` or `stable` **and**
+`returncode == 0`, so inspect it per module rather than trusting the suite-level return code alone:
 
 ```python
 for record in result.records:
     print(record.module, record.mode, record.status, record.ok, record.reason)
 ```
+
+`stable` is a *successful* status, kept apart from `completed` because a stable equilibrium produces
+no unstable-mode output and so cannot be told from a broken run by what it wrote (#423). It is read
+from the solver's own free-boundary energy -- `Re(total1)`, which DCON, RDCON and STRIDE all write
+into their netCDF -- so a companion such as `rmatch` exiting badly with nothing to analyse does not
+make the cell a failure. A run that produced no usable output is still `failed`, stable or not.
 
 ## GEQDSK headers
 
