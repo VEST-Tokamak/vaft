@@ -153,7 +153,10 @@ def load_shot(shot: int, *, source: str | None, packaged: bool):
 
     import vaft.database as db
 
-    return db.load(shot, source=source)
+    # `open`, not `load`: the eager path downloads the whole domain through
+    # hsget and is refused by the domain ACLs for ordinary readers, while the
+    # lazy path serves the same shot.  A sweep only ever reads.
+    return db.open(shot, source=source)
 
 
 def refresh_coupling(ods, shot: int) -> str | None:
@@ -220,11 +223,17 @@ def _measured_span(quality_channels: Iterable[dict[str, Any]], window: dict[str,
     measured_end = float(np.median(last))
     measured_start = float(np.median(first))
     covered = max(min(measured_end, end) - max(measured_start, start), 0.0)
+    # The median says what the record as a whole does; the count says whether
+    # any single channel stops early, which a median of 87 cannot show.
+    whole = sum(1 for a, b in zip(first, last) if a <= start and b >= end)
     return {
         "first": measured_start,
         "last": measured_end,
+        "earliest_last": float(min(last)),
         "covers_window": bool(measured_start <= start and measured_end >= end),
         "coverage_fraction": float(covered / span) if span > 0 else 1.0,
+        "channels_covering_window": whole,
+        "channels_with_a_span": len(last),
     }
 
 
@@ -380,8 +389,9 @@ def _verdict(decisions_summary: dict[str, Any], span: dict[str, Any], policy: Fi
             f"slices past {span['last']:.4f} s are held values, not measurements"
         )
 
-    if decisions_summary["rejected_channels"] and verdict == VERDICT_FIT:
-        verdict = VERDICT_DEGRADED
+    if decisions_summary["rejected_channels"]:
+        if verdict == VERDICT_FIT:
+            verdict = VERDICT_DEGRADED
         reasons.append(
             f"{len(decisions_summary['rejected_channels'])} channel(s) rejected at some slice: "
             + ", ".join(decisions_summary["rejected_channels"])
@@ -515,13 +525,33 @@ def summarize(rows: list[dict[str, Any]], policy: FitnessPolicy) -> dict[str, An
     }
 
 
+def _finite(value: Any) -> Any:
+    """Replace non-finite numbers with ``None``, recursively.
+
+    The table is written with ``allow_nan=False`` so it stays valid JSON for
+    any reader.  Without this, a single NaN metric on one shot would raise at
+    write time and take the whole scan's rows with it.
+    """
+    if isinstance(value, dict):
+        return {key: _finite(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_finite(item) for item in value]
+    if isinstance(value, (float, np.floating)):
+        return float(value) if np.isfinite(value) else None
+    if isinstance(value, (np.integer,)):
+        return int(value)
+    if isinstance(value, np.bool_):
+        return bool(value)
+    return value
+
+
 def write_table(path: Path, *, shots_requested: str, policy: FitnessPolicy, rows: list[dict[str, Any]]) -> dict[str, Any]:
     payload = {
         "schema_version": SCHEMA,
         "scanned_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "shots_requested": shots_requested,
-        "summary": summarize(rows, policy),
-        "rows": rows,
+        "summary": _finite(summarize(rows, policy)),
+        "rows": _finite(rows),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=1, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
@@ -552,7 +582,8 @@ def markdown(payload: dict[str, Any]) -> str:
         lines.append(
             f"| {row['shot']} | **{row['verdict']}** | {window['start']:.3f}–{window['end']:.3f} "
             f"| {window['slices']} | {decisions['channels']} | {decisions['min_usable_fraction']:.2f} "
-            f"| {span['last']:.4f} | {span['covers_window']} | {len(row['condemned'])} "
+            f"| {'–' if span['last'] is None else f'{span["last"]:.4f}'} "
+            f"| {span['covers_window']} | {len(row['condemned'])} "
             f"| {'–' if residual is None else f'{residual:.3f}'} |"
         )
     lines.append("")

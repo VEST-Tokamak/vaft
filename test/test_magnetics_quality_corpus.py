@@ -114,6 +114,11 @@ def test_the_routine_window_lies_inside_the_measured_record(table, shot):
     assert span["covers_window"] is True
     assert span["coverage_fraction"] == pytest.approx(1.0)
     assert span["last"] >= row["window"]["end"]
+    # Per channel, not only in the median: a median over 87 channels cannot
+    # show one that stopped early, and one that did would be fitted on held
+    # values for the rest of the window.
+    assert span["channels_covering_window"] == span["channels_with_a_span"] > 0
+    assert span["earliest_last"] >= row["window"]["end"]
 
 
 def test_h3_08_is_condemned_on_every_packaged_shot(table):

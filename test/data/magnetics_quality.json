@@ -191,8 +191,11 @@
     }
    },
    "measured_span": {
+    "channels_covering_window": 73,
+    "channels_with_a_span": 73,
     "coverage_fraction": 1.0,
     "covers_window": true,
+    "earliest_last": 0.339999999999969,
     "first": 0.26,
     "last": 0.339999999999969
    },
@@ -443,8 +446,11 @@
     }
    },
    "measured_span": {
+    "channels_covering_window": 71,
+    "channels_with_a_span": 71,
     "coverage_fraction": 1.0,
     "covers_window": true,
+    "earliest_last": 0.339999999999969,
     "first": 0.26,
     "last": 0.339999999999969
    },
@@ -716,8 +722,11 @@
     }
    },
    "measured_span": {
+    "channels_covering_window": 68,
+    "channels_with_a_span": 68,
     "coverage_fraction": 1.0,
     "covers_window": true,
+    "earliest_last": 0.35995999999996126,
     "first": 0.26,
     "last": 0.35995999999996126
    },
@@ -760,7 +769,7 @@
    }
   }
  ],
- "scanned_at": "2026-09-07T01:56:23+00:00",
+ "scanned_at": "2026-09-07T02:55:52+00:00",
  "schema_version": 1,
  "shots_requested": "packaged",
  "summary": {
