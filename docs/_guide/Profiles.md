@@ -161,10 +161,13 @@ Here too the velocity function comes back before the temperature function.
 | `linear` | 1D interpolation through the data — no smoothing |
 
 The `(1-\rho)` factor in the polynomial and exponential bases drives the fitted profile toward zero at
-the boundary, which is usually what you want for $T_e$ and $n_e$ but is a real assumption — `gp` and
-`core_poly_edge_exp` do not impose it.
+the boundary, which is usually what you want for $T_e$ and $n_e$ but is a real assumption — `gp`,
+`core_poly_edge_exp` and `eped_tanh` do not impose it.
 
-`order` only affects the polynomial-family methods; it is ignored by `gp` and `linear`.
+`order` only affects the polynomial-family methods; it is ignored by `gp`, `linear` and `eped_tanh`.
+`eped_tanh` exists for `pedestal_top` below rather than as a general profile fitter: it has seven
+parameters of its own, so passing it through the `enforce_physical` retry loop of the IDS fitters
+re-runs an identical fit at every order.
 
 ### Calling the fitting engine directly
 
@@ -206,13 +209,21 @@ top.fit        # the FittedProfile behind it, or None
 It takes arrays rather than an ODS, so it works on a profile from a kinetic-profile file just as well
 as on a fitted diagnostic one. `quantity` is required and is not defaulted: EPED defines the pedestal
 from total pressure, and a fit to a density or a temperature puts the top somewhere else — on one
-MAST-U profile, $n_e$ gives 0.949, $T_e$ 0.953 and $p_e$ 0.913. The result carries which quantity it
-came from so that a downstream reduction cannot lose it.
+MAST discharge (45453 at 750 ms) $n_e$ gives 0.949 and $p_e$ 0.911, while $T_e$ **falls back**: its
+best tanh is 0.215 wide, which is a ramp rather than a pedestal. That is the behaviour to expect, and
+the reason the result carries the quantity and the method rather than just a number.
+
+`position` is the tanh's centre. The pedestal's inner knee is `inner_edge`, half a width further in;
+which of the two a study calls "the pedestal top" differs, so both are available and neither is
+implied.
 
 The fallback is `PEDESTAL_FALLBACK_PSI_NORM = 0.85`, and it fires when there is nothing to fit: too
 few points in the window, a fit that did not converge, a fitted `x_ped` resting on a bound, or a
 fitted curve that does not vary across the window by `PEDESTAL_RESOLUTION_FACTOR` times the residual
-scatter. That last one is the interesting case — the model's `f_ped - f_sep` is the $\tanh$'s
+scatter, or a tanh wider than `PEDESTAL_MAX_WIDTH`. That last width test matters more than it looks:
+the model's own box allows a width of 0.3, and over the 171 fits of one MAST campaign 25 came back
+between 0.20 and 0.29 — curves that ramp across half the minor radius while reporting themselves as
+measured pedestals. The variation test is the interesting one — the model's `f_ped - f_sep` is the $\tanh$'s
 *asymptotic* amplitude, which a wide, shallow fit through noise can make look large while the curve
 it actually draws is almost flat. The test is on the curve, not the parameters.
 

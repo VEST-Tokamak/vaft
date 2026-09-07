@@ -334,8 +334,13 @@ def _eped_tanh_model(x, f0, f_ped, f_sep, x_ped, width, alpha, beta):
     its slope parameter to keep the divergence off-screen.
     """
     x = np.asarray(x, dtype=float)
-    if width == 0:
-        width = 1e-6
+    if not width > 0:
+        # A non-positive width inverts the pedestal -- the curve would rise
+        # toward the edge -- silently.  The bounds keep the fitter away from
+        # it; this keeps a direct caller away from it too.
+        raise ValueError(f"width must be positive, got {width!r}")
+    if not x_ped > 0:
+        raise ValueError(f"x_ped must be positive, got {x_ped!r}")
     pedestal = f_sep + 0.5 * (f_ped - f_sep) * (1.0 - np.tanh((x - x_ped) / width))
     axis_pedestal = f_sep + 0.5 * (f_ped - f_sep) * (1.0 + np.tanh(x_ped / width))
 
@@ -357,21 +362,73 @@ def _initial_eped_tanh_guess(x, y):
     """
     x = np.asarray(x, float).ravel()
     y = np.asarray(y, float).ravel()
-    peak = float(np.nanmax(y)) if y.size else 1.0
-    scale = 5.0 * max(abs(peak), 1e-12)
-    p0 = [
-        peak,
-        float(np.nanpercentile(y, 80)) if y.size else peak,
-        float(np.nanpercentile(y, 5)) if y.size else 0.0,
-        0.94,
-        0.04,
-        1.5,
-        2.0,
-    ]
-    lower = [-scale, -scale, -scale, 0.75, 0.01, 0.2, 0.2]
+    if not y.size or not np.any(np.isfinite(y)):
+        raise ValueError("eped_tanh needs at least one finite sample to seed its fit")
+    # Scaled by the data's magnitude, not by its maximum: a profile that is
+    # everywhere negative -- a rotation profile, say -- has its *smallest*
+    # magnitude at the maximum, so seeding from that would box the amplitudes
+    # far inside the data and the fit could never reach it.
+    scale = 5.0 * max(float(np.nanmax(np.abs(y))), 1e-12)
+    axis, pedestal, separatrix = (
+        float(np.nanpercentile(y, level)) for level in (100.0, 80.0, 5.0)
+    )
+    if abs(float(np.nanmin(y))) > abs(float(np.nanmax(y))):
+        # Decreasing-and-negative: the axis is the most negative sample and
+        # the separatrix the least, so the percentiles run the other way.
+        axis, pedestal, separatrix = (
+            float(np.nanpercentile(y, level)) for level in (0.0, 20.0, 95.0)
+        )
+    p0 = [axis, pedestal, separatrix, 0.94, 0.04, 1.5, 2.0]
+    # alpha and beta stay at or above 1: below it the gated core term has an
+    # infinite slope at x_ped (beta) or at the magnetic axis (alpha), which no
+    # flux-function profile has and which makes any gradient a caller takes
+    # from the fit depend on their grid spacing.
+    lower = [-scale, -scale, -scale, 0.75, 0.01, 1.0, 1.0]
     upper = [scale, scale, scale, 0.999, 0.3, 8.0, 8.0]
     p0 = [min(max(value, low), high) for value, low, high in zip(p0, lower, upper)]
     return p0, lower, upper
+
+
+def eped_tanh_bounds(x, y):
+    """Parameter box the ``eped_tanh`` fit uses for this data.
+
+    Public so that a caller checking whether a fitted parameter came back
+    resting on a bound compares against the same box the fit used, rather than
+    re-deriving one that can drift out of step with it.  The amplitude bounds
+    scale with the data's magnitude; the shape bounds are fixed.
+
+    Parameters
+    ----------
+    x : array_like
+        Radial coordinate; used only for its length [-].
+    y : array_like
+        Profile samples, whose magnitude sets the amplitude bounds [any].
+
+    Returns
+    -------
+    tuple of list
+        ``(lower, upper)``, each seven entries ordered as the model's
+        arguments ``f0, f_ped, f_sep, x_ped, width, alpha, beta``.  The
+        amplitudes are ``+-5 max|y|`` [any]; ``x_ped`` is in ``[0.75, 0.999]``
+        and ``width`` in ``[0.01, 0.3]`` [-]; ``alpha`` and ``beta`` are in
+        ``[1, 8]`` [-].
+
+    Notes
+    -----
+    ``alpha`` and ``beta`` stay at or above one because below it the gated
+    core term has an infinite slope -- at ``x_ped`` for ``beta``, at the
+    magnetic axis for ``alpha`` -- which no flux-function profile has, and
+    which would make any gradient taken from the fit depend on the caller's
+    grid spacing.
+
+    References
+    ----------
+    .. [EPED] The seven-parameter form and the ``x_ped``/``width`` box follow
+       the pedestal-fitting study ported in migration decision D-05;
+       :func:`vaft.process.profile.pedestal_top` is the consumer.
+    """
+    _, lower, upper = _initial_eped_tanh_guess(x, y)
+    return lower, upper
 
 
 def _initial_core_poly_edge_exp_guess(x, y, order):

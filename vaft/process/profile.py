@@ -61,7 +61,7 @@ from uncertainties import unumpy
 
 import vaft
 from vaft.formula import fit_profile
-from vaft.formula.utils import _initial_eped_tanh_guess
+from vaft.formula.utils import eped_tanh_bounds
 
 
 __all__ = [
@@ -2297,8 +2297,17 @@ PEDESTAL_FALLBACK_PSI_NORM = 0.85
 #: How far the fitted curve must rise above the residual scatter before a
 #: pedestal counts as resolved.  Measured on a pure-noise profile the ratio is
 #: about 1.3 and on a real pedestal a few hundred, so the exact value is not
-#: delicate; three is comfortably between them.
+#: delicate; three is comfortably between them.  It is not sufficient on its
+#: own -- see :data:`PEDESTAL_MAX_WIDTH`.
 PEDESTAL_RESOLUTION_FACTOR = 3.0
+
+#: Widest tanh, in the fitted coordinate, that still describes a pedestal.
+#: The model's own box allows 0.3, and a fit that comes back near it is a ramp
+#: across most of the plasma rather than an edge feature: over the 171 fits of
+#: the reference MAST campaign the widths separate into a physical group below
+#: 0.11 and 25 fits between 0.20 and 0.29 whose "pedestal" spans half the
+#: minor radius.  The legacy fitter bounded width at 0.2 for the same reason.
+PEDESTAL_MAX_WIDTH = 0.15
 
 
 @dataclass(frozen=True)
@@ -2324,6 +2333,16 @@ class PedestalTop:
         """Whether a pedestal was actually resolved, rather than assumed."""
         return self.method == "eped_fit"
 
+    @property
+    def inner_edge(self) -> float | None:
+        """The pedestal's inner knee, ``position - width/2``; ``None`` without a fit.
+
+        :attr:`position` is the tanh's centre.  Which of the two a study calls
+        "the pedestal top" differs, so both are available and neither is
+        implied.
+        """
+        return None if self.width is None else self.position - 0.5 * self.width
+
 
 def pedestal_top(
     x,
@@ -2334,7 +2353,8 @@ def pedestal_top(
     coordinate=LEGACY_COORDINATE,
     fallback=PEDESTAL_FALLBACK_PSI_NORM,
     window=(0.4, 1.05),
-    min_points=12,
+    min_points=20,
+    max_width=PEDESTAL_MAX_WIDTH,
 ):
     """Pedestal-top position of a profile, from an EPED-style fit.
 
@@ -2367,6 +2387,8 @@ def pedestal_top(
         description [-].
     min_points : int, optional
         Fewest samples inside ``window`` that can support seven parameters [-].
+    max_width : float, optional
+        Widest tanh still counted as a pedestal, in ``coordinate`` [-].
 
     Returns
     -------
@@ -2376,8 +2398,11 @@ def pedestal_top(
     Raises
     ------
     ValueError
-        ``x`` and ``values`` differ in length, or ``coordinate`` is not one of
-        :data:`COORDINATES`.
+        ``x``, ``values`` or ``value_std`` differ in length, or ``coordinate``
+        is not one of :data:`COORDINATES`.
+    CoordinateUnavailableError
+        The fit was not usable and ``coordinate`` is not ``psi_norm``, so the
+        default fallback -- a psi_norm position -- would be wrong.
 
     Processing steps
     ----------------
@@ -2430,9 +2455,13 @@ def pedestal_top(
        the pedestal-fitting study in ``hsyun_GPEC``
        (``sample/transp_example/pedestal_fitting.ipynb``).  The older
        ``kinetic_analysis.ped_fitting`` modified tanh is deliberately not
-       carried over: its slope term multiplies across the whole domain and so
-       diverges, and its parameter bounds invert for a profile whose edge
-       value is negative.
+       carried over.  Its slope term multiplies the tanh across the whole
+       domain, so the curve runs away in both directions -- with that
+       function's own defaults it reaches -3750 at x = 0.70, i.e. inside its
+       own 0.7-1.0 fit window, and bounding the slope does not remove it.  It
+       also cannot fit an all-negative profile such as a rotation: for a
+       narrow-range one its parameter box inverts outright, and otherwise the
+       seed falls outside the box and SciPy refuses it.
     """
     if coordinate not in COORDINATES:
         raise ValueError(f"coordinate must be one of {COORDINATES}, got {coordinate!r}")
@@ -2444,6 +2473,13 @@ def pedestal_top(
         )
 
     def _fallback(reason):
+        if coordinate != LEGACY_COORDINATE and fallback == PEDESTAL_FALLBACK_PSI_NORM:
+            raise CoordinateUnavailableError(
+                f"the fallback {PEDESTAL_FALLBACK_PSI_NORM} is a psi_norm position and "
+                f"this profile is in {coordinate}; there is no pedestal to fit "
+                f"({reason}), so pass an explicit fallback= in {coordinate} or "
+                "supply the profile in psi_norm"
+            )
         return PedestalTop(
             position=float(fallback),
             method="fallback",
@@ -2463,7 +2499,12 @@ def pedestal_top(
     x_fit, y_fit = x[selected], values[selected]
     std_fit = None
     if value_std is not None:
-        std_fit = np.asarray(value_std, dtype=float).ravel()[selected]
+        std_fit = np.asarray(value_std, dtype=float).ravel()
+        if std_fit.shape != x.shape:
+            raise ValueError(
+                f"value_std has {std_fit.size} samples but the profile has {x.size}"
+            )
+        std_fit = std_fit[selected]
 
     try:
         fitted, _, function, coefficients = fit_profile(
@@ -2473,11 +2514,28 @@ def pedestal_top(
         return _fallback(f"eped_tanh fit did not converge: {error}")
 
     x_ped, width = float(coefficients[3]), float(coefficients[4])
-    _, lower, upper = _initial_eped_tanh_guess(x_fit, y_fit)
-    for index, name in ((3, "x_ped"), (4, "width")):
+    lower, upper = eped_tanh_bounds(x_fit, y_fit)
+    names = {1: "f_ped", 2: "f_sep", 3: "x_ped", 4: "width"}
+    for index, name in names.items():
         span = upper[index] - lower[index]
         if min(coefficients[index] - lower[index], upper[index] - coefficients[index]) <= 1e-3 * span:
             return _fallback(f"{name} rests on a bound of the model's parameter box")
+
+    if not (np.isfinite(x_ped) and np.isfinite(width)):
+        return _fallback("the fit returned a non-finite x_ped or width")
+
+    if width > max_width:
+        return _fallback(
+            f"the fitted tanh is {width:.4g} wide, more than max_width={max_width}: "
+            "that is a ramp across the profile, not a pedestal"
+        )
+
+    low_fit, high_fit = float(x_fit.min()), float(x_fit.max())
+    if not low_fit <= x_ped <= high_fit:
+        return _fallback(
+            f"x_ped={x_ped:.4g} lies outside the fitted data, which spans "
+            f"[{low_fit:.4g}, {high_fit:.4g}]"
+        )
 
     # How much the fitted curve actually varies where the data is -- not
     # ``f_ped - f_sep``, which is the tanh's asymptotic amplitude and can be
@@ -2486,6 +2544,8 @@ def pedestal_top(
     # three, and it is the parameter difference that looks like a pedestal.
     variation = float(np.ptp(fitted))
     residual = float(np.sqrt(np.mean((y_fit - fitted) ** 2)))
+    if not (np.isfinite(variation) and np.isfinite(residual)):
+        return _fallback("the fit produced non-finite values; no pedestal resolved")
     if variation <= PEDESTAL_RESOLUTION_FACTOR * residual:
         return _fallback(
             f"the fitted curve varies by {variation:.4g} across the window, not "
