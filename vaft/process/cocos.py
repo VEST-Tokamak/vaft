@@ -80,12 +80,61 @@ def _sign(value: Any) -> int | None:
 
 
 def cocos_consistency_signs(equilibrium: Any) -> dict[str, int | None]:
-    """Observed sign of each Eq. 23 quantity, or ``None`` where not determinable.
+    """Observed sign of each Sauter Eq. 23 quantity, or ``None`` where not determinable.
 
-    ``dp/dpsi`` is taken as the bulk slope ``(p_edge - p_axis)/(psi_edge -
-    psi_axis)`` rather than a pointwise derivative, which is what Sauter
-    recommends: pressure is much larger on axis than at the edge, so the overall
-    slope is the meaningful sign even where the profile is not monotonic.
+    Reads signs off the equilibrium as it stands.  Nothing is compared against a
+    convention here and nothing is converted; :func:`validate_cocos` does the
+    comparison and :func:`vaft.process.equilibrium.convert_cocos` is the only
+    transform in the package.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData
+        The equilibrium to inspect.  Missing fields yield ``None`` for the
+        relations that need them rather than an error [-].
+
+    Returns
+    -------
+    dict of str to int or None
+        Keys ``f``, ``q``, ``j_phi``, ``phi_tor``, ``dpsi``, ``pprime``; each
+        ``+1``, ``-1``, or ``None`` when the field is absent or all-zero [-].
+
+    Processing steps
+    ----------------
+    1. ``f``, ``q``, ``j_phi`` and ``phi_tor``: the sign of the profile's median,
+       with a deadband so a numerically-zero profile reports ``None``.
+    2. ``dpsi``: the sign of ``psi_boundary - psi_axis``.
+    3. ``pprime``: the stored ``pprime`` profile's sign when the equilibrium
+       carries one, which for a GEQDSK or an ODS it essentially always does.
+       Only when it does not is the bulk slope
+       ``(p_edge - p_axis)/(psi_edge - psi_axis)`` used instead, taken on a
+       profile reordered axis-to-edge so the direction is known.
+
+    Convention
+    ----------
+    Signs only, in whatever convention the equilibrium is already in; this
+    function neither assumes nor imposes a COCOS.  ``j_phi`` and ``phi_tor`` are
+    always ``None`` today because :class:`~vaft.data.equilibrium.EquilibriumData`
+    carries neither a toroidal current density nor a toroidal flux; they are
+    reported so that Eq. 23 is represented in full, not because they are tested.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A bulk slope is the sign of the overall trend, not of every point: a
+    non-monotonic pressure profile still reports one sign.  Because the stored
+    ``pprime`` takes precedence, the fallback rarely runs in practice; that the
+    two paths can disagree for a hand-built equilibrium is tracked in #605.
+
+    Provenance
+    ----------
+    .. [1] Sauter and Medvedev, *Tokamak Coordinate Conventions: COCOS*, Comput.
+       Phys. Commun. 184, 293 (2013), Eq. 23, which defines the six sign
+       relations this function measures.  The preference for a bulk pressure
+       slope over a pointwise derivative is that paper's own recommendation.
     """
     eq = equilibrium
     observed: dict[str, int | None] = {
@@ -126,15 +175,65 @@ def validate_cocos(
     equilibrium: Any, cocos: int | None = None, *,
     sigma_ip: int | None = None, sigma_b0: int | None = None,
 ) -> ValidationReport:
-    """Check ``equilibrium`` against the Eq. 23 relations for ``cocos``.
+    """Check an equilibrium against the Sauter Eq. 23 relations for one COCOS index.
 
-    ``cocos`` defaults to the index recorded on the equilibrium's convention.
-    ``sigma_ip``/``sigma_b0`` default to the signs of ``ip`` and ``bt0``.
+    The check that catches a mislabelled file before its signs propagate into
+    derived quantities.  Never raises on an inconsistency: it returns a report and
+    lets the caller decide whether a mismatch is fatal.
 
-    Returns a report; it never raises on an inconsistency, so a caller can decide
-    whether a mismatch is fatal.  Relations whose inputs are unavailable are
-    reported once as a single ``cocos_unverifiable`` warning rather than one
-    issue each.
+    Parameters
+    ----------
+    equilibrium : EquilibriumData
+        The equilibrium to check [-].
+    cocos : int, optional
+        The convention to check against, 1 to 18.  Defaults to the index recorded
+        on the equilibrium's own ``convention`` [-].
+    sigma_ip : int, optional
+        Sign of the plasma current, ``+1`` or ``-1``.  Defaults to the sign of the
+        equilibrium's ``ip`` [-].
+    sigma_b0 : int, optional
+        Sign of the vacuum toroidal field.  Defaults to the sign of ``bt0`` [-].
+
+    Returns
+    -------
+    ValidationReport
+        One issue per violated relation, plus at most one
+        ``cocos_unverifiable`` warning covering every relation whose inputs were
+        missing.  An empty report means every checkable relation held [-].
+
+    Processing steps
+    ----------------
+    1. Resolve the target index and the two reference signs from the arguments,
+       falling back to the equilibrium's own convention and field signs.
+    2. Measure the observed signs with :func:`cocos_consistency_signs`.
+    3. Compare each against the sign Eq. 23 requires for that index, collecting
+       the mismatches.
+    4. Collapse every unverifiable relation into a single warning rather than
+       one issue each.
+
+    Convention
+    ----------
+    Checks consistency *with* a convention; it does not identify one and does not
+    convert. A mismatch on ``q`` is reported at warning severity rather than
+    error, because codes commonly emit ``abs(q)`` and a sign disagreement there is
+    not on its own evidence of a wrong index.  Every other relation is an error.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Only four of Eq. 23's six relations are checkable against
+    :class:`~vaft.data.equilibrium.EquilibriumData` as it stands; ``j_phi`` and
+    ``phi_tor`` have no field to read and are always unverifiable.  A passing
+    report therefore means "consistent as far as the stored fields can say", not
+    "the index is correct".
+
+    Provenance
+    ----------
+    .. [1] Sauter and Medvedev (2013), Eq. 23 for the relations and Sect. IV for
+       the rule that a ``q`` sign mismatch is a warning, not a rejection.
     """
     issues: list[ValidationIssue] = []
 
@@ -196,25 +295,73 @@ def validate_cocos(
 
 
 def identify_flux_exponent(equilibrium: Any) -> tuple[int | None, float | None]:
-    """Decide whether psi is stored in weber or weber/radian, from Ampere's law.
+    """Decide whether psi is stored in weber or weber per radian, from Ampere's law.
 
-    Returns ``(e_Bp, ratio)``.  ``e_Bp`` is 0 for a weber-per-radian psi
-    (COCOS 1-8) and 1 for a weber psi (COCOS 11-18); ``None`` when the inputs
-    needed are unavailable.
+    The loop integral of the poloidal field around the last closed flux surface
+    equals ``mu0*|Ip|``.  Computing that field from psi *as if* it were weber per
+    radian gives a ratio of 1 when the assumption holds and ``2*pi`` when psi is
+    really in weber, so the two answers are a factor ``2*pi`` apart and the test is
+    decisive rather than a threshold on a continuum.
 
-    The loop integral of the poloidal field around the LCFS equals ``mu0*|Ip|``.
-    Computing that field from psi as if it were weber-per-radian therefore gives
-    a ratio of 1 when the assumption holds and 2*pi when psi is really in weber.
-    The two outcomes differ by a factor of 2*pi, so the test is decisive.
+    Parameters
+    ----------
+    equilibrium : EquilibriumData
+        Must carry ``ip``, a closed ``lcfs``, and a ``psi`` map on its ``r`` and
+        ``z`` grid; anything missing yields ``(None, None)`` [-].
 
-    This replaces the ``a`` argument of :func:`omas.identify_cocos`, which is not
-    usable here.  That routine evaluates a cylindrical estimate
-    ``pi*B0*(a[i]-a[0])**2/(psi[i]-psi[0])`` at ``i = argmin|q|`` -- the node
-    adjacent to the axis for a monotonic q.  Near the axis ``a`` goes as
-    ``sqrt(psi)``, so any linear reconstruction of the minor-radius profile
-    underestimates ``a[1]`` badly, and the estimate depends on its square.  On
-    the packaged VEST sample it selects the wrong family on a margin of 0.22
-    against 1.67, where the loop integral separates 1.004 from 6.31.
+    Returns
+    -------
+    tuple of (int or None, float or None)
+        ``(e_Bp, ratio)``.  ``e_Bp`` is 0 for a weber-per-radian psi (COCOS 1-8)
+        and 1 for a weber psi (COCOS 11-18), or ``None`` when the inputs are
+        unavailable or the ratio lands near neither answer.  ``ratio`` is the
+        measured loop integral over ``mu0*|Ip|`` [-].
+
+    Processing steps
+    ----------------
+    1. Close the LCFS contour and compute the poloidal field on it with
+       :func:`vaft.process.equilibrium.poloidal_field_at_boundary` in the
+       weber-per-radian form; only the magnitude matters.
+    2. Integrate it along the contour by the trapezoidal rule.
+    3. Divide by ``mu0*|Ip|``.
+    4. Accept 0 or 1 if the ratio is within
+       :data:`FLUX_EXPONENT_TOLERANCE` of 1 or ``2*pi``; otherwise abstain.
+
+    Defaults
+    --------
+    :data:`FLUX_EXPONENT_TOLERANCE` is 0.15, a numerical convenience rather than
+    a physical threshold: a correct equilibrium lands within about half a
+    percent, the residual being LCFS discretization, so the band is roughly
+    thirty times the observed error while leaving the two acceptance windows
+    far apart, at 0.85 to 1.15 against 5.34 to 7.23.
+
+    Convention
+    ----------
+    Decides which storage family psi is in; it does not rescale psi and does not
+    say which of the eight sign orientations applies.  ``e_Bp`` is Sauter's flux
+    exponent: 0 means the ``2*pi`` is not carried in psi, 1 means it is.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Abstains rather than picking the nearer of two wrong answers.  A ratio near
+    neither value is evidence the input is broken, a truncated LCFS or an ``ip``
+    that disagrees with the psi map, not evidence of a convention.  Needs a
+    2-D psi map and an LCFS, so a profiles-only equilibrium cannot be classified.
+
+    Provenance
+    ----------
+    .. [1] Sauter and Medvedev (2013) for ``e_Bp`` and the storage families.
+    .. [2] Replaces the ``a`` argument of ``omas.identify_cocos``, which is not
+       usable here: it evaluates ``pi*B0*(a[i]-a[0])**2/(psi[i]-psi[0])`` at the
+       node adjacent to the axis, where the minor radius goes as ``sqrt(psi)``, so
+       a linear reconstruction underestimates it and the estimate depends on its
+       square.  On the packaged VEST sample that picks the wrong family on a
+       margin of 0.22 against 1.67, where this loop integral separates 1.004 from
+       6.31.
     """
     eq = equilibrium
     ip = getattr(eq, "ip", None)
@@ -259,16 +406,65 @@ def identify_flux_exponent(equilibrium: Any) -> tuple[int | None, float | None]:
 def identify_convention(
     equilibrium: Any, *, clockwise_phi: bool | None = None,
 ) -> tuple[int, ...]:
-    """Candidate COCOS indices for ``equilibrium``, from its observable signs.
+    """Candidate COCOS indices for an equilibrium, from its observable signs.
 
-    The sign family (which of the eight orientations) comes from
-    :func:`omas.identify_cocos`, which reads it off sign(Ip), sign(B0),
-    sign(q) and sign(dpsi).  The remaining freedom -- whether psi carries the
-    2*pi -- is settled by :func:`identify_flux_exponent` rather than by the
-    ``a`` argument of ``identify_cocos``; see that function for why.
+    Narrows rather than decides: the return is every index consistent with what
+    the data shows, which is often more than one.  A caller that needs a single
+    index supplies the missing fact instead of guessing.
 
-    ``clockwise_phi`` distinguishes odd from even indices and is a fact about
-    the machine, not about the data.  Without it, both are returned.
+    Parameters
+    ----------
+    equilibrium : EquilibriumData
+        Must carry ``bt0``, ``ip``, ``q`` and ``psi_1d``; without them the
+        candidate set is empty [-].
+    clockwise_phi : bool, optional
+        Whether the machine's toroidal angle runs clockwise seen from above.  A
+        fact about the machine, not about the data; without it both the odd and
+        the even index of each pair are returned [-].
+
+    Returns
+    -------
+    tuple of int
+        The candidate COCOS indices in increasing order, empty when the required
+        fields are missing or the sign identification fails [-].
+
+    Processing steps
+    ----------------
+    1. Reorder ``psi_1d`` and ``q`` axis-to-edge when the stored profile runs the
+       other way.
+    2. Get the sign family from ``omas.identify_cocos``, which reads it off the
+       signs of ``ip``, ``bt0``, ``q`` and the psi gradient.
+    3. Narrow to 1-8 or 11-18 using :func:`identify_flux_exponent`, keeping the
+       full set when that abstains.
+
+    Convention
+    ----------
+    Returns indices in the standard 1 to 18 numbering; 9 and 10 do not exist.
+    The sign family and the storage family are identified by different evidence,
+    signs for the first and an Ampere loop integral for the second, and either can
+    be inconclusive on its own.  What each index means is declared in
+    :mod:`vaft.data.cocos`, not here.
+
+    Applicability
+    -------------
+    Machine-independent.  ``clockwise_phi`` is where a machine's own geometry
+    enters.
+
+    Limitations
+    -----------
+    The axis-to-edge reorder exists because ``identify_cocos`` reads the psi
+    gradient at the first node, so a boundary-first profile would invert the
+    poloidal-flux sign silently.  When the flux exponent abstains the result spans
+    both storage families, and a caller that then converts must not assume the
+    candidates share one.  Any exception from the underlying identification is
+    reported as no candidates rather than raised.
+
+    Provenance
+    ----------
+    .. [1] Sauter and Medvedev (2013) for the index numbering and the sign
+       relations the identification rests on.
+    .. [2] ``omas.identify_cocos`` supplies the sign family; its flux-exponent
+       argument is deliberately not used, see :func:`identify_flux_exponent`.
     """
     eq = equilibrium
     if eq.bt0 is None or eq.ip is None or eq.q is None or eq.psi_1d is None:
