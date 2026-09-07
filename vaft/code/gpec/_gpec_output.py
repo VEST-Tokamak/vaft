@@ -31,7 +31,7 @@ import re
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
@@ -43,6 +43,9 @@ __all__ = [
     "GpecIdealResult",
     "read_gpec_netcdf",
 ]
+
+if TYPE_CHECKING:  # pragma: no cover - import cycle guard
+    from ._profile_output import GpecProfileOutput
 
 #: Control-surface eigen-decomposition and coupling variables preserved
 #: verbatim (complex, native dims) because they have no IMAS home.
@@ -179,14 +182,14 @@ class GpecCylindricalOutput:
 class GpecIdealResult:
     """One ideal-GPEC run's native output set for a single toroidal mode.
 
-    ``profile`` (``gpec_profile_output_n<mode>.nc``, resonant/rational-surface
-    quantities) is not parsed yet and stays ``None``; the source paths are
-    recorded so nothing needed to reach it later is lost.
+    ``profile`` (``gpec_profile_output_n<mode>.nc``) carries the resonant and
+    rational-surface quantities; it stays ``None`` when the run did not write
+    one.  Source paths are recorded for every file found.
     """
 
     control: GpecControlOutput
     cylindrical: Optional[GpecCylindricalOutput] = None
-    profile: Optional[Any] = None
+    profile: Optional["GpecProfileOutput"] = None
     source_paths: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -201,8 +204,9 @@ class GpecIdealResult:
         *,
         control_path: str | Path | None = None,
         cylindrical_path: str | Path | None = None,
+        profile_path: str | Path | None = None,
     ) -> "GpecIdealResult":
-        """Read a run directory's control (required) and cylindrical (optional) files.
+        """Read a run directory's control (required), cylindrical and profile files.
 
         ``mode`` selects ``gpec_*_output_n<mode>.nc``; when omitted, exactly
         one control file must be present.
@@ -227,14 +231,29 @@ class GpecIdealResult:
                 f"n={cylindrical.n_tor}"
             )
 
+        if profile_path is None:
+            candidate = run_dir / f"gpec_profile_output_n{control.n_tor}.nc"
+            profile_path = candidate if candidate.exists() else None
+        profile = None
+        if profile_path is not None:
+            from ._profile_output import _read_profile
+
+            profile = _read_profile(Path(profile_path))
+            if profile.n_tor != control.n_tor:
+                raise ValueError(
+                    f"control file is n={control.n_tor} but profile file is n={profile.n_tor}"
+                )
+
         source_paths = {"control": str(control_path)}
         if cylindrical_path is not None:
             source_paths["cylindrical"] = str(cylindrical_path)
-        profile_path = run_dir / f"gpec_profile_output_n{control.n_tor}.nc"
-        if profile_path.exists():
+        if profile_path is not None:
             source_paths["profile"] = str(profile_path)
         return cls(
-            control=control, cylindrical=cylindrical, source_paths=source_paths
+            control=control,
+            cylindrical=cylindrical,
+            profile=profile,
+            source_paths=source_paths,
         )
 
     def to_dict(self) -> dict[str, Any]:

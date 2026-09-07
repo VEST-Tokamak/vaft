@@ -128,6 +128,97 @@ def write_cylindrical_nc(path, *, n=1, nr=7, nz=5):
     return {"R": R, "z": z, "b_plasma": b_plasma, "b_total": b_total}
 
 
+
+def write_profile_nc(
+    path,
+    *,
+    n=1,
+    psi_count=6,
+    theta_count=7,
+    m_count=5,
+    rational_q=(2.0, 3.0),
+    helicity=-1.0,
+    trimmed=False,
+):
+    """Write a miniature ``gpec_profile_output_n<mode>.nc``; returns its data.
+
+    ``trimmed`` writes only the rational-surface block, the way a committed
+    regression extract does, so the reader is exercised against a file that
+    is missing most of its variables.
+    """
+    psi_n = np.linspace(0.05, 0.99, psi_count)
+    theta = np.linspace(0.0, 1.0, theta_count)
+    m_out = np.arange(-2, -2 + m_count)
+    q_rational = np.asarray(rational_q, dtype=float)
+    psi_rational = np.linspace(0.4, 0.95, q_rational.size)
+    phi_res = (q_rational * 1e-4) - 1j * (q_rational * 0.5e-4)
+    i_res = (q_rational * 1e3) + 1j * (q_rational * 1e2)
+
+    data_vars = {
+        "q_rational": (("psi_n_rational",), q_rational, {"units": "-"}),
+        "area_rational": (("psi_n_rational",), q_rational * 2.0, {"units": "m^2"}),
+        "Phi_res": (("i", "psi_n_rational"), _complex_pair(phi_res), {"units": "T"}),
+        "Phi_res_v": (("i", "psi_n_rational"), _complex_pair(phi_res * 0.5), {"units": "T"}),
+        "I_res": (("i", "psi_n_rational"), _complex_pair(i_res), {"units": "A"}),
+        "w_isl": (("psi_n_rational",), q_rational * 1e-2, {"units": "psi_n"}),
+        "K_isl": (("psi_n_rational",), q_rational * 0.1, {"units": "-"}),
+    }
+    coords = {
+        "i": [0, 1],
+        "psi_n_rational": ("psi_n_rational", psi_rational, {"units": "-"}),
+    }
+    if not trimmed:
+        b_n = np.outer(m_out + 1.0, psi_n) * 1e-4 + 1j * np.outer(m_out, psi_n) * 1e-5
+        b_n_fun = np.outer(np.cos(2 * np.pi * theta), psi_n) * 1e-4 + 1j * np.outer(
+            np.sin(2 * np.pi * theta), psi_n
+        ) * 1e-4
+        data_vars.update(
+            {
+                "q": (("psi_n",), 1.0 + 4.0 * psi_n, {"units": "-"}),
+                "R": (("theta_dcon", "psi_n"), np.outer(np.cos(2 * np.pi * theta), psi_n) + 1.7,
+                      {"units": "m"}),
+                "z": (("theta_dcon", "psi_n"), np.outer(np.sin(2 * np.pi * theta), psi_n),
+                      {"units": "m"}),
+                "b_n": (("i", "m_out", "psi_n"), _complex_pair(b_n), {"units": "Tesla"}),
+                "b_n_fun": (("i", "theta_dcon", "psi_n"), _complex_pair(b_n_fun), {"units": "Tesla"}),
+                "xi_n": (("i", "m_out", "psi_n"), _complex_pair(b_n * 10.0), {"units": "m"}),
+                # An "extra": present in real files, not a named field.
+                "b_eul": (("i", "m_out", "psi_n"), _complex_pair(b_n * 2.0), {"units": "Tesla"}),
+                "T_e_rational": (("psi_n_rational",), q_rational * 100.0, {"units": "eV"}),
+            }
+        )
+        coords.update(
+            {
+                "psi_n": ("psi_n", psi_n, {"units": "-"}),
+                "theta_dcon": ("theta_dcon", theta, {"units": "-"}),
+                "m_out": ("m_out", m_out),
+            }
+        )
+
+    ds = xr.Dataset(
+        data_vars,
+        coords=coords,
+        attrs={
+            "title": "GPEC outputs in magnetic coordinate systems",
+            "machine": "VEST",
+            "shot": 0,
+            "time": 0,
+            "n": n,
+            "helicity": helicity,
+            "version": "v1.5.5-test",
+        },
+    )
+    ds.to_netcdf(path / f"gpec_profile_output_n{n}.nc")
+    return {
+        "psi_n": psi_n,
+        "psi_n_rational": psi_rational,
+        "q_rational": q_rational,
+        "Phi_res": phi_res,
+        "I_res": i_res,
+        "helicity": helicity,
+    }
+
+
 #: DCON's own equilibrium-summary globals, in the shape `equil/equil_out.f`
 #: computes them.  Values are physically plausible for VEST rather than
 #: arbitrary, so a test that reads one back is legible.
