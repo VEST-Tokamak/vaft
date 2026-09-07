@@ -243,3 +243,35 @@ class TestTimeIsRecoveredOrRefused:
         mat_data = loadmat(str(source))
         with pytest.raises(KeyError, match="disagree about"):
             _recover_simple_time(mat_data, 39915, source)
+
+
+class TestUnmappableLayoutsReportTheirSchema:
+    """Widening discovery must not turn "not found" into a cryptic KeyError."""
+
+    def test_a_v9_like_file_with_unknown_polychromator_keys_is_named(
+        self, tmp_path: Path
+    ) -> None:
+        """Shot 22027 has `time_TS` beside `poly1R1_REM_Te` / `poly2R3_...`.
+
+        That layout is not one this module maps. Before discovery was widened
+        the file was simply never found; now that it is reachable, it must say
+        which schema it has instead of raising KeyError on the first tag the
+        reader happens to miss.
+        """
+        savemat(
+            str(tmp_path / "NeTe_Shot22027.mat"),
+            {
+                "time_TS": np.linspace(300.0, 309.0, SAMPLES),
+                "poly1R1_REM_Te": np.full(SAMPLES, 20.0),
+                "poly2R3_REM_Te": np.full(SAMPLES, 20.0),
+            },
+        )
+        with pytest.raises(KeyError, match="Unsupported Thomson MAT schema"):
+            thomson_scattering(ODS(consistency_check=False), 22027, data_root=tmp_path)
+
+    def test_a_complete_v9_file_still_maps(self, tmp_path: Path) -> None:
+        """The guard must not reject the layout it exists to protect."""
+        _write_v9(tmp_path / "NeTe_Shot40330_v9_rev.mat", te=20.0, ne=2e18)
+        ods = ODS(consistency_check=False)
+        thomson_scattering(ods, 40330, data_root=tmp_path)
+        np.testing.assert_allclose(_channel_te(ods), np.full(SAMPLES, 20.0))

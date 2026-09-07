@@ -212,6 +212,15 @@ def _resolve_thomson_mat_file(
     )
 
 
+def _has_v9_channel_keys(mat_data: dict[str, Any]) -> bool:
+    """Whether every polychromator key the v9 reader indexes is present."""
+    return all(
+        f"{tag}_{quantity}" in mat_data
+        for _, _, _, tag in _CHANNEL_META
+        for quantity in ("Te", "sigmaTe", "Ne", "sigmaNe")
+    )
+
+
 def _set_dynamic_from_v9(mat_data: dict[str, Any], ods: Any) -> None:
     time = _normalize_thomson_time_to_seconds(_as_real_array(mat_data["time_TS"]))
     set_path(ods, "thomson_scattering.time", time)
@@ -415,7 +424,12 @@ def vfit_thomson_scattering_dynamic(
     )
     mat_data = loadmat(str(source_file))
 
-    if "time_TS" in mat_data:
+    # `time_TS` alone does not make a file readable by the v9 reader: shot
+    # 22027 carries `time_TS` next to `poly1R1_REM_Te` / `poly2R3_...`, a
+    # polychromator naming this module does not map. Check the keys the reader
+    # will actually index so such a file reports the schema it has, rather than
+    # raising a bare KeyError on the first tag it happens to miss.
+    if "time_TS" in mat_data and _has_v9_channel_keys(mat_data):
         _set_dynamic_from_v9(mat_data, ods)
         return
 
