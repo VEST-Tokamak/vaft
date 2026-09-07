@@ -309,7 +309,8 @@ class Field2D(ViewModel):
     #: them blank, ``"min"``/``"max"``/``"both"`` saturate them at the end
     #: colours.  Levels chosen from a percentile need this -- otherwise the
     #: points the percentile deliberately excluded come out as holes in the
-    #: map, indistinguishable from missing data.
+    #: map, indistinguishable from missing data.  Matplotlib needs telling;
+    #: Plotly clamps to its level range already, so the two agree either way.
     extend: str = "neither"
     #: Where the main contours are drawn, as a boolean ``(len(z), len(r))``
     #: grid; ``None`` draws them everywhere.  A flux map confines its plasma

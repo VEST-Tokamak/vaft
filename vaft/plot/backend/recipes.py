@@ -3054,10 +3054,12 @@ class VacuumField:
 
     ``canonical_unit`` is empty for the decay index, which reaches the display
     policy through :data:`vaft.plot.display.DIMENSIONLESS_DISPLAY` instead.
-    ``upper`` is the percentile the default contour levels stop at: the field
-    diverges on the coil filaments the grid sits among, so raw min-to-max
-    levels would spend the whole colour range on a handful of points and leave
-    the vessel blank.
+    ``upper`` is the percentile the default contour levels stop at.  Confined
+    to the limiter these fields are well behaved -- away from a null the map's
+    maximum sits within about 30% of its 99th percentile -- so stopping there
+    gives away little, and what falls outside saturates rather than vanishing.
+    The decay index is the exception: it diverges wherever B_Z crosses zero,
+    which happens inside the vessel, so it stops sooner.
     """
 
     name: str
@@ -3065,7 +3067,7 @@ class VacuumField:
     canonical_unit: str
     subject: str = "vacuum"
     filled: bool = True
-    upper: float = 95.0
+    upper: float = 99.0
     lower: float | None = None
     levels: int = 24
 
