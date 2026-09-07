@@ -1,31 +1,47 @@
 """Diagnostic-independent spectral analysis of scalar fluctuation time series.
 
-Every routine here takes a plain ``(time, data)`` pair and knows nothing about the
+Every routine here takes a plain time-and-data pair and knows nothing about the
 diagnostic that produced it.  The same functions serve magnetic pickup coils,
 interferometry, soft X-ray channels, Langmuir probes and optical intensity, so
-mapping modules must not grow their own PSD or spectral-fit implementations.
+mapping modules must not grow their own spectral implementations.
 
-Transfer functions stay outside this module
--------------------------------------------
-These routines analyse whatever quantity they are handed; they never correct for
-a diagnostic's transfer function.  This matters most for magnetic pickup coils,
-which measure a time derivative::
+Notation
+--------
+t        : time                                              [s]
+f        : frequency                                        [Hz]
+S(f)     : one-sided power spectral density         [signal^2/Hz]
+alpha    : power-law spectral index, S ~ f^alpha              [-]
+f_break  : frequency separating two power-law regimes       [Hz]
+
+Conventions
+-----------
+**Transfer functions stay outside this module.**  These routines analyse
+whatever quantity they are handed and never correct for a diagnostic's
+transfer function.  That matters most for a magnetic pickup coil, which
+measures a time derivative::
 
     V(t) proportional to dB/dt   =>   S_dBdt(f) = (2 pi f)**2 * S_B(f)
 
-so if ``S_B(f)`` follows ``f**alpha``, the derivative-signal PSD follows
-``f**(alpha + 2)``.  A spectral index fitted to raw pickup voltage is therefore
-*not* the magnetic-field spectral index.  Integrate and calibrate first --
-:func:`vaft.process.magnetics.b_field_pol_probe_field` is the canonical VEST path
--- and pass the resulting field to :func:`compute_psd`.  ``compute_psd`` will not
-do this for you, by design.
+so a field spectrum going as ``f**alpha`` gives a derivative-signal spectrum
+going as ``f**(alpha + 2)``.  **A spectral index fitted to raw pickup voltage
+is not the magnetic-field spectral index.**  Integrate and calibrate first --
+:func:`vaft.process.magnetics.b_field_pol_probe_field` is the canonical VEST
+path -- and pass the resulting field in.  Nothing here will do it for you, by
+design.
 
-No physical interpretation
---------------------------
-Nothing here classifies a fitted slope, names a spectral regime, or attaches
-meaning to a break frequency.  Reference slopes and characteristic frequencies
-are supplied by the caller at the plotting layer; this module ships no slope
-constants of its own.
+**No physical interpretation.**  Nothing classifies a fitted slope, names a
+spectral regime, or attaches meaning to a break frequency.  Reference slopes
+and characteristic frequencies are the caller's, supplied at the plotting
+layer; this module ships no slope constants of its own.
+
+**Nothing is inferred that the caller could state.**  A fit range is always
+explicit, so a reported index always belongs to a band someone chose; and the
+two-regime mode is selected by which argument is supplied, never guessed.
+
+Provenance
+----------
+.. [1] Welch's method and the short-time Fourier transform as implemented by
+   :mod:`scipy.signal`, which every routine here delegates to.
 """
 
 from dataclasses import dataclass, field
@@ -180,25 +196,64 @@ def compute_psd(
     detrend: str | bool = "constant",
     units: str = "signal**2/Hz",
 ) -> FluctuationSpectrum:
-    """Estimate a one-sided power spectral density with Welch's method.
+    """One-sided power spectral density by Welch's method.
 
-    The input is any scalar time series in the physical quantity the caller wants
-    a spectrum of.  No transfer-function correction is applied -- see the module
-    docstring on ``dB/dt`` signals.
+    Parameters
+    ----------
+    time : array_like
+        Strictly increasing, uniformly sampled time axis [s].
+    data : array_like
+        Signal samples, same length [any].
+    sample_rate : float, optional
+        Overrides the rate derived from the time axis [Hz].
+    window : str, optional
+        Any window name SciPy accepts [-].
+    nperseg : int, optional
+        Segment length in samples [-].
+    noverlap : int, optional
+        Overlap in samples [-].
+    detrend : str or bool, optional
+        Passed through to the underlying estimator [-].
+    units : str, optional
+        Free-text unit label recorded on the result [-].
 
-    Args:
-        time: Strictly increasing, uniformly sampled time axis in seconds.
-        data: Signal samples, same length as ``time``.
-        sample_rate: Overrides the rate derived from ``time`` when given.
-        window: Any window name accepted by :func:`scipy.signal.get_window`.
-        nperseg: Segment length in samples; defaults to scipy's own choice.
-        noverlap: Overlap in samples; defaults to ``nperseg // 2``.
-        detrend: Passed through to :func:`scipy.signal.welch`.
-        units: Free-text unit label recorded on the result for downstream labels.
+    Returns
+    -------
+    FluctuationSpectrum
+        The frequency axis in hertz, the density in the signal's own squared unit
+        per hertz, and the parameters needed to reproduce them [-].
 
-    Returns:
-        A :class:`FluctuationSpectrum` carrying ``frequency``, ``psd`` and the
-        analysis parameters needed to reproduce them.
+    Raises
+    ------
+    ValueError
+        The time axis is not uniform within the module's tolerance.
+
+    Convention
+    ----------
+    One-sided, so the power at each frequency already accounts for its negative
+    counterpart. The input is whatever quantity the caller wants a spectrum of and
+    **no transfer-function correction is applied**; see the module's conventions
+    for what that means for a pickup coil.
+
+    Defaults
+    --------
+    The segment length and overlap are numerical conveniences, deferred to SciPy's
+    own choices rather than fixed here, so a caller who has not thought about
+    resolution gets that library's behaviour rather than one invented for VAFT.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Welch's method assumes a uniformly sampled, stationary signal. A materially
+    nonuniform time axis is rejected rather than interpolated, because
+    interpolating one silently changes the spectrum it is being asked about.
+
+    Provenance
+    ----------
+    .. [1] Welch's method as implemented by :func:`scipy.signal.welch`.
     """
     values, fs = _resolve_sample_rate(time, data, sample_rate)
     kwargs = {"fs": fs, "window": window, "detrend": detrend}
@@ -229,24 +284,56 @@ def _fit_range_mask(frequency: np.ndarray, f_range: Sequence[float]) -> np.ndarr
 
 
 def fit_power_law_spectrum(frequency, psd, *, f_range: Sequence[float]) -> SpectralFit:
-    """Fit ``S(f) = A * f**alpha`` over the caller's explicit frequency interval.
+    """Fit a power law to a spectrum over an explicitly chosen band.
 
-    The interval is always explicit: there is no default range and no automatic
-    range selection, so a reported ``alpha`` always belongs to a band the caller
-    chose deliberately.
+    Parameters
+    ----------
+    frequency : array_like
+        Frequency axis [Hz].
+    psd : array_like
+        Power spectral density on that axis [any].
+    f_range : sequence of float
+        The band to fit over, as ``(f_low, f_high)`` [Hz].
 
-    Args:
-        frequency: Frequency axis in Hz.
-        psd: Power spectral density on ``frequency``.
-        f_range: ``(f_low, f_high)`` closed interval, in Hz, to fit within.
+    Returns
+    -------
+    SpectralFit
+        The index, the amplitude, the goodness of fit and the band used [-].
 
-    Returns:
-        A :class:`SpectralFit` with ``alpha``, the log10 ``intercept``,
-        ``r_squared``, the slope's standard error and the log-space residuals.
+    Raises
+    ------
+    ValueError
+        Fewer than the minimum number of usable points fall inside the band.
 
-    Raises:
-        ValueError: When fewer than :data:`MIN_FIT_POINTS` usable points fall in
-            ``f_range``.
+    Convention
+    ----------
+    Ordinary least squares in log-log space, so the fit is on the exponent
+    directly. **There is no default range and no automatic range selection**: a
+    reported index therefore always belongs to a band the caller chose
+    deliberately, rather than to whatever the algorithm happened to like.
+
+    Nothing here names the regime that index belongs to.
+
+    Defaults
+    --------
+    The minimum point count is a numerical convenience: two points define a line,
+    and the third is what makes the goodness of fit and the residuals mean
+    anything.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Samples with a non-positive density are excluded, since their logarithm does
+    not exist. A log-log fit weights decades equally, so a band spanning many
+    decades is dominated by the sparse high-frequency end.
+
+    Provenance
+    ----------
+    .. [1] Ordinary least squares in log-log space; the module's conventions on
+       why the band is never chosen for the caller.
     """
     frequency = np.asarray(frequency, dtype=float)
     psd = np.asarray(psd, dtype=float)
@@ -323,33 +410,68 @@ def find_spectral_break(
     search_range: Sequence[float] | None = None,
     n_candidates: int = 64,
 ) -> SpectralBreak:
-    """Fit a two-regime power law below and above a break frequency.
+    """Fit a two-regime power law, below and above a break frequency.
 
-    The two modes are chosen by which argument is supplied, never inferred:
+    Parameters
+    ----------
+    frequency : array_like
+        Frequency axis [Hz].
+    psd : array_like
+        Power spectral density [any].
+    fit_range : sequence of float
+        Outer band spanning both regimes [Hz].
+    break_frequency : float, optional
+        An imposed boundary, for the physics-informed mode [Hz].
+    search_range : sequence of float, optional
+        Interval to scan, for the data-driven mode [Hz].
+    n_candidates : int, optional
+        Log-spaced candidates scanned in search mode [-].
 
-    * **physics-informed** -- pass ``break_frequency``.  The caller owns the
-      boundary (their own ``f_ci``, for instance); the code fits either side of
-      it and reports ``mode="imposed"``.
-    * **data-driven** -- pass ``search_range``.  Candidate breaks across that
-      interval are scored by total squared log-space residual and the best is
-      reported with ``mode="search"``.
+    Returns
+    -------
+    SpectralBreak
+        The break, the two fits either side, the mode used, and the score [-].
 
-    A break found this way is a numerical feature of the spectrum.  It is not
-    identified with any plasma scale here.
+    Raises
+    ------
+    ValueError
+        Neither or both of the two mode arguments were supplied, or the band holds
+        too few points.
 
-    Args:
-        frequency: Frequency axis in Hz.
-        psd: Power spectral density on ``frequency``.
-        fit_range: Outer ``(f_low, f_high)`` interval spanning both regimes.
-        break_frequency: The imposed boundary, for physics-informed mode.
-        search_range: ``(f_low, f_high)`` to scan, for data-driven mode.
-        n_candidates: Number of log-spaced candidates scanned in search mode.
-            Candidates are scored by total squared log-space residual, the
-            criterion that stays comparable as the split moves.
+    Convention
+    ----------
+    **The mode is chosen by which argument is supplied, never inferred.** Passing
+    a break frequency imposes it and the caller owns the boundary; passing a search
+    range scans for one. Supplying neither, or both, is an error rather than a
+    default, because a break that looks physics-informed and was in fact fitted is
+    the failure this refuses to permit.
 
-    Raises:
-        ValueError: When neither or both modes are requested, or when either
-            regime has too few points to fit.
+    Candidates are scored by **total squared residual in log space**, not by a
+    point-weighted goodness of fit. The latter biases the score toward splits that
+    hand most points to whichever segment fits best, and in practice pins the
+    answer to the edge of the search range.
+
+    A break found this way is a numerical feature of the spectrum. **It is not
+    identified with any plasma scale here.**
+
+    Defaults
+    --------
+    The candidate count is a numerical convenience, dense enough that the scan's
+    resolution is not the limiting error.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Two straight lines are fitted to something that may not have two regimes; a
+    best break is always returned in search mode, whether or not one exists.
+    Inherits the log-space caveats of the single-regime fit.
+
+    Provenance
+    ----------
+    .. [1] :func:`fit_power_law_spectrum`, applied either side of the break.
     """
     if (break_frequency is None) == (search_range is None):
         raise ValueError(
@@ -424,23 +546,46 @@ def compute_band_power(
     *,
     ratios: Mapping[str, Sequence[str]] | None = None,
 ) -> dict[str, float]:
-    """Integrate ``P = int S(f) df`` over caller-named frequency bands.
+    """Integrate spectral power over named frequency bands, and optionally their ratios.
 
-    Band edges are treated as a **closed** interval ``[f1, f2]``: a PSD sample
-    landing exactly on an edge belongs to the band, so adjacent bands sharing an
-    edge both include that sample.  Band names and their physical meaning are
-    entirely the caller's.
+    Parameters
+    ----------
+    frequency : array_like
+        Frequency axis [Hz].
+    psd : array_like
+        Power spectral density [any].
+    bands : mapping of str to sequence of float
+        Named ``(f_low, f_high)`` pairs; the names are the caller's [Hz].
+    ratios : mapping, optional
+        Named pairs of band names whose power ratio to report [-].
 
-    Args:
-        frequency: Frequency axis in Hz.
-        psd: Power spectral density on ``frequency``.
-        bands: ``{name: (f_low, f_high)}`` in Hz.
-        ratios: ``{name: (numerator_band, denominator_band)}`` derived entries.
+    Returns
+    -------
+    dict
+        Power per named band, in the signal's own squared unit, and any requested
+        ratios, dimensionless [-].
 
-    Returns:
-        ``{band_name: integrated_power}`` plus any requested ratios.  A band with
-        fewer than two samples integrates to ``0.0``; a ratio with a zero
-        denominator is ``nan``.
+    Convention
+    ----------
+    **Band edges are closed**, so two adjacent bands sharing an edge both include
+    the sample sitting on it. A band containing fewer than two samples integrates
+    to zero rather than raising, and a ratio with a zero denominator is NaN rather
+    than infinite, so a caller sweeping many channels gets a comparable result
+    from every one.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Integration is over the samples present, so a band narrower than the frequency
+    resolution reports zero rather than an error. Nothing normalizes by bandwidth;
+    these are powers, not densities.
+
+    Provenance
+    ----------
+    .. [1] Numerical integration of the density returned by :func:`compute_psd`.
     """
     frequency = np.asarray(frequency, dtype=float)
     psd = np.asarray(psd, dtype=float)
@@ -485,29 +630,62 @@ def compute_spectrogram(
     window: str = "hann",
     detrend: str | bool = "constant",
 ) -> FluctuationSpectrogram:
-    """Compute a time-resolved magnitude spectrogram ``x(t) -> S(f, t)``.
+    """Short-time Fourier magnitude map of a fluctuation signal.
 
-    Window length is given either in samples (``nperseg``) or in seconds
-    (``window_duration``); exactly one may be supplied.  ``overlap`` is a
-    fraction of the window in ``[0, 1)``.
+    Parameters
+    ----------
+    time : array_like
+        Uniformly sampled time axis [s].
+    data : array_like
+        Signal samples [any].
+    sample_rate : float, optional
+        Overrides the rate derived from the time axis [Hz].
+    nperseg : int, optional
+        Window length in samples [-].
+    window_duration : float, optional
+        Window length as a duration, converted to samples [s].
+    overlap : float, optional
+        Fractional overlap between windows [-].
+    window : str, optional
+        Window name [-].
+    detrend : str or bool, optional
+        Passed through to the underlying transform [-].
 
-    A signal shorter than one window yields an empty, correctly shaped result --
-    frequency axis intact, zero time columns -- rather than raising, so callers
-    sweeping many channels get deterministic behaviour at the edges.
+    Returns
+    -------
+    FluctuationSpectrogram
+        The time and frequency axes and the magnitude map [-].
 
-    Args:
-        time: Strictly increasing, uniformly sampled time axis in seconds.
-        data: Signal samples, same length as ``time``.
-        sample_rate: Overrides the rate derived from ``time`` when given.
-        nperseg: Window length in samples.
-        window_duration: Window length in seconds, converted with the sample rate.
-        overlap: Fractional window overlap in ``[0, 1)``.
-        window: Any window name accepted by :func:`scipy.signal.get_window`.
-        detrend: Passed through to :func:`scipy.signal.spectrogram`.
+    Convention
+    ----------
+    **The time axis is returned in the caller's own absolute base**, offset back
+    from the transform's window-relative one, so a feature can be read against the
+    shot clock without correction.
 
-    Returns:
-        A :class:`FluctuationSpectrogram` whose ``time`` axis is offset back onto
-        the caller's absolute timebase.
+    The field names match the magnetics module's own spectrogram result, so the
+    plotting layer accepts either without knowing which produced it.
+
+    Defaults
+    --------
+    The overlap is a numerical convenience. The window may be given in samples or
+    as a duration; the duration form is the portable one, since it means the same
+    thing at a different sample rate.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The window sets the trade-off between time and frequency resolution and
+    nothing here chooses it for the caller. A window longer than the record
+    returns an empty result rather than raising, so callers sweeping many channels
+    get deterministic behaviour at the edges.
+
+    Provenance
+    ----------
+    .. [1] The short-time Fourier transform as implemented by
+       :func:`scipy.signal.spectrogram`.
     """
     if nperseg is not None and window_duration is not None:
         raise ValueError("pass either nperseg= or window_duration=, not both.")
@@ -567,12 +745,61 @@ def analyze_fluctuation_spectrum(
     break_fit_range: Sequence[float] | None = None,
     **psd_options,
 ) -> FluctuationSpectrum:
-    """Run :func:`compute_psd` and the optional analyses in one call.
+    """Run the spectral chain on one signal: density, then whatever else was asked for.
 
-    Every analysis is opt-in: with no ``fit_ranges``, ``bands`` or break argument
-    this returns exactly what :func:`compute_psd` returns.  Break analysis needs
-    ``break_fit_range`` plus one of ``break_frequency`` / ``search_range``, and
-    keeps the same two-mode contract as :func:`find_spectral_break`.
+    Parameters
+    ----------
+    time : array_like
+        Uniformly sampled time axis [s].
+    data : array_like
+        Signal samples [any].
+    fit_ranges : sequence, optional
+        Bands to fit a power law over, each ``(f_low, f_high)`` [Hz].
+    bands : mapping, optional
+        Named bands whose power to integrate [Hz].
+    ratios : mapping, optional
+        Named band-power ratios to report [-].
+    break_frequency : float, optional
+        An imposed two-regime boundary [Hz].
+    search_range : sequence of float, optional
+        Interval to scan for a break instead [Hz].
+    break_fit_range : sequence of float, optional
+        Outer band for the two-regime fit.  Further keyword arguments are
+        passed through to the density estimate [Hz].
+
+    Returns
+    -------
+    dict
+        The spectrum, and an entry for each optional analysis that was requested
+        [-].
+
+    Processing steps
+    ----------------
+    1. Estimate the power spectral density.
+    2. Fit a power law over each requested band.
+    3. Fit a two-regime break, if either mode argument was given.
+    4. Integrate the requested band powers and ratios.
+
+    Convention
+    ----------
+    **Everything past the density is opt-in.** Nothing is computed because it
+    might be interesting, so the returned mapping holds exactly what was asked
+    for. The same rules apply as to the functions this calls: fit ranges are
+    explicit, the break mode is never inferred, and no result is given a physical
+    name.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A convenience wrapper only. It adds no analysis of its own and inherits every
+    limitation of the steps it runs.
+
+    Provenance
+    ----------
+    .. [1] The functions it orchestrates, each documented on its own.
     """
     spectrum = compute_psd(time, data, **psd_options)
 
