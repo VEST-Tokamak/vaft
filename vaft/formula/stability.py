@@ -31,6 +31,34 @@ from .constants import (
 )
 from .utils import gradient
 
+#: What ``from vaft.formula.stability import *`` binds, and therefore what
+#: reaches ``vaft.formula.__all__``. Stability limits, operational boundaries and transport figures.
+#: Declared so the package stops re-exporting this module's own imports --
+#: ``np``, ``warnings``, ``Union``, ``curve_fit`` -- as though they were
+#: formulas (#368).
+__all__ = [
+    "ballooning_alpha_from_p_B_R",
+    "ballooning_stability_criterion",
+    "beta_N_from_beta_a_B0_Ip",
+    "beta_pol_from_beta_tor",
+    "beta_stability_boundary",
+    "beta_tor_from_beta_pol",
+    "c_s_from_Te_Ti_mi",
+    "collisionality_from_n_T_B_R",
+    "empirical_li_qa",
+    "greenwald_density",
+    "greenwald_fraction",
+    "kink_stability_criterion",
+    "li_from_qa_empirical",
+    "plasma_stability_margins",
+    "power_limit_from_beta",
+    "power_limit_from_q",
+    "rhostar_from_Te_a_Bt",
+    "sawtooth_stability_criterion",
+    "v_alfven_from_B_n_mi",
+]
+
+
 # ------------------------------------------------------------------
 # Beta Calculations
 # ------------------------------------------------------------------

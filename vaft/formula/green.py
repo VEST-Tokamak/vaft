@@ -85,6 +85,32 @@ def calculate_distance(r1: Union[np.ndarray, float], r2: Union[np.ndarray, float
     return np.sqrt((r2 - r1) ** 2 + (z2 - z1) ** 2)
 
 
+#: What ``from vaft.formula.green import *`` binds, and therefore what
+#: reaches ``vaft.formula.__all__``. Green's functions for axisymmetric ring sources, and coil inductances.
+#: Declared so the package stops re-exporting this module's own imports --
+#: ``np``, ``warnings``, ``Union``, ``curve_fit`` -- as though they were
+#: formulas (#368).
+__all__ = [
+    "GREEN_EXACT_MODES",
+    "calculate_distance",
+    "complete_elliptic_integral_e",
+    "complete_elliptic_integral_k",
+    "elliptic_integral",
+    "green_br_bz",
+    "green_br_bz_exact",
+    "green_psi_exact",
+    "green_r",
+    "greens_function_2d",
+    "greens_function_3d",
+    "greens_function_exact",
+    "greens_integral_2d",
+    "greens_integral_3d",
+    "mutual_inductance",
+    "self_inductance",
+    "trapz_integral",
+]
+
+
 # ------------------------------------------------------------------
 # Elliptic Integrals
 # ------------------------------------------------------------------

@@ -29,6 +29,7 @@ from .constants import (
     MU0, QE, ME, MI_P,
     E_ALPHA, SIGMA_V_COEF,
     SPITZER_RESISTIVITY_COEF,
+    C_B, K_B_COEF,
     _SCALING_COEFS
 )
 from scipy.integrate import cumulative_trapezoid
@@ -43,6 +44,128 @@ from .utils import (
     calculate_toroidal_flux,
     calculate_volume_weighted_average
 )
+
+#: What ``from vaft.formula.equilibrium import *`` binds, and therefore what
+#: reaches ``vaft.formula.__all__``. Equilibrium, current, energy and geometry kernels.
+#: Declared so the package stops re-exporting this module's own imports --
+#: ``np``, ``warnings``, ``Union``, ``curve_fit`` -- as though they were
+#: formulas (#368).
+__all__ = [
+    "VIRIAL_SINGULAR_EPS",
+    "alpha_heating_power",
+    "alpha_heating_power_from_n_D_n_T_T_keV_V",
+    "approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi",
+    "aspect_ratio_from_a_R",
+    "auxiliary_heating_power",
+    "beta_normal_from_beta_tor",
+    "beta_poloidal_from_circumference",
+    "beta_poloidal_from_pressure_integral",
+    "beta_t_from_n_T_B",
+    "beta_toroidal_from_p_B0",
+    "bootstrap_current_fraction",
+    "bremsstrahlung_power_density_from_T_e_p_Z_eff",
+    "bremsstrahlung_power_density_from_Z_eff_n_e_T_e",
+    "bremsstrahlung_radiation_power_from_z_eff_n_e_t_e",
+    "calc_beta_t",
+    "calc_inverse_aspect_ratio",
+    "calc_nu_star",
+    "calc_omega_i_tau_E",
+    "calc_q_cyl",
+    "calc_rho_star",
+    "check_kadomtsev_constraint",
+    "confinement_factor_ITER89P",
+    "confinement_time_from_P_loss_W_th",
+    "confinement_time_from_engineering_parameters",
+    "coulomb_logarithm",
+    "coulomb_logarithm_from_n_T",
+    "current_density_from_B",
+    "current_density_from_psi",
+    "current_drive_efficiency",
+    "current_limit_from_beta",
+    "current_limit_from_q",
+    "cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e",
+    "cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta",
+    "dimensionless_scaling_coeffs_from_engineering_scaling_coeffs",
+    "eK_from_K",
+    "ec_heating_power_from_I_ec_V_ec",
+    "elongation_from_RZ_boundary",
+    "exact_volume_from_RZ_contour",
+    "heating_power_from_p_ohm_p_aux",
+    "inductive_voltage_from_dW_magdt_I_p",
+    "inverse_aspect_ratio_from_a_R",
+    "kadomtsev_constraint_from_engineering_exponents",
+    "kinetic_energy_from_beta_p_B_pa_V_p",
+    "kink_safety_factor",
+    "li_3_from_Bp2_volume_integral",
+    "line_to_volume_avg_density",
+    "loop_voltage_from_total_flux",
+    "loss_power_from_p_heat_dWdt_p_rad",
+    "magnetic_energy_from_li_B_pa_V_p",
+    "magnetic_shear",
+    "nbi_heating_power_from_I_nbi_V_nbi",
+    "normalize_psi",
+    "normalized_collisionality_from_a_n_q_epsilon_T",
+    "normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q",
+    "normalized_larmor_radius_from_M_T_a_Bt",
+    "normalized_plasma_current",
+    "nu_star_from_n_T_B_R_epsilon_kappa_I",
+    "ohmic_heating_power_from_I_p_V_res",
+    "omega_i_tau_E_from_B_tau_E_M",
+    "peaking_factor",
+    "phi_from_Bphi",
+    "poloidal_field_factor",
+    "psi_from_RBtheta",
+    "psi_normalised",
+    "q_cyl_from_B_R_epsilon_kappa_I",
+    "q_from_phi",
+    "q_from_rhoN",
+    "radial_magnetic_field_from_psi",
+    "rhoN_from_phi",
+    "rhoN_from_qpsiN",
+    "rho_star_from_M_T_B_R_epsilon",
+    "rho_tor_from_phi",
+    "shear_from_r_q",
+    "spitzer_resistivity_from_T_e_Z_eff_ln_Lambda",
+    "stored_energy_from_beta_V",
+    "stored_energy_from_p_V",
+    "surface_poloidal_flux_from_psi_boundary",
+    "toroidal_flux_from_q_psi",
+    "triangularity_from_RZ_boundary",
+    "verify_kadomtsev_constraint",
+    "vertical_magnetic_field_from_psi",
+    "virial_D0_boundary_from_bp_li_eK",
+    "virial_S1_approx",
+    "virial_S2_approx_from_D0_a_R0",
+    "virial_S3_approx_from_eK_d",
+    "virial_beta_p_from_S_alpha_mu",
+    "virial_beta_p_from_S_li",
+    "virial_beta_p_from_volume",
+    "virial_beta_p_lao_from_S_mu_rt",
+    "virial_beta_p_li_from_S_alpha_mu_rt",
+    "virial_beta_pd_from_S_mu_rt",
+    "virial_bongard_from_S_alpha_mu",
+    "virial_bp_li_lihat_from_S123",
+    "virial_closure_denominators",
+    "virial_full_123_from_S_alpha_rt",
+    "virial_identity_residuals",
+    "virial_kinetic_energy",
+    "virial_lao_from_S_alpha_mu_rt",
+    "virial_li_from_S_alpha_mu",
+    "virial_li_from_S_alpha_rt",
+    "virial_li_from_volume",
+    "virial_magnetic_energy",
+    "virial_muihat_from_Bt_R0_dphi",
+    "virial_normalized_residual",
+    "virial_pair_12_from_S_mu_rt",
+    "virial_pair_13_from_S_alpha_mu",
+    "virial_pair_23_from_S_alpha_mu_rt",
+    "virial_residual_rms",
+    "virial_stability_criterion",
+    "virial_theorem",
+    "virial_thermal_energy",
+    "volume_from_RZ_boundary",
+]
+
 
 # ------------------------------------------------------------------
 # Poloidal Flux Calculations
@@ -3228,10 +3351,6 @@ def virial_D0_boundary_from_bp_li_eK(beta_p: float,
 # Power Density $S$
 # ------------------------------------------------------------------
 
-# constants
-k_B = 1.380649e-23        # J/K
-eV_to_J = 1.602176634e-19 # J
-K_B_COEF = 0.052          # MW/m^3 (with p in 1e5 Pa, T in keV)
 
 def bremsstrahlung_power_density_from_T_e_p_Z_eff(
     T_e: float,
@@ -3288,19 +3407,6 @@ def bremsstrahlung_power_density_from_T_e_p_Z_eff(
     return Z_eff * S_B_MW_m3 * 1e6  # W/m^3
 
 
-# physical constants
-epsilon_0 = 8.8541878128e-12
-c = 299792458.0
-h = 6.62607015e-34
-m_e = 9.10938356e-31
-e = 1.602176634e-19
-
-# prefactor
-C_B = (
-    np.sqrt(2.0) / (3.0 * np.pi ** 2.5)
-    * e**6
-    / (epsilon_0**3 * c**3 * h * m_e**1.5)
-)
 
 def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
     n_e_m3: float,
@@ -3350,7 +3456,7 @@ def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
            Cambridge University Press (2002), Sec. 5.3.
     """
 
-    T_J = T_e_eV * eV_to_J
+    T_J = T_e_eV * QE
     return C_B * Z_eff * n_e_m3**2 * np.sqrt(T_J)
 
 # ------------------------------------------------------------------
@@ -3736,7 +3842,7 @@ def cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e(
            Bureau (1979), p. 345.
     """
     coeff = e**4 / (3.0 * np.pi * epsilon_0 * m_e**3 * c**3)
-    return coeff * n_e_m3 * B_t_T**2 * (T_e_eV * eV_to_J)
+    return coeff * n_e_m3 * B_t_T**2 * (T_e_eV * QE)
 
 def loss_power_from_p_heat_dWdt_p_rad(P_heat: float, dWdt: float, p_rad: float) -> float:
     r"""Loss power $P_{loss} = P_{heat} - dW/dt - P_{rad}$.

@@ -14,6 +14,25 @@ from scipy.optimize import curve_fit, minimize
 from vaft.compat import trapz_compat
 
 
+#: What ``from vaft.formula.utils import *`` binds, and therefore what
+#: reaches ``vaft.formula.__all__``. Profile fitting and small numerical helpers.
+#: Declared so the package stops re-exporting this module's own imports --
+#: ``np``, ``warnings``, ``Union``, ``curve_fit`` -- as though they were
+#: formulas (#368).
+__all__ = [
+    "calculate_peaking_factor",
+    "calculate_poloidal_flux",
+    "calculate_toroidal_flux",
+    "calculate_volume_weighted_average",
+    "fit_profile",
+    "gp_fit",
+    "gradient",
+    "make_fit_function",
+    "normalize_profile",
+    "trapz_integral",
+]
+
+
 # ------------------------------------------------------------------
 # Basic Utilities
 # ------------------------------------------------------------------
