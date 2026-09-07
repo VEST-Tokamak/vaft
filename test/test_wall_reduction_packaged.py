@@ -149,17 +149,32 @@ def test_reduction_error_is_invisible_next_to_the_vessel_model_error(study):
     result = wr.experimental_comparison(ods, selections)
     full_median = result["full"]["measurement"]["improvement"]["median"]
 
-    # The full wall removes about 78% of the no-wall residual on this shot
-    # (0.7809, identical on Linux and Windows and across repeated runs, so the
-    # bound is on the physics rather than on numerical spread), and 0.75 leaves
-    # room for that to move without going quiet if the wall term collapses.
-    # It sits above the 0.7 that test_eddy_vacuum_validation.py already asks of
-    # the same quantity, so the two agree on what a working vessel model is.
+    # The full wall removes a median 78% of the coil-only residual (0.7811
+    # over the 73 usable channels) on the window this benchmark defines: the
+    # plasma-free interval, opened three wall time constants in.  That value
+    # is the same on Linux and on Windows, between the packaged sample and the
+    # canonical source it is cut from, and under dt_sub refinement (converged
+    # to 1.4e-4); wall-authority conditioning from 0.0 to 1.3 moves it 3.5e-3.
+    #
+    # It is *not* window-independent, so this bound belongs to that window
+    # policy and would have to be re-measured if the policy moved: opening at
+    # four time constants instead of three gives 0.707 -- under the bound
+    # below -- and keeping only the first 40% of the window gives 0.914.
+    #
+    # 0.85, which this line asked before, was never this quantity: only 10 of
+    # the 73 channels exceed 0.85, so a median there would need 37 of them.
+    # It was a loose factor below the 91% the guide reported for this
+    # comparison, and nothing in this code path reproduces 91% on this shot
+    # under the shipped window.
+    #
+    # 0.75 sits between a working vessel model and a degraded one: the full
+    # wall is 0.781, no_wall is 0.0 on the next line, and tau_19 -- the study's
+    # own badly-converged counter-example -- reaches 0.644.
     assert full_median > 0.75
     assert result["no_wall"]["measurement"]["improvement"]["median"] == 0.0
 
     # A converged reduction is indistinguishable from the full wall against the
-    # data: moments_30 lands 0.0005 away, with 0.5% of the probe wall term
+    # data: moments_30 lands 0.0009 away, with 0.5% of the probe wall term
     # missing.  That is the separation -- measurement error is the vessel
     # model's, reduction error is the truncation's.
     moments_median = result["models"]["moments_30"]["measurement"]["improvement"]["median"]
