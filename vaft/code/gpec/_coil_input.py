@@ -257,8 +257,8 @@ def write_coil_in(
     number of ``specs``.  See :func:`resolve_coil_inputs` for what may be
     omitted for VEST and what is mandatory for every other machine.
     """
-    out_path = out_path
-    template_path = template_path
+    out_path = Path(out_path)
+    template_path = Path(template_path)
     if not specs:
         raise ValueError("write_coil_in requires at least one CoilInputSpec")
     known, ip_direction, bt_direction = resolve_coil_inputs(
