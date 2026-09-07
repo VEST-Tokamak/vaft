@@ -9,9 +9,8 @@ import warnings
 
 import numpy as np
 from typing import Union, Tuple, List, Dict
-from scipy.optimize import curve_fit
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
+from scipy.linalg import cho_factor, cho_solve
+from scipy.optimize import curve_fit, minimize
 from vaft.compat import trapz_compat
 
 
@@ -76,6 +75,143 @@ def trapz_integral(x: np.ndarray, y: np.ndarray) -> float:
     """
     return trapz_compat(y, x=x)
 
+
+
+
+# ---------------------------------------------------------------------------
+# Gaussian-process regression (issue #426)
+#
+# Written against scipy so that scikit-learn is an optional dependency rather
+# than a hard one: it was imported at module scope for this single fitting
+# mode, and every module that needed `gradient` paid the whole import.
+# ---------------------------------------------------------------------------
+
+#: Kernel hyperparameter bounds, matching the sklearn kernel this replaced
+#: (``ConstantKernel(1.0, (1e-3, 1e3)) * RBF(0.3, (0.05, 5.0))``).
+_GP_CONSTANT_BOUNDS = (1e-3, 1e3)
+_GP_LENGTH_SCALE_BOUNDS = (0.05, 5.0)
+_GP_JITTER = 1e-10
+
+
+def _gp_kernel(xa: np.ndarray, xb: np.ndarray, constant: float, length_scale: float) -> np.ndarray:
+    """Squared-exponential covariance, ``constant * exp(-d^2 / 2 l^2)``."""
+    distance = xa.reshape(-1, 1) - xb.reshape(1, -1)
+    return constant * np.exp(-0.5 * (distance / length_scale) ** 2)
+
+
+def _gp_posterior(x, y, noise_variance, x_eval, constant, length_scale):
+    """Posterior mean and standard deviation at ``x_eval``, hyperparameters fixed.
+
+    Cholesky rather than an explicit inverse: the covariance is symmetric
+    positive definite by construction, and ``cho_solve`` is both faster and
+    better conditioned than forming ``K^-1``.
+    """
+    gram = _gp_kernel(x, x, constant, length_scale)
+    gram[np.diag_indices_from(gram)] += noise_variance + _GP_JITTER
+    factor = cho_factor(gram, lower=True)
+    weights = cho_solve(factor, y)
+
+    cross = _gp_kernel(x_eval, x, constant, length_scale)
+    mean = cross @ weights
+
+    solved = cho_solve(factor, cross.T)
+    variance = constant - np.einsum("ij,ji->i", cross, solved)
+    return mean, np.sqrt(np.clip(variance, 0.0, None))
+
+
+def _gp_negative_log_marginal_likelihood(theta, x, y, noise_variance):
+    """-log p(y | x) for log-hyperparameters ``theta = (log c, log l)``."""
+    constant, length_scale = np.exp(theta)
+    gram = _gp_kernel(x, x, constant, length_scale)
+    gram[np.diag_indices_from(gram)] += noise_variance + _GP_JITTER
+    try:
+        factor = cho_factor(gram, lower=True)
+    except np.linalg.LinAlgError:
+        return np.inf
+    weights = cho_solve(factor, y)
+    log_determinant = 2.0 * np.sum(np.log(np.diag(factor[0])))
+    return 0.5 * (y @ weights + log_determinant + y.size * np.log(2.0 * np.pi))
+
+
+def gp_fit(x, y, y_std, x_eval, *, n_restarts_optimizer: int = 5, random_state: int = 0):
+    """Fit a squared-exponential Gaussian process and evaluate it on a grid.
+
+    Parameters
+    ----------
+    x : array-like
+        Data abscissae, 1-D [any].
+    y : array-like
+        Data values [any].
+    y_std : array-like or None
+        Per-point one-sigma uncertainty, entering as the diagonal noise;
+        ``None`` uses a numerical jitter [any].
+    x_eval : array-like
+        Evaluation grid [any].
+    n_restarts_optimizer : int, optional
+        Extra random restarts of the marginal-likelihood optimisation, on top of
+        the one from the default hyperparameters; default 5 [-].
+    random_state : int, optional
+        Seed for the restart draws, so a fit is reproducible; default 0 [-].
+
+    Returns
+    -------
+    mean : np.ndarray
+        Posterior mean on ``x_eval`` [any].
+    std : np.ndarray
+        Posterior standard deviation on ``x_eval`` [any].
+
+    Numerical notes
+    ---------------
+    ``y`` is standardised before fitting and the posterior is mapped back,
+    which is what makes one set of hyperparameter bounds work for data in
+    m^-3 and in keV alike.  The marginal likelihood is optimised with
+    ``scipy.optimize.minimize`` (L-BFGS-B) over the log-hyperparameters.
+
+    References
+    ----------
+    .. [1] C. E. Rasmussen and C. K. I. Williams, *Gaussian Processes for
+           Machine Learning*, MIT Press (2006), Algorithm 2.1 and Eq. (5.8).
+    """
+    x = np.asarray(x, dtype=float).reshape(-1)
+    y = np.asarray(y, dtype=float).reshape(-1)
+    x_eval = np.asarray(x_eval, dtype=float).reshape(-1)
+
+    # Standardise, as sklearn's normalize_y=True does: the hyperparameter
+    # bounds are then scale-free.
+    y_mean = float(np.mean(y))
+    y_scale = float(np.std(y))
+    if not np.isfinite(y_scale) or y_scale == 0.0:
+        y_scale = 1.0
+    y_normalised = (y - y_mean) / y_scale
+
+    if y_std is None:
+        noise_variance = np.full(x.size, _GP_JITTER)
+    else:
+        noise_variance = (np.asarray(y_std, dtype=float).reshape(-1) / y_scale) ** 2
+
+    bounds = [np.log(_GP_CONSTANT_BOUNDS), np.log(_GP_LENGTH_SCALE_BOUNDS)]
+    starts = [np.array([np.log(1.0), np.log(0.3)])]
+    rng = np.random.default_rng(random_state)
+    for _ in range(max(0, int(n_restarts_optimizer))):
+        starts.append(np.array([rng.uniform(*bounds[0]), rng.uniform(*bounds[1])]))
+
+    best_theta, best_value = starts[0], np.inf
+    for start in starts:
+        result = minimize(
+            _gp_negative_log_marginal_likelihood,
+            start,
+            args=(x, y_normalised, noise_variance),
+            method="L-BFGS-B",
+            bounds=bounds,
+        )
+        if result.fun < best_value:
+            best_theta, best_value = result.x, float(result.fun)
+
+    constant, length_scale = np.exp(best_theta)
+    mean, std = _gp_posterior(
+        x, y_normalised, noise_variance, x_eval, constant, length_scale
+    )
+    return mean * y_scale + y_mean, std * y_scale
 
 
 def _guarded_ratio(numerator, denominator, *, what: str, because: str):
@@ -423,11 +559,12 @@ def fit_profile(
         1 (default) weights by ``y_std`` when given; 0 ignores it [-].
     fitting_function : str, optional
         Model name, default ``'polynomial'`` [str].
-        One of ``'gp'``, ``'polynomial'``, ``'free_polynomial'``,
+        One of ``'gp'`` (scipy), ``'gp_sklearn'``, ``'polynomial'``, ``'free_polynomial'``,
         ``'exponential'``, ``'free_exponential'``, ``'linear'``,
         ``'core_poly_edge_exp'``, ``'sqrt'``, ``'sqrt_exponential'``.
     gp_kernel : sklearn kernel or None, optional
-        Kernel for the GP mode; default constant times RBF [n/a].
+        Kernel for ``'gp_sklearn'`` only; ignored, with a warning, by the scipy
+        ``'gp'`` mode; default constant times RBF [n/a].
     gp_anchor : tuple or None, optional
         ``(x_anchor, y_anchor, y_std_anchor)`` extra points for the GP [n/a].
     n_restarts_optimizer : int, optional
@@ -501,9 +638,7 @@ def fit_profile(
             "fit_profile requires at least 2 valid data points after masking"
         )
 
-    if fitting_function.lower() == 'gp':
-        kernel = gp_kernel or (C(1.0, (1e-3, 1e3)) * RBF(length_scale=0.3, length_scale_bounds=(0.05, 5.0)))
-
+    if fitting_function.lower() in {'gp', 'gp_sklearn'}:
         if gp_anchor is not None:
             x_anchor, y_anchor, y_std_anchor = gp_anchor
             x_gp = np.append(x.ravel(), np.ravel(x_anchor))
@@ -519,22 +654,65 @@ def fit_profile(
             y_gp = y
             y_std_gp = y_std
 
-        gp = GaussianProcessRegressor(
-            kernel=kernel,
-            alpha=y_std_gp**2 if y_std_gp is not None else 1e-10,
-            normalize_y=True,
-            n_restarts_optimizer=n_restarts_optimizer,
-        )
-        gp.fit(x_gp[:, None], y_gp)
+        if fitting_function.lower() == 'gp_sklearn':
+            # Imported here, not at module scope: this branch is the only thing
+            # in vaft.formula that needs scikit-learn, and importing it eagerly
+            # made it a hard dependency of the whole package (#426).
+            try:
+                from sklearn.gaussian_process import GaussianProcessRegressor
+                from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
+            except ImportError as exc:  # pragma: no cover - depends on the environment
+                raise ImportError(
+                    "fitting_function='gp_sklearn' needs scikit-learn, which is an "
+                    "optional dependency: pip install 'vaft[sklearn]', or use "
+                    "fitting_function='gp' for the scipy implementation."
+                ) from exc
 
-        y_eval, y_std_eval = gp.predict(x_eval[:, None], return_std=True)
+            kernel = gp_kernel or (
+                C(1.0, _GP_CONSTANT_BOUNDS) * RBF(0.3, _GP_LENGTH_SCALE_BOUNDS)
+            )
+            # normalize_y standardizes the target but leaves alpha alone, so the
+            # noise has to be handed over already in normalized units -- passing
+            # the raw variance understates it by var(y), which is what this code
+            # used to do.
+            scale = float(np.std(y_gp)) or 1.0
+            alpha = (np.asarray(y_std_gp, float) / scale) ** 2 if y_std_gp is not None else _GP_JITTER
+            gp = GaussianProcessRegressor(
+                kernel=kernel,
+                alpha=alpha,
+                normalize_y=True,
+                n_restarts_optimizer=n_restarts_optimizer,
+            )
+            gp.fit(x_gp[:, None], y_gp)
+            y_eval, y_std_eval = gp.predict(x_eval[:, None], return_std=True)
+
+            def fit_function(x_input):
+                x_arr = np.asarray(x_input, float).reshape(-1, 1)
+                return gp.predict(x_arr)
+
+            return y_eval, y_std_eval, fit_function, None
+
+        if gp_kernel is not None:
+            warnings.warn(
+                "gp_kernel describes a scikit-learn kernel object and is ignored "
+                "by the scipy implementation; pass fitting_function='gp_sklearn' "
+                "to use it.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
+        y_eval, y_std_eval = gp_fit(
+            x_gp, y_gp, y_std_gp, x_eval, n_restarts_optimizer=n_restarts_optimizer
+        )
 
         def fit_function(x_input):
-            x_arr = np.asarray(x_input, float).reshape(-1, 1)
-            return gp.predict(x_arr)
+            x_arr = np.asarray(x_input, float).reshape(-1)
+            mean, _ = gp_fit(
+                x_gp, y_gp, y_std_gp, x_arr, n_restarts_optimizer=n_restarts_optimizer
+            )
+            return mean
 
-        coeffs = None
-        return y_eval, y_std_eval, fit_function, coeffs
+        return y_eval, y_std_eval, fit_function, None
 
     if fitting_function.lower() == 'linear':
         sort_idx = np.argsort(x)
