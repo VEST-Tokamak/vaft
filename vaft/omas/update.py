@@ -392,17 +392,11 @@ def update_equilibrium_profiles_2d_b_field(ods, time_slice=None):
     """
     from vaft.process.equilibrium import equilibrium_field_on_grid
 
-    from .general import ods_cocos
-
-    declared = ods_cocos(ods)
-    # The frame hands over psi already in weber per radian, so the prefactor
-    # must carry the orientation sign only: a declared 11-18 index becomes its
-    # 1-8 sibling (issue #478).
-    per_radian = None if declared is None else (declared - 10 if declared >= 11 else declared)
     for idx in _equilibrium_time_slices(ods, time_slice):
         frame = _equilibrium_flux_frame(ods, idx)
         if frame is None:
             continue
+        per_radian = _per_radian_cocos(frame["convention"])
         ts = frame["ts"]
         if "profiles_1d.f" not in ts:
             logger.warning(
@@ -805,6 +799,38 @@ def update_equilibrium_profiles_1d_j_tor(ods, time_slice=None):
             )
             continue
         ts["profiles_1d.j_tor"] = j_tor
+
+
+def _per_radian_cocos(convention) -> int | None:
+    """A COCOS index for psi already scaled to weber per radian, or ``None``.
+
+    The sibling of :func:`_sigma_bp` for the Sauter poloidal-field prefactor,
+    and it takes its answer from the same place: the convention *resolved for
+    this slice* by :func:`~vaft.process.equilibrium.as_equilibrium`, not the
+    raw declared metadata.  A stale header the physics contradicts is recorded
+    as contradicted, and an artifact that declares nothing is still identified
+    by sign detection; reading ``ids_properties.cocos`` directly would trust
+    the first and learn nothing from the second.
+
+    A declared 11-18 index becomes its 1-8 sibling because the frame already
+    divided out the 2*pi (issue #478); a split candidate set means the
+    orientation is unidentified, and ``None`` -- the historical per-radian
+    default of :func:`~vaft.formula.equilibrium.poloidal_field_factor` -- is
+    the honest answer there, as +1 is for ``sigma_Bp``.
+    """
+    from vaft.formula.equilibrium import poloidal_field_factor
+
+    candidates = () if convention is None else tuple(
+        index for index in (getattr(convention, "candidates", None) or ()) if index
+    )
+    reduced = {int(index) - 10 if int(index) >= 11 else int(index) for index in candidates}
+    if not reduced:
+        return None
+    try:
+        factors = {poloidal_field_factor(index) for index in reduced}
+    except Exception:
+        return None
+    return sorted(reduced)[0] if len(factors) == 1 else None
 
 
 def _sigma_bp(convention) -> int:

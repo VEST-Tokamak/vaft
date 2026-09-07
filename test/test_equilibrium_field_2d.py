@@ -289,3 +289,46 @@ def test_the_unit_and_style_controls_belong_to_the_flux_field(sample):
     assert options["field"] == "j_tor" and "units" not in options and "style" not in options
     state.set("field", "psi")
     assert state.as_options()["units"] == "mWb"
+
+
+def test_the_field_takes_its_convention_from_the_slice_not_the_header(sample):
+    """A declared index the physics contradicts must not set the field's sign.
+
+    Every other derivation in ``vaft.omas.update`` reads the convention the
+    equilibrium resolved for that slice, so this one does too; reading
+    ``ids_properties.cocos`` back would trust a stale header and would learn
+    nothing at all from an artifact that declares no index.
+    """
+    from types import SimpleNamespace
+
+    from vaft.omas.update import _per_radian_cocos
+
+    assert _per_radian_cocos(SimpleNamespace(candidates=(11,))) == 1
+    # Candidates that agree on the prefactor identify it, whichever is picked.
+    assert _per_radian_cocos(SimpleNamespace(candidates=(2, 3))) == 2
+    assert _per_radian_cocos(SimpleNamespace(candidates=(13, 16))) == 3
+    # 1 and 2 -- the pair an unknown clockwise_phi leaves open -- disagree on the
+    # handedness, and so on the poloidal sign: unidentified, historical default.
+    assert _per_radian_cocos(SimpleNamespace(candidates=(1, 2))) is None
+    assert _per_radian_cocos(SimpleNamespace(candidates=())) is None
+    assert _per_radian_cocos(None) is None
+
+
+def test_an_undeclared_equilibrium_still_gets_an_identified_field(sample):
+    """With no header at all the writer must fall back to detection, not None."""
+    import vaft.omas.update as update
+
+    ods = copy.deepcopy(sample)
+    for path in ("ids_properties.cocos",):
+        if path in ods["equilibrium"]:
+            del ods["equilibrium"][path]
+    seen = []
+    original = update._per_radian_cocos
+    update._per_radian_cocos = lambda convention: seen.append(convention) or original(convention)
+    try:
+        update.update_equilibrium_profiles_2d_b_field(ods, time_slice=SLICE)
+    finally:
+        update._per_radian_cocos = original
+    assert seen and seen[0] is not None, "the writer must consult the resolved convention"
+    b_r = np.asarray(ods[f"equilibrium.time_slice.{SLICE}.profiles_2d.0.b_field_r"])
+    assert np.isfinite(b_r).any()

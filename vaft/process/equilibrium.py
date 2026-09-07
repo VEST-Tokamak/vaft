@@ -1427,13 +1427,43 @@ def equilibrium_field_on_grid(
     psi_1d, f_1d : array_like
         ``profiles_1d.psi`` and ``profiles_1d.f`` [same psi unit; T m].
     cocos : int or None, optional
-        Convention index for the prefactor, as in
-        :func:`make_equilibrium_field_interpolator`.
+        Convention index the prefactor is taken from [-], as in
+        :func:`make_equilibrium_field_interpolator`. ``None`` falls back to
+        that function's own default.
 
     Returns
     -------
     tuple of numpy.ndarray
         ``(B_R, B_Z, B_phi)`` [T], each shaped ``(len(R), len(Z))``.
+
+    Applicability
+    -------------
+    Machine-independent. The inputs are the physics quantities any
+    axisymmetric equilibrium reports -- a psi map on a rectangular grid and an
+    ``F(psi)`` profile -- so any solver's output can be passed in. Nothing
+    here reads a machine description or an IDS.
+
+    Convention
+    ----------
+    The poloidal field carries the sign of *cocos* through
+    :func:`~vaft.formula.equilibrium.poloidal_field_factor`, so *psi_grid*
+    must be expressed in the convention *cocos* names -- per radian or per
+    turn -- and not in some other one. ``B_phi = F/R`` is magnitude-driven and
+    inherits the sign of *f_1d*.
+
+    Limitations
+    -----------
+    ``F`` is clipped to the profile's own range outside the confined region,
+    so ``B_phi`` there is the vacuum-like continuation rather than a
+    reconstruction. The psi spline extrapolates beyond the grid; callers
+    should not read the field outside it.
+
+    Provenance
+    ----------
+    Sauter and Medvedev, Comput. Phys. Commun. 184 (2013) 293, Eq. 20, for the
+    poloidal-field prefactor. The routine is the vectorised twin of
+    :func:`make_equilibrium_field_interpolator` in this module and is pinned
+    to it by test.
     """
     from vaft.formula.equilibrium import poloidal_field_factor
 
