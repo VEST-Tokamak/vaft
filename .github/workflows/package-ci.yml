@@ -8,11 +8,25 @@ on:
 
 # A second push to a PR should supersede the first run rather than race it:
 # this workflow bills ~25 minutes, and every other workflow here already does
-# this. Pushes to develop/main still run to completion, so the history of what
-# passed on an integration branch stays intact.
+# this. Pushes to develop/main must still run to completion, so the history of
+# what passed on an integration branch stays intact.
+#
+# That second half was the intent before and was not what happened. With
+# `group` keyed on `github.ref`, every push to develop shared one group, and
+# `cancel-in-progress: ${{ github.event_name == 'pull_request' }}` did not
+# hold them: the run for the merge of #594 was created 03:43:01Z and cancelled
+# 03:43:33Z, two seconds after the next push. 15 of the 20 develop push runs
+# before it concluded `cancelled` and none concluded `success`, so the full
+# suite -- the only gate that runs `slow` tests and the Windows leg -- had
+# effectively stopped reporting on the integration branch.
+#
+# The membership is what decides it, not a flag. A pull request groups by its
+# number, so its next push supersedes this run; a push groups by its own SHA,
+# a group of one that nothing later can join and therefore nothing can cancel.
+# No expression has to evaluate to the right kind of false.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -126,6 +140,16 @@ jobs:
             label: Windows
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The packaged EFIT Green tables (`vaft/data/efit/*.ddd`, ~164 MB)
+          # are Git LFS objects. `actions/checkout` leaves LFS pointers by
+          # default, so `rfcoil.ddd` arrived as a 130-byte text file and
+          # test_efund_adapter / test_efit_tables_workflow failed with "not a
+          # sequential unformatted file with 4-byte record markers" -- a real
+          # failure with a misleading message, since the tables in the
+          # repository are fine. This is the only job that reads them: the
+          # `core` selection does not include either module.
+          lfs: true
 
       - uses: actions/setup-python@v7
         with:
