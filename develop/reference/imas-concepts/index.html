@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>0b2f728</code>. What is described
+  <code>d4dddf4</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -711,6 +711,123 @@ Restricting to the paths you wrote keeps the load fast and the log readable.</p>
 <p><code class="language-plaintext highlighter-rouge">load_omas_imas</code> also accepts <code class="language-plaintext highlighter-rouge">time=&lt;seconds&gt;</code> for a single-slice <code class="language-plaintext highlighter-rouge">getSlice</code>, <code class="language-plaintext highlighter-rouge">skip_uncertainties=True</code> to
 drop the <code class="language-plaintext highlighter-rouge">*_error_upper</code> companions, and <code class="language-plaintext highlighter-rouge">consistency_check=False</code> for non-compliant legacy entries.</p>
 
+<h2 id="what-survives-on-codeparameters">What survives on <code class="language-plaintext highlighter-rouge">code.parameters</code></h2>
+
+<p><code class="language-plaintext highlighter-rouge">code.parameters</code> is a <code class="language-plaintext highlighter-rouge">STR_0D</code> in the Data Dictionary — one string per IDS, XML by IMAS habit — and
+VAFT puts real provenance in it: EFIT’s collection status, CHEASE’s comparison metrics, the DCON
+solver fragments, the coupling basis identity, the time-convention memo. What arrives at the other
+end depends on the shape you wrote, and the shapes are not equivalent.</p>
+
+<p><code class="language-plaintext highlighter-rouge">save_omas_imas</code> returns the paths it actually wrote, and that list is the only machine-readable
+evidence a caller gets. A discarded <code class="language-plaintext highlighter-rouge">code.parameters</code> is simply absent from it: no exception, no
+return code, one <code class="language-plaintext highlighter-rouge">WARNING: … is not part of IMAS</code> line on stderr that a pipeline log buries. This is
+how <a href="https://github.com/VEST-Tokamak/vaft/issues/380">#380</a> lost 4096 paths of EFIT provenance
+between the local product and its HSDS replica without anything reporting a failure.</p>
+
+<p>Nothing looks wrong where the data is written. OMAS gives <code class="language-plaintext highlighter-rouge">code.parameters</code> a <code class="language-plaintext highlighter-rouge">CodeParameters</code>
+object for any sub-path, at any depth, so a freshly mapped ODS survives whatever shape it used. The
+shape is lost on the <strong>stage product</strong>: <code class="language-plaintext highlighter-rouge">{stage}.json</code> on disk restores the block as a plain ODS
+branch, and it is that branch the Access Layer discards. <code class="language-plaintext highlighter-rouge">vaft.omas.load</code> promotes a <em>flat,
+leaf-only</em> block back to a <code class="language-plaintext highlighter-rouge">CodeParameters</code> on the way out
+(<a href="https://github.com/VEST-Tokamak/vaft/issues/478">#478</a>); it declines a nested one, because a
+per-slice parser cache is not representable as an XML parameters string.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>You write</th>
+      <th>Reaches an entry</th>
+      <th>Comes back as</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>a JSON string</td>
+      <td>the same string</td>
+      <td>the same string, byte for byte</td>
+    </tr>
+    <tr>
+      <td>an XML string, one fragment</td>
+      <td>the same string</td>
+      <td>a parsed <code class="language-plaintext highlighter-rouge">CodeParameters</code> tree</td>
+    </tr>
+    <tr>
+      <td>an XML string, several fragments</td>
+      <td>the same string</td>
+      <td>the same string</td>
+    </tr>
+    <tr>
+      <td>a flat leaf-only block</td>
+      <td>an XML string, after promotion</td>
+      <td>a <code class="language-plaintext highlighter-rouge">CodeParameters</code> tree</td>
+    </tr>
+    <tr>
+      <td>a nested block</td>
+      <td><strong>nothing</strong></td>
+      <td>absent</td>
+    </tr>
+    <tr>
+      <td>a nested block <strong>and a flat leaf beside it</strong></td>
+      <td><strong>nothing</strong> — both</td>
+      <td>absent</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">test/test_code_parameters_contract.py</code> measures every row through the real Access Layer, so the
+table stays true rather than being a claim about a version of OMAS somebody once used.</p>
+
+<p>Two consequences are worth stating on their own.</p>
+
+<p><strong>The round trip is not symmetric, and which form you get depends on the document.</strong> The loader
+parses anything XML-shaped, so a one-fragment envelope comes back as a tree — where attribute keys
+carry an <code class="language-plaintext highlighter-rouge">@</code> prefix and no regular expression over the string will find them. Two fragments do not:
+OMAS’s decoder cannot represent repeated sibling elements, raises internally, and leaves the string
+alone. A single-module <code class="language-plaintext highlighter-rouge">mhd_linear</code> shot therefore returns a tree and a multi-module one returns the
+string, from the same field of the same IDS. A consumer must accept both forms whatever it knows
+about the producer; <code class="language-plaintext highlighter-rouge">vaft.plot.backend.recipes._mhd_linear_radial_stride</code> and
+<code class="language-plaintext highlighter-rouge">vaft.plot.backend.convention</code> both do, and say why.</p>
+
+<p><strong>Values inside the envelope are reinterpreted.</strong> <code class="language-plaintext highlighter-rouge">CodeParameters.from_string</code> runs every text node
+through <code class="language-plaintext highlighter-rouge">ast.literal_eval</code>, so the EFIT case label <code class="language-plaintext highlighter-rouge">"039915.00316"</code> returns as the float
+<code class="language-plaintext highlighter-rouge">39915.00316</code>, and a whitespace-separated numeric string returns as an array. Arbitrary keys <em>and
+arbitrary values</em> therefore belong inside a payload the XML loader cannot parse — which in this
+repository means JSON.</p>
+
+<p>The last row of the table is a defect VAFT currently ships, not a hypothetical: the declared COCOS
+index is a flat leaf of <code class="language-plaintext highlighter-rouge">equilibrium.code.parameters</code>, the EFIT mappers write their per-slice parser
+cache into the same field, and promotion is all-or-nothing on the block. An EFIT product loses the
+COCOS index it declares on the way to a replica — the leaf is not nested, it is merely standing next
+to something that is; it is tracked as <a href="https://github.com/VEST-Tokamak/vaft/issues/642">#642</a>.</p>
+
+<h3 id="writing-it">Writing it</h3>
+
+<p>Three patterns are sanctioned, each with a stage that shows it:</p>
+
+<ul>
+  <li><strong>A JSON string</strong> — <code class="language-plaintext highlighter-rouge">generate_efit_ods.py</code>, <code class="language-plaintext highlighter-rouge">generate_chease_ods.py</code>. Use <code class="language-plaintext highlighter-rouge">sort_keys=True</code>, so two
+runs over equal inputs are byte-identical and replication does not re-send an unchanged product.</li>
+  <li><strong>XML fragments inside one <code class="language-plaintext highlighter-rouge">&lt;parameters&gt;</code> envelope</strong> — <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.mhd_linear</code>,
+<code class="language-plaintext highlighter-rouge">core_sources</code>, <code class="language-plaintext highlighter-rouge">coils_non_axisymmetric</code>, <code class="language-plaintext highlighter-rouge">gpec_ideal</code>. Each solver appends its fragment by
+splicing on the trailing <code class="language-plaintext highlighter-rouge">&lt;/parameters&gt;</code>, so <strong>no fragment’s text may contain that literal</strong>: one
+unescaped copy closes the document early and everything appended afterwards lands outside the root
+element, where a parser refuses it.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">key=value</code> lines</strong> — <code class="language-plaintext highlighter-rouge">em_coupling</code>, for a short flat record read by eye as often as by code.</li>
+</ul>
+
+<p>A nested sub-path is not forbidden — EFIT’s parser cache is genuinely useful and genuinely local —
+but it must be a decision somebody wrote down. <code class="language-plaintext highlighter-rouge">test/test_code_parameters_writers.py</code> scans <code class="language-plaintext highlighter-rouge">vaft/</code>,
+<code class="language-plaintext highlighter-rouge">workflow/</code> and <code class="language-plaintext highlighter-rouge">test/</code> and fails on a nested path whose file is not in its allow-list, with the
+role it plays and the reason that data may stop at the FileDB.</p>
+
+<h3 id="budgeting-a-large-payload">Budgeting a large payload</h3>
+
+<p>Stage products are written uncompressed (<code class="language-plaintext highlighter-rouge">vaft.database.filedb.OMAS_PRODUCT_SUFFIX</code> is <code class="language-plaintext highlighter-rouge">.json</code>) and
+nothing anywhere guards their size, so a payload’s budget is <strong>raw bytes of the finished field
+string</strong> — measured after XML escaping, which can inflate quote-heavy content several times over,
+not bytes of the payload before it. For scale, the packaged whole-shot sample
+<code class="language-plaintext highlighter-rouge">vaft/data/samples/39915/omas.json.gz</code> is about 10 MB gzipped and carries no <code class="language-plaintext highlighter-rouge">mhd_linear</code> at all.</p>
+
 <h2 id="converting-a-real-vest-shot">Converting a real VEST shot</h2>
 
 <p>The full flow, from
@@ -904,7 +1021,8 @@ the DAQ clock) — which is exactly why the raw clock is useless for comparing s
 
 <p><code class="language-plaintext highlighter-rouge">change_time_convention(odc_or_ods, convention='vloop')</code> accepts an ODS or an ODC (a bare ODS is wrapped
 internally, and an ODC is returned). On the first call it derives the origins on the product’s DAQ clock and
-records them under <code class="language-plaintext highlighter-rouge">summary.code.parameters</code>, with their sources:</p>
+records them under <code class="language-plaintext highlighter-rouge">summary.code.parameters</code> — a flat, leaf-only block, which is the shape that survives
+replication (<a href="#what-survives-on-codeparameters">What survives on <code class="language-plaintext highlighter-rouge">code.parameters</code></a>) — with their sources:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">params</span> <span class="o">=</span> <span class="n">odc</span><span class="p">[</span><span class="sh">'</span><span class="s">0</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">summary.code.parameters</span><span class="sh">'</span><span class="p">]</span>
 <span class="n">params</span><span class="p">[</span><span class="sh">'</span><span class="s">time_convention</span><span class="sh">'</span><span class="p">]</span>         <span class="c1"># 'breakdown'
@@ -1320,7 +1438,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#time-bases" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Time bases</a></li><li class="page-toc-item page-toc-level-2"><a href="#write-an-ods-to-an-al5-hdf5-entry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Write an ODS to an AL5 HDF5 entry</a></li><li class="page-toc-item page-toc-level-2"><a href="#read-it-back" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Read it back</a></li><li class="page-toc-item page-toc-level-2"><a href="#converting-a-real-vest-shot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Converting a real VEST shot</a></li><li class="page-toc-item page-toc-level-2"><a href="#verify-with-the-native-imas-python-api" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Verify with the native IMAS-Python API</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#time-bases" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Time bases</a></li><li class="page-toc-item page-toc-level-2"><a href="#write-an-ods-to-an-al5-hdf5-entry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Write an ODS to an AL5 HDF5 entry</a></li><li class="page-toc-item page-toc-level-2"><a href="#read-it-back" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Read it back</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-survives-on-codeparameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What survives on code.parameters</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#writing-it" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Writing it</a></li><li class="page-toc-item page-toc-level-3"><a href="#budgeting-a-large-payload" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Budgeting a large payload</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#converting-a-real-vest-shot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Converting a real VEST shot</a></li><li class="page-toc-item page-toc-level-2"><a href="#verify-with-the-native-imas-python-api" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Verify with the native IMAS-Python API</a></li></ul>
     </nav>
 </aside>
 
@@ -1438,7 +1556,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-07 05:40:19 +0000"
+        "time": "2026-09-07 06:01:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
