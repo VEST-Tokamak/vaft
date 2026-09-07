@@ -354,3 +354,24 @@ def test_a_run_without_an_id_gets_no_dangling_separator(outputs):
     outputs.runid = ""
     assert not nbp.build_nubeam_profile(outputs, "pbe").title.endswith("--")
     assert "--" not in nbp.build_nubeam_deposition_topview(outputs).title
+
+
+def test_the_two_profile_catalogues_agree_on_every_unit():
+    """`PROFILE_UNITS` labels a plot; `PROFILE_DESCRIPTIONS` answers describe().
+
+    They cover the same fifteen profiles and were inconsistent for eight of
+    them: the descriptions called every source, current and torque a density
+    and both fast-ion energies an energy density, where NUBEAM writes per-zone
+    integrals and mean energies per particle. A reader who trusted the wrong
+    one would be out by roughly the zone volume. One catalogue cannot be
+    corrected without the other, so the agreement is asserted rather than
+    maintained by hand.
+    """
+    from vaft.code.nubeam.outputs import PROFILE_DESCRIPTIONS
+
+    assert set(nbp.PROFILE_UNITS) == set(PROFILE_DESCRIPTIONS)
+    for name, (unit, _label) in nbp.PROFILE_UNITS.items():
+        assert f"[{unit}]" in PROFILE_DESCRIPTIONS[name], (
+            f"{name}: plot says {unit}, description says "
+            f"{PROFILE_DESCRIPTIONS[name]!r}"
+        )

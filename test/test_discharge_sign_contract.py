@@ -362,3 +362,32 @@ def test_a_transformation_rejects_a_value_that_is_not_a_sign():
             quantity="ip", sign=0, confirmed=False,
             vest_native_source="x", evidence="y", needed_to_confirm="z",
         )
+
+
+def test_the_gpec_direction_words_and_the_imas_signs_agree_on_helicity():
+    """Whichever is right about VEST, the two must keep the same helicity.
+
+    ``VEST_GPEC_COIL_DIRECTIONS`` reads as Ip counter-clockwise and Bt
+    clockwise; ``IMAS_DISCHARGE_SIGNS`` states the opposite pair for the same
+    machine, so one of the two is wrong about the machine (see the constant's
+    docstring). Their *product* is what GPEC uses as ``helicity``, which sets
+    the toroidal-angle mapping and the conjugation of every perturbed output,
+    and it is -1 under both readings.
+
+    Correcting only one of the two constants would silently flip the helicity
+    of every VEST GPEC run. This test fails in that case, which is the point:
+    the pair moves together or not at all.
+    """
+    from vaft.machine_mapping.conventions import (
+        IMAS_DISCHARGE_SIGNS,
+        VEST_GPEC_COIL_DIRECTIONS,
+    )
+
+    word_sign = {"positive": +1, "negative": -1}
+    gpec_helicity = (
+        word_sign[VEST_GPEC_COIL_DIRECTIONS["ip_direction"]]
+        * word_sign[VEST_GPEC_COIL_DIRECTIONS["bt_direction"]]
+    )
+    imas_helicity = IMAS_DISCHARGE_SIGNS.ip * IMAS_DISCHARGE_SIGNS.b0
+
+    assert gpec_helicity == imas_helicity == -1

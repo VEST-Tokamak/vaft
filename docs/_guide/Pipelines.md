@@ -175,9 +175,18 @@ dump with no SQL server in reach. Magnetics processing parameters travel as a
   developer's home directory, while `base_dir` points at the Linux data server. Repoint them before running.
 * **Dead keys.** `cores`, `raw.offline_only` and `gpec.coil.source` appear in `config.yaml` but are never read
   by the `Snakefile`.
-* **`constraints.detect_broken: true` excludes the channels the diagnostics stage condemned** (their
-  projected validity), on top of the explicit `constraints.broken` list of 1-based channel indices; a
-  product that carries no assessment falls back to the 12-MAD amplitude detector.
+* **Channel selection is a decision the constraint stage consumes, not one it makes** (issue #296).
+  `vaft.validation.efit_channels.decide_efit_channels` reads the validity the diagnostics stage projected
+  and emits a per-channel, per-slice decision — usable, suspect, rejected, missing or recovered —
+  that `generate_constraints_ods` only translates into weights. There is no manual channel list any more
+  (issue #295 retired `constraints.broken`; its evidence is in `workflow/efit_channel_selection/README.md`),
+  so a channel is a constraint unless the assessment says otherwise. `constraints.detect_broken: true` now means
+  *require* that assessment: a product without projected validity is refused and must be re-run through the
+  diagnostics stage (with `false` every channel is usable by default). No detector runs in this stage.
+  `gaussian_fit_option` selects the compatibility recovery backend (`1` refits rejected probes from their
+  family's Gaussian profile, `2` every probe); a recovered value never re-enables a channel the quality
+  layer rejected. The decisions are recorded in the product under
+  `equilibrium.code.parameters.channel_decisions`.
 
 Each constraint is the box average of the diagnostic samples inside `[t_i − w, t_i + w]` — every
 sample once, equal weights, no interpolation grid of its own (issue #433) — with `w =
