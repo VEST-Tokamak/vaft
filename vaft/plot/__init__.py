@@ -304,6 +304,7 @@ from .renderers.panels import (
 from .renderers.profiles import (
     b_field_probe_spatial_field,
     flux_loop_spatial_flux,
+    mirnov_spatial_phase,
     nbi_profile_current_drive,
     nbi_profile_electron_heating,
     nbi_profile_ion_heating,

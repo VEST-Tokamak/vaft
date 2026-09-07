@@ -576,8 +576,10 @@ raw, filt, integrated, field, baselines = b_field_pol_probe_field(
 
 `rogowski_coil_ip` subtracts a flux-loop reference from the Rogowski signal and **auto-flips the sign**
 when $\lvert \min I_p \rvert > \lvert \max I_p \rvert$. Note the asymmetric returns:
-`b_field_pol_probe_field` gives **five** arrays, `flux_loop_flux` gives **three**. Both accept
-`plot_opt=True`, which builds an `ipywidgets` slider and so only does anything inside Jupyter.
+`b_field_pol_probe_field` gives **five** arrays, `flux_loop_flux` gives **three**. Both once accepted
+`plot_opt=True`, which built an `ipywidgets` slider; that argument has been removed (issue #485).
+Processing returns arrays, and drawing them is `vaft.plot`'s job -- `plot_flux_loop_time_flux` and
+`plot_b_field_probe_time_field` draw the same signals, with `interactive=True` for the controls.
 
 ![Plasma current]({{ site.baseurl }}/assets/images/magnetics/plasma_current.png)
 
