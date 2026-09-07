@@ -1,0 +1,1654 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: impa · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/process/camera_geometry/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/process/onset/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: impa</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>546c773</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_impa">Process reference: impa</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.impa, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/impa.py"><code class="language-plaintext highlighter-rouge">vaft/process/impa.py</code></a>:
+14 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("impa.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>The array is an insertable midplane probe carrying, at each of eight radial
+positions, a toroidal-field Hall sensor and a vertical-field sensor.  The
+radial-field sensors are retired: the original design used them only to
+confirm the probe sat at the midplane, where the radial field is negligible.</p>
+
+<p>The two sets play different roles [1]:</p>
+
+<ul>
+  <li>the Hall channels establish <em>where the array is</em>.  The toroidal field goes
+as one over the major radius, so measuring it against the known coil
+current gives each sensor’s radius, and the fitted spacing against the
+rigid as-built pitch gives the probe’s incident angle.</li>
+  <li>they also establish <em>how each vertical sensor is aligned</em>.  On an interval
+driven by the toroidal field alone the true vertical field is negligible,
+so whatever the vertical sensor reads there is crosstalk, and its ratio to
+the measured toroidal field is that sensor’s misalignment.</li>
+  <li>the vertical sensors, once corrected for that crosstalk, carry the physics
+measurement: the toroidal current density from the radial gradient of the
+vertical field at the midplane.</li>
+</ul>
+
+<p>Every routine here works on plain arrays, so the machine-specific parts –
+raw field codes, shot-era geometry and thresholds – stay in
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.impa</code> and <code class="language-plaintext highlighter-rouge">vest.yaml</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>B_meas</td><td>field a probe actually measures</td><td>T</td></tr>
+  <tr><td>Bt</td><td>vacuum toroidal field at a radius, mu0 N I / (2 pi R)</td><td>T</td></tr>
+  <tr><td>Bz</td><td>vertical field, after compensation</td><td>T</td></tr>
+  <tr><td>alpha</td><td>probe coupling to the toroidal field, sin of its tilt</td><td>-</td></tr>
+  <tr><td>beta</td><td>per-probe offset</td><td>T</td></tr>
+  <tr><td>kappa</td><td>the observable ratio alpha / R</td><td>1/m</td></tr>
+  <tr><td>R0</td><td>major radius of the innermost channel</td><td>m</td></tr>
+  <tr><td>I_TF</td><td>toroidal field coil current</td><td>A</td></tr>
+  </tbody>
+</table>
+
+<p><strong>The measurement model.</strong>  Each probe sees a mixture of the local poloidal
+field and the toroidal field::</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>B_meas_i(t) = alpha_i * Bt(R_i, t) + Bz_i(t) * sqrt(1 - alpha_i**2) + beta_i
+</code></pre></div></div>
+
+<p>Inverting it gives the compensated internal field::</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Bz_i = (B_meas_i - alpha_i * Bt(R_i)) / sqrt(1 - alpha_i**2)
+</code></pre></div></div>
+
+<p><strong>Sign.</strong>  VAFT takes the coil current as the raw field times <code class="language-plaintext highlighter-rouge">-3e4</code>, as
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.tf</code> already does, together with a Hall gain of
+<code class="language-plaintext highlighter-rouge">-2/15</code> T/V.  That is the “Data gain” on the array’s own wiring datasheet,
+the authoritative hardware configuration, and it matches neither legacy
+script exactly [2].  All three pairings give the same ratio of measured to
+toroidal field up to an overall sign, so <strong>the fits here are sign-agnostic</strong>:
+they detect the working polarity from the data rather than assuming a
+positive coupling, and only the magnitude of the coupling carries physical
+meaning.  The shipped configuration default disagrees with that gain’s sign,
+which is tracked in #624.</p>
+
+<p>The datasheet leaves the vertical sensors’ own volts-to-tesla gain
+unspecified, so those waveforms stay in native volts throughout; see
+<code class="language-plaintext highlighter-rouge">ImpaCrosstalkFit</code> for what that means for the crosstalk angle.</p>
+
+<p><strong>Geometry and coupling are degenerate.</strong>  During a toroidal-field-only
+interval that field is the only driver, so a probe measures
+<code class="language-plaintext highlighter-rouge">alpha_i * mu0 * N * I_TF / (2 * pi * R_i)</code> and only the ratio
+<code class="language-plaintext highlighter-rouge">kappa_i = alpha_i / R_i</code> is observable.  Assuming unit coupling yields the
+radial position, which is the legacy method; a known radius yields the
+coupling instead.  The two cannot be recovered together from that data alone.</p>
+
+<p><strong>Geometry is per shot.</strong>  The array is insertable and its radial position is
+set per shot, so self-calibration from the shot’s own clean window is the
+primary geometry source, not a fallback, and comparing fitted positions
+between shots is meaningless because the probe really did move.  A configured
+radius in <code class="language-plaintext highlighter-rouge">vest.yaml</code> applies only to an era where the array was surveyed
+or left fixed, and then takes precedence.  A reference shot taken with the
+array in the same position can supply the calibration for another, which is
+the legacy two-shot arrangement; the single-shot path never requires it.</p>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#find_tf_calibration_window"><code>find_tf_calibration_window</code></a> &mdash; Find the interval where the toroidal field alone drives the probes.
+</li>
+  <li><a href="#fit_impa_crosstalk"><code>fit_impa_crosstalk</code></a> &mdash; Fit the toroidal-field bleed into each vertical sensor.
+</li>
+  <li><a href="#fit_impa_geometry"><code>fit_impa_geometry</code></a> &mdash; Self-calibrate the array’s radial position from the toroidal-field profile.
+</li>
+  <li><a href="#fit_impa_tf_coupling"><code>fit_impa_tf_coupling</code></a> &mdash; Fit each probe’s coupling to the toroidal field, at known radii.
+</li>
+  <li><a href="#grade_impa_quality"><code>grade_impa_quality</code></a> &mdash; Grade whether an array’s measurements can be trusted, and say why not.
+</li>
+  <li><a href="#impa_calibrate_signals"><code>impa_calibrate_signals</code></a> &mdash; Filter, scale and baseline raw probe records into field units.
+</li>
+  <li><a href="#impa_lowpass"><code>impa_lowpass</code></a> &mdash; Zero-phase low pass reproducing the legacy filter design.
+</li>
+  <li><a href="#legacy_impa_compensation"><code>legacy_impa_compensation</code></a> &mdash; Faithful port of the legacy compensation script, at one time sample.
+</li>
+  <li><a href="#legacy_impa_position"><code>legacy_impa_position</code></a> &mdash; Faithful port of the legacy position script, at one time sample.
+</li>
+  <li><a href="#process_impa"><code>process_impa</code></a> &mdash; Run the whole array chain for one shot, from raw records to a graded result.
+</li>
+  <li><a href="#remove_bz_crosstalk"><code>remove_bz_crosstalk</code></a> &mdash; Subtract a vertical sensor’s toroidal crosstalk.
+</li>
+  <li><a href="#remove_tf_pickup"><code>remove_tf_pickup</code></a> &mdash; Recover the vertical field by removing a probe’s toroidal pickup.
+</li>
+  <li><a href="#toroidal_field"><code>toroidal_field</code></a> &mdash; Vacuum toroidal field at a radius, from the coil current.
+</li>
+  <li><a href="#validate_impa"><code>validate_impa</code></a> &mdash; Deprecated compatibility wrapper for <code class="language-plaintext highlighter-rouge">grade_impa_quality</code>.
+</li>
+</ul>
+
+<h3 id="find_tf_calibration_window"><code class="language-plaintext highlighter-rouge">find_tf_calibration_window</code></h3>
+
+<p class="formula-signature"><code>find_tf_calibration_window(time, i_tf, ip=None, pf_currents=None, *, criteria=None, b_measured=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Find the interval where the toroidal field alone drives the probes.</p>
+
+<p>Calibration needs a stretch of the same shot in which the coil is energised
+and nothing else is: no plasma current, no poloidal field. That interval is
+what makes the geometry and coupling fits meaningful, so this reports why it
+chose the one it did.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Sample times.</p>
+</td></tr>
+  <tr><td><code>i_tf</code></td><td>array_like</td><td>A</td><td><p>Toroidal field coil current.</p>
+</td></tr>
+  <tr><td><code>ip</code></td><td>array_like, optional</td><td>A</td><td><p>Plasma current, used to exclude the discharge.</p>
+</td></tr>
+  <tr><td><code>pf_currents</code></td><td>array_like, optional</td><td>A</td><td><p>Poloidal field coil currents as <code class="language-plaintext highlighter-rouge">(n_coils, n_samples)</code>.</p>
+</td></tr>
+  <tr><td><code>criteria</code></td><td>TfWindowCriteria, optional</td><td>-</td><td><p>Thresholds the interval must satisfy.</p>
+</td></tr>
+  <tr><td><code>b_measured</code></td><td>array_like, optional</td><td>T</td><td><p>Conditioned probe records, used to require finite channels.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple</td><td>-</td><td><p>The chosen <code class="language-plaintext highlighter-rouge">TfCalibrationWindow</code> with its metrics, and a tuple of reason strings recording what was applied and why.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Validate the time axis.</li>
+  <li>Require the coil current above an absolute floor and above a fraction of
+the shot’s own peak.</li>
+  <li>Exclude samples where the plasma current or any poloidal coil exceeds its
+limit, on median-filtered traces.</li>
+  <li>Require every probe channel finite.</li>
+  <li>Group what survives into contiguous runs and drop the too-short ones.</li>
+  <li>Choose among the survivors by <strong>conditioning, not length</strong>.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The thresholds are hard-coded: an absolute current floor, a fraction of peak,
+plasma and poloidal current limits, a minimum duration and a dynamic-range
+floor. The fraction of peak is a validated-workflow value distinguishing the
+reference shots from a weakly energised one; the rest have no recorded
+derivation. The median-filter width is an acquisition-era value, one
+millisecond at the array’s own rate. One configured threshold, the relative
+noise limit, is read by nothing at all, which is tracked in #625.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The chosen interval is the best-conditioned one, meaning the widest spread in
+coil current, rather than the longest. A long interval at nearly constant
+current constrains the fit poorly however many samples it holds, because the
+fit is a regression against that current.</p>
+
+<p>Both an absolute floor and a fraction of the shot’s own peak are applied,
+because a shot can be energised weakly overall while still having a usable
+interval, and a fixed floor alone would either reject it or admit noise on a
+strong shot.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The thresholds arrive as an argument.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Reasons are returned rather than raised, so a caller must read them: a window
+can be chosen and still be poor. Without the optional currents the
+corresponding exclusions simply do not happen, and an interval containing
+plasma can be selected.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">vest.yaml</code> <code class="language-plaintext highlighter-rouge">impa.calibration_window</code>, which carries the VEST thresholds and the evidence for the fraction-of-peak value.
+</li>
+</ol>
+
+<h3 id="fit_impa_crosstalk"><code class="language-plaintext highlighter-rouge">fit_impa_crosstalk</code></h3>
+
+<p class="formula-signature"><code>fit_impa_crosstalk(b_toroidal, b_z_raw, window, *, max_angle_deg=30.0, bz_gain=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Fit the toroidal-field bleed into each vertical sensor.</p>
+
+<p>On an interval driven by the toroidal field alone the true vertical field is
+negligible, so whatever a vertical sensor reads there is crosstalk. Its ratio
+to the measured toroidal field is that sensor’s misalignment.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>b_toroidal</code></td><td>array_like</td><td>T</td><td><p>Toroidal field at each sensor.</p>
+</td></tr>
+  <tr><td><code>b_z_raw</code></td><td>array_like</td><td>V</td><td><p>Raw vertical-sensor records, in native units.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td>TfCalibrationWindow</td><td>-</td><td><p>The toroidal-field-only interval.</p>
+</td></tr>
+  <tr><td><code>max_angle_deg</code></td><td>float, optional</td><td>deg</td><td><p>Largest misalignment still treated as physical.</p>
+</td></tr>
+  <tr><td><code>bz_gain</code></td><td>float, optional</td><td>T/V</td><td><p>Volts-to-tesla gain for the vertical sensors, if known.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ImpaCrosstalkFit</td><td>-</td><td><p>Per-sensor slope, offset and goodness of fit; the misalignment angle only when a gain was supplied.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The maximum angle is hard-coded with no recorded derivation.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The slope is volts per tesla, not a dimensionless projection</strong>, because the
+wiring datasheet leaves the vertical sensors’ gain unspecified and those
+waveforms stay in volts. Without a gain the angle cannot be formed and is
+returned as NaN <strong>rather than silently wrong</strong>.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Rests on the vertical field being negligible over the window, which is what
+makes the window selection load-bearing. A linear fit only: a sensor
+responding non-linearly keeps a residual.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Yang et al., Rev. Sci. Instrum. 85, 11D809 (2014), for the alignment role of the two sensor sets; <code class="language-plaintext highlighter-rouge">vest.yaml</code> <code class="language-plaintext highlighter-rouge">impa.crosstalk</code> for the configured thresholds.
+</li>
+</ol>
+
+<h3 id="fit_impa_geometry"><code class="language-plaintext highlighter-rouge">fit_impa_geometry</code></h3>
+
+<p class="formula-signature"><code>fit_impa_geometry(b_measured, i_tf, window, *, pitch=0.05, z=0.0, turns=24, r0_initial=0.4, r_bounds=(0.1, 0.9), fit_pitch=False)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Self-calibrate the array’s radial position from the toroidal-field profile.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>b_measured</code></td><td>array_like</td><td>T</td><td><p>Conditioned probe records as <code class="language-plaintext highlighter-rouge">(n_channels, n_samples)</code>.</p>
+</td></tr>
+  <tr><td><code>i_tf</code></td><td>array_like</td><td>A</td><td><p>Toroidal field coil current.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td>TfCalibrationWindow</td><td>-</td><td><p>The interval to fit over.</p>
+</td></tr>
+  <tr><td><code>pitch</code></td><td>float, optional</td><td>m</td><td><p>As-built spacing between channels.</p>
+</td></tr>
+  <tr><td><code>z</code></td><td>float, optional</td><td>m</td><td><p>Height of the array.</p>
+</td></tr>
+  <tr><td><code>turns</code></td><td>int, optional</td><td>-</td><td><p>Coil turns.</p>
+</td></tr>
+  <tr><td><code>r0_initial</code></td><td>float, optional</td><td>m</td><td><p>Starting guess for the innermost channel’s radius.</p>
+</td></tr>
+  <tr><td><code>r_bounds</code></td><td>tuple of float, optional</td><td>m</td><td><p>Bounds on that radius.</p>
+</td></tr>
+  <tr><td><code>fit_pitch</code></td><td>bool, optional</td><td>-</td><td><p>Whether to fit the spacing as well as the position.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ImpaGeometryFit</td><td>-</td><td><p>The fitted radii, the spacing, the incident angle and the residual statistics.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Keep the channels finite across the window.</li>
+  <li>Detect the working polarity from the data.</li>
+  <li>Solve a bounded least squares for the innermost radius, and the spacing
+when asked.</li>
+  <li>Form the residual and its normalized form.</li>
+  <li>Recover the incident angle from the ratio of fitted to as-built spacing.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The spacing is machine-specific, the array’s rigid as-built value. The
+starting guess and the radial bounds are machine-specific too, spanning the
+vessel. <code class="language-plaintext highlighter-rouge">turns = 24</code> is the VEST coil.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>This is the half of the degeneracy that <strong>assuming unit coupling</strong> resolves,
+which is the legacy method: a rigid array of known spacing is slid along the
+one-over-radius profile until it matches. The other half is
+<code class="language-plaintext highlighter-rouge">fit_impa_tf_coupling</code>.</p>
+
+<p><strong>The coupling sign is detected, not assumed.</strong>  The measured sign follows the
+configured Hall gain’s polarity, which this function has no reason to know.
+An incident angle of zero is a purely radial insertion in the midplane.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  Every machine number is an argument.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Assumes the array is rigid and the coupling uniform, so a fitted position is
+meaningful only where the residual is small; the reference shots sit at 9 to
+12 percent and the rejected ones at 34 to 35. <strong>Positions are not comparable
+between shots</strong>, because the array is insertable and really is repositioned.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The <code class="language-plaintext highlighter-rouge">vest_impa_position</code> model: uniform channel spacing and unit coupling, reproduced faithfully by <code class="language-plaintext highlighter-rouge">legacy_impa_position</code>.
+</li>
+</ol>
+
+<h3 id="fit_impa_tf_coupling"><code class="language-plaintext highlighter-rouge">fit_impa_tf_coupling</code></h3>
+
+<p class="formula-signature"><code>fit_impa_tf_coupling(b_measured, i_tf, r, window, *, turns=24, tilt_bounds_deg=(-10.0, 10.0))</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Fit each probe’s coupling to the toroidal field, at known radii.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>b_measured</code></td><td>array_like</td><td>T</td><td><p>Conditioned probe records as <code class="language-plaintext highlighter-rouge">(n_channels, n_samples)</code>.</p>
+</td></tr>
+  <tr><td><code>i_tf</code></td><td>array_like</td><td>A</td><td><p>Toroidal field coil current.</p>
+</td></tr>
+  <tr><td><code>r</code></td><td>array_like</td><td>m</td><td><p>Major radius of each probe.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td>TfCalibrationWindow</td><td>-</td><td><p>The interval to regress over.</p>
+</td></tr>
+  <tr><td><code>turns</code></td><td>int, optional</td><td>-</td><td><p>Coil turns.</p>
+</td></tr>
+  <tr><td><code>tilt_bounds_deg</code></td><td>tuple of float, optional</td><td>deg</td><td><p>Bounds on the probe tilt.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ImpaCouplingFit</td><td>-</td><td><p>Per-channel coupling and offset with their residual statistics.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">turns = 24</code> is machine-specific. The tilt bounds are a legacy compatibility
+value from a model that assumed a near-vertical probe, and they saturate on an
+array that faces the toroidal field, which is the reference condition here.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Regresses the measured field on the modelled toroidal field at the known
+radius, giving the coupling as slope and the offset as intercept. This is the
+half of the degeneracy that a <strong>known radius</strong> resolves; see
+<code class="language-plaintext highlighter-rouge">fit_impa_geometry</code> for the other half. Only the magnitude of the
+coupling carries meaning, since its sign follows the calibration polarity.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Needs the radii, which on this array are usually themselves fitted, so the two
+must not be circular. The tilt bounds saturating is a signal that the model
+does not fit the array, not a result to use.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The measurement model in this module’s conventions.
+</li>
+</ol>
+
+<h3 id="grade_impa_quality"><code class="language-plaintext highlighter-rouge">grade_impa_quality</code></h3>
+
+<p class="formula-signature"><code>grade_impa_quality(time, raw, b_measured, b_z, channel_valid, window, geometry, coupling, *, expected_channels=8, max_normalized_rmse=0.1, r_bounds=(0.1, 0.9), pitch_tolerance=0.01, window_reasons=(), orientation='toroidal', alpha_tolerance=0.15, crosstalk=None, min_crosstalk_r_squared=0.8)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Grade whether an array’s measurements can be trusted, and say why not.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Sample times.</p>
+</td></tr>
+  <tr><td><code>raw</code></td><td>array_like</td><td>V</td><td><p>Raw probe records.</p>
+</td></tr>
+  <tr><td><code>b_measured</code></td><td>array_like</td><td>T</td><td><p>Conditioned probe records.</p>
+</td></tr>
+  <tr><td><code>b_z</code></td><td>array_like</td><td>T</td><td><p>Compensated vertical field.</p>
+</td></tr>
+  <tr><td><code>channel_valid</code></td><td>array_like</td><td>-</td><td><p>Which channels to consider.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td>TfCalibrationWindow</td><td>-</td><td><p>The calibration interval that was used.</p>
+</td></tr>
+  <tr><td><code>geometry</code></td><td>ImpaGeometryFit</td><td>-</td><td><p>The fitted geometry.</p>
+</td></tr>
+  <tr><td><code>coupling</code></td><td>ImpaCouplingFit</td><td>-</td><td><p>The fitted coupling.</p>
+</td></tr>
+  <tr><td><code>expected_channels</code></td><td>int, optional</td><td>-</td><td><p>How many channels the array should have.</p>
+</td></tr>
+  <tr><td><code>max_normalized_rmse</code></td><td>float, optional</td><td>-</td><td><p>Largest geometry residual still acceptable.</p>
+</td></tr>
+  <tr><td><code>r_bounds</code></td><td>tuple of float, optional</td><td>m</td><td><p>Radial bounds the fit should sit inside.</p>
+</td></tr>
+  <tr><td><code>pitch_tolerance</code></td><td>float, optional</td><td>m</td><td><p>Largest departure of fitted from as-built spacing.</p>
+</td></tr>
+  <tr><td><code>window_reasons</code></td><td>sequence of str, optional</td><td>-</td><td><p>Reasons carried from the window selection.</p>
+</td></tr>
+  <tr><td><code>orientation</code></td><td>str, optional</td><td>-</td><td><p>Which field the array is taken to face.</p>
+</td></tr>
+  <tr><td><code>alpha_tolerance</code></td><td>float, optional</td><td>-</td><td><p>Largest departure of the coupling from unity.</p>
+</td></tr>
+  <tr><td><code>crosstalk</code></td><td>ImpaCrosstalkFit, optional</td><td>-</td><td><p>The crosstalk fit, when one was made.</p>
+</td></tr>
+  <tr><td><code>min_crosstalk_r_squared</code></td><td>float, optional</td><td>-</td><td><p>Smallest acceptable crosstalk goodness of fit.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ImpaQuality</td><td>-</td><td><p>A verdict of valid, warning or invalid, with the reasons behind it.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Check the channels are present and the time axis usable.</li>
+  <li>Check each channel’s own signal health, including railing.</li>
+  <li>Check the calibration window, then the geometry, then the coupling.</li>
+  <li>Check the compensated signal and the vertical sensors.</li>
+  <li>Combine by taking the worst verdict.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The residual, spacing, coupling and goodness-of-fit thresholds are
+hard-coded, and two of them disagree with the values <code class="language-plaintext highlighter-rouge">vest.yaml</code> carries,
+which is tracked in #625. The channel count and the radial bounds are
+machine-specific.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The verdict is the <strong>worst</strong> of the checks, not an average, so one invalid
+check makes the result invalid however many pass. Reasons accumulate rather
+than short-circuiting, so a caller sees everything wrong at once.</p>
+
+<p>Renamed from <code class="language-plaintext highlighter-rouge">validate_impa</code> under issue #337: this layer transforms and
+infers, and grading sits uneasily here even so. The grading itself moves to
+the validation layer under issue #339.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  Every threshold arrives as an argument.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Grades the fits it is handed; it cannot tell a well-fitted wrong model from a
+right one. A shot whose array faces the toroidal field can pass the geometry
+checks and still have no usable vertical measurement.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issues #337 and #339 for the naming and the eventual move; <code class="language-plaintext highlighter-rouge">vest.yaml</code> <code class="language-plaintext highlighter-rouge">impa.quality</code> for the configured thresholds.
+</li>
+</ol>
+
+<h3 id="impa_calibrate_signals"><code class="language-plaintext highlighter-rouge">impa_calibrate_signals</code></h3>
+
+<p class="formula-signature"><code>impa_calibrate_signals(raw, *, gain, cutoff_hz, sample_rate, baseline='first_sample', baseline_samples=2500)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Filter, scale and baseline raw probe records into field units.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>raw</code></td><td>array_like</td><td>V</td><td><p>Raw digitizer records as <code class="language-plaintext highlighter-rouge">(n_channels, n_samples)</code>.</p>
+</td></tr>
+  <tr><td><code>gain</code></td><td>float</td><td>T/V</td><td><p>Hall calibration factor.</p>
+</td></tr>
+  <tr><td><code>cutoff_hz</code></td><td>float</td><td>Hz</td><td><p>Conditioning low-pass cut-off.</p>
+</td></tr>
+  <tr><td><code>sample_rate</code></td><td>float</td><td>Hz</td><td><p>Sample rate.</p>
+</td></tr>
+  <tr><td><code>baseline</code></td><td>str, optional</td><td>-</td><td><p>Which baseline to remove.</p>
+</td></tr>
+  <tr><td><code>baseline_samples</code></td><td>int, optional</td><td>-</td><td><p>Leading samples used when the baseline is a mean.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>T</td><td><p>Conditioned records in field units.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Low-pass each channel.</li>
+  <li>Multiply by the calibration factor.</li>
+  <li>Remove the baseline.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">baseline_samples = 2500</code> is an acquisition-era value, the leading interval
+that precedes the discharge at the array’s own sample rate. It is a sample
+count, so it means a different duration at a different rate.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The stage order is the donor’s</strong>, low pass then gain then baseline, and it
+is not interchangeable: removing a baseline before filtering leaves the
+filter’s transient riding on a different level.</p>
+
+<p>The sign of the calibration factor is the caller’s, and the fits downstream
+are deliberately sign-agnostic; see the module’s conventions and #624.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Assumes the leading window is field-free. Inherits the record-length caveat
+of <code class="language-plaintext highlighter-rouge">impa_lowpass</code>.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">VEST_IMPAProcessing.m</code>, whose stage order this follows.
+</li>
+</ol>
+
+<h3 id="impa_lowpass"><code class="language-plaintext highlighter-rouge">impa_lowpass</code></h3>
+
+<p class="formula-signature"><code>impa_lowpass(values, cutoff_hz, sample_rate)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Zero-phase low pass reproducing the legacy filter design.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>Waveform or stack of them; the sample axis is the last.</p>
+</td></tr>
+  <tr><td><code>cutoff_hz</code></td><td>float</td><td>Hz</td><td><p>Cut-off frequency.</p>
+</td></tr>
+  <tr><td><code>sample_rate</code></td><td>float</td><td>Hz</td><td><p>Sample rate.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>The filtered waveform, same shape.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The tap count is a legacy compatibility value: the donor design is a
+Hamming-window filter whose order follows from the sample rate, giving the
+same 26 taps this uses.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>Zero phase where it can be.</strong>  The forward-backward filter moves no feature
+in time, which matters because the array’s channels are compared against each
+other and against the coil current.  A record too short for the padding that
+needs falls back to a single forward pass, which is causal and therefore
+delays every feature; the convention silently changes with record length, and
+only tiny synthetic records are short enough for it.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The fallback above is the one case where the phase convention is not what the
+summary says.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The legacy <code class="language-plaintext highlighter-rouge">vest_filter</code> design, whose window, order and forward-backward application this reproduces.
+</li>
+</ol>
+
+<h3 id="legacy_impa_compensation"><code class="language-plaintext highlighter-rouge">legacy_impa_compensation</code></h3>
+
+<p class="formula-signature"><code>legacy_impa_compensation(time, raw, tf_raw, r, *, target_time=0.29, sample_rate=25000.0, cutoff_hz=250.0, gain=-0.13333333333333333, tf_gain=30000.0, turns=24, tilt_bounds_deg=(-10.0, 10.0))</code></p>
+
+<p><strong>VEST-specific.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Faithful port of the legacy compensation script, at one time sample.</p>
+
+<p>Kept for comparison against the donor, not as the maintained path; the
+current chain is <code class="language-plaintext highlighter-rouge">fit_impa_tf_coupling</code> with <code class="language-plaintext highlighter-rouge">remove_tf_pickup</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Sample times.</p>
+</td></tr>
+  <tr><td><code>raw</code></td><td>array_like</td><td>V</td><td><p>Raw probe records as <code class="language-plaintext highlighter-rouge">(n_channels, n_samples)</code>.</p>
+</td></tr>
+  <tr><td><code>tf_raw</code></td><td>array_like</td><td>V</td><td><p>Raw toroidal-field coil trace.</p>
+</td></tr>
+  <tr><td><code>r</code></td><td>array_like</td><td>m</td><td><p>Major radius of each probe.</p>
+</td></tr>
+  <tr><td><code>target_time</code></td><td>float, optional</td><td>s</td><td><p>The single sample the fit is evaluated at.</p>
+</td></tr>
+  <tr><td><code>sample_rate</code></td><td>float, optional</td><td>Hz</td><td><p>Sample rate.</p>
+</td></tr>
+  <tr><td><code>cutoff_hz</code></td><td>float, optional</td><td>Hz</td><td><p>Conditioning low-pass cut-off.</p>
+</td></tr>
+  <tr><td><code>gain</code></td><td>float, optional</td><td>T/V</td><td><p>Hall calibration factor.</p>
+</td></tr>
+  <tr><td><code>tf_gain</code></td><td>float, optional</td><td>A/V</td><td><p>Raw-to-amperes factor for the coil trace.</p>
+</td></tr>
+  <tr><td><code>turns</code></td><td>int, optional</td><td>-</td><td><p>Coil turns.</p>
+</td></tr>
+  <tr><td><code>tilt_bounds_deg</code></td><td>tuple of float, optional</td><td>deg</td><td><p>Bounds on the probe tilt.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ImpaCouplingFit</td><td>-</td><td><p>The per-channel coupling and the compensated field at that sample.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Low-pass each probe, apply the gain, subtract the first sample.</li>
+  <li>Low-pass the coil trace and subtract its first sample.</li>
+  <li>Take the sample nearest the target time.</li>
+  <li>Solve a bounded tilt per channel, build the pickup, and divide it out.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>Every default is a legacy compatibility value from the donor script,
+including its evaluation time, which differs from the position script’s.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The donor’s order, which differs from the position script’s</strong>: here the low
+pass comes before the gain, and both traces are offset-corrected. The sign
+pairing is also the donor’s, a negative gain with a positive coil factor,
+the mirror of the other script. Both are reproduced rather than harmonized.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>VEST-specific.  A port of a VEST script carrying that machine’s coil factor,
+sample rate and calibration as defaults, reproducing one historical routine
+rather than a general method.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>One time sample only. The donor also processed a reference shot through the
+same path; that branch is deliberately absent here, so this is the
+single-shot half of the original. The tilt model assumes a near-vertical
+probe and saturates on an array that faces the toroidal field.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">VEST_IMPAProcessing.m</code>, ported faithfully including its stage order and its sign pairing; the omitted reference-shot branch is noted above.
+</li>
+</ol>
+
+<h3 id="legacy_impa_position"><code class="language-plaintext highlighter-rouge">legacy_impa_position</code></h3>
+
+<p class="formula-signature"><code>legacy_impa_position(time, raw, tf_raw, *, target_time=0.3, sample_rate=25000.0, cutoff_hz=2500.0, gain=0.13333333333333333, tf_gain=-30000.0, turns=24, pitch=0.05, r0_initial=0.4, r_bounds=(0.1, 0.9), baseline_samples=2500)</code></p>
+
+<p><strong>VEST-specific.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Faithful port of the legacy position script, at one time sample.</p>
+
+<p>Kept so the current chain can be compared against what the donor actually
+did, not so it can be used in preference; <code class="language-plaintext highlighter-rouge">fit_impa_geometry</code> is the
+maintained path.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Sample times.</p>
+</td></tr>
+  <tr><td><code>raw</code></td><td>array_like</td><td>V</td><td><p>Raw probe records as <code class="language-plaintext highlighter-rouge">(n_channels, n_samples)</code>.</p>
+</td></tr>
+  <tr><td><code>tf_raw</code></td><td>array_like</td><td>V</td><td><p>Raw toroidal-field coil trace.</p>
+</td></tr>
+  <tr><td><code>target_time</code></td><td>float, optional</td><td>s</td><td><p>The single sample the fit is evaluated at.</p>
+</td></tr>
+  <tr><td><code>sample_rate</code></td><td>float, optional</td><td>Hz</td><td><p>Sample rate.</p>
+</td></tr>
+  <tr><td><code>cutoff_hz</code></td><td>float, optional</td><td>Hz</td><td><p>Conditioning low-pass cut-off.</p>
+</td></tr>
+  <tr><td><code>gain</code></td><td>float, optional</td><td>T/V</td><td><p>Hall calibration factor.</p>
+</td></tr>
+  <tr><td><code>tf_gain</code></td><td>float, optional</td><td>A/V</td><td><p>Raw-to-amperes factor for the coil trace.</p>
+</td></tr>
+  <tr><td><code>turns</code></td><td>int, optional</td><td>-</td><td><p>Coil turns.</p>
+</td></tr>
+  <tr><td><code>pitch</code></td><td>float, optional</td><td>m</td><td><p>As-built channel spacing.</p>
+</td></tr>
+  <tr><td><code>r0_initial</code></td><td>float, optional</td><td>m</td><td><p>Starting guess for the innermost radius.</p>
+</td></tr>
+  <tr><td><code>r_bounds</code></td><td>tuple of float, optional</td><td>m</td><td><p>Bounds on that radius.</p>
+</td></tr>
+  <tr><td><code>baseline_samples</code></td><td>int, optional</td><td>-</td><td><p>Leading samples forming the baseline.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ImpaGeometryFit</td><td>-</td><td><p>The fitted radii and spacing at that one sample.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Subtract each probe’s first sample, apply the gain, low-pass, then
+subtract the mean of the leading samples.</li>
+  <li>Condition the coil trace with gain and low pass, <strong>without</strong> removing any
+offset.</li>
+  <li>Take the sample nearest the target time.</li>
+  <li>Solve the bounded least squares for the innermost radius.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>Every default here is a legacy compatibility value reproducing the donor
+script: its single evaluation time, its sample rate, its cut-off, its two
+gains and its baseline length.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The donor’s order, kept deliberately</strong>, including the asymmetry that the
+coil trace is not offset-corrected while the probes are. The sign pairing is
+the donor’s too, a positive gain with a negative coil factor, which differs
+from both the datasheet and the other legacy script; see the module’s
+conventions.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>VEST-specific.  A port of a VEST script, carrying that machine’s coil factor,
+sample rate and array spacing as its defaults; it reproduces one historical
+routine rather than describing a general method.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>One time sample, not a time series, and no residual quality reported. It
+assumes unit coupling, which the reference shots show is nearly true and the
+rejected shots show is not.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">vest_impa_position.m</code>, ported faithfully including its stage order and its sign pairing.
+</li>
+</ol>
+
+<h3 id="process_impa"><code class="language-plaintext highlighter-rouge">process_impa</code></h3>
+
+<p class="formula-signature"><code>process_impa(time, raw, i_tf, *, config=None, criteria=None, ip=None, pf_currents=None, channel_valid=None, r=None, z=0.0, pitch=0.05, r_bounds=(0.1, 0.9), r0_initial=0.4, max_normalized_rmse=0.1, reference=None, b_z_raw=None, bz_channel_valid=None, fit_pitch=False, max_crosstalk_angle_deg=30.0, min_crosstalk_r_squared=0.8, bz_gain=None, bz_radial_offset=0.0)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Run the whole array chain for one shot, from raw records to a graded result.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Sample times.</p>
+</td></tr>
+  <tr><td><code>raw</code></td><td>array_like</td><td>V</td><td><p>Raw probe records as <code class="language-plaintext highlighter-rouge">(n_channels, n_samples)</code>.</p>
+</td></tr>
+  <tr><td><code>i_tf</code></td><td>array_like</td><td>A</td><td><p>Toroidal field coil current.</p>
+</td></tr>
+  <tr><td><code>config</code></td><td>ImpaProcessingConfig, optional</td><td>-</td><td><p>Conditioning settings.</p>
+</td></tr>
+  <tr><td><code>criteria</code></td><td>TfWindowCriteria, optional</td><td>-</td><td><p>Window-selection thresholds.</p>
+</td></tr>
+  <tr><td><code>ip</code></td><td>array_like, optional</td><td>A</td><td><p>Plasma current.</p>
+</td></tr>
+  <tr><td><code>pf_currents</code></td><td>array_like, optional</td><td>A</td><td><p>Poloidal field coil currents.</p>
+</td></tr>
+  <tr><td><code>channel_valid</code></td><td>array_like, optional</td><td>-</td><td><p>Which probe channels to use.</p>
+</td></tr>
+  <tr><td><code>r</code></td><td>array_like, optional</td><td>m</td><td><p>Configured radii, which take precedence when supplied.</p>
+</td></tr>
+  <tr><td><code>z</code></td><td>float, optional</td><td>m</td><td><p>Height of the array.</p>
+</td></tr>
+  <tr><td><code>pitch</code></td><td>float, optional</td><td>m</td><td><p>As-built channel spacing.</p>
+</td></tr>
+  <tr><td><code>r_bounds</code></td><td>tuple of float, optional</td><td>m</td><td><p>Bounds on the fitted radius.</p>
+</td></tr>
+  <tr><td><code>r0_initial</code></td><td>float, optional</td><td>m</td><td><p>Starting guess for it.</p>
+</td></tr>
+  <tr><td><code>max_normalized_rmse</code></td><td>float, optional</td><td>-</td><td><p>Largest acceptable geometry residual.</p>
+</td></tr>
+  <tr><td><code>reference</code></td><td>Mapping, optional</td><td>-</td><td><p>A reference shot supplying the calibration instead of this shot’s own.</p>
+</td></tr>
+  <tr><td><code>b_z_raw</code></td><td>array_like, optional</td><td>V</td><td><p>Raw vertical-sensor records.</p>
+</td></tr>
+  <tr><td><code>bz_channel_valid</code></td><td>array_like, optional</td><td>-</td><td><p>Which vertical sensors to use.</p>
+</td></tr>
+  <tr><td><code>fit_pitch</code></td><td>bool, optional</td><td>-</td><td><p>Whether to fit the spacing too.</p>
+</td></tr>
+  <tr><td><code>max_crosstalk_angle_deg</code></td><td>float, optional</td><td>deg</td><td><p>Largest misalignment treated as physical.</p>
+</td></tr>
+  <tr><td><code>min_crosstalk_r_squared</code></td><td>float, optional</td><td>-</td><td><p>Smallest acceptable crosstalk goodness of fit.</p>
+</td></tr>
+  <tr><td><code>bz_gain</code></td><td>float, optional</td><td>T/V</td><td><p>Volts-to-tesla gain for the vertical sensors.</p>
+</td></tr>
+  <tr><td><code>bz_radial_offset</code></td><td>float, optional</td><td>m</td><td><p>Radial offset of the vertical sensors from their Hall neighbours.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ImpaResult</td><td>-</td><td><p>The conditioned fields, the geometry and coupling, the compensated vertical field, the quality verdict, and a provenance record.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Condition the raw records into field units.</li>
+  <li>Mask the invalid channels.</li>
+  <li>Find the interval driven by the toroidal field alone.</li>
+  <li>Resolve the geometry by precedence: a reference shot, then a configured
+radius, then a fit on this shot’s own window, then the nominal
+uncalibrated positions.</li>
+  <li>Resolve the coupling, from the reference if there is one, else by fitting.</li>
+  <li>Remove the toroidal pickup, branching on the array’s orientation.</li>
+  <li>Optionally fit and remove the vertical sensors’ crosstalk.</li>
+  <li>Grade the result and record what was used.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The spacing, bounds, starting guess and channel count are machine-specific
+VEST values. The residual threshold and the radial offset disagree with what
+<code class="language-plaintext highlighter-rouge">vest.yaml</code> carries, which is tracked in #625; the VEST pipeline passes the
+configured values, so the disagreement bites only a direct caller.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>Geometry precedence is deliberate and ordered.</strong>  Self-calibration from the
+shot’s own window is the primary source, not a fallback, because the array is
+insertable and its position is a per-shot quantity. A configured radius wins
+only where an era was surveyed or left fixed.</p>
+
+<p>The vertical sensors are <strong>not</strong> co-located with the Hall channel of the same
+index; the offset is a hardware fact supplied by the caller.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  Every machine number is an argument, and the VEST
+pipeline supplies them from configuration.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Inherits every assumption of the steps it orchestrates, above all that the
+selected window is genuinely driven by the toroidal field alone. A shot whose
+array faces that field yields a compensated vertical field that is not a
+measurement, which the grading flags rather than the chain refusing.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The stages this orchestrates, each documented on its own function; <code class="language-plaintext highlighter-rouge">vest.yaml</code> <code class="language-plaintext highlighter-rouge">impa</code> for the configuration the VEST pipeline passes in.
+</li>
+</ol>
+
+<h3 id="remove_bz_crosstalk"><code class="language-plaintext highlighter-rouge">remove_bz_crosstalk</code></h3>
+
+<p class="formula-signature"><code>remove_bz_crosstalk(b_z_raw, b_toroidal, crosstalk)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Subtract a vertical sensor’s toroidal crosstalk.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>b_z_raw</code></td><td>array_like</td><td>V</td><td><p>Raw vertical-sensor records, in the sensor’s native units.</p>
+</td></tr>
+  <tr><td><code>b_toroidal</code></td><td>array_like</td><td>T</td><td><p>The toroidal field at each sensor.</p>
+</td></tr>
+  <tr><td><code>crosstalk</code></td><td>ImpaCrosstalkFit</td><td>-</td><td><p>The fitted per-sensor slope and offset.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>V</td><td><p>The records with the crosstalk removed, still in native units.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The output stays in volts.</strong>  The wiring datasheet leaves the vertical
+sensors’ volts-to-tesla gain unspecified, so nothing here converts them; the
+fitted slope is therefore volts per tesla rather than a dimensionless
+projection.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Removes only the linear crosstalk the fit describes. A sensor whose response
+to the toroidal field is not linear keeps its residual.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">fit_impa_crosstalk</code>, which supplies the coefficients, and the wiring datasheet that leaves the vertical gain unspecified.
+</li>
+</ol>
+
+<h3 id="remove_tf_pickup"><code class="language-plaintext highlighter-rouge">remove_tf_pickup</code></h3>
+
+<p class="formula-signature"><code>remove_tf_pickup(b_measured, tf_pickup, alpha)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Recover the vertical field by removing a probe’s toroidal pickup.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>b_measured</code></td><td>array_like</td><td>T</td><td><p>What the probe measured.</p>
+</td></tr>
+  <tr><td><code>tf_pickup</code></td><td>array_like</td><td>T</td><td><p>The toroidal field at that probe.</p>
+</td></tr>
+  <tr><td><code>alpha</code></td><td>array_like</td><td>-</td><td><p>The probe’s coupling to the toroidal field.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>T</td><td><p>The compensated vertical field, NaN where the probe is toroidally aligned.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Inverts the measurement model: subtract the coupled toroidal part, then
+divide by the remaining poloidal sensitivity. A probe with unit coupling
+faces the toroidal field and has <strong>no</strong> sensitivity left for the vertical
+one, so the result is NaN rather than a division blowing up. That is not an
+edge case on this array: the reference shots put the coupling at 1.01 to
+1.045, which is exactly that condition.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The compensated field is only as good as the coupling it was given, and the
+division amplifies its error as the coupling approaches one. Trust the
+result only where the array is genuinely near-vertical.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The measurement model in this module’s conventions, of which this is the inversion.
+</li>
+</ol>
+
+<h3 id="toroidal_field"><code class="language-plaintext highlighter-rouge">toroidal_field</code></h3>
+
+<p class="formula-signature"><code>toroidal_field(r, i_tf, turns=24)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Vacuum toroidal field at a radius, from the coil current.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>r</code></td><td>array_like</td><td>m</td><td><p>Major radius, strictly positive.</p>
+</td></tr>
+  <tr><td><code>i_tf</code></td><td>array_like</td><td>A</td><td><p>Toroidal field coil current.</p>
+</td></tr>
+  <tr><td><code>turns</code></td><td>int, optional</td><td>-</td><td><p>Coil turns.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>T</td><td><p>The vacuum toroidal field.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">turns = 24</code> is machine-specific, the VEST toroidal field coil’s turn count.
+A caller on another machine passes its own.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">mu0 * N * I / (2 * pi * R)</code>, the vacuum field of an ideal toroidal
+solenoid, so it carries the sign of the current as given. It is the field the
+array is calibrated against, not a measurement.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  Only the default turn count is a VEST number.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Vacuum field only: it ignores the plasma’s own diamagnetic or paramagnetic
+contribution, which is the assumption that makes a coil-driven interval usable
+for calibration in the first place.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The ideal toroidal solenoid field; the same relation <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.tf</code> uses for the coil current.
+</li>
+</ol>
+
+<h3 id="validate_impa"><code class="language-plaintext highlighter-rouge">validate_impa</code></h3>
+
+<p class="formula-signature"><code>validate_impa(*args, **kwargs)</code></p>
+
+<p><strong>Deprecated.</strong> </p>
+
+<p>Deprecated compatibility wrapper for <code class="language-plaintext highlighter-rouge">grade_impa_quality</code>.</p>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/camera_geometry/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: camera_geometry">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/process/onset/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: onset">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#find_tf_calibration_window" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_tf_calibration_window</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_impa_crosstalk" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_impa_crosstalk</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_impa_geometry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_impa_geometry</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_impa_tf_coupling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_impa_tf_coupling</a></li><li class="page-toc-item page-toc-level-3"><a href="#grade_impa_quality" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grade_impa_quality</a></li><li class="page-toc-item page-toc-level-3"><a href="#impa_calibrate_signals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">impa_calibrate_signals</a></li><li class="page-toc-item page-toc-level-3"><a href="#impa_lowpass" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">impa_lowpass</a></li><li class="page-toc-item page-toc-level-3"><a href="#legacy_impa_compensation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">legacy_impa_compensation</a></li><li class="page-toc-item page-toc-level-3"><a href="#legacy_impa_position" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">legacy_impa_position</a></li><li class="page-toc-item page-toc-level-3"><a href="#process_impa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">process_impa</a></li><li class="page-toc-item page-toc-level-3"><a href="#remove_bz_crosstalk" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">remove_bz_crosstalk</a></li><li class="page-toc-item page-toc-level-3"><a href="#remove_tf_pickup" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">remove_tf_pickup</a></li><li class="page-toc-item page-toc-level-3"><a href="#toroidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">toroidal_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_impa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_impa</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: onset",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_onset.md",
+            "ref": "_guide/Process_reference_onset.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_impa.md",
+        "mtime": "2026-09-03 10:09:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-07 04:34:00 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

@@ -1,0 +1,1198 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: soft_x_rays · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/process/equilibrium/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/process/langmuir/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: soft_x_rays</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>546c773</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_soft_x_rays">Process reference: soft_x_rays</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.soft_x_rays, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/soft_x_rays.py"><code class="language-plaintext highlighter-rouge">vaft/process/soft_x_rays.py</code></a>:
+9 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("soft_x_rays.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>Ported from the validated <code class="language-plaintext highlighter-rouge">VEST SXR Viewer</code> analysis tool (<code class="language-plaintext highlighter-rouge">vest_sxr_viewer.py</code>
+v5, module-level science functions; provenance: the 2026 VEST SXR thesis
+presentation).  The 455xx SXR campaign acquires both digitizers – 22577 at the
+4 o’clock port (toroidal 0 deg) and 17592 at the 12 o’clock port (120 deg) – at
+125 MHz / 128 = 976562.5 Hz starting at the 285 ms trigger.</p>
+
+<p>Every routine here takes plain arrays (<code class="language-plaintext highlighter-rouge">time</code> in seconds, <code class="language-plaintext highlighter-rouge">data</code> shaped
+<code class="language-plaintext highlighter-rouge">(n_channels, n_samples)</code>); nothing reads a CSV or an ODS except the explicit
+ODS pairing helper.  Vacuum-shot PF-noise removal is a <strong>standalone optional
+step</strong> (<code class="language-plaintext highlighter-rouge">sxr_subtract_vacuum_reference</code>): no other routine applies it, so
+the main processing path is always baseline -&gt; window -&gt; filter on exactly the
+data the caller supplied.</p>
+
+<p>Generic spectral analysis (PSD, spectral index, spectrogram) is <em>not</em> here –
+use <code class="language-plaintext highlighter-rouge">vaft.process.fluctuation</code> on any prepared channel.</p>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#hilbert_instantaneous_phase"><code>hilbert_instantaneous_phase</code></a> &mdash; Instantaneous phase and envelope of a band-limited signal at one time.
+</li>
+  <li><a href="#load_te_ratio_calibration"><code>load_te_ratio_calibration</code></a> &mdash; Load a ratio-to-temperature table and build its interpolator.
+</li>
+  <li><a href="#rank_toroidal_mode_numbers"><code>rank_toroidal_mode_numbers</code></a> &mdash; Rank candidate toroidal mode numbers from phases measured at two locations.
+</li>
+  <li><a href="#sxr_band_signals"><code>sxr_band_signals</code></a> &mdash; Baseline, window and band-pass chord signals into named frequency bands.
+</li>
+  <li><a href="#sxr_baseline_correction"><code>sxr_baseline_correction</code></a> &mdash; Zero each channel against the quiet tail after the plasma.
+</li>
+  <li><a href="#sxr_cwt_spectrogram"><code>sxr_cwt_spectrogram</code></a> &mdash; Continuous-wavelet magnitude scalogram of one trace.
+</li>
+  <li><a href="#sxr_electron_temperature"><code>sxr_electron_temperature</code></a> &mdash; Electron temperature from the two-filter signal ratio, chord by chord.
+</li>
+  <li><a href="#sxr_subtract_vacuum_reference"><code>sxr_subtract_vacuum_reference</code></a> &mdash; Subtract a low-passed vacuum shot to remove poloidal-field pickup.
+</li>
+  <li><a href="#sxr_te_pairs_from_ods"><code>sxr_te_pairs_from_ods</code></a> &mdash; Pair the two filters’ channels of one array by the chord they view.
+</li>
+</ul>
+
+<h3 id="hilbert_instantaneous_phase"><code class="language-plaintext highlighter-rouge">hilbert_instantaneous_phase</code></h3>
+
+<p class="formula-signature"><code>hilbert_instantaneous_phase(signal, time, t_eval)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Instantaneous phase and envelope of a band-limited signal at one time.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>signal</code></td><td>array_like</td><td>V</td><td><p>A band-passed, roughly monochromatic trace.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Its time base.</p>
+</td></tr>
+  <tr><td><code>t_eval</code></td><td>float</td><td>s</td><td><p>Time at which to report the phase.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple</td><td>-</td><td><p>The phase in degrees and the envelope in volts at the nearest sample, that sample’s index, and the full phase and envelope series.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Phase comes from the analytic signal and is wrapped to the principal branch,
+so it runs within a full turn and jumps rather than accumulating. The sample
+nearest the requested time is used; no interpolation.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p><strong>Meaningful only for a band-passed input.</strong> The analytic signal of a
+broadband trace has a phase that does not correspond to any single mode, so
+filter first with <code class="language-plaintext highlighter-rouge">sxr_band_signals</code>. The Hilbert transform is also
+poorly behaved at the record edges, so a time near either end is unreliable.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The analytic-signal phase estimate used by the validated VEST SXR viewer’s mode analysis.
+</li>
+</ol>
+
+<h3 id="load_te_ratio_calibration"><code class="language-plaintext highlighter-rouge">load_te_ratio_calibration</code></h3>
+
+<p class="formula-signature"><code>load_te_ratio_calibration(path=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Load a ratio-to-temperature table and build its interpolator.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>path</code></td><td>str or path-like, optional</td><td>-</td><td><p>Calibration table with <code class="language-plaintext highlighter-rouge">te</code> and <code class="language-plaintext highlighter-rouge">ratio</code> columns. Defaults to the packaged VEST beryllium/aluminium table.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple</td><td>-</td><td><p>The interpolator mapping ratio to temperature, the temperature column in electron-volts, and the ratio column, dimensionless.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The table lacks either column, or holds fewer than two valid points.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The packaged VEST beryllium/aluminium table is a diagnostic calibration,
+shipped with the package and described in the data directory’s own notes.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The interpolator extrapolates rather than clipping</strong>, so a ratio outside the
+table returns an extrapolated temperature, not the nearest tabulated one. A
+caller that needs out-of-range samples rejected must test the ratio itself.
+Column names are matched case-insensitively after stripping.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The table is an argument; only the packaged default is
+the VEST filter pair, and a different filter combination supplies its own.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Non-finite rows are dropped silently. The two-filter method assumes a thermal
+spectrum, so the temperature it returns is meaningless for a non-thermal one.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The packaged VEST beryllium/aluminium ratio calibration, <code class="language-plaintext highlighter-rouge">vaft/data/legacy/sxr_te_ratio_be_al.csv</code>.
+</li>
+</ol>
+
+<h3 id="rank_toroidal_mode_numbers"><code class="language-plaintext highlighter-rouge">rank_toroidal_mode_numbers</code></h3>
+
+<p class="formula-signature"><code>rank_toroidal_mode_numbers(theta_a_deg, phase_a_deg, theta_b_deg, phase_b_deg, n_max)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Rank candidate toroidal mode numbers from phases measured at two locations.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>theta_a_deg</code></td><td>float</td><td>deg</td><td><p>Toroidal angle of the first observation point.</p>
+</td></tr>
+  <tr><td><code>phase_a_deg</code></td><td>float</td><td>deg</td><td><p>Measured phase there.</p>
+</td></tr>
+  <tr><td><code>theta_b_deg</code></td><td>float</td><td>deg</td><td><p>Toroidal angle of the second point.</p>
+</td></tr>
+  <tr><td><code>phase_b_deg</code></td><td>float</td><td>deg</td><td><p>Measured phase there.</p>
+</td></tr>
+  <tr><td><code>n_max</code></td><td>int</td><td>-</td><td><p>Largest magnitude of mode number to consider.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of ToroidalModeCandidate</td><td>deg</td><td><p>Every candidate with its anchor offset and wrapped residual, best first</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The two points share a toroidal angle, so no mode number can be inferred.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>For each candidate the wrapped phase-versus-angle line is anchored exactly at
+the first point and scored by the wrapped residual at the second. Zero is
+excluded, since it carries no toroidal structure. Candidates sort by absolute
+residual, then by absolute mode number, and <strong>a positive mode number wins a
+remaining tie</strong> over its negative counterpart, which is a tie-break, not
+physics.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The port angles are arguments; the VEST pair used in
+practice is a worked example, not a built-in.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p><strong>Two points cannot resolve aliasing.</strong> A candidate and one differing by
+<code class="language-plaintext highlighter-rouge">360/|dtheta|</code> produce identical residuals; for the VEST ports at zero and
+120 degrees that period is three. Every degenerate candidate is returned with
+an equal residual and <strong>none is physically privileged</strong>; choosing among them
+needs independent information such as frequency scaling, mode structure, or a
+third port.</p>
+
+<p>The phases must come from the same band and the same filtering convention, or
+the residual compares two different quantities.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The two-point toroidal mode-number estimate of the validated VEST SXR viewer, and its documented aliasing degeneracy.
+</li>
+</ol>
+
+<h3 id="sxr_band_signals"><code class="language-plaintext highlighter-rouge">sxr_band_signals</code></h3>
+
+<p class="formula-signature"><code>sxr_band_signals(time, data, *, baseline_start, bands, fs, order=2, time_range=None, channels=None, dead_channels=())</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Baseline, window and band-pass chord signals into named frequency bands.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Sample times, shared by every channel.</p>
+</td></tr>
+  <tr><td><code>data</code></td><td>array_like</td><td>V</td><td><p>Signals as <code class="language-plaintext highlighter-rouge">(n_channels, n_samples)</code>, or one trace.</p>
+</td></tr>
+  <tr><td><code>baseline_start</code></td><td>float or None</td><td>s</td><td><p>Start of the quiet tail, or <code class="language-plaintext highlighter-rouge">None</code> when the data is already corrected</p>
+</td></tr>
+  <tr><td><code>bands</code></td><td>mapping of str to sequence of float</td><td>Hz</td><td><p>Named <code class="language-plaintext highlighter-rouge">(f_low, f_high)</code> pairs; the names are the caller’s.</p>
+</td></tr>
+  <tr><td><code>fs</code></td><td>float</td><td>Hz</td><td><p>Sample rate.</p>
+</td></tr>
+  <tr><td><code>order</code></td><td>int, optional</td><td>-</td><td><p>Butterworth order for every band.</p>
+</td></tr>
+  <tr><td><code>time_range</code></td><td>sequence of float, optional</td><td>s</td><td><p>Analysis window as <code class="language-plaintext highlighter-rouge">(t_min, t_max)</code>.</p>
+</td></tr>
+  <tr><td><code>channels</code></td><td>sequence of int, optional</td><td>-</td><td><p>Row indices to process; all rows when omitted.</p>
+</td></tr>
+  <tr><td><code>dead_channels</code></td><td>sequence of int, optional</td><td>-</td><td><p>Rows whose band output is forced to zero.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>SXRBandResult</td><td>V</td><td><p>The windowed time base, the raw windowed signals, one array per band, and the channel indices selected.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The time range selects no samples.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Baseline-correct, unless the caller says the data already is.</li>
+  <li>Restrict to the analysis window.</li>
+  <li>Select the requested channels.</li>
+  <li>Band-pass each into every named band, substituting zeros for dead channels.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">order = 2</code> is a numerical convenience.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The band-pass here is zero phase</strong>, inheriting
+<code class="language-plaintext highlighter-rouge">vaft.process.signal_processing.butterworth_bandpass</code>’s default, so no
+feature moves in time. That is the opposite of the low pass used elsewhere in
+this module, and it matters because the phase read off this output by
+<code class="language-plaintext highlighter-rouge">hilbert_instantaneous_phase</code> feeds a toroidal mode number. The
+inconsistency between the two conventions is tracked in #626.</p>
+
+<p>A dead channel’s band output is zeroed but its raw trace is kept, so it stays
+visible in a raw map instead of disappearing.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Vacuum-reference correction is not applied; run
+<code class="language-plaintext highlighter-rouge">sxr_subtract_vacuum_reference</code> first when it is wanted. Band edges are
+passed straight to the filter, so a band reaching the Nyquist frequency raises
+from SciPy rather than being clipped.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The validated VEST SXR viewer’s band decomposition.
+</li>
+</ol>
+
+<h3 id="sxr_baseline_correction"><code class="language-plaintext highlighter-rouge">sxr_baseline_correction</code></h3>
+
+<p class="formula-signature"><code>sxr_baseline_correction(time, data, baseline_start)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Zero each channel against the quiet tail after the plasma.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Sample times, shared by every channel.</p>
+</td></tr>
+  <tr><td><code>data</code></td><td>array_like</td><td>V</td><td><p>Signals as <code class="language-plaintext highlighter-rouge">(n_channels, n_samples)</code>, or one trace.</p>
+</td></tr>
+  <tr><td><code>baseline_start</code></td><td>float</td><td>s</td><td><p>Time from which the record is taken to be quiet.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>V</td><td><p>The signals with each channel’s own zero level removed.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The time base and the sample axis disagree in length.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p>When no sample lies at or beyond <em>baseline_start</em> the last 1000 samples are
+used instead. That fallback is a validated-workflow default carried from the
+VEST SXR viewer.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The zero level is per channel, not shared, because the detectors have
+different dark levels. The mean of the tail is used, not a fitted trend, so a
+drift through the shot survives.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Assumes the tail is genuinely quiet. A record that ends while the plasma is
+still radiating has its baseline biased by that signal, and the fallback makes
+that silent rather than an error.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The validated VEST SXR viewer, whose baseline convention and last-1000-sample fallback this reproduces.
+</li>
+</ol>
+
+<h3 id="sxr_cwt_spectrogram"><code class="language-plaintext highlighter-rouge">sxr_cwt_spectrogram</code></h3>
+
+<p class="formula-signature"><code>sxr_cwt_spectrogram(signal, fs, f0, f1, n_freq)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Continuous-wavelet magnitude scalogram of one trace.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>signal</code></td><td>array_like</td><td>V</td><td><p>The trace.</p>
+</td></tr>
+  <tr><td><code>fs</code></td><td>float</td><td>Hz</td><td><p>Sample rate.</p>
+</td></tr>
+  <tr><td><code>f0</code></td><td>float</td><td>Hz</td><td><p>Lowest frequency of the scalogram.</p>
+</td></tr>
+  <tr><td><code>f1</code></td><td>float</td><td>Hz</td><td><p>Highest frequency.</p>
+</td></tr>
+  <tr><td><code>n_freq</code></td><td>int</td><td>-</td><td><p>Number of frequencies between them.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of np.ndarray</td><td>-</td><td><p>The frequency axis, ascending, and the magnitude as <code class="language-plaintext highlighter-rouge">(n_freq, n_samples)</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ImportError
+    The optional wavelet package is not installed.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p>Single-threaded execution is a numerical convenience, keeping the call
+deterministic and avoiding a thread pool inside a per-channel loop.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Frequencies are returned ascending, which reverses the underlying library’s
+own descending order, and the magnitude rows are reversed to match. A wavelet
+transform trades frequency resolution for time resolution as frequency rises,
+unlike the fixed-window short-time transform.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Needs an optional package that is not a VAFT dependency. The short-time
+transform in <code class="language-plaintext highlighter-rouge">vaft.process.fluctuation.compute_spectrogram</code> covers the
+default time-frequency need without it. The input is cast to single precision
+by that library.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The optional <code class="language-plaintext highlighter-rouge">fcwt</code> continuous-wavelet implementation; the alternative path is <code class="language-plaintext highlighter-rouge">vaft.process.fluctuation</code>.
+</li>
+</ol>
+
+<h3 id="sxr_electron_temperature"><code class="language-plaintext highlighter-rouge">sxr_electron_temperature</code></h3>
+
+<p class="formula-signature"><code>sxr_electron_temperature(time, data, pairs, *, calibration, baseline_start, fs, lowpass_cutoff=50000.0, al_gain=1.07, al_threshold=0.1, detrend_window=400, order=2, time_range=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Electron temperature from the two-filter signal ratio, chord by chord.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Sample times, shared by every channel.</p>
+</td></tr>
+  <tr><td><code>data</code></td><td>array_like</td><td>V</td><td><p>Signals as <code class="language-plaintext highlighter-rouge">(n_channels, n_samples)</code>.</p>
+</td></tr>
+  <tr><td><code>pairs</code></td><td>sequence of sequence of int</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(beryllium_index, aluminium_index)</code> pairs, one per chord.</p>
+</td></tr>
+  <tr><td><code>calibration</code></td><td>callable</td><td>-</td><td><p>Maps a signal ratio to a temperature; see <code class="language-plaintext highlighter-rouge">load_te_ratio_calibration</code>.</p>
+</td></tr>
+  <tr><td><code>baseline_start</code></td><td>float or None</td><td>s</td><td><p>Start of the quiet tail, or <code class="language-plaintext highlighter-rouge">None</code> when already corrected.</p>
+</td></tr>
+  <tr><td><code>fs</code></td><td>float</td><td>Hz</td><td><p>Sample rate.</p>
+</td></tr>
+  <tr><td><code>lowpass_cutoff</code></td><td>float, optional</td><td>Hz</td><td><p>Conditioning low-pass cut-off.</p>
+</td></tr>
+  <tr><td><code>al_gain</code></td><td>float, optional</td><td>-</td><td><p>Relative sensitivity of the aluminium channel.</p>
+</td></tr>
+  <tr><td><code>al_threshold</code></td><td>float, optional</td><td>V</td><td><p>Conditioned aluminium level below which a sample is invalid.</p>
+</td></tr>
+  <tr><td><code>detrend_window</code></td><td>int, optional</td><td>-</td><td><p>Width of the centred rolling trend, in samples.</p>
+</td></tr>
+  <tr><td><code>order</code></td><td>int, optional</td><td>-</td><td><p>Butterworth order.</p>
+</td></tr>
+  <tr><td><code>time_range</code></td><td>sequence of float, optional</td><td>s</td><td><p>Analysis window as <code class="language-plaintext highlighter-rouge">(t_min, t_max)</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>SXRTemperatureResult</td><td>-</td><td><p>The windowed time base, the temperature per chord in electron-volts, and its percentage deviation from the rolling trend.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Baseline-correct, unless the caller says the data already is.</li>
+  <li>Restrict to the analysis window.</li>
+  <li>Low-pass both channels of each pair.</li>
+  <li>Scale the aluminium channel by its relative sensitivity.</li>
+  <li>Take the ratio and map it through the calibration.</li>
+  <li>Subtract a centred rolling trend to get the relative fluctuation.</li>
+  <li>Invalidate samples whose conditioned aluminium level is at or below the
+threshold.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The 50 kHz cut-off, the 1.07 aluminium gain, the 0.10 V threshold and the
+400-sample trend window are validated-workflow defaults, the settings of the
+validated VEST viewer. <code class="language-plaintext highlighter-rouge">order = 2</code> is a numerical convenience.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The low pass here is causal</strong>, inheriting
+<code class="language-plaintext highlighter-rouge">vaft.process.signal_processing.butterworth_lowpass</code>’s default, so the
+temperature is delayed by the filter’s group delay. That is the opposite
+convention from <code class="language-plaintext highlighter-rouge">sxr_band_signals</code>, which is zero phase. Both channels
+of a pair are delayed identically so the ratio is unaffected, but a time read
+off this result is shifted. Tracked in #626.</p>
+
+<p>The relative fluctuation is a percentage of the rolling trend, and the trend
+is centred, so it uses samples on both sides.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The defaults are VEST viewer practice and the
+calibration is supplied by the caller.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The two-filter method assumes a thermal spectrum. Invalid samples are NaN
+rather than removed, so a caller must honour them. Vacuum-reference correction
+is not applied here.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The validated VEST SXR viewer, whose conditioning settings, validity threshold and detrending this reproduces.
+</li>
+</ol>
+
+<h3 id="sxr_subtract_vacuum_reference"><code class="language-plaintext highlighter-rouge">sxr_subtract_vacuum_reference</code></h3>
+
+<p class="formula-signature"><code>sxr_subtract_vacuum_reference(data, reference_data, *, cutoff, fs, order=2)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Subtract a low-passed vacuum shot to remove poloidal-field pickup.</p>
+
+<p><strong>An optional step.</strong> Nothing else in this module calls it, so the main path
+is always baseline, then window, then filter, on exactly the data the caller
+supplied.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>data</code></td><td>array_like</td><td>V</td><td><p>Plasma-shot signals as <code class="language-plaintext highlighter-rouge">(n_channels, n_samples)</code>.</p>
+</td></tr>
+  <tr><td><code>reference_data</code></td><td>array_like</td><td>V</td><td><p>Vacuum-shot signals with the same channel count.</p>
+</td></tr>
+  <tr><td><code>cutoff</code></td><td>float</td><td>Hz</td><td><p>Low-pass cut-off applied to the reference.</p>
+</td></tr>
+  <tr><td><code>fs</code></td><td>float</td><td>Hz</td><td><p>Sample rate.</p>
+</td></tr>
+  <tr><td><code>order</code></td><td>int, optional</td><td>-</td><td><p>Butterworth order.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>V</td><td><p>The plasma signals with the pickup removed, truncated to the shorter record.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The two inputs have different channel counts.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">order = 2</code> is a numerical convenience matching the rest of the module’s
+conditioning.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Pickup from the poloidal field coil ramps appears identically in a vacuum
+shot, so low-passing that record and subtracting it channel-wise removes the
+common drive while leaving plasma fluctuations untouched.</p>
+
+<p><strong>The low pass here is causal.</strong> It inherits
+<code class="language-plaintext highlighter-rouge">vaft.process.signal_processing.butterworth_lowpass</code>’s default, which
+delays every feature by the filter’s group delay, so the reference is shifted
+relative to the plasma shot it is subtracted from and the cancellation is
+imperfect by that delay. Tracked in #626.</p>
+
+<p>Both inputs should already be baseline-corrected.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Assumes the vacuum shot reproduces the plasma shot’s coil programme. Records
+are truncated to the shorter of the two rather than aligned in time, so two
+records with different start triggers are subtracted misaligned.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The validated VEST SXR viewer’s optional PF-noise removal step.
+</li>
+</ol>
+
+<h3 id="sxr_te_pairs_from_ods"><code class="language-plaintext highlighter-rouge">sxr_te_pairs_from_ods</code></h3>
+
+<p class="formula-signature"><code>sxr_te_pairs_from_ods(ods, array)</code></p>
+
+<p><strong>VEST-specific.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Pair the two filters’ channels of one array by the chord they view.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Carries <code class="language-plaintext highlighter-rouge">soft_x_rays.channel</code> with the identifiers the VEST mapper writes.</p>
+</td></tr>
+  <tr><td><code>array</code></td><td>str</td><td>-</td><td><p>Which array to pair within.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of tuple of int</td><td>-</td><td><p>One <code class="language-plaintext highlighter-rouge">(beryllium_index, aluminium_index)</code> pair per shared chord, ordered by chord number.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    No chord in that array carries both filters.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Channel identifiers are <code class="language-plaintext highlighter-rouge">{daq}:{array}:{filter}:{chord}</code>, written by the
+VEST digitizer mapper. Pairing on the chord number rather than on position in
+the channel list is what absorbs a per-block wiring reversal: the two filter
+blocks need not be ordered the same way.</p>
+
+<p>Returns index pairs, not data, so it changes no measurement.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>VEST-specific.  Depends on the identifier grammar and the filter names written
+by <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.soft_x_rays.soft_x_rays_from_digitizer_csv</code>;
+another machine’s mapper would need its own pairing rule.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A channel whose identifier does not split into four parts, or whose chord is
+not an integer, is skipped silently, so a mis-mapped channel is absent from
+the result rather than reported.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.soft_x_rays.soft_x_rays_from_digitizer_csv</code>, which writes the identifiers this parses.
+</li>
+</ol>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/equilibrium/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: equilibrium">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/process/langmuir/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: langmuir">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#hilbert_instantaneous_phase" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">hilbert_instantaneous_phase</a></li><li class="page-toc-item page-toc-level-3"><a href="#load_te_ratio_calibration" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">load_te_ratio_calibration</a></li><li class="page-toc-item page-toc-level-3"><a href="#rank_toroidal_mode_numbers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rank_toroidal_mode_numbers</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_band_signals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_band_signals</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_baseline_correction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_baseline_correction</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_cwt_spectrogram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_cwt_spectrogram</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_electron_temperature" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_electron_temperature</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_subtract_vacuum_reference" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_subtract_vacuum_reference</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_te_pairs_from_ods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_te_pairs_from_ods</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: langmuir",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_langmuir.md",
+            "ref": "_guide/Process_reference_langmuir.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_soft_x_rays.md",
+        "mtime": "2026-09-03 10:06:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-07 04:34:00 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

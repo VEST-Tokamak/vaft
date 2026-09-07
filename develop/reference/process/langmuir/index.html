@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: statistical_analysis · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: langmuir · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/process/numerical/" />
+            <link rel="prev" href="/vaft/develop/reference/process/soft_x_rays/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/process/cocos/" />
+            <link rel="next" href="/vaft/develop/reference/process/camera_geometry/" />
         
     </head>
     <body>
@@ -220,7 +220,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Process reference: statistical_analysis</a>
+                            <a href="." >Process reference: langmuir</a>
                         
                     </h1>
                 </div>
@@ -246,12 +246,12 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/process/Process_reference_statistical_analysis">Process reference: statistical_analysis</h1>
+                        <h1 id="/reference/process/Process_reference_langmuir">Process reference: langmuir</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.statistical_analysis, read from the standardized docstrings (issue 252).</dd>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.langmuir, read from the standardized docstrings (issue 252).</dd>
     <dt>Prerequisites / inputs</dt><dd>None.</dd>
     <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
@@ -260,181 +260,54 @@
 
 
 <p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/statistical_analysis.py"><code class="language-plaintext highlighter-rouge">vaft/process/statistical_analysis.py</code></a>:
-11 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("statistical_analysis.&lt;name&gt;")</code> prints.
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/langmuir.py"><code class="language-plaintext highlighter-rouge">vaft/process/langmuir.py</code></a>:
+8 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("langmuir.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
 <h2 id="overview">Overview</h2>
 
-<p>The workflow behind the confinement-scaling study: take a table of shots
-with their engineering parameters and energy confinement time, take
-natural logarithms, fit <code class="language-plaintext highlighter-rouge">ln tau_E = c0 + sum_i c_i ln p_i</code> by ordinary
-least squares, and read the scaling exponents off the coefficients.
-Everything operates on <code class="language-plaintext highlighter-rouge">pandas</code> DataFrames whose columns are named by
-the caller; nothing here knows which columns exist except through the
-<code class="language-plaintext highlighter-rouge">eng_params</code> list it is handed.</p>
-
-<p>Two functions are not statistics and are here for historical reasons:
-<code class="language-plaintext highlighter-rouge">generate_core_profiles_history_dataframe</code> builds the input table by
-running a workflow script, and <code class="language-plaintext highlighter-rouge">confinement_time_histogram</code> draws
-one.  Both are documented as they are; their home is decided by #263.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
-  <tbody>
-  <tr><td>tau_E</td><td>energy confinement time</td><td>s</td></tr>
-  <tr><td>p_i</td><td>an engineering parameter</td><td>any</td></tr>
-  <tr><td>c_i</td><td>the scaling exponent of ``p_i``</td><td>-</td></tr>
-  <tr><td>alpha</td><td>significance level</td><td>-</td></tr>
-  </tbody>
-</table>
+<p>This module is machine-independent: raw VEST field selection, shot-era bias
+voltage/tip geometry, and ODS population belong in
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.langmuir_probes</code>. Callers here pass already-selected
+physical signals (or raw counts plus explicit calibration factors) and get
+back electron temperature/density.</p>
 
 <h2 id="functions">Functions</h2>
 
 <ul class="formula-index">
-  <li><a href="#analyze_significance"><code>analyze_significance</code></a> &mdash; Flag which scaling exponents are statistically significant.
+  <li><a href="#calibrate_current"><code>calibrate_current</code></a> &mdash; Convert a raw probe current record to amperes.
 </li>
-  <li><a href="#compute_metrics"><code>compute_metrics</code></a> &mdash; Goodness-of-fit metrics of the regression in original units.
+  <li><a href="#calibrate_voltage"><code>calibrate_voltage</code></a> &mdash; Convert a raw probe voltage record to physical volts.
 </li>
-  <li><a href="#confinement_time_histogram"><code>confinement_time_histogram</code></a> &mdash; Plot histograms of the scaling parameters in an <code class="language-plaintext highlighter-rouge">m x n</code> grid.
+  <li><a href="#electron_density"><code>electron_density</code></a> &mdash; Electron density from the ion saturation current and the solved temperature.
 </li>
-  <li><a href="#filter_dataframe"><code>filter_dataframe</code></a> &mdash; Drop shots with unrealistic loss power and rectify the toroidal field sign.
+  <li><a href="#median_filter_signal"><code>median_filter_signal</code></a> &mdash; Median-filter a waveform along its only axis.
 </li>
-  <li><a href="#generate_core_profiles_history_dataframe"><code>generate_core_profiles_history_dataframe</code></a> &mdash; Build the scaling table by running the core-profiles history workflow.
+  <li><a href="#probe_surface_area"><code>probe_surface_area</code></a> &mdash; Collection area of a cylindrical probe tip.
 </li>
-  <li><a href="#get_correlation_matrix"><code>get_correlation_matrix</code></a> &mdash; Pearson correlation matrix of the log-transformed regressors and target.
+  <li><a href="#process_triple_probe"><code>process_triple_probe</code></a> &mdash; Run the full triple-probe chain on one voltage and current channel pair.
 </li>
-  <li><a href="#get_individual_correlations"><code>get_individual_correlations</code></a> &mdash; Pearson correlation of each log regressor with the log target.
+  <li><a href="#remove_offset"><code>remove_offset</code></a> &mdash; Subtract a signal’s pre-plasma baseline, taken as its leading samples.
 </li>
-  <li><a href="#get_residuals"><code>get_residuals</code></a> &mdash; Residuals of the log-space fit.
-</li>
-  <li><a href="#load_data_from_excel"><code>load_data_from_excel</code></a> &mdash; Load a confinement-scaling table from an Excel file.
-</li>
-  <li><a href="#log_transform"><code>log_transform</code></a> &mdash; Take natural logarithms of the engineering parameters and the target.
-</li>
-  <li><a href="#perform_ols_regression"><code>perform_ols_regression</code></a> &mdash; Fit the log-linear scaling by ordinary least squares.
+  <li><a href="#solve_electron_temperature"><code>solve_electron_temperature</code></a> &mdash; Solve the classical triple-probe relation for the electron temperature.
 </li>
 </ul>
 
-<h3 id="analyze_significance"><code class="language-plaintext highlighter-rouge">analyze_significance</code></h3>
+<h3 id="calibrate_current"><code class="language-plaintext highlighter-rouge">calibrate_current</code></h3>
 
-<p class="formula-signature"><code>analyze_significance(results, alpha=0.05)</code></p>
-
-<p><strong>Machine-independent.</strong> </p>
-
-<p>Flag which scaling exponents are statistically significant.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>results</code></td><td>RegressionResults</td><td>-</td><td><p>A fitted regression.</p>
-</td></tr>
-  <tr><td><code>alpha</code></td><td>float, optional</td><td>-</td><td><p>Significance level; a coefficient with <code class="language-plaintext highlighter-rouge">p &lt; alpha</code> is significant</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>dict of str to bool</td><td>-</td><td><p>Parameter name to whether its exponent is significant; a parameter absent from the fit is <code class="language-plaintext highlighter-rouge">False</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Defaults.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">alpha = 0.05</code> is the conventional literature value, no more.</p>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.</p>
-
-<p><strong>Limitations.</strong></p>
-
-<p>A p-value from a small sample with correlated regressors overstates
-significance; see <code class="language-plaintext highlighter-rouge">get_correlation_matrix</code> before trusting it.</p>
-
-<h3 id="compute_metrics"><code class="language-plaintext highlighter-rouge">compute_metrics</code></h3>
-
-<p class="formula-signature"><code>compute_metrics(results, df, target_param='tauE_s')</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>Goodness-of-fit metrics of the regression in original units.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>results</code></td><td>RegressionResults</td><td>-</td><td><p>A fitted regression.</p>
-</td></tr>
-  <tr><td><code>df</code></td><td>pd.DataFrame</td><td>-</td><td><p>The original table the regression was fitted from.</p>
-</td></tr>
-  <tr><td><code>target_param</code></td><td>str, optional</td><td>-</td><td><p>Column name of the confinement time.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>dict of str to float</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">R2</code>, <code class="language-plaintext highlighter-rouge">RMSE</code>, <code class="language-plaintext highlighter-rouge">MAE</code>, <code class="language-plaintext highlighter-rouge">Mean_Relative_Error_%</code> and <code class="language-plaintext highlighter-rouge">Median_Relative_Error_%</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Processing steps.</strong></p>
-
-<ol>
-  <li>Exponentiate the fitted log values to get predicted confinement times.</li>
-  <li>Select the actual values at the rows the fit used.</li>
-  <li>Compute the metrics with <code class="language-plaintext highlighter-rouge">sklearn.metrics</code> and NumPy.</li>
-</ol>
-
-<p><strong>Convention.</strong></p>
-
-<p>Metrics are in the <em>original</em> units, so <code class="language-plaintext highlighter-rouge">R2</code> here is not the <code class="language-plaintext highlighter-rouge">rsquared</code>
-of the log fit on the results object; the two differ and both are
-reported deliberately.  <code class="language-plaintext highlighter-rouge">RMSE</code> and <code class="language-plaintext highlighter-rouge">MAE</code> carry the target’s unit,
-seconds for <code class="language-plaintext highlighter-rouge">tauE_s</code>, and are returned as plain floats.</p>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.</p>
-
-<p><strong>Limitations.</strong></p>
-
-<p>Imports <code class="language-plaintext highlighter-rouge">scikit-learn</code> on call for two one-line metrics.  When the
-fitted values carry no index the actual values are truncated to the
-shorter length, which silently misaligns rows if any were dropped.</p>
-
-<h3 id="confinement_time_histogram"><code class="language-plaintext highlighter-rouge">confinement_time_histogram</code></h3>
-
-<p class="formula-signature"><code>confinement_time_histogram(df, eng_params=None, m=None, n=None, figsize=None, bins=30, alpha=0.7, edgecolor='black', **kwargs)</code></p>
+<p class="formula-signature"><code>calibrate_current(raw, *, divisor=100.0)</code></p>
 
 <p><strong>Machine-independent.</strong> </p>
 
-<p>Plot histograms of the scaling parameters in an <code class="language-plaintext highlighter-rouge">m x n</code> grid.</p>
+<p>Convert a raw probe current record to amperes.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>df</code></td><td>pd.DataFrame</td><td>-</td><td><p>The scaling table.</p>
+  <tr><td><code>raw</code></td><td>array_like</td><td>V</td><td><p>Digitized probe signal.</p>
 </td></tr>
-  <tr><td><code>eng_params</code></td><td>list of str or None, optional</td><td>-</td><td><p>Columns to plot; <code class="language-plaintext highlighter-rouge">None</code> for the renderer’s default set.</p>
-</td></tr>
-  <tr><td><code>m</code></td><td>int or None, optional</td><td>-</td><td><p>Grid rows.</p>
-</td></tr>
-  <tr><td><code>n</code></td><td>int or None, optional</td><td>-</td><td><p>Grid columns.</p>
-</td></tr>
-  <tr><td><code>figsize</code></td><td>tuple of (float, float) or None, optional</td><td>-</td><td><p>Figure size in inches.</p>
-</td></tr>
-  <tr><td><code>bins</code></td><td>int or str, optional</td><td>-</td><td><p>Histogram bins, as Matplotlib takes them.</p>
-</td></tr>
-  <tr><td><code>alpha</code></td><td>float, optional</td><td>-</td><td><p>Bar opacity.</p>
-</td></tr>
-  <tr><td><code>edgecolor</code></td><td>str, optional</td><td>-</td><td><p>Bar edge colour.</p>
+  <tr><td><code>divisor</code></td><td>float, optional</td><td>-</td><td><p>Shunt or amplifier divisor, non-zero.</p>
 </td></tr>
   </tbody>
 </table>
@@ -442,339 +315,7 @@ shorter length, which silently misaligns rows if any were dropped.</p>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>matplotlib.figure.Figure</td><td>-</td><td><p>The figure, as <code class="language-plaintext highlighter-rouge">vaft.plot.history.confinement_time_histogram</code> returns it.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.</p>
-
-<p><strong>Limitations.</strong></p>
-
-<p>Rendering lives in <code class="language-plaintext highlighter-rouge">vaft.plot.history.confinement_time_histogram</code>
-(issue #63); this is a compatibility shim that keeps the old call site
-and pulls Matplotlib in on call.  Its removal is tracked in #263.</p>
-
-<h3 id="filter_dataframe"><code class="language-plaintext highlighter-rouge">filter_dataframe</code></h3>
-
-<p class="formula-signature"><code>filter_dataframe(df)</code></p>
-
-<p><strong>VEST-specific.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>Drop shots with unrealistic loss power and rectify the toroidal field sign.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>df</code></td><td>pd.DataFrame</td><td>-</td><td><p>The scaling table; <code class="language-plaintext highlighter-rouge">Ploss_MW</code> and <code class="language-plaintext highlighter-rouge">Bt_T</code> are acted on when present</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>pd.DataFrame</td><td>-</td><td><p>The filtered table.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Processing steps.</strong></p>
-
-<ol>
-  <li>Keep rows with <code class="language-plaintext highlighter-rouge">Ploss_MW &lt;= 3</code>.</li>
-  <li>Replace <code class="language-plaintext highlighter-rouge">Bt_T</code> by its absolute value.</li>
-</ol>
-
-<p><strong>Defaults.</strong></p>
-
-<p>The 3 MW ceiling is a hard-coded empirical cut from the study; its
-derivation is not recorded.  It is not a parameter.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">Bt_T</code> is made positive regardless of the field direction actually run,
-so the fit sees magnitude only.  Any sign convention on the field is
-discarded here.</p>
-
-<p><strong>Applicability.</strong></p>
-
-<p>VEST-specific.  The ceiling and the column names are the VEST study’s.</p>
-
-<p><strong>Limitations.</strong></p>
-
-<p>Assigns into the frame it was given (<code class="language-plaintext highlighter-rouge">df["Bt_T"] = ...</code>), so the
-caller’s table may be modified and pandas may warn about a copy.</p>
-
-<h3 id="generate_core_profiles_history_dataframe"><code class="language-plaintext highlighter-rouge">generate_core_profiles_history_dataframe</code></h3>
-
-<p class="formula-signature"><code>generate_core_profiles_history_dataframe(max_shots=None, Z_eff=2.0)</code></p>
-
-<p><strong>VEST-specific.</strong> </p>
-
-<p>Build the scaling table by running the core-profiles history workflow.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>max_shots</code></td><td>int or None, optional</td><td>-</td><td><p>Stop after this many shots; <code class="language-plaintext highlighter-rouge">None</code> for all.</p>
-</td></tr>
-  <tr><td><code>Z_eff</code></td><td>float, optional</td><td>-</td><td><p>Effective charge assumed for every shot when computing the ion contribution.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>pd.DataFrame</td><td>-</td><td><p>One row per shot with the engineering parameters and <code class="language-plaintext highlighter-rouge">tauE_s</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Raises.</strong></p>
-
-<p>ImportError
-    The workflow script cannot be found or loaded.
-ValueError
-    The script returned nothing.</p>
-
-<p><strong>Processing steps.</strong></p>
-
-<ol>
-  <li>Locate <code class="language-plaintext highlighter-rouge">workflow/automatic_pipeline_3_data_summary/gen_core_profiles_history.py</code>
-relative to this file and load it by path.</li>
-  <li>Call its <code class="language-plaintext highlighter-rouge">generate_core_profiles_history_excel(max_shots, Z_eff)</code>.</li>
-</ol>
-
-<p><strong>Defaults.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">Z_eff = 2.0</code> is an assumed value, used because no shot-resolved
-measurement exists; its origin is not recorded.</p>
-
-<p><strong>Applicability.</strong></p>
-
-<p>VEST-specific.  The script reads the VEST database.</p>
-
-<p><strong>Limitations.</strong></p>
-
-<p>Loads a workflow script by file path and inserts its directory into
-<code class="language-plaintext highlighter-rouge">sys.path</code>, which only works from a source checkout and is a
-layer-boundary violation: a process function reaching up into a workflow.
-Tracked in #263.</p>
-
-<p><strong>Provenance.</strong></p>
-
-<ol class="formula-references">
-  <li><code class="language-plaintext highlighter-rouge">workflow/automatic_pipeline_3_data_summary/gen_core_profiles_history.py</code>.
-</li>
-</ol>
-
-<h3 id="get_correlation_matrix"><code class="language-plaintext highlighter-rouge">get_correlation_matrix</code></h3>
-
-<p class="formula-signature"><code>get_correlation_matrix(log_df, eng_params, target_param='tauE_s')</code></p>
-
-<p><strong>Machine-independent.</strong> </p>
-
-<p>Pearson correlation matrix of the log-transformed regressors and target.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>log_df</code></td><td>pd.DataFrame</td><td>-</td><td><p>Output of <code class="language-plaintext highlighter-rouge">log_transform</code>.</p>
-</td></tr>
-  <tr><td><code>eng_params</code></td><td>list of str</td><td>-</td><td><p>Column names of the engineering parameters.</p>
-</td></tr>
-  <tr><td><code>target_param</code></td><td>str, optional</td><td>-</td><td><p>Column name of the confinement time.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>pd.DataFrame</td><td>-</td><td><p>The correlation matrix over the available <code class="language-plaintext highlighter-rouge">ln_</code> columns; empty when fewer than two exist.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.</p>
-
-<p><strong>Limitations.</strong></p>
-
-<p>Pairwise-complete, as <code class="language-plaintext highlighter-rouge">DataFrame.corr</code> is; rows are not dropped
-consistently across pairs.</p>
-
-<h3 id="get_individual_correlations"><code class="language-plaintext highlighter-rouge">get_individual_correlations</code></h3>
-
-<p class="formula-signature"><code>get_individual_correlations(log_df, eng_params, target_param='tauE_s')</code></p>
-
-<p><strong>Machine-independent.</strong> </p>
-
-<p>Pearson correlation of each log regressor with the log target.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>log_df</code></td><td>pd.DataFrame</td><td>-</td><td><p>Output of <code class="language-plaintext highlighter-rouge">log_transform</code>.</p>
-</td></tr>
-  <tr><td><code>eng_params</code></td><td>list of str</td><td>-</td><td><p>Column names of the engineering parameters.</p>
-</td></tr>
-  <tr><td><code>target_param</code></td><td>str, optional</td><td>-</td><td><p>Column name of the confinement time.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>dict of str to float</td><td>-</td><td><p>Parameter name to its correlation with the target; NaN when the column is missing or fewer than two complete rows exist.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.</p>
-
-<h3 id="get_residuals"><code class="language-plaintext highlighter-rouge">get_residuals</code></h3>
-
-<p class="formula-signature"><code>get_residuals(results)</code></p>
-
-<p><strong>Machine-independent.</strong> </p>
-
-<p>Residuals of the log-space fit.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>results</code></td><td>RegressionResults</td><td>-</td><td><p>A fitted regression.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>pd.Series</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">ln(actual) - ln(fitted)</code> per row used in the fit.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.</p>
-
-<h3 id="load_data_from_excel"><code class="language-plaintext highlighter-rouge">load_data_from_excel</code></h3>
-
-<p class="formula-signature"><code>load_data_from_excel(filepath)</code></p>
-
-<p><strong>Machine-independent.</strong> </p>
-
-<p>Load a confinement-scaling table from an Excel file.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>filepath</code></td><td>str</td><td>-</td><td><p>Path to the <code class="language-plaintext highlighter-rouge">.xlsx</code> file; one row per shot, columns as the study named them.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>pd.DataFrame</td><td>-</td><td><p>The table as read, untouched.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Raises.</strong></p>
-
-<p>Exception
-    Whatever <code class="language-plaintext highlighter-rouge">pandas.read_excel</code> raises, after logging it.</p>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.  The tables under
-<code class="language-plaintext highlighter-rouge">workflow/automatic_pipeline_3_data_summary/</code> are VEST, but nothing here
-depends on that.</p>
-
-<p><strong>Provenance.</strong></p>
-
-<ol class="formula-references">
-  <li>The study notebook [NB].
-</li>
-</ol>
-
-<h3 id="log_transform"><code class="language-plaintext highlighter-rouge">log_transform</code></h3>
-
-<p class="formula-signature"><code>log_transform(df, eng_params, target_param='tauE_s')</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>Take natural logarithms of the engineering parameters and the target.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>df</code></td><td>pd.DataFrame</td><td>-</td><td><p>The scaling table.</p>
-</td></tr>
-  <tr><td><code>eng_params</code></td><td>list of str</td><td>-</td><td><p>Column names of the engineering parameters.</p>
-</td></tr>
-  <tr><td><code>target_param</code></td><td>str, optional</td><td>-</td><td><p>Column name of the confinement time.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>pd.DataFrame</td><td>-</td><td><p>Columns <code class="language-plaintext highlighter-rouge">ln_&lt;name&gt;</code> for each parameter and the target, same index as <code class="language-plaintext highlighter-rouge">df</code>; a missing column becomes all-NaN with a warning.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Convention.</strong></p>
-
-<p>Natural logarithm, so the fitted coefficients are the exponents of a
-power law directly.  A value that is not strictly positive has no
-logarithm and becomes NaN, to be dropped by <code class="language-plaintext highlighter-rouge">perform_ols_regression</code>.</p>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.</p>
-
-<h3 id="perform_ols_regression"><code class="language-plaintext highlighter-rouge">perform_ols_regression</code></h3>
-
-<p class="formula-signature"><code>perform_ols_regression(df, eng_params, target_param='tauE_s', dropna=True)</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>Fit the log-linear scaling by ordinary least squares.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>df</code></td><td>pd.DataFrame</td><td>-</td><td><p>The scaling table, in original units.</p>
-</td></tr>
-  <tr><td><code>eng_params</code></td><td>list of str</td><td>-</td><td><p>Column names of the engineering parameters to regress on.</p>
-</td></tr>
-  <tr><td><code>target_param</code></td><td>str, optional</td><td>-</td><td><p>Column name of the confinement time.</p>
-</td></tr>
-  <tr><td><code>dropna</code></td><td>bool, optional</td><td>-</td><td><p>Drop rows with any NaN among the regressors or the target.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>RegressionResults</td><td>-</td><td><p>The fitted <code class="language-plaintext highlighter-rouge">statsmodels</code> model with the log table, the parameter list and the target name; <code class="language-plaintext highlighter-rouge">get_exponents()</code> reads the scaling exponents off it.</p>
+  <tr><td></td><td>np.ndarray</td><td>A</td><td><p>Probe current.</p>
 </td></tr>
   </tbody>
 </table>
@@ -782,36 +323,471 @@ logarithm and becomes NaN, to be dropped by <code class="language-plaintext high
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    No rows remain after dropping NaN.</p>
-
-<p><strong>Processing steps.</strong></p>
-
-<ol>
-  <li><code class="language-plaintext highlighter-rouge">log_transform</code> the table.</li>
-  <li>Select the <code class="language-plaintext highlighter-rouge">ln_</code> regressors and the <code class="language-plaintext highlighter-rouge">ln_</code> target.</li>
-  <li>Drop rows with NaN, if <code class="language-plaintext highlighter-rouge">dropna</code>.</li>
-  <li>Add an intercept column and fit <code class="language-plaintext highlighter-rouge">statsmodels.api.OLS</code>.</li>
-</ol>
+    The divisor is zero.</p>
 
 <p><strong>Defaults.</strong></p>
 
-<p><code class="language-plaintext highlighter-rouge">dropna = True</code> is a validated-workflow default; <code class="language-plaintext highlighter-rouge">statsmodels</code> would
-otherwise raise on NaN.</p>
+<p><code class="language-plaintext highlighter-rouge">divisor = 100.0</code> is machine-specific, the VEST current divisor mirrored
+from <code class="language-plaintext highlighter-rouge">vest.yaml</code>, and carries the same caveat as the voltage gain: a caller
+on another machine must supply its own.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The arithmetic is a scale factor; only the default
+carries a VEST number, and a caller on another machine passes its own.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">vest.yaml</code> <code class="language-plaintext highlighter-rouge">langmuir_probes</code> current divisor.
+</li>
+</ol>
+
+<h3 id="calibrate_voltage"><code class="language-plaintext highlighter-rouge">calibrate_voltage</code></h3>
+
+<p class="formula-signature"><code>calibrate_voltage(raw, *, gain=22.0)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Convert a raw probe voltage record to physical volts.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>raw</code></td><td>array_like</td><td>V</td><td><p>Digitized probe signal.</p>
+</td></tr>
+  <tr><td><code>gain</code></td><td>float, optional</td><td>-</td><td><p>Multiplicative divider gain.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>V</td><td><p>Probe voltage.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">gain = 22.0</code> is machine-specific: it is the VEST probe divider, mirrored
+from <code class="language-plaintext highlighter-rouge">vest.yaml</code>. This module is otherwise machine-independent, so a caller
+on another machine must pass its own value rather than inherit this one.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The arithmetic is a scale factor; only the default
+carries a VEST number, and a caller on another machine passes its own.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">vest.yaml</code> <code class="language-plaintext highlighter-rouge">langmuir_probes</code> voltage gain.
+</li>
+</ol>
+
+<h3 id="electron_density"><code class="language-plaintext highlighter-rouge">electron_density</code></h3>
+
+<p class="formula-signature"><code>electron_density(vd2, te, current, *, tip_radius_m, tip_length_m, ion_mass_kg, e=1.602176634e-19)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Electron density from the ion saturation current and the solved temperature.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>vd2</code></td><td>array_like</td><td>V</td><td><p>Voltage difference between the first probe pair.</p>
+</td></tr>
+  <tr><td><code>te</code></td><td>array_like</td><td>eV</td><td><p>Electron temperature per sample, same shape.</p>
+</td></tr>
+  <tr><td><code>current</code></td><td>array_like</td><td>A</td><td><p>Probe current, same shape.</p>
+</td></tr>
+  <tr><td><code>tip_radius_m</code></td><td>float</td><td>m</td><td><p>Tip radius.</p>
+</td></tr>
+  <tr><td><code>tip_length_m</code></td><td>float</td><td>m</td><td><p>Exposed tip length.</p>
+</td></tr>
+  <tr><td><code>ion_mass_kg</code></td><td>float</td><td>kg</td><td><p>Ion mass; required, with no assumed species.</p>
+</td></tr>
+  <tr><td><code>e</code></td><td>float, optional</td><td>C</td><td><p>Elementary charge.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>n_e</code></td><td>np.ndarray</td><td>m^-3</td><td><p>Electron density, NaN where non-physical.</p>
+</td></tr>
+  <tr><td><code>valid</code></td><td>np.ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> where the density is finite and positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The ion mass is not positive, or the three arrays differ in shape.</p>
 
 <p><strong>Convention.</strong></p>
 
-<p>The fit is in log space, so the coefficients are exponents and the
-residuals are relative errors.  Metrics in original units come from
-<code class="language-plaintext highlighter-rouge">compute_metrics</code>, which exponentiates the fitted values.</p>
+<p><code class="language-plaintext highlighter-rouge">n_e = sqrt(m_i) * I * exp(1/2) / (S * e * sqrt(e*Te) * (exp(Vd2/Te) - 1))</code>.
+Everything is SI except the temperature, which is in electron-volts and is
+converted where the formula needs joules. <strong>The ion mass has no default</strong>: the
+density scales as its square root, so assuming a species would put a silent
+factor into every result.</p>
 
 <p><strong>Applicability.</strong></p>
 
 <p>Machine-independent.</p>
 
+<p><strong>Limitations.</strong></p>
+
+<p>Non-physical or non-finite results are flagged rather than replaced, so the
+mask must be honoured. Inherits the assumptions of
+<code class="language-plaintext highlighter-rouge">solve_electron_temperature</code> and the thin-sheath geometric area of
+<code class="language-plaintext highlighter-rouge">probe_surface_area</code>.</p>
+
 <p><strong>Provenance.</strong></p>
 
 <ol class="formula-references">
-  <li>The study notebook [NB].
+  <li>The ion-saturation-current form of the triple-probe density relation; see issue #152 for the port’s history.
+</li>
+</ol>
+
+<h3 id="median_filter_signal"><code class="language-plaintext highlighter-rouge">median_filter_signal</code></h3>
+
+<p class="formula-signature"><code>median_filter_signal(data, kernel_size)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Median-filter a waveform along its only axis.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>The waveform.</p>
+</td></tr>
+  <tr><td><code>kernel_size</code></td><td>int</td><td>-</td><td><p>Width of the median window in samples; must be odd.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>The filtered waveform, same length.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>A median filter is zero phase: it moves no feature in time, unlike a causal
+low-pass. It removes isolated spikes without the smoothing a mean filter
+applies to a real edge, which is why a probe trace uses it.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The kernel must be odd; SciPy raises otherwise. Edges are handled by zero
+padding, so the first and last half-kernel of samples are pulled toward zero.
+A feature narrower than half the kernel is removed whether or not it is noise.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">scipy.signal.medfilt</code>. Issue #152 does not record the kernel size the original workflow used, which is why the pipeline leaves this unset rather than guessing one; see <code class="language-plaintext highlighter-rouge">process_triple_probe</code>.
+</li>
+</ol>
+
+<h3 id="probe_surface_area"><code class="language-plaintext highlighter-rouge">probe_surface_area</code></h3>
+
+<p class="formula-signature"><code>probe_surface_area(*, tip_radius_m, tip_length_m)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Collection area of a cylindrical probe tip.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>tip_radius_m</code></td><td>float</td><td>m</td><td><p>Tip radius, strictly positive.</p>
+</td></tr>
+  <tr><td><code>tip_length_m</code></td><td>float</td><td>m</td><td><p>Exposed tip length, strictly positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>m^2</td><td><p>The collecting surface area.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Either dimension is not positive.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The lateral area of a cylinder, <code class="language-plaintext highlighter-rouge">2*pi*r*l</code>. The end cap is excluded, which
+is the usual convention for a probe whose length far exceeds its radius, and
+the sheath is assumed thin enough that the collecting area is the geometric
+one.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A thick sheath at low density collects over an area larger than the geometric
+one, which this does not model; the density inferred from it is then an
+overestimate.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The standard cylindrical-probe collection area used by the triple-probe density relation in <code class="language-plaintext highlighter-rouge">electron_density</code>.
+</li>
+</ol>
+
+<h3 id="process_triple_probe"><code class="language-plaintext highlighter-rouge">process_triple_probe</code></h3>
+
+<p class="formula-signature"><code>process_triple_probe(time_v, vd2_raw, time_i, i_raw, vd3, *, tip_radius_m, tip_length_m, ion_mass_kg, voltage_gain=22.0, current_divisor=100.0, n_baseline_samples=500, median_kernel=None, time_rtol=1e-06, time_atol=1e-09)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Run the full triple-probe chain on one voltage and current channel pair.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time_v</code></td><td>array_like</td><td>s</td><td><p>Time base of the voltage record.</p>
+</td></tr>
+  <tr><td><code>vd2_raw</code></td><td>array_like</td><td>V</td><td><p>Raw voltage record.</p>
+</td></tr>
+  <tr><td><code>time_i</code></td><td>array_like</td><td>s</td><td><p>Time base of the current record; must agree with <em>time_v</em>.</p>
+</td></tr>
+  <tr><td><code>i_raw</code></td><td>array_like</td><td>V</td><td><p>Raw current record.</p>
+</td></tr>
+  <tr><td><code>vd3</code></td><td>float</td><td>V</td><td><p>The second pair’s voltage difference, constant over the record.</p>
+</td></tr>
+  <tr><td><code>tip_radius_m</code></td><td>float</td><td>m</td><td><p>Tip radius.</p>
+</td></tr>
+  <tr><td><code>tip_length_m</code></td><td>float</td><td>m</td><td><p>Exposed tip length.</p>
+</td></tr>
+  <tr><td><code>ion_mass_kg</code></td><td>float</td><td>kg</td><td><p>Ion mass; required.</p>
+</td></tr>
+  <tr><td><code>voltage_gain</code></td><td>float, optional</td><td>-</td><td><p>Divider gain for the voltage channel.</p>
+</td></tr>
+  <tr><td><code>current_divisor</code></td><td>float, optional</td><td>-</td><td><p>Divisor for the current channel.</p>
+</td></tr>
+  <tr><td><code>n_baseline_samples</code></td><td>int, optional</td><td>-</td><td><p>Leading samples forming the baseline.</p>
+</td></tr>
+  <tr><td><code>median_kernel</code></td><td>int, optional</td><td>-</td><td><p>Median filter width; no filtering when unset.</p>
+</td></tr>
+  <tr><td><code>time_rtol</code></td><td>float, optional</td><td>-</td><td><p>Relative tolerance on the time-base comparison.</p>
+</td></tr>
+  <tr><td><code>time_atol</code></td><td>float, optional</td><td>s</td><td><p>Absolute tolerance on that comparison.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to np.ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">time</code> in seconds, <code class="language-plaintext highlighter-rouge">vd2</code> in volts, <code class="language-plaintext highlighter-rouge">current</code> in amperes, <code class="language-plaintext highlighter-rouge">te</code> in electron-volts, <code class="language-plaintext highlighter-rouge">n_e</code> in inverse cubic metres, and <code class="language-plaintext highlighter-rouge">solver_ok</code> as the combined validity mask.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The two time bases do not agree.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Verify that the voltage and current time bases agree, and refuse if not.</li>
+  <li>Remove the leading-sample baseline from both records.</li>
+  <li>Optionally median-filter both.</li>
+  <li>Calibrate to volts and amperes.</li>
+  <li>Solve the triple-probe relation for the temperature.</li>
+  <li>Compute the density, and combine the two validity masks.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The gain, divisor and baseline length are machine-specific VEST values
+mirrored from <code class="language-plaintext highlighter-rouge">vest.yaml</code>. <code class="language-plaintext highlighter-rouge">median_kernel</code> is deliberately unset:
+issue #152 does not record the kernel the original workflow used, so no
+filtering is applied rather than a guessed width. The time tolerances are
+numerical conveniences.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Mismatched time bases are an error, not something to fix by truncating to the
+shorter record; index-truncating two differently sampled channels silently
+misaligns them. The second pair’s voltage is a scalar broadcast over the
+record, since it is a fixed bias rather than a measurement.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The chain is generic; the calibration, baseline and
+geometry arguments carry VEST defaults that another machine overrides.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Inherits every assumption of the two inference steps. The returned mask is the
+conjunction of the temperature and density masks, so a sample invalid in
+either is invalid in the result.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Issue #152, the port of the VEST triple-probe workflow that this chain reproduces, including the decisions it left unresolved.
+</li>
+</ol>
+
+<h3 id="remove_offset"><code class="language-plaintext highlighter-rouge">remove_offset</code></h3>
+
+<p class="formula-signature"><code>remove_offset(data, *, n_baseline_samples=500)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Subtract a signal’s pre-plasma baseline, taken as its leading samples.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>The waveform, in whatever unit it has.</p>
+</td></tr>
+  <tr><td><code>n_baseline_samples</code></td><td>int, optional</td><td>-</td><td><p>How many leading samples make up the baseline.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>The waveform with its baseline mean removed.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The record is shorter than the requested baseline.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">n_baseline_samples = 500</code> is an acquisition-era value carried from the VEST
+probe digitizer settings, where the leading samples precede the discharge. It
+is a sample count, not a duration, so it means a different interval on a
+different sample rate.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The mean of the leading window, not a fitted trend, so a baseline that drifts
+during the shot is not removed.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Assumes the leading window is signal-free. A probe already collecting current
+at the start of the record has its baseline biased by that current.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">vest.yaml</code> <code class="language-plaintext highlighter-rouge">langmuir_probes</code> processing, which carries the VEST sample count this default mirrors.
+</li>
+</ol>
+
+<h3 id="solve_electron_temperature"><code class="language-plaintext highlighter-rouge">solve_electron_temperature</code></h3>
+
+<p class="formula-signature"><code>solve_electron_temperature(vd2, vd3, *, te_bounds=(0.1, 500.0), rtol=1e-06)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Solve the classical triple-probe relation for the electron temperature.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>vd2</code></td><td>array_like</td><td>V</td><td><p>Voltage difference between the first probe pair.</p>
+</td></tr>
+  <tr><td><code>vd3</code></td><td>array_like</td><td>V</td><td><p>Voltage difference between the second pair, same shape.</p>
+</td></tr>
+  <tr><td><code>te_bounds</code></td><td>tuple of float, optional</td><td>eV</td><td><p>Bracket the root is searched in.</p>
+</td></tr>
+  <tr><td><code>rtol</code></td><td>float, optional</td><td>-</td><td><p>Relative tolerance of the root finder.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>te</code></td><td>np.ndarray</td><td>eV</td><td><p>Electron temperature per sample, NaN where no root was found.</p>
+</td></tr>
+  <tr><td><code>solver_ok</code></td><td>np.ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> where a root was found inside the bracket.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The two voltage arrays do not have the same shape.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The bracket and the tolerance are numerical conveniences: the bracket spans
+the range a probe measurement can plausibly occupy, and the tolerance is far
+below the scatter of the voltages that feed it.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Solves <code class="language-plaintext highlighter-rouge">(1 - exp(-Vd2/Te)) / (1 - exp(-Vd3/Te)) = 1/2</code>, the theoretical
+triple-probe relation, sample by sample by bracketed root finding. The one
+half on the right is the definition of the technique, not a tunable.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A sample with no root inside the bracket yields NaN and a false flag rather
+than a substituted value, so a caller must honour the mask. The relation
+assumes a Maxwellian electron distribution, equal collecting areas on the
+three tips, and a thin sheath.</p>
+
+<p>The implemented relation is the theoretically correct one. The MATLAB
+expression quoted by issue #152 parses as a different equation, a
+<code class="language-plaintext highlighter-rouge">1 - a/b</code> transcription of <code class="language-plaintext highlighter-rouge">(1-a)/b</code>, and no reference data was available
+to arbitrate; this deliberately does not reproduce that apparent transcription
+error.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The classical triple-probe relation; the transcription discrepancy is recorded in issue #152.
 </li>
 </ol>
 
@@ -904,13 +880,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/process/numerical/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: numerical">
+                        <a href="/vaft/develop/reference/process/soft_x_rays/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: soft_x_rays">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/process/cocos/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: cocos">
+                        <a href="/vaft/develop/reference/process/camera_geometry/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: camera_geometry">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -926,7 +902,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#analyze_significance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">analyze_significance</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_metrics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_metrics</a></li><li class="page-toc-item page-toc-level-3"><a href="#confinement_time_histogram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">confinement_time_histogram</a></li><li class="page-toc-item page-toc-level-3"><a href="#filter_dataframe" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">filter_dataframe</a></li><li class="page-toc-item page-toc-level-3"><a href="#generate_core_profiles_history_dataframe" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">generate_core_profiles_history_dataframe</a></li><li class="page-toc-item page-toc-level-3"><a href="#get_correlation_matrix" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">get_correlation_matrix</a></li><li class="page-toc-item page-toc-level-3"><a href="#get_individual_correlations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">get_individual_correlations</a></li><li class="page-toc-item page-toc-level-3"><a href="#get_residuals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">get_residuals</a></li><li class="page-toc-item page-toc-level-3"><a href="#load_data_from_excel" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">load_data_from_excel</a></li><li class="page-toc-item page-toc-level-3"><a href="#log_transform" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">log_transform</a></li><li class="page-toc-item page-toc-level-3"><a href="#perform_ols_regression" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">perform_ols_regression</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#calibrate_current" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calibrate_current</a></li><li class="page-toc-item page-toc-level-3"><a href="#calibrate_voltage" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calibrate_voltage</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#median_filter_signal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">median_filter_signal</a></li><li class="page-toc-item page-toc-level-3"><a href="#probe_surface_area" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">probe_surface_area</a></li><li class="page-toc-item page-toc-level-3"><a href="#process_triple_probe" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">process_triple_probe</a></li><li class="page-toc-item page-toc-level-3"><a href="#remove_offset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">remove_offset</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_electron_temperature" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_electron_temperature</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -942,11 +918,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Process reference: cocos",
+            "title": "Process reference: camera_geometry",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Process_reference_cocos.md",
-            "ref": "_guide/Process_reference_cocos.md",
+            "path": "_guide/Process_reference_camera_geometry.md",
+            "ref": "_guide/Process_reference_camera_geometry.md",
             "articles": []
         },
         
@@ -1038,8 +1014,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Process_reference_statistical_analysis.md",
-        "mtime": "2026-09-03 10:03:00 +0000",
+        "path": "_guide/Process_reference_langmuir.md",
+        "mtime": "2026-09-03 10:07:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
