@@ -31,7 +31,11 @@ from .constants import (
     SPITZER_RESISTIVITY_COEF,
     _SCALING_COEFS
 )
+from scipy.integrate import cumulative_trapezoid
+
 from .utils import (
+    _guarded_ratio,
+    calculate_peaking_factor,
     gradient,
     trapz_integral,
     normalize_profile,
@@ -127,11 +131,10 @@ def psi_normalised(psi: Union[np.ndarray, float],
     both cancel in the ratio, provided all three inputs share one convention.
     Equals the IMAS ``profiles_1d.psi_norm`` label.
 
-    Limitations
-    -----------
-    Divides by ``psi_boundary - psi_axis`` without a guard; a degenerate
-    equilibrium with equal axis and boundary flux returns ``inf``/``nan``.
-    Tracked in #357.
+    Numerical notes
+    ---------------
+    A degenerate equilibrium with equal axis and boundary flux warns and
+    returns ``nan`` rather than ``inf``.
 
     See Also
     --------
@@ -455,17 +458,38 @@ def rhoN_from_qpsiN(psiN: np.ndarray,
 
     Numerical notes
     ---------------
-    Cumulative trapezoidal integral rebuilt from scratch at every sample
-    ($O(N^2)$; tracked in #357); the denominator is not guarded against zero.
+    One vectorised cumulative trapezoid
+    (``scipy.integrate.cumulative_trapezoid``), not a rebuild per sample. A
+    vanishing or non-finite total integral warns and yields ``nan`` rather than
+    ``inf``. A uniformly signed $q$ is fine -- numerator and denominator flip
+    together -- but one that changes sign makes the cumulative ratio negative
+    on some samples, and those warn rather than becoming a silent ``nan``.
 
     References
     ----------
     .. [1] F. L. Hinton and R. D. Hazeltine, Rev. Mod. Phys. 48 (1976) 239, Sec. II.B.
     """
-    # Cumulative integral using trapezoidal rule to preserve quartiles
-    num = np.array([trapz_integral(psiN[:i+1], qpsiN[:i+1]) for i in range(len(psiN))])
+    psiN = np.asarray(psiN, dtype=float)
+    qpsiN = np.asarray(qpsiN, dtype=float)
+    # cumulative_trapezoid with initial=0 is the same quantity the old
+    # per-sample rebuild produced, in one pass instead of O(N^2).
+    num = cumulative_trapezoid(qpsiN, psiN, initial=0.0)
     den = trapz_integral(psiN, qpsiN)
-    return np.sqrt(num / den)
+    ratio = _guarded_ratio(
+        num, den, what="rhoN_from_qpsiN", because="the total integral of q dpsi_N"
+    )
+    negative = np.asarray(ratio) < 0.0
+    if np.any(negative):
+        warnings.warn(
+            "rhoN_from_qpsiN: the cumulative flux ratio is negative on "
+            f"{int(np.count_nonzero(negative))} sample(s), which means q "
+            "changes sign over the profile; the square root is undefined "
+            "there. Returning nan on those samples.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        ratio = np.where(negative, np.nan, ratio)
+    return np.sqrt(ratio)
 
 
 # ------------------------------------------------------------------
@@ -1459,15 +1483,15 @@ def peaking_factor(central: float,
     float
         Peaking factor [-].
 
-    Limitations
-    -----------
-    No guard against a zero volume average.  Tracked in #357.
+    Numerical notes
+    ---------------
+    A zero volume average warns and returns ``nan``.
 
     See Also
     --------
     vaft.formula.utils.calculate_peaking_factor
     """
-    return central / volume_avg
+    return calculate_peaking_factor(central, volume_avg)
 
 # ------------------------------------------------------------------
 # Plasma Resistance
@@ -4868,8 +4892,15 @@ def confinement_factor_ITER89P(tau_E_exp: float, tau_E_ITER89P: float) -> float:
     return tau_E_exp / tau_E_ITER89P
 
 def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
-    a_I, a_B, a_P, a_n, a_M, a_R, a_eps, a_kappa
-):
+    a_I: float,
+    a_B: float,
+    a_P: float,
+    a_n: float,
+    a_M: float,
+    a_R: float,
+    a_eps: float,
+    a_kappa: float,
+) -> Tuple[float, float, float, float, float]:
     r"""Dimensionless scaling indices $(\mu_\rho, \mu_\beta, \mu_\nu)$ from engineering exponents.
 
     $$\Omega_i\tau_E \propto \rho_*^{\mu_\rho}\,\beta^{\mu_\beta}\,\nu_*^{\mu_\nu}$$
@@ -4913,6 +4944,13 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     mu_kappa : float
         Elongation index, equal to ``a_kappa`` [-].
 
+    Raises
+    ------
+    ValueError
+        When $1 + \alpha_P$ vanishes, which is the exact-power-degradation case
+        $\alpha_P = -1$: every index divides by it, so the transformation has no
+        value there rather than a special one [-].
+
     Assumptions
     -----------
     Constant safety factor, $I_p \propto a^2B/R$, so current is absorbed into
@@ -4920,8 +4958,8 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
 
     Limitations
     -----------
-    Returns ``None`` instead of a tuple when $1 + \alpha_P$ vanishes (tracked in
-    #352); indices are rounded to three decimals.
+    ``a_eps`` is accepted and unused; ``a_M`` and ``a_kappa`` are returned
+    unchanged, so the transformation is a no-op for those two axes.
 
     References
     ----------
@@ -4943,7 +4981,12 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     
     denom = 1 + a_P
     if abs(denom) < 1e-9:
-        return None
+        # Returning None here made every caller fail on the unpack instead, with
+        # a TypeError naming the call site rather than the degenerate exponent.
+        raise ValueError(
+            "a_P = -1 leaves 1 + a_P = 0, and every dimensionless index divides "
+            f"by it; the transformation is undefined there. Got a_P={a_P!r}."
+        )
 
     # Mapping based on Gyro-kinetic transport theory and Kadomtsev's similarity principles
     # mu_rho: Characterizes size scaling (e.g., -3 for Gyro-Bohm, -2 for Bohm)
@@ -4955,14 +4998,9 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     # mu_nu: Characterizes collisionality scaling
     mu_nu = (a_L + 3 * a_n + a_B_star - 2 * a_P - 4) / (2 * denom)
 
-    # round to 3 decimal places
-    mu_rho = round(mu_rho, 3)
-    mu_beta = round(mu_beta, 3)
-    mu_nu = round(mu_nu, 3)
-    mu_M = round(a_M, 3)
-    mu_kappa = round(a_kappa, 3)
-
-    return mu_rho, mu_beta, mu_nu, mu_M, mu_kappa
+    # Deliberately unrounded: three decimals is a presentation choice, and a
+    # kernel that bakes one in cannot be used for anything needing more.
+    return mu_rho, mu_beta, mu_nu, a_M, a_kappa
 
 def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
     r"""Reconstruct the Kadomtsev constraint value from dimensionless indices.
