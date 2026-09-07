@@ -124,6 +124,51 @@ and moving them alongside the geometry would confound the two.
 generated table carries the VEST envelope while the bundled table keeps its
 own. The Green tables themselves are byte-identical either way.
 
+### Measured: the envelope works, and it is not enough
+
+The baseline was rerun against a table directory identical to the packaged one
+byte for byte except for its `&incheck` block — same Green tables, same
+geometry, same constraints, same executable.
+
+**The three geometric failures disappear completely.** #5, #7 and #8 are gone
+from every shot; nothing else moved. The derived envelope does exactly what it
+was meant to and has no side effects.
+
+**Acceptance does not change.** Not one slice becomes acceptable, because
+failure **#21 fires on every slice that produces an equilibrium** — 7 of 7,
+5 of 5, 19 of 19 — and one failure is enough to set `lflag`.
+
+| | packaged envelope | VEST envelope |
+| --- | --- | --- |
+| a-files written | 7 / 5 / 19 | 7 / 5 / 19 |
+| accepted | 0 | 0 |
+| failures #5, #7, #8 | 21, 9, 11 slices | **none** |
+| failure #21 | every slice | every slice |
+
+### What #21 actually is, and why it blocks this issue
+
+`beta_li.F90:874` computes it as the relative disagreement between the virial
+estimate of beta_p — from the Shafranov integrals and the **measured**
+diamagnetic flux — and the equilibrium's own beta_p:
+
+```
+sbpp  = (s1 + s2*(1 - rttt/rcentr))/2 - exmui     ! exmui carries the measured diamagnetic flux
+delbp = |(sbpp - betap)/sbpp|                     ! rejected when >= delbp_diff = 0.08
+```
+
+Across the 31 equilibria it runs 0.43 to 4.27, median **0.85** — eleven times
+its tolerance. That is not a tolerance that needs adjusting. It is issue #386:
+the reconstruction's beta_p is about 0.007 while the virial estimate from the
+measured diamagnetic flux is of order one, because under `legacy_weight` the
+diamagnetic constraint is emitted weightless and the fit never constrains
+pressure.
+
+**So #386 blocks #171.** No termination setting, and no acceptance bound, can
+make a VEST slice acceptable while the reconstruction carries essentially no
+pressure. The termination scan is still worth running — it decides whether
+`ERRMIN` can be tightened and what that costs — but it cannot produce an
+accepted slice, and a scan reported as though it could would mislead.
+
 ## What the termination settings can and cannot do
 
 Reading `fit.F90` and `response_matrix.F90` against the baseline narrows this
@@ -145,10 +190,10 @@ Two consequences for any scan:
 
 ## What comes next, in order
 
-1. **Measure the envelope** — rerun the baseline against a generated table
-   whose `&incheck` is the VEST envelope and nothing else changed, and report
-   how many slices become acceptable. The claim to test is narrow: does the
-   envelope alone change acceptance?
+1. **#386 first** — the pressure and diamagnetic-weight defect is what makes
+   failure #21 fire on every slice, and nothing in #171 can clear it. Until it
+   is fixed, "accepted" is unreachable and every other study is measuring a
+   reconstruction with no pressure in it.
 2. **Termination scan** — `ERRMIN` first, since it is the only active gate,
    then `NXITER` with `SAICON` (which cannot bind without it), then `MXITER`
    and `RELAX`. Keep `MXITER × NXITER` below 500: EFIT indexes its
