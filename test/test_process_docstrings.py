@@ -230,6 +230,7 @@ CONVENTION_SENSITIVE = frozenset({
     "fractional_cell_weights_from_boundary",
     "grad_shafranov_operator",
     "grad_shafranov_residual",
+    "equilibrium_field_on_grid",
     "make_equilibrium_field_interpolator",
     "parallel_current_from_toroidal",
     "poloidal_field_at_boundary",

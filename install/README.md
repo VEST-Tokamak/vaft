@@ -295,6 +295,7 @@ to *run* CHEASE or the DCON/GPEC suite rather than only prepare their inputs.
 Need VAFT only?            -> the platform script above; you are done
 Need CHEASE?               -> obtain CHEASE, then install\install_chease_windows.ps1
 Need DCON/GPEC?            -> obtain GPEC, then install_gpec_windows.ps1 -BuildDependencies
+Need EFIT/EFUND?           -> obtain EFIT, then install_efit_windows.ps1 -AcceptEfitUsersAgreement
 ```
 
 **You obtain the source yourself.** The installers take the path to a checkout
@@ -569,6 +570,61 @@ holder and is deliberately not offered.
 bash install/install_efit.sh --source ~/git/efit --accept-efit-users-agreement
 ```
 
+On native Windows, with the same acceptance:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install\install_efit_windows.ps1 C:\git\efit -AcceptEfitUsersAgreement
+```
+
+Four things differ there, and the script says so rather than hiding them:
+
+| | Windows | POSIX |
+| --- | --- | --- |
+| Stack | Reserved at link time (`-Wl,--stack`, from `-StackReserveMB`) | Raised per run by the adapter with `ulimit -s` |
+| BLAS | Named again at the end of the link line | Found once; a shared object needs no repeat |
+| Upstream tests | Not run: all 102 are bash drivers CTest cannot start | `ctest` runs unless `--skip-tests` |
+| Prefix | `%LOCALAPPDATA%\vaft\external\efit` | `<source>/vaft-install` |
+
+The stack is the one that matters. A native Windows image takes its reserve
+from the PE header, fixed by the linker, so nothing at run time can raise it;
+`vaft.code.efit` therefore runs the executables directly there instead of
+wrapping them in `bash -lc "ulimit -s ..."`. The prefix differs because a build
+must never land inside a checkout, which is what `Resolve-InstallPrefix`
+enforces for every external code. `EFITHOME` is explicit either way, so nothing
+downstream notices.
+
+The BLAS one is worth knowing if you build by hand: CMake places BLAS ahead of
+`liblsode` and `libr8slatec`, which call `dscal_`, `daxpy_` and `dswap_`. GNU ld
+makes a single pass and discards an archive whose members resolve nothing yet,
+so those come out undefined. The installer passes
+`-DCMAKE_Fortran_STANDARD_LIBRARIES`, which CMake appends after every target
+library. A Linux build never notices, because there BLAS is a shared object.
+
+Green-function tables are not shipped with EFIT: generate them with `efund` for
+the grid you intend to run, and generate them with the *same* build, because
+upstream writes them big-endian by default (`CMakeLists.txt` sets
+`-fconvert=big-endian` unless `ENABLE_NATIVE_ENDIAN` is on).
+
+#### One upstream defect blocks `efit` in a serial build
+
+`efit/efit.F90` declares `jtime` only inside `#if defined(USEMPI)`, but calls
+`write_m` and `write_ot` with it unconditionally. So the file cannot compile
+with MPI disabled -- which is the default, `ENABLE_PARALLEL` being `FALSE` in
+upstream's own `CMakeLists.txt`.
+
+**This is not a Windows problem.** The same configure fails on Linux and macOS;
+it surfaces here only because a Windows build cannot fall back to MPI, upstream
+having no `find_package(MPI)` and MS-MPI shipping no gfortran-usable `mpif.h`.
+
+`install_efit_windows.ps1` detects it and says so, rather than handing you a
+Fortran diagnostic. EFUND still builds and installs, so tables can be generated.
+
+VAFT cannot ship a patch: the users agreement forbids distributing modified
+sources. As a licensee you may fix your own tree -- moving the `jtime`
+declaration out of the `USEMPI` block is enough, and with that one change both
+executables build, link and run, verified on Windows 11. Please also report it
+to `efit-support@fusion.gat.com` so the fix reaches everyone.
+
 `--accept-efit-users-agreement` is a statement by you, recorded in the build
 manifest, that you have agreed to the users agreement and obtained the source
 through the authorized channel. Without it the script prints the requirement
@@ -771,4 +827,5 @@ into your question.
 | Windows WSL2 | Syntax and static checks in CI; the full run is verified **manually**, because GitHub-hosted runners cannot start WSL2 |
 | CHEASE, Windows native | Verified **manually** on a clean Windows 11 machine: build, VAFT discovery, a refinement of a packaged equilibrium, and its comparison metrics. Not automated -- hosted runners have no Fortran toolchain, and a full build takes tens of minutes. |
 | DCON/GPEC, Windows native | Verified **manually** on a clean Windows 11 machine with `-BuildDependencies`: build, VAFT discovery, the DCON to GPEC handoff on upstream's Solov'ev regression, and its energies. Not automated -- hosted runners have no Fortran toolchain and the dependency chain alone takes half an hour. The script-level guarantees are pinned by `test/test_install_bootstrap.py`, which runs in CI on every platform. |
+| EFIT/EFUND, Windows native | EFUND verified **manually** on Windows 11: build, runtime-library colocation, and an EFUND run whose seven Green-function tables match their expected sizes byte for byte. EFIT builds and starts under the same recipe, but only once one upstream defect is fixed in your own tree -- see below. |
 | CHEASE and DCON/GPEC, Linux and macOS | Installers not yet written -- tracked in [issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). The checkers run on every platform today. |

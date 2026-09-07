@@ -1,0 +1,804 @@
+{
+ "rows": [
+  {
+   "condemned": [
+    "b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz"
+   ],
+   "coverage": {
+    "events": {
+     "held_tail": 74,
+     "implausible_magnitude": 1,
+     "offset_jump": 21,
+     "population_outlier": 1,
+     "spike": 37
+    },
+    "expected": 87,
+    "flagged_channels": 74,
+    "fully_usable": 0,
+    "present": 74,
+    "usable": 73
+   },
+   "decisions": {
+    "channels": 75,
+    "families": {
+     "inboard": {
+      "exempt": false,
+      "max_witnesses": 25,
+      "min_witnesses": 25
+     },
+     "inboard_flux_loop": {
+      "exempt": true,
+      "max_witnesses": 7,
+      "min_witnesses": 7
+     },
+     "outboard": {
+      "exempt": false,
+      "max_witnesses": 21,
+      "min_witnesses": 21
+     },
+     "outboard_flux_loop": {
+      "exempt": true,
+      "max_witnesses": 4,
+      "min_witnesses": 4
+     },
+     "side": {
+      "exempt": false,
+      "max_witnesses": 16,
+      "min_witnesses": 16
+     }
+    },
+    "gate": {
+     "assessed_channels": 87,
+     "excluded": [
+      {
+       "channel": "IMPA Bz 01",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 02",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 03",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 04",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 05",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 06",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 07",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 08",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "MagneticFieldProbe_H3-08_Bz",
+       "reasons": [
+        "implausible_magnitude",
+        "held_tail",
+        "population_outlier"
+       ]
+      }
+     ],
+     "partially_masked": [],
+     "thresholds": {
+      "baseline_fraction": 0.2,
+      "coherence_window": 0.0005,
+      "coherent_jump_fraction": 0.3,
+      "max_plausible_amplitude": {
+       "b_field_pol_probe": 1.0
+      },
+      "max_spike_samples": 3,
+      "min_constant_run": 16,
+      "offset_jump_sigma": 10.0,
+      "population_peak_factor": 4.0,
+      "significance_floor": 0.01,
+      "spike_sigma": 8.0
+     },
+     "validity_source": "report supplied by caller",
+     "window": [
+      0.30631999999998205,
+      0.33079999999997256
+     ]
+    },
+    "min_usable_fraction": 0.9733333333333334,
+    "missing_channels": [
+     "b_field_pol_probe[0]"
+    ],
+    "projection_in_product": {
+     "channels": 87,
+     "efit_facing": 75,
+     "efit_facing_with_projected_validity": 0,
+     "with_projected_validity": 8
+    },
+    "rejected_channels": [
+     "b_field_pol_probe[25]"
+    ],
+    "slices": 26,
+    "state_slice_counts": {
+     "missing": 26,
+     "recovered": 0,
+     "rejected": 26,
+     "suspect": 0,
+     "usable": 1898
+    },
+    "usable_at_every_slice": 73
+   },
+   "events": {
+    "held_tail": 74,
+    "implausible_magnitude": 1,
+    "offset_jump": 21,
+    "population_outlier": 1,
+    "spike": 37
+   },
+   "families": {
+    "inboard": {
+     "expected": 27,
+     "fully_usable": 0,
+     "present": 26,
+     "usable": 25
+    },
+    "inboard_flux_loop": {
+     "expected": 7,
+     "fully_usable": 0,
+     "present": 7,
+     "usable": 7
+    },
+    "outboard": {
+     "expected": 33,
+     "fully_usable": 0,
+     "present": 21,
+     "usable": 21
+    },
+    "outboard_flux_loop": {
+     "expected": 4,
+     "fully_usable": 0,
+     "present": 4,
+     "usable": 4
+    },
+    "side": {
+     "expected": 16,
+     "fully_usable": 0,
+     "present": 16,
+     "usable": 16
+    }
+   },
+   "measured_span": {
+    "channels_covering_window": 73,
+    "channels_with_a_span": 73,
+    "coverage_fraction": 1.0,
+    "covers_window": true,
+    "earliest_last": 0.339999999999969,
+    "first": 0.26,
+    "last": 0.339999999999969
+   },
+   "model": {
+    "available": true,
+    "consulted": true,
+    "coupling": "re-mapped from the canonical asset",
+    "loop_states": {
+     "usable": 11
+    },
+    "normalized_residual": {
+     "max": 0.037894709840326495,
+     "median": 0.016320736269564127,
+     "n": 11
+    },
+    "reason": null,
+    "wall_authority": {
+     "median": 0.06392826361244772,
+     "min": 0.03045141408366691,
+     "n": 11
+    },
+    "window_source": "benchmark"
+   },
+   "nbprobe": 64,
+   "reasons": [
+    "1 channel(s) rejected at some slice: b_field_pol_probe[25]",
+    "missing: b_field_pol_probe[0]"
+   ],
+   "shot": 39915,
+   "status": "assessed",
+   "verdict": "degraded",
+   "window": {
+    "agreement": "consistent",
+    "end": 0.33079999999997256,
+    "flags": [],
+    "slices": 26,
+    "source": "h_alpha_primary",
+    "start": 0.30631999999998205,
+    "tstep": 0.001
+   }
+  },
+  {
+   "condemned": [
+    "b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz",
+    "b_field_pol_probe[37] MagneticFieldProbe_C3-01_Bz",
+    "b_field_pol_probe[41] MagneticFieldProbe_C3-05_Bz"
+   ],
+   "coverage": {
+    "events": {
+     "held_tail": 74,
+     "implausible_magnitude": 1,
+     "offset_jump": 1,
+     "population_outlier": 3,
+     "spike": 78
+    },
+    "expected": 87,
+    "flagged_channels": 74,
+    "fully_usable": 0,
+    "present": 74,
+    "usable": 71
+   },
+   "decisions": {
+    "channels": 75,
+    "families": {
+     "inboard": {
+      "exempt": false,
+      "max_witnesses": 25,
+      "min_witnesses": 25
+     },
+     "inboard_flux_loop": {
+      "exempt": true,
+      "max_witnesses": 7,
+      "min_witnesses": 7
+     },
+     "outboard": {
+      "exempt": false,
+      "max_witnesses": 19,
+      "min_witnesses": 19
+     },
+     "outboard_flux_loop": {
+      "exempt": true,
+      "max_witnesses": 4,
+      "min_witnesses": 4
+     },
+     "side": {
+      "exempt": false,
+      "max_witnesses": 16,
+      "min_witnesses": 16
+     }
+    },
+    "gate": {
+     "assessed_channels": 87,
+     "excluded": [
+      {
+       "channel": "IMPA Bz 01",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 02",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 03",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 04",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 05",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 06",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 07",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 08",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "MagneticFieldProbe_C3-01_Bz",
+       "reasons": [
+        "held_tail",
+        "population_outlier"
+       ]
+      },
+      {
+       "channel": "MagneticFieldProbe_C3-05_Bz",
+       "reasons": [
+        "held_tail",
+        "population_outlier"
+       ]
+      },
+      {
+       "channel": "MagneticFieldProbe_H3-08_Bz",
+       "reasons": [
+        "implausible_magnitude",
+        "held_tail",
+        "population_outlier"
+       ]
+      }
+     ],
+     "partially_masked": [],
+     "thresholds": {
+      "baseline_fraction": 0.2,
+      "coherence_window": 0.0005,
+      "coherent_jump_fraction": 0.3,
+      "max_plausible_amplitude": {
+       "b_field_pol_probe": 1.0
+      },
+      "max_spike_samples": 3,
+      "min_constant_run": 16,
+      "offset_jump_sigma": 10.0,
+      "population_peak_factor": 4.0,
+      "significance_floor": 0.01,
+      "spike_sigma": 8.0
+     },
+     "validity_source": "report supplied by caller",
+     "window": [
+      0.31455999999997886,
+      0.3364399999999704
+     ]
+    },
+    "min_usable_fraction": 0.9466666666666667,
+    "missing_channels": [
+     "b_field_pol_probe[0]"
+    ],
+    "projection_in_product": {
+     "channels": 87,
+     "efit_facing": 75,
+     "efit_facing_with_projected_validity": 0,
+     "with_projected_validity": 8
+    },
+    "rejected_channels": [
+     "b_field_pol_probe[25]",
+     "b_field_pol_probe[37]",
+     "b_field_pol_probe[41]"
+    ],
+    "slices": 22,
+    "state_slice_counts": {
+     "missing": 22,
+     "recovered": 0,
+     "rejected": 66,
+     "suspect": 0,
+     "usable": 1562
+    },
+    "usable_at_every_slice": 71
+   },
+   "events": {
+    "held_tail": 74,
+    "implausible_magnitude": 1,
+    "offset_jump": 1,
+    "population_outlier": 3,
+    "spike": 78
+   },
+   "families": {
+    "inboard": {
+     "expected": 27,
+     "fully_usable": 0,
+     "present": 26,
+     "usable": 25
+    },
+    "inboard_flux_loop": {
+     "expected": 7,
+     "fully_usable": 0,
+     "present": 7,
+     "usable": 7
+    },
+    "outboard": {
+     "expected": 33,
+     "fully_usable": 0,
+     "present": 21,
+     "usable": 19
+    },
+    "outboard_flux_loop": {
+     "expected": 4,
+     "fully_usable": 0,
+     "present": 4,
+     "usable": 4
+    },
+    "side": {
+     "expected": 16,
+     "fully_usable": 0,
+     "present": 16,
+     "usable": 16
+    }
+   },
+   "measured_span": {
+    "channels_covering_window": 71,
+    "channels_with_a_span": 71,
+    "coverage_fraction": 1.0,
+    "covers_window": true,
+    "earliest_last": 0.339999999999969,
+    "first": 0.26,
+    "last": 0.339999999999969
+   },
+   "model": {
+    "available": true,
+    "consulted": true,
+    "coupling": "re-mapped from the canonical asset",
+    "loop_states": {
+     "usable": 11
+    },
+    "normalized_residual": {
+     "max": 0.0708574256346454,
+     "median": 0.03664915002821681,
+     "n": 11
+    },
+    "reason": null,
+    "wall_authority": {
+     "median": 0.05013610385182666,
+     "min": 0.020423310993353025,
+     "n": 11
+    },
+    "window_source": "benchmark"
+   },
+   "nbprobe": 64,
+   "reasons": [
+    "3 channel(s) rejected at some slice: b_field_pol_probe[25], b_field_pol_probe[37], b_field_pol_probe[41]",
+    "missing: b_field_pol_probe[0]"
+   ],
+   "shot": 41524,
+   "status": "assessed",
+   "verdict": "degraded",
+   "window": {
+    "agreement": "consistent",
+    "end": 0.3364399999999704,
+    "flags": [],
+    "slices": 22,
+    "source": "h_alpha_primary",
+    "start": 0.31455999999997886,
+    "tstep": 0.001
+   }
+  },
+  {
+   "condemned": [
+    "b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz",
+    "b_field_pol_probe[32] MagneticFieldProbe_C1-01_Bz",
+    "b_field_pol_probe[37] MagneticFieldProbe_C3-01_Bz",
+    "b_field_pol_probe[38] MagneticFieldProbe_C3-02_Bz",
+    "b_field_pol_probe[41] MagneticFieldProbe_C3-05_Bz",
+    "b_field_pol_probe[43] MagneticFieldProbe_C4-02_Bz"
+   ],
+   "coverage": {
+    "events": {
+     "implausible_magnitude": 3,
+     "offset_jump": 37,
+     "population_outlier": 6,
+     "spike": 46
+    },
+    "expected": 87,
+    "flagged_channels": 40,
+    "fully_usable": 68,
+    "present": 74,
+    "usable": 68
+   },
+   "decisions": {
+    "channels": 75,
+    "families": {
+     "inboard": {
+      "exempt": false,
+      "max_witnesses": 25,
+      "min_witnesses": 25
+     },
+     "inboard_flux_loop": {
+      "exempt": true,
+      "max_witnesses": 7,
+      "min_witnesses": 7
+     },
+     "outboard": {
+      "exempt": false,
+      "max_witnesses": 16,
+      "min_witnesses": 16
+     },
+     "outboard_flux_loop": {
+      "exempt": true,
+      "max_witnesses": 4,
+      "min_witnesses": 4
+     },
+     "side": {
+      "exempt": false,
+      "max_witnesses": 16,
+      "min_witnesses": 16
+     }
+    },
+    "gate": {
+     "assessed_channels": 87,
+     "excluded": [
+      {
+       "channel": "IMPA Bz 01",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 02",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 03",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 04",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 05",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 06",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 07",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "IMPA Bz 08",
+       "reasons": [
+        "no processed waveform on a resolvable time base"
+       ]
+      },
+      {
+       "channel": "MagneticFieldProbe_C1-01_Bz",
+       "reasons": [
+        "population_outlier"
+       ]
+      },
+      {
+       "channel": "MagneticFieldProbe_C3-01_Bz",
+       "reasons": [
+        "implausible_magnitude",
+        "population_outlier"
+       ]
+      },
+      {
+       "channel": "MagneticFieldProbe_C3-02_Bz",
+       "reasons": [
+        "population_outlier"
+       ]
+      },
+      {
+       "channel": "MagneticFieldProbe_C3-05_Bz",
+       "reasons": [
+        "population_outlier"
+       ]
+      },
+      {
+       "channel": "MagneticFieldProbe_C4-02_Bz",
+       "reasons": [
+        "implausible_magnitude",
+        "population_outlier"
+       ]
+      },
+      {
+       "channel": "MagneticFieldProbe_H3-08_Bz",
+       "reasons": [
+        "implausible_magnitude",
+        "population_outlier"
+       ]
+      }
+     ],
+     "partially_masked": [],
+     "thresholds": {
+      "baseline_fraction": 0.2,
+      "coherence_window": 0.0005,
+      "coherent_jump_fraction": 0.3,
+      "max_plausible_amplitude": {
+       "b_field_pol_probe": 1.0
+      },
+      "max_spike_samples": 3,
+      "min_constant_run": 16,
+      "offset_jump_sigma": 10.0,
+      "population_peak_factor": 4.0,
+      "significance_floor": 0.01,
+      "spike_sigma": 8.0
+     },
+     "validity_source": "report supplied by caller",
+     "window": [
+      0.31219999999997977,
+      0.35171999999996445
+     ]
+    },
+    "min_usable_fraction": 0.9066666666666666,
+    "missing_channels": [
+     "b_field_pol_probe[0]"
+    ],
+    "projection_in_product": {
+     "channels": 87,
+     "efit_facing": 75,
+     "efit_facing_with_projected_validity": 0,
+     "with_projected_validity": 8
+    },
+    "rejected_channels": [
+     "b_field_pol_probe[25]",
+     "b_field_pol_probe[32]",
+     "b_field_pol_probe[37]",
+     "b_field_pol_probe[38]",
+     "b_field_pol_probe[41]",
+     "b_field_pol_probe[43]"
+    ],
+    "slices": 41,
+    "state_slice_counts": {
+     "missing": 41,
+     "recovered": 0,
+     "rejected": 246,
+     "suspect": 0,
+     "usable": 2788
+    },
+    "usable_at_every_slice": 68
+   },
+   "events": {
+    "implausible_magnitude": 3,
+    "offset_jump": 37,
+    "population_outlier": 6,
+    "spike": 46
+   },
+   "families": {
+    "inboard": {
+     "expected": 27,
+     "fully_usable": 25,
+     "present": 26,
+     "usable": 25
+    },
+    "inboard_flux_loop": {
+     "expected": 7,
+     "fully_usable": 7,
+     "present": 7,
+     "usable": 7
+    },
+    "outboard": {
+     "expected": 33,
+     "fully_usable": 16,
+     "present": 21,
+     "usable": 16
+    },
+    "outboard_flux_loop": {
+     "expected": 4,
+     "fully_usable": 4,
+     "present": 4,
+     "usable": 4
+    },
+    "side": {
+     "expected": 16,
+     "fully_usable": 16,
+     "present": 16,
+     "usable": 16
+    }
+   },
+   "measured_span": {
+    "channels_covering_window": 68,
+    "channels_with_a_span": 68,
+    "coverage_fraction": 1.0,
+    "covers_window": true,
+    "earliest_last": 0.35995999999996126,
+    "first": 0.26,
+    "last": 0.35995999999996126
+   },
+   "model": {
+    "available": true,
+    "consulted": true,
+    "coupling": "re-mapped from the canonical asset",
+    "loop_states": {
+     "usable": 11
+    },
+    "normalized_residual": {
+     "max": 0.07554778500747518,
+     "median": 0.02649209515019722,
+     "n": 11
+    },
+    "reason": null,
+    "wall_authority": {
+     "median": 0.054571008423387135,
+     "min": 0.02272957345129033,
+     "n": 11
+    },
+    "window_source": "benchmark"
+   },
+   "nbprobe": 64,
+   "reasons": [
+    "6 channel(s) rejected at some slice: b_field_pol_probe[25], b_field_pol_probe[32], b_field_pol_probe[37], b_field_pol_probe[38], b_field_pol_probe[41], b_field_pol_probe[43]",
+    "missing: b_field_pol_probe[0]"
+   ],
+   "shot": 41672,
+   "status": "assessed",
+   "verdict": "degraded",
+   "window": {
+    "agreement": "consistent",
+    "end": 0.35171999999996445,
+    "flags": [],
+    "slices": 41,
+    "source": "h_alpha_primary",
+    "start": 0.31219999999997977,
+    "tstep": 0.001
+   }
+  }
+ ],
+ "scanned_at": "2026-09-07T02:55:52+00:00",
+ "schema_version": 1,
+ "shots_requested": "packaged",
+ "summary": {
+  "absent": 0,
+  "assessed": 3,
+  "condemned_by_shot_count": {
+   "b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz": 3,
+   "b_field_pol_probe[32] MagneticFieldProbe_C1-01_Bz": 1,
+   "b_field_pol_probe[37] MagneticFieldProbe_C3-01_Bz": 2,
+   "b_field_pol_probe[38] MagneticFieldProbe_C3-02_Bz": 1,
+   "b_field_pol_probe[41] MagneticFieldProbe_C3-05_Bz": 2,
+   "b_field_pol_probe[43] MagneticFieldProbe_C4-02_Bz": 1
+  },
+  "errors": [],
+  "policy": {
+   "min_family_witnesses": 3,
+   "min_usable_fraction": 0.75,
+   "min_window_coverage": 1.0,
+   "min_window_coverage_unfit": 0.9,
+   "small_families": [
+    "inboard_flux_loop",
+    "outboard_flux_loop",
+    "flux_loop",
+    "other"
+   ]
+  },
+  "shots": 3,
+  "verdicts": {
+   "degraded": 3
+  }
+ }
+}

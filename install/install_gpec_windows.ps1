@@ -326,7 +326,11 @@ $steps.Add('export OMPFLAG=')
 $steps.Add('export RECURSFLAG=-frecursive')
 # The static netCDF and HDF5 need their own dependencies named: the makefile
 # emits only -lnetcdff -lnetcdf, and nc-config does not report the rest.
-$steps.Add('export LDFLAGS="$VAFT_NCLIBS -Wl,--stack,$VAFT_STACK"')
+# ${VAFT_NCLIBS:-}, not "$VAFT_NCLIBS": Windows deletes an environment variable
+# set to the empty string, which is what this is when netCDF comes from the
+# MinGW environment rather than the built dependency prefix -- and `set -u`
+# then aborts the build on an unset variable.
+$steps.Add('export LDFLAGS="${VAFT_NCLIBS:-} -Wl,--stack,$VAFT_STACK"')
 # `make v` prints the configuration it derived. Its "Compiling supporting
 # modules" line lists the dependencies it intends to build from submodules; if
 # it is not empty, our library paths did not take and the next step would start
