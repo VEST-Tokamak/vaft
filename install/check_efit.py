@@ -39,23 +39,38 @@ from _external_code_common import (  # noqa: E402
     SKIP,
     WARN,
     CheckResult,
+    _looks_like_a_program,
     check_build_record,
+    check_executables_load,
     check_source_checkout,
     check_source_revision,
+    check_toolchain,
+    find_msys2_root,
     emit,
     first_error_line,
     read_manifest,
     scratch_directory,
 )
 
+#: True when this run is on native Windows, where EFIT is built by the
+#: PowerShell installer and launched without a shell.
+IS_WINDOWS = os.name == "nt"
+
 TITLE = "EFIT toolchain check"
 RERUN = "python install/check_efit.py"
 PROJECT = "EFIT"
 ROLES = ("efit", "efund")
 SOURCE_MARKERS = ("CMakeLists.txt", "efit/efit.F90", "green/efund.f90", "LICENSE.rst")
+# Naming the POSIX script on Windows sends the reader to one that refuses to
+# run there: install_efit.sh has only Darwin and Linux arms.
 BUILD_REMEDIATION = (
     "Build the toolchain with:\n"
-    "         bash install/install_efit.sh --source <efit source> --accept-efit-users-agreement"
+    "         powershell -ExecutionPolicy Bypass -File install\\install_efit_windows.ps1 "
+    "<efit source> -AcceptEfitUsersAgreement"
+    if IS_WINDOWS
+    else "Build the toolchain with:\n"
+    "         bash install/install_efit.sh --source <efit source> "
+    "--accept-efit-users-agreement"
 )
 INSTALLED_LAYOUT = {"efit": Path("bin/efit"), "efund": Path("bin/efund")}
 BUILD_TREE_LAYOUT = {"efit": Path("efit/efit"), "efund": Path("green/efund")}
@@ -75,20 +90,54 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _resolve(candidate: Path) -> Path:
+    """The documented POSIX name, or the .exe a Windows build actually wrote.
+
+    Both layouts are spelled without a suffix because that is what the sources
+    and the docs call these two programs. On Windows the linker appends .exe,
+    so looking only for the documented name reports a perfectly good build as
+    missing.
+    """
+    if not IS_WINDOWS or candidate.is_file():
+        return candidate
+    suffixed = candidate.with_name(candidate.name + ".exe")
+    return suffixed if suffixed.is_file() else candidate
+
+
 def _executables(prefix: Optional[str], build_tree: Optional[str]) -> dict[str, Path]:
     if build_tree:
         root = Path(build_tree).expanduser()
-        return {role: root / relative for role, relative in BUILD_TREE_LAYOUT.items()}
+        return {role: _resolve(root / relative) for role, relative in BUILD_TREE_LAYOUT.items()}
     if prefix:
         root = Path(prefix).expanduser()
-        return {role: root / relative for role, relative in INSTALLED_LAYOUT.items()}
+        return {role: _resolve(root / relative) for role, relative in INSTALLED_LAYOUT.items()}
     return {}
 
 
-def check_posix_toolchain(*, required: bool) -> CheckResult:
+def check_build_toolchain(*, required: bool) -> CheckResult:
+    """The compiler and CMake this build needs, wherever they live.
+
+    On Windows the toolchain is MSYS2's, not the host's, so nothing on PATH
+    answers the question; the shared check finds the MinGW-w64 root the
+    PowerShell installer uses. It reported "POSIX platforms only" before, which
+    told a Windows reader nothing they could act on.
+    """
     label = "EFIT build toolchain"
-    if os.name == "nt":
-        return CheckResult(label, SKIP, "POSIX platforms only")
+    if IS_WINDOWS:
+        result = check_toolchain(required=required)
+        if result.status != PASS:
+            return CheckResult(label, result.status, result.detail, result.remediation)
+        root = find_msys2_root()
+        cmake = (root / "ucrt64" / "bin" / "cmake.exe") if root else None
+        if cmake is None or not cmake.is_file():
+            return CheckResult(
+                label,
+                FAIL if required else WARN,
+                f"{result.detail}, but cmake is missing from the MSYS2 environment",
+                "pacman -S --needed mingw-w64-ucrt-x86_64-cmake, or rerun the "
+                "installer with -InstallToolchain.",
+            )
+        return CheckResult(label, PASS, f"{result.detail}, cmake present")
     missing = [tool for tool in ("cmake", "gfortran", "git") if shutil.which(tool) is None]
     if missing:
         status = FAIL if required else WARN
@@ -108,7 +157,9 @@ def check_toolchain_executables(executables: dict[str, Path]) -> CheckResult:
     for role, path in executables.items():
         if not path.is_file():
             problems.append(f"missing {role} at {path}")
-        elif not os.access(path, os.X_OK):
+        elif not _looks_like_a_program(path):
+            # os.access(X_OK) is true for every readable file on Windows, so it
+            # cannot tell a built executable from a copied text file.
             problems.append(f"{path} is not executable")
         else:
             found.append(f"{role} {_sha256(path)[:12]}")
@@ -145,13 +196,24 @@ def check_capabilities(prefix: Optional[str], build_tree: Optional[str]) -> Chec
                 compiler = line.split("=", 1)[1].strip()
     detail = f"build type {build_type or 'unknown'}, compiler {compiler or 'unknown'}, NetCDF {'on' if netcdf else 'off'}"
     if netcdf is False:
-        return CheckResult(label, WARN, detail, "Without NetCDF EFIT writes no m-file, so iteration counts and per-slice residuals are unavailable. Rebuild with install/install_efit.sh (NetCDF on by default).")
+        return CheckResult(label, WARN, detail, "Without NetCDF EFIT writes no m-file, so iteration counts and per-slice "
+            "residuals are unavailable. Rebuild with NetCDF enabled; it is on by "
+            "default in " + ("install_efit_windows.ps1." if IS_WINDOWS else "install/install_efit.sh."))
     return CheckResult(label, PASS, detail)
 
 
 def _run_with_stack(command: list[str], *, cwd: Path, timeout: int, stack_kb: int = 65536):
-    shell = f"ulimit -s {int(stack_kb)} 2>/dev/null; exec \"$@\""
-    return subprocess.run(["bash", "-c", shell, "efit-check", *command], cwd=str(cwd), capture_output=True, text=True, errors="replace", timeout=timeout, check=False)
+    """Run *command* with the stack EFUND needs, however this platform sets it.
+
+    On Windows the reserve is in the PE header, put there by the installer's
+    -StackReserveMB, and there is nothing to raise at run time -- so the
+    executable is started directly rather than through a bash that the
+    external-code installers deliberately keep off PATH.
+    """
+    if not IS_WINDOWS:
+        shell = f"ulimit -s {int(stack_kb)} 2>/dev/null; exec \"$@\""
+        command = ["bash", "-c", shell, "efit-check", *command]
+    return subprocess.run(command, cwd=str(cwd), capture_output=True, text=True, errors="replace", timeout=timeout, check=False)
 
 
 def check_efund_smoke(executables: dict[str, Path], source: Optional[str], *, skip: bool) -> CheckResult:
@@ -260,7 +322,7 @@ def run_checks(*, source=None, prefix=None, build_tree=None, skip_smoke=False) -
         prefix = os.environ.get("EFITHOME")
     executables = _executables(prefix, build_tree)
     results = [
-        check_posix_toolchain(required=bool(source)),
+        check_build_toolchain(required=bool(source)),
         check_source_checkout(source, project=PROJECT, markers=SOURCE_MARKERS, remediation=BUILD_REMEDIATION),
         check_source_revision(source, project=PROJECT),
         check_build_record(prefix, source, project=PROJECT, remediation=BUILD_REMEDIATION) if prefix else CheckResult("EFIT build record", SKIP, "a raw build tree carries no install manifest"),
