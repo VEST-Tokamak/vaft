@@ -404,8 +404,11 @@ def check_executables_load(
             except OSError as error:
                 unloadable.append(f"{name}: {error}")
                 continue
-            # 0xC0000135 / 0xC0000139: a library or an entry point is missing.
-            if completed.returncode in (-1073741515, -1073741701):
+            # 0xC0000135 (no such library) and 0xC0000139 (no such entry
+            # point). CPython reports the raw unsigned DWORD on Windows, so
+            # comparing against the signed spelling of these never matched and
+            # this guard reported every unloadable build as fine.
+            if (completed.returncode & 0xFFFFFFFF) in (0xC0000135, 0xC0000139):
                 unloadable.append(f"{name}: missing runtime libraries")
     finally:
         shutil.rmtree(scratch, ignore_errors=True)

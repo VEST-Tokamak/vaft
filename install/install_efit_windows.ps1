@@ -284,7 +284,7 @@ $steps.Add('args=(-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_Fortran
 # Upstream has no find_package(MPI) and uses `include "mpif.h"`; MS-MPI ships no
 # gfortran-usable one. MDSplus and the DIII-D libraries are not obtainable here,
 # which restricts EFIT to k-file input -- what every non-snap test uses anyway.
-$steps.Add('args+=(-DENABLE_PARALLEL=OFF -DENABLE_MDSPLUS=OFF -DTEST_EFUND=ON)')
+$steps.Add('args+=(-DENABLE_PARALLEL=OFF -DENABLE_MDSPLUS=OFF)')
 $steps.Add('args+=(-DCMAKE_EXE_LINKER_FLAGS="-Wl,--stack,$VAFT_STACK")')
 # CMake puts BLAS ahead of liblsode and libr8slatec, which call into it. GNU ld
 # is single-pass, so naming it again at the very end -- which is where
@@ -298,6 +298,25 @@ $steps.Add('if [ -n "${VAFT_NETCDF:-}" ]; then args+=(-DENABLE_NETCDF=ON -DNetCD
 $steps.Add('cmake "$src" "${args[@]}"')
 $steps.Add('cmake --build . -j "$VAFT_JOBS"')
 
+# What the manifest records, so a reader can reproduce this configure.
+$stackBytes = [int64] $StackReserveMB * 1MB
+$cmakeArguments = @(
+    '-G', 'Unix Makefiles',
+    '-DCMAKE_BUILD_TYPE=Release',
+    '-DCMAKE_Fortran_COMPILER=gfortran',
+    '-DENABLE_PARALLEL=OFF',
+    '-DENABLE_MDSPLUS=OFF',
+    "-DCMAKE_EXE_LINKER_FLAGS=-Wl,--stack,0x$('{0:X}' -f $stackBytes)",
+    "-DCMAKE_Fortran_STANDARD_LIBRARIES=-L/$MinGWEnvironment/lib -lopenblas",
+    $(if ($netcdfUnix) { "-DENABLE_NETCDF=ON", "-DNetCDF_DIR=$netcdfUnix" } else { '-DENABLE_NETCDF=OFF' })
+)
+$fortranVersion = 'gfortran'
+$versionProbe = Join-Path (Join-Path $root $MinGWEnvironment) "bin" | Join-Path -ChildPath "gfortran.exe"
+if (Test-Path -LiteralPath $versionProbe) {
+    $reported = & $versionProbe --version 2>$null | Select-Object -First 1
+    if ($reported) { $fortranVersion = [string] $reported }
+}
+
 Write-Step "Building EFIT and EFUND (this takes several minutes) ..."
 Invoke-Msys2 -Msys2Root $root -MinGWEnvironment $MinGWEnvironment -Command ($steps -join "`n") `
     -Variables @{
@@ -306,7 +325,7 @@ Invoke-Msys2 -Msys2Root $root -MinGWEnvironment $MinGWEnvironment -Command ($ste
         VAFT_ENV    = $MinGWEnvironment
         VAFT_NETCDF = $netcdfUnix
         VAFT_JOBS   = $Jobs
-        VAFT_STACK  = ('0x' + ('{0:X}' -f ($StackReserveMB * 1MB)))
+        VAFT_STACK  = ('0x' + ('{0:X}' -f $stackBytes))
     } -LogPath $logPath -AllowFailure | Out-Null
 
 # Judge by the artifacts, not by CMake's exit code.
@@ -321,6 +340,39 @@ foreach ($name in $Executables) {
     }
 }
 
+# ---------------------------------------------------------------------------
+# Record
+#
+# Built before the missing-executable check, because a partial build is still
+# worth recording and pointing EFITHOME at.
+# ---------------------------------------------------------------------------
+
+$record = @{
+    code                          = $CodeName
+    prefix                        = $prefixPath
+    source                        = $source
+    source_revision               = $(if ($revision) { $revision.Revision } else { $null })
+    source_described              = $(if ($revision) { $revision.Described } else { $null })
+    source_dirty                  = $(if ($revision) { $revision.Dirty } else { $null })
+    efit_users_agreement_accepted = $true
+    build_dir                     = $buildDirectory
+    build_type                    = 'Release'
+    # The same shape install_efit.sh records, so one checker reads both.
+    cmake_arguments               = $cmakeArguments
+    compiler                      = @{ fortran = 'gfortran'; version = $fortranVersion }
+    netcdf                        = @{
+        enabled     = [bool] $netcdfUnix
+        c_dir       = $(if ($netcdfUnix) { $netcdfUnix } else { $null })
+        fortran_dir = $(if ($netcdfUnix) { $netcdfUnix } else { $null })
+    }
+    stack_reserve_bytes           = $stackBytes
+    msys2_root                    = $root
+    mingw_env                     = $MinGWEnvironment
+    executables                   = @($Executables | ForEach-Object { "bin\$_.exe" })
+    home_variable                 = $HomeVariable
+    build_log                     = $logPath
+}
+
 $built = @($Executables | Where-Object { $missing -notcontains $_ })
 if ($built.Count -gt 0) {
     Copy-RuntimeDependencies -Msys2Root $root -MinGWEnvironment $MinGWEnvironment -BinDirectory $binDirectory | Out-Null
@@ -331,7 +383,16 @@ if ($missing.Count -gt 0) {
     # deserves to be told which it is rather than handed a Fortran diagnostic.
     $log = ''
     if (Test-Path -LiteralPath $logPath) { $log = Get-Content -LiteralPath $logPath -Raw }
-    if ($log -match "Symbol 'jtime'.*has no IMPLICIT type") {
+    # Whatever did build is worth keeping and worth pointing EFITHOME at: with
+    # EFUND alone a user can still generate Green-function tables, and the
+    # adapter names the missing role clearly when something asks for efit.
+    if ($built.Count -gt 0) {
+        Write-InstallManifest -Prefix $prefixPath -Record ($record + @{ missing = $missing })
+        if (-not $NoEnvironmentWiring) {
+            Set-ExternalCodeEnvironment -Name $HomeVariable -Value $prefixPath
+        }
+    }
+    if (($missing -join ',') -eq 'efit' -and $log -match "Symbol 'jtime'.*has no IMPLICIT type") {
         Stop-WithGuidance @"
 EFIT did not build, and the reason is in your source rather than in this script.
 
@@ -358,29 +419,6 @@ Write-Result -Status PASS -Name 'EFIT build' -Detail (($Executables | ForEach-Ob
 
 if (-not (Test-ExecutableLoads -Executables (@($Executables | ForEach-Object { Join-Path $binDirectory "$_.exe" })))) {
     Stop-WithGuidance 'The installed executables could not load their runtime libraries. See install\README.md.'
-}
-
-# ---------------------------------------------------------------------------
-# Record and wire up
-# ---------------------------------------------------------------------------
-
-$record = @{
-    code                          = $CodeName
-    prefix                        = $prefixPath
-    source                        = $source
-    source_revision               = $(if ($revision) { $revision.Revision } else { $null })
-    source_described              = $(if ($revision) { $revision.Described } else { $null })
-    source_dirty                  = $(if ($revision) { $revision.Dirty } else { $null })
-    efit_users_agreement_accepted = $true
-    build_dir                     = $buildDirectory
-    build_type                    = 'Release'
-    netcdf                        = $(if ($netcdfUnix) { $netcdfUnix } else { $false })
-    stack_reserve_bytes           = ($StackReserveMB * 1MB)
-    msys2_root                    = $root
-    mingw_env                     = $MinGWEnvironment
-    executables                   = @($Executables | ForEach-Object { "bin\$_.exe" })
-    home_variable                 = $HomeVariable
-    build_log                     = $logPath
 }
 Write-InstallManifest -Prefix $prefixPath -Record $record
 
