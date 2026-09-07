@@ -291,7 +291,10 @@ $steps.Add('args+=(-DCMAKE_EXE_LINKER_FLAGS="-Wl,--stack,$VAFT_STACK")')
 # CMAKE_Fortran_STANDARD_LIBRARIES lands -- is what resolves dscal_, daxpy_ and
 # dswap_. A Linux build never notices, because there BLAS is a shared object.
 $steps.Add('args+=(-DCMAKE_Fortran_STANDARD_LIBRARIES="-L/$VAFT_ENV/lib -lopenblas")')
-$steps.Add('if [ -n "$VAFT_NETCDF" ]; then args+=(-DENABLE_NETCDF=ON -DNetCDF_DIR="$VAFT_NETCDF"); else args+=(-DENABLE_NETCDF=OFF); fi')
+# ${VAFT_NETCDF:-}, not "$VAFT_NETCDF": Windows deletes an environment variable
+# that is set to the empty string, so with no netCDF the name does not reach the
+# shell at all -- and `set -u` aborts the build on an unset variable.
+$steps.Add('if [ -n "${VAFT_NETCDF:-}" ]; then args+=(-DENABLE_NETCDF=ON -DNetCDF_DIR="$VAFT_NETCDF"); else args+=(-DENABLE_NETCDF=OFF); fi')
 $steps.Add('cmake "$src" "${args[@]}"')
 $steps.Add('cmake --build . -j "$VAFT_JOBS"')
 
