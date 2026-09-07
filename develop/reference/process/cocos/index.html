@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: coils_non_axisymmetric · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: cocos · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/process/wall_modes/" />
+            <link rel="prev" href="/vaft/develop/reference/process/statistical_analysis/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
+            <link rel="next" href="/vaft/develop/reference/process/profile/" />
         
     </head>
     <body>
@@ -220,7 +220,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Process reference: coils_non_axisymmetric</a>
+                            <a href="." >Process reference: cocos</a>
                         
                     </h1>
                 </div>
@@ -246,12 +246,12 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/process/Process_reference_coils_non_axisymmetric">Process reference: coils_non_axisymmetric</h1>
+                        <h1 id="/reference/process/Process_reference_cocos">Process reference: cocos</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.coils_non_axisymmetric, read from the standardized docstrings (issue 252).</dd>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.cocos, read from the standardized docstrings (issue 252).</dd>
     <dt>Prerequisites / inputs</dt><dd>None.</dd>
     <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
@@ -260,53 +260,74 @@
 
 
 <p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/coils_non_axisymmetric.py"><code class="language-plaintext highlighter-rouge">vaft/process/coils_non_axisymmetric.py</code></a>:
-2 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("coils_non_axisymmetric.&lt;name&gt;")</code> prints.
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/cocos.py"><code class="language-plaintext highlighter-rouge">vaft/process/cocos.py</code></a>:
+4 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("cocos.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
 <h2 id="overview">Overview</h2>
 
-<p>The two operations every 3-D coil workflow repeats, on plain arrays, with the
-sign conventions stated once.  Geometry objects live in
-<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.coils_non_axisymmetric_geometry</code>; the IMAS mapper in
-<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.coils_non_axisymmetric</code>; the GPEC <code class="language-plaintext highlighter-rouge">coil.in</code>
-serialization in <code class="language-plaintext highlighter-rouge">vaft.code.gpec</code>.  Nothing here reads an ODS or knows
-which machine the coils belong to.</p>
+<p><code class="language-plaintext highlighter-rouge">vaft.data.cocos</code> declares <em>what</em> each convention and each external code is.
+This module answers <em>whether a given equilibrium is actually consistent with the
+convention it claims</em>, which is the check that catches a mislabelled file before
+its signs propagate into derived quantities.</p>
 
-<ul>
-  <li><code class="language-plaintext highlighter-rouge">toroidal_mode_decomposition</code> – complex Fourier coefficient of a
-per-sector quantity (typically coil currents) for each toroidal mode
-number, <code class="language-plaintext highlighter-rouge">C_n = &lt;v_k exp(-i n phi_k)&gt;</code>.</li>
-  <li><code class="language-plaintext highlighter-rouge">biot_savart_filaments</code> – vacuum magnetic field of closed polyline
-filaments carrying given currents, at arbitrary probe points.</li>
-</ul>
+<p>Sauter &amp; Medvedev 2013 Eq. 23 gives six relations that any equilibrium in a given
+COCOS must satisfy, in terms of the signs of the plasma current and the vacuum
+toroidal field:</p>
+
+<p>===============  =====================================
+quantity         required sign
+===============  =====================================
+<code class="language-plaintext highlighter-rouge">F</code>            <code class="language-plaintext highlighter-rouge">sigma_B0</code>
+<code class="language-plaintext highlighter-rouge">Phi_tor</code>      <code class="language-plaintext highlighter-rouge">sigma_B0</code>
+<code class="language-plaintext highlighter-rouge">psi_edge -</code>   <code class="language-plaintext highlighter-rouge">sigma_Ip * sigma_Bp</code>
+<code class="language-plaintext highlighter-rouge">psi_axis</code>
+<code class="language-plaintext highlighter-rouge">dp/dpsi</code>      <code class="language-plaintext highlighter-rouge">-sigma_Ip * sigma_Bp</code>
+<code class="language-plaintext highlighter-rouge">j_phi</code>        <code class="language-plaintext highlighter-rouge">sigma_Ip</code>
+<code class="language-plaintext highlighter-rouge">q</code>            <code class="language-plaintext highlighter-rouge">sigma_Ip * sigma_B0 * sigma_rhotheta</code>
+===============  =====================================</p>
+
+<p>The <code class="language-plaintext highlighter-rouge">q</code> relation is reported as a warning rather than an error: Sauter Sect. IV
+notes that codes frequently emit <code class="language-plaintext highlighter-rouge">abs(q)</code>, so a mismatch there is common and is
+not on its own evidence of a wrong index.</p>
+
+<p>Only four of the six are checkable against <code class="language-plaintext highlighter-rouge">vaft.data.equilibrium.EquilibriumData</code>
+as it stands: it carries no toroidal current density and no toroidal flux, so
+<code class="language-plaintext highlighter-rouge">j_phi</code> and <code class="language-plaintext highlighter-rouge">Phi_tor</code> are always reported as unverifiable.  They are listed
+here because they are part of Eq. 23 and become checkable if those fields are
+ever added, not because they are being tested today.</p>
 
 <h2 id="functions">Functions</h2>
 
 <ul class="formula-index">
-  <li><a href="#biot_savart_filaments"><code>biot_savart_filaments</code></a> &mdash; Vacuum magnetic field of closed polyline filaments at probe points.
+  <li><a href="#cocos_consistency_signs"><code>cocos_consistency_signs</code></a> &mdash; Observed sign of each Sauter Eq. 23 quantity, or <code class="language-plaintext highlighter-rouge">None</code> where not determinable.
 </li>
-  <li><a href="#toroidal_mode_decomposition"><code>toroidal_mode_decomposition</code></a> &mdash; Complex toroidal Fourier coefficient of a per-sector quantity.
+  <li><a href="#identify_convention"><code>identify_convention</code></a> &mdash; Candidate COCOS indices for an equilibrium, from its observable signs.
+</li>
+  <li><a href="#identify_flux_exponent"><code>identify_flux_exponent</code></a> &mdash; Decide whether psi is stored in weber or weber per radian, from Ampere’s law.
+</li>
+  <li><a href="#validate_cocos"><code>validate_cocos</code></a> &mdash; Check an equilibrium against the Sauter Eq. 23 relations for one COCOS index.
 </li>
 </ul>
 
-<h3 id="biot_savart_filaments"><code class="language-plaintext highlighter-rouge">biot_savart_filaments</code></h3>
+<h3 id="cocos_consistency_signs"><code class="language-plaintext highlighter-rouge">cocos_consistency_signs</code></h3>
 
-<p class="formula-signature"><code>biot_savart_filaments(points_xyz, currents_a, probes_xyz)</code></p>
+<p class="formula-signature"><code>cocos_consistency_signs(equilibrium)</code></p>
 
 <p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
-<p>Vacuum magnetic field of closed polyline filaments at probe points.</p>
+<p>Observed sign of each Sauter Eq. 23 quantity, or <code class="language-plaintext highlighter-rouge">None</code> where not determinable.</p>
+
+<p>Reads signs off the equilibrium as it stands.  Nothing is compared against a
+convention here and nothing is converted; <code class="language-plaintext highlighter-rouge">validate_cocos</code> does the
+comparison and <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.convert_cocos</code> is the only
+transform in the package.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>points_xyz</code></td><td>array_like</td><td>m</td><td><p>Filament vertices, shape <code class="language-plaintext highlighter-rouge">(F, P, 3)</code> or a sequence of <code class="language-plaintext highlighter-rouge">F</code> arrays <code class="language-plaintext highlighter-rouge">(P_f, 3)</code>; each filament is traversed in vertex order and must be closed (first vertex equals last).</p>
-</td></tr>
-  <tr><td><code>currents_a</code></td><td>array_like</td><td>A</td><td><p>Current in each filament, positive along the vertex order, shape <code class="language-plaintext highlighter-rouge">(F,)</code>; multiply by the winding turns first when a filament stands for a multi-turn coil.</p>
-</td></tr>
-  <tr><td><code>probes_xyz</code></td><td>array_like</td><td>m</td><td><p>Observation points, shape <code class="language-plaintext highlighter-rouge">(N, 3)</code>.</p>
+  <tr><td><code>equilibrium</code></td><td>EquilibriumData</td><td>-</td><td><p>The equilibrium to inspect.  Missing fields yield <code class="language-plaintext highlighter-rouge">None</code> for the relations that need them rather than an error.</p>
 </td></tr>
   </tbody>
 </table>
@@ -314,68 +335,68 @@ filaments carrying given currents, at arbitrary probe points.</li>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>np.ndarray</td><td>T</td><td><p>Cartesian field <code class="language-plaintext highlighter-rouge">(B_x, B_y, B_z)</code> at each probe, shape <code class="language-plaintext highlighter-rouge">(N, 3)</code>.</p>
+  <tr><td></td><td>dict of str to int or None</td><td>-</td><td><p>Keys <code class="language-plaintext highlighter-rouge">f</code>, <code class="language-plaintext highlighter-rouge">q</code>, <code class="language-plaintext highlighter-rouge">j_phi</code>, <code class="language-plaintext highlighter-rouge">phi_tor</code>, <code class="language-plaintext highlighter-rouge">dpsi</code>, <code class="language-plaintext highlighter-rouge">pprime</code>; each <code class="language-plaintext highlighter-rouge">+1</code>, <code class="language-plaintext highlighter-rouge">-1</code>, or <code class="language-plaintext highlighter-rouge">None</code> when the field is absent or all-zero.</p>
 </td></tr>
   </tbody>
 </table>
 
-<p><strong>Raises.</strong></p>
+<p><strong>Processing steps.</strong></p>
 
-<p>ValueError
-    A filament is not closed, the number of currents differs from the
-    number of filaments, or a probe coincides with a segment midpoint
-    (the field is singular on the conductor).</p>
+<ol>
+  <li><code class="language-plaintext highlighter-rouge">f</code>, <code class="language-plaintext highlighter-rouge">q</code>, <code class="language-plaintext highlighter-rouge">j_phi</code> and <code class="language-plaintext highlighter-rouge">phi_tor</code>: the sign of the profile’s median,
+with a deadband so a numerically-zero profile reports <code class="language-plaintext highlighter-rouge">None</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">dpsi</code>: the sign of <code class="language-plaintext highlighter-rouge">psi_boundary - psi_axis</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">pprime</code>: the stored <code class="language-plaintext highlighter-rouge">pprime</code> profile’s sign when the equilibrium
+carries one, which for a GEQDSK or an ODS it essentially always does.
+Only when it does not is the bulk slope
+<code class="language-plaintext highlighter-rouge">(p_edge - p_axis)/(psi_edge - psi_axis)</code> used instead, taken on a
+profile reordered axis-to-edge so the direction is known.</li>
+</ol>
 
 <p><strong>Convention.</strong></p>
 
-<p>Right-handed Cartesian axes.  Each straight segment contributes
-<code class="language-plaintext highlighter-rouge">mu0/(4 pi) I (dl x r) / |r|^3</code> with <code class="language-plaintext highlighter-rouge">dl</code> along the vertex order and
-<code class="language-plaintext highlighter-rouge">r</code> from the segment midpoint to the probe (midpoint rule), so the
-field is the one the right-hand rule assigns to a current flowing in the
-vertex order.  A coil traversed the other way, or a negative current,
-flips the sign.</p>
-
-<p><strong>Assumptions.</strong></p>
-
-<p>Filaments are thin (no conductor cross-section); the midpoint rule is
-second-order accurate in segment length.</p>
+<p>Signs only, in whatever convention the equilibrium is already in; this
+function neither assumes nor imposes a COCOS.  <code class="language-plaintext highlighter-rouge">j_phi</code> and <code class="language-plaintext highlighter-rouge">phi_tor</code> are
+always <code class="language-plaintext highlighter-rouge">None</code> today because <code class="language-plaintext highlighter-rouge">vaft.data.equilibrium.EquilibriumData</code>
+carries neither a toroidal current density nor a toroidal flux; they are
+reported so that Eq. 23 is represented in full, not because they are tested.</p>
 
 <p><strong>Applicability.</strong></p>
 
-<p>Machine-independent.  Any set of polyline coils: RMP, error-field
-correction, PF coils sampled as polygons.</p>
+<p>Machine-independent.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>Transient memory is <code class="language-plaintext highlighter-rouge">O(S N)</code> per filament (<code class="language-plaintext highlighter-rouge">S</code> segments, <code class="language-plaintext highlighter-rouge">N</code>
-probes; two <code class="language-plaintext highlighter-rouge">(N, S, 3)</code> float arrays), whichever input form is used;
-call in probe blocks when <code class="language-plaintext highlighter-rouge">S * N</code> reaches ~1e7.</p>
+<p>A bulk slope is the sign of the overall trend, not of every point: a
+non-monotonic pressure profile still reports one sign.  Because the stored
+<code class="language-plaintext highlighter-rouge">pprime</code> takes precedence, the fallback rarely runs in practice; that the
+two paths can disagree for a hand-built equilibrium is tracked in #605.</p>
 
 <p><strong>Provenance.</strong></p>
 
 <ol class="formula-references">
-  <li>J. D. Jackson, <em>Classical Electrodynamics</em>, 3rd ed., Sec. 5.2: the Biot-Savart law for a line current.
-</li>
-  <li>hsyun_GPEC <code class="language-plaintext highlighter-rouge">library/gpec_input_processor.py</code> and <code class="language-plaintext highlighter-rouge">library/mast_u_input_convertor.py</code> carried three copies of this midpoint-rule kernel; this is the single replacement.
+  <li>Sauter and Medvedev, <em>Tokamak Coordinate Conventions: COCOS</em>, Comput. Phys. Commun. 184, 293 (2013), Eq. 23, which defines the six sign relations this function measures.  The preference for a bulk pressure slope over a pointwise derivative is that paper’s own recommendation.
 </li>
 </ol>
 
-<h3 id="toroidal_mode_decomposition"><code class="language-plaintext highlighter-rouge">toroidal_mode_decomposition</code></h3>
+<h3 id="identify_convention"><code class="language-plaintext highlighter-rouge">identify_convention</code></h3>
 
-<p class="formula-signature"><code>toroidal_mode_decomposition(phi_rad, values, modes)</code></p>
+<p class="formula-signature"><code>identify_convention(equilibrium, *, clockwise_phi=None)</code></p>
 
 <p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
-<p>Complex toroidal Fourier coefficient of a per-sector quantity.</p>
+<p>Candidate COCOS indices for an equilibrium, from its observable signs.</p>
+
+<p>Narrows rather than decides: the return is every index consistent with what
+the data shows, which is often more than one.  A caller that needs a single
+index supplies the missing fact instead of guessing.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>phi_rad</code></td><td>array_like</td><td>rad</td><td><p>Toroidal angle of each sector sample, any order, shape <code class="language-plaintext highlighter-rouge">(K,)</code>.</p>
+  <tr><td><code>equilibrium</code></td><td>EquilibriumData</td><td>-</td><td><p>Must carry <code class="language-plaintext highlighter-rouge">bt0</code>, <code class="language-plaintext highlighter-rouge">ip</code>, <code class="language-plaintext highlighter-rouge">q</code> and <code class="language-plaintext highlighter-rouge">psi_1d</code>; without them the candidate set is empty.</p>
 </td></tr>
-  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The quantity at each sector, real or complex, shape <code class="language-plaintext highlighter-rouge">(K,)</code>; coil currents are the usual case.</p>
-</td></tr>
-  <tr><td><code>modes</code></td><td>iterable of int</td><td>-</td><td><p>Toroidal mode numbers <code class="language-plaintext highlighter-rouge">n</code> to evaluate.</p>
+  <tr><td><code>clockwise_phi</code></td><td>bool, optional</td><td>-</td><td><p>Whether the machine’s toroidal angle runs clockwise seen from above.  A fact about the machine, not about the data; without it both the odd and the even index of each pair are returned.</p>
 </td></tr>
   </tbody>
 </table>
@@ -383,45 +404,198 @@ call in probe blocks when <code class="language-plaintext highlighter-rouge">S *
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>dict[int, complex]</td><td>any</td><td><p><code class="language-plaintext highlighter-rouge">C_n</code> for each requested <code class="language-plaintext highlighter-rouge">n</code>, in the units of <code class="language-plaintext highlighter-rouge">values</code>.</p>
+  <tr><td></td><td>tuple of int</td><td>-</td><td><p>The candidate COCOS indices in increasing order, empty when the required fields are missing or the sign identification fails.</p>
 </td></tr>
   </tbody>
 </table>
 
-<p><strong>Raises.</strong></p>
+<p><strong>Processing steps.</strong></p>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">phi_rad</code> and <code class="language-plaintext highlighter-rouge">values</code> differ in length, are not one-dimensional,
-    or are empty.</p>
+<ol>
+  <li>Reorder <code class="language-plaintext highlighter-rouge">psi_1d</code> and <code class="language-plaintext highlighter-rouge">q</code> axis-to-edge when the stored profile runs the
+other way.</li>
+  <li>Get the sign family from <code class="language-plaintext highlighter-rouge">omas.identify_cocos</code>, which reads it off the
+signs of <code class="language-plaintext highlighter-rouge">ip</code>, <code class="language-plaintext highlighter-rouge">bt0</code>, <code class="language-plaintext highlighter-rouge">q</code> and the psi gradient.</li>
+  <li>Narrow to 1-8 or 11-18 using <code class="language-plaintext highlighter-rouge">identify_flux_exponent</code>, keeping the
+full set when that abstains.</li>
+</ol>
 
 <p><strong>Convention.</strong></p>
 
-<p><code class="language-plaintext highlighter-rouge">C_n = (1/K) sum_k v_k exp(-i n phi_k)</code>, the plain sample mean, so a
-pattern <code class="language-plaintext highlighter-rouge">v_k = A cos(n phi_k + delta)</code> returns <code class="language-plaintext highlighter-rouge">C_n = (A/2) exp(+i delta)</code>
-when the sectors resolve <code class="language-plaintext highlighter-rouge">n</code> without aliasing: the peak amplitude is
-<code class="language-plaintext highlighter-rouge">2 |C_n|</code> and the phase of <code class="language-plaintext highlighter-rouge">C_n</code> is the pattern’s phase <code class="language-plaintext highlighter-rouge">delta</code> at
-<code class="language-plaintext highlighter-rouge">phi = 0</code>.  The <code class="language-plaintext highlighter-rouge">exp(-i n phi)</code> kernel is the one GPEC’s <code class="language-plaintext highlighter-rouge">coil.in</code>
-documentation and the legacy hsyun_GPEC <code class="language-plaintext highlighter-rouge">fourier_mode_coefficient</code>
-use; a <code class="language-plaintext highlighter-rouge">exp(+i n phi)</code> convention conjugates every coefficient.  No
-normalisation by <code class="language-plaintext highlighter-rouge">2/K</code> is applied, so <code class="language-plaintext highlighter-rouge">C_0</code> is the mean.</p>
-
-<p><strong>Assumptions.</strong></p>
-
-<p>Uniform weighting of the sectors.  With <code class="language-plaintext highlighter-rouge">K</code> equally spaced sectors the
-coefficients are exact for <code class="language-plaintext highlighter-rouge">|n| &lt; K/2</code>; with fewer or unevenly spaced
-sectors they are the least-squares-free sample projection and alias.</p>
+<p>Returns indices in the standard 1 to 18 numbering; 9 and 10 do not exist.
+The sign family and the storage family are identified by different evidence,
+signs for the first and an Ampere loop integral for the second, and either can
+be inconclusive on its own.  What each index means is declared in
+<code class="language-plaintext highlighter-rouge">vaft.data.cocos</code>, not here.</p>
 
 <p><strong>Applicability.</strong></p>
 
-<p>Machine-independent.  Any toroidal array of discrete elements: RMP coil
-rows, error-field correction coils, saddle loops.</p>
+<p>Machine-independent.  <code class="language-plaintext highlighter-rouge">clockwise_phi</code> is where a machine’s own geometry
+enters.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The axis-to-edge reorder exists because <code class="language-plaintext highlighter-rouge">identify_cocos</code> reads the psi
+gradient at the first node, so a boundary-first profile would invert the
+poloidal-flux sign silently.  When the flux exponent abstains the result spans
+both storage families, and a caller that then converts must not assume the
+candidates share one.  Any exception from the underlying identification is
+reported as no candidates rather than raised.</p>
 
 <p><strong>Provenance.</strong></p>
 
 <ol class="formula-references">
-  <li>GPEC <code class="language-plaintext highlighter-rouge">coil.in</code> documentation: per-coil currents are combined per toroidal harmonic with <code class="language-plaintext highlighter-rouge">exp(-i n phi)</code>.
+  <li>Sauter and Medvedev (2013) for the index numbering and the sign relations the identification rests on.
 </li>
-  <li>hsyun_GPEC <code class="language-plaintext highlighter-rouge">library/gpec_input_processor.py</code> <code class="language-plaintext highlighter-rouge">fourier_mode_coefficient</code> (same kernel), ported unchanged.
+  <li><code class="language-plaintext highlighter-rouge">omas.identify_cocos</code> supplies the sign family; its flux-exponent argument is deliberately not used, see <code class="language-plaintext highlighter-rouge">identify_flux_exponent</code>.
+</li>
+</ol>
+
+<h3 id="identify_flux_exponent"><code class="language-plaintext highlighter-rouge">identify_flux_exponent</code></h3>
+
+<p class="formula-signature"><code>identify_flux_exponent(equilibrium)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Decide whether psi is stored in weber or weber per radian, from Ampere’s law.</p>
+
+<p>The loop integral of the poloidal field around the last closed flux surface
+equals <code class="language-plaintext highlighter-rouge">mu0*|Ip|</code>.  Computing that field from psi <em>as if</em> it were weber per
+radian gives a ratio of 1 when the assumption holds and <code class="language-plaintext highlighter-rouge">2*pi</code> when psi is
+really in weber, so the two answers are a factor <code class="language-plaintext highlighter-rouge">2*pi</code> apart and the test is
+decisive rather than a threshold on a continuum.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>equilibrium</code></td><td>EquilibriumData</td><td>-</td><td><p>Must carry <code class="language-plaintext highlighter-rouge">ip</code>, a closed <code class="language-plaintext highlighter-rouge">lcfs</code>, and a <code class="language-plaintext highlighter-rouge">psi</code> map on its <code class="language-plaintext highlighter-rouge">r</code> and <code class="language-plaintext highlighter-rouge">z</code> grid; anything missing yields <code class="language-plaintext highlighter-rouge">(None, None)</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of (int or None, float or None)</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(e_Bp, ratio)</code>.  <code class="language-plaintext highlighter-rouge">e_Bp</code> is 0 for a weber-per-radian psi (COCOS 1-8) and 1 for a weber psi (COCOS 11-18), or <code class="language-plaintext highlighter-rouge">None</code> when the inputs are unavailable or the ratio lands near neither answer.  <code class="language-plaintext highlighter-rouge">ratio</code> is the measured loop integral over <code class="language-plaintext highlighter-rouge">mu0*|Ip|</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Close the LCFS contour and compute the poloidal field on it with
+<code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.poloidal_field_at_boundary</code> in the
+weber-per-radian form; only the magnitude matters.</li>
+  <li>Integrate it along the contour by the trapezoidal rule.</li>
+  <li>Divide by <code class="language-plaintext highlighter-rouge">mu0*|Ip|</code>.</li>
+  <li>Accept 0 or 1 if the ratio is within
+<code class="language-plaintext highlighter-rouge">FLUX_EXPONENT_TOLERANCE</code> of 1 or <code class="language-plaintext highlighter-rouge">2*pi</code>; otherwise abstain.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">FLUX_EXPONENT_TOLERANCE</code> is 0.15, a numerical convenience rather than
+a physical threshold: a correct equilibrium lands within about half a
+percent, the residual being LCFS discretization, so the band is roughly
+thirty times the observed error while leaving the two acceptance windows
+far apart, at 0.85 to 1.15 against 5.34 to 7.23.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Decides which storage family psi is in; it does not rescale psi and does not
+say which of the eight sign orientations applies.  <code class="language-plaintext highlighter-rouge">e_Bp</code> is Sauter’s flux
+exponent: 0 means the <code class="language-plaintext highlighter-rouge">2*pi</code> is not carried in psi, 1 means it is.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Abstains rather than picking the nearer of two wrong answers.  A ratio near
+neither value is evidence the input is broken, a truncated LCFS or an <code class="language-plaintext highlighter-rouge">ip</code>
+that disagrees with the psi map, not evidence of a convention.  Needs a
+2-D psi map and an LCFS, so a profiles-only equilibrium cannot be classified.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Sauter and Medvedev (2013) for <code class="language-plaintext highlighter-rouge">e_Bp</code> and the storage families.
+</li>
+  <li>Replaces the <code class="language-plaintext highlighter-rouge">a</code> argument of <code class="language-plaintext highlighter-rouge">omas.identify_cocos</code>, which is not usable here: it evaluates <code class="language-plaintext highlighter-rouge">pi*B0*(a[i]-a[0])**2/(psi[i]-psi[0])</code> at the node adjacent to the axis, where the minor radius goes as <code class="language-plaintext highlighter-rouge">sqrt(psi)</code>, so a linear reconstruction underestimates it and the estimate depends on its square.  On the packaged VEST sample that picks the wrong family on a margin of 0.22 against 1.67, where this loop integral separates 1.004 from 6.31.
+</li>
+</ol>
+
+<h3 id="validate_cocos"><code class="language-plaintext highlighter-rouge">validate_cocos</code></h3>
+
+<p class="formula-signature"><code>validate_cocos(equilibrium, cocos=None, *, sigma_ip=None, sigma_b0=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Check an equilibrium against the Sauter Eq. 23 relations for one COCOS index.</p>
+
+<p>The check that catches a mislabelled file before its signs propagate into
+derived quantities.  Never raises on an inconsistency: it returns a report and
+lets the caller decide whether a mismatch is fatal.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>equilibrium</code></td><td>EquilibriumData</td><td>-</td><td><p>The equilibrium to check.</p>
+</td></tr>
+  <tr><td><code>cocos</code></td><td>int, optional</td><td>-</td><td><p>The convention to check against, 1 to 18.  Defaults to the index recorded on the equilibrium’s own <code class="language-plaintext highlighter-rouge">convention</code>.</p>
+</td></tr>
+  <tr><td><code>sigma_ip</code></td><td>int, optional</td><td>-</td><td><p>Sign of the plasma current, <code class="language-plaintext highlighter-rouge">+1</code> or <code class="language-plaintext highlighter-rouge">-1</code>.  Defaults to the sign of the equilibrium’s <code class="language-plaintext highlighter-rouge">ip</code>.</p>
+</td></tr>
+  <tr><td><code>sigma_b0</code></td><td>int, optional</td><td>-</td><td><p>Sign of the vacuum toroidal field.  Defaults to the sign of <code class="language-plaintext highlighter-rouge">bt0</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ValidationReport</td><td>-</td><td><p>One issue per violated relation, plus at most one <code class="language-plaintext highlighter-rouge">cocos_unverifiable</code> warning covering every relation whose inputs were missing.  An empty report means every checkable relation held.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Resolve the target index and the two reference signs from the arguments,
+falling back to the equilibrium’s own convention and field signs.</li>
+  <li>Measure the observed signs with <code class="language-plaintext highlighter-rouge">cocos_consistency_signs</code>.</li>
+  <li>Compare each against the sign Eq. 23 requires for that index, collecting
+the mismatches.</li>
+  <li>Collapse every unverifiable relation into a single warning rather than
+one issue each.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>Checks consistency <em>with</em> a convention; it does not identify one and does not
+convert. A mismatch on <code class="language-plaintext highlighter-rouge">q</code> is reported at warning severity rather than
+error, because codes commonly emit <code class="language-plaintext highlighter-rouge">abs(q)</code> and a sign disagreement there is
+not on its own evidence of a wrong index.  Every other relation is an error.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Only four of Eq. 23’s six relations are checkable against
+<code class="language-plaintext highlighter-rouge">vaft.data.equilibrium.EquilibriumData</code> as it stands; <code class="language-plaintext highlighter-rouge">j_phi</code> and
+<code class="language-plaintext highlighter-rouge">phi_tor</code> have no field to read and are always unverifiable.  A passing
+report therefore means “consistent as far as the stored fields can say”, not
+“the index is correct”.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Sauter and Medvedev (2013), Eq. 23 for the relations and Sect. IV for the rule that a <code class="language-plaintext highlighter-rouge">q</code> sign mismatch is a warning, not a rejection.
 </li>
 </ol>
 
@@ -514,13 +688,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/process/wall_modes/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: wall_modes">
+                        <a href="/vaft/develop/reference/process/statistical_analysis/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: statistical_analysis">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
+                        <a href="/vaft/develop/reference/process/profile/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: profile">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -536,7 +710,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#biot_savart_filaments" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">biot_savart_filaments</a></li><li class="page-toc-item page-toc-level-3"><a href="#toroidal_mode_decomposition" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">toroidal_mode_decomposition</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#cocos_consistency_signs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cocos_consistency_signs</a></li><li class="page-toc-item page-toc-level-3"><a href="#identify_convention" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">identify_convention</a></li><li class="page-toc-item page-toc-level-3"><a href="#identify_flux_exponent" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">identify_flux_exponent</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_cocos</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -552,11 +726,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "VEST diagnostics and data availability",
+            "title": "Process reference: profile",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/VEST_diagnostics.md",
-            "ref": "_guide/VEST_diagnostics.md",
+            "path": "_guide/Process_reference_profile.md",
+            "ref": "_guide/Process_reference_profile.md",
             "articles": []
         },
         
@@ -648,8 +822,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Process_reference_coils_non_axisymmetric.md",
-        "mtime": "2026-09-05 10:00:00 +0000",
+        "path": "_guide/Process_reference_cocos.md",
+        "mtime": "2026-09-03 10:04:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
