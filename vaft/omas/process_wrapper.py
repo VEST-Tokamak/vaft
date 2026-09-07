@@ -6,6 +6,7 @@ from pathlib import Path
 
 from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
 from vaft.process import (
+    calc_grid,
     compute_br_bz_phi,
     compute_response_matrix,
     compute_impedance_matrices,
@@ -75,49 +76,61 @@ DT_SUB = 5e-5
 COINCIDENT_SOURCE_TOL = 1e-6
 
 def compute_grid_ods(ods: Dict[str, Any], xvar: List[float], zvar: List[float]) -> Tuple[ndarray, ndarray, ndarray]:
-    """Compute magnetic field components (Br, Bz, Phi) on a grid using OMAS data structure.
-    
+    """Green's-function response of an ``(R, Z)`` grid to every coil and loop.
+
+    These are **response matrices per unit source current**, not fields: each
+    array is ``(n_grid_points, n_coils + n_loops)``, and a field follows from
+    contracting one with the currents at a time of interest.  ``calc_grid``
+    names them that way; this wrapper long said "magnetic field components",
+    which is what a reader would reasonably act on and be wrong.
+
     Args:
         ods: OMAS data structure with PF coil and loop data
         xvar: Radial coordinates
         zvar: Vertical coordinates
 
     Returns:
-        Tuple of (Br, Bz, Phi) matrices
+        Tuple of ``(Br, Bz, Phi)`` response matrices, in that order.
 
     Raises:
         KeyError: If required ODS data is missing
+        ValueError: If the coil or loop geometry cannot be read
     """
     try:
         pf = ods['pf_active']
         pfp = ods['pf_passive']
 
-        # Extract coil data
-        coil_turns = np.array([
+        # Extract coil data.  These stay plain lists: coils carry different
+        # numbers of elements (VEST's ten hold 158, 100, 16, 16, 24, 24, 48,
+        # 48, 48, 48), so np.array() on them raises on the ragged nesting --
+        # and calc_grid asks for List[List[float]] anyway.
+        coil_turns = [
             [pf[f'coil.{i}.element.{j}.turns_with_sign'] for j in range(len(pf[f'coil.{i}.element']))]
             for i in range(len(pf['coil']))
-        ])
-        coil_r = np.array([
+        ]
+        coil_r = [
             [pf[f'coil.{i}.element.{j}.geometry.rectangle.r'] for j in range(len(pf[f'coil.{i}.element']))]
             for i in range(len(pf['coil']))
-        ])
-        coil_z = np.array([
+        ]
+        coil_z = [
             [pf[f'coil.{i}.element.{j}.geometry.rectangle.z'] for j in range(len(pf[f'coil.{i}.element']))]
             for i in range(len(pf['coil']))
-        ])
+        ]
 
-        # Extract loop data
+        # Extract loop data.  The outlines are ragged for the same reason: a
+        # polygon loop carries its own vertex count, a rectangular one an
+        # empty list.
         loop_geometry_type = np.array([
             pfp[f'loop.{i}.element[0].geometry.geometry_type'] for i in range(len(pfp['loop']))
         ])
-        loop_outline_r = np.array([
+        loop_outline_r = [
             pfp[f'loop.{i}.element[0].geometry.outline.r'] if loop_geometry_type[i] == GEOMETRY_TYPE_POLYGON else []
             for i in range(len(pfp['loop']))
-        ])
-        loop_outline_z = np.array([
+        ]
+        loop_outline_z = [
             pfp[f'loop.{i}.element[0].geometry.outline.z'] if loop_geometry_type[i] == GEOMETRY_TYPE_POLYGON else []
             for i in range(len(pfp['loop']))
-        ])
+        ]
         loop_rectangle_r = np.array([
             pfp[f'loop.{i}.element[0].geometry.rectangle.r'] if loop_geometry_type[i] == GEOMETRY_TYPE_RECTANGLE else 0.0
             for i in range(len(pfp['loop']))
@@ -132,8 +145,10 @@ def compute_grid_ods(ods: Dict[str, Any], xvar: List[float], zvar: List[float]) 
             loop_geometry_type, loop_outline_r, loop_outline_z,
             loop_rectangle_r, loop_rectangle_z
         )
-    except KeyError as e:
-        logger.error(f"Missing required data in ODS: {e}")
+    except (KeyError, ValueError) as e:
+        # KeyError alone let a NameError and a ragged-array ValueError
+        # escape a handler that looked like it was catching them.
+        logger.error(f"Could not read the coil and loop geometry from the ODS: {e}")
         raise
 
 def compute_point_response_ods(
@@ -808,13 +823,24 @@ def compute_point_vacuum_fields_ods(
            bz_c.shape[1] != expected_sources:
             raise RuntimeError(f"Response matrix shape mismatch. Expected: {expected_sources}, Got: {psi_c.shape[1]}")
 
-        # Construct current array based on mode
+        # Construct current array based on mode.  Each waveform is read once and
+        # stacked, rather than subscripted per time sample: the per-sample form
+        # cost 2.4 million IMAS path parses on a 2500-sample, 960-source shot to
+        # read 960 arrays, which was ~26 s against 0.16 s for the response
+        # matrices it feeds.  The two blocks stay under their own guards so that
+        # ``mode="pf_active"`` still works on an ODS carrying no passive-loop
+        # current -- reading everything and slicing afterwards would not.
         coil_loop_curr = np.zeros((nbt, nbcoil + nbloop))
-        for t in range(nbt):
-            if mode in ['vacuum', 'pf_active']:
-                coil_loop_curr[t, :nbcoil] = [pf[f"coil.{i_coil}.current.data"][t] for i_coil in range(nbcoil)]
-            if mode in ['vacuum', 'pf_passive']:
-                coil_loop_curr[t, nbcoil:] = [pfp[f"loop.{i_loop}.current"][t] for i_loop in range(nbloop)]
+        if mode in ['vacuum', 'pf_active']:
+            coil_loop_curr[:, :nbcoil] = np.column_stack(
+                [np.asarray(pf[f"coil.{i_coil}.current.data"], dtype=float)
+                 for i_coil in range(nbcoil)]
+            )
+        if mode in ['vacuum', 'pf_passive']:
+            coil_loop_curr[:, nbcoil:] = np.column_stack(
+                [np.asarray(pfp[f"loop.{i_loop}.current"], dtype=float)
+                 for i_loop in range(nbloop)]
+            )
 
         # Compute vacuum fields
         psi_out, br_out, bz_out = vaft.process.compute_vacuum_fields_1d(
