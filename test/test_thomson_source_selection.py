@@ -188,11 +188,37 @@ class TestUpdaterAgreesWithTheLibrary:
         assert chosen[40330] == "NeTe_Shot40330_v9_rev.mat"
 
     def test_non_thomson_files_are_left_alone(self, tmp_path: Path) -> None:
+        """IDS_/CES_ names yield no shot number, so they never reach ranking."""
         updater = self._updater()
         _write_v9(tmp_path / "NeTe_Shot40330_v9_rev.mat", te=20.0, ne=2e18)
         (tmp_path / "IDS_48224.mat").write_bytes(b"")
         (tmp_path / "CES_47514.mat").write_bytes(b"")
         assert list(updater.select_thomson_sources(tmp_path)) == [40330]
+
+    def test_an_unrecognised_layout_is_reported_not_dropped(
+        self, tmp_path: Path, capsys
+    ) -> None:
+        """The branch the previous test did not reach.
+
+        A name the updater can parse a shot out of but the ranking rule does
+        not recognise used to be skipped in silence. This loop previously
+        processed every file it could name a shot for, so a quiet skip loses
+        coverage -- the exact way whole campaigns went missing before.
+        """
+        updater = self._updater()
+        updater._unparsed_reported.clear()
+        (tmp_path / "45408_NeTe (1).mat").write_bytes(b"")
+
+        assert updater.select_thomson_sources(tmp_path) == {}
+        assert "45408_NeTe (1).mat" in capsys.readouterr().out
+
+    def test_a_bare_shot_layout_is_ingested(self, tmp_path: Path) -> None:
+        """`Shot40330_v10.mat` is the first example in the updater's own
+        filename docstring. The rule must rank it, or the pipeline drops it."""
+        updater = self._updater()
+        _write_v9(tmp_path / "NeTe_Shot40330_v9_rev.mat", te=10.0, ne=1e18)
+        _write_v9(tmp_path / "Shot40330_v10.mat", te=20.0, ne=2e18)
+        assert updater.select_thomson_sources(tmp_path) == {40330: "Shot40330_v10.mat"}
 
 
 class TestTimeIsRecoveredOrRefused:
@@ -204,13 +230,54 @@ class TestTimeIsRecoveredOrRefused:
             thomson_scattering(ODS(consistency_check=False), 39915, data_root=tmp_path)
 
     def test_a_matching_sibling_timebase_is_adopted(self, tmp_path: Path) -> None:
-        _write_simple(tmp_path / "39915_NeTe.mat", te=10.0, ne=1e18, with_time=False)
-        _write_v9(tmp_path / "NeTe_Shot39915.mat", te=20.0, ne=2e18)  # ranks above the bare file
+        """Named explicitly, because that is the only way to reach this path.
+
+        ``{shot}_NeTe`` is the lowest-ranked family, so whenever a sibling
+        exists the resolver returns the sibling and the timeless file is never
+        opened. Adoption is therefore live only when a caller names the
+        timeless file itself -- which the legacy positional form does, and the
+        corrective updater used to do for every file it found. Passing
+        ``data_root`` here would silently exercise the v9 reader instead and
+        assert nothing about time recovery.
+        """
+        timeless = tmp_path / "39915_NeTe.mat"
+        _write_simple(timeless, te=10.0, ne=1e18, with_time=False)
+        _write_v9(tmp_path / "NeTe_Shot39915_v9_rev.mat", te=20.0, ne=2e18)
+
         ods = ODS(consistency_check=False)
-        thomson_scattering(ods, 39915, data_root=tmp_path)
+        thomson_scattering(ods, 39915, str(timeless))
+
         time = np.asarray(ods["thomson_scattering.time"], dtype=float)
-        assert time.size == SAMPLES
         np.testing.assert_allclose(time, np.linspace(300.0, 309.0, SAMPLES) / 1e3)
+        # The values must still come from the file that was named, not the donor.
+        np.testing.assert_allclose(_channel_te(ods), np.full(SAMPLES, 10.0))
+
+    def test_a_suffixed_campaign_file_can_donate_its_timebase(self, tmp_path: Path) -> None:
+        """`tsTime_<shot>` is the whole 48xxx campaign's time key."""
+        timeless = tmp_path / "48224_NeTe.mat"
+        _write_simple(timeless, te=10.0, ne=1e18, with_time=False)
+        savemat(
+            str(tmp_path / "NeTe_48224.mat"),
+            {"tsTime_48224": np.linspace(300.0, 309.0, SAMPLES)},
+        )
+        mat_data = loadmat(str(timeless))
+        recovered = _recover_simple_time(mat_data, 48224, timeless)
+        np.testing.assert_allclose(recovered, np.linspace(300.0, 309.0, SAMPLES))
+
+    def test_a_donor_is_still_found_behind_a_wrong_length_key(self, tmp_path: Path) -> None:
+        """A wrong-length `time` must not hide a correct-length `time_TS`."""
+        timeless = tmp_path / "39915_NeTe.mat"
+        _write_simple(timeless, te=10.0, ne=1e18, with_time=False)
+        savemat(
+            str(tmp_path / "NeTe_Shot39915_v9.mat"),
+            {
+                "time": np.linspace(0.0, 1.0, 3),
+                "time_TS": np.linspace(300.0, 309.0, SAMPLES),
+            },
+        )
+        mat_data = loadmat(str(timeless))
+        recovered = _recover_simple_time(mat_data, 39915, timeless)
+        np.testing.assert_allclose(recovered, np.linspace(300.0, 309.0, SAMPLES))
 
     def test_a_sibling_of_the_wrong_length_is_not_adopted(self, tmp_path: Path) -> None:
         """A timebase that cannot be matched sample-for-sample is not a match.
@@ -243,6 +310,21 @@ class TestTimeIsRecoveredOrRefused:
         mat_data = loadmat(str(source))
         with pytest.raises(KeyError, match="disagree about"):
             _recover_simple_time(mat_data, 39915, source)
+
+
+class TestNotFoundNamesWhereItLooked:
+    def test_the_error_lists_the_directories_and_layouts_tried(self, tmp_path: Path) -> None:
+        """Discovery returns nothing to enumerate, so the roots must be named.
+
+        The fixed candidate list used to put ten concrete paths in this
+        message; an operator chasing a missing shot needs the equivalent.
+        """
+        with pytest.raises(FileNotFoundError) as excinfo:
+            _resolve_thomson_mat_file(99999, data_root=tmp_path)
+        message = str(excinfo.value)
+        assert message.rstrip().endswith(")"), "message must not trail a bare colon"
+        assert str(tmp_path / "legacy") in message
+        assert "NeTe_Shot99999_v<n>[_rev].mat" in message
 
 
 class TestUnmappableLayoutsReportTheirSchema:

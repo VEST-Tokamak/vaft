@@ -80,6 +80,18 @@ _THOMSON_NAME_PATTERNS = (
         ),
         3,
     ),
+    # The same two layouts without the `NeTe_` prefix. `Shot40330_v10.mat` is
+    # the first example in the corrective updater's own filename docstring, and
+    # that updater parses a shot number out of it -- so a rank that did not
+    # recognise it made the updater drop the file instead of ingesting it.
+    (re.compile(r"^Shot(?P<shot>\d+)\.mat$", re.IGNORECASE), 1),
+    (
+        re.compile(
+            r"^Shot(?P<shot>\d+)_v(?P<version>\d+)(?P<rev>_rev)?\.mat$",
+            re.IGNORECASE,
+        ),
+        3,
+    ),
 )
 
 
@@ -141,7 +153,10 @@ def _discover_thomson_sources(shotnumber: int, search_root: Path) -> list[Path]:
             rank = thomson_source_rank(name, shotnumber)
             if rank is not None:
                 found.append((rank, -depth, name, directory / name))
-    found.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
+    # Two passes so the name tiebreak stays ascending: a single reverse=True
+    # would flip it along with the rank, contradicting "then by name".
+    found.sort(key=lambda item: item[2])
+    found.sort(key=lambda item: (item[0], item[1]), reverse=True)
     return [path for _, _, _, path in found]
 
 
@@ -206,7 +221,22 @@ def _resolve_thomson_mat_file(
         if candidate.exists():
             return candidate
 
-    searched = ", ".join(str(path) for path in candidates)
+    if candidates:
+        searched = ", ".join(str(path) for path in candidates)
+    else:
+        # Discovery found nothing, so there are no probed paths to list. Name
+        # the directories and the layouts instead: an operator chasing a
+        # missing shot needs to know where we looked, and the old fixed-list
+        # error told them that.
+        roots = ", ".join(
+            str(search_root / sub) if sub else str(search_root)
+            for sub in _THOMSON_SEARCH_SUBDIRS
+        )
+        searched = (
+            f"{roots} (for names NeTe_Shot{shotnumber}_v<n>[_rev].mat, "
+            f"NeTe_Shot{shotnumber}.mat, NeTe_{shotnumber}.mat, "
+            f"{shotnumber}_NeTe.mat, Shot{shotnumber}[_v<n>[_rev]].mat)"
+        )
     raise FileNotFoundError(
         f"Cannot find Thomson MAT file for shot {shotnumber}; searched: {searched}"
     )
@@ -341,13 +371,19 @@ def _recover_simple_time(
             other = loadmat(str(sibling))
         except (OSError, ValueError):
             continue
-        for key in ("time", "time_TS"):
+        # Every timebase this module knows how to read, including the suffixed
+        # campaign's `tsTime_<shot>`. Checked to exhaustion rather than
+        # stopping at the first key that happens to be present: a file holding
+        # a wrong-length `time` beside a correct-length `time_TS` still has a
+        # usable timebase.
+        keys = ("time", "time_TS", f"tsTime_{int(shotnumber)}")
+        for key in keys:
             if key not in other:
                 continue
             candidate = _as_real_array(other[key]).reshape(-1)
             if candidate.size == samples:
                 matches.append((sibling, candidate))
-            break
+                break
 
     if not matches:
         raise KeyError(
@@ -475,6 +511,7 @@ def thomson_scattering(
 
 __all__ = [
     "thomson_scattering",
+    "thomson_source_rank",
     "vfit_thomson_scattering_dynamic",
     "vfit_thomson_scattering_static",
 ]

@@ -315,9 +315,11 @@ def select_thomson_sources(directory):
     40323-40331 differ by up to 58% in ``T_e`` between those two files.
 
     The listing is sorted before ranking, so the result does not depend on
-    directory order. Files that belong to no shot are skipped silently here
-    rather than warned about once per name: they are reported by the caller,
-    which knows whether an unmatched file is a Thomson file at all.
+    directory order. Anything skipped is reported once per name -- both a file
+    with no parsable shot number and one whose layout the ranking rule does not
+    recognise. Neither is dropped quietly: this loop previously processed every
+    file it could name a shot for, so a silent skip would be a regression in
+    coverage rather than a tightening.
     """
     from vaft.machine_mapping.thomson_scattering import thomson_source_rank
 
@@ -333,8 +335,16 @@ def select_thomson_sources(directory):
             continue
         rank = thomson_source_rank(fname, shotnumber)
         if rank is None:
-            # Parsed as a shot but is not a Thomson layout this rule knows
-            # (an IDS_/CES_ file, say). Leave it to its own updater.
+            # A shot number was parsed out but the name is not a Thomson layout
+            # the ranking rule knows. Say so once: dropping it silently is how
+            # whole campaigns went missing before, and this loop used to
+            # process every file it could name a shot for.
+            if fname not in _unparsed_reported:
+                _unparsed_reported.add(fname)
+                print(
+                    f"[WARNING] unrecognised Thomson layout for shot {shotnumber}, "
+                    f"skipped: {fname}"
+                )
             continue
         previous = best.get(shotnumber)
         if previous is None or rank > previous[0]:
