@@ -178,3 +178,18 @@ def test_the_caller_s_ods_is_left_as_it_was_found(ods):
     assert "time" not in ods["pf_passive"]
     recipes._build_vacuum_field(ods, field="psi", resolution=COARSE)
     assert "time" not in ods["pf_passive"]
+
+
+def test_the_declared_ids_cover_what_the_default_instant_reads():
+    """With no ``time=`` the map is drawn at the breakdown onset, and that
+    timing reads H-alpha alongside the plasma current.  An adapter that loads
+    only the declared IDSs then resolves a different instant than one handed
+    the whole entry -- which is a difference in the drawn values, not just in
+    the title.  ``equilibrium_field_psi_vacuum`` declares both for the same
+    reason.
+    """
+    from vaft.plot.registry import get_spec
+
+    declared = set(get_spec("vacuum_field").ids)
+    assert {"magnetics", "spectrometer_uv"} <= declared
+    assert declared >= set(get_spec("equilibrium_field_psi_vacuum").ids) - {"tf"}

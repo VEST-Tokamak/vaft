@@ -169,7 +169,12 @@ def equilibrium_field_psi_vacuum(
     description="The vacuum field of the coils and vessel at one instant: the "
                 "flux, the poloidal field strength, the decay index, or the "
                 "breakdown figure of merit, chosen with field=.",
-    ids=("pf_active", "pf_passive", "wall", "tf", "equilibrium", "magnetics"),
+    # spectrometer_uv earns its place: with no time= the map is drawn at the
+    # breakdown onset, and that timing reads H-alpha alongside the plasma
+    # current.  An adapter that loads only the declared IDSs would otherwise
+    # resolve a different instant than one that hands over the whole entry.
+    ids=("pf_active", "pf_passive", "wall", "tf", "equilibrium", "magnetics",
+         "spectrometer_uv"),
     required_paths=("pf_active.time", "pf_active.coil.{i}.current.data"),
     optional_paths=(
         "pf_passive.loop.{i}.element.{j}.geometry.outline.r",
