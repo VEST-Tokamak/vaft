@@ -136,8 +136,10 @@ def test_the_psi_map_offers_units_and_style_but_the_vacuum_map_no_style(catalog)
     assert "style" not in [c.name for c in controls_for(catalog["equilibrium_field_psi_vacuum"])]
 
 
-def test_a_spectrogram_offers_nothing_it_does_not_state(catalog):
-    assert controls_for(catalog["mirnov_spectrogram"]) == ()
+def test_a_spectrogram_offers_the_analysis_it_states_and_nothing_else(catalog):
+    controls = controls_for(catalog["mirnov_spectrogram"])
+    assert [c.name for c in controls] == ["method"]
+    assert controls[0].options == ("stft", "hann_fft", "cwt") and controls[0].default == "stft"
 
 
 def test_the_synthetic_control_needs_the_overlay_to_be_available(catalog):
