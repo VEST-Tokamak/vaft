@@ -68,6 +68,7 @@ CORE_MODULES: tuple[str, ...] = (
     # Layer boundaries. Source-level architecture checks -- no solves, no I/O.
     "contracts/test_machine_mapping_boundaries.py",
     "test_api_layer_boundaries.py",
+    "test_code_parameters_writers.py",
     "test_no_bare_downsample.py",
     "test_no_pyplot_outside_plot.py",
     "test_plot_backend_boundaries.py",
@@ -94,6 +95,7 @@ CORE_MODULES: tuple[str, ...] = (
     "contracts/test_models_magnetics.py",
     "contracts/test_models_plasma.py",
     "contracts/test_models_uncertainty.py",
+    "test_code_parameters_contract.py",
     "test_dataset_description.py",
     "test_eqdsk_omas_roundtrip.py",
     "test_path_exists.py",

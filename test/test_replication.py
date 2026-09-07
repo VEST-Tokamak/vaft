@@ -403,7 +403,7 @@ def test_derived_images_are_not_mistaken_for_stage_ids():
 # --------------------------------------------------------------------------- #
 
 
-def _stage_product(db, stage, shot, ods, status="success"):
+def _stage_product(db, stage, shot, ods, status="success", manifest_extra=None):
     from vaft.omas import save as save_local
 
     product = db.omas_product(stage, shot=shot)
@@ -411,7 +411,8 @@ def _stage_product(db, stage, shot, ods, status="success"):
     save_local(ods, product)
     manifest = db.omas_manifest(stage, shot=shot)
     manifest.parent.mkdir(parents=True, exist_ok=True)
-    manifest.write_text(json.dumps({"stage": stage, "status": status}), encoding="utf-8")
+    payload = {"stage": stage, "status": status, **(manifest_extra or {})}
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
 
 
 def test_a_vacuum_shot_reaches_main_without_an_equilibrium(tmp_path, monkeypatch):
@@ -530,21 +531,45 @@ def test_a_missing_hsds_namespace_fails_with_the_provisioning_fix(staged, monkey
     assert sent == [], "nothing is sent to a namespace that does not exist"
 
 
-def test_per_code_and_mode_stability_detail_survives_replication(tmp_path, monkeypatch):
-    """DCON, RDCON and STRIDE share one publication lineage but keep their identity."""
-    from vaft.omas import load as load_local, save as save_local
+def test_per_code_and_mode_stability_detail_travels_in_the_shapes_that_exist(
+    tmp_path, monkeypatch
+):
+    """DCON, RDCON and STRIDE share one publication lineage but keep their identity.
+
+    Each solver appends a ``<solver name=... n_tor=...>`` fragment to the one
+    ``<parameters>`` string `vaft.machine_mapping.mhd_linear` maintains, so the
+    lineage is the field's own contents and survives replication as a string.
+
+    This test used to assert a nested ``code.parameters.cases.N.status`` shape
+    that no producer writes and that would not survive an IMAS entry
+    (#561; the measurement is in ``test_code_parameters_contract.py``).  The
+    per-(code, mode) status it was reaching for lives in the stage manifest,
+    which `replicate_stage` reads for eligibility only -- so it is checked here
+    where it exists, and the fact that it does not reach the replica is stated
+    rather than implied.  Closing that gap is #527's business.
+    """
+    import xml.etree.ElementTree as ET
+
+    from vaft.machine_mapping.mhd_linear import _append_code_parameters
 
     db = FileDB(tmp_path)
     ods = ODS(consistency_check=False)
     ods["mhd_linear.time"] = [0.3, 0.31]
-    for index, (code, mode, status) in enumerate(
-        [("dcon", 1, "success"), ("rdcon", 2, "no_output"), ("stride", 1, "failed")]
-    ):
-        base = f"mhd_linear.code.parameters.cases.{index}"
-        ods[f"{base}.code"] = code
-        ods[f"{base}.toroidal_mode"] = mode
-        ods[f"{base}.status"] = status
-    _stage_product(db, "mhd_linear", 39915, ods)
+    # -1 is "this solver did not successfully run"; the second slice succeeded.
+    ods["mhd_linear.code.output_flag"] = [-1, 0]
+    for solver, n_tor in (("dcon", 1), ("rdcon", 2), ("stride", 1)):
+        _append_code_parameters(
+            ods,
+            "mhd_linear",
+            f'<solver name="{solver}" n_tor="{n_tor}"/>',
+            code_name="GPEC-suite",
+        )
+    cases = {
+        "t=316/dcon/n=1": {"status": "success"},
+        "t=316/rdcon/n=2": {"status": "no_output"},
+        "t=316/stride/n=1": {"status": "failed", "reason": "no equilibrium"},
+    }
+    _stage_product(db, "mhd_linear", 39915, ods, manifest_extra={"modules_modes": cases})
 
     captured = {}
 
@@ -559,11 +584,30 @@ def test_per_code_and_mode_stability_detail_survives_replication(tmp_path, monke
 
     assert record.source == "chease-mhd-stability"
     replicated = captured["ods"]
-    for index, code in enumerate(["dcon", "rdcon", "stride"]):
-        base = f"mhd_linear.code.parameters.cases.{index}"
-        assert replicated[f"{base}.code"] == code
-    # A failed case travels as a failed case, not as an absence.
-    assert replicated["mhd_linear.code.parameters.cases.2.status"] == "failed"
+
+    # The local product leg keeps the field a string: only the Access Layer
+    # parses it, so a consumer can still read it as XML here.
+    parameters = replicated["mhd_linear.code.parameters"]
+    assert isinstance(parameters, str)
+    root = ET.fromstring(parameters)
+    assert [(e.get("name"), e.get("n_tor")) for e in root.findall("solver")] == [
+        ("dcon", "1"),
+        ("rdcon", "2"),
+        ("stride", "1"),
+    ]
+
+    # A slice no solver reached travels as an explicit negative flag, not as an
+    # absence -- which is what "a failed case travels as a failed case" means
+    # in the fields mhd_linear actually has.
+    assert list(replicated["mhd_linear.code.output_flag"]) == [-1, 0]
+
+    # Per-(code, mode) status lives in the manifest, and the manifest is not
+    # replicated: `replicate_stage` reads it to decide eligibility and sends
+    # only the IDS the stage owns, so nothing carries that status onward.
+    manifest = json.loads(db.omas_manifest("mhd_linear", shot=39915).read_text(encoding="utf-8"))
+    assert manifest["modules_modes"]["t=316/stride/n=1"]["status"] == "failed"
+    assert set(replicated.keys()) <= {"mhd_linear", "ntms", "dataset_description"}
+    assert "failed" not in json.dumps(replicated["mhd_linear.code.parameters"])
 
 
 def test_a_landed_replica_that_fails_its_check_is_still_recorded(staged, monkeypatch):
