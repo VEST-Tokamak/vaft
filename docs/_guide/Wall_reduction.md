@@ -143,10 +143,12 @@ residual by a median 78 % over the 73 usable channels, and a converged
 reduction improves it by the same 78 % to within a tenth of a point
 (`moments_30`, 0.5 % from the full wall term at the probes): the residual
 that remains is the vessel model's, not the truncation's. The nineteen
-slowest modes are the counter-example rather than a second instance of it
-— 34 % from the full wall term at the probes, they reach only 64 % — so the
-separation is a claim about converged reductions, not about reduction in
-general.
+slowest modes are the counter-example rather than a second instance of it:
+they reach only 64 %, and sit 34 % from the full wall term at the probes over
+this benchmark's 25 ms window — the 28 % in the table above is the same rule
+and the same metric scored over the whole record instead, so the two are not
+in conflict. The separation is a claim about converged reductions, not about
+reduction in general.
 
 `find_plasma_free_shots` classifies database shots as `plasma_free`,
 `plasma`, `undriven` or `daq_missing` from their plasma-current and coil

@@ -149,19 +149,27 @@ def test_reduction_error_is_invisible_next_to_the_vessel_model_error(study):
     result = wr.experimental_comparison(ods, selections)
     full_median = result["full"]["measurement"]["improvement"]["median"]
 
-    # The full wall removes a median 78% of the coil-only residual here
-    # (0.7811 over the 73 usable channels).  The median is steady because the
-    # channels are, not because the arithmetic is delicate: it moves by under
-    # 2e-3 across the evaluation window, across wall-authority conditioning
-    # from 0.0 to 1.3, and between the packaged sample and the canonical
-    # source it is cut from -- and it is the same on Linux and on Windows.
-    # The 0.85 this line once asked was never this quantity: no probe channel
-    # on this shot reaches 0.863, so no conditioning of a 73-channel median
-    # comes near 0.85.  It was a loose factor below the 91% the guide once
-    # reported, a figure the study's own convergence table contradicts.
-    # 0.75 is placed where it separates a working vessel model from a degraded
-    # one -- tau_19 below reaches 0.644 -- so the line still goes quiet if the
-    # wall term collapses.
+    # The full wall removes a median 78% of the coil-only residual (0.7811
+    # over the 73 usable channels) on the window this benchmark defines: the
+    # plasma-free interval, opened three wall time constants in.  That value
+    # is the same on Linux and on Windows, between the packaged sample and the
+    # canonical source it is cut from, and under dt_sub refinement (converged
+    # to 1.4e-4); wall-authority conditioning from 0.0 to 1.3 moves it 3.5e-3.
+    #
+    # It is *not* window-independent, so this bound belongs to that window
+    # policy and would have to be re-measured if the policy moved: opening at
+    # four time constants instead of three gives 0.707 -- under the bound
+    # below -- and keeping only the first 40% of the window gives 0.914.
+    #
+    # 0.85, which this line asked before, was never this quantity: only 10 of
+    # the 73 channels exceed 0.85, so a median there would need 37 of them.
+    # It was a loose factor below the 91% the guide reported for this
+    # comparison, and nothing in this code path reproduces 91% on this shot
+    # under the shipped window.
+    #
+    # 0.75 sits between a working vessel model and a degraded one: the full
+    # wall is 0.781, no_wall is 0.0 on the next line, and tau_19 -- the study's
+    # own badly-converged counter-example -- reaches 0.644.
     assert full_median > 0.75
     assert result["no_wall"]["measurement"]["improvement"]["median"] == 0.0
 
