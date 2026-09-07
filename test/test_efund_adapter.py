@@ -14,6 +14,7 @@ import f90nml
 import numpy as np
 import pytest
 
+from external_code_stubs import write_launchable_stub
 from vaft.code.efit import efund as efund_module
 from vaft.code.efit.efund import (
     MHDIN_NAME,
@@ -270,10 +271,7 @@ def test_run_without_a_toolchain_is_skipped_with_directions(geometry, tmp_path):
 
 
 def test_run_refuses_a_workdir_without_the_input(geometry, tmp_path, monkeypatch):
-    fake = tmp_path / "bin" / "efund"
-    fake.parent.mkdir()
-    fake.write_text("#!/bin/sh\nexit 0\n")
-    fake.chmod(0o755)
+    fake = write_launchable_stub(tmp_path / "bin" / "efund")
     config = EFUNDConfig(workdir=tmp_path / "run", executable=str(fake))
     inputs = EFUNDInputs(
         workdir=tmp_path / "run", mhdin=tmp_path / "run" / MHDIN_NAME, mhdin_sha256="0" * 64, geometry=geometry, counts=geometry.counts()
@@ -283,7 +281,8 @@ def test_run_refuses_a_workdir_without_the_input(geometry, tmp_path, monkeypatch
         run_efund(inputs, config)
 
 
-def test_command_raises_the_stack_only_when_asked(tmp_path):
+def test_command_raises_the_stack_only_when_asked(tmp_path, monkeypatch):
+    monkeypatch.setattr(efund_module.compat, "IS_WINDOWS", False)
     executable = tmp_path / "efund"
     with_stack = efund_module._efund_command(EFUNDConfig(nw=65, nh=33, stack_size_kb=4096), executable)
     assert with_stack[:2] == ["bash", "-lc"]
@@ -294,6 +293,29 @@ def test_command_raises_the_stack_only_when_asked(tmp_path):
     assert "ulimit -s $(ulimit -Hs)" in hard[2] and "ulimit -s 3" not in hard[2]
     with pytest.raises(ValueError):
         EFUNDConfig(stack_size_kb="soft")
+
+
+def test_windows_reserves_the_stack_at_link_time_not_through_bash(tmp_path, monkeypatch):
+    """`ulimit` cannot raise a native Windows image's stack.
+
+    The reserve is written into the PE header by the linker, so
+    install_efit_windows.ps1 passes `-Wl,--stack` and nothing at run time can
+    change it. Wrapping anyway would be worse than useless: it would make every
+    EFUND run depend on an MSYS2 bash that the external-code installers
+    deliberately keep off PATH, so the command would fail before reaching a
+    setting that could not have worked.
+    """
+    monkeypatch.setattr(efund_module.compat, "IS_WINDOWS", True)
+    executable = tmp_path / "efund.exe"
+
+    for config in (
+        EFUNDConfig(nw=65, nh=33, stack_size_kb=4096),
+        EFUNDConfig(),  # the "hard" default
+    ):
+        command = efund_module._efund_command(config, executable)
+        assert command[0] == str(executable)
+        assert "bash" not in command
+        assert not any("ulimit" in part for part in command)
 
 
 # --- manifest --------------------------------------------------------------
