@@ -37,6 +37,8 @@ from typing import Any, Mapping, Optional, Sequence
 import f90nml
 import numpy as np
 
+from vaft import compat
+from vaft.compat import is_executable
 from vaft.machine_mapping.efund_geometry import EFUNDGeometry, efund_geometry_from_static
 
 from .toolchain import executable_identity, resolve_role, unconfigured_reason
@@ -552,6 +554,14 @@ def _efund_command(config: EFUNDConfig, executable: Path) -> list[str]:
     argv = [str(executable), *config.argv]
     if config.stack_size_kb is None:
         return argv
+    if compat.IS_WINDOWS:
+        # A native Windows image takes its stack reserve from the PE header,
+        # fixed by the linker, so no wrapper can raise it after the fact --
+        # install/install_efit_windows.ps1 passes -Wl,--stack instead, and
+        # -StackReserveMB is where this setting goes there. Wrapping anyway
+        # would also make every run depend on an MSYS2 bash that the installers
+        # deliberately keep off PATH.
+        return argv
     # EFUND keeps several nvsum-by-nvsum work arrays on the stack; at 950
     # vessel segments that is four times 7 MB, far beyond the 8 MB default
     # soft limit.  "hard" raises the child's soft limit to whatever the hard
@@ -583,7 +593,11 @@ def run_efund(inputs: EFUNDInputs, config: EFUNDConfig) -> EFUNDResult:
             reason=unconfigured_reason("efund"),
             expected=expected_table_files(config, inputs.counts),
         )
-    if not os.access(executable, os.X_OK):
+    # is_executable, not os.access(X_OK): on Windows os.access accepts any
+    # readable file, so a POSIX efund copied into the prefix would pass here
+    # and then fail inside CreateProcess as WinError 193. magnetic.py already
+    # resolves its half of this adapter that way.
+    if not is_executable(executable):
         return EFUNDResult(
             returncode=None,
             workdir=workdir,

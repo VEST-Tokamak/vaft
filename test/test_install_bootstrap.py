@@ -25,7 +25,10 @@ ROOT = Path(__file__).resolve().parents[1]
 INSTALL = ROOT / "install"
 CHECKER = INSTALL / "check_vaft_environment.py"
 
-POSIX_SCRIPTS = ("linux.sh", "macos.sh", "windows_wsl.sh", "uninstall.sh", "_common.sh")
+POSIX_SCRIPTS = (
+    "linux.sh", "macos.sh", "windows_wsl.sh", "uninstall.sh", "_common.sh",
+    "install_efit.sh",
+)
 PLATFORM_SCRIPTS = ("linux.sh", "macos.sh", "windows_wsl.sh", "windows_native.ps1")
 # Removal is identical on every POSIX platform, so it needs one entry point,
 # not one per platform.
@@ -33,8 +36,17 @@ UNINSTALL_SCRIPTS = ("uninstall.sh", "uninstall_windows_native.ps1")
 # The external Fortran codes are their own entry points, deliberately separate
 # from the VAFT bootstrap: building them takes tens of minutes and needs a
 # compiler toolchain, neither of which belongs in the path a student runs first.
-EXTERNAL_CODE_SCRIPTS = ("install_chease_windows.ps1", "install_gpec_windows.ps1")
-EXTERNAL_CODE_CHECKERS = ("check_chease.py", "check_gpec.py", "check_nubeam.py")
+EXTERNAL_CODE_SCRIPTS = (
+    "install_chease_windows.ps1",
+    "install_efit_windows.ps1",
+    "install_gpec_windows.ps1",
+)
+EXTERNAL_CODE_CHECKERS = (
+    "check_chease.py",
+    "check_efit.py",
+    "check_gpec.py",
+    "check_nubeam.py",
+)
 POWERSHELL_SCRIPTS = (
     "windows_native.ps1",
     "uninstall_windows_native.ps1",
@@ -1365,6 +1377,13 @@ def test_external_code_checkers_report_every_layer():
     """Issue #226 asks each layer to answer for itself, not just the binary."""
     expected = {
         "check_chease.py": ("toolchain", "source", "build record", "executables", "discovery", "run"),
+        # EFIT installs two roles from one build, so both are checked; the
+        # smoke layer runs EFUND rather than the reconstruction code, because
+        # a table is what a reconstruction needs before it can run at all.
+        "check_efit.py": (
+            "toolchain", "source", "build record", "executables", "discovery",
+            "capabilities", "starts", "smoke",
+        ),
         "check_gpec.py": ("toolchain", "source", "build record", "executables", "discovery", "handoff"),
         # NUBEAM has no smoke run without a case, and two layers the others do
         # not: the reaction databases it aborts without, and the fixed-width
