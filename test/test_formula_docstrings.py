@@ -45,6 +45,7 @@ DEFINITIONAL = frozenset({
     "eK_from_K",
     "peaking_factor",
     "calculate_distance",
+    "poloidal_field_magnitude",
     "trapz_integral",
     "greens_integral_2d",
     "greens_integral_3d",

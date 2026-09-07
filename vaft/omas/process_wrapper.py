@@ -326,6 +326,39 @@ def compute_grid_response_ods(
         logger.error(f"Error during computation: {e}")
         raise
 
+def _vacuum_sources(ods: ODS) -> Tuple[List[float], List[float], List[float], List[int]]:
+    """Every current-carrying filament of the machine, as the field sees it.
+
+    Coil elements enter individually with their signed turns; a passive loop
+    enters once, at its outline centroid (or its rectangle centre). ``groups``
+    says which coil or loop each filament belongs to, so a response matrix can
+    be summed back down to one column per source.
+
+    This is exactly what a vacuum response depends on besides the observation
+    points, which is why :func:`_machine_fingerprint` keys its cache on it.
+    """
+    pf, pfp = ods["pf_active"], ods["pf_passive"]
+    nbcoil, nbloop = len(pf["coil"]), len(pfp["loop"])
+    src_r, src_z, turns, groups = [], [], [], []
+    for ii in range(nbcoil):
+        for jj in range(len(pf[f"coil.{ii}.element"])):
+            src_r.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.r"]))
+            src_z.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.z"]))
+            turns.append(float(pf[f"coil.{ii}.element.{jj}.turns_with_sign"]))
+            groups.append(ii)
+    for ii in range(nbloop):
+        geometry = pfp[f"loop.{ii}.element[0].geometry"]
+        if geometry["geometry_type"] == GEOMETRY_TYPE_POLYGON:
+            src_r.append(float(np.mean(geometry["outline.r"])))
+            src_z.append(float(np.mean(geometry["outline.z"])))
+        else:
+            src_r.append(float(geometry["rectangle.r"]))
+            src_z.append(float(geometry["rectangle.z"]))
+        turns.append(1.0)
+        groups.append(nbcoil + ii)
+    return src_r, src_z, turns, groups
+
+
 def compute_point_response_matrices_ods(
     ods: ODS,
     rz: List[List[float]],
@@ -376,23 +409,7 @@ def compute_point_response_matrices_ods(
         nbcoil = len(pf["coil"])
         nbloop = len(pfp["loop"])
 
-        src_r, src_z, turns, groups = [], [], [], []
-        for ii in range(nbcoil):
-            for jj in range(len(pf[f"coil.{ii}.element"])):
-                src_r.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.r"]))
-                src_z.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.z"]))
-                turns.append(float(pf[f"coil.{ii}.element.{jj}.turns_with_sign"]))
-                groups.append(ii)
-        for ii in range(nbloop):
-            geometry = pfp[f"loop.{ii}.element[0].geometry"]
-            if geometry["geometry_type"] == GEOMETRY_TYPE_POLYGON:
-                src_r.append(float(np.mean(geometry["outline.r"])))
-                src_z.append(float(np.mean(geometry["outline.z"])))
-            else:
-                src_r.append(float(geometry["rectangle.r"]))
-                src_z.append(float(geometry["rectangle.z"]))
-            turns.append(1.0)
-            groups.append(nbcoil + ii)
+        src_r, src_z, turns, groups = _vacuum_sources(ods)
     except KeyError as e:
         logger.error(f"Missing required data in ODS: {e}")
         raise
@@ -858,6 +875,194 @@ def compute_point_vacuum_fields_ods(
     except KeyError as e:
         logger.error(f"Missing required data in ODS: {e}")
         raise
+
+#: Response matrices for one grid and one machine, keyed by both.  They are a
+#: pure function of geometry, so a time slider pays for them once instead of on
+#: every frame -- 2.4 s against 2.1 ms for the contraction that uses them.
+_VACUUM_MAP_CACHE: dict[tuple, tuple] = {}
+
+#: How many cached grids to keep.  Each is (n_points x n_sources) floats three
+#: times over, ~97 MB at 65x65 on VEST, so this is deliberately small.
+_VACUUM_MAP_CACHE_LIMIT = 4
+
+
+def _machine_fingerprint(ods: ODS) -> tuple:
+    """What the response matrices depend on, besides the observation points.
+
+    Derived from :func:`_vacuum_sources` rather than restated, so a cached
+    matrix can never outlive a geometry change it did not notice.
+    """
+    src_r, src_z, turns, groups = _vacuum_sources(ods)
+    return (
+        np.asarray(src_r, dtype=float).tobytes(),
+        np.asarray(src_z, dtype=float).tobytes(),
+        np.asarray(turns, dtype=float).tobytes(),
+        tuple(groups),
+    )
+
+
+def _vacuum_response(ods: ODS, r_axis: ndarray, z_axis: ndarray):
+    """Cached ``(Psi, Bz, Br)`` response of one grid to every coil and loop."""
+    key = (
+        _machine_fingerprint(ods),
+        r_axis.tobytes(),
+        z_axis.tobytes(),
+    )
+    cached = _VACUUM_MAP_CACHE.get(key)
+    if cached is None:
+        mesh_r, mesh_z = np.meshgrid(r_axis, z_axis, indexing="ij")
+        points = np.column_stack([mesh_r.ravel(), mesh_z.ravel()]).tolist()
+        cached = compute_point_response_matrices_ods(ods, points)
+        if len(_VACUUM_MAP_CACHE) >= _VACUUM_MAP_CACHE_LIMIT:
+            _VACUUM_MAP_CACHE.pop(next(iter(_VACUUM_MAP_CACHE)))
+        _VACUUM_MAP_CACHE[key] = cached
+    return cached
+
+
+def _vacuum_currents(ods: ODS, indices) -> ndarray:
+    """Coil and passive-loop currents at the given samples of the PF time base.
+
+    Returns ``(len(indices), nbcoil + nbloop)``, ordered ``[coils..., loops...]``
+    to match the response matrices' columns.
+
+    Every waveform is read once and then indexed, rather than re-read per
+    sample: on VEST that is 960 IMAS path parses instead of 960 per time, which
+    is the difference between a slider that moves and one that stutters.
+    """
+    pf, pfp = ods["pf_active"], ods["pf_passive"]
+    take = np.asarray(indices, dtype=int).ravel()
+    columns = [np.asarray(pf[f"coil.{i}.current.data"], dtype=float)[take]
+               for i in range(len(pf["coil"]))]
+    columns += [np.asarray(pfp[f"loop.{i}.current"], dtype=float)[take]
+                for i in range(len(pfp["loop"]))]
+    return np.column_stack(columns)
+
+
+def _vacuum_map_grid(ods: ODS, resolution: int) -> Tuple[ndarray, ndarray]:
+    """The default ``(R, Z)`` grid: the limiter's bounding box.
+
+    The limiter is the region the field is being read for -- where breakdown
+    happens and where a null has to sit -- so that is what the map covers.  It
+    is not source-free: on VEST several hundred coil filaments lie inside it,
+    and a grid point landing on one reads a meaningless spike.  That is a
+    question for the contour levels, not for the extent.
+    """
+    try:
+        wall_r = np.asarray(
+            ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float)
+        wall_z = np.asarray(
+            ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
+    except (KeyError, ValueError, IndexError):
+        wall_r = wall_z = np.asarray([])
+    if wall_r.size < 3:
+        # No wall: fall back to the filaments' own extent, which at least
+        # brackets the machine.
+        src_r, src_z, _, _ = _vacuum_sources(ods)
+        wall_r, wall_z = np.asarray(src_r), np.asarray(src_z)
+    return (
+        np.linspace(max(float(wall_r.min()), 1e-3), float(wall_r.max()), int(resolution)),
+        np.linspace(float(wall_z.min()), float(wall_z.max()), int(resolution)),
+    )
+
+
+def compute_vacuum_field_map(
+    ods: ODS,
+    *,
+    time: float,
+    grid: Optional[Tuple[ndarray, ndarray]] = None,
+    resolution: int = 65,
+) -> Dict[str, ndarray]:
+    """Vacuum flux and poloidal field on an ``(R, Z)`` grid at one time.
+
+    Everything the startup maps are drawn from -- the flux surfaces, |B_p|, the
+    decay index, the breakdown figure of merit -- comes from this one
+    evaluation, so they are guaranteed to describe the same field.
+
+    The response of the grid to each coil and loop is a pure function of
+    geometry, so it is built once and cached; a different ``time`` then costs
+    only the contraction with that instant's currents.  On VEST that is seconds
+    once against milliseconds a frame, which is what makes a time slider usable.
+
+    Only vacuum sources contribute: coils and vessel eddy currents, no plasma.
+    Above roughly 10 kA of plasma current the map stops describing the machine.
+
+    Parameters
+    ----------
+    ods
+        Needs ``pf_active`` currents; passive-loop currents are solved with
+        :func:`compute_eddy_currents` if they are not already stored.
+    time
+        Seconds.  Snapped to the nearest stored sample, not interpolated; the
+        sample actually used comes back in the result.
+    grid
+        ``(r_axis, z_axis)``.  Defaults to the limiter's bounding box at
+        ``resolution`` points a side.
+    resolution
+        Points per axis for the default grid.  Cost grows as its square: the
+        cached matrices are three arrays of ``resolution**2 x n_sources``.
+
+    Returns
+    -------
+    dict
+        ``r``, ``z`` (the axes), and ``psi`` [Wb], ``b_r``, ``b_z`` [T],
+        ``dpsi_dt`` [Wb/s], each shaped ``(len(r), len(z))``; plus ``time``,
+        the stored sample used, and ``time_index``, its position on the PF time
+        base.
+
+    Notes
+    -----
+    ``psi`` is full weber, as the Green's functions return it, not weber per
+    radian -- see :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor`.
+    """
+    if "time" not in ods["pf_passive"]:
+        # Geometry-only samples carry no passive-loop waveform; solve it rather
+        # than refusing, matching compute_null_ods.
+        compute_eddy_currents(ods, plasma=[], ip=[])
+
+    if grid is None:
+        r_axis, z_axis = _vacuum_map_grid(ods, resolution)
+    else:
+        r_axis = np.asarray(grid[0], dtype=float).ravel()
+        z_axis = np.asarray(grid[1], dtype=float).ravel()
+        if r_axis.size == 0 or z_axis.size == 0:
+            raise ValueError("grid axes must each hold at least one point")
+
+    time_base = np.asarray(ods["pf_active.time"], dtype=float)
+    index = int(np.argmin(np.abs(time_base - float(time))))
+
+    psi_response, bz_response, br_response = _vacuum_response(ods, r_axis, z_axis)
+    width = len(ods["pf_active.coil"]) + len(ods["pf_passive.loop"])
+    psi_response = psi_response[:, :width]
+    shape = (r_axis.size, z_axis.size)
+
+    # dpsi/dt comes from the model's own flux at the neighbouring samples, so
+    # the induced electric field belongs to the same field as everything else
+    # rather than being spliced in from a measured loop voltage.  All three
+    # samples are read in one pass over the waveforms.
+    lo, hi = max(index - 1, 0), min(index + 1, time_base.size - 1)
+    behind, currents, ahead = _vacuum_currents(ods, (lo, index, hi))
+
+    psi = (psi_response @ currents).reshape(shape)
+    b_z = (bz_response[:, :width] @ currents).reshape(shape)
+    b_r = (br_response[:, :width] @ currents).reshape(shape)
+
+    span = float(time_base[hi] - time_base[lo])
+    if span > 0.0:
+        dpsi_dt = ((psi_response @ (ahead - behind)) / span).reshape(shape)
+    else:
+        dpsi_dt = np.zeros(shape)
+
+    return {
+        "r": r_axis,
+        "z": z_axis,
+        "psi": psi,
+        "b_r": b_r,
+        "b_z": b_z,
+        "dpsi_dt": dpsi_dt,
+        "time": float(time_base[index]),
+        "time_index": index,
+    }
+
 
 def compute_null_ods(ods, time):
     """Compute poloidal flux (psi) on grid at given time using coil and eddy currents.

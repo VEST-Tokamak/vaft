@@ -808,6 +808,137 @@ def bootstrap_current_fraction(n_e: float,
 # ------------------------------------------------------------------
 
 
+def poloidal_field_magnitude(b_r: np.ndarray, b_z: np.ndarray) -> np.ndarray:
+    r"""Poloidal field strength $|B_p| = \sqrt{B_R^2 + B_Z^2}$.
+
+    Parameters
+    ----------
+    b_r : array_like
+        Radial field component [T].
+    b_z : array_like
+        Vertical field component [T].
+
+    Returns
+    -------
+    np.ndarray
+        Poloidal field magnitude, elementwise [T].
+
+    Convention
+    ----------
+    A magnitude, so it carries no COCOS sign: the orientation conventions cancel
+    in the quadrature.  Both inputs must already be in tesla and in the same
+    convention as each other, which they are when they come from one call to
+    :func:`vaft.formula.green.green_br_bz_exact` or from one response matrix.
+
+    Validity
+    --------
+    Machine-independent.
+    """
+    return np.hypot(np.asarray(b_r, dtype=float), np.asarray(b_z, dtype=float))
+
+
+def decay_index_from_bz(
+    r: np.ndarray, b_z: np.ndarray, *, axis: int = -1
+) -> np.ndarray:
+    r"""Field decay index $n = -\dfrac{R}{B_Z}\dfrac{\partial B_Z}{\partial R}$.
+
+    How fast the vertical field falls off with major radius, which decides
+    whether the radial force balance holding a current ring is *stable*.
+
+    Parameters
+    ----------
+    r : array_like
+        Major radius, monotonic, along ``axis`` [m].
+    b_z : array_like
+        Vertical field sampled on ``r``; may carry extra leading axes [T].
+    axis : int, optional
+        Axis of ``b_z`` along which ``r`` varies [-].
+
+    Returns
+    -------
+    np.ndarray
+        Decay index, ``nan`` where $B_Z$ vanishes [-].
+
+    Convention
+    ----------
+    $0 < n < 1.5$ is the passively stable window: below zero the vertical field
+    does not restore a radial displacement, above 1.5 the ring is unstable to
+    vertical motion.
+
+    Limitations
+    -----------
+    Returns ``nan`` where $B_Z$ crosses zero rather than a large number.  The
+    index is genuinely undefined on that surface, and a spike there is an
+    artefact of the division, not a physical instability -- which is what a
+    reader would otherwise take from it.
+
+    Validity
+    --------
+    Machine-independent.  The stable window quoted above is the rigid-ring
+    result: it assumes a thin current ring and no conducting wall, so a real
+    vessel widens it.
+
+    References
+    ----------
+    .. [1] V. S. Mukhovatov and V. D. Shafranov, Nucl. Fusion 11 (1971) 605,
+           Sec. 2 (equilibrium of a current ring in a vertical field).
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.7 (vertical field and positional stability).
+    """
+    r_arr = np.asarray(r, dtype=float)
+    b_arr = np.asarray(b_z, dtype=float)
+    gradient_bz = np.gradient(b_arr, r_arr, axis=axis, edge_order=2)
+    shape = [1] * b_arr.ndim
+    shape[axis] = r_arr.size
+    with np.errstate(divide="ignore", invalid="ignore"):
+        index = -r_arr.reshape(shape) * gradient_bz / b_arr
+    return np.where(np.isfinite(index), index, np.nan)
+
+
+def toroidal_electric_field(r: np.ndarray, dpsi_dt: np.ndarray) -> np.ndarray:
+    r"""Toroidal electric field $E_\varphi = -\dfrac{1}{2\pi R}\dfrac{\partial\psi}{\partial t}$.
+
+    The inductive drive a startup has to work with: the loop voltage
+    $-\partial\psi/\partial t$ spread around the torus at each major radius.
+
+    Parameters
+    ----------
+    r : array_like
+        Major radius [m].
+    dpsi_dt : array_like
+        Time derivative of the **full-weber** poloidal flux, broadcastable
+        against ``r`` [Wb/s].
+
+    Returns
+    -------
+    np.ndarray
+        Toroidal electric field [V/m].
+
+    Convention
+    ----------
+    ``dpsi_dt`` is in weber, not weber per radian: the $2\pi$ here is the one
+    that turns a flux into a loop voltage, so passing a per-radian flux gives an
+    answer $2\pi$ too small.  Green's-function flux
+    (:func:`vaft.formula.green.green_psi_exact`) is already full weber and needs
+    no conversion.
+
+    Validity
+    --------
+    Machine-independent.  Faraday's law in axisymmetry, so it holds wherever the
+    flux does; it says nothing on its own about whether that field will break
+    the gas down, which also needs the connection length and the fill pressure.
+
+    References
+    ----------
+    .. [1] B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2 (the toroidal
+           electric field required for tokamak start-up).
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 11.1 (start-up and breakdown).
+    """
+    r_arr = np.asarray(r, dtype=float)
+    return -np.asarray(dpsi_dt, dtype=float) / (2.0 * np.pi * r_arr)
+
+
 def poloidal_field_factor(
     cocos: int | None, *, psi_per_radian: bool | None = None,
 ) -> float:
