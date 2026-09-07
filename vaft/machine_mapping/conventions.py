@@ -201,12 +201,31 @@ VEST_GPEC_COIL_DIRECTIONS = {"ip_direction": "positive", "bt_direction": "negati
 
 GPEC documents these as "positive for CCW or negative for CW from a top down
 view".  The pair is the one carried by the shot-48226 reference input
-(``test/data/gpec_reference_48226/coil.in``) and is stated here explicitly,
-per machine, rather than derived from :data:`IMAS_DISCHARGE_SIGNS`: whether
-GPEC's top-down words and the IMAS sign contract describe the same senses for
-VEST has not been verified in code, so the two are kept as independent facts.
-Another machine must supply its own pair; the GPEC adapter refuses to inherit
-this one.
+(``test/data/gpec_reference_48226/coil.in``); it is stated here per machine
+rather than derived from :data:`IMAS_DISCHARGE_SIGNS`, and the GPEC adapter
+refuses to let another machine inherit it.
+
+What GPEC does with the two words, read from its source:
+
+* ``coil/coil.F`` and ``gpec/gpec.f`` set ``ipd``/``btd`` to ``+1`` unless the
+  word is ``"negative"``, then ``helicity = ipd * btd``.
+* The *product* is what mirrors the field: ``coil/field.F`` maps the
+  observation angle as ``phi = -helicity * (2*pi*zeta + phi_eq)``, and
+  ``gpec/gpout.f`` multiplies the imaginary part of every perturbed output by
+  ``-helicity``.
+* The words act *separately* in one place only, where ``gpec/gpout.f`` builds
+  the equilibrium field on the diagnostic grid: ``ipd > 0`` flips the sign of
+  ``B_R`` and ``B_Z``, ``btd < 0`` flips ``B_phi``.
+
+So flipping both words together leaves the perturbed response untouched and
+changes only the sign of the equilibrium field GPEC writes out.
+
+Unresolved for VEST: this pair reads as I_p counter-clockwise and B_T
+clockwise, while :data:`IMAS_DISCHARGE_SIGNS` states the opposite pair for the
+same machine.  Both give ``helicity = -1``, so no VEST result published from
+this reference run is affected in its perturbed quantities, but one of the two
+constants is wrong about the machine, and correcting one without the other
+would change VEST results; the test named below fails if that happens.
 """
 
 
