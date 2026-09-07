@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from lfs_assets import skip_unless_materialized
 from vaft.data.resources import data_path
 
 WORKFLOW = Path(__file__).resolve().parents[1] / "workflow" / "efit_tables"
@@ -36,6 +37,7 @@ def ab_efit_table():
 
 def test_a_table_compared_with_itself_is_identical_everywhere(compare_tables):
     bundled = Path(data_path("efit"))
+    skip_unless_materialized(*sorted(bundled.glob("*.ddd")))
     report = compare_tables.compare(bundled, bundled)
     assert all(row["same"] for row in report["mhdin"]["counts"].values())
     for block in report["mhdin"]["geometry"].values():
