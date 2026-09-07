@@ -45,9 +45,11 @@ def trapz_integral(x: np.ndarray, y: np.ndarray) -> float:
     Numerical notes
     ---------------
     Identical to :func:`vaft.formula.utils.trapz_integral` (``numpy.trapezoid``
-    via :func:`vaft.compat.trapz_compat`) but defined here so the Green's
-    function module does not import the sklearn-heavy utilities; this copy is
-    the one ``vaft.formula.trapz_integral`` resolves to.
+    via :func:`vaft.compat.trapz_compat`); this copy is the one
+    ``vaft.formula.trapz_integral`` resolves to, and it is kept because
+    ``test_formula_lazy_namespace`` pins that shadowing. The reason it was
+    written -- that importing ``utils`` dragged in scikit-learn -- is gone
+    since #426.
     """
     return float(trapz_compat(y, x=x))
 

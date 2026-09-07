@@ -485,11 +485,9 @@ def compute_metrics(results: RegressionResults,
 
     Limitations
     -----------
-    Imports ``scikit-learn`` on call for two one-line metrics.  When the
-    fitted values carry no index the actual values are truncated to the
-    shorter length, which silently misaligns rows if any were dropped.
+    When the fitted values carry no index the actual values are truncated to
+    the shorter length, which silently misaligns rows if any were dropped.
     """
-    from sklearn.metrics import r2_score, mean_squared_error
     
     # Get predicted values in original scale
     y_pred_log = results.fitted_values
@@ -514,8 +512,14 @@ def compute_metrics(results: RegressionResults,
             y_actual = y_actual[:min_len]
     
     # Compute metrics
-    r2 = r2_score(y_actual, y_pred)
-    rmse = np.sqrt(mean_squared_error(y_actual, y_pred))
+    # Both metrics inline rather than through scikit-learn: they are three
+    # lines of numpy, and importing sklearn for them made it a hard dependency
+    # of the whole package (#426).
+    residual = y_actual - y_pred
+    total = y_actual - np.mean(y_actual)
+    denominator = float(np.sum(total**2))
+    r2 = 1.0 - float(np.sum(residual**2)) / denominator if denominator else float("nan")
+    rmse = float(np.sqrt(np.mean(residual**2)))
     mae = np.mean(np.abs(y_actual - y_pred))
     
     # Relative errors
