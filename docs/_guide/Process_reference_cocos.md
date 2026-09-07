@@ -1,7 +1,7 @@
 ---
 title: "Process reference: cocos"
 author: VEST team
-date: 2026-09-07 10:00
+date: 2026-09-03 10:04
 category: guide
 layout: post
 permalink: /reference/process/cocos/
