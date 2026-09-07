@@ -143,7 +143,9 @@ def test_generic_process_modules_hold_no_vest_policy(module):
     """No VEST number, and no import of the machine layer -- prose may name it."""
     import ast
 
-    source = (ROOT / module).read_text()
+    # Explicit: the sources carry non-ASCII (a Greek rho in a profile.py
+    # comment), and Windows would otherwise decode them as cp1252 and raise.
+    source = (ROOT / module).read_text(encoding="utf-8")
     assert "TI_TE_RATIO_VEST = " not in source
     assert "DEFAULT_IMPURITY_FRACTIONS = {" not in source
 
