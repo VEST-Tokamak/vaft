@@ -291,34 +291,25 @@ one number, because they disagree:
 | `mu_i_sources.full_123` | predicted by solving all three relations |
 | `mu_i_sources.measured` | `magnetics.diamagnetic_flux`, a measurement no reconstruction fitted |
 
-The conversion from a *measured* flux uses only the **magnitude** of the
-toroidal field. It has to: it is linear in the field, so it would inherit
-whatever COCOS the field was stored under — and the sources disagree. Shot
-39915 carries `profiles_1d.f = +0.0598` in the packaged sample and $-0.0598$ in
-the database, the same magnitude under a different convention. The volume
-$\mu_i$ is quadratic in $F$ and cannot notice; a signed conversion would flip,
-and the same plasma would read diamagnetic from one source and paramagnetic
-from the other. The sign therefore comes from the flux alone, in the convention
-`test/test_diamagnetic_flux_sign.py` pins end to end.
+### Converting a *measured* flux is deliberately absent
 
-With that settled, the reconstruction and the loop disagree across the whole
-history, not just on one shot:
+Nothing here turns a measured diamagnetic flux into a virial $\mu_i$. The
+conversion is linear in the toroidal field, so it needs the sign that
+measurement carries relative to the stored $F$ — and VEST data does not settle
+it. Shot 39915 stores `profiles_1d.f = +0.0598` in the packaged sample and
+$-0.0598$ in the database, with an identical stored measurement, and the
+database declares no COCOS at all; `f`'s sign varies between shots there. The
+equilibrium's own $\mu_i$ is unaffected because it is quadratic in $F$.
 
-| | |
+Until that is resolved, `physical_validity.diamagnetic_flux` compares the
+measured and reconstructed **fluxes** directly, in one convention, and
+`independent_validation.diamagnetic_energy` uses the flux-convention
+$\hat\mu_i$ throughout. Neither asserts a $\mu_i$ sign.
+
+| Source | Where from |
 | --- | --- |
-| reconstructions that are paramagnetic ($\mu_i < 0$) | **234 / 234** |
-| loops that read diamagnetic ($\mu_i > 0$) | 216 / 234 |
-| slices where the two disagree in sign | **218 / 234** |
-
-That is issue #385 at population scale, and it is consistent with what
-`test/test_diamagnetic_flux_sign.py` records about the reconstructions: EFIT was
-fed `|DFLUX|`, so under the legacy weighting the diamagnetic constraint was
-effectively weightless and the solver returned paramagnetic equilibria.
-`independent_validation.virial_measured_mu_i` is where the report says so.
-
-The measured one also feeds the three closures again under
-`measured_mu_i_closures`, so `beta_p` from the measurement and `beta_p` from
-the reconstruction are compared like for like.
+| `mu_i_sources.volume` | the reconstructed equilibrium's own volume integral |
+| `mu_i_sources.full_123` | predicted by solving all three relations |
 
 ### Where this appears
 

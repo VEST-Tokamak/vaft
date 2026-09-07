@@ -1166,11 +1166,8 @@ def _thomson_pressure(ods: Any, index: int, diagnostics: Any) -> dict[str, Any]:
 
 def _diamagnetic_energy(ods: Any, index: int, virial: Mapping[str, Any], dia_row: Mapping[str, Any] | None,
                         descriptors: Mapping[str, Any] | None) -> dict[str, Any]:
-    from vaft.formula.equilibrium import (
-        kinetic_energy_from_beta_p_B_pa_V_p,
-        virial_beta_pd_from_S_mu_rt,
-        virial_mu_i_from_diamagnetic_flux,
-    )
+    from vaft.formula.equilibrium import kinetic_energy_from_beta_p_B_pa_V_p, virial_beta_pd_from_S_mu_rt
+    from vaft.process.equilibrium import computed_diamagnetism_from_phi
 
     if dia_row is None or not math.isfinite(_float(dia_row.get("measured"))):
         return _unavailable("no measured diamagnetic flux at this slice")
@@ -1203,7 +1200,12 @@ def _diamagnetic_energy(ods: Any, index: int, virial: Mapping[str, Any], dia_row
                    "(see virial_conditioning)",
             measured_flux=measured,
         )
-    mui = _float(virial_mu_i_from_diamagnetic_flux(b_t0, r_0, measured, needed["B_pa"], needed["V_p"]))
+    # Both the flux port and virial_beta_pd_from_S_mu_rt are on the flux
+    # convention, so this pairing is internally consistent -- and it is the one
+    # place a measured flux is still converted. What it cannot settle is the
+    # sign that measurement carries relative to the stored field, which is why
+    # nothing new is built on it.
+    mui = _float(computed_diamagnetism_from_phi(measured, b_t0, r_0, needed["V_p"], needed["B_pa"]))
     beta_pd = _float(virial_beta_pd_from_S_mu_rt(needed["s_1"], needed["s_2"], mui, needed["rt"] / r_0))
     fields = dict(measured_flux=measured, B_t0=b_t0, R_0=r_0, mui_measured=mui, beta_p_diamagnetic=beta_pd,
                   W_kin_virial=needed["W_kin"],

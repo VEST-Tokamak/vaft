@@ -370,28 +370,3 @@ def test_the_historical_bongard_name_can_tune_the_same_guard():
     assert all(math.isnan(v) for v in virial_bongard_from_S_alpha_mu(
         S1, S2, S3, near, MU, eps=0.1
     ))
-
-
-def test_the_flux_and_volume_mu_i_conventions_are_negatives():
-    """The defect the cold review of #546 found. The three relations use the
-    volume definition of mu_i; the EFIT flux port is its negative. Feeding the
-    flux sign to the closures put a systematic 2*mu_i into every residual and
-    turned l_i negative on real reconstructions."""
-    from vaft.formula.equilibrium import (
-        virial_mu_i_from_diamagnetic_flux,
-        virial_muihat_from_Bt_R0_dphi,
-    )
-
-    args = (0.15, 0.4, -1.44e-3, 0.042, 0.956)   # B_t, R0, dphi, B_pa, Omega
-    assert virial_mu_i_from_diamagnetic_flux(*args) == pytest.approx(
-        -virial_muihat_from_Bt_R0_dphi(*args), rel=1e-12
-    )
-    # A negative (diamagnetic) flux gives a positive mu_i in the virial sign.
-    assert virial_mu_i_from_diamagnetic_flux(*args) > 0
-
-    # And the sign matters by exactly 2*mu_i in every identity, which is what
-    # made this survive: the offset is systematic, so nothing looked random.
-    mu = 0.31
-    a = virial_identity_residuals(0.85, 0.72, mu, S1, S2, S3, ALPHA, RT)
-    b = virial_identity_residuals(0.85, 0.72, -mu, S1, S2, S3, ALPHA, RT)
-    assert [x - y for x, y in zip(a, b)] == pytest.approx([-2 * mu, 2 * mu, -2 * mu])

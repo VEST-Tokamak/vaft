@@ -311,14 +311,15 @@ def test_the_reconstructed_diamagnetic_flux_disagrees_with_the_measurement_in_si
     assert flux["status"] == FAIL
     assert flux["sign_agreement"] is False
     assert flux["measured"] < 0 < flux["computed"]
+    # The reconstruction's own diamagnetism is paramagnetic where the loop reads
+    # diamagnetic. The report records the flux disagreement above; it does not
+    # convert the loop into a virial mu_i, because the sign that conversion
+    # needs is not settled by this data.
     virial = _slice(report, "physical_validity", "virial_identity", LIVE)
-    measured = _slice(report, "independent_validation", "virial_measured_mu_i", LIVE)
-    # One convention, opposite signs: that is the finding.
-    assert measured["mu_i_measured"] > 0 > virial["mu_i_volume"]
-    assert measured["status"] == FAIL
-    # diamagnetic_energy would say the same thing, but both its sides run
-    # through RT/R0, so on this sample it declines rather than asserting a
-    # verdict the conditioning check calls undetermined.
+    assert virial["mu_i_volume"] < 0, "the reconstruction is paramagnetic"
+    # diamagnetic_energy would compare the two, but both its sides run through
+    # RT/R0, so it declines rather than asserting a verdict the conditioning
+    # check calls undetermined.
     energy = _slice(report, "independent_validation", "diamagnetic_energy", LIVE)
     assert energy["status"] == INDETERMINATE
     assert "RT denominator" in energy["reason"]

@@ -299,12 +299,14 @@ def test_virial_closure_relations_match_manual_forms():
     expected_beta_p_lao = 0.5 * s1 + 0.5 * s2 * (1.0 - rt_over_r0) + mui
     expected_beta_p_bongard = ((s1 + s2) * (alpha - 1.0) + alpha * mui + s3) / (3.0 * (alpha - 1.0) + 1.0)
     expected_li_bongard = (s1 + s2 - 2.0 * mui - 3.0 * s3) / (3.0 * alpha - 2.0)
-    # Not a re-typing: beta_pd is the Lao beta_p evaluated on a mu_i that came
-    # from a measurement, so on the same mu_i the two are the same number. That
-    # is what pins its sign; spelling the formula out again only proved the code
-    # matched the typing, and it went on matching when the convention flipped
-    # under it (#546).
-    expected_beta_pd = expected_beta_p_lao
+    # Not a re-typing: beta_pd takes the flux-sign mu_i (its Convention section
+    # says so), so on the negated mu_i it must return the same number the
+    # volume-side Lao beta_p does. Spelling the formula out again only proved
+    # the code matched the typing, and it went on matching when the call sites'
+    # convention flipped under it (#546).
+    beta_pd_flux = virial_beta_pd_from_S_mu_rt(s1, s2, -mui, rt_over_r0)
+    np.testing.assert_allclose(beta_pd_flux, expected_beta_p_lao, rtol=1e-12, atol=1e-12)
+    expected_beta_pd = 0.5 * s1 - mui + 0.5 * s2 * (1.0 - rt_over_r0)
 
     np.testing.assert_allclose(li_lao, expected_li_lao, rtol=1e-12, atol=1e-12)
     np.testing.assert_allclose(beta_p_lao, expected_beta_p_lao, rtol=1e-12, atol=1e-12)
@@ -321,11 +323,9 @@ def test_virial_closure_relations_match_manual_forms():
         beta_p_lao - mui, (alpha - 1.0) * li_lao + s3, rtol=1e-12, atol=1e-12
     )
     # beta_p - beta_pd == 2*mui held under either sign convention, so it could
-    # not catch one flipping. What does: feeding beta_pd a mu_i of the opposite
-    # sign must move it by 2*mui away from beta_p, not onto it.
-    flipped = virial_beta_pd_from_S_mu_rt(s1, s2, -mui, rt_over_r0)
-    np.testing.assert_allclose(beta_pd - flipped, 2.0 * mui, rtol=1e-12, atol=1e-12)
-    assert not np.isclose(flipped, beta_p_lao, rtol=1e-6)
+    # not catch one flipping. What does: the flux-sign call above must land on
+    # the volume-side beta_p, and the volume-sign call must not.
+    assert not np.isclose(beta_pd, expected_beta_p_lao, rtol=1e-6)
 
 
 def test_compute_virial_refreshes_and_fallbacks_boundary_axis():

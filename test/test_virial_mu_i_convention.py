@@ -11,10 +11,21 @@ nothing said which one a given function expects:
   **negative** of the volume form, because
   ``B_tv^2 - B_t^2 = (F_b-F)(F_b+F)/R^2 ~ -2*F_b*(F-F_b)/R^2``.
 
-The naming rule the module follows: **a name carrying ``hat`` or ``from_phi``
-is the flux convention; everything else is the volume convention.** These tests
-pin that rule at every site, so a future change that puts a flux-sign value into
-a volume-sign consumer fails here rather than three layers downstream.
+The rule, with its one exception, pinned here so a future change that puts a
+flux-sign value into a volume-sign consumer fails at this file rather than three
+layers downstream:
+
+* every **producer** whose name carries ``hat`` or ``from_phi`` yields the flux
+  convention; every other producer yields the volume convention;
+* every **consumer** takes the volume convention, except
+  ``virial_beta_pd_from_S_mu_rt``, which takes the flux one and says so in its
+  Convention section.
+
+Converting a *measured* diamagnetic flux is deliberately not done anywhere:
+that needs the sign the measurement carries relative to the stored field, and
+VEST data does not settle it -- shot 39915 stores ``f = +0.0598`` in the
+packaged sample and ``-0.0598`` in the database with an identical measurement,
+and the database declares no COCOS at all.
 """
 
 from __future__ import annotations
@@ -30,7 +41,6 @@ from vaft.formula.equilibrium import (
     virial_beta_pd_from_S_mu_rt,
     virial_full_123_from_S_alpha_rt,
     virial_identity_residuals,
-    virial_mu_i_from_diamagnetic_flux,
     virial_muihat_from_Bt_R0_dphi,
     virial_pair_12_from_S_mu_rt,
     virial_pair_13_from_S_alpha_mu,
@@ -67,34 +77,6 @@ def test_the_flux_form_is_the_negative_of_the_volume_form_on_real_geometry():
     assert flux / volume == pytest.approx(-1.0, rel=0.05)
 
 
-def test_converting_the_slices_own_flux_reproduces_its_own_mu_i():
-    """The self-consistency that a mismatched toroidal field silently breaks.
-
-    mu_i from the volume integral is quadratic in F and so cannot notice a sign
-    convention on the field; the conversion from a flux is linear and can. Using
-    equilibrium.vacuum_toroidal_field.b0 here put the two on opposite signs on
-    210 of 226 rows of the equilibrium history, because f and b0 follow
-    different COCOS on VEST (see vaft/database/_summary.py). The conversion must
-    use the same F the volume integral was built from.
-    """
-    rows = vaft.omas.compute_virial_equilibrium_quantities_ods(sample_ods())
-    checked = 0
-    for row in rows.values():
-        if not np.isfinite(row["mui"]) or not np.isfinite(row["f_boundary"]):
-            continue
-        recovered = virial_mu_i_from_diamagnetic_flux(
-            row["f_boundary"] / 1.0, 1.0, row["phi_dia_comp"], row["B_pa"], row["V_p"]
-        )
-        assert recovered / row["mui"] == pytest.approx(1.0, rel=0.10), (
-            "converting a slice's own flux must reproduce its own mu_i"
-        )
-        checked += 1
-    assert checked >= 8
-
-
-# --- the boundary: which convention each site expects ------------------------
-
-
 def test_every_closure_takes_the_volume_convention():
     """Feed each closure the consistent volume-sign mu_i: it must recover the
     (beta_p, li) the inputs were built from. With the flux sign it cannot."""
@@ -118,14 +100,16 @@ def test_the_full_solve_returns_the_volume_convention():
     assert mu_i == pytest.approx(MU_I, abs=1e-12)
 
 
-def test_the_diamagnetic_beta_p_takes_the_volume_convention_too():
-    """virial_beta_pd_from_S_mu_rt was written for the flux sign and its call
-    sites were switched to the volume sign without it, which made it return
-    beta_p - 2*mu_i. It is the Lao beta_p on a measured mu_i, so on the same
-    mu_i the two must agree exactly."""
-    assert virial_beta_pd_from_S_mu_rt(S1, S2, MU_I, RT) == pytest.approx(BETA_P, abs=1e-12)
+def test_the_diamagnetic_beta_p_is_the_documented_exception():
+    """virial_beta_pd_from_S_mu_rt is the one consumer here that takes the
+    flux-sign quantity, which its Convention section now states outright. Given
+    the flux sign it returns the same beta_p the volume-side closures do; given
+    the volume sign it returns beta_p - 2*mu_i, with nothing in the number to
+    show it -- which is exactly what happened when its call sites were switched
+    and the formula was not."""
+    assert virial_beta_pd_from_S_mu_rt(S1, S2, -MU_I, RT) == pytest.approx(BETA_P, abs=1e-12)
     assert virial_beta_pd_from_S_mu_rt(S1, S2, MU_I, RT) == pytest.approx(
-        virial_beta_p_lao_from_S_mu_rt(S1, S2, MU_I, RT), abs=1e-15
+        BETA_P - 2 * MU_I, abs=1e-12
     )
 
 
@@ -137,7 +121,7 @@ def test_the_flux_sign_would_be_caught_at_every_closure():
     assert virial_pair_12_from_S_mu_rt(S1, S2, wrong, RT)[0] != pytest.approx(BETA_P, abs=1e-6)
     assert virial_pair_13_from_S_alpha_mu(S1, S2, S3, ALPHA, wrong)[1] != pytest.approx(LI, abs=1e-6)
     assert virial_pair_23_from_S_alpha_mu_rt(S2, S3, ALPHA, wrong, RT)[0] != pytest.approx(BETA_P, abs=1e-6)
-    assert virial_beta_pd_from_S_mu_rt(S1, S2, wrong, RT) != pytest.approx(BETA_P, abs=1e-6)
+    assert virial_beta_pd_from_S_mu_rt(S1, S2, MU_I, RT) != pytest.approx(BETA_P, abs=1e-6)
     e1, e2, e3 = virial_identity_residuals(BETA_P, LI, wrong, S1, S2, S3, ALPHA, RT)
     assert (e1, e2, e3) == pytest.approx((2 * MU_I, -2 * MU_I, 2 * MU_I), abs=1e-12)
 
@@ -149,27 +133,11 @@ def test_the_hat_named_producers_are_the_flux_side_of_the_boundary():
     hat = virial_muihat_from_Bt_R0_dphi(*args)
     from_phi = computed_diamagnetism_from_phi(args[2], args[0], args[1], args[4], args[3])
     assert hat == pytest.approx(from_phi, rel=1e-12), "the two flux-side names must agree"
-    assert virial_mu_i_from_diamagnetic_flux(*args) == pytest.approx(-hat, rel=1e-12)
-    # A diamagnetic (negative) flux is a positive mu_i in the volume sign.
-    assert args[2] < 0 < virial_mu_i_from_diamagnetic_flux(*args)
-
-
-def test_the_measured_and_reconstructed_mu_i_are_comparable_on_the_sample():
-    """What the whole boundary is for: the two must be on one convention, so a
-    difference between them is physics and not bookkeeping. On this sample they
-    disagree in sign -- that is #385, and it is only meaningful because both are
-    in the volume convention."""
-    row = vaft.omas.compute_virial_equilibrium_quantities_ods(
-        sample_ods(), time_slice=0
-    )[0]
-    sources = row["mu_i_sources"]
-    assert sources["volume"] < 0, "this reconstruction is paramagnetic"
-    assert sources["measured"] > 0, "its loop measures a diamagnetic plasma"
-    # Both are half_diff + mu_i, so they differ by exactly the mu_i
-    # disagreement and by nothing else -- which is what makes the difference
-    # readable as a measurement-vs-reconstruction statement.
-    assert row["beta_pd_vir"] - row["beta_p"] == pytest.approx(
-        sources["measured"] - sources["volume"], rel=1e-9
+    # virial_beta_pd_from_S_mu_rt is the one consumer on this side of the
+    # boundary, and it must agree with the volume-side Lao beta_p on the same
+    # physical diamagnetism -- which is what makes the two sides commensurable.
+    assert virial_beta_pd_from_S_mu_rt(S1, S2, -MU_I, RT) == pytest.approx(
+        virial_beta_p_lao_from_S_mu_rt(S1, S2, MU_I, RT), abs=1e-15
     )
 
 
@@ -180,35 +148,118 @@ def test_the_input_ods_is_not_mutated_by_the_convention_work():
     assert set(before.flat()) >= set(snapshot.flat())
 
 
-def test_the_conversion_does_not_depend_on_the_stored_field_sign():
-    """The same shot carries opposite F signs in different sources.
 
-    Shot 39915 has ``profiles_1d.f = +0.0598`` in the packaged sample and
-    ``-0.0598`` in the database -- the same magnitude under a different COCOS.
-    The volume mu_i is quadratic in F and cannot notice; a conversion linear in
-    the field flips, so the same plasma would read diamagnetic from one source
-    and paramagnetic from the other. Only the magnitude of the field may enter;
-    the sign comes from the flux, whose convention this repository pins in
-    test_diamagnetic_flux_sign.py.
-    """
+
+# --- the changes mutation testing found nothing pinning ----------------------
+
+
+def test_alpha_survives_a_nan_cell_outside_the_plasma():
+    """The psi-gradient field fallback marks the R = 0 column NaN on purpose,
+    and 0 * nan is nan, so np.sum let one column outside the plasma void alpha
+    for a whole slice -- and `alpha_den == 0.0` never fires on a NaN."""
+    from vaft.process.equilibrium import efit_virial_volume_integrals, shafranov_integrals
+
+    r = np.linspace(0.0, 2.0, 41)          # includes R = 0
+    z = np.linspace(-0.6, 0.6, 31)
+    rm, zm = np.meshgrid(r, z, indexing="ij")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        b_r = np.where(rm == 0.0, np.nan, 0.2 / np.where(rm == 0.0, np.nan, rm))
+    b_z = np.ones_like(rm)
+    th = np.linspace(0, 2 * np.pi, 241)
+    rb, zb = 1.0 + 0.35 * np.cos(th), 0.30 * np.sin(th)
+
+    terms = efit_virial_volume_integrals(rm, zm, rb, zb, b_r, b_z)
+    assert np.isfinite(terms["alpha"]), "one NaN column must not void alpha"
+    *_, alpha = shafranov_integrals(
+        rb, zb, np.full_like(rb, 0.2), rm, zm, b_r, b_z, B_ref=0.2, volume=1.0
+    )
+    assert np.isfinite(alpha) and alpha != 0.0
+
+
+def test_mu_i_excludes_a_nan_cell_rather_than_counting_its_vacuum_term():
+    """nan_to_num on the two toroidal terms separately let a cell with a NaN F
+    contribute +B_tv^2 instead of nothing."""
     row = vaft.omas.compute_virial_equilibrium_quantities_ods(
         sample_ods(), time_slice=0
     )[0]
-    args = (row["f_boundary"], 1.0, row["phi_dia_comp"], row["B_pa"], row["V_p"])
-    flipped = (-row["f_boundary"],) + args[1:]
-    assert virial_mu_i_from_diamagnetic_flux(*args) == pytest.approx(
-        virial_mu_i_from_diamagnetic_flux(*flipped), rel=1e-12
-    ), "flipping the stored field sign must not change the answer"
-    # ... while flipping the flux, which is the physical measurement, must.
-    negated_flux = args[:2] + (-args[2],) + args[3:]
-    assert virial_mu_i_from_diamagnetic_flux(*args) == pytest.approx(
-        -virial_mu_i_from_diamagnetic_flux(*negated_flux), rel=1e-12
+    assert np.isfinite(row["mui"])
+    # The exact volume integral must equal the closure identity it feeds:
+    # full_123 solves for mu_i without being told it, so a mu_i inflated by
+    # stray vacuum terms would show up as a gap here.
+    assert abs(row["mui"] - row["mu_i_sources"]["volume"]) < 1e-12
+
+
+def test_the_identity_grade_uses_the_evaluable_subset_not_the_strict_rms():
+    """Two statistics, deliberately: `rms` is virial_residual_rms exactly (NaN
+    unless all three hold) and `rms_evaluable` is what the grading uses, so E1
+    and E3 still count when RT/R0 is undetermined."""
+    from vaft.validation.equilibrium import _virial_identity_check
+
+    row = vaft.omas.compute_virial_equilibrium_quantities_ods(
+        sample_ods(), time_slice=0
+    )[0]
+    result = _virial_identity_check(row)
+    assert result["status"] == "pass"
+    assert np.isfinite(result["rms_evaluable"])
+    # E2 is the RT-dependent identity and this slice's RT has cancelled away.
+    assert result["e2_excluded_for_rt"] is True
+    # The strict rms includes E2 and is a different number; grading it would
+    # score the slice on an RT/R0 the rest of the report refuses to use.
+    assert result["rms_evaluable"] != pytest.approx(result["rms"], rel=1e-3)
+    assert result["rms_evaluable"] < result["rms"]
+
+    # And it must be the graded one. On the sample both land in the same band,
+    # so drive a row where they do not: E1 and E3 clean, E2 wild. Grading the
+    # strict rms would call this `fail`; grading the evaluable subset, `pass`.
+    loud = copy.deepcopy(row)
+    loud["identity"] = dict(
+        loud["identity"],
+        e1_normalized=0.01, e2_normalized=9.0, e3_normalized=0.01,
+        rms=float(np.sqrt((0.01**2 + 9.0**2 + 0.01**2) / 3.0)),
+        rms_evaluable=0.01,
     )
+    assert _virial_identity_check(loud)["status"] == "pass"
 
 
-def test_a_diamagnetic_loop_reads_diamagnetic_whatever_the_field_sign():
-    """The end-to-end statement: a negative stored flux is a positive volume
-    mu_i, for either sign of the stored toroidal field."""
-    for b_t in (+0.15, -0.15):
-        mu = virial_mu_i_from_diamagnetic_flux(b_t, 0.4, -1.44e-3, 0.042, 0.956)
-        assert mu > 0, f"a diamagnetic flux must give a positive mu_i (B_t={b_t})"
+def test_plausibility_grades_the_rt_free_closure_not_the_lao_one():
+    """Grading the Lao beta_p put this check in contradiction with
+    virial_conditioning, which calls those same numbers undetermined. pair_13
+    needs no RT/R0, so the check can answer its question."""
+    from vaft.validation.equilibrium import _virial_result
+
+    # Slice 5 is the discriminating one: its Lao beta_p is negative (-0.056) so
+    # the old rule reported FAIL, while pair_13 is +0.020 and inside the bounds.
+    # A test on slice 0, where both are inside, cannot tell the two rules apart.
+    row = vaft.omas.compute_virial_equilibrium_quantities_ods(
+        sample_ods(), time_slice=5
+    )[5]
+    assert row["beta_p"] < 0 < row["pair_13"]["beta_p"], "fixture must discriminate"
+    result = _virial_result(row)
+    assert result["status"] == "pass"
+    assert 0 < result["beta_p_pair_13"] <= 10
+    # The Lao value is still reported, just not graded on.
+    assert result["beta_p"] == pytest.approx(row["beta_p"])
+
+
+def test_the_report_declares_the_schema_it_actually_has():
+    """schema_version must move when the report renames a key or adds checks;
+    a consumer keying off it has no other signal."""
+    from vaft.validation import validate_equilibrium
+
+    report = validate_equilibrium(sample_ods(), checks="physical_validity", time_slice=0)
+    assert report["schema_version"] >= 2
+    assert "virial" not in report["physical_validity"]
+    assert "virial_parameter_plausibility" in report["physical_validity"]
+
+
+def test_a_missing_conditioning_flag_is_unknown_not_false():
+    """bool(None) is False, which would claim RT/R0 was unavailable when the
+    producer simply said nothing."""
+    from vaft.validation.equilibrium import _virial_conditioning
+
+    absent = _virial_conditioning({"conditioning": {"denominators": {"pair_23": 1.4}}})
+    assert absent["rt_over_r0_available"] is None
+    present = _virial_conditioning(
+        {"conditioning": {"denominators": {"pair_23": 1.4}, "rt_over_r0_available": False}}
+    )
+    assert present["rt_over_r0_available"] is False

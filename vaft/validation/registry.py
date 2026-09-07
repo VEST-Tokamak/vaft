@@ -172,15 +172,6 @@ _SPECS = (
           "stored energy from the measured diamagnetic flux through the virial diamagnetic beta_p, "
           "against the virial kinetic energy; both sides run through RT/R0, so indeterminate when "
           "the RT denominator ratio is below 0.25", "log_ratio", (0.262, 0.693)),
-    # The measured loop feeding the closures themselves, not just the energy
-    # (#546 s14). This belongs here and not under physical_validity: it asks
-    # whether the reconstruction agrees with a measurement it never used.
-    _spec("independent_validation.virial_measured_mu_i", "1",
-          "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
-          "the RT-free pair_13 closure re-solved on the measured diamagnetic mu_i, against the "
-          "same closure on the equilibrium-derived one, both mu_i in the volume sign the virial "
-          "relations use; not_available without a diamagnetic loop, indeterminate when either "
-          "closure is singular or the two differ in sign", "log_ratio", (0.262, 0.693)),
 )
 
 #: Every check, by key.  Insertion order is report order.

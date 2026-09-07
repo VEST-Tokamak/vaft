@@ -2019,76 +2019,6 @@ def virial_li_from_volume(B_p: np.ndarray,
     return (1.0 / (B_pa**2 * Omega)) * np.sum(B_p**2 * dV)
 
 
-def virial_mu_i_from_diamagnetic_flux(B_t: float,
-                                      R0: float,
-                                      dphi: float,
-                                      B_pa: float,
-                                      Omega: float) -> float:
-    r"""Diamagnetic parameter $\mu_i$ from a diamagnetic flux, in the virial sign.
-
-    $$\mu_i = -\frac{4\pi\,B_t\,R_0\,\Delta\phi}{B_{pa}^2\,\Omega}$$
-
-    Parameters
-    ----------
-    B_t : float
-        Vacuum toroidal field at $R_0$; only its magnitude is used, so a
-        COCOS-dependent stored sign cannot reach the result [T].
-    R0 : float
-        Reference major radius [m].
-    dphi : float
-        Diamagnetic flux, signed as stored: negative for a diamagnetic plasma [Wb].
-    B_pa : float
-        Boundary-averaged poloidal field [T].
-    Omega : float
-        Plasma volume [m^3].
-
-    Returns
-    -------
-    float
-        Diamagnetic parameter in the sign the virial relations use [-].
-
-    Convention
-    ----------
-    The **minus** is the whole point. The three virial relations solved by
-    :func:`virial_full_123_from_S_alpha_rt` use the volume definition
-    $\mu_i = \frac{1}{B_{pa}^2\Omega}\int (B_{tv}^2 - B_t^2)\,dV$, which is
-    positive for a diamagnetic plasma. The flux form
-    :func:`virial_muihat_from_Bt_R0_dphi`, and the EFIT ``xmui`` port
-    :func:`vaft.process.equilibrium.computed_diamagnetism_from_phi` that shares
-    its sign, are the negative of it, because
-    $B_{tv}^2 - B_t^2 \approx -2F_b(F-F_b)/R^2$ while
-    $\Delta\phi = \int (B_t - B_{tv})\,dA$. Feeding the flux sign to the
-    closures puts a systematic $2\mu_i$ into every identity residual.
-
-    Validity
-    --------
-    First order in $(F-F_b)/F_b$, like the flux form it negates. Where the $F$
-    profile is available the exact volume integral is better and is what
-    :func:`vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods`
-    uses for the equilibrium's own $\mu_i$; this form is for a *measured* flux,
-    where no profile exists.
-
-    References
-    ----------
-    .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion
-           25 (1985) 1421, Sec. 2 ($\mu_i$ definition).
-    .. [2] V. D. Shafranov, Plasma Phys. 13 (1971) 757.
-    """
-    # |B_t|, not B_t. The conversion is linear in the field, so it inherits
-    # whatever sign convention the field was stored under -- and those differ
-    # between sources for the same shot: shot 39915 carries f = +0.0598 in the
-    # packaged sample and -0.0598 in the database, the same magnitude under a
-    # different COCOS. The volume mu_i is quadratic in F and cannot notice;
-    # this would flip, making a diamagnetic plasma read as paramagnetic
-    # depending on where the data was loaded from.
-    #
-    # The remaining sign comes from dphi alone, in the one convention this
-    # repository pins end to end (test/test_diamagnetic_flux_sign.py): the flux
-    # is signed with B_t, so in VEST's positive toroidal field a diamagnetic
-    # plasma stores a negative flux, which is a positive mu_i here.
-    return -virial_muihat_from_Bt_R0_dphi(abs(B_t), R0, dphi, B_pa, Omega)
-
-
 def virial_muihat_from_Bt_R0_dphi(B_t: float,
                                  R0: float,
                                  dphi: float,
@@ -2444,7 +2374,7 @@ def virial_beta_pd_from_S_mu_rt(
 ) -> float:
     r"""Diamagnetic poloidal beta $\beta_{p,d}$ from $S_1$, $S_2$ and $\mu_i$.
 
-    $$\beta_{p,d}^{\mathrm{vir}} = \frac{S_1}{2} + \mu_i + \frac{S_2}{2}\left(1 - \frac{R_T}{R_0}\right)$$
+    $$\beta_{p,d}^{\mathrm{vir}} = \frac{S_1}{2} - \hat\mu_i + \frac{S_2}{2}\left(1 - \frac{R_T}{R_0}\right)$$
 
     Parameters
     ----------
@@ -2464,20 +2394,23 @@ def virial_beta_pd_from_S_mu_rt(
 
     Convention
     ----------
-    $\mu_i$ in the **volume** sign the three relations use, like every other
-    closure here -- see :func:`virial_mu_i_from_diamagnetic_flux`. The sign of
-    the $\mu_i$ term was a minus until #546, which is correct for the *flux*
-    sign the EFIT ``xmui`` port produces and wrong for this one; the two call
-    sites were switched to the volume sign without the formula following, which
-    made this return $\beta_p - 2\mu_i$.
+    **This is the one consumer here that takes the flux-sign $\hat\mu_i$**, the
+    quantity :func:`virial_muihat_from_Bt_R0_dphi` and
+    :func:`vaft.process.equilibrium.computed_diamagnetism_from_phi` produce --
+    not the volume $\mu_i$ every closure in this module takes. The two are
+    negatives of each other, so handing it the wrong one returns
+    $\beta_p \mp 2\mu_i$ with nothing in the number to show it. The parameter is
+    named ``mui`` for history; read it as $\hat\mu_i$.
 
     Physical interpretation
     -----------------------
-    This is the Lao $\beta_p$ evaluated on a $\mu_i$ that came from a
-    diamagnetic measurement rather than from the reconstruction, so it is
-    identical to :func:`virial_beta_p_lao_from_S_mu_rt` given the same $\mu_i$.
-    Its content is entirely in *which* $\mu_i$ it is handed: feeding it the
-    equilibrium's own returns the equilibrium's own $\beta_p$ and says nothing.
+    The Lao $\beta_p$ written in the flux convention, so it is the same number
+    as :func:`virial_beta_p_lao_from_S_mu_rt` on the same physical
+    diamagnetism. Its content is entirely in *which* diamagnetism it is handed:
+    given the reconstruction's own it returns the reconstruction's own
+    $\beta_p$. Its non-redundant use is a **measured** flux, which requires
+    knowing the sign convention that measurement is on relative to the stored
+    field -- an open question on VEST data, so nothing here performs it.
 
     Validity
     --------
@@ -2489,7 +2422,7 @@ def virial_beta_pd_from_S_mu_rt(
     .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion
            25 (1985) 1421, Sec. 3.
     """
-    return 0.5 * S1 + mui + 0.5 * S2 * (1.0 - RT_over_R0)
+    return 0.5 * S1 - mui + 0.5 * S2 * (1.0 - RT_over_R0)
 
 
 def virial_beta_p_li_from_S_alpha_mu_rt(

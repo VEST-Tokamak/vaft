@@ -10,9 +10,11 @@ shot-39915 sample:
   take the absolute value, inherited from a magnitude-only donor fitter);
 * the reconstructed-flux kernel is EFIT's definition, so its sign follows the
   F profile it is given;
-* the measured loop carries the diamagnetic sign in that same convention --
-  shown by converting it to mu_i in the sign the virial relations use and
-  getting a positive number.
+* the measured loop's sign is compared against the reconstruction's, and the
+  disagreement recorded -- but the loop is deliberately **not** converted into
+  a virial mu_i anywhere, because the sign it carries relative to the stored F
+  is not settled by VEST data: shot 39915 stores f = +0.0598 in the packaged
+  sample and -0.0598 in the database with an identical measurement.
 
 The sample's own reconstruction is paramagnetic (its F profile rises toward
 the axis) and so its computed flux is positive against a negative
@@ -138,57 +140,6 @@ def test_the_kernel_is_efit_cdflux_and_follows_the_f_profile(sample):
 
 
 # --- the measured loop and the virial closure ---------------------------------
-
-def test_the_measured_flux_converts_to_a_diamagnetic_mu_i_in_the_virial_sign():
-    """The stored flux is negative and the plasma it describes is diamagnetic,
-    so mu_i in the sign the three virial relations use must come out positive.
-
-    This test twice claimed something stronger and false: that the measured
-    flux nearly reproduces the virial beta_p (to 5%, then to ~8%). Both were
-    artifacts of sign errors #546 removed -- the Lao ``+r*S2``, and mu_i handed
-    to the closures on the flux convention, which is the negative of the volume
-    definition the relations use. Two wrongs made the balance look closed. It
-    is not closed, and the next test is why: this reconstruction is
-    paramagnetic where its loop measures diamagnetic. So this test now pins the
-    conversion, which is what the file is about, and leaves the disagreement to
-    the test that documents it.
-    """
-    from vaft.formula.equilibrium import (
-        virial_mu_i_from_diamagnetic_flux,
-        virial_muihat_from_Bt_R0_dphi,
-    )
-
-    sample = vaft.omas.sample_ods()
-    measured = float(np.interp(
-        float(sample["equilibrium.time"][SLICE]),
-        np.asarray(sample["magnetics.time"], float),
-        np.asarray(sample["magnetics.diamagnetic_flux.0.data"], float),
-    ))
-    assert measured < 0, "the packaged loop measures a diamagnetic plasma"
-
-    virial = vaft.omas.compute_virial_equilibrium_quantities_ods(
-        copy.deepcopy(sample), time_slice=SLICE
-    )[SLICE]
-    from vaft.process.equilibrium import as_equilibrium, derive_global_descriptors
-
-    b_t0 = float(sample["equilibrium.vacuum_toroidal_field.b0"][SLICE])
-    r_0 = float(
-        derive_global_descriptors(
-            as_equilibrium(sample, time_index=SLICE)
-        ).values["major_radius"].value
-    )
-    args = (b_t0, r_0, measured, virial["B_pa"], virial["V_p"])
-
-    mu_virial = virial_mu_i_from_diamagnetic_flux(*args)
-    mu_flux = virial_muihat_from_Bt_R0_dphi(*args)
-    assert mu_virial > 0, "a diamagnetic plasma has positive mu_i in the virial sign"
-    assert mu_virial == pytest.approx(-mu_flux, rel=1e-12), "the two conventions are negatives"
-
-    # The equilibrium's own mu_i is on the same convention and is negative:
-    # the reconstruction is paramagnetic. That disagreement is the finding, and
-    # it is what the next test documents.
-    assert virial["mui"] < 0 < mu_virial
-
 
 def test_the_sample_reconstruction_disagrees_with_its_loop_and_that_is_a_fit_failure(sample):
     """Recorded so the two are not confused: the packaged reconstruction was

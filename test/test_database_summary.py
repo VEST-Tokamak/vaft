@@ -567,14 +567,13 @@ def test_the_virial_columns_carry_numbers_and_not_only_names():
         "virial_beta_pair_12", "virial_li_pair_12",
         "virial_beta_pair_13", "virial_li_pair_13",
         "virial_beta_volume", "virial_li_volume",
-        "virial_mui", "virial_mui_full_123", "virial_mui_measured",
+        "virial_mui", "virial_mui_full_123",
         "virial_residual_e1", "virial_residual_e3",
         "virial_residual_rms_evaluable", "virial_rt_denominator_ratio",
     )
     empty = [name for name in populated if not np.isfinite(live.get(name, np.nan))]
     assert empty == [], f"columns present but never filled: {empty}"
 
-    # The measured mu_i is the one that needs the magnetics IDS to be opened.
-    assert "magnetics" in summary_module.EQUILIBRIUM_GLOBAL_PATHS
-    # Both mu_i are on the volume convention, so their signs are comparable.
-    assert live["virial_mui"] < 0 < live["virial_mui_measured"]
+    # The equilibrium's own mu_i is on the volume convention: negative here,
+    # meaning this reconstruction is paramagnetic.
+    assert live["virial_mui"] < 0

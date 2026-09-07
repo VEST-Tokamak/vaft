@@ -88,7 +88,6 @@ EQUILIBRIUM_GLOBAL_COLUMNS = (
     "virial_mui_full_123",
     "virial_beta_volume",
     "virial_li_volume",
-    "virial_mui_measured",
     "virial_residual_e1",
     "virial_residual_e2",
     "virial_residual_e3",
@@ -113,10 +112,6 @@ EQUILIBRIUM_GLOBAL_PATHS = (
     # resolver cross-checks it against tf, so tf has to be loaded or the check
     # is blind and the corrupt value is used silently.
     "tf",
-    # The virial path reads the diamagnetic loop for the measured mu_i. Without
-    # it the magnetics IDS is never opened and virial_mui_measured is NaN on
-    # every row of every shot -- a column that exists and says nothing.
-    "magnetics",
 )
 
 VACUUM_REFERENCE_RADIUS_M = 0.4
@@ -317,7 +312,6 @@ def _virial_structured_values(values: dict) -> dict[str, float]:
         "virial_mui_full_123": block("full_123", "mu_i"),
         "virial_beta_volume": block("volume", "beta_p"),
         "virial_li_volume": block("volume", "li"),
-        "virial_mui_measured": block("mu_i_sources", "measured"),
         "virial_residual_e1": block("identity", "e1_normalized"),
         "virial_residual_e2": block("identity", "e2_normalized"),
         "virial_residual_e3": block("identity", "e3_normalized"),

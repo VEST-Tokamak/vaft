@@ -46,7 +46,6 @@ from vaft.formula import (
     virial_full_123_from_S_alpha_rt,
     virial_identity_residuals,
     virial_li_from_volume,
-    virial_mu_i_from_diamagnetic_flux,
     virial_normalized_residual,
     virial_pair_12_from_S_mu_rt,
     virial_pair_13_from_S_alpha_mu,
@@ -1224,48 +1223,6 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     return W_B
 
 
-def _virial_measured_diamagnetic_flux(ods, eq_idx: int) -> float:
-    """The measured diamagnetic flux at one equilibrium slice time, or NaN.
-
-    Never raises: the measured loop is optional evidence here, and an ODS
-    without magnetics must still produce every equilibrium-derived quantity.
-    The same linear interpolation and edge-clamping as
-    :func:`compute_diamagnetic_flux_measured_vs_computed`, so the two agree on
-    what "the measurement at this slice" means.
-    """
-    try:
-        if (
-            "magnetics.diamagnetic_flux.0.data" not in ods
-            or "magnetics.time" not in ods
-            or not len(ods["magnetics.diamagnetic_flux"])
-        ):
-            return np.nan
-        t_mag = np.asarray(ods["magnetics.time"], float)
-        flux = np.asarray(ods["magnetics.diamagnetic_flux.0.data"], float)
-        if t_mag.size < 2 or flux.size != t_mag.size:
-            return np.nan
-        eq_ts = ods["equilibrium.time_slice"][eq_idx]
-        t_eq = float(eq_ts["time"]) if "time" in eq_ts else np.nan
-        if not np.isfinite(t_eq) and "equilibrium.time" in ods:
-            times = np.asarray(ods["equilibrium.time"], float)
-            if eq_idx < times.size:
-                t_eq = float(times[eq_idx])
-        if not np.isfinite(t_eq):
-            return np.nan
-        return float(
-            interp1d(
-                t_mag, flux, kind="linear", bounds_error=False,
-                fill_value=(flux[0], flux[-1]),
-            )(t_eq)
-        )
-    except (KeyError, IndexError, TypeError, ValueError) as exc:
-        # Only what a missing, short or malformed magnetics IDS raises. A bare
-        # `except Exception` here would make a bug in this function look exactly
-        # like an ODS with no diamagnetic loop, on every slice of every shot.
-        logger.debug("Time slice %s: measured diamagnetic flux unavailable: %s", eq_idx, exc)
-        return np.nan
-
-
 def _virial_disagreement_block(pairs):
     """Pairwise differences between the three closures, report-only.
 
@@ -1439,14 +1396,7 @@ def _virial_empty_row():
         "full_123": {"beta_p": nan, "li": nan, "mu_i": nan},
         "identity": _virial_identity_block(nan, nan, nan, nan, nan, nan, nan, nan),
         "conditioning": _virial_conditioning_block(nan, nan, nan),
-        "mu_i_sources": {
-            "volume": nan, "full_123": nan, "measured": nan,
-            "measured_diamagnetic_flux": nan,
-        },
-        "measured_mu_i_closures": {
-            name: {"beta_p": nan, "li": nan}
-            for name in ("pair_12", "pair_13", "pair_23")
-        },
+        "mu_i_sources": {"volume": nan, "full_123": nan},
         "disagreement": _virial_disagreement_block(
             {"12": (nan, nan), "13": (nan, nan), "23": (nan, nan)}
         ),
@@ -1773,9 +1723,7 @@ def compute_virial_equilibrium_quantities_ods(
                 beta_p_lao, li_lao = virial_lao_from_S_alpha_mu_rt(
                     S1, S2, S3, alpha, mui, RT_over_R0
                 )
-                # Left for the measured mu_i below: fed the equilibrium's own,
-                # this returns the equilibrium's own beta_p and says nothing.
-                pass
+                pass  # set below, once mui_from_flux exists
             except ValueError:
                 beta_p_lao, li_lao, beta_pd_vir = np.nan, np.nan, np.nan
         if np.isfinite(alpha) and np.isfinite(mui):
@@ -1843,60 +1791,12 @@ def compute_virial_equilibrium_quantities_ods(
                         np.nan_to_num(p_2d, nan=0.0), dV_cells, B_pa, V_p
                     )
                 )
-        # mu_i has three separable sources and they must not be collapsed
-        # (#546 s9): the volume/equilibrium-derived one already computed above,
-        # the one the full three-relation solve predicts, and the measured
-        # diamagnetic loop.
-        mui_measured = np.nan
-        delta_phi_measured = _virial_measured_diamagnetic_flux(ods, eq_idx)
-        # The field here must be on the same convention as the F profile the
-        # volume mu_i above is built from, and equilibrium.vacuum_toroidal_field.b0
-        # is not: vaft/database/_summary.py records that f and b0 follow
-        # different COCOS on VEST, and it deliberately preserves the stored b0
-        # sign. The volume integral is quadratic in F and so cannot notice; this
-        # conversion is linear and does. Using b0 put the two mu_i on opposite
-        # signs on 210 of 226 rows of the equilibrium history -- a convention
-        # difference that then read as a physics disagreement. F_boundary/R_0 is
-        # the same F, so the two agree by construction.
-        _b_t_for_flux = F_boundary / R_0 if np.isfinite(F_boundary) and R_0 else np.nan
-        if (
-            np.isfinite(delta_phi_measured)
-            and np.isfinite(_b_t_for_flux)
-            and np.isfinite(R_0)
-            and np.isfinite(B_pa)
-            and B_pa > 0.0
-            and np.isfinite(V_p)
-            and V_p > 0.0
-        ):
-            # Same sign convention as the equilibrium mu_i above, or the two
-            # are not comparable and every measured-vs-reconstructed check
-            # reads a convention difference as a physics disagreement.
-            mui_measured = float(
-                virial_mu_i_from_diamagnetic_flux(
-                    _b_t_for_flux, R_0, delta_phi_measured, B_pa, V_p
-                )
-            )
-        # beta_p from the *measurement*, which is what a diamagnetic beta_p is.
-        if np.isfinite(mui_measured) and np.isfinite(RT_over_R0):
-            beta_pd_vir = virial_beta_pd_from_S_mu_rt(S1, S2, mui_measured, RT_over_R0)
-
-        # The same three closures again, on the measured mu_i, so the comparison
-        # against the reconstruction is like for like.
-        beta_p_12_m, li_12_m = (
-            virial_pair_12_from_S_mu_rt(S1, S2, mui_measured, RT_over_R0)
-            if np.isfinite(mui_measured) and np.isfinite(RT_over_R0)
-            else (np.nan, np.nan)
-        )
-        beta_p_13_m, li_13_m = (
-            virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mui_measured)
-            if np.isfinite(alpha) and np.isfinite(mui_measured)
-            else (np.nan, np.nan)
-        )
-        beta_p_23_m, li_23_m = (
-            virial_pair_23_from_S_alpha_mu_rt(S2, S3, alpha, mui_measured, RT_over_R0)
-            if np.isfinite(alpha) and np.isfinite(mui_measured) and np.isfinite(RT_over_R0)
-            else (np.nan, np.nan)
-        )
+        # beta_pd in the flux convention, on the equilibrium's own flux -- what
+        # this column has always meant. Its informative use is a *measured*
+        # flux, and that conversion is deliberately absent: see the module note
+        # on the measured diamagnetic surface.
+        if np.isfinite(mui_from_flux) and np.isfinite(RT_over_R0):
+            beta_pd_vir = virial_beta_pd_from_S_mu_rt(S1, S2, mui_from_flux, RT_over_R0)
 
         # Keep backward-compatible top-level beta_p/li mapped to Lao version.
         beta_p = float(beta_p_lao) if np.isfinite(beta_p_lao) else np.nan
@@ -1971,13 +1871,6 @@ def compute_virial_equilibrium_quantities_ods(
             "mu_i_sources": {
                 "volume": float(mui) if np.isfinite(mui) else np.nan,
                 "full_123": float(mui_full) if np.isfinite(mui_full) else np.nan,
-                "measured": mui_measured,
-                "measured_diamagnetic_flux": delta_phi_measured,
-            },
-            "measured_mu_i_closures": {
-                "pair_12": {"beta_p": beta_p_12_m, "li": li_12_m},
-                "pair_13": {"beta_p": beta_p_13_m, "li": li_13_m},
-                "pair_23": {"beta_p": beta_p_23_m, "li": li_23_m},
             },
             "disagreement": _virial_disagreement_block(
                 {"12": (beta_p_12, li_12), "13": (beta_p_13, li_13), "23": (beta_p_23, li_23)}
