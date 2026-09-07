@@ -33,17 +33,15 @@ from vaft.process._docstring import (
 #: Sub-issue B (#418): magnetics, electromagnetics, fluctuation.
 #: Sub-issue C (#419): equilibrium and cocos -- done.
 #: Sub-issue D (#420): profile, atomic -- done.
-#: Sub-issue E (#421): impa, soft_x_rays, langmuir, camera_geometry.
+#: Sub-issue E (#421): impa, soft_x_rays, langmuir, camera_geometry --
+#: only impa still pending.
 #: Sub-issue F (#571) removed ``onset`` and ``wall_modes``, which landed
 #: after #252 was scoped -- done.
 PENDING = frozenset({
-    "camera_geometry",
     "electromagnetics",
     "fluctuation",
     "impa",
-    "langmuir",
     "magnetics",
-    "soft_x_rays",
 })
 
 #: Pure numerics and bookkeeping: no source adds anything.
@@ -85,6 +83,10 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # soft_x_rays / langmuir (#421)
+    "process_triple_probe",
+    "sxr_band_signals",
+    "sxr_electron_temperature",
     # equilibrium (#419)
     "calculate_reconstructed_diamagnetic_flux",
     "convert_cocos",
@@ -163,6 +165,27 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # soft_x_rays / langmuir / camera_geometry (#421): filter phase, pixel and
+    # world-frame order, probe geometry, and the mode-number degeneracy
+    "electron_density",
+    "hilbert_instantaneous_phase",
+    "load_te_ratio_calibration",
+    "median_filter_signal",
+    "probe_surface_area",
+    "process_triple_probe",
+    "project_points",
+    "rank_toroidal_mode_numbers",
+    "remove_offset",
+    "solve_electron_temperature",
+    "sweep_toroidal",
+    "sxr_band_signals",
+    "sxr_baseline_correction",
+    "sxr_cwt_spectrogram",
+    "sxr_electron_temperature",
+    "sxr_subtract_vacuum_reference",
+    "sxr_te_pairs_from_ods",
+    "toroidal_ring",
+    "trajectory_world_points",
     # equilibrium (#419): every function states a flux unit, a COCOS, a radial
     # coordinate or a contour orientation; the module is convention work
     "as_equilibrium",
