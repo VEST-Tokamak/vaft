@@ -1494,7 +1494,7 @@ def _virial_conditioning_block(alpha, rt_denominator_ratio, rt_over_r0):
     }
 
 
-def _virial_empty_row():
+def _virial_empty_row(alpha_method: str = "volume"):
     """A row for a slice nothing could be computed for, with every key present.
 
     The shape a caller sees must not depend on whether the slice had a boundary:
@@ -1508,7 +1508,7 @@ def _virial_empty_row():
     }
     return {
         "s_1": nan, "s_2": nan, "s_3": nan, "alpha": nan,
-        "alpha_method": "volume",
+        "alpha_method": alpha_method,
         "alpha_sources": {
             "volume": nan, "kappa": nan, "annulus": nan, "annulus_thin": nan,
         },
@@ -1656,7 +1656,7 @@ def compute_virial_equilibrium_quantities_ods(
             logger.warning(
                 "Time slice %s: empty boundary.outline, skipping virial computation", eq_idx
             )
-            out[eq_idx] = _virial_empty_row()
+            out[eq_idx] = _virial_empty_row(alpha_method)
             nans = [k for k in ("s_1", "s_2", "s_3", "alpha", "B_pa", "beta_p", "li", "W_mag", "W_kin")
                      if not np.isfinite(np.asarray(out[eq_idx][k], float))]
             if nans:
@@ -1833,16 +1833,22 @@ def compute_virial_equilibrium_quantities_ods(
         # see the alternatives instead of trusting one blind -- they disagree by
         # more than the paper's spread suggests, and which is the better one is
         # a property of the geometry (vfit #36).
+        # From the outline, not from `boundary.elongation`: that node is copied
+        # from the last profiles_1d.elongation sample by
+        # update_equilibrium_boundary, i.e. the outermost *resolved* flux
+        # surface, which sits inside the LCFS on a coarse psi grid. alpha_1 is
+        # defined on the boundary elongation and was validated against the
+        # traced contour, so the outline is the definition here and the stored
+        # node is only a fallback.
         kappa = np.nan
-        if "boundary.elongation" in eq_ts:
+        try:
+            kappa = float(elongation_from_RZ_boundary(R_bdry, Z_bdry))
+        except (ValueError, ZeroDivisionError):
+            kappa = np.nan
+        if (not np.isfinite(kappa) or kappa <= 0.0) and "boundary.elongation" in eq_ts:
             try:
                 kappa = float(eq_ts["boundary.elongation"])
             except (KeyError, TypeError, ValueError):
-                kappa = np.nan
-        if not np.isfinite(kappa) or kappa <= 0.0:
-            try:
-                kappa = float(elongation_from_RZ_boundary(R_bdry, Z_bdry))
-            except (ValueError, ZeroDivisionError):
                 kappa = np.nan
         alpha_kappa = (
             float(virial_alpha_approx_from_kappa(kappa)) if np.isfinite(kappa) else np.nan

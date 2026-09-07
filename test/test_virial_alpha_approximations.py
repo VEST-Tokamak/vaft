@@ -26,6 +26,7 @@ from vaft.formula.equilibrium import (
     virial_li_from_S_alpha_mu,
 )
 from vaft.process.equilibrium import (
+    MIN_ANNULUS_CELLS,
     contour_shape_parameters,
     efit_virial_volume_integrals,
     evaluate_solovev,
@@ -185,6 +186,72 @@ def test_alpha_2_abstains_rather_than_describing_the_grid():
     assert np.isnan(result["alpha"])
     assert "cells" in result["reason"]
     assert result["n_cells"] > 0.0  # the count that triggered it is reported
+
+
+def test_alpha_2_abstains_when_the_annulus_is_thinner_than_the_sampling():
+    """Total area is not resolution: a long annulus can hold many cells and
+    still be narrower than the sub-sampling can see."""
+    case = _case(0.7, 1.6, nr=129, nz=193)
+    result = virial_alpha_conformal_annulus(
+        case["r_mesh"], case["z_mesh"], case["b_r"], case["b_z"],
+        case["r_bdry"], case["z_bdry"], thickness=2e-3,
+    )
+    assert not result["valid"] and np.isnan(result["alpha"])
+    # It is the width that rejected it, not the cell count.
+    assert "sub-samples wide" in result["reason"]
+    assert result["n_cells"] >= MIN_ANNULUS_CELLS
+
+
+def test_alpha_2_ignores_a_cell_whose_field_is_only_partly_finite():
+    """A NaN in B_R alone must drop the cell from both integrals.
+
+    Reading B_Z for the numerator but B_R^2 + B_Z^2 for the denominator would
+    otherwise keep the cell in one and drop it from the other, biasing alpha up.
+    """
+    case = _case(0.7, 1.6, nr=129, nz=193)
+    kwargs = dict(thickness=0.15)
+    clean = virial_alpha_conformal_annulus(
+        case["r_mesh"], case["z_mesh"], case["b_r"], case["b_z"],
+        case["r_bdry"], case["z_bdry"], **kwargs,
+    )
+    holed = np.array(case["b_r"], dtype=float)
+    inside = np.isfinite(holed)
+    idx = np.argwhere(inside)[len(np.argwhere(inside)) // 2]
+    holed[tuple(idx)] = np.nan
+    result = virial_alpha_conformal_annulus(
+        case["r_mesh"], case["z_mesh"], holed, case["b_z"],
+        case["r_bdry"], case["z_bdry"], **kwargs,
+    )
+    assert result["valid"]
+    # Dropping one cell of many moves alpha a little; an asymmetric drop would
+    # move it the other way, upward, by more.
+    assert result["alpha"] == pytest.approx(clean["alpha"], rel=5e-3)
+
+
+def test_thin_annulus_abstains_when_the_boundary_folds_over_the_centre():
+    """A contour not star-shaped about the centre has negative support, where
+    the conformal annulus folds; the finite-thickness path clips its areas, so
+    the limit must refuse rather than disagree with it."""
+    # A horseshoe: the bounding-box centre falls in the concavity, outside the
+    # shape, so the inner arc's outward normal points back towards it.
+    theta = np.linspace(-2.4, 2.4, 200)
+    r_b = np.concatenate([np.cos(theta), 0.55 * np.cos(theta[::-1])])
+    z_b = np.concatenate([np.sin(theta), 0.55 * np.sin(theta[::-1])])
+    b_r, b_z = np.zeros_like(r_b), np.ones_like(r_b)
+
+    assert np.isnan(virial_alpha_thin_annulus(r_b, z_b, b_r, b_z))
+    # "uniform" assumes nothing about star-shapedness and still answers; with
+    # B_R = 0 the exact value is 2 whatever the shape.
+    assert virial_alpha_thin_annulus(
+        r_b, z_b, b_r, b_z, mode="uniform"
+    ) == pytest.approx(2.0)
+
+    # A convex boundary is unaffected by the guard.
+    circle = np.linspace(0.0, 2.0 * np.pi, 201)
+    assert virial_alpha_thin_annulus(
+        2.0 + np.cos(circle), np.sin(circle),
+        np.zeros_like(circle), np.ones_like(circle),
+    ) == pytest.approx(2.0)
 
 
 def test_alpha_2_abstains_when_the_boundary_leaves_the_grid():

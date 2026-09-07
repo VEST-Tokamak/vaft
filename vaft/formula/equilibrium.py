@@ -3031,12 +3031,26 @@ def virial_alpha_approx_from_kappa(kappa: float) -> float:
 
     Validity
     --------
-    Reported accurate to roughly 10% over the aspect-ratio range tested by
-    Bongard et al., with slightly less spread than the annulus estimate
-    :func:`virial_alpha_from_R_Bz_Bp_dl`.  Exact at $\kappa=1$, where it
-    returns 1.  Because the Bongard closure divides by $3\alpha-2$, a 10% error
-    in $\alpha$ becomes a $\sim$19% error in $l_i$ near $\alpha=1.4$; see
-    :func:`virial_li_from_S_alpha_mu`.
+    Bongard et al. report roughly 10% over the aspect-ratio range they tested,
+    with slightly less spread than their annulus estimate.  Measured here
+    against the volume integral of an analytic Solov'ev equilibrium over
+    $\kappa\in[1,2]$ and $\epsilon\in[0.4,0.8]$, the ordering comes out the
+    other way: this form has bias $-3.6\%$, scatter $2.7\%$ and worst case
+    $11.4\%$, against $-1.0\%$, $1.0\%$ and $2.8\%$ for
+    :func:`vaft.process.equilibrium.virial_alpha_conformal_annulus`.  Pick
+    between them on evidence from the geometry at hand, not on either claim.
+
+    The error is systematically negative and largest for a round, fat plasma:
+    $\hat\alpha_1$ depends only on $\kappa$, so it cannot represent the
+    aspect-ratio contribution that holds the true $\alpha$ above 1 even at
+    $\kappa=1$ (where it runs 1.03 to 1.14 across that $\epsilon$ range while
+    this returns 1.00).  $\kappa=1$ is therefore where the approximation is
+    weakest, not where it is exact.
+
+    The Bongard closure divides by $3\alpha-2$, so an $\alpha$ error grows on
+    its way into $l_i$: near $\alpha=1.4$ the logarithmic sensitivity
+    $-3\alpha/(3\alpha-2)$ is $-1.9$, and a finite 10% error costs about 16%.
+    See :func:`virial_li_from_S_alpha_mu`.
 
     References
     ----------

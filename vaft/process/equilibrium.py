@@ -1318,6 +1318,52 @@ def fractional_cell_weights_from_boundary(
 #: judgement applied to a contour instead of a region.
 MIN_ANNULUS_CELLS = 16.0
 
+#: An annulus must be at least this many *sub-samples* wide at its narrowest.
+#: The weighting in :func:`fractional_cell_weights_from_boundary` resolves down
+#: to one cell over ``samples_per_axis``, not one cell -- a sub-cell annulus is
+#: still integrated correctly -- so the limit is the sub-sample spacing. Below
+#: it the band falls between sample points and the integral reports the grid
+#: phase rather than the field.
+MIN_ANNULUS_WIDTH_SUBSAMPLES = 1.0
+
+#: Fraction of the boundary arc length that may have a negative support
+#: function before the conformal construction is judged not to describe the
+#: shape at all.  A star-shaped boundary has none.
+MAX_NONCONVEX_ARC_FRACTION = 0.01
+
+
+def _boundary_normals_and_support(
+    R_b: np.ndarray,
+    Z_b: np.ndarray,
+    center: tuple[float, float] | None = None,
+) -> tuple[np.ndarray, ...]:
+    """Segment midpoints, outward normals, lengths and support function.
+
+    ``R_b``/``Z_b`` must already be closed and counter-clockwise, so that
+    ``n = (dZ, -dR)/dl`` points outward.  The support function
+    ``(x - c).n`` is the local width per unit conformal scaling: shrinking the
+    contour by a factor ``1 - t`` about ``c`` moves each point by ``-t(x - c)``,
+    whose component along the normal is ``t (x - c).n``.
+
+    It is negative wherever the boundary faces away from ``c`` -- which cannot
+    happen for a contour star-shaped about ``c``, and means the conformal
+    annulus folds over itself where it does.
+    """
+    dR, dZ = np.diff(R_b), np.diff(Z_b)
+    dl = np.hypot(dR, dZ)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        nR = np.where(dl > 0.0, dZ / dl, 0.0)
+        nZ = np.where(dl > 0.0, -dR / dl, 0.0)
+    R_mid = 0.5 * (R_b[:-1] + R_b[1:])
+    Z_mid = 0.5 * (Z_b[:-1] + Z_b[1:])
+    if center is None:
+        R_c = 0.5 * (float(np.min(R_b)) + float(np.max(R_b)))
+        Z_c = 0.5 * (float(np.min(Z_b)) + float(np.max(Z_b)))
+    else:
+        R_c, Z_c = float(center[0]), float(center[1])
+    support = (R_mid - R_c) * nR + (Z_mid - Z_c) * nZ
+    return R_mid, Z_mid, nR, nZ, dl, support
+
 
 def scale_boundary_conformal(
     R_bdry: np.ndarray,
@@ -1402,13 +1448,9 @@ def virial_alpha_thin_annulus(
         R_b, Z_b, B_R_b, B_Z_b, n_points=n_points
     )
 
-    dR, dZ = np.diff(R_b), np.diff(Z_b)
-    dl = np.hypot(dR, dZ)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        nR = np.where(dl > 0.0, dZ / dl, 0.0)   # outward normal of a CCW contour
-        nZ = np.where(dl > 0.0, -dR / dl, 0.0)
-    R_mid = 0.5 * (R_b[:-1] + R_b[1:])
-    Z_mid = 0.5 * (Z_b[:-1] + Z_b[1:])
+    R_mid, Z_mid, _nR, _nZ, dl, support = _boundary_normals_and_support(
+        R_b, Z_b, center
+    )
     B_R_mid = 0.5 * (B_R_b[:-1] + B_R_b[1:])
     B_Z_mid = 0.5 * (B_Z_b[:-1] + B_Z_b[1:])
     B_p_mid = np.hypot(B_R_mid, B_Z_mid)
@@ -1416,12 +1458,16 @@ def virial_alpha_thin_annulus(
     if mode == "uniform":
         weight = np.ones_like(dl)
     else:
-        if center is None:
-            R_c = 0.5 * (float(np.min(R_b)) + float(np.max(R_b)))
-            Z_c = 0.5 * (float(np.min(Z_b)) + float(np.max(Z_b)))
-        else:
-            R_c, Z_c = float(center[0]), float(center[1])
-        weight = (R_mid - R_c) * nR + (Z_mid - Z_c) * nZ
+        # A negative support means the conformal annulus folds over itself
+        # there, and an unclamped negative weight would subtract from both
+        # integrals -- so a mildly non-convex contour is clamped, and one that
+        # is genuinely not star-shaped about the centre abstains rather than
+        # returning an alpha the finite-thickness path would not agree with.
+        total = float(np.sum(dl))
+        folded = float(np.sum(dl[support < 0.0]))
+        if total <= 0.0 or folded > MAX_NONCONVEX_ARC_FRACTION * total:
+            return float("nan")
+        weight = np.clip(support, 0.0, None)
 
     from vaft.formula.equilibrium import virial_alpha_from_R_Bz_Bp_dl
 
@@ -1477,6 +1523,8 @@ def virial_alpha_conformal_annulus(
     R_out, Z_out = _ensure_closed_boundary(R_bdry, Z_bdry)
     if R_out.size < 4:
         return _fail("boundary has too few points to define an annulus.")
+    if _signed_area_closed_polygon(R_out, Z_out) < 0.0:
+        R_out, Z_out = R_out[::-1], Z_out[::-1]
 
     # The outer contour must be on the grid, or the annulus is silently clipped.
     if (
@@ -1506,9 +1554,30 @@ def virial_alpha_conformal_annulus(
         )
 
     dA = _cell_area_from_mesh(R_grid, Z_grid)
+
+    # Total area is not resolution: a long annulus can hold hundreds of cells
+    # while being narrower than the sampling can see, in which case the integral
+    # reports the grid phase. The narrowest point is what has to be resolved.
+    _, _, _, _, _, support = _boundary_normals_and_support(R_out, Z_out)
+    min_width = thickness * float(np.min(np.clip(support, 0.0, None)))
+    cell = float(np.median(np.sqrt(dA[dA > 0.0]))) if np.any(dA > 0.0) else 0.0
+    sample_spacing = cell / float(samples_per_axis)
+    if sample_spacing > 0.0 and min_width < MIN_ANNULUS_WIDTH_SUBSAMPLES * sample_spacing:
+        return _fail(
+            f"annulus is {min_width / sample_spacing:.2f} sub-samples wide at its "
+            f"narrowest, below the {MIN_ANNULUS_WIDTH_SUBSAMPLES:g} needed to "
+            "resolve the field across it.",
+            n_cells,
+        )
+
+    # One mask for both integrals: dropping a cell from the denominator (via
+    # B_p^2) while keeping it in the numerator (which only reads B_Z) would
+    # bias alpha high, so a partially non-finite field excludes the whole cell.
     B_p_sq = B_R_grid**2 + B_Z_grid**2
-    num = float(np.nansum(R_grid * (B_Z_grid**2) * weights * dA))
-    den = float(np.nansum(R_grid * B_p_sq * weights * dA))
+    finite = np.isfinite(B_R_grid) & np.isfinite(B_Z_grid) & np.isfinite(dA)
+    weights = np.where(finite, weights, 0.0)
+    num = float(np.sum(R_grid * np.where(finite, B_Z_grid, 0.0) ** 2 * weights * dA))
+    den = float(np.sum(R_grid * np.where(finite, B_p_sq, 0.0) * weights * dA))
     if not np.isfinite(num) or not np.isfinite(den) or den == 0.0:
         return _fail("annulus integral of R*Bp^2 is zero or non-finite.", n_cells)
 
