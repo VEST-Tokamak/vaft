@@ -2031,7 +2031,8 @@ def virial_mu_i_from_diamagnetic_flux(B_t: float,
     Parameters
     ----------
     B_t : float
-        Vacuum toroidal field at $R_0$ [T].
+        Vacuum toroidal field at $R_0$; only its magnitude is used, so a
+        COCOS-dependent stored sign cannot reach the result [T].
     R0 : float
         Reference major radius [m].
     dphi : float
@@ -2073,7 +2074,19 @@ def virial_mu_i_from_diamagnetic_flux(B_t: float,
            25 (1985) 1421, Sec. 2 ($\mu_i$ definition).
     .. [2] V. D. Shafranov, Plasma Phys. 13 (1971) 757.
     """
-    return -virial_muihat_from_Bt_R0_dphi(B_t, R0, dphi, B_pa, Omega)
+    # |B_t|, not B_t. The conversion is linear in the field, so it inherits
+    # whatever sign convention the field was stored under -- and those differ
+    # between sources for the same shot: shot 39915 carries f = +0.0598 in the
+    # packaged sample and -0.0598 in the database, the same magnitude under a
+    # different COCOS. The volume mu_i is quadratic in F and cannot notice;
+    # this would flip, making a diamagnetic plasma read as paramagnetic
+    # depending on where the data was loaded from.
+    #
+    # The remaining sign comes from dphi alone, in the one convention this
+    # repository pins end to end (test/test_diamagnetic_flux_sign.py): the flux
+    # is signed with B_t, so in VEST's positive toroidal field a diamagnetic
+    # plasma stores a negative flux, which is a positive mu_i here.
+    return -virial_muihat_from_Bt_R0_dphi(abs(B_t), R0, dphi, B_pa, Omega)
 
 
 def virial_muihat_from_Bt_R0_dphi(B_t: float,
@@ -2283,7 +2296,7 @@ def virial_beta_p_lao_from_S_mu_rt(
     mui: float,
     RT_over_R0: float,
 ) -> float:
-    r"""Poloidal beta, Lao large-aspect-ratio virial closure.
+    r"""Poloidal beta, the Lao virial closure of $E_1$ and $E_2$.
 
     $$\beta_p = \frac{S_1}{2} + \frac{S_2}{2}\left(1 - \frac{R_T}{R_0}\right) + \mu_i$$
 
@@ -2337,7 +2350,7 @@ def virial_li_from_S_alpha_rt(
     RT_over_R0: float,
     eps: float = 1e-12,
 ) -> float:
-    r"""Internal inductance, Lao large-aspect-ratio virial closure.
+    r"""Internal inductance, the Lao virial closure of $E_1$, $E_2$ and $E_3$.
 
     $$l_i^{\mathrm{vir}} = \frac{\tfrac{S_1}{2} + \tfrac{S_2}{2}\left(1 - \tfrac{R_T}{R_0}\right) - S_3}{\alpha - 1}$$
 
@@ -2368,7 +2381,9 @@ def virial_li_from_S_alpha_rt(
 
     Validity
     --------
-    Large aspect ratio, as :func:`virial_beta_p_lao_from_S_mu_rt`.
+    Exact given $E_1$, $E_2$ and $E_3$: no aspect-ratio expansion, as for
+    :func:`virial_beta_p_lao_from_S_mu_rt`. It inherits a dependence on both
+    $R_T/R_0$ and $\alpha$, and diverges as $\alpha\to1$.
 
     References
     ----------
@@ -2407,10 +2422,11 @@ def virial_beta_p_from_S_li(
 
     Physical interpretation
     -----------------------
-    Solves the first virial relation $S_1 + S_2 = 3\beta_p + l_i - \hat l_i$ for
-    $\beta_p$ after dropping $\hat l_i$ and rescaling, giving the classic
-    "$\beta_p + l_i/2$ from magnetics" separation when $l_i$ is known
-    independently.
+    Adds $E_1$ and $E_2$, which eliminates $\mu_i$ between them and leaves
+    $4\beta_p + 2l_i = S_1 + S_2(1+R_T/R_0)$, evaluated at $R_T/R_0 = 1$. That
+    is the classic "$\beta_p + l_i/2$ from magnetics" separation when $l_i$ is
+    known independently. It is the one $\beta_p$ here that no $\mu_i$
+    convention can reach, because $\mu_i$ is what the sum cancels.
 
     References
     ----------
@@ -2428,7 +2444,7 @@ def virial_beta_pd_from_S_mu_rt(
 ) -> float:
     r"""Diamagnetic poloidal beta $\beta_{p,d}$ from $S_1$, $S_2$ and $\mu_i$.
 
-    $$\beta_{p,d}^{\mathrm{vir}} = \frac{S_1}{2} - \mu_i + \frac{S_2}{2}\left(1 - \frac{R_T}{R_0}\right)$$
+    $$\beta_{p,d}^{\mathrm{vir}} = \frac{S_1}{2} + \mu_i + \frac{S_2}{2}\left(1 - \frac{R_T}{R_0}\right)$$
 
     Parameters
     ----------
@@ -2446,16 +2462,34 @@ def virial_beta_pd_from_S_mu_rt(
     float
         Diamagnetic poloidal beta [-].
 
+    Convention
+    ----------
+    $\mu_i$ in the **volume** sign the three relations use, like every other
+    closure here -- see :func:`virial_mu_i_from_diamagnetic_flux`. The sign of
+    the $\mu_i$ term was a minus until #546, which is correct for the *flux*
+    sign the EFIT ``xmui`` port produces and wrong for this one; the two call
+    sites were switched to the volume sign without the formula following, which
+    made this return $\beta_p - 2\mu_i$.
+
+    Physical interpretation
+    -----------------------
+    This is the Lao $\beta_p$ evaluated on a $\mu_i$ that came from a
+    diamagnetic measurement rather than from the reconstruction, so it is
+    identical to :func:`virial_beta_p_lao_from_S_mu_rt` given the same $\mu_i$.
+    Its content is entirely in *which* $\mu_i$ it is handed: feeding it the
+    equilibrium's own returns the equilibrium's own $\beta_p$ and says nothing.
+
     Validity
     --------
-    Large aspect ratio (Lao closure).
+    Exact given $E_1$ and $E_2$, like the Lao $\beta_p$ it duplicates; it
+    inherits the same total dependence on $R_T/R_0$.
 
     References
     ----------
     .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion
            25 (1985) 1421, Sec. 3.
     """
-    return 0.5 * S1 - mui + 0.5 * S2 * (1.0 - RT_over_R0)
+    return 0.5 * S1 + mui + 0.5 * S2 * (1.0 - RT_over_R0)
 
 
 def virial_beta_p_li_from_S_alpha_mu_rt(
@@ -2519,7 +2553,7 @@ def virial_lao_from_S_alpha_mu_rt(
     RT_over_R0: float,
     eps: float = 1e-12,
 ) -> Tuple[float, float]:
-    r"""Large-aspect-ratio virial closure (Lao 1985): $\beta_p$ and $l_i$.
+    r"""The Lao virial closure (Lao 1985): $\beta_p$ and $l_i$.
 
     Evaluates :func:`virial_beta_p_lao_from_S_mu_rt` and
     :func:`virial_li_from_S_alpha_rt`.

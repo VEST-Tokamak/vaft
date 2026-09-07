@@ -1427,7 +1427,7 @@ def _virial_empty_row():
         "s_1": nan, "s_2": nan, "s_3": nan, "alpha": nan,
         "B_pa": nan, "beta_p": nan, "li": nan,
         "W_mag": nan, "W_kin": nan, "V_p": nan,
-        "mui_hat": nan, "mui": nan, "mui_from_flux": nan,
+        "mui_hat": nan, "mui": nan, "mui_from_flux": nan, "f_boundary": nan,
         "rt": nan, "phi_dia_comp": nan,
         "beta_p_vir": nan, "li_vir": nan, "beta_pd_vir": nan,
         "virial_lao": {"beta_p": nan, "li": nan},
@@ -1745,9 +1745,10 @@ def compute_virial_equilibrium_quantities_ods(
             and np.isfinite(F_boundary)
         ):
             _dV = np.nan_to_num(np.asarray(vol_terms["dV"], float), nan=0.0)
-            _b_tv_sq = np.nan_to_num((F_boundary / R_safe) ** 2, nan=0.0)
-            _b_t_sq = np.nan_to_num((F_2d / R_safe) ** 2, nan=0.0)
-            mui = float(np.sum((_b_tv_sq - _b_t_sq) * _dV) / (B_pa**2 * V_p))
+            _diff = (F_boundary / R_safe) ** 2 - (F_2d / R_safe) ** 2
+            # On the difference, so a cell with a NaN F contributes nothing
+            # rather than contributing its vacuum term alone.
+            mui = float(np.sum(np.nan_to_num(_diff, nan=0.0) * _dV) / (B_pa**2 * V_p))
 
         RT_over_R0 = np.nan
         if np.isfinite(RT) and R_0 != 0.0:
@@ -1772,7 +1773,9 @@ def compute_virial_equilibrium_quantities_ods(
                 beta_p_lao, li_lao = virial_lao_from_S_alpha_mu_rt(
                     S1, S2, S3, alpha, mui, RT_over_R0
                 )
-                beta_pd_vir = virial_beta_pd_from_S_mu_rt(S1, S2, mui, RT_over_R0)
+                # Left for the measured mu_i below: fed the equilibrium's own,
+                # this returns the equilibrium's own beta_p and says nothing.
+                pass
             except ValueError:
                 beta_p_lao, li_lao, beta_pd_vir = np.nan, np.nan, np.nan
         if np.isfinite(alpha) and np.isfinite(mui):
@@ -1846,9 +1849,19 @@ def compute_virial_equilibrium_quantities_ods(
         # diamagnetic loop.
         mui_measured = np.nan
         delta_phi_measured = _virial_measured_diamagnetic_flux(ods, eq_idx)
+        # The field here must be on the same convention as the F profile the
+        # volume mu_i above is built from, and equilibrium.vacuum_toroidal_field.b0
+        # is not: vaft/database/_summary.py records that f and b0 follow
+        # different COCOS on VEST, and it deliberately preserves the stored b0
+        # sign. The volume integral is quadratic in F and so cannot notice; this
+        # conversion is linear and does. Using b0 put the two mu_i on opposite
+        # signs on 210 of 226 rows of the equilibrium history -- a convention
+        # difference that then read as a physics disagreement. F_boundary/R_0 is
+        # the same F, so the two agree by construction.
+        _b_t_for_flux = F_boundary / R_0 if np.isfinite(F_boundary) and R_0 else np.nan
         if (
             np.isfinite(delta_phi_measured)
-            and np.isfinite(B_t0)
+            and np.isfinite(_b_t_for_flux)
             and np.isfinite(R_0)
             and np.isfinite(B_pa)
             and B_pa > 0.0
@@ -1860,9 +1873,13 @@ def compute_virial_equilibrium_quantities_ods(
             # reads a convention difference as a physics disagreement.
             mui_measured = float(
                 virial_mu_i_from_diamagnetic_flux(
-                    B_t0, R_0, delta_phi_measured, B_pa, V_p
+                    _b_t_for_flux, R_0, delta_phi_measured, B_pa, V_p
                 )
             )
+        # beta_p from the *measurement*, which is what a diamagnetic beta_p is.
+        if np.isfinite(mui_measured) and np.isfinite(RT_over_R0):
+            beta_pd_vir = virial_beta_pd_from_S_mu_rt(S1, S2, mui_measured, RT_over_R0)
+
         # The same three closures again, on the measured mu_i, so the comparison
         # against the reconstruction is like for like.
         beta_p_12_m, li_12_m = (
@@ -1903,6 +1920,10 @@ def compute_virial_equilibrium_quantities_ods(
             # leading order. Kept so the change of convention is visible rather
             # than silent.
             "mui_from_flux": float(mui_from_flux) if np.isfinite(mui_from_flux) else np.nan,
+            # The F the volume mu_i is built from, so a consumer can check that
+            # converting this slice's own phi_dia_comp reproduces its own mu_i --
+            # the self-consistency that b0 silently broke.
+            "f_boundary": float(F_boundary) if np.isfinite(F_boundary) else np.nan,
             "mui": float(mui) if np.isfinite(mui) else np.nan,
             "rt": RT,
             "phi_dia_comp": phi_dia_comp,

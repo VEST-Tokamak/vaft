@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import pytest
 
 
@@ -995,11 +996,26 @@ def test_the_ods_virial_path_uses_one_convention_for_both_fields():
             equilibrium = convert_cocos(equilibrium, cocos)
         ods = from_equilibrium(equilibrium).to_omas()
         set_ods_cocos(ods, cocos)
+        # A diamagnetic loop, so beta_pd_vir and the measured mu_i are exercised
+        # here too. They are the quantities that convert a *measured* flux with
+        # the toroidal field, which is where a COCOS-dependent field sign would
+        # do its damage: the volume mu_i is quadratic in F and cannot notice,
+        # these are linear and would flip.
+        ods["magnetics.time"] = np.array([0.0, 1.0])
+        ods["magnetics.diamagnetic_flux.0.data"] = np.array([-1.0e-3, -1.0e-3])
         return compute_virial_equilibrium_quantities_ods(ods)[0]
 
     per_radian, weber = virial(1), virial(11)
     for name in ("li", "li_vir_lao", "s_1", "s_2", "s_3", "beta_pd_vir", "mui"):
+        assert np.isfinite(per_radian[name]), f"{name} is not computable in this fixture"
         assert weber[name] == pytest.approx(per_radian[name], rel=1e-6), name
+    # The measured mu_i must survive the conversion with its sign: a negative
+    # stored flux is a diamagnetic plasma in either convention.
+    for row in (per_radian, weber):
+        assert row["mu_i_sources"]["measured"] > 0
+    assert weber["mu_i_sources"]["measured"] == pytest.approx(
+        per_radian["mu_i_sources"]["measured"], rel=1e-6
+    )
 
 
 def test_the_field_interpolator_receives_the_ods_convention():

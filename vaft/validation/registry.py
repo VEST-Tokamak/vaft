@@ -121,14 +121,17 @@ _SPECS = (
     _spec("physical_validity.virial_identity", "1",
           "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
           "the three virial identities evaluated on the volume-integral beta_p, li and mu_i, "
-          "graded on the RMS of the normalized residuals that could be evaluated (E2 needs "
-          "RT/R0, E1 and E3 do not); indeterminate only when none of the three could be",
+          "graded on the RMS of the normalized residuals that could be evaluated; E2 is the only "
+          "one needing RT/R0 and is dropped when the RT denominator ratio is below 0.25, so E1 "
+          "and E3 still grade there; indeterminate only when none of the three could be",
           "normalized_residual", (0.10, 0.30)),
     _spec("physical_validity.virial_pair_consistency", "1",
           "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
           "leave-one-identity-out: each of pair_12, pair_13 and pair_23 solved from two relations "
           "and scored on the third, graded on the largest normalized residual; indeterminate when "
-          "fewer than two closures are invertible", "normalized_residual", (0.10, 0.30)),
+          "fewer than two closures are invertible, or when the RT denominator ratio is below "
+          "0.25, since every leave-one-out residual runs through RT/R0",
+          "normalized_residual", (0.10, 0.30)),
     _spec("physical_validity.virial_conditioning", "1",
           "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
           "whether each closure can be inverted here: warn when alpha is close to a closure's "
@@ -167,7 +170,8 @@ _SPECS = (
     _spec("independent_validation.diamagnetic_energy", "J",
           "vaft.formula.equilibrium.virial_beta_pd_from_S_mu_rt",
           "stored energy from the measured diamagnetic flux through the virial diamagnetic beta_p, "
-          "against the virial kinetic energy", "log_ratio", (0.262, 0.693)),
+          "against the virial kinetic energy; both sides run through RT/R0, so indeterminate when "
+          "the RT denominator ratio is below 0.25", "log_ratio", (0.262, 0.693)),
     # The measured loop feeding the closures themselves, not just the energy
     # (#546 s14). This belongs here and not under physical_validity: it asks
     # whether the reconstruction agrees with a measurement it never used.

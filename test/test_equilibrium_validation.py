@@ -167,14 +167,13 @@ def test_a_slice_without_a_boundary_is_indeterminate_not_a_number(report):
     assert dead["status"] == INDETERMINATE
     for name in ("s_1", "beta_p", "li", "B_pa"):
         assert dead[name] is None  # NaN serializes as null, never as an unbounded value
-    # The live slices are indeterminate too, but for the other reason the check
-    # can give: their Lao beta_p and li run through an RT/R0 the conditioning
-    # check reports as cancelled away. Both are numbers the report declines to
-    # grade, neither is an unbounded one.
+    # The live slices are graded, and on the RT-free closure: bounding the Lao
+    # beta_p meant declining on 230 of 234 slices of the history, because RT/R0
+    # has cancelled away there. pair_13 needs no RT/R0.
     live = _slice(report, "physical_validity", "virial_parameter_plausibility", LIVE)
-    assert live["status"] == INDETERMINATE
-    assert "RT denominator" in live["reason"]
-    # Both closures are still named; neither is silently the other.
+    assert live["status"] == PASS
+    assert 0 < live["beta_p_pair_13"] <= 10 and 0 < live["li_pair_13"] <= 3
+    # The Lao values are still reported beside them, just not graded on.
     assert live["beta_p"] == live["beta_p_lao"] and live["li"] == live["li_lao"]
     assert live["li_bongard"] != live["li_lao"]
     assert _slice(report, "independent_validation", "diamagnetic_energy", DEAD)["status"] == INDETERMINATE
@@ -312,12 +311,17 @@ def test_the_reconstructed_diamagnetic_flux_disagrees_with_the_measurement_in_si
     assert flux["status"] == FAIL
     assert flux["sign_agreement"] is False
     assert flux["measured"] < 0 < flux["computed"]
-    energy = _slice(report, "independent_validation", "diamagnetic_energy", LIVE)
     virial = _slice(report, "physical_validity", "virial_identity", LIVE)
+    measured = _slice(report, "independent_validation", "virial_measured_mu_i", LIVE)
     # One convention, opposite signs: that is the finding.
-    assert energy["mui_measured"] > 0 > virial["mu_i_volume"]
-    assert energy["status"] == FAIL
-    assert abs(energy["log_ratio"]) > describe("independent_validation.diamagnetic_energy").tolerance[1]
+    assert measured["mu_i_measured"] > 0 > virial["mu_i_volume"]
+    assert measured["status"] == FAIL
+    # diamagnetic_energy would say the same thing, but both its sides run
+    # through RT/R0, so on this sample it declines rather than asserting a
+    # verdict the conditioning check calls undetermined.
+    energy = _slice(report, "independent_validation", "diamagnetic_energy", LIVE)
+    assert energy["status"] == INDETERMINATE
+    assert "RT denominator" in energy["reason"]
 
 
 def test_measurements_can_arrive_on_a_separate_diagnostics_ods(sample):

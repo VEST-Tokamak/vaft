@@ -93,7 +93,9 @@ _ELEMENTARY_CHARGE = 1.602176634e-19
 
 #: Names a per-slice virial row must carry finite for the closure to be decided.
 _VIRIAL_REQUIRED = ("s_1", "s_2", "s_3", "alpha", "B_pa", "beta_p", "li")
-#: A closure denominator below this is reported as near-singular. Report-only:
+#: An alpha-distance to a closure's singular point below this is reported as
+#: near-singular -- a distance, not a denominator, since lao_li and full_123
+#: divide by (alpha-1) and 4*(alpha-1) at the same singularity. Report-only:
 #: the number is a readable round figure, not a qualified threshold (#546 §7).
 _VIRIAL_DENOMINATOR_WARN = 0.1
 #: Fraction of the RT denominator that must survive the sign cancellation in
@@ -647,10 +649,29 @@ def _virial_identity_check(row: Mapping[str, Any]) -> dict[str, Any]:
                    "cannot be evaluated without inverting a closure",
             **fields,
         )
-    status = _graded("physical_validity.virial_identity", fields["rms_evaluable"])
     evaluable = [
         key for key in ("e1", "e2", "e3") if math.isfinite(fields[f"{key}_normalized"])
     ]
+    # E2 is the only identity carrying RT/R0. Where the RT denominator has
+    # cancelled away the rest of the report declines to use it, so grading it
+    # here would contradict them -- and E1 and E3 need no RT at all.
+    rt_ratio = _float((row.get("conditioning") or {}).get("rt_denominator_ratio"))
+    if math.isfinite(rt_ratio) and rt_ratio < _VIRIAL_RT_RATIO_WARN and "e2" in evaluable:
+        evaluable.remove("e2")
+        fields["e2_excluded_for_rt"] = True
+        residuals = [fields[f"{k}_normalized"] for k in evaluable]
+        fields["rms_evaluable"] = (
+            float(np.sqrt(np.mean(np.asarray(residuals, float) ** 2))) if residuals else math.nan
+        )
+    else:
+        fields["e2_excluded_for_rt"] = False
+    if not evaluable or not math.isfinite(fields["rms_evaluable"]):
+        return _result(
+            ValidationStatus.INDETERMINATE,
+            reason="no identity could be evaluated with inputs the report accepts",
+            **fields,
+        )
+    status = _graded("physical_validity.virial_identity", fields["rms_evaluable"])
     worst = max(evaluable, key=lambda k: abs(fields[f"{k}_normalized"]))
     detail = (
         f"largest residual on {worst.upper()}"
@@ -765,7 +786,7 @@ def _virial_conditioning(row: Mapping[str, Any]) -> dict[str, Any]:
         )
     reasons = []
     if near_singular:
-        reasons.append("near-singular denominator: " + ", ".join(near_singular))
+        reasons.append("near its singular alpha: " + ", ".join(near_singular))
     if rt_ill:
         reasons.append(
             f"only {rt_ratio:.3g} of the RT denominator survives cancellation, so RT/R0 "
@@ -799,17 +820,20 @@ def _virial_result(row: Mapping[str, Any]) -> dict[str, Any]:
         li_bongard=_float(bongard.get("li")),
         beta_p_diamagnetic=_float(row.get("beta_pd_vir")),
     )
-    _conditioning = row.get("conditioning") or {}
-    _rt_ratio = _float(_conditioning.get("rt_denominator_ratio"))
-    if math.isfinite(_rt_ratio) and _rt_ratio < _VIRIAL_RT_RATIO_WARN:
-        return _result(
-            ValidationStatus.INDETERMINATE,
-            reason=f"only {_rt_ratio:.3g} of the RT denominator survives cancellation, so the "
-                   "Lao beta_p and li these bounds would grade are not determined here "
-                   "(see virial_conditioning)",
-            **values,
-        )
-    missing = [name for name in _VIRIAL_REQUIRED if not math.isfinite(values[name])]
+    # Grade the RT-free closure. Bounding the Lao beta_p meant declining to
+    # grade wherever RT/R0 had cancelled away, which is 230 of 234 slices of the
+    # equilibrium history -- a check that never fires is not a check. pair_13
+    # needs no RT/R0 and is computable on every slice, so the question "are
+    # these numbers physically sane" gets an answer. The Lao values stay in the
+    # result beside them, reported but not graded.
+    pair_13 = row.get("pair_13") or {}
+    values.update(
+        beta_p_pair_13=_float(pair_13.get("beta_p")),
+        li_pair_13=_float(pair_13.get("li")),
+    )
+    graded = {"beta_p": values["beta_p_pair_13"], "li": values["li_pair_13"]}
+    missing = [name for name in ("s_1", "s_2", "s_3", "alpha", "B_pa") if not math.isfinite(values[name])]
+    missing += [name for name, value in graded.items() if not math.isfinite(value)]
     if missing:
         return _result(
             ValidationStatus.INDETERMINATE,
@@ -818,13 +842,13 @@ def _virial_result(row: Mapping[str, Any]) -> dict[str, Any]:
         )
     outside = [
         name for name, (low, high) in _VIRIAL_BOUNDS.items()
-        if not low < values[name] <= high
+        if not low < graded[name] <= high
     ]
     if outside:
         return _result(
             ValidationStatus.FAIL,
-            reason="outside plausibility bounds: " + ", ".join(
-                f"{name}={values[name]:.3g} not in ({_VIRIAL_BOUNDS[name][0]}, {_VIRIAL_BOUNDS[name][1]}]"
+            reason="the RT-free closure is outside plausibility bounds: " + ", ".join(
+                f"{name}={graded[name]:.3g} not in ({_VIRIAL_BOUNDS[name][0]}, {_VIRIAL_BOUNDS[name][1]}]"
                 for name in outside
             ),
             **values,
@@ -1166,6 +1190,19 @@ def _diamagnetic_energy(ods: Any, index: int, virial: Mapping[str, Any], dia_row
     # use; the EFIT flux port is its negative, so converting here rather than
     # there was comparing a diamagnetic beta_p built one way against a kinetic
     # one built the other.
+    # beta_pd and W_kin are both built through RT/R0, so this check is as
+    # RT-dependent as the ones that decline to grade when it has cancelled away.
+    # Asserting a verdict here while virial_conditioning calls the same numbers
+    # undetermined is the contradiction the other three checks already avoid.
+    _rt_ratio = _float((virial.get("conditioning") or {}).get("rt_denominator_ratio"))
+    if math.isfinite(_rt_ratio) and _rt_ratio < _VIRIAL_RT_RATIO_WARN:
+        return _result(
+            ValidationStatus.INDETERMINATE,
+            reason=f"only {_rt_ratio:.3g} of the RT denominator survives cancellation; both the "
+                   "diamagnetic and the kinetic energy here run through RT/R0 "
+                   "(see virial_conditioning)",
+            measured_flux=measured,
+        )
     mui = _float(virial_mu_i_from_diamagnetic_flux(b_t0, r_0, measured, needed["B_pa"], needed["V_p"]))
     beta_pd = _float(virial_beta_pd_from_S_mu_rt(needed["s_1"], needed["s_2"], mui, needed["rt"] / r_0))
     fields = dict(measured_flux=measured, B_t0=b_t0, R_0=r_0, mui_measured=mui, beta_p_diamagnetic=beta_pd,

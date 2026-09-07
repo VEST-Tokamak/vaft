@@ -291,11 +291,30 @@ one number, because they disagree:
 | `mu_i_sources.full_123` | predicted by solving all three relations |
 | `mu_i_sources.measured` | `magnetics.diamagnetic_flux`, a measurement no reconstruction fitted |
 
-On the packaged shot-39915 sample the first is $-0.77$ (paramagnetic) and the
-last $+0.63$ (diamagnetic). That disagreement is issue #385, and it is what
-`independent_validation.virial_measured_mu_i` and `diamagnetic_energy` both
-report — they used to contradict each other only because the two $\mu_i$ were
-on opposite conventions.
+The conversion from a *measured* flux uses only the **magnitude** of the
+toroidal field. It has to: it is linear in the field, so it would inherit
+whatever COCOS the field was stored under — and the sources disagree. Shot
+39915 carries `profiles_1d.f = +0.0598` in the packaged sample and $-0.0598$ in
+the database, the same magnitude under a different convention. The volume
+$\mu_i$ is quadratic in $F$ and cannot notice; a signed conversion would flip,
+and the same plasma would read diamagnetic from one source and paramagnetic
+from the other. The sign therefore comes from the flux alone, in the convention
+`test/test_diamagnetic_flux_sign.py` pins end to end.
+
+With that settled, the reconstruction and the loop disagree across the whole
+history, not just on one shot:
+
+| | |
+| --- | --- |
+| reconstructions that are paramagnetic ($\mu_i < 0$) | **234 / 234** |
+| loops that read diamagnetic ($\mu_i > 0$) | 216 / 234 |
+| slices where the two disagree in sign | **218 / 234** |
+
+That is issue #385 at population scale, and it is consistent with what
+`test/test_diamagnetic_flux_sign.py` records about the reconstructions: EFIT was
+fed `|DFLUX|`, so under the legacy weighting the diamagnetic constraint was
+effectively weightless and the solver returned paramagnetic equilibria.
+`independent_validation.virial_measured_mu_i` is where the report says so.
 
 The measured one also feeds the three closures again under
 `measured_mu_i_closures`, so `beta_p` from the measurement and `beta_p` from

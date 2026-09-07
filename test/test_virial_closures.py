@@ -277,11 +277,6 @@ def test_pair_12_has_no_alpha_denominator_but_is_not_therefore_well_conditioned(
     ill-conditioned", which is false: it depends on RT/R0 in both unknowns, and
     on the VEST history it is the pair least often computable."""
     assert "alpha" not in inspect.signature(virial_pair_12_from_S_mu_rt).parameters
-    for alpha in (0.0, 2.0 / 3.0, 1.0, 1e9):
-        # No value of alpha reaches it at all.
-        assert virial_pair_12_from_S_mu_rt(S1, S2, MU, RT) == virial_pair_12_from_S_mu_rt(
-            S1, S2, MU, RT
-        )
     # RT/R0 does reach it, and moves both unknowns without bound.
     wide = [virial_pair_12_from_S_mu_rt(S1, S2, MU, r) for r in (1.0, 0.0, -0.5)]
     assert abs(wide[2][1] - wide[0][1]) > 3.0, "li moves freely with RT/R0"
