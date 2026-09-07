@@ -124,7 +124,7 @@ def test_routine_defaults_preserve_documented_kfile_semantics(tmp_path):
         "PCURBD": "1",
         "FCURBD": "1",
         "CUTIP": "5000.0",
-        "RELIP": "0.4",
+        "RELIP": "0.32",
         "AELIP": "0.3",
         "EELIP": "1.6",
         "RELAX": "1.0",
@@ -137,6 +137,59 @@ def test_routine_defaults_preserve_documented_kfile_semantics(tmp_path):
     }
     for key, value in expected.items():
         assert f" {key} = {value}" in text
+
+
+def test_the_inboard_seed_default_moves_relip_and_nothing_else(tmp_path):
+    """#588's conclusion, pinned where it can silently regress.
+
+    `rzero` was three namelist quantities at once, and the seed study had to
+    split `RELIP` out of it before a sweep could attribute anything to the
+    seed. Now that the default seed has actually moved inboard, the whole
+    point is that it moved *alone*: the reference major radius, `RCENTR`, and
+    the vacuum toroidal field EFIT derives from it must be exactly what they
+    were. Comparing the two k-files line by line is the only check that
+    catches a recoupling, because a recoupled `RZERO` still writes a
+    well-formed file that quietly reconstructs a different machine.
+    """
+    routine = _kfile_text(tmp_path, EFITScientificConfig())
+    coupled = _kfile_text(
+        tmp_path,
+        EFITScientificConfig(initialization=EFITInitializationConfig(ellipse_rzero=None)),
+    )
+
+    before, after = coupled.splitlines(), routine.splitlines()
+    assert len(before) == len(after)
+    differing = [(old, new) for old, new in zip(before, after) if old != new]
+    assert differing == [(" RELIP = 0.4", " RELIP = 0.32")], differing
+
+    # Redundant given the line-by-line comparison, and worth stating anyway:
+    # these are the three the old coupling dragged along, and BTOR is the one
+    # that would change the physics rather than merely the bookkeeping.
+    assert " RZERO = 0.4" in after
+    assert " RCENTR = 0.4" in after
+    assert EFITInitializationConfig().seed_rzero == 0.32
+    assert EFITInitializationConfig().rzero == 0.4
+    assert EFITInitializationConfig(ellipse_rzero=None).seed_rzero == 0.4
+
+
+def test_the_seed_comes_from_the_config_not_the_constraints_tree(tmp_path):
+    """`generate_constraints_ods` writes its own `RELIP` into the ODS.
+
+    It is a second, hard-coded copy of the seed (`kfile.py`, in the block that
+    sets `RZERO`, `AELIP` and `EELIP` beside it) and it still says 0.4. The
+    writer overrides it from the configuration, which is why the #588 sweep
+    varied anything at all -- but nothing said so out loud, and a change that
+    let the stale copy win would move every routine reconstruction back to the
+    old seed while every test on the config kept passing.
+    """
+    ods = _constraints_ods(tmp_path)
+    ods["equilibrium.code.parameters.time_slice.0.IN1.RELIP"] = 0.4
+    ods["equilibrium.code.parameters.time_slice.0.IN1.RZERO"] = 0.4
+    generate_kfile(ods, 39915, save_dir=str(tmp_path), config=EFITScientificConfig())
+    text = next((tmp_path / "kfile").iterdir()).read_text(encoding="utf-8")
+
+    assert " RELIP = 0.32" in text
+    assert " RZERO = 0.4" in text
 
 
 def test_legacy_profile_order_arguments_remain_supported(tmp_path):
@@ -186,6 +239,10 @@ def test_typed_settings_reach_their_namelist_fields(tmp_path):
     )
     initialization = EFITInitializationConfig(
         rzero=0.45,
+        # Deliberately unequal to `rzero`: RELIP and RZERO are separate fields
+        # since #588, and a test that gave them one value could not tell a
+        # working writer from one that had recoupled them.
+        ellipse_rzero=0.38,
         zzero=0.02,
         minor_radius=0.25,
         elongation=1.8,
@@ -217,7 +274,8 @@ def test_typed_settings_reach_their_namelist_fields(tmp_path):
         "PCURBD": 0,
         "FCURBD": 0,
         "CUTIP": 7500.0,
-        "RELIP": 0.45,
+        "RELIP": 0.38,
+        "RZERO": 0.45,
         "ZELIP": 0.02,
         "AELIP": 0.25,
         "EELIP": 1.8,

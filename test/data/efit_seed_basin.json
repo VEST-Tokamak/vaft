@@ -27,6 +27,165 @@
    0.05
   ]
  },
+ "chosen_default": {
+  "argument": "0.4 m is the vessel's reference radius, not the plasma's position. The reference set's own reconstructions put the current centroid at a median of 31.8 cm and the boundary centre at 33.5 cm. The refinement corroborates the region without resolving a point inside it: 0.30-0.36 m all beat 0.4 m, 0.32 m is the best measured and loses the fewest slices, and below 0.30 m the gain is gone.",
+  "field": "initialization.ellipse_rzero",
+  "reconstructed_position_cm": {
+   "rcntr_median": 33.5,
+   "rcurrt_median": 31.8,
+   "rm_median": 35.5
+  },
+  "value": 0.32,
+  "was": 0.4
+ },
+ "refinement": {
+  "axis": "initialization.ellipse_rzero",
+  "routine": {
+   "accepted": 18,
+   "ellipse_rzero": 0.4,
+   "produced_an_equilibrium": 31,
+   "slices": 77
+  },
+  "run_at": "2026-09-07T08:25:20+00:00",
+  "values": [
+   {
+    "accepted": 14,
+    "by_shot": {
+     "39915": {
+      "accepted": 3,
+      "lost": 2,
+      "produced_an_equilibrium": 7,
+      "recovered": 2
+     },
+     "41524": {
+      "accepted": 1,
+      "lost": 3,
+      "produced_an_equilibrium": 5,
+      "recovered": 3
+     },
+     "41672": {
+      "accepted": 10,
+      "lost": 2,
+      "produced_an_equilibrium": 19,
+      "recovered": 4
+     }
+    },
+    "lost": 7,
+    "produced_an_equilibrium": 31,
+    "recovered": 9,
+    "value": 0.28
+   },
+   {
+    "accepted": 21,
+    "by_shot": {
+     "39915": {
+      "accepted": 6,
+      "lost": 0,
+      "produced_an_equilibrium": 10,
+      "recovered": 3
+     },
+     "41524": {
+      "accepted": 2,
+      "lost": 2,
+      "produced_an_equilibrium": 6,
+      "recovered": 3
+     },
+     "41672": {
+      "accepted": 13,
+      "lost": 2,
+      "produced_an_equilibrium": 22,
+      "recovered": 7
+     }
+    },
+    "lost": 4,
+    "produced_an_equilibrium": 38,
+    "recovered": 13,
+    "value": 0.3
+   },
+   {
+    "accepted": 22,
+    "by_shot": {
+     "39915": {
+      "accepted": 5,
+      "lost": 1,
+      "produced_an_equilibrium": 9,
+      "recovered": 3
+     },
+     "41524": {
+      "accepted": 3,
+      "lost": 0,
+      "produced_an_equilibrium": 8,
+      "recovered": 3
+     },
+     "41672": {
+      "accepted": 14,
+      "lost": 1,
+      "produced_an_equilibrium": 22,
+      "recovered": 5
+     }
+    },
+    "lost": 2,
+    "produced_an_equilibrium": 39,
+    "recovered": 11,
+    "value": 0.32
+   },
+   {
+    "accepted": 18,
+    "by_shot": {
+     "39915": {
+      "accepted": 5,
+      "lost": 0,
+      "produced_an_equilibrium": 9,
+      "recovered": 2
+     },
+     "41524": {
+      "accepted": 1,
+      "lost": 2,
+      "produced_an_equilibrium": 4,
+      "recovered": 1
+     },
+     "41672": {
+      "accepted": 12,
+      "lost": 1,
+      "produced_an_equilibrium": 20,
+      "recovered": 3
+     }
+    },
+    "lost": 3,
+    "produced_an_equilibrium": 33,
+    "recovered": 6,
+    "value": 0.34
+   },
+   {
+    "accepted": 19,
+    "by_shot": {
+     "39915": {
+      "accepted": 6,
+      "lost": 0,
+      "produced_an_equilibrium": 10,
+      "recovered": 3
+     },
+     "41524": {
+      "accepted": 1,
+      "lost": 2,
+      "produced_an_equilibrium": 4,
+      "recovered": 1
+     },
+     "41672": {
+      "accepted": 12,
+      "lost": 2,
+      "produced_an_equilibrium": 20,
+      "recovered": 4
+     }
+    },
+    "lost": 4,
+    "produced_an_equilibrium": 34,
+    "recovered": 8,
+    "value": 0.36
+   }
+  ],
+  "why": "The coarse sweep put the best seed at 0.30 m on a 0.05 m grid, which is too coarse to say where the region begins or ends. This resolves it to 0.02 m over the same three discharges and the same 77 plasma slices."
+ },
  "routine_seed": {
   "ellipse_rzero": 0.4,
   "elongation": 1.6,
