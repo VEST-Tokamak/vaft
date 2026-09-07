@@ -31,14 +31,14 @@ from vaft.process._docstring import (
 
 #: Submodules whose functions are not yet documented under the contract.
 #: Sub-issue B (#418): magnetics, electromagnetics, fluctuation.
-#: Sub-issue C (#419): equilibrium, cocos.
+#: Sub-issue C (#419): equilibrium (with the parametric names it re-exports)
+#: and cocos -- cocos done, equilibrium's own functions still pending.
 #: Sub-issue D (#420): profile, atomic -- done.
 #: Sub-issue E (#421): impa, soft_x_rays, langmuir, camera_geometry.
 #: Sub-issue F (#571) removed ``onset`` and ``wall_modes``, which landed
 #: after #252 was scoped -- done.
 PENDING = frozenset({
     "camera_geometry",
-    "cocos",
     "electromagnetics",
     "equilibrium",
     "fluctuation",
@@ -87,6 +87,11 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # cocos (#419)
+    "validate_cocos",
+    "identify_flux_exponent",
+    "identify_convention",
+    "cocos_consistency_signs",
     # onset / wall_modes (#571)
     "active_window",
     "allocate_per_segment",
@@ -147,6 +152,11 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # cocos (#419): the module exists to reason about conventions
+    "cocos_consistency_signs",
+    "validate_cocos",
+    "identify_flux_exponent",
+    "identify_convention",
     # onset / wall_modes (#571)
     "active_window",
     "allocate_per_segment",
