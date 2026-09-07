@@ -1371,17 +1371,58 @@ def scale_boundary_conformal(
     scale: float,
     center: tuple[float, float] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Scale a closed boundary about a centre, giving a contour conformal to it.
+    """Scale a closed boundary about a centre, giving a contour conformal to it.
 
-    ``(R, Z) -> center + scale * ((R, Z) - center)``, so the returned contour has
-    the same shape as the input and lies inside it for ``scale < 1``. The default
-    centre is the bounding-box centre of the boundary, the convention the shape
-    code uses in preference to the area centroid.
+    ``(R, Z) -> center + scale * ((R, Z) - center)``, so the result has the same
+    shape as the input and lies inside it for ``scale < 1``.
 
-    This is a purely geometric offset: unlike a psi_N band it does not consult
-    the flux map, so a contour conformal to a reconstructed LCFS carries no
-    dependence on how well the interior psi is known.
+    Parameters
+    ----------
+    R_bdry : array_like
+        Major radius of the boundary points [m].
+    Z_bdry : array_like
+        Height of the boundary points [m].
+    scale : float
+        Similarity factor; below 1 shrinks, above 1 grows [-].
+    center : tuple of float, optional
+        Centre to scale about. The boundary's bounding-box centre when not
+        given [m].
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        The scaled ``(R, Z)``, closed, in the input's point order [m].
+
+    Raises
+    ------
+    ValueError
+        ``R_bdry`` and ``Z_bdry`` differ in length, or ``scale`` is not finite
+        and positive.
+
+    Convention
+    ----------
+    The default centre is the bounding-box centre rather than the area
+    centroid, matching what the shape code reports as the geometric axis.
+
+    Applicability
+    -------------
+    Machine-independent. Any closed contour; nothing here is specific to a
+    boundary or to an equilibrium.
+
+    Limitations
+    -----------
+    A purely geometric offset. It does not consult the flux map, which is the
+    point when the contour is a reconstructed LCFS -- a psi_N band would carry
+    the interior psi's error into the result, and this does not. The scaled
+    contour lies strictly inside the original only for a boundary star-shaped
+    about ``center``; otherwise it can fold over itself, and the caller has to
+    decide what that means.
+
+    Provenance
+    ----------
+    .. [1] The conformal-annulus construction of M. W. Bongard et al., Phys.
+       Plasmas 23 (2016), as used by
+       :func:`virial_alpha_conformal_annulus`.
     """
     R_bdry = np.asarray(R_bdry, dtype=float).reshape(-1)
     Z_bdry = np.asarray(Z_bdry, dtype=float).reshape(-1)
@@ -1410,18 +1451,90 @@ def virial_alpha_thin_annulus(
     mode: str = "conformal",
     n_points: int = 512,
 ) -> float:
-    """
-    Virial closure coefficient in the thin-annulus limit, from the boundary field.
+    """Virial closure coefficient in the thin-annulus limit, from the boundary field.
 
-    The exact ``thickness -> 0`` limit of :func:`virial_alpha_conformal_annulus`.
-    A conformal annulus has local width ``t * (x - c).n``, so the area element is
-    ``t * (x - c).n * dl`` and the constant ``t`` cancels; ``mode="conformal"``
-    applies that support-function weight. ``mode="uniform"`` weights every
-    segment equally, which is the limit of a uniform-offset annulus instead --
-    a different region, and on a VEST-like boundary a ~5% different answer.
-
+    The exact ``thickness -> 0`` limit of :func:`virial_alpha_conformal_annulus`,
+    evaluating ``2 * closed_integral(R Bz^2 w dl) / closed_integral(R Bp^2 w dl)``.
     Needs only the field on the LCFS, so unlike the volume integral it asks
     nothing of the plasma interior.
+
+    Processing steps
+    ----------------
+    Drop non-finite points, close the contour, remove zero-length segments,
+    orient counter-clockwise so the normal ``(dZ, -dR)/dl`` points outward,
+    resample to ``n_points`` by arc length, then take the segment-midpoint
+    quadrature through
+    :func:`vaft.formula.equilibrium.virial_alpha_from_R_Bz_Bp_dl`.
+
+    Parameters
+    ----------
+    R_bdry : array_like
+        Major radius of the boundary points [m].
+    Z_bdry : array_like
+        Height of the boundary points [m].
+    B_R_bdry : array_like
+        Major-radius field component at those points [T].
+    B_Z_bdry : array_like
+        Vertical field component at those points [T].
+    center : tuple of float, optional
+        Centre the conformal annulus shrinks towards. The boundary's
+        bounding-box centre when not given [m].
+    mode : str, optional
+        ``"conformal"`` (default) weights each segment by the support function,
+        the limit of a conformally scaled annulus; ``"uniform"`` weights every
+        segment equally, the limit of a uniform-offset annulus [-].
+    n_points : int, optional
+        Segments in the arc-length resampling; default 512 [-].
+
+    Returns
+    -------
+    float
+        The closure coefficient, or NaN when the contour is degenerate or folds
+        over the centre [-].
+
+    Raises
+    ------
+    ValueError
+        ``mode`` is neither ``"conformal"`` nor ``"uniform"``, or the boundary
+        and field arrays differ in length.
+
+    Convention
+    ----------
+    ``alpha = 2 <R Bz^2> / <R Bp^2>``, which is 1 for a symmetric circular
+    cross-section and 2 in the infinitely elongated limit. Only squares of the
+    field enter, so the result does not depend on the sign convention the
+    components arrive in.
+
+    Assumptions
+    -----------
+    ``mode="conformal"`` assumes the boundary is star-shaped about ``center``,
+    so that shrinking it about that point sweeps a simple annulus. A conformal
+    annulus has local width ``t * (x - c).n``, so its area element is
+    ``t * (x - c).n * dl`` and the constant ``t`` cancels; that support function
+    is the weight. Weighting uniformly instead is a *different* region and on a
+    VEST-like boundary a ~5% different answer, so the two modes are not
+    interchangeable.
+
+    Applicability
+    -------------
+    Machine-independent. Any closed boundary with its poloidal field, from a
+    reconstruction or an analytic equilibrium.
+
+    Limitations
+    -----------
+    Returns NaN rather than a number when more than
+    :data:`MAX_NONCONVEX_ARC_FRACTION` of the arc length has negative support:
+    the conformal annulus folds over itself there, and an unclamped negative
+    weight would subtract from both integrals. ``mode="uniform"`` makes no such
+    assumption and still answers. How closely the limit matches a finite
+    annulus is a property of the equilibrium, not of this quadrature.
+
+    Provenance
+    ----------
+    .. [1] M. W. Bongard et al., Phys. Plasmas 23 (2016), the low-aspect-ratio
+       virial closure and its annulus estimate of alpha.
+    .. [2] Measured against analytic Solov'ev equilibria in
+       ``test/test_virial_alpha_approximations.py``.
     """
     if mode not in ("conformal", "uniform"):
         raise ValueError(f"mode must be 'conformal' or 'uniform'; got {mode!r}.")
@@ -1484,24 +1597,93 @@ def virial_alpha_conformal_annulus(
     thickness: float = 0.1,
     samples_per_axis: int = 5,
 ) -> dict[str, Any]:
-    """
-    Virial closure coefficient from a thin annulus conformal to the LCFS.
+    """Virial closure coefficient from a thin annulus conformal to the LCFS.
 
     ``alpha_2 = 2 * sum(R Bz^2 w dA) / sum(R Bp^2 w dA)`` over an annulus bounded
-    by the LCFS and a copy of it scaled by ``1 - thickness`` about the
-    bounding-box centre (:func:`scale_boundary_conformal`). The weight map is the
-    difference of two :func:`fractional_cell_weights_from_boundary` maps, so cells
-    cut by either contour carry their area fraction.
+    by the boundary and a copy of it scaled by ``1 - thickness``. Obtains the
+    closure coefficient without the volume integral over the plasma interior,
+    which a reconstruction that fixes the boundary but not the internal field
+    cannot supply.
 
-    ``thickness`` is a fraction of the distance from the centre to the boundary,
-    not an absolute length. As ``thickness -> 0`` the area element becomes
-    ``t * dl`` and ``t`` cancels, so this tends to the boundary line integral
-    :func:`vaft.formula.equilibrium.virial_alpha_from_R_Bz_Bp_dl`.
+    Processing steps
+    ----------------
+    Orient the boundary counter-clockwise, build the inner contour with
+    :func:`scale_boundary_conformal`, take the annulus weight map as the
+    difference of two :func:`fractional_cell_weights_from_boundary` maps so that
+    cells cut by either contour carry their area fraction, reject an annulus too
+    small or too narrow for the grid, then integrate over the cells that survive
+    a shared finite-field mask.
 
-    Returns a dict with ``alpha``, ``valid``, ``reason`` and ``n_cells`` (the
-    summed annulus weight). ``alpha`` is NaN whenever ``valid`` is False: a thin
-    annulus on a coarse grid resolves nothing, and a number computed from a
-    handful of cells would describe the grid, not the plasma.
+    Parameters
+    ----------
+    R_grid : array_like
+        Major-radius grid, as an axis or a mesh [m].
+    Z_grid : array_like
+        Height grid, as an axis or a mesh [m].
+    B_R_grid : array_like
+        Major-radius field component on that grid [T].
+    B_Z_grid : array_like
+        Vertical field component on that grid [T].
+    R_bdry : array_like
+        Major radius of the boundary points [m].
+    Z_bdry : array_like
+        Height of the boundary points [m].
+    thickness : float, optional
+        Annulus width as a fraction of the distance from the centre to the
+        boundary, not an absolute length; default 0.1 [-].
+    samples_per_axis : int, optional
+        Sub-samples per cell axis in the area-fraction weighting; default 5 [-].
+
+    Returns
+    -------
+    dict
+        ``alpha`` the closure coefficient, NaN unless ``valid``; ``valid``
+        whether the annulus could be integrated; ``reason`` why not, or None;
+        ``n_cells`` the summed annulus weight [-].
+
+    Defaults
+    --------
+    ``thickness=0.1`` is a validated workflow default: near the accuracy optimum
+    on analytic Solov'ev equilibria and still thousands of cells on a
+    reconstruction-sized grid. ``samples_per_axis=5`` is a numerical convenience
+    matching :func:`fractional_cell_weights_from_boundary`, and it sets how thin
+    an annulus can be resolved.
+
+    Convention
+    ----------
+    ``alpha = 2 <R Bz^2> / <R Bp^2>``, 1 for a symmetric circular cross-section
+    and 2 in the infinitely elongated limit. Only squares of the field enter, so
+    the sign convention the components arrive in does not matter.
+
+    Assumptions
+    -----------
+    The annulus is built by geometric conformal scaling, not as a psi_N band:
+    a psi_N band would reintroduce the dependence on reconstructed interior flux
+    that this estimate exists to avoid.
+
+    Applicability
+    -------------
+    Machine-independent. Any boundary with a poloidal-field map covering it.
+
+    Limitations
+    -----------
+    Abstains -- NaN with a ``reason`` -- rather than returning a number when the
+    boundary leaves the grid, when the annulus holds fewer than
+    :data:`MIN_ANNULUS_CELLS`, or when it is narrower than
+    :data:`MIN_ANNULUS_WIDTH_SUBSAMPLES` sub-samples at its narrowest point, in
+    which case the integral would report the grid phase rather than the field.
+    Cells whose field is only partly finite are dropped from both integrals
+    together, since dropping one from the denominator alone would bias alpha up.
+    As ``thickness -> 0`` this tends to
+    :func:`virial_alpha_thin_annulus`, whose accuracy against the true alpha is
+    slightly *worse* -- a finite annulus samples some interior, and that helps.
+
+    Provenance
+    ----------
+    .. [1] M. W. Bongard et al., Phys. Plasmas 23 (2016), the low-aspect-ratio
+       virial closure and its annulus estimate of alpha.
+    .. [2] Measured against analytic Solov'ev equilibria in
+       ``test/test_virial_alpha_approximations.py``.
     """
     if np.ndim(R_grid) == 1 and np.ndim(Z_grid) == 1:
         R_grid, Z_grid = np.meshgrid(
