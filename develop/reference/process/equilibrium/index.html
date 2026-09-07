@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>d4dddf4</code>. What is described
+  <code>57f807a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -261,7 +261,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/equilibrium.py"><code class="language-plaintext highlighter-rouge">vaft/process/equilibrium.py</code></a>:
-38 public functions.  The category overview and notation come from the module
+41 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("equilibrium.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -379,6 +379,8 @@ outward normal is only outward then.</p>
 </li>
   <li><a href="#rho_to_psi"><code>rho_to_psi</code></a> &mdash; Poloidal flux at one normalized toroidal-flux radius, by root finding.
 </li>
+  <li><a href="#scale_boundary_conformal"><code>scale_boundary_conformal</code></a> &mdash; Scale a closed boundary about a centre, giving a contour conformal to it.
+</li>
   <li><a href="#shafranov_integrals"><code>shafranov_integrals</code></a> &mdash; The three Shafranov boundary integrals and the virial coefficient.
 </li>
   <li><a href="#solovev_to_equilibrium"><code>solovev_to_equilibrium</code></a> &mdash; Export an analytic Solov’ev model as a gridded equilibrium record.
@@ -388,6 +390,10 @@ outward normal is only outward then.</p>
   <li><a href="#trace_field_line"><code>trace_field_line</code></a> &mdash; Trace one magnetic field line through the equilibrium field.
 </li>
   <li><a href="#validate_equilibrium"><code>validate_equilibrium</code></a> &mdash; Deprecated compatibility wrapper for <code class="language-plaintext highlighter-rouge">check_equilibrium_requirements</code>.
+</li>
+  <li><a href="#virial_alpha_conformal_annulus"><code>virial_alpha_conformal_annulus</code></a> &mdash; Virial closure coefficient from a thin annulus conformal to the LCFS.
+</li>
+  <li><a href="#virial_alpha_thin_annulus"><code>virial_alpha_thin_annulus</code></a> &mdash; Virial closure coefficient in the thin-annulus limit, from the boundary field.
 </li>
   <li><a href="#volume_average"><code>volume_average</code></a> &mdash; Volume average of a gridded quantity over the confined region.
 </li>
@@ -2680,6 +2686,71 @@ many points.</p>
 </li>
 </ol>
 
+<h3 id="scale_boundary_conformal"><code class="language-plaintext highlighter-rouge">scale_boundary_conformal</code></h3>
+
+<p class="formula-signature"><code>scale_boundary_conformal(R_bdry, Z_bdry, scale, center=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Scale a closed boundary about a centre, giving a contour conformal to it.</p>
+
+<p><code class="language-plaintext highlighter-rouge">(R, Z) -&gt; center + scale * ((R, Z) - center)</code>, so the result has the same
+shape as the input and lies inside it for <code class="language-plaintext highlighter-rouge">scale &lt; 1</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>R_bdry</code></td><td>array_like</td><td>m</td><td><p>Major radius of the boundary points.</p>
+</td></tr>
+  <tr><td><code>Z_bdry</code></td><td>array_like</td><td>m</td><td><p>Height of the boundary points.</p>
+</td></tr>
+  <tr><td><code>scale</code></td><td>float</td><td>-</td><td><p>Similarity factor; below 1 shrinks, above 1 grows.</p>
+</td></tr>
+  <tr><td><code>center</code></td><td>tuple of float, optional</td><td>m</td><td><p>Centre to scale about. The boundary’s bounding-box centre when not given.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of numpy.ndarray</td><td>m</td><td><p>The scaled <code class="language-plaintext highlighter-rouge">(R, Z)</code>, closed, in the input’s point order.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">R_bdry</code> and <code class="language-plaintext highlighter-rouge">Z_bdry</code> differ in length, or <code class="language-plaintext highlighter-rouge">scale</code> is not finite
+    and positive.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The default centre is the bounding-box centre rather than the area
+centroid, matching what the shape code reports as the geometric axis.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent. Any closed contour; nothing here is specific to a
+boundary or to an equilibrium.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A purely geometric offset. It does not consult the flux map, which is the
+point when the contour is a reconstructed LCFS – a psi_N band would carry
+the interior psi’s error into the result, and this does not. The scaled
+contour lies strictly inside the original only for a boundary star-shaped
+about <code class="language-plaintext highlighter-rouge">center</code>; otherwise it can fold over itself, and the caller has to
+decide what that means.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The conformal-annulus construction of M. W. Bongard et al., Phys. Plasmas 23 (2016), as used by <code class="language-plaintext highlighter-rouge">virial_alpha_conformal_annulus</code>.
+</li>
+</ol>
+
 <h3 id="shafranov_integrals"><code class="language-plaintext highlighter-rouge">shafranov_integrals</code></h3>
 
 <p class="formula-signature"><code>shafranov_integrals(R_bdry, Z_bdry, B_p_bdry, R_grid, Z_grid, B_R_grid, B_Z_grid, R_0=None, Z_0=None, p_boundary=0.0, B_ref=None, cell_weights=None, volume=None)</code></p>
@@ -3026,6 +3097,200 @@ extrapolating far outside the equilibrium grid, not a physical condition.</p>
 
 <p>Deprecated compatibility wrapper for <code class="language-plaintext highlighter-rouge">check_equilibrium_requirements</code>.</p>
 
+<h3 id="virial_alpha_conformal_annulus"><code class="language-plaintext highlighter-rouge">virial_alpha_conformal_annulus</code></h3>
+
+<p class="formula-signature"><code>virial_alpha_conformal_annulus(R_grid, Z_grid, B_R_grid, B_Z_grid, R_bdry, Z_bdry, thickness=0.1, samples_per_axis=5)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Virial closure coefficient from a thin annulus conformal to the LCFS.</p>
+
+<p><code class="language-plaintext highlighter-rouge">alpha_2 = 2 * sum(R Bz^2 w dA) / sum(R Bp^2 w dA)</code> over an annulus bounded
+by the boundary and a copy of it scaled by <code class="language-plaintext highlighter-rouge">1 - thickness</code>. Obtains the
+closure coefficient without the volume integral over the plasma interior,
+which a reconstruction that fixes the boundary but not the internal field
+cannot supply.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>R_grid</code></td><td>array_like</td><td>m</td><td><p>Major-radius grid, as an axis or a mesh.</p>
+</td></tr>
+  <tr><td><code>Z_grid</code></td><td>array_like</td><td>m</td><td><p>Height grid, as an axis or a mesh.</p>
+</td></tr>
+  <tr><td><code>B_R_grid</code></td><td>array_like</td><td>T</td><td><p>Major-radius field component on that grid.</p>
+</td></tr>
+  <tr><td><code>B_Z_grid</code></td><td>array_like</td><td>T</td><td><p>Vertical field component on that grid.</p>
+</td></tr>
+  <tr><td><code>R_bdry</code></td><td>array_like</td><td>m</td><td><p>Major radius of the boundary points.</p>
+</td></tr>
+  <tr><td><code>Z_bdry</code></td><td>array_like</td><td>m</td><td><p>Height of the boundary points.</p>
+</td></tr>
+  <tr><td><code>thickness</code></td><td>float, optional</td><td>-</td><td><p>Annulus width as a fraction of the distance from the centre to the boundary, not an absolute length; default 0.1.</p>
+</td></tr>
+  <tr><td><code>samples_per_axis</code></td><td>int, optional</td><td>-</td><td><p>Sub-samples per cell axis in the area-fraction weighting; default 5.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">alpha</code> the closure coefficient, NaN unless <code class="language-plaintext highlighter-rouge">valid</code>; <code class="language-plaintext highlighter-rouge">valid</code> whether the annulus could be integrated; <code class="language-plaintext highlighter-rouge">reason</code> why not, or None; <code class="language-plaintext highlighter-rouge">n_cells</code> the summed annulus weight.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<p>Orient the boundary counter-clockwise, build the inner contour with
+<code class="language-plaintext highlighter-rouge">scale_boundary_conformal</code>, take the annulus weight map as the
+difference of two <code class="language-plaintext highlighter-rouge">fractional_cell_weights_from_boundary</code> maps so that
+cells cut by either contour carry their area fraction, reject an annulus too
+small or too narrow for the grid, then integrate over the cells that survive
+a shared finite-field mask.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">thickness=0.1</code> is a validated workflow default: near the accuracy optimum
+on analytic Solov’ev equilibria and still thousands of cells on a
+reconstruction-sized grid. <code class="language-plaintext highlighter-rouge">samples_per_axis=5</code> is a numerical convenience
+matching <code class="language-plaintext highlighter-rouge">fractional_cell_weights_from_boundary</code>, and it sets how thin
+an annulus can be resolved.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">alpha = 2 &lt;R Bz^2&gt; / &lt;R Bp^2&gt;</code>, 1 for a symmetric circular cross-section
+and 2 in the infinitely elongated limit. Only squares of the field enter, so
+the sign convention the components arrive in does not matter.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>The annulus is built by geometric conformal scaling, not as a psi_N band:
+a psi_N band would reintroduce the dependence on reconstructed interior flux
+that this estimate exists to avoid.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent. Any boundary with a poloidal-field map covering it.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Abstains – NaN with a <code class="language-plaintext highlighter-rouge">reason</code> – rather than returning a number when the
+boundary leaves the grid, when the annulus holds fewer than
+<code class="language-plaintext highlighter-rouge">MIN_ANNULUS_CELLS</code>, or when it is narrower than
+<code class="language-plaintext highlighter-rouge">MIN_ANNULUS_WIDTH_SUBSAMPLES</code> sub-samples at its narrowest point, in
+which case the integral would report the grid phase rather than the field.
+Cells whose field is only partly finite are dropped from both integrals
+together, since dropping one from the denominator alone would bias alpha up.
+As <code class="language-plaintext highlighter-rouge">thickness -&gt; 0</code> this tends to
+<code class="language-plaintext highlighter-rouge">virial_alpha_thin_annulus</code>, whose accuracy against the true alpha is
+slightly <em>worse</em> – a finite annulus samples some interior, and that helps.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>M. W. Bongard et al., Phys. Plasmas 23 (2016), the low-aspect-ratio virial closure and its annulus estimate of alpha.
+</li>
+  <li>Measured against analytic Solov’ev equilibria in <code class="language-plaintext highlighter-rouge">test/test_virial_alpha_approximations.py</code>.
+</li>
+</ol>
+
+<h3 id="virial_alpha_thin_annulus"><code class="language-plaintext highlighter-rouge">virial_alpha_thin_annulus</code></h3>
+
+<p class="formula-signature"><code>virial_alpha_thin_annulus(R_bdry, Z_bdry, B_R_bdry, B_Z_bdry, center=None, mode='conformal', n_points=512)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Virial closure coefficient in the thin-annulus limit, from the boundary field.</p>
+
+<p>The exact <code class="language-plaintext highlighter-rouge">thickness -&gt; 0</code> limit of <code class="language-plaintext highlighter-rouge">virial_alpha_conformal_annulus</code>,
+evaluating <code class="language-plaintext highlighter-rouge">2 * closed_integral(R Bz^2 w dl) / closed_integral(R Bp^2 w dl)</code>.
+Needs only the field on the LCFS, so unlike the volume integral it asks
+nothing of the plasma interior.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>R_bdry</code></td><td>array_like</td><td>m</td><td><p>Major radius of the boundary points.</p>
+</td></tr>
+  <tr><td><code>Z_bdry</code></td><td>array_like</td><td>m</td><td><p>Height of the boundary points.</p>
+</td></tr>
+  <tr><td><code>B_R_bdry</code></td><td>array_like</td><td>T</td><td><p>Major-radius field component at those points.</p>
+</td></tr>
+  <tr><td><code>B_Z_bdry</code></td><td>array_like</td><td>T</td><td><p>Vertical field component at those points.</p>
+</td></tr>
+  <tr><td><code>center</code></td><td>tuple of float, optional</td><td>m</td><td><p>Centre the conformal annulus shrinks towards. The boundary’s bounding-box centre when not given.</p>
+</td></tr>
+  <tr><td><code>mode</code></td><td>str, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">"conformal"</code> (default) weights each segment by the support function, the limit of a conformally scaled annulus; <code class="language-plaintext highlighter-rouge">"uniform"</code> weights every segment equally, the limit of a uniform-offset annulus.</p>
+</td></tr>
+  <tr><td><code>n_points</code></td><td>int, optional</td><td>-</td><td><p>Segments in the arc-length resampling; default 512.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>The closure coefficient, or NaN when the contour is degenerate or folds over the centre.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">mode</code> is neither <code class="language-plaintext highlighter-rouge">"conformal"</code> nor <code class="language-plaintext highlighter-rouge">"uniform"</code>, or the boundary
+    and field arrays differ in length.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<p>Drop non-finite points, close the contour, remove zero-length segments,
+orient counter-clockwise so the normal <code class="language-plaintext highlighter-rouge">(dZ, -dR)/dl</code> points outward,
+resample to <code class="language-plaintext highlighter-rouge">n_points</code> by arc length, then take the segment-midpoint
+quadrature through
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.virial_alpha_from_R_Bz_Bp_dl</code>.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">alpha = 2 &lt;R Bz^2&gt; / &lt;R Bp^2&gt;</code>, which is 1 for a symmetric circular
+cross-section and 2 in the infinitely elongated limit. Only squares of the
+field enter, so the result does not depend on the sign convention the
+components arrive in.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">mode="conformal"</code> assumes the boundary is star-shaped about <code class="language-plaintext highlighter-rouge">center</code>,
+so that shrinking it about that point sweeps a simple annulus. A conformal
+annulus has local width <code class="language-plaintext highlighter-rouge">t * (x - c).n</code>, so its area element is
+<code class="language-plaintext highlighter-rouge">t * (x - c).n * dl</code> and the constant <code class="language-plaintext highlighter-rouge">t</code> cancels; that support function
+is the weight. Weighting uniformly instead is a <em>different</em> region and on a
+VEST-like boundary a ~5% different answer, so the two modes are not
+interchangeable.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent. Any closed boundary with its poloidal field, from a
+reconstruction or an analytic equilibrium.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Returns NaN rather than a number when more than
+<code class="language-plaintext highlighter-rouge">MAX_NONCONVEX_ARC_FRACTION</code> of the arc length has negative support:
+the conformal annulus folds over itself there, and an unclamped negative
+weight would subtract from both integrals. <code class="language-plaintext highlighter-rouge">mode="uniform"</code> makes no such
+assumption and still answers. How closely the limit matches a finite
+annulus is a property of the equilibrium, not of this quadrature.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>M. W. Bongard et al., Phys. Plasmas 23 (2016), the low-aspect-ratio virial closure and its annulus estimate of alpha.
+</li>
+  <li>Measured against analytic Solov’ev equilibria in <code class="language-plaintext highlighter-rouge">test/test_virial_alpha_approximations.py</code>.
+</li>
+</ol>
+
 <h3 id="volume_average"><code class="language-plaintext highlighter-rouge">volume_average</code></h3>
 
 <p class="formula-signature"><code>volume_average(f_RZ, psiN_RZ, R, Z)</code></p>
@@ -3196,7 +3461,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#as_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">as_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_average_boundary_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_average_boundary_poloidal_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_diamagnetism" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_diamagnetism</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_reconstructed_diamagnetic_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_reconstructed_diamagnetic_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_equilibrium_requirements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_equilibrium_requirements</a></li><li class="page-toc-item page-toc-level-3"><a href="#computed_diamagnetism_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">computed_diamagnetism_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#contour_shape_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">contour_shape_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#convert_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">convert_cocos</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_boundary_representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_boundary_representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_global_descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_global_descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_radial_coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_radial_coordinates</a></li><li class="page-toc-item page-toc-level-3"><a href="#efit_virial_volume_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">efit_virial_volume_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_field_on_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_field_on_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_miller" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_miller</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_solovev" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_solovev</a></li><li class="page-toc-item page-toc-level-3"><a href="#extract_flux_surface_contours" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">extract_flux_surface_contours</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_sequence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_sequence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_surface" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_surface</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_surface_quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_surface_quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#fractional_cell_weights_from_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_cell_weights_from_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_equilibrium_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_equilibrium_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#parallel_current_from_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">parallel_current_from_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_at_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_at_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#prepare_boundary_for_shafranov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">prepare_boundary_for_shafranov</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_radial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_radial</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rho" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rho</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rz" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rz</a></li><li class="page-toc-item page-toc-level-3"><a href="#r_at_z_extremum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">r_at_z_extremum</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#shafranov_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shafranov_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_to_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_to_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_solovev_constraints" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_solovev_constraints</a></li><li class="page-toc-item page-toc-level-3"><a href="#trace_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trace_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_average</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#as_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">as_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_average_boundary_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_average_boundary_poloidal_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_diamagnetism" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_diamagnetism</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_reconstructed_diamagnetic_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_reconstructed_diamagnetic_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_equilibrium_requirements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_equilibrium_requirements</a></li><li class="page-toc-item page-toc-level-3"><a href="#computed_diamagnetism_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">computed_diamagnetism_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#contour_shape_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">contour_shape_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#convert_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">convert_cocos</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_boundary_representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_boundary_representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_global_descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_global_descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_radial_coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_radial_coordinates</a></li><li class="page-toc-item page-toc-level-3"><a href="#efit_virial_volume_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">efit_virial_volume_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_field_on_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_field_on_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_miller" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_miller</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_solovev" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_solovev</a></li><li class="page-toc-item page-toc-level-3"><a href="#extract_flux_surface_contours" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">extract_flux_surface_contours</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_sequence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_sequence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_surface" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_surface</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_surface_quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_surface_quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#fractional_cell_weights_from_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_cell_weights_from_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_equilibrium_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_equilibrium_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#parallel_current_from_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">parallel_current_from_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_at_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_at_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#prepare_boundary_for_shafranov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">prepare_boundary_for_shafranov</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_radial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_radial</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rho" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rho</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rz" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rz</a></li><li class="page-toc-item page-toc-level-3"><a href="#r_at_z_extremum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">r_at_z_extremum</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#scale_boundary_conformal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">scale_boundary_conformal</a></li><li class="page-toc-item page-toc-level-3"><a href="#shafranov_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shafranov_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_to_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_to_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_solovev_constraints" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_solovev_constraints</a></li><li class="page-toc-item page-toc-level-3"><a href="#trace_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trace_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_conformal_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_conformal_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_thin_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_thin_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_average</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -3314,7 +3579,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-07 06:01:15 +0000"
+        "time": "2026-09-07 06:14:32 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

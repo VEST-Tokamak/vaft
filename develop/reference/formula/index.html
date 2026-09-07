@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>d4dddf4</code>. What is described
+  <code>57f807a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -288,7 +288,7 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td>
-    <td><code>vaft.formula.equilibrium</code></td><td>104</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
+    <td><code>vaft.formula.equilibrium</code></td><td>106</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/stability/">stability</a></td>
@@ -394,7 +394,7 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="equilibrium">Equilibrium</h2>
 
-<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/develop/reference/formula/equilibrium/">104 functions</a>.</p>
+<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/develop/reference/formula/equilibrium/">106 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/equilibrium/#alpha_heating_power_from_n_D_n_T_T_keV_V"><code>alpha_heating_power_from_n_D_n_T_T_keV_V</code></a> <em>(empirical)</em> &mdash; D-T alpha heating power with the rough $\langle\sigma v\rangle \propto T^2$ fit.
@@ -560,6 +560,10 @@ which documents the conventions and cites every entry.</p>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_S2_approx_from_D0_a_R0"><code>virial_S2_approx_from_D0_a_R0</code></a> <em>(convention)</em> &mdash; Analytic approximation of the second Shafranov integral for an elongated boundary.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_S3_approx_from_eK_d"><code>virial_S3_approx_from_eK_d</code></a> <em>(convention)</em> &mdash; Analytic approximation of the third Shafranov integral for an elongated boundary.
+</li>
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_alpha_approx_from_kappa"><code>virial_alpha_approx_from_kappa</code></a> <em>(convention)</em> &mdash; Virial closure coefficient from the boundary elongation (Bongard $\hat\alpha_1$).
+</li>
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_alpha_from_R_Bz_Bp_dl"><code>virial_alpha_from_R_Bz_Bp_dl</code></a> <em>(convention)</em> &mdash; Virial closure coefficient from the boundary field (thin-annulus $\hat\alpha_2$).
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_beta_p_from_S_alpha_mu"><code>virial_beta_p_from_S_alpha_mu</code></a> <em>(convention)</em> &mdash; Poloidal beta from the Shafranov integrals, low-aspect-ratio closure.
 </li>
@@ -1059,7 +1063,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-07 06:01:15 +0000"
+        "time": "2026-09-07 06:14:32 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
