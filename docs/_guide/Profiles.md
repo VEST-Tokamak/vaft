@@ -318,6 +318,49 @@ vaft.plot.charge_exchange_time(ods, ion_index=0)
 `vaft.plot.plot_TeNe_from_eq(ods, ...)` plots the synthetic profiles produced by the
 `core_profiles_from_eq*` helpers.
 
+## Kinetic-profile files
+
+`vaft.data.kinetic_profiles` is the container the kinetic-profile file formats read into and write
+from — GPEC's `.kin` today, the Osborne pfile and MARS `PROF*.IN` to follow:
+
+```python
+from vaft.data import read_kin, write_kin, normalize_psi
+
+profiles = read_kin("g045453.00750.kin")
+profiles.psi_norm[0]              # 0.00494621873 — exactly what the file said
+profiles.available()              # ('n_e', 'n_i', 'T_e', 'T_i', 'omega_exb')
+profiles.normalization.method     # "as_read"
+write_kin(profiles, "again.kin")  # byte-identical to this file; see below
+```
+
+A file VAFT wrote round-trips byte for byte, and so do the files the MAST-U workflow produces —
+59 of the 65 `.kin` files in the reference tree, the named example among them. The other six are
+not VAFT's: GPEC's bundled DIII-D example right-aligns its columns, so a negative rotation eats a
+separator space, and the MARS-input file uses no leading indent at all. Both read correctly; they
+are simply written back in this writer's layout.
+
+The container fixes one unit set — densities in m⁻³, temperatures in eV, angular frequencies in
+rad/s, pressures in Pa — because those are what GPEC's own reader consumes. A reader converts into
+them; nothing carries free-text units around.
+
+**The radial coordinate is never rescaled on read.** Making it span exactly [0, 1] is
+`normalize_psi()`, an explicit operation whose result records that it happened. It has no
+default `method=`: passing `axis=`/`edge=` and getting a min–max stretch instead would be the same
+silent rescale, only now with a provenance record vouching for it. This is not
+fastidiousness: GPEC's `read_kin` re-splines a `.kin` onto a uniform 101-point [0, 1] grid *with
+extrapolation* (`nkin = 100` intervals), so it expects a truncated edge and handles it. A real MAST-U file spans
+ψ_N = 0.00495 → 1.0, so stretching it moves every interior point — and once the stretched values are
+written back, permanently.
+
+**Toroidal rotation and the E×B frequency are separate fields.** `omega_tor` and `omega_exb` are
+never merged, and `write_kin` refuses a profile set carrying only the former: the `.kin` rotation
+column is ω_E, and a toroidal rotation written there is wrong in a way nothing downstream detects.
+`write_kin` also refuses to write a file GPEC would read as something other than what it says:
+`omega_exb` holding **any** zero (GPEC substitutes 1e-9 element by element — pass
+`allow_zero_rotation=True` for a set converted from an all-zero `PROFROT.IN`, which
+`sample/output/converted_from_transp.kin` is), a value that is not finite, or a radial coordinate
+that does not increase. Line endings are LF, so a CRLF file does not round-trip byte-identically.
+
 ## Exporting
 
 To hand fitted electron profiles to an external code:
