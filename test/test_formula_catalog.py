@@ -56,7 +56,7 @@ def test_the_catalog_counts_the_known_public_surface():
     counts = {doc.name: doc.count for doc in catalog.categories()}
     assert counts == {
         "constants": 0,
-        "utils": 9,
+        "utils": 10,
         "equilibrium": 106,
         "stability": 19,
         "green": 16,

@@ -320,6 +320,117 @@ def _core_poly_edge_exp_model(x, x0, w, *coeffs):
     return blend
 
 
+def _eped_tanh_model(x, f0, f_ped, f_sep, x_ped, width, alpha, beta):
+    """EPED-style profile: a tanh pedestal plus a core shape anchored at ``f0``.
+
+    The pedestal is ``f_sep + (f_ped - f_sep)/2 * (1 - tanh((x - x_ped)/width))``.
+    Inside ``x_ped`` a ``(1 - (x/x_ped)^alpha)^beta`` term lifts the curve from
+    the tanh's own value at the axis to ``f0``, so the core is shaped
+    independently of the pedestal and the two meet continuously at ``x_ped``.
+
+    Unlike the modified tanh it replaces, the core correction is *gated* to
+    ``x <= x_ped``: a term that multiplies the slope across the whole domain
+    diverges at large ``|x - x_ped|``, which is why the legacy fit had to bound
+    its slope parameter to keep the divergence off-screen.
+    """
+    x = np.asarray(x, dtype=float)
+    if not width > 0:
+        # A non-positive width inverts the pedestal -- the curve would rise
+        # toward the edge -- silently.  The bounds keep the fitter away from
+        # it; this keeps a direct caller away from it too.
+        raise ValueError(f"width must be positive, got {width!r}")
+    if not x_ped > 0:
+        raise ValueError(f"x_ped must be positive, got {x_ped!r}")
+    pedestal = f_sep + 0.5 * (f_ped - f_sep) * (1.0 - np.tanh((x - x_ped) / width))
+    axis_pedestal = f_sep + 0.5 * (f_ped - f_sep) * (1.0 + np.tanh(x_ped / width))
+
+    core = np.zeros_like(x)
+    inside = x <= x_ped
+    if np.any(inside) and x_ped > 0:
+        scaled = np.clip(x[inside] / x_ped, 0.0, 1.0)
+        core[inside] = np.power(np.clip(1.0 - np.power(scaled, alpha), 0.0, None), beta)
+    return pedestal + core * (f0 - axis_pedestal)
+
+
+def _initial_eped_tanh_guess(x, y):
+    """``(p0, lower, upper)`` for :func:`_eped_tanh_model`.
+
+    The percentile seeds and the ``x_ped in [0.75, 0.999]`` /
+    ``width in [0.01, 0.3]`` box come from the pedestal-fitting study this
+    model is ported from; they keep the fit inside the region where a pedestal
+    is physically meaningful rather than letting it chase a core feature.
+    """
+    x = np.asarray(x, float).ravel()
+    y = np.asarray(y, float).ravel()
+    if not y.size or not np.any(np.isfinite(y)):
+        raise ValueError("eped_tanh needs at least one finite sample to seed its fit")
+    # Scaled by the data's magnitude, not by its maximum: a profile that is
+    # everywhere negative -- a rotation profile, say -- has its *smallest*
+    # magnitude at the maximum, so seeding from that would box the amplitudes
+    # far inside the data and the fit could never reach it.
+    scale = 5.0 * max(float(np.nanmax(np.abs(y))), 1e-12)
+    axis, pedestal, separatrix = (
+        float(np.nanpercentile(y, level)) for level in (100.0, 80.0, 5.0)
+    )
+    if abs(float(np.nanmin(y))) > abs(float(np.nanmax(y))):
+        # Decreasing-and-negative: the axis is the most negative sample and
+        # the separatrix the least, so the percentiles run the other way.
+        axis, pedestal, separatrix = (
+            float(np.nanpercentile(y, level)) for level in (0.0, 20.0, 95.0)
+        )
+    p0 = [axis, pedestal, separatrix, 0.94, 0.04, 1.5, 2.0]
+    # alpha and beta stay at or above 1: below it the gated core term has an
+    # infinite slope at x_ped (beta) or at the magnetic axis (alpha), which no
+    # flux-function profile has and which makes any gradient a caller takes
+    # from the fit depend on their grid spacing.
+    lower = [-scale, -scale, -scale, 0.75, 0.01, 1.0, 1.0]
+    upper = [scale, scale, scale, 0.999, 0.3, 8.0, 8.0]
+    p0 = [min(max(value, low), high) for value, low, high in zip(p0, lower, upper)]
+    return p0, lower, upper
+
+
+def eped_tanh_bounds(x, y):
+    """Parameter box the ``eped_tanh`` fit uses for this data.
+
+    Public so that a caller checking whether a fitted parameter came back
+    resting on a bound compares against the same box the fit used, rather than
+    re-deriving one that can drift out of step with it.  The amplitude bounds
+    scale with the data's magnitude; the shape bounds are fixed.
+
+    Parameters
+    ----------
+    x : array_like
+        Radial coordinate; used only for its length [-].
+    y : array_like
+        Profile samples, whose magnitude sets the amplitude bounds [any].
+
+    Returns
+    -------
+    tuple of list
+        ``(lower, upper)``, each seven entries ordered as the model's
+        arguments ``f0, f_ped, f_sep, x_ped, width, alpha, beta``.  The
+        amplitudes are ``+-5 max|y|`` [any]; ``x_ped`` is in ``[0.75, 0.999]``
+        and ``width`` in ``[0.01, 0.3]`` [-]; ``alpha`` and ``beta`` are in
+        ``[1, 8]`` [-].
+
+    Notes
+    -----
+    ``alpha`` and ``beta`` stay at or above one because below it the gated
+    core term has an infinite slope -- at ``x_ped`` for ``beta``, at the
+    magnetic axis for ``alpha`` -- which no flux-function profile has, and
+    which would make any gradient taken from the fit depend on the caller's
+    grid spacing.
+
+    References
+    ----------
+    .. [EPED] The seven-parameter form and the ``x_ped``/``width`` box follow
+       the pedestal-fitting study ported in migration decision D-05;
+       :func:`vaft.process.profile.pedestal_top` is the consumer.
+    """
+    _, lower, upper = _initial_eped_tanh_guess(x, y)
+    return lower, upper
+
+
 def _initial_core_poly_edge_exp_guess(x, y, order):
     """
     Initial guess helper for core_poly_edge_exp fit.
@@ -382,7 +493,10 @@ def fit_profile(
         Model name, default ``'polynomial'`` [str].
         One of ``'gp'``, ``'polynomial'``, ``'free_polynomial'``,
         ``'exponential'``, ``'free_exponential'``, ``'linear'``,
-        ``'core_poly_edge_exp'``, ``'sqrt'``, ``'sqrt_exponential'``.
+        ``'core_poly_edge_exp'``, ``'eped_tanh'``, ``'sqrt'``,
+        ``'sqrt_exponential'``.  ``'eped_tanh'`` fits the seven-parameter
+        pedestal model ``(f0, f_ped, f_sep, x_ped, width, alpha, beta)`` and is
+        what :func:`vaft.process.profile.pedestal_top` uses.
     gp_kernel : sklearn kernel or None, optional
         Kernel for the GP mode; default constant times RBF [n/a].
     gp_anchor : tuple or None, optional
@@ -561,6 +675,22 @@ def fit_profile(
         coeffs = coeffs2
         return y_eval, y_std_eval, fit_function, coeffs
 
+
+    if fitting_function.lower() in {'eped_tanh', 'eped'}:
+        p0, lower, upper = _initial_eped_tanh_guess(x, y)
+        kwargs = {"p0": p0, "bounds": (lower, upper), "max_nfev": 20000}
+        if uncertainty_option == 1 and y_std is not None:
+            coeffs, _ = curve_fit(
+                _eped_tanh_model, x.ravel(), y, sigma=y_std, absolute_sigma=True, **kwargs
+            )
+        else:
+            coeffs, _ = curve_fit(_eped_tanh_model, x.ravel(), y, **kwargs)
+
+        def fit_function(x_input):
+            return _eped_tanh_model(np.asarray(x_input, float), *coeffs)
+
+        y_eval = fit_function(x_eval)
+        return y_eval, np.zeros_like(y_eval), fit_function, coeffs
 
     if fitting_function.lower() in {'core_poly_edge_exp', 'core_poly_edge_exponential'}:
         p0 = _initial_core_poly_edge_exp_guess(x, y, order)
