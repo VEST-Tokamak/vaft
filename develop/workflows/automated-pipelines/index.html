@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>db5b1eb</code>. What is described
+  <code>ec36537</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -495,9 +495,18 @@ dump with no SQL server in reach. Magnetics processing parameters travel as a
 developer’s home directory, while <code class="language-plaintext highlighter-rouge">base_dir</code> points at the Linux data server. Repoint them before running.</li>
   <li><strong>Dead keys.</strong> <code class="language-plaintext highlighter-rouge">cores</code>, <code class="language-plaintext highlighter-rouge">raw.offline_only</code> and <code class="language-plaintext highlighter-rouge">gpec.coil.source</code> appear in <code class="language-plaintext highlighter-rouge">config.yaml</code> but are never read
 by the <code class="language-plaintext highlighter-rouge">Snakefile</code>.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">constraints.detect_broken: true</code> excludes the channels the diagnostics stage condemned</strong> (their
-projected validity), on top of the explicit <code class="language-plaintext highlighter-rouge">constraints.broken</code> list of 1-based channel indices; a
-product that carries no assessment falls back to the 12-MAD amplitude detector.</li>
+  <li><strong>Channel selection is a decision the constraint stage consumes, not one it makes</strong> (issue #296).
+<code class="language-plaintext highlighter-rouge">vaft.validation.efit_channels.decide_efit_channels</code> reads the validity the diagnostics stage projected
+and emits a per-channel, per-slice decision — usable, suspect, rejected, missing or recovered —
+that <code class="language-plaintext highlighter-rouge">generate_constraints_ods</code> only translates into weights. There is no manual channel list any more
+(issue #295 retired <code class="language-plaintext highlighter-rouge">constraints.broken</code>; its evidence is in <code class="language-plaintext highlighter-rouge">workflow/efit_channel_selection/README.md</code>),
+so a channel is a constraint unless the assessment says otherwise. <code class="language-plaintext highlighter-rouge">constraints.detect_broken: true</code> now means
+<em>require</em> that assessment: a product without projected validity is refused and must be re-run through the
+diagnostics stage (with <code class="language-plaintext highlighter-rouge">false</code> every channel is usable by default). No detector runs in this stage.
+<code class="language-plaintext highlighter-rouge">gaussian_fit_option</code> selects the compatibility recovery backend (<code class="language-plaintext highlighter-rouge">1</code> refits rejected probes from their
+family’s Gaussian profile, <code class="language-plaintext highlighter-rouge">2</code> every probe); a recovered value never re-enables a channel the quality
+layer rejected. The decisions are recorded in the product under
+<code class="language-plaintext highlighter-rouge">equilibrium.code.parameters.channel_decisions</code>.</li>
 </ul>
 
 <p>Each constraint is the box average of the diagnostic samples inside <code class="language-plaintext highlighter-rouge">[t_i − w, t_i + w]</code> — every
@@ -1153,7 +1162,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-07 01:34:38 +0000"
+        "time": "2026-09-07 01:52:00 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

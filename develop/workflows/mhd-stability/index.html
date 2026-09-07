@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>db5b1eb</code>. What is described
+  <code>ec36537</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -530,13 +530,19 @@ products of a whole case with:</p>
 <p>The result is a dict keyed by module name (<code class="language-plaintext highlighter-rouge">dcon</code>, <code class="language-plaintext highlighter-rouge">rdcon</code>, <code class="language-plaintext highlighter-rouge">stride</code>, <code class="language-plaintext highlighter-rouge">gpec</code>).</p>
 
 <p><code class="language-plaintext highlighter-rouge">GPECSuiteResult.records</code> is a tuple of <code class="language-plaintext highlighter-rouge">GPECModuleRun</code>, one per module/mode, each carrying <code class="language-plaintext highlighter-rouge">status</code>
-(<code class="language-plaintext highlighter-rouge">prepared</code>, <code class="language-plaintext highlighter-rouge">completed</code>, <code class="language-plaintext highlighter-rouge">failed</code>, <code class="language-plaintext highlighter-rouge">skipped</code>), <code class="language-plaintext highlighter-rouge">returncode</code>, <code class="language-plaintext highlighter-rouge">reason</code>, <code class="language-plaintext highlighter-rouge">logs</code> and <code class="language-plaintext highlighter-rouge">outputs</code>. The
-<code class="language-plaintext highlighter-rouge">ok</code> property is true only when <code class="language-plaintext highlighter-rouge">status == "completed"</code> <strong>and</strong> <code class="language-plaintext highlighter-rouge">returncode == 0</code>, so inspect it per
-module rather than trusting the suite-level return code alone:</p>
+(<code class="language-plaintext highlighter-rouge">prepared</code>, <code class="language-plaintext highlighter-rouge">completed</code>, <code class="language-plaintext highlighter-rouge">stable</code>, <code class="language-plaintext highlighter-rouge">failed</code>, <code class="language-plaintext highlighter-rouge">skipped</code>), <code class="language-plaintext highlighter-rouge">returncode</code>, <code class="language-plaintext highlighter-rouge">reason</code>, <code class="language-plaintext highlighter-rouge">logs</code> and
+<code class="language-plaintext highlighter-rouge">outputs</code>. The <code class="language-plaintext highlighter-rouge">ok</code> property is true when <code class="language-plaintext highlighter-rouge">status</code> is <code class="language-plaintext highlighter-rouge">completed</code> or <code class="language-plaintext highlighter-rouge">stable</code> <strong>and</strong>
+<code class="language-plaintext highlighter-rouge">returncode == 0</code>, so inspect it per module rather than trusting the suite-level return code alone:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">result</span><span class="p">.</span><span class="n">records</span><span class="p">:</span>
     <span class="nf">print</span><span class="p">(</span><span class="n">record</span><span class="p">.</span><span class="n">module</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">mode</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">status</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">ok</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">reason</span><span class="p">)</span>
 </code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">stable</code> is a <em>successful</em> status, kept apart from <code class="language-plaintext highlighter-rouge">completed</code> because a stable equilibrium produces
+no unstable-mode output and so cannot be told from a broken run by what it wrote (#423). It is read
+from the solver’s own free-boundary energy – <code class="language-plaintext highlighter-rouge">Re(total1)</code>, which DCON, RDCON and STRIDE all write
+into their netCDF – so a companion such as <code class="language-plaintext highlighter-rouge">rmatch</code> exiting badly with nothing to analyse does not
+make the cell a failure. A run that produced no usable output is still <code class="language-plaintext highlighter-rouge">failed</code>, stable or not.</p>
 
 <h2 id="geqdsk-headers">GEQDSK headers</h2>
 
@@ -993,7 +999,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-07 01:34:38 +0000"
+        "time": "2026-09-07 01:52:00 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
