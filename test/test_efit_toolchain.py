@@ -136,3 +136,52 @@ def test_windows_reserves_the_stack_at_link_time_not_through_bash(tmp_path, monk
     assert command[0] == str(executable)
     assert "bash" not in command
     assert not any("ulimit" in part for part in command)
+
+
+def test_windows_puts_the_table_directory_shim_on_the_child_path(tmp_path, monkeypatch):
+    """`set_table_dir` shells out to `ls`, and cmd.exe has no such command.
+
+    The failure is silent rather than loud: EFIT falls back to
+    `<link_efit>/green/` instead of `<link_efit>/green/<shot range>/`, so it
+    reads the wrong Green tables or none at all. The installer writes a small
+    `ls` into the prefix's shim directory; this is what makes the EFIT child --
+    and only the EFIT child -- able to find it.
+    """
+    monkeypatch.setattr(magnetic.compat, "IS_WINDOWS", True)
+    prefix = tmp_path / "prefix"
+    executable = prefix / "bin" / "efit.exe"
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"MZ")
+    shim = prefix / "shim"
+    shim.mkdir()
+    (shim / "ls.cmd").write_text("@echo off\n", encoding="ascii")
+
+    env = {"PATH": "C:/Windows/system32"}
+    magnetic._add_shim_directory(env, executable)
+
+    assert env["PATH"].split(os.pathsep)[0] == str(shim)
+    assert "C:/Windows/system32" in env["PATH"]
+
+
+def test_a_prefix_without_a_shim_leaves_the_path_alone(tmp_path, monkeypatch):
+    monkeypatch.setattr(magnetic.compat, "IS_WINDOWS", True)
+    executable = tmp_path / "bin" / "efit.exe"
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"MZ")
+
+    env = {"PATH": "C:/Windows/system32"}
+    magnetic._add_shim_directory(env, executable)
+
+    assert env["PATH"] == "C:/Windows/system32"
+
+
+def test_posix_never_gets_the_shim(tmp_path, monkeypatch):
+    """`ls` is a real command there, and the shim would shadow it."""
+    monkeypatch.setattr(magnetic.compat, "IS_WINDOWS", False)
+    executable = _program(tmp_path / "bin" / "efit")
+    (tmp_path / "shim").mkdir()
+
+    env = {"PATH": "/usr/bin"}
+    magnetic._add_shim_directory(env, executable)
+
+    assert env["PATH"] == "/usr/bin"

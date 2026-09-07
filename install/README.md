@@ -583,6 +583,8 @@ Four things differ there, and the script says so rather than hiding them:
 | Stack | Reserved at link time (`-Wl,--stack`, from `-StackReserveMB`) | Raised per run by the adapter with `ulimit -s` |
 | BLAS | Named again at the end of the link line | Found once; a shared object needs no repeat |
 | Upstream tests | Not run: all 102 are bash drivers CTest cannot start | `ctest` runs unless `--skip-tests` |
+| `ls` | A five-line `shim/ls.cmd`, on the EFIT child's PATH only | A real `ls` |
+| netCDF | An S3-free build, or none | Whatever `nc-config` reports |
 | Prefix | `%LOCALAPPDATA%\vaft\external\efit` | `<source>/vaft-install` |
 
 The stack is the one that matters. A native Windows image takes its reserve
@@ -599,6 +601,35 @@ makes a single pass and discards an archive whose members resolve nothing yet,
 so those come out undefined. The installer passes
 `-DCMAKE_Fortran_STANDARD_LIBRARIES`, which CMake appends after every target
 library. A Linux build never notices, because there BLAS is a shared object.
+
+#### Two things EFIT needs at run time on Windows
+
+**`ls`.** `set_table_dir` picks the Green-table subdirectory for a shot by
+shelling out — `call system('ls '//table_dir//' > shot_tables.txt')`
+(`efit/tables.F90`) — and `cmd.exe` has no `ls`. The failure is silent rather
+than loud: EFIT falls back to `<link_efit>/green/` itself instead of
+`<link_efit>/green/<shot range>/`, so it reads the wrong tables or none at all.
+
+The installer writes a five-line `shim/ls.cmd` that turns EFIT's forward slashes
+into the backslashes `dir /b` needs, and `vaft.code.efit` puts that directory on
+the EFIT child's `PATH` and nowhere else. It is deliberately not in `bin/`: on a
+user's `PATH` it would shadow a real `ls` for everything else they run.
+
+**An S3-free netCDF.** MSYS2's netCDF links the AWS C++ S3 SDK, whose `atexit`
+handler never returns — the same defect that hung DCON. Measured on one DIII-D
+case, all three builds computing the identical result:
+
+| netCDF | Exit | Files |
+| --- | --- | --- |
+| MSYS2's (S3-linked) | **never exits** | g + a + m |
+| none | 0, in 0.5 s | g + a |
+| S3-free | 0, in 0.5 s | g + a + m |
+
+So the installer prefers the S3-free prefix that
+`install_gpec_windows.ps1 -BuildDependencies` leaves behind, which does carry
+the netCDF v2 Fortran API EFIT calls; it refuses an S3-linked one and says why,
+building without m-file output rather than producing a binary that hangs.
+`-NetcdfHome` overrides.
 
 Green-function tables are not shipped with EFIT: generate them with `efund` for
 the grid you intend to run, and generate them with the *same* build, because
@@ -827,5 +858,5 @@ into your question.
 | Windows WSL2 | Syntax and static checks in CI; the full run is verified **manually**, because GitHub-hosted runners cannot start WSL2 |
 | CHEASE, Windows native | Verified **manually** on a clean Windows 11 machine: build, VAFT discovery, a refinement of a packaged equilibrium, and its comparison metrics. Not automated -- hosted runners have no Fortran toolchain, and a full build takes tens of minutes. |
 | DCON/GPEC, Windows native | Verified **manually** on a clean Windows 11 machine with `-BuildDependencies`: build, VAFT discovery, the DCON to GPEC handoff on upstream's Solov'ev regression, and its energies. Not automated -- hosted runners have no Fortran toolchain and the dependency chain alone takes half an hour. The script-level guarantees are pinned by `test/test_install_bootstrap.py`, which runs in CI on every platform. |
-| EFIT/EFUND, Windows native | EFUND verified **manually** on Windows 11: build, runtime-library colocation, and an EFUND run whose seven Green-function tables match their expected sizes byte for byte. EFIT builds and starts under the same recipe, but only once one upstream defect is fixed in your own tree -- see below. |
+| EFIT/EFUND, Windows native | Verified **manually** on Windows 11, end to end: build, runtime-library colocation, EFUND's seven Green tables byte-exact, and a full DIII-D reconstruction of shot 186610 at 2400 ms driven through `vaft.code.efit` with no MSYS2 on `PATH` -- chi^2 2.081E+01, q95 2.956, g-file, a-file and m-file written, process exits 0. Requires one upstream defect fixed in your own tree; see below. |
 | CHEASE and DCON/GPEC, Linux and macOS | Installers not yet written -- tracked in [issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). The checkers run on every platform today. |

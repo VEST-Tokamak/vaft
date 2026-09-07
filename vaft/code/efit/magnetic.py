@@ -377,6 +377,35 @@ def find_efit_executable(config: EFITConfig | None = None) -> Path | None:
     return None
 
 
+#: Where the Windows installer leaves the `ls` EFIT shells out for, relative to
+#: the installation root. It is kept out of `bin/` deliberately: it belongs on
+#: one child process's PATH, never on a user's.
+SHIM_DIRECTORY = Path("shim")
+
+
+def _add_shim_directory(env: dict[str, str], executable: str | Path) -> None:
+    """Put the installation's shim directory on the child's PATH, on Windows.
+
+    ``set_table_dir`` picks the Green-table subdirectory for a shot by shelling
+    out: ``call system('ls '//table_dir//' > shot_tables.txt')``
+    (``efit/tables.F90``). ``cmd.exe`` has no ``ls``, and the failure is silent
+    rather than loud -- EFIT falls back to ``<link_efit>/green/`` itself instead
+    of ``<link_efit>/green/<shot range>/``, so it reads the wrong tables or none
+    at all. The installer writes a small ``ls`` there for exactly this call.
+
+    Only this child's environment is touched. Putting the directory on a user's
+    PATH would shadow a real ``ls`` for everything else they run.
+    """
+    if not compat.IS_WINDOWS:
+        return
+    root = Path(executable).resolve().parent.parent
+    shim = root / SHIM_DIRECTORY
+    if not shim.is_dir():
+        return
+    existing = env.get("PATH", "")
+    env["PATH"] = f"{shim}{os.pathsep}{existing}" if existing else str(shim)
+
+
 def _efit_command(config: EFITConfig, executable: str | Path | None = None) -> list[str]:
     resolved = executable if executable is not None else config.executable
     if not resolved:
@@ -472,6 +501,7 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
     env = os.environ.copy()
     env.update(dict(config.env))
     env.setdefault("OMP_NUM_THREADS", "1")
+    _add_shim_directory(env, executable)
     try:
         completed = subprocess.run(
             command,
