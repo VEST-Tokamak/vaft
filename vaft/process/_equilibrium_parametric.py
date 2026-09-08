@@ -779,7 +779,12 @@ def derive_global_descriptors(
     centimetres apart.  The poloidal field is computed through the equilibrium's
     own declared COCOS and per-radian flag, so a wrongly declared convention
     propagates into every field-derived quantity here.  The magnetic shear is
-    taken against the poloidal radius.
+    taken against the poloidal radius.  The normalized beta follows the Troyon
+    convention ``beta_N = 100 * beta_t * a * |B_t0| / |I_p|`` (with ``a`` in
+    metres, ``B_t0`` in tesla, and ``I_p`` in megamperes); its published unit
+    is ``"1"`` (dimensionless) conforming to IMAS ``global_quantities.beta_normal``,
+    with the conventional ``% * m * T / MA`` scaling factor folded into the value
+    and recorded in the derivation quality metadata.
 
     Applicability
     -------------
@@ -790,9 +795,8 @@ def derive_global_descriptors(
     Every quantity degrades independently: a missing pressure profile costs the
     energies and the betas but not the geometry.  A failure inside the pressure
     integration is captured as a warning on the returned report rather than
-    raised.  The normalized beta carries a non-SI unit string where the rest of
-    the module is SI, tracked in #607.  The virial internal inductance is
-    ill-conditioned as its coefficient approaches one.
+    raised.  The virial internal inductance is ill-conditioned as its coefficient
+    approaches one.
 
     Provenance
     ----------
@@ -916,11 +920,15 @@ def derive_global_descriptors(
         values["beta_t"] = _derived(eq, beta_t, "1", "2*mu0*<p>/Bt0^2", "volume and pressure integration", ("pressure", "bt0"))
         if geometry and eq.ip not in (None, 0):
             beta_n = 100 * beta_t * values["minor_radius"].value * abs(eq.bt0) / (abs(eq.ip) / 1e6)
-            values["beta_n"] = _derived(eq, beta_n, "% m T / MA", "100*beta_t*a*abs(Bt0)/abs(Ip_MA)", "derived", ("beta_t", "minor_radius", "bt0", "ip"))
+            values["beta_n"] = _derived(
+                eq, beta_n, "1", "100*beta_t*a*abs(Bt0)/abs(Ip_MA)", "derived",
+                ("beta_t", "minor_radius", "bt0", "ip"),
+                {"scaling_convention": "% m T / MA"},
+            )
     if average_pressure is not None and bpa not in (None, 0):
         values["beta_p_boundary_average"] = _derived(eq, 2 * MU0 * average_pressure / bpa**2, "1", "2*mu0*<p>/<Bp>_boundary^2", "boundary-field average", ("pressure", "psi", "lcfs"))
     for name, definition in (("beta_t", "2*mu0*<p>/Bt0^2"), ("beta_n", "100*beta_t*a*abs(Bt0)/abs(Ip_MA)"), ("beta_p_boundary_average", "2*mu0*<p>/<Bp>_boundary^2")):
-        values.setdefault(name, _unavailable(eq, "1" if name != "beta_n" else "% m T / MA", definition, "required pressure, geometry, current, or magnetic field is unavailable"))
+        values.setdefault(name, _unavailable(eq, "1", definition, "required pressure, geometry, current, or magnetic field is unavailable"))
     for name in ("s1", "s2", "s3", "alpha"):
         values[name] = _derived(eq, virial[name], "1", f"Shafranov boundary integral {name}", "shafranov_integrals", ("psi", "lcfs")) if name in virial else _unavailable(eq, "1", f"Shafranov {name}", "valid grid, LCFS, and boundary poloidal field are required")
     values["li_virial"] = _derived(eq, virial["li"], "1", "[S1/2+S2/2*(1-RT/R0)-S3]/(alpha-1)", "Lao virial closure", ("psi", "f", "pressure", "lcfs")) if "li" in virial else _unavailable(eq, "1", "Lao virial internal inductance", "F, pressure, field grid, and a well-conditioned alpha are required")
