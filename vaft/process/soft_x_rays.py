@@ -155,6 +155,7 @@ def sxr_subtract_vacuum_reference(
     cutoff: float,
     fs: float,
     order: int = 2,
+    zero_phase: bool = True,
 ) -> np.ndarray:
     """Subtract a low-passed vacuum shot to remove poloidal-field pickup.
 
@@ -174,6 +175,10 @@ def sxr_subtract_vacuum_reference(
         Sample rate [Hz].
     order : int, optional
         Butterworth order [-].
+    zero_phase : bool, optional
+        ``True`` for zero-phase forward-backward filtering via
+        :func:`scipy.signal.filtfilt`, preserving temporal alignment;
+        ``False`` for causal filtering introducing filter group delay [-].
 
     Returns
     -------
@@ -192,11 +197,9 @@ def sxr_subtract_vacuum_reference(
     shot, so low-passing that record and subtracting it channel-wise removes the
     common drive while leaving plasma fluctuations untouched.
 
-    **The low pass here is causal.** It inherits
-    :func:`vaft.process.signal_processing.butterworth_lowpass`'s default, which
-    delays every feature by the filter's group delay, so the reference is shifted
-    relative to the plasma shot it is subtracted from and the cancellation is
-    imperfect by that delay. Tracked in #626.
+    **The low pass is zero phase by default** (``zero_phase=True``), preserving
+    exact temporal alignment with the un-delayed plasma shot. Pass
+    ``zero_phase=False`` to reproduce legacy causal filtering behavior.
 
     Both inputs should already be baseline-corrected.
 
@@ -227,7 +230,9 @@ def sxr_subtract_vacuum_reference(
             f"{values.shape[0]} and {reference.shape[0]}"
         )
     n = min(values.shape[1], reference.shape[1])
-    reference_lp = butterworth_lowpass(reference[:, :n], cutoff, fs, order)
+    reference_lp = butterworth_lowpass(
+        reference[:, :n], cutoff, fs, order, zero_phase=zero_phase
+    )
     return values[:, :n] - reference_lp
 
 
@@ -242,6 +247,7 @@ def sxr_band_signals(
     time_range: Sequence[float] | None = None,
     channels: Sequence[int] | None = None,
     dead_channels: Sequence[int] = (),
+    zero_phase: bool = True,
 ) -> SXRBandResult:
     """Baseline, window and band-pass chord signals into named frequency bands.
 
@@ -266,6 +272,10 @@ def sxr_band_signals(
         Row indices to process; all rows when omitted [-].
     dead_channels : sequence of int, optional
         Rows whose band output is forced to zero [-].
+    zero_phase : bool, optional
+        ``True`` for zero-phase forward-backward filtering via
+        :func:`scipy.signal.filtfilt`, preserving temporal alignment;
+        ``False`` for causal filtering introducing filter group delay [-].
 
     Returns
     -------
@@ -287,12 +297,10 @@ def sxr_band_signals(
 
     Convention
     ----------
-    **The band-pass here is zero phase**, inheriting
-    :func:`vaft.process.signal_processing.butterworth_bandpass`'s default, so no
-    feature moves in time. That is the opposite of the low pass used elsewhere in
-    this module, and it matters because the phase read off this output by
-    :func:`hilbert_instantaneous_phase` feeds a toroidal mode number. The
-    inconsistency between the two conventions is tracked in #626.
+    **The band-pass is zero phase by default** (``zero_phase=True``), so no
+    feature moves in time. That matters because the phase read off this output by
+    :func:`hilbert_instantaneous_phase` feeds a toroidal mode number. Pass
+    ``zero_phase=False`` if causal filtering is explicitly required.
 
     A dead channel's band output is zeroed but its raw trace is kept, so it stays
     visible in a raw map instead of disappearing.
@@ -341,7 +349,11 @@ def sxr_band_signals(
         rows = []
         for k, c in enumerate(selected):
             source = np.zeros_like(raw[k]) if c in dead else raw[k]
-            rows.append(butterworth_bandpass(source, float(low), float(high), fs, order))
+            rows.append(
+                butterworth_bandpass(
+                    source, float(low), float(high), fs, order, zero_phase=zero_phase
+                )
+            )
         band_out[str(name)] = np.stack(rows)
 
     return SXRBandResult(time=time_win, raw=raw, bands=band_out, channels=selected)
@@ -506,6 +518,7 @@ def sxr_electron_temperature(
     al_threshold: float = 0.10,
     detrend_window: int = 400,
     order: int = 2,
+    zero_phase: bool = True,
     time_range: Sequence[float] | None = None,
 ) -> SXRTemperatureResult:
     """Electron temperature from the two-filter signal ratio, chord by chord.
@@ -535,6 +548,10 @@ def sxr_electron_temperature(
         Width of the centred rolling trend, in samples [-].
     order : int, optional
         Butterworth order [-].
+    zero_phase : bool, optional
+        ``True`` for zero-phase forward-backward filtering via
+        :func:`scipy.signal.filtfilt`, preserving temporal alignment;
+        ``False`` for causal filtering introducing filter group delay [-].
     time_range : sequence of float, optional
         Analysis window as ``(t_min, t_max)`` [s].
 
@@ -557,12 +574,11 @@ def sxr_electron_temperature(
 
     Convention
     ----------
-    **The low pass here is causal**, inheriting
-    :func:`vaft.process.signal_processing.butterworth_lowpass`'s default, so the
-    temperature is delayed by the filter's group delay. That is the opposite
-    convention from :func:`sxr_band_signals`, which is zero phase. Both channels
-    of a pair are delayed identically so the ratio is unaffected, but a time read
-    off this result is shifted. Tracked in #626.
+    **The low pass is zero phase by default** (``zero_phase=True``), matching
+    the convention of :func:`sxr_band_signals` and preserving exact temporal
+    alignment with other diagnostics and fast MHD events. Pass
+    ``zero_phase=False`` to reproduce legacy causal filtering behavior
+    with filter group delay.
 
     The relative fluctuation is a percentage of the rolling trend, and the trend
     is centred, so it uses samples on both sides.
@@ -605,8 +621,12 @@ def sxr_electron_temperature(
 
     te_rows, rel_rows, al_rows = [], [], []
     for be_channel, al_channel in pairs:
-        be = butterworth_lowpass(corrected[int(be_channel)], lowpass_cutoff, fs, order)
-        al = butterworth_lowpass(corrected[int(al_channel)], lowpass_cutoff, fs, order)
+        be = butterworth_lowpass(
+            corrected[int(be_channel)], lowpass_cutoff, fs, order, zero_phase=zero_phase
+        )
+        al = butterworth_lowpass(
+            corrected[int(al_channel)], lowpass_cutoff, fs, order, zero_phase=zero_phase
+        )
         al = al * float(al_gain)
         with np.errstate(divide="ignore", invalid="ignore"):
             ratio = np.where(np.abs(al) > 1e-12, be / al, np.nan)
