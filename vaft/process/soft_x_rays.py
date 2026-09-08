@@ -216,7 +216,11 @@ def sxr_subtract_vacuum_reference(
     -----------
     Assumes the vacuum shot reproduces the plasma shot's coil programme. Records
     are truncated to the shorter of the two rather than aligned in time, so two
-    records with different start triggers are subtracted misaligned.
+    records with different start triggers are subtracted misaligned. The reference
+    is truncated to length ``n`` before filtering, so both leading and trailing
+    edges are subject to filter boundary transients. Inputs shorter than the
+    filter padding length (``3 * (order + 1)`` samples for low-pass) raise from
+    SciPy under ``zero_phase=True``.
 
     Provenance
     ----------
@@ -318,7 +322,12 @@ def sxr_band_signals(
     Vacuum-reference correction is not applied; run
     :func:`sxr_subtract_vacuum_reference` first when it is wanted. Band edges are
     passed straight to the filter, so a band reaching the Nyquist frequency raises
-    from SciPy rather than being clipped.
+    from SciPy rather than being clipped. Filtering is applied directly to the
+    windowed segment (preserving legacy viewer parity); under ``zero_phase=True``,
+    boundary transients occur at both edges of ``time_range`` extending over the
+    filter settling time. Windows shorter than the filter padding length
+    (``3 * (2 * order + 1)`` samples, 15 for order 2) raise from SciPy under
+    ``zero_phase=True``.
 
     Provenance
     ----------
