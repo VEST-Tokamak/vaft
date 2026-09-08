@@ -1215,7 +1215,7 @@ def toroidal_mode_analysis(
     sample_rate : float, optional
         Sample rate [Hz].
     phase_geometry : float, optional
-        Toroidal separation of the two coils [rad].
+        Toroidal angle of the second coil minus the first coil, phi_b - phi_a [rad].
     peak_threshold : float, optional
         Fraction of the maximum a peak must reach to be reported [-].
     sensor_count : int, optional
@@ -1278,7 +1278,7 @@ def toroidal_mode_analysis(
     if a.size < 2:
         empty = np.array([])
         return ToroidalModeResult(empty, empty, empty, empty, empty, empty, empty.astype(int), empty, empty, empty)
-    if phase_geometry == 0:
+    if np.isclose(float(phase_geometry), 0.0):
         raise ValueError("phase_geometry must be non-zero.")
 
     segment = min(a.size, int(nperseg) if nperseg is not None else 256)

@@ -93,7 +93,8 @@ def test_co_current_and_counter_current_propagation():
         peak_threshold=0.05,
         nperseg=1024,
     )
-    assert 2 in set(res_co.n.astype(int))
+    idx_co = int(np.argmin(np.abs(res_co.frequency - freq)))
+    assert int(res_co.n[idx_co]) == 2
 
     # Counter-current wave propagating in -phi: downstream probe leads upstream probe
     sig_down_lead = np.sin(2.0 * np.pi * freq * time + 2 * dphi)  # n = -2
@@ -105,7 +106,8 @@ def test_co_current_and_counter_current_propagation():
         peak_threshold=0.05,
         nperseg=1024,
     )
-    assert -2 in set(res_counter.n.astype(int))
+    idx_counter = int(np.argmin(np.abs(res_counter.frequency - freq)))
+    assert int(res_counter.n[idx_counter]) == -2
 
 
 def test_negative_phase_geometry():
@@ -129,7 +131,95 @@ def test_negative_phase_geometry():
         peak_threshold=0.05,
         nperseg=1024,
     )
-    assert expected_n in set(res.n.astype(int))
+    idx = int(np.argmin(np.abs(res.frequency - freq)))
+    assert int(res.n[idx]) == expected_n
+
+
+def test_decreasing_angle_array_fit():
+    """Array fit with angles listed in descending order recovers identical n."""
+    sample_rate = 50_000.0
+    time = np.arange(4096, dtype=float) / sample_rate
+    freq = 7_000.0
+    expected_n = 3
+    angles = np.deg2rad([90.0, 60.0, 30.0, 0.0])
+    phases = 0.2 - expected_n * angles
+    signals = np.vstack([np.sin(2.0 * np.pi * freq * time + p) for p in phases])
+
+    res = toroidal_phase_fit_at_time(
+        time,
+        signals,
+        angles,
+        center_time=0.04,
+        sample_rate=sample_rate,
+        window_size=512,
+        frequencies=[freq],
+        candidate_n=tuple(range(-5, 6)),
+    )
+    assert len(res.modes) == 1
+    assert res.modes[0].n == expected_n
+
+
+def test_near_nyquist_boundary():
+    """Mode number near Nyquist (n=5 with dphi=pi/6, phase separation 5pi/6) is recovered."""
+    sample_rate = 100_000.0
+    time = np.arange(4096, dtype=float) / sample_rate
+    freq = 10_000.0
+    expected_n = 5
+    dphi = np.pi / 6  # 30 deg; Nyquist is n=6
+
+    sig_a = np.sin(2.0 * np.pi * freq * time)
+    sig_b = np.sin(2.0 * np.pi * freq * time - expected_n * dphi)
+
+    res = toroidal_mode_analysis(
+        sig_a,
+        sig_b,
+        sample_rate=sample_rate,
+        phase_geometry=dphi,
+        peak_threshold=0.05,
+        nperseg=1024,
+    )
+    idx = int(np.argmin(np.abs(res.frequency - freq)))
+    assert int(res.n[idx]) == expected_n
+
+
+def test_noisy_mode_signal_recovery():
+    """Additive Gaussian noise does not perturb rounded mode recovery."""
+    rng = np.random.default_rng(42)
+    sample_rate = 100_000.0
+    time = np.arange(8192, dtype=float) / sample_rate
+    freq = 8_000.0
+    expected_n = 2
+    angles = np.deg2rad([0.0, 30.0, 60.0, 90.0])
+    dphi = float(angles[1] - angles[0])
+
+    pure_signals = np.vstack(
+        [np.sin(2.0 * np.pi * freq * time - expected_n * phi) for phi in angles]
+    )
+    noise = 0.15 * rng.standard_normal(pure_signals.shape)
+    signals = pure_signals + noise
+
+    res_pair = toroidal_mode_analysis(
+        signals[0],
+        signals[1],
+        sample_rate=sample_rate,
+        phase_geometry=dphi,
+        peak_threshold=0.05,
+        nperseg=2048,
+    )
+    idx_pair = int(np.argmin(np.abs(res_pair.frequency - freq)))
+    assert int(res_pair.n[idx_pair]) == expected_n
+
+    res_fit = toroidal_phase_fit_at_time(
+        time,
+        signals,
+        angles,
+        center_time=0.04,
+        sample_rate=sample_rate,
+        window_size=1024,
+        frequencies=[freq],
+        candidate_n=tuple(range(-4, 5)),
+    )
+    assert res_fit.modes[0].n == expected_n
 
 
 def test_multiple_simultaneous_modes():
