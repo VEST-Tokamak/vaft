@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>37f26be</code>. What is described
+  <code>f9ab35e</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1054,7 +1054,12 @@ Pappus’s theorem needs it for the volume, and at low aspect ratio the two sit
 centimetres apart.  The poloidal field is computed through the equilibrium’s
 own declared COCOS and per-radian flag, so a wrongly declared convention
 propagates into every field-derived quantity here.  The magnetic shear is
-taken against the poloidal radius.</p>
+taken against the poloidal radius.  The normalized beta follows the Troyon
+convention <code class="language-plaintext highlighter-rouge">beta_N = 100 * beta_t * a * |B_t0| / |I_p|</code> (with <code class="language-plaintext highlighter-rouge">a</code> in
+metres, <code class="language-plaintext highlighter-rouge">B_t0</code> in tesla, and <code class="language-plaintext highlighter-rouge">I_p</code> in megamperes); its published unit
+is <code class="language-plaintext highlighter-rouge">"1"</code> (dimensionless) conforming to IMAS <code class="language-plaintext highlighter-rouge">global_quantities.beta_normal</code>,
+with the conventional <code class="language-plaintext highlighter-rouge">% * m * T / MA</code> scaling factor folded into the value
+and recorded in the derivation quality metadata.</p>
 
 <p><strong>Applicability.</strong></p>
 
@@ -1065,9 +1070,8 @@ taken against the poloidal radius.</p>
 <p>Every quantity degrades independently: a missing pressure profile costs the
 energies and the betas but not the geometry.  A failure inside the pressure
 integration is captured as a warning on the returned report rather than
-raised.  The normalized beta carries a non-SI unit string where the rest of
-the module is SI, tracked in #607.  The virial internal inductance is
-ill-conditioned as its coefficient approaches one.</p>
+raised.  The virial internal inductance is ill-conditioned as its coefficient
+approaches one.</p>
 
 <p><strong>Provenance.</strong></p>
 
@@ -3579,7 +3583,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-07 09:22:05 +0000"
+        "time": "2026-09-08 11:19:53 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
