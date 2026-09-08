@@ -129,6 +129,9 @@ def test_global_descriptors_and_radial_coordinates_have_definitions():
     assert descriptors["volume"].value == pytest.approx(2 * np.pi**2 * 1.0 * 0.35 * 0.5, rel=2e-3)
     assert descriptors["thermal_energy"].available
     assert descriptors["beta_t"].available
+    assert descriptors["beta_n"].available
+    assert descriptors["beta_n"].unit == "1"
+    assert descriptors["beta_n"].quality.get("scaling_convention") == "% m T / MA"
     assert len(descriptors.rational_surfaces[1.5]) == 1
     radial = derive_radial_coordinates(eq)
     np.testing.assert_allclose(radial["psi_n"].value[[0, -1]], [0, 1])
@@ -576,3 +579,11 @@ def test_explicit_flux_tolerance_overrides_the_derived_window():
     strict = derive_boundary_representation(eq, flux_tolerance=0.0)
     assert strict.provenance.tolerances["xpoint_flux_psi_n"] == 0.0
     assert not strict.topology.is_diverted
+
+
+def test_unavailable_beta_n_has_dimensionless_unit():
+    eq = _analytic_equilibrium()
+    eq_no_p = EquilibriumData(**{**eq.__dict__, "pressure": None})
+    descriptors = derive_global_descriptors(eq_no_p)
+    assert not descriptors["beta_n"].available
+    assert descriptors["beta_n"].unit == "1"
