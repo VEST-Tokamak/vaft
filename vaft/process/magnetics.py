@@ -45,9 +45,17 @@ difference is deliberate and is preserved rather than harmonized.
 which is the one place in the module where a convention is decided by the
 signal rather than declared.
 
-**The two mode-number entry points disagree on the sign of n**, one carrying a
-minus that the other does not; see #638.  Compare results from them only after
-reading that issue.
+**Toroidal mode numbers adhere to standard right-handed cylindrical coordinates.**
+Coordinates (R, phi, Z) are oriented such that phi increases counter-clockwise
+when viewed from above. A positive toroidal mode number (n > 0) denotes a
+perturbation propagating in the positive phi direction (co-current / toroidal
+direction). Across toroidally separated sensors, the signal phase varies as
+theta(phi) = theta_0 - n * phi (negative phase slope d(theta)/d(phi) = -n). For
+two coils separated by toroidal angle Delta_phi = phase_geometry > 0, the
+cross-spectral phase of the downstream coil relative to the upstream coil is
+Delta_theta = -n * Delta_phi, so the mode number is n = -Delta_theta / Delta_phi.
+Both :func:`toroidal_mode_analysis` and :func:`toroidal_phase_fit_at_time`
+share this convention.
 
 Provenance
 ----------
@@ -1225,14 +1233,18 @@ def toroidal_mode_analysis(
     1. Estimate the cross-spectral density and the coherence of the pair.
     2. Keep frequencies whose coherence exceeds the significance level.
     3. Find the peaks among them above the threshold.
-    4. Divide each peak's phase by the toroidal separation to get its mode number.
+    4. Divide the negative of each peak's phase by the toroidal separation to get its mode number.
 
     Convention
     ----------
-    **The mode number is the phase over the separation, with no minus sign.**
-    :func:`toroidal_phase_fit_at_time` fits a model that carries one, so **the two
-    entry points report opposite signs for the same physical mode**; tracked in
-    #638. Compare a result from one against the other only after reading it.
+    **The mode number carries a minus sign**: ``n_raw = -phase / phase_geometry``.
+    Under standard right-handed cylindrical coordinates (R, phi, Z) with phi
+    counter-clockwise from above, a mode propagating in the co-current (+phi)
+    direction has phase decreasing with increasing phi (theta(phi) = theta_0 -
+    n * phi, so d(theta)/d(phi) = -n). A sensor at Delta_phi > 0 lags the
+    reference sensor by Delta_theta = -n * Delta_phi, so n = -Delta_theta /
+    Delta_phi. This agrees with the model fitted by
+    :func:`toroidal_phase_fit_at_time`.
 
     The coherence threshold is the 95 percent significance level for a
     magnitude-squared coherence averaged over the given number of sensors, so it
@@ -1273,7 +1285,7 @@ def toroidal_mode_analysis(
     frequencies, cross_power = csd(a, b, fs=sample_rate, nperseg=segment)
     _, coherence_values = coherence(a, b, fs=sample_rate, nperseg=segment)
     phase = np.angle(cross_power)
-    n_raw = phase / float(phase_geometry)
+    n_raw = -phase / float(phase_geometry)
     n_rounded = np.round(n_raw)
 
     power_abs = np.abs(cross_power)
@@ -1381,9 +1393,10 @@ def toroidal_phase_fit_at_time(
     Convention
     ----------
     **The model carries a minus sign**: the fitted phase decreases with increasing
-    toroidal angle for a positive mode number. :func:`toroidal_mode_analysis` uses
-    the opposite sense, so **the two report opposite signs for the same physical
-    mode**; tracked in #638.
+    toroidal angle for a positive mode number (``fitted = intercept - n * toroidal_angle``).
+    Under standard right-handed cylindrical coordinates (R, phi, Z), this
+    corresponds to a perturbation propagating in the positive phi (co-current)
+    direction, in agreement with :func:`toroidal_mode_analysis`.
 
     Phases are wrapped to a single turn and the intercept is a circular mean, so
     the fit is insensitive to where the branch cut falls, which a plain average
