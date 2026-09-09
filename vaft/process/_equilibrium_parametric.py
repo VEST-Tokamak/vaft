@@ -17,6 +17,7 @@ from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import least_squares, root
 from scipy.spatial import cKDTree
 
+from vaft.data.cocos import VAFT_INTERNAL_COCOS, cocos_spec
 from vaft.data.equilibrium import (
     BoundaryRepresentation,
     Contour,
@@ -1368,7 +1369,17 @@ def _solovev_components(model: SolovevEquilibrium, r: Any, z: Any) -> tuple[np.n
     return psi, dpsi_dr, dpsi_dz, basis
 
 
-def evaluate_solovev(model: SolovevEquilibrium, r: Any, z: Any) -> Mapping[str, np.ndarray]:
+_DEFAULT_COCOS = object()
+
+
+def evaluate_solovev(
+    model: SolovevEquilibrium,
+    r: Any,
+    z: Any,
+    *,
+    cocos: int | None = _DEFAULT_COCOS,  # type: ignore[assignment]
+    convention: int | None = None,
+) -> Mapping[str, np.ndarray]:
     """Evaluate an analytic Solov'ev equilibrium on a set of points.
 
     The Solov'ev solution is the Grad-Shafranov equation's closed form for a
@@ -1384,6 +1395,12 @@ def evaluate_solovev(model: SolovevEquilibrium, r: Any, z: Any) -> Mapping[str, 
         Major radius, strictly positive [m].
     z : array_like
         Height [m].
+    cocos : int or None, optional
+        COCOS coordinate convention index (1-8, 11-18) setting the poloidal
+        field orientation factor sigma = sigma_RphiZ * sigma_Bp; None selects
+        the historical orientation fallback (k = -1) [-].
+    convention : int or None, optional
+        Alias for *cocos* [-].
 
     Returns
     -------
@@ -1396,18 +1413,22 @@ def evaluate_solovev(model: SolovevEquilibrium, r: Any, z: Any) -> Mapping[str, 
     Raises
     ------
     ValueError
-        Any point has a non-positive major radius.
+        Any point has a non-positive major radius, or an invalid COCOS index is
+        provided.
 
     Convention
     ----------
     Works in poloidal flux per radian, with the poloidal field taken as
-    ``B_R = -dpsi/dz / R`` and ``B_Z = +dpsi/dR / R``.  That is the orientation
-    family with a positive product of the toroidal and poloidal sign conventions,
-    which is *not* the family the rest of this module falls back to for an
-    unidentified equilibrium; the mismatch is tracked in #600.
+    ``B_R = (sigma / R) dpsi/dz`` and ``B_Z = -(sigma / R) dpsi/dR``, where
+    ``sigma = sigma_RphiZ * sigma_Bp`` is determined by *cocos*. The default
+    is :data:`~vaft.data.cocos.VAFT_INTERNAL_COCOS` (11), which has ``sigma = +1``;
+    passing ``cocos=None`` retains the historical fallback ``sigma = -1``
+    (the COCOS 2/3/6/7 orientation family).
     :func:`solovev_to_equilibrium` is where this is reconciled with a declared
-    convention.  Pressure and the squared poloidal current are linear in psi by
-    construction, so their gradients are the model's own constants.
+    convention, scaling the flux by 2*pi for full-weber conventions and
+    transforming signs appropriately. Pressure and the squared poloidal
+    current are linear in psi by construction, so their gradients are the
+    model's own constants.
 
     Applicability
     -------------
@@ -1427,6 +1448,22 @@ def evaluate_solovev(model: SolovevEquilibrium, r: Any, z: Any) -> Mapping[str, 
     .. [2] The five-term homogeneous basis and the particular integral follow the
        standard polynomial construction for that solution.
     """
+    if convention is not None:
+        if cocos is not _DEFAULT_COCOS and cocos != convention:
+            raise ValueError("both cocos and convention were provided with conflicting values")
+        resolved_cocos = convention
+    elif cocos is _DEFAULT_COCOS:
+        resolved_cocos = VAFT_INTERNAL_COCOS
+    else:
+        resolved_cocos = cocos
+
+    if resolved_cocos is None:
+        k_sign = -1.0
+    else:
+        if resolved_cocos not in range(1, 19) or resolved_cocos in (9, 10):
+            raise ValueError(f"cocos must be a valid COCOS index in 1..8 or 11..18, got {resolved_cocos}")
+        spec = cocos_spec(int(resolved_cocos))
+        k_sign = float(spec.sigma_rpz * spec.sigma_bp)
 
     psi, dpsi_dr, dpsi_dz, _ = _solovev_components(model, r, z)
     rr = np.asarray(r, dtype=float)
@@ -1436,7 +1473,7 @@ def evaluate_solovev(model: SolovevEquilibrium, r: Any, z: Any) -> Mapping[str, 
     f = model.f_sign*np.sqrt(np.clip(f_squared, 0, None))
     return {
         "psi": psi, "dpsi_dr": dpsi_dr, "dpsi_dz": dpsi_dz,
-        "b_r": -dpsi_dz/rr, "b_z": dpsi_dr/rr, "b_phi": f/rr,
+        "b_r": k_sign*dpsi_dz/rr, "b_z": -k_sign*dpsi_dr/rr, "b_phi": f/rr,
         "pressure": pressure, "f": f,
         "j_phi": rr*model.pprime + model.ffprime/(MU0*rr),
         "grad_shafranov_source": -MU0*rr**2*model.pprime-model.ffprime,
@@ -1680,18 +1717,12 @@ def solovev_to_equilibrium(
 
     Convention
     ----------
-    :func:`evaluate_solovev` works in weber per radian, taking the poloidal field
-    as the flux gradient over the major radius.  The exported flux quantities are
-    scaled to honour the declared *convention*: a full-weber index, 11 to 18,
-    multiplies psi by ``2*pi`` so that descriptor derivation, which divides a
-    full-weber flux gradient by ``2*pi``, recovers the analytic fields exactly.
-    The two source gradients are rescaled inversely, because a derivative against
-    flux scales by the inverse of what flux does.  The plasma current and the
-    current density are deliberately *not* scaled: they are physical fields that
-    the storage choice does not change.  Only the ``2*pi`` half of the
-    reconciliation is handled here; the orientation sign is discussed at
-    :func:`evaluate_solovev` and tracked in #600.  The unscaled quantities are
-    noted in #608.
+    :func:`evaluate_solovev` works in weber per radian under the requested
+    *convention*'s orientation. The exported equilibrium is natively constructed
+    in :data:`~vaft.data.cocos.VAFT_INTERNAL_COCOS` (11, full weber) and converted
+    to *convention* via :func:`convert_cocos` if different, reconciling both the
+    2*pi normalisation and the orientation sign across all COCOS conventions.
+    Pressure and the magnetic axis are invariant under convention transforms.
 
     Applicability
     -------------
@@ -1710,12 +1741,15 @@ def solovev_to_equilibrium(
     .. [1] Solov'ev (1968) through :func:`evaluate_solovev`, which supplies every
        field this exports.
     """
+    if convention not in range(1, 19) or convention in (9, 10):
+        raise ValueError("convention must be a COCOS index in the range 1..18 (excluding 9 and 10)")
     r = np.asarray(r, dtype=float).reshape(-1); z = np.asarray(z, dtype=float).reshape(-1)
     rm, zm = np.meshgrid(r, z, indexing="ij")
-    values = evaluate_solovev(model, rm, zm); psi = values["psi"]
+    values = evaluate_solovev(model, rm, zm, cocos=11)
+    psi = values["psi"]
     if magnetic_axis is None:
         magnetic_axis = _locate_solovev_axis(model, r, z, psi)
-    psi_axis = float(evaluate_solovev(model, *magnetic_axis)["psi"])
+    psi_axis = float(evaluate_solovev(model, *magnetic_axis, cocos=11)["psi"])
     temp = EquilibriumData(r=r, z=z, psi=psi, psi_axis=psi_axis, psi_boundary=model.psi_boundary, magnetic_axis=magnetic_axis)
     lcfs, lcfs_level = _closed_boundary_contour(temp, magnetic_axis)
     if lcfs is None:
@@ -1728,12 +1762,10 @@ def solovev_to_equilibrium(
     f = model.f_sign*np.sqrt(np.clip(model.f_boundary**2+2*model.ffprime*(psi_1d-model.psi_boundary), 0, None))
     mask = _mpl_path(lcfs.points).contains_points(np.column_stack((rm.ravel(), zm.ravel()))).reshape(rm.shape)
     ip = float(np.sum(values["j_phi"]*np.gradient(r)[:, None]*np.gradient(z)[None, :]*mask))
-    if convention not in range(1, 19):
-        raise ValueError("convention must be a COCOS index in the range 1..18")
-    psi_factor = 2.0*np.pi if convention >= 11 else 1.0
-    conv = _detect_convention(explicit=convention, bt0=float(model.f_boundary/model.rref), ip=ip, q=None, psi_1d=psi_1d*psi_factor, source="analytic Solovev")
+    psi_factor = 2.0*np.pi
+    conv_11 = _detect_convention(explicit=11, bt0=float(model.f_boundary/model.rref), ip=ip, q=None, psi_1d=psi_1d*psi_factor, source="analytic Solovev")
     # Keyword arguments throughout: the field order is not part of the contract.
-    return EquilibriumData(
+    eq_11 = EquilibriumData(
         r=r, z=z, psi=psi*psi_factor, psi_axis=psi_axis*psi_factor,
         psi_boundary=model.psi_boundary*psi_factor,
         magnetic_axis=magnetic_axis, lcfs=lcfs, limiter=limiter,
@@ -1743,10 +1775,13 @@ def solovev_to_equilibrium(
         pprime=np.full(psi_1d.size, model.pprime/psi_factor),
         ffprime=np.full(psi_1d.size, model.ffprime/psi_factor),
         ip=ip, bt0=float(model.f_boundary/model.rref), r0=model.rref,
-        time=None, convention=conv,
+        time=None, convention=conv_11,
         metadata={"source_type": "solovev", "model": model, "lcfs_psi_n": lcfs_level,
                   "topology_assumptions": "axisymmetric limited or upper/lower-null"},
     )
+    if convention == 11:
+        return eq_11
+    return convert_cocos(eq_11, convention)
 
 
 def _grid_spacing(eq: EquilibriumData) -> float:
