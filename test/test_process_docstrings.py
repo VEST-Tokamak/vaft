@@ -187,8 +187,8 @@ CONVENTION_SENSITIVE = frozenset({
     # and is never converted
     "pedestal_top",
     # magnetics / electromagnetics / fluctuation (#418): integration sign,
-    # shot-era baselines, per-unit-current responses, and the two mode-number
-    # entry points that disagree on the sign of n (#638)
+    # shot-era baselines, per-unit-current responses, and the toroidal mode-number
+    # entry points harmonized under standard right-handed coordinates (#638)
     "analyze_fluctuation_spectrum",
     "b_field_pol_probe_field",
     "calc_grid",

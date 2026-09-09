@@ -622,7 +622,7 @@ best = fit.modes[0]                                              # sorted by amp
 print(best.frequency, best.n, best.rms_error)
 ```
 
-$n$ is recovered as $\arg \mathrm{CSD}(a,b) / \Delta\phi$, peak-picked on $\lvert \mathrm{CSD} \rvert$
+$n$ is recovered as $-\arg \mathrm{CSD}(a,b) / \Delta\phi$, peak-picked on $\lvert \mathrm{CSD} \rvert$
 and filtered by a coherence threshold. The plot module wraps all of this against an ODS — this is the
 path the fluctuation notebook takes on shot 44740:
 

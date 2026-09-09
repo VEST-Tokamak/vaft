@@ -417,7 +417,7 @@ your own subplot grids. Everything after the first argument is keyword-only.
 | `mirnov_signal` | `(ods, channels=None, *, probe_group='b_field_pol_probe', time_range=None, preprocess=False, gains=None, ax=None, show=True)` |
 | `mirnov_spectrogram` | `(ods, channel=0, *, probe_group='b_field_pol_probe', time_range=None, preprocess=True, gain=None, sample_rate=None, window_size=500, time_resolution=1, max_frequency=None, cmap='hot_r', ax=None, show=True, return_result=False)` |
 | `toroidal_mode_spectrum` | `(ods, channel_pair=(65, 67), *, probe_group='b_field_pol_probe', time_range=None, preprocess=True, gains=None, phase_geometry=np.pi/6, peak_threshold=0.1, sample_rate=None, axes=None, show=True, return_result=False)` |
-| `toroidal_phase_mode_fit` | `(ods, center_time, *, channels=(64, 65, 66, 67), probe_group='b_field_pol_probe', time_range=None, frequencies=None, num_modes=2, candidate_n=tuple(range(0, 7)), window_size=500, preprocess=True, gains=None, sample_rate=None, peak_threshold=0.1, ax=None, show=True, save_path=None, return_result=False)` |
+| `toroidal_phase_mode_fit` | `(ods, center_time, *, channels=(64, 65, 66, 67), probe_group='b_field_pol_probe', time_range=None, frequencies=None, num_modes=2, candidate_n=tuple(range(-6, 7)), window_size=500, preprocess=True, gains=None, sample_rate=None, peak_threshold=0.1, ax=None, show=True, save_path=None, return_result=False)` |
 
 ```python
 import matplotlib.pyplot as plt

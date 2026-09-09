@@ -418,7 +418,7 @@ def toroidal_phase_mode_fit(
     time_range: tuple[float, float] | None = None,
     frequencies: Sequence[float] | None = None,
     num_modes: int = 2,
-    candidate_n: Sequence[int] = tuple(range(0, 7)),
+    candidate_n: Sequence[int] = tuple(range(-6, 7)),
     window_size: int = 500,
     preprocess: bool = True,
     gains: Any = None,
