@@ -321,16 +321,110 @@ def test_solovev_export_rejects_an_open_boundary_contour():
         solovev_to_equilibrium(model, r, z, magnetic_axis=(1.0, 0.0))
 
 
+def test_evaluate_solovev_orientation_families_and_convention_alias():
+    """evaluate_solovev poloidal field orientation matches COCOS definitions."""
+    from vaft.data.cocos import COCOS_INDICES, cocos_spec
+    from vaft.process.equilibrium import evaluate_solovev
+
+    model = SolovevEquilibrium(np.array([0.03, -0.02, 0.015, 0.004, -0.001]), -1200.0, 0.08, 1.0)
+    r = np.linspace(0.7, 1.3, 21); z = np.linspace(-0.4, 0.4, 19)
+    rm, zm = np.meshgrid(r, z, indexing="ij")
+
+    # Default is COCOS 11 (sigma = +1)
+    default_vals = evaluate_solovev(model, rm, zm)
+    cocos11_vals = evaluate_solovev(model, rm, zm, cocos=11)
+    np.testing.assert_allclose(default_vals["b_r"], cocos11_vals["b_r"])
+    np.testing.assert_allclose(default_vals["b_z"], cocos11_vals["b_z"])
+
+    # Fallback cocos=None matches historical orientation (sigma = -1)
+    hist_vals = evaluate_solovev(model, rm, zm, cocos=None)
+    np.testing.assert_allclose(default_vals["b_r"], -hist_vals["b_r"])
+    np.testing.assert_allclose(default_vals["b_z"], -hist_vals["b_z"])
+
+    # Alias convention=...
+    alias_vals = evaluate_solovev(model, rm, zm, convention=11)
+    np.testing.assert_allclose(default_vals["b_r"], alias_vals["b_r"])
+
+    # Conflicting arguments
+    with pytest.raises(ValueError, match="conflicting"):
+        evaluate_solovev(model, rm, zm, cocos=2, convention=12)
+
+    # Invalid COCOS indices
+    for invalid in (0, 9, 10, 19, -1):
+        with pytest.raises(ValueError, match="valid COCOS"):
+            evaluate_solovev(model, rm, zm, cocos=invalid)
+
+    # Check all 16 COCOS indices match their expected orientation sign
+    for index in COCOS_INDICES:
+        vals = evaluate_solovev(model, rm, zm, cocos=index)
+        spec = cocos_spec(index)
+        expected_sign = spec.sigma_rpz * spec.sigma_bp
+        if expected_sign > 0:
+            np.testing.assert_allclose(vals["b_r"], default_vals["b_r"])
+            np.testing.assert_allclose(vals["b_z"], default_vals["b_z"])
+        else:
+            np.testing.assert_allclose(vals["b_r"], hist_vals["b_r"])
+            np.testing.assert_allclose(vals["b_z"], hist_vals["b_z"])
+
+
 def test_solovev_export_honors_the_declared_psi_convention():
     """The export must be self-consistent with its COCOS tag: full-weber
     conventions carry 2*pi*psi, and derived fields/descriptors agree with the
     per-radian export."""
-    from vaft.process.equilibrium import solovev_to_equilibrium
+    from vaft.formula.constants import MU0
+    from vaft.process.equilibrium import (
+        evaluate_solovev,
+        solovev_to_equilibrium,
+        solve_solovev_constraints,
+    )
+    from vaft.process._equilibrium_parametric import _grid_fields
 
     # c2 > 0 makes the axis a saddle in Z, so no magnetic axis exists.
     saddle = SolovevEquilibrium(np.array([0.0, -0.02, 0.015, 0.0, 0.0]), -1.0e5, 0.0, 1.0)
     with pytest.raises(ValueError, match="magnetic axis"):
         solovev_to_equilibrium(saddle, np.linspace(0.5, 1.5, 121), np.linspace(-0.7, 0.7, 121))
+
+    # Invalid conventions
+    with pytest.raises(ValueError, match="convention must be a COCOS index"):
+        solovev_to_equilibrium(saddle, np.linspace(0.5, 1.5, 121), np.linspace(-0.7, 0.7, 121), convention=0)
+    with pytest.raises(ValueError, match="convention must be a COCOS index"):
+        solovev_to_equilibrium(saddle, np.linspace(0.5, 1.5, 121), np.linspace(-0.7, 0.7, 121), convention=9)
+
+    # Well-formed equilibrium across conventions
+    R0, kappa, psi_b = 1.0, 1.4, 0.08
+    pprime = -8.0 * ((1.0 + 1.0 / kappa**2) / 4.0) / MU0
+    r_out = np.sqrt(R0**2 + 2 * np.sqrt(psi_b))
+    r_in = np.sqrt(R0**2 - 2 * np.sqrt(psi_b))
+    z_top = kappa * np.sqrt(psi_b) / R0
+    constraints = [
+        SolovevConstraint(r_out, 0.0, "psi", psi_b),
+        SolovevConstraint(r_in, 0.0, "psi", psi_b),
+        SolovevConstraint(R0, z_top, "psi", psi_b),
+        SolovevConstraint(R0, 0.0, "psi", 0.0),
+        SolovevConstraint(R0, 0.0, "dpsi_dr", 0.0),
+    ]
+    model = solve_solovev_constraints(
+        constraints, pprime=pprime, ffprime=0.0, rref=R0, psi_boundary=psi_b, f_boundary=1.4
+    )
+    r = np.linspace(0.5, 1.5, 151)
+    z = np.linspace(-0.7, 0.7, 151)
+    rm, zm = np.meshgrid(r, z, indexing="ij")
+
+    # Fields on grid derived through _grid_fields must match evaluate_solovev in COCOS 11
+    eq11 = solovev_to_equilibrium(model, r, z, convention=11)
+    _, _, br11, bz11, _ = _grid_fields(eq11)
+    analytic11 = evaluate_solovev(model, rm, zm, cocos=11)
+    np.testing.assert_allclose(br11[5:-5, 5:-5], analytic11["b_r"][5:-5, 5:-5], rtol=1e-3, atol=1e-3)
+    np.testing.assert_allclose(bz11[5:-5, 5:-5], analytic11["b_z"][5:-5, 5:-5], rtol=1e-3, atol=1e-3)
+
+    # Check both orientation families (e.g. COCOS 1, 2, 3, 11, 12, 13)
+    for c in (1, 2, 3, 11, 12, 13):
+        eq_c = solovev_to_equilibrium(model, r, z, convention=c)
+        assert eq_c.convention.cocos == c
+        _, _, br_c, bz_c, bp_c = _grid_fields(eq_c)
+        # Physical field components in (R, Z) match the analytic fields for all conventions
+        np.testing.assert_allclose(br_c[5:-5, 5:-5], analytic11["b_r"][5:-5, 5:-5], rtol=1e-3, atol=1e-3)
+        np.testing.assert_allclose(bz_c[5:-5, 5:-5], analytic11["b_z"][5:-5, 5:-5], rtol=1e-3, atol=1e-3)
 
 
 def test_d_r_sep_uses_the_midplane_and_reports_asymmetry():
