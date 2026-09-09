@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Mapping, MutableMapping, Optional
+from typing import Any, Iterable, Literal, Mapping, MutableMapping, Optional
 import re
 import warnings
 
@@ -554,7 +554,7 @@ def _vacuum_b0(data: Mapping[str, Any]) -> float:
     return derived
 
 
-def _slope_flux_exponent(ts: Any) -> Optional[int]:
+def _slope_flux_exponent(ts: Any) -> Literal[0, 1] | None:
     """``e_Bp`` from the ``dphi/dpsi``-vs-``q`` slope, or ``None`` if it cannot answer.
 
     ``profiles_1d.phi`` is written in Wb by both producers, and ``q`` is
@@ -596,7 +596,7 @@ def _slope_flux_exponent(ts: Any) -> Optional[int]:
     return None
 
 
-def _ampere_flux_exponent(ts: Any) -> Optional[int]:
+def _ampere_flux_exponent(ts: Any) -> Literal[0, 1] | None:
     """``e_Bp`` from Ampere's law round the LCFS, or ``None`` if it cannot answer.
 
     This is :func:`vaft.process.cocos.identify_flux_exponent`, which needs only
@@ -604,6 +604,20 @@ def _ampere_flux_exponent(ts: Any) -> Optional[int]:
     that answers for artifacts the slope test cannot reach: an EFIT-pipeline ODS
     written before issue #236 holds Wb/rad and carries no ``profiles_1d.phi``, so
     without this the DD default below would silently rescale it by 2*pi.
+
+    Prerequisites and Failure Modes
+    -------------------------------
+    Because this probe operates without ``profiles_1d.phi``, it is the sole arbiter
+    when legacy ODS artifacts lack toroidal flux data. Successful evaluation requires:
+
+    1. A well-formed 2D poloidal flux grid (``profiles_2d.0.psi``);
+    2. A valid, closed boundary outline contour (``boundary.outline.r``, ``boundary.outline.z``);
+    3. A non-zero, finite plasma current (``global_quantities.ip``).
+
+    If any of these fields are missing, empty, open, or unresolvable, this probe
+    abstains (returns ``None``). In a ``phi``-less legacy artifact, this removes
+    the only remaining evidence, causing the caller to fall back to the IMAS Data
+    Dictionary default convention (see :func:`ods_psi_to_wb_per_radian_factor`).
 
     ``EquilibriumData`` is built here field by field rather than through
     :func:`vaft.process.equilibrium.as_equilibrium`, which calls this module back
@@ -688,18 +702,53 @@ def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
     hold the g-file's Wb/rad verbatim. The two families are told apart from
     data the file itself carries, strongest evidence first:
 
-    1. :func:`_slope_flux_exponent` -- ``dphi/dpsi`` against ``q``, exact when
-       ``profiles_1d.phi`` is stored;
-    2. :func:`_ampere_flux_exponent` -- the loop integral of ``B_pol`` round the
-       LCFS against ``mu0*|Ip|``, which needs no ``phi``.
+    1. Declared COCOS:
+       A COCOS index the ODS declares (:func:`vaft.omas.general.ods_cocos`)
+       settles the question before any candidate slice probe runs.
+    2. Probe 1 (:func:`_slope_flux_exponent`):
+       ``dphi/dpsi`` against ``q``, exact when ``profiles_1d.phi`` is stored.
+    3. Probe 2 (:func:`_ampere_flux_exponent`):
+       The loop integral of ``B_pol`` round the LCFS against ``mu0*|Ip|``,
+       which needs no ``phi``.
 
-    A COCOS index the ODS declares (:func:`vaft.omas.general.ods_cocos`) settles
-    the question before either probe runs.  Both probes are decisive because
-    their two outcomes are 2*pi apart, and both abstain rather than guess -- a
-    ratio near neither outcome says the input is inconsistent, not which family
-    it belongs to. Only when every slice abstains is the DD convention (Wb)
-    assumed. Returns ``1/(2*pi)`` for Wb storage,
-    ``1.0`` for Wb/rad.
+    Both probes are decisive because their two outcomes are 2*pi apart, and
+    both abstain rather than guess -- a ratio near neither outcome says the
+    input is inconsistent, not which family it belongs to.
+
+    No-Phi Legacy ODS Edge Case & Fallback Mechanics
+    -------------------------------------------------
+    When legacy ODS artifacts lack ``profiles_1d.phi`` (common in EFIT-pipeline
+    ODS files produced before issue #236), probe 1 cannot evaluate and abstains.
+    The evaluation therefore takes a **shortened path** resting entirely on
+    probe 2 (Ampere's law).
+
+    This shortened path carries an inherent trade-off:
+    - **Reduced evidence**: Only one physical check is available instead of two
+      independent probes.
+    - **LCFS sensitivity**: Probe 2 requires a valid 2D poloidal flux grid, a
+      finite non-zero plasma current ``Ip``, and a well-formed closed boundary
+      outline contour (``boundary.outline.r`` and ``boundary.outline.z``).
+      If the boundary outline is missing, open, or degraded (such as in degenerate
+      EFIT reconstructions where ``psi_axis == psi_boundary``), probe 2 also abstains.
+
+    Terminal Default vs. Detection
+    ------------------------------
+    If both probes abstain across every candidate time slice, the IMAS Data
+    Dictionary convention (Wb) is assumed as a terminal fallback, returning
+    ``1/(2*pi)``.
+
+    .. note::
+       This terminal fallback is a **default, not a detection**. While correct
+       for well-formed DD-conformant files lacking diagnostic profiles or LCFS
+       contours, it is silently incorrect for a legacy Wb/rad artifact that also
+       failed the Ampere probe, resulting in an uncorrected factor of ``1/(2*pi)``
+       (an inadvertent 2*pi scaling error).
+
+    Returns
+    -------
+    float
+        ``1.0`` for Wb/rad storage (``e_Bp = 0``), or ``1/(2*pi)`` for Wb storage
+        (``e_Bp = 1``).
     """
     declared = _declared_flux_exponent(ods)
     if declared is not None:
@@ -711,7 +760,7 @@ def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
     return 1.0 / TWO_PI
 
 
-def _declared_flux_exponent(ods: Any) -> int | None:
+def _declared_flux_exponent(ods: Any) -> Literal[0, 1] | None:
     """The flux exponent a whole ODS declares through its COCOS index, if any.
 
     A bare time slice carries no declaration and answers ``None``; so does an
@@ -730,11 +779,16 @@ def _declared_flux_exponent(ods: Any) -> int | None:
     return 0 if index < 10 else 1
 
 
-def slice_flux_exponent(time_slice: Any) -> int | None:
+def slice_flux_exponent(time_slice: Any) -> Literal[0, 1] | None:
     """The flux exponent one equilibrium time slice's own data supports.
 
-    ``0`` for Wb/rad storage, ``1`` for Wb, ``None`` when neither the
-    dphi/dpsi slope nor Ampere's law can decide from this slice alone.
+    Evaluates probes in strict precedence order:
+    1. :func:`_slope_flux_exponent` -- exact ``dphi/dpsi`` slope against ``q``;
+    2. :func:`_ampere_flux_exponent` -- Ampere's law contour integral around the LCFS.
+
+    Returns ``0`` for Wb/rad storage, ``1`` for Wb storage, or ``None`` when
+    neither probe can decide from this slice alone (e.g., when ``profiles_1d.phi``
+    is absent and the boundary outline is incomplete or unphysical).
     """
     for probe in (_slope_flux_exponent, _ampere_flux_exponent):
         exponent = probe(time_slice)
