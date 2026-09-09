@@ -400,3 +400,108 @@ def test_flux_surface_quantities_populates_q(solovev_model):
     assert "q" in surfaces_with_f
     assert np.isfinite(surfaces_with_f["q"]).all()
     assert (surfaces_with_f["q"] > 0).all()
+
+
+def test_f_profile_none_raises(solovev_model):
+    """f_profile=None raises ValueError in calculate_q_profile_from_psi."""
+    r, z, psi = _evaluate_solovev_grid(solovev_model, 65)
+    psi_axis = float(psi.max())
+    psi_edge = 0.0
+    with pytest.raises(ValueError, match="f_profile must be provided"):
+        calculate_q_profile_from_psi(
+            psi,
+            r,
+            z,
+            None,
+            psi_axis=psi_axis,
+            psi_boundary=psi_edge,
+            levels_norm=[0.5],
+        )
+
+
+def test_negative_f_profile_infers_sigma_b0(solovev_model):
+    """Negative f_profile with default sigma_b0=1 infers negative toroidal field."""
+    r, z, psi = _evaluate_solovev_grid(solovev_model, 65)
+    psi_axis = float(psi.max())
+    psi_edge = 0.0
+
+    q_pos = calculate_q_profile_from_psi(
+        psi,
+        r,
+        z,
+        1.5,
+        psi_axis=psi_axis,
+        psi_boundary=psi_edge,
+        levels_norm=[0.5],
+        sigma_ip=1,
+        sigma_b0=1,
+        cocos=1,
+    )
+    assert q_pos[0] > 0
+
+    # Negative F should produce negative q when sigma_ip=1 in COCOS 1
+    q_neg = calculate_q_profile_from_psi(
+        psi,
+        r,
+        z,
+        -1.5,
+        psi_axis=psi_axis,
+        psi_boundary=psi_edge,
+        levels_norm=[0.5],
+        sigma_ip=1,
+        sigma_b0=1,
+        cocos=1,
+    )
+    assert q_neg[0] < 0
+    assert np.isclose(q_neg[0], -q_pos[0])
+
+
+def test_unsorted_and_descending_levels_return_details(solovev_model):
+    """return_details correctly handles unsorted and descending level inputs."""
+    r, z, psi = _evaluate_solovev_grid(solovev_model, 65)
+    psi_axis = float(psi.max())
+    psi_edge = 0.0
+
+    # Levels descending and omitting 0.0
+    desc_levels = [0.95, 0.7, 0.5, 0.2]
+    res = calculate_q_profile_from_psi(
+        psi,
+        r,
+        z,
+        1.0,
+        psi_axis=psi_axis,
+        psi_boundary=psi_edge,
+        levels_norm=desc_levels,
+        return_details=True,
+    )
+    assert np.isfinite(res["q_axis"])
+    assert np.isfinite(res["q_95"])
+    assert np.isclose(res["q_95"], res["q"][0])
+    # Axis extrapolation should reasonably match q on smallest level
+    assert res["q_axis"] < res["q"][-1]
+
+
+def test_q0_stability_with_dense_levels(solovev_model):
+    """Polynomial fit preserves q0 accuracy across varying level densities."""
+    r, z, psi = _evaluate_solovev_grid(solovev_model, 129)
+    psi_axis = float(psi.max())
+    psi_edge = 0.0
+    q0_ref = _solovev_analytic_q0(solovev_model, 1.0)
+
+    # Test with standard N=33 levels and dense N=129 levels
+    for n_levels in (33, 129):
+        levels = np.linspace(0.0, 0.9, n_levels)
+        q = calculate_q_profile_from_psi(
+            psi,
+            r,
+            z,
+            1.0,
+            psi_axis=psi_axis,
+            psi_boundary=psi_edge,
+            levels_norm=levels,
+            cocos=1,
+            axis_rz=(R0, 0.0),
+        )
+        rel_err = abs(q[0] - q0_ref) / q0_ref
+        assert rel_err < 0.015, f"n_levels={n_levels} q0 rel_err={rel_err} exceeds 1.5%"
+

@@ -98,7 +98,6 @@ __all__ = [
     "contour_shape_parameters",
     "efit_virial_volume_integrals",
     "extract_flux_surface_contours",
-    "q_from_flux_surface_averages",
     "ParallelCurrentResult",
     "flux_surface_quantities",
     "fractional_cell_weights_from_boundary",
@@ -2586,6 +2585,8 @@ def flux_surface_quantities(
         else {}
     )
 
+    from vaft.formula.equilibrium import q_from_flux_surface_averages
+
     for index, level in enumerate(levels):
         if level == 0.0:
             if axis_rz is not None:
@@ -2653,8 +2654,6 @@ def flux_surface_quantities(
             out["gm5"][index] = float(np.sum(weight * b_mod**2) / total)
             out["b_field_max"][index] = float(np.max(b_mod))
             out["b_field_min"][index] = float(np.min(b_mod))
-            from vaft.formula.equilibrium import q_from_flux_surface_averages
-
             out["q"][index] = float(
                 q_from_flux_surface_averages(
                     out["gm1"][index], out["dvolume_dpsi"][index], f_values[index]
@@ -2663,18 +2662,21 @@ def flux_surface_quantities(
 
     if f_values is not None:
         # q is quadratic in radius r ~ sqrt(psi_N), making it smooth and linear in
-        # psi_N near the magnetic axis. Extrapolate q to axis level (psi_N = 0) in psi_N
-        # from the innermost resolved surfaces if level 0 is missing.
+        # psi_N near the magnetic axis. Extrapolate q to axis level (psi_N = 0) in psi_N.
+        # Use a low-degree polynomial fit over innermost resolved surfaces (psi_N <= 0.25)
+        # to filter out discrete polygon vertex jitter on tiny near-axis contours.
         axis_mask = levels == 0.0
         if axis_mask.any() and not np.isfinite(out["q"][axis_mask]).all():
             finite_idx = np.where(np.isfinite(out["q"]))[0]
             if len(finite_idx) >= 2:
                 sorted_finite = finite_idx[np.argsort(levels[finite_idx])]
-                i1, i2 = sorted_finite[0], sorted_finite[1]
-                p1, p2 = levels[i1], levels[i2]
-                q1, q2 = out["q"][i1], out["q"][i2]
-                if p2 != p1:
-                    out["q"][axis_mask] = q1 - (q2 - q1) / (p2 - p1) * p1
+                fit_idx = [i for i in sorted_finite if levels[i] <= 0.25]
+                if len(fit_idx) < 3:
+                    fit_idx = sorted_finite[: min(len(sorted_finite), 5)]
+                p_fit = levels[fit_idx]
+                q_fit = out["q"][fit_idx]
+                poly = np.polyfit(p_fit, q_fit, deg=1)
+                out["q"][axis_mask] = float(np.polyval(poly, 0.0))
             elif len(finite_idx) == 1:
                 out["q"][axis_mask] = out["q"][finite_idx[0]]
 
@@ -2682,20 +2684,23 @@ def flux_surface_quantities(
     # surface's linear size goes as sqrt(psi_N), so every quantity that vanishes
     # there is linear in sqrt and badly curved in psi_N.  Interpolating a dropped
     # innermost level in psi_N underestimates `surface` by a third.
-    #
-    # `np.interp` requires an increasing `xp` and returns nonsense rather than
-    # raising when it does not get one, so the levels are sorted here instead of
-    # assumed: a psi profile stored boundary-first is a real input, and it
-    # corrupted only the quantities that happened to need a gap filled.
+    # q is instead smooth and linear in psi_N, so its gaps are filled against levels.
     coordinate = np.sqrt(np.clip(levels, 0.0, None))
     order = np.argsort(coordinate, kind="stable")
+    order_linear = np.argsort(levels, kind="stable")
     for name, values in out.items():
         missing = ~np.isfinite(values)
         if missing.any() and not missing.all():
-            good_sorted = order[np.isfinite(values[order])]
-            values[missing] = np.interp(
-                coordinate[missing], coordinate[good_sorted], values[good_sorted]
-            )
+            if name == "q":
+                good_sorted = order_linear[np.isfinite(values[order_linear])]
+                values[missing] = np.interp(
+                    levels[missing], levels[good_sorted], values[good_sorted]
+                )
+            else:
+                good_sorted = order[np.isfinite(values[order])]
+                values[missing] = np.interp(
+                    coordinate[missing], coordinate[good_sorted], values[good_sorted]
+                )
     return out
 
 
@@ -2809,6 +2814,9 @@ def calculate_q_profile_from_psi(
     """
     from vaft.data.cocos import cocos_spec
 
+    if f_profile is None:
+        raise ValueError("f_profile must be provided and cannot be None.")
+
     R_arr = np.asarray(R, dtype=float).reshape(-1)
     Z_arr = np.asarray(Z, dtype=float).reshape(-1)
     psi_arr = np.asarray(psi_grid, dtype=float)
@@ -2822,10 +2830,10 @@ def calculate_q_profile_from_psi(
     else:
         levels = np.asarray(levels_norm, dtype=float).reshape(-1)
 
-    spline = RectBivariateSpline(R_arr, Z_arr, psi_arr)
-
+    spline = None
     if psi_axis is None:
         if axis_rz is not None:
+            spline = RectBivariateSpline(R_arr, Z_arr, psi_arr)
             psi_axis = float(spline.ev(axis_rz[0], axis_rz[1]))
         else:
             edge_val = float(
@@ -2841,9 +2849,13 @@ def calculate_q_profile_from_psi(
             diff = psi_arr - edge_val
             idx_max = np.unravel_index(np.argmax(np.abs(diff)), psi_arr.shape)
             psi_axis = float(psi_arr[idx_max])
+            if axis_rz is None:
+                axis_rz = (float(R_arr[idx_max[0]]), float(Z_arr[idx_max[1]]))
 
     if psi_boundary is None:
         if boundary is not None:
+            if spline is None:
+                spline = RectBivariateSpline(R_arr, Z_arr, psi_arr)
             r_b = np.asarray(boundary[0], dtype=float).reshape(-1)
             z_b = np.asarray(boundary[1], dtype=float).reshape(-1)
             psi_boundary = float(np.mean(spline.ev(r_b, z_b)))
@@ -2859,7 +2871,7 @@ def calculate_q_profile_from_psi(
 
     if callable(f_profile):
         f_values = np.asarray([float(f_profile(p)) for p in psi_levels], dtype=float)
-    elif isinstance(f_profile, tuple) and len(f_profile) == 2:
+    elif isinstance(f_profile, (tuple, list)) and len(f_profile) == 2:
         psi_f = np.asarray(f_profile[0], dtype=float).reshape(-1)
         f_raw = np.asarray(f_profile[1], dtype=float).reshape(-1)
         if psi_f.size != f_raw.size:
@@ -2896,17 +2908,29 @@ def calculate_q_profile_from_psi(
         min_points=min_points,
     )
 
-    target_sign = spec.expected_sign("q", sigma_ip=sigma_ip, sigma_b0=sigma_b0)
+    f_mean = float(np.nanmean(f_values)) if f_values.size else 0.0
+    if sigma_b0 == 1 and f_mean < -1e-12:
+        effective_sigma_b0 = -1
+    else:
+        effective_sigma_b0 = sigma_b0
+
+    target_sign = spec.expected_sign("q", sigma_ip=sigma_ip, sigma_b0=effective_sigma_b0)
     q_final = target_sign * np.abs(surfaces["q"])
     surfaces["q"] = q_final
 
     if return_details:
-        q_axis = (
-            float(q_final[levels == 0.0][0])
-            if (levels == 0.0).any()
-            else float(np.interp(0.0, levels, q_final))
-        )
-        q_95 = float(np.interp(0.95, levels, q_final))
+        order_lvl = np.argsort(levels)
+        lvl_sorted = levels[order_lvl]
+        q_sorted = q_final[order_lvl]
+        if (levels == 0.0).any():
+            q_axis = float(q_final[levels == 0.0][0])
+        elif len(lvl_sorted) >= 2:
+            p1, p2 = lvl_sorted[0], lvl_sorted[1]
+            q1, q2 = q_sorted[0], q_sorted[1]
+            q_axis = float(q1 - (q2 - q1) / (p2 - p1) * p1) if p2 != p1 else float(q1)
+        else:
+            q_axis = float(q_sorted[0])
+        q_95 = float(np.interp(0.95, lvl_sorted, q_sorted))
         return {
             "q": q_final,
             "levels_norm": levels,
@@ -3343,8 +3367,6 @@ try:  # pragma: no branch - normal package import takes this path
     from ._equilibrium_parametric import *  # noqa: E402,F401,F403
 except ImportError:  # direct ``spec_from_file_location`` loading
     from vaft.process._equilibrium_parametric import *  # noqa: E402,F401,F403
-
-from vaft.formula.equilibrium import q_from_flux_surface_averages  # noqa: E402,F401
 
 
 @dataclass(frozen=True)

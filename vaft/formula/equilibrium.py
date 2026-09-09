@@ -356,8 +356,7 @@ def q_from_flux_surface_averages(
     f : float or np.ndarray
         Poloidal current function $F = R B_\varphi$ on the flux surface [T m].
     cocos : int or None, optional
-        COCOS coordinate convention index (1-8, 11-18). If None, defaults to per-radian
-        convention ($e_{B_p} = 0$, factor $1/(2\pi)^2$) with positive orientation sign.
+        COCOS coordinate convention index (1-8, 11-18) [-].
     psi_per_radian : bool or None, optional
         Storage family of the flux when ``cocos`` is None [bool].
         ``False`` assumes full-weber flux ($e_{B_p} = 1$); ``True`` and ``None``
