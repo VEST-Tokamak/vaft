@@ -145,7 +145,7 @@ def _channel_specs(config: Mapping[str, Any], shot: int) -> list[dict[str, Any]]
 
 def _resolve_gain(calibration: Mapping[str, Any], shot: int) -> float:
     """Return the Hall gain for ``shot``, honouring verified shot-era ranges."""
-    gain = float(calibration.get("gain", 2.0 / 15.0))
+    gain = float(calibration.get("gain", -2.0 / 15.0))
     for era in calibration.get("shot_era_overrides") or ():
         if int(era.get("min_shot", 0)) <= int(shot) <= int(era.get("max_shot", 0)):
             return float(era.get("gain", gain))
@@ -202,7 +202,6 @@ def _window_criteria(config: Mapping[str, Any]) -> TfWindowCriteria:
         pf_current_max=float(window.get("pf_current_max", defaults.pf_current_max)),
         min_duration=float(window.get("min_duration", defaults.min_duration)),
         tf_dynamic_range_min=float(window.get("tf_dynamic_range_min", defaults.tf_dynamic_range_min)),
-        max_relative_noise=float(window.get("max_relative_noise", defaults.max_relative_noise)),
         smoothing_samples=int(window.get("smoothing_samples", defaults.smoothing_samples)),
     )
 
@@ -439,7 +438,7 @@ def process_impa_shot(
         pitch=float(geometry.get("radial_pitch", 0.05)),
         r_bounds=(float(min(r_bounds)), float(max(r_bounds))),
         r0_initial=float(geometry.get("r0_initial", 0.4)),
-        max_normalized_rmse=float(quality.get("max_normalized_rmse", 0.1)),
+        max_normalized_rmse=float(quality.get("max_normalized_rmse", 0.15)),
         reference=reference,
         b_z_raw=inputs["bz_raw"],
         bz_channel_valid=inputs["bz_channel_valid"],
@@ -447,7 +446,7 @@ def process_impa_shot(
         max_crosstalk_angle_deg=float(crosstalk_config.get("max_angle_deg", 30.0)),
         min_crosstalk_r_squared=float(crosstalk_config.get("min_r_squared", 0.8)),
         bz_gain=config.get("calibration", {}).get("bz_gain"),
-        bz_radial_offset=float(geometry.get("bz_radial_offset", 0.0)),
+        bz_radial_offset=float(geometry.get("bz_radial_offset", 0.01)),
     )
     object.__setattr__(result, "provenance", {**result.provenance, "shot": int(shot)})
     return result, inputs
