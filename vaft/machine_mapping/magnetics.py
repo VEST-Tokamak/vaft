@@ -1158,6 +1158,7 @@ def equilibrium_magnetics_processing_config(shot: int) -> VestMagneticsProcessin
     window = _equilibrium_magnetics_window_for_shot(shot)
     flux_window = window.get("flux_baseline_window")
     flux_samples = window.get("flux_baseline_samples")
+    allow_zero_fallback = window.get("allow_zero_fallback", False)
     return VestMagneticsProcessingConfig(
         window_override=(
             int(window["index_start"]),
@@ -1169,6 +1170,7 @@ def equilibrium_magnetics_processing_config(shot: int) -> VestMagneticsProcessin
         ),
         flux_baseline_samples=None if flux_samples is None else int(flux_samples),
         daq_mode=str(window["daq_mode"]),
+        allow_zero_fallback=bool(allow_zero_fallback),
     )
 
 
@@ -1179,6 +1181,7 @@ def vfit_equilibrium_magnetics_detailed(
     *,
     raw_source: raw_db.RawSource | None = None,
     allow_missing_channels: bool = False,
+    allow_zero_fallback: bool | None = None,
 ) -> VestEquilibriumMagneticsResult:
     """Process magnetics channels, keeping native flux-loop terminal voltages.
 
@@ -1199,6 +1202,7 @@ def vfit_equilibrium_magnetics_detailed(
         indices=indices,
         config=config,
         allow_missing=allow_missing_channels,
+        allow_zero_fallback=allow_zero_fallback,
     )
 
 
@@ -1209,6 +1213,7 @@ def vfit_equilibrium_magnetics(
     *,
     raw_source: raw_db.RawSource | None = None,
     allow_missing_channels: bool = False,
+    allow_zero_fallback: bool | None = None,
 ) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
     """Process magnetic probe and flux-loop data using VAFT process helpers.
 
@@ -1222,6 +1227,7 @@ def vfit_equilibrium_magnetics(
         processing_config,
         raw_source=raw_source,
         allow_missing_channels=allow_missing_channels,
+        allow_zero_fallback=allow_zero_fallback,
     )
     return result.time, result.flux_loops, result.probes
 

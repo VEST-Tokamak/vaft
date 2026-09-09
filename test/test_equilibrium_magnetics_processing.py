@@ -373,3 +373,26 @@ def test_vest_equilibrium_magnetics_detailed_channel_raises_and_fallback():
         )
     assert len(res.probes) == 1
     assert res.probes[0].size > 0
+
+
+def test_b_field_pol_probe_integer_channel_zero():
+    time = np.linspace(0.0, 0.01, 1000)
+    raw = np.sin(np.linspace(0.0, 10.0, 1000))
+    cfg = VestMagneticsProcessingConfig(window_override=(0, 500, 1))
+
+    with pytest.raises(DegenerateBaselineWindowError) as exc_info:
+        vest_b_field_pol_probe_legacy(
+            time, raw, 1.0, shot=41445, config=cfg, channel=0
+        )
+    assert "channel 0" in str(exc_info.value)
+
+
+def test_nan_contaminated_baseline_window_raises():
+    time = np.linspace(0.0, 0.01, 1000)
+    raw = np.full(1000, np.nan)
+    # Even if 500 samples are in-bounds, they are all NaN
+    cfg = VestMagneticsProcessingConfig(window_override=(0, 500, 500))
+
+    with pytest.raises(DegenerateBaselineWindowError) as exc_info:
+        vest_b_field_pol_probe_legacy(time, raw, 1.0, shot=41445, config=cfg)
+    assert "1 valid sample(s)" in str(exc_info.value)

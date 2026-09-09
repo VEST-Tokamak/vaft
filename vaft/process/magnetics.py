@@ -378,7 +378,8 @@ def _linear_baseline(
     window_desc: str | None = None,
 ) -> np.ndarray:
     indices = np.asarray(indices, dtype=int)
-    valid = indices[(indices >= 0) & (indices < values.size)]
+    in_bounds = indices[(indices >= 0) & (indices < values.size)]
+    valid = in_bounds[np.isfinite(values[in_bounds]) & np.isfinite(time_axis[in_bounds])]
     if valid.size < 2:
         context_parts = []
         if shot is not None:
@@ -598,7 +599,7 @@ def vest_b_field_pol_probe_legacy(
         baseline_indices,
         allow_zero_fallback=fallback,
         shot=int(shot),
-        channel=channel or "b_field_pol_probe",
+        channel="b_field_pol_probe" if channel is None else channel,
         window_desc=f"leading 0:{baseline_end} samples",
     )
     return integrated - baseline
