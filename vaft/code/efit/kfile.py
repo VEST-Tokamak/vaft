@@ -660,6 +660,9 @@ def generate_kfile(
             return 0.0
         return float(constraint_config.group_weights.get(group, original))
 
+    def _objective_scale(group: str) -> float:
+        return float(constraint_config.objective_scales[group])
+
     def _measurement_error(
         cstr, path: str, fallback: float, *, unit_scale: float = 1.0
     ) -> float:
@@ -690,7 +693,7 @@ def generate_kfile(
         pf_indices = efit16_group_indices(len(CSTR["pf_current"]), nfsum)
         nbcoil = len(pf_indices)
         matrix = constraint_config.coil_constraint_matrix
-        if len(matrix) != nbcoil:
+        if constraint_config.use_coil_relation_constraints and len(matrix) != nbcoil:
             raise ValueError(
                 "coil_constraint_matrix row count must match the selected "
                 f"PF coil count ({len(matrix)} != {nbcoil})"
@@ -710,7 +713,8 @@ def generate_kfile(
         BRSP = _namelist_array("BRSP", COILCURRENT, per_line=3)
         BITFC = _namelist_array("BITFC", BITCURRENT, per_line=3)
         pf_weight = _weight(CSTR, "pf_current.0", "pf_current")
-        FWTFC = f"FWTFC= {nbcoil}*{pf_weight}\n"
+        pf_objective_scale = _objective_scale("pf_current")
+        FWTFC = f"FWTFC= {nbcoil}*{pf_weight * pf_objective_scale}\n"
 
         ## (2) Wall eddy current
         WALLCURRENT = PM[f"time_slice.{time_idx}.IN1.VCURRT"]
@@ -727,7 +731,7 @@ def generate_kfile(
         plasma_weight = _weight(CSTR, "ip", "plasma_current")
         PLASMA = f"PLASMA= {CSTR['ip.measured']}"
         BITIP = f"BITIP= {_measurement_error(CSTR, 'ip', plasma_weight / vbit * shft)}"
-        FWTCUR = f"FWTCUR= {plasma_weight}"
+        FWTCUR = f"FWTCUR= {plasma_weight * _objective_scale('plasma_current')}"
 
         ## (5) Diamagnetic flux with weight
         flux_scale = (
@@ -748,11 +752,13 @@ def generate_kfile(
         # SIGDLC=f'SIGDLC= {VAL*CSTR["diamagnetic_flux.weight"]}' # set sigdlc as measured value * weight
 
         if (
-            not constraint_config.use_diamagnetic_flux or diamagnetic_weight == 0
+            not constraint_config.use_diamagnetic_flux
+            or diamagnetic_weight == 0
+            or _objective_scale("diamagnetic_flux") == 0
         ):  # if the diamagnetic flux weight is 0, the diamagnetic flux is not considered as a constraint
             FWTDLC = "FWTDLC= 0"
         else:
-            FWTDLC = "FWTDLC= 1"
+            FWTDLC = f"FWTDLC= {_objective_scale('diamagnetic_flux')}"
 
         ## (6) Poloidal magnetic probe with weight
         # magpri (dprobe.dat/mhdin.dat) is EFIT's own count of physically
@@ -780,7 +786,7 @@ def generate_kfile(
                 fwtmp2_values.append(0)
                 bitmpi_values.append(0.0)
             else:
-                fwtmp2_values.append(1)
+                fwtmp2_values.append(_objective_scale("bpol_probe"))
                 bitmpi_values.append(
                     _measurement_error(
                         CSTR,
@@ -817,7 +823,7 @@ def generate_kfile(
                 fwtsi_values.append(0)
                 psibit_values.append(0.0)
             else:
-                fwtsi_values.append(1)
+                fwtsi_values.append(_objective_scale("flux_loop"))
                 psibit_values.append(
                     _measurement_error(
                         CSTR,
@@ -859,6 +865,9 @@ def generate_kfile(
         f.write(f" EELIP = {initialization.elongation}\n")
         f.write(f" ZELIP = {initialization.zzero}\n")
         f.write(f" FCURBD = {profile.fcurbd}\n")
+        f.write(f" FWTBP = {profile.fwtbp}\n")
+        if initialization.icinit is not None:
+            f.write(f" ICINIT = {initialization.icinit}\n")
         f.write(
             " IECURR = 0\n"
         )  # 0 means that the Ohmic coil flag is ignored (Not classify 5
@@ -940,21 +949,25 @@ def generate_kfile(
         f.write(" NBDRY = 0\n")
         f.write(" /\n")
         f.write(" &INWANT\n")
-        for column in range(column_count):
+        if constraint_config.use_coil_relation_constraints:
+            for column in range(column_count):
+                f.write(
+                    _namelist_array(
+                        f"CCOILS(1,{column + 1})",
+                        [matrix[row][column] for row in range(nbcoil)],
+                        per_line=8,
+                    )
+                )
+            f.write(f" KCCOILS = {column_count}\n")
+        else:
+            f.write(" KCCOILS = 0\n")
+        f.write(f" NCCOIL = {constraint_config.nccoil}\n")
+        if constraint_config.use_coil_relation_constraints:
             f.write(
                 _namelist_array(
-                    f"CCOILS(1,{column + 1})",
-                    [matrix[row][column] for row in range(nbcoil)],
-                    per_line=8,
+                    "XCOILS", constraint_config.coil_constraint_targets, per_line=8
                 )
             )
-        f.write(f" KCCOILS = {column_count}\n")
-        f.write(f" NCCOIL = {constraint_config.nccoil}\n")
-        f.write(
-            _namelist_array(
-                "XCOILS", constraint_config.coil_constraint_targets, per_line=8
-            )
-        )
         f.write(" /\n")
         f.write("                                            MAG\n")
         f.close()

@@ -1,0 +1,48 @@
+{
+  "ip_accounting": {
+    "41672": {
+      "chipasma": 702.3934326171875,
+      "ip_measured": 68824.55653888575,
+      "ipmhd": 68824.5565,
+      "sigma_ip": 10000.0,
+      "time_suffix": ".00320",
+      "vessel_current_sum": 265027.0627697992
+    },
+    "39915": {
+      "chipasma": 173.11959838867188,
+      "ip_measured": 82020.98817286517,
+      "ipmhd": 82020.9882,
+      "sigma_ip": 10000.0,
+      "time_suffix": ".00315",
+      "vessel_current_sum": 131574.92229002464
+    },
+    "41524": {
+      "chipasma": 373.8312072753906,
+      "ip_measured": 202752.0541537385,
+      "ipmhd": 202752.054,
+      "sigma_ip": 10000.0,
+      "time_suffix": ".00327",
+      "vessel_current_sum": 193347.15347617824
+    }
+  },
+  "pf_profile_model_verification": {
+    "41672": {
+      "common_slice_model_pairs": 139,
+      "max_abs_chifcc_difference": 8.92581730402594e-18
+    },
+    "39915": {
+      "common_slice_model_pairs": 37,
+      "max_abs_chifcc_difference": 2.156230039655947e-21
+    },
+    "41524": {
+      "common_slice_model_pairs": 27,
+      "max_abs_chifcc_difference": 6.9150941106498685e-22
+    },
+    "bit_identical_arrays": [
+      "fccurt",
+      "ccbrsp",
+      "sigfcc",
+      "fwtfc"
+    ]
+  }
+}

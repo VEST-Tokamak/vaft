@@ -28,6 +28,11 @@ DIAGNOSTIC_GROUPS = frozenset(
 )
 
 
+def _unit_objective_scales() -> dict[str, float]:
+    """Return an explicit unit scale for every EFIT constraint family."""
+    return {name: 1.0 for name in sorted(DIAGNOSTIC_GROUPS)}
+
+
 def _require_finite(name: str, value: float, *, positive: bool = False) -> None:
     if not math.isfinite(float(value)):
         raise ValueError(f"{name} must be finite")
@@ -59,6 +64,11 @@ class EFITProfileConfig:
     kfffnc: int = 0
     pcurbd: int = 1
     fcurbd: int = 1
+    #: Enable EFIT's proportional-shape constraint between the fitted
+    #: pressure and FF-prime coefficients.  The executable canonicalizes any
+    #: non-zero input to one, so this is deliberately a binary switch rather
+    #: than a continuous weight (issue #579).
+    fwtbp: int = 0
 
     def __post_init__(self) -> None:
         for name in ("kppcur", "kffcur"):
@@ -71,7 +81,7 @@ class EFITProfileConfig:
             if isinstance(value, bool) or not isinstance(value, Integral) or value < 0:
                 raise ValueError(f"{name} must be a non-negative integer")
             object.__setattr__(self, name, int(value))
-        for name in ("pcurbd", "fcurbd"):
+        for name in ("pcurbd", "fcurbd", "fwtbp"):
             value = getattr(self, name)
             if (
                 isinstance(value, bool)
@@ -80,6 +90,14 @@ class EFITProfileConfig:
             ):
                 raise ValueError(f"{name} must be 0 or 1")
             object.__setattr__(self, name, int(value))
+        # response_matrix.F90 builds one proportionality row for each FF'
+        # coefficient from 2..KFFCUR and indexes the matching P' coefficient.
+        # A shorter P' basis would therefore address a different parameter,
+        # while KFFCUR=1 would add no row at all.
+        if self.fwtbp and self.kffcur < 2:
+            raise ValueError("fwtbp requires kffcur >= 2")
+        if self.fwtbp and self.kppcur < self.kffcur:
+            raise ValueError("fwtbp requires kppcur >= kffcur")
 
 
 @dataclass(frozen=True)
@@ -104,6 +122,10 @@ class EFITInitializationConfig:
     minor_radius: float = 0.3
     elongation: float = 1.6
     current_threshold: float = 5_000.0
+    #: EFIT initialization policy. ``None`` preserves the executable default
+    #: (2); studies set it explicitly so independent-slice and continuation
+    #: experiments cannot be confused (#196, #579).
+    icinit: int | None = None
     #: ``RELIP`` alone. ``None`` follows :attr:`rzero`, which is the routine
     #: behaviour and keeps the emitted k-file byte-identical.
     ellipse_rzero: float | None = None
@@ -124,6 +146,14 @@ class EFITInitializationConfig:
         _require_finite("current_threshold", self.current_threshold)
         if self.current_threshold < 0:
             raise ValueError("current_threshold must be non-negative")
+        if self.icinit is not None:
+            if (
+                isinstance(self.icinit, bool)
+                or not isinstance(self.icinit, Integral)
+                or self.icinit not in {1, 2, -2, -3, -4, -12}
+            ):
+                raise ValueError("icinit must be one of 1, 2, -2, -3, -4, -12, or None")
+            object.__setattr__(self, "icinit", int(self.icinit))
 
 
 @dataclass(frozen=True)
@@ -298,7 +328,9 @@ class EFITAcceptanceEnvelope:
 
     @property
     def sha256(self) -> str:
-        payload = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"), allow_nan=False)
+        payload = json.dumps(
+            self.to_dict(), sort_keys=True, separators=(",", ":"), allow_nan=False
+        )
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -307,11 +339,16 @@ class EFITConstraintConfig:
     """Diagnostic, diamagnetic-flux, coil, and passive-structure controls.
 
     ``group_weights`` overrides non-zero ODS channel weights for the named
-    group.  A zero channel weight remains zero so a rejected channel cannot be
-    accidentally re-enabled by a scan.
+    group.  ``objective_scales`` then multiplies the submitted ``FWT*`` value
+    without changing the measurement or its uncertainty.  A zero channel
+    weight remains zero so a rejected channel cannot be accidentally
+    re-enabled by either control.
     """
 
     group_weights: Mapping[str, float] = field(default_factory=dict)
+    objective_scales: Mapping[str, float] = field(
+        default_factory=_unit_objective_scales
+    )
     uncertainty_mode: str = "legacy_weight"
     legacy_vbit: float = 10.0
     legacy_weight_scale: float = 10_000.0
@@ -327,6 +364,7 @@ class EFITConstraintConfig:
     diamagnetic_flux_input_units: str = "Wb"
     wall_current_mode: str = "measured"
     passive_structure_mode: str = "fixed_currents"
+    use_coil_relation_constraints: bool = True
     coil_constraint_matrix: tuple[tuple[float, ...], ...] = field(
         default_factory=_legacy_coil_constraint_matrix
     )
@@ -336,14 +374,20 @@ class EFITConstraintConfig:
     def __post_init__(self) -> None:
         if not isinstance(self.use_diamagnetic_flux, bool):
             raise ValueError("use_diamagnetic_flux must be boolean")
-        unknown = set(self.group_weights) - DIAGNOSTIC_GROUPS
-        if unknown:
-            names = ", ".join(sorted(unknown))
-            raise ValueError(f"unknown EFIT diagnostic group(s): {names}")
-        for name, value in self.group_weights.items():
-            _require_finite(f"group_weights[{name!r}]", value)
-            if value < 0:
-                raise ValueError(f"group_weights[{name!r}] must be non-negative")
+        if not isinstance(self.use_coil_relation_constraints, bool):
+            raise ValueError("use_coil_relation_constraints must be boolean")
+        for field_name, values in (
+            ("group_weights", self.group_weights),
+            ("objective_scales", self.objective_scales),
+        ):
+            unknown = set(values) - DIAGNOSTIC_GROUPS
+            if unknown:
+                names = ", ".join(sorted(unknown))
+                raise ValueError(f"unknown EFIT diagnostic group(s): {names}")
+            for name, value in values.items():
+                _require_finite(f"{field_name}[{name!r}]", value)
+                if value < 0:
+                    raise ValueError(f"{field_name}[{name!r}] must be non-negative")
         if self.uncertainty_mode not in {"legacy_weight", "standard_deviation"}:
             raise ValueError(
                 "uncertainty_mode must be 'legacy_weight' or 'standard_deviation'"
@@ -395,6 +439,9 @@ class EFITConstraintConfig:
         object.__setattr__(
             self, "group_weights", MappingProxyType(dict(self.group_weights))
         )
+        resolved_scales = _unit_objective_scales()
+        resolved_scales.update(self.objective_scales)
+        object.__setattr__(self, "objective_scales", MappingProxyType(resolved_scales))
         object.__setattr__(self, "coil_constraint_matrix", rows)
         object.__setattr__(
             self,

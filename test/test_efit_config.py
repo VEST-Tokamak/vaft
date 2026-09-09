@@ -60,7 +60,6 @@ def _kfile_text(tmp_path, scientific=None):
     return next((tmp_path / "kfile").iterdir()).read_text(encoding="utf-8")
 
 
-
 def test_the_termination_settings_are_absent_until_a_study_sets_them(tmp_path):
     """Issue #171: the four settings a VEST fit stops on are now expressible.
 
@@ -94,9 +93,12 @@ def test_the_termination_settings_are_absent_until_a_study_sets_them(tmp_path):
 
     # The scientific hash must move with them, or a scan would record two
     # different configurations under one identity.
-    assert EFITScientificConfig().sha256 != EFITScientificConfig(
-        numerics=EFITNumericsConfig(chi_squared_target=60.0)
-    ).sha256
+    assert (
+        EFITScientificConfig().sha256
+        != EFITScientificConfig(
+            numerics=EFITNumericsConfig(chi_squared_target=60.0)
+        ).sha256
+    )
 
 
 @pytest.mark.parametrize(
@@ -123,6 +125,7 @@ def test_routine_defaults_preserve_documented_kfile_semantics(tmp_path):
         "KFFFNC": "0",
         "PCURBD": "1",
         "FCURBD": "1",
+        "FWTBP": "0",
         "CUTIP": "5000.0",
         "RELIP": "0.4",
         "AELIP": "0.3",
@@ -137,6 +140,7 @@ def test_routine_defaults_preserve_documented_kfile_semantics(tmp_path):
     }
     for key, value in expected.items():
         assert f" {key} = {value}" in text
+    assert " ICINIT " not in text
 
 
 def test_legacy_profile_order_arguments_remain_supported(tmp_path):
@@ -236,6 +240,154 @@ def test_typed_settings_reach_their_namelist_fields(tmp_path):
     assert "VCURRT= 0.0, 0.0" in text
 
 
+def test_objective_scales_change_only_submitted_fwt_values(tmp_path):
+    constraints = EFITConstraintConfig(
+        objective_scales={
+            "pf_current": 0.01,
+            "plasma_current": 0.1,
+            "diamagnetic_flux": 10.0,
+            "bpol_probe": 10.0,
+            "flux_loop": 100.0,
+        }
+    )
+    text = _kfile_text(tmp_path, EFITScientificConfig(constraints=constraints))
+
+    assert "FWTFC= 16*0.02" in text
+    assert "FWTCUR= 0.30000000000000004" in text
+    assert "FWTDLC= 10.0" in text
+    assert "FWTMP2= 10.0" in text
+    assert "FWTSI= 100.0" in text
+    # Objective strength must not be smuggled into the legacy uncertainties.
+    assert "BITMPI= 5000.000" in text
+    assert "PSIBIT= 6000.000" in text
+
+
+def test_zero_objective_scale_disables_without_reenabling_rejected_channels(tmp_path):
+    ods = _constraints_ods(tmp_path)
+    ods["equilibrium.time_slice.0.constraints.bpol_probe.0.weight"] = 0.0
+    scientific = EFITScientificConfig(
+        constraints=EFITConstraintConfig(
+            objective_scales={"bpol_probe": 100.0, "flux_loop": 0.0}
+        )
+    )
+    generate_kfile(ods, 39915, save_dir=str(tmp_path), config=scientific)
+    text = next((tmp_path / "kfile").iterdir()).read_text(encoding="utf-8")
+
+    assert "FWTMP2= 0" in text
+    assert "BITMPI= 0.000" in text
+    assert "FWTSI= 0.0" in text
+
+
+def test_diamagnetic_switch_overrides_its_objective_scale(tmp_path):
+    scientific = EFITScientificConfig(
+        constraints=EFITConstraintConfig(
+            use_diamagnetic_flux=False,
+            objective_scales={"diamagnetic_flux": 100.0},
+        )
+    )
+
+    assert "FWTDLC= 0" in _kfile_text(tmp_path, scientific)
+
+
+def test_pf_penalty_and_hard_relations_are_independent(tmp_path):
+    no_penalty = EFITScientificConfig(
+        constraints=EFITConstraintConfig(objective_scales={"pf_current": 0.0})
+    )
+    penalty_text = _kfile_text(tmp_path / "penalty", no_penalty)
+    assert "FWTFC= 16*0.0" in penalty_text
+    assert " KCCOILS = 12" in penalty_text
+    assert "CCOILS(1,1)" in penalty_text and "XCOILS=" in penalty_text
+
+    no_relations = EFITScientificConfig(
+        constraints=EFITConstraintConfig(use_coil_relation_constraints=False)
+    )
+    relation_text = _kfile_text(tmp_path / "relations", no_relations)
+    assert "FWTFC= 16*2.0" in relation_text
+    assert " KCCOILS = 0" in relation_text
+    assert "CCOILS(" not in relation_text and "XCOILS=" not in relation_text
+
+
+def test_constraint_controls_are_hashed_and_unit_defaults_are_stable(tmp_path):
+    baseline = EFITScientificConfig()
+    explicit_units = EFITScientificConfig(
+        constraints=EFITConstraintConfig(
+            objective_scales={
+                name: 1.0
+                for name in (
+                    "pf_current",
+                    "plasma_current",
+                    "diamagnetic_flux",
+                    "bpol_probe",
+                    "flux_loop",
+                )
+            }
+        )
+    )
+    changed_scale = EFITScientificConfig(
+        constraints=EFITConstraintConfig(objective_scales={"flux_loop": 10.0})
+    )
+    changed_relations = EFITScientificConfig(
+        constraints=EFITConstraintConfig(use_coil_relation_constraints=False)
+    )
+
+    assert baseline == explicit_units
+    assert baseline.sha256 == explicit_units.sha256
+    routine_dir = tmp_path / "routine"
+    assert _kfile_text(routine_dir, baseline) == _kfile_text(
+        routine_dir, explicit_units
+    )
+    assert changed_scale.sha256 != baseline.sha256
+    assert changed_relations.sha256 != baseline.sha256
+    assert EFITScientificConfig.from_dict(changed_scale.to_dict()) == changed_scale
+
+
+def test_fwtbp_is_explicit_and_part_of_the_scientific_identity(tmp_path):
+    baseline = EFITScientificConfig()
+    regularized = EFITScientificConfig(
+        profile=EFITProfileConfig(kppcur=2, kffcur=2, fwtbp=1)
+    )
+
+    assert " FWTBP = 0" in _kfile_text(tmp_path, baseline)
+    assert " FWTBP = 1" in _kfile_text(tmp_path, regularized)
+    assert baseline.sha256 != regularized.sha256
+    assert EFITScientificConfig.from_dict(regularized.to_dict()) == regularized
+
+
+@pytest.mark.parametrize(
+    "profile, message",
+    [
+        ({"fwtbp": 2}, "fwtbp"),
+        ({"fwtbp": 1.0}, "fwtbp"),
+        ({"kppcur": 2, "kffcur": 1, "fwtbp": 1}, "kffcur"),
+        ({"kppcur": 2, "kffcur": 3, "fwtbp": 1}, "kppcur"),
+    ],
+)
+def test_fwtbp_refuses_ineffective_or_misaligned_bases(profile, message):
+    with pytest.raises(ValueError, match=message):
+        EFITProfileConfig(**profile)
+
+
+def test_a_study_can_pin_the_executables_independent_slice_initialization(tmp_path):
+    scientific = EFITScientificConfig(
+        initialization=EFITInitializationConfig(
+            ellipse_rzero=0.32,
+            icinit=2,
+        )
+    )
+    text = _kfile_text(tmp_path, scientific)
+
+    assert " RELIP = 0.32" in text
+    assert " RZERO = 0.4" in text
+    assert " ICINIT = 2" in text
+    assert scientific.to_dict()["initialization"]["icinit"] == 2
+
+
+@pytest.mark.parametrize("value", [0, 3, -1, True, 2.0])
+def test_icinit_refuses_modes_the_executable_does_not_define(value):
+    with pytest.raises(ValueError, match="icinit"):
+        EFITInitializationConfig(icinit=value)
+
+
 def test_standard_deviation_mode_uses_measurement_errors(tmp_path):
     constraints = EFITConstraintConfig(uncertainty_mode="standard_deviation")
     text = _kfile_text(
@@ -287,6 +439,16 @@ def test_parameter_grid_is_deterministic_and_validated():
     assert grid[0].profile.kppcur == 2
     assert grid[-1].profile.kppcur == 3
     assert grid[-1].constraints.group_weights["bpol_probe"] == 8.0
+
+
+def test_parameter_grid_scans_fwtbp_as_a_profile_axis():
+    grid = efit_parameter_grid(
+        EFITScientificConfig(),
+        {"profile.fwtbp": [0, 1]},
+    )
+
+    assert [item.profile.fwtbp for item in grid] == [0, 1]
+    assert len({item.sha256 for item in grid}) == 2
 
 
 def test_scientific_configuration_round_trips_through_json():
