@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>d9649b9</code>. What is described
+  <code>399f4e1</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1466,7 +1466,7 @@ bounded by one because the arcsine of it must exist.</p>
 
 <h3 id="evaluate_solovev"><code class="language-plaintext highlighter-rouge">evaluate_solovev</code></h3>
 
-<p class="formula-signature"><code>evaluate_solovev(model, r, z)</code></p>
+<p class="formula-signature"><code>evaluate_solovev(model, r, z, *, cocos=11, convention=None)</code></p>
 
 <p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
@@ -1486,6 +1486,10 @@ machinery here is checked.</p>
 </td></tr>
   <tr><td><code>z</code></td><td>array_like</td><td>m</td><td><p>Height.</p>
 </td></tr>
+  <tr><td><code>cocos</code></td><td>int or None, optional</td><td>-</td><td><p>COCOS coordinate convention index (1-8, 11-18) setting the poloidal field orientation factor sigma = sigma_RphiZ * sigma_Bp; None selects the historical orientation fallback (k = -1).</p>
+</td></tr>
+  <tr><td><code>convention</code></td><td>int or None, optional</td><td>-</td><td><p>Alias for <em>cocos</em>.</p>
+</td></tr>
   </tbody>
 </table>
 
@@ -1500,18 +1504,22 @@ machinery here is checked.</p>
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    Any point has a non-positive major radius.</p>
+    Any point has a non-positive major radius, or an invalid COCOS index is
+    provided.</p>
 
 <p><strong>Convention.</strong></p>
 
 <p>Works in poloidal flux per radian, with the poloidal field taken as
-<code class="language-plaintext highlighter-rouge">B_R = -dpsi/dz / R</code> and <code class="language-plaintext highlighter-rouge">B_Z = +dpsi/dR / R</code>.  That is the orientation
-family with a positive product of the toroidal and poloidal sign conventions,
-which is <em>not</em> the family the rest of this module falls back to for an
-unidentified equilibrium; the mismatch is tracked in #600.
+<code class="language-plaintext highlighter-rouge">B_R = (sigma / R) dpsi/dz</code> and <code class="language-plaintext highlighter-rouge">B_Z = -(sigma / R) dpsi/dR</code>, where
+<code class="language-plaintext highlighter-rouge">sigma = sigma_RphiZ * sigma_Bp</code> is determined by <em>cocos</em>. The default
+is <code class="language-plaintext highlighter-rouge">vaft.data.cocos.VAFT_INTERNAL_COCOS</code> (11), which has <code class="language-plaintext highlighter-rouge">sigma = +1</code>;
+passing <code class="language-plaintext highlighter-rouge">cocos=None</code> retains the historical fallback <code class="language-plaintext highlighter-rouge">sigma = -1</code>
+(the COCOS 2/3/6/7 orientation family).
 <code class="language-plaintext highlighter-rouge">solovev_to_equilibrium</code> is where this is reconciled with a declared
-convention.  Pressure and the squared poloidal current are linear in psi by
-construction, so their gradients are the model’s own constants.</p>
+convention, scaling the flux by 2*pi for full-weber conventions and
+transforming signs appropriately. Pressure and the squared poloidal
+current are linear in psi by construction, so their gradients are the
+model’s own constants.</p>
 
 <p><strong>Applicability.</strong></p>
 
@@ -2981,18 +2989,12 @@ machinery as a measured one.  That is what makes it useful as a reference.</p>
 
 <p><strong>Convention.</strong></p>
 
-<p><code class="language-plaintext highlighter-rouge">evaluate_solovev</code> works in weber per radian, taking the poloidal field
-as the flux gradient over the major radius.  The exported flux quantities are
-scaled to honour the declared <em>convention</em>: a full-weber index, 11 to 18,
-multiplies psi by <code class="language-plaintext highlighter-rouge">2*pi</code> so that descriptor derivation, which divides a
-full-weber flux gradient by <code class="language-plaintext highlighter-rouge">2*pi</code>, recovers the analytic fields exactly.
-The two source gradients are rescaled inversely, because a derivative against
-flux scales by the inverse of what flux does.  The plasma current and the
-current density are deliberately <em>not</em> scaled: they are physical fields that
-the storage choice does not change.  Only the <code class="language-plaintext highlighter-rouge">2*pi</code> half of the
-reconciliation is handled here; the orientation sign is discussed at
-<code class="language-plaintext highlighter-rouge">evaluate_solovev</code> and tracked in #600.  The unscaled quantities are
-noted in #608.</p>
+<p><code class="language-plaintext highlighter-rouge">evaluate_solovev</code> works in weber per radian under the requested
+<em>convention</em>’s orientation. The exported equilibrium is natively constructed
+in <code class="language-plaintext highlighter-rouge">vaft.data.cocos.VAFT_INTERNAL_COCOS</code> (11, full weber) and converted
+to <em>convention</em> via <code class="language-plaintext highlighter-rouge">convert_cocos</code> if different, reconciling both the
+2*pi normalisation and the orientation sign across all COCOS conventions.
+Pressure and the magnetic axis are invariant under convention transforms.</p>
 
 <p><strong>Applicability.</strong></p>
 
@@ -3686,7 +3688,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-09 02:43:42 +0000"
+        "time": "2026-09-09 02:48:46 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
