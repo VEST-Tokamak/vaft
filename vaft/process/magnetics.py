@@ -62,6 +62,7 @@ Provenance
    reproduces.
 """
 
+import warnings
 from dataclasses import dataclass
 from typing import Callable, Sequence
 
@@ -83,6 +84,7 @@ from .signal_processing import define_baseline, subtract_baseline
 
 __all__ = [
     "DEFAULT_VEST_MAGNETICS_PROCESSING",
+    "DegenerateBaselineWindowError",
     "MAGNETICS_CLUSTER_GAP_FRACTION",
     "MirnovSpectrogramResult",
     "ToroidalModeResult",
@@ -245,6 +247,10 @@ class UnsupportedMagneticsDaqModeError(NotImplementedError):
     """Raised for a magnetics acquisition era with no ported processing path."""
 
 
+class DegenerateBaselineWindowError(ValueError):
+    """Raised when a baseline window contains fewer than two valid samples."""
+
+
 @dataclass(frozen=True)
 class VestMagneticsProcessingConfig:
     """Default VEST magnetics processing settings used by legacy `vfit_equilibrium_magnetics`.
@@ -288,6 +294,7 @@ class VestMagneticsProcessingConfig:
     flux_baseline_window: tuple[float, float] | None = None
     flux_baseline_samples: int | None = None
     daq_mode: str = "legacy"
+    allow_zero_fallback: bool = False
 
     def timebase(self) -> np.ndarray:
         return np.linspace(self.time_start, self.time_end, self.sample_count)
@@ -360,10 +367,53 @@ def _calibrated_signal(values: np.ndarray, calibration: float, mode: str) -> np.
     raise ValueError(f"Unsupported VEST magnetics calibration mode: {mode}")
 
 
-def _linear_baseline(time_axis: np.ndarray, values: np.ndarray, indices: np.ndarray) -> np.ndarray:
+def _linear_baseline(
+    time_axis: np.ndarray,
+    values: np.ndarray,
+    indices: np.ndarray,
+    *,
+    allow_zero_fallback: bool = False,
+    shot: int | None = None,
+    channel: str | int | None = None,
+    window_desc: str | None = None,
+) -> np.ndarray:
+    indices = np.asarray(indices, dtype=int)
     valid = indices[(indices >= 0) & (indices < values.size)]
     if valid.size < 2:
-        return np.zeros(values.size, dtype=float)
+        context_parts = []
+        if shot is not None:
+            context_parts.append(f"shot {shot}")
+        if channel is not None:
+            context_parts.append(f"channel {channel!r}")
+        context_str = f" [{', '.join(context_parts)}]" if context_parts else ""
+
+        if allow_zero_fallback:
+            warnings.warn(
+                f"Degenerate baseline window{context_str}: {valid.size} valid sample(s) available "
+                f"(requires >= 2). Falling back to zero baseline because allow_zero_fallback=True.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return np.zeros(values.size, dtype=float)
+
+        prefix = f"for {', '.join(context_parts)}: " if context_parts else ""
+        time_span = (
+            f"[{time_axis[0]:.6g}, {time_axis[-1]:.6g}] s"
+            if time_axis.size > 0
+            else "[]"
+        )
+        req_desc = f" ({window_desc})" if window_desc else ""
+        if indices.size > 0:
+            index_range = f"[{indices.min()}, {indices.max()}] (count: {indices.size})"
+        else:
+            index_range = "[] (empty)"
+
+        raise DegenerateBaselineWindowError(
+            f"Degenerate baseline window {prefix}found {valid.size} valid sample(s) (requires >= 2). "
+            f"Requested indices{req_desc}: {index_range}. "
+            f"Signal sample count: {values.size}, time span: {time_span}."
+        )
+
     return np.polyval(np.polyfit(time_axis[valid], values[valid], 1), time_axis)
 
 
@@ -453,6 +503,8 @@ def vest_b_field_pol_probe_legacy(
     *,
     shot: int,
     config: VestMagneticsProcessingConfig | None = None,
+    allow_zero_fallback: bool | None = None,
+    channel: str | int | None = None,
 ) -> np.ndarray:
     """Poloidal field at a VEST probe, from its raw record.
 
@@ -468,6 +520,11 @@ def vest_b_field_pol_probe_legacy(
         Shot number, which selects the baseline era [-].
     config : VestMagneticsProcessingConfig, optional
         Processing settings [-].
+    allow_zero_fallback : bool, optional
+        Whether to fall back to zero baseline with a warning when the baseline window
+        is degenerate (fewer than 2 valid samples). Defaults to config.allow_zero_fallback [-].
+    channel : str or int, optional
+        Channel identifier for diagnostic error reporting [-].
 
     Returns
     -------
@@ -508,8 +565,9 @@ def vest_b_field_pol_probe_legacy(
 
     Limitations
     -----------
-    Assumes the leading samples precede the discharge. The silent baseline
-    degeneracy of #639 applies here too.
+    Assumes the leading samples precede the discharge. Raises `DegenerateBaselineWindowError`
+    if fewer than two valid baseline samples are available (issue #639), unless
+    `allow_zero_fallback=True` is opted into.
 
     Provenance
     ----------
@@ -517,6 +575,7 @@ def vest_b_field_pol_probe_legacy(
        indices are preserved; ``vest.yaml`` ``magnetics`` for the era table.
     """
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
+    fallback = cfg.allow_zero_fallback if allow_zero_fallback is None else bool(allow_zero_fallback)
     _, _, baseline_end = cfg.window_for_shot(int(shot))
     time = np.asarray(time, dtype=float)
     raw = np.asarray(raw, dtype=float)
@@ -532,7 +591,16 @@ def vest_b_field_pol_probe_legacy(
     filtered = signal.lfilter(lowpass, 1, raw)
     calibrated = _calibrated_signal(filtered, float(calibration), cfg.calibration_mode)
     integrated = -cumtrapz_compat(calibrated, x=time, initial=0)
-    baseline = _linear_baseline(time, integrated, np.arange(min(baseline_end, integrated.size)))
+    baseline_indices = np.arange(min(baseline_end, integrated.size))
+    baseline = _linear_baseline(
+        time,
+        integrated,
+        baseline_indices,
+        allow_zero_fallback=fallback,
+        shot=int(shot),
+        channel=channel or "b_field_pol_probe",
+        window_desc=f"leading 0:{baseline_end} samples",
+    )
     return integrated - baseline
 
 
@@ -592,6 +660,9 @@ def vest_flux_loop_flux_from_voltage(
     *,
     flux_loop_number: int,
     config: VestMagneticsProcessingConfig | None = None,
+    allow_zero_fallback: bool | None = None,
+    shot: int | None = None,
+    channel: str | int | None = None,
 ) -> np.ndarray:
     """Poloidal flux through a VEST flux loop, from its calibrated voltage.
 
@@ -605,6 +676,13 @@ def vest_flux_loop_flux_from_voltage(
         Which loop, since some take their own baseline window [-].
     config : VestMagneticsProcessingConfig, optional
         Processing settings; the shipped defaults when omitted [-].
+    allow_zero_fallback : bool, optional
+        Whether to fall back to zero baseline with a warning when the baseline window
+        is degenerate (fewer than 2 valid samples). Defaults to config.allow_zero_fallback [-].
+    shot : int, optional
+        Shot number for diagnostic error reporting [-].
+    channel : str or int, optional
+        Channel identifier for diagnostic error reporting [-].
 
     Returns
     -------
@@ -643,9 +721,9 @@ def vest_flux_loop_flux_from_voltage(
 
     Limitations
     -----------
-    **A baseline window that lands outside the record silently disables baseline
-    removal** rather than failing, leaving the integration's offset in the result;
-    tracked in #639. The per-loop exception is by loop number, so a rewiring that
+    Raises `DegenerateBaselineWindowError` when fewer than two valid baseline samples
+    are available in the configured window (issue #639), unless `allow_zero_fallback=True`
+    is explicitly specified. The per-loop exception is by loop number, so a rewiring that
     changes which loop is which invalidates it.
 
     Provenance
@@ -657,6 +735,7 @@ def vest_flux_loop_flux_from_voltage(
     .. [2] ``vest.yaml`` ``magnetics`` for the era table (issue #195).
     """
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
+    fallback = cfg.allow_zero_fallback if allow_zero_fallback is None else bool(allow_zero_fallback)
     time = np.asarray(time, dtype=float)
     calibrated = np.asarray(voltage, dtype=float)
     if time.size <= 1 or calibrated.size <= 1:
@@ -665,6 +744,7 @@ def vest_flux_loop_flux_from_voltage(
     if cfg.flux_output_per_radian:
         integrated = integrated / (2 * np.pi)
 
+    window_desc: str | None = None
     if cfg.flux_baseline_samples is not None:
         # Native-DAQ era (VEST_MagneticSignalProcessing2.m): flux loops moved
         # onto the 250 kHz acquisition and take the same leading-sample
@@ -672,6 +752,7 @@ def vest_flux_loop_flux_from_voltage(
         # `polyfit(timeFastFL(index_Bz_start:index_Bz_end), ...)` with
         # index_Bz_start = 1, index_Bz_end = 1750.
         baseline_indices = np.arange(min(int(cfg.flux_baseline_samples), integrated.size))
+        window_desc = f"samples 0:{cfg.flux_baseline_samples}"
     elif cfg.flux_baseline_window is not None:
         # Shot >= 43685 on the slow-DAQ era: MATLAB
         # `index_FL_start = 6001 (0.24 s), index_FL_end = 6500 (0.26 s)`.
@@ -679,13 +760,29 @@ def vest_flux_loop_flux_from_voltage(
         # loop's native sample rate.
         window_start, window_end = (float(bound) for bound in cfg.flux_baseline_window)
         baseline_indices = np.flatnonzero((time >= window_start) & (time <= window_end))
+        window_desc = f"time window [{window_start:.6g}, {window_end:.6g}] s"
     elif int(flux_loop_number) in cfg.flux_baseline_late_loop_numbers:
         baseline_indices = np.arange(cfg.flux_baseline_late_start, min(cfg.flux_baseline_late_end, integrated.size))
+        window_desc = f"late loop samples {cfg.flux_baseline_late_start}:{cfg.flux_baseline_late_end}"
     else:
         first = np.arange(cfg.flux_baseline_first_start, min(cfg.flux_baseline_first_end, integrated.size))
         second = np.arange(cfg.flux_baseline_second_start, min(cfg.flux_baseline_second_end, integrated.size))
         baseline_indices = np.concatenate((first, second))
-    baseline = _linear_baseline(time, integrated, baseline_indices)
+        window_desc = (
+            f"default loop samples {cfg.flux_baseline_first_start}:{cfg.flux_baseline_first_end} "
+            f"and {cfg.flux_baseline_second_start}:{cfg.flux_baseline_second_end}"
+        )
+
+    channel_name = channel if channel is not None else f"flux_loop_{flux_loop_number}"
+    baseline = _linear_baseline(
+        time,
+        integrated,
+        baseline_indices,
+        allow_zero_fallback=fallback,
+        shot=shot,
+        channel=channel_name,
+        window_desc=window_desc,
+    )
     return integrated - baseline
 
 
@@ -696,6 +793,9 @@ def vest_flux_loop_legacy(
     *,
     flux_loop_number: int,
     config: VestMagneticsProcessingConfig | None = None,
+    allow_zero_fallback: bool | None = None,
+    shot: int | None = None,
+    channel: str | int | None = None,
 ) -> np.ndarray:
     """Poloidal flux through a VEST flux loop, from its raw record.
 
@@ -711,6 +811,13 @@ def vest_flux_loop_legacy(
         Which loop [-].
     config : VestMagneticsProcessingConfig, optional
         Processing settings [-].
+    allow_zero_fallback : bool, optional
+        Whether to fall back to zero baseline with a warning when the baseline window
+        is degenerate (fewer than 2 valid samples). Defaults to config.allow_zero_fallback [-].
+    shot : int, optional
+        Shot number for diagnostic error reporting [-].
+    channel : str or int, optional
+        Channel identifier for diagnostic error reporting [-].
 
     Returns
     -------
@@ -735,7 +842,8 @@ def vest_flux_loop_legacy(
 
     Limitations
     -----------
-    Inherits both, including the silent baseline degeneracy of #639.
+    Inherits both. Raises `DegenerateBaselineWindowError` on degenerate baseline
+    windows (issue #639) unless `allow_zero_fallback=True`.
 
     Provenance
     ----------
@@ -753,6 +861,9 @@ def vest_flux_loop_legacy(
         voltage,
         flux_loop_number=flux_loop_number,
         config=config,
+        allow_zero_fallback=allow_zero_fallback,
+        shot=shot,
+        channel=channel,
     )
 
 
@@ -782,6 +893,7 @@ def vest_equilibrium_magnetics_detailed(
     indices: Sequence[int] | None = None,
     config: VestMagneticsProcessingConfig | None = None,
     allow_missing: bool = False,
+    allow_zero_fallback: bool | None = None,
 ) -> VestEquilibriumMagneticsResult:
     """Process every magnetic channel of one VEST shot onto the output window.
 
@@ -799,6 +911,9 @@ def vest_equilibrium_magnetics_detailed(
         Processing settings [-].
     allow_missing : bool, optional
         Whether a channel the loader cannot supply is tolerated [-].
+    allow_zero_fallback : bool, optional
+        Whether to fall back to zero baseline with a warning when a channel encounters
+        a degenerate baseline window. Defaults to config.allow_zero_fallback [-].
 
     Returns
     -------
@@ -833,8 +948,9 @@ def vest_equilibrium_magnetics_detailed(
 
     Limitations
     -----------
-    Inherits every limitation of the per-channel chains, including the silent
-    baseline degeneracy of #639. With missing channels tolerated, an empty entry
+    Inherits every limitation of the per-channel chains. Raises `DegenerateBaselineWindowError`
+    if any channel has a degenerate baseline window (issue #639), unless
+    `allow_zero_fallback=True` is opted into. With missing channels tolerated, an empty entry
     is indistinguishable from a genuinely zero record without checking its length.
 
     Provenance
@@ -846,6 +962,7 @@ def vest_equilibrium_magnetics_detailed(
 
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
     _validate_daq_mode(cfg)
+    fallback = cfg.allow_zero_fallback if allow_zero_fallback is None else bool(allow_zero_fallback)
     channel_rows = list(channels)
     if indices is not None:
         channel_rows = [channel_rows[int(index)] for index in indices]
@@ -886,7 +1003,16 @@ def vest_equilibrium_magnetics_detailed(
             continue
 
         if kind == "b_field_pol_probe":
-            processed_full = vest_b_field_pol_probe_legacy(source_time, source_data, calibration, shot=shot, config=cfg)
+            channel_name = str(channel.get("name", f"b_field_pol_probe_{field_code}"))
+            processed_full = vest_b_field_pol_probe_legacy(
+                source_time,
+                source_data,
+                calibration,
+                shot=shot,
+                config=cfg,
+                allow_zero_fallback=fallback,
+                channel=channel_name,
+            )
             # anti-alias: vest_b_field_pol_probe_legacy low-passes at 2.5 kHz on
             # the 250 kHz source grid, below the 25 kHz target's Nyquist.
             data_probes.append(np.interp(magnetics_time, source_time, processed_full))
@@ -895,11 +1021,15 @@ def vest_equilibrium_magnetics_detailed(
         source_time = np.asarray(source_time, dtype=float)
         source_data = np.asarray(source_data, dtype=float)
         voltage = vest_flux_loop_voltage(source_data, calibration, config=cfg)
+        channel_name = str(channel.get("name", f"flux_loop_{flux_loop_counter}"))
         processed_full = vest_flux_loop_flux_from_voltage(
             source_time,
             voltage,
             flux_loop_number=flux_loop_counter,
             config=cfg,
+            allow_zero_fallback=fallback,
+            shot=shot,
+            channel=channel_name,
         )
         # anti-alias: the flux is the integral of an already low-passed loop
         # voltage, so it is band-limited on the source grid.
@@ -924,6 +1054,7 @@ def vest_equilibrium_magnetics_signals(
     indices: Sequence[int] | None = None,
     config: VestMagneticsProcessingConfig | None = None,
     allow_missing: bool = False,
+    allow_zero_fallback: bool | None = None,
 ) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
     """The processed magnetics of one VEST shot, as the three-array legacy view.
 
@@ -941,6 +1072,9 @@ def vest_equilibrium_magnetics_signals(
         Processing settings [-].
     allow_missing : bool, optional
         Whether an unavailable channel is tolerated [-].
+    allow_zero_fallback : bool, optional
+        Whether to fall back to zero baseline with a warning when a channel encounters
+        a degenerate baseline window. Defaults to config.allow_zero_fallback [-].
 
     Returns
     -------
@@ -974,6 +1108,7 @@ def vest_equilibrium_magnetics_signals(
         indices=indices,
         config=config,
         allow_missing=allow_missing,
+        allow_zero_fallback=allow_zero_fallback,
     )
     return result.time, result.flux_loops, result.probes
 
