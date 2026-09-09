@@ -644,7 +644,6 @@
         pf_current_max: 500.0
         min_duration: 0.005
         tf_dynamic_range_min: 0.02
-        max_relative_noise: 0.5
         smoothing_samples: 25       # 1 ms: Ip/PF quiet must be sustained
       quality:
         # Set from the verified 2022-04-23 alignment shots, whose rigid-array

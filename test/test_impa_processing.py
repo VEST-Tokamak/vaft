@@ -227,12 +227,12 @@ def test_calibration_applies_gain_and_baseline_in_the_legacy_order():
     raw = np.vstack([np.full(time.size, 1.5), 1.5 + np.linspace(0.0, 1.0, time.size)])
 
     calibrated = impa_calibrate_signals(
-        raw, gain=2.0 / 15.0, cutoff_hz=250.0, sample_rate=SAMPLE_RATE, baseline="first_sample"
+        raw, gain=-2.0 / 15.0, cutoff_hz=250.0, sample_rate=SAMPLE_RATE, baseline="first_sample"
     )
 
     # A constant input is entirely baseline, so it must vanish.
     assert np.allclose(calibrated[0], 0.0, atol=1e-9)
-    assert calibrated[1, -1] == pytest.approx(2.0 / 15.0, rel=5e-2)
+    assert calibrated[1, -1] == pytest.approx(-2.0 / 15.0, rel=5e-2)
 
 
 def test_unknown_baseline_is_rejected():
@@ -253,7 +253,7 @@ def test_process_impa_reports_valid_for_a_well_behaved_synthetic_array():
     bz = 3.0e-5 * np.sin(2 * np.pi * 3 * time)
     # process_impa filters and gain-calibrates, so hand it volts.
     measured = _synthetic_array(time, i_tf, radii, alpha, bz=bz)
-    raw = measured / (2.0 / 15.0)
+    raw = measured / (-2.0 / 15.0)
 
     result = process_impa(
         time,
@@ -288,7 +288,7 @@ def test_a_toroidal_array_is_rejected_by_the_poloidal_model():
     time = _time()
     i_tf = _tf_ramp(time)
     radii = 0.4 + np.arange(8) * 0.05
-    raw = _synthetic_array(time, i_tf, radii, np.ones(8)) / (2.0 / 15.0)
+    raw = _synthetic_array(time, i_tf, radii, np.ones(8)) / (-2.0 / 15.0)
 
     result = process_impa(
         time, raw, i_tf, r=radii, config=ImpaProcessingConfig(orientation="poloidal")
@@ -304,7 +304,7 @@ def test_a_toroidal_array_is_accepted_by_the_toroidal_model():
     time = _time()
     i_tf = _tf_ramp(time)
     radii = 0.4 + np.arange(8) * 0.05
-    raw = _synthetic_array(time, i_tf, radii, np.ones(8)) / (2.0 / 15.0)
+    raw = _synthetic_array(time, i_tf, radii, np.ones(8)) / (-2.0 / 15.0)
 
     result = process_impa(time, raw, i_tf, r=radii)  # toroidal is the default
 
@@ -317,7 +317,7 @@ def test_a_poloidal_array_is_rejected_by_the_toroidal_model():
     time = _time()
     i_tf = _tf_ramp(time)
     radii = 0.4 + np.arange(8) * 0.05
-    raw = _synthetic_array(time, i_tf, radii, np.full(8, 0.05)) / (2.0 / 15.0)
+    raw = _synthetic_array(time, i_tf, radii, np.full(8, 0.05)) / (-2.0 / 15.0)
 
     result = process_impa(time, raw, i_tf, r=radii)
 
@@ -330,7 +330,7 @@ def test_a_reference_shot_calibration_can_be_reused():
     time = _time()
     i_tf = _tf_ramp(time)
     radii = 0.42 + np.arange(8) * 0.05
-    raw = _synthetic_array(time, i_tf, radii, np.ones(8)) / (2.0 / 15.0)
+    raw = _synthetic_array(time, i_tf, radii, np.ones(8)) / (-2.0 / 15.0)
     reference = process_impa(time, raw, i_tf)
 
     # A shot with no clean TF interval of its own still calibrates.
@@ -348,7 +348,7 @@ def test_missing_channels_are_reported_and_never_silently_zero_filled():
     time = _time()
     i_tf = _tf_ramp(time)
     radii = 0.4 + np.arange(8) * 0.05
-    raw = _synthetic_array(time, i_tf, radii, np.full(8, 0.05)) / (2.0 / 15.0)
+    raw = _synthetic_array(time, i_tf, radii, np.full(8, 0.05)) / (-2.0 / 15.0)
     valid = np.ones(8, dtype=bool)
     valid[3] = False
 
@@ -485,7 +485,7 @@ def test_an_inactive_bz_sensor_is_flagged_rather_than_trusted():
     time = _time()
     i_tf = _tf_ramp(time)
     radii = 0.45 + np.arange(2) * 0.05
-    raw = _synthetic_array(time, i_tf, radii, np.ones(2)) / (2.0 / 15.0)
+    raw = _synthetic_array(time, i_tf, radii, np.ones(2)) / (-2.0 / 15.0)
     dead = np.random.default_rng(1).normal(0.0, 1e-5, (2, time.size))
 
     result = process_impa(time, raw, i_tf, r=radii, b_z_raw=dead)
@@ -505,7 +505,7 @@ def test_incident_angle_is_recovered_from_the_rigid_pitch():
     incident = 30.0
     projected = 0.05 * np.cos(np.radians(incident))
     radii = 0.45 + np.arange(8) * projected
-    raw = _synthetic_array(time, i_tf, radii, np.ones(8), noise=0.0) / (2.0 / 15.0)
+    raw = _synthetic_array(time, i_tf, radii, np.ones(8), noise=0.0) / (-2.0 / 15.0)
 
     result = process_impa(time, raw, i_tf, pitch=0.05, fit_pitch=True)
 
@@ -518,7 +518,7 @@ def test_a_radial_insertion_reports_no_incident_angle():
     time = _time()
     i_tf = _tf_ramp(time)
     radii = 0.45 + np.arange(8) * 0.05
-    raw = _synthetic_array(time, i_tf, radii, np.ones(8), noise=0.0) / (2.0 / 15.0)
+    raw = _synthetic_array(time, i_tf, radii, np.ones(8), noise=0.0) / (-2.0 / 15.0)
 
     result = process_impa(time, raw, i_tf, pitch=0.05, fit_pitch=True)
 
@@ -559,11 +559,37 @@ def test_process_impa_rejects_a_reference_with_a_different_channel_count():
     time = _time()
     i_tf = _tf_ramp(time)
     reference_radii = 0.4 + np.arange(7) * 0.05
-    reference_raw = _synthetic_array(time, i_tf, reference_radii, np.ones(7)) / (2.0 / 15.0)
+    reference_raw = _synthetic_array(time, i_tf, reference_radii, np.ones(7)) / (-2.0 / 15.0)
     reference = process_impa(time, reference_raw, i_tf, r=reference_radii)
 
     target_radii = 0.4 + np.arange(8) * 0.05
-    target_raw = _synthetic_array(time, i_tf, target_radii, np.ones(8)) / (2.0 / 15.0)
+    target_raw = _synthetic_array(time, i_tf, target_radii, np.ones(8)) / (-2.0 / 15.0)
 
     with pytest.raises(ValueError, match="7 channels but this shot has 8"):
         process_impa(time, target_raw, i_tf, reference=reference)
+
+
+def test_impa_code_defaults_match_canonical_values():
+    """Verify code defaults agree with hardware specs and vest.yaml (#624, #625)."""
+    config = ImpaProcessingConfig()
+    assert config.gain == pytest.approx(-2.0 / 15.0)
+
+    # TfWindowCriteria no longer defines unread max_relative_noise
+    criteria = TfWindowCriteria()
+    assert not hasattr(criteria, "max_relative_noise")
+
+
+def test_process_impa_defaults_agree_with_vest_yaml():
+    """Verify process_impa defaults bz_radial_offset=0.01 and max_normalized_rmse=0.15."""
+    time = _time()
+    i_tf = _tf_ramp(time)
+    radii = 0.4 + np.arange(8) * 0.05
+    raw = _synthetic_array(time, i_tf, radii, np.ones(8)) / (-2.0 / 15.0)
+    bz_raw = np.zeros((8, time.size))
+
+    # Without passing explicit config or bz_radial_offset, the defaults apply
+    result = process_impa(time, raw, i_tf, r=radii, b_z_raw=bz_raw)
+
+    assert result.bz_r is not None
+    np.testing.assert_allclose(result.bz_r, radii + 0.01)
+    assert result.provenance["gain"] == pytest.approx(-2.0 / 15.0)

@@ -166,7 +166,7 @@ class ImpaProcessingConfig:
     #: as a separate stage because the two legacy routines genuinely differ.
     position_lowpass_hz: float = 2_500.0
     #: Hall calibration factor [T/V] in the canonical VAFT sign convention.
-    gain: float = 2.0 / 15.0
+    gain: float = -2.0 / 15.0
     baseline: str = "first_sample"
     baseline_samples: int = 2_500
     tf_turns: int = 24
@@ -210,8 +210,6 @@ class TfWindowCriteria:
     #: Relative TF spread ``(max-min)/max|I_TF|`` below which the interval is
     #: usable but reported as poorly conditioned for a slope fit.
     tf_dynamic_range_min: float = 0.02
-    #: Per-channel sample-to-sample noise relative to the in-window spread.
-    max_relative_noise: float = 0.5
     #: Median-filter width applied to |Ip| and the PF peak before thresholding.
     #: "No plasma" is a sustained condition, so isolated noise spikes must not
     #: fragment an otherwise clean interval.  25 samples is 1 ms at 25 kHz.
@@ -616,7 +614,6 @@ def fit_impa_geometry(
     i_tf = np.asarray(i_tf, dtype=float)
     idx = np.asarray(window.indices, dtype=int)
     n_channels = b_measured.shape[0]
-    offsets = np.arange(n_channels) * float(pitch)
     observed = b_measured[:, idx]
     lower, upper = float(min(r_bounds)), float(max(r_bounds))
 
@@ -627,7 +624,6 @@ def fit_impa_geometry(
     if not usable.any():
         raise ValueError("No IMPA channel has finite samples inside the calibration window")
     fitted = observed[usable]
-    fitted_offsets = offsets[usable]
 
     # The array is rigid, so the physical spacing is fixed; a probe inserted at
     # an angle to the midplane projects it onto a shorter radial step, and the
@@ -975,7 +971,7 @@ def grade_impa_quality(
     coupling: ImpaCouplingFit | None,
     *,
     expected_channels: int = IMPA_CHANNEL_COUNT,
-    max_normalized_rmse: float = 0.1,
+    max_normalized_rmse: float = 0.15,
     r_bounds: Sequence[float] = (0.1, 0.9),
     pitch_tolerance: float = 0.01,
     window_reasons: Sequence[str] = (),
@@ -1177,7 +1173,7 @@ def process_impa(
     pitch: float = 0.05,
     r_bounds: Sequence[float] = (0.1, 0.9),
     r0_initial: float = 0.4,
-    max_normalized_rmse: float = 0.1,
+    max_normalized_rmse: float = 0.15,
     reference: ImpaResult | None = None,
     b_z_raw: np.ndarray | None = None,
     bz_channel_valid: np.ndarray | None = None,
@@ -1185,7 +1181,7 @@ def process_impa(
     max_crosstalk_angle_deg: float = 30.0,
     min_crosstalk_r_squared: float = 0.8,
     bz_gain: float | None = None,
-    bz_radial_offset: float = 0.0,
+    bz_radial_offset: float = 0.01,
 ) -> ImpaResult:
     """Run the full single-shot IMPA pipeline.
 
