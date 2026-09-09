@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4010ef6</code>. What is described
+  <code>d9649b9</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -261,7 +261,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/equilibrium.py"><code class="language-plaintext highlighter-rouge">vaft/process/equilibrium.py</code></a>:
-41 public functions.  The category overview and notation come from the module
+42 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("equilibrium.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -320,6 +320,8 @@ outward normal is only outward then.</p>
   <li><a href="#calculate_average_boundary_poloidal_field"><code>calculate_average_boundary_poloidal_field</code></a> &mdash; Contour-length average of the poloidal field around a closed boundary.
 </li>
   <li><a href="#calculate_diamagnetism"><code>calculate_diamagnetism</code></a> &mdash; Diamagnetism from its volume-integral definition.
+</li>
+  <li><a href="#calculate_q_profile_from_psi"><code>calculate_q_profile_from_psi</code></a> &mdash; Calculate the safety factor profile q(psi) from a 2D poloidal flux map and F(psi).
 </li>
   <li><a href="#calculate_reconstructed_diamagnetic_flux"><code>calculate_reconstructed_diamagnetic_flux</code></a> &mdash; Diamagnetic flux reconstructed from the equilibrium’s own toroidal field.
 </li>
@@ -582,6 +584,107 @@ than a profile.</p>
 
 <ol class="formula-references">
   <li>The volume-integral definition of diamagnetism; the surface-integral form is <code class="language-plaintext highlighter-rouge">calculate_reconstructed_diamagnetic_flux</code>, and the two should agree for a consistent equilibrium.
+</li>
+</ol>
+
+<h3 id="calculate_q_profile_from_psi"><code class="language-plaintext highlighter-rouge">calculate_q_profile_from_psi</code></h3>
+
+<p class="formula-signature"><code>calculate_q_profile_from_psi(psi_grid, R, Z, f_profile, psi_axis=None, psi_boundary=None, levels_norm=None, *, axis_rz=None, boundary=None, cocos=11, sigma_ip=1, sigma_b0=1, min_points=16, return_details=False)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Calculate the safety factor profile q(psi) from a 2D poloidal flux map and F(psi).</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_grid</code></td><td>array_like</td><td>Wb or Wb/rad</td><td><p>Poloidal flux on the grid, shaped <code class="language-plaintext highlighter-rouge">(len(R), len(Z))</code>, in the convention <code class="language-plaintext highlighter-rouge">cocos</code> specifies.</p>
+</td></tr>
+  <tr><td><code>R</code></td><td>array_like</td><td>m</td><td><p>Major-radius grid axis.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td>array_like</td><td>m</td><td><p>Height grid axis.</p>
+</td></tr>
+  <tr><td><code>f_profile</code></td><td>float, array_like, callable, or tuple of array_like</td><td>T m</td><td><p>Poloidal current function <code class="language-plaintext highlighter-rouge">F = R B_phi</code>, as a scalar float, 1D array, callable <code class="language-plaintext highlighter-rouge">f(psi)</code>, or tuple <code class="language-plaintext highlighter-rouge">(psi_f, f_values)</code>.</p>
+</td></tr>
+  <tr><td><code>psi_axis</code></td><td>float, optional</td><td>Wb or Wb/rad</td><td><p>Poloidal flux at the magnetic axis, in the convention <code class="language-plaintext highlighter-rouge">cocos</code> specifies.</p>
+</td></tr>
+  <tr><td><code>psi_boundary</code></td><td>float, optional</td><td>Wb or Wb/rad</td><td><p>Poloidal flux at the plasma boundary/LCFS, in the convention <code class="language-plaintext highlighter-rouge">cocos</code> specifies.</p>
+</td></tr>
+  <tr><td><code>levels_norm</code></td><td>sequence of float, optional</td><td>-</td><td><p>Normalized flux levels to evaluate on, 0 on axis and 1 at the boundary.</p>
+</td></tr>
+  <tr><td><code>axis_rz</code></td><td>tuple of float, optional</td><td>m</td><td><p>Magnetic axis coordinates <code class="language-plaintext highlighter-rouge">(R_axis, Z_axis)</code>.</p>
+</td></tr>
+  <tr><td><code>boundary</code></td><td>tuple of np.ndarray, optional</td><td>m</td><td><p>Boundary outline <code class="language-plaintext highlighter-rouge">(R_bdry, Z_bdry)</code>.</p>
+</td></tr>
+  <tr><td><code>cocos</code></td><td>int, optional</td><td>-</td><td><p>COCOS coordinate convention index (1-8, 11-18) describing the input conventions and target sign for <code class="language-plaintext highlighter-rouge">q</code>.</p>
+</td></tr>
+  <tr><td><code>sigma_ip</code></td><td>int, optional</td><td>-</td><td><p>Sign of plasma current (+1 or -1) in the equilibrium coordinate system.</p>
+</td></tr>
+  <tr><td><code>sigma_b0</code></td><td>int, optional</td><td>-</td><td><p>Sign of toroidal field (+1 or -1) in the equilibrium coordinate system.</p>
+</td></tr>
+  <tr><td><code>min_points</code></td><td>int, optional</td><td>-</td><td><p>Fewest contour vertices a level needs before it is treated as resolved.</p>
+</td></tr>
+  <tr><td><code>return_details</code></td><td>bool, optional</td><td>-</td><td><p>Whether to return diagnostic parameters and the full flux-surface quantities alongside the safety factor array.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray or dict of str to Any</td><td>-</td><td><p>If <code class="language-plaintext highlighter-rouge">return_details</code> is False, returns a 1D array of safety factor values <code class="language-plaintext highlighter-rouge">q</code> on <code class="language-plaintext highlighter-rouge">levels_norm</code> [-]. If <code class="language-plaintext highlighter-rouge">return_details</code> is True, returns a dict with keys <code class="language-plaintext highlighter-rouge">"q"</code>, <code class="language-plaintext highlighter-rouge">"levels_norm"</code>, <code class="language-plaintext highlighter-rouge">"psi_levels"</code>, <code class="language-plaintext highlighter-rouge">"q_axis"</code>, <code class="language-plaintext highlighter-rouge">"q_95"</code>, and <code class="language-plaintext highlighter-rouge">"surfaces"</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The flux map is not shaped to <code class="language-plaintext highlighter-rouge">(len(R), len(Z))</code>, <code class="language-plaintext highlighter-rouge">psi_axis</code> or
+    <code class="language-plaintext highlighter-rouge">psi_boundary</code> cannot be determined or are equal, or <code class="language-plaintext highlighter-rouge">f_profile</code>
+    format is invalid.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Validate grid dimensions and identify the flux conversion factor from <code class="language-plaintext highlighter-rouge">cocos</code>.</li>
+  <li>Normalize or deduce <code class="language-plaintext highlighter-rouge">psi_axis</code> and <code class="language-plaintext highlighter-rouge">psi_boundary</code>, converting to Wb/rad if necessary.</li>
+  <li>Evaluate and interpolate <code class="language-plaintext highlighter-rouge">f_profile</code> onto the requested <code class="language-plaintext highlighter-rouge">levels_norm</code>.</li>
+  <li>Call <code class="language-plaintext highlighter-rouge">flux_surface_quantities</code> to trace contours and compute geometric averages.</li>
+  <li>Apply on-axis quadratic extrapolation in radius (linear in normalized flux $\psi_N$) to
+resolve $q_0$.</li>
+  <li>Attach the COCOS sign factor $\sigma_q$ and package the output.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">levels_norm</code> defaults to 65 points from 0 to 1 (numerical convenience).
+<code class="language-plaintext highlighter-rouge">cocos=11</code> matches the IMAS standard data dictionary convention.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>In Sauter and Medvedev (2013), the safety factor is defined as:
+\(q(\psi) = \frac{F(\psi)}{2\pi} \oint \frac{dl_p}{R^2 B_p}
+          = \frac{F(\psi)}{2\pi} (2\pi)^{e_{B_p}} \oint \frac{dl_p}{R |\nabla\psi|}\)
+Expressed in terms of the geometric flux-surface averages computed by
+<code class="language-plaintext highlighter-rouge">flux_surface_quantities</code> (which operates in Wb/rad, $e_{B_p} = 0$, $dV/d\psi$ per radian):
+\(q(\psi) = \sigma \cdot \frac{F(\psi)}{(2\pi)^2} \left\langle \frac{1}{R^2} \right\rangle \frac{dV}{d\psi}\)
+where $\langle 1/R^2 \rangle$ is <code class="language-plaintext highlighter-rouge">gm1</code>, $dV/d\psi$ is <code class="language-plaintext highlighter-rouge">dvolume_dpsi</code>, and $\sigma$ is
+the orientation sign from Sauter Eq. 23: $\sigma_q = \sigma_{Ip} \sigma_{B0} \sigma_{\rho\theta\varphi}$.
+When <code class="language-plaintext highlighter-rouge">cocos</code> indicates full Weber storage ($e_{B_p} = 1$, COCOS 11-18), the input fluxes are
+divided by $2\pi$ to enter the contour tracing engine, and the resulting profile carries the
+exact COCOS-mandated sign.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent. Works for any 2D tokamak poloidal flux map.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293, Eq. (17) and Table I for COCOS relations and safety factor definitions.
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.4.
 </li>
 </ol>
 
@@ -1697,7 +1800,7 @@ convention, tracked in #604.</p>
 </td></tr>
   <tr><td><code>levels_norm</code></td><td>sequence of float</td><td>-</td><td><p>Normalized flux levels to evaluate on, 0 on axis and 1 at the boundary</p>
 </td></tr>
-  <tr><td><code>f_profile</code></td><td>array_like, optional</td><td>T m</td><td><p>Poloidal current function <code class="language-plaintext highlighter-rouge">F = R B_phi</code> on the same levels. Required for the mean square field.</p>
+  <tr><td><code>f_profile</code></td><td>array_like, optional</td><td>T m</td><td><p>Poloidal current function <code class="language-plaintext highlighter-rouge">F = R B_phi</code> on the same levels. Required for the mean square field and safety factor.</p>
 </td></tr>
   <tr><td><code>axis_rz</code></td><td>tuple of float, optional</td><td>m</td><td><p>Magnetic axis position, used to pick the confined segment when a level traces several.</p>
 </td></tr>
@@ -1711,7 +1814,7 @@ convention, tracked in #604.</p>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>dict of str to np.ndarray</td><td>-</td><td><p>One array per name in <code class="language-plaintext highlighter-rouge">FLUX_SURFACE_QUANTITIES</code>, each as long as <em>levels_norm</em>. Volume in cubic metres, areas in square metres, radii and <code class="language-plaintext highlighter-rouge">length_pol</code> in metres, <code class="language-plaintext highlighter-rouge">bp_dl</code> in tesla-metre, <code class="language-plaintext highlighter-rouge">gm1</code> in inverse square metres, <code class="language-plaintext highlighter-rouge">gm5</code> in tesla squared, <code class="language-plaintext highlighter-rouge">gm8</code> in metres, <code class="language-plaintext highlighter-rouge">gm9</code> in inverse metres, the shape parameters dimensionless, and the two derivatives per radian.</p>
+  <tr><td></td><td>dict of str to np.ndarray</td><td>-</td><td><p>One array per name in <code class="language-plaintext highlighter-rouge">FLUX_SURFACE_QUANTITIES</code>, each as long as <em>levels_norm</em>. Volume in cubic metres, areas in square metres, radii and <code class="language-plaintext highlighter-rouge">length_pol</code> in metres, <code class="language-plaintext highlighter-rouge">bp_dl</code> in tesla-metre, <code class="language-plaintext highlighter-rouge">gm1</code> in inverse square metres, <code class="language-plaintext highlighter-rouge">gm5</code> in tesla squared, <code class="language-plaintext highlighter-rouge">gm8</code> in metres, <code class="language-plaintext highlighter-rouge">gm9</code> in inverse metres, the shape parameters and safety factor <code class="language-plaintext highlighter-rouge">q</code> dimensionless, and the two derivatives per radian.</p>
 </td></tr>
   </tbody>
 </table>
@@ -3465,7 +3568,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#as_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">as_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_average_boundary_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_average_boundary_poloidal_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_diamagnetism" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_diamagnetism</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_reconstructed_diamagnetic_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_reconstructed_diamagnetic_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_equilibrium_requirements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_equilibrium_requirements</a></li><li class="page-toc-item page-toc-level-3"><a href="#computed_diamagnetism_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">computed_diamagnetism_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#contour_shape_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">contour_shape_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#convert_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">convert_cocos</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_boundary_representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_boundary_representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_global_descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_global_descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_radial_coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_radial_coordinates</a></li><li class="page-toc-item page-toc-level-3"><a href="#efit_virial_volume_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">efit_virial_volume_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_field_on_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_field_on_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_miller" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_miller</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_solovev" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_solovev</a></li><li class="page-toc-item page-toc-level-3"><a href="#extract_flux_surface_contours" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">extract_flux_surface_contours</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_sequence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_sequence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_surface" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_surface</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_surface_quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_surface_quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#fractional_cell_weights_from_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_cell_weights_from_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_equilibrium_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_equilibrium_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#parallel_current_from_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">parallel_current_from_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_at_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_at_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#prepare_boundary_for_shafranov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">prepare_boundary_for_shafranov</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_radial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_radial</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rho" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rho</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rz" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rz</a></li><li class="page-toc-item page-toc-level-3"><a href="#r_at_z_extremum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">r_at_z_extremum</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#scale_boundary_conformal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">scale_boundary_conformal</a></li><li class="page-toc-item page-toc-level-3"><a href="#shafranov_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shafranov_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_to_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_to_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_solovev_constraints" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_solovev_constraints</a></li><li class="page-toc-item page-toc-level-3"><a href="#trace_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trace_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_conformal_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_conformal_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_thin_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_thin_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_average</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#as_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">as_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_average_boundary_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_average_boundary_poloidal_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_diamagnetism" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_diamagnetism</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_q_profile_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_q_profile_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_reconstructed_diamagnetic_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_reconstructed_diamagnetic_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_equilibrium_requirements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_equilibrium_requirements</a></li><li class="page-toc-item page-toc-level-3"><a href="#computed_diamagnetism_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">computed_diamagnetism_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#contour_shape_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">contour_shape_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#convert_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">convert_cocos</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_boundary_representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_boundary_representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_global_descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_global_descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_radial_coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_radial_coordinates</a></li><li class="page-toc-item page-toc-level-3"><a href="#efit_virial_volume_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">efit_virial_volume_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_field_on_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_field_on_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_miller" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_miller</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_solovev" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_solovev</a></li><li class="page-toc-item page-toc-level-3"><a href="#extract_flux_surface_contours" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">extract_flux_surface_contours</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_sequence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_sequence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_surface" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_surface</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_surface_quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_surface_quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#fractional_cell_weights_from_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_cell_weights_from_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_equilibrium_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_equilibrium_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#parallel_current_from_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">parallel_current_from_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_at_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_at_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#prepare_boundary_for_shafranov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">prepare_boundary_for_shafranov</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_radial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_radial</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rho" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rho</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rz" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rz</a></li><li class="page-toc-item page-toc-level-3"><a href="#r_at_z_extremum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">r_at_z_extremum</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#scale_boundary_conformal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">scale_boundary_conformal</a></li><li class="page-toc-item page-toc-level-3"><a href="#shafranov_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shafranov_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_to_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_to_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_solovev_constraints" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_solovev_constraints</a></li><li class="page-toc-item page-toc-level-3"><a href="#trace_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trace_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_conformal_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_conformal_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_thin_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_thin_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_average</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -3583,7 +3686,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-09 02:33:14 +0000"
+        "time": "2026-09-09 02:43:42 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
