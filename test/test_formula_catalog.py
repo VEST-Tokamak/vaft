@@ -57,7 +57,7 @@ def test_the_catalog_counts_the_known_public_surface():
     assert counts == {
         "constants": 0,
         "utils": 10,
-        "equilibrium": 106,
+        "equilibrium": 107,
         "stability": 19,
         "green": 16,
         "atomic": 3,
