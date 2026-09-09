@@ -332,6 +332,86 @@ def rho_tor_from_phi(phi: Union[np.ndarray, float],
 # Safety Factor Calculations
 # ------------------------------------------------------------------
 
+def q_from_flux_surface_averages(
+    gm1: Union[np.ndarray, float],
+    dvolume_dpsi: Union[np.ndarray, float],
+    f: Union[np.ndarray, float],
+    *,
+    cocos: int | None = None,
+    psi_per_radian: bool | None = None,
+    sigma_ip: int = 1,
+    sigma_b0: int = 1,
+) -> Union[np.ndarray, float]:
+    r"""Safety factor $q$ from flux-surface geometric averages and poloidal current.
+
+    $$q(\psi) = \sigma \cdot \frac{F(\psi)}{2\pi} \oint \frac{dl_p}{R^2 B_p}
+              = \sigma \cdot (2\pi)^{e_{B_p} - 2} \cdot F(\psi) \cdot \left\langle \frac{1}{R^2} \right\rangle \cdot \frac{dV}{d|\psi|}$$
+
+    Parameters
+    ----------
+    gm1 : float or np.ndarray
+        Geometric flux-surface average $\langle 1/R^2 \rangle$ [m^-2].
+    dvolume_dpsi : float or np.ndarray
+        Differential volume element $dV/d|\psi|$ [m^3/(Wb/rad) if $e_{B_p}=0$ or m^3/Wb if $e_{B_p}=1$].
+    f : float or np.ndarray
+        Poloidal current function $F = R B_\varphi$ on the flux surface [T m].
+    cocos : int or None, optional
+        COCOS coordinate convention index (1-8, 11-18) [-].
+    psi_per_radian : bool or None, optional
+        Storage family of the flux when ``cocos`` is None [bool].
+        ``False`` assumes full-weber flux ($e_{B_p} = 1$); ``True`` and ``None``
+        keep the per-radian assumption ($e_{B_p} = 0$).
+    sigma_ip : int, optional
+        Sign of plasma current (+1 or -1) in the equilibrium coordinate system [-].
+    sigma_b0 : int, optional
+        Sign of toroidal field (+1 or -1) in the equilibrium coordinate system [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Safety factor profile $q$ on the corresponding flux surfaces [-].
+
+    Convention
+    ----------
+    In Sauter and Medvedev (2013), $B_p = |\nabla\psi| / (R (2\pi)^{e_{B_p}})$.
+    The safety factor contour integral is:
+    $$q = \frac{F}{2\pi} \oint \frac{dl_p}{R^2 B_p} = (2\pi)^{e_{B_p}-1} \frac{F}{2\pi} \oint \frac{dl_p}{R |\nabla\psi|}$$
+    Since $dV/d\psi = 2\pi \oint \frac{R dl_p}{|\nabla\psi|}$ and
+    $\langle 1/R^2 \rangle = \frac{\oint dl_p / (R |\nabla\psi|)}{\oint R dl_p / |\nabla\psi|}$,
+    this gives:
+    $$q = \sigma \cdot (2\pi)^{e_{B_p}-2} \cdot |F| \cdot \langle 1/R^2 \rangle \cdot \frac{dV}{d|\psi|}$$
+    For $e_{B_p} = 0$ (COCOS 1-8, Wb/rad), $(2\pi)^{0-2} = 1/(4\pi^2)$.
+    For $e_{B_p} = 1$ (COCOS 11-18, full Wb), $(2\pi)^{1-2} = 1/(2\pi)$.
+    The sign $\sigma$ is determined by Sauter Eq. 23: $\sigma_q = \sigma_{Ip}\sigma_{B0}\sigma_{\rho\theta\varphi}$.
+
+    References
+    ----------
+    .. [1] O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293.
+    """
+    gm1_arr = np.asarray(gm1, dtype=float)
+    dv_arr = np.asarray(dvolume_dpsi, dtype=float)
+    f_arr = np.asarray(f, dtype=float)
+
+    if cocos is not None:
+        from vaft.data.cocos import cocos_spec
+
+        spec = cocos_spec(cocos)
+        exp_bp = spec.exp_bp
+        target_sign = spec.expected_sign("q", sigma_ip=sigma_ip, sigma_b0=sigma_b0)
+    else:
+        exp_bp = 0 if (psi_per_radian is None or psi_per_radian) else 1
+        target_sign = 1 if (sigma_ip * sigma_b0) >= 0 else -1
+
+    factor = (2.0 * np.pi) ** (exp_bp - 2)
+    q_mag = factor * np.abs(f_arr) * np.abs(gm1_arr) * np.abs(dv_arr)
+    q = target_sign * q_mag
+    if np.ndim(gm1) == 0 and np.ndim(dvolume_dpsi) == 0 and np.ndim(f) == 0:
+        return float(q)
+    return q
+
+
+
+
 def q_from_phi(psi: np.ndarray,
                phi: np.ndarray) -> np.ndarray:
     r"""Safety factor $q$ as the flux derivative $d\Phi/d\psi$.

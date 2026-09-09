@@ -106,6 +106,7 @@ PIPELINE = frozenset({
     "sxr_band_signals",
     "sxr_electron_temperature",
     # equilibrium (#419)
+    "calculate_q_profile_from_psi",
     "calculate_reconstructed_diamagnetic_flux",
     "convert_cocos",
     "derive_global_descriptors",
@@ -262,6 +263,7 @@ CONVENTION_SENSITIVE = frozenset({
     "as_equilibrium",
     "calculate_average_boundary_poloidal_field",
     "calculate_diamagnetism",
+    "calculate_q_profile_from_psi",
     "calculate_reconstructed_diamagnetic_flux",
     "check_equilibrium_requirements",
     "computed_diamagnetism_from_phi",
