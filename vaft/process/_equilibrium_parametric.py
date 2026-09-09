@@ -1369,15 +1369,12 @@ def _solovev_components(model: SolovevEquilibrium, r: Any, z: Any) -> tuple[np.n
     return psi, dpsi_dr, dpsi_dz, basis
 
 
-_DEFAULT_COCOS = object()
-
-
 def evaluate_solovev(
     model: SolovevEquilibrium,
     r: Any,
     z: Any,
     *,
-    cocos: int | None = _DEFAULT_COCOS,  # type: ignore[assignment]
+    cocos: int | None = VAFT_INTERNAL_COCOS,
     convention: int | None = None,
 ) -> Mapping[str, np.ndarray]:
     """Evaluate an analytic Solov'ev equilibrium on a set of points.
@@ -1449,11 +1446,9 @@ def evaluate_solovev(
        standard polynomial construction for that solution.
     """
     if convention is not None:
-        if cocos is not _DEFAULT_COCOS and cocos != convention:
+        if cocos != VAFT_INTERNAL_COCOS and cocos != convention:
             raise ValueError("both cocos and convention were provided with conflicting values")
         resolved_cocos = convention
-    elif cocos is _DEFAULT_COCOS:
-        resolved_cocos = VAFT_INTERNAL_COCOS
     else:
         resolved_cocos = cocos
 

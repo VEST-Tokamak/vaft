@@ -347,7 +347,7 @@ def test_evaluate_solovev_orientation_families_and_convention_alias():
 
     # Conflicting arguments
     with pytest.raises(ValueError, match="conflicting"):
-        evaluate_solovev(model, rm, zm, cocos=11, convention=12)
+        evaluate_solovev(model, rm, zm, cocos=2, convention=12)
 
     # Invalid COCOS indices
     for invalid in (0, 9, 10, 19, -1):
