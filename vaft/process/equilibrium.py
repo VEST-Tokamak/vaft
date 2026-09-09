@@ -92,11 +92,13 @@ __all__ = [
     "MIN_FLUX_SURFACE_POINTS",
     "calculate_average_boundary_poloidal_field",
     "calculate_diamagnetism",
+    "calculate_q_profile_from_psi",
     "calculate_reconstructed_diamagnetic_flux",
     "computed_diamagnetism_from_phi",
     "contour_shape_parameters",
     "efit_virial_volume_integrals",
     "extract_flux_surface_contours",
+    "q_from_flux_surface_averages",
     "ParallelCurrentResult",
     "flux_surface_quantities",
     "fractional_cell_weights_from_boundary",
@@ -2430,6 +2432,7 @@ FLUX_SURFACE_QUANTITIES = (
     "b_field_min",
     "bp_dl",
     "length_pol",
+    "q",
 )
 
 
@@ -2465,7 +2468,7 @@ def flux_surface_quantities(
         [-].
     f_profile : array_like, optional
         Poloidal current function ``F = R B_phi`` on the same levels. Required for
-        the mean square field [T m].
+        the mean square field and safety factor [T m].
     axis_rz : tuple of float, optional
         Magnetic axis position, used to pick the confined segment when a level
         traces several [m].
@@ -2482,8 +2485,8 @@ def flux_surface_quantities(
         *levels_norm*. Volume in cubic metres, areas in square metres, radii and
         ``length_pol`` in metres, ``bp_dl`` in tesla-metre, ``gm1`` in inverse
         square metres, ``gm5`` in tesla squared, ``gm8`` in metres, ``gm9`` in
-        inverse metres, the shape parameters dimensionless, and the two
-        derivatives per radian [-].
+        inverse metres, the shape parameters and safety factor ``q`` dimensionless,
+        and the two derivatives per radian [-].
 
     Convention
     ----------
@@ -2650,6 +2653,30 @@ def flux_surface_quantities(
             out["gm5"][index] = float(np.sum(weight * b_mod**2) / total)
             out["b_field_max"][index] = float(np.max(b_mod))
             out["b_field_min"][index] = float(np.min(b_mod))
+            from vaft.formula.equilibrium import q_from_flux_surface_averages
+
+            out["q"][index] = float(
+                q_from_flux_surface_averages(
+                    out["gm1"][index], out["dvolume_dpsi"][index], f_values[index]
+                )
+            )
+
+    if f_values is not None:
+        # q is quadratic in radius r ~ sqrt(psi_N), making it smooth and linear in
+        # psi_N near the magnetic axis. Extrapolate q to axis level (psi_N = 0) in psi_N
+        # from the innermost resolved surfaces if level 0 is missing.
+        axis_mask = levels == 0.0
+        if axis_mask.any() and not np.isfinite(out["q"][axis_mask]).all():
+            finite_idx = np.where(np.isfinite(out["q"]))[0]
+            if len(finite_idx) >= 2:
+                sorted_finite = finite_idx[np.argsort(levels[finite_idx])]
+                i1, i2 = sorted_finite[0], sorted_finite[1]
+                p1, p2 = levels[i1], levels[i2]
+                q1, q2 = out["q"][i1], out["q"][i2]
+                if p2 != p1:
+                    out["q"][axis_mask] = q1 - (q2 - q1) / (p2 - p1) * p1
+            elif len(finite_idx) == 1:
+                out["q"][axis_mask] = out["q"][finite_idx[0]]
 
     # Gaps are filled against sqrt(psi_N), not psi_N: near the axis a flux
     # surface's linear size goes as sqrt(psi_N), so every quantity that vanishes
@@ -2670,6 +2697,225 @@ def flux_surface_quantities(
                 coordinate[missing], coordinate[good_sorted], values[good_sorted]
             )
     return out
+
+
+def calculate_q_profile_from_psi(
+    psi_grid: np.ndarray,
+    R: np.ndarray,
+    Z: np.ndarray,
+    f_profile: Any,
+    psi_axis: float | None = None,
+    psi_boundary: float | None = None,
+    levels_norm: Any = None,
+    *,
+    axis_rz: tuple[float, float] | None = None,
+    boundary: tuple[np.ndarray, np.ndarray] | None = None,
+    cocos: int = 11,
+    sigma_ip: int = 1,
+    sigma_b0: int = 1,
+    min_points: int = MIN_FLUX_SURFACE_POINTS,
+    return_details: bool = False,
+) -> np.ndarray | dict[str, Any]:
+    """Calculate the safety factor profile q(psi) from a 2D poloidal flux map and F(psi).
+
+    Parameters
+    ----------
+    psi_grid : array_like
+        Poloidal flux on the grid, shaped ``(len(R), len(Z))``, in the convention
+        ``cocos`` specifies [Wb or Wb/rad].
+    R : array_like
+        Major-radius grid axis [m].
+    Z : array_like
+        Height grid axis [m].
+    f_profile : float, array_like, callable, or tuple of array_like
+        Poloidal current function ``F = R B_phi``, as a scalar float, 1D array,
+        callable ``f(psi)``, or tuple ``(psi_f, f_values)`` [T m].
+    psi_axis : float, optional
+        Poloidal flux at the magnetic axis, in the convention ``cocos`` specifies [Wb or Wb/rad].
+    psi_boundary : float, optional
+        Poloidal flux at the plasma boundary/LCFS, in the convention ``cocos`` specifies [Wb or Wb/rad].
+    levels_norm : sequence of float, optional
+        Normalized flux levels to evaluate on, 0 on axis and 1 at the boundary [-].
+    axis_rz : tuple of float, optional
+        Magnetic axis coordinates ``(R_axis, Z_axis)`` [m].
+    boundary : tuple of np.ndarray, optional
+        Boundary outline ``(R_bdry, Z_bdry)`` [m].
+    cocos : int, optional
+        COCOS coordinate convention index (1-8, 11-18) describing the input
+        conventions and target sign for ``q`` [-].
+    sigma_ip : int, optional
+        Sign of plasma current (+1 or -1) in the equilibrium coordinate system [-].
+    sigma_b0 : int, optional
+        Sign of toroidal field (+1 or -1) in the equilibrium coordinate system [-].
+    min_points : int, optional
+        Fewest contour vertices a level needs before it is treated as resolved [-].
+    return_details : bool, optional
+        Whether to return diagnostic parameters and the full flux-surface
+        quantities alongside the safety factor array [-].
+
+    Returns
+    -------
+    np.ndarray or dict of str to Any
+        If ``return_details`` is False, returns a 1D array of safety factor values ``q``
+        on ``levels_norm`` [-].
+        If ``return_details`` is True, returns a dict with keys ``"q"``, ``"levels_norm"``,
+        ``"psi_levels"``, ``"q_axis"``, ``"q_95"``, and ``"surfaces"`` [-].
+
+    Raises
+    ------
+    ValueError
+        The flux map is not shaped to ``(len(R), len(Z))``, ``psi_axis`` or
+        ``psi_boundary`` cannot be determined or are equal, or ``f_profile``
+        format is invalid.
+
+    Convention
+    ----------
+    In Sauter and Medvedev (2013), the safety factor is defined as:
+    $$q(\\psi) = \\frac{F(\\psi)}{2\\pi} \\oint \\frac{dl_p}{R^2 B_p}
+              = \\frac{F(\\psi)}{2\\pi} (2\\pi)^{e_{B_p}} \\oint \\frac{dl_p}{R |\\nabla\\psi|}$$
+    Expressed in terms of the geometric flux-surface averages computed by
+    :func:`flux_surface_quantities` (which operates in Wb/rad, $e_{B_p} = 0$, $dV/d\\psi$ per radian):
+    $$q(\\psi) = \\sigma \\cdot \\frac{F(\\psi)}{(2\\pi)^2} \\left\\langle \\frac{1}{R^2} \\right\\rangle \\frac{dV}{d\\psi}$$
+    where $\\langle 1/R^2 \\rangle$ is ``gm1``, $dV/d\\psi$ is ``dvolume_dpsi``, and $\\sigma$ is
+    the orientation sign from Sauter Eq. 23: $\\sigma_q = \\sigma_{Ip} \\sigma_{B0} \\sigma_{\\rho\\theta\\varphi}$.
+    When ``cocos`` indicates full Weber storage ($e_{B_p} = 1$, COCOS 11-18), the input fluxes are
+    divided by $2\\pi$ to enter the contour tracing engine, and the resulting profile carries the
+    exact COCOS-mandated sign.
+
+    Processing steps
+    ----------------
+    1. Validate grid dimensions and identify the flux conversion factor from ``cocos``.
+    2. Normalize or deduce ``psi_axis`` and ``psi_boundary``, converting to Wb/rad if necessary.
+    3. Evaluate and interpolate ``f_profile`` onto the requested ``levels_norm``.
+    4. Call :func:`flux_surface_quantities` to trace contours and compute geometric averages.
+    5. Apply on-axis quadratic extrapolation in radius (linear in normalized flux $\\psi_N$) to
+       resolve $q_0$.
+    6. Attach the COCOS sign factor $\\sigma_q$ and package the output.
+
+    Defaults
+    --------
+    ``levels_norm`` defaults to 65 points from 0 to 1 (numerical convenience).
+    ``cocos=11`` matches the IMAS standard data dictionary convention.
+
+    Applicability
+    -------------
+    Machine-independent. Works for any 2D tokamak poloidal flux map.
+
+    Provenance
+    ----------
+    .. [1] O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293,
+           Eq. (17) and Table I for COCOS relations and safety factor definitions.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 3.4.
+    """
+    from vaft.data.cocos import cocos_spec
+
+    R_arr = np.asarray(R, dtype=float).reshape(-1)
+    Z_arr = np.asarray(Z, dtype=float).reshape(-1)
+    psi_arr = np.asarray(psi_grid, dtype=float)
+    if psi_arr.shape != (R_arr.size, Z_arr.size):
+        raise ValueError(
+            f"psi_grid shape {psi_arr.shape} must equal (len(R), len(Z)) = {(R_arr.size, Z_arr.size)}."
+        )
+
+    if levels_norm is None:
+        levels = np.linspace(0.0, 1.0, 65)
+    else:
+        levels = np.asarray(levels_norm, dtype=float).reshape(-1)
+
+    spline = RectBivariateSpline(R_arr, Z_arr, psi_arr)
+
+    if psi_axis is None:
+        if axis_rz is not None:
+            psi_axis = float(spline.ev(axis_rz[0], axis_rz[1]))
+        else:
+            edge_val = float(
+                np.mean(
+                    [
+                        psi_arr[0, :],
+                        psi_arr[-1, :],
+                        psi_arr[:, 0],
+                        psi_arr[:, -1],
+                    ]
+                )
+            )
+            diff = psi_arr - edge_val
+            idx_max = np.unravel_index(np.argmax(np.abs(diff)), psi_arr.shape)
+            psi_axis = float(psi_arr[idx_max])
+
+    if psi_boundary is None:
+        if boundary is not None:
+            r_b = np.asarray(boundary[0], dtype=float).reshape(-1)
+            z_b = np.asarray(boundary[1], dtype=float).reshape(-1)
+            psi_boundary = float(np.mean(spline.ev(r_b, z_b)))
+        else:
+            raise ValueError(
+                "psi_boundary could not be deduced; provide psi_boundary or boundary outline."
+            )
+
+    if psi_axis == psi_boundary:
+        raise ValueError("psi_axis and psi_boundary must differ to define normalized flux.")
+
+    psi_levels = psi_axis + levels * (psi_boundary - psi_axis)
+
+    if callable(f_profile):
+        f_values = np.asarray([float(f_profile(p)) for p in psi_levels], dtype=float)
+    elif isinstance(f_profile, tuple) and len(f_profile) == 2:
+        psi_f = np.asarray(f_profile[0], dtype=float).reshape(-1)
+        f_raw = np.asarray(f_profile[1], dtype=float).reshape(-1)
+        if psi_f.size != f_raw.size:
+            raise ValueError("f_profile tuple (psi, f) must have equal-length arrays.")
+        order = np.argsort(psi_f)
+        f_values = np.interp(psi_levels, psi_f[order], f_raw[order])
+    elif np.ndim(f_profile) == 0:
+        f_values = np.full(levels.size, float(f_profile))
+    else:
+        f_arr = np.asarray(f_profile, dtype=float).reshape(-1)
+        if f_arr.size != levels.size:
+            raise ValueError(
+                f"f_profile length ({f_arr.size}) must match levels_norm length ({levels.size})."
+            )
+        f_values = f_arr
+
+    spec = cocos_spec(cocos)
+    scale_to_wb_per_rad = (1.0 / (2.0 * np.pi)) if spec.exp_bp == 1 else 1.0
+
+    psi_grid_rad = psi_arr * scale_to_wb_per_rad
+    psi_axis_rad = float(psi_axis) * scale_to_wb_per_rad
+    psi_boundary_rad = float(psi_boundary) * scale_to_wb_per_rad
+
+    surfaces = flux_surface_quantities(
+        psi_grid=psi_grid_rad,
+        R=R_arr,
+        Z=Z_arr,
+        psi_axis=psi_axis_rad,
+        psi_boundary=psi_boundary_rad,
+        levels_norm=levels,
+        f_profile=f_values,
+        axis_rz=axis_rz,
+        boundary=boundary,
+        min_points=min_points,
+    )
+
+    target_sign = spec.expected_sign("q", sigma_ip=sigma_ip, sigma_b0=sigma_b0)
+    q_final = target_sign * np.abs(surfaces["q"])
+    surfaces["q"] = q_final
+
+    if return_details:
+        q_axis = (
+            float(q_final[levels == 0.0][0])
+            if (levels == 0.0).any()
+            else float(np.interp(0.0, levels, q_final))
+        )
+        q_95 = float(np.interp(0.95, levels, q_final))
+        return {
+            "q": q_final,
+            "levels_norm": levels,
+            "psi_levels": psi_levels,
+            "q_axis": q_axis,
+            "q_95": q_95,
+            "surfaces": surfaces,
+        }
+    return q_final
 
 
 def equilibrium_field_on_grid(
@@ -3097,6 +3343,9 @@ try:  # pragma: no branch - normal package import takes this path
     from ._equilibrium_parametric import *  # noqa: E402,F401,F403
 except ImportError:  # direct ``spec_from_file_location`` loading
     from vaft.process._equilibrium_parametric import *  # noqa: E402,F401,F403
+
+from vaft.formula.equilibrium import q_from_flux_surface_averages  # noqa: E402,F401
+
 
 @dataclass(frozen=True)
 class ParallelCurrentResult:
