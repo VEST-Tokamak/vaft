@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f9ab35e</code>. What is described
+  <code>4010ef6</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -488,7 +488,7 @@ the residual compares two different quantities.</p>
 
 <h3 id="sxr_band_signals"><code class="language-plaintext highlighter-rouge">sxr_band_signals</code></h3>
 
-<p class="formula-signature"><code>sxr_band_signals(time, data, *, baseline_start, bands, fs, order=2, time_range=None, channels=None, dead_channels=())</code></p>
+<p class="formula-signature"><code>sxr_band_signals(time, data, *, baseline_start, bands, fs, order=2, time_range=None, channels=None, dead_channels=(), zero_phase=True)</code></p>
 
 <p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
@@ -514,6 +514,8 @@ the residual compares two different quantities.</p>
   <tr><td><code>channels</code></td><td>sequence of int, optional</td><td>-</td><td><p>Row indices to process; all rows when omitted.</p>
 </td></tr>
   <tr><td><code>dead_channels</code></td><td>sequence of int, optional</td><td>-</td><td><p>Rows whose band output is forced to zero.</p>
+</td></tr>
+  <tr><td><code>zero_phase</code></td><td>bool, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> for zero-phase forward-backward filtering via <code class="language-plaintext highlighter-rouge">scipy.signal.filtfilt</code>, preserving temporal alignment; <code class="language-plaintext highlighter-rouge">False</code> for causal filtering introducing filter group delay.</p>
 </td></tr>
   </tbody>
 </table>
@@ -546,12 +548,10 @@ the residual compares two different quantities.</p>
 
 <p><strong>Convention.</strong></p>
 
-<p><strong>The band-pass here is zero phase</strong>, inheriting
-<code class="language-plaintext highlighter-rouge">vaft.process.signal_processing.butterworth_bandpass</code>’s default, so no
-feature moves in time. That is the opposite of the low pass used elsewhere in
-this module, and it matters because the phase read off this output by
-<code class="language-plaintext highlighter-rouge">hilbert_instantaneous_phase</code> feeds a toroidal mode number. The
-inconsistency between the two conventions is tracked in #626.</p>
+<p><strong>The band-pass is zero phase by default</strong> (<code class="language-plaintext highlighter-rouge">zero_phase=True</code>), so no
+feature moves in time. That matters because the phase read off this output by
+<code class="language-plaintext highlighter-rouge">hilbert_instantaneous_phase</code> feeds a toroidal mode number. Pass
+<code class="language-plaintext highlighter-rouge">zero_phase=False</code> if causal filtering is explicitly required.</p>
 
 <p>A dead channel’s band output is zeroed but its raw trace is kept, so it stays
 visible in a raw map instead of disappearing.</p>
@@ -565,7 +565,12 @@ visible in a raw map instead of disappearing.</p>
 <p>Vacuum-reference correction is not applied; run
 <code class="language-plaintext highlighter-rouge">sxr_subtract_vacuum_reference</code> first when it is wanted. Band edges are
 passed straight to the filter, so a band reaching the Nyquist frequency raises
-from SciPy rather than being clipped.</p>
+from SciPy rather than being clipped. Filtering is applied directly to the
+windowed segment (preserving legacy viewer parity); under <code class="language-plaintext highlighter-rouge">zero_phase=True</code>,
+boundary transients occur at both edges of <code class="language-plaintext highlighter-rouge">time_range</code> extending over the
+filter settling time. Windows shorter than the filter padding length
+(<code class="language-plaintext highlighter-rouge">3 * (2 * order + 1)</code> samples, 15 for order 2) raise from SciPy under
+<code class="language-plaintext highlighter-rouge">zero_phase=True</code>.</p>
 
 <p><strong>Provenance.</strong></p>
 
@@ -705,7 +710,7 @@ by that library.</p>
 
 <h3 id="sxr_electron_temperature"><code class="language-plaintext highlighter-rouge">sxr_electron_temperature</code></h3>
 
-<p class="formula-signature"><code>sxr_electron_temperature(time, data, pairs, *, calibration, baseline_start, fs, lowpass_cutoff=50000.0, al_gain=1.07, al_threshold=0.1, detrend_window=400, order=2, time_range=None)</code></p>
+<p class="formula-signature"><code>sxr_electron_temperature(time, data, pairs, *, calibration, baseline_start, fs, lowpass_cutoff=50000.0, al_gain=1.07, al_threshold=0.1, detrend_window=400, order=2, zero_phase=True, time_range=None)</code></p>
 
 <p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
@@ -735,6 +740,8 @@ by that library.</p>
   <tr><td><code>detrend_window</code></td><td>int, optional</td><td>-</td><td><p>Width of the centred rolling trend, in samples.</p>
 </td></tr>
   <tr><td><code>order</code></td><td>int, optional</td><td>-</td><td><p>Butterworth order.</p>
+</td></tr>
+  <tr><td><code>zero_phase</code></td><td>bool, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> for zero-phase forward-backward filtering via <code class="language-plaintext highlighter-rouge">scipy.signal.filtfilt</code>, preserving temporal alignment; <code class="language-plaintext highlighter-rouge">False</code> for causal filtering introducing filter group delay.</p>
 </td></tr>
   <tr><td><code>time_range</code></td><td>sequence of float, optional</td><td>s</td><td><p>Analysis window as <code class="language-plaintext highlighter-rouge">(t_min, t_max)</code>.</p>
 </td></tr>
@@ -770,12 +777,11 @@ validated VEST viewer. <code class="language-plaintext highlighter-rouge">order 
 
 <p><strong>Convention.</strong></p>
 
-<p><strong>The low pass here is causal</strong>, inheriting
-<code class="language-plaintext highlighter-rouge">vaft.process.signal_processing.butterworth_lowpass</code>’s default, so the
-temperature is delayed by the filter’s group delay. That is the opposite
-convention from <code class="language-plaintext highlighter-rouge">sxr_band_signals</code>, which is zero phase. Both channels
-of a pair are delayed identically so the ratio is unaffected, but a time read
-off this result is shifted. Tracked in #626.</p>
+<p><strong>The low pass is zero phase by default</strong> (<code class="language-plaintext highlighter-rouge">zero_phase=True</code>), matching
+the convention of <code class="language-plaintext highlighter-rouge">sxr_band_signals</code> and preserving exact temporal
+alignment with other diagnostics and fast MHD events. Pass
+<code class="language-plaintext highlighter-rouge">zero_phase=False</code> to reproduce legacy causal filtering behavior
+with filter group delay.</p>
 
 <p>The relative fluctuation is a percentage of the rolling trend, and the trend
 is centred, so it uses samples on both sides.</p>
@@ -800,7 +806,7 @@ is not applied here.</p>
 
 <h3 id="sxr_subtract_vacuum_reference"><code class="language-plaintext highlighter-rouge">sxr_subtract_vacuum_reference</code></h3>
 
-<p class="formula-signature"><code>sxr_subtract_vacuum_reference(data, reference_data, *, cutoff, fs, order=2)</code></p>
+<p class="formula-signature"><code>sxr_subtract_vacuum_reference(data, reference_data, *, cutoff, fs, order=2, zero_phase=True)</code></p>
 
 <p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
@@ -822,6 +828,8 @@ supplied.</p>
   <tr><td><code>fs</code></td><td>float</td><td>Hz</td><td><p>Sample rate.</p>
 </td></tr>
   <tr><td><code>order</code></td><td>int, optional</td><td>-</td><td><p>Butterworth order.</p>
+</td></tr>
+  <tr><td><code>zero_phase</code></td><td>bool, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> for zero-phase forward-backward filtering via <code class="language-plaintext highlighter-rouge">scipy.signal.filtfilt</code>, preserving temporal alignment; <code class="language-plaintext highlighter-rouge">False</code> for causal filtering introducing filter group delay.</p>
 </td></tr>
   </tbody>
 </table>
@@ -850,11 +858,9 @@ conditioning.</p>
 shot, so low-passing that record and subtracting it channel-wise removes the
 common drive while leaving plasma fluctuations untouched.</p>
 
-<p><strong>The low pass here is causal.</strong> It inherits
-<code class="language-plaintext highlighter-rouge">vaft.process.signal_processing.butterworth_lowpass</code>’s default, which
-delays every feature by the filter’s group delay, so the reference is shifted
-relative to the plasma shot it is subtracted from and the cancellation is
-imperfect by that delay. Tracked in #626.</p>
+<p><strong>The low pass is zero phase by default</strong> (<code class="language-plaintext highlighter-rouge">zero_phase=True</code>), preserving
+exact temporal alignment with the un-delayed plasma shot. Pass
+<code class="language-plaintext highlighter-rouge">zero_phase=False</code> to reproduce legacy causal filtering behavior.</p>
 
 <p>Both inputs should already be baseline-corrected.</p>
 
@@ -866,7 +872,11 @@ imperfect by that delay. Tracked in #626.</p>
 
 <p>Assumes the vacuum shot reproduces the plasma shot’s coil programme. Records
 are truncated to the shorter of the two rather than aligned in time, so two
-records with different start triggers are subtracted misaligned.</p>
+records with different start triggers are subtracted misaligned. The reference
+is truncated to length <code class="language-plaintext highlighter-rouge">n</code> before filtering, so both leading and trailing
+edges are subject to filter boundary transients. Inputs shorter than the
+filter padding length (<code class="language-plaintext highlighter-rouge">3 * (order + 1)</code> samples for low-pass) raise from
+SciPy under <code class="language-plaintext highlighter-rouge">zero_phase=True</code>.</p>
 
 <p><strong>Provenance.</strong></p>
 
@@ -1163,7 +1173,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-08 11:19:53 +0000"
+        "time": "2026-09-09 02:33:14 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

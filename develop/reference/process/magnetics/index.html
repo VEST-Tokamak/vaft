@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f9ab35e</code>. What is described
+  <code>4010ef6</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -313,9 +313,17 @@ difference is deliberate and is preserved rather than harmonized.</p>
 which is the one place in the module where a convention is decided by the
 signal rather than declared.</p>
 
-<p><strong>The two mode-number entry points disagree on the sign of n</strong>, one carrying a
-minus that the other does not; see #638.  Compare results from them only after
-reading that issue.</p>
+<p><strong>Toroidal mode numbers adhere to standard right-handed cylindrical coordinates.</strong>
+Coordinates (R, phi, Z) are oriented such that phi increases counter-clockwise
+when viewed from above. A positive toroidal mode number (n &gt; 0) denotes a
+perturbation propagating in the positive phi direction (co-current / toroidal
+direction). Across toroidally separated sensors, the signal phase varies as
+theta(phi) = theta_0 - n * phi (negative phase slope d(theta)/d(phi) = -n). For
+two coils separated by toroidal angle Delta_phi = phase_geometry &gt; 0, the
+cross-spectral phase of the downstream coil relative to the upstream coil is
+Delta_theta = -n * Delta_phi, so the mode number is n = -Delta_theta / Delta_phi.
+Both <code class="language-plaintext highlighter-rouge">toroidal_mode_analysis</code> and <code class="language-plaintext highlighter-rouge">toroidal_phase_fit_at_time</code>
+share this convention.</p>
 
 <h2 id="functions">Functions</h2>
 
@@ -882,7 +890,7 @@ the record is quiet either side of the baseline window.</p>
 </td></tr>
   <tr><td><code>sample_rate</code></td><td>float, optional</td><td>Hz</td><td><p>Sample rate.</p>
 </td></tr>
-  <tr><td><code>phase_geometry</code></td><td>float, optional</td><td>rad</td><td><p>Toroidal separation of the two coils.</p>
+  <tr><td><code>phase_geometry</code></td><td>float, optional</td><td>rad</td><td><p>Toroidal angle of the second coil minus the first coil, phi_b - phi_a.</p>
 </td></tr>
   <tr><td><code>peak_threshold</code></td><td>float, optional</td><td>-</td><td><p>Fraction of the maximum a peak must reach to be reported.</p>
 </td></tr>
@@ -907,7 +915,7 @@ the record is quiet either side of the baseline window.</p>
   <li>Estimate the cross-spectral density and the coherence of the pair.</li>
   <li>Keep frequencies whose coherence exceeds the significance level.</li>
   <li>Find the peaks among them above the threshold.</li>
-  <li>Divide each peak’s phase by the toroidal separation to get its mode number.</li>
+  <li>Divide the negative of each peak’s phase by the toroidal separation to get its mode number.</li>
 </ol>
 
 <p><strong>Defaults.</strong></p>
@@ -918,10 +926,14 @@ threshold is hard-coded with no recorded derivation.</p>
 
 <p><strong>Convention.</strong></p>
 
-<p><strong>The mode number is the phase over the separation, with no minus sign.</strong>
-<code class="language-plaintext highlighter-rouge">toroidal_phase_fit_at_time</code> fits a model that carries one, so <strong>the two
-entry points report opposite signs for the same physical mode</strong>; tracked in
-#638. Compare a result from one against the other only after reading it.</p>
+<p><strong>The mode number carries a minus sign</strong>: <code class="language-plaintext highlighter-rouge">n_raw = -phase / phase_geometry</code>.
+Under standard right-handed cylindrical coordinates (R, phi, Z) with phi
+counter-clockwise from above, a mode propagating in the co-current (+phi)
+direction has phase decreasing with increasing phi (theta(phi) = theta_0 -
+n * phi, so d(theta)/d(phi) = -n). A sensor at Delta_phi &gt; 0 lags the
+reference sensor by Delta_theta = -n * Delta_phi, so n = -Delta_theta /
+Delta_phi. This agrees with the model fitted by
+<code class="language-plaintext highlighter-rouge">toroidal_phase_fit_at_time</code>.</p>
 
 <p>The coherence threshold is the 95 percent significance level for a
 magnitude-squared coherence averaged over the given number of sensors, so it
@@ -1005,9 +1017,10 @@ derivation.</p>
 <p><strong>Convention.</strong></p>
 
 <p><strong>The model carries a minus sign</strong>: the fitted phase decreases with increasing
-toroidal angle for a positive mode number. <code class="language-plaintext highlighter-rouge">toroidal_mode_analysis</code> uses
-the opposite sense, so <strong>the two report opposite signs for the same physical
-mode</strong>; tracked in #638.</p>
+toroidal angle for a positive mode number (<code class="language-plaintext highlighter-rouge">fitted = intercept - n * toroidal_angle</code>).
+Under standard right-handed cylindrical coordinates (R, phi, Z), this
+corresponds to a perturbation propagating in the positive phi (co-current)
+direction, in agreement with <code class="language-plaintext highlighter-rouge">toroidal_mode_analysis</code>.</p>
 
 <p>Phases are wrapped to a single turn and the intercept is a circular mean, so
 the fit is insensitive to where the branch cut falls, which a plain average
@@ -1033,7 +1046,7 @@ returns the best-scoring one without reporting that.</p>
 
 <h3 id="vest_b_field_pol_probe_legacy"><code class="language-plaintext highlighter-rouge">vest_b_field_pol_probe_legacy</code></h3>
 
-<p class="formula-signature"><code>vest_b_field_pol_probe_legacy(time, raw, calibration, *, shot, config=None)</code></p>
+<p class="formula-signature"><code>vest_b_field_pol_probe_legacy(time, raw, calibration, *, shot, config=None, allow_zero_fallback=None, channel=None)</code></p>
 
 <p><strong>VEST-specific.</strong> <strong>Convention-sensitive.</strong> </p>
 
@@ -1051,6 +1064,10 @@ returns the best-scoring one without reporting that.</p>
   <tr><td><code>shot</code></td><td>int</td><td>-</td><td><p>Shot number, which selects the baseline era.</p>
 </td></tr>
   <tr><td><code>config</code></td><td>VestMagneticsProcessingConfig, optional</td><td>-</td><td><p>Processing settings.</p>
+</td></tr>
+  <tr><td><code>allow_zero_fallback</code></td><td>bool, optional</td><td>-</td><td><p>Whether to fall back to zero baseline with a warning when the baseline window is degenerate (fewer than 2 valid samples). Defaults to config.allow_zero_fallback.</p>
+</td></tr>
+  <tr><td><code>channel</code></td><td>str or int, optional</td><td>-</td><td><p>Channel identifier for diagnostic error reporting.</p>
 </td></tr>
   </tbody>
 </table>
@@ -1099,8 +1116,9 @@ and its shot eras.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>Assumes the leading samples precede the discharge. The silent baseline
-degeneracy of #639 applies here too.</p>
+<p>Assumes the leading samples precede the discharge. Raises <code class="language-plaintext highlighter-rouge">DegenerateBaselineWindowError</code>
+if fewer than two valid baseline samples are available (issue #639), unless
+<code class="language-plaintext highlighter-rouge">allow_zero_fallback=True</code> is opted into.</p>
 
 <p><strong>Provenance.</strong></p>
 
@@ -1111,7 +1129,7 @@ degeneracy of #639 applies here too.</p>
 
 <h3 id="vest_equilibrium_magnetics_detailed"><code class="language-plaintext highlighter-rouge">vest_equilibrium_magnetics_detailed</code></h3>
 
-<p class="formula-signature"><code>vest_equilibrium_magnetics_detailed(shot, channels, loader, *, indices=None, config=None, allow_missing=False)</code></p>
+<p class="formula-signature"><code>vest_equilibrium_magnetics_detailed(shot, channels, loader, *, indices=None, config=None, allow_missing=False, allow_zero_fallback=None)</code></p>
 
 <p><strong>VEST-specific.</strong> <strong>Convention-sensitive.</strong> </p>
 
@@ -1131,6 +1149,8 @@ degeneracy of #639 applies here too.</p>
   <tr><td><code>config</code></td><td>VestMagneticsProcessingConfig, optional</td><td>-</td><td><p>Processing settings.</p>
 </td></tr>
   <tr><td><code>allow_missing</code></td><td>bool, optional</td><td>-</td><td><p>Whether a channel the loader cannot supply is tolerated.</p>
+</td></tr>
+  <tr><td><code>allow_zero_fallback</code></td><td>bool, optional</td><td>-</td><td><p>Whether to fall back to zero baseline with a warning when a channel encounters a degenerate baseline window. Defaults to config.allow_zero_fallback.</p>
 </td></tr>
   </tbody>
 </table>
@@ -1171,8 +1191,9 @@ calibrations and its acquisition eras.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>Inherits every limitation of the per-channel chains, including the silent
-baseline degeneracy of #639. With missing channels tolerated, an empty entry
+<p>Inherits every limitation of the per-channel chains. Raises <code class="language-plaintext highlighter-rouge">DegenerateBaselineWindowError</code>
+if any channel has a degenerate baseline window (issue #639), unless
+<code class="language-plaintext highlighter-rouge">allow_zero_fallback=True</code> is opted into. With missing channels tolerated, an empty entry
 is indistinguishable from a genuinely zero record without checking its length.</p>
 
 <p><strong>Provenance.</strong></p>
@@ -1184,7 +1205,7 @@ is indistinguishable from a genuinely zero record without checking its length.</
 
 <h3 id="vest_equilibrium_magnetics_signals"><code class="language-plaintext highlighter-rouge">vest_equilibrium_magnetics_signals</code></h3>
 
-<p class="formula-signature"><code>vest_equilibrium_magnetics_signals(shot, channels, loader, *, indices=None, config=None, allow_missing=False)</code> &mdash; aliases <code>vest_md_signals</code></p>
+<p class="formula-signature"><code>vest_equilibrium_magnetics_signals(shot, channels, loader, *, indices=None, config=None, allow_missing=False, allow_zero_fallback=None)</code> &mdash; aliases <code>vest_md_signals</code></p>
 
 <p><strong>VEST-specific.</strong> <strong>Convention-sensitive.</strong> </p>
 
@@ -1204,6 +1225,8 @@ is indistinguishable from a genuinely zero record without checking its length.</
   <tr><td><code>config</code></td><td>VestMagneticsProcessingConfig, optional</td><td>-</td><td><p>Processing settings.</p>
 </td></tr>
   <tr><td><code>allow_missing</code></td><td>bool, optional</td><td>-</td><td><p>Whether an unavailable channel is tolerated.</p>
+</td></tr>
+  <tr><td><code>allow_zero_fallback</code></td><td>bool, optional</td><td>-</td><td><p>Whether to fall back to zero baseline with a warning when a channel encounters a degenerate baseline window. Defaults to config.allow_zero_fallback.</p>
 </td></tr>
   </tbody>
 </table>
@@ -1240,7 +1263,7 @@ native-rate voltages, which cannot then be recovered.</p>
 
 <h3 id="vest_flux_loop_flux_from_voltage"><code class="language-plaintext highlighter-rouge">vest_flux_loop_flux_from_voltage</code></h3>
 
-<p class="formula-signature"><code>vest_flux_loop_flux_from_voltage(time, voltage, *, flux_loop_number, config=None)</code></p>
+<p class="formula-signature"><code>vest_flux_loop_flux_from_voltage(time, voltage, *, flux_loop_number, config=None, allow_zero_fallback=None, shot=None, channel=None)</code></p>
 
 <p><strong>VEST-specific.</strong> <strong>Convention-sensitive.</strong> </p>
 
@@ -1256,6 +1279,12 @@ native-rate voltages, which cannot then be recovered.</p>
   <tr><td><code>flux_loop_number</code></td><td>int</td><td>-</td><td><p>Which loop, since some take their own baseline window.</p>
 </td></tr>
   <tr><td><code>config</code></td><td>VestMagneticsProcessingConfig, optional</td><td>-</td><td><p>Processing settings; the shipped defaults when omitted.</p>
+</td></tr>
+  <tr><td><code>allow_zero_fallback</code></td><td>bool, optional</td><td>-</td><td><p>Whether to fall back to zero baseline with a warning when the baseline window is degenerate (fewer than 2 valid samples). Defaults to config.allow_zero_fallback.</p>
+</td></tr>
+  <tr><td><code>shot</code></td><td>int, optional</td><td>-</td><td><p>Shot number for diagnostic error reporting.</p>
+</td></tr>
+  <tr><td><code>channel</code></td><td>str or int, optional</td><td>-</td><td><p>Channel identifier for diagnostic error reporting.</p>
 </td></tr>
   </tbody>
 </table>
@@ -1302,9 +1331,9 @@ exceptions, and its digitizer timebase.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p><strong>A baseline window that lands outside the record silently disables baseline
-removal</strong> rather than failing, leaving the integration’s offset in the result;
-tracked in #639. The per-loop exception is by loop number, so a rewiring that
+<p>Raises <code class="language-plaintext highlighter-rouge">DegenerateBaselineWindowError</code> when fewer than two valid baseline samples
+are available in the configured window (issue #639), unless <code class="language-plaintext highlighter-rouge">allow_zero_fallback=True</code>
+is explicitly specified. The per-loop exception is by loop number, so a rewiring that
 changes which loop is which invalidates it.</p>
 
 <p><strong>Provenance.</strong></p>
@@ -1318,7 +1347,7 @@ changes which loop is which invalidates it.</p>
 
 <h3 id="vest_flux_loop_legacy"><code class="language-plaintext highlighter-rouge">vest_flux_loop_legacy</code></h3>
 
-<p class="formula-signature"><code>vest_flux_loop_legacy(time, raw, calibration, *, flux_loop_number, config=None)</code></p>
+<p class="formula-signature"><code>vest_flux_loop_legacy(time, raw, calibration, *, flux_loop_number, config=None, allow_zero_fallback=None, shot=None, channel=None)</code></p>
 
 <p><strong>VEST-specific.</strong> <strong>Convention-sensitive.</strong> </p>
 
@@ -1336,6 +1365,12 @@ changes which loop is which invalidates it.</p>
   <tr><td><code>flux_loop_number</code></td><td>int</td><td>-</td><td><p>Which loop.</p>
 </td></tr>
   <tr><td><code>config</code></td><td>VestMagneticsProcessingConfig, optional</td><td>-</td><td><p>Processing settings.</p>
+</td></tr>
+  <tr><td><code>allow_zero_fallback</code></td><td>bool, optional</td><td>-</td><td><p>Whether to fall back to zero baseline with a warning when the baseline window is degenerate (fewer than 2 valid samples). Defaults to config.allow_zero_fallback.</p>
+</td></tr>
+  <tr><td><code>shot</code></td><td>int, optional</td><td>-</td><td><p>Shot number for diagnostic error reporting.</p>
+</td></tr>
+  <tr><td><code>channel</code></td><td>str or int, optional</td><td>-</td><td><p>Channel identifier for diagnostic error reporting.</p>
 </td></tr>
   </tbody>
 </table>
@@ -1368,7 +1403,8 @@ of the two functions it composes.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>Inherits both, including the silent baseline degeneracy of #639.</p>
+<p>Inherits both. Raises <code class="language-plaintext highlighter-rouge">DegenerateBaselineWindowError</code> on degenerate baseline
+windows (issue #639) unless <code class="language-plaintext highlighter-rouge">allow_zero_fallback=True</code>.</p>
 
 <p><strong>Provenance.</strong></p>
 
@@ -1719,7 +1755,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-08 11:19:53 +0000"
+        "time": "2026-09-09 02:33:14 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
