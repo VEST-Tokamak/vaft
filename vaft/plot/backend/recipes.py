@@ -3009,6 +3009,14 @@ def _build_vacuum_psi(
 ) -> Field2D:
     """Vacuum poloidal flux from the PF coils, via the OMAS null-field helper.
 
+    Stays on the polynomial-kernel path rather than the cached evaluator behind
+    ``vacuum_field``.  Measured on the packaged shot: this plot draws on the
+    equilibrium's own 129x129 grid, where the exact elliptic Green's functions
+    cost 18 s against 5.8 s and their cached response matrices would be 591 MB.
+    That trade pays for a slider and not for a single figure, which is what
+    this plot is; the two agree on psi to 0.0002% at the 95th percentile
+    either way.
+
     The Green's functions give full weber, whatever convention the stored
     equilibrium uses, so the map is labelled from ``"Wb"`` through the
     display policy (mWb by default; ``units=`` chooses, per-radian included).
@@ -3038,6 +3046,222 @@ def _build_vacuum_psi(
         overlays=tuple(_wall_layers(ods)),
         title=f"Vacuum psi at t = {float(time) * 1e3:.1f} ms",
     )
+
+
+@dataclass(frozen=True)
+class VacuumField:
+    """One quantity the vacuum map can draw, and how it is displayed.
+
+    ``canonical_unit`` is empty for the decay index, which reaches the display
+    policy through :data:`vaft.plot.display.DIMENSIONLESS_DISPLAY` instead.
+    ``upper`` is the percentile the default contour levels stop at.  Confined
+    to the limiter these fields are well behaved -- away from a null the map's
+    maximum sits within about 30% of its 99th percentile -- so stopping there
+    gives away little, and what falls outside saturates rather than vanishing.
+    The decay index is the exception: it diverges wherever B_Z crosses zero,
+    which happens inside the vessel, so it stops sooner.
+    """
+
+    name: str
+    label: str
+    canonical_unit: str
+    subject: str = "vacuum"
+    filled: bool = True
+    upper: float = 99.0
+    lower: float | None = None
+    levels: int = 24
+
+    @property
+    def extend(self) -> str:
+        """How the map saturates outside its levels -- see :class:`Field2D`."""
+        if not self.filled:
+            return "neither"
+        return "max" if self.lower is not None else "both"
+
+
+VACUUM_FIELDS: dict[str, VacuumField] = {
+    field.name: field
+    for field in (
+        VacuumField("psi", "Vacuum Poloidal Flux", "Wb", subject="equilibrium",
+                    filled=False, upper=100.0, levels=40),
+        VacuumField("b_poloidal", "Poloidal Field |B_p|", "T", lower=0.0),
+        # Signed and unbounded: it diverges wherever B_Z crosses zero, so the
+        # levels come from a percentile and the stable band is marked with its
+        # own contours rather than by the colour scale.
+        VacuumField("decay_index", "Field Decay Index n", "", upper=95.0),
+        VacuumField("breakdown", "Breakdown Figure E_t B_t / B_p", "V/m", lower=0.0),
+    )
+}
+
+#: What ``field=`` may name on the vacuum map.
+VACUUM_FIELD_NAMES = tuple(VACUUM_FIELDS)
+
+#: Where the decay index is passively stable for a rigid current ring.  Drawn
+#: as two grey contours beneath the filled map, so the band a startup has to
+#: sit inside is visible without reading the colourbar.
+DECAY_INDEX_STABLE_BAND = (0.0, 1.5)
+
+
+def _vacuum_map_time(ods: Any, time: float | None, time_index: int | None) -> float:
+    """The instant a vacuum map is drawn at: an index, a time, or the default."""
+    if time_index is not None:
+        base = _array(ods, "pf_active.time")
+        if base is None or len(base) == 0:
+            raise ValueError("pf_active.time is required to use time_index=")
+        index = int(time_index)
+        if not -len(base) <= index < len(base):
+            raise ValueError(
+                f"time_index={time_index} is outside the {len(base)} stored PF "
+                "samples"
+            )
+        return float(np.asarray(base, dtype=float)[index])
+    if time is not None:
+        return float(time)
+    return _vacuum_psi_time(ods)
+
+
+def _limiter_interior(ods: Any, r_axis: np.ndarray, z_axis: np.ndarray) -> np.ndarray | None:
+    """Which ``(R, Z)`` grid points lie inside the limiter, or ``None``.
+
+    A vacuum map's extremes are the coils and the vessel conductors it is
+    computed from: on VEST several hundred filaments sit inside the limiter's
+    bounding box, and a grid point landing on one reads that filament's own
+    singular field.  Not one of them lies inside the limiter outline itself,
+    so the plasma-facing region is exactly the part of the map that means
+    anything -- and once it is the only part drawn, the contour levels
+    describe the field a discharge would see instead of a handful of
+    conductors.
+    """
+    from matplotlib.path import Path as _Path
+
+    layers = _wall_layers(ods)
+    if not layers:
+        return None
+    mesh_r, mesh_z = np.meshgrid(r_axis, z_axis, indexing="ij")
+    points = np.column_stack([mesh_r.ravel(), mesh_z.ravel()])
+    inside = np.zeros(points.shape[0], dtype=bool)
+    for layer in layers:
+        outline = np.column_stack([np.asarray(layer.r, dtype=float),
+                                   np.asarray(layer.z, dtype=float)])
+        if outline.shape[0] >= 3:
+            inside |= _Path(outline).contains_points(points)
+    return inside.reshape(mesh_r.shape) if inside.any() else None
+
+
+def _vacuum_levels(values: np.ndarray, field: VacuumField) -> np.ndarray | int:
+    """Contour levels spanning what the map actually holds.
+
+    ``lower=0`` pins a magnitude's scale to zero, so a null reads as a null
+    rather than as the bottom of whatever range this instant happens to have.
+    """
+    finite = values[np.isfinite(values)]
+    if finite.size == 0:
+        return field.levels
+    high = float(np.percentile(finite, field.upper))
+    low = float(field.lower) if field.lower is not None else float(
+        np.percentile(finite, 100.0 - field.upper)
+    )
+    if not high > low:
+        return field.levels
+    return np.linspace(low, high, field.levels)
+
+
+def _build_vacuum_field(
+    ods: Any,
+    *,
+    field: str = "psi",
+    time: float | None = None,
+    time_index: int | None = None,
+    resolution: int = 65,
+    units: str | None = None,
+    **_: Any,
+) -> Field2D:
+    """One quantity of the vacuum field on the poloidal plane, at one instant.
+
+    Flux, poloidal field strength, the decay index and the breakdown figure of
+    merit are four readings of a single evaluation
+    (:func:`vaft.omas.process_wrapper.compute_vacuum_field_map`), so they
+    always describe the same field.  The grid's response to the coils and the
+    vessel is cached, which is what makes ``time_index=`` usable as a slider.
+    """
+    from vaft.formula.equilibrium import (
+        decay_index_from_bz,
+        poloidal_field_magnitude,
+        toroidal_electric_field,
+    )
+    from vaft.omas.process_wrapper import compute_vacuum_field_map
+
+    if field not in VACUUM_FIELDS:
+        raise ValueError(
+            f"unknown vacuum field {field!r}; expected one of "
+            f"{', '.join(VACUUM_FIELD_NAMES)}"
+        )
+    spec = VACUUM_FIELDS[field]
+    # Resolve the instant against the caller's whole ODS: the default is the
+    # breakdown onset, which is read from the magnetics the copy below drops.
+    instant = _vacuum_map_time(ods, time, time_index)
+    # The evaluator solves the vessel currents when they are absent; give it a
+    # private copy so the caller's ODS is left as it was found.
+    ods = _isolated_copy(ods, (*_NULL_FIELD_ROOTS, "tf"))
+    result = compute_vacuum_field_map(ods, time=instant, resolution=int(resolution))
+
+    r_axis, z_axis = result["r"], result["z"]
+    mesh_r = r_axis[:, None]
+    if field == "psi":
+        values = result["psi"]
+    elif field == "b_poloidal":
+        values = poloidal_field_magnitude(result["b_r"], result["b_z"])
+    elif field == "decay_index":
+        # Along R, which is axis 0 of an (R, Z) map.
+        values = decay_index_from_bz(r_axis, result["b_z"], axis=0)
+    else:
+        e_toroidal = toroidal_electric_field(mesh_r, result["dpsi_dt"])
+        b_toroidal = _vacuum_b_toroidal(ods, result["time"], mesh_r)
+        b_poloidal = poloidal_field_magnitude(result["b_r"], result["b_z"])
+        with np.errstate(divide="ignore", invalid="ignore"):
+            values = np.abs(e_toroidal) * np.abs(b_toroidal) / b_poloidal
+        values = np.where(np.isfinite(values), values, np.nan)
+
+    interior = _limiter_interior(ods, r_axis, z_axis)
+    if interior is not None:
+        # Masked here rather than through Field2D.region, so the stable-band
+        # contours are confined too: outside the vessel the decay index is the
+        # coils' own field and its zero crossings are not a stability boundary.
+        values = np.where(interior, values, np.nan)
+
+    display = resolve_display(
+        spec.canonical_unit, unit=units, subject=spec.subject,
+        quantity=field if not spec.canonical_unit else None, data=values,
+    )
+    scaled = values * display.scale
+    bracket = f" [{display.unit}]" if display.unit else ""
+    return Field2D(
+        # Field2D is laid out (len(z), len(r)); the evaluator answers (R, Z).
+        r=r_axis,
+        z=z_axis,
+        values=scaled.T,
+        value_label=f"{spec.label}{bracket}",
+        display=display,
+        filled=spec.filled,
+        contour_levels=_vacuum_levels(scaled.T, spec),
+        secondary_levels=DECAY_INDEX_STABLE_BAND if field == "decay_index" else None,
+        extend=spec.extend,
+        overlays=tuple(_wall_layers(ods)),
+        title=f"{spec.label} at t = {result['time'] * 1e3:.1f} ms (vacuum)",
+    )
+
+
+def _vacuum_b_toroidal(ods: Any, time: float, mesh_r: np.ndarray) -> np.ndarray:
+    """``B_phi = R_0 B_0 / R`` at ``time``, from the TF vacuum field product."""
+    product = _array(ods, "tf.b_field_tor_vacuum_r.data")
+    base = _array(ods, "tf.b_field_tor_vacuum_r.time")
+    if product is None or base is None or len(product) == 0:
+        raise ValueError(
+            "tf.b_field_tor_vacuum_r is required for field='breakdown'; without "
+            "the toroidal field there is no breakdown figure of merit"
+        )
+    index = int(np.argmin(np.abs(np.asarray(base, dtype=float) - float(time))))
+    return float(np.asarray(product, dtype=float)[index]) / mesh_r
 
 
 def _build_core_profile_field(
@@ -3222,6 +3446,11 @@ RECIPES["machine_geometry_topview"] = CallableRecipe(
 RECIPES["equilibrium_field_psi_vacuum"] = CallableRecipe(
     builder=_build_vacuum_psi,
     description="Vacuum flux map from the PF currents via vaft.omas.compute_null_ods.",
+)
+RECIPES["vacuum_field"] = CallableRecipe(
+    builder=_build_vacuum_field,
+    description="Flux, |B_p|, the decay index or the breakdown figure of merit "
+                "from one cached vacuum-field evaluation.",
 )
 RECIPES["electron_temperature_field"] = CallableRecipe(
     builder=lambda ods, **options: _build_core_profile_field(
@@ -5566,6 +5795,10 @@ def _style_psi_field(
 
 def field_options_for(name: str) -> tuple[str, ...] | None:
     """The ``field=`` vocabulary of plot ``name``, or ``None`` if it takes none."""
+    if name == "vacuum_field":
+        # Computed, not read from a stored 2-D array, so it is not a
+        # FieldRecipe -- but it selects among quantities the same way.
+        return VACUUM_FIELD_NAMES
     recipe = RECIPES.get(name)
     return tuple(recipe.fields) if isinstance(recipe, FieldRecipe) and recipe.fields else None
 

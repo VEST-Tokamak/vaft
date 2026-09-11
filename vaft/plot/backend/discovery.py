@@ -286,14 +286,19 @@ def _declare(record: PlotCapability) -> PlotCapability:
             "options": tuple(recipe.coordinates),
             "declared": tuple(recipe.coordinates),
         }
-    elif record.name in PSI_FIELD_CONVENTIONS:
+    elif record.name in PSI_FIELD_CONVENTIONS or record.name == "vacuum_field":
         # The psi maps take units= (issue #478); the default unit follows the
         # stored convention, which only an input can tell -- see _evaluate.
+        # The vacuum map is computed from the Green's functions, so its flux
+        # is full weber whatever the stored equilibrium declares, and it can
+        # say so without an input.
+        convention = PSI_FIELD_CONVENTIONS.get(record.name, "Wb")
         updates["display"] = {
-            "unit": None,
+            "unit": resolve_display(convention, subject="equilibrium").unit
+                    if convention else None,
             "units": allowed_units("magnetic_flux", "equilibrium"),
             "notation": "auto",
-            "convention": PSI_FIELD_CONVENTIONS[record.name],
+            "convention": convention,
         }
     if isinstance(recipe, LineRecipe):
         options = abscissa_options(recipe)
@@ -428,6 +433,8 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
                 updates["coordinates"] = _coordinates_block(record, recipe, ods)
         if _takes_time_slice(record.name):
             updates["slices"] = _slices_block(ods)
+        if record.name == "vacuum_field":
+            updates["times"] = _pf_samples_block(ods)
         if record.fields:
             updates["fields"] = _fields_block(record, ods)
         if record.name in PSI_FIELD_CONVENTIONS:
@@ -472,6 +479,8 @@ def _fields_block(record: PlotCapability, ods: Any) -> dict[str, Any]:
     from .recipes import _count, resolve_time_slice
 
     declared = tuple(record.fields.get("declared") or record.fields.get("options") or ())
+    if record.name == "vacuum_field":
+        return _vacuum_fields_block(record, ods, declared)
     if not _count(ods, "equilibrium.time_slice"):
         return {**record.fields, "options": ()}
     try:
@@ -483,6 +492,28 @@ def _fields_block(record: PlotCapability, ods: Any) -> dict[str, Any]:
         name for name in declared
         if all(_has(ods, f"{base}.{leaf}") for leaf in _FIELD_REQUIREMENTS.get(name, ()))
         or _has(ods, f"{base}.profiles_2d.0.{name}")
+    )
+    default = record.fields.get("default")
+    return {
+        "default": default if default in options else (options[0] if options else None),
+        "options": options,
+        "declared": declared,
+    }
+
+
+def _vacuum_fields_block(
+    record: PlotCapability, ods: Any, declared: tuple[str, ...]
+) -> dict[str, Any]:
+    """The vacuum quantities this input can draw.
+
+    The field itself needs only the PF programme, which the plot already
+    requires; the breakdown figure of merit additionally needs the toroidal
+    field, so an input without it is offered the other three rather than a
+    control that would raise.
+    """
+    options = tuple(
+        name for name in declared
+        if name != "breakdown" or _has(ods, "tf.b_field_tor_vacuum_r.data")
     )
     default = record.fields.get("default")
     return {
@@ -703,6 +734,35 @@ def _times_block(ods: Any, recipe: Any) -> dict[str, Any]:
         if axis is not None and axis.size:
             return {"start": float(axis.min()), "stop": float(axis.max()), "count": int(axis.size)}
     return {}
+
+
+def _pf_samples_block(ods: Any) -> dict[str, Any]:
+    """The PF time base a vacuum map steps along, as a dense indexed axis.
+
+    ``option`` names the keyword the index is passed as, which is what tells
+    the control layer to offer a slider rather than a list: an equilibrium has
+    a handful of stored slices to pick between, a PF programme has thousands of
+    samples.  ``selected`` is the sample the plot draws on its own, so opening
+    the controls does not move the figure.
+    """
+    from .recipes import _array, _vacuum_map_time
+
+    axis = _array(ods, "pf_active.time")
+    if axis is None or len(axis) < 2:
+        return {}
+    axis = np.asarray(axis, dtype=float)
+    try:
+        default = _vacuum_map_time(ods, None, None)
+        selected = int(np.argmin(np.abs(axis - float(default))))
+    except (ValueError, KeyError, IndexError):
+        selected = 0
+    return {
+        "start": float(axis[0]),
+        "stop": float(axis[-1]),
+        "count": int(axis.size),
+        "option": "time_index",
+        "selected": selected,
+    }
 
 
 def _validity_block(*, present: bool, flagged: int) -> dict[str, Any]:

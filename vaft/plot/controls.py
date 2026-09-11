@@ -42,6 +42,10 @@ def _plain(label: str) -> str:
 #: that is otherwise absent.
 NONE = "none"
 
+#: Flux maps with no plasma in them: there is no separatrix to normalise
+#: against and no magnetic axis to mark, so the psi styles do not apply.
+_NO_FLUX_STYLE = frozenset({"equilibrium_field_psi_vacuum", "vacuum_field"})
+
 
 @dataclass(frozen=True)
 class ControlSpec:
@@ -142,6 +146,18 @@ def controls_for(
 
 
 def _slice_controls(record: Any) -> list[ControlSpec]:
+    times: Mapping[str, Any] = getattr(record, "times", None) or {}
+    if times.get("option") == "time_index" and int(times.get("count", 0)) > 1:
+        # A dense time base is a slider, not a list: thousands of samples
+        # cannot be offered as radio buttons, and the reader wants to sweep
+        # them anyway.  The label carries the span, since the positions
+        # themselves are indices.
+        count = int(times["count"])
+        return [ControlSpec(
+            "time_index", "range",
+            f"Time sample ({float(times['start']) * 1e3:.0f}-{float(times['stop']) * 1e3:.0f} ms)",
+            int(times.get("selected") or 0), (0, count - 1, 1), group="slice",
+        )]
     slices: Mapping[str, Any] = getattr(record, "slices", None) or {}
     usable = tuple(int(i) for i in slices.get("usable", ()))
     if len(usable) < 2:
@@ -236,7 +252,10 @@ def _model_controls(record: Any) -> list[ControlSpec]:
         default = tuple(name for name in overlay_defaults_for(record.name) if name in overlays)
         controls.append(ControlSpec("overlay", "multi", "Overlays", default, overlays))
     display: Mapping[str, Any] = record.display or {}
-    if "convention" in display and record.model in ("Field2D", "Panels") and record.name != "equilibrium_field_psi_vacuum":
+    # The psi styles normalise against the separatrix and mark the axis; a
+    # vacuum map has neither, so it offers no flux-map style.
+    if ("convention" in display and record.model in ("Field2D", "Panels")
+            and record.name not in _NO_FLUX_STYLE):
         controls.append(ControlSpec(
             "style", "choice", "Flux map style", PSI_STYLES[0], tuple(PSI_STYLES),
             applies_to=flux_only,
