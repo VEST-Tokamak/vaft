@@ -94,9 +94,26 @@ class EFITInitializationConfig:
     attribute a change to the seed alone (issue #588 requires exactly that
     attribution).
 
-    ``ellipse_rzero`` separates them: when set it drives ``RELIP`` alone and
-    leaves ``RZERO``, ``RCENTR`` and ``BTOR`` at ``rzero``.  It defaults to
-    ``None``, meaning "follow ``rzero``", so the routine k-file is unchanged.
+    ``ellipse_rzero`` separates them: it drives ``RELIP`` alone and leaves
+    ``RZERO``, ``RCENTR`` and ``BTOR`` at ``rzero``.  Setting it to ``None``
+    restores the old coupling, meaning "follow ``rzero``".
+
+    It defaults to 0.32 m rather than to the 0.4 m reference radius.  0.4 m is
+    where the *vessel* is centred; 0.32 m is roughly where the plasma is, and
+    the reconstructions say so themselves -- over the #588 reference set their
+    current centroid has a median of 31.8 cm and their boundary centre
+    33.5 cm.  Seeding an ellipse at the vessel centre asks the solver to walk
+    the axis inboard on every slice before it can begin converging.
+
+    The sweep supports the region, not the digits.  Over 77 plasma slices from
+    three discharges, seeds at 0.30-0.36 m all produce more equilibria than
+    0.4 m; 0.32 m produces the most (39 against 31) and loses the fewest that
+    0.4 m reconstructs (2).  But the run is deterministic and the response is
+    not smooth -- 0.34 m falls back to 33 while 0.36 m recovers to 34 -- and
+    below 0.30 m the gain disappears entirely.  So what is established is a
+    band roughly 0.30-0.36 m wide with its best measured point at 0.32 m,
+    where the physical argument independently points.  Read no more precision
+    into the second digit than 77 slices can carry.
     """
 
     rzero: float = 0.4
@@ -104,9 +121,9 @@ class EFITInitializationConfig:
     minor_radius: float = 0.3
     elongation: float = 1.6
     current_threshold: float = 5_000.0
-    #: ``RELIP`` alone. ``None`` follows :attr:`rzero`, which is the routine
-    #: behaviour and keeps the emitted k-file byte-identical.
-    ellipse_rzero: float | None = None
+    #: ``RELIP`` alone, in metres. ``None`` restores the coupling to
+    #: :attr:`rzero`. See the class docstring for where 0.32 comes from.
+    ellipse_rzero: float | None = 0.32
 
     @property
     def seed_rzero(self) -> float:
