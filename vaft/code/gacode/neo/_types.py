@@ -93,6 +93,12 @@ class NEOConfig(GACODEConfig):
                 "NEO solves a flux surface, and neither the axis nor the "
                 "separatrix is one."
             )
+        # NEO's own limits (neo/src/neo_check.f90), refused here so that the
+        # message names the setting rather than arriving through out.neo.run.
+        if int(self.n_theta) % 2 == 0:
+            raise ValueError(f"n_theta must be odd for NEO; got {self.n_theta!r}")
+        if self.n_species is not None and int(self.n_species) > 6:
+            raise ValueError(f"NEO supports at most 6 species; got {self.n_species!r}")
         if self.n_species is not None and int(self.n_species) < 2:
             raise ValueError(
                 f"n_species counts electrons too, so it is at least 2; got "
@@ -105,8 +111,9 @@ class NEOResult(CodeResult):
     """A NEO run: its exit status, its files, and its native output.
 
     Subclasses :class:`vaft.code.base.CodeResult`, and follows NUBEAM in
-    requiring the native container for ``ok``: NEO can exit zero having written
-    nothing usable, so a zero status alone is not success.
+    requiring the native container for ``ok`` -- and goes further, requiring it
+    to report a completed solve. NEO exits zero after rejecting its input, so a
+    zero status alone is not success, and nor is the presence of output files.
     """
 
     outputs_native: Optional[Any] = None
@@ -114,4 +121,8 @@ class NEOResult(CodeResult):
 
     @property
     def ok(self) -> bool:
-        return self.returncode == 0 and self.outputs_native is not None
+        return (
+            self.returncode == 0
+            and self.outputs_native is not None
+            and self.outputs_native.solved
+        )

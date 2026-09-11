@@ -244,7 +244,7 @@ def test_a_run_captures_its_log_and_returns_the_status(tmp_path, installation):
 # --------------------------------------------------------------------------
 
 
-def _profile(n_ion: int = 1) -> GACODEProfile:
+def _profile(n_ion: int = 1, *, kappa: bool = True) -> GACODEProfile:
     rho = np.linspace(0.0, 1.0, 8)
     ones = np.ones((n_ion, rho.size))
     return GACODEProfile(
@@ -264,6 +264,7 @@ def _profile(n_ion: int = 1) -> GACODEProfile:
         rcentr=0.4,
         bcentr=0.15,
         current=0.1,
+        kappa=np.full(rho.size, 1.5) if kappa else None,
     )
 
 
@@ -491,3 +492,96 @@ def test_a_table_of_the_wrong_width_is_refused_not_strided_over(tmp_path, filena
     (case / filename).write_text(" ".join(values[:-1]) + "\n")
     with pytest.raises(ValueError, match=message):
         collect_neo_outputs(case)
+
+
+# --------------------------------------------------------------------------
+# Review findings: a run is not successful because files exist
+# --------------------------------------------------------------------------
+
+
+def _copy_run(tmp_path, source=REG18) -> Path:
+    import shutil
+
+    case = tmp_path / "case"
+    shutil.copytree(source, case)
+    return case
+
+
+def test_an_error_logged_to_out_neo_run_is_not_a_solve(tmp_path):
+    """NEO exits zero after rejecting its input; the log is the only signal."""
+    case = _copy_run(tmp_path)
+    (case / "out.neo.run").write_text(" ERROR: (NEO) n_theta must be odd\n")
+    native = collect_neo_outputs(case)
+    assert native.errors == ("ERROR: (NEO) n_theta must be odd",)
+    assert not native.solved
+
+
+def test_a_non_finite_current_is_not_a_solve(tmp_path):
+    """A degenerate geometry produces NaN with nothing logged, and must not pass."""
+    case = _copy_run(tmp_path)
+    values = (case / "out.neo.transport").read_text().split()
+    values[2] = "NaN"
+    (case / "out.neo.transport").write_text(" ".join(values) + "\n")
+    native = collect_neo_outputs(case)
+    assert native.errors == ()
+    assert not native.solved
+
+
+def test_a_stored_good_run_counts_as_solved():
+    assert collect_neo_outputs(REG18).solved
+    assert collect_neo_outputs(VEST).solved
+
+
+def test_a_rerun_does_not_inherit_the_previous_runs_outputs(tmp_path, installation):
+    """Earlier out.neo.* in the case directory are cleared before launching.
+
+    Without that, a rerun that writes nothing is parsed from the files the
+    previous run left, and reported as its own result.
+    """
+    import shutil
+
+    config = NEOConfig(home=str(installation), platform="CI_CPU")
+    staged = prepare_neo_case(_profile(), tmp_path / "case", config)
+    for product in REG18.glob("out.neo.*"):
+        shutil.copy(product, staged.workdir / product.name)
+    write_launchable_stub(installation / "neo" / "bin" / "neo", exit_code=0)
+
+    with pytest.raises(NEOExecutionError):
+        run_neo(staged, config)
+    assert not list(staged.workdir.glob("out.neo.transport"))
+
+
+def test_the_config_refuses_what_neo_would_reject():
+    """neo_check.f90's own limits, named here instead of in out.neo.run."""
+    with pytest.raises(ValueError, match="n_theta must be odd"):
+        NEOConfig(n_theta=16)
+    with pytest.raises(ValueError, match="at most 6 species"):
+        NEOConfig(n_species=7)
+
+
+def test_staging_refuses_a_profile_without_elongation(tmp_path):
+    """expro reads an absent kappa as zero, which collapses every surface."""
+    profile = _profile(kappa=False)
+    with pytest.raises(ValueError, match="kappa"):
+        prepare_neo_case(profile, tmp_path / "case")
+
+
+@pytest.mark.skipif(
+    not INSTALLED_GACODE_HOME, reason="NEO integration test requires $GACODEHOME"
+)
+def test_an_installed_neo_rejection_raises(tmp_path):
+    """The real launcher path: NEO rejects the case, exits zero, and we notice."""
+    from vaft.code.gacode._input_gacode import read_input_gacode
+    from vaft.code.gacode.neo import run_neo_case
+
+    config = NEOConfig(
+        home=INSTALLED_GACODE_HOME,
+        platform=INSTALLED_GACODE_PLATFORM,
+        n_species=3,
+        rotation_model=2,
+        # Through extra_parameters, so the config's own check does not catch it.
+        extra_parameters={"N_THETA": 16},
+    )
+    profile = read_input_gacode(REG18 / "input.gacode")
+    with pytest.raises(NEOExecutionError, match="n_theta must be odd"):
+        run_neo_case(profile, tmp_path / "reg18", config)

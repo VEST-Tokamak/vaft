@@ -26,6 +26,16 @@ prevent.
 the ``core_profiles`` slice actually used are resolved separately, all three are
 recorded, and a pairing outside the tolerance is refused rather than made.
 
+**The sign convention.**  VAFT holds COCOS 11 internally; ``input.gacode`` is
+COCOS 2 in its signs (see the ``gacode`` entry in :mod:`vaft.data.cocos`), so
+the toroidal field, the current, ``fpol``, the toroidal flux, the toroidal
+velocity and the poloidal flux all change sign on the way out, and ``q`` does
+not.  The factors come from :func:`omas.omas_physics.cocos_transform` rather
+than being written out here, and the conversion is recorded in provenance.
+Skipping it does not change the bootstrap current -- flipping the field and the
+current together preserves the helicity -- but NEO reads the field directions
+from these signs, so every lab-frame direction it reports would be mirrored.
+
 **Missing kinetic information.**  Nothing is fabricated to fill a GACODE field.
 A required quantity that is absent raises; an optional one that is absent stays
 ``None`` and is recorded as ``unavailable``; a value that comes from machine
@@ -39,6 +49,8 @@ from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
 import numpy as np
+
+from vaft.data.cocos import VAFT_INTERNAL_COCOS
 
 from ..base import CodeInputs
 from ._input_gacode import write_input_gacode
@@ -197,8 +209,9 @@ def _resolve_rho(ods: Any, prefix: str) -> tuple[np.ndarray, str]:
         return np.sqrt(np.abs(phi / phi[-1])), "derived from equilibrium phi"
 
     if q is not None and psi is not None:
+        # rho_tor_profile wants psi in full weber: stored -> Wb/rad -> Wb.
         factor = ods_psi_to_wb_per_radian_factor(ods)
-        derived = rho_tor_profile(q, psi / factor)
+        derived = rho_tor_profile(q, psi * factor * 2.0 * np.pi)
         if derived is not None:
             return np.asarray(derived.rho_tor_norm, dtype=float), "derived from q and psi"
 
@@ -404,25 +417,41 @@ def prepare_gacode_profile(
 
     from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
 
+    sign = _cocos_factors()
+    provenance["cocos"] = {
+        "kind": "derived",
+        "from": VAFT_INTERNAL_COCOS,
+        "to": _gacode_cocos(),
+        "factors": {key: float(sign[key]) for key in ("PSI", "TOR", "BT", "IP", "F", "Q")},
+        "confirmed": False,
+        "source": "vaft.data.cocos.convention_for('gacode')",
+    }
+
     psi_factor = ods_psi_to_wb_per_radian_factor(ods)
     psi = equilibrium_profile("psi")
     polflux = None
     if psi is not None:
-        polflux = (psi - psi[0]) * psi_factor
+        # stored -> full weber, then COCOS 11 -> 2, which also divides by 2*pi.
+        polflux = (psi - psi[0]) * psi_factor * 2.0 * np.pi * sign["PSI"]
         provenance["polflux"] = {
             "kind": "derived",
             "source": "equilibrium psi, referenced to the axis",
             "wb_per_radian_factor": float(psi_factor),
         }
 
+    # profiles_1d.phi is the full toroidal flux in weber whichever way psi is
+    # stored (vaft/data/eqdsk.py), so the psi storage factor must not touch it:
+    # applying it would write torfluxa 2*pi too large for a per-radian ODS.
+    # GACODE's torfluxa is per radian by its own definition -- expro derives
+    # B_unit as d(torfluxa rho^2)/d(r^2/2) -- which is where the 2*pi comes from.
+    #
     # Read untruncated: rho stays normalised to the *plasma boundary* even when
     # the grid is cut short, so Phi(rho) = torfluxa * rho^2 only holds if
-    # torfluxa is the boundary value. Taking phi[-1] after truncation would
-    # rescale the whole radial coordinate silently.
+    # torfluxa is the boundary value.
     phi_full = _array(ods, f"{equilibrium_prefix}.phi")
     torfluxa = None
     if phi_full is not None:
-        torfluxa = float(phi_full[-1]) * psi_factor
+        torfluxa = float(phi_full[-1]) / (2.0 * np.pi) * sign["TOR"]
         provenance["torfluxa"] = {
             "kind": "derived",
             "source": "equilibrium phi at the plasma boundary, before any rho_max cut",
@@ -484,7 +513,9 @@ def prepare_gacode_profile(
     # claim a stationary impurity rather than an unmeasured one.
     rotation = [entry["velocity_toroidal"] for entry in species]
     if all(values is not None for values in rotation):
-        vtor = np.vstack([_interpolate(profile_rho, values, rho) for values in rotation])
+        vtor = sign["TOR"] * np.vstack(
+            [_interpolate(profile_rho, values, rho) for values in rotation]
+        )
         provenance["vtor"] = {
             "kind": "measured",
             "source": f"{profile_prefix}.ion.:.velocity.toroidal",
@@ -526,6 +557,16 @@ def prepare_gacode_profile(
         }
 
     current = _scalar(ods, f"{global_prefix}.ip")
+    # b0 is sampled on the equilibrium time base, and VEST's drifts by up to a
+    # factor of two within a shot (#325), so it is read at the converted slice
+    # rather than at index 0.
+    field = _array(ods, "equilibrium.vacuum_toroidal_field.b0")
+    b0 = None
+    if field is not None:
+        field = np.atleast_1d(field)
+        b0 = float(field[min(times["equilibrium_index"], field.size - 1)])
+    q_profile = equilibrium_profile("q")
+    f_profile = equilibrium_profile("f")
     profile = GACODEProfile(
         rho=rho,
         z=np.asarray(charges, dtype=float),
@@ -538,13 +579,13 @@ def prepare_gacode_profile(
         kappa=equilibrium_profile("elongation"),
         delta=delta,
         polflux=polflux,
-        q=equilibrium_profile("q"),
+        q=None if q_profile is None else q_profile * sign["Q"],
         ptot=equilibrium_profile("pressure"),
-        fpol=equilibrium_profile("f"),
+        fpol=None if f_profile is None else f_profile * sign["F"],
         torfluxa=torfluxa,
         rcentr=_scalar(ods, "equilibrium.vacuum_toroidal_field.r0"),
-        bcentr=_scalar(ods, "equilibrium.vacuum_toroidal_field.b0"),
-        current=None if current is None else current / 1.0e6,
+        bcentr=None if b0 is None else b0 * sign["BT"],
+        current=None if current is None else current / 1.0e6 * sign["IP"],
         ne=ne / DENSITY_SCALE,
         te=te / TEMPERATURE_SCALE,
         ni=np.vstack(densities),
@@ -563,6 +604,19 @@ def prepare_gacode_profile(
         profile.zmag = np.asarray(profile.zmag, dtype=float)[keep]
     profile.provenance = provenance
     return profile
+
+
+def _gacode_cocos() -> int:
+    from vaft.data.cocos import convention_for
+
+    return int(convention_for("gacode").cocos)
+
+
+def _cocos_factors() -> Mapping[str, float]:
+    """Multipliers taking VAFT's COCOS 11 quantities into input.gacode's convention."""
+    from omas.omas_physics import cocos_transform
+
+    return cocos_transform(VAFT_INTERNAL_COCOS, _gacode_cocos())
 
 
 def _shot_number(ods: Any) -> Optional[int]:

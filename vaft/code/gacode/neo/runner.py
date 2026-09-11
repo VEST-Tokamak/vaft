@@ -62,6 +62,13 @@ def run_neo(
     platform = gacode_platform(configuration)
 
     workdir = Path(inputs.workdir)
+    # Whatever an earlier run left here is not this run's result. Parsing is by
+    # file name, so a rerun that fails early would otherwise return the previous
+    # run's physics as its own; only NEO's products are removed.
+    for stale in workdir.glob("out.neo.*"):
+        if stale.is_file():
+            stale.unlink()
+
     # The launcher joins its -e argument onto $PWD, so it is run from the parent
     # with the case named relatively.
     returncode, log = run_gacode(
@@ -100,8 +107,16 @@ def _failure_message(result: NEOResult, log: Path) -> str:
         tail = "\n".join(lines[-12:])
     except OSError:
         pass
+    native = result.outputs_native
     if result.returncode != 0:
         reason = f"NEO exited with status {result.returncode}"
+    elif native is not None and native.errors:
+        reason = "NEO rejected the case: " + "; ".join(native.errors)
+    elif native is not None and native.transport is not None:
+        reason = (
+            "NEO completed but its drift-kinetic current is not finite, which is what "
+            "a degenerate geometry produces"
+        )
     else:
         reason = (
             "NEO exited cleanly but wrote no readable output, which is what a "

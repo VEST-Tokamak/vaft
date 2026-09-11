@@ -15,6 +15,12 @@ then two trailing scalars.  For the three-species reg18 case that is 24 columns
 against the 23 the file actually has.  The layout used here is the writer's, and
 it is checked against stored runs with two *and* three species.
 
+**Exit status is not success.**  NEO reports an input or physics error by
+writing it to ``out.neo.run`` and then exiting **zero** (``neo_error`` sets a
+flag and ``neo_do`` jumps to cleanup), and the launcher creates ``out.neo.run``
+and ``out.neo.version`` before NEO starts.  So the presence of output files says
+nothing; :attr:`NeoOutputs.errors` and :attr:`NeoOutputs.solved` are what do.
+
 **Absent is not zero.**  NEO writes `out.neo.expnorm` and `out.neo.exprhon` only
 when `PROFILE_MODEL >= 2`, and several files only under a rotation model.  A
 missing file leaves its field ``None``; it is never filled with zeros, because a
@@ -170,6 +176,7 @@ class NeoOutputs:
     geometry: Optional[Mapping[str, float]] = None
     precision: Optional[float] = None
     version: Optional[Mapping[str, str]] = None
+    errors: tuple[str, ...] = ()
     files: tuple[str, ...] = ()
 
     @property
@@ -198,6 +205,20 @@ class NeoOutputs:
         """
         return None if self.geometry is None else self.geometry.get("f_trap")
 
+    @property
+    def solved(self) -> bool:
+        """Whether NEO completed a solve, as opposed to merely leaving files.
+
+        True only when NEO logged no error, wrote its transport product, and the
+        drift-kinetic current it wrote is finite. The last clause is not
+        pedantry: a degenerate geometry -- ``kappa`` absent from input.gacode,
+        which expro reads as zero -- produces NaN with no error logged.
+        """
+        if self.errors or self.transport is None:
+            return False
+        current = self.bootstrap_current
+        return current is not None and bool(np.all(np.isfinite(current)))
+
     def describe(self, name: str) -> str:
         """What a transported quantity means and how it is normalised."""
         try:
@@ -213,7 +234,7 @@ class NeoOutputs:
         return tuple(
             f.name
             for f in fields(self)
-            if f.name not in {"directory", "files"} and getattr(self, f.name) is None
+            if f.name not in {"directory", "files", "errors"} and getattr(self, f.name) is None
         )
 
     # -- serialisation ----------------------------------------------------
@@ -425,6 +446,22 @@ def _parse_version(directory: Path) -> Optional[Mapping[str, str]]:
     return {key: value for key, value in zip(keys, lines)}
 
 
+def _parse_errors(directory: Path) -> tuple[str, ...]:
+    """The error lines NEO wrote to out.neo.run, in order.
+
+    `neo_error` writes each message verbatim, and every one NEO raises begins
+    with ``ERROR:``.
+    """
+    path = directory / "out.neo.run"
+    if not path.is_file():
+        return ()
+    return tuple(
+        line.strip()
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
+        if "ERROR" in line
+    )
+
+
 def collect_neo_outputs(workdir: str | Path) -> Optional[NeoOutputs]:
     """Read a NEO run directory without re-running it.
 
@@ -506,5 +543,6 @@ def collect_neo_outputs(workdir: str | Path) -> Optional[NeoOutputs]:
         geometry=_parse_geometry(directory),
         precision=None if precision is None else float(np.atleast_1d(precision).ravel()[0]),
         version=_parse_version(directory),
+        errors=_parse_errors(directory),
         files=tuple(produced),
     )

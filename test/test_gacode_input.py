@@ -433,3 +433,106 @@ def test_rotation_is_left_absent_when_a_species_lacks_it():
     assert profile.z_eff[0] == pytest.approx(
         (1.0 * 1.0**2 + 1.0 * 6.0**2) / 1.0, rel=1e-9
     )
+
+
+# --------------------------------------------------------------------------
+# Review findings: signs, the toroidal flux, and the field's time
+# --------------------------------------------------------------------------
+
+
+def _directions(profile: GACODEProfile) -> tuple[int, int]:
+    """(btccw, ipccw) exactly as expro derives them (expro_locsim.f90:202-203)."""
+    signb = int(np.sign(profile.torfluxa))
+    signq = int(np.sign(profile.q[0]))
+    return -signb, -signq * signb
+
+
+def test_the_gacode_convention_is_registered_and_marked_as_inferred():
+    from vaft.data.cocos import convention_for
+
+    convention = convention_for("gacode")
+    assert convention.cocos == 2
+    assert convention.confirmed is False
+
+
+def test_reg18_is_self_consistent_with_that_convention(reg18_profile):
+    """DIII-D in the normal orientation: Bt clockwise, Ip counter-clockwise."""
+    assert _directions(reg18_profile) == (-1, +1)
+
+
+@requires_sample
+def test_the_converted_file_gives_neo_the_imas_field_directions(ods_48224):
+    """48224 has b0 > 0 and ip > 0: both counter-clockwise under COCOS 11.
+
+    Written without the COCOS 11 -> 2 transform, expro would read both as
+    clockwise -- the device mirrored. <j.B> survives that (the helicity is
+    preserved), which is why the scalar cross-checks could not catch it.
+    """
+    profile = prepare_gacode_profile(ods_48224, rho_max=0.95, z_eff=2.0)
+    b0 = float(np.ravel(ods_48224["equilibrium.vacuum_toroidal_field.b0"])[0])
+    ip = float(ods_48224["equilibrium.time_slice.0.global_quantities.ip"])
+    assert _directions(profile) == (int(np.sign(b0)), int(np.sign(ip)))
+    assert profile.provenance["cocos"]["to"] == 2
+
+
+@requires_sample
+def test_toroidal_components_change_sign_and_q_does_not(ods_48224):
+    profile = prepare_gacode_profile(ods_48224, rho_max=0.95, z_eff=2.0)
+    eq = "equilibrium.time_slice.0.profiles_1d"
+    assert np.sign(profile.bcentr) == -np.sign(
+        float(np.ravel(ods_48224["equilibrium.vacuum_toroidal_field.b0"])[0])
+    )
+    assert np.sign(profile.current) == -np.sign(
+        float(ods_48224["equilibrium.time_slice.0.global_quantities.ip"])
+    )
+    np.testing.assert_allclose(
+        profile.fpol, -np.asarray(ods_48224[f"{eq}.f"])[: profile.n_exp]
+    )
+    np.testing.assert_allclose(profile.q, np.asarray(ods_48224[f"{eq}.q"])[: profile.n_exp])
+
+
+@requires_sample
+def test_torfluxa_is_phi_over_two_pi_whatever_the_psi_convention(ods_48224, monkeypatch):
+    """phi is written in weber by every VAFT producer, however psi is stored.
+
+    Forcing the psi-storage probe to report Wb/rad must not change torfluxa;
+    it used to, by a factor of 2*pi.
+    """
+    import vaft.data.eqdsk as eqdsk
+
+    expected = -float(ods_48224["equilibrium.time_slice.0.profiles_1d.phi"][-1]) / (2 * np.pi)
+    stored_in_weber = prepare_gacode_profile(ods_48224, rho_max=0.95, z_eff=2.0)
+    monkeypatch.setattr(eqdsk, "ods_psi_to_wb_per_radian_factor", lambda *a, **k: 1.0)
+    stored_per_radian = prepare_gacode_profile(ods_48224, rho_max=0.95, z_eff=2.0)
+    assert stored_in_weber.torfluxa == pytest.approx(expected, rel=1e-12)
+    assert stored_per_radian.torfluxa == pytest.approx(expected, rel=1e-12)
+
+
+def test_bcentr_is_read_at_the_converted_slice():
+    """b0 lives on the equilibrium time base; index 0 is the wrong instant."""
+    from omas import ODS
+
+    rho = np.linspace(0.0, 1.0, 9)
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.time"] = np.array([0.2, 0.3])
+    ods["core_profiles.time"] = np.array([0.2, 0.3])
+    ods["equilibrium.vacuum_toroidal_field.r0"] = 0.4
+    ods["equilibrium.vacuum_toroidal_field.b0"] = np.array([0.10, 0.25])
+    for index in (0, 1):
+        eq = f"equilibrium.time_slice.{index}.profiles_1d"
+        ods[f"{eq}.rho_tor_norm"] = rho
+        ods[f"{eq}.phi"] = rho**2
+        ods[f"{eq}.psi"] = np.linspace(0.0, 0.05, rho.size)
+        ods[f"{eq}.q"] = np.linspace(1.0, 3.0, rho.size)
+        ods[f"equilibrium.time_slice.{index}.global_quantities.ip"] = 1.0e5
+        cp = f"core_profiles.profiles_1d.{index}"
+        ods[f"{cp}.grid.rho_tor_norm"] = rho
+        ods[f"{cp}.electrons.density_thermal"] = np.linspace(1e19, 1e18, rho.size)
+        ods[f"{cp}.electrons.temperature"] = np.linspace(100.0, 10.0, rho.size)
+        ods[f"{cp}.ion.0.label"] = "H+"
+        ods[f"{cp}.ion.0.z_ion"] = 1.0
+        ods[f"{cp}.ion.0.density_thermal"] = np.linspace(1e19, 1e18, rho.size)
+        ods[f"{cp}.ion.0.temperature"] = np.linspace(80.0, 8.0, rho.size)
+
+    profile = prepare_gacode_profile(ods, time_index=1)
+    assert abs(profile.bcentr) == pytest.approx(0.25)

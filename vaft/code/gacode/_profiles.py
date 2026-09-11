@@ -170,6 +170,10 @@ class GACODEProfile:
         A precondition check, not a verdict: it reports what is missing and
         leaves the decision to the caller, per the boundary in issue #253.
         """
-        required = ("rmin", "polflux", "q", "rmaj", "ne", "te", "ni", "ti",
+        # kappa is required even though delta and zmag are not: expro reads an
+        # absent tag as zero, which is a legitimate delta or zmag but collapses
+        # every surface when it is the elongation, and NEO then returns NaN
+        # without logging an error.
+        required = ("rmin", "polflux", "q", "rmaj", "kappa", "ne", "te", "ni", "ti",
                     "torfluxa", "rcentr", "bcentr", "current")
         return tuple(name for name in required if getattr(self, name, None) is None)
