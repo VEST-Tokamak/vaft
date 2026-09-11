@@ -40,6 +40,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--era", default=DEFAULT_ERA, choices=[era.name for era in VEST_MACHINE_ERAS])
     parser.add_argument("--nw", type=int, default=129)
     parser.add_argument("--nh", type=int, default=None, help="defaults to --nw")
+    # The computational box. EFIT has no independent notion of it: it reads
+    # `rgrid`/`zgrid` straight out of the Green table (`tables.F90:158`), so
+    # the domain is whatever EFUND baked in here, and studying an alternate
+    # one (#459) means generating a table for it.
+    parser.add_argument("--rleft", type=float, default=None, help="inner edge of the box, m")
+    parser.add_argument("--rright", type=float, default=None, help="outer edge of the box, m")
+    parser.add_argument("--zbotto", type=float, default=None, help="bottom of the box, m")
+    parser.add_argument("--ztop", type=float, default=None, help="top of the box, m")
     parser.add_argument("--label", default=None, help="a short name recorded in the manifest")
     parser.add_argument("--efit-home", default=None, help="sets EFITHOME for this run")
     parser.add_argument("--efund", default=None, help="explicit efund executable (wins over EFITHOME)")
@@ -61,6 +69,11 @@ def main(argv: list[str] | None = None) -> int:
 
     output = args.output.expanduser()
     output.mkdir(parents=True, exist_ok=True)
+    box = {
+        name: getattr(args, name)
+        for name in ("rleft", "rright", "zbotto", "ztop")
+        if getattr(args, name) is not None
+    }
     config = EFUNDConfig(
         workdir=output,
         nw=args.nw,
@@ -69,6 +82,13 @@ def main(argv: list[str] | None = None) -> int:
         iecoil=args.iecoil,
         executable=args.efund,
         timeout=args.timeout,
+        **box,
+    )
+    print(
+        f"grid: {config.nw} x {config.nh}, box R {config.rleft}-{config.rright} m, "
+        f"Z {config.zbotto}-{config.ztop} m, cells "
+        f"{(config.rright - config.rleft) / (config.nw - 1) * 1e3:.2f} x "
+        f"{(config.ztop - config.zbotto) / (config.nh - 1) * 1e3:.2f} mm"
     )
     started = time.perf_counter()
     ods, manifest = build_static_ods(args.era)

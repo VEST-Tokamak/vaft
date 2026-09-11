@@ -85,6 +85,15 @@ def parse_slices(text: str) -> list[dict[str, Any]]:
     printed after a slice's last iteration and before the next slice's first
     belongs to that slice: its exit path, its solver errors and the acceptance
     failures ``chkerr`` reports.
+
+    With one exception, and it is not a small one. A slice that fails in
+    ``bound`` before the first Picard iteration prints no iteration line at
+    all, only ``ERROR in bound at r=..., t=...``. Delimiting on the iteration
+    counter alone hands that error to the *previous* slice and loses the slice
+    itself, so a run ending in a run of pre-iteration collapses reports both a
+    short universe and a slice carrying failures that are not its own. Solver
+    errors therefore also open a slice when they name a time the current slice
+    does not have.
     """
     slices: list[dict[str, Any]] = []
     current: dict[str, Any] | None = None
@@ -114,16 +123,21 @@ def parse_slices(text: str) -> list[dict[str, Any]]:
                 {"n": iteration, "chi2": float(found.group(3)), "gs_error": float(found.group(4))}
             )
             continue
+        found = _SOLVER_ERROR.search(line)
+        if found:
+            named = int(found.group(2))
+            if current is None or current["time_ms"] != named:
+                if current is not None:
+                    slices.append(current)
+                current = start(named)
+            current["solver_errors"].append({"routine": found.group(1), "detail": found.group(3).strip()})
+            continue
         if current is None:
             continue
         found = _ICONVR.search(line)
         if found:
             current["iconvr"] = int(found.group(1))
             current["exit_path"] = f"iconvr={found.group(1)}"
-            continue
-        found = _SOLVER_ERROR.search(line)
-        if found:
-            current["solver_errors"].append({"routine": found.group(1), "detail": found.group(3).strip()})
             continue
         if _FAILED.search(line):
             current["accepted"] = False

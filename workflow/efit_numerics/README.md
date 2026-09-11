@@ -306,3 +306,117 @@ solution into the block from the working side, which is a different mechanism
 from re-seeding. But #588's premise, that the first slice must be seeded into
 a good basin before continuation can help, is now answered: the basin is
 narrow and off-centre, and a better seed is available and justified.
+
+## The computational domain and the grid (#459)
+
+`domain_grid.py` runs #459's 2×2 over the three reference discharges: the
+routine box against a reduced one, at 129×129 against 129×257.
+
+### What EFIT's grid contract actually is
+
+Phase 1A's questions have answers, and they are all in the source rather than
+in the documentation.
+
+- **`nw` and `nh` are runtime arguments**, `argv(1)` and `argv(2)`
+  (`efit.F90:93-104`), and `nh` defaults to `nw`. A rectangular grid needs no
+  rebuild; `efit 129 257` is enough. Both are read with an `i4` format, so
+  9999 is the ceiling.
+- **The Green table file name encodes the grid and only the grid**
+  (`table_name_ch`, `tables.F90:34`), so a 129×257 run looks for
+  `ec129257.ddd` and fails loudly if it is absent.
+- **EFIT has no independent notion of the box.** It reads `rgrid` and `zgrid`
+  out of the table (`tables.F90:158`) and derives `drgrid`, `dzgrid` and
+  `darea` from them (`setup_data_fetch.F90:579`). The domain is whatever EFUND
+  baked in, from `&in5`'s `rleft`, `rright`, `zbotto` and `ztop`
+  (`efund_read.f90:200,301-304`).
+- **So two tables for the same grid and different boxes are named
+  identically**, and running against the wrong one is undetectable from EFIT's
+  output. The manifest EFUND writes beside the table is the only record, and
+  `verify_table` reads it before any case runs.
+- `EFUNDConfig` already carried `nw`, `nh` and the four box edges; the
+  regeneration workflow exposed only the grid, and now exposes the box too.
+- One hazard not exercised here: `npoint`, which sizes the boundary-point
+  arrays, is chosen from `nw` alone (`efit.F90:114-120`), so it does not grow
+  with `nh`.
+
+`rleft` is 0.05 m in every case. #459's text quotes the current box as
+starting at R = 0; it never has, because the Green functions are singular on
+the machine axis.
+
+### The 2×2, over 82 plasma slices
+
+| case | domain (m) | grid | cell (mm) | aspect | produced | accepted | collapsed | `bound` | `findax` |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A | R 0.05–1.2, Z ±1.5 | 129×129 | 9.0 × 23.4 | 2.61 | **46** | **30** | 29 | 41 | 2 |
+| B | R 0.05–1.0, Z ±1.35 | 129×129 | 7.4 × 21.1 | 2.84 | 36 | 23 | 29 | 33 | 13 |
+| C | R 0.05–1.2, Z ±1.5 | 129×257 | 9.0 × 11.7 | 1.30 | 44 | 28 | 29 | 47 | 4 |
+| D | R 0.05–1.0, Z ±1.35 | 129×257 | 7.4 × 10.5 | 1.42 | 36 | 23 | 29 | 33 | 13 |
+
+**Neither lever recovers a slice.** The reduced domain costs ten equilibria
+and the finer grid costs two. B and D are identical on every count on every
+shot, so once the box is reduced the grid changes nothing at all.
+
+**The reduced domain fails in the way the box predicts.** `findax` rejects a
+separatrix point that lands within two cells of the grid edge
+(`find_axis.F90:308-311`); bringing the edge in from |Z| = 1.5 m to 1.35 m
+takes those failures from 2 to 13. The proposal in #459 was to trim unused
+vacuum volume, and on this evidence the volume is not unused.
+
+**The collapse block is untouched.** 29 slices collapse in every one of the
+four cases — the same 29 that #588 showed no seed can rescue. Initialization,
+the domain and the grid have now each been ruled out. That block is not a
+spatial-discretisation problem.
+
+The shots do not agree in detail: 41672 gains two accepted slices from the
+reduced domain while 39915 and 41524 lose five and four. A recommendation from
+three discharges would be premature, and #459 asks for full-discharge evidence
+across more of them before a default moves.
+
+### How much the reconstruction itself moves
+
+Comparing only slices both cases reconstructed, the resolution change (C − A)
+moves every global quantity by well under a percent:
+
+| quantity | largest median change across the three shots |
+| --- | --- |
+| chi-square | 0 exactly |
+| minor radius, area, volume, elongation, axis R | ≤ 0.06 % |
+| q95, qstar, β_p | ≤ 0.17 % |
+| li | 0.26 % |
+| Grad-Shafranov error | 2.1 % |
+
+The one place the grid does show is the **magnetic axis height**, and it shows
+as quantisation rather than as a different equilibrium: on 39915 every
+compared slice moves by 1.1718 cm, which is half the coarse Z cell
+(23.4375 mm) to five digits, and the same 1.1718 cm appears as the largest
+single change on both other shots. `zm` sits at zero on an up-down symmetric
+machine, so its *relative* change is not reported — dividing a centimetre by a
+median of 37 microns produces a number in the millions of percent, which is
+arithmetic and not physics.
+
+### A defect in the log reading, found here and fixed
+
+`bound` can reject a slice **before its first Picard iteration**, printing only
+`ERROR in bound at r=..., t=...`. `parse_slices` delimited slices on the
+iteration counter alone, so it handed those errors to the *previous* slice and
+dropped the slice itself. On 39915 the run ends with two such rejections, so a
+converged slice was carrying two failures that were not its own and the
+denominator was 22 where EFIT had processed 24.
+
+The parser now opens a slice when a solver error names a time the current
+slice does not have. **This changes the denominators of the earlier
+studies**: the reference set has 82 plasma slices, not 77, and case A here
+produces 46 equilibria where the merged #171 baseline reported 31. Both
+studies' *relative* comparisons stand, because every row was read by the same
+parser; the absolute counts in the baseline and seed reports predate the fix.
+
+### An open question this raised
+
+Case A is the routine box and the routine grid, and it still produces 46
+equilibria against the merged baseline's 31. The two runs differ in two things
+at once — a freshly generated Green table instead of the packaged one, and a
+freshly generated `mhdin.dat` geometry instead of the packaged one — so which
+is responsible is not established here. #194's A/B compared the tables alone
+on four slices and found no difference; this is the first evidence that
+something in that pair matters on the marginal slices, and it matters more
+than either lever #459 set out to test. It needs its own controlled A/B.
