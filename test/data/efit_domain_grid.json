@@ -1,0 +1,3673 @@
+{
+ "acceptance_envelope": {
+  "aminor_min": 4.492187499999999,
+  "sha256": "2fb1270bd4a50370f0471b3b31a065c10ff2d262760ad3abf6b95aa65be19f66"
+ },
+ "cases": {
+  "A": {
+   "cell_mm": [
+    8.984375,
+    23.4375
+   ],
+   "domain": [
+    0.05,
+    1.2,
+    -1.5,
+    1.5
+   ],
+   "grid": [
+    129,
+    129
+   ],
+   "role": "the routine configuration",
+   "table": {
+    "directory": "/private/tmp/claude-501/-Users-yun-git-vaft--claude-worktrees-workflow-chain-enhancement-c328b7/39ea1cb1-126a-47f5-be02-a50f633690a4/scratchpad/tables/a_129x129",
+    "efund_config_sha256": "b98479ce0d52076be9652d5f43f4a507a37ab8858c5205dd149928a95ea25159",
+    "generated_at": "2026-09-07T09:06:53+00:00",
+    "own_aminor_min_cm": 4.492187499999999,
+    "staged": "/private/tmp/claude-501/dg/A",
+    "table_identity": "6d089af6e8857471fb70777e5253d07734a2ba4bf17ffb9e2e3d93a2d303e66b"
+   }
+  },
+  "B": {
+   "cell_mm": [
+    7.421875,
+    21.09375
+   ],
+   "domain": [
+    0.05,
+    1.0,
+    -1.35,
+    1.35
+   ],
+   "grid": [
+    129,
+    129
+   ],
+   "role": "the domain alone",
+   "table": {
+    "directory": "/private/tmp/claude-501/-Users-yun-git-vaft--claude-worktrees-workflow-chain-enhancement-c328b7/39ea1cb1-126a-47f5-be02-a50f633690a4/scratchpad/tables/b_129x129_reduced",
+    "efund_config_sha256": "7fd6178d61436fdfd3bdd30f8d4ada198485af81e80b05f179e3a8e19315a1ba",
+    "generated_at": "2026-09-07T09:09:08+00:00",
+    "own_aminor_min_cm": 3.7109375,
+    "staged": "/private/tmp/claude-501/dg/B",
+    "table_identity": "2438a5ad0580402129e9a57c50210921e7268115bc2cbaf4b0fbcc83383c23ba"
+   }
+  },
+  "C": {
+   "cell_mm": [
+    8.984375,
+    11.71875
+   ],
+   "domain": [
+    0.05,
+    1.2,
+    -1.5,
+    1.5
+   ],
+   "grid": [
+    129,
+    257
+   ],
+   "role": "the cell aspect ratio alone",
+   "table": {
+    "directory": "/private/tmp/claude-501/-Users-yun-git-vaft--claude-worktrees-workflow-chain-enhancement-c328b7/39ea1cb1-126a-47f5-be02-a50f633690a4/scratchpad/tables/c_129x257",
+    "efund_config_sha256": "0b42fbf877f195a2805cdf2c661233785aa4f3e05327bd8a2e91510b25e609a9",
+    "generated_at": "2026-09-07T09:01:58+00:00",
+    "own_aminor_min_cm": 4.492187499999999,
+    "staged": "/private/tmp/claude-501/dg/C",
+    "table_identity": "8c1abc12ecbe6d5f3f03be2b5638ff61d3b647ceb28ff9af73f3352430285f5e"
+   }
+  },
+  "D": {
+   "cell_mm": [
+    7.421875,
+    10.546875
+   ],
+   "domain": [
+    0.05,
+    1.0,
+    -1.35,
+    1.35
+   ],
+   "grid": [
+    129,
+    257
+   ],
+   "role": "both",
+   "table": {
+    "directory": "/private/tmp/claude-501/-Users-yun-git-vaft--claude-worktrees-workflow-chain-enhancement-c328b7/39ea1cb1-126a-47f5-be02-a50f633690a4/scratchpad/tables/d_129x257_reduced",
+    "efund_config_sha256": "77eb73f973942f73b55cae8f04f652e5132078893d5bc2faa416772e6b062339",
+    "generated_at": "2026-09-07T09:14:51+00:00",
+    "own_aminor_min_cm": 3.7109375,
+    "staged": "/private/tmp/claude-501/dg/D",
+    "table_identity": "0c1a6095edc8df90a8f8932febcfa6e17678102998300587ec8f42c5fc01bf58"
+   }
+  }
+ },
+ "run_at": "2026-09-07T09:26:27+00:00",
+ "schema_version": 1,
+ "shots": {
+  "39915": {
+   "cases": {
+    "A": {
+     "returncode": 0,
+     "seconds": 13.776354000030551,
+     "slices": [
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 9.51e-10,
+       "chi2_initial": 94.5,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3131,
+       "iconvr": null,
+       "iterations_n": 12,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        },
+        {
+         "detail": "Less than 3 contour points found",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 307
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 4.76e-09,
+       "chi2_initial": 141.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.327,
+       "iconvr": null,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 308
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 1.34e-08,
+       "chi2_initial": 172.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3251,
+       "iconvr": null,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        },
+        {
+         "detail": "Less than 3 contour points found",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 309
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 1.96e-08,
+       "chi2_initial": 186.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3557,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 310
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.81e-08,
+       "chi2_initial": 207.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3567,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 311
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 3.91e-08,
+       "chi2_initial": 211.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3332,
+       "iconvr": null,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        },
+        {
+         "detail": "Less than 3 contour points found",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 312
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 3.97e-08,
+       "chi2_initial": 203.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3358,
+       "iconvr": null,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 313
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 4.03e-08,
+       "chi2_initial": 190.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3231,
+       "iconvr": null,
+       "iterations_n": 12,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 314
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 4.24e-08,
+       "chi2_initial": 173.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.2895,
+       "iconvr": null,
+       "iterations_n": 15,
+       "solver_errors": [
+        {
+         "detail": "Number of contour points greater than max allowed",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 315
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 29.3358917,
+        "area": 4080.94595,
+        "betap": 0.0156797323,
+        "chisq": 202.15022,
+        "elong": 1.54248409,
+        "jflag": 0,
+        "li": 0.646005672,
+        "q95": 8.74047169,
+        "qstar": 6.49349178,
+        "rm": 42.7343595,
+        "terror": 0.00885866706,
+        "volume": 947504.857,
+        "zm": 2.34371463
+       },
+       "chi2_final": 2.26e-09,
+       "chi2_initial": 202.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008859,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 316
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 26.7894415,
+        "area": 3445.75363,
+        "betap": 0.0125699989,
+        "chisq": 161.747301,
+        "elong": 1.54667367,
+        "jflag": 0,
+        "li": 0.647117578,
+        "q95": 7.69867499,
+        "qstar": 6.04249786,
+        "rm": 40.0390436,
+        "terror": 0.00851664759,
+        "volume": 758045.305,
+        "zm": 2.34370197
+       },
+       "chi2_final": 3.15e-09,
+       "chi2_initial": 162.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008517,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 317
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 25.3509406,
+        "area": 3092.27656,
+        "betap": 0.0109667931,
+        "chisq": 90.0124497,
+        "elong": 1.54368053,
+        "jflag": 0,
+        "li": 0.649832564,
+        "q95": 7.18903956,
+        "qstar": 5.79792319,
+        "rm": 38.2421916,
+        "terror": 0.00837283514,
+        "volume": 657771.278,
+        "zm": 5.47279739e-05
+       },
+       "chi2_final": 3.69e-09,
+       "chi2_initial": 90.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008373,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 318
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 24.2581778,
+        "area": 2832.06242,
+        "betap": 0.0098390405,
+        "chisq": 74.4342174,
+        "elong": 1.54036735,
+        "jflag": 1,
+        "li": 0.652537561,
+        "q95": 6.77965323,
+        "qstar": 5.58414084,
+        "rm": 37.3437183,
+        "terror": 0.00848255656,
+        "volume": 586341.503,
+        "zm": 5.14091095e-05
+       },
+       "chi2_final": 4.32e-09,
+       "chi2_initial": 74.4,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.008483,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 319
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 23.4676651,
+        "area": 2638.78131,
+        "betap": 0.00907788441,
+        "chisq": 43.7501633,
+        "elong": 1.52939666,
+        "jflag": 1,
+        "li": 0.655992339,
+        "q95": 6.43658515,
+        "qstar": 5.35232177,
+        "rm": 36.4452812,
+        "terror": 0.00838417199,
+        "volume": 535490.042,
+        "zm": 4.64090078e-05
+       },
+       "chi2_final": 4.72e-09,
+       "chi2_initial": 43.8,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.008384,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 320
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 22.1366279,
+        "area": 2339.45192,
+        "betap": 0.00787220086,
+        "chisq": 40.9646649,
+        "elong": 1.51968631,
+        "jflag": 1,
+        "li": 0.661064378,
+        "q95": 6.20764422,
+        "qstar": 5.29496129,
+        "rm": 34.6484432,
+        "terror": 0.00838636131,
+        "volume": 457965.069,
+        "zm": 4.22916249e-05
+       },
+       "chi2_final": 4.7e-09,
+       "chi2_initial": 41.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.008386,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 321
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 20.5966145,
+        "area": 2006.82869,
+        "betap": 0.00662775115,
+        "chisq": 23.8712017,
+        "elong": 1.50220605,
+        "jflag": 1,
+        "li": 0.661781255,
+        "q95": 5.95698231,
+        "qstar": 5.2263564,
+        "rm": 32.8515768,
+        "terror": 0.00869628438,
+        "volume": 376088.935,
+        "zm": 3.67671345e-05
+       },
+       "chi2_final": 5.4e-09,
+       "chi2_initial": 23.9,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.008696,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 322
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 18.6568792,
+        "area": 1623.03056,
+        "betap": 0.00526412489,
+        "chisq": 10.5640198,
+        "elong": 1.47650533,
+        "jflag": 1,
+        "li": 0.671566919,
+        "q95": 5.60227827,
+        "qstar": 5.06902134,
+        "rm": 31.0546501,
+        "terror": 0.00842013151,
+        "volume": 286745.899,
+        "zm": 2.9946273e-05
+       },
+       "chi2_final": 6.21e-09,
+       "chi2_initial": 10.6,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.00842,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 323
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 16.791075,
+        "area": 1293.66039,
+        "betap": 0.00414857212,
+        "chisq": 5.01289724,
+        "elong": 1.45209726,
+        "jflag": 1,
+        "li": 0.682712348,
+        "q95": 5.29706381,
+        "qstar": 4.94225695,
+        "rm": 28.3594193,
+        "terror": 0.00914649423,
+        "volume": 214985.019,
+        "zm": 2.48362502e-05
+       },
+       "chi2_final": 7.13e-09,
+       "chi2_initial": 5.01,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.009146,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 324
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 15.3087325,
+        "area": 1055.96465,
+        "betap": 0.00339565006,
+        "chisq": 0.0558560195,
+        "elong": 1.42510856,
+        "jflag": 1,
+        "li": 0.687456218,
+        "q95": 5.00495737,
+        "qstar": 4.78169059,
+        "rm": 27.4608716,
+        "terror": 0.00992275918,
+        "volume": 166580.517,
+        "zm": 1.96700545e-05
+       },
+       "chi2_final": 8.36e-09,
+       "chi2_initial": 0.0559,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.009923,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 325
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 13.8703286,
+        "area": 847.206201,
+        "betap": 0.00277492124,
+        "chisq": 0.294439904,
+        "elong": 1.392393,
+        "jflag": 1,
+        "li": 0.698590789,
+        "q95": 4.65658412,
+        "qstar": 4.55019402,
+        "rm": 25.6640208,
+        "terror": 0.00700958764,
+        "volume": 126653.754,
+        "zm": 1.59968407e-05
+       },
+       "chi2_final": 8.59e-09,
+       "chi2_initial": 0.294,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.00701,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [],
+       "time_ms": 326
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 12.6123534,
+        "area": 686.476417,
+        "betap": 0.00228888851,
+        "chisq": 1.85392668,
+        "elong": 1.36695381,
+        "jflag": 1,
+        "li": 0.71737706,
+        "q95": 4.37344001,
+        "qstar": 4.36458167,
+        "rm": 23.8672076,
+        "terror": 0.00768489094,
+        "volume": 97606.7625,
+        "zm": 1.02745101e-05
+       },
+       "chi2_final": 8.36e-09,
+       "chi2_initial": 1.85,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007685,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [],
+       "time_ms": 327
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 10.7312893,
+        "area": 477.170829,
+        "betap": 0.00168977729,
+        "chisq": 4.90295482,
+        "elong": 1.3077958,
+        "jflag": 1,
+        "li": 0.714674244,
+        "q95": 3.92213251,
+        "qstar": 4.01219432,
+        "rm": 22.0702823,
+        "terror": 0.00874230542,
+        "volume": 62560.1495,
+        "zm": 5.81963789e-06
+       },
+       "chi2_final": 5.2e-09,
+       "chi2_initial": 4.9,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.008742,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [],
+       "time_ms": 328
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": null,
+       "chi2_initial": null,
+       "collapsed": false,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": null,
+       "iconvr": null,
+       "iterations_n": 0,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 329
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": null,
+       "chi2_initial": null,
+       "collapsed": false,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": null,
+       "iconvr": null,
+       "iterations_n": 0,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 330
+      }
+     ],
+     "summary": {
+      "accepted": 10,
+      "bound_failures": 14,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 2,
+        "collapsed": 4,
+        "flagged": 3
+       },
+       "ramp_down": {
+        "accepted": 8,
+        "no_output": 2
+       },
+       "ramp_up": {
+        "collapsed": 5
+       }
+      },
+      "collapsed": 9,
+      "findax_failures": 0,
+      "outcomes": {
+       "accepted": 10,
+       "collapsed": 9,
+       "flagged": 3,
+       "no_output": 2
+      },
+      "produced_an_equilibrium": 13,
+      "slices": 24
+     }
+    },
+    "B": {
+     "returncode": 0,
+     "seconds": 12.542144041974097,
+     "summary": {
+      "accepted": 5,
+      "bound_failures": 10,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 2,
+        "collapsed": 4,
+        "flagged": 3
+       },
+       "ramp_down": {
+        "accepted": 3,
+        "no_output": 7
+       },
+       "ramp_up": {
+        "collapsed": 5
+       }
+      },
+      "collapsed": 9,
+      "findax_failures": 6,
+      "outcomes": {
+       "accepted": 5,
+       "collapsed": 9,
+       "flagged": 3,
+       "no_output": 7
+      },
+      "produced_an_equilibrium": 8,
+      "slices": 24
+     },
+     "vs_reference": {
+      "changed_vs_reference": {
+       "322": [
+        "accepted",
+        "no_output"
+       ],
+       "323": [
+        "accepted",
+        "no_output"
+       ],
+       "324": [
+        "accepted",
+        "no_output"
+       ],
+       "325": [
+        "accepted",
+        "no_output"
+       ],
+       "326": [
+        "accepted",
+        "no_output"
+       ],
+       "327": [
+        "accepted",
+        "no_output"
+       ],
+       "329": [
+        "no_output",
+        "accepted"
+       ]
+      },
+      "compared_on": 7,
+      "lost": [
+       322,
+       323,
+       324,
+       325,
+       326,
+       327
+      ],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.009292200000000861,
+        "median_abs": 0.003517900000002072,
+        "median_relative": 0.00014501913659821852,
+        "reference_median": 24.2581778,
+        "slices": 7
+       },
+       "area": {
+        "max_abs": 1.392830000000231,
+        "median_abs": 0.7319899999997688,
+        "median_relative": 0.00025846534837313675,
+        "reference_median": 2832.06242,
+        "slices": 7
+       },
+       "betap": {
+        "max_abs": 1.4650399999999869e-05,
+        "median_abs": 8.8656999999992e-06,
+        "median_relative": 0.0009010736361944236,
+        "reference_median": 0.0098390405,
+        "slices": 7
+       },
+       "chisq": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 74.4342174,
+        "slices": 7
+       },
+       "elong": {
+        "max_abs": 0.010448719999999856,
+        "median_abs": 0.0007152100000000772,
+        "median_relative": 0.0004643113215818793,
+        "reference_median": 1.54036735,
+        "slices": 7
+       },
+       "li": {
+        "max_abs": 0.008209706000000039,
+        "median_abs": 0.0014527119999999671,
+        "median_relative": 0.0022262503905119526,
+        "reference_median": 0.652537561,
+        "slices": 7
+       },
+       "q95": {
+        "max_abs": 0.029555869999999818,
+        "median_abs": 0.006949259999999846,
+        "median_relative": 0.0010250170273089095,
+        "reference_median": 6.77965323,
+        "slices": 7
+       },
+       "qstar": {
+        "max_abs": 0.07602567999999987,
+        "median_abs": 0.017283589999999904,
+        "median_relative": 0.00309512071690511,
+        "reference_median": 5.58414084,
+        "slices": 7
+       },
+       "rm": {
+        "max_abs": 0.42963689999999843,
+        "median_abs": 0.15623269999999678,
+        "median_relative": 0.004183640706179941,
+        "reference_median": 37.3437183,
+        "slices": 7
+       },
+       "terror": {
+        "max_abs": 0.00030266739999999966,
+        "median_abs": 0.00010532582000000006,
+        "median_relative": 0.012416754224389169,
+        "reference_median": 0.00848255656,
+        "slices": 7
+       },
+       "volume": {
+        "max_abs": 160.49599999992643,
+        "median_abs": 86.66300000005867,
+        "median_relative": 0.00014780294343253863,
+        "reference_median": 586341.503,
+        "slices": 7
+       },
+       "zm": {
+        "max_abs": 2.1092745420261,
+        "median_abs": 7.8291263e-07,
+        "median_relative": null,
+        "reference_median": 5.14091095e-05,
+        "slices": 7
+       }
+      },
+      "recovered": [
+       329
+      ]
+     }
+    },
+    "C": {
+     "returncode": 0,
+     "seconds": 22.950824500003364,
+     "summary": {
+      "accepted": 10,
+      "bound_failures": 14,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 2,
+        "collapsed": 4,
+        "flagged": 3
+       },
+       "ramp_down": {
+        "accepted": 8,
+        "no_output": 2
+       },
+       "ramp_up": {
+        "collapsed": 5
+       }
+      },
+      "collapsed": 9,
+      "findax_failures": 0,
+      "outcomes": {
+       "accepted": 10,
+       "collapsed": 9,
+       "flagged": 3,
+       "no_output": 2
+      },
+      "produced_an_equilibrium": 13,
+      "slices": 24
+     },
+     "vs_reference": {
+      "changed_vs_reference": {},
+      "compared_on": 13,
+      "lost": [],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.025367000000001028,
+        "median_abs": 0.00859580000000193,
+        "median_relative": 0.0004173404323318247,
+        "reference_median": 20.5966145,
+        "slices": 13
+       },
+       "area": {
+        "max_abs": 1.3200169999999503,
+        "median_abs": 0.38328999999976077,
+        "median_relative": 0.00019099288439999369,
+        "reference_median": 2006.82869,
+        "slices": 13
+       },
+       "betap": {
+        "max_abs": 1.3195680000000019e-05,
+        "median_abs": 1.9006499999999968e-06,
+        "median_relative": 0.0002867714790408202,
+        "reference_median": 0.00662775115,
+        "slices": 13
+       },
+       "chisq": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 23.8712017,
+        "slices": 13
+       },
+       "elong": {
+        "max_abs": 0.012251699999999976,
+        "median_abs": 0.0006584300000000987,
+        "median_relative": 0.00043830871270961706,
+        "reference_median": 1.50220605,
+        "slices": 13
+       },
+       "li": {
+        "max_abs": 0.00692999900000002,
+        "median_abs": 0.0017368009999999545,
+        "median_relative": 0.0026244336582183104,
+        "reference_median": 0.661781255,
+        "slices": 13
+       },
+       "q95": {
+        "max_abs": 0.04554864000000025,
+        "median_abs": 0.010165599999999664,
+        "median_relative": 0.0017065016263242293,
+        "reference_median": 5.95698231,
+        "slices": 13
+       },
+       "qstar": {
+        "max_abs": 0.0471240599999998,
+        "median_abs": 0.0030617100000007724,
+        "median_relative": 0.0005858211276982129,
+        "reference_median": 5.2263564,
+        "slices": 13
+       },
+       "rm": {
+        "max_abs": 0.8983077000000002,
+        "median_abs": 1.1999999998124622e-06,
+        "median_relative": 3.652792701909098e-08,
+        "reference_median": 32.8515768,
+        "slices": 13
+       },
+       "terror": {
+        "max_abs": 0.00078085078,
+        "median_abs": 0.00018088401999999913,
+        "median_relative": 0.021324233881677663,
+        "reference_median": 0.00848255656,
+        "slices": 13
+       },
+       "volume": {
+        "max_abs": 212.5899999999674,
+        "median_abs": 104.67190000000119,
+        "median_relative": 0.0002783168826809573,
+        "reference_median": 376088.935,
+        "slices": 13
+       },
+       "zm": {
+        "max_abs": 1.1718264600000001,
+        "median_abs": 1.1718082228655,
+        "median_relative": null,
+        "reference_median": 3.67671345e-05,
+        "slices": 13
+       }
+      },
+      "recovered": []
+     }
+    },
+    "D": {
+     "returncode": 0,
+     "seconds": 17.03001291700639,
+     "summary": {
+      "accepted": 5,
+      "bound_failures": 10,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 2,
+        "collapsed": 4,
+        "flagged": 3
+       },
+       "ramp_down": {
+        "accepted": 3,
+        "no_output": 7
+       },
+       "ramp_up": {
+        "collapsed": 5
+       }
+      },
+      "collapsed": 9,
+      "findax_failures": 6,
+      "outcomes": {
+       "accepted": 5,
+       "collapsed": 9,
+       "flagged": 3,
+       "no_output": 7
+      },
+      "produced_an_equilibrium": 8,
+      "slices": 24
+     },
+     "vs_reference": {
+      "changed_vs_reference": {
+       "322": [
+        "accepted",
+        "no_output"
+       ],
+       "323": [
+        "accepted",
+        "no_output"
+       ],
+       "324": [
+        "accepted",
+        "no_output"
+       ],
+       "325": [
+        "accepted",
+        "no_output"
+       ],
+       "326": [
+        "accepted",
+        "no_output"
+       ],
+       "327": [
+        "accepted",
+        "no_output"
+       ],
+       "329": [
+        "no_output",
+        "accepted"
+       ]
+      },
+      "compared_on": 7,
+      "lost": [
+       322,
+       323,
+       324,
+       325,
+       326,
+       327
+      ],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.025167800000000184,
+        "median_abs": 0.0043666000000008864,
+        "median_relative": 0.00018000527640624707,
+        "reference_median": 24.2581778,
+        "slices": 7
+       },
+       "area": {
+        "max_abs": 1.17679999999973,
+        "median_abs": 0.969119999999748,
+        "median_relative": 0.00034219584750527776,
+        "reference_median": 2832.06242,
+        "slices": 7
+       },
+       "betap": {
+        "max_abs": 1.6755000000000242e-05,
+        "median_abs": 8.049620000000549e-06,
+        "median_relative": 0.0008181305890549539,
+        "reference_median": 0.0098390405,
+        "slices": 7
+       },
+       "chisq": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 74.4342174,
+        "slices": 7
+       },
+       "elong": {
+        "max_abs": 0.01160063999999994,
+        "median_abs": 0.0005009400000000053,
+        "median_relative": 0.0003252081394740062,
+        "reference_median": 1.54036735,
+        "slices": 7
+       },
+       "li": {
+        "max_abs": 0.007366833999999933,
+        "median_abs": 0.0014111129999999639,
+        "median_relative": 0.0021625008035360644,
+        "reference_median": 0.652537561,
+        "slices": 7
+       },
+       "q95": {
+        "max_abs": 0.03858073000000006,
+        "median_abs": 0.00141090999999971,
+        "median_relative": 0.00020810946402928485,
+        "reference_median": 6.77965323,
+        "slices": 7
+       },
+       "qstar": {
+        "max_abs": 0.07328433999999984,
+        "median_abs": 0.015647650000000013,
+        "median_relative": 0.0028021589082985977,
+        "reference_median": 5.58414084,
+        "slices": 7
+       },
+       "rm": {
+        "max_abs": 0.4296369999999996,
+        "median_abs": 0.15623260000000272,
+        "median_relative": 0.004183638028353559,
+        "reference_median": 37.3437183,
+        "slices": 7
+       },
+       "terror": {
+        "max_abs": 0.00021336527999999896,
+        "median_abs": 9.334293999999944e-05,
+        "median_relative": 0.011004104639886944,
+        "reference_median": 0.00848255656,
+        "slices": 7
+       },
+       "volume": {
+        "max_abs": 197.27600000007078,
+        "median_abs": 101.52000000001863,
+        "median_relative": 0.0001731414192592446,
+        "reference_median": 586341.503,
+        "slices": 7
+       },
+       "zm": {
+        "max_abs": 1.28900914,
+        "median_abs": 1.0546344308905,
+        "median_relative": null,
+        "reference_median": 5.14091095e-05,
+        "slices": 7
+       }
+      },
+      "recovered": [
+       329
+      ]
+     }
+    }
+   },
+   "phases": {
+    "flat_top": 9,
+    "ramp_down": 11,
+    "ramp_up": 6
+   },
+   "window": {
+    "end": 0.33079999999997256,
+    "slices": 26,
+    "start": 0.30631999999998205
+   }
+  },
+  "41524": {
+   "cases": {
+    "A": {
+     "returncode": 0,
+     "seconds": 10.841973958013114,
+     "slices": [
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 5.66e-08,
+       "chi2_initial": 129.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.4177,
+       "iconvr": null,
+       "iterations_n": 8,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 315
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 6.47e-08,
+       "chi2_initial": 333.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3839,
+       "iconvr": null,
+       "iterations_n": 9,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        },
+        {
+         "detail": "Less than 3 contour points found",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 316
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 7.36e-08,
+       "chi2_initial": 438.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3569,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        },
+        {
+         "detail": "Less than 3 contour points found",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 317
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 9.33e-08,
+       "chi2_initial": 616.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3554,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 318
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 1.29e-07,
+       "chi2_initial": 667.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3537,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 319
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 1.75e-07,
+       "chi2_initial": 709.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3519,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 320
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.18e-07,
+       "chi2_initial": 713.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3529,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 321
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.52e-07,
+       "chi2_initial": 774.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3544,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 322
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.81e-07,
+       "chi2_initial": 694.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3329,
+       "iconvr": null,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        },
+        {
+         "detail": "Less than 3 contour points found",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 323
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.87e-07,
+       "chi2_initial": 611.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3327,
+       "iconvr": null,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "Number of contour points greater than max allowed",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 324
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.87e-07,
+       "chi2_initial": 542.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3171,
+       "iconvr": null,
+       "iterations_n": 12,
+       "solver_errors": [
+        {
+         "detail": "Number of contour points greater than max allowed",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 325
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.86e-07,
+       "chi2_initial": 428.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3064,
+       "iconvr": null,
+       "iterations_n": 13,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 326
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.97e-07,
+       "chi2_initial": 374.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.2833,
+       "iconvr": null,
+       "iterations_n": 16,
+       "solver_errors": [
+        {
+         "detail": "Number of contour points greater than max allowed",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 327
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 28.3696109,
+        "area": 4030.99529,
+        "betap": 0.0143759049,
+        "chisq": 278.52921,
+        "elong": 1.6328863,
+        "jflag": 0,
+        "li": 0.642439346,
+        "q95": 4.33079301,
+        "qstar": 3.38474661,
+        "rm": 41.6257902,
+        "terror": 0.00815815957,
+        "volume": 917041.675,
+        "zm": 1.29049472
+       },
+       "chi2_final": 1.91e-07,
+       "chi2_initial": 279.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008158,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 328
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 26.3463146,
+        "area": 3462.6994,
+        "betap": 0.0120050841,
+        "chisq": 179.382998,
+        "elong": 1.61174794,
+        "jflag": 0,
+        "li": 0.644646547,
+        "q95": 4.02974024,
+        "qstar": 3.26073043,
+        "rm": 39.4229782,
+        "terror": 0.00782970243,
+        "volume": 753743.582,
+        "zm": 1.07643656
+       },
+       "chi2_final": 2.03e-07,
+       "chi2_initial": 179.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.00783,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 329
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 24.3259714,
+        "area": 2929.30172,
+        "betap": 0.00987835295,
+        "chisq": 131.204416,
+        "elong": 1.58632165,
+        "jflag": 0,
+        "li": 0.650560529,
+        "q95": 3.80254624,
+        "qstar": 3.17392733,
+        "rm": 37.3437093,
+        "terror": 0.00770207124,
+        "volume": 607521.442,
+        "zm": 9.09647859e-05
+       },
+       "chi2_final": 2.13e-07,
+       "chi2_initial": 131.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.007702,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 330
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 22.4472483,
+        "area": 2470.11995,
+        "betap": 0.00813161046,
+        "chisq": 80.9840302,
+        "elong": 1.56402633,
+        "jflag": 0,
+        "li": 0.655885609,
+        "q95": 3.6128445,
+        "qstar": 3.11499481,
+        "rm": 35.0790753,
+        "terror": 0.00759430096,
+        "volume": 487842.409,
+        "zm": 0.743072337
+       },
+       "chi2_final": 2.23e-07,
+       "chi2_initial": 81.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.007594,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 331
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 20.8234002,
+        "area": 2095.94688,
+        "betap": 0.00680109138,
+        "chisq": 28.6758847,
+        "elong": 1.53578629,
+        "jflag": 1,
+        "li": 0.662222773,
+        "q95": 3.42026048,
+        "qstar": 3.02420273,
+        "rm": 33.2474455,
+        "terror": 0.00754634802,
+        "volume": 395631.645,
+        "zm": 0.558909944
+       },
+       "chi2_final": 2.33e-07,
+       "chi2_initial": 28.7,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007546,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 332
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 19.781379,
+        "area": 1865.73681,
+        "betap": 0.00603649679,
+        "chisq": 15.1778127,
+        "elong": 1.51220517,
+        "jflag": 1,
+        "li": 0.664996565,
+        "q95": 3.29781204,
+        "qstar": 2.94414754,
+        "rm": 31.9531562,
+        "terror": 0.00738711453,
+        "volume": 341599.444,
+        "zm": 5.01124994e-05
+       },
+       "chi2_final": 2.36e-07,
+       "chi2_initial": 15.2,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007387,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 333
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 18.4814444,
+        "area": 1607.18896,
+        "betap": 0.00515586567,
+        "chisq": 1.14164561,
+        "elong": 1.49023497,
+        "jflag": 1,
+        "li": 0.674566336,
+        "q95": 3.24387931,
+        "qstar": 2.96047624,
+        "rm": 30.5976152,
+        "terror": 0.00750950432,
+        "volume": 282561.31,
+        "zm": 0.328089701
+       },
+       "chi2_final": 2.39e-07,
+       "chi2_initial": 1.14,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.00751,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 334
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 12.0880768,
+        "area": 620.72311,
+        "betap": 0.00211615932,
+        "chisq": 2.69155651,
+        "elong": 1.34180892,
+        "jflag": 1,
+        "li": 0.70403387,
+        "q95": 2.60631376,
+        "qstar": 2.62503413,
+        "rm": 23.4091347,
+        "terror": 0.00745326639,
+        "volume": 86388.3406,
+        "zm": 0.202552631
+       },
+       "chi2_final": 2.6e-07,
+       "chi2_initial": 2.69,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007453,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [],
+       "time_ms": 335
+      }
+     ],
+     "summary": {
+      "accepted": 4,
+      "bound_failures": 16,
+      "by_phase": {
+       "flat_top": {
+        "collapsed": 6
+       },
+       "ramp_down": {
+        "accepted": 4,
+        "flagged": 4
+       },
+       "ramp_up": {
+        "collapsed": 7
+       }
+      },
+      "collapsed": 13,
+      "findax_failures": 0,
+      "outcomes": {
+       "accepted": 4,
+       "collapsed": 13,
+       "flagged": 4
+      },
+      "produced_an_equilibrium": 8,
+      "slices": 21
+     }
+    },
+    "B": {
+     "returncode": 0,
+     "seconds": 5.173235082998872,
+     "summary": {
+      "accepted": 0,
+      "bound_failures": 13,
+      "by_phase": {
+       "flat_top": {
+        "collapsed": 6
+       },
+       "ramp_down": {
+        "flagged": 3,
+        "no_output": 5
+       },
+       "ramp_up": {
+        "collapsed": 7
+       }
+      },
+      "collapsed": 13,
+      "findax_failures": 5,
+      "outcomes": {
+       "collapsed": 13,
+       "flagged": 3,
+       "no_output": 5
+      },
+      "produced_an_equilibrium": 3,
+      "slices": 21
+     },
+     "vs_reference": {
+      "changed_vs_reference": {
+       "331": [
+        "flagged",
+        "no_output"
+       ],
+       "332": [
+        "accepted",
+        "no_output"
+       ],
+       "333": [
+        "accepted",
+        "no_output"
+       ],
+       "334": [
+        "accepted",
+        "no_output"
+       ],
+       "335": [
+        "accepted",
+        "no_output"
+       ]
+      },
+      "compared_on": 3,
+      "lost": [
+       331,
+       332,
+       333,
+       334,
+       335
+      ],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.004994699999997465,
+        "median_abs": 0.003298400000002033,
+        "median_relative": 0.00012519398064130127,
+        "reference_median": 26.3463146,
+        "slices": 3
+       },
+       "area": {
+        "max_abs": 1.4336299999999937,
+        "median_abs": 0.7962800000000243,
+        "median_relative": 0.0002299593201766299,
+        "reference_median": 3462.6994,
+        "slices": 3
+       },
+       "betap": {
+        "max_abs": 2.211319999999989e-05,
+        "median_abs": 1.1195199999999503e-05,
+        "median_relative": 0.0009325382401943775,
+        "reference_median": 0.0120050841,
+        "slices": 3
+       },
+       "chisq": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 179.382998,
+        "slices": 3
+       },
+       "elong": {
+        "max_abs": 0.0009790600000001426,
+        "median_abs": 0.0006321600000001038,
+        "median_relative": 0.00039222013834253993,
+        "reference_median": 1.61174794,
+        "slices": 3
+       },
+       "li": {
+        "max_abs": 0.0034974589999999806,
+        "median_abs": 0.002027858000000049,
+        "median_relative": 0.0031456896952866934,
+        "reference_median": 0.644646547,
+        "slices": 3
+       },
+       "q95": {
+        "max_abs": 0.006240619999999808,
+        "median_abs": 0.0037157099999998167,
+        "median_relative": 0.0009220718405412199,
+        "reference_median": 4.02974024,
+        "slices": 3
+       },
+       "qstar": {
+        "max_abs": 0.010207030000000117,
+        "median_abs": 0.009884890000000368,
+        "median_relative": 0.0030314956149258766,
+        "reference_median": 3.26073043,
+        "slices": 3
+       },
+       "rm": {
+        "max_abs": 0.2585443999999981,
+        "median_abs": 0.15598690000000204,
+        "median_relative": 0.003956750786524851,
+        "reference_median": 39.4229782,
+        "slices": 3
+       },
+       "terror": {
+        "max_abs": 0.00011073807000000057,
+        "median_abs": 7.36468500000002e-05,
+        "median_relative": 0.009406085436633918,
+        "reference_median": 0.00782970243,
+        "slices": 3
+       },
+       "volume": {
+        "max_abs": 87.00500000000466,
+        "median_abs": 49.78000000002794,
+        "median_relative": 6.604368009070217e-05,
+        "reference_median": 753743.582,
+        "slices": 3
+       },
+       "zm": {
+        "max_abs": 0.9011316142141,
+        "median_abs": 0.8188059300000001,
+        "median_relative": 0.7606634338023599,
+        "reference_median": 1.07643656,
+        "slices": 3
+       }
+      },
+      "recovered": []
+     }
+    },
+    "C": {
+     "returncode": 0,
+     "seconds": 23.20320112502668,
+     "summary": {
+      "accepted": 4,
+      "bound_failures": 21,
+      "by_phase": {
+       "flat_top": {
+        "collapsed": 6
+       },
+       "ramp_down": {
+        "accepted": 4,
+        "flagged": 4
+       },
+       "ramp_up": {
+        "collapsed": 7
+       }
+      },
+      "collapsed": 13,
+      "findax_failures": 0,
+      "outcomes": {
+       "accepted": 4,
+       "collapsed": 13,
+       "flagged": 4
+      },
+      "produced_an_equilibrium": 8,
+      "slices": 21
+     },
+     "vs_reference": {
+      "changed_vs_reference": {},
+      "compared_on": 8,
+      "lost": [],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.02430549999999876,
+        "median_abs": 0.008961599999999237,
+        "median_relative": 0.00041421149488893094,
+        "reference_median": 21.635324249999996,
+        "slices": 8
+       },
+       "area": {
+        "max_abs": 1.135240000000067,
+        "median_abs": 0.4361319999999296,
+        "median_relative": 0.00019103180756551897,
+        "reference_median": 2283.033415,
+        "slices": 8
+       },
+       "betap": {
+        "max_abs": 1.2150849999999908e-05,
+        "median_abs": 3.609530000000822e-06,
+        "median_relative": 0.00048343963988245307,
+        "reference_median": 0.00746635092,
+        "slices": 8
+       },
+       "chisq": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 54.82995745,
+        "slices": 8
+       },
+       "elong": {
+        "max_abs": 0.007483649999999953,
+        "median_abs": 0.0007816900000000571,
+        "median_relative": 0.0005043466143447452,
+        "reference_median": 1.54990631,
+        "slices": 8
+       },
+       "li": {
+        "max_abs": 0.002962123000000094,
+        "median_abs": 0.0011060565000000078,
+        "median_relative": 0.0016782481852088058,
+        "reference_median": 0.6590541910000001,
+        "slices": 8
+       },
+       "q95": {
+        "max_abs": 0.018102799999999863,
+        "median_abs": 0.005412739999999916,
+        "median_relative": 0.001539217746753985,
+        "reference_median": 3.51655249,
+        "slices": 8
+       },
+       "qstar": {
+        "max_abs": 0.01697039999999994,
+        "median_abs": 0.001208574999999934,
+        "median_relative": 0.00039372409573904476,
+        "reference_median": 3.06959877,
+        "slices": 8
+       },
+       "rm": {
+        "max_abs": 0.2822883000000047,
+        "median_abs": 0.011400699999999375,
+        "median_relative": 0.0003337122940408631,
+        "reference_median": 34.1632604,
+        "slices": 8
+       },
+       "terror": {
+        "max_abs": 0.0006436335599999997,
+        "median_abs": 7.896866499999995e-05,
+        "median_relative": 0.010431344799593914,
+        "reference_median": 0.0075703244900000004,
+        "slices": 8
+       },
+       "volume": {
+        "max_abs": 263.35600000002887,
+        "median_abs": 155.9079999999958,
+        "median_relative": 0.00035294301919588873,
+        "reference_median": 441737.027,
+        "slices": 8
+       },
+       "zm": {
+        "max_abs": 1.1717567852141,
+        "median_abs": 0.006879331499999947,
+        "median_relative": 0.015511463930743617,
+        "reference_median": 0.44349982250000003,
+        "slices": 8
+       }
+      },
+      "recovered": []
+     }
+    },
+    "D": {
+     "returncode": 0,
+     "seconds": 17.47955991595518,
+     "summary": {
+      "accepted": 0,
+      "bound_failures": 13,
+      "by_phase": {
+       "flat_top": {
+        "collapsed": 6
+       },
+       "ramp_down": {
+        "flagged": 3,
+        "no_output": 5
+       },
+       "ramp_up": {
+        "collapsed": 7
+       }
+      },
+      "collapsed": 13,
+      "findax_failures": 5,
+      "outcomes": {
+       "collapsed": 13,
+       "flagged": 3,
+       "no_output": 5
+      },
+      "produced_an_equilibrium": 3,
+      "slices": 21
+     },
+     "vs_reference": {
+      "changed_vs_reference": {
+       "331": [
+        "flagged",
+        "no_output"
+       ],
+       "332": [
+        "accepted",
+        "no_output"
+       ],
+       "333": [
+        "accepted",
+        "no_output"
+       ],
+       "334": [
+        "accepted",
+        "no_output"
+       ],
+       "335": [
+        "accepted",
+        "no_output"
+       ]
+      },
+      "compared_on": 3,
+      "lost": [
+       331,
+       332,
+       333,
+       334,
+       335
+      ],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.006365699999999919,
+        "median_abs": 0.0037602000000021008,
+        "median_relative": 0.0001427220488744221,
+        "reference_median": 26.3463146,
+        "slices": 3
+       },
+       "area": {
+        "max_abs": 1.9736100000000079,
+        "median_abs": 1.1327099999998609,
+        "median_relative": 0.0003271176238976623,
+        "reference_median": 3462.6994,
+        "slices": 3
+       },
+       "betap": {
+        "max_abs": 1.5493099999999704e-05,
+        "median_abs": 1.1474499999998902e-05,
+        "median_relative": 0.0009558033833348074,
+        "reference_median": 0.0120050841,
+        "slices": 3
+       },
+       "chisq": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 179.382998,
+        "slices": 3
+       },
+       "elong": {
+        "max_abs": 0.0016388099999999906,
+        "median_abs": 0.0008363499999999302,
+        "median_relative": 0.0005189086824580834,
+        "reference_median": 1.61174794,
+        "slices": 3
+       },
+       "li": {
+        "max_abs": 0.0032387510000000397,
+        "median_abs": 0.0012709000000000747,
+        "median_relative": 0.001971467939934649,
+        "reference_median": 0.644646547,
+        "slices": 3
+       },
+       "q95": {
+        "max_abs": 0.0039280399999999105,
+        "median_abs": 0.00041703999999942454,
+        "median_relative": 0.00010349054161352707,
+        "reference_median": 4.02974024,
+        "slices": 3
+       },
+       "qstar": {
+        "max_abs": 0.012782790000000155,
+        "median_abs": 0.00914174000000001,
+        "median_relative": 0.0028035865571383674,
+        "reference_median": 3.26073043,
+        "slices": 3
+       },
+       "rm": {
+        "max_abs": 0.4295814999999976,
+        "median_abs": 0.2822862000000015,
+        "median_relative": 0.007160448370184307,
+        "reference_median": 39.4229782,
+        "slices": 3
+       },
+       "terror": {
+        "max_abs": 8.152804000000069e-05,
+        "median_abs": 6.64528000000001e-05,
+        "median_relative": 0.008487270186077825,
+        "reference_median": 0.00782970243,
+        "slices": 3
+       },
+       "volume": {
+        "max_abs": 209.44900000002235,
+        "median_abs": 165.99300000001676,
+        "median_relative": 0.00022022476073304298,
+        "reference_median": 753743.582,
+        "slices": 3
+       },
+       "zm": {
+        "max_abs": 1.0545813552141001,
+        "median_abs": 0.23578591000000015,
+        "median_relative": 0.2190430154100304,
+        "reference_median": 1.07643656,
+        "slices": 3
+       }
+      },
+      "recovered": []
+     }
+    }
+   },
+   "phases": {
+    "flat_top": 6,
+    "ramp_down": 9,
+    "ramp_up": 7
+   },
+   "window": {
+    "end": 0.3364399999999704,
+    "slices": 22,
+    "start": 0.31455999999997886
+   }
+  },
+  "41672": {
+   "cases": {
+    "A": {
+     "returncode": 0,
+     "seconds": 28.355229749984574,
+     "slices": [
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 1.76e-08,
+       "chi2_initial": 136.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.4291,
+       "iconvr": null,
+       "iterations_n": 8,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 315
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.1e-08,
+       "chi2_initial": 359.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.383,
+       "iconvr": null,
+       "iterations_n": 9,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        },
+        {
+         "detail": "Less than 3 contour points found",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 316
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.19e-08,
+       "chi2_initial": 437.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3938,
+       "iconvr": null,
+       "iterations_n": 9,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 317
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.53e-08,
+       "chi2_initial": 619.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3354,
+       "iconvr": null,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 318
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 3.09e-08,
+       "chi2_initial": 643.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.314,
+       "iconvr": null,
+       "iterations_n": 13,
+       "solver_errors": [
+        {
+         "detail": "Number of contour points greater than max allowed",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 319
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 3.85e-08,
+       "chi2_initial": 702.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.2927,
+       "iconvr": null,
+       "iterations_n": 15,
+       "solver_errors": [
+        {
+         "detail": "Number of contour points greater than max allowed",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 320
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 5.02e-08,
+       "chi2_initial": 692.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.2642,
+       "iconvr": null,
+       "iterations_n": 19,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 321
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 28.3320282,
+        "area": 4092.98824,
+        "betap": 0.014277282,
+        "chisq": 682.355809,
+        "elong": 1.64980682,
+        "jflag": 0,
+        "li": 0.641838138,
+        "q95": 9.75899506,
+        "qstar": 7.50692547,
+        "rm": 41.8359107,
+        "terror": 0.00978273238,
+        "volume": 927529.345,
+        "zm": 2.34378184
+       },
+       "chi2_final": 3.79e-08,
+       "chi2_initial": 682.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.009783,
+       "iconvr": 2,
+       "iterations_n": 13,
+       "solver_errors": [],
+       "time_ms": 322
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 27.7839889,
+        "area": 3949.6386,
+        "betap": 0.0136252744,
+        "chisq": 585.397262,
+        "elong": 1.6524021,
+        "jflag": 0,
+        "li": 0.642724576,
+        "q95": 8.35702428,
+        "qstar": 6.54048496,
+        "rm": 40.9375083,
+        "terror": 0.00882296926,
+        "volume": 885180.939,
+        "zm": 2.34377316
+       },
+       "chi2_final": 4.37e-08,
+       "chi2_initial": 585.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008823,
+       "iconvr": 2,
+       "iterations_n": 13,
+       "solver_errors": [],
+       "time_ms": 323
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 27.5272944,
+        "area": 3840.45924,
+        "betap": 0.0133046595,
+        "chisq": 568.344113,
+        "elong": 1.63838098,
+        "jflag": 0,
+        "li": 0.64337194,
+        "q95": 7.5321813,
+        "qstar": 5.91437008,
+        "rm": 40.9374693,
+        "terror": 0.00909635913,
+        "volume": 855910.642,
+        "zm": 2.34375133
+       },
+       "chi2_final": 4.74e-08,
+       "chi2_initial": 568.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.009096,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [],
+       "time_ms": 324
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 26.1854177,
+        "area": 3447.72105,
+        "betap": 0.0117866869,
+        "chisq": 441.199129,
+        "elong": 1.61848925,
+        "jflag": 0,
+        "li": 0.64847413,
+        "q95": 6.69260027,
+        "qstar": 5.36545565,
+        "rm": 39.140638,
+        "terror": 0.00812409363,
+        "volume": 746065.514,
+        "zm": 2.3437326
+       },
+       "chi2_final": 5.3e-08,
+       "chi2_initial": 441.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008124,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [],
+       "time_ms": 325
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 24.8593867,
+        "area": 3088.04451,
+        "betap": 0.0103589299,
+        "chisq": 361.007195,
+        "elong": 1.60312544,
+        "jflag": 0,
+        "li": 0.64800889,
+        "q95": 6.14167156,
+        "qstar": 5.05655907,
+        "rm": 37.3438151,
+        "terror": 0.00975201535,
+        "volume": 647570.82,
+        "zm": 2.3437081
+       },
+       "chi2_final": 5.9e-08,
+       "chi2_initial": 361.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.009752,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 326
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 23.4942152,
+        "area": 2742.21912,
+        "betap": 0.00902848781,
+        "chisq": 269.544759,
+        "elong": 1.58781124,
+        "jflag": 0,
+        "li": 0.653778576,
+        "q95": 5.62356446,
+        "qstar": 4.7354645,
+        "rm": 36.4452775,
+        "terror": 0.00948264723,
+        "volume": 555745.335,
+        "zm": 2.3436879
+       },
+       "chi2_final": 6.68e-08,
+       "chi2_initial": 270.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.009483,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 327
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 23.8054312,
+        "area": 2818.27621,
+        "betap": 0.00934803936,
+        "chisq": 170.444656,
+        "elong": 1.5887768,
+        "jflag": 0,
+        "li": 0.65118197,
+        "q95": 5.18765558,
+        "qstar": 4.33827177,
+        "rm": 36.4453412,
+        "terror": 0.00868640743,
+        "volume": 576382.042,
+        "zm": 2.34366484
+       },
+       "chi2_final": 7.51e-08,
+       "chi2_initial": 170.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008686,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 328
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 23.6504172,
+        "area": 2750.29287,
+        "betap": 0.00919606172,
+        "chisq": 114.603969,
+        "elong": 1.57088732,
+        "jflag": 0,
+        "li": 0.651276573,
+        "q95": 4.70832165,
+        "qstar": 3.92651157,
+        "rm": 36.4453058,
+        "terror": 0.00831882073,
+        "volume": 560119.507,
+        "zm": 7.98044373e-05
+       },
+       "chi2_final": 7.22e-08,
+       "chi2_initial": 115.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008319,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 329
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 23.3634148,
+        "area": 2678.25124,
+        "betap": 0.00891655313,
+        "chisq": 109.626835,
+        "elong": 1.56490552,
+        "jflag": 0,
+        "li": 0.652303869,
+        "q95": 4.5030092,
+        "qstar": 3.75622223,
+        "rm": 36.0879906,
+        "terror": 0.00791602931,
+        "volume": 541252.386,
+        "zm": 0.911624315
+       },
+       "chi2_final": 7.54e-08,
+       "chi2_initial": 110.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.007916,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 330
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 23.4102547,
+        "area": 2682.9725,
+        "betap": 0.00895814442,
+        "chisq": 57.774592,
+        "elong": 1.5617609,
+        "jflag": 1,
+        "li": 0.653473409,
+        "q95": 4.77749517,
+        "qstar": 3.97454845,
+        "rm": 36.4452511,
+        "terror": 0.00772048505,
+        "volume": 542680.049,
+        "zm": 6.62304832e-05
+       },
+       "chi2_final": 7.65e-08,
+       "chi2_initial": 57.8,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.00772,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 331
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 23.3030809,
+        "area": 2654.67143,
+        "betap": 0.00884351589,
+        "chisq": 66.3060719,
+        "elong": 1.5594985,
+        "jflag": 1,
+        "li": 0.65257131,
+        "q95": 4.84674772,
+        "qstar": 4.04969925,
+        "rm": 36.0037772,
+        "terror": 0.0077352494,
+        "volume": 535253.288,
+        "zm": 0.729047607
+       },
+       "chi2_final": 7.72e-08,
+       "chi2_initial": 66.3,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007735,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 332
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 22.9331328,
+        "area": 2560.18307,
+        "betap": 0.00850613254,
+        "chisq": 22.7598683,
+        "elong": 1.55147637,
+        "jflag": 1,
+        "li": 0.654358052,
+        "q95": 4.83553348,
+        "qstar": 4.07090759,
+        "rm": 35.5468811,
+        "terror": 0.00763108836,
+        "volume": 511090.69,
+        "zm": 4.89443833e-05
+       },
+       "chi2_final": 7.9e-08,
+       "chi2_initial": 22.8,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007631,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 333
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 22.6614861,
+        "area": 2497.26441,
+        "betap": 0.00825275851,
+        "chisq": 19.1547644,
+        "elong": 1.54924486,
+        "jflag": 1,
+        "li": 0.656249601,
+        "q95": 4.92606213,
+        "qstar": 4.15557091,
+        "rm": 35.5468225,
+        "terror": 0.00728060493,
+        "volume": 494702.757,
+        "zm": 4.27058446e-05
+       },
+       "chi2_final": 7.95e-08,
+       "chi2_initial": 19.2,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007281,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 334
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 22.2239319,
+        "area": 2398.63749,
+        "betap": 0.00786379118,
+        "chisq": 9.3074348,
+        "elong": 1.54552766,
+        "jflag": 1,
+        "li": 0.657874918,
+        "q95": 4.98750085,
+        "qstar": 4.22450477,
+        "rm": 34.6484603,
+        "terror": 0.00723306974,
+        "volume": 469405.129,
+        "zm": 3.49542606e-05
+       },
+       "chi2_final": 8.1e-08,
+       "chi2_initial": 9.31,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007233,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 335
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 21.8547287,
+        "area": 2315.3358,
+        "betap": 0.00754976676,
+        "chisq": 7.49481197,
+        "elong": 1.54126665,
+        "jflag": 1,
+        "li": 0.659894613,
+        "q95": 5.06216931,
+        "qstar": 4.30338216,
+        "rm": 34.6483842,
+        "terror": 0.00720834011,
+        "volume": 448472.918,
+        "zm": 2.78960524e-05
+       },
+       "chi2_final": 8.23e-08,
+       "chi2_initial": 7.49,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007208,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 336
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 21.4602491,
+        "area": 2235.8124,
+        "betap": 0.00721734093,
+        "chisq": 1.5577773,
+        "elong": 1.54097131,
+        "jflag": 1,
+        "li": 0.656437623,
+        "q95": 5.18109045,
+        "qstar": 4.45965879,
+        "rm": 33.7500286,
+        "terror": 0.00709209939,
+        "volume": 428162.547,
+        "zm": 2.3640148e-05
+       },
+       "chi2_final": 8.31e-08,
+       "chi2_initial": 1.56,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007092,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 337
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 21.0147543,
+        "area": 2142.65927,
+        "betap": 0.00686397939,
+        "chisq": 0.445936143,
+        "elong": 1.53863183,
+        "jflag": 1,
+        "li": 0.656165473,
+        "q95": 5.25370578,
+        "qstar": 4.54557433,
+        "rm": 33.7499404,
+        "terror": 0.00686787397,
+        "volume": 405095.945,
+        "zm": 1.75191567e-05
+       },
+       "chi2_final": 8.45e-08,
+       "chi2_initial": 0.446,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.006868,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 338
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 20.500388,
+        "area": 2040.66305,
+        "betap": 0.00646023955,
+        "chisq": 1.55960904,
+        "elong": 1.53949923,
+        "jflag": 1,
+        "li": 0.662256273,
+        "q95": 5.34853996,
+        "qstar": 4.66360524,
+        "rm": 32.8515588,
+        "terror": 0.00699767702,
+        "volume": 379959.187,
+        "zm": 1.32427435e-05
+       },
+       "chi2_final": 8.55e-08,
+       "chi2_initial": 1.56,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.006998,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 339
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 19.910254,
+        "area": 1916.43688,
+        "betap": 0.00602880854,
+        "chisq": 2.55053793,
+        "elong": 1.52754765,
+        "jflag": 1,
+        "li": 0.657409524,
+        "q95": 5.38177751,
+        "qstar": 4.70253566,
+        "rm": 31.9531608,
+        "terror": 0.00675982128,
+        "volume": 350675.069,
+        "zm": 6.77993998e-06
+       },
+       "chi2_final": 8.72e-08,
+       "chi2_initial": 2.55,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.00676,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 340
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 19.3620546,
+        "area": 1817.7827,
+        "betap": 0.00564108827,
+        "chisq": 0.0257444928,
+        "elong": 1.53335122,
+        "jflag": 1,
+        "li": 0.667676085,
+        "q95": 5.51712929,
+        "qstar": 4.91900684,
+        "rm": 31.9530574,
+        "terror": 0.00678503085,
+        "volume": 327013.495,
+        "zm": 5.81665506e-06
+       },
+       "chi2_final": 8.76e-08,
+       "chi2_initial": 0.0257,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.006785,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 341
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 18.6266812,
+        "area": 1669.98632,
+        "betap": 0.00516103147,
+        "chisq": 4.95005212,
+        "elong": 1.51789538,
+        "jflag": 1,
+        "li": 0.664245441,
+        "q95": 5.47576184,
+        "qstar": 4.90229868,
+        "rm": 31.0546313,
+        "terror": 0.00768791389,
+        "volume": 293682.795,
+        "zm": -7.11016817e-07
+       },
+       "chi2_final": 8.99e-08,
+       "chi2_initial": 4.95,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007688,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 342
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 18.0583895,
+        "area": 1569.21021,
+        "betap": 0.00480223733,
+        "chisq": 4.36549129,
+        "elong": 1.51793804,
+        "jflag": 1,
+        "li": 0.668940835,
+        "q95": 5.58232761,
+        "qstar": 5.09222887,
+        "rm": 30.1562374,
+        "terror": 0.00746355191,
+        "volume": 270909.396,
+        "zm": -2.09168305e-06
+       },
+       "chi2_final": 9.03e-08,
+       "chi2_initial": 4.37,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007464,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 343
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 18.4739482,
+        "area": 1641.66799,
+        "betap": 0.00506776814,
+        "chisq": 4.04050521,
+        "elong": 1.51587108,
+        "jflag": 1,
+        "li": 0.666777316,
+        "q95": 5.71191329,
+        "qstar": 5.12408382,
+        "rm": 30.1563124,
+        "terror": 0.00757837261,
+        "volume": 287377.845,
+        "zm": -5.27015833e-06
+       },
+       "chi2_final": 8.86e-08,
+       "chi2_initial": 4.04,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007578,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 344
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 9.36e-08,
+       "chi2_initial": 8.43,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.006523,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 345
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 12.0740855,
+        "area": 649.366042,
+        "betap": 0.00206565853,
+        "chisq": 10.7100829,
+        "elong": 1.40158752,
+        "jflag": 1,
+        "li": 0.713641638,
+        "q95": 4.72739043,
+        "qstar": 4.72168214,
+        "rm": 22.9688189,
+        "terror": 0.00823908192,
+        "volume": 89881.5424,
+        "zm": -1.3744124e-05
+       },
+       "chi2_final": 9.35e-08,
+       "chi2_initial": 10.7,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.008239,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [],
+       "time_ms": 346
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 9.47e-08,
+       "chi2_initial": 6.02,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007272,
+       "iconvr": 2,
+       "iterations_n": 13,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 347
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 7.68719809,
+        "area": 236.3507,
+        "betap": 0.000961172529,
+        "chisq": 25.7801562,
+        "elong": 1.26428575,
+        "jflag": 1,
+        "li": 0.755047703,
+        "q95": 3.4553447,
+        "qstar": 3.67128304,
+        "rm": 18.4765696,
+        "terror": 0.00829713966,
+        "volume": 26590.163,
+        "zm": -4.41437469e-05
+       },
+       "chi2_final": 9.65e-08,
+       "chi2_initial": 25.8,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.008297,
+       "iconvr": 2,
+       "iterations_n": 13,
+       "solver_errors": [],
+       "time_ms": 348
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": null,
+       "chi2_initial": null,
+       "collapsed": false,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": null,
+       "iconvr": null,
+       "iterations_n": 0,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 349
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": null,
+       "chi2_initial": null,
+       "collapsed": false,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": null,
+       "iconvr": null,
+       "iterations_n": 0,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 350
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": null,
+       "chi2_initial": null,
+       "collapsed": false,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": null,
+       "iconvr": null,
+       "iterations_n": 0,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 351
+      }
+     ],
+     "summary": {
+      "accepted": 16,
+      "bound_failures": 11,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 4,
+        "flagged": 3
+       },
+       "ramp_down": {
+        "accepted": 12,
+        "no_output": 5
+       },
+       "ramp_up": {
+        "collapsed": 7,
+        "flagged": 6
+       }
+      },
+      "collapsed": 7,
+      "findax_failures": 2,
+      "outcomes": {
+       "accepted": 16,
+       "collapsed": 7,
+       "flagged": 9,
+       "no_output": 5
+      },
+      "produced_an_equilibrium": 25,
+      "slices": 37
+     }
+    },
+    "B": {
+     "returncode": 0,
+     "seconds": 24.366595582978334,
+     "summary": {
+      "accepted": 18,
+      "bound_failures": 10,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 4,
+        "flagged": 2,
+        "no_output": 1
+       },
+       "ramp_down": {
+        "accepted": 14,
+        "no_output": 3
+       },
+       "ramp_up": {
+        "collapsed": 7,
+        "flagged": 5,
+        "no_output": 1
+       }
+      },
+      "collapsed": 7,
+      "findax_failures": 2,
+      "outcomes": {
+       "accepted": 18,
+       "collapsed": 7,
+       "flagged": 7,
+       "no_output": 5
+      },
+      "produced_an_equilibrium": 25,
+      "slices": 37
+     },
+     "vs_reference": {
+      "changed_vs_reference": {
+       "327": [
+        "flagged",
+        "no_output"
+       ],
+       "328": [
+        "flagged",
+        "no_output"
+       ],
+       "345": [
+        "no_output",
+        "accepted"
+       ],
+       "347": [
+        "no_output",
+        "accepted"
+       ]
+      },
+      "compared_on": 23,
+      "lost": [
+       327,
+       328
+      ],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.008752699999998725,
+        "median_abs": 0.0035682999999977483,
+        "median_relative": 0.00016056114714776227,
+        "reference_median": 22.2239319,
+        "slices": 23
+       },
+       "area": {
+        "max_abs": 2.827684000000005,
+        "median_abs": 1.110809999999674,
+        "median_relative": 0.0004631004078901785,
+        "reference_median": 2398.63749,
+        "slices": 23
+       },
+       "betap": {
+        "max_abs": 1.9644200000000153e-05,
+        "median_abs": 8.062550000000057e-06,
+        "median_relative": 0.001025275190483893,
+        "reference_median": 0.00786379118,
+        "slices": 23
+       },
+       "chisq": {
+        "max_abs": 9.999999786569624e-11,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 19.1547644,
+        "slices": 23
+       },
+       "elong": {
+        "max_abs": 0.01851395999999994,
+        "median_abs": 0.001622200000000129,
+        "median_relative": 0.001049609167137215,
+        "reference_median": 1.54552766,
+        "slices": 23
+       },
+       "li": {
+        "max_abs": 0.015401222000000048,
+        "median_abs": 0.00347993000000002,
+        "median_relative": 0.005302753700264757,
+        "reference_median": 0.656249601,
+        "slices": 23
+       },
+       "q95": {
+        "max_abs": 0.08021228000000002,
+        "median_abs": 0.008504740000000233,
+        "median_relative": 0.0016188078198776166,
+        "reference_median": 5.25370578,
+        "slices": 23
+       },
+       "qstar": {
+        "max_abs": 0.0793660599999999,
+        "median_abs": 0.016125930000000288,
+        "median_relative": 0.003457824830817003,
+        "reference_median": 4.66360524,
+        "slices": 23
+       },
+       "rm": {
+        "max_abs": 0.585832400000001,
+        "median_abs": 0.1952787000000029,
+        "median_relative": 0.005635999357812818,
+        "reference_median": 34.6484603,
+        "slices": 23
+       },
+       "terror": {
+        "max_abs": 0.0008469700000000007,
+        "median_abs": 0.00013327554999999994,
+        "median_relative": 0.017335723566487545,
+        "reference_median": 0.00768791389,
+        "slices": 23
+       },
+       "volume": {
+        "max_abs": 334.879399999998,
+        "median_abs": 145.36099999997532,
+        "median_relative": 0.0003096706682980776,
+        "reference_median": 469405.129,
+        "slices": 23
+       },
+       "zm": {
+        "max_abs": 0.911551121766,
+        "median_abs": 4.546107999999975e-07,
+        "median_relative": null,
+        "reference_median": 4.27058446e-05,
+        "slices": 23
+       }
+      },
+      "recovered": [
+       345,
+       347
+      ]
+     }
+    },
+    "C": {
+     "returncode": 0,
+     "seconds": 56.009572457987815,
+     "summary": {
+      "accepted": 14,
+      "bound_failures": 12,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 4,
+        "flagged": 3
+       },
+       "ramp_down": {
+        "accepted": 10,
+        "no_output": 7
+       },
+       "ramp_up": {
+        "collapsed": 7,
+        "flagged": 6
+       }
+      },
+      "collapsed": 7,
+      "findax_failures": 4,
+      "outcomes": {
+       "accepted": 14,
+       "collapsed": 7,
+       "flagged": 9,
+       "no_output": 7
+      },
+      "produced_an_equilibrium": 23,
+      "slices": 37
+     },
+     "vs_reference": {
+      "changed_vs_reference": {
+       "346": [
+        "accepted",
+        "no_output"
+       ],
+       "348": [
+        "accepted",
+        "no_output"
+       ]
+      },
+      "compared_on": 23,
+      "lost": [
+       346,
+       348
+      ],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.013049499999997494,
+        "median_abs": 0.00846289999999783,
+        "median_relative": 0.0003690250291489975,
+        "reference_median": 22.9331328,
+        "slices": 23
+       },
+       "area": {
+        "max_abs": 1.251700000000028,
+        "median_abs": 0.4321700000000419,
+        "median_relative": 0.0001688043347619051,
+        "reference_median": 2560.18307,
+        "slices": 23
+       },
+       "betap": {
+        "max_abs": 6.786330000000361e-06,
+        "median_abs": 3.286199999999115e-06,
+        "median_relative": 0.000386333034965749,
+        "reference_median": 0.00850613254,
+        "slices": 23
+       },
+       "chisq": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 22.7598683,
+        "slices": 23
+       },
+       "elong": {
+        "max_abs": 0.003107720000000036,
+        "median_abs": 0.0008544000000001439,
+        "median_relative": 0.0005507012652729889,
+        "reference_median": 1.55147637,
+        "slices": 23
+       },
+       "li": {
+        "max_abs": 0.003900571000000075,
+        "median_abs": 0.0011059019999999364,
+        "median_relative": 0.0016900563791028837,
+        "reference_median": 0.654358052,
+        "slices": 23
+       },
+       "q95": {
+        "max_abs": 0.017049079999999606,
+        "median_abs": 0.006287109999999707,
+        "median_relative": 0.0011754815420692317,
+        "reference_median": 5.34853996,
+        "slices": 23
+       },
+       "qstar": {
+        "max_abs": 0.015715460000000014,
+        "median_abs": 0.004147760000000389,
+        "median_relative": 0.0008893891713699998,
+        "reference_median": 4.66360524,
+        "slices": 23
+       },
+       "rm": {
+        "max_abs": 0.45681720000000325,
+        "median_abs": 1.499999996212864e-06,
+        "median_relative": 4.219779484993591e-08,
+        "reference_median": 35.5468811,
+        "slices": 23
+       },
+       "terror": {
+        "max_abs": 0.00039947235999999997,
+        "median_abs": 6.585277000000032e-05,
+        "median_relative": 0.008565752809179854,
+        "reference_median": 0.00768791389,
+        "slices": 23
+       },
+       "volume": {
+        "max_abs": 309.65299999993294,
+        "median_abs": 154.04299999994691,
+        "median_relative": 0.0003014005205219976,
+        "reference_median": 511090.69,
+        "slices": 23
+       },
+       "zm": {
+        "max_abs": 1.17182663,
+        "median_abs": 1.932830000000039e-07,
+        "median_relative": null,
+        "reference_median": 4.89443833e-05,
+        "slices": 23
+       }
+      },
+      "recovered": []
+     }
+    },
+    "D": {
+     "returncode": 0,
+     "seconds": 69.59109208296286,
+     "summary": {
+      "accepted": 18,
+      "bound_failures": 10,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 4,
+        "flagged": 2,
+        "no_output": 1
+       },
+       "ramp_down": {
+        "accepted": 14,
+        "no_output": 3
+       },
+       "ramp_up": {
+        "collapsed": 7,
+        "flagged": 5,
+        "no_output": 1
+       }
+      },
+      "collapsed": 7,
+      "findax_failures": 2,
+      "outcomes": {
+       "accepted": 18,
+       "collapsed": 7,
+       "flagged": 7,
+       "no_output": 5
+      },
+      "produced_an_equilibrium": 25,
+      "slices": 37
+     },
+     "vs_reference": {
+      "changed_vs_reference": {
+       "327": [
+        "flagged",
+        "no_output"
+       ],
+       "330": [
+        "flagged",
+        "no_output"
+       ],
+       "345": [
+        "no_output",
+        "accepted"
+       ],
+       "347": [
+        "no_output",
+        "accepted"
+       ]
+      },
+      "compared_on": 23,
+      "lost": [
+       327,
+       330
+      ],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.018963890000000205,
+        "median_abs": 0.006269700000000711,
+        "median_relative": 0.00028211479535719376,
+        "reference_median": 22.2239319,
+        "slices": 23
+       },
+       "area": {
+        "max_abs": 2.44948500000001,
+        "median_abs": 1.3285299999997733,
+        "median_relative": 0.000553868604796873,
+        "reference_median": 2398.63749,
+        "slices": 23
+       },
+       "betap": {
+        "max_abs": 2.4162075000000015e-05,
+        "median_abs": 5.6266000000001e-06,
+        "median_relative": 0.0007155073006402111,
+        "reference_median": 0.00786379118,
+        "slices": 23
+       },
+       "chisq": {
+        "max_abs": 9.999999786569624e-11,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 19.1547644,
+        "slices": 23
+       },
+       "elong": {
+        "max_abs": 0.017792119999999967,
+        "median_abs": 0.0009462299999998258,
+        "median_relative": 0.0006122375059918538,
+        "reference_median": 1.54552766,
+        "slices": 23
+       },
+       "li": {
+        "max_abs": 0.016658938000000068,
+        "median_abs": 0.002535879000000074,
+        "median_relative": 0.0038641989208616284,
+        "reference_median": 0.656249601,
+        "slices": 23
+       },
+       "q95": {
+        "max_abs": 0.08929652999999993,
+        "median_abs": 0.0027909499999996257,
+        "median_relative": 0.0005312345450756525,
+        "reference_median": 5.25370578,
+        "slices": 23
+       },
+       "qstar": {
+        "max_abs": 0.05968769000000007,
+        "median_abs": 0.01236221999999998,
+        "median_relative": 0.0026507861115620452,
+        "reference_median": 4.66360524,
+        "slices": 23
+       },
+       "rm": {
+        "max_abs": 0.5858291000000015,
+        "median_abs": 0.234335999999999,
+        "median_relative": 0.006763244253020933,
+        "reference_median": 34.6484603,
+        "slices": 23
+       },
+       "terror": {
+        "max_abs": 0.0016584213099999998,
+        "median_abs": 8.862349000000012e-05,
+        "median_relative": 0.011527638221244453,
+        "reference_median": 0.00768791389,
+        "slices": 23
+       },
+       "volume": {
+        "max_abs": 412.80100000003586,
+        "median_abs": 178.08499999996275,
+        "median_relative": 0.00037938443574178063,
+        "reference_median": 469405.129,
+        "slices": 23
+       },
+       "zm": {
+        "max_abs": 1.28896738,
+        "median_abs": 1.0969243999999997e-05,
+        "median_relative": null,
+        "reference_median": 4.27058446e-05,
+        "slices": 23
+       }
+      },
+      "recovered": [
+       345,
+       347
+      ]
+     }
+    }
+   },
+   "phases": {
+    "flat_top": 7,
+    "ramp_down": 18,
+    "ramp_up": 16
+   },
+   "window": {
+    "end": 0.35171999999996445,
+    "slices": 41,
+    "start": 0.31219999999997977
+   }
+  }
+ },
+ "toolchain": {
+  "efit": {
+   "build_revision": "4d10ed5-dirty",
+   "build_root": "/Users/yun/git/efit",
+   "mtime": "2026-09-06T13:43:02+00:00",
+   "path": "/Users/yun/git/efit/vaft-install/bin/efit",
+   "role": "efit",
+   "sha256": "b1d0bb21c9496503233e8b5ee7ede0c217b497e65a7f59f20f8f6e1f662f0c4d",
+   "size": 1144248
+  },
+  "efund": {
+   "build_revision": "4d10ed5-dirty",
+   "build_root": "/Users/yun/git/efit",
+   "mtime": "2026-09-06T13:43:02+00:00",
+   "path": "/Users/yun/git/efit/vaft-install/bin/efund",
+   "role": "efund",
+   "sha256": "2d9ff9d7ed5bebc71ada3c40e301f05685974d78363336ced21889b0eb67dcbb",
+   "size": 109048
+  }
+ },
+ "verdict": [
+  "Yield against the routine configuration, over 82 plasma slices: A 46 produced / 30 accepted, B 36 produced / 23 accepted, C 44 produced / 28 accepted, D 36 produced / 23 accepted.",
+  "**Neither the domain nor the grid recovers a slice.** Against case A: B -10, C -2, D -10 equilibria. The slices that produce nothing are not produced by a smaller box or a finer grid either, so `bound` and `findax` are reporting something other than resolution and the cause is elsewhere.",
+  "**Halving the vertical cell changes the answer by less than a percent** where it changes it at all: the cell aspect ratio goes from 2.6 to 1.3 and every global quantity moves by well under 1 %. The magnetic axis height is the one that responds, and it is quoted in absolute terms because it sits at zero on an up-down symmetric machine."
+ ]
+}
