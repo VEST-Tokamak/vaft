@@ -1,0 +1,1486 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: neoclassical · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/process/coils_non_axisymmetric/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: neoclassical</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>0cff3da</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_neoclassical">Formula reference: neoclassical</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.neoclassical, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/neoclassical.py"><code class="language-plaintext highlighter-rouge">vaft/formula/neoclassical.py</code></a>:
+12 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("neoclassical.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>Bootstrap current and parallel conductivity from fitted analytic models, as an
+independent reference for the drift-kinetic solvers driven through
+<code class="language-plaintext highlighter-rouge">vaft.code.gacode</code>.  Two formulations are provided as distinct functions
+rather than as one backend with a switch, because they are different physics
+models and their disagreement is a result rather than an error: the 1999 Sauter
+fit was built for conventional aspect ratio, while the 2021 Redl refit extends
+to the trapped fractions a spherical tokamak actually reaches.</p>
+
+<p>Everything here is array/scalar numerics on physical quantities.  Nothing reads
+an ODS, and nothing knows a flux-surface geometry: the trapped fraction, the
+flux-surface-averaged pressure gradients and $I(\psi)$ are inputs, supplied by
+the schema-facing layer.</p>
+
+<p>The parallel current a caller usually wants is the sum of two terms,</p>
+
+\[\langle j_\parallel B\rangle = \sigma_{\mathrm{neo}}\langle E_\parallel B\rangle
+  + \langle j_\parallel B\rangle_{\mathrm{bs}}\]
+
+<p>whose pieces are <code class="language-plaintext highlighter-rouge">sauter_neoclassical_conductivity</code> (or its Redl
+counterpart) and <code class="language-plaintext highlighter-rouge">sauter_bootstrap_current</code> (or its Redl counterpart).
+They are kept apart because an inductive electric field is a state a caller may
+or may not have.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>n_e</td><td>electron density</td><td>m^-3</td></tr>
+  <tr><td>n_i</td><td>ion density</td><td>m^-3</td></tr>
+  <tr><td>T_e</td><td>electron temperature</td><td>eV</td></tr>
+  <tr><td>T_i</td><td>ion temperature</td><td>eV</td></tr>
+  <tr><td>f_t</td><td>fraction of trapped particles on the surface</td><td>-</td></tr>
+  <tr><td>nu_e_star</td><td>Sauter electron collisionality, Eq. (18b)</td><td>-</td></tr>
+  <tr><td>nu_i_star</td><td>Sauter ion collisionality, Eq. (18c)</td><td>-</td></tr>
+  <tr><td>Z_eff</td><td>effective ion charge</td><td>-</td></tr>
+  <tr><td>epsilon</td><td>inverse aspect ratio r/R_0</td><td>-</td></tr>
+  <tr><td>q</td><td>safety factor</td><td>-</td></tr>
+  <tr><td>psi</td><td>poloidal flux per radian</td><td>Wb/rad</td></tr>
+  <tr><td>I_psi</td><td>the flux function R B_phi</td><td>T m</td></tr>
+  <tr><td>L31, L32, L34</td><td>Sauter transport coefficients</td><td>-</td></tr>
+  <tr><td>alpha</td><td>Sauter ion-temperature-gradient coefficient</td><td>-</td></tr>
+  </tbody>
+</table>
+
+<p>Temperatures are in electronvolts throughout, matching
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.coulomb_logarithm_from_n_T</code> and
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</code>,
+not in joules or keV.</p>
+
+<p>Poloidal flux is <strong>per radian</strong>.  An ODS stores <code class="language-plaintext highlighter-rouge">equilibrium</code> psi in full
+weber per the IMAS data dictionary, so a caller reading psi from an ODS must
+divide by $2\pi$ first; see
+<code class="language-plaintext highlighter-rouge">vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor</code>.</p>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#coulomb_logarithm_electron_sauter"><code>coulomb_logarithm_electron_sauter</code></a> &mdash; Electron Coulomb logarithm $\ln\Lambda_e$ in the Sauter convention.
+</li>
+  <li><a href="#coulomb_logarithm_ion_sauter"><code>coulomb_logarithm_ion_sauter</code></a> &mdash; Ion-ion Coulomb logarithm $\ln\Lambda_{ii}$ in the Sauter convention.
+</li>
+  <li><a href="#electron_collisionality_sauter"><code>electron_collisionality_sauter</code></a> &mdash; Normalised electron collisionality $\nu_e^*$ in the Sauter convention.
+</li>
+  <li><a href="#ion_collisionality_sauter"><code>ion_collisionality_sauter</code></a> &mdash; Normalised ion collisionality $\nu_i^*$ in the Sauter convention.
+</li>
+  <li><a href="#redl_bootstrap_coefficients"><code>redl_bootstrap_coefficients</code></a> &mdash; The Redl 2021 bootstrap coefficients $L_{31}$, $L_{32}$, $L_{34}$, $\alpha$.
+</li>
+  <li><a href="#redl_bootstrap_current"><code>redl_bootstrap_current</code></a> &mdash; Flux-surface-averaged bootstrap current $\langle j_\parallel B\rangle$, Redl 2021.
+</li>
+  <li><a href="#redl_neoclassical_conductivity"><code>redl_neoclassical_conductivity</code></a> &mdash; Neoclassical parallel conductivity $\sigma_{\mathrm{neo}}$, Redl 2021.
+</li>
+  <li><a href="#sauter_bootstrap_coefficients"><code>sauter_bootstrap_coefficients</code></a> &mdash; The Sauter 1999 bootstrap coefficients $L_{31}$, $L_{32}$, $L_{34}$, $\alpha$.
+</li>
+  <li><a href="#sauter_bootstrap_current"><code>sauter_bootstrap_current</code></a> &mdash; Flux-surface-averaged bootstrap current $\langle j_\parallel B\rangle$, Sauter 1999.
+</li>
+  <li><a href="#sauter_neoclassical_conductivity"><code>sauter_neoclassical_conductivity</code></a> &mdash; Neoclassical parallel conductivity $\sigma_{\mathrm{neo}}$, Sauter 1999.
+</li>
+  <li><a href="#sauter_spitzer_conductivity"><code>sauter_spitzer_conductivity</code></a> &mdash; Spitzer parallel conductivity $\sigma_{\mathrm{Sptz}}$ in the Sauter normalisation.
+</li>
+  <li><a href="#trapped_particle_fraction"><code>trapped_particle_fraction</code></a> &mdash; Trapped-particle fraction $f_t$ of a circular surface of inverse aspect ratio.
+</li>
+</ul>
+
+<h3 id="coulomb_logarithm_electron_sauter"><code class="language-plaintext highlighter-rouge">coulomb_logarithm_electron_sauter</code></h3>
+
+<p class="formula-signature"><code>coulomb_logarithm_electron_sauter(n_e, T_e)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Electron Coulomb logarithm $\ln\Lambda_e$ in the Sauter convention.</p>
+
+\[\ln\Lambda_e = 31.3 - \ln\!\left(\frac{\sqrt{n_e}}{T_e}\right)\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>n_e</code></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Electron density, strictly positive.</p>
+</td></tr>
+  <tr><td><code>T_e</code></td><td>float or np.ndarray</td><td>eV</td><td><p>Electron temperature, strictly positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Electron Coulomb logarithm.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    For non-finite or non-positive input.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>This is Sauter Eq. (18d), and it is <strong>not</strong> the NRL expression already in
+this package: <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.coulomb_logarithm_from_n_T</code>
+uses 30.9, this uses 31.3.  The difference is about 1.3 percent of a typical
+value, but the collisionality coefficients here were fitted with this one,
+so mixing them biases $\nu_e^*$ consistently.  Use this function wherever a
+Sauter or Redl coefficient is downstream.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Thermal electrons well above the ionisation stage; the same
+$T_e \gtrsim 10$ eV floor as the NRL form.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>vaft.formula.equilibrium.coulomb_logarithm_from_n_T : the NRL convention.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834, Eq. (18d).
+</li>
+</ol>
+
+<h3 id="coulomb_logarithm_ion_sauter"><code class="language-plaintext highlighter-rouge">coulomb_logarithm_ion_sauter</code></h3>
+
+<p class="formula-signature"><code>coulomb_logarithm_ion_sauter(n_i, T_i, Z)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Ion-ion Coulomb logarithm $\ln\Lambda_{ii}$ in the Sauter convention.</p>
+
+\[\ln\Lambda_{ii} = 30.0 - \ln\!\left(\frac{Z^3\sqrt{n_i}}{T_i^{3/2}}\right)\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>n_i</code></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Ion density, strictly positive.</p>
+</td></tr>
+  <tr><td><code>T_i</code></td><td>float or np.ndarray</td><td>eV</td><td><p>Ion temperature, strictly positive.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td>float or np.ndarray</td><td>-</td><td><p>Ion charge number, strictly positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Ion-ion Coulomb logarithm.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    For non-finite or non-positive input.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Sauter Eq. (18e).  The charge enters cubed, so an impurity species changes
+this substantially more than it changes $\ln\Lambda_e$.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Thermal ions of a single charge state.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834, Eq. (18e).
+</li>
+</ol>
+
+<h3 id="electron_collisionality_sauter"><code class="language-plaintext highlighter-rouge">electron_collisionality_sauter</code></h3>
+
+<p class="formula-signature"><code>electron_collisionality_sauter(n_e, T_e, q, R, epsilon, Z_eff, ln_Lambda_e=None)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Normalised electron collisionality $\nu_e^*$ in the Sauter convention.</p>
+
+\[\nu_e^* = 6.921\times10^{-18}\,
+  \frac{q R\, n_e\, Z_{\mathrm{eff}} \ln\Lambda_e}{\epsilon^{3/2} T_e^2}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>n_e</code></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Electron density, strictly positive.</p>
+</td></tr>
+  <tr><td><code>T_e</code></td><td>float or np.ndarray</td><td>eV</td><td><p>Electron temperature, strictly positive.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td>float or np.ndarray</td><td>-</td><td><p>Safety factor; the magnitude is used, so either sign convention is accepted.</p>
+</td></tr>
+  <tr><td><code>R</code></td><td>float or np.ndarray</td><td>m</td><td><p>Major radius of the surface, strictly positive.</p>
+</td></tr>
+  <tr><td><code>epsilon</code></td><td>float or np.ndarray</td><td>-</td><td><p>Inverse aspect ratio $r/R$, strictly positive.</p>
+</td></tr>
+  <tr><td><code>Z_eff</code></td><td>float or np.ndarray</td><td>-</td><td><p>Effective ion charge, strictly positive.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda_e</code></td><td>float or np.ndarray, optional</td><td>-</td><td><p>Electron Coulomb logarithm; computed from <em>n_e</em> and <em>T_e</em> with <code class="language-plaintext highlighter-rouge">coulomb_logarithm_electron_sauter</code> when omitted.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Electron collisionality, the ratio of the effective collision frequency to the banana bounce frequency.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    For non-finite or non-positive input.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>This is Sauter Eq. (18b) and it is one of <strong>four</strong> mutually inconsistent
+collisionality definitions now in this package, a situation tracked in
+issue #353.  The others are
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.nu_star_from_n_T_B_R_epsilon_kappa_I</code>
+(an engineering form with a $5\times10^{-11}$ prefactor),
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q</code>
+(which reduces to Sauter Eq. 18b only when handed Sauter’s own $\nu_{ii}$),
+and <code class="language-plaintext highlighter-rouge">vaft.formula.stability.collisionality_from_n_T_B_R</code>.  Only this
+one may be passed to the Sauter and Redl coefficient functions here; the
+numbers are not interchangeable.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>Below one the plasma is in the banana regime and trapped orbits complete;
+above one collisions detrap particles first and the bootstrap coefficients
+fall away.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Positive $\epsilon$; the $\epsilon^{-3/2}$ factor diverges on axis, where
+the trapped fraction vanishes and the expression has no meaning.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The prefactor bundles physical constants evaluated for the Sauter unit
+choice; it is not dimensionally reusable with temperatures in keV.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834, Eq. (18b).
+</li>
+</ol>
+
+<h3 id="ion_collisionality_sauter"><code class="language-plaintext highlighter-rouge">ion_collisionality_sauter</code></h3>
+
+<p class="formula-signature"><code>ion_collisionality_sauter(n_i, T_i, q, R, epsilon, Z, ln_Lambda_ii=None)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Normalised ion collisionality $\nu_i^*$ in the Sauter convention.</p>
+
+\[\nu_i^* = 4.90\times10^{-18}\,
+  \frac{q R\, n_i\, Z^4 \ln\Lambda_{ii}}{\epsilon^{3/2} T_i^2}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>n_i</code></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Ion density, strictly positive.</p>
+</td></tr>
+  <tr><td><code>T_i</code></td><td>float or np.ndarray</td><td>eV</td><td><p>Ion temperature, strictly positive.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td>float or np.ndarray</td><td>-</td><td><p>Safety factor; the magnitude is used.</p>
+</td></tr>
+  <tr><td><code>R</code></td><td>float or np.ndarray</td><td>m</td><td><p>Major radius of the surface, strictly positive.</p>
+</td></tr>
+  <tr><td><code>epsilon</code></td><td>float or np.ndarray</td><td>-</td><td><p>Inverse aspect ratio $r/R$, strictly positive.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td>float or np.ndarray</td><td>-</td><td><p>Ion charge number, strictly positive.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda_ii</code></td><td>float or np.ndarray, optional</td><td>-</td><td><p>Ion-ion Coulomb logarithm; computed from <em>n_i</em>, <em>T_i</em> and <em>Z</em> with <code class="language-plaintext highlighter-rouge">coulomb_logarithm_ion_sauter</code> when omitted.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Ion collisionality.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    For non-finite or non-positive input.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Sauter Eq. (18c).  With more than one ion species the paper’s single-species
+reading is ambiguous, and implementations differ.  NEO resolved it in 2013
+by evaluating this for the main ion and then scaling by the summed ion
+density, $\nu_i^* \to \nu_i^* \sum_s n_s / n_{\mathrm{main}}$, rather than
+by the $Z_i^2 Z_{\mathrm{eff}} n_e$ reading; a caller reproducing NEO must
+apply that scaling to this result.  See issue #353 for the wider
+collisionality-convention problem.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Positive $\epsilon$, as for the electron expression.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834, Eq. (18c).
+</li>
+  <li>E. A. Belli, GACODE <code class="language-plaintext highlighter-rouge">neo/src/neo_theory.f90</code>, note of 11 July 2013 (the multi-species reading NEO adopted).
+</li>
+</ol>
+
+<h3 id="redl_bootstrap_coefficients"><code class="language-plaintext highlighter-rouge">redl_bootstrap_coefficients</code></h3>
+
+<p class="formula-signature"><code>redl_bootstrap_coefficients(f_trap, nu_e_star, nu_i_star, Z_eff)</code></p>
+
+<p><strong>Empirical fit.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The Redl 2021 bootstrap coefficients $L_{31}$, $L_{32}$, $L_{34}$, $\alpha$.</p>
+
+<p>The same four-coefficient structure as Sauter 1999, refitted against NEO
+over a parameter range that includes tight aspect ratio, for example
+$L_{31} = X_{31} + (0.15 X_{31} - 0.22 X_{31}^2 + 0.01 X_{31}^3</p>
+<ul>
+  <li>0.06 X_{31}^4)/(Z^{1.2} - 0.71)$.</li>
+</ul>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>f_trap</code></td><td>float or np.ndarray</td><td>-</td><td><p>Trapped-particle fraction of the surface, in [0, 1].</p>
+</td></tr>
+  <tr><td><code>nu_e_star</code></td><td>float or np.ndarray</td><td>-</td><td><p>Electron collisionality from <code class="language-plaintext highlighter-rouge">electron_collisionality_sauter</code>, non-negative.</p>
+</td></tr>
+  <tr><td><code>nu_i_star</code></td><td>float or np.ndarray</td><td>-</td><td><p>Ion collisionality from <code class="language-plaintext highlighter-rouge">ion_collisionality_sauter</code>, non-negative.</p>
+</td></tr>
+  <tr><td><code>Z_eff</code></td><td>float or np.ndarray</td><td>-</td><td><p>Effective ion charge, at least one.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>BootstrapCoefficients</td><td>-</td><td><p>The four coefficients, each dimensionless.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    For non-finite input, <em>f_trap</em> outside [0, 1], a negative
+    collisionality, or <em>Z_eff</em> below one.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>$L_{34}$ is set equal to $L_{31}$: Redl does not refit it separately, and
+the field is kept only so that the return shape matches
+<code class="language-plaintext highlighter-rouge">sauter_bootstrap_coefficients</code> and the shared current assembly can
+consume either.  The collisionality convention is unchanged from Sauter
+(issue #353), and $Z_{\mathrm{eff}} \ge 1$ is required because
+$\sqrt{Z-1}$ appears in several denominators.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  Refitted against NEO across aspect ratios reaching the
+spherical-tokamak range, which is the reason to prefer it over the 1999 fit
+for VEST.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Agreement with the 1999 fit is close at conventional aspect ratio and
+degrades as $f_t$ rises; treat a large Sauter-Redl gap as a signal that the
+analytic model is being asked for more than it can give, not as an error in
+either.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>A. Redl, C. Angioni, E. Belli and O. Sauter, Phys. Plasmas 28 (2021) 022502.
+</li>
+</ol>
+
+<h3 id="redl_bootstrap_current"><code class="language-plaintext highlighter-rouge">redl_bootstrap_current</code></h3>
+
+<p class="formula-signature"><code>redl_bootstrap_current(f_trap, nu_e_star, nu_i_star, Z_eff, I_psi, p_e, p_i, dp_dpsi, dln_Te_dpsi, dln_Ti_dpsi)</code></p>
+
+<p><strong>Empirical fit.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Flux-surface-averaged bootstrap current $\langle j_\parallel B\rangle$, Redl 2021.</p>
+
+<p>The assembly is identical to <code class="language-plaintext highlighter-rouge">sauter_bootstrap_current</code>; only the
+coefficients differ, coming from <code class="language-plaintext highlighter-rouge">redl_bootstrap_coefficients</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>f_trap</code></td><td>float or np.ndarray</td><td>-</td><td><p>Trapped-particle fraction of the surface, in [0, 1].</p>
+</td></tr>
+  <tr><td><code>nu_e_star</code></td><td>float or np.ndarray</td><td>-</td><td><p>Electron collisionality from <code class="language-plaintext highlighter-rouge">electron_collisionality_sauter</code>.</p>
+</td></tr>
+  <tr><td><code>nu_i_star</code></td><td>float or np.ndarray</td><td>-</td><td><p>Ion collisionality from <code class="language-plaintext highlighter-rouge">ion_collisionality_sauter</code>.</p>
+</td></tr>
+  <tr><td><code>Z_eff</code></td><td>float or np.ndarray</td><td>-</td><td><p>Effective ion charge, at least one.</p>
+</td></tr>
+  <tr><td><code>I_psi</code></td><td>float or np.ndarray</td><td>T m</td><td><p>The flux function $I = R B_\phi$ of the surface.</p>
+</td></tr>
+  <tr><td><code>p_e</code></td><td>float or np.ndarray</td><td>Pa</td><td><p>Electron pressure $n_e T_e$.</p>
+</td></tr>
+  <tr><td><code>p_i</code></td><td>float or np.ndarray</td><td>Pa</td><td><p>Summed thermal-ion pressure $\sum_{\mathrm{ions}} n_s T_s$.</p>
+</td></tr>
+  <tr><td><code>dp_dpsi</code></td><td>float or np.ndarray</td><td>Pa rad Wb^-1</td><td><p>Derivative of the total thermal pressure, electrons included, with respect to poloidal flux per radian.</p>
+</td></tr>
+  <tr><td><code>dln_Te_dpsi</code></td><td>float or np.ndarray</td><td>rad Wb^-1</td><td><p>Logarithmic derivative of the electron temperature with respect to poloidal flux per radian.</p>
+</td></tr>
+  <tr><td><code>dln_Ti_dpsi</code></td><td>float or np.ndarray</td><td>rad Wb^-1</td><td><p>Logarithmic derivative of the ion temperature with respect to poloidal flux per radian.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>A T m^-2</td><td><p>Flux-surface-averaged bootstrap current density times field strength</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    For non-finite input, <em>f_trap</em> outside [0, 1], a negative
+    collisionality, or <em>Z_eff</em> below one.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Identical to <code class="language-plaintext highlighter-rouge">sauter_bootstrap_current</code>: poloidal flux per radian,
+sign carried by $I(\psi)$, bootstrap term only.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  Inherits the range of
+<code class="language-plaintext highlighter-rouge">redl_bootstrap_coefficients</code>, which covers tight aspect ratio and is
+therefore the one to prefer for VEST.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Being the better-conditioned fit does not make it exact; a drift-kinetic
+solve through <code class="language-plaintext highlighter-rouge">vaft.code.gacode</code> remains the reference.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>sauter_bootstrap_current : the 1999 formulation.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>A. Redl, C. Angioni, E. Belli and O. Sauter, Phys. Plasmas 28 (2021) 022502.
+</li>
+</ol>
+
+<h3 id="redl_neoclassical_conductivity"><code class="language-plaintext highlighter-rouge">redl_neoclassical_conductivity</code></h3>
+
+<p class="formula-signature"><code>redl_neoclassical_conductivity(sigma_spitzer, f_trap, nu_e_star, Z_eff)</code></p>
+
+<p><strong>Empirical fit.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Neoclassical parallel conductivity $\sigma_{\mathrm{neo}}$, Redl 2021.</p>
+
+\[\frac{\sigma_{\mathrm{neo}}}{\sigma_{\mathrm{Sptz}}}
+  = 1 - \left(1 + \frac{0.21}{Z}\right) X_{33}
+    + \frac{0.54}{Z} X_{33}^2 - \frac{0.33}{Z} X_{33}^3\]
+
+<p>with $X_{33} = f_t / \left[1 + 0.25(1 - 0.7 f_t)\sqrt{\nu_e^<em>}
+(1 + 0.45\sqrt{Z-1}) + 0.61(1 - 0.41 f_t)\nu_e^</em>/\sqrt{Z}\right]$.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>sigma_spitzer</code></td><td>float or np.ndarray</td><td>S m^-1</td><td><p>Reference Spitzer conductivity from <code class="language-plaintext highlighter-rouge">sauter_spitzer_conductivity</code>.</p>
+</td></tr>
+  <tr><td><code>f_trap</code></td><td>float or np.ndarray</td><td>-</td><td><p>Trapped-particle fraction of the surface, in [0, 1].</p>
+</td></tr>
+  <tr><td><code>nu_e_star</code></td><td>float or np.ndarray</td><td>-</td><td><p>Electron collisionality from <code class="language-plaintext highlighter-rouge">electron_collisionality_sauter</code>, non-negative.</p>
+</td></tr>
+  <tr><td><code>Z_eff</code></td><td>float or np.ndarray</td><td>-</td><td><p>Effective ion charge, at least one.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>S m^-1</td><td><p>Neoclassical parallel conductivity.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    For non-finite input, <em>f_trap</em> outside [0, 1], negative <em>nu_e_star</em>, or
+    <em>Z_eff</em> below one.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The reference conductivity is still Sauter Eq. (12), so
+<code class="language-plaintext highlighter-rouge">sauter_spitzer_conductivity</code> is the right input here despite the
+name; Redl refits the correction, not the normalisation.  As in the Sauter
+case the collisionality must be the Eq. (18b) one (issue #353).</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  Fitted to NEO solutions spanning tight aspect ratio, so it
+stays usable at the trapped fractions where the 1999 fit does not.
+$Z_{\mathrm{eff}} \ge 1$ is required because $\sqrt{Z-1}$ appears.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>A. Redl, C. Angioni, E. Belli and O. Sauter, Phys. Plasmas 28 (2021) 022502.
+</li>
+</ol>
+
+<h3 id="sauter_bootstrap_coefficients"><code class="language-plaintext highlighter-rouge">sauter_bootstrap_coefficients</code></h3>
+
+<p class="formula-signature"><code>sauter_bootstrap_coefficients(f_trap, nu_e_star, nu_i_star, Z_eff)</code></p>
+
+<p><strong>Empirical fit.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The Sauter 1999 bootstrap coefficients $L_{31}$, $L_{32}$, $L_{34}$, $\alpha$.</p>
+
+<p>Each coefficient is a rational fit in an effective trapped fraction that
+collisions reduce, for example
+$X_{31} = f_t / [1 + (1 - 0.1 f_t)\sqrt{\nu_e^*}</p>
+<ul>
+  <li>0.5(1-f_t)\nu_e^*/Z]$, with $L_{31}$ a quartic in $X_{31}$.</li>
+</ul>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>f_trap</code></td><td>float or np.ndarray</td><td>-</td><td><p>Trapped-particle fraction of the surface, in [0, 1].</p>
+</td></tr>
+  <tr><td><code>nu_e_star</code></td><td>float or np.ndarray</td><td>-</td><td><p>Electron collisionality from <code class="language-plaintext highlighter-rouge">electron_collisionality_sauter</code>, non-negative.</p>
+</td></tr>
+  <tr><td><code>nu_i_star</code></td><td>float or np.ndarray</td><td>-</td><td><p>Ion collisionality from <code class="language-plaintext highlighter-rouge">ion_collisionality_sauter</code>, non-negative.</p>
+</td></tr>
+  <tr><td><code>Z_eff</code></td><td>float or np.ndarray</td><td>-</td><td><p>Effective ion charge, strictly positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>BootstrapCoefficients</td><td>-</td><td><p>The four coefficients, each dimensionless and each an array when any input was an array.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    For non-finite input, <em>f_trap</em> outside [0, 1], a negative
+    collisionality, or non-positive <em>Z_eff</em>.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Incorporating the 2002 erratum.  $L_{32}$ is the sum of the two branches
+$F_{32,ee}$ and $F_{32,ei}$, each evaluated at its own effective trapped
+fraction; they are not separately meaningful and are not returned apart.
+Both collisionalities must be the Sauter Eq. (18b) and (18c) ones, and
+<em>nu_i_star</em> must already carry the multi-species scaling described in
+<code class="language-plaintext highlighter-rouge">ion_collisionality_sauter</code> if the caller is reproducing NEO.  See
+issue #353.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>$L_{31}$ multiplies the total pressure gradient, $L_{32}$ the electron
+temperature gradient, and $L_{34}\alpha$ the ion temperature gradient.
+$\alpha$ is negative in the banana regime, so the ion-temperature term
+opposes the other two.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  Quoted by the authors as accurate to a few percent for
+$0 \le \nu^* \le 100$ and $1 \le Z_{\mathrm{eff}} \le 5$ at conventional
+aspect ratio.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The fits were built on surfaces with $f_t$ well below what a spherical
+tokamak reaches; at VEST’s $f_t \approx 0.7$ they are extrapolations.
+<code class="language-plaintext highlighter-rouge">redl_bootstrap_coefficients</code> is the refit that covers the range, and
+the difference between the two is the honest uncertainty band.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834, Eqs. (14)-(17).
+</li>
+  <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 9 (2002) 5140 (erratum).
+</li>
+</ol>
+
+<h3 id="sauter_bootstrap_current"><code class="language-plaintext highlighter-rouge">sauter_bootstrap_current</code></h3>
+
+<p class="formula-signature"><code>sauter_bootstrap_current(f_trap, nu_e_star, nu_i_star, Z_eff, I_psi, p_e, p_i, dp_dpsi, dln_Te_dpsi, dln_Ti_dpsi)</code></p>
+
+<p><strong>Empirical fit.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Flux-surface-averaged bootstrap current $\langle j_\parallel B\rangle$, Sauter 1999.</p>
+
+\[\langle j_\parallel B\rangle_{\mathrm{bs}} = -I(\psi)\left[
+  L_{31}\frac{\partial p}{\partial\psi}
+  + L_{32}\,p_e \frac{\partial \ln T_e}{\partial\psi}
+  + L_{34}\alpha\,p_i \frac{\partial \ln T_i}{\partial\psi}\right]\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>f_trap</code></td><td>float or np.ndarray</td><td>-</td><td><p>Trapped-particle fraction of the surface, in [0, 1].</p>
+</td></tr>
+  <tr><td><code>nu_e_star</code></td><td>float or np.ndarray</td><td>-</td><td><p>Electron collisionality from <code class="language-plaintext highlighter-rouge">electron_collisionality_sauter</code>.</p>
+</td></tr>
+  <tr><td><code>nu_i_star</code></td><td>float or np.ndarray</td><td>-</td><td><p>Ion collisionality from <code class="language-plaintext highlighter-rouge">ion_collisionality_sauter</code>.</p>
+</td></tr>
+  <tr><td><code>Z_eff</code></td><td>float or np.ndarray</td><td>-</td><td><p>Effective ion charge, strictly positive.</p>
+</td></tr>
+  <tr><td><code>I_psi</code></td><td>float or np.ndarray</td><td>T m</td><td><p>The flux function $I = R B_\phi$ of the surface.</p>
+</td></tr>
+  <tr><td><code>p_e</code></td><td>float or np.ndarray</td><td>Pa</td><td><p>Electron pressure $n_e T_e$.</p>
+</td></tr>
+  <tr><td><code>p_i</code></td><td>float or np.ndarray</td><td>Pa</td><td><p>Summed thermal-ion pressure $\sum_{\mathrm{ions}} n_s T_s$.</p>
+</td></tr>
+  <tr><td><code>dp_dpsi</code></td><td>float or np.ndarray</td><td>Pa rad Wb^-1</td><td><p>Derivative of the total thermal pressure, electrons included, with respect to poloidal flux per radian.</p>
+</td></tr>
+  <tr><td><code>dln_Te_dpsi</code></td><td>float or np.ndarray</td><td>rad Wb^-1</td><td><p>Logarithmic derivative of the electron temperature with respect to poloidal flux per radian.</p>
+</td></tr>
+  <tr><td><code>dln_Ti_dpsi</code></td><td>float or np.ndarray</td><td>rad Wb^-1</td><td><p>Logarithmic derivative of the ion temperature with respect to poloidal flux per radian.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>A T m^-2</td><td><p>Flux-surface-averaged bootstrap current density times field strength</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    For non-finite input, <em>f_trap</em> outside [0, 1], a negative
+    collisionality, or non-positive <em>Z_eff</em>.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Poloidal flux is <strong>per radian</strong>, not the full weber the IMAS data
+dictionary stores; convert an ODS-sourced psi with
+<code class="language-plaintext highlighter-rouge">vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor</code> before
+differentiating.  The sign follows from that choice together with the sign
+of $I(\psi)$, so a COCOS mismatch shows up here as a sign flip rather than
+as a magnitude error.</p>
+
+<p>This is the bootstrap term alone.  The Ohmic term
+$\sigma_{\mathrm{neo}}\langle E_\parallel B\rangle$, with
+$\sigma_{\mathrm{neo}}$ from <code class="language-plaintext highlighter-rouge">sauter_neoclassical_conductivity</code>, is
+added by the caller when an inductive field is known.</p>
+
+<p>The single ion temperature in the last term is the paper’s reduction for
+ions that share a temperature; with unlike ion temperatures, use the main
+ion’s logarithmic gradient against the summed ion pressure, which is what
+NEO does.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>Trapped particles on adjacent orbits carry unequal momentum where a
+gradient exists, and the resulting banana current is transferred to the
+passing population by collisions.  It is a pressure-gradient-driven current
+that needs no loop voltage, which is why it dominates the current budget of
+a high-beta spherical tokamak.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  Inherits the range of
+<code class="language-plaintext highlighter-rouge">sauter_bootstrap_coefficients</code>.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>At VEST’s trapped fraction this is an extrapolation of the 1999 fit;
+compare against <code class="language-plaintext highlighter-rouge">redl_bootstrap_current</code> rather than trusting either
+alone.  It also assumes the local gradients are resolved: on a reconstructed
+equilibrium the near-axis region often is not.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>vaft.formula.equilibrium.bootstrap_current_fraction : the zero-dimensional
+    heuristic this supersedes for profile work.
+redl_bootstrap_current : the 2021 refit, preferred at tight aspect ratio.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834, Eq. (11).
+</li>
+  <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 9 (2002) 5140 (erratum).
+</li>
+</ol>
+
+<h3 id="sauter_neoclassical_conductivity"><code class="language-plaintext highlighter-rouge">sauter_neoclassical_conductivity</code></h3>
+
+<p class="formula-signature"><code>sauter_neoclassical_conductivity(sigma_spitzer, f_trap, nu_e_star, Z_eff)</code></p>
+
+<p><strong>Empirical fit.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Neoclassical parallel conductivity $\sigma_{\mathrm{neo}}$, Sauter 1999.</p>
+
+\[\frac{\sigma_{\mathrm{neo}}}{\sigma_{\mathrm{Sptz}}}
+  = 1 - \left(1 + \frac{0.36}{Z}\right) X_{33}
+    + \frac{0.59}{Z} X_{33}^2 - \frac{0.23}{Z} X_{33}^3\]
+
+<p>with $X_{33} = f_t / \left[1 + (0.55 - 0.1 f_t)\sqrt{\nu_e^*}</p>
+<ul>
+  <li>0.45(1-f_t)\nu_e^*/Z^{3/2}\right]$.</li>
+</ul>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>sigma_spitzer</code></td><td>float or np.ndarray</td><td>S m^-1</td><td><p>Reference Spitzer conductivity from <code class="language-plaintext highlighter-rouge">sauter_spitzer_conductivity</code>.</p>
+</td></tr>
+  <tr><td><code>f_trap</code></td><td>float or np.ndarray</td><td>-</td><td><p>Trapped-particle fraction of the surface, in [0, 1].</p>
+</td></tr>
+  <tr><td><code>nu_e_star</code></td><td>float or np.ndarray</td><td>-</td><td><p>Electron collisionality from <code class="language-plaintext highlighter-rouge">electron_collisionality_sauter</code>, non-negative.</p>
+</td></tr>
+  <tr><td><code>Z_eff</code></td><td>float or np.ndarray</td><td>-</td><td><p>Effective ion charge, strictly positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>S m^-1</td><td><p>Neoclassical parallel conductivity.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    For non-finite input, <em>f_trap</em> outside [0, 1], negative <em>nu_e_star</em>, or
+    non-positive <em>Z_eff</em>.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The collisionality must be the Sauter Eq. (18b) one; see
+<code class="language-plaintext highlighter-rouge">electron_collisionality_sauter</code> and issue #353.  The result is the
+coefficient of $\langle E_\parallel B\rangle$, so the Ohmic contribution to
+the parallel current is this times that field, added to the bootstrap term
+from <code class="language-plaintext highlighter-rouge">sauter_bootstrap_current</code>.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>Trapped electrons cannot carry parallel current, so the conductivity falls
+below Spitzer roughly in proportion to $f_t$; collisions restore it, which
+is why the correction weakens as $\nu_e^*$ rises.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  Fitted to numerical solutions of the drift-kinetic
+equation at conventional aspect ratio.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>At the trapped fractions a spherical tokamak reaches, roughly
+$f_t \gtrsim 0.6$, this fit is outside the range it was built on;
+<code class="language-plaintext highlighter-rouge">redl_neoclassical_conductivity</code> is the refit that covers it.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834, Eq. (13).
+</li>
+  <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 9 (2002) 5140 (erratum).
+</li>
+</ol>
+
+<h3 id="sauter_spitzer_conductivity"><code class="language-plaintext highlighter-rouge">sauter_spitzer_conductivity</code></h3>
+
+<p class="formula-signature"><code>sauter_spitzer_conductivity(T_e, Z_eff, ln_Lambda_e)</code></p>
+
+<p><strong>Empirical fit.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Spitzer parallel conductivity $\sigma_{\mathrm{Sptz}}$ in the Sauter normalisation.</p>
+
+\[\sigma_{\mathrm{Sptz}} = 1.9012\times10^{4}\,
+  \frac{T_e^{3/2}}{Z_{\mathrm{eff}} N_Z(Z_{\mathrm{eff}}) \ln\Lambda_e},
+  \qquad N_Z = 0.58 + \frac{0.74}{0.76 + Z_{\mathrm{eff}}}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>T_e</code></td><td>float or np.ndarray</td><td>eV</td><td><p>Electron temperature, strictly positive.</p>
+</td></tr>
+  <tr><td><code>Z_eff</code></td><td>float or np.ndarray</td><td>-</td><td><p>Effective ion charge, strictly positive.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda_e</code></td><td>float or np.ndarray</td><td>-</td><td><p>Electron Coulomb logarithm, strictly positive; use <code class="language-plaintext highlighter-rouge">coulomb_logarithm_electron_sauter</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>S m^-1</td><td><p>Classical parallel conductivity, without trapped-particle correction</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    For non-finite or non-positive input.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>This is the reference conductivity the neoclassical correction multiplies,
+Sauter Eq. (12), and it is not the same object as
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</code>:
+that one applies the charge dependence linearly, this one through the
+fitted $N_Z$, so their reciprocals differ by tens of percent at
+$Z_{\mathrm{eff}} &gt; 1$.  Pair this one with the neoclassical corrections in
+this module.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  $N_Z$ is a fit to the Spitzer-Harm charge dependence, valid
+for $1 \le Z_{\mathrm{eff}} \lesssim 5$.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834, Eq. (12).
+</li>
+  <li>L. Spitzer and R. Harm, Phys. Rev. 89 (1953) 977.
+</li>
+</ol>
+
+<h3 id="trapped_particle_fraction"><code class="language-plaintext highlighter-rouge">trapped_particle_fraction</code></h3>
+
+<p class="formula-signature"><code>trapped_particle_fraction(epsilon)</code></p>
+
+<p><strong>Empirical fit.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Trapped-particle fraction $f_t$ of a circular surface of inverse aspect ratio.</p>
+
+\[f_t = 1 - \frac{(1-\epsilon)^2}{\sqrt{1-\epsilon^2}\,(1 + 1.46\sqrt{\epsilon})}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>epsilon</code></td><td>float or np.ndarray</td><td>-</td><td><p>Inverse aspect ratio $r/R_0$ of the surface, in [0, 1).</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Fraction of particles trapped on the surface.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    For non-finite input, or input outside [0, 1).</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>$f_t$ is the flux-surface quantity that enters every coefficient in this
+module.  This function is the <em>circular</em> approximation to it, written in
+terms of the inverse aspect ratio alone.  A shaped equilibrium’s trapped
+fraction is an integral over the field-strength distribution on the surface
+and differs from this at the tens-of-percent level at strong elongation, so
+a caller holding a real equilibrium should compute $f_t$ from it and pass
+that instead of calling this.  NEO writes its own value to
+<code class="language-plaintext highlighter-rouge">out.neo.diagnostic_geo</code> as <code class="language-plaintext highlighter-rouge">f_trap</code>.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The share of the local Maxwellian whose parallel energy is too small to
+cross the magnetic well on the outboard side.  It rises steeply with
+$\epsilon$, which is why bootstrap current matters far more in a spherical
+tokamak than in a conventional one.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  Concentric circular surfaces; the coefficient 1.46 is a fit
+to the exact integral rather than a derived value.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>At $\epsilon \to 1$ the expression tends to 1 but the underlying expansion
+has long since stopped being controlled.  VEST reaches
+$\epsilon \approx 0.6$, where this returns about 0.91: nearly every
+particle counted as trapped, which is precisely where treating a fitted
+neoclassical coefficient as reliable stops being safe.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>Y. R. Lin-Liu and R. L. Miller, Phys. Plasmas 2 (1995) 1666.
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.9 (trapped particles).
+</li>
+</ol>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/coils_non_axisymmetric/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: coils_non_axisymmetric">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#coulomb_logarithm_electron_sauter" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">coulomb_logarithm_electron_sauter</a></li><li class="page-toc-item page-toc-level-3"><a href="#coulomb_logarithm_ion_sauter" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">coulomb_logarithm_ion_sauter</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_collisionality_sauter" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_collisionality_sauter</a></li><li class="page-toc-item page-toc-level-3"><a href="#ion_collisionality_sauter" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ion_collisionality_sauter</a></li><li class="page-toc-item page-toc-level-3"><a href="#redl_bootstrap_coefficients" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">redl_bootstrap_coefficients</a></li><li class="page-toc-item page-toc-level-3"><a href="#redl_bootstrap_current" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">redl_bootstrap_current</a></li><li class="page-toc-item page-toc-level-3"><a href="#redl_neoclassical_conductivity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">redl_neoclassical_conductivity</a></li><li class="page-toc-item page-toc-level-3"><a href="#sauter_bootstrap_coefficients" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sauter_bootstrap_coefficients</a></li><li class="page-toc-item page-toc-level-3"><a href="#sauter_bootstrap_current" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sauter_bootstrap_current</a></li><li class="page-toc-item page-toc-level-3"><a href="#sauter_neoclassical_conductivity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sauter_neoclassical_conductivity</a></li><li class="page-toc-item page-toc-level-3"><a href="#sauter_spitzer_conductivity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sauter_spitzer_conductivity</a></li><li class="page-toc-item page-toc-level-3"><a href="#trapped_particle_fraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trapped_particle_fraction</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "VEST diagnostics and data availability",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_neoclassical.md",
+        "mtime": "2026-09-07 17:20:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-11 06:55:56 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

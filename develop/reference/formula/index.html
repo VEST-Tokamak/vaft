@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>399f4e1</code>. What is described
+  <code>0cff3da</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -309,6 +309,10 @@ numerical notes, references), and these pages are generated from those docstring
   <tr>
     <td><a href="/vaft/develop/reference/formula/magnetics/">magnetics</a></td>
     <td><code>vaft.formula.magnetics</code></td><td>2</td><td>Magnetic-probe geometry shared by every forward model.</td>
+  </tr>
+  <tr>
+    <td><a href="/vaft/develop/reference/formula/neoclassical/">neoclassical</a></td>
+    <td><code>vaft.formula.neoclassical</code></td><td>12</td><td>Analytic neoclassical transport formulas: Sauter and Redl.</td>
   </tr>
   </tbody>
 </table>
@@ -808,6 +812,37 @@ which documents the conventions and cites every entry.</p>
 </li>
 </ul>
 
+<h2 id="neoclassical">Neoclassical</h2>
+
+<p>Analytic neoclassical transport formulas: Sauter and Redl. — <a href="/vaft/develop/reference/formula/neoclassical/">12 functions</a>.</p>
+
+<ul class="formula-index">
+  <li><a href="/vaft/develop/reference/formula/neoclassical/#coulomb_logarithm_electron_sauter"><code>coulomb_logarithm_electron_sauter</code></a> <em>(convention)</em> &mdash; Electron Coulomb logarithm $\ln\Lambda_e$ in the Sauter convention.
+</li>
+  <li><a href="/vaft/develop/reference/formula/neoclassical/#coulomb_logarithm_ion_sauter"><code>coulomb_logarithm_ion_sauter</code></a> <em>(convention)</em> &mdash; Ion-ion Coulomb logarithm $\ln\Lambda_{ii}$ in the Sauter convention.
+</li>
+  <li><a href="/vaft/develop/reference/formula/neoclassical/#electron_collisionality_sauter"><code>electron_collisionality_sauter</code></a> <em>(convention)</em> &mdash; Normalised electron collisionality $\nu_e^*$ in the Sauter convention.
+</li>
+  <li><a href="/vaft/develop/reference/formula/neoclassical/#ion_collisionality_sauter"><code>ion_collisionality_sauter</code></a> <em>(convention)</em> &mdash; Normalised ion collisionality $\nu_i^*$ in the Sauter convention.
+</li>
+  <li><a href="/vaft/develop/reference/formula/neoclassical/#redl_bootstrap_coefficients"><code>redl_bootstrap_coefficients</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; The Redl 2021 bootstrap coefficients $L_{31}$, $L_{32}$, $L_{34}$, $\alpha$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/neoclassical/#redl_bootstrap_current"><code>redl_bootstrap_current</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Flux-surface-averaged bootstrap current $\langle j_\parallel B\rangle$, Redl 2021.
+</li>
+  <li><a href="/vaft/develop/reference/formula/neoclassical/#redl_neoclassical_conductivity"><code>redl_neoclassical_conductivity</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Neoclassical parallel conductivity $\sigma_{\mathrm{neo}}$, Redl 2021.
+</li>
+  <li><a href="/vaft/develop/reference/formula/neoclassical/#sauter_bootstrap_coefficients"><code>sauter_bootstrap_coefficients</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; The Sauter 1999 bootstrap coefficients $L_{31}$, $L_{32}$, $L_{34}$, $\alpha$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/neoclassical/#sauter_bootstrap_current"><code>sauter_bootstrap_current</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Flux-surface-averaged bootstrap current $\langle j_\parallel B\rangle$, Sauter 1999.
+</li>
+  <li><a href="/vaft/develop/reference/formula/neoclassical/#sauter_neoclassical_conductivity"><code>sauter_neoclassical_conductivity</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Neoclassical parallel conductivity $\sigma_{\mathrm{neo}}$, Sauter 1999.
+</li>
+  <li><a href="/vaft/develop/reference/formula/neoclassical/#sauter_spitzer_conductivity"><code>sauter_spitzer_conductivity</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Spitzer parallel conductivity $\sigma_{\mathrm{Sptz}}$ in the Sauter normalisation.
+</li>
+  <li><a href="/vaft/develop/reference/formula/neoclassical/#trapped_particle_fraction"><code>trapped_particle_fraction</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Trapped-particle fraction $f_t$ of a circular surface of inverse aspect ratio.
+</li>
+</ul>
+
 <h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
 
 <p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
@@ -949,7 +984,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Categories</a></li><li class="page-toc-item page-toc-level-2"><a href="#conventions-that-change-the-number" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Conventions that change the number</a></li><li class="page-toc-item page-toc-level-2"><a href="#constants" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Constants</a></li><li class="page-toc-item page-toc-level-2"><a href="#utils" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Utils</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability</a></li><li class="page-toc-item page-toc-level-2"><a href="#green" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Green</a></li><li class="page-toc-item page-toc-level-2"><a href="#atomic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atomic</a></li><li class="page-toc-item page-toc-level-2"><a href="#statistics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Statistics</a></li><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetics</a></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Categories</a></li><li class="page-toc-item page-toc-level-2"><a href="#conventions-that-change-the-number" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Conventions that change the number</a></li><li class="page-toc-item page-toc-level-2"><a href="#constants" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Constants</a></li><li class="page-toc-item page-toc-level-2"><a href="#utils" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Utils</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability</a></li><li class="page-toc-item page-toc-level-2"><a href="#green" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Green</a></li><li class="page-toc-item page-toc-level-2"><a href="#atomic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atomic</a></li><li class="page-toc-item page-toc-level-2"><a href="#statistics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Statistics</a></li><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetics</a></li><li class="page-toc-item page-toc-level-2"><a href="#neoclassical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical</a></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1067,7 +1102,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-09 12:43:24 +0000"
+        "time": "2026-09-11 06:55:56 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
