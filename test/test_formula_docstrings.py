@@ -122,6 +122,21 @@ CONVENTION_SENSITIVE = frozenset({
     "interpolate_adf11",
     "fractional_abundances",
     "line_cooling_coefficient",
+    # Neoclassical: the Coulomb-logarithm and collisionality conventions
+    # differ from the three already in the package (issue #353), and the
+    # bootstrap current carries the Wb-per-radian and COCOS sign choice.
+    "coulomb_logarithm_electron_sauter",
+    "coulomb_logarithm_ion_sauter",
+    "electron_collisionality_sauter",
+    "ion_collisionality_sauter",
+    "trapped_particle_fraction",
+    "sauter_spitzer_conductivity",
+    "sauter_neoclassical_conductivity",
+    "redl_neoclassical_conductivity",
+    "sauter_bootstrap_coefficients",
+    "redl_bootstrap_coefficients",
+    "sauter_bootstrap_current",
+    "redl_bootstrap_current",
 })
 
 #: Fitted coefficients or scalings: the source dataset must be named.
@@ -137,6 +152,17 @@ EMPIRICAL = frozenset({
     "current_drive_efficiency",
     "bootstrap_current_fraction",
     "alpha_heating_power_from_n_D_n_T_T_keV_V",
+    # Neoclassical: every one of these is a rational fit to numerical
+    # drift-kinetic solutions (Sauter 1999/2002, Redl 2021), and the
+    # trapped fraction and Spitzer charge factor are fits too.
+    "trapped_particle_fraction",
+    "sauter_spitzer_conductivity",
+    "sauter_neoclassical_conductivity",
+    "redl_neoclassical_conductivity",
+    "sauter_bootstrap_coefficients",
+    "redl_bootstrap_coefficients",
+    "sauter_bootstrap_current",
+    "redl_bootstrap_current",
 })
 
 SPECS = catalog.list_formulas()

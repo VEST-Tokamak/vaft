@@ -63,6 +63,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "atomic": 3,
         "statistics": 22,
         "magnetics": 2,
+        "neoclassical": 12,
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 

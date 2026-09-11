@@ -13,3 +13,7 @@ vaft/data/wheel_samples/** text=auto eol=lf
 
 # POSIX shell scripts must keep LF even in a Windows checkout.
 *.sh text eol=lf
+
+# GACODE fixed-format text fixtures are compared field-by-field against a
+# real NEO run, so a CRLF checkout must not change them.
+test/data/gacode/** text=auto eol=lf

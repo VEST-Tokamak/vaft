@@ -33,6 +33,7 @@ _IMPORT_ORDER = (
     "atomic",
     "statistics",
     "magnetics",
+    "neoclassical",
 )
 
 

@@ -276,6 +276,26 @@ register_convention(CodeConvention(
 ))
 
 register_convention(CodeConvention(
+    name="gacode",
+    cocos=2,
+    psi_unit="Wb/rad",
+    reference=(
+        "GACODE f2py/expro/expro_locsim.f90 (btccw = -sign(torfluxa), "
+        "ipccw = -sign(q)*sign(torfluxa)); neo/tools/input/reg18/input.gacode"
+    ),
+    confirmed=False,
+    notes=(
+        "input.gacode (NEO, TGLF, CGYRO). Inferred, not documented upstream: expro "
+        "reads the field directions from the signs of torfluxa and q with a toroidal "
+        "angle that runs clockwise from above, and the shipped reg18 file -- a DIII-D "
+        "discharge in the normal orientation, Bt clockwise and Ip counter-clockwise -- "
+        "carries torfluxa > 0, bcentr > 0, current < 0, q < 0 and a polflux that falls "
+        "outward. cocos_transform(11, 2) reproduces every one of those signs from the "
+        "IMAS description of that orientation, and no other index does."
+    ),
+))
+
+register_convention(CodeConvention(
     name="vfit",
     cocos=1,
     psi_unit="Wb/rad",
