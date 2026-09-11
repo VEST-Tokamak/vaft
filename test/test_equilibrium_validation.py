@@ -150,12 +150,19 @@ def test_not_available_is_distinct_from_pass_and_from_fail(report):
 
 
 def test_a_partially_assessable_category_is_indeterminate(report):
-    """Eight slices pass the virial plausibility bounds and the dead one cannot
-    be decided: the check is ``indeterminate``, because part of the evidence is
-    missing."""
+    """Five slices pass the virial plausibility bounds, three fail them, and the
+    dead one cannot be decided.
+
+    The three failures are real and were masked until #546. The Lao beta_p is
+    built on mu_i, and the pipeline fed it the flux-convention quantity -- the
+    negative of the one the virial relations use -- which put it around +1.5.
+    On the volume convention this reconstruction has almost no poloidal beta
+    (0.034 on the live slice, negative on three), which is the pressure-profile
+    defect #386 finally reaching a check that can see it.
+    """
     virial = report["physical_validity"]["virial_parameter_plausibility"]
-    assert virial["counts"] == {INDETERMINATE: 1, PASS: 8}
-    assert virial["status"] == INDETERMINATE
+    assert virial["counts"] == {INDETERMINATE: 1, FAIL: 3, PASS: 5}
+    assert virial["status"] == FAIL
 
 
 # ---------------------------------------------------------------------------
@@ -290,30 +297,33 @@ def test_the_reconstructed_diamagnetic_flux_disagrees_with_the_measurement_in_si
     """A finding on shot 39915 the report surfaces: the reconstructed flux is
     paramagnetic where the loop measures diamagnetic.
 
-    This test used to also assert that the measured flux closed the virial
-    energy balance to half a percent. It did not: that agreement was the Lao
-    ``beta_p`` sign error (#546) cancelling the very sign disagreement this test
-    exists to record. ``W_kin`` is built on the equilibrium-derived ``mu_i``
-    (+0.75 here) and ``W_diamagnetic`` on the measured one (-0.63), so the two
-    cannot agree to half a percent while the measurement and the reconstruction
-    disagree about which way the plasma diamagnetism points. The old
-    ``beta_p`` carried a spurious ``+r*S2 = -0.128`` that offset
-    ``-(mu_i + mu_i_measured) = -0.120`` to within 0.008. With the sign
-    corrected the balance closes to ~8%, which is the honest size of the
-    disagreement and still well inside the check's own tolerance.
+    This test has twice asserted that the measured flux nearly closes the
+    virial energy balance -- to half a percent, then to ~8%. Both were
+    artifacts of sign errors, and both are gone:
+
+    * the Lao ``beta_p`` carried a spurious ``+r*S2`` (#546, fixed in #566), and
+    * ``mu_i`` was handed to the closures on the flux convention, which is the
+      negative of the volume definition the three virial relations use.
+
+    With both corrected the two sides say what the data says. ``W_kin`` comes
+    from a reconstruction whose virial ``beta_p`` is 0.034 -- almost no poloidal
+    beta, the pressure-profile defect #386 -- while ``W_diamagnetic`` comes from
+    a loop implying ``beta_p`` above 1. They differ by a factor of tens, so the
+    check **fails**, alongside ``diamagnetic_flux``. Two checks, one story.
     """
     flux = _slice(report, "physical_validity", "diamagnetic_flux", LIVE)
     assert flux["status"] == FAIL
     assert flux["sign_agreement"] is False
     assert flux["measured"] < 0 < flux["computed"]
+
     energy = _slice(report, "independent_validation", "diamagnetic_energy", LIVE)
-    assert energy["status"] == PASS
-    assert energy["mui_measured"] < 0
-    # The residual is the mu_i disagreement, not a coincidence: it must be far
-    # enough from zero to be the real thing and inside the registry tolerance.
-    assert 0.02 < abs(energy["log_ratio"]) < describe("independent_validation.diamagnetic_energy").tolerance[0]
-
-
+    assert energy["status"] == FAIL
+    assert abs(energy["log_ratio"]) > describe(
+        "independent_validation.diamagnetic_energy"
+    ).tolerance[1]
+    # The reconstruction is paramagnetic; the loop is not.
+    virial = _slice(report, "physical_validity", "virial_parameter_plausibility", LIVE)
+    assert virial["mui"] < 0 < energy["W_diamagnetic"]
 def test_measurements_can_arrive_on_a_separate_diagnostics_ods(sample):
     equilibrium_only = ODS()
     equilibrium_only["equilibrium"] = copy.deepcopy(sample["equilibrium"])

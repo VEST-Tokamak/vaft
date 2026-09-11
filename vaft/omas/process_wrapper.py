@@ -1541,7 +1541,7 @@ def _virial_empty_row(alpha_method: str = "volume"):
         "kappa": nan,
         "B_pa": nan, "beta_p": nan, "li": nan,
         "W_mag": nan, "W_kin": nan, "V_p": nan,
-        "mui_hat": nan, "mui": nan, "rt": nan, "phi_dia_comp": nan,
+        "mui_hat": nan, "mui_from_flux": nan, "mui": nan, "rt": nan, "phi_dia_comp": nan,
         "beta_p_vir": nan, "li_vir": nan, "beta_pd_vir": nan,
         "virial_lao": {"beta_p": nan, "li": nan},
         "virial_bongard": {"beta_p": nan, "li": nan},
@@ -1914,10 +1914,35 @@ def compute_virial_equilibrium_quantities_ods(
         elif "global_quantities.magnetic_axis.b_field_tor" in eq_ts:
             B_t0 = float(eq_ts["global_quantities.magnetic_axis.b_field_tor"])
 
+        # mu_i as the three virial relations define it, and as
+        # docs/_guide/Equilibrium.md states it: the volume integral of
+        # B_tv^2 - B_t^2, positive for a diamagnetic plasma.
+        #
+        # This is NOT computed_diamagnetism_from_phi, the EFIT xmui port, which
+        # is its negative: B_tv^2 - B_t^2 ~ -2*F_b*(F - F_b)/R^2 while
+        # Phi = int (B_t - B_tv) dA. Feeding the flux sign to the closures puts
+        # a systematic 2*mu_i into every identity residual -- on an exact
+        # Solov'ev equilibrium the residuals are (-0.675, +0.675, -0.675)
+        # that way against (+0.0005, +0.0003, +0.0001) with this definition,
+        # and on the packaged sample it turned every closure's l_i negative.
+        # The flux quantity is kept beside it under a name that says so.
         mui = np.nan
+        mui_from_flux = np.nan
         if np.isfinite(phi_dia_comp) and np.isfinite(B_t0) and np.isfinite(V_p) and np.isfinite(B_pa):
             if V_p > 0.0 and B_pa > 0.0:
-                mui = computed_diamagnetism_from_phi(phi_dia_comp, B_t0, R_0, V_p, B_pa)
+                mui_from_flux = computed_diamagnetism_from_phi(
+                    phi_dia_comp, B_t0, R_0, V_p, B_pa
+                )
+        if (
+            np.isfinite(B_pa) and B_pa > 0.0
+            and np.isfinite(V_p) and V_p > 0.0
+            and np.isfinite(F_boundary)
+        ):
+            _dV = np.nan_to_num(np.asarray(vol_terms["dV"], float), nan=0.0)
+            # nan_to_num on the *difference*, so a cell whose F is NaN
+            # contributes nothing rather than contributing its vacuum term alone.
+            _diff = (F_boundary / R_safe) ** 2 - (F_2d / R_safe) ** 2
+            mui = float(np.sum(np.nan_to_num(_diff, nan=0.0) * _dV) / (B_pa**2 * V_p))
 
         RT_over_R0 = np.nan
         if np.isfinite(RT) and R_0 != 0.0:
@@ -1942,7 +1967,10 @@ def compute_virial_equilibrium_quantities_ods(
                 beta_p_lao, li_lao = virial_lao_from_S_alpha_mu_rt(
                     S1, S2, S3, alpha, mui, RT_over_R0
                 )
-                beta_pd_vir = virial_beta_pd_from_S_mu_rt(S1, S2, mui, RT_over_R0)
+                # The flux-sign quantity: virial_beta_pd_from_S_mu_rt is written
+                # for mu_i_hat, so feeding it the volume mu_i would return
+                # beta_p - 2*mu_i. This keeps the number develop computed.
+                beta_pd_vir = virial_beta_pd_from_S_mu_rt(S1, S2, mui_from_flux, RT_over_R0)
             except ValueError:
                 beta_p_lao, li_lao, beta_pd_vir = np.nan, np.nan, np.nan
         if np.isfinite(alpha) and np.isfinite(mui):
@@ -2071,7 +2099,11 @@ def compute_virial_equilibrium_quantities_ods(
             "kappa": float(kappa) if np.isfinite(kappa) else np.nan,
             "B_pa": B_pa, "beta_p": beta_p, "li": li,
             "W_mag": W_mag, "W_kin": W_kin, "V_p": V_p,
-            "mui_hat": float(mui) if np.isfinite(mui) else np.nan,  # backward-compatible key
+            # `hat` names the flux convention throughout this codebase, so this
+            # key keeps the flux quantity it has always carried; `mui` is the
+            # volume one the relations use. They are negatives of each other.
+            "mui_hat": float(mui_from_flux) if np.isfinite(mui_from_flux) else np.nan,
+            "mui_from_flux": float(mui_from_flux) if np.isfinite(mui_from_flux) else np.nan,
             "mui": float(mui) if np.isfinite(mui) else np.nan,
             "rt": RT,
             "phi_dia_comp": phi_dia_comp,
