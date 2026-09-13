@@ -2495,7 +2495,7 @@ def virial_beta_p_from_S_alpha_mu(S1: float,
                                   mui_hat: float) -> float:
     r"""Poloidal beta from the Shafranov integrals, low-aspect-ratio closure.
 
-    $$\beta_p = \frac{(S_1 + S_2)(\alpha - 1) + \alpha\hat\mu_i + S_3}{3(\alpha-1) + 1}$$
+    $$\beta_p = \frac{(S_1 + S_2)(\alpha - 1) + \alpha\mu_i + S_3}{3(\alpha-1) + 1}$$
 
     Parameters
     ----------
@@ -2567,6 +2567,13 @@ def virial_li_from_S_alpha_mu(S1: float,
 
     Convention
     ----------
+    Despite the parameter name, this takes $\mu_i$ in the **volume** sign the
+    three virial relations use -- $\langle B_{tv}^2-B_t^2\rangle/B_{pa}^2$,
+    positive when diamagnetic -- not the flux-sign $\hat\mu_i$ that
+    :func:`virial_muihat_from_Bt_R0_dphi` produces. The two are negatives of
+    each other, so the wrong one returns a result off by $2\mu_i$ with nothing
+    in the number to show it.
+
     Companion of :func:`virial_beta_p_from_S_alpha_mu`, same normalisation.
 
     Limitations
@@ -2748,6 +2755,16 @@ def virial_beta_pd_from_S_mu_rt(
     -------
     float
         Diamagnetic poloidal beta [-].
+
+    Convention
+    ----------
+    **The one consumer in this module that takes the flux-sign $\hat\mu_i$**,
+    the quantity :func:`virial_muihat_from_Bt_R0_dphi` and
+    :func:`vaft.process.equilibrium.computed_diamagnetism_from_phi` produce --
+    not the volume $\mu_i$ every closure here takes. The two are negatives of
+    each other, so the wrong one returns $\beta_p \mp 2\mu_i$ with nothing in
+    the number to show it. The parameter is named ``mui`` for history; read it
+    as $\hat\mu_i$.
 
     Validity
     --------

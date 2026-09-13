@@ -2355,7 +2355,17 @@ def compute_virial_equilibrium_quantities_ods(
             and np.isfinite(V_p)
             and V_p > 0.0
         ):
-            mui_measured = float(
+            # Negated: virial_muihat_from_Bt_R0_dphi is the flux convention (the
+            # `hat`), and the closures below now take the volume one, the same
+            # as the equilibrium's own mu_i above. Leaving it on the flux sign
+            # made the measured-vs-reconstructed comparison mixed-convention --
+            # self-consistently wrong before this became a comparison of two
+            # different things.
+            #
+            # This is only the flux/volume conversion. Which toroidal field
+            # belongs here, and therefore what sign a measured flux carries
+            # relative to the stored F, is unresolved: see #691.
+            mui_measured = -float(
                 virial_muihat_from_Bt_R0_dphi(B_t0, R_0, delta_phi_measured, B_pa, V_p)
             )
         # The same three closures again, on the measured mu_i, so the comparison

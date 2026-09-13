@@ -1914,8 +1914,14 @@ def shafranov_integrals(
     weights = _plasma_cell_weights(R_grid, Z_grid, R_bdry, Z_bdry, cell_weights=cell_weights)
     dA = _cell_area_from_mesh(R_grid, Z_grid)
     B_p_sq = B_R_grid**2 + B_Z_grid**2
-    alpha_num = np.nansum(R_grid * (B_Z_grid**2) * weights * dA)
-    alpha_den = np.nansum(R_grid * B_p_sq * weights * dA)
+    # Mask on the weight, not with nansum. The psi-gradient field fallback marks
+    # the R = 0 column NaN on purpose and 0 * nan is nan, so a column *outside*
+    # the plasma used to void alpha for the whole slice. Dropping every NaN
+    # instead would also swallow one *inside* it, where the honest answer is
+    # NaN rather than a plausible-looking biased number.
+    _inside = weights > 0.0
+    alpha_num = np.sum(np.where(_inside, R_grid * (B_Z_grid**2) * weights * dA, 0.0))
+    alpha_den = np.sum(np.where(_inside, R_grid * B_p_sq * weights * dA, 0.0))
     alpha = 0.0 if not np.isfinite(alpha_den) or alpha_den == 0.0 else float(2.0 * alpha_num / alpha_den)
 
     return S1, S2, S3, alpha
@@ -2008,8 +2014,14 @@ def efit_virial_volume_integrals(
     weights = _plasma_cell_weights(R_grid, Z_grid, R_bdry, Z_bdry, cell_weights=cell_weights)
 
     B_p_sq = B_R_grid**2 + B_Z_grid**2
-    alpha_num = np.nansum(R_grid * (B_Z_grid**2) * weights * dA)
-    alpha_den = np.nansum(R_grid * B_p_sq * weights * dA)
+    # Mask on the weight, not with nansum. The psi-gradient field fallback marks
+    # the R = 0 column NaN on purpose and 0 * nan is nan, so a column *outside*
+    # the plasma used to void alpha for the whole slice. Dropping every NaN
+    # instead would also swallow one *inside* it, where the honest answer is
+    # NaN rather than a plausible-looking biased number.
+    _inside = weights > 0.0
+    alpha_num = np.sum(np.where(_inside, R_grid * (B_Z_grid**2) * weights * dA, 0.0))
+    alpha_den = np.sum(np.where(_inside, R_grid * B_p_sq * weights * dA, 0.0))
     alpha = np.nan if not np.isfinite(alpha_den) or alpha_den == 0.0 else float(2.0 * alpha_num / alpha_den)
 
     RT = np.nan

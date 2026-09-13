@@ -324,6 +324,8 @@ def test_the_reconstructed_diamagnetic_flux_disagrees_with_the_measurement_in_si
     # The reconstruction is paramagnetic; the loop is not.
     virial = _slice(report, "physical_validity", "virial_parameter_plausibility", LIVE)
     assert virial["mui"] < 0 < energy["W_diamagnetic"]
+
+
 def test_measurements_can_arrive_on_a_separate_diagnostics_ods(sample):
     equilibrium_only = ODS()
     equilibrium_only["equilibrium"] = copy.deepcopy(sample["equilibrium"])
