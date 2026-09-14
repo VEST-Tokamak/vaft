@@ -230,7 +230,9 @@ _RZ_AXES_FRACTION_WITH_COLORBAR = 0.7
 
 #: The height/width ratio of one cell of a composite grid, and the least a
 #: row may be given, so a wide grid does not collapse its rows.
-_PANEL_CELL_ASPECT = 0.4
+#: A plain cell is a time trace's landscape strip, so a grid of traces asks
+#: nothing more of its rows than the grid always gave them.
+_PANEL_CELL_ASPECT = GEOMETRY["LineSeries"].aspect
 _PANEL_MIN_ROW_IN = 0.9
 
 #: The role a geometry layer carries when it belongs to the plasma rather
@@ -324,11 +326,9 @@ class Presentation:
             return _snug(width, ratio, usable, ceiling)
         if policy.kind == "native":
             return _snug(width, _native_ratio(model), _RZ_AXES_FRACTION, ceiling)
-        # grid: one width whatever the column count; rows add height.
-        ncols = max(1, int(getattr(model, "ncols", 1) or 1))
-        rows = _visual_rows(model)
-        cell = max(_PANEL_MIN_ROW_IN, _PANEL_CELL_ASPECT * width / ncols)
-        return (width, min(max(rows * cell, 0.5 * width), ceiling))
+        # grid: one width whatever the column count; the rows add height,
+        # each as tall as the members standing in it ask (issue #711).
+        return (width, min(max(_grid_height(model, width), 0.5 * width), ceiling))
 
     def rc(self) -> dict[str, Any]:
         """The rcParams this presentation sets, theme baseline times format scale."""
@@ -415,6 +415,59 @@ def _native_ratio(model: Any) -> float:
     if len(shape) < 2 or shape[1] == 0:
         return 1.0
     return float(shape[0]) / float(shape[1])
+
+
+#: The tallest a member's cell gets relative to its width inside a grid: a
+#: composite's width is the format's and cannot follow one member's ratio,
+#: so a very tall machine keeps equal scaling inside its own panel instead.
+_CELL_MAX_ASPECT = 2.5
+
+
+def _grid_height(model: Any, width: float) -> float:
+    """The height a composite's rows need under one fixed ``width``.
+
+    Every member asks for the height its own geometry policy would give it
+    on the width of the columns it spans -- a time trace its landscape
+    strip, a field map its R-Z ratio less the colorbar's share, an image
+    its pixel ratio -- and a row is as tall as the tallest request across
+    it.  The rows start at the plain cell height the grid always used, so
+    a grid of time traces is exactly as tall as before; only a member that
+    needs more raises its rows, proportionally when it spans several.
+    Whole-figure only: the slice navigator sizes its own canvas.
+    """
+    members = tuple(getattr(model, "models", ()) or ())
+    ncols = max(1, int(getattr(model, "ncols", 1) or 1))
+    nrows = max(1, int(getattr(model, "nrows", 1) or 1))
+    spans = tuple(getattr(model, "spans", None) or ())
+    if not spans:
+        spans = tuple((i // ncols, i % ncols, 1, 1) for i in range(len(members)))
+    column_width = width / ncols
+    cell = max(_PANEL_MIN_ROW_IN, _PANEL_CELL_ASPECT * column_width)
+    # The plain grid's height, spread over the structural rows: a spans grid
+    # counts rows as the deepest stack, not the LCM it is built on.
+    rows = [_visual_rows(model) * cell / nrows] * nrows
+    for member, (row, _col, rowspan, colspan) in zip(members, spans):
+        need = _cell_ratio(member) * colspan * column_width
+        have = sum(rows[row:row + rowspan])
+        if need > have > 0.0:
+            scale = need / have
+            rows[row:row + rowspan] = [height * scale for height in rows[row:row + rowspan]]
+    return float(sum(rows))
+
+
+def _cell_ratio(member: Any) -> float:
+    """Height over width a member asks of the cell it stands in."""
+    policy = GEOMETRY.get(type(member).__name__, GeometryPolicy("aspect", 0.62))
+    if policy.kind == "aspect":
+        return float(policy.aspect or 0.62)
+    if policy.kind == "extent":
+        span = rz_extent(member)
+        ratio = span[1] / span[0] if span else _RZ_FALLBACK_ASPECT
+        usable = _RZ_AXES_FRACTION_WITH_COLORBAR if _has_colorbar(member) else _RZ_AXES_FRACTION
+        return min(ratio, _CELL_MAX_ASPECT) * usable / _RZ_AXES_HEIGHT_FRACTION
+    if policy.kind == "native":
+        return min(_native_ratio(member), _CELL_MAX_ASPECT)
+    return 0.62
 
 
 def _visual_rows(model: Any) -> int:

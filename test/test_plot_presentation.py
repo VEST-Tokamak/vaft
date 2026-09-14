@@ -177,6 +177,36 @@ def test_panel_count_does_not_multiply_the_width():
     assert widths == {7.0}
 
 
+def test_a_row_is_as_tall_as_the_member_standing_in_it_asks():
+    """A field map spanning a column raises the grid; a trace in its place does not (issue #711)."""
+    x = np.linspace(0, 1, 5)
+    r, z = np.linspace(0.1, 0.8, 5), np.linspace(-1.2, 1.2, 6)
+    trace = lambda i: LineSeries(series=(Series(x=x, y=x * i, label=str(i)),), y_label="y")
+    field = Field2D(r=r, z=z, values=np.outer(z, r), value_label="psi", overlays=(_wall(1.2),))
+    spans = ((0, 0, 2, 1), (0, 1, 1, 1), (1, 1, 1, 1))
+    with_map = Panels(models=(field, trace(1), trace(2)), ncols=2, nrows=2, spans=spans, share_x=False)
+    with_trace = Panels(models=(trace(0), trace(1), trace(2)), ncols=2, nrows=2, spans=spans, share_x=False)
+    tall = renderers.render_panels(with_map, format="double_column")[0].get_size_inches()
+    plain = renderers.render_panels(with_trace, format="double_column")[0].get_size_inches()
+    assert tall[0] == plain[0] == 7.0, "a composite keeps the format's width"
+    assert tall[1] > plain[1]
+    # A plain grid of traces keeps the cell height the grid always used.
+    grid = Panels(models=tuple(trace(i) for i in range(6)), ncols=2)
+    figure, _ = renderers.render_panels(grid, format="double_column")
+    assert figure.get_size_inches()[1] == pytest.approx(3 * max(0.9, GEOMETRY["LineSeries"].aspect * 3.5))
+    # The ceiling still binds.
+    deep = Panels(models=tuple(trace(i) for i in range(30)), ncols=1)
+    assert renderers.render_panels(deep, format="screen")[0].get_size_inches()[1] == FORMATS["screen"].max_height_in
+
+
+def test_the_equilibrium_overview_takes_its_height_from_the_flux_map(sample):
+    figure, _ = vaft.omas.plot_equilibrium_overview(sample, format="double_column")
+    width, height = figure.get_size_inches()
+    assert width == 7.0
+    plain_rows = 3 * max(0.9, GEOMETRY["LineSeries"].aspect * 7.0 / 3)
+    assert plain_rows < height <= FORMATS["double_column"].max_height_in
+
+
 def test_a_time_trace_is_the_landscape_strip_its_policy_says():
     figure, _ = renderers.render_line_series(_minimal("render_line_series"), format="screen")
     assert tuple(figure.get_size_inches()) == pytest.approx((6.5, 6.5 * GEOMETRY["LineSeries"].aspect))
