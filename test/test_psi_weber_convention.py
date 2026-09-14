@@ -21,6 +21,7 @@ from vaft.data.eqdsk import (
     read_geqdsk,
 )
 from vaft.data.resources import data_path, sample_geqdsk
+from vaft.omas.formula_wrapper import compute_voltage_consumption
 
 
 @pytest.fixture()
@@ -133,8 +134,6 @@ def test_loop_voltage_is_correct_and_storage_invariant(gfile):
     1 ms must give V_loop = 10 V, not 2*pi times that."""
     import copy
 
-    from vaft.omas.formula_wrapper import compute_voltage_consumption
-
     ods = gfile.to_omas()
     second = copy.deepcopy(ods["equilibrium.time_slice.0"])
     ods["equilibrium.time_slice.1"] = second
@@ -151,6 +150,56 @@ def test_loop_voltage_is_correct_and_storage_invariant(gfile):
     _t2, v_legacy, _vi2, _vr2 = compute_voltage_consumption(legacy)
     v_legacy = np.asarray(v_legacy, float)
     np.testing.assert_allclose(v_legacy, v_loop, rtol=1e-9)
+
+
+def test_real_vest_shot_loop_voltage_consumption():
+    """Issue #652: Real-data regression test for the voltage consumption path.
+
+    Validates that compute_voltage_consumption correctly handles real VEST EFIT
+    reconstructions (shot 39915), automatically detects the DD Weber flux convention,
+    yields loop voltages and volt-second consumption within physical bounds for VEST,
+    maintains partition consistency (V_loop = V_ind + V_res), and remains invariant
+    under legacy Wb/rad storage.
+    """
+    g1 = sample_geqdsk("efit/g039915.00317")
+    g2 = sample_geqdsk("efit/g039915.00319")
+
+    ods = g1.to_omas()
+    ods["equilibrium.time_slice.1"] = g2.to_omas()["equilibrium.time_slice.0"]
+    ods["equilibrium.time_slice.0.time"] = 0.317
+    ods["equilibrium.time_slice.1.time"] = 0.319
+
+    t, v_loop, v_ind, v_res = compute_voltage_consumption(ods)
+    t = np.asarray(t, float)
+    v_loop = np.asarray(v_loop, float)
+    v_ind = np.asarray(v_ind, float)
+    v_res = np.asarray(v_res, float)
+
+    # 1. Loop voltage physical bounds during flat-top
+    assert np.all(v_loop > 0.5)
+    assert np.all(v_loop < 5.0)
+    assert float(np.mean(v_loop)) == pytest.approx(2.5329, rel=1e-3)
+
+    # 2. Volt-second consumption over dt = 2 ms
+    dt = t[1] - t[0]
+    volt_seconds = float(v_loop[0] * dt)
+    assert 1.0e-3 < volt_seconds < 1.0e-2
+    # Exact consistency with boundary-axis flux change 2*pi * Delta(psi_boundary - psi_axis)
+    d_psi_wb = (
+        (float(g2["SIBRY"]) - float(g2["SIMAG"]))
+        - (float(g1["SIBRY"]) - float(g1["SIMAG"]))
+    ) * TWO_PI
+    assert volt_seconds == pytest.approx(d_psi_wb, rel=1e-6)
+
+    # 3. Energy partition consistency: V_loop = V_ind + V_res
+    np.testing.assert_allclose(v_res + v_ind, v_loop, rtol=1e-12)
+
+    # 4. Storage convention invariance: DD Wb vs legacy Wb/rad
+    legacy = _legacy_style(ods)
+    _t_leg, v_loop_leg, v_ind_leg, v_res_leg = compute_voltage_consumption(legacy)
+    np.testing.assert_allclose(v_loop_leg, v_loop, rtol=1e-9)
+    np.testing.assert_allclose(v_ind_leg, v_ind, rtol=1e-9)
+    np.testing.assert_allclose(v_res_leg, v_res, rtol=1e-9)
 
 
 def _strip_phi(ods):
