@@ -4331,9 +4331,10 @@ def normalized_larmor_radius_from_M_T_a_Bt(M: float,
     Thermal speed $\sqrt{2T/m}$ and the toroidal field, normalised by the minor
     radius: the ITER Physics Basis definition.  Differs from
     :func:`rho_star_from_M_T_B_R_epsilon` (mass in amu, normalised by $R\varepsilon$
-    with a rounded prefactor) only in input units, and from
-    :func:`vaft.formula.stability.rhostar_from_Te_a_Bt` in substance; the three
-    definitions are tracked in #353.
+    with a rounded prefactor) only in input units.  It agreed with neither
+    :func:`vaft.formula.stability.rhostar_from_Te_a_Bt` until #364 gave that
+    one the same definition; the two now return the same number for electrons,
+    and the remaining spread is tracked in #353.
 
     References
     ----------

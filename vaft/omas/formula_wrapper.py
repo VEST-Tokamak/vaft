@@ -18,7 +18,7 @@ from vaft.process.atomic import (
     _interp_profile_to_target,
     _sanitize_rho_grid,
 )
-from vaft.formula import magnetic_shear, ballooning_alpha_from_p_B_R
+from vaft.formula import magnetic_shear
 from vaft.formula.equilibrium import (
     loss_power_from_p_heat_dWdt_p_rad,
     heating_power_from_p_ohm_p_aux,
