@@ -187,6 +187,11 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # perturbation: the resonant reductions state their radial window
+    # convention and their tesla-not-gauss unit choice.
+    "resonant_windows",
+    "rms_resonant_field",
+
     # profile (V4/D-05): the position is in the declared radial coordinate
     # and is never converted
     "pedestal_top",
