@@ -1576,11 +1576,13 @@ def build_ces_ods(
 
 
 #: How far a profile time may sit from the reconstructed slice it is mapped
-#: against. The profile layer already resolves its own samples within 1 ms
-#: (`vaft.process.profile`), and an equilibrium grid is sparser, so this is
-#: deliberately looser -- but it is bounded, because "nearest" over a
-#: non-overlapping time base is not a match at all.
-EQUILIBRIUM_TIME_TOLERANCE_MS = 2.0
+#: against.  Tighter than the 1 ms the profile layer resolves its own samples
+#: within (`vaft.process.profile`), because the failure modes are not
+#: symmetric: a profile with no equilibrium is counted and visible, while one
+#: mapped onto the wrong equilibrium is a number nobody can tell is wrong.
+#: Refusing a 1 ms match costs a slice; accepting a misaligned one costs the
+#: result's meaning.
+EQUILIBRIUM_TIME_TOLERANCE_MS = 0.5
 
 #: How CHEASE names the equilibrium it refined, per shot and millisecond.
 #: EFIT's convention is a five-digit, zero-padded time, so the padding has to be
@@ -1635,9 +1637,9 @@ def build_core_profiles_ods(
         "thomson_product": str(thomson_product),
         "ces_product": str(ces_product) if ces_product is not None else None,
         "efit_product": str(efit_product) if efit_product is not None else None,
-        "equilibrium_tolerance_ms": float(equilibrium_tolerance_ms),
         "geqdsk_dir": str(geqdsk_dir) if geqdsk_dir is not None else None,
     }
+    manifest["configuration"]["equilibrium_tolerance_ms"] = float(equilibrium_tolerance_ms)
 
     if "thomson_scattering.time" not in ods:
         manifest["error"] = "the Thomson product carries no thomson_scattering.time"
@@ -1665,7 +1667,13 @@ def build_core_profiles_ods(
     # equilibrium out of the product instead.
     solution = None
     eq_times_ms = None
-    if efit_product is not None and Path(efit_product).exists():
+    if efit_product is not None:
+        # A path that does not resolve is a caller error, not an absent
+        # equilibrium. Falling through to `geqdsk_dir` would report "no
+        # equilibrium" for every time and never mention the typo.
+        if not Path(efit_product).exists():
+            manifest["error"] = f"the efit product is missing: {efit_product}"
+            return ods, manifest
         solution, _ = load_ods(Path(efit_product))
         if "equilibrium.time" in solution:
             eq_times_ms = (
@@ -1779,6 +1787,21 @@ def build_core_profiles_ods(
     return ods, manifest
 
 
+def _has_kinetic_slice(ods: ODS) -> bool:
+    """Whether any core_profiles slice carries a measured ion temperature.
+
+    The same predicate :func:`vaft.process.profile.strip_electron_only_pressure`
+    uses to decide which slices may keep a total pressure, so the two cannot
+    disagree about what counts as kinetic.
+    """
+    if "core_profiles" not in ods:
+        return False
+    return any(
+        f"core_profiles.profiles_1d.{index}.ion.0.temperature" in ods
+        for index in range(len(ods["core_profiles.profiles_1d"]))
+    )
+
+
 def build_kinetic_efit_ods(
     *,
     shot: int,
@@ -1859,19 +1882,20 @@ def build_kinetic_efit_ods(
             return unavailable(f"the {label} product is missing: {path}")
 
     ods, _ = load_ods(Path(core_profiles_product))
-    # Test the full path, not the parent: reading `charge_exchange.channel`
-    # off an ODS that has the IDS but no channels would materialize the node,
-    # and `flat()` does not show an empty one, so the damage is silent.
-    has_ion = (
-        "charge_exchange.channel" in ods
-        and len(ods["charge_exchange.channel"]) > 0
-    )
-    wants_ion = stage == "kinetic_efit"
-    if has_ion != wants_ion:
-        measured = "with" if has_ion else "without"
+    # What decides the lineage is whether a slice was actually built with a
+    # measured ion temperature, not whether the product happens to carry a
+    # `charge_exchange` IDS. On 48226 it carries one and has no kinetic slice
+    # at all -- the ion diagnostic covers 298-307 ms and the equilibrium does
+    # not -- so keying off the IDS refused `electron_efit` for a product only
+    # `electron_efit` can serve, while `kinetic_efit` could not serve it
+    # either. Both lineages declined the same shot.
+    has_kinetic = _has_kinetic_slice(ods)
+    wants_kinetic = stage == "kinetic_efit"
+    if has_kinetic != wants_kinetic:
+        measured = "with" if has_kinetic else "without"
         return unavailable(
-            f"this shot's profiles were built {measured} an ion diagnostic, so it "
-            f"belongs to the other lineage, not {stage}"
+            f"this shot's profiles were built {measured} a measured ion "
+            f"temperature, so it belongs to the other lineage, not {stage}"
         )
     if "thomson_scattering" not in ods:
         return unavailable("the core-profile product carries no thomson_scattering")
@@ -1897,12 +1921,6 @@ def build_kinetic_efit_ods(
     ):
         return unavailable("the efit product carries no equilibrium time slice")
 
-    if time_ms is None:
-        if "core_profiles.time" in ods and len(ods["core_profiles.time"]):
-            time_ms = float(np.asarray(ods["core_profiles.time"], dtype=float)[0]) * 1e3
-        else:
-            return unavailable("no core_profiles slice to reconstruct at")
-
     # `time_slice` existing does not guarantee `time` does, and argmin over an
     # empty array raises. Every other bad-input path here records and returns,
     # so this one must too -- an optional stage that raises fails the whole run
@@ -1912,6 +1930,18 @@ def build_kinetic_efit_ods(
     eq_times = np.asarray(solution["equilibrium.time"], dtype=float).reshape(-1) * 1e3
     if eq_times.size == 0:
         return unavailable("the efit product's equilibrium.time is empty")
+
+    if time_ms is None:
+        if "core_profiles.time" not in ods or not len(ods["core_profiles.time"]):
+            return unavailable("no core_profiles slice to reconstruct at")
+        # The best-aligned slice, not the first one. Which profile time happens
+        # to come first says nothing about which has an equilibrium to be
+        # reconstructed against, and with a sub-millisecond tolerance an
+        # arbitrary choice refuses shots a better-aligned slice would serve.
+        profile_times = np.asarray(ods["core_profiles.time"], dtype=float).reshape(-1) * 1e3
+        offsets = np.min(np.abs(profile_times[:, None] - eq_times[None, :]), axis=1)
+        time_ms = float(profile_times[int(np.argmin(offsets))])
+
     time_index = int(np.argmin(np.abs(eq_times - float(time_ms))))
     manifest["configuration"]["time_ms"] = float(time_ms)
     manifest["configuration"]["equilibrium_time_ms"] = float(eq_times[time_index])
