@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>0260582</code>. What is described
+  <code>1dc012a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -267,7 +267,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/perturbation.py"><code class="language-plaintext highlighter-rouge">vaft/process/perturbation.py</code></a>:
-5 public functions.  The category overview and notation come from the module
+12 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("perturbation.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -296,6 +296,16 @@ reduction records which window it used and where that window came from. The
 legacy numbers survive only as <code class="language-plaintext highlighter-rouge">LEGACY_WINDOWS</code>, so an old result can
 still be reproduced deliberately.</p>
 
+<p><strong>An island width is not a threshold.</strong> GPEC reports the island each
+resonant surface would open, and whether those islands overlap decides
+whether the region goes stochastic. The comparison it is made against –
+the distance to the nearest neighbouring surface – is pure geometry, and
+GPEC leaves its own <code class="language-plaintext highlighter-rouge">w_isl_v_crit</code> at zero on an ideal run, so it has to be
+computed. It is, here, and it reproduces GPEC’s own Chirikov parameter
+exactly: <code class="language-plaintext highlighter-rouge">w_isl / d_nn</code> equals the <code class="language-plaintext highlighter-rouge">K_isl</code> in the file to the last bit on
+every surface of every run checked, which is what makes the derived
+quantities trustworthy rather than merely plausible.</p>
+
 <p><strong>A reduction is not a verdict.</strong> <code class="language-plaintext highlighter-rouge">vaft.process</code> computes; it does not
 decide. The thresholds the legacy compared against – a Chirikov parameter of
 1, a penetration ratio of 1, an edge overlap of 7.4e-4 – are arguments here
@@ -311,6 +321,20 @@ which unit it is showing.</p>
 
 <ul class="formula-index">
   <li><a href="#amplification_ratio"><code>amplification_ratio</code></a> &mdash; How much larger one run’s resonant response is than another’s.
+</li>
+  <li><a href="#chirikov"><code>chirikov</code></a> &mdash; The island-overlap parameter, by either of the two definitions in use.
+</li>
+  <li><a href="#critical_island_width"><code>critical_island_width</code></a> &mdash; The island width at which a surface’s islands reach its neighbour’s.
+</li>
+  <li><a href="#group_coincident_islands"><code>group_coincident_islands</code></a> &mdash; Collapse islands that sit on the same surface into one.
+</li>
+  <li><a href="#island_overlap_width"><code>island_overlap_width</code></a> &mdash; How far in from the boundary the islands overlap without a break.
+</li>
+  <li><a href="#island_pairs"><code>island_pairs</code></a> &mdash; Every adjacent pair of islands, with the gap between their separatrices.
+</li>
+  <li><a href="#nearest_surface_spacing"><code>nearest_surface_spacing</code></a> &mdash; Distance from each rational surface to its nearest neighbour.
+</li>
+  <li><a href="#penetration_ratio"><code>penetration_ratio</code></a> &mdash; Island width as a fraction of the width at which islands would overlap.
 </li>
   <li><a href="#reduce_resonant"><code>reduce_resonant</code></a> &mdash; Reduce one resonant column over one radial window.
 </li>
@@ -378,6 +402,436 @@ invent a resonance where there is none.</p>
 
 <ol class="formula-references">
   <li><code class="language-plaintext highlighter-rouge">gpec_analysis.calculate_amplification_ratio</code>, which fell back to the vacuum column silently when the plasma one was absent – returning a ratio of one and calling it no amplification. Not carried over: an absent column raises here.
+</li>
+</ol>
+
+<h3 id="chirikov"><code class="language-plaintext highlighter-rouge">chirikov</code></h3>
+
+<p class="formula-signature"><code>chirikov(psi_norm, width, *, definition='surface')</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The island-overlap parameter, by either of the two definitions in use.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Rational-surface positions.</p>
+</td></tr>
+  <tr><td><code>width</code></td><td>array_like</td><td>-</td><td><p>Full island width per surface.</p>
+</td></tr>
+  <tr><td><code>definition</code></td><td>str, optional</td><td>n/a</td><td><p><code class="language-plaintext highlighter-rouge">"surface"</code> centres it on each surface, <code class="language-plaintext highlighter-rouge">width / d_nn</code>, and returns one value per surface. <code class="language-plaintext highlighter-rouge">"pair"</code> takes each adjacent pair, <code class="language-plaintext highlighter-rouge">(w_inner + w_outer) / 2 / spacing</code>, and returns one value per <em>pair</em> – one fewer than the surfaces.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>-</td><td><p>For <code class="language-plaintext highlighter-rouge">"surface"</code>, one value per surface in the caller’s order. For <code class="language-plaintext highlighter-rouge">"pair"</code>, one per adjacent pair <strong>sorted outward</strong> – which two islands are neighbours is a property of the sorted sequence, and <code class="language-plaintext highlighter-rouge">IslandPairs</code> carries the indices that map each pair back.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">definition</code> is neither, or two surfaces share a position.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">definition="surface"</code> is a legacy compatibility value: it is the form
+GPEC itself reports as <code class="language-plaintext highlighter-rouge">K_isl</code>, so it is what a caller comparing with a
+file will want. It also returns a different array length from <code class="language-plaintext highlighter-rouge">"pair"</code>.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The two definitions answer different questions and disagree by design:
+the surface form asks whether one island reaches its nearest neighbour,
+the pair form whether two particular islands reach each other. GPEC’s own
+<code class="language-plaintext highlighter-rouge">K_isl</code> is the surface form.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.compute_surface_chirikov</code> and <code class="language-plaintext highlighter-rouge">compute_pair_chirikov</code>.
+</li>
+</ol>
+
+<h3 id="critical_island_width"><code class="language-plaintext highlighter-rouge">critical_island_width</code></h3>
+
+<p class="formula-signature"><code>critical_island_width(psi_norm)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The island width at which a surface’s islands reach its neighbour’s.</p>
+
+<p>Purely geometric: an island overlaps its neighbour when it is as wide as
+the distance to that neighbour, so the critical width <em>is</em> the
+nearest-neighbour spacing.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Rational-surface positions.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>-</td><td><p>Critical width per surface, in the same units as <code class="language-plaintext highlighter-rouge">psi_norm</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Widths are full widths, in normalized poloidal flux, matching what GPEC
+writes as <code class="language-plaintext highlighter-rouge">w_isl</code>. The identity this rests on – <code class="language-plaintext highlighter-rouge">w_isl / w_crit</code>
+equalling GPEC’s own <code class="language-plaintext highlighter-rouge">K_isl</code> – holds because GPEC forms its Chirikov
+parameter from a half width over a half distance, and the halves cancel.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Undefined for a single surface, which has no neighbour: <code class="language-plaintext highlighter-rouge">nan</code>.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Reproduces GPEC’s own <code class="language-plaintext highlighter-rouge">K_isl</code> exactly when divided into <code class="language-plaintext highlighter-rouge">w_isl</code>: zero relative difference on every surface of the DIII-D n=1, n=2 and n=3 ideal runs.
+</li>
+  <li>GPEC leaves its own <code class="language-plaintext highlighter-rouge">w_isl_v_crit</code> at zero on an ideal run, which is why this is computed rather than read.
+</li>
+</ol>
+
+<h3 id="group_coincident_islands"><code class="language-plaintext highlighter-rouge">group_coincident_islands</code></h3>
+
+<p class="formula-signature"><code>group_coincident_islands(psi_norm, width, *, policy='envelope', psi_tol=1e-08)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Collapse islands that sit on the same surface into one.</p>
+
+<p>Several toroidal modes resonate at the same q, so a multi-mode study has
+islands stacked on one surface. The spacing between <em>surfaces</em> means
+nothing until those are one island, and the width that one island should
+have is not derivable – hence <code class="language-plaintext highlighter-rouge">policy</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Island positions, possibly with repeats.</p>
+</td></tr>
+  <tr><td><code>width</code></td><td>array_like</td><td>-</td><td><p>Full width of each.</p>
+</td></tr>
+  <tr><td><code>policy</code></td><td>str, optional</td><td>n/a</td><td><p>One of <code class="language-plaintext highlighter-rouge">COINCIDENT_POLICIES</code>: <code class="language-plaintext highlighter-rouge">envelope</code> takes the widest of a stack, <code class="language-plaintext highlighter-rouge">rss</code> adds them in quadrature.</p>
+</td></tr>
+  <tr><td><code>psi_tol</code></td><td>float, optional</td><td>-</td><td><p>How close two positions must be to count as the same surface. Clustering is single-linkage: each island is compared with the last one added, so a chain of islands each within <code class="language-plaintext highlighter-rouge">psi_tol</code> of the previous collapses together however far the chain reaches.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(psi_norm, width, members)</code> – one entry per distinct surface, sorted outward, with <code class="language-plaintext highlighter-rouge">members</code> giving the input indices that went into each.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">policy</code> is not one of <code class="language-plaintext highlighter-rouge">COINCIDENT_POLICIES</code>, <code class="language-plaintext highlighter-rouge">psi_tol</code> is
+    negative, or <code class="language-plaintext highlighter-rouge">width</code> is not one per surface.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">policy="envelope"</code> is a numerical convenience – the conservative of
+the two – and <code class="language-plaintext highlighter-rouge">psi_tol=1e-8</code> is an empirical estimate: it separates
+the genuinely distinct surfaces of the runs looked at, whose closest
+non-coincident pair is 7.9e-13 apart, from the exactly coincident ones.
+Neither is supplied by the physics.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">envelope</code> is the conservative reading – a stack is as wide as its
+widest member – and <code class="language-plaintext highlighter-rouge">rss</code> treats the modes as independent
+contributions. They differ by up to the square root of the stack size,
+and neither is a default the physics supplies, so the choice travels with
+the result.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics._group_coincident_islands</code>.
+</li>
+</ol>
+
+<h3 id="island_overlap_width"><code class="language-plaintext highlighter-rouge">island_overlap_width</code></h3>
+
+<p class="formula-signature"><code>island_overlap_width(psi_norm, width, *, separatrix=1.0, policy='envelope', psi_tol=1e-08)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>How far in from the boundary the islands overlap without a break.</p>
+
+<p>Two conditions, and the first is what makes the quantity mean anything:
+the outermost island must actually reach <code class="language-plaintext highlighter-rouge">separatrix</code>, and from there
+the chain is followed inward while adjacent pairs touch. The first gap is
+the inner edge of the region. Islands overlapping deep in the core are
+not an edge-connected layer however much they overlap, and a region of
+zero extent is not connected to anything.</p>
+
+<p><strong>This differs from the code it replaces</strong>, which decided the question
+from whether the outermost <em>pair</em> overlapped and never looked at where
+the outermost island ended – so a stochastic patch at psi_n = 0.2 came
+back as an edge layer 0.83 wide.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Island positions.</p>
+</td></tr>
+  <tr><td><code>width</code></td><td>array_like</td><td>-</td><td><p>Full island width per surface.</p>
+</td></tr>
+  <tr><td><code>separatrix</code></td><td>float, optional</td><td>-</td><td><p>Where the boundary is, which the width is measured in from.</p>
+</td></tr>
+  <tr><td><code>policy</code></td><td>str, optional</td><td>n/a</td><td><p>Passed to <code class="language-plaintext highlighter-rouge">group_coincident_islands</code>.</p>
+</td></tr>
+  <tr><td><code>psi_tol</code></td><td>float, optional</td><td>-</td><td><p>Passed to <code class="language-plaintext highlighter-rouge">group_coincident_islands</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>IslandOverlap</td><td>-</td><td><p>The width, the first gap that broke the chain, whether the chain reached the boundary at all, and the two Chirikov maxima.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">separatrix</code> is not finite, <code class="language-plaintext highlighter-rouge">policy</code>/<code class="language-plaintext highlighter-rouge">psi_tol</code> are invalid, or
+    the islands do not pass <code class="language-plaintext highlighter-rouge">island_pairs</code>’ checks.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Collapse coincident surfaces under <code class="language-plaintext highlighter-rouge">policy</code>.</li>
+  <li>Form the adjacent pairs and their gaps.</li>
+  <li>If the outermost island does not reach <code class="language-plaintext highlighter-rouge">separatrix</code>, the width is
+zero and the region is not edge-connected.</li>
+  <li>If the outermost pair does not touch, likewise.</li>
+  <li>Otherwise walk inward to the first pair that does not touch; its gap
+midpoint is the inner boundary. With no such gap, the innermost
+island’s inner separatrix is.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">separatrix = 1.0</code> is a numerical convenience: the last closed flux
+surface in normalized poloidal flux. <code class="language-plaintext highlighter-rouge">policy</code> and <code class="language-plaintext highlighter-rouge">psi_tol</code> are
+passed through and documented on <code class="language-plaintext highlighter-rouge">group_coincident_islands</code>.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Measured inward from <code class="language-plaintext highlighter-rouge">separatrix</code> and clipped to it: the result is a
+width measured from the boundary, so it cannot exceed the boundary’s own
+position. A fixed upper bound of one – what the code this replaces used
+– reports a width larger than the plasma whenever the innermost island
+extends past the axis.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">onset_scale</code> is the factor the perturbation field would have to be
+multiplied by for the outermost pair to reach contact, on the assumption
+that island width scales as the square root of the field. That assumption
+is fixed-equilibrium linear response and is recorded, not checked.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.compute_island_overlap_width</code>.
+</li>
+</ol>
+
+<h3 id="island_pairs"><code class="language-plaintext highlighter-rouge">island_pairs</code></h3>
+
+<p class="formula-signature"><code>island_pairs(psi_norm, width)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Every adjacent pair of islands, with the gap between their separatrices.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Rational-surface positions.</p>
+</td></tr>
+  <tr><td><code>width</code></td><td>array_like</td><td>-</td><td><p>Full island width per surface.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>IslandPairs</td><td>-</td><td><p>One entry per adjacent pair, sorted outward; empty for fewer than two surfaces.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">width</code> is not one per surface, two surfaces share a position, or a
+    position or width is not finite or a width is negative.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Sort outward.</li>
+  <li>For each pair, the gap is the spacing less the two half widths.</li>
+  <li>A gap at or below zero – within rounding – is contact.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The contact tolerance is a numerical convenience, 1e-12 of the spacing.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Residual gaps below that fraction of the spacing count as contact rather
+than separation, so two separatrices that meet exactly are not reported
+as apart – and “round-off” means the same thing at every radius, which a
+fixed absolute tolerance does not.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.compute_pair_chirikov</code>.
+</li>
+</ol>
+
+<h3 id="nearest_surface_spacing"><code class="language-plaintext highlighter-rouge">nearest_surface_spacing</code></h3>
+
+<p class="formula-signature"><code>nearest_surface_spacing(psi_norm)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Distance from each rational surface to its nearest neighbour.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Rational-surface positions, in any order.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>-</td><td><p>One distance per surface, in the input’s order; <code class="language-plaintext highlighter-rouge">nan</code> for a single surface, which has no neighbour.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Two surfaces share a position.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Sort the surfaces outward.</li>
+  <li>Take the smaller of the two gaps either side; an end surface has one.</li>
+  <li>Put the result back in the caller’s order.</li>
+</ol>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_analysis_metrics._nearest_neighbour_spacing</code> and <code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.compute_surface_chirikov</code>, which computed the same spacing twice and disagreed about repeated positions: one tolerated them, the other refused. This refuses.
+</li>
+</ol>
+
+<h3 id="penetration_ratio"><code class="language-plaintext highlighter-rouge">penetration_ratio</code></h3>
+
+<p class="formula-signature"><code>penetration_ratio(psi_norm, width)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Island width as a fraction of the width at which islands would overlap.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Rational-surface positions.</p>
+</td></tr>
+  <tr><td><code>width</code></td><td>array_like</td><td>-</td><td><p>Full island width per surface, in the same units.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">width / critical_island_width</code>; one at overlap.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">width</code> is not one per surface, two surfaces share a position, or a
+    position or width is not finite or a width is negative.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>A ratio, not a verdict: the value one is where islands touch, and
+comparing against it is the caller’s to do.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_analysis_metrics.compute_critical_island_width</code>.
 </li>
 </ol>
 
@@ -734,7 +1188,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#amplification_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">amplification_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_resonant" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_resonant</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_metrics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_metrics</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_windows" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_windows</a></li><li class="page-toc-item page-toc-level-3"><a href="#rms_resonant_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rms_resonant_field</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#amplification_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">amplification_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#chirikov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">chirikov</a></li><li class="page-toc-item page-toc-level-3"><a href="#critical_island_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">critical_island_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#group_coincident_islands" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">group_coincident_islands</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_overlap_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_overlap_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_pairs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_pairs</a></li><li class="page-toc-item page-toc-level-3"><a href="#nearest_surface_spacing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">nearest_surface_spacing</a></li><li class="page-toc-item page-toc-level-3"><a href="#penetration_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">penetration_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_resonant" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_resonant</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_metrics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_metrics</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_windows" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_windows</a></li><li class="page-toc-item page-toc-level-3"><a href="#rms_resonant_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rms_resonant_field</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -852,7 +1306,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-14 23:15:29 +0000"
+        "time": "2026-09-14 23:58:18 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
