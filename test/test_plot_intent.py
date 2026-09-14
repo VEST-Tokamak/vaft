@@ -92,10 +92,14 @@ def test_every_model_resolves_to_the_colours_it_had(sample):
 
 def test_no_literal_colour_is_left_in_a_recipe_outside_the_allowed_blocks():
     source = Path(vaft.__file__).parent.joinpath("plot", "backend", "recipes.py").read_text()
-    literal = re.compile(r'"color":\s*"(?!(?:palette|role|feature|state|emphasis):)[^"]+"')
-    allowed = ("yellow", "magenta", "cyan", "tab:cyan", "red", "lime", "blue")  # camera overlays
-    stray = [m.group(0) for m in literal.finditer(source) if not any(f'"{c}"' in m.group(0) for c in allowed)]
+    literal = re.compile(r"""["']color["']:\s*["'](?!(?:palette|role|feature|state|emphasis):)[^"']+["']""")
+    # Only the camera overlay builders may name a colour: they contrast with a photograph.
+    camera = [m.start() for m in re.finditer(r"\ndef _(?:efit_overlay|field_line)_layers\(", source)]
+    def inside_camera(pos):
+        return any(start < pos < source.find("\ndef ", start + 1) for start in camera)
+    stray = [m.group(0) for m in literal.finditer(source) if not inside_camera(m.start())]
     assert stray == [], stray
+    assert camera, "the camera builders moved; point the allowlist at them"
 
 
 # ---------------------------------------------------------------------------
@@ -212,3 +216,23 @@ def test_a_theme_that_thins_markers_along_lines_keeps_every_point_of_a_scatter()
     assert axes.lines[0].get_markevery() in (None, 1)
     r, g, b, _ = matplotlib.colors.to_rgba(axes.lines[0].get_color())
     assert r == g == b == 0.0
+
+
+def test_geometry_points_keep_every_marker_under_a_theme(sample):
+    figure, axes = vaft.omas.plot_magnetics_geometry_poloidal(sample, theme="monochrome")
+    points = [line for line in axes.lines if line.get_linestyle() == "None" and line.get_marker() not in ("", "None")]
+    assert points and all(line.get_markevery() in (None, 1) for line in points)
+
+
+def test_a_patch_evicts_the_alias_it_replaces():
+    resolved = resolve_style({"color": "feature:boundary", "ls": "-"}, THEMES["monochrome"])
+    assert resolved["linestyle"] == "--" and "ls" not in resolved
+    from vaft.plot.models import GeometryLayer, GeometryLayers
+    from vaft.plot import renderers
+
+    layer = GeometryLayer(r=np.array([0.1, 0.8]), z=np.array([0.0, 0.5]), label="b", style={"color": "feature:boundary"})
+    renderers.render_geometry_layers(GeometryLayers(layers=(layer,)), theme="monochrome", ls="-")
+
+
+def test_themes_stay_hashable():
+    assert len({theme for theme in THEMES.values()}) == 3

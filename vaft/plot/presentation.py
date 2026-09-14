@@ -155,7 +155,7 @@ class Theme:
     #: ``state:``, ``emphasis:``): a colour, or a style patch when colour
     #: alone cannot carry the distinction.  Anything not named keeps the
     #: default of :data:`vaft.plot.intent.DEFAULT_COLOURS`.
-    intents: Mapping[str, Any] = field(default_factory=dict)
+    intents: Mapping[str, Any] = field(default_factory=dict, hash=False, compare=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "intents", MappingProxyType(dict(self.intents)))

@@ -18,6 +18,7 @@ from matplotlib.figure import Figure
 
 from ..models import Geometry3DLayers, GeometryLayer, GeometryLayers
 from ..registry import renderer
+from ..intent import active_theme
 from ..presentation import presented, resolve_style
 from ..style import finalize, resolve_axes
 
@@ -68,6 +69,9 @@ def draw_geometry_layer(
     if layer.kind == "points":
         options.setdefault("linestyle", "none")
         options.setdefault("marker", "o")
+        if active_theme() is not None:
+            # Every point is a sensor; a theme's markevery thins traces, not these.
+            options.setdefault("markevery", 1)
         axes.plot(r, z, **options)
         return
     if layer.kind == "polygon" and r.size and (r[0] != r[-1] or z[0] != z[-1]):
@@ -440,6 +444,8 @@ def render_geometry_3d_layers(
         if layer.kind == "points":
             options.setdefault("linestyle", "none")
             options.setdefault("marker", "o")
+            if active_theme() is not None:
+                options.setdefault("markevery", 1)
         axes.plot(layer.x, layer.y, layer.z, **options)
 
     if model.layers:

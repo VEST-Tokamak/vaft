@@ -91,6 +91,10 @@ TOKEN_NAMESPACES: tuple[str, ...] = ("palette", "role", "feature", "state", "emp
 #: The style keys that carry a colour.
 _COLOUR_KEYS = ("color", "markerfacecolor", "markeredgecolor")
 
+#: Matplotlib spells some line properties two ways; a patch that sets one
+#: must evict the other, or Matplotlib refuses the pair.
+_ALIASES = {"linestyle": "ls", "ls": "linestyle", "linewidth": "lw", "lw": "linewidth", "markersize": "ms", "ms": "markersize"}
+
 _ACTIVE_THEME: contextvars.ContextVar[Any] = contextvars.ContextVar("vaft_plot_active_theme", default=None)
 
 
@@ -178,5 +182,6 @@ def resolve_style(style: Mapping[str, Any], theme: Any = "active") -> dict[str, 
         if isinstance(override, Mapping):
             for key, patch in override.items():
                 if key not in ("color", "markerfacecolor"):
+                    resolved.pop(_ALIASES.get(key, key), None)
                     resolved[key] = patch
     return resolved
