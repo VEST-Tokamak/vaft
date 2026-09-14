@@ -239,19 +239,35 @@ def check_regression(prefix: Optional[str], *, skip: bool) -> CheckResult:
 
 
 def check_imas_mapping() -> CheckResult:
-    """State plainly which half of the picture exists.
+    """State plainly which NEO results reach an IDS and which do not.
 
-    A checker reporting only green would suggest NEO results reach IMAS. They do
-    not yet: the native container is complete, and the audit that decides which
-    quantities have a defensible IDS home is deliberately still open.
+    A checker reporting only green would suggest every NEO output is available
+    through IMAS. Most are not, and deliberately so: the mapping is audited by
+    physical definition, and a quantity without a defensible home stays in the
+    native container rather than being written to a field that merely sounds
+    right.
     """
+    try:
+        from vaft.machine_mapping.neoclassical import (  # noqa: F401
+            core_profiles_from_neo,
+            core_transport_from_neo,
+        )
+    except Exception as error:  # pragma: no cover - import environment problem
+        return CheckResult(
+            "IMAS mapping",
+            FAIL,
+            f"the NEO IDS mappings could not be imported: {error}",
+            "Run install/check_vaft_environment.py first.",
+        )
     return CheckResult(
         "IMAS mapping",
         WARN,
-        "NEO results stop at the native NeoOutputs container; nothing is written to an IDS",
-        "Expected. The core_profiles/core_transport mapping is phase 5 of issue #550 "
-        "and is audited by physical definition, not by field name. Read results through "
-        "vaft.code.gacode.neo.collect_neo_outputs.",
+        "bootstrap current maps to core_profiles and the particle/energy fluxes to "
+        "core_transport; conductivity, flows and the analytic theory columns stay native",
+        "Expected. conductivity_parallel needs a second NEO run (EPAR0=1 with the "
+        "gradient scales zeroed), and global_quantities.current_bootstrap is a toroidal "
+        "current, not the integral of the parallel one this writes. Read everything else "
+        "through vaft.code.gacode.neo.collect_neo_outputs.",
     )
 
 
