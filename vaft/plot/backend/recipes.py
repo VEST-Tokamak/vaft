@@ -36,6 +36,7 @@ import numpy as np
 # One shared non-mutating accessor, dispatched on the object (issues #118, #63).
 from vaft.plot.backend.access import array as _array, count as _count, get as _get, has as _has
 
+from vaft.plot.intent import palette
 from vaft.plot.presentation import EQUILIBRIUM_ROLE
 from vaft.plot.models import (
     Field2D,
@@ -1473,7 +1474,7 @@ RECIPES: dict[str, Any] = {
                 "wall.description_2d.0.limiter.unit.{i}.outline.z",
                 "wall.description_2d.0.limiter.unit",
                 "",
-                {"color": "0.4"},
+                {"color": "feature:wall"},
             ),
         ),
         title="First Wall",
@@ -1486,7 +1487,7 @@ RECIPES: dict[str, Any] = {
                 "magnetics.flux_loop.{i}.position.0.z",
                 "magnetics.flux_loop",
                 "Flux Loops",
-                {"marker": "s", "markersize": 3, "color": "#377eb8"},
+                {"marker": "s", "markersize": 3, "color": palette(0)},
             ),
             (
                 "points",
@@ -1494,7 +1495,7 @@ RECIPES: dict[str, Any] = {
                 "magnetics.b_field_pol_probe.{i}.position.z",
                 "magnetics.b_field_pol_probe",
                 "B-field Probes",
-                {"marker": "x", "markersize": 4, "color": "#ff7f00"},
+                {"marker": "x", "markersize": 4, "color": palette(1)},
             ),
         ),
         title="Magnetic Diagnostics",
@@ -1508,7 +1509,7 @@ RECIPES: dict[str, Any] = {
                 "equilibrium.time_slice.{i}.boundary.outline.z",
                 "equilibrium.time_slice",
                 "",
-                {"color": "#e41a1c"},
+                {"color": "feature:boundary"},
             ),
         ),
         title="Plasma Boundary",
@@ -1893,7 +1894,7 @@ def _shared_timebase_probes(ods: Any, indices: Sequence[int]) -> tuple[list[int]
 
 
 #: One colour per fitted band, so a band and its fit are read together.
-_PHASE_BAND_COLOURS = ("#377eb8", "#e41a1c", "#4daf4a", "#984ea3", "#ff7f00")
+_PHASE_BAND_COLOURS = (palette(0), palette(8), palette(3), palette(2), palette(1))
 
 
 def _build_mirnov_spatial_phase(
@@ -2215,7 +2216,7 @@ def _build_lines_of_sight(
                     if label_channels
                     else ("Soft X-ray LOS" if not layers else "")
                 ),
-                style={"lw": 0.8} if label_channels else {"lw": 0.6, "color": "#e6ab02"},
+                style={"lw": 0.8} if label_channels else {"lw": 0.6, "color": palette(7)},
             )
         )
     if include_wall:
@@ -2232,7 +2233,7 @@ def _wall_layers(ods: Any) -> list[GeometryLayer]:
         if r is None or z is None or r.size != z.size:
             continue
         layers.append(
-            GeometryLayer(r=r, z=z, kind="polygon", style={"color": "0.4", "lw": 1.0})
+            GeometryLayer(r=r, z=z, kind="polygon", style={"color": "feature:wall", "lw": 1.0})
         )
     return layers
 
@@ -2342,7 +2343,9 @@ def _build_pf_coil_geometry(ods: Any, *, collective: bool = False, **options: An
         if not outlines:
             continue
         name = _channel_label(ods, "pf_active.coil.{i}.name", index, f"PF{index + 1}")
-        color = "#d62728" if collective else f"C{index % 10}"
+        # A collective coil set is a feature; per-coil colours are Matplotlib's
+        # current cycle, which already follows a theme.
+        color = "feature:coil" if collective else f"C{index % 10}"
         for position, (r, z) in enumerate(outlines):
             if collective:
                 label = "" if labelled_set else "PF coils"
@@ -2382,7 +2385,7 @@ def _build_passive_structure_geometry(ods: Any, **options: Any) -> GeometryLayer
             layers.append(GeometryLayer(
                 r=r, z=z, kind="polygon",
                 label="" if layers else "Passive structure",
-                style={"color": "0.55", "lw": 0.5},
+                style={"color": "feature:passive", "lw": 0.5},
             ))
     if not layers:
         raise ValueError(
@@ -2446,7 +2449,7 @@ def _build_wall_mode_shape(ods: Any, **options: Any) -> GeometryLayers:
                 layers.append(GeometryLayer(
                     r=r, z=z, kind="polygon",
                     label="" if labelled_other else "other segments",
-                    style={"color": "0.75", "lw": 0.4},
+                    style={"color": "emphasis:faint", "lw": 0.4},
                 ))
                 labelled_other = True
     if not layers:
@@ -2485,7 +2488,7 @@ def _build_pf_plasma_geometry(ods: Any, **options: Any) -> GeometryLayers:
     wall_z = _array(ods, "wall.description_2d.0.limiter.unit.0.outline.z")
     if wall_r is not None and wall_z is not None and wall_r.size == wall_z.size and wall_r.size >= 3:
         layers.append(GeometryLayer(r=wall_r, z=wall_z, kind="polygon", label="limiter",
-                                    style={"color": "k", "lw": 0.8}))
+                                    style={"color": "feature:limiter", "lw": 0.8}))
     title = options.get(
         "title",
         f"plasma elements at t = {elements['time']:.4f} s: {elements['current'].size} elements, "
@@ -2519,7 +2522,7 @@ def _build_wall_mode_spectrum(ods: Any, **options: Any) -> Panels:
             global_tau = global_tau[:max_modes]
         series.append(Series(
             x=np.arange(1, global_tau.size + 1, dtype=float), y=global_tau,
-            label="whole wall", style={"color": "k", "lw": 1.5, "ls": "--"},
+            label="whole wall", style={"color": "role:reference", "lw": 1.5, "ls": "--"},
         ))
     panel = LineSeries(
         series=tuple(series), x_label="mode number within segment", y_label="decay time",
@@ -2663,7 +2666,7 @@ def _build_wall_reduction_map(ods: Any, **options: Any) -> Field2D:
     error = float(np.linalg.norm((reduced - full)[inside]) / max(np.linalg.norm(full[inside]), 1e-300))
     values = {"full": full, "reduced": reduced, "difference": reduced - full}[which]
     field = np.where(inside, values, np.nan).reshape(gz.shape)
-    overlay = GeometryLayer(r=outline_r, z=outline_z, label="limiter", style={"color": "k", "lw": 0.8})
+    overlay = GeometryLayer(r=outline_r, z=outline_z, label="limiter", style={"color": "feature:limiter", "lw": 0.8})
     n_levels = int(options.get("contour_levels", 15))
     if which == "difference":
         # Grid points next to a wall loop see that loop's own singular field,
@@ -2751,7 +2754,7 @@ def _build_equilibrium_topview(
         x, y = _ring(radius)
         layers.append(
             GeometryLayer(
-                r=x, z=y, kind="polyline", label=label, style={"color": "#e41a1c"}
+                r=x, z=y, kind="polyline", label=label, style={"color": "feature:boundary"}
             )
         )
     return GeometryLayers(
@@ -2785,27 +2788,27 @@ def _pellet_positions(ods: Any, time_slice: int) -> list[tuple[float, float]]:
 #: ``rings`` for a toroidal loop (drawn as the circle at its radius).
 _TOPVIEW_DIAGNOSTICS: tuple[tuple[str, str, str, dict], ...] = (
     ("magnetics.flux_loop", "Flux loops", "rings",
-     {"color": "#377eb8", "lw": 0.6, "linestyle": ":"}),
+     {"color": palette(0), "lw": 0.6, "linestyle": ":"}),
     ("magnetics.b_field_pol_probe", "B-pol probes", "points",
-     {"marker": "x", "markersize": 4, "color": "#ff7f00"}),
+     {"marker": "x", "markersize": 4, "color": palette(1)}),
     ("magnetics.b_field_tor_probe", "B-tor probes", "points",
-     {"marker": "+", "markersize": 5, "color": "#984ea3"}),
+     {"marker": "+", "markersize": 5, "color": palette(2)}),
     ("thomson_scattering.channel", "Thomson scattering", "points",
-     {"marker": "o", "markersize": 3, "color": "#4daf4a"}),
+     {"marker": "o", "markersize": 3, "color": palette(3)}),
     ("charge_exchange.channel", "Charge exchange", "points",
-     {"marker": "d", "markersize": 3, "color": "#a65628"}),
+     {"marker": "d", "markersize": 3, "color": palette(4)}),
     ("langmuir_probes.embedded", "Langmuir probes", "points",
-     {"marker": "v", "markersize": 3, "color": "#f781bf"}),
+     {"marker": "v", "markersize": 3, "color": palette(5)}),
     ("barometry.gauge", "Pressure gauges", "points",
-     {"marker": "p", "markersize": 4, "color": "#999999"}),
+     {"marker": "p", "markersize": 4, "color": palette(6)}),
     ("interferometer.channel", "Interferometer", "segments",
-     {"color": "#377eb8", "lw": 0.8}),
+     {"color": palette(0), "lw": 0.8}),
     ("soft_x_rays.channel", "Soft X-ray LOS", "segments",
-     {"color": "#e6ab02", "lw": 0.6}),
+     {"color": palette(7), "lw": 0.6}),
     ("bolometer.channel", "Bolometer LOS", "segments",
-     {"color": "#e41a1c", "lw": 0.6}),
+     {"color": palette(8), "lw": 0.6}),
     ("spectrometer_uv.channel", "UV spectrometer LOS", "segments",
-     {"color": "#66a61e", "lw": 0.8}),
+     {"color": palette(9), "lw": 0.8}),
 )
 
 
@@ -2891,7 +2894,7 @@ def _build_machine_topview(
             layers.append(
                 GeometryLayer(
                     r=x, z=y, kind="polyline", label=label,
-                    style={"color": "0.4", "lw": 1.0},
+                    style={"color": "feature:wall", "lw": 1.0},
                 )
             )
     if _has(ods, "equilibrium"):
@@ -2936,7 +2939,7 @@ def _build_machine_topview(
                 z=[radius * np.sin(phi)],
                 kind="points",
                 label=f"Pellet {index}",
-                style={"marker": "*", "color": "#984ea3"},
+                style={"marker": "*", "color": palette(2)},
             )
         )
     if not layers:
@@ -3682,6 +3685,8 @@ def _efit_overlay_layers(
                 z=overlay["wall_uv"][:, 1],
                 kind="points",
                 label="Wall",
+                # Camera overlays keep literal colours: they must contrast with a
+                # photograph, not follow a theme (issue #709).
                 style={"marker": "o", "markersize": 1, "color": "yellow"},
             )
         )
@@ -5244,14 +5249,14 @@ def _profile_reference_lines(ods: Any, time_slice: int, coordinate: str, traces:
         axis_r = _finite_scalar(_get(ods, f"{base}.r"))
         axis_z = _finite_scalar(_get(ods, f"{base}.z"))
         if axis_r is not None:
-            lines.append(ReferenceLine(axis_r, "Magnetic axis", {"color": "k", "linestyle": "--"}))
+            lines.append(ReferenceLine(axis_r, "Magnetic axis", {"color": "feature:axis", "linestyle": "--"}))
         radii, surface = _wall_midplane_radii(ods, axis_z)
         if radii:
             lines.append(ReferenceLine(min(radii), surface))
             lines.append(ReferenceLine(max(radii), ""))
     elif coordinate == "r_minor" and traces:
         edge = max(float(np.asarray(trace.x)[-1]) for trace in traces if np.asarray(trace.x).size)
-        lines.append(ReferenceLine(edge, "LCFS", {"color": "#e41a1c"}))
+        lines.append(ReferenceLine(edge, "LCFS", {"color": "feature:boundary"}))
     return tuple(lines)
 
 
@@ -5928,7 +5933,7 @@ def _poloidal_overlays(
         if boundary_r is not None and boundary_z is not None:
             layers.append(GeometryLayer(
                 r=boundary_r, z=boundary_z, kind="polygon", label="Boundary",
-                style={"color": "#e41a1c"}, role=EQUILIBRIUM_ROLE,
+                style={"color": "feature:boundary"}, role=EQUILIBRIUM_ROLE,
             ))
     if "axis" in names:
         base = f"equilibrium.time_slice.{time_slice}.global_quantities.magnetic_axis"
@@ -5937,7 +5942,7 @@ def _poloidal_overlays(
         if axis_r is not None and axis_z is not None:
             layers.append(GeometryLayer(
                 r=np.array([axis_r]), z=np.array([axis_z]), kind="points", label="Magnetic axis",
-                style={"marker": "+", "color": "k", "markersize": 10, "markeredgewidth": 1.5},
+                style={"marker": "+", "color": "feature:axis", "markersize": 10, "markeredgewidth": 1.5},
                 role=EQUILIBRIUM_ROLE,
             ))
     return layers
@@ -6662,13 +6667,13 @@ def _verification_constraint_panel(
                 y=measured_array,
                 yerr=measured_yerr,
                 label="Measured",
-                style={"color": "black", "marker": "o", "linestyle": "none"},
+                style={"color": "role:measured", "marker": "o", "linestyle": "none"},
             ),
             Series(
                 x=x,
                 y=reconstructed_array,
                 label="Reconstructed",
-                style={"color": "red", "marker": "o", "linestyle": "none"},
+                style={"color": "role:reconstructed", "marker": "o", "linestyle": "none"},
             ),
         ),
         x_label="Constraint index",
@@ -7154,9 +7159,9 @@ RECIPES["equilibrium_overview_verification"] = CallableRecipe(
 #: Marker style per channel state, shared by the submitted and residual views so
 #: a dead channel looks the same in both.
 _STATE_STYLE = {
-    "enabled": {"color": "black", "marker": "o", "linestyle": "none"},
-    "disabled": {"color": "tab:orange", "marker": "x", "linestyle": "none"},
-    "missing": {"color": "tab:red", "marker": "s", "linestyle": "none",
+    "enabled": {"color": "state:enabled", "marker": "o", "linestyle": "none"},
+    "disabled": {"color": "state:disabled", "marker": "x", "linestyle": "none"},
+    "missing": {"color": "state:missing", "marker": "s", "linestyle": "none",
                 "markerfacecolor": "none"},
 }
 
@@ -7446,7 +7451,7 @@ def _build_equilibrium_fit_quality(ods: Any, **options: Any) -> Panels:
                         x=times,
                         y=np.ones_like(times),
                         label="χ²/ν = 1",
-                        style={"linestyle": "--", "color": "0.5", "lw": 1.0},
+                        style={"linestyle": "--", "color": "emphasis:low", "lw": 1.0},
                     ),
                 ),
                 x_label="time",
@@ -7531,7 +7536,7 @@ def _build_equilibrium_fit_quality(ods: Any, **options: Any) -> Panels:
                         x=span,
                         y=np.full(2, sign * level),
                         label=f"±{level:g}σ" if sign > 0 else "",
-                        style={"linestyle": style, "color": "0.6", "lw": 0.9},
+                        style={"linestyle": style, "color": "emphasis:lower", "lw": 0.9},
                     )
                 )
         bias = entry.get("z_bias", float("nan"))
@@ -7595,7 +7600,7 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
                     ),
                     style={
                         "linestyle": ":" if inert else "--",
-                        "color": "0.75" if inert else "0.5",
+                        "color": "emphasis:faint" if inert else "emphasis:low",
                         "lw": 1.0,
                     },
                 )
@@ -7606,7 +7611,7 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
             series.append(
                 Series(x=times, y=acceptance,
                        label=f"acceptance threshold ({name}, {source})",
-                       style={"linestyle": "-.", "color": "tab:red", "lw": 1.0})
+                       style={"linestyle": "-.", "color": "emphasis:alert", "lw": 1.0})
             )
         # For iconvr=2 the statistic with content is how the solve terminated,
         # not the ratio against a tolerance the solver never consults.
@@ -7643,7 +7648,7 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
         if np.isfinite(caps).any():
             series.append(
                 Series(x=times, y=caps, label="cap",
-                       style={"linestyle": "--", "color": "0.5", "lw": 1.0})
+                       style={"linestyle": "--", "color": "emphasis:low", "lw": 1.0})
             )
         hit = sum(1 for block in blocks if block["iterations"]["hit_cap"])
         panels.append(
@@ -8192,7 +8197,7 @@ def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
         ip_series = [Series(x=ip_time, y=ip_data * 1e-3, label="Ip", style={"lw": 1.8})]
         marker = _onset_marker(
             ip_time, ip_data * 1e-3, current_onset, "Ip onset",
-            {"linestyle": "--", "color": "0.35", "lw": 1.0},
+            {"linestyle": "--", "color": "emphasis:strong", "lw": 1.0},
         )
         if marker is not None:
             ip_series.append(marker)
@@ -8219,13 +8224,13 @@ def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
                 x=channel.time,
                 y=np.full(channel.time.size, baseline + band),
                 label=f"±{sigma:g}σ pre-plasma",
-                style={"lw": 0.9, "linestyle": ":", "color": "0.5"},
+                style={"lw": 0.9, "linestyle": ":", "color": "emphasis:low"},
             ),
             Series(
                 x=channel.time,
                 y=np.full(channel.time.size, baseline - band),
                 label="",
-                style={"lw": 0.9, "linestyle": ":", "color": "0.5"},
+                style={"lw": 0.9, "linestyle": ":", "color": "emphasis:low"},
             ),
         ]
         for onset, name, color in (

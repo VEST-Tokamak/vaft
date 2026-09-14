@@ -18,7 +18,8 @@ from matplotlib.figure import Figure
 
 from ..models import Geometry3DLayers, GeometryLayer, GeometryLayers
 from ..registry import renderer
-from ..presentation import presented
+from ..intent import active_theme
+from ..presentation import presented, resolve_style
 from ..style import finalize, resolve_axes
 
 __all__ = [
@@ -52,7 +53,7 @@ def draw_geometry_layer(
 
     ``defaults`` are applied to every layer; the layer's own ``style`` wins.
     """
-    options = {**defaults, **layer.style}
+    options = resolve_style({**defaults, **layer.style})
     r, z = layer.r, layer.z
     if layer.kind == "text":
         # An annotation names what is drawn beside it; legend keys are for
@@ -68,6 +69,9 @@ def draw_geometry_layer(
     if layer.kind == "points":
         options.setdefault("linestyle", "none")
         options.setdefault("marker", "o")
+        if active_theme() is not None:
+            # Every point is a sensor; a theme's markevery thins traces, not these.
+            options.setdefault("markevery", 1)
         axes.plot(r, z, **options)
         return
     if layer.kind == "polygon" and r.size and (r[0] != r[-1] or z[0] != z[-1]):
@@ -433,13 +437,15 @@ def render_geometry_3d_layers(
 
     labelled = False
     for layer in model.layers:
-        options = {**style, **layer.style}
+        options = resolve_style({**style, **layer.style})
         if layer.label:
             options.setdefault("label", layer.label)
             labelled = True
         if layer.kind == "points":
             options.setdefault("linestyle", "none")
             options.setdefault("marker", "o")
+            if active_theme() is not None:
+                options.setdefault("markevery", 1)
         axes.plot(layer.x, layer.y, layer.z, **options)
 
     if model.layers:

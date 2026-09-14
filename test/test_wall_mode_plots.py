@@ -27,7 +27,10 @@ def test_the_mode_shape_colours_only_the_chosen_segment(packaged):
     model = RECIPES["passive_structure_geometry_wall_mode"].builder(ods, basis=basis, segment="W1", mode=0)
     assert isinstance(model, GeometryLayers)
     coloured = [layer for layer in model.layers if isinstance(layer.style.get("color"), tuple)]
-    grey = [layer for layer in model.layers if layer.style.get("color") == "0.75"]
+    # The recipe says what the colour means (issue #709); the default meaning is the grey it always was.
+    from vaft.plot.intent import resolve_color
+
+    grey = [layer for layer in model.layers if resolve_color(layer.style.get("color"), None) == "0.75"]
     assert len(coloured) == 240 and len(grey) == 950 - 240
     assert "W1 mode 0" in model.title and "ms" in model.title
     assert sum(1 for layer in model.layers if layer.label) == 2

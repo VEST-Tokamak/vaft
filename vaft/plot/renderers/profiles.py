@@ -17,7 +17,7 @@ from matplotlib.figure import Figure
 
 from ..models import Profile1D
 from ..registry import renderer
-from ..presentation import presented
+from ..presentation import presented, resolve_style
 from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axes, trace_labels
 
 __all__ = [
@@ -77,7 +77,7 @@ def render_profile_1d(
     for line in model.reference_lines:
         axes.axvline(
             line.x,
-            **{"color": "0.4", "linestyle": ":", "linewidth": 1.0, **line.style},
+            **resolve_style({"color": "emphasis:medium", "linestyle": ":", "linewidth": 1.0, **line.style}),
             label=line.label or None,
         )
     axes.set_xlabel(model.coordinate_label)

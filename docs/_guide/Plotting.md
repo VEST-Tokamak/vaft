@@ -244,8 +244,16 @@ Rules worth knowing:
   something else. `interactive=True` offers `theme` as a control on every plot
   (the widget strip's last entry) and refuses `format=`, since the controls
   figure owns its canvas.
-- A recipe that sets a series' colour explicitly keeps it under any theme; the
-  theme is the baseline for series that do not.
+- A recipe never names a colour; it names what the colour means, and the theme
+  in force decides what it is (issue #709). The tokens live in
+  `vaft.plot.intent`: `palette:<n>` (the n-th distinguishing colour of a set),
+  `role:measured|reconstructed|reference`, `feature:wall|limiter|boundary|axis|coil|passive`,
+  `state:enabled|disabled|missing`, `emphasis:strong|medium|low|lower|faint|alert`.
+  Without a theme every token resolves to the literal it always stood for, so
+  nothing changes; under `monochrome` every one of them is a grey, and a
+  reconstruction or a boundary gains a marker or a dash instead of a hue. Only
+  the camera overlays keep literal colours — they contrast with a photograph, not
+  with a theme — and `C<n>` follows Matplotlib's current cycle as it always did.
 
 ## Time traces
 
