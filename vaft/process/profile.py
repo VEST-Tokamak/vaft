@@ -78,6 +78,7 @@ __all__ = [
     "PHYSICAL_PSIN_MAX",
     "TE_POSITIVE_EDGE_MAX",
     "TE_POSITIVE_PSIN_MAX",
+    "TOTAL_PRESSURE_LEAVES",
     "core_profiles",
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
@@ -88,6 +89,7 @@ __all__ = [
     "pedestal_top",
     "profile_fitting_charge_exchange",
     "profile_fitting_thomson_scattering",
+    "strip_electron_only_pressure",
 ]
 
 
@@ -1535,6 +1537,64 @@ def _append_code_parameters(ods, ids, line, *, replace_key=None):
         if item.strip() and not (replace_key and replace_key in item)
     ]
     ods[path] = "\n".join(kept + [line]) + "\n"
+
+
+#: Slice-total pressure leaves. Every one of these is a sum over species, so
+#: none of them is meaningful on a slice that never measured an ion.
+TOTAL_PRESSURE_LEAVES = (
+    "pressure_thermal",
+    "pressure",
+    "pressure_ion_total",
+    "pressure_ion_total_thermal",
+    "pressure_parallel",
+    "pressure_perpendicular",
+)
+
+
+def strip_electron_only_pressure(ods):
+    """Drop slice-total pressure from every core_profiles slice with no ion temperature.
+
+    Each leaf in :data:`TOTAL_PRESSURE_LEAVES` is a sum over species, so none of
+    them is meaningful on a slice that never measured an ion.  A slice carrying
+    ``ion.0.temperature`` is a real kinetic one and keeps its pressure; the rest
+    are stripped in place.
+
+    Assuming a Ti/Te ratio is a legitimate thing to do -- it is what the
+    ``electron-efit`` lineage exists for -- but the assumption has to be declared
+    by whoever makes it, rather than reaching a product whose consumers read it
+    as measured.
+
+    Parameters
+    ----------
+    ods : omas.ODS
+        Mutated in place.  An ODS with no ``core_profiles`` is left alone [n/a].
+
+    Returns
+    -------
+    None
+        The ODS is edited in place [n/a].
+
+    Assumptions
+    -----------
+    Presence of ``ion.0.temperature`` marks a slice whose ion temperature was
+    measured rather than assumed.  The builders uphold that by refusing to write
+    an ion block from a Ti/Te fallback.
+
+    Applicability
+    -------------
+    Machine-independent.  The rule follows from what the IMAS leaves mean, not
+    from any VEST diagnostic.
+    """
+    if "core_profiles" not in ods:
+        return
+    for index in range(len(ods["core_profiles.profiles_1d"])):
+        base = f"core_profiles.profiles_1d.{index}"
+        if f"{base}.ion.0.temperature" in ods:  # a real kinetic slice keeps its pressure
+            continue
+        for leaf in TOTAL_PRESSURE_LEAVES:
+            key = f"{base}.{leaf}"
+            if key in ods:
+                del ods[key]
 
 
 def core_profiles(

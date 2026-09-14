@@ -1574,6 +1574,154 @@ def build_ces_ods(
     return ods, manifest
 
 
+#: How CHEASE names the equilibrium it refined, per shot and millisecond.
+GEQDSK_NAME_TEMPLATE = "g0{shot}.00{time_ms:03d}"
+
+
+def build_core_profiles_ods(
+    *,
+    shot: int,
+    thomson_product: str | Path,
+    ces_product: str | Path | None = None,
+    geqdsk_dir: str | Path | None = None,
+    geqdsk_template: str = GEQDSK_NAME_TEMPLATE,
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Map Thomson (and CES, when present) onto an equilibrium grid.
+
+    One slice is built per Thomson time that has an equilibrium to map against.
+    A time the ion diagnostic actually covers becomes a kinetic slice; every
+    other time stays electron-only and is stripped of slice-total pressure,
+    because a total computed with a phantom Ti=Te would read as measured to
+    anything that later loads this product.
+
+    The manifest records how many of each were built.  That count is what routes
+    the reconstruction afterwards -- a product with no kinetic slice can only
+    support the `electron-efit` lineage -- so it is written down rather than
+    re-derived by each consumer.
+    """
+    import omas as _omas
+
+    from vaft.code.efit import build_kinetic_core_profiles
+    from vaft.data import read_geqdsk
+    from vaft.process import profile as _profile
+
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+    ods, _ = load_ods(Path(thomson_product))
+    if ces_product is not None and Path(ces_product).exists():
+        ion, _ = load_ods(Path(ces_product))
+        if "charge_exchange" in ion:
+            ods["charge_exchange"] = ion["charge_exchange"]
+
+    manifest = _external_profile_manifest("core_profiles", shot, run, era.name)
+    manifest["input"] = {
+        "thomson_product": str(thomson_product),
+        "ces_product": str(ces_product) if ces_product is not None else None,
+        "geqdsk_dir": str(geqdsk_dir) if geqdsk_dir is not None else None,
+    }
+
+    if "thomson_scattering.time" not in ods:
+        manifest["error"] = "the Thomson product carries no thomson_scattering.time"
+        return ods, manifest
+
+    has_ion = "charge_exchange" in ods and len(ods["charge_exchange.channel"]) > 0
+    times_ms = np.asarray(ods["thomson_scattering.time"], dtype=float) * 1e3
+
+    # A re-run must not leave a stale slice behind: the mix of kinetic and
+    # electron-only slices depends on which CES product was available, and that
+    # can change between runs.
+    if "core_profiles" in ods:
+        del ods["core_profiles"]
+
+    n_kinetic = 0
+    n_electron = 0
+    missing_equilibrium: list[float] = []
+    for time_ms in times_ms:
+        geq = None
+        if geqdsk_dir is not None:
+            path = Path(geqdsk_dir) / geqdsk_template.format(
+                shot=shot, time_ms=int(time_ms)
+            )
+            if path.exists():
+                try:
+                    geq = read_geqdsk(path)
+                except Exception:  # noqa: BLE001 - a bad g-file is a missing one here
+                    geq = None
+        if geq is None:
+            missing_equilibrium.append(round(float(time_ms), 3))
+            continue
+
+        built_kinetic = False
+        if has_ion:
+            try:
+                # require_ion: only where the ion diagnostic actually covers this
+                # time. Without it a time with no ion data would silently take
+                # the Ti=Te fallback and be indistinguishable from a measured one.
+                build_kinetic_core_profiles(
+                    ods,
+                    geq,
+                    float(time_ms),
+                    ion_index=0,
+                    require_thomson=True,
+                    require_ion=True,
+                    ti_te_fallback=False,
+                )
+                built_kinetic = True
+                n_kinetic += 1
+            except Exception:  # noqa: BLE001 - no ion coverage here; fall back
+                built_kinetic = False
+
+        if not built_kinetic:
+            try:
+                mapped = _profile.equilibrium_mapping_thomson_scattering(ods, geq)
+                n_e_fn, t_e_fn, *_ = _profile.profile_fitting_thomson_scattering(
+                    ods,
+                    float(time_ms),
+                    mapped,
+                    Te_order=2,
+                    Ne_order=2,
+                    fitting_function_te="polynomial",
+                    fitting_function_ne="exponential",
+                )
+                _profile.core_profiles(
+                    ods,
+                    float(time_ms),
+                    mapped,
+                    n_e_fn,
+                    t_e_fn,
+                    geq=geq,
+                    ti_te_fallback=False,
+                )
+                n_electron += 1
+            except Exception:  # noqa: BLE001 - one failed fit is not a failed stage
+                continue
+
+        try:
+            _omas.omas_physics.core_profiles_pressures(ods, update=True)
+        except Exception:  # noqa: BLE001 - pressures are derived, not measured
+            pass
+
+    _profile.strip_electron_only_pressure(ods)
+
+    manifest["slices"] = {
+        "kinetic": n_kinetic,
+        "electron_only": n_electron,
+        "no_equilibrium": len(missing_equilibrium),
+    }
+    # Named so the reconstruction stages can read their own eligibility off the
+    # manifest instead of reloading and re-inspecting the product.
+    manifest["supports_kinetic_efit"] = n_kinetic > 0
+    if n_kinetic or n_electron:
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+    else:
+        manifest["quality_summary"]["missing"] = [
+            f"core_profiles:t={t}ms" for t in missing_equilibrium[:20]
+        ]
+    return ods, manifest
+
+
 def write_stage_product(
     ods: ODS,
     manifest: dict[str, Any],

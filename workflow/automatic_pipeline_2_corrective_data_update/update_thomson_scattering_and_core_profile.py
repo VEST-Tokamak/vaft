@@ -46,28 +46,15 @@ SOURCE = resolve_source(
     os.environ.get("VAFT_HSDS_SOURCE") or DEFAULT_SOURCE, writable=True
 )
 
-_TOTAL_PRESSURE_LEAVES = (
-    "pressure_thermal", "pressure", "pressure_ion_total",
-    "pressure_ion_total_thermal", "pressure_parallel", "pressure_perpendicular",
+# The rule this enforces belongs to the profile layer, not to a polling daemon:
+# the core_profiles stage builder has to apply exactly the same one, and two
+# copies of "which pressure leaves are a sum over species" would eventually
+# disagree. Re-exported here so `update_core_profile.py` keeps importing it
+# from where it always has.
+from vaft.process.profile import (  # noqa: E402
+    TOTAL_PRESSURE_LEAVES as _TOTAL_PRESSURE_LEAVES,
+    strip_electron_only_pressure,
 )
-
-
-def strip_electron_only_pressure(ods):
-    """Delete slice-total pressure from any core_profiles slice with no ion temperature.
-
-    A Thomson-only slice has no ion measurement, so it must not carry a total
-    (kinetic) pressure computed with a phantom Ti=Te.
-    """
-    if "core_profiles" not in ods:
-        return
-    for i in range(len(ods["core_profiles.profiles_1d"])):
-        b = f"core_profiles.profiles_1d.{i}"
-        if f"{b}.ion.0.temperature" in ods:  # a real kinetic slice keeps its pressure
-            continue
-        for leaf in _TOTAL_PRESSURE_LEAVES:
-            key = f"{b}.{leaf}"
-            if key in ods:
-                del ods[key]
 
 
 def extract_shotnumber_of_thomson_scattering(fname: str):
