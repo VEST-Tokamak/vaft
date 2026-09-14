@@ -326,6 +326,44 @@ tree — if the shot-first root is `/srv/vest.filedb/public`, then
 python -m vaft.cli filedb audit /srv/vest.filedb/public --target-root "$VAFT_FILEDB_DIR"
 ```
 
+### Checking a product's ancestry
+
+Each stage records the digest of what it consumed and of what it produced, so
+"which EFIT produced this stability result" is a comparison rather than an act
+of faith:
+
+```text
+EFIT       equilibrium.code.parameters...artifacts.gfile.sha256
+             |
+CHEASE     manifest["input"][i]["sha256"]          what it read
+           manifest["input"][i]["output_sha256"]   what it wrote
+             |
+stability  GPECSuiteResult.input_equilibrium_sha256
+```
+
+```python
+from vaft.database.provenance import verify_chain
+
+report = verify_chain(
+    chease_manifest=json.loads(chease_manifest_path.read_text()),
+    stability_input_sha256=run["input_equilibrium_sha256"],
+    shot=39915,
+)
+report.verified          # every link checked and agreed
+report.broken            # digests disagree -- products of different runs
+report.unrecorded        # no digest -- written before the chain existed
+```
+
+A **mismatch** means the stability cell consumed an equilibrium this CHEASE
+stage did not produce; a CHEASE rerun between the refinement and the solve is
+enough to cause it, and paths cannot see it. An **unrecorded** link is not a
+pass: products from before the chain carry `""`, and reporting those as verified
+would make the check useless exactly on the archive that most needs it.
+
+The verifier compares recorded digests and never re-hashes the tree. Re-hashing
+answers "do these files agree with each other now" — weaker, different, and
+impossible once the upstream file has been archived off the host.
+
 ### Relocating a canonical root written before the lineage segments
 
 A canonical tree written before `family`/`refinement`/`product` became path

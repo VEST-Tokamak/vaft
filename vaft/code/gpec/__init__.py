@@ -142,6 +142,26 @@ def _completion_reason(base: str, missing_optional: tuple[str, ...]) -> str:
     return f"{base}; {suffix}" if base else suffix
 
 
+def _equilibrium_sha256(geqdsk: Path) -> str:
+    """SHA-256 of the equilibrium a suite run consumed, or "" if unreadable.
+
+    Read once per case rather than per cell -- every module and mode of a case
+    consumes the same file -- and never fatal: a hash is provenance about a run,
+    and failing the run because provenance could not be taken would be the tail
+    wagging the dog. An empty string says "not recorded", which a verifier can
+    act on; a wrong hash would be worse than none.
+    """
+    # Imported here rather than at module scope: this is the only use, and
+    # `vaft.code` should not acquire an import-time dependency on the database
+    # layer for one hash on a cold path.
+    from ...database.replication import sha256_file
+
+    try:
+        return sha256_file(Path(geqdsk))
+    except OSError:
+        return ""
+
+
 def _is_stable(solver: Solver, run_dir: Path, mode: int) -> bool:
     """Whether this run's own output declares the equilibrium free-boundary stable.
 
@@ -257,6 +277,7 @@ def prepare_gpec_suite_case(
         time_ms=inputs.time_ms,
         records=tuple(records),
         outputs=outputs,
+        input_equilibrium_sha256=_equilibrium_sha256(inputs.geqdsk),
     )
 
 
@@ -515,6 +536,7 @@ def run_gpec_suite_case(
         records=tuple(records),
         logs=logs,
         outputs=outputs,
+        input_equilibrium_sha256=_equilibrium_sha256(inputs.geqdsk),
     )
 
 

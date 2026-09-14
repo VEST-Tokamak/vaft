@@ -207,6 +207,15 @@ class GPECSuiteResult:
     stdout: str = ""
     stderr: str = ""
     parsed: Any = None
+    #: SHA-256 of the equilibrium this suite consumed.
+    #:
+    #: The stability end of the provenance chain. Without it, "which CHEASE
+    #: equilibrium produced this stability result" is answerable only by
+    #: trusting that the file at a recorded path never changed -- which is the
+    #: assumption `replication.is_reusable` exists to stop relying on. Empty
+    #: when the equilibrium could not be read, which is a fact about this run
+    #: rather than a reason to fail it.
+    input_equilibrium_sha256: str = ""
 
     @property
     def ok(self) -> bool:
