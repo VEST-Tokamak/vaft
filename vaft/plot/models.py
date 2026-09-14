@@ -376,6 +376,11 @@ class GeometryLayer(ViewModel):
     #: shares a colour and the legend names machines rather than parts.  Empty
     #: for a single-input view, which keeps the recipe's own styling.
     entry: str = ""
+    #: What the layer belongs to when that matters beyond drawing it:
+    #: ``"equilibrium"`` marks the plasma's own outline and axis, which move
+    #: between shots and times and therefore never size a canvas (issue #689);
+    #: empty for the machine -- wall, coils, sensors -- which does.
+    role: str = ""
 
     KINDS = ("polyline", "polygon", "points", "text")
 
@@ -397,6 +402,7 @@ class GeometryLayer(ViewModel):
         object.__setattr__(self, "z", z)
         object.__setattr__(self, "style", _frozen_style(self.style))
         object.__setattr__(self, "label", str(self.label))
+        object.__setattr__(self, "role", str(self.role))
 
 
 @dataclass(frozen=True)

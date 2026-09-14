@@ -8,7 +8,7 @@ styling from extraction options -- is the same for every data model.
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from vaft.plot.backends import renderer_for, resolve_render_backend
 from vaft.plot.registry import get_spec
@@ -75,6 +75,7 @@ def render_entries(
                 "ax= is a Matplotlib axes; backend='plotly' draws a new plotly Figure "
                 "and returns it"
             )
+        _refuse_presentation(style, "backend='plotly' does not apply them")
         return renderer(model, show=show, **style)
     return renderer(model, ax=ax, show=show, **style)
 
@@ -99,6 +100,7 @@ def _render_interactive(
 
     if ax is not None:
         raise TypeError("interactive=True draws its own figure and takes no ax=")
+    _refuse_presentation(options, "interactive=True draws its own controls figure and does not take them yet")
     record = describe_one(spec.name, entries)
     offered = controls_for(record)
     if controls != "auto":
@@ -126,6 +128,19 @@ def _render_interactive(
     return render_controls(
         build, state, draw=draw, backend=interaction_backend, render_backend=backend, show=show,
     )
+
+
+def _refuse_presentation(options: Mapping[str, Any], because: str) -> None:
+    """Refuse ``format=``/``theme=`` where they would otherwise be dropped.
+
+    They are Matplotlib presentation presets (issue #689) and a path that
+    cannot apply them must say so rather than draw something else.
+    """
+    named = [key for key in ("format", "theme") if options.get(key) is not None]
+    if named:
+        what = " and ".join(f"{key}=" for key in named)
+        verb = "is a Matplotlib presentation preset" if len(named) == 1 else "are Matplotlib presentation presets"
+        raise NotImplementedError(f"{what} {verb}; {because}")
 
 
 def refuse_when_unsupported(

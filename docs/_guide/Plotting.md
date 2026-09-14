@@ -204,6 +204,47 @@ vaft.omas.plot_spectrometer_uv_time_intensity(
 )
 ```
 
+## Presentation: `format=` and `theme=`
+
+Every canonical `plot_*` takes two opt-in presentation presets (issue #689),
+separate from the scientific display policy (units, notation, validity) and
+from the semantic `layout=`:
+
+| keyword | what it decides | presets |
+| --- | --- | --- |
+| `format=` | how large the rendering is: physical width, a height ceiling, base font and the scales of everything measured in points | `screen` (6.5 in, 10 pt), `single_column` (86 mm, 8 pt), `double_column` (178 mm, 8 pt) |
+| `theme=` | which visual grammar: font family, tick direction, grid and spines, the colour cycle and, for `monochrome`, the linestyle and marker cycles that carry the distinction colour would | `technical`, `minimal`, `monochrome` |
+
+The height comes from the view kind, not from the caller: a time trace is a
+landscape strip, a profile near-square, an R--Z view takes its height from the
+machine it draws (wall, coils, sensors -- never the plasma boundary, which moves
+between shots) with `1 unit of R = 1 unit of Z` inside the axes, an image keeps
+its pixel ratio, and a composite divides one fixed width among its panels so the
+panel count never widens the page. Both colour cycles are colour-blind safe, so
+accessibility is a baseline of every theme rather than a theme of its own. No
+publisher is named: the column formats generalise the constraints most physics
+journals share.
+
+```python
+fig, ax = vaft.omas.plot_plasma_current_time(ods, format="single_column", theme="technical")
+fig, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="outboard", layout="subplots",
+                                               format="double_column", theme="monochrome")
+```
+
+Rules worth knowing:
+
+- With neither keyword every plot draws exactly what it drew before the presets
+  existed; `format="screen"` is a canonical width, not an alias of those legacy
+  sizes, so the two differ today.
+- Nothing mutates global Matplotlib state: a preset is applied around one render
+  and `rcParams` are what they were once the figure is returned.
+- A caller who owns the axes keeps the canvas: `ax=` together with `format=` is
+  refused (pass `theme=` only), as is `figsize=` together with `format=`.
+- `backend="plotly"` and `interactive=True` cannot apply the presets yet and say
+  so rather than draw something else.
+- A recipe that sets a series' colour explicitly keeps it under any theme; the
+  theme is the baseline for series that do not.
+
 ## Time traces
 
 All of these take an ODS or an ODC as first argument, call `plt.show()` and return `None` —

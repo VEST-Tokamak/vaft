@@ -883,6 +883,7 @@ def _resample_closed_curve(rz: np.ndarray, count: int = 256) -> np.ndarray:
 def _boundary_and_limiter_layers(geqdsk: Any, label: str, color: str, linestyle: str):
     """Boundary and limiter outlines for one equilibrium, as geometry layers."""
     from vaft.plot import GeometryLayer
+    from vaft.plot.presentation import EQUILIBRIUM_ROLE
 
     layers = []
     rb = np.asarray(geqdsk.get("RBBBS", []), dtype=float)
@@ -896,6 +897,7 @@ def _boundary_and_limiter_layers(geqdsk: Any, label: str, color: str, linestyle:
                 kind="polyline",
                 label=f"{label} boundary",
                 style={"color": color, "linestyle": linestyle, "lw": 1.8},
+                role=EQUILIBRIUM_ROLE,
             )
         )
     rl = np.asarray(geqdsk.get("RLIM", []), dtype=float)

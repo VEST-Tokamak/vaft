@@ -1776,16 +1776,18 @@ def _plot_sfl_grid(prof2d, ts, nr, nt, time_val, profiles_2d_idx, convention,
     )
     psi_figure, _ = render_line_series(psi_theta, figsize=(10, 8), legend=False)
 
+    from vaft.plot.presentation import EQUILIBRIUM_ROLE
+
     layers = [
         GeometryLayer(r=prof2d["r"][i_surf, :], z=prof2d["z"][i_surf, :],
                       label="Flux Surface" if i_surf == 0 else "",
-                      style={"color": "b", "lw": 0.7})
+                      style={"color": "b", "lw": 0.7}, role=EQUILIBRIUM_ROLE)
         for i_surf in range(nr)
     ]
     layers += [
         GeometryLayer(r=prof2d["r"][:, j_theta], z=prof2d["z"][:, j_theta],
                       label="SFL theta line" if j_theta == 0 else "",
-                      style={"color": "r", "linestyle": "--", "lw": 0.5})
+                      style={"color": "r", "linestyle": "--", "lw": 0.5}, role=EQUILIBRIUM_ROLE)
         for j_theta in range(0, nt, max(1, nt // 16))
     ]
     global_quantities = ts.get("global_quantities", {})
@@ -1796,6 +1798,7 @@ def _plot_sfl_grid(prof2d, ts, nr, nt, time_val, profiles_2d_idx, convention,
                 z=[global_quantities["magnetic_axis.z"]],
                 kind="points", label="Mag. Axis",
                 style={"marker": "x", "color": "k", "markersize": 10, "mew": 2},
+                role=EQUILIBRIUM_ROLE,
             )
         )
     mesh_figure, _ = render_geometry_layers(

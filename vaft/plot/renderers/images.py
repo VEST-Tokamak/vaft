@@ -13,6 +13,7 @@ from matplotlib.figure import Figure
 
 from ..models import Image2D, ImageSequence
 from ..registry import renderer
+from ..presentation import presented
 from ..style import finalize, resolve_axes
 from .geometry import draw_geometry_layer
 
@@ -29,6 +30,7 @@ __all__ = [
 _DEFAULT_FIGSIZE = (5.0, 6.0)
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_image_2d(
     model: Image2D,
     *,
@@ -36,6 +38,8 @@ def render_image_2d(
     show: bool = False,
     figsize: tuple[float, float] | None = None,
     colorbar: bool = True,
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw an :class:`Image2D` with ``imshow`` plus its pixel-space overlays."""
@@ -74,6 +78,7 @@ def render_image_2d(
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_image_sequence(
     model: ImageSequence,
     *,
@@ -84,6 +89,8 @@ def render_image_sequence(
     interval_ms: float = 100.0,
     save_path: str | Path | None = None,
     fps: float = 10.0,
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ):
     """Animate an :class:`ImageSequence`, optionally saving it to disk.

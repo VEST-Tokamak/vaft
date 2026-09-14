@@ -11,6 +11,7 @@ from matplotlib.figure import Figure
 
 from ..models import Field2D
 from ..registry import renderer
+from ..presentation import presented
 from ..style import finalize, resolve_axes
 from .geometry import draw_geometry_layer
 
@@ -28,6 +29,7 @@ __all__ = [
 _DEFAULT_FIGSIZE = (6.0, 7.0)
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_field_2d(
     model: Field2D,
     *,
@@ -36,6 +38,8 @@ def render_field_2d(
     figsize: tuple[float, float] | None = None,
     colorbar: bool = True,
     cmap: str = "viridis",
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Field2D` as filled or line contours with its overlays."""
