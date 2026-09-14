@@ -1,15 +1,21 @@
-"""jsk95 parity tests for vaft.code.chease.
+"""Input-fidelity tests for vaft.code.chease.
 
-Pure text/logic assertions -- no CHEASE binary required. Run from the
-feature/kinetic_profile_eq worktree (where vaft/code/chease.py exists) after
-applying the edits in chease_jsk95.md:
+Pure text/logic assertions -- no CHEASE binary required.
 
-    pytest -q scratchpad/port/test_chease_parity.py
+Most of what this file pins comes from the legacy VEST CHEASE workflow the
+adapter was ported from, and is kept deliberately so a refactor cannot quietly
+change the inputs VAFT writes and make its refined equilibria incomparable with
+the ones that workflow already produced: edge-zeroing, FFT boundary smoothing,
+``EPSLON``, and ``$CHEASE`` resolution.
 
-These tests exercise:
-  * namelist writer emits EPSLON=1.0E-10 and NIDEAL=11 (jsk95 defaults),
-  * CSSPEC and QSPEC are driven by the q95 (double-sqrt) constraint,
-  * _resolve_executable honors the $CHEASE environment variable.
+Two things the donor did are deliberately *not* reproduced, because they were
+conventions rather than physics:
+
+  * ``NIDEAL=11``, which upstream CHEASE rejects outright (#717). The default is
+    6; the writer still emits 11 when asked for it.
+  * sampling q at ``sqrt(0.95)``, which constrains the surface at
+    ``psi_norm = 0.9747`` rather than the conventional q95 surface at 0.95.
+    ``q_constraint_psi_norm`` now means what it says.
 """
 
 import os
@@ -60,27 +66,54 @@ def _fake_geqdsk(n: int = 129):
     }
 
 
-def _expected_q95(q, qloc):
+def _q_at(q, psi_norm):
+    """q interpolated at a normalized-poloidal-flux location."""
     from scipy.interpolate import interp1d
 
     x = np.linspace(0.0, 1.0, len(q))
-    return float(interp1d(x, q, kind="cubic", fill_value="extrapolate")(qloc))
+    return float(interp1d(x, q, kind="cubic", fill_value="extrapolate")(psi_norm))
 
 
 # ---------------------------------------------------------------------------
 # (d) EPSLON / NIDEAL defaults
 # ---------------------------------------------------------------------------
 
-def test_namelist_epslon_and_nideal_defaults_match_jsk95():
+#: Minimal params for the namelist writer. Only the EPSLON and NIDEAL lines
+#: are under test here, so the constraint fields carry placeholder values --
+#: the surface itself is asserted in section (a).
+_WRITER_PARAMS = {
+    "ASPCT": 0.3, "R0EXP": 1.0, "B0EXP": 0.5, "CURRT": 0.1,
+    "QSPEC": 1.9, "CSSPEC": float(np.sqrt(0.95)),
+    "SIGNB0XP": 1.0, "SIGNIPXP": 1.0,
+}
+
+
+def test_the_default_nideal_is_one_upstream_chease_accepts():
+    """The default has to be runnable, not merely faithful to jsk95.
+
+    Upstream CHEASE validates the range in ``cotrol.f90`` (0 to 10) and quits
+    before doing any equilibrium work on anything outside it, so the previous
+    default of 11 meant a bare ``CHEASEConfig()`` could not run at all against
+    a CHEASE built from the public repository. See #717.
+    """
     cfg = ch.CHEASEConfig()
-    assert cfg.nideal == 11
+    assert cfg.nideal == 6
+    assert 0 <= cfg.nideal <= 10
+    text = "".join(ch._namelist_lines(cfg, _WRITER_PARAMS))
+    assert "NIDEAL=6," in text
+
+
+def test_namelist_epslon_default_and_jsk95_nideal_on_request():
+    """jsk95 parity is a property of the writer, not of the default.
+
+    ``NIDEAL=11`` is what the VEST jsk95 workflow runs, against the CHEASE
+    revision that group uses. It stopped being the default in #717 because
+    upstream rejects it, but asking for it must still emit it -- that is the
+    parity claim this file exists to defend.
+    """
+    cfg = ch.CHEASEConfig(nideal=11)
     assert cfg.epslon_exponent == 10
-    params = {
-        "ASPCT": 0.3, "R0EXP": 1.0, "B0EXP": 0.5, "CURRT": 0.1,
-        "QSPEC": 1.9, "CSSPEC": 0.9872864, "QLOC": np.sqrt(0.95),
-        "SIGNB0XP": 1.0, "SIGNIPXP": 1.0,
-    }
-    text = "".join(ch._namelist_lines(cfg, params))
+    text = "".join(ch._namelist_lines(cfg, _WRITER_PARAMS))
     assert "EPSLON=1.0E-10," in text
     assert "NIDEAL=11," in text
     assert "NCSCAL=1," in text
@@ -90,7 +123,7 @@ def test_namelist_epslon_exponent_is_configurable():
     cfg = ch.CHEASEConfig(epslon_exponent=9)
     params = {
         "ASPCT": 0.3, "R0EXP": 1.0, "B0EXP": 0.5, "CURRT": 0.1,
-        "QSPEC": 1.9, "CSSPEC": 0.0, "QLOC": 0.0,
+        "QSPEC": 1.9, "CSSPEC": 0.0,
         "SIGNB0XP": 1.0, "SIGNIPXP": 1.0,
     }
     text = "".join(ch._namelist_lines(cfg, params))
@@ -98,49 +131,79 @@ def test_namelist_epslon_exponent_is_configurable():
 
 
 # ---------------------------------------------------------------------------
-# (a) q95 constraint -> QSPEC / CSSPEC, and namelist CSSPEC wiring
+# (a) q constraint -> QSPEC / CSSPEC, and namelist CSSPEC wiring
 # ---------------------------------------------------------------------------
 
-def test_csspec_double_sqrt_and_qspec_from_q95(tmp_path):
+def test_q_is_constrained_on_the_surface_the_config_names(tmp_path):
+    """QSPEC is q at psi_norm, and CSSPEC is that same surface on CHEASE's mesh.
+
+    CHEASE reads CSSPEC on ``s = sqrt(psi_norm)`` and squares it back
+    (``norept.f90``), so a constraint at 0.95 has to be written as
+    ``sqrt(0.95)`` and no more. The donor applied the root twice and so
+    constrained 0.9747 instead; that is the deviation this asserts is gone.
+    """
     cfg = ch.CHEASEConfig(target_psin=0.0)  # use RBBBS boundary, skip skimage
     geq = _fake_geqdsk()
     params = ch._write_expeq(geq, tmp_path / "EXPEQ", cfg)
 
-    qloc = float(np.sqrt(0.95))
     sign_q = np.sign(geq["CURRENT"]) * np.sign(geq["BCENTR"])  # -1
-    expected_qspec = _expected_q95(geq["QPSI"], qloc) * sign_q
 
-    # CSSPEC is the double sqrt: sqrt(sqrt(0.95)) == 0.95 ** 0.25.
-    assert params["CSSPEC"] == pytest.approx(0.95**0.25, rel=1e-12)
-    assert params["QLOC"] == pytest.approx(qloc, rel=1e-12)
-    # QSPEC is q sampled at psi_N = sqrt(0.95), NOT at 0.95, times the signs.
-    assert params["QSPEC"] == pytest.approx(expected_qspec, rel=1e-9)
-    # Sanity: QSPEC is negative here (sign_q = -1) and q(sqrt0.95) != q(0.95).
-    assert params["QSPEC"] < 0.0
-    assert _expected_q95(geq["QPSI"], qloc) != pytest.approx(
-        _expected_q95(geq["QPSI"], 0.95), rel=1e-6
+    assert params["CONSTRAINT_PSI_NORM"] == pytest.approx(0.95, rel=1e-12)
+    assert params["CSSPEC"] == pytest.approx(np.sqrt(0.95), rel=1e-12)
+    # What CHEASE will read back out of CSSPEC is the surface we asked for.
+    assert params["CSSPEC"] ** 2 == pytest.approx(0.95, rel=1e-12)
+    # QSPEC is q sampled at that same surface, times the signs.
+    assert params["QSPEC"] == pytest.approx(_q_at(geq["QPSI"], 0.95) * sign_q, rel=1e-9)
+    assert params["QSPEC"] < 0.0  # sign_q = -1 for this fixture
+
+
+def test_the_old_double_root_surface_is_not_what_gets_constrained(tmp_path):
+    """Guards the correction itself, since both forms look plausible.
+
+    q at 0.95 and q at sqrt(0.95) differ on any real profile, so asserting the
+    new value alone would not catch a revert to the old one.
+    """
+    cfg = ch.CHEASEConfig(target_psin=0.0)
+    geq = _fake_geqdsk()
+    params = ch._write_expeq(geq, tmp_path / "EXPEQ", cfg)
+
+    donor_surface = float(np.sqrt(0.95))
+    assert _q_at(geq["QPSI"], donor_surface) != pytest.approx(
+        _q_at(geq["QPSI"], 0.95), rel=1e-6
     )
+    assert params["CSSPEC"] != pytest.approx(0.95**0.25, rel=1e-6)
+    assert params["CONSTRAINT_PSI_NORM"] != pytest.approx(donor_surface, rel=1e-6)
 
 
-def test_namelist_emits_q95_csspec(tmp_path):
+def test_namelist_emits_the_constraint_surface(tmp_path):
     cfg = ch.CHEASEConfig(target_psin=0.0)
     geq = _fake_geqdsk()
     params = ch._write_expeq(geq, tmp_path / "EXPEQ", cfg)
     text = "".join(ch._namelist_lines(cfg, params))
-    assert f"CSSPEC={0.95**0.25:.6f}," in text
+    assert f"CSSPEC={np.sqrt(0.95):.6f}," in text
     # QSPEC appears on the CURRT line; check the numeric value is present.
     assert "CSSPEC=0.000000," not in text
 
 
-def test_legacy_axis_q_when_constraint_disabled(tmp_path):
-    cfg = ch.CHEASEConfig(target_psin=0.0, q95_constraint=False)
+def test_a_configurable_constraint_surface_is_honoured(tmp_path):
+    """The surface is a knob, not a constant folded into the writer."""
+    cfg = ch.CHEASEConfig(target_psin=0.0, q_constraint_psi_norm=0.8)
+    geq = _fake_geqdsk()
+    params = ch._write_expeq(geq, tmp_path / "EXPEQ", cfg)
+    sign_q = np.sign(geq["CURRENT"]) * np.sign(geq["BCENTR"])
+    assert params["CSSPEC"] == pytest.approx(np.sqrt(0.8), rel=1e-12)
+    assert params["QSPEC"] == pytest.approx(_q_at(geq["QPSI"], 0.8) * sign_q, rel=1e-9)
+
+
+def test_axis_q_when_no_constraint_surface_is_given(tmp_path):
+    cfg = ch.CHEASEConfig(target_psin=0.0, q_constraint_psi_norm=None)
     geq = _fake_geqdsk()
     params = ch._write_expeq(geq, tmp_path / "EXPEQ", cfg)
     sign_q = np.sign(geq["CURRENT"]) * np.sign(geq["BCENTR"])
     assert params["CSSPEC"] == 0.0
     assert params["QSPEC"] == pytest.approx(geq["QPSI"][0] * sign_q, rel=1e-12)
     text = "".join(ch._namelist_lines(cfg, params))
-    assert "CSSPEC=0.000000," in text  # byte-identical to pre-jsk95 output
+    assert "CSSPEC=0.000000," in text  # CHEASE's own "constrain on axis"
 
 
 # ---------------------------------------------------------------------------
@@ -151,15 +214,16 @@ def test_edge_zero_zeros_positive_edge_and_flattens_ffprim():
     psin = np.linspace(0.0, 1.0, 11)
     pprime = np.array([-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 0.5, 0.7, 0.9])
     ffprim = np.arange(11, dtype=float)
-    pp, ff, qloc = ch._edge_zero_profiles(psin, pprime, ffprim, float(np.sqrt(0.95)))
+    pp, ff, surface = ch._edge_zero_profiles(psin, pprime, ffprim, 0.95)
     # Positive edge points (indices 8,9) zeroed; index 10 (edge) untouched by loop.
     assert pp[8] == 0.0 and pp[9] == 0.0
     assert pp[7] == -1.0
     # FF' flattened inward across the zeroed band (held at just-outside value).
     assert ff[9] == pytest.approx(10.0)  # ff[9] <- ff[10]
     assert ff[8] == pytest.approx(10.0)  # ff[8] <- ff[9] (already updated)
-    # qloc = sqrt(0.95) > 0.3, so the eqdsk nudge branch never fires.
-    assert qloc == pytest.approx(np.sqrt(0.95))
+    # 0.95 > 0.3, so the donor's inward-nudge branch never fires for an edge
+    # constraint; it exists for a near-axis one.
+    assert surface == pytest.approx(0.95)
 
 
 # ---------------------------------------------------------------------------
