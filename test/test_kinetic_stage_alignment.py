@@ -124,3 +124,39 @@ def test_membership_is_answered_where_omas_would_raise():
     assert vu._path_present(ods, "core_profiles.profiles_1d.0.electrons.temperature.0.x") is False
     assert vu._path_present(ods, "core_profiles.profiles_1d.0.electrons.temperature") is True
     assert vu._has_kinetic_slice(ods) is False
+
+
+def test_a_scalar_time_does_not_raise_out_of_an_optional_stage():
+    """A single time saved as a float is legitimate; `len` on it is not.
+
+    The same shape that crashed the lineage check, one function down: an
+    optional stage must record a bad product, never raise past its caller.
+    """
+    ods = ODS(consistency_check=False)
+    ods["core_profiles.time"] = 0.306
+    assert vu._time_array_ms(ods, "core_profiles.time").tolist() == [306.0]
+    assert vu._time_array_ms(ODS(consistency_check=False), "core_profiles.time") is None
+
+
+def test_an_unreadable_efit_product_is_named_not_blamed_on_the_time_base(tmp_path):
+    """48224's EFIT stage is `no_output`, so its product has no equilibrium.
+
+    Falling through would report "no equilibrium" once per profile time and
+    blame the time bases for a shot that was never reconstructed at all.
+    """
+    thomson = tmp_path / "thomson.json"
+    t = ODS(consistency_check=False)
+    t["thomson_scattering.time"] = np.array([0.300, 0.301])
+    t.save(str(thomson))
+
+    efit = tmp_path / "efit.json"
+    e = ODS(consistency_check=False)
+    e["dataset_description.data_entry.pulse"] = 48224
+    e.save(str(efit))
+
+    _, manifest = vu.build_core_profiles_ods(
+        shot=48224, thomson_product=thomson, efit_product=efit
+    )
+    assert manifest["status"] == "unavailable"
+    assert "no equilibrium.time" in manifest["error"]
+    assert manifest.get("slices") is None, "it never reached the per-time loop"

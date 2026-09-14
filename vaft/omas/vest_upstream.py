@@ -1675,14 +1675,17 @@ def build_core_profiles_ods(
             manifest["error"] = f"the efit product is missing: {efit_product}"
             return ods, manifest
         solution, _ = load_ods(Path(efit_product))
-        if "equilibrium.time" in solution:
-            eq_times_ms = (
-                np.asarray(solution["equilibrium.time"], dtype=float).reshape(-1) * 1e3
-            )
-            if eq_times_ms.size == 0:
-                eq_times_ms = None
+        eq_times_ms = _time_array_ms(solution, "equilibrium.time")
         if eq_times_ms is None:
-            solution = None
+            # Present but unusable is not the same as absent, and it is the
+            # common case: a shot whose EFIT stage is `no_output` -- 48224 --
+            # produces exactly this. Reporting it as "no equilibrium at every
+            # time" would blame the time bases for a product that was never
+            # reconstructed.
+            manifest["error"] = (
+                f"the efit product carries no equilibrium.time: {efit_product}"
+            )
+            return ods, manifest
 
     n_kinetic = 0
     n_electron = 0
@@ -1700,7 +1703,14 @@ def build_core_profiles_ods(
             else:
                 try:
                     geq = from_equilibrium(as_equilibrium(solution, time_index=index))
-                except Exception:  # noqa: BLE001 - an unusable slice is a missing one
+                except Exception as error:  # noqa: BLE001 - one bad slice is a missing one
+                    # Recorded once. "An unusable slice is a missing one" holds
+                    # for one slice; when every slice fails for the same
+                    # structural reason the count alone reads as a time-base
+                    # mismatch rather than an unreadable equilibrium.
+                    manifest.setdefault(
+                        "equilibrium_error", f"{type(error).__name__}: {error}"
+                    )
                     geq = None
         elif geqdsk_dir is not None:
             path = Path(geqdsk_dir) / geqdsk_template.format(
@@ -1785,6 +1795,23 @@ def build_core_profiles_ods(
             f"core_profiles:t={t}ms" for t in missing_equilibrium[:20]
         ]
     return ods, manifest
+
+
+def _time_array_ms(ods: ODS, path: str) -> np.ndarray | None:
+    """A time array in milliseconds, or ``None`` when there is not one.
+
+    Total where the obvious form is not: the path may be absent, may resolve
+    through a scalar parent, or may itself be a bare float that ``len`` refuses
+    -- and every caller here is an optional stage that must record rather than
+    raise.
+    """
+    if not _path_present(ods, path):
+        return None
+    try:
+        values = np.asarray(ods[path], dtype=float).reshape(-1)
+    except (TypeError, ValueError):
+        return None
+    return values * 1e3 if values.size else None
 
 
 def _path_present(ods: ODS, path: str) -> bool:
@@ -1955,13 +1982,16 @@ def build_kinetic_efit_ods(
         return unavailable("the efit product's equilibrium.time is empty")
 
     if time_ms is None:
-        if "core_profiles.time" not in ods or not len(ods["core_profiles.time"]):
+        # Same two forms this file just stopped trusting: `in` is not total
+        # over a reloaded product, and a single time saved as a scalar makes
+        # `len` raise out of a stage contracted never to raise.
+        profile_times = _time_array_ms(ods, "core_profiles.time")
+        if profile_times is None:
             return unavailable("no core_profiles slice to reconstruct at")
         # The best-aligned slice, not the first one. Which profile time happens
         # to come first says nothing about which has an equilibrium to be
         # reconstructed against, and with a sub-millisecond tolerance an
         # arbitrary choice refuses shots a better-aligned slice would serve.
-        profile_times = np.asarray(ods["core_profiles.time"], dtype=float).reshape(-1) * 1e3
         offsets = np.min(np.abs(profile_times[:, None] - eq_times[None, :]), axis=1)
         time_ms = float(profile_times[int(np.argmin(offsets))])
 
