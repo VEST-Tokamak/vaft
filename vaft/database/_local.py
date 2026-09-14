@@ -294,20 +294,38 @@ def load_ods(
 
 
 def _as_text(value):
-    """Return ``value`` re-stated as text, or ``None`` if it is not bytes.
+    """Return ``value`` re-stated as text, or ``None`` if it holds no bytes.
 
-    Handles both a single byte string -- ``numpy.bytes_`` is a ``bytes``
-    subclass -- and an array of them, which is how an ``STR_1D`` leaf comes
-    back from HDF5.
+    Handles a single byte string -- ``numpy.bytes_`` is a ``bytes`` subclass --
+    and an array of them, which is how an ``STR_1D`` leaf comes back. Both the
+    fixed-width form (``dtype.kind == "S"``) and the object-array form HDF5 uses
+    for variable-length strings are covered; matching only one would leave the
+    other holding bytes.
+
+    The result is a ``<U`` array rather than an object array, because that is
+    what OMAS's checker produces (``value.astype(str)``) and what the JSON path
+    therefore yields. An object array would carry the same characters and still
+    compare unequal by dtype, which is the asymmetry this exists to remove.
     """
     import numpy as np
 
     if isinstance(value, bytes):
         return value.decode("utf-8", "replace")
-    if isinstance(value, np.ndarray) and value.dtype.kind == "S":
-        decoded = [item.decode("utf-8", "replace") for item in value.ravel().tolist()]
-        return np.array(decoded, dtype=object).reshape(value.shape)
-    return None
+    if not isinstance(value, np.ndarray):
+        return None
+    if value.dtype.kind == "S":
+        items = value.ravel().tolist()
+    elif value.dtype.kind == "O" and any(
+        isinstance(item, bytes) for item in value.ravel().tolist()
+    ):
+        items = value.ravel().tolist()
+    else:
+        return None
+    decoded = [
+        item.decode("utf-8", "replace") if isinstance(item, bytes) else str(item)
+        for item in items
+    ]
+    return np.array(decoded).reshape(value.shape)
 
 
 def _decode_byte_strings(ods) -> None:

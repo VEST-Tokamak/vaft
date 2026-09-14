@@ -70,6 +70,28 @@ class TestContainerDoesNotLeakIntoTheData:
             assert h5[path] == js[path]
             assert type(h5[path]) is type(js[path])
 
+    def test_an_array_of_strings_agrees_too(self, tmp_path):
+        """A scalar-only check missed that STR_1D still differed by dtype.
+
+        Decoding to an object array left the characters right and the dtype
+        wrong, which `compare_ods` can still flag -- the same failure this fix
+        exists to remove, one leaf shape over.
+        """
+        ods = ODS(consistency_check=True)
+        ods["core_profiles.ids_properties.homogeneous_time"] = 1
+        ods["core_profiles.ids_properties.provenance.node.0.sources"] = ["alpha", "beta"]
+        path = "core_profiles.ids_properties.provenance.node.0.sources"
+
+        written = {}
+        for suffix in (".h5", ".json"):
+            target = tmp_path / f"provenance{suffix}"
+            ods.save(str(target))
+            written[suffix] = np.asarray(vaft_omas.load(target)[path])
+
+        assert written[".h5"].dtype == written[".json"].dtype
+        assert list(written[".h5"]) == list(written[".json"]) == ["alpha", "beta"]
+        assert written[".h5"].dtype.kind == "U", "object arrays compare unequal by dtype"
+
     def test_numeric_leaves_are_left_alone(self, written):
         """The decode must not touch, re-type or re-shape any array."""
         h5 = vaft_omas.load(written[".h5"])
@@ -105,10 +127,16 @@ class TestTheDecodeHelper:
         assert _as_text(np.bytes_(b"Vertical SXR Ch 1")) == "Vertical SXR Ch 1"
         assert _as_text(b"plain") == "plain"
 
-    def test_an_array_of_byte_strings_becomes_text(self):
-        out = _as_text(np.array([b"a", b"bb"], dtype="S2"))
+    @pytest.mark.parametrize("dtype", ("S2", object))
+    def test_an_array_of_byte_strings_becomes_text(self, dtype):
+        """Fixed-width and the object form HDF5 uses for variable-length strings."""
+        out = _as_text(np.array([b"a", b"bb"], dtype=dtype))
         assert list(out) == ["a", "bb"]
         assert out.shape == (2,)
+        assert out.dtype.kind == "U"
+
+    def test_an_object_array_holding_no_bytes_is_declined(self):
+        assert _as_text(np.array(["a", "bb"], dtype=object)) is None
 
     @pytest.mark.parametrize(
         "value",
