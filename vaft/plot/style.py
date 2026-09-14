@@ -111,12 +111,22 @@ def trace_labels(series_list, *, panel_title: str | None = None) -> tuple[list[s
     return labels, title
 
 
-def apply_legend(axes: Any, *, legend: bool | None, title: str | None = None) -> None:
+def apply_legend(
+    axes: Any,
+    *,
+    legend: bool | None,
+    title: str | None = None,
+    lone_entry: bool = False,
+) -> None:
     """Draw, omit, or summarise the legend according to the display policy.
 
     ``legend=None`` applies the policy: nothing for a lone trace, a legend for
     up to :data:`LEGEND_MAX_ENTRIES`, and past that a corner note with the
     trace count.  ``True`` forces a legend, ``False`` suppresses it.
+
+    ``lone_entry`` keeps a legend for a single entry. A lone *trace* needs no
+    key -- the title already names it -- but a lone labelled *layer* drawn
+    among unlabelled ones does, which is why the geometry views pass it.
 
     Traces drawn in a role beside a measurement (a reconstruction under each
     channel, issue #261) are legend entries but do not count toward the
@@ -141,7 +151,7 @@ def apply_legend(axes: Any, *, legend: bool | None, title: str | None = None) ->
     if legend is True:
         axes.legend(loc="best", title=title, fontsize="small").set_gid(_POLICY_LEGEND_GID)
         return
-    if count <= 1:
+    if count <= 1 and not lone_entry:
         return
     judged = sum(1 for handle in handles if getattr(handle, "get_gid", lambda: None)() != _ROLE_GID)
     if judged > LEGEND_MAX_ENTRIES:
