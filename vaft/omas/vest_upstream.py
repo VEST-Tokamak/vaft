@@ -1787,6 +1787,20 @@ def build_core_profiles_ods(
     return ods, manifest
 
 
+def _path_present(ods: ODS, path: str) -> bool:
+    """Whether ``path`` exists, answering False where ``in`` would raise.
+
+    OMAS resolves a membership test segment by segment, so asking about a deep
+    path whose parent turned out to be a scalar raises instead of returning
+    False.  A reloaded product is exactly where that happens -- the shape it
+    was saved with is not guaranteed to be the shape the caller assumes.
+    """
+    try:
+        return path in ods
+    except (AttributeError, TypeError, KeyError, IndexError, ValueError):
+        return False
+
+
 def _has_kinetic_slice(ods: ODS) -> bool:
     """Whether any core_profiles slice carries a measured ion temperature.
 
@@ -1794,17 +1808,19 @@ def _has_kinetic_slice(ods: ODS) -> bool:
     uses to decide which slices may keep a total pressure, so the two cannot
     disagree about what counts as kinetic.
     """
-    # Guard the full path. `core_profiles` being present says nothing about
-    # `profiles_1d`: a product whose slices were all rejected still carries the
-    # IDS, and asking for the list there returned a float rather than raising.
-    if "core_profiles.profiles_1d" not in ods:
+    # `in` is not total over a reloaded product. OMAS walks the path segment by
+    # segment, so a membership test whose parent resolves to a scalar raises
+    # `AttributeError: 'float' object has no attribute 'omas_data'` rather than
+    # answering False -- and `core_profiles` being present says nothing about
+    # whether `profiles_1d` is a populated AoS.
+    if not _path_present(ods, "core_profiles.profiles_1d"):
         return False
     try:
         count = len(ods["core_profiles.profiles_1d"])
     except TypeError:  # an AoS that is not a list is an AoS with no slices
         return False
     return any(
-        f"core_profiles.profiles_1d.{index}.ion.0.temperature" in ods
+        _path_present(ods, f"core_profiles.profiles_1d.{index}.ion.0.temperature")
         for index in range(count)
     )
 

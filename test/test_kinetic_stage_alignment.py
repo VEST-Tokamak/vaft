@@ -109,3 +109,18 @@ def test_a_product_whose_slices_were_all_rejected_is_not_kinetic():
     ods["core_profiles.time"] = np.array([0.306])
     assert "core_profiles" in ods
     assert vu._has_kinetic_slice(ods) is False
+
+
+def test_membership_is_answered_where_omas_would_raise():
+    """`in` walks the path, so a scalar parent raises instead of saying False.
+
+    A reloaded product is where this bites: shot 39915's core_profiles has
+    electron-only slices, and asking whether one carries `ion.0.temperature`
+    raised `AttributeError: 'float' object has no attribute 'omas_data'`.
+    """
+    ods = ODS(consistency_check=False)
+    ods["core_profiles.profiles_1d.0.electrons.temperature"] = np.linspace(9.0, 1.0, 3)
+    # The parent resolves to an array, so the deep path is unanswerable by `in`.
+    assert vu._path_present(ods, "core_profiles.profiles_1d.0.electrons.temperature.0.x") is False
+    assert vu._path_present(ods, "core_profiles.profiles_1d.0.electrons.temperature") is True
+    assert vu._has_kinetic_slice(ods) is False
