@@ -139,8 +139,11 @@ def test_the_q_power_limit_is_the_ampere_squared_expression_it_is_documented_to_
 
 def test_the_collisionality_figure_is_this_module_s_own_normalisation():
     n_e, T_e, B_t, R0 = 3.0, 1.0, 0.3, 0.4
+    # abs=0 deliberately. The figure is of order 1e-17, and `approx`'s default
+    # absolute tolerance of 1e-12 swamps it: without this the prefactor could be
+    # wrong by any factor and the comparison would still pass.
     assert collisionality_from_n_T_B_R(n_e, T_e, B_t, R0) == pytest.approx(
-        6.921e-18 * n_e * R0 / (T_e**2 * B_t)
+        6.921e-18 * n_e * R0 / (T_e**2 * B_t), rel=1e-12, abs=0.0
     )
     # Falls as the square of the temperature, which is the one trend it is for.
     assert collisionality_from_n_T_B_R(n_e, 2.0, B_t, R0) == pytest.approx(
