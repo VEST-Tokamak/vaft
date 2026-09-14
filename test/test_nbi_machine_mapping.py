@@ -80,7 +80,26 @@ def test_divergence_is_one_component_carrying_both_axes(ods):
 
 def test_angles_are_radians_not_degrees(ods):
     assert ods[f"{GROUP}.divergence_component.0.horizontal"] < 0.1
-    assert ods[f"{GROUP}.position.phi"] == pytest.approx(0.0)
+    assert ods[f"{GROUP}.position.phi"] < 2 * math.pi
+
+
+def test_the_source_sits_at_the_2_oclock_port(ods):
+    """2MR is 300 deg in IMAS phi, not the 60 deg of its clock angle.
+
+    Was 0.0 before issue #718 -- NUBEAM's own frame origin, carried into an
+    IMAS field as if it were a VEST location.
+    """
+    assert ods[f"{GROUP}.position.phi"] == pytest.approx(math.radians(300.0))
+
+
+def test_the_beam_still_runs_in_the_negative_toroidal_direction(ods):
+    """The port and the NUBEAM-derived direction are independent and agree.
+
+    2 o'clock to 7 o'clock is toward increasing clock number, which is
+    clockwise from above, which is negative phi.  If placing the source at its
+    port ever flips this, one of the two facts has been misread.
+    """
+    assert ods[f"{GROUP}.direction"] == -1
 
 
 # --------------------------------------------------------------------------

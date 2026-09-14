@@ -24,6 +24,7 @@ from scipy.io import loadmat
 
 from vaft.process.signal_processing import line_average_density as _line_average_density
 
+from .registry import port_phi
 from .utils import load_yaml, resolve_data_root, set_path, _resolve_info_file_path
 
 CODE_NAME = "vaft.machine_mapping.interferometer"
@@ -141,7 +142,7 @@ def vfit_interferometer_94ghz_static(ods: Any, *, info_file: str | None = None) 
     config = _interferometer_config(info_file)["horizontal_94ghz"]
     physical_channels = config["physical_channels"]
     z_values = config["z_m"]
-    phi = float(config["phi_rad"])
+    phi = port_phi(str(config["port"]))
     launch_r = float(config["launch_r_m"])
     mirror_r = float(config["mirror_r_m"])
     identifiers = config["identifiers"]
@@ -243,7 +244,7 @@ def interferometer_94ghz(
 def vfit_interferometer_282ghz_static(ods: Any, *, info_file: str | None = None) -> None:
     config = _interferometer_config(info_file)["vertical_282ghz"]
     r_m = float(config["r_m"])
-    phi = float(config["phi_rad"])
+    phi = port_phi(str(config["port"]))
     z_bottom = float(config["z_bottom_m"])
     z_top = float(config["z_top_m"])
     identifier = config["identifier"]

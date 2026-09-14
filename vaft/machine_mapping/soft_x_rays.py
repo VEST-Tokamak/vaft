@@ -37,6 +37,21 @@ DEFAULT_SAMPLE_RATES: dict[str, float] = {
 }
 # Kept as a compatibility alias for callers that explicitly build a 22577 axis.
 DEFAULT_SAMPLE_RATE = DEFAULT_SAMPLE_RATES["22577"]
+
+# The `phi` column of vaft/data/geometry/line_of_sight_endpoints.csv is
+# UNRESOLVED against the port table (issue #718).
+#
+# DAQ 17592 (horizontal, vertical) carries phi = 0, which is 12 o'clock in both
+# the VEST clock frame and IMAS phi -- 0 is its own reflection -- and the
+# port-status document does put soft X-ray at 12MM10 and 12T6. That one is
+# consistent however it was meant.
+#
+# DAQ 22577 (bottom, lowermid) carries 120 degrees, and that is consistent with
+# nothing. Read as a VEST clock angle it is 4 o'clock; read as IMAS phi it is
+# 8 o'clock; the document lists soft X-ray at neither, only at 12MM10, 1T6 and
+# 12T6. So we cannot tell which frame the column is in, and converting it would
+# be guessing at a value that is already unexplained. It is left exactly as it
+# was until the SXR installation record settles it.
 DEFAULT_TIME_OFFSET = 0.0
 DEFAULT_ENERGY_BAND = (0.0, 20_000.0)
 PACKAGED_GEOMETRY_TABLE = "geometry/line_of_sight_endpoints.csv"

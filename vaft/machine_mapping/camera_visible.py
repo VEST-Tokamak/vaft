@@ -74,6 +74,16 @@ class CameraHeaderInfo:
 #: radius, its chord width, and the top and bottom of its opening. The two
 #: ports sit 120 degrees apart, the first centred on 30 degrees. Machine
 #: geometry, kept here rather than in the notebooks that project it.
+#:
+#: UNRECONCILED with the port table (issue #718). The rectangular main-chamber
+#: ports are 2MR, 6MR and 10MR, which *are* 120 degrees apart, and the camera
+#: itself looks through 6MR -- but 2MR and 10MR are at 300 and 60 degrees of
+#: IMAS phi (60 and 300 of VEST clock angle), and neither pair is the 30/150
+#: below. So these two angles are in some third frame, plausibly one centred on
+#: the camera. They are left untouched because they feed a projection in
+#: vaft.process.camera_geometry that is calibrated against real images;
+#: changing them to match the port table without redoing that calibration would
+#: break a working result to satisfy a naming convention.
 PORT_MAJOR_RADIUS_M = 0.803
 PORT_CHORD_WIDTH_M = 0.24
 PORT_TOP_M = 0.57 - 0.2355

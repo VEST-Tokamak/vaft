@@ -15,6 +15,7 @@ from typing import Any, Mapping
 
 import yaml
 
+from .conventions import port_toroidal_angle, vest_clock_angle
 from .utils import package_data_path
 
 
@@ -26,8 +27,26 @@ _IDENTIFIER = re.compile(r"^[a-z][a-z0-9_.-]*$")
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
+PORT_MAP_KEY = "port_map"
+#: ``<clock><location1>[<location2>][<size>]``.  Size is absent on the ports the
+#: document lists without one (``2U``, ``6L``), and ``R`` marks a rectangular
+#: port.  See the ``port_map`` header in ``vest.yaml`` for the grammar.
+_PORT_NAME = re.compile(
+    r"^(?P<clock>1[0-2]|[1-9])"
+    r"(?P<location1>[MULTB])"
+    r"(?P<location2>[MUL])?"
+    r"(?P<size>R|4\.5|4|6|10|12)?$"
+)
+_CHAMBERS = {"main": "M", "upper": "U", "lower": "L", "top": "T", "bottom": "B"}
+_TIERS = {"middle": "M", "upper": "U", "lower": "L"}
+
+
 class DiagnosticRegistryError(ValueError):
     """Raised when the diagnostic registry has an invalid schema."""
+
+
+class PortMapError(ValueError):
+    """Raised when the VEST port table has an invalid schema."""
 
 
 def registry_path(path: str | Path | None = None) -> Path:
@@ -94,6 +113,93 @@ def validate_diagnostic_registry(registry: Mapping[str, Mapping[str, Any]]) -> N
                 raise DiagnosticRegistryError(f"{context}: raw_daq requires mysql and archived_raw_dump backends")
             if source["type"] == "file" and (not source.get("formats") or not source.get("patterns")):
                 raise DiagnosticRegistryError(f"{context}: file source requires formats and patterns")
+
+
+def load_port_map(path: str | Path | None = None) -> dict[str, dict[str, Any]]:
+    """Load and validate the VEST port table, keyed by port name.
+
+    The returned records carry the ``clock`` position only.  A toroidal angle is
+    *derived* (:func:`port_phi`), never stored, so the table and the convention
+    cannot drift apart.
+    """
+    source = registry_path(path)
+    content = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+    block = content.get(PORT_MAP_KEY)
+    if not isinstance(block, Mapping):
+        raise PortMapError(f"{source}: {PORT_MAP_KEY} must be a mapping")
+    ports = block.get("ports")
+    if not isinstance(ports, list) or not ports:
+        raise PortMapError(f"{source}: {PORT_MAP_KEY}.ports must be a non-empty list")
+    normalized = {str(record["name"]): dict(record) for record in ports if isinstance(record, Mapping)}
+    if len(normalized) != len(ports):
+        raise PortMapError(f"{source}: every {PORT_MAP_KEY}.ports entry needs a unique name")
+    validate_port_map(normalized)
+    return normalized
+
+
+def validate_port_map(ports: Mapping[str, Mapping[str, Any]]) -> None:
+    """Validate the port table, including name/field agreement.
+
+    The port name encodes the clock position, chamber and tier, and the record
+    repeats them as fields.  Checking that the two agree is what stops a typo in
+    either half from silently relocating a diagnostic: a name says where the
+    hardware is, and nothing else in the file would notice a mismatch.
+    """
+    for name, record in ports.items():
+        context = f"{PORT_MAP_KEY}.{name}"
+        if not isinstance(record, Mapping):
+            raise PortMapError(f"{context}: record must be a mapping")
+        match = _PORT_NAME.fullmatch(name)
+        if match is None:
+            raise PortMapError(f"{context}: name does not match the VEST port grammar")
+        for field in ("clock", "chamber", "use"):
+            if field not in record:
+                raise PortMapError(f"{context}: missing {field}")
+        clock = record["clock"]
+        if not isinstance(clock, (int, float)) or isinstance(clock, bool) or not 1 <= float(clock) <= 12:
+            raise PortMapError(f"{context}: clock must be a position in 1..12")
+        if float(clock) != float(match.group("clock")):
+            raise PortMapError(
+                f"{context}: clock {clock} disagrees with the {match.group('clock')} "
+                "o'clock encoded in the port name"
+            )
+        chamber = record["chamber"]
+        if chamber not in _CHAMBERS:
+            raise PortMapError(f"{context}: unknown chamber {chamber!r}")
+        if _CHAMBERS[chamber] != match.group("location1"):
+            raise PortMapError(
+                f"{context}: chamber {chamber!r} disagrees with {match.group('location1')!r} in the name"
+            )
+        tier = record.get("tier")
+        if tier is not None and chamber != "main":
+            raise PortMapError(f"{context}: tier is meaningful only on the main chamber")
+        if (_TIERS.get(tier) if tier is not None else None) != match.group("location2"):
+            raise PortMapError(f"{context}: tier {tier!r} disagrees with the port name")
+        if not isinstance(record["use"], str) or not record["use"].strip():
+            raise PortMapError(f"{context}: use must be non-empty text")
+
+
+def port_clock(name: str, path: str | Path | None = None) -> float:
+    """The clock position of a named port.  Clockwise-positive, not IMAS phi."""
+    ports = load_port_map(path)
+    if name not in ports:
+        raise PortMapError(f"{PORT_MAP_KEY}: no port named {name!r}")
+    return float(ports[name]["clock"])
+
+
+def port_clock_angle(name: str, path: str | Path | None = None) -> float:
+    """The VEST clock angle of a named port, in degrees, clockwise-positive."""
+    return vest_clock_angle(port_clock(name, path))
+
+
+def port_phi(name: str, path: str | Path | None = None) -> float:
+    """The IMAS toroidal angle of a named port, in radians.
+
+    This is the one function a mapper should call to place a diagnostic: it
+    carries the clockwise-to-counter-clockwise negation that
+    :func:`vaft.machine_mapping.conventions.port_toroidal_angle` documents.
+    """
+    return port_toroidal_angle(port_clock(name, path))
 
 
 def documentation_snapshot(

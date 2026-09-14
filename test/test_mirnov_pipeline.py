@@ -52,7 +52,13 @@ def test_magnetics_mapping_preserves_raw_mirnov_voltage():
     assert voltage_time.size != mapped_time.size
 
     assert get_path(payload, "magnetics.b_field_pol_probe.67.type.index") == 2
-    assert np.isclose(get_path(payload, "magnetics.b_field_pol_probe.67.toroidal_angle"), 4 * np.pi / 3)
+    # Probe 67 is MagneticFieldProbe_C2-05_Bz, the 9:30 phase reference. Its
+    # IMAS phi is 75 deg; the 285 deg it sits at on the VEST clock is the other
+    # coordinate, and 4*pi/3 was neither -- that was a relative frame anchored
+    # on the first reference channel (issue #718).
+    assert np.isclose(
+        get_path(payload, "magnetics.b_field_pol_probe.67.toroidal_angle"), np.radians(75.0)
+    )
     assert np.asarray(get_path(payload, "magnetics.b_field_pol_probe.67.voltage.data")).size == NATIVE_SAMPLES
     assert get_path(payload, "magnetics.b_field_pol_probe.67.voltage.validity") == 0
     assert np.asarray(get_path(payload, "magnetics.b_field_pol_probe.64.voltage.data")).size == 0
@@ -76,7 +82,11 @@ def test_magnetics_mapping_preserves_raw_mirnov_voltage():
 
     assert get_path(payload, "magnetics.b_field_pol_probe.68.identifier") == "OutMirnov_45_L1-01"
     assert get_path(payload, "magnetics.b_field_pol_probe.68.position.z") == 0.4
-    assert np.isclose(get_path(payload, "magnetics.b_field_pol_probe.68.toroidal_angle"), np.radians(45))
+    # The identifier says 45, which is the VEST clock angle (1:30). Its IMAS
+    # toroidal angle is the reflection of that, 315 deg -- issue #718.
+    assert np.isclose(
+        get_path(payload, "magnetics.b_field_pol_probe.68.toroidal_angle"), np.radians(315.0)
+    )
     assert not path_exists(payload, "magnetics.b_field_pol_probe.68.field.data")
     # Last fluctuation-Mirnov entry (225 deg, L2-05, field 303).
     assert get_path(payload, "magnetics.b_field_pol_probe.97.identifier") == "OutMirnov_225_L2-05"

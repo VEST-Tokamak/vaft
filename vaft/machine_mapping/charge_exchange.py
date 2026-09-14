@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 import scipy.io
 
+from .registry import port_phi
 from .utils import resolve_data_root, set_path
 
 try:
@@ -35,6 +36,20 @@ def _uarray_or_values(values: Any, errors: Any) -> Any:
     if unumpy is None:
         return values
     return unumpy.uarray(values, errors)
+
+
+#: Ion Doppler spectroscopy looks through 10MR, which the port-status document
+#: lists as "Interferometry / IDS" -- IDS being this diagnostic, not the IMAS
+#: sense of the acronym.  Issue #718.
+ION_DOPPLER_PORT = "10MR"
+
+#: Charge-exchange spectroscopy is deliberately left without a toroidal angle.
+#: The port-status document lists CES at *two* bottom ports, 3B6 and 9B6, and
+#: nothing in the data files says which one a given channel belongs to.  One of
+#: the two would be wrong, and a wrong phi is worse than an absent one: a
+#: reader cannot tell it from a measured position.  Resolving it needs the CES
+#: installation record (issue #718).
+CES_CANDIDATE_PORTS = ("3B6", "9B6")
 
 
 def _require_pandas():
@@ -71,6 +86,7 @@ def read_doppler_single(ods: Any, shotnumber: int, data_root: str | Path | None 
     _set_ion_metadata(ods, "charge_exchange.channel.0.ion.0", "C3+")
     _set_ion_metadata(ods, "charge_exchange.channel.0.ion.1", "O2+")
     set_path(ods, "charge_exchange.channel.0.position.r.data", 0.39)
+    set_path(ods, "charge_exchange.channel.0.position.phi.data", port_phi(ION_DOPPLER_PORT))
 
     df = pd.read_excel(filename, engine="xlrd")
     # Keep charge_exchange.time in seconds for process/plot consistency.
@@ -143,6 +159,11 @@ def read_doppler_profile(
     for channel in range(channel_count):
         channel_prefix = f"charge_exchange.channel.{channel}"
         set_path(ods, f"{channel_prefix}.position.r.data", np.array(result_stack[channel, 0, :]))
+        set_path(
+            ods,
+            f"{channel_prefix}.position.phi.data",
+            np.full(result_stack.shape[2], port_phi(ION_DOPPLER_PORT), dtype=float),
+        )
         set_path(
             ods,
             f"{channel_prefix}.ion.0.intensity.data",
@@ -239,6 +260,12 @@ def read_doppler_ids_mat(
         # IDS_47518.mat does not contain channel z-position; assume mid-plane.
         set_path(ods, f"{channel_prefix}.position.z.time", np.asarray(times_s, dtype=float))
         set_path(ods, f"{channel_prefix}.position.z.data", np.zeros(n_times, dtype=float))
+        set_path(ods, f"{channel_prefix}.position.phi.time", np.asarray(times_s, dtype=float))
+        set_path(
+            ods,
+            f"{channel_prefix}.position.phi.data",
+            np.full(n_times, port_phi(ION_DOPPLER_PORT), dtype=float),
+        )
         _set_ion_metadata(ods, f"{channel_prefix}.ion.0", line)
         set_path(
             ods,
