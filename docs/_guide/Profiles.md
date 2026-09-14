@@ -413,6 +413,49 @@ sections share one coordinate bit-for-bit in every reference file — and so is 
 section. An unrecognised unit raises on a mapped section, where guessing a factor would be a
 silent factor of a million, but not on one kept in `extras`.
 
+### MARS `PROF*.IN`
+
+MARS reads its kinetic profiles as a deck of two-column ASCII files, one quantity each.
+
+```python
+from vaft.data import read_mars_profiles, write_mars_profiles
+
+profiles = read_mars_profiles("mars_input/")      # the whole deck
+profiles.omega_tor                                 # PROFROT.IN, rad/s
+profiles.omega_exb                                 # PROFWE.IN, rad/s
+write_mars_profiles(profiles, "out/")
+```
+
+**The two rotation files are two different quantities**, and this is where C-27 finally closes. MARS's
+own source settles which is which: `PROFROT.IN` is the bulk toroidal **fluid** rotation ω_φ, read
+under `NPROFR`, and `PROFWE.IN` is the toroidal **E×B** rotation ω_E, read under `NPROFWE` into a
+different array. MARS states the relation between them in its own analytic branch — `ROTWE = ROT -
+OMEGAI*`, i.e. they differ by the ion diamagnetic frequency. So there is no precedence rule here: a
+deck carrying both reads as two fields, and `write_mars_profiles` will not fill `PROFROT.IN` from
+`omega_exb`, which is what produced every committed deck's byte-identical pair.
+
+| file | → | what MARS calls it |
+| --- | --- | --- |
+| `PROFDEN.IN` | `n_e` | plasma density (`NPROFN`) |
+| `PROFTE.IN` / `PROFTI.IN` | `T_e` / `T_i` | electron and ion temperature |
+| `PROFROT.IN` | `omega_tor` | fluid rotation ω_φ (`NPROFR`) |
+| `PROFWE.IN` | `omega_exb` | E×B rotation ω_E (`NPROFWE`) |
+
+`PROFDEN.IN` fills `n_e` and nothing else — MARS carries one density, so equating the ion density
+with it is a modelling choice a caller makes. Any other `PROF*.IN` is kept in `extras` under its
+stem.
+
+**Nothing is scaled**, which is a finding rather than an assumption: "a MARS input is
+Alfvén-normalised" is the obvious wrong guess. The committed profiles run 1.4e4–1.0e5 rad/s against
+an Alfvén frequency of order 1.4e6 for MAST, and MARS converts the file itself when its `NEXPV` flag
+says the file carries absolute values — multiplying the on-axis value by the Alfvén time, which is
+only dimensionally sensible if the file is in rad/s. Note the corollary: under MARS's default
+`NEXPV = 0` only the *shape* of each profile is used, the scale coming from a namelist amplitude, so
+whether a deck's numbers reach a run at all is a property of its `RUN.IN` rather than of these files.
+
+Files whose ψ columns disagree, in value or in length, are refused rather than reprojected onto one
+another, and so is a header row count that disagrees with the rows beneath it.
+
 ## Exporting
 
 To hand fitted electron profiles to an external code:
