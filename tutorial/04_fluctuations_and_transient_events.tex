@@ -23,19 +23,54 @@
 
 \begin{frame}{Why this session exists}
   \begin{itemize}
-    \item Identify transient and MHD-related signatures across diagnostics.
-    \item Build a cautious chain from spectral evidence to physical interpretation.
+    \item Session 03 handed you an equilibrium you can interrogate rather than assume.
+    \item This one reads what will not hold still on top of it --- and says how much
+      of that reading you are \emph{allowed} to claim.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A coil measures a derivative}
+  \centering
+  \[ S_{\mathrm{d}B/\mathrm{d}t}(f) = (2\pi f)^{2}\, S_{B}(f) \]
+  \vspace{1em}
+
+  An index fitted to raw pickup voltage is the field's \textbf{plus two}.
+  VAFT never integrates behind an axis label.
+\end{frame}
+
+\begin{frame}{An array sets the answer, not the algorithm}
+  \centering
+  \[ \varphi_{\text{phase}} = \varphi_{0} - n\,\phi \]
+  \vspace{0.5em}
+
+  \begin{itemize}
+    \item Two positions $120^{\circ}$ apart \(\rightarrow\) $n$ modulo 3.
+    \item Three positions $90^{\circ}$ apart \(\rightarrow\) $n$ modulo 4.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Read the title before the number}
+  \begin{itemize}
+    \item The fit states how many \emph{distinct} toroidal positions answered,
+      and which probes it left on another timebase.
+    \item \texttt{available\_plots} says a call will not raise --- not that its
+      answer is worth having.
   \end{itemize}
 \end{frame}
 
 \begin{frame}{Session workflow}
   \centering
-  conditioned signals \(\rightarrow\) spectra and phase \(\rightarrow\)
-  event interpretation
+  timing \(\rightarrow\) spectrogram \(\rightarrow\) spectrum and band power
+  \(\rightarrow\) toroidal phase \(\rightarrow\) rational surfaces
 \end{frame}
 
-\begin{frame}{Practice goal: classify events}
-  Learners will compare signatures across diagnostics and state which event
-  interpretation is supported by the available evidence.
+\begin{frame}{Where the chain stops}
+  \begin{itemize}
+    \item No resolver from $(m, n)$ to a surface; no rotation measurement, so no
+      mode tracks; no event classifier of any kind.
+    \item What you may write down: $f$ and its drift, the band power against a
+      measured floor, $n$ modulo the array's alias step, $\psi_{N}$ of each bare
+      $q$ surface --- and that the pairing between them is undetermined.
+  \end{itemize}
 \end{frame}
 \end{document}
