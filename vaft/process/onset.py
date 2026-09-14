@@ -1442,6 +1442,12 @@ def active_window(
     largest sample in the search stretch -- because a spike the segment tests
     refused would otherwise set the level the pulse has to fall below (#726).
 
+    And the window is the *envelope* of its segments, which for a record of two
+    brief blips tens of milliseconds apart is mostly gap: three corpus records
+    report windows that are 7 to 19 % above threshold.  ``multiple_segments``
+    says a window has gaps but not how much of it is gap, and the extent is
+    consumed as a duration -- tracked in issue #752.
+
     Provenance
     ----------
     .. [409] Issue #409, which introduced these primitives and fixed their rules
