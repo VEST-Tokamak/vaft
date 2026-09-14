@@ -30,7 +30,9 @@ def snakefile() -> str:
 def test_every_replicable_stage_has_a_rule(snakefile):
     from vaft.database.sources import replicable_stages
 
-    for stage in replicable_stages():
+    # This pipeline owns the routine products only; the corrective pipeline
+    # builds soft X-ray and camera and has no rule here (#599).
+    for stage in replicable_stages(produced_by="routine"):
         assert f"rule replicate_{stage}_to_hsds:" in snakefile, stage
 
 
@@ -125,7 +127,7 @@ def test_replication_is_throttled_independently_of_compute_cores(snakefile):
     from vaft.database.sources import replicable_stages
 
     assert "hsds=1" in snakefile.replace(" ", "").replace("\n", "")
-    for stage in replicable_stages():
+    for stage in replicable_stages(produced_by="routine"):
         block = snakefile.split(f"rule replicate_{stage}_to_hsds:")[1].split("rule ")[0]
         assert "resources:" in block and "hsds=1" in block.replace(" ", ""), stage
     assert 'HSDS_CONFIG.get("concurrency"' in snakefile

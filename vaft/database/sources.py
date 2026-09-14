@@ -148,6 +148,14 @@ _CATALOG: dict[str, HSDSSource] = {
             "IMPA product, nothing more.",
             sparse=True,
         ),
+        HSDSSource(
+            "camera-visible-fluctuation",
+            "High-frame-rate (>= 50 kfps) FAST-camera acquisitions. Same IDS as "
+            "the routine camera product in the baseline source, so it is kept "
+            "apart by lineage rather than by occurrence. Sparse, and disjoint "
+            "from routine camera: a shot is one regime or the other.",
+            sparse=True,
+        ),
     )
 }
 
@@ -298,6 +306,12 @@ class StageReplication:
     note: str = ""
     deferred_to: str | None = None
     optional: bool = False
+    #: Which pipeline builds the product this stage replicates. Routine stages
+    #: are produced by pipeline 1 and have a Snakemake rule there; corrective
+    #: ones arrive with late external data through pipeline 2 and have none.
+    #: Stated rather than inferred from which Snakefile happens to mention a
+    #: stage, so a missing rule stays a test failure instead of an ambiguity.
+    produced_by: str = "routine"
 
     @property
     def replicable(self) -> bool:
@@ -361,6 +375,41 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
         occurrence=1,
         deferred_to="#95",
     ),
+    # Both of these are sparse -- a few hundred shots against an archive of
+    # thousands -- but sparseness alone is not why IMPA sits in its own source.
+    # IMPA is separated because it re-owns `magnetics`, which the baseline
+    # diagnostics stage already publishes. These two own IDS no other stage
+    # claims, so they can live in the baseline source without a collision, and
+    # a shot that never had a soft X-ray or camera acquisition is simply a shot
+    # without one (issue #599).
+    "soft_x_rays": StageReplication(
+        source=DEFAULT_SOURCE,
+        ids=("soft_x_rays",),
+        optional=True,
+        produced_by="corrective",
+        note="sparse optional diagnostic; an ineligible product is recorded, not raised",
+    ),
+    "camera_visible": StageReplication(
+        source=DEFAULT_SOURCE,
+        ids=("camera_visible",),
+        optional=True,
+        produced_by="corrective",
+        note="sparse optional diagnostic; an ineligible product is recorded, not raised",
+    ),
+    # Same instrument, same IDS, different acquisition regime, so it collides
+    # with routine camera on `camera_visible`. Separated by source rather than
+    # by occurrence, because lazy HSDS access reads occurrence 0 only and an
+    # occurrence split would make this product unreadable through the path the
+    # fluctuation analysis in #161 would use. Verified when the archive was
+    # consolidated: no shot appears in both regimes, so the split costs no
+    # migration.
+    "camera_visible_fluctuation": StageReplication(
+        source="camera-visible-fluctuation",
+        ids=("camera_visible",),
+        optional=True,
+        produced_by="corrective",
+        note="high-frame-rate camera lineage; kept out of the baseline camera product",
+    ),
 }
 
 #: Destination-only view of :data:`STAGE_REPLICATION`, for callers that only
@@ -409,8 +458,15 @@ def source_for_stage(stage: Any) -> str:
     return entry.source
 
 
-def replicable_stages() -> tuple[str, ...]:
-    """Return the stages with a destination and a wired replication rule."""
+def replicable_stages(*, produced_by: str | None = None) -> tuple[str, ...]:
+    """Return the stages with a destination and a wired replication rule.
+
+    ``produced_by`` narrows the result to one pipeline's products. A workflow
+    asserting that it has a rule for every stage it replicates must pass its
+    own producer, or it will demand rules for stages another pipeline builds.
+    """
     return tuple(
-        stage for stage, entry in STAGE_REPLICATION.items() if entry.replicable
+        stage
+        for stage, entry in STAGE_REPLICATION.items()
+        if entry.replicable and (produced_by is None or entry.produced_by == produced_by)
     )
