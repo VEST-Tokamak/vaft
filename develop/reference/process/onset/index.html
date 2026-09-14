@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>11c54f6</code>. What is described
+  <code>db23e48</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -478,10 +478,13 @@ here reports the record bounds when it found no pulse.</p>
 <p>The end rule is the weak one.  A disruption’s vessel-current tail can sit at a
 third of the peak for a hundred milliseconds, above any end threshold that
 still separates plasma from a normal termination, and is then ended by the
-collapse fallback rather than by the threshold.  Thirteen shots of the corpus
-reach the <code class="language-plaintext highlighter-rouge">offset_threshold_above_peak</code> guard, where the trailing level and
-the peak leave no usable end threshold; they are flagged, not repaired,
-tracked in issue #409.</p>
+collapse fallback rather than by the threshold.  And the threshold is scaled
+from the largest excess anywhere in the search mask, which need not lie in
+the segment being judged: when it does not, the segment’s own peak can sit
+below the threshold, the extension is skipped and the window is the segment
+as found, flagged <code class="language-plaintext highlighter-rouge">offset_threshold_above_peak</code>.  Thirteen shots of the
+corpus reach that – all of them early records with windows a tenth the
+usual length – flagged, not repaired, tracked in issue #726.</p>
 
 <p><strong>Provenance.</strong></p>
 
@@ -1676,7 +1679,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-14 09:50:05 +0000"
+        "time": "2026-09-14 11:13:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

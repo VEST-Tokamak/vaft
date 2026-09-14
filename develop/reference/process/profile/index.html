@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>11c54f6</code>. What is described
+  <code>db23e48</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -267,7 +267,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/profile.py"><code class="language-plaintext highlighter-rouge">vaft/process/profile.py</code></a>:
-10 public functions.  The category overview and notation come from the module
+11 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("profile.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -335,6 +335,8 @@ main ion H+ with <code class="language-plaintext highlighter-rouge">n_i = n_e</c
   <li><a href="#profile_fitting_charge_exchange"><code>profile_fitting_charge_exchange</code></a> &mdash; Fit charge-exchange <code class="language-plaintext highlighter-rouge">T_i</code> and <code class="language-plaintext highlighter-rouge">V_tor</code> profiles in a chosen radial coordinate.
 </li>
   <li><a href="#profile_fitting_thomson_scattering"><code>profile_fitting_thomson_scattering</code></a> &mdash; Fit Thomson-scattering <code class="language-plaintext highlighter-rouge">T_e</code> and <code class="language-plaintext highlighter-rouge">n_e</code> profiles in a chosen radial coordinate.
+</li>
+  <li><a href="#strip_electron_only_pressure"><code>strip_electron_only_pressure</code></a> &mdash; Drop slice-total pressure from every core_profiles slice with no ion temperature.
 </li>
 </ul>
 
@@ -1278,6 +1280,51 @@ kernel.</p>
 </li>
 </ol>
 
+<h3 id="strip_electron_only_pressure"><code class="language-plaintext highlighter-rouge">strip_electron_only_pressure</code></h3>
+
+<p class="formula-signature"><code>strip_electron_only_pressure(ods)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Drop slice-total pressure from every core_profiles slice with no ion temperature.</p>
+
+<p>Each leaf in <code class="language-plaintext highlighter-rouge">TOTAL_PRESSURE_LEAVES</code> is a sum over species, so none of
+them is meaningful on a slice that never measured an ion.  A slice carrying
+<code class="language-plaintext highlighter-rouge">ion.0.temperature</code> is a real kinetic one and keeps its pressure; the rest
+are stripped in place.</p>
+
+<p>Assuming a Ti/Te ratio is a legitimate thing to do – it is what the
+<code class="language-plaintext highlighter-rouge">electron-efit</code> lineage exists for – but the assumption has to be declared
+by whoever makes it, rather than reaching a product whose consumers read it
+as measured.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>ods</code></td><td>omas.ODS</td><td>n/a</td><td><p>Mutated in place.  An ODS with no <code class="language-plaintext highlighter-rouge">core_profiles</code> is left alone.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>None</td><td>n/a</td><td><p>The ODS is edited in place.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Presence of <code class="language-plaintext highlighter-rouge">ion.0.temperature</code> marks a slice whose ion temperature was
+measured rather than assumed.  The builders uphold that by refusing to write
+an ion block from a Ti/Te fallback.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The rule follows from what the IMAS leaves mean, not
+from any VEST diagnostic.</p>
+
 <h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
 
 <p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
@@ -1389,7 +1436,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">core_profiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#core_profiles_from_eq" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">core_profiles_from_eq</a></li><li class="page-toc-item page-toc-level-3"><a href="#core_profiles_from_eq_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">core_profiles_from_eq_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_mapping_charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_mapping_charge_exchange</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_mapping_thomson_scattering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_mapping_thomson_scattering</a></li><li class="page-toc-item page-toc-level-3"><a href="#export_electron_profile_txt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">export_electron_profile_txt</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_ti_te_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_ti_te_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#pedestal_top" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pedestal_top</a></li><li class="page-toc-item page-toc-level-3"><a href="#profile_fitting_charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">profile_fitting_charge_exchange</a></li><li class="page-toc-item page-toc-level-3"><a href="#profile_fitting_thomson_scattering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">profile_fitting_thomson_scattering</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">core_profiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#core_profiles_from_eq" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">core_profiles_from_eq</a></li><li class="page-toc-item page-toc-level-3"><a href="#core_profiles_from_eq_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">core_profiles_from_eq_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_mapping_charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_mapping_charge_exchange</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_mapping_thomson_scattering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_mapping_thomson_scattering</a></li><li class="page-toc-item page-toc-level-3"><a href="#export_electron_profile_txt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">export_electron_profile_txt</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_ti_te_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_ti_te_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#pedestal_top" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pedestal_top</a></li><li class="page-toc-item page-toc-level-3"><a href="#profile_fitting_charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">profile_fitting_charge_exchange</a></li><li class="page-toc-item page-toc-level-3"><a href="#profile_fitting_thomson_scattering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">profile_fitting_thomson_scattering</a></li><li class="page-toc-item page-toc-level-3"><a href="#strip_electron_only_pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">strip_electron_only_pressure</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1507,7 +1554,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-14 09:50:05 +0000"
+        "time": "2026-09-14 11:13:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

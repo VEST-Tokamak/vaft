@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>11c54f6</code>. What is described
+  <code>db23e48</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -302,7 +302,7 @@ limits, and transport parameters.</p>
 </li>
   <li><a href="#ballooning_stability_criterion"><code>ballooning_stability_criterion</code></a> &mdash; Distance from the first ballooning stability boundary $\alpha_{crit} \approx 0.6\,s$.
 </li>
-  <li><a href="#beta_N_from_beta_a_B0_Ip"><code>beta_N_from_beta_a_B0_Ip</code></a> &mdash; Normalised beta evaluated literally as $\beta\,a\,B_0/I_p$.
+  <li><a href="#beta_N_from_beta_a_B0_Ip"><code>beta_N_from_beta_a_B0_Ip</code></a> &mdash; Normalised beta in the Troyon convention, %·m·T/MA.
 </li>
   <li><a href="#beta_pol_from_beta_tor"><code>beta_pol_from_beta_tor</code></a> &mdash; Poloidal beta from toroidal beta, $\beta_p = \beta_t\,q_{95}^2$.
 </li>
@@ -443,24 +443,24 @@ uncited coefficient (read from the diagram).</p>
 
 <h3 id="beta_N_from_beta_a_B0_Ip"><code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code></h3>
 
-<p class="formula-signature"><code>beta_N_from_beta_a_B0_Ip(beta, a, B0, I_p)</code></p>
+<p class="formula-signature"><code>beta_N_from_beta_a_B0_Ip(beta_percent, a, B0, I_p_MA)</code></p>
 
 <p><strong>Convention-sensitive.</strong> </p>
 
-<p>Normalised beta evaluated literally as $\beta\,a\,B_0/I_p$.</p>
+<p>Normalised beta in the Troyon convention, %·m·T/MA.</p>
 
-\[\beta_N = \frac{\beta\,a\,B_0}{I_p}\]
+\[\beta_N = \frac{\beta[\%]\;a[\mathrm{m}]\;B_0[\mathrm{T}]}{I_p[\mathrm{MA}]}\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>beta</code></td><td>float</td><td>-</td><td><p>Toroidal beta as a fraction.</p>
+  <tr><td><code>beta_percent</code></td><td>float</td><td>%</td><td><p>Toroidal beta <strong>in percent</strong>, not as a fraction.</p>
 </td></tr>
   <tr><td><code>a</code></td><td>float</td><td>m</td><td><p>Minor radius.</p>
 </td></tr>
   <tr><td><code>B0</code></td><td>float</td><td>T</td><td><p>Toroidal field on axis.</p>
 </td></tr>
-  <tr><td><code>I_p</code></td><td>float</td><td>A</td><td><p>Plasma current.</p>
+  <tr><td><code>I_p_MA</code></td><td>float</td><td>MA</td><td><p>Plasma current <strong>in megaamperes</strong>.</p>
 </td></tr>
   </tbody>
 </table>
@@ -468,18 +468,25 @@ uncited coefficient (read from the diagram).</p>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>float</td><td>m T/A</td><td><p>The ratio in fraction-metre-tesla per ampere.</p>
+  <tr><td></td><td>float</td><td>%·m·T/MA</td><td><p>Normalised beta, directly comparable with the Troyon limit.</p>
 </td></tr>
   </tbody>
 </table>
 
 <p><strong>Convention.</strong></p>
 
-<p>The community $\beta_N$ (Troyon) is quoted in %·m·T/MA, i.e. $\beta$ in
-percent and $I_p$ in MA, and the Troyon limit is $\beta_N \lesssim 2.8$ in
-those units.  This function does not rescale: with the SI inputs above the
-result is $10^{-8}$ times the conventional number.  Feed $\beta$ in percent
-and $I_p$ in MA to obtain it directly.  Tracked in #349.</p>
+<p>Percent and megaamperes, which is how Troyon [1] and the ITER Physics
+Basis [2] quote $\beta_N$ and the only convention in which the limit
+$\beta_N \lesssim 2.8$ means anything. The parameter names carry their
+units because this function used to take SI – a fraction and amperes –
+and return $10^{-8}$ times the conventional number, which no rescaling of
+the <em>output</em> fixes for a reader comparing against 2.8 (#349).</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The pressure a tokamak can hold scales with $I_p/(aB_0)$, so dividing it
+out leaves a figure that is comparable across machines; exceeding ~2.8
+means an ideal-MHD beta limit rather than a machine-specific one.</p>
 
 <p><strong>References.</strong></p>
 
@@ -1474,7 +1481,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-14 09:50:05 +0000"
+        "time": "2026-09-14 11:13:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
