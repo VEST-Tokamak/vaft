@@ -1588,6 +1588,7 @@ def build_core_profiles_ods(
     shot: int,
     thomson_product: str | Path,
     ces_product: str | Path | None = None,
+    efit_product: str | Path | None = None,
     geqdsk_dir: str | Path | None = None,
     geqdsk_template: str = GEQDSK_NAME_TEMPLATE,
     run: int = 1,
@@ -1609,7 +1610,9 @@ def build_core_profiles_ods(
 
     from vaft.code.efit import build_kinetic_core_profiles
     from vaft.data import read_geqdsk
+    from vaft.data.eqdsk import from_equilibrium
     from vaft.process import profile as _profile
+    from vaft.process.equilibrium import as_equilibrium
 
     shot = int(shot)
     era = machine_era_for_shot(shot)
@@ -1623,6 +1626,7 @@ def build_core_profiles_ods(
     manifest["input"] = {
         "thomson_product": str(thomson_product),
         "ces_product": str(ces_product) if ces_product is not None else None,
+        "efit_product": str(efit_product) if efit_product is not None else None,
         "geqdsk_dir": str(geqdsk_dir) if geqdsk_dir is not None else None,
     }
 
@@ -1645,12 +1649,36 @@ def build_core_profiles_ods(
     if "core_profiles" in ods:
         del ods["core_profiles"]
 
+    # Preferred source of the psi map: the EFIT stage's own product, mapped per
+    # Thomson time to its nearest reconstructed slice. `geqdsk_dir` remains for
+    # a CHEASE directory that predates the stage, but it ties this stage to a
+    # filesystem layout it does not own, and the kinetic stages already read the
+    # equilibrium out of the product instead.
+    solution = None
+    eq_times_ms = None
+    if efit_product is not None and Path(efit_product).exists():
+        solution, _ = load_ods(Path(efit_product))
+        if "equilibrium.time" in solution:
+            eq_times_ms = (
+                np.asarray(solution["equilibrium.time"], dtype=float).reshape(-1) * 1e3
+            )
+            if eq_times_ms.size == 0:
+                eq_times_ms = None
+        if eq_times_ms is None:
+            solution = None
+
     n_kinetic = 0
     n_electron = 0
     missing_equilibrium: list[float] = []
     for time_ms in times_ms:
         geq = None
-        if geqdsk_dir is not None:
+        if solution is not None:
+            index = int(np.argmin(np.abs(eq_times_ms - float(time_ms))))
+            try:
+                geq = from_equilibrium(as_equilibrium(solution, time_index=index))
+            except Exception:  # noqa: BLE001 - an unusable slice is a missing one
+                geq = None
+        elif geqdsk_dir is not None:
             path = Path(geqdsk_dir) / geqdsk_template.format(
                 shot=shot, time_ms=int(time_ms)
             )
