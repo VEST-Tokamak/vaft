@@ -32,8 +32,16 @@ def _parse_csv(text: str, cast=str) -> tuple:
 
 
 def _runner_module(code: str) -> str:
-    """Translate FileDB's unambiguous ideal-GPEC path code to the executable key."""
-    return "gpec" if code == "ideal-gpec" else code
+    """Translate a FileDB stability product to the executable key that runs it.
+
+    The mapping lives in `paths.py` beside its inverse, because the two have to
+    agree: the Snakemake wildcard carries the product and this turns it back
+    into the executable, so a product added on one side and not the other would
+    route a cell to the wrong solver.
+    """
+    from paths import solver_module
+
+    return solver_module(code)
 
 
 def _time_label(path: Path) -> str:

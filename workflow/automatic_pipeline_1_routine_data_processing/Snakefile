@@ -42,7 +42,7 @@ config.update(_expand_config_environment(config))
 # --------------------------------------------------------------------------- #
 SCRIPT_DIR = Path(workflow.basedir)
 sys.path.insert(0, str(SCRIPT_DIR))
-from paths import FILEDB, PipelinePaths
+from paths import FILEDB, PipelinePaths, stability_product
 
 from vaft.database.sources import STAGE_REPLICATION, replicable_stages
 from vaft.omas.vest_upstream import machine_era_for_shot
@@ -64,10 +64,19 @@ CONSTRAINTS_CONFIG = config.get("constraints", {})
 EFIT_CONFIG = config.get("efit", {})
 VEST_CONFIG = config.get("vest", {})
 CHEASE_CONFIG = config.get("chease", {})
+# The lineage this run produces. `PipelinePaths` resolves every product under
+# it, so anything that reads a product back -- replication above all -- has to
+# be told the same thing, or it reads another lineage's path.
+EQUILIBRIUM_FAMILY = config.get("equilibrium_family", "magnetic")
 GPEC_CONFIG = config.get("gpec", {})
 GPEC_MODULES = GPEC_CONFIG.get("modules", ["dcon", "rdcon", "stride", "gpec"])
 GPEC_MODES = GPEC_CONFIG.get("modes", [1, 2])
-GPEC_PATH_CODES = ["ideal-gpec" if module == "gpec" else module for module in GPEC_MODULES]
+# The stability *product* each configured module files its output as. The
+# Snakemake wildcard carries the product, not the module, because they are not
+# the same axis: `dcon` produces `dcon-peeling` or `dcon-kink` depending on its
+# edge configuration, and a wildcard keyed on the module could never tell one
+# cell from the other. `run_gpec_suite.py` maps it back to the executable.
+GPEC_PATH_CODES = [stability_product(module) for module in GPEC_MODULES]
 # The `mhd_linear` builder maps DCON/RDCON/STRIDE output; ideal-GPEC's `.nc`
 # output is folded into its own `gpec_ideal` stage by `rule build_gpec_ideal`
 # (see vaft/machine_mapping/gpec_ideal.py).
@@ -285,7 +294,7 @@ def eligible_pipeline_outputs(wildcards):
     outputs += [
         PATHS.gpec_module_status(shot, code, mode)
         for shot in shots
-        for code in GPEC_MODULES
+        for code in GPEC_PATH_CODES
         for mode in GPEC_MODES
     ]
     outputs += validation_plot_products(shots)
@@ -837,6 +846,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage diagnostics \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -861,6 +871,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage eddy \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -885,6 +896,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage efit \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -909,6 +921,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage chease \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -936,6 +949,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage impa \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -960,6 +974,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage mhd_linear \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -1093,7 +1108,7 @@ rule run_gpec_module:
         refined=PATHS.shot_pattern("chease_refined"),
         status=PATHS.shot_pattern("chease_status"),
         dcon_status=lambda wildcards: (
-            PATHS.gpec_module_status(wildcards.shot, "dcon", int(wildcards.mode))
+            PATHS.gpec_module_status(wildcards.shot, stability_product("dcon"), int(wildcards.mode))
             if wildcards.code == "ideal-gpec"
             else []
         )
@@ -1112,7 +1127,7 @@ rule run_gpec_module:
             wildcards.shot, wildcards.code, int(wildcards.mode)
         ),
         dcon_option=lambda wildcards: (
-            f'--dcon-workdir "{PATHS.gpec_workdir(wildcards.shot, "dcon", int(wildcards.mode))}"'
+            f'--dcon-workdir "{PATHS.gpec_workdir(wildcards.shot, stability_product("dcon"), int(wildcards.mode))}"'
             if wildcards.code == "ideal-gpec"
             else ""
         ),
@@ -1147,7 +1162,7 @@ def gpec_module_status_for_shot(wildcards):
     """Every configured (code, mode) status file for one shot."""
     return [
         PATHS.gpec_module_status(wildcards.shot, code, mode)
-        for code in GPEC_MODULES
+        for code in GPEC_PATH_CODES
         for mode in GPEC_MODES
     ]
 
@@ -1164,9 +1179,14 @@ rule build_mhd_linear:
     params:
         modules=csv(GPEC_STABILITY_MODULES),
         modes=csv(GPEC_MODES),
+        # The key stays the *module* -- that is what the builder folds by and
+        # what `DconOutput` is read through -- while the directory it points at
+        # is the *product*'s cell. Conflating the two is what this grammar
+        # separates.
         module_workdirs=lambda wildcards: ",".join(
-            f"{code}:{mode}:{PATHS.gpec_workdir(wildcards.shot, code, mode)}"
-            for code in GPEC_STABILITY_MODULES
+            f"{module}:{mode}:"
+            f"{PATHS.gpec_workdir(wildcards.shot, stability_product(module), mode)}"
+            for module in GPEC_STABILITY_MODULES
             for mode in GPEC_MODES
         )
     conda:
@@ -1189,7 +1209,7 @@ rule build_gpec_ideal:
     input:
         refined=PATHS.shot_pattern("chease_refined"),
         gpec_status=lambda wildcards: [
-            PATHS.gpec_module_status(wildcards.shot, "ideal-gpec", mode)
+            PATHS.gpec_module_status(wildcards.shot, stability_product("gpec"), mode)
             for mode in GPEC_MODES
         ]
     output:

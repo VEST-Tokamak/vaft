@@ -34,6 +34,7 @@ sys.path.insert(0, str(WORKFLOW_DIR))
 from paths import FILEDB, SHOT_FIRST, PipelinePaths  # noqa: E402
 
 BASE_DIR = "/srv/vest.filedb/public"
+FAMILY = "magnetic"
 SHOT = 41234
 MACHINE_VERSION = "vest-45967-plus-pf2507"
 REQUIRED_RAW_FIELDS = (1, 12, 25, 59, 109)
@@ -129,18 +130,18 @@ def test_plot_paths_resolve_to_the_canonical_plot_artifact():
     assert paths.raw_plot(SHOT, "raw_overview_acquisition.png") == str(
         filedb.raw(SHOT) / "plot" / "raw_overview_acquisition.png"
     )
-    assert paths.code_plot_dir(SHOT, "chease") == str(filedb.chease(SHOT, artifact="plot"))
+    assert paths.code_plot_dir(SHOT, "chease") == str(filedb.chease(SHOT, family=FAMILY, artifact="plot"))
     assert paths.chease_plot_manifest(SHOT) == str(
-        filedb.chease(SHOT, artifact="plot") / "plot_refined_gfiles_generated.txt"
+        filedb.chease(SHOT, family=FAMILY, artifact="plot") / "plot_refined_gfiles_generated.txt"
     )
     assert paths.stage_plot(SHOT, "chease", "chease_refinement_summary.png") == str(
-        filedb.omas("chease", shot=SHOT, artifact="plot") / "chease_refinement_summary.png"
+        filedb.omas("chease", shot=SHOT, family=FAMILY, artifact="plot") / "chease_refinement_summary.png"
     )
     assert paths.stage_plot_manifest(SHOT, "chease") == str(
-        filedb.omas("chease", shot=SHOT, artifact="metadata") / "plot_manifest.json"
+        filedb.omas("chease", shot=SHOT, family=FAMILY, artifact="metadata") / "plot_manifest.json"
     )
     assert paths.chease_runs(SHOT) == str(
-        filedb.chease(SHOT, artifact="output") / "chease_runs.json"
+        filedb.chease(SHOT, family=FAMILY, artifact="output") / "chease_runs.json"
     )
 
 

@@ -3,6 +3,38 @@
 The canonical resolver is deliberately pure: resolving a path never creates a
 directory or touches an existing artifact.  The old shot-first layout is
 available only through explicitly named read-only APIs.
+
+The grammar (#77)::
+
+    raw/{shot}/
+    legacy/{diagnostic}/{shot}/
+    omas/static/{machine_version}/
+    omas/{stage}/{shot}/                                  diagnostics, eddy, impa, ...
+    omas/{stage}/{family}/{shot}/                         efit, chease, mhd_linear, gpec_ideal
+    efit/{family}/{shot}/
+    chease/{family}/{shot}/
+    gpec/{family}/{refinement}/{product}/{shot}/n={n}/
+    pipeline/{product}/
+
+with an artifact class (``input``/``output``/``log``/``plot``/``config``/
+``work``/``metadata``) as the leaf.
+
+Three dimensions carry the analysis lineage, so a product can never be filed
+under a lineage it does not belong to:
+
+``family``
+    The equilibrium reconstruction a product descends from -- ``magnetic``,
+    ``electron`` or ``kinetic``.
+``refinement``
+    The equilibrium actually handed to the solver: ``chease``, or ``none``.
+``product``
+    Which stability calculation ran. DCON's two edge treatments are separate
+    products rather than two views of one run, because a run yields one of them
+    and can never yield both (``dcon/dcon.F:262-279``).
+
+They are required wherever they apply and refused wherever they do not. Refusal
+matters as much as the requirement: a caller who passes ``family`` to a domain
+that ignores it believes the product is filed under that lineage when it is not.
 """
 
 from __future__ import annotations
@@ -64,10 +96,109 @@ class OMASStage(str, Enum):
 
 
 class GPECCode(str, Enum):
+    """Legacy stability code names.
+
+    Retained for reading the pre-canonical tree, where a DCON run recorded no
+    edge treatment. New products use :class:`StabilityProduct`.
+    """
+
     DCON = "dcon"
     RDCON = "rdcon"
     STRIDE = "stride"
     IDEAL_GPEC = "ideal-gpec"
+
+
+class EquilibriumFamily(str, Enum):
+    """The reconstruction lineage an equilibrium came from.
+
+    Downstream products inherit it, so a kinetic-EFIT refinement and its
+    stability results never share a leaf with the magnetic baseline's.
+    """
+
+    MAGNETIC = "magnetic"
+    ELECTRON = "electron"
+    KINETIC = "kinetic"
+
+
+class Refinement(str, Enum):
+    """The equilibrium actually handed to the stability solver."""
+
+    CHEASE = "chease"
+    NONE = "none"
+
+
+class StabilityProduct(str, Enum):
+    """One stability calculation.
+
+    DCON's two edge treatments are separate products rather than two views of
+    one run: with ``psiedge < psilim`` DCON overwrites its own controls and
+    re-integrates (``dcon/dcon.F:262-279``), so a scanned run describes the
+    truncated solution and the full-edge one is discarded. A run yields one of
+    them and can never yield both.
+
+    ``DCON_LEGACY`` exists only for the pre-canonical tree, whose runs recorded
+    no edge treatment and so cannot be attributed to either branch.
+    """
+
+    DCON_PEELING = "dcon-peeling"
+    DCON_KINK = "dcon-kink"
+    RDCON = "rdcon"
+    STRIDE = "stride"
+    IDEAL_GPEC = "ideal-gpec"
+    DCON_LEGACY = "dcon"
+
+
+#: The lineage a pre-canonical tree is attributed to on migration.
+#:
+#: The legacy tree recorded neither the reconstruction family nor DCON's edge
+#: treatment, so neither can be recovered from a path. Everything in it was
+#: produced by the magnetic-EFIT -> CHEASE route, which is what makes the first
+#: two safe to assert; the third is deliberately *not* guessed into
+#: ``dcon-peeling`` or ``dcon-kink``, because a run that recorded no edge
+#: treatment cannot be attributed to either branch.
+LEGACY_FAMILY = "magnetic"
+LEGACY_REFINEMENT = "chease"
+LEGACY_DCON_PRODUCT = "dcon"
+
+
+#: OMAS stages whose product belongs to one equilibrium family.
+_FAMILY_STAGES = frozenset({
+    OMASStage.EFIT.value,
+    OMASStage.CHEASE.value,
+    OMASStage.MHD_LINEAR.value,
+    OMASStage.GPEC_IDEAL.value,
+})
+
+#: OMAS stages that additionally belong to one refinement and one product.
+#:
+#: Empty on purpose, and not yet ``{mhd_linear, gpec_ideal}``. Those stages are
+#: where the product dimension *belongs* -- the ``toroidal_mode`` AOS is a dense
+#: ``(time, n_tor)`` grid, so two products writing one stage product overwrite
+#: each other -- but today ``generate_mhd_linear_ods.py`` folds DCON, RDCON and
+#: STRIDE into a single file per shot, and there is no one product to name it
+#: after.
+#:
+#: Splitting it is #137's per-product assembly, and it has to land together with
+#: the per-product HSDS sources that receive the result: three stage products
+#: with one combined destination to replicate into would be a half-migration on
+#: real data. Until then a stage product carries its family and no more, which
+#: is a true statement about what the pipeline produces rather than a placeholder.
+#: ``test_the_stage_product_is_per_family_and_per_product`` is an ``xfail`` that
+#: turns red the moment this set is populated.
+_PRODUCT_STAGES: frozenset[str] = frozenset()
+
+
+def stage_lineage(stage: str, *, family: str) -> dict[str, str]:
+    """The lineage arguments an OMAS `stage`'s path takes, and only those.
+
+    :meth:`FileDB.resolve` refuses a dimension its domain does not carry, which
+    is what stops a caller from believing a product is filed under a lineage it
+    is not. That guard only works if callers pass exactly the dimensions that
+    apply, so the selection is made here once rather than being restated at
+    every call site -- and stays correct for all of them when
+    :data:`_PRODUCT_STAGES` is populated.
+    """
+    return {"family": family} if stage in _FAMILY_STAGES else {}
 
 
 class ArtifactClass(str, Enum):
@@ -174,6 +305,17 @@ def _legacy_stability_component(value: Any) -> str:
     return _component(value, "legacy stability path component")
 
 
+def _lineage_absent(domain: str, **values: Any) -> None:
+    """Reject every lineage dimension a domain does not carry.
+
+    Silence would be worse than an error here: a caller who passes ``family`` to
+    a domain that ignores it believes the product is filed under that lineage
+    when it is not.
+    """
+    for label, value in values.items():
+        _absent(value, label, domain)
+
+
 def _absent(value: Any, label: str, domain: str) -> None:
     if value is not None:
         raise FileDBPathError(f"{label} is not valid for FileDB domain {domain!r}")
@@ -264,9 +406,20 @@ class FileDB:
         machine_version: str | None = None,
         code: str | GPECCode | None = None,
         mode: int | str | None = None,
+        family: str | EquilibriumFamily | None = None,
+        refinement: str | Refinement | None = None,
+        product: str | StabilityProduct | None = None,
         artifact: str | ArtifactClass | None = None,
     ) -> Path:
-        """Return a path from the canonical grammar without creating it."""
+        """Return a path from the canonical grammar without creating it.
+
+        ``family``/``refinement``/``product`` carry the analysis lineage: which
+        equilibrium reconstruction a product descends from, which refinement was
+        handed to the solver, and which stability calculation ran. They are
+        required wherever they apply and rejected wherever they do not, so a
+        product can never be filed under a lineage it does not belong to by
+        omitting an argument.
+        """
 
         domain_value = _enum_value(domain, FileDBDomain, "domain")
         artifact_value = (
@@ -275,7 +428,10 @@ class FileDB:
             else _enum_value(artifact, ArtifactClass, "artifact class")
         )
 
+        _lineage = {"family": family, "refinement": refinement, "product": product}
+
         if domain_value == FileDBDomain.RAW.value:
+            _lineage_absent(domain_value, **_lineage)
             _absent(subdomain, "subdomain", domain_value)
             _absent(machine_version, "machine_version", domain_value)
             _absent(code, "code", domain_value)
@@ -284,6 +440,7 @@ class FileDB:
             path = self.root / domain_value / str(_positive_integer(shot, "shot"))
 
         elif domain_value == FileDBDomain.LEGACY.value:
+            _lineage_absent(domain_value, **_lineage)
             _absent(machine_version, "machine_version", domain_value)
             _absent(code, "code", domain_value)
             _absent(mode, "mode", domain_value)
@@ -300,33 +457,53 @@ class FileDB:
             _absent(mode, "mode", domain_value)
             stage = _enum_value(subdomain, OMASStage, "OMAS subdomain")
             if stage == OMASStage.STATIC.value:
+                _lineage_absent("omas/static", **_lineage)
                 _absent(shot, "shot", "omas/static")
                 version = _component(machine_version, "machine_version")
                 path = self.root / domain_value / stage / version
             else:
                 _absent(machine_version, "machine_version", f"omas/{stage}")
-                path = (
-                    self.root
-                    / domain_value
-                    / stage
-                    / str(_positive_integer(shot, "shot"))
-                )
+                path = self.root / domain_value / stage
+                if stage in _FAMILY_STAGES:
+                    path = path / _enum_value(
+                        family, EquilibriumFamily, "equilibrium family"
+                    )
+                else:
+                    _absent(family, "family", f"omas/{stage}")
+                if stage in _PRODUCT_STAGES:
+                    path = path / _enum_value(refinement, Refinement, "refinement")
+                    path = path / _enum_value(
+                        product, StabilityProduct, "stability product"
+                    )
+                else:
+                    _lineage_absent(
+                        f"omas/{stage}", refinement=refinement, product=product
+                    )
+                path = path / str(_positive_integer(shot, "shot"))
 
         elif domain_value in {FileDBDomain.EFIT.value, FileDBDomain.CHEASE.value}:
             _absent(subdomain, "subdomain", domain_value)
             _absent(machine_version, "machine_version", domain_value)
             _absent(code, "code", domain_value)
             _absent(mode, "mode", domain_value)
-            path = self.root / domain_value / str(_positive_integer(shot, "shot"))
+            _lineage_absent(domain_value, refinement=refinement, product=product)
+            path = (
+                self.root
+                / domain_value
+                / _enum_value(family, EquilibriumFamily, "equilibrium family")
+                / str(_positive_integer(shot, "shot"))
+            )
 
         elif domain_value == FileDBDomain.GPEC.value:
             _absent(subdomain, "subdomain", domain_value)
             _absent(machine_version, "machine_version", domain_value)
-            code_value = _enum_value(code, GPECCode, "GPEC code")
+            _absent(code, "code", domain_value)
             path = (
                 self.root
                 / domain_value
-                / code_value
+                / _enum_value(family, EquilibriumFamily, "equilibrium family")
+                / _enum_value(refinement, Refinement, "refinement")
+                / _enum_value(product, StabilityProduct, "stability product")
                 / str(_positive_integer(shot, "shot"))
                 / f"n={_positive_integer(mode, 'toroidal mode')}"
             )
@@ -336,8 +513,9 @@ class FileDB:
             _absent(machine_version, "machine_version", domain_value)
             _absent(code, "code", domain_value)
             _absent(mode, "mode", domain_value)
-            product = _component(subdomain, "pipeline product")
-            path = self.root / domain_value / product
+            _lineage_absent(domain_value, **_lineage)
+            pipeline_product = _component(subdomain, "pipeline product")
+            path = self.root / domain_value / pipeline_product
 
         return path if artifact_value is None else path / artifact_value
 
@@ -369,6 +547,9 @@ class FileDB:
         *,
         shot: int | str | None = None,
         machine_version: str | None = None,
+        family: str | EquilibriumFamily | None = None,
+        refinement: str | Refinement | None = None,
+        product: str | StabilityProduct | None = None,
         artifact: str | ArtifactClass | None = None,
     ) -> Path:
         return self.resolve(
@@ -376,28 +557,56 @@ class FileDB:
             subdomain=stage,
             shot=shot,
             machine_version=machine_version,
+            family=family,
+            refinement=refinement,
+            product=product,
             artifact=artifact,
         )
 
     def efit(
-        self, shot: int | str, *, artifact: str | ArtifactClass | None = None
+        self,
+        shot: int | str,
+        *,
+        family: str | EquilibriumFamily,
+        artifact: str | ArtifactClass | None = None,
     ) -> Path:
-        return self.resolve("efit", shot=shot, artifact=artifact)
+        return self.resolve("efit", shot=shot, family=family, artifact=artifact)
 
     def chease(
-        self, shot: int | str, *, artifact: str | ArtifactClass | None = None
+        self,
+        shot: int | str,
+        *,
+        family: str | EquilibriumFamily,
+        artifact: str | ArtifactClass | None = None,
     ) -> Path:
-        return self.resolve("chease", shot=shot, artifact=artifact)
+        return self.resolve("chease", shot=shot, family=family, artifact=artifact)
 
     def gpec(
         self,
-        code: str | GPECCode,
+        product: str | StabilityProduct,
         shot: int | str,
         mode: int | str,
         *,
+        family: str | EquilibriumFamily,
+        refinement: str | Refinement,
         artifact: str | ArtifactClass | None = None,
     ) -> Path:
-        return self.resolve("gpec", code=code, shot=shot, mode=mode, artifact=artifact)
+        """One stability cell: `(family, refinement, product, shot, n_tor)`.
+
+        ``family`` and ``refinement`` are required and have no default. A
+        default would let a caller file an electron-EFIT result under the
+        magnetic lineage by omitting an argument, which is the collision this
+        grammar exists to prevent.
+        """
+        return self.resolve(
+            "gpec",
+            product=product,
+            shot=shot,
+            mode=mode,
+            family=family,
+            refinement=refinement,
+            artifact=artifact,
+        )
 
     def omas_product(
         self,
@@ -405,6 +614,9 @@ class FileDB:
         *,
         shot: int | str | None = None,
         machine_version: str | None = None,
+        family: str | EquilibriumFamily | None = None,
+        refinement: str | Refinement | None = None,
+        product: str | StabilityProduct | None = None,
     ) -> Path:
         """Return the finalized ODS file one OMAS stage writes.
 
@@ -416,7 +628,13 @@ class FileDB:
         """
         name = _enum_value(stage, OMASStage, "OMAS subdomain")
         directory = self.omas(
-            stage, shot=shot, machine_version=machine_version, artifact="output"
+            stage,
+            shot=shot,
+            machine_version=machine_version,
+            family=family,
+            refinement=refinement,
+            product=product,
+            artifact="output"
         )
         suffix = OMAS_PRODUCT_SUFFIXES.get(name, OMAS_PRODUCT_SUFFIX)
         return directory / f"{name}{suffix}"
@@ -427,10 +645,19 @@ class FileDB:
         *,
         shot: int | str | None = None,
         machine_version: str | None = None,
+        family: str | EquilibriumFamily | None = None,
+        refinement: str | Refinement | None = None,
+        product: str | StabilityProduct | None = None,
     ) -> Path:
         """Return the stage manifest recording how the product was produced."""
         directory = self.omas(
-            stage, shot=shot, machine_version=machine_version, artifact="metadata"
+            stage,
+            shot=shot,
+            machine_version=machine_version,
+            family=family,
+            refinement=refinement,
+            product=product,
+            artifact="metadata"
         )
         return directory / OMAS_MANIFEST_NAME
 
@@ -440,6 +667,9 @@ class FileDB:
         *,
         shot: int | str | None = None,
         machine_version: str | None = None,
+        family: str | EquilibriumFamily | None = None,
+        refinement: str | Refinement | None = None,
+        product: str | StabilityProduct | None = None,
     ) -> Path:
         """Return the record of whether this product reached a remote backend.
 
@@ -447,7 +677,13 @@ class FileDB:
         local product says nothing about whether it was replicated anywhere.
         """
         directory = self.omas(
-            stage, shot=shot, machine_version=machine_version, artifact="metadata"
+            stage,
+            shot=shot,
+            machine_version=machine_version,
+            family=family,
+            refinement=refinement,
+            product=product,
+            artifact="metadata"
         )
         return directory / OMAS_REPLICATION_NAME
 
@@ -637,7 +873,12 @@ def _propose_mapping(relative: Path, target: FileDB) -> tuple[Path | None, str |
         if stage_artifact is None:
             return None, "legacy OMAS product has no canonical stage mapping"
         stage, artifact = stage_artifact
-        return target.omas(stage, shot=shot, artifact=artifact) / filename, None
+        return target.omas(
+            stage,
+            shot=shot,
+            artifact=artifact,
+            family=LEGACY_FAMILY if stage in _FAMILY_STAGES else None,
+        ) / filename, None
 
     if area in {"efit", "chease"}:
         first = remainder[0].lower()
@@ -655,9 +896,9 @@ def _propose_mapping(relative: Path, target: FileDB) -> tuple[Path | None, str |
             else "work"
         )
         base = (
-            target.efit(shot, artifact=artifact)
+            target.efit(shot, family=LEGACY_FAMILY, artifact=artifact)
             if area == "efit"
-            else target.chease(shot, artifact=artifact)
+            else target.chease(shot, family=LEGACY_FAMILY, artifact=artifact)
         )
         tail = (
             remainder[1:]
@@ -685,7 +926,24 @@ def _propose_mapping(relative: Path, target: FileDB) -> tuple[Path | None, str |
         if parsed is None:
             return None, "stability artifact has no recognizable code and mode"
         code, mode, remaining = parsed
-        return target.gpec(code, shot, mode, artifact="work").joinpath(*remaining), None
+        # Every legacy code name is also a `StabilityProduct` value, so the code
+        # carries over unchanged -- including DCON, which lands on
+        # `LEGACY_DCON_PRODUCT` because the two spellings coincide by design.
+        # That coincidence is the point: the tree this came from recorded no
+        # edge treatment, so the cell must stay on the legacy product rather
+        # than being guessed into `dcon-peeling` or `dcon-kink`, which would
+        # invent provenance the migration cannot verify. The assertion is here
+        # so that renaming either spelling fails loudly instead of silently
+        # attributing legacy runs to an edge branch.
+        assert LEGACY_DCON_PRODUCT == GPECCode.DCON.value == StabilityProduct.DCON_LEGACY.value
+        return target.gpec(
+            code,
+            shot,
+            mode,
+            family=LEGACY_FAMILY,
+            refinement=LEGACY_REFINEMENT,
+            artifact="work",
+        ).joinpath(*remaining), None
 
     return None, f"legacy area {area!r} has no canonical mapping"
 
@@ -785,12 +1043,16 @@ def audit_legacy_filedb(
 
 __all__ = [
     "ArtifactClass",
+    "EquilibriumFamily",
     "FileDB",
     "FileDBConfigError",
     "FileDBDomain",
     "FileDBError",
     "FileDBPathError",
     "GPECCode",
+    "LEGACY_DCON_PRODUCT",
+    "LEGACY_FAMILY",
+    "LEGACY_REFINEMENT",
     "LegacyAuditEntry",
     "LegacyAuditReport",
     "LegacyCollision",
@@ -798,5 +1060,8 @@ __all__ = [
     "LegacyMissingProduct",
     "LegacyResolution",
     "OMASStage",
+    "Refinement",
+    "StabilityProduct",
     "audit_legacy_filedb",
+    "stage_lineage",
 ]
