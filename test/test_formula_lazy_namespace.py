@@ -28,6 +28,7 @@ _IMPORT_ORDER = (
     "constants",
     "utils",
     "equilibrium",
+    "virial",
     "stability",
     "green",
     "atomic",
@@ -35,6 +36,20 @@ _IMPORT_ORDER = (
     "magnetics",
     "neoclassical",
 )
+
+
+def test_this_file_lists_the_submodules_the_package_does():
+    """The tuple above is a deliberate restatement, not an import.
+
+    It exists so a reordering on the package side is caught rather than
+    mirrored.  That only works if a divergence fails here saying so: without
+    this, adding a submodule surfaced three files away as an opaque set
+    difference between two large name sets (#711).
+    """
+    assert _IMPORT_ORDER == vaft.formula._IMPORT_ORDER, (
+        "this file's copy of the submodule order has drifted from the package's; "
+        "update it deliberately rather than letting the namespace tests fail"
+    )
 
 
 def _eager_namespace():
