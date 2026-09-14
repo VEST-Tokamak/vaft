@@ -1,0 +1,191 @@
+---
+title: "Equilibrium and Kinetic Profiles"
+subtitle: "VAFT Introductory Tutorial | Session 03"
+format:
+  vaftslides-revealjs: default
+  vaftslides-beamer: default
+bibliography: assets/bibliography/vaft.bib
+---
+
+# Where this session starts
+
+## What session 02 handed over
+
+A discharge you can place in time --- when it broke down, what the coils did,
+and a vacuum field you have checked against the magnetics.
+
+This session asks what the plasma settled *into*, and whether the stored answer
+is really an answer.
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+Name the prerequisite. Session 02 ended with a field and a breakdown time;
+session 03 begins after the current has ramped and the plasma has found a shape.
+
+The session's posture is unusual and worth flagging early: it does not take the
+reconstruction on trust. It measures how well the stored equilibrium satisfies
+its own governing equation.
+
+TRANSITION:
+And that equation is the one thing everything else rests on.
+:::
+
+# The equation
+
+## The equation everything rests on
+
+$$\Delta^{*}\psi = -\mu_{0}R^{2}p'(\psi) - FF'(\psi)$$
+
+Flux surfaces are its contours; $p'$ and $FF'$ carry pressure and current.
+
+::: {.notes}
+[5 min]
+
+NARRATE:
+Read the equation as a statement about force balance collapsing, under
+axisymmetry, to one scalar equation for $\psi$. Everything else follows from
+$\psi$: the surfaces are its contours, the field is its gradient.
+
+Two free functions, $p'$ and $FF'$. That is what makes reconstruction possible
+and also what makes it under-determined.
+
+WARN:
+Background the course never defines and this session then uses. Supply it here:
+
+- **separatrix** — the last closed flux surface; outside it, field lines strike
+  a wall. Session 01 called it "the boundary of the confined plasma" without
+  ever linking the two words.
+- **$q$** and **$q_{95}$** — $q$ is the field-line pitch, toroidal turns per
+  poloidal turn; $q_{95}$ is its value on the surface enclosing 95% of the flux,
+  used because $q$ diverges at a separatrix.
+- **$\beta$** — plasma pressure over magnetic pressure, the efficiency of the
+  confinement. Toroidal, poloidal and normalised betas are different numbers;
+  VAFT displays $\beta_t$ as a percent and the others plain.
+- **$\ell_i$** — internal inductance, how peaked the current profile is.
+
+The session's overview promises to "vary shape, beta and internal inductance".
+Two of those three have never been defined anywhere in the course.
+
+TRANSITION:
+Two codes answer two different questions about this equation.
+:::
+
+## Two codes, two questions
+
+- **EFIT reconstructs** --- free boundary, from magnetics.
+  *What was the plasma doing?*
+- **CHEASE forward-models** --- fixed boundary, from profiles.
+  *What do these inputs imply?*
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+The distinction students most often blur. EFIT is given measurements and finds
+the equilibrium most consistent with them; its answer is only as good as the
+diagnostics constrain it. CHEASE is given a boundary and two profiles and solves
+to numerical precision; it cannot tell you about a discharge it was not given.
+
+Free versus fixed boundary is the concrete difference: EFIT's grid extends past
+the plasma to the coils because the boundary is part of the answer. CHEASE works
+only inside a boundary you hand it.
+
+WARN:
+That difference matters when the session measures the residual of both. Outside
+the separatrix $\psi$ folds back near the coils, so a residual computed over the
+whole grid says something confident and wrong. Mask on the plasma.
+
+TRANSITION:
+And a stored equilibrium carries less than you might expect.
+:::
+
+# What is stored, and what is not
+
+## What a g-file does not carry
+
+Six profiles are stored. Volume, shape, $\beta$ and $\ell_i$ are **derived**.
+
+A refused plot is often an underived quantity, not a missing measurement.
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+This is the session's transferable habit, and it recurs in session 04 inverted.
+A g-file is a compact format: $\psi$ on a grid plus six one-dimensional
+profiles. Everything else a physicist quotes about an equilibrium is computed
+from those.
+
+So when VAFT refuses to plot $\beta_N$, the question to ask is not "does this
+shot lack it" but "has anything derived it yet".
+
+WARN:
+Conventions bite here. $\beta_p$ names three different quantities in common use,
+differing by up to 26% at VEST's aspect ratio, and $\ell_i$ has at least three
+definitions. VAFT states which it computes; a number quoted without its
+convention is not a number.
+
+TRANSITION:
+Which brings up the convention that governs all of this.
+:::
+
+## The convention you will meet next
+
+VAFT works internally in **COCOS 11** --- the convention the IMAS Data
+Dictionary mandates.
+
+Poloidal flux in full weber, not weber per radian.
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+COCOS is not mentioned anywhere in this course's notebooks, and it is the first
+thing that will confuse a reader who leaves the tutorial for the library. Spend
+three minutes.
+
+Sixteen conventions exist [@sauter2013cocos]. They differ in the orientation of
+the toroidal and poloidal coordinates, the sign of the poloidal flux, and
+whether that flux is divided by $2\pi$. Equilibrium quantities are only
+comparable between codes once the index is known.
+
+The practical consequence for this course: EFIT g-files are usually COCOS 1–8,
+which store $\psi$ per radian; the Data Dictionary and VAFT's Green's functions
+use full weber. A factor of $2\pi$ between them is the single most common
+equilibrium bug.
+
+WARN:
+Do not tell students to "just multiply by $2\pi$". The conversion carries both
+the $2\pi$ and an orientation sign, and applying only the first leaves the field
+inverted for half the indices.
+:::
+
+## Session workflow
+
+flux map $\rightarrow$ derived 0-D parameters $\rightarrow$ coordinates
+
+$\rightarrow$ camera overlay $\rightarrow$ Grad--Shafranov residual
+$\rightarrow$ CHEASE refinement
+
+::: {.notes}
+[1 min]
+
+NARRATE:
+Point at each step. Note that "coordinates" is a real step, not bookkeeping: a
+profile without its radial coordinate is not a physics claim.
+:::
+
+## Practice goal: vary the equilibrium
+
+Change the shape, the pressure, the current peaking --- and watch which derived
+quantities move.
+
+::: {.notes}
+[1 min]
+
+NARRATE:
+The exercise is forward modelling, which is only possible because CHEASE takes
+inputs rather than measurements. Connect it back to the two-codes slide.
+:::
