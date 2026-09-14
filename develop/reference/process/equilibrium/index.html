@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a7410d2</code>. What is described
+  <code>62cc697</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -267,7 +267,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/equilibrium.py"><code class="language-plaintext highlighter-rouge">vaft/process/equilibrium.py</code></a>:
-42 public functions.  The category overview and notation come from the module
+43 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("equilibrium.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -354,6 +354,8 @@ outward normal is only outward then.</p>
   <li><a href="#evaluate_solovev"><code>evaluate_solovev</code></a> &mdash; Evaluate an analytic Solov’ev equilibrium on a set of points.
 </li>
   <li><a href="#extract_flux_surface_contours"><code>extract_flux_surface_contours</code></a> &mdash; Iso-flux contours at requested normalized levels, by marching squares.
+</li>
+  <li><a href="#find_rational_surfaces"><code>find_rational_surfaces</code></a> &mdash; Where a toroidal mode resonates: the surfaces with q = m / n.
 </li>
   <li><a href="#fit_miller_sequence"><code>fit_miller_sequence</code></a> &mdash; Fit Miller parameters across a sequence of flux surfaces, with radial derivatives.
 </li>
@@ -1607,6 +1609,88 @@ in the order the algorithm finds them, not sorted by size or by containment.</p>
 
 <ol class="formula-references">
   <li>The IMAS data dictionary layout for a two-dimensional flux profile, which fixes the axis order this assumes.
+</li>
+</ol>
+
+<h3 id="find_rational_surfaces"><code class="language-plaintext highlighter-rouge">find_rational_surfaces</code></h3>
+
+<p class="formula-signature"><code>find_rational_surfaces(psi_norm, q, n, *, m_range=None)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Where a toroidal mode resonates: the surfaces with q = m / n.</p>
+
+<p>A perturbation with toroidal mode number <code class="language-plaintext highlighter-rouge">n</code> resonates where the safety
+factor equals <code class="language-plaintext highlighter-rouge">m / n</code> for an integer <code class="language-plaintext highlighter-rouge">m</code>. This finds those crossings
+by linear interpolation on the <code class="language-plaintext highlighter-rouge">q</code> profile, so the result is the
+equilibrium’s own answer and needs no perturbed-equilibrium code.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Normalized poloidal flux, increasing.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td>array_like</td><td>-</td><td><p>Safety factor on <code class="language-plaintext highlighter-rouge">psi_norm</code>.</p>
+</td></tr>
+  <tr><td><code>n</code></td><td>int</td><td>-</td><td><p>Toroidal mode number; its sign is ignored.</p>
+</td></tr>
+  <tr><td><code>m_range</code></td><td>tuple of int, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(m_min, m_max)</code> to search; the range <code class="language-plaintext highlighter-rouge">q</code> actually spans by default.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">m</code> (poloidal mode number), <code class="language-plaintext highlighter-rouge">q_rational</code> (= m / n) and <code class="language-plaintext highlighter-rouge">psi_n_rational</code> (where the crossing is), ordered outward.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">psi_norm</code> and <code class="language-plaintext highlighter-rouge">q</code> differ in length, <code class="language-plaintext highlighter-rouge">psi_norm</code> does not
+    increase, or <code class="language-plaintext highlighter-rouge">n</code> is zero.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Drop non-finite samples.</li>
+  <li>For each integer <code class="language-plaintext highlighter-rouge">m</code> in range, find every bracket where <code class="language-plaintext highlighter-rouge">q - m/n</code>
+changes sign and interpolate the crossing linearly.</li>
+  <li>Sort the crossings outward.</li>
+</ol>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent. Any monotonic radial coordinate; the name says
+<code class="language-plaintext highlighter-rouge">psi_norm</code> because that is what the perturbed-equilibrium codes report
+their rational surfaces on.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Accuracy is that of linear interpolation, so the error scales with the
+square of the local grid spacing and with the curvature of <code class="language-plaintext highlighter-rouge">q</code> – which
+means it is worst exactly where <code class="language-plaintext highlighter-rouge">q</code> is steepest, at the edge. On the
+grid GPEC itself writes, which is refined around the rational surfaces
+(a spacing of 3.6e-06 at the outermost surface of the DIII-D example
+against 7.4e-03 in the core), the surfaces come back to 1.4e-09 in
+<code class="language-plaintext highlighter-rouge">psi_norm</code>. On a uniform grid of the kind an equilibrium reconstruction
+produces they do not: 6.5e-04 at 129 points and 4.0e-05 at 513, in both
+cases dominated by the outermost surface. Interpolate <code class="language-plaintext highlighter-rouge">q</code> onto a finer
+grid before asking, if the answer has to be better than that.</p>
+
+<p>A reversed-shear <code class="language-plaintext highlighter-rouge">q</code> resonates twice on the same <code class="language-plaintext highlighter-rouge">m</code>, and both
+crossings are returned. A root that sits exactly on a grid point, or a
+<code class="language-plaintext highlighter-rouge">q</code> that is flat at <code class="language-plaintext highlighter-rouge">m / n</code> over an interval, is returned once – at
+the node and at the start of the flat region respectively – rather than
+once per sign change, which would double-count it.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.rational_surface_table</code> derived the same surfaces from GPEC output; this takes them from the equilibrium, so they can be known before a run – at the accuracy the equilibrium’s own grid supports, which the Limitations quantify.
 </li>
 </ol>
 
@@ -3576,7 +3660,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#as_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">as_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_average_boundary_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_average_boundary_poloidal_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_diamagnetism" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_diamagnetism</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_q_profile_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_q_profile_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_reconstructed_diamagnetic_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_reconstructed_diamagnetic_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_equilibrium_requirements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_equilibrium_requirements</a></li><li class="page-toc-item page-toc-level-3"><a href="#computed_diamagnetism_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">computed_diamagnetism_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#contour_shape_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">contour_shape_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#convert_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">convert_cocos</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_boundary_representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_boundary_representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_global_descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_global_descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_radial_coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_radial_coordinates</a></li><li class="page-toc-item page-toc-level-3"><a href="#efit_virial_volume_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">efit_virial_volume_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_field_on_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_field_on_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_miller" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_miller</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_solovev" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_solovev</a></li><li class="page-toc-item page-toc-level-3"><a href="#extract_flux_surface_contours" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">extract_flux_surface_contours</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_sequence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_sequence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_surface" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_surface</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_surface_quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_surface_quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#fractional_cell_weights_from_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_cell_weights_from_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_equilibrium_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_equilibrium_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#parallel_current_from_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">parallel_current_from_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_at_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_at_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#prepare_boundary_for_shafranov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">prepare_boundary_for_shafranov</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_radial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_radial</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rho" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rho</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rz" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rz</a></li><li class="page-toc-item page-toc-level-3"><a href="#r_at_z_extremum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">r_at_z_extremum</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#scale_boundary_conformal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">scale_boundary_conformal</a></li><li class="page-toc-item page-toc-level-3"><a href="#shafranov_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shafranov_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_to_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_to_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_solovev_constraints" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_solovev_constraints</a></li><li class="page-toc-item page-toc-level-3"><a href="#trace_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trace_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_conformal_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_conformal_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_thin_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_thin_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_average</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#as_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">as_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_average_boundary_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_average_boundary_poloidal_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_diamagnetism" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_diamagnetism</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_q_profile_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_q_profile_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_reconstructed_diamagnetic_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_reconstructed_diamagnetic_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_equilibrium_requirements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_equilibrium_requirements</a></li><li class="page-toc-item page-toc-level-3"><a href="#computed_diamagnetism_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">computed_diamagnetism_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#contour_shape_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">contour_shape_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#convert_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">convert_cocos</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_boundary_representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_boundary_representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_global_descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_global_descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_radial_coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_radial_coordinates</a></li><li class="page-toc-item page-toc-level-3"><a href="#efit_virial_volume_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">efit_virial_volume_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_field_on_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_field_on_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_miller" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_miller</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_solovev" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_solovev</a></li><li class="page-toc-item page-toc-level-3"><a href="#extract_flux_surface_contours" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">extract_flux_surface_contours</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_rational_surfaces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_rational_surfaces</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_sequence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_sequence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_surface" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_surface</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_surface_quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_surface_quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#fractional_cell_weights_from_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_cell_weights_from_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_equilibrium_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_equilibrium_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#parallel_current_from_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">parallel_current_from_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_at_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_at_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#prepare_boundary_for_shafranov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">prepare_boundary_for_shafranov</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_radial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_radial</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rho" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rho</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rz" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rz</a></li><li class="page-toc-item page-toc-level-3"><a href="#r_at_z_extremum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">r_at_z_extremum</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#scale_boundary_conformal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">scale_boundary_conformal</a></li><li class="page-toc-item page-toc-level-3"><a href="#shafranov_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shafranov_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_to_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_to_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_solovev_constraints" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_solovev_constraints</a></li><li class="page-toc-item page-toc-level-3"><a href="#trace_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trace_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_conformal_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_conformal_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_thin_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_thin_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_average</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -3694,7 +3778,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-14 15:10:32 +0000"
+        "time": "2026-09-14 15:16:35 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

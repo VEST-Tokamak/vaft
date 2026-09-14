@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: magnetics · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: perturbation · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/formula/statistics/" />
+            <link rel="prev" href="/vaft/develop/reference/kinetic-profile-files/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/formula/virial/" />
+            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
         
     </head>
     <body>
@@ -226,7 +226,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Formula reference: magnetics</a>
+                            <a href="." >Process reference: perturbation</a>
                         
                     </h1>
                 </div>
@@ -252,62 +252,98 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/formula/Formula_reference_magnetics">Formula reference: magnetics</h1>
+                        <h1 id="/reference/process/Process_reference_perturbation">Process reference: perturbation</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.magnetics, read from the standardized docstrings (issue 248).</dd>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.perturbation, read from the standardized docstrings (issue 252).</dd>
     <dt>Prerequisites / inputs</dt><dd>None.</dd>
-    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
 
 <p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/magnetics.py"><code class="language-plaintext highlighter-rouge">vaft/formula/magnetics.py</code></a>:
-2 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("magnetics.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/perturbation.py"><code class="language-plaintext highlighter-rouge">vaft/process/perturbation.py</code></a>:
+5 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("perturbation.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
 <h2 id="overview">Overview</h2>
 
-<p>One home for the rule that turns a stored IMAS <code class="language-plaintext highlighter-rouge">poloidal_angle</code> into a
-sensitive axis, so the angle written into the IDS and the projection a
-consumer applies cannot move apart (issue #288).  The Data Dictionary
-defines <code class="language-plaintext highlighter-rouge">poloidal_angle</code> as a <strong>clockwise</strong> angle from the horizontal
-plane, zero when the sensor normal points toward increasing major radius.
-Clockwise from <code class="language-plaintext highlighter-rouge">+R</code> turns toward <code class="language-plaintext highlighter-rouge">-Z</code>, so the axis is
-<code class="language-plaintext highlighter-rouge">(cos(angle), -sin(angle))</code> in <code class="language-plaintext highlighter-rouge">(R, Z)</code> and a probe measuring <code class="language-plaintext highlighter-rouge">+Bz</code>
-is stored as <code class="language-plaintext highlighter-rouge">3*pi/2</code>.  Projecting with <code class="language-plaintext highlighter-rouge">(cos, +sin)</code> – the
-counter-clockwise reading – inverts every probe while leaving flux loops
-untouched, which is exactly how the mistake hides: VAFT carried it until
-#288, and a downstream solver carried it after #293 moved the angle.</p>
+<p>A 3-D perturbation is felt at the surfaces where it resonates, and a code
+like GPEC reports one row per rational surface: the resonant flux, the
+shielding current, the island it would open, the Chirikov parameter. Reading
+those rows is <code class="language-plaintext highlighter-rouge">vaft.code.gpec</code>’s job and it is done; this module is what
+turns a table of them into the few numbers a study actually compares.</p>
+
+<p>Nothing here is specific to a machine or to a code. The input is a radial
+coordinate and a column of values; <code class="language-plaintext highlighter-rouge">resonant_metrics</code> takes the mapping
+<code class="language-plaintext highlighter-rouge">vaft.code.gpec.GpecProfileOutput.resonant_table</code> returns because that
+is the shape the data already has, not because the module knows about GPEC.</p>
+
+<p>Two things this module is careful about, because the code it replaces was
+not.</p>
+
+<p><strong>Where a region starts and ends is not a constant.</strong> The legacy metrics
+hard-code the core at psi_n &lt;= 0.8 and the edge at 0.8 to 0.95, and seven
+different window sets are scattered across the notebooks that used them
+(convention C-16). Decision D-05 settles it: the boundary comes from the
+pedestal, through <code class="language-plaintext highlighter-rouge">vaft.process.profile.pedestal_top</code>, and every
+reduction records which window it used and where that window came from. The
+legacy numbers survive only as <code class="language-plaintext highlighter-rouge">LEGACY_WINDOWS</code>, so an old result can
+still be reproduced deliberately.</p>
+
+<p><strong>A reduction is not a verdict.</strong> <code class="language-plaintext highlighter-rouge">vaft.process</code> computes; it does not
+decide. The thresholds the legacy compared against – a Chirikov parameter of
+1, a penetration ratio of 1, an edge overlap of 7.4e-4 – are arguments here
+and defaults nowhere, and nothing in this module returns “stable”. A study
+that wants a verdict registers one in <code class="language-plaintext highlighter-rouge">vaft.validation</code>.</p>
+
+<p>Units are SI throughout: the resonant flux is in tesla, as GPEC writes it,
+and is <em>not</em> multiplied by 1e4. The legacy reported gauss, silently, inside
+the reduction; a factor of ten thousand belongs to a display layer that says
+which unit it is showing.</p>
 
 <h2 id="functions">Functions</h2>
 
 <ul class="formula-index">
-  <li><a href="#probe_axis"><code>probe_axis</code></a> &mdash; Direction cosines <code class="language-plaintext highlighter-rouge">(c_R, c_Z)</code> of a poloidal-field probe’s sensitive axis.
+  <li><a href="#amplification_ratio"><code>amplification_ratio</code></a> &mdash; How much larger one run’s resonant response is than another’s.
 </li>
-  <li><a href="#project_poloidal_field"><code>project_poloidal_field</code></a> &mdash; The component of <code class="language-plaintext highlighter-rouge">(B_R, B_Z)</code> a probe oriented at <code class="language-plaintext highlighter-rouge">poloidal_angle</code> reads.
+  <li><a href="#reduce_resonant"><code>reduce_resonant</code></a> &mdash; Reduce one resonant column over one radial window.
+</li>
+  <li><a href="#resonant_metrics"><code>resonant_metrics</code></a> &mdash; Reduce every named column of a resonant table over every window.
+</li>
+  <li><a href="#resonant_windows"><code>resonant_windows</code></a> &mdash; The core, edge and total radial windows a reduction is taken over.
+</li>
+  <li><a href="#rms_resonant_field"><code>rms_resonant_field</code></a> &mdash; Root-mean-square resonant field over a radial window.
 </li>
 </ul>
 
-<h3 id="probe_axis"><code class="language-plaintext highlighter-rouge">probe_axis</code></h3>
+<h3 id="amplification_ratio"><code class="language-plaintext highlighter-rouge">amplification_ratio</code></h3>
 
-<p class="formula-signature"><code>probe_axis(poloidal_angle)</code></p>
+<p class="formula-signature"><code>amplification_ratio(psi_norm, values, reference_psi_norm, reference_values, *, window, statistic='rms')</code></p>
 
-<p>Direction cosines <code class="language-plaintext highlighter-rouge">(c_R, c_Z)</code> of a poloidal-field probe’s sensitive axis.</p>
+<p><strong>Machine-independent.</strong> </p>
 
-\[c_R = \cos\theta, \qquad c_Z = -\sin\theta\]
-
-<p><code class="language-plaintext highlighter-rouge">probe_axis(3*pi/2) == (0, +1)</code>: VEST’s +Bz probes.</p>
+<p>How much larger one run’s resonant response is than another’s.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>poloidal_angle</code></td><td>float or ndarray</td><td>rad</td><td><p>Probe orientation angle in the DD convention; scalar or array.</p>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Rational-surface coordinate of the case.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The case’s resonant column.</p>
+</td></tr>
+  <tr><td><code>reference_psi_norm</code></td><td>array_like</td><td>-</td><td><p>Rational-surface coordinate of the reference, usually the vacuum run</p>
+</td></tr>
+  <tr><td><code>reference_values</code></td><td>array_like</td><td>any</td><td><p>The reference’s resonant column, in the same unit as <code class="language-plaintext highlighter-rouge">values</code>.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td>ResonantWindow</td><td>-</td><td><p>The interval both are reduced over.</p>
+</td></tr>
+  <tr><td><code>statistic</code></td><td>str, optional</td><td>n/a</td><td><p>One of <code class="language-plaintext highlighter-rouge">RESONANT_STATISTICS</code>.</p>
 </td></tr>
   </tbody>
 </table>
@@ -315,38 +351,62 @@ untouched, which is exactly how the mistake hides: VAFT carried it until
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>tuple of ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(c_R, c_Z)</code> direction cosines, each the shape of the input.</p>
+  <tr><td></td><td>float</td><td>-</td><td><p>Case over reference; <code class="language-plaintext highlighter-rouge">nan</code> when either window is empty or the reference reduces to zero.</p>
 </td></tr>
   </tbody>
 </table>
 
-<p><strong>References.</strong></p>
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Reduce each run over <code class="language-plaintext highlighter-rouge">window</code> independently, so the two need not
+share a rational-surface set.</li>
+  <li>Divide.</li>
+</ol>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Both runs are reduced on their <em>own</em> surfaces. Two equilibria resonate at
+different places, and interpolating one onto the other’s surfaces would
+invent a resonance where there is none.</p>
+
+<p><strong>Provenance.</strong></p>
 
 <ol class="formula-references">
-  <li>IMAS Data Dictionary, <code class="language-plaintext highlighter-rouge">magnetics.b_field_pol_probe[:].poloidal_angle</code>.
+  <li><code class="language-plaintext highlighter-rouge">gpec_analysis.calculate_amplification_ratio</code>, which fell back to the vacuum column silently when the plasma one was absent – returning a ratio of one and calling it no amplification. Not carried over: an absent column raises here.
 </li>
 </ol>
 
-<h3 id="project_poloidal_field"><code class="language-plaintext highlighter-rouge">project_poloidal_field</code></h3>
+<h3 id="reduce_resonant"><code class="language-plaintext highlighter-rouge">reduce_resonant</code></h3>
 
-<p class="formula-signature"><code>project_poloidal_field(b_r, b_z, poloidal_angle)</code></p>
+<p class="formula-signature"><code>reduce_resonant(psi_norm, values, *, window, statistic='rms')</code></p>
 
-<p>The component of <code class="language-plaintext highlighter-rouge">(B_R, B_Z)</code> a probe oriented at <code class="language-plaintext highlighter-rouge">poloidal_angle</code> reads.</p>
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
-\[B_{\mathrm{probe}} = B_R \cos\theta - B_Z \sin\theta\]
+<p>Reduce one resonant column over one radial window.</p>
 
-<p><code class="language-plaintext highlighter-rouge">b_r</code> and <code class="language-plaintext highlighter-rouge">b_z</code> may carry any trailing shape (a time series, a response
-row); <code class="language-plaintext highlighter-rouge">poloidal_angle</code> must broadcast against them – pass a scalar per
-probe, or <code class="language-plaintext highlighter-rouge">angles[:, None]</code> for a stack of rows.</p>
+<p>Complex columns – the resonant flux, the shielding current, the
+resonance parameter – are reduced on their magnitude: a complex mean
+depends on a gauge the file does not fix, so averaging the phase would
+give an answer that changes with a convention rather than with the
+plasma. A <strong>real</strong> column keeps its sign, so <code class="language-plaintext highlighter-rouge">mean</code> of a rotation
+profile that changes sign is that mean and not its rectification; pass
+<code class="language-plaintext highlighter-rouge">numpy.abs(values)</code> to reduce a signed column on magnitude.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>b_r</code></td><td>float or ndarray</td><td>T</td><td><p>Radial field component.</p>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Normalized poloidal flux of each rational surface.</p>
 </td></tr>
-  <tr><td><code>b_z</code></td><td>float or ndarray</td><td>T</td><td><p>Vertical field component.</p>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>One column of the resonant table, real or complex.</p>
 </td></tr>
-  <tr><td><code>poloidal_angle</code></td><td>float or ndarray</td><td>rad</td><td><p>Probe orientation angle in the DD convention.</p>
+  <tr><td><code>window</code></td><td>ResonantWindow</td><td>-</td><td><p>The interval to reduce over.</p>
+</td></tr>
+  <tr><td><code>statistic</code></td><td>str, optional</td><td>n/a</td><td><p>One of <code class="language-plaintext highlighter-rouge">RESONANT_STATISTICS</code>.</p>
 </td></tr>
   </tbody>
 </table>
@@ -354,15 +414,212 @@ probe, or <code class="language-plaintext highlighter-rouge">angles[:, None]</co
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>ndarray</td><td>T</td><td><p>Projected field along the probe axis.</p>
+  <tr><td></td><td>float</td><td>any</td><td><p>The reduced value, in the column’s own unit; <code class="language-plaintext highlighter-rouge">nan</code> when the window holds no surface.</p>
 </td></tr>
   </tbody>
 </table>
 
-<p><strong>References.</strong></p>
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">psi_norm</code> and <code class="language-plaintext highlighter-rouge">values</code> differ in length, or <code class="language-plaintext highlighter-rouge">statistic</code> is not
+    one of <code class="language-plaintext highlighter-rouge">RESONANT_STATISTICS</code>.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Take the magnitude of a complex column; leave a real one signed.</li>
+  <li>Select the surfaces inside <code class="language-plaintext highlighter-rouge">window</code>.</li>
+  <li>Drop non-finite samples, then apply <code class="language-plaintext highlighter-rouge">statistic</code>.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>A complex column reduces on its magnitude and a real one keeps its sign;
+the value comes back in the column’s own unit, unscaled.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent. Any per-rational-surface column.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Returns <code class="language-plaintext highlighter-rouge">nan</code> rather than raising when the window is empty: a plasma
+with no rational surface in a region is a normal result, and a run with
+four rational surfaces has regions that are legitimately empty.</p>
+
+<p><strong>Provenance.</strong></p>
 
 <ol class="formula-references">
-  <li>IMAS Data Dictionary, <code class="language-plaintext highlighter-rouge">magnetics.b_field_pol_probe[:].poloidal_angle</code>.
+  <li>Conventions register C-18: quantities on the rational-surface index must not be averaged with quantities on the mode index, and a complex mean is gauge-dependent.
+</li>
+</ol>
+
+<h3 id="resonant_metrics"><code class="language-plaintext highlighter-rouge">resonant_metrics</code></h3>
+
+<p class="formula-signature"><code>resonant_metrics(table, *, windows, columns=None, statistic='rms')</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Reduce every named column of a resonant table over every window.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>table</code></td><td>mapping of str to ndarray</td><td>any</td><td><p>A resonant table, as <code class="language-plaintext highlighter-rouge">vaft.code.gpec.GpecProfileOutput.resonant_table</code> returns it; it must carry <code class="language-plaintext highlighter-rouge">psi_n_rational</code>.</p>
+</td></tr>
+  <tr><td><code>windows</code></td><td>mapping of str to ResonantWindow</td><td>-</td><td><p>The windows to reduce over, from <code class="language-plaintext highlighter-rouge">resonant_windows</code>.</p>
+</td></tr>
+  <tr><td><code>columns</code></td><td>sequence of str, optional</td><td>n/a</td><td><p>Which columns to reduce; those of <code class="language-plaintext highlighter-rouge">RESONANT_RESPONSE_COLUMNS</code> the table carries, by default. Anything else – a coordinate, or an equilibrium profile sampled at the surfaces – has to be named, so that reducing it is a decision rather than a side effect.</p>
+</td></tr>
+  <tr><td><code>statistic</code></td><td>str, optional</td><td>n/a</td><td><p>One of <code class="language-plaintext highlighter-rouge">RESONANT_STATISTICS</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict</td><td>any</td><td><p>Keyed <code class="language-plaintext highlighter-rouge">(column, window)</code>, in the column’s own unit.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>KeyError
+    The table carries no <code class="language-plaintext highlighter-rouge">psi_n_rational</code>, no response column at all, or
+    not one that <code class="language-plaintext highlighter-rouge">columns</code> named.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Inherits <code class="language-plaintext highlighter-rouge">reduce_resonant</code>’s – magnitudes for complex columns,
+the column’s own unit – and the window convention of whatever
+<code class="language-plaintext highlighter-rouge">resonant_windows</code> produced.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A reconstruction run carries rational surfaces and no perturbed response,
+and a kinetic run may carry no rational-surface block at all – its table
+comes back empty. Both are refused here rather than reduced into something
+that looks like an answer.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_analysis_metrics.compute_metric_table</code>, which carried the same reductions with the windows and the gauss factor built in.
+</li>
+</ol>
+
+<h3 id="resonant_windows"><code class="language-plaintext highlighter-rouge">resonant_windows</code></h3>
+
+<p class="formula-signature"><code>resonant_windows(pedestal=None, *, legacy=False)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The core, edge and total radial windows a reduction is taken over.</p>
+
+<p>The core/edge boundary comes from the pedestal rather than from a
+constant. With a <code class="language-plaintext highlighter-rouge">PedestalTop</code> that resolved a fit, the edge begins at
+the pedestal’s inner knee; with one that fell back, it begins at the
+fallback position, and the window says so.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>pedestal</code></td><td>PedestalTop, optional</td><td>-</td><td><p>The pedestal boundary, from <code class="language-plaintext highlighter-rouge">vaft.process.profile.pedestal_top</code>. Omit it only together with <code class="language-plaintext highlighter-rouge">legacy=True</code>.</p>
+</td></tr>
+  <tr><td><code>legacy</code></td><td>bool, optional</td><td>-</td><td><p>Return <code class="language-plaintext highlighter-rouge">LEGACY_WINDOWS</code> instead, for reproducing a published number that used them.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to ResonantWindow</td><td>-</td><td><p>Keyed <code class="language-plaintext highlighter-rouge">core</code>, <code class="language-plaintext highlighter-rouge">edge</code>, <code class="language-plaintext highlighter-rouge">total</code>, each carrying its own bounds and the source they were derived from.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Neither a pedestal nor <code class="language-plaintext highlighter-rouge">legacy=True</code> was given, or the pedestal’s
+    coordinate is not <code class="language-plaintext highlighter-rouge">psi_norm</code>.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The 0.8 and 0.95 boundaries of <code class="language-plaintext highlighter-rouge">LEGACY_WINDOWS</code> are a legacy
+compatibility value, not a physical one: they are what the metrics this
+module replaces hard-coded.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Bounds are normalized poloidal flux, endpoints included at both ends, so
+a rational surface exactly at the boundary is counted in both neighbours
+rather than dropped by one.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent. Any radial coordinate expressed as normalized
+poloidal flux.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Migration decision D-05: the pedestal top is determined from an EPED-style profile fit, and core, edge and pedestal regions are derived from that result rather than fixed.
+</li>
+  <li>Conventions register C-16: seven different core/edge/pedestal window sets were in use across the code this replaces.
+</li>
+</ol>
+
+<h3 id="rms_resonant_field"><code class="language-plaintext highlighter-rouge">rms_resonant_field</code></h3>
+
+<p class="formula-signature"><code>rms_resonant_field(psi_norm, phi_res, *, window)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Root-mean-square resonant field over a radial window.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Normalized poloidal flux of each rational surface.</p>
+</td></tr>
+  <tr><td><code>phi_res</code></td><td>array_like</td><td>T</td><td><p>Resonant flux per surface, complex as GPEC writes it.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td>ResonantWindow</td><td>-</td><td><p>The interval to reduce over.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>T</td><td><p>RMS magnitude, in tesla; <code class="language-plaintext highlighter-rouge">nan</code> when the window holds no surface.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Tesla, not gauss. GPEC normalizes this flux by the surface area, so it
+carries field units already; the code this replaces multiplied by 1e4
+inside the reduction, which put a unit conversion where nothing said so.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_analysis_metrics.compute_rms_resonant_field</code>, whose <code class="language-plaintext highlighter-rouge">to_gauss=True</code> default is the factor not applied here.
 </li>
 </ol>
 
@@ -370,13 +627,13 @@ probe, or <code class="language-plaintext highlighter-rouge">angles[:, None]</co
 
 <p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
 </code></pre></div></div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
 validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -389,7 +646,7 @@ The same text is available offline as <code class="language-plaintext highlighte
       <ul>
         
           
-          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
         
       </ul>
     </div>
@@ -455,13 +712,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/formula/statistics/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: statistics">
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Kinetic profile file formats">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/formula/virial/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: virial">
+                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -477,7 +734,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#probe_axis" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">probe_axis</a></li><li class="page-toc-item page-toc-level-3"><a href="#project_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">project_poloidal_field</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#amplification_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">amplification_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_resonant" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_resonant</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_metrics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_metrics</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_windows" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_windows</a></li><li class="page-toc-item page-toc-level-3"><a href="#rms_resonant_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rms_resonant_field</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -493,11 +750,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Formula reference: virial",
+            "title": "VEST diagnostics and data availability",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Formula_reference_virial.md",
-            "ref": "_guide/Formula_reference_virial.md",
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
             "articles": []
         },
         
@@ -589,8 +846,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Formula_reference_magnetics.md",
-        "mtime": "2026-09-02 10:16:00 +0000",
+        "path": "_guide/Process_reference_perturbation.md",
+        "mtime": "2026-09-14 12:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
