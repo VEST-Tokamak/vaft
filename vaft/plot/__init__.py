@@ -322,6 +322,7 @@ from .renderers.profiles import (
     equilibrium_profile_pprime,
     equilibrium_profile_pressure,
     equilibrium_profile_q,
+    neoclassical_profile_bootstrap_current,
     mhd_linear_profile_b_field_perturbed,
     mhd_linear_profile_displacement,
     impa_profile_field,

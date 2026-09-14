@@ -3427,6 +3427,102 @@ RECIPES["pf_plasma_geometry_poloidal"] = CallableRecipe(
     builder=_build_pf_plasma_geometry,
     description="The plasma-current elements of pf_plasma, coloured by current.",
 )
+
+
+def _stored_bootstrap_series(ods: Any, time_slice: Any = None) -> dict[str, Any] | None:
+    """Whatever bootstrap current the ODS already carries, as a one-series model set."""
+    index = 0 if time_slice is None else int(time_slice)
+    base = f"core_profiles.profiles_1d.{index}"
+    values = _array(ods, f"{base}.j_bootstrap")
+    grid = _array(ods, f"{base}.grid.rho_tor_norm")
+    if values is None or grid is None or values.size != grid.size:
+        return None
+    label = "stored"
+    try:
+        if "core_profiles.code.name" in ods:
+            written_by = str(ods["core_profiles.code.name"]).strip()
+            if written_by:
+                label = written_by.lower()
+    except (KeyError, ValueError, TypeError):
+        pass
+    return {
+        "rho_tor_norm": grid,
+        "series": {label: {"j_bootstrap": values, "source": "stored"}},
+        "provenance": {},
+    }
+
+
+def _build_neoclassical_bootstrap(ods: Any, **options: Any) -> Profile1D:
+    """Bootstrap-current profiles from each neoclassical model, on one radial axis.
+
+    One series per model. The analytic ones are evaluated here through
+    :func:`vaft.validation.neoclassical.bootstrap_models`, which composes the ODS-level
+    provider; a solver result already written to ``core_profiles.j_bootstrap`` joins them
+    under the name of whatever wrote it, so a NEO run mapped by
+    :mod:`vaft.machine_mapping.neoclassical` appears beside the formulas it is there to
+    be compared with.
+
+    A caller who has already run the study passes ``models=`` and nothing is recomputed,
+    the arrangement ``_build_wall_reduction_convergence`` uses.
+
+    NEO solves a handful of surfaces, so its profile is NaN outside them. That is carried
+    as a ``valid_mask`` rather than silently interpolated: the gap in the line is the
+    honest statement that the solver was not asked about those radii.
+    """
+    models = options.get("models")
+    if models is None:
+        from vaft.validation.neoclassical import bootstrap_models
+
+        keys = ("z_eff", "rho_range", "ion_index", "time_slice", "include_stored")
+        passed = {key: options[key] for key in keys if key in options}
+        try:
+            models = bootstrap_models(ods, **passed)
+        except ValueError as error:
+            # The analytic models need an effective charge, and the provider
+            # refuses to invent one. A solver result already in the ODS is still
+            # worth drawing on its own, so fall back to it rather than showing
+            # nothing -- and only re-raise when there is nothing to show.
+            stored = _stored_bootstrap_series(ods, passed.get("time_slice"))
+            if stored is None:
+                raise
+            models = stored
+
+    grid = np.asarray(models["rho_tor_norm"], dtype=float)
+    order = tuple(options.get("order", ("neo", "sauter", "redl")))
+    names = [name for name in order if name in models["series"]]
+    names += [name for name in sorted(models["series"]) if name not in names]
+
+    series: list[Series] = []
+    for name in names:
+        values = np.asarray(models["series"][name]["j_bootstrap"], dtype=float)
+        finite = np.isfinite(values)
+        if not finite.any():
+            continue
+        series.append(
+            Series(
+                x=grid,
+                y=values,
+                label=name,
+                valid_mask=finite if not finite.all() else None,
+                style={"lw": 1.4} if name in ("sauter", "redl") else {"lw": 1.8},
+            )
+        )
+    if not series:
+        raise ValueError("no model produced a finite bootstrap-current profile")
+
+    time = models.get("provenance", {}).get("time")
+    return Profile1D(
+        series=tuple(series),
+        coordinate_label="rho_tor_norm",
+        y_label="Bootstrap current density",
+        y_unit="A.m^-2",
+        title=(
+            "Neoclassical bootstrap current"
+            + ("" if time is None else f" at {float(time):.4g} s")
+        ),
+    )
+
+
 RECIPES["passive_structure_overview_wall_time"] = CallableRecipe(
     builder=_build_wall_mode_spectrum,
     description="Decay-time spectrum of the wall's segment-wise eigenmodes.",
@@ -3438,6 +3534,13 @@ RECIPES["passive_structure_overview_wall_reduction"] = CallableRecipe(
 RECIPES["passive_structure_field_wall_reduction"] = CallableRecipe(
     builder=_build_wall_reduction_map,
     description="The wall's poloidal flux on the equilibrium region: full, reduced or their difference.",
+)
+RECIPES["neoclassical_profile_bootstrap_current"] = CallableRecipe(
+    builder=_build_neoclassical_bootstrap,
+    description=(
+        "Bootstrap current density from each neoclassical model on one radial axis: "
+        "the Sauter and Redl formulas, and a solver result the ODS already carries."
+    ),
 )
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,

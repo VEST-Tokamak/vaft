@@ -212,6 +212,61 @@ def test_nubeam_notebook_explains_itself_without_a_run(monkeypatch, capsys):
     assert not guardless, guardless
 
 
+def test_neo_notebook_explains_itself_without_a_run(monkeypatch, capsys):
+    """The NEO notebook cannot execute in CI, so cover the path that can.
+
+    It runs NEO, and CI has no GACODE installation. What must hold regardless is
+    that the notebook says so and carries on rather than raising -- and, unlike
+    the NUBEAM case, that it still produces something: the analytic models are
+    pure VAFT and do not need the solver, so the comparison degrades to
+    Sauter-against-Redl instead of going blank.
+
+    The packaged kinetic state is resolved on this path too, so a sample that
+    went missing fails here rather than only on a machine that has GACODE.
+    """
+    import vaft
+
+    sample = Path(vaft.data.data_path("kineticEfit/ods_48224_300ms.json"))
+    if not sample.exists():  # pragma: no cover - repository-only asset
+        pytest.skip("the packaged 48224 kinetic sample is a repository-only asset")
+
+    book = nbformat.read(NOTEBOOKS / "neoclassical_transport_with_neo.ipynb", as_version=4)
+    for name in ("GACODEHOME", "GACODE_ROOT", "GACODE_PLATFORM"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+
+    # Every code cell, in order: the offline path is the whole notebook, so
+    # running a chosen subset would let a cell that raises here go unseen.
+    namespace: dict = {}
+    for number, cell in enumerate(book.cells):
+        if cell.cell_type != "code":
+            continue
+        exec(compile(cell.source, f"neo:cell{number}", "exec"), namespace)
+
+    assert namespace["HAVE_GACODE"] is False
+    assert namespace["HAVE_RUN"] is False
+    assert namespace["RUN_DIR"] is None
+    assert namespace["SAMPLE"].is_file()
+    # The conversion is pure VAFT, so it runs here and the notebook is not empty.
+    assert namespace["profile"].n_exp > 2
+    assert set(namespace["models"]["series"]) == {"sauter", "redl"}
+
+    printed = capsys.readouterr().out
+    assert "GACODEHOME" in printed
+    assert "Would run NEO" in printed
+
+    # Anything reading the solver's native container must be guarded, or it
+    # would raise on that False.
+    guardless = [
+        cell.source
+        for cell in book.cells
+        if cell.cell_type == "code"
+        and "native." in cell.source
+        and "HAVE_RUN" not in cell.source
+    ]
+    assert not guardless, guardless
+
+
 def test_fluctuation_notebook_configured_ods_branch(monkeypatch, tmp_path):
     notebook_path = NOTEBOOKS / "fluctuation_diagnostics_analysis.ipynb"
     book = nbformat.read(notebook_path, as_version=4)
