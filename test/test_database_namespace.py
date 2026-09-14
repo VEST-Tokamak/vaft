@@ -93,9 +93,14 @@ def test_database_load_rejects_named_storage_key():
 def test_database_rejects_uri_and_local_path_sources():
     import pytest
 
-    with pytest.raises(ValueError, match="bare HSDS namespace"):
+    # A URI and a filesystem path are rejected for the same reason a shot
+    # number inside a name is: `source` names a namespace, and the protocol and
+    # the mount point are not part of one. Hierarchical names are valid now
+    # (`main/chease/dcon-peeling`), which is why the check is that these two
+    # are refused rather than that anything containing a slash is.
+    with pytest.raises(ValueError, match="must be an HSDS namespace"):
         database.load(39915, source="hdf5://public", imas_version="3.41.0")
-    with pytest.raises(ValueError, match="bare HSDS namespace"):
+    with pytest.raises(ValueError, match="must be an HSDS namespace"):
         database.load(39915, source="/tmp/data", imas_version="3.41.0")
 
 

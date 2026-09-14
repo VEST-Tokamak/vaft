@@ -380,8 +380,9 @@ def _extra_sources(environment: Mapping[str, str] | None = None) -> dict[str, HS
             continue
         if not _NAME.fullmatch(name):
             raise HSDSSourceError(
-                f"{EXTRA_SOURCES_VARIABLE} entry {name!r} is not a bare HSDS namespace; "
-                "use lowercase letters, digits and single hyphens."
+                f"{EXTRA_SOURCES_VARIABLE} entry {name!r} is not a valid HSDS "
+                "namespace; use lowercase letters, digits and single hyphens per "
+                "segment, with segments joined by '/'."
             )
         extra[name] = HSDSSource(name, f"Opted in via {EXTRA_SOURCES_VARIABLE}.")
     return extra

@@ -170,7 +170,7 @@ def test_experiment_namespaces_are_opt_in_through_the_environment(monkeypatch):
 
 def test_opted_in_namespaces_obey_the_same_grammar(monkeypatch):
     monkeypatch.setenv(sources.EXTRA_SOURCES_VARIABLE, "Not A Namespace")
-    with pytest.raises(sources.HSDSSourceError, match="bare HSDS namespace"):
+    with pytest.raises(sources.HSDSSourceError, match="not a valid HSDS namespace"):
         sources.resolve("main")
 
 
