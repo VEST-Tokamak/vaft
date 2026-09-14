@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>ca92b4b</code>. What is described
+  <code>9567a63</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -656,17 +656,17 @@ which documents the conventions and cites every entry.</p>
 <p>Plasma stability, operational limits, and transport calculations. — <a href="/vaft/develop/reference/formula/stability/">19 functions</a>.</p>
 
 <ul class="formula-index">
-  <li><a href="/vaft/develop/reference/formula/stability/#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a> <em>(convention)</em> &mdash; Normalised pressure gradient of the $s$-$\alpha$ ballooning model, without $q^2$.
+  <li><a href="/vaft/develop/reference/formula/stability/#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a> <em>(convention)</em> &mdash; Normalised pressure gradient $\alpha$ of the $s$-$\alpha$ ballooning model.
 </li>
   <li><a href="/vaft/develop/reference/formula/stability/#ballooning_stability_criterion"><code>ballooning_stability_criterion</code></a> <em>(empirical)</em> &mdash; Distance from the first ballooning stability boundary $\alpha_{crit} \approx 0.6\,s$.
 </li>
   <li><a href="/vaft/develop/reference/formula/stability/#beta_N_from_beta_a_B0_Ip"><code>beta_N_from_beta_a_B0_Ip</code></a> <em>(convention)</em> &mdash; Normalised beta in the Troyon convention, %·m·T/MA.
 </li>
-  <li><a href="/vaft/develop/reference/formula/stability/#beta_pol_from_beta_tor"><code>beta_pol_from_beta_tor</code></a> &mdash; Poloidal beta from toroidal beta, $\beta_p = \beta_t\,q_{95}^2$.
+  <li><a href="/vaft/develop/reference/formula/stability/#beta_pol_from_beta_tor"><code>beta_pol_from_beta_tor</code></a> &mdash; Poloidal beta from toroidal beta, cylindrical relation.
 </li>
   <li><a href="/vaft/develop/reference/formula/stability/#beta_stability_boundary"><code>beta_stability_boundary</code></a> <em>(empirical)</em> &mdash; Heuristic beta margin against $\beta_{N,crit} = 0.028\,q_{95}$.
 </li>
-  <li><a href="/vaft/develop/reference/formula/stability/#beta_tor_from_beta_pol"><code>beta_tor_from_beta_pol</code></a> &mdash; Toroidal beta from poloidal beta, $\beta_t = \beta_p/q_{95}^2$.
+  <li><a href="/vaft/develop/reference/formula/stability/#beta_tor_from_beta_pol"><code>beta_tor_from_beta_pol</code></a> &mdash; Toroidal beta from poloidal beta, cylindrical relation.
 </li>
   <li><a href="/vaft/develop/reference/formula/stability/#c_s_from_Te_Ti_mi"><code>c_s_from_Te_Ti_mi</code></a> <em>(convention)</em> &mdash; Isothermal ion sound speed $c_s = \sqrt{(T_e + T_i)/m_i}$.
 </li>
@@ -688,7 +688,7 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/develop/reference/formula/stability/#power_limit_from_q"><code>power_limit_from_q</code></a> &mdash; Expression $2\pi R_0 I_p/(\mu_0 q_{95})$ labelled a power limit.
 </li>
-  <li><a href="/vaft/develop/reference/formula/stability/#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a> <em>(convention)</em> &mdash; Electron gyroradius figure $\sqrt{T_e}\,a/B_t$ (as implemented).
+  <li><a href="/vaft/develop/reference/formula/stability/#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a> <em>(convention)</em> &mdash; Normalised electron gyroradius $\rho_e/a$.
 </li>
   <li><a href="/vaft/develop/reference/formula/stability/#sawtooth_stability_criterion"><code>sawtooth_stability_criterion</code></a> <em>(empirical)</em> &mdash; Heuristic sawtooth margin against $\beta_{p,crit} = 0.3\,(1 - q_0)$.
 </li>
@@ -1124,7 +1124,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-14 12:08:13 +0000"
+        "time": "2026-09-14 13:29:45 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

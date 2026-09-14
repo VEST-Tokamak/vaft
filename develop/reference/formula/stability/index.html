@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>ca92b4b</code>. What is described
+  <code>9567a63</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -298,17 +298,17 @@ limits, and transport parameters.</p>
 <h2 id="functions">Functions</h2>
 
 <ul class="formula-index">
-  <li><a href="#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a> &mdash; Normalised pressure gradient of the $s$-$\alpha$ ballooning model, without $q^2$.
+  <li><a href="#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a> &mdash; Normalised pressure gradient $\alpha$ of the $s$-$\alpha$ ballooning model.
 </li>
   <li><a href="#ballooning_stability_criterion"><code>ballooning_stability_criterion</code></a> &mdash; Distance from the first ballooning stability boundary $\alpha_{crit} \approx 0.6\,s$.
 </li>
   <li><a href="#beta_N_from_beta_a_B0_Ip"><code>beta_N_from_beta_a_B0_Ip</code></a> &mdash; Normalised beta in the Troyon convention, %·m·T/MA.
 </li>
-  <li><a href="#beta_pol_from_beta_tor"><code>beta_pol_from_beta_tor</code></a> &mdash; Poloidal beta from toroidal beta, $\beta_p = \beta_t\,q_{95}^2$.
+  <li><a href="#beta_pol_from_beta_tor"><code>beta_pol_from_beta_tor</code></a> &mdash; Poloidal beta from toroidal beta, cylindrical relation.
 </li>
   <li><a href="#beta_stability_boundary"><code>beta_stability_boundary</code></a> &mdash; Heuristic beta margin against $\beta_{N,crit} = 0.028\,q_{95}$.
 </li>
-  <li><a href="#beta_tor_from_beta_pol"><code>beta_tor_from_beta_pol</code></a> &mdash; Toroidal beta from poloidal beta, $\beta_t = \beta_p/q_{95}^2$.
+  <li><a href="#beta_tor_from_beta_pol"><code>beta_tor_from_beta_pol</code></a> &mdash; Toroidal beta from poloidal beta, cylindrical relation.
 </li>
   <li><a href="#c_s_from_Te_Ti_mi"><code>c_s_from_Te_Ti_mi</code></a> &mdash; Isothermal ion sound speed $c_s = \sqrt{(T_e + T_i)/m_i}$.
 </li>
@@ -330,7 +330,7 @@ limits, and transport parameters.</p>
 </li>
   <li><a href="#power_limit_from_q"><code>power_limit_from_q</code></a> &mdash; Expression $2\pi R_0 I_p/(\mu_0 q_{95})$ labelled a power limit.
 </li>
-  <li><a href="#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a> &mdash; Electron gyroradius figure $\sqrt{T_e}\,a/B_t$ (as implemented).
+  <li><a href="#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a> &mdash; Normalised electron gyroradius $\rho_e/a$.
 </li>
   <li><a href="#sawtooth_stability_criterion"><code>sawtooth_stability_criterion</code></a> &mdash; Heuristic sawtooth margin against $\beta_{p,crit} = 0.3\,(1 - q_0)$.
 </li>
@@ -340,13 +340,13 @@ limits, and transport parameters.</p>
 
 <h3 id="ballooning_alpha_from_p_B_R"><code class="language-plaintext highlighter-rouge">ballooning_alpha_from_p_B_R</code></h3>
 
-<p class="formula-signature"><code>ballooning_alpha_from_p_B_R(p, B, R)</code></p>
+<p class="formula-signature"><code>ballooning_alpha_from_p_B_R(p, B, R, q)</code></p>
 
 <p><strong>Convention-sensitive.</strong> </p>
 
-<p>Normalised pressure gradient of the $s$-$\alpha$ ballooning model, without $q^2$.</p>
+<p>Normalised pressure gradient $\alpha$ of the $s$-$\alpha$ ballooning model.</p>
 
-\[\alpha = -\frac{2\mu_0 R}{B^2}\,\frac{dp}{dR}\]
+\[\alpha = -\frac{2\mu_0 R q^2}{B^2}\,\frac{dp}{dr}\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
@@ -357,24 +357,33 @@ limits, and transport parameters.</p>
 </td></tr>
   <tr><td><code>R</code></td><td>float or np.ndarray</td><td>m</td><td><p>Major radius of the samples, monotonic.</p>
 </td></tr>
+  <tr><td><code>q</code></td><td>float or np.ndarray</td><td>-</td><td><p>Safety factor on the same surfaces.</p>
+</td></tr>
   </tbody>
 </table>
 
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Ballooning parameter as defined above.</p>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Ballooning parameter in the Connor-Hastie-Taylor normalisation.</p>
 </td></tr>
   </tbody>
 </table>
 
 <p><strong>Convention.</strong></p>
 
-<p>Connor, Hastie and Taylor define $\alpha = -2\mu_0 R q^2\,(dp/dr)/B^2$ with
-$r$ the minor radius.  This routine omits the $q^2$ factor and
-differentiates against the major radius $R$, so it returns the standard
-$\alpha$ divided by $q^2$; multiply by $q^2$ before reading it against the
-$s$-$\alpha$ diagram.  Tracked in #364.</p>
+<p>Connor, Hastie and Taylor [1] define $\alpha$ with the $q^2$ and with $r$
+the minor radius. Until #364 this omitted the $q^2$ entirely, so it returned
+$\alpha/q^2$ – an order of magnitude at $q \simeq 3$ – while
+<code class="language-plaintext highlighter-rouge">ballooning_stability_criterion</code> compared the result against
+$0.6\,s$ as though it were the standard $\alpha$.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The derivative is still taken against the <strong>major</strong> radius $R$, not the
+minor radius $r$ of the definition. For a large-aspect-ratio circular
+plasma on the outboard midplane the two coincide, which is the case this is
+used for; anywhere else the caller must supply a minor-radius abscissa.</p>
 
 <p><strong>Numerical notes.</strong></p>
 
@@ -499,11 +508,11 @@ means an ideal-MHD beta limit rather than a machine-specific one.</p>
 
 <h3 id="beta_pol_from_beta_tor"><code class="language-plaintext highlighter-rouge">beta_pol_from_beta_tor</code></h3>
 
-<p class="formula-signature"><code>beta_pol_from_beta_tor(beta_tor, q_95)</code></p>
+<p class="formula-signature"><code>beta_pol_from_beta_tor(beta_tor, q_95, epsilon)</code></p>
 
-<p>Poloidal beta from toroidal beta, $\beta_p = \beta_t\,q_{95}^2$.</p>
+<p>Poloidal beta from toroidal beta, cylindrical relation.</p>
 
-\[\beta_p = \beta_t\,q_{95}^2\]
+\[\beta_p = \beta_t\left(\frac{q}{\varepsilon}\right)^2\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
@@ -511,6 +520,8 @@ means an ideal-MHD beta limit rather than a machine-specific one.</p>
   <tr><td><code>beta_tor</code></td><td>float</td><td>-</td><td><p>Toroidal beta.</p>
 </td></tr>
   <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
+</td></tr>
+  <tr><td><code>epsilon</code></td><td>float</td><td>-</td><td><p>Inverse aspect ratio $a/R_0$, strictly positive.</p>
 </td></tr>
   </tbody>
 </table>
@@ -523,16 +534,24 @@ means an ideal-MHD beta limit rather than a machine-specific one.</p>
   </tbody>
 </table>
 
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    When <code class="language-plaintext highlighter-rouge">epsilon</code> is not strictly positive, since the relation divides
+    by it [-].</p>
+
 <p><strong>Assumptions.</strong></p>
 
 <p>Circular, large-aspect-ratio cylinder in which $B_p/B_t = \varepsilon/q$.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>The cylindrical relation is $\beta_p = \beta_t\,(q/\varepsilon)^2$; the
-$1/\varepsilon^2$ is missing here, so the result equals the standard value
-only at $\varepsilon = 1$ and underestimates $\beta_p$ by $\varepsilon^2$
-otherwise.  Tracked in #363.</p>
+<p>Until #363 the $1/\varepsilon^2$ was missing, so the result was right only
+at $\varepsilon = 1$ and low by $\varepsilon^2$ everywhere else – a factor
+of about 2 at the $\varepsilon \simeq 0.7$ of a spherical tokamak and more
+than 10 at a conventional $\varepsilon \simeq 0.3$. Round-tripping through
+<code class="language-plaintext highlighter-rouge">beta_tor_from_beta_pol</code> hid it, because both directions were wrong by
+the same factor.</p>
 
 <p><strong>References.</strong></p>
 
@@ -588,11 +607,11 @@ the fraction convention.  Tracked in #350.</p>
 
 <h3 id="beta_tor_from_beta_pol"><code class="language-plaintext highlighter-rouge">beta_tor_from_beta_pol</code></h3>
 
-<p class="formula-signature"><code>beta_tor_from_beta_pol(beta_pol, q_95)</code></p>
+<p class="formula-signature"><code>beta_tor_from_beta_pol(beta_pol, q_95, epsilon)</code></p>
 
-<p>Toroidal beta from poloidal beta, $\beta_t = \beta_p/q_{95}^2$.</p>
+<p>Toroidal beta from poloidal beta, cylindrical relation.</p>
 
-\[\beta_t = \frac{\beta_p}{q_{95}^2}\]
+\[\beta_t = \beta_p\left(\frac{\varepsilon}{q}\right)^2\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
@@ -600,6 +619,8 @@ the fraction convention.  Tracked in #350.</p>
   <tr><td><code>beta_pol</code></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
 </td></tr>
   <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
+</td></tr>
+  <tr><td><code>epsilon</code></td><td>float</td><td>-</td><td><p>Inverse aspect ratio $a/R_0$, strictly positive.</p>
 </td></tr>
   </tbody>
 </table>
@@ -612,15 +633,19 @@ the fraction convention.  Tracked in #350.</p>
   </tbody>
 </table>
 
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    When <code class="language-plaintext highlighter-rouge">epsilon</code> is not strictly positive [-].</p>
+
 <p><strong>Assumptions.</strong></p>
 
-<p>Circular, large-aspect-ratio cylinder; inverse of <code class="language-plaintext highlighter-rouge">beta_pol_from_beta_tor</code>.</p>
+<p>Circular, large-aspect-ratio cylinder; exact inverse of
+<code class="language-plaintext highlighter-rouge">beta_pol_from_beta_tor</code>.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>Missing $\varepsilon^2$ factor of the cylindrical relation $\beta_t =
-\beta_p\,\varepsilon^2/q^2$, as for <code class="language-plaintext highlighter-rouge">beta_pol_from_beta_tor</code>.
-Tracked in #363.</p>
+<p>Carried the same missing $\varepsilon^2$ as its inverse until #363.</p>
 
 <p><strong>References.</strong></p>
 
@@ -1113,13 +1138,15 @@ no derivation or source is recorded.  Kept for compatibility.  Tracked in
 
 <h3 id="rhostar_from_Te_a_Bt"><code class="language-plaintext highlighter-rouge">rhostar_from_Te_a_Bt</code></h3>
 
-<p class="formula-signature"><code>rhostar_from_Te_a_Bt(Te_eV, a_minor, B_t, m_e=9.10938356e-31)</code></p>
+<p class="formula-signature"><code>rhostar_from_Te_a_Bt(Te_eV, a_minor, B_t)</code></p>
 
 <p><strong>Convention-sensitive.</strong> </p>
 
-<p>Electron gyroradius figure $\sqrt{T_e}\,a/B_t$ (as implemented).</p>
+<p>Normalised electron gyroradius $\rho_e/a$.</p>
 
-\[\rho_*^{\mathrm{(impl)}} = \frac{\sqrt{T_e}}{B_t}\,a\]
+\[\rho_* = \frac{\rho_e}{a}, \qquad
+  \rho_e = \frac{\sqrt{2 m_e e T_e}}{e B_t}
+          = \sqrt{\frac{2m_e}{e}}\;\frac{\sqrt{T_e}}{B_t}\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
@@ -1130,28 +1157,29 @@ no derivation or source is recorded.  Kept for compatibility.  Tracked in
 </td></tr>
   <tr><td><code>B_t</code></td><td>float</td><td>T</td><td><p>Toroidal field.</p>
 </td></tr>
-  <tr><td><code>m_e</code></td><td>float, optional</td><td>kg</td><td><p>Electron mass, accepted but unused; default <code class="language-plaintext highlighter-rouge">ME</code>.</p>
-</td></tr>
   </tbody>
 </table>
 
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>float</td><td>eV^1/2 m/T</td><td><p>The expression above.</p>
+  <tr><td></td><td>float</td><td>-</td><td><p>Normalised electron gyroradius.</p>
 </td></tr>
   </tbody>
 </table>
 
 <p><strong>Convention.</strong></p>
 
-<p>Intended as the normalised electron gyroradius $\rho_e/a$ with $\rho_e =
-\sqrt{2m_eT_e}/(eB)$, which <em>divides</em> by $a$ and carries the constant
-$\sqrt{2m_e/e} = 3.37\times10^{-6}$ m T eV$^{-1/2}$.  The implementation
-multiplies by $a$ and omits the constant, so it is neither dimensionless
-nor proportional to $\rho_*$ across devices.  Tracked in #348; use
-<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.normalized_larmor_radius_from_M_T_a_Bt</code>
-with <code class="language-plaintext highlighter-rouge">M=ME</code>.</p>
+<p>Thermal speed $\sqrt{2T/m}$ and the toroidal field, normalised by the minor
+radius: the ITER Physics Basis definition [1], and the electron counterpart
+of <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.normalized_larmor_radius_from_M_T_a_Bt</code>,
+which this delegates to so the two cannot drift.</p>
+
+<p>Until #348 this multiplied by $a$ instead of dividing, omitted the constant
+$\sqrt{2m_e/e} = 3.37\times10^{-6}$ m T eV$^{-1/2}$, and ignored an
+<code class="language-plaintext highlighter-rouge">m_e</code> argument it accepted – so the result was neither dimensionless nor
+proportional to $\rho_*$ across devices, and no rescaling recovered it. The
+dead <code class="language-plaintext highlighter-rouge">m_e</code> parameter is gone with the defect.</p>
 
 <p><strong>References.</strong></p>
 
@@ -1481,7 +1509,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-14 12:08:13 +0000"
+        "time": "2026-09-14 13:29:45 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
