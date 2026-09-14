@@ -1131,8 +1131,19 @@ def _diamagnetic_energy(ods: Any, index: int, virial: Mapping[str, Any], dia_row
         return _result(ValidationStatus.INDETERMINATE,
                        reason=f"the virial inputs are not decided: {', '.join(missing) or 'non-positive volume, field or radius'}",
                        measured_flux=measured)
-    mui = _float(computed_diamagnetism_from_phi(measured, b_t0, r_0, needed["V_p"], needed["B_pa"]))
-    beta_pd = _float(virial_beta_pd_from_S_mu_rt(needed["s_1"], needed["s_2"], mui, needed["rt"] / r_0))
+    # One computation, not two. The wrapper already converts this slice's
+    # measured flux, using |F_boundary| for the magnitude and the machine's
+    # field direction for the sign; recomputing it here from b0 gave a number
+    # up to 39% different (#325's drift) under the same field name. Its value
+    # is the volume convention, which is what every other mu_i in this report
+    # is on -- virial_beta_pd_from_S_mu_rt takes the flux one, so it is negated
+    # at the single point that needs it.
+    mui = _float((virial.get("mu_i_sources") or {}).get("measured"))
+    if not math.isfinite(mui):
+        mui = -_float(
+            computed_diamagnetism_from_phi(measured, b_t0, r_0, needed["V_p"], needed["B_pa"])
+        )
+    beta_pd = _float(virial_beta_pd_from_S_mu_rt(needed["s_1"], needed["s_2"], -mui, needed["rt"] / r_0))
     fields = dict(measured_flux=measured, B_t0=b_t0, R_0=r_0, mui_measured=mui, beta_p_diamagnetic=beta_pd,
                   W_kin_virial=needed["W_kin"],
                   thermal_energy=_float(descriptors["thermal_energy"].value) if descriptors and "thermal_energy" in descriptors else math.nan)
