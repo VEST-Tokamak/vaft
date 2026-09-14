@@ -29,7 +29,8 @@ ingest_external_diagnostics.py      archive        -> one IDS product per shot
   camera_ccd_2013/{shot}/                 2013-era CCD, jpg/avi
   hard_x_rays/{shot}/                     hard_x_rays is not_implemented
 
-{root}/ods/{tree}/{shot}/                 generated IDS products + manifests
+{root}/omas/{tree}/{shot}/output/         generated IDS products
+{root}/omas/{tree}/{shot}/metadata/       their manifests
 ```
 
 `legacy/` is the canonical FileDB domain that
@@ -47,9 +48,15 @@ would either fail or, worse, quietly ingest derived frames as if they were raw.
 Keeping it outside the grammar makes that impossible rather than merely
 discouraged.
 
-`ods/` is a holding area, not a canonical location: neither diagnostic has an
-`OMASStage` of its own yet. Giving them stages, and a `STAGE_REPLICATION` entry
-in `vaft/database/sources.py` so their IDSs reach HSDS, is issue #130's job.
+Products live in the canonical `omas/` domain. Each tree is a real `OMASStage`
+with a `STAGE_REPLICATION` entry, so these diagnostics publish on the same
+contract as every other stage, and `FileDB.omas_product` is what names a
+product — the same call `replicate_stage` uses to find one. Soft X-ray and
+routine camera publish into `main`; they own IDS no other stage claims, so they
+need no namespace of their own. The high-frame-rate camera set owns the *same*
+`camera_visible` IDS as routine camera, so it has its own source: two stages
+cannot own one IDS in one source without the second replacing the first, and an
+occurrence split is closed off because lazy HSDS access reads occurrence 0 only.
 
 ## Classification
 
@@ -127,7 +134,7 @@ Measured after the first full pass:
 | `camera_visible` | 483 | 398 | 231 GB |
 | `camera_visible_fluctuation` | 52 | reserved | — |
 
-Failures are recorded per shot in `ods/{tree}/ingested_shots.json` with a
+Failures are recorded per shot in `omas/{tree}/ingested_shots.json` with a
 reason. They are data properties, not tooling faults:
 
 - **12 soft X-ray shots** (39217, 39260, and the run 39606–39615) have ragged
@@ -149,6 +156,8 @@ manifest; judge the archive by those, not by directory size.
   ~29 GB would do. This is a *storage* cost only — the raw frame list stays
   uint8 during the build, and peak memory for the largest shot (38769, 2167
   frames at 1024×1280) measures 2.75 GB.
+- Publishing needs the shot folder to exist on the server first, and `hstouch`
+  returns 403 for a normal account, so provisioning is an admin action.
 - Shots 26576, 26757 and 29770, which issue #161 names as required, are not
   present in any local source. 27134 and 32308 are, at 50 kfps.
 - Seven camera directories have a `_bmp.txt` that is a filesystem index record

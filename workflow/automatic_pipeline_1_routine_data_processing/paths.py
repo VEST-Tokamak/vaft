@@ -83,9 +83,24 @@ _LOG_OWNER = {
     "run_gpec_suite": ("omas", "mhd_linear"),
     "build_mhd_linear": ("omas", "mhd_linear"),
     "build_gpec_ideal": ("omas", "gpec_ideal"),
+    # Ingested by pipeline 2 rather than produced here, but they own OMAS
+    # stages, so a log written for one has to resolve like any other (#599).
+    "ingest_soft_x_rays": ("omas", "soft_x_rays"),
+    "ingest_camera_visible": ("omas", "camera_visible"),
+    "ingest_camera_visible_fluctuation": ("omas", "camera_visible_fluctuation"),
     **{
         f"replicate_{stage}_to_hsds": ("omas", stage)
-        for stage in ("diagnostics", "impa", "eddy", "efit", "chease", "mhd_linear")
+        for stage in (
+            "diagnostics",
+            "impa",
+            "eddy",
+            "efit",
+            "chease",
+            "mhd_linear",
+            "soft_x_rays",
+            "camera_visible",
+            "camera_visible_fluctuation",
+        )
     },
 }
 

@@ -49,6 +49,13 @@ class OMASStage(str, Enum):
     CHEASE = "chease"
     MHD_LINEAR = "mhd_linear"
     GPEC_IDEAL = "gpec_ideal"
+    SOFT_X_RAYS = "soft_x_rays"
+    CAMERA_VISIBLE = "camera_visible"
+    # The >= 50 kfps acquisitions are the same instrument and the same IDS as
+    # routine camera, so they share a mapping -- but two stages cannot own one
+    # IDS in one source without the second replacing the first, so they are
+    # separated here and given distinct destinations in STAGE_REPLICATION.
+    CAMERA_VISIBLE_FLUCTUATION = "camera_visible_fluctuation"
 
 
 class GPECCode(str, Enum):
@@ -71,6 +78,18 @@ class ArtifactClass(str, Enum):
 #: Extension every finalized OMAS stage product carries. One constant so a
 #: future move to compressed products is a single edit rather than a search.
 OMAS_PRODUCT_SUFFIX = ".json"
+
+#: Container a stage's finalized product is written in, where it is not the
+#: default. The externally ingested diagnostics are bulk numeric IDS -- one
+#: soft X-ray shot is 128 channels by ~39k samples, one camera shot a stack of
+#: megapixel frames -- and OMAS's JSON writer spends roughly six bytes of text
+#: per float. HDF5 also carries a dtype and a compression filter, which JSON
+#: cannot, and is what HSDS stores natively (#599).
+OMAS_PRODUCT_SUFFIXES: dict[str, str] = {
+    "soft_x_rays": ".h5",
+    "camera_visible": ".h5",
+    "camera_visible_fluctuation": ".h5",
+}
 
 #: Stage manifest: what ran, which components succeeded, why any were skipped.
 OMAS_MANIFEST_NAME = "manifest.json"
@@ -386,12 +405,16 @@ class FileDB:
 
         The stage name is the file name, so a caller never has to know whether
         this stage spells its product ``efit.json`` or ``{shot}_efit.json.gz``.
+        The container comes from :data:`OMAS_PRODUCT_SUFFIXES`, so a stage that
+        stores bulk numeric data as HDF5 resolves here like any other rather
+        than being addressed by a hand-built path.
         """
         name = _enum_value(stage, OMASStage, "OMAS subdomain")
         directory = self.omas(
             stage, shot=shot, machine_version=machine_version, artifact="output"
         )
-        return directory / f"{name}{OMAS_PRODUCT_SUFFIX}"
+        suffix = OMAS_PRODUCT_SUFFIXES.get(name, OMAS_PRODUCT_SUFFIX)
+        return directory / f"{name}{suffix}"
 
     def omas_manifest(
         self,
