@@ -24,6 +24,7 @@ __all__ = [
     "calculate_poloidal_flux",
     "calculate_toroidal_flux",
     "calculate_volume_weighted_average",
+    "eped_tanh_bounds",
     "fit_profile",
     "gp_fit",
     "gradient",
