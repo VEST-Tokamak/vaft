@@ -38,6 +38,9 @@ sections:
       - id: process-reference
         title: Process reference
         url: /reference/process/
+      - id: kinetic-profile-files
+        title: Kinetic profile file formats
+        url: /reference/kinetic-profile-files/
       - id: wall-modes
         title: Wall eigenmodes
         url: /reference/wall-modes/

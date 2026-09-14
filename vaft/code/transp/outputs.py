@@ -99,8 +99,13 @@ PROFILE_GRIDS: Mapping[str, str] = {
 VARIABLE_DESCRIPTIONS: Mapping[str, str] = {
     "TIME": "time base of the scalars [s]",
     "TIME3": "time base of the profiles [s]",
-    "X": "zone-centre radial coordinate, sqrt of normalized toroidal flux [-]",
-    "XB": "zone-boundary radial coordinate [-]",
+    "X": (
+        "zone-centre radial coordinate, the square root of the normalized toroidal "
+        "flux [-]. TRANSP labels it x\"r/a\", which is misleading: measured against "
+        "the file's own TRFLX it is sqrt(Phi_N) to 2e-7, while the normalized "
+        "midplane r/a differs from it by 0.06"
+    ),
+    "XB": "zone-boundary radial coordinate, the same quantity as X [-]",
     "DVOL": "volume of each zone [cm^3]",
     "DAREA": "cross-sectional area of each zone [cm^2]",
     "NE": "electron density [cm^-3]",

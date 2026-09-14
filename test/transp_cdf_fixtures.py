@@ -75,6 +75,7 @@ def write_transp_cdf(
     reverse_xb_at=None,
     centres_outside=False,
     no_units_variable=False,
+    units_override=None,
 ):
     """Write a miniature ``<runid>.CDF``; returns the ground-truth arrays.
 
@@ -83,7 +84,8 @@ def write_transp_cdf(
     writes ``X``/``XB`` without a time dimension, ``boundary_points`` gives
     ``XB`` a length of its own, ``reverse_xb_at`` makes one sample of the
     boundary grid run backwards, and ``centres_outside`` puts every zone
-    centre outside its own boundary while leaving both grids increasing.
+    centre outside its own boundary while leaving both grids increasing, and
+    ``units_override`` relabels a named variable's unit.
     """
     time = np.asarray(times, dtype="float32")
     time3 = np.asarray(times if times3 is None else times3, dtype="float32")
@@ -160,6 +162,11 @@ def write_transp_cdf(
         # Zero and without an axis, but declaring torque-density units, exactly
         # as the real file writes it.
         data["TQTOTNB"] = ((), np.float32(0.0), {"units": UNITS["TQIN"]})
+
+    if units_override:
+        for name, unit in units_override.items():
+            dims, values, attrs = data[name]
+            data[name] = (dims, values, {**attrs, "units": unit})
 
     dataset = xr.Dataset(
         data,
