@@ -30,9 +30,9 @@ def render_spectrogram(
     show: bool = False,
     figsize: tuple[float, float] | None = None,
     colorbar: bool = True,
-        format: str | None = None,
+    format: str | None = None,
     theme: str | None = None,
-**style: Any,
+    **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Spectrogram` as a time-frequency mesh."""
     if not isinstance(model, Spectrogram):

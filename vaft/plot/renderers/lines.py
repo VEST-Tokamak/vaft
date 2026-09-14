@@ -35,9 +35,9 @@ def render_line_series(
     grid: bool = True,
     uncertainty: str = "auto",
     validity: str = "show",
-        format: str | None = None,
+    format: str | None = None,
     theme: str | None = None,
-**style: Any,
+    **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`LineSeries` into one axes.
 

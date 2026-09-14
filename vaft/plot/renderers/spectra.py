@@ -81,9 +81,9 @@ def render_power_spectrum(
     show: bool = False,
     figsize: tuple[float, float] | None = None,
     legend: bool = True,
-        format: str | None = None,
+    format: str | None = None,
     theme: str | None = None,
-**style: Any,
+    **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`PowerSpectrum` with its fits, guides and frequency markers."""
     if not isinstance(model, PowerSpectrum):

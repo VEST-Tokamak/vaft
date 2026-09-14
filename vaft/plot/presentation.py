@@ -219,11 +219,9 @@ GEOMETRY: Mapping[str, GeometryPolicy] = {
 #: decides the canvas (it moves between shots and times).
 _RZ_FALLBACK_ASPECT = 7.0 / 6.0
 
-#: The tallest an R-Z canvas gets relative to its width.  A spherical
-#: tokamak's vessel is three times taller than it is wide; equal coordinate
-#: scaling keeps that true inside the axes, and the canvas need not follow
-#: it all the way to the page's height to say so.
-_RZ_MAX_ASPECT = 2.5
+#: The share of a canvas's height the axes gets once the title and the
+#: x label have taken theirs.
+_RZ_AXES_HEIGHT_FRACTION = 0.9
 
 #: The share of the canvas width an R-Z axes actually gets once labels, and
 #: for a field map its colorbar, have taken theirs.
@@ -294,38 +292,43 @@ class Presentation:
             return None
         return self.format.outer_pad_pt / self.format.base_font_pt
 
-    def figsize(self, model: Any, fallback: tuple[float, float] | None) -> tuple[float, float] | None:
+    def figsize(
+        self, model: Any, fallback: tuple[float, float] | None, *, colorbar: bool | None = None,
+    ) -> tuple[float, float] | None:
         """The canvas for ``model`` under this format; ``fallback`` when there is none.
 
         A theme alone never changes geometry.  Width is the format's; height
         follows the view kind's geometry policy and is held below the
-        format's ceiling, so a tall machine or a deep composite still fits a
-        page.
+        format's ceiling.  A view whose coordinates must keep their ratio --
+        an R-Z machine, an image -- is the exception both ways: when the
+        ceiling binds, the width shrinks with it, so the canvas follows the
+        axes rather than framing it in margin; the format's width is then a
+        maximum.  ``colorbar`` says whether a field map draws one, which
+        takes part of the width the axes would have had.
         """
         if self.format is None:
             return fallback
         width = self.format.width_in
+        ceiling = self.format.max_height_in
         policy = GEOMETRY.get(type(model).__name__, GeometryPolicy("aspect", 0.62))
         if policy.kind == "aspect":
-            height = width * float(policy.aspect or 0.62)
-        elif policy.kind == "extent":
+            return (width, min(width * float(policy.aspect or 0.62), ceiling))
+        if policy.kind == "extent":
             span = rz_extent(model)
             ratio = span[1] / span[0] if span else _RZ_FALLBACK_ASPECT
             # The axes gets only part of the width -- the colorbar of a field
             # map takes its strip, labels take their margin -- and equal
-            # coordinate scaling then fixes the axes height from that width,
-            # not from the canvas's; the canvas follows the axes.
-            usable = _RZ_AXES_FRACTION_WITH_COLORBAR if _has_colorbar(model) else _RZ_AXES_FRACTION
-            height = width * usable * min(ratio, _RZ_MAX_ASPECT)
-        elif policy.kind == "native":
-            height = width * _native_ratio(model)
-        else:  # grid
-            ncols = max(1, int(getattr(model, "ncols", 1) or 1))
-            rows = _visual_rows(model)
-            cell = max(_PANEL_MIN_ROW_IN, _PANEL_CELL_ASPECT * width / ncols)
-            height = rows * cell
-        height = min(max(height, 0.5 * width), self.format.max_height_in)
-        return (width, height)
+            # coordinate scaling then fixes the axes height from that width.
+            draws_colorbar = _has_colorbar(model) if colorbar is None else bool(colorbar)
+            usable = _RZ_AXES_FRACTION_WITH_COLORBAR if draws_colorbar else _RZ_AXES_FRACTION
+            return _snug(width, ratio, usable, ceiling)
+        if policy.kind == "native":
+            return _snug(width, _native_ratio(model), _RZ_AXES_FRACTION, ceiling)
+        # grid: one width whatever the column count; rows add height.
+        ncols = max(1, int(getattr(model, "ncols", 1) or 1))
+        rows = _visual_rows(model)
+        cell = max(_PANEL_MIN_ROW_IN, _PANEL_CELL_ASPECT * width / ncols)
+        return (width, min(max(rows * cell, 0.5 * width), ceiling))
 
     def rc(self) -> dict[str, Any]:
         """The rcParams this presentation sets, theme baseline times format scale."""
@@ -379,6 +382,22 @@ class Presentation:
         if not rc:
             return contextlib.nullcontext()
         return matplotlib.rc_context(rc=rc)
+
+
+def _snug(width: float, ratio: float, usable: float, ceiling: float) -> tuple[float, float]:
+    """A canvas that fits axes of ``ratio`` (height/width) and nothing more.
+
+    The axes takes ``usable`` of the width and ``_RZ_AXES_HEIGHT_FRACTION``
+    of the height; when the height that implies exceeds the ceiling, the
+    width comes down with it so the axes still fills the canvas.  A canvas
+    is never narrower than a third of its height, so a very tall machine
+    keeps room for its labels.
+    """
+    height = width * usable * ratio / _RZ_AXES_HEIGHT_FRACTION
+    if height > ceiling:
+        height = ceiling
+        width = max(height * _RZ_AXES_HEIGHT_FRACTION / ratio / usable, height / 3.0)
+    return (width, max(height, 0.3 * width))
 
 
 def _has_colorbar(model: Any) -> bool:
@@ -463,7 +482,7 @@ def apply_axes_theme(axes: Any, theme: Theme) -> None:
     axes.tick_params(direction=theme.tick_direction)
     for name, spine in axes.spines.items():
         spine.set_visible(name in theme.spines)
-    axes.grid(theme.grid, alpha=theme.grid_alpha)
+    _set_grid(axes, theme)
 
 
 def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
@@ -491,7 +510,9 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
             if presentation is None:
                 return render(model, *args, ax=ax, figsize=figsize, **kwargs)
             with presentation.context():
-                size = presentation.figsize(model, figsize or default_figsize)
+                size = presentation.figsize(
+                    model, figsize or default_figsize, colorbar=kwargs.get("colorbar"),
+                )
                 if ax is not None and presentation.theme is not None:
                     for axis in _axes_of(ax):
                         apply_axes_theme(axis, presentation.theme)
@@ -529,4 +550,13 @@ def _restyle_grid(axes: Any, theme: Theme) -> None:
         line.get_visible() for line in axes.get_ygridlines()
     )
     if drawn:
-        axes.grid(theme.grid, alpha=theme.grid_alpha)
+        _set_grid(axes, theme)
+
+
+def _set_grid(axes: Any, theme: Theme) -> None:
+    # ``grid(False, alpha=...)`` would switch the grid ON (Matplotlib warns
+    # and honours the line property), so the flag and the alpha are separate.
+    if theme.grid:
+        axes.grid(True, alpha=theme.grid_alpha)
+    else:
+        axes.grid(False)

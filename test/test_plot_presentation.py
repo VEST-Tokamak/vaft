@@ -177,6 +177,25 @@ def test_panel_count_does_not_multiply_the_width():
     assert widths == {7.0}
 
 
+def test_a_time_trace_is_the_landscape_strip_its_policy_says():
+    figure, _ = renderers.render_line_series(_minimal("render_line_series"), format="screen")
+    assert tuple(figure.get_size_inches()) == pytest.approx((6.5, 6.5 * GEOMETRY["LineSeries"].aspect))
+    figure, _ = renderers.render_spectrogram(_minimal("render_spectrogram"), format="screen")
+    assert figure.get_size_inches()[1] == pytest.approx(6.5 * GEOMETRY["Spectrogram"].aspect)
+
+
+def test_minimal_really_switches_the_grid_off():
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        figure, axes = renderers.render_line_series(_minimal("render_line_series"), theme="minimal")
+        _, caller_axes = plt.subplots()
+        renderers.render_line_series(_minimal("render_line_series"), ax=caller_axes, theme="minimal")
+    for axis in (axes, caller_axes):
+        assert not any(line.get_visible() for line in axis.get_xgridlines())
+
+
 def test_format_and_type_sizes_compose():
     model = _minimal("render_line_series")
     _, small = renderers.render_line_series(model, format="single_column")
@@ -195,7 +214,9 @@ def test_an_rz_view_takes_its_height_from_the_machine():
     size_tall = renderers.render_geometry_layers(tall, format="single_column")[0].get_size_inches()
     size_short = renderers.render_geometry_layers(short, format="single_column")[0].get_size_inches()
     assert size_tall[1] > size_short[1]
-    assert size_tall[0] == size_short[0] == 3.375
+    # The format's width is a maximum for an R-Z view: when the height ceiling
+    # binds, the canvas narrows with it rather than framing the axes in margin.
+    assert size_short[0] == 3.375 and size_tall[0] <= 3.375
     assert size_tall[1] != size_tall[0], "equal coordinate scaling is not a square canvas"
     figure, axes = renderers.render_geometry_layers(tall, format="single_column")
     assert axes.get_aspect() == 1.0
@@ -211,8 +232,9 @@ def test_the_boundary_alone_never_sizes_the_canvas():
     from vaft.plot import presentation as pres
 
     only_boundary = renderers.render_geometry_layers(GeometryLayers(layers=(_boundary(0.9),)), format="screen")[0]
-    # The portrait ratio the R-Z renderers always used, on the width the axes gets.
-    assert only_boundary.get_size_inches()[1] == pytest.approx(6.5 * pres._RZ_AXES_FRACTION * pres._RZ_FALLBACK_ASPECT)
+    # The portrait ratio the R-Z renderers always used, fitted snugly.
+    expected = pres._snug(6.5, pres._RZ_FALLBACK_ASPECT, pres._RZ_AXES_FRACTION, FORMATS["screen"].max_height_in)
+    assert tuple(only_boundary.get_size_inches()) == pytest.approx(expected)
 
 
 def test_a_field_takes_its_extent_from_its_overlays_then_its_grid():
@@ -228,8 +250,11 @@ def test_a_field_takes_its_extent_from_its_overlays_then_its_grid():
 def test_the_packaged_psi_map_is_sized_by_the_wall(sample):
     figure, axes = vaft.omas.plot_equilibrium_field_psi(sample, format="double_column")
     width, height = figure.get_size_inches()
-    assert width == 7.0 and height > width
+    assert width <= 7.0 and height > width
     assert axes.get_aspect() == 1.0
+    # The canvas follows the axes: most of the width is drawn on, not margin.
+    figure.canvas.draw()
+    assert axes.get_position().width > 0.45
 
 
 def test_an_image_keeps_its_pixel_ratio():

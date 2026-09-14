@@ -123,9 +123,9 @@ def render_panels(
     ax: Any = None,
     show: bool = False,
     figsize: tuple[float, float] | None = None,
-        format: str | None = None,
+    format: str | None = None,
     theme: str | None = None,
-**style: Any,
+    **style: Any,
 ) -> tuple[Figure, np.ndarray]:
     """Draw each model in a :class:`Panels` grid into its own axes.
 

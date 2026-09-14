@@ -55,9 +55,9 @@ def render_profile_1d(
     grid: bool = True,
     uncertainty: str = "auto",
     validity: str = "show",
-        format: str | None = None,
+    format: str | None = None,
     theme: str | None = None,
-**style: Any,
+    **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Profile1D` into one axes."""
     if not isinstance(model, Profile1D):

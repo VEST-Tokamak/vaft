@@ -38,9 +38,9 @@ def render_image_2d(
     show: bool = False,
     figsize: tuple[float, float] | None = None,
     colorbar: bool = True,
-        format: str | None = None,
+    format: str | None = None,
     theme: str | None = None,
-**style: Any,
+    **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw an :class:`Image2D` with ``imshow`` plus its pixel-space overlays."""
     if not isinstance(model, Image2D):
@@ -89,9 +89,9 @@ def render_image_sequence(
     interval_ms: float = 100.0,
     save_path: str | Path | None = None,
     fps: float = 10.0,
-        format: str | None = None,
+    format: str | None = None,
     theme: str | None = None,
-**style: Any,
+    **style: Any,
 ):
     """Animate an :class:`ImageSequence`, optionally saving it to disk.
 

@@ -38,9 +38,9 @@ def render_field_2d(
     figsize: tuple[float, float] | None = None,
     colorbar: bool = True,
     cmap: str = "viridis",
-        format: str | None = None,
+    format: str | None = None,
     theme: str | None = None,
-**style: Any,
+    **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Field2D` as filled or line contours with its overlays."""
     # A caller that owns a colorbar axes (a figure that redraws this panel,

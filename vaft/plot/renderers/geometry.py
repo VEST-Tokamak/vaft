@@ -100,9 +100,9 @@ def render_geometry_layers(
     figsize: tuple[float, float] | None = None,
     legend: bool = True,
     grid: bool = True,
-        format: str | None = None,
+    format: str | None = None,
     theme: str | None = None,
-**style: Any,
+    **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`GeometryLayers` stack into one equal-aspect axes.
 
@@ -413,10 +413,10 @@ def render_geometry_3d_layers(
     ax: Axes | None = None,
     show: bool = False,
     legend: bool = True,
-        figsize: tuple[float, float] | None = None,
+    figsize: tuple[float, float] | None = None,
     format: str | None = None,
     theme: str | None = None,
-**style: Any,
+    **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Geometry3DLayers` stack into one 3D machine view.
 
