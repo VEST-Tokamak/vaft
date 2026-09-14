@@ -744,3 +744,64 @@ def test_a_record_whose_maximum_is_accepted_is_judged_exactly_as_before():
     window = active_window(T, y, reference_mask=T < 0.02, end_fraction=0.10, hold_s=1e-3)
 
     assert window.evidence["accepted_peak"] == pytest.approx(window.evidence["peak"], rel=1e-12)
+
+
+def test_a_window_reports_how_much_of_it_is_above_threshold():
+    """#752: the extent of a window is not how long the signal was there.
+
+    A window is the envelope of its segments, so two brief flashes tens of
+    milliseconds apart make a long window that is nearly all gap.  Consumers
+    read the extent as a duration -- `find_pulse_duration`, the shot
+    overview's `pulse_duration_s` -- and had no way to tell the two apart.
+    """
+    y = 0.01 * RNG.standard_normal(T.size)
+    y[(T >= 0.030) & (T < 0.032)] += 1.0          # 2 ms
+    y[(T >= 0.070) & (T < 0.072)] += 1.0          # 2 ms, 38 ms later
+
+    window = active_window(T, y, reference_mask=T < 0.02, hold_s=1e-3, gap_s=1e-3)
+
+    assert "multiple_segments" in window.flags
+    assert len(window.segments) == 2
+    assert window.duration_s == pytest.approx(0.042, abs=1e-3)
+    assert window.active_s == pytest.approx(0.004, abs=5e-4)
+    assert window.duty_cycle == pytest.approx(0.095, abs=0.02)
+
+
+def test_one_uninterrupted_run_is_fully_active():
+    """The measures agree exactly when there is nothing to disagree about.
+
+    ``active_s`` is measured the way ``duration_s`` is -- last sample minus
+    first -- so a single segment gives a duty cycle of exactly one rather than
+    one sample more.
+    """
+    y = 0.01 * RNG.standard_normal(T.size)
+    y[(T >= 0.030) & (T < 0.045)] += 1.0
+
+    window = active_window(T, y, reference_mask=T < 0.02, hold_s=1e-3)
+
+    assert len(window.segments) == 1
+    assert window.active_s == pytest.approx(window.duration_s, rel=1e-12)
+    assert window.duty_cycle == 1.0
+
+
+def test_a_window_that_was_not_found_reports_neither():
+    y = 0.01 * RNG.standard_normal(T.size)
+
+    window = active_window(T, y, reference_mask=T < 0.02, hold_s=1e-3)
+
+    assert not window.found
+    assert window.active_s is None
+    assert window.duty_cycle is None
+
+
+def test_the_duty_cycle_travels_with_the_record():
+    """A consumer that serializes the window keeps the measure."""
+    y = 0.01 * RNG.standard_normal(T.size)
+    y[(T >= 0.030) & (T < 0.032)] += 1.0
+    y[(T >= 0.070) & (T < 0.072)] += 1.0
+
+    payload = active_window(T, y, reference_mask=T < 0.02, hold_s=1e-3, gap_s=1e-3).as_dict()
+
+    assert payload["active_s"] < payload["duration_s"]
+    assert payload["duty_cycle"] == pytest.approx(payload["active_s"] / payload["duration_s"])
+    json.dumps(payload)

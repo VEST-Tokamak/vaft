@@ -43,7 +43,7 @@ def scan_module():
 def test_the_table_was_scanned_with_the_current_policy(table):
     """A retuned rule invalidates the corpus: the scan must be re-run, not the prose edited."""
     policy = resolve_plasma_timing_policy().as_dict()
-    assert table["schema_version"] == 1
+    assert table["schema_version"] == 2
     assert table["shots_requested"] == SHOTS_REQUESTED
     for key in ("window", "baseline_lead_s", "h_alpha", "ip", "usability", "agreement"):
         assert table["policy"][key] == policy[key], key
@@ -104,3 +104,47 @@ def test_the_raw_and_ods_readers_share_one_agreement_vocabulary(table):
             assert row["agreement"] in words
             if row["agreement"] != AGREEMENT_CONSISTENT:
                 assert row["agreement"] in row["flags"]
+
+
+def test_every_judged_window_reports_how_much_of_it_was_active(table):
+    """The extent of a window is not how long the plasma was there (#752).
+
+    A window is the envelope of its segments, so a record of two brief flashes
+    tens of milliseconds apart reports a long window that is mostly gap.  The
+    table carries the duty cycle per detector because it is the one measure it
+    cannot be asked for after the fact.
+    """
+    judged = [row for row in table["rows"] if row.get("status") == "judged"]
+    for row in judged:
+        for detector in ("h_alpha", "ip"):
+            record = row.get(detector)
+            if not record or record.get("start") is None:
+                continue
+            duty = record.get("duty_cycle")
+            assert duty is not None, (row["shot"], detector)
+            assert 0.0 < duty <= 1.0, (row["shot"], detector, duty)
+
+
+def test_the_envelope_windows_this_was_opened_for_are_visible(table):
+    """The three records that motivated #752 read as mostly gap, and say so."""
+    rows = {row["shot"]: row for row in table["rows"]}
+
+    for shot in (40002, 40263, 40365):
+        record = rows[shot]["h_alpha"]
+        assert record["duty_cycle"] < 0.25, (shot, record["duty_cycle"])
+        assert "multiple_segments" in record["flags"]
+
+
+def test_the_light_fragments_and_the_current_does_not(table):
+    """The measure is worth carrying because the two detectors disagree on it.
+
+    Every plasma-current window in the corpus is one uninterrupted run. A fifth
+    of the light windows are not, and a tenth are less than 30 % above
+    threshold -- so an extent read as a duration is wrong for a tenth of the
+    shots this table covers, and only for the optical source (#752).
+    """
+    duty = table["summary"]["duty_cycle"]
+
+    assert duty["ip"]["below_1"] == 0, "a current window has never been an envelope"
+    assert duty["h_alpha"]["below_1"] > 0.1 * duty["h_alpha"]["windows"]
+    assert duty["h_alpha"]["min"] < 0.1
