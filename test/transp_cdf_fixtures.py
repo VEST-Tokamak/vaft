@@ -76,6 +76,10 @@ def write_transp_cdf(
     centres_outside=False,
     no_units_variable=False,
     units_override=None,
+    temperature_units="EV",
+    plflxa_scale=1.0,
+    repeat_flux_at=None,
+    rotation_variables=("OMEG_VTR", "OMEGA"),
 ):
     """Write a miniature ``<runid>.CDF``; returns the ground-truth arrays.
 
@@ -85,7 +89,12 @@ def write_transp_cdf(
     ``XB`` a length of its own, ``reverse_xb_at`` makes one sample of the
     boundary grid run backwards, and ``centres_outside`` puts every zone
     centre outside its own boundary while leaving both grids increasing, and
-    ``units_override`` relabels a named variable's unit.
+    ``units_override`` relabels a named variable's unit,
+    ``temperature_units`` writes TE/TI in another unit, ``plflxa_scale``
+    breaks the physical identity PLFLXA == PLFLX[-1] on purpose so that
+    which of the two a reader divides by becomes visible, and
+    ``rotation_variables`` chooses which toroidal angular velocities the run
+    carries.
     """
     time = np.asarray(times, dtype="float32")
     time3 = np.asarray(times if times3 is None else times3, dtype="float32")
@@ -111,10 +120,28 @@ def write_transp_cdf(
     edge_flux = np.resize(scale, time.size).astype("float32")
     flux_shape = 0.3 * boundaries + 0.7 * boundaries**2
     flux = (np.resize(scale, time3.size)[:, None] * flux_shape[None, :]).astype("float32")
+    if repeat_flux_at is not None:
+        # A stalled enclosed flux: np.gradient divides by the spacing, so
+        # this is a silent NaN rather than an error unless it is caught.
+        flux = flux.copy()
+        flux[:, repeat_flux_at] = flux[:, repeat_flux_at - 1]
 
     density = profile(np.linspace(4.0e13, 4.0e12, zones))
     temperature = profile(np.linspace(1.2e3, 1.0e2, zones))
+    # Deliberately a different *shape* from TE, not a multiple of it: a
+    # reader that swapped the two sources would otherwise look like a 10%
+    # scale error rather than the wrong quantity.
+    ion_temperature = profile(np.linspace(2.0e2, 9.0e2, zones))
+    ion_density = profile(np.geomspace(3.6e13, 8.0e12, zones))
     omega = profile(np.linspace(-1.2e4, -2.0e3, zones))
+    # A run can carry several toroidal angular velocities, and they are
+    # different quantities -- in the reference run by more than their own
+    # magnitude at some radii.
+    rotation_values = {
+        "OMEG_VTR": profile(np.linspace(1.0e0, 1.3e4, zones)),
+        "OMEGA": profile(np.linspace(1.1e4, 2.4e4, zones)),
+        "OMEGDATA": profile(np.zeros(zones)),
+    }
     potential = profile(np.linspace(0.0, -80.0, boundaries.size))
     torque = np.full((time3.size, zones), torque_density, dtype="float32")
     volume = np.full((time3.size, zones), zone_volume, dtype="float32")
@@ -128,9 +155,10 @@ def write_transp_cdf(
         "X": (x_dims, x, {"units": ""}),
         "XB": (xb_dims, xb, {"units": ""}),
         "NE": (("TIME3", "X"), density, {"units": UNITS["NE"], "long_name": "ELECTRON DENSITY"}),
-        "TE": (("TIME3", "X"), temperature, {"units": UNITS["TE"]}),
-        "TI": (("TIME3", "X"), temperature * 1.1, {"units": UNITS["TI"]}),
-        "OMEGA": (("TIME3", "X"), omega, {"units": UNITS["OMEGA"]}),
+        "NI": (("TIME3", "X"), ion_density, {"units": UNITS["NI"], "long_name": "TOTAL ION DENSITY"}),
+        "TE": (("TIME3", "X"), temperature, {"units": temperature_units}),
+        "TI": (("TIME3", "X"), ion_temperature, {"units": temperature_units}),
+        "VTOR": (("TIME3", "X"), omega, {"units": UNITS["OMEGA"]}),
         "DVOL": (("TIME3", "X"), volume, {"units": UNITS["DVOL"]}),
         "TQIN": (("TIME3", "X"), torque, {"units": UNITS["TQIN"], "long_name": "TOTAL INPUT TORQUE"}),
         # Present in the file, deliberately not in VARIABLE_DESCRIPTIONS: a
@@ -142,7 +170,8 @@ def write_transp_cdf(
         "PLFLX2PI": (("TIME3", "XB"), (flux * plflx2pi_factor).astype("float32"),
                      {"units": UNITS["PLFLX2PI"]}),
         # On TIME, as the reference run writes it -- not on the profile axis.
-        "PLFLXA": (("TIME",), edge_flux, {"units": UNITS["PLFLXA"]}),
+        "PLFLXA": (("TIME",), (edge_flux * plflxa_scale).astype("float32"),
+                   {"units": UNITS["PLFLXA"]}),
         # A scalar time series, and a variable on a third radial dimension.
         "BPHXB": (("TIME",), np.linspace(-0.5, -0.8, time.size).astype("float32"),
                   {"units": UNITS["BPHXB"], "long_name": "TOTAL PLASMA TORQUE"}),
@@ -152,6 +181,10 @@ def write_transp_cdf(
         # reference file's variables are shaped like this.
         "NLTAUP": ((), np.float32(1.0), {"units": "", "long_name": "PARTICLE CONFINEMENT FLAG"}),
     }
+    for name in rotation_variables:
+        data[name] = (("TIME3", "X"), rotation_values[name],
+                      {"units": UNITS["OMEGA"], "long_name": name})
+
     if no_units_variable:
         # Every variable in the reference run declares units, so this one is a
         # deliberate divergence: the reader's "no units attribute" default has
@@ -186,7 +219,10 @@ def write_transp_cdf(
         "x": centres,
         "xb": boundaries,
         "n_e": density,
+        "n_i": ion_density,
         "T_e": temperature,
+        "T_i": ion_temperature,
+        "rotation": rotation_values,
         "omega": omega,
         "plflx": flux,
         "plflxa": edge_flux,

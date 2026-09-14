@@ -81,7 +81,8 @@ kinetic profiles. Measured on the reference run at 750 ms, the choice is not sym
 | default `target_grid="XB"` | `target_grid="X"` |
 | --- | --- |
 | edge ψ_N stays exactly 1.0 | edge ψ_N falls to 0.9857, losing the last closed surface |
-| `n_e` moves ≤ 4.2% of peak (one clamped edge point) | ψ_N moves by up to 0.036 |
+| `n_e` moves ≤ 4.2% of peak, resampling | ψ_N moves by up to 0.036 |
+| the one clamped point is the outermost, and moves by nothing | the clamped point is the **innermost**, where a constant stands in badly for a quantity varying quadratically towards the axis |
 
 The edge matters because GPEC's `read_kin` re-splines onto a uniform [0, 1] grid *with
 extrapolation*: a set whose outermost point is the last closed surface is the one it can use.
@@ -95,15 +96,25 @@ a 201-point pfile. Reading the same run directly:
 
 | quantity | agreement |
 | --- | --- |
-| `n_e`, `n_i` | 1.7% of peak |
-| `T_e`, `T_i` | 1.2% of peak |
-| `omega_exb` | 98% of points within 10% of peak; the outlier is the single outermost point |
+| `n_e`, `n_i` | ≤ 1.8% of peak |
+| `T_e`, `T_i` | ≤ 1.2% of peak |
+| `omega_tor` | ≤ 7.8% of peak, all points within 10% |
+| `omega_exb` | 97.5% of points within 10% of peak (98.5% against the pfile's own `omgeb`) |
 
 The profile deltas are resampling — the reference was interpolated twice, CDF → 201-point pfile →
-`.kin`, against one step here. The ω_E outlier is at ψ_N = 1.0, where a one-sided derivative on the
-file's own 20-point grid differs from the same formula applied to a ten-times interpolant of it.
-Per decision D-04 this is recorded rather than driven to zero: differentiating the file's own data
-is the more defensible of the two.
+`.kin`, against one step here.
+
+ω_E is the one quantity with real outliers, and there are five rather than one: ψ_N = 0.120, 0.125,
+0.990, 0.995 and 1.000, the largest being 26% at the edge. Three are at the boundary, where a
+one-sided derivative on the file's own 20-point grid differs from the same formula applied to a
+ten-times interpolant of it. The pair at ψ_N ≈ 0.12 is not explained by that and is a genuine
+difference in where the derivative is evaluated. Against the pfile's own `omgeb`, which is derived
+the same way, three points exceed 10% instead of five.
+
+The migration's fix-forward decision records such a change rather than driving it to zero.
+Differentiating the file's own data is the more defensible of the two, and `omega_tor` is now read
+from `OMEG_VTR` — the measured charge-exchange rotation the legacy writer preferred — rather than
+from `OMEGA`, which is a different quantity in the same file.
 
 ## The three file formats
 

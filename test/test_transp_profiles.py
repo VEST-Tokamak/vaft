@@ -32,6 +32,37 @@ def test_psi_norm_is_plflx_over_plflxa_and_the_edge_is_the_last_closed_surface(r
     assert profiles.normalization.method == "transp_plflx_over_plflxa"
 
 
+def test_psi_norm_divides_by_plflxa_and_not_by_the_last_flux_point(tmp_path):
+    """In a real run PLFLXA and PLFLX[-1] are equal, so which one is read is
+    invisible there. This fixture breaks that identity on purpose -- it is
+    unphysical, and it is the only way to see the difference."""
+    expected = write_transp_cdf(tmp_path, plflxa_scale=2.0)
+    with transp.read_transp_output(expected["path"]) as output:
+        profiles = kinetic_profiles_from_slice(output.slice(0.20))
+    np.testing.assert_allclose(profiles.psi_norm, expected["psi_norm"] / 2.0, rtol=1e-5)
+    assert profiles.psi_norm[-1] == pytest.approx(0.5, rel=1e-5)
+
+
+def test_the_endpoints_are_recorded_as_they_came_out(run):
+    """Not as they ought to look. On X the edge is not 1.0, and a record
+    saying otherwise would let a caller "renormalise" to what it already
+    has."""
+    output, _ = run
+    for grid in ("XB", "X"):
+        profiles = kinetic_profiles_from_slice(output.slice(0.20), target_grid=grid)
+        assert profiles.normalization.axis_value == pytest.approx(profiles.psi_norm[0])
+        assert profiles.normalization.edge_value == pytest.approx(profiles.psi_norm[-1])
+    assert kinetic_profiles_from_slice(
+        output.slice(0.20), target_grid="X"
+    ).normalization.edge_value < 1.0
+
+
+def test_the_source_file_travels_with_the_result(run):
+    output, expected = run
+    profiles = kinetic_profiles_from_slice(output.slice(0.20))
+    assert profiles.source == str(expected["path"])
+
+
 def test_the_default_grid_is_xb_and_leaves_the_flux_untouched(run):
     """psi_norm and the E x B frequency are both XB quantities, so choosing XB
     interpolates neither -- only the smooth kinetic profiles move."""
@@ -63,6 +94,16 @@ def test_the_x_grid_is_available_and_costs_the_edge(run):
     assert profiles.psi_norm[-1] < 1.0
     assert "interpolated onto X" in profiles.provenance["psi_norm"]
     assert "interpolated" not in profiles.provenance["n_e"]
+    # Which end matters: going XB -> X the clamp is at the *axis*, where a
+    # constant is a poor stand-in for a quantity varying quadratically.
+    assert "1 clamped at the axis end" in profiles.provenance["psi_norm"]
+
+
+def test_going_the_other_way_clamps_the_edge_instead(run):
+    output, _ = run
+    profiles = kinetic_profiles_from_slice(output.slice(0.20))
+    assert "1 clamped at the edge" in profiles.provenance["n_e"]
+    assert "axis end" not in profiles.provenance["n_e"]
 
 
 def test_which_grid_was_chosen_is_part_of_the_answer(run):
@@ -78,11 +119,15 @@ def test_a_third_grid_is_refused(run):
         kinetic_profiles_from_slice(output.slice(0.20), target_grid="rho")
 
 
-def test_both_grids_are_kept_so_the_choice_can_be_undone(run):
+def test_both_grids_are_recorded_without_being_passed_off_as_profiles(run):
+    """They were in `extras` once, and a MARS writer duly emitted PROFx.IN and
+    PROFxb.IN: `extras` means "a quantity this container has no field for",
+    and a radial grid is not a quantity."""
     output, expected = run
     profiles = kinetic_profiles_from_slice(output.slice(0.20))
-    np.testing.assert_allclose(profiles.extras["x"], expected["x"], rtol=1e-6)
-    np.testing.assert_allclose(profiles.extras["xb"], expected["xb"], rtol=1e-6)
+    assert profiles.extras == {}
+    note = profiles.provenance["target_grid"]
+    assert f"{expected['x'][0]:.6g}" in note and f"{expected['xb'][-1]:.6g}" in note
 
 
 # --- the E x B frequency ------------------------------------------------------
@@ -116,6 +161,36 @@ def test_the_exb_frequency_refuses_units_it_was_not_derived_for(tmp_path):
 # --- units come from the file -------------------------------------------------
 
 
+def test_a_flux_that_stalls_is_refused_rather_than_producing_nans(tmp_path):
+    """np.gradient divides by the spacing, so a repeated PLFLX value puts NaN
+    into the middle of omega_exb with nothing but a numpy warning."""
+    expected = write_transp_cdf(tmp_path, repeat_flux_at=3)
+    with transp.read_transp_output(expected["path"]) as output:
+        with pytest.raises(TranspFormatError, match="PLFLX does not increase"):
+            transp.exb_frequency(output.slice(0.20))
+
+
+def test_the_exb_guard_covers_the_flux_as_well_as_the_potential(tmp_path):
+    expected = write_transp_cdf(tmp_path, units_override={"PLFLX": "WEBERS"})
+    with transp.read_transp_output(expected["path"]) as output:
+        with pytest.raises(TranspFormatError, match="PLFLX declares 'WEBERS'"):
+            transp.exb_frequency(output.slice(0.20))
+
+
+def test_a_run_without_the_potential_is_refused_by_name(tmp_path):
+    """A bare KeyError from three layers down is not an answer."""
+    import xarray as xr
+
+    expected = write_transp_cdf(tmp_path)
+    with xr.open_dataset(expected["path"], engine="scipy", decode_times=False) as ds:
+        trimmed = ds.drop_vars("VRPOT").load()
+    expected["path"].unlink()
+    trimmed.to_netcdf(expected["path"], format="NETCDF3_CLASSIC")
+    with transp.read_transp_output(expected["path"]) as output:
+        with pytest.raises(TranspFormatError, match="carries no VRPOT"):
+            kinetic_profiles_from_slice(output.slice(0.20))
+
+
 def test_the_units_are_read_from_the_file_and_converted_once(run):
     output, expected = run
     profiles = kinetic_profiles_from_slice(output.slice(0.20))
@@ -144,12 +219,64 @@ def test_a_unit_of_the_wrong_dimension_raises(tmp_path):
 
 
 def test_a_variable_the_run_does_not_carry_is_simply_absent(tmp_path):
-    """The fixture writes no NI, so n_i is absent rather than invented."""
-    expected = write_transp_cdf(tmp_path)
+    """A run with no rotation at all yields no omega_tor, rather than one
+    invented from whatever else is lying about."""
+    expected = write_transp_cdf(tmp_path, rotation_variables=())
     with transp.read_transp_output(expected["path"]) as output:
         profiles = kinetic_profiles_from_slice(output.slice(0.20))
-    assert profiles.n_i is None
-    assert profiles.n_e is not None
+    assert profiles.omega_tor is None
+    assert profiles.n_e is not None and profiles.omega_exb is not None
+
+
+def test_every_mapped_field_is_converted_and_named(run):
+    """Not just n_e: a source swap between TE and TI, or a missing ladder
+    rung, is invisible if only one field is ever read."""
+    output, expected = run
+    profiles = kinetic_profiles_from_slice(output.slice(0.20), target_grid="X")
+    for field, source, values, factor in (
+        ("n_e", "NE", expected["n_e"], 1e6),
+        ("n_i", "NI", expected["n_i"], 1e6),
+        ("T_e", "TE", expected["T_e"], 1.0),
+        ("T_i", "TI", expected["T_i"], 1.0),
+    ):
+        np.testing.assert_allclose(
+            getattr(profiles, field), values[1] * factor, rtol=1e-6
+        )
+        assert source in profiles.provenance[field]
+    # TE and TI are different shapes in the fixture on purpose, so a swapped
+    # source is a wrong profile rather than a scale error.
+    assert not np.allclose(profiles.T_e / profiles.T_e[0], profiles.T_i / profiles.T_i[0])
+
+
+def test_temperatures_in_kilo_electronvolts_are_converted(tmp_path):
+    expected = write_transp_cdf(tmp_path, temperature_units="KEV")
+    with transp.read_transp_output(expected["path"]) as output:
+        profiles = kinetic_profiles_from_slice(output.slice(0.20), target_grid="X")
+    np.testing.assert_allclose(profiles.T_e, expected["T_e"][1] * 1e3, rtol=1e-6)
+    assert "KEV" in profiles.provenance["T_e"]
+
+
+def test_the_measured_rotation_is_preferred_and_the_choice_is_named(run):
+    """A run can carry several toroidal angular velocities and they are not
+    the same quantity -- in the reference run every point of OMEG_VTR differs
+    from OMEGA by more than a tenth of the peak."""
+    output, expected = run
+    profiles = kinetic_profiles_from_slice(output.slice(0.20), target_grid="X")
+    np.testing.assert_allclose(
+        profiles.omega_tor, expected["rotation"]["OMEG_VTR"][1], rtol=1e-6
+    )
+    assert "OMEG_VTR" in profiles.provenance["omega_tor"]
+    assert "chosen over OMEGA" in profiles.provenance["omega_tor"]
+
+
+def test_the_next_rotation_is_used_when_the_preferred_one_is_absent(tmp_path):
+    expected = write_transp_cdf(tmp_path, rotation_variables=("OMEGA",))
+    with transp.read_transp_output(expected["path"]) as output:
+        profiles = kinetic_profiles_from_slice(output.slice(0.20), target_grid="X")
+    np.testing.assert_allclose(
+        profiles.omega_tor, expected["rotation"]["OMEGA"][1], rtol=1e-6
+    )
+    assert "OMEGA" in profiles.provenance["omega_tor"]
 
 
 # --- time ---------------------------------------------------------------------

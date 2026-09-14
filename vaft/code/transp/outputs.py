@@ -102,8 +102,10 @@ VARIABLE_DESCRIPTIONS: Mapping[str, str] = {
     "X": (
         "zone-centre radial coordinate, the square root of the normalized toroidal "
         "flux [-]. TRANSP labels it x\"r/a\", which is misleading: measured against "
-        "the file's own TRFLX it is sqrt(Phi_N) to 2e-7, while the normalized "
-        "midplane r/a differs from it by 0.06"
+        "the file's own TRFLX it is sqrt(Phi_N) to 4.2e-7 over every sample of the "
+        "reference run, while the midplane radius normalized by its own edge value "
+        "(RMNMP / RMNMP[-1]) differs from it by 0.079 at 750 ms and by 0.025 to "
+        "0.090 across the run"
     ),
     "XB": "zone-boundary radial coordinate, the same quantity as X [-]",
     "DVOL": "volume of each zone [cm^3]",
