@@ -796,7 +796,13 @@ def _slice_artifacts(collection: dict, eq_time) -> dict:
     found = {}
     for kind in ("gfile", "mfile"):
         path = outputs.get(kind)
-        if path and path in hashes:
+        if not path:
+            # The run recorded that it produced no such file -- an optional
+            # m-file, a slice that never converged.  That is an answer, not a
+            # gap, and saying "not replicated" would send a reader after a
+            # file nobody wrote.
+            found[f"{kind}_sha256"] = _NOT_PRODUCED
+        elif path in hashes:
             found[f"{kind}_sha256"] = hashes[path]
     return found
 
@@ -806,11 +812,16 @@ def _slice_artifacts(collection: dict, eq_time) -> dict:
 #: is a float-comparison margin, not a search window.
 _SLICE_TIME_TOLERANCE_S = 1.0e-6
 
-#: Lineage fields that no replica can carry, and why.  A field that cannot be
-#: filled is recorded as unavailable rather than dropped: an absent key reads
-#: the same as an artifact nobody hashed, which is how three of these went
-#: missing from every summary for a year (#728).
+#: Recorded in place of a lineage field a replica cannot carry.  A field that
+#: cannot be filled is named rather than dropped: an absent key reads the same
+#: as an artifact nobody hashed, which is how three of these went missing from
+#: every summary for a year (#728).
 _UNAVAILABLE = "not replicated"
+
+#: Recorded when the payload says that run produced no such artifact.  The
+#: distinction from :data:`_UNAVAILABLE` is the whole point of this field
+#: existing: one is a gap in what travelled, the other is a fact about the run.
+_NOT_PRODUCED = "not produced"
 
 
 def _slice_time(ods, eq_index: int):
@@ -834,7 +845,14 @@ def _slice_time(ods, eq_index: int):
     return None
 
 
-def _equilibrium_lineage(ods, eq_index: int) -> str:
+def _equilibrium_lineage(ods, eq_index: int, collection: dict | None = None) -> str:
+    """The lineage blob for one equilibrium slice.
+
+    ``collection`` is the parsed EFIT payload.  The caller loops over slices and
+    the payload is one string per shot carrying a hash per artifact, so it is
+    parsed once there and passed in; parsed here it would be a six-figure-byte
+    parse per slice.
+    """
     values = {}
     for name, path in (
         ("machine", "dataset_description.data_entry.machine"),
@@ -854,7 +872,7 @@ def _equilibrium_lineage(ods, eq_index: int) -> str:
                 value = str(value)
             values[name] = value
 
-    collection = _efit_collection(ods)
+    collection = _efit_collection(ods) if collection is None else collection
     revision = collection.get("mapping_source_revision")
     if revision is not None:
         values["mapping_source_revision"] = str(revision)
@@ -924,10 +942,11 @@ def _extract_efit_reliability_families(
     if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
         return []
     equilibrium_times = _safe_get(ods, "equilibrium.time", [])
+    collection = _efit_collection(ods)
     rows: list[dict] = []
     for eq_index in range(len(ods["equilibrium.time_slice"])):
         equilibrium_slice = ods["equilibrium.time_slice"][eq_index]
-        lineage = _equilibrium_lineage(ods, eq_index)
+        lineage = _equilibrium_lineage(ods, eq_index, collection)
         time_s = _extract_time(equilibrium_slice, equilibrium_times, eq_index)
         ip_kA = _as_float(_safe_get(equilibrium_slice, "global_quantities.ip")) / 1e3
         aggregate_chi_squared = _as_float(

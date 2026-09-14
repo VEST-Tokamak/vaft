@@ -661,3 +661,63 @@ def test_a_non_efit_payload_is_left_alone():
 
     assert "gfile_sha256" not in lineage
     assert lineage["machine"] == "VEST"
+
+
+def test_an_artifact_the_run_never_produced_is_not_called_unreplicated():
+    """Two different answers, and the field exists to tell them apart.
+
+    A slice whose run produced no m-file -- it is optional, and a slice that
+    never converged has none -- records `not produced`. Calling that `not
+    replicated` would send a reader after a file nobody wrote, which is the
+    same confusion this field was added to end (#728).
+    """
+    from omas import ODS
+
+    payload = {
+        "efit_collection": {
+            "status": "completed",
+            "artifact_hashes": {"/w/g039915.00010": "gsha"},
+            "slice_statuses": [
+                {
+                    "time": 0.1,
+                    "overall_status": "converged",
+                    "provenance": {"outputs": {"gfile": "/w/g039915.00010", "mfile": None}},
+                }
+            ],
+        }
+    }
+    ods = ODS(consistency_check=False)
+    for path, value in _reliability_ods().items():
+        ods[path] = value
+    ods["equilibrium.code.parameters"] = json.dumps(payload, sort_keys=True)
+
+    lineage = _lineage(ods)
+
+    assert lineage["gfile_sha256"] == "gsha"
+    assert lineage["mfile_sha256"] == "not produced"
+
+
+def test_the_payload_is_parsed_once_for_a_whole_shot(monkeypatch):
+    """The lineage is built per slice; the payload is one string per shot.
+
+    Parsing it per slice is a six-figure-byte parse tens of times over for
+    every shot of a whole-database summary.
+    """
+    from omas import ODS
+
+    from vaft.database import _summary as summary_module
+
+    ods = ODS(consistency_check=False)
+    for path, value in _reliability_ods().items():
+        ods[path] = value
+
+    calls = []
+    original = summary_module._efit_collection
+    monkeypatch.setattr(
+        summary_module,
+        "_efit_collection",
+        lambda arg: (calls.append(1), original(arg))[1],
+    )
+    summary_module.extract_efit_magnetic_reliability(ods, 39915)
+
+    assert len(calls) == 1
