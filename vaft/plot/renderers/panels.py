@@ -899,7 +899,9 @@ def equilibrium_overview_verification(
         model,
         ax=ax,
         show=show,
-        figsize=style.pop("figsize", (13.0, 10.0)),
+        # The format sizes it like any composite; only the legacy spelling
+        # keeps the 13 x 10 canvas this figure had before (issue #712).
+        figsize=style.pop("figsize", (13.0, 10.0) if style.get("format") == "legacy" else None),
         **style,
     )
 

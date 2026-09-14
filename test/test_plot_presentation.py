@@ -180,6 +180,16 @@ def test_formats_resolve_deterministic_widths():
         renderers.render_line_series(model, format="screen")[0].get_size_inches()
     )
     assert tuple(renderers.render_line_series(model, format="legacy")[0].get_size_inches()) == (6.0, 2.5)
+    # The empty spellings a control or the CLI may pass mean the default too.
+    for spelling in ("", "none"):
+        assert tuple(renderers.render_line_series(model, format=spelling)[0].get_size_inches()) == (6.5, pytest.approx(6.5 * 0.42))
+
+
+def test_the_verification_overview_takes_the_format_too(sample):
+    default = vaft.omas.plot_equilibrium_overview_verification(sample)[0].get_size_inches()
+    assert default[0] <= FORMATS["screen"].width_in
+    assert tuple(vaft.omas.plot_equilibrium_overview_verification(sample, format="legacy")[0].get_size_inches()) == (13.0, 10.0)
+    vaft.omas.plot_equilibrium_overview_verification(sample, format="double_column")
 
 
 def test_geometries_take_different_heights_under_one_format():

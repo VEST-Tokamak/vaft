@@ -65,6 +65,7 @@ from .intent import (  # noqa: F401  re-exported: the colour vocabulary lives be
 __all__ = [
     "DEFAULT_FORMAT",
     "EQUILIBRIUM_ROLE",
+    "LEGACY_FORMAT",
     "FORMATS",
     "FigureFormat",
     "GEOMETRY",
@@ -613,7 +614,7 @@ def resolve_presentation(
             fmt = FORMATS[str(format)]
         except KeyError:
             raise ValueError(
-                f"format must be one of {', '.join(FORMATS)}; got {format!r}"
+                f"format must be one of {', '.join(FORMATS)} or {LEGACY_FORMAT!r}; got {format!r}"
             ) from None
         if ax is not None:
             raise TypeError(
@@ -673,8 +674,9 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
         @functools.wraps(render)
         def wrapper(model: Any, *args: Any, ax: Any = None, figsize: Any = None,
                     format: str | None = None, theme: str | None = None, **kwargs: Any) -> Any:
-            if format is None and ax is None and figsize is None:
-                # The canonical default, for a canvas nobody else decides.
+            if format in (None, "", "none") and ax is None and figsize is None:
+                # The canonical default, for a canvas nobody else decides;
+                # the empty spellings a control or the CLI may pass mean it too.
                 format = DEFAULT_FORMAT
             presentation = resolve_presentation(format, theme, ax=ax, figsize=figsize)
             if presentation is None:

@@ -206,7 +206,8 @@ vaft.omas.plot_spectrometer_uv_time_intensity(
 
 ## Presentation: `format=` and `theme=`
 
-Every canonical `plot_*` takes two opt-in presentation presets (issue #689),
+Every canonical `plot_*` takes two presentation presets (issue #689; `format`
+defaults to `screen` since #712, `theme` to none),
 separate from the scientific display policy (units, notation, validity) and
 from the semantic `layout=`:
 
