@@ -29,6 +29,11 @@ __all__ = [
 _DEFAULT_FIGSIZE = (6.0, 7.0)
 
 
+#: How many contours ``label_contours`` writes a value on.  Enough to read a
+#: gradient off the map, few enough that the labels do not collide.
+_MAX_CONTOUR_LABELS = 8
+
+
 @presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_field_2d(
     model: Field2D,
@@ -40,9 +45,15 @@ def render_field_2d(
     cmap: str = "viridis",
     format: str | None = None,
     theme: str | None = None,
+    label_contours: bool = False,
     **style: Any,
 ) -> tuple[Figure, Axes]:
-    """Draw a :class:`Field2D` as filled or line contours with its overlays."""
+    """Draw a :class:`Field2D` as filled or line contours with its overlays.
+
+    ``label_contours`` writes each contour's value onto the line itself.  It is
+    off by default and worth turning on for a line-contour map, where reading a
+    value off the curve beats matching a colour against a colorbar.
+    """
     # A caller that owns a colorbar axes (a figure that redraws this panel,
     # issue #261) keeps its layout fixed by passing it; otherwise Matplotlib
     # takes the space from the panel as usual.  Taken out before the style
@@ -71,6 +82,23 @@ def render_field_2d(
     if model.region is not None:
         values = np.where(model.region, values, np.nan)
     mappable = draw(model.r, model.z, values, **contour_kwargs)
+    if label_contours:
+        # Every level labelled is a smear: a psi map draws 40 or more, and
+        # their labels overlap into illegibility. Label an evenly spaced
+        # handful instead, which is what a reader takes a value off.
+        from matplotlib import patheffects
+
+        drawn = np.asarray(getattr(mappable, "levels", ()), dtype=float)
+        chosen = drawn[:: max(1, int(np.ceil(drawn.size / _MAX_CONTOUR_LABELS)))]
+        labels = axes.clabel(mappable, levels=chosen, inline=True, fontsize=7)
+        # A label sitting on a filled map takes the contour's own colour, which
+        # is by construction the colour of what it is written on. The halo is
+        # what makes it readable there.
+        for label in labels:
+            label.set_color("0.1")
+            label.set_path_effects(
+                [patheffects.withStroke(linewidth=2.0, foreground="white")]
+            )
     if colorbar and model.colorbar:
         if colorbar_axes is not None:
             figure.colorbar(mappable, cax=colorbar_axes, label=model.value_label)
