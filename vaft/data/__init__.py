@@ -41,8 +41,19 @@ __all__ = [
     "known_codes",
     "normalize_psi",
     "read_geqdsk",
+    "PFILE_LABELS",
+    "PFILE_SECTION_ORDER",
+    "PFILE_TO_CONTAINER",
+    "PFILE_UNITS",
+    "PFILE_UNIT_LADDER",
+    "PFile",
+    "PFileFormatError",
+    "PFileSection",
     "kinetic_profiles",
+    "kinetic_profiles_from_pfile",
+    "pfile",
     "read_kin",
+    "read_pfile",
     "read_aeqdsk",
     "read_keqdsk",
     "read_meqdsk",
@@ -56,6 +67,7 @@ __all__ = [
     "to_omas",
     "write_geqdsk",
     "write_kin",
+    "write_pfile",
     "VAFT_INTERNAL_COCOS",
     "VFITResult",
     "SolovevConstraint",
@@ -131,11 +143,22 @@ _EXPORT_MAP = {
     "normalize_psi": (".kinetic_profiles", "normalize_psi"),
     "read_kin": (".kinetic_profiles", "read_kin"),
     "write_kin": (".kinetic_profiles", "write_kin"),
+    "PFILE_LABELS": (".pfile", "PFILE_LABELS"),
+    "PFILE_SECTION_ORDER": (".pfile", "PFILE_SECTION_ORDER"),
+    "PFILE_TO_CONTAINER": (".pfile", "PFILE_TO_CONTAINER"),
+    "PFILE_UNITS": (".pfile", "PFILE_UNITS"),
+    "PFILE_UNIT_LADDER": (".pfile", "PFILE_UNIT_LADDER"),
+    "PFile": (".pfile", "PFile"),
+    "PFileFormatError": (".pfile", "PFileFormatError"),
+    "PFileSection": (".pfile", "PFileSection"),
+    "kinetic_profiles_from_pfile": (".pfile", "kinetic_profiles_from_pfile"),
+    "read_pfile": (".pfile", "read_pfile"),
+    "write_pfile": (".pfile", "write_pfile"),
 }
 
 
 def __getattr__(name: str):
-    if name in {"resources", "open_adas", "kinetic_profiles"}:
+    if name in {"resources", "open_adas", "kinetic_profiles", "pfile"}:
         module = import_module(f".{name}", __name__)
         globals()[name] = module
         return module

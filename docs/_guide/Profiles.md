@@ -361,6 +361,53 @@ column is ω_E, and a toroidal rotation written there is wrong in a way nothing 
 `sample/output/converted_from_transp.kin` is), a value that is not finite, or a radial coordinate
 that does not increase. Line endings are LF, so a CRLF file does not round-trip byte-identically.
 
+### Osborne pfiles
+
+A pfile is read in two steps, because it carries more than a profile set does: per-section units, a
+derivative column, and an `N Z A of ION SPECIES` block.
+
+```python
+from vaft.data import read_pfile, write_pfile, kinetic_profiles_from_pfile
+
+pf = read_pfile("p045453.00750")
+pf.keys()                        # the 22 sections, in file order
+pf.unit("te")                    # 'KeV' — what the file declares, not what we assume
+pf.section("omgeb").derivative   # the file's own third column, kept
+
+write_pfile(pf, "again")         # byte-identical to the file it came from
+
+profiles = kinetic_profiles_from_pfile(pf)   # now in m^-3, eV, rad/s, Pa, V/m
+```
+
+`PFile` is the file as written and converts nothing; `kinetic_profiles_from_pfile` applies the one
+unit ladder. Keeping them apart means "this is byte-for-byte the file we read" and "these are the
+right units" can fail independently.
+
+**The derivative column is data, not something to recompute.** Writing it back as read reproduces
+all 57 reference files byte for byte; recomputing it with `np.gradient` reproduces none of them, and
+only four of the 22 sections agree even to one part in a million. `write_pfile` therefore preserves
+it and computes one only for a section built in memory, or when you pass
+`recompute_derivatives=True` because you changed the values.
+
+**The rotation family is ten sections whose names differ by two letters and whose meanings do not.**
+Three get fields of their own, and the mapping is by exact section name:
+
+| pfile | → | what it is |
+| --- | --- | --- |
+| `omeg` | `omega_tor` | toroidal angular velocity |
+| `omgeb` | `omega_exb` | E×B rotation, −dΦ/dψ |
+| `omegp` | `omega_pol` | poloidal rotation contribution |
+
+The other seven — `omgvb`, `omgpp`, `ommvb`, `ommpp`, `omevb`, `omepp`, `omghb` — keep their pfile
+names in `extras`, in the file's own units, with those units recorded in `provenance`, as do `kpol`,
+`vtor1` and `vpol1`. `ptot` maps to `p_total` as the file's own total, fast ions included, and `pb`
+to `p_fast`; `T_z` has no pfile source.
+
+A section on a different ψ column from the rest is refused rather than quietly reprojected — all 22
+sections share one coordinate bit-for-bit in every reference file — and so is a short or ragged
+section. An unrecognised unit raises on a mapped section, where guessing a factor would be a
+silent factor of a million, but not on one kept in `extras`.
+
 ## Exporting
 
 To hand fitted electron profiles to an external code:
