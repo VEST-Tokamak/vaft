@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b75048c</code>. What is described
+  <code>a7410d2</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -294,7 +294,11 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td>
-    <td><code>vaft.formula.equilibrium</code></td><td>110</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
+    <td><code>vaft.formula.equilibrium</code></td><td>77</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
+  </tr>
+  <tr>
+    <td><a href="/vaft/develop/reference/formula/virial/">virial</a></td>
+    <td><code>vaft.formula.virial</code></td><td>33</td><td>Virial closures: global quantities from the Shafranov boundary integrals.</td>
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/stability/">stability</a></td>
@@ -408,12 +412,10 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="equilibrium">Equilibrium</h2>
 
-<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/develop/reference/formula/equilibrium/">110 functions</a>.</p>
+<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/develop/reference/formula/equilibrium/">77 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/equilibrium/#alpha_heating_power_from_n_D_n_T_T_keV_V"><code>alpha_heating_power_from_n_D_n_T_T_keV_V</code></a> <em>(empirical)</em> &mdash; D-T alpha heating power with the rough $\langle\sigma v\rangle \propto T^2$ fit.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi"><code>approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi</code></a> <em>(convention)</em> &mdash; Diamagnetic parameter from the vacuum toroidal field and flux change.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#aspect_ratio_from_a_R"><code>aspect_ratio_from_a_R</code></a> &mdash; Aspect ratio $A = R/a = 1/\varepsilon$.
 </li>
@@ -583,71 +585,80 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#vertical_magnetic_field_from_psi"><code>vertical_magnetic_field_from_psi</code></a> <em>(convention)</em> &mdash; Vertical magnetic field $B_Z$ from the poloidal flux map.
 </li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_D0_boundary_from_bp_li_eK"><code>virial_D0_boundary_from_bp_li_eK</code></a> <em>(convention)</em> &mdash; Boundary Shafranov shift $D_0(b)$ from $\beta_p$, $l_i$ and elongation.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_S1_approx"><code>virial_S1_approx</code></a> <em>(convention)</em> &mdash; Leading-order value of the first Shafranov integral, $S_1 = 2$.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_S2_approx_from_D0_a_R0"><code>virial_S2_approx_from_D0_a_R0</code></a> <em>(convention)</em> &mdash; Analytic approximation of the second Shafranov integral for an elongated boundary.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_S3_approx_from_eK_d"><code>virial_S3_approx_from_eK_d</code></a> <em>(convention)</em> &mdash; Analytic approximation of the third Shafranov integral for an elongated boundary.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_alpha_approx_from_kappa"><code>virial_alpha_approx_from_kappa</code></a> <em>(convention)</em> &mdash; Virial closure coefficient from the boundary elongation (Bongard $\hat\alpha_1$).
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_alpha_from_R_Bz_Bp_dl"><code>virial_alpha_from_R_Bz_Bp_dl</code></a> <em>(convention)</em> &mdash; Virial closure coefficient from the boundary field (thin-annulus $\hat\alpha_2$).
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_beta_p_from_S_alpha_mu"><code>virial_beta_p_from_S_alpha_mu</code></a> <em>(convention)</em> &mdash; Poloidal beta from the Shafranov integrals, low-aspect-ratio closure.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_beta_p_from_S_li"><code>virial_beta_p_from_S_li</code></a> &mdash; Poloidal beta from $S_1$, $S_2$ and a known internal inductance.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_beta_p_from_volume"><code>virial_beta_p_from_volume</code></a> <em>(convention)</em> &mdash; Poloidal beta from a volume integral of pressure.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_beta_p_lao_from_S_mu_rt"><code>virial_beta_p_lao_from_S_mu_rt</code></a> <em>(convention)</em> &mdash; Poloidal beta, Lao large-aspect-ratio virial closure.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_beta_p_li_from_S_alpha_mu_rt"><code>virial_beta_p_li_from_S_alpha_mu_rt</code></a> &mdash; Lao closure bundle: $\beta_p$, $l_i$ and $\beta_{p,d}$ in one call.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_beta_pd_from_S_mu_rt"><code>virial_beta_pd_from_S_mu_rt</code></a> <em>(convention)</em> &mdash; Diamagnetic poloidal beta $\beta_{p,d}$ from $S_1$, $S_2$ and $\mu_i$.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_bongard_from_S_alpha_mu"><code>virial_bongard_from_S_alpha_mu</code></a> &mdash; Low-aspect-ratio virial closure (Bongard 2016): $\beta_p$ and $l_i$.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_bp_li_lihat_from_S123"><code>virial_bp_li_lihat_from_S123</code></a> &mdash; Deprecated historical name for the three-relation virial solve.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_closure_denominators"><code>virial_closure_denominators</code></a> &mdash; The denominator each virial closure divides by, for conditioning checks.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_full_123_from_S_alpha_rt"><code>virial_full_123_from_S_alpha_rt</code></a> <em>(convention)</em> &mdash; Solve all three virial relations for $\beta_p$, $l_i$ and $\mu_i$.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_identity_residuals"><code>virial_identity_residuals</code></a> <em>(convention)</em> &mdash; Residuals of the three virial identities at a given $(\beta_p, l_i, \mu_i)$.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_kinetic_energy"><code>virial_kinetic_energy</code></a> &mdash; Bulk kinetic energy of a sampled flow, $W_{kin} = \tfrac{1}{2}\sum n m v^2\,V$.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_lao_from_S_alpha_mu_rt"><code>virial_lao_from_S_alpha_mu_rt</code></a> &mdash; Large-aspect-ratio virial closure (Lao 1985): $\beta_p$ and $l_i$.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_li_from_S_alpha_mu"><code>virial_li_from_S_alpha_mu</code></a> <em>(convention)</em> &mdash; Internal inductance from the Shafranov integrals, low-aspect-ratio closure.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_li_from_S_alpha_rt"><code>virial_li_from_S_alpha_rt</code></a> &mdash; Internal inductance, Lao large-aspect-ratio virial closure.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_li_from_volume"><code>virial_li_from_volume</code></a> <em>(convention)</em> &mdash; Internal inductance from a volume integral of $B_p^2$.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_magnetic_energy"><code>virial_magnetic_energy</code></a> &mdash; Magnetic energy of a sampled field, $W_{mag} = \sum B^2\,V/(2\mu_0)$.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_muihat_from_Bt_R0_dphi"><code>virial_muihat_from_Bt_R0_dphi</code></a> <em>(convention)</em> &mdash; Diamagnetic parameter $\hat\mu_i$ from the measured diamagnetic flux.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_normalized_residual"><code>virial_normalized_residual</code></a> &mdash; Scale a virial identity residual so shots can be compared.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_pair_12_from_S_mu_rt"><code>virial_pair_12_from_S_mu_rt</code></a> <em>(convention)</em> &mdash; Virial closure on $E_1$ and $E_2$, leaving $E_3$ free.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_pair_13_from_S_alpha_mu"><code>virial_pair_13_from_S_alpha_mu</code></a> <em>(convention)</em> &mdash; Virial closure on $E_1$ and $E_3$, leaving $E_2$ free.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_pair_23_from_S_alpha_mu_rt"><code>virial_pair_23_from_S_alpha_mu_rt</code></a> &mdash; Virial closure on $E_2$ and $E_3$, leaving $E_1$ free.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_residual_rms"><code>virial_residual_rms</code></a> &mdash; Aggregate the three normalised virial residuals into one number.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_stability_criterion"><code>virial_stability_criterion</code></a> &mdash; Virial-ratio margin against the heuristic threshold $r_v = 0.5$.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_theorem"><code>virial_theorem</code></a> &mdash; Total energy and virial ratio of magnetic, kinetic and thermal contributions.
-</li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#virial_thermal_energy"><code>virial_thermal_energy</code></a> <em>(convention)</em> &mdash; Thermal energy of a sampled plasma, $W_{th} = \tfrac{3}{2}\sum n T\,V$.
-</li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#volume_from_RZ_boundary"><code>volume_from_RZ_boundary</code></a> &mdash; Plasma volume from a boundary polygon, mean-radius approximation.
+</li>
+</ul>
+
+<h2 id="virial">Virial</h2>
+
+<p>Virial closures: global quantities from the Shafranov boundary integrals. — <a href="/vaft/develop/reference/formula/virial/">33 functions</a>.</p>
+
+<ul class="formula-index">
+  <li><a href="/vaft/develop/reference/formula/virial/#approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi"><code>approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi</code></a> <em>(convention)</em> &mdash; Diamagnetic parameter from the vacuum toroidal field and flux change.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_D0_boundary_from_bp_li_eK"><code>virial_D0_boundary_from_bp_li_eK</code></a> <em>(convention)</em> &mdash; Boundary Shafranov shift $D_0(b)$ from $\beta_p$, $l_i$ and elongation.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_S1_approx"><code>virial_S1_approx</code></a> <em>(convention)</em> &mdash; Leading-order value of the first Shafranov integral, $S_1 = 2$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_S2_approx_from_D0_a_R0"><code>virial_S2_approx_from_D0_a_R0</code></a> <em>(convention)</em> &mdash; Analytic approximation of the second Shafranov integral for an elongated boundary.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_S3_approx_from_eK_d"><code>virial_S3_approx_from_eK_d</code></a> <em>(convention)</em> &mdash; Analytic approximation of the third Shafranov integral for an elongated boundary.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_alpha_approx_from_kappa"><code>virial_alpha_approx_from_kappa</code></a> <em>(convention)</em> &mdash; Virial closure coefficient from the boundary elongation (Bongard $\hat\alpha_1$).
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_alpha_from_R_Bz_Bp_dl"><code>virial_alpha_from_R_Bz_Bp_dl</code></a> <em>(convention)</em> &mdash; Virial closure coefficient from the boundary field (thin-annulus $\hat\alpha_2$).
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_beta_p_from_S_alpha_mu"><code>virial_beta_p_from_S_alpha_mu</code></a> <em>(convention)</em> &mdash; Poloidal beta from the Shafranov integrals, low-aspect-ratio closure.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_beta_p_from_S_li"><code>virial_beta_p_from_S_li</code></a> &mdash; Poloidal beta from $S_1$, $S_2$ and a known internal inductance.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_beta_p_from_volume"><code>virial_beta_p_from_volume</code></a> <em>(convention)</em> &mdash; Poloidal beta from a volume integral of pressure.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_beta_p_lao_from_S_mu_rt"><code>virial_beta_p_lao_from_S_mu_rt</code></a> <em>(convention)</em> &mdash; Poloidal beta, Lao large-aspect-ratio virial closure.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_beta_p_li_from_S_alpha_mu_rt"><code>virial_beta_p_li_from_S_alpha_mu_rt</code></a> &mdash; Lao closure bundle: $\beta_p$, $l_i$ and $\beta_{p,d}$ in one call.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_beta_pd_from_S_mu_rt"><code>virial_beta_pd_from_S_mu_rt</code></a> <em>(convention)</em> &mdash; Diamagnetic poloidal beta $\beta_{p,d}$ from $S_1$, $S_2$ and $\mu_i$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_bongard_from_S_alpha_mu"><code>virial_bongard_from_S_alpha_mu</code></a> &mdash; Low-aspect-ratio virial closure (Bongard 2016): $\beta_p$ and $l_i$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_bp_li_lihat_from_S123"><code>virial_bp_li_lihat_from_S123</code></a> &mdash; Deprecated historical name for the three-relation virial solve.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_closure_denominators"><code>virial_closure_denominators</code></a> &mdash; The denominator each virial closure divides by, for conditioning checks.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_full_123_from_S_alpha_rt"><code>virial_full_123_from_S_alpha_rt</code></a> <em>(convention)</em> &mdash; Solve all three virial relations for $\beta_p$, $l_i$ and $\mu_i$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_identity_residuals"><code>virial_identity_residuals</code></a> <em>(convention)</em> &mdash; Residuals of the three virial identities at a given $(\beta_p, l_i, \mu_i)$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_kinetic_energy"><code>virial_kinetic_energy</code></a> &mdash; Bulk kinetic energy of a sampled flow, $W_{kin} = \tfrac{1}{2}\sum n m v^2\,V$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_lao_from_S_alpha_mu_rt"><code>virial_lao_from_S_alpha_mu_rt</code></a> &mdash; Large-aspect-ratio virial closure (Lao 1985): $\beta_p$ and $l_i$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_li_from_S_alpha_mu"><code>virial_li_from_S_alpha_mu</code></a> <em>(convention)</em> &mdash; Internal inductance from the Shafranov integrals, low-aspect-ratio closure.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_li_from_S_alpha_rt"><code>virial_li_from_S_alpha_rt</code></a> &mdash; Internal inductance, Lao large-aspect-ratio virial closure.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_li_from_volume"><code>virial_li_from_volume</code></a> <em>(convention)</em> &mdash; Internal inductance from a volume integral of $B_p^2$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_magnetic_energy"><code>virial_magnetic_energy</code></a> &mdash; Magnetic energy of a sampled field, $W_{mag} = \sum B^2\,V/(2\mu_0)$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_muihat_from_Bt_R0_dphi"><code>virial_muihat_from_Bt_R0_dphi</code></a> <em>(convention)</em> &mdash; Diamagnetic parameter $\hat\mu_i$ from the measured diamagnetic flux.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_normalized_residual"><code>virial_normalized_residual</code></a> &mdash; Scale a virial identity residual so shots can be compared.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_pair_12_from_S_mu_rt"><code>virial_pair_12_from_S_mu_rt</code></a> <em>(convention)</em> &mdash; Virial closure on $E_1$ and $E_2$, leaving $E_3$ free.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_pair_13_from_S_alpha_mu"><code>virial_pair_13_from_S_alpha_mu</code></a> <em>(convention)</em> &mdash; Virial closure on $E_1$ and $E_3$, leaving $E_2$ free.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_pair_23_from_S_alpha_mu_rt"><code>virial_pair_23_from_S_alpha_mu_rt</code></a> &mdash; Virial closure on $E_2$ and $E_3$, leaving $E_1$ free.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_residual_rms"><code>virial_residual_rms</code></a> &mdash; Aggregate the three normalised virial residuals into one number.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_stability_criterion"><code>virial_stability_criterion</code></a> &mdash; Virial-ratio margin against the heuristic threshold $r_v = 0.5$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_theorem"><code>virial_theorem</code></a> &mdash; Total energy and virial ratio of magnetic, kinetic and thermal contributions.
+</li>
+  <li><a href="/vaft/develop/reference/formula/virial/#virial_thermal_energy"><code>virial_thermal_energy</code></a> <em>(convention)</em> &mdash; Thermal energy of a sampled plasma, $W_{th} = \tfrac{3}{2}\sum n T\,V$.
 </li>
 </ul>
 
@@ -1006,7 +1017,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Categories</a></li><li class="page-toc-item page-toc-level-2"><a href="#conventions-that-change-the-number" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Conventions that change the number</a></li><li class="page-toc-item page-toc-level-2"><a href="#constants" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Constants</a></li><li class="page-toc-item page-toc-level-2"><a href="#utils" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Utils</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability</a></li><li class="page-toc-item page-toc-level-2"><a href="#green" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Green</a></li><li class="page-toc-item page-toc-level-2"><a href="#atomic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atomic</a></li><li class="page-toc-item page-toc-level-2"><a href="#statistics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Statistics</a></li><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetics</a></li><li class="page-toc-item page-toc-level-2"><a href="#neoclassical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical</a></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Categories</a></li><li class="page-toc-item page-toc-level-2"><a href="#conventions-that-change-the-number" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Conventions that change the number</a></li><li class="page-toc-item page-toc-level-2"><a href="#constants" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Constants</a></li><li class="page-toc-item page-toc-level-2"><a href="#utils" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Utils</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium</a></li><li class="page-toc-item page-toc-level-2"><a href="#virial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Virial</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability</a></li><li class="page-toc-item page-toc-level-2"><a href="#green" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Green</a></li><li class="page-toc-item page-toc-level-2"><a href="#atomic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atomic</a></li><li class="page-toc-item page-toc-level-2"><a href="#statistics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Statistics</a></li><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetics</a></li><li class="page-toc-item page-toc-level-2"><a href="#neoclassical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical</a></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1124,7 +1135,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-14 13:53:04 +0000"
+        "time": "2026-09-14 15:10:32 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
