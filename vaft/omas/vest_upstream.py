@@ -1576,7 +1576,11 @@ def build_ces_ods(
 
 
 #: How CHEASE names the equilibrium it refined, per shot and millisecond.
-GEQDSK_NAME_TEMPLATE = "g0{shot}.00{time_ms:03d}"
+#: EFIT's convention is a five-digit, zero-padded time, so the padding has to be
+#: in the format spec rather than typed out as literal zeros -- a discharge at
+#: or past 1000 ms would otherwise build a six-digit suffix that matches no file
+#: and be indistinguishable from having no equilibrium at all.
+GEQDSK_NAME_TEMPLATE = "g0{shot}.{time_ms:05d}"
 
 
 def build_core_profiles_ods(
@@ -1626,7 +1630,13 @@ def build_core_profiles_ods(
         manifest["error"] = "the Thomson product carries no thomson_scattering.time"
         return ods, manifest
 
-    has_ion = "charge_exchange" in ods and len(ods["charge_exchange.channel"]) > 0
+    # Test the full path, not the parent: reading `charge_exchange.channel`
+    # off an ODS that has the IDS but no channels would materialize the node,
+    # and `flat()` does not show an empty one, so the damage is silent.
+    has_ion = (
+        "charge_exchange.channel" in ods
+        and len(ods["charge_exchange.channel"]) > 0
+    )
     times_ms = np.asarray(ods["thomson_scattering.time"], dtype=float) * 1e3
 
     # A re-run must not leave a stale slice behind: the mix of kinetic and
@@ -1698,10 +1708,12 @@ def build_core_profiles_ods(
             except Exception:  # noqa: BLE001 - one failed fit is not a failed stage
                 continue
 
-        try:
-            _omas.omas_physics.core_profiles_pressures(ods, update=True)
-        except Exception:  # noqa: BLE001 - pressures are derived, not measured
-            pass
+    # Once, not per slice: the call takes the whole IDS, so running it inside
+    # the loop reprocessed every slice built so far on each pass.
+    try:
+        _omas.omas_physics.core_profiles_pressures(ods, update=True)
+    except Exception:  # noqa: BLE001 - pressures are derived, not measured
+        pass
 
     _profile.strip_electron_only_pressure(ods)
 
@@ -1802,7 +1814,13 @@ def build_kinetic_efit_ods(
             return unavailable(f"the {label} product is missing: {path}")
 
     ods, _ = load_ods(Path(core_profiles_product))
-    has_ion = "charge_exchange" in ods and len(ods["charge_exchange.channel"]) > 0
+    # Test the full path, not the parent: reading `charge_exchange.channel`
+    # off an ODS that has the IDS but no channels would materialize the node,
+    # and `flat()` does not show an empty one, so the damage is silent.
+    has_ion = (
+        "charge_exchange.channel" in ods
+        and len(ods["charge_exchange.channel"]) > 0
+    )
     wants_ion = stage == "kinetic_efit"
     if has_ion != wants_ion:
         measured = "with" if has_ion else "without"
@@ -1840,7 +1858,15 @@ def build_kinetic_efit_ods(
         else:
             return unavailable("no core_profiles slice to reconstruct at")
 
-    eq_times = np.asarray(solution["equilibrium.time"], dtype=float) * 1e3
+    # `time_slice` existing does not guarantee `time` does, and argmin over an
+    # empty array raises. Every other bad-input path here records and returns,
+    # so this one must too -- an optional stage that raises fails the whole run
+    # instead of being skipped.
+    if "equilibrium.time" not in solution:
+        return unavailable("the efit product carries no equilibrium.time")
+    eq_times = np.asarray(solution["equilibrium.time"], dtype=float).reshape(-1) * 1e3
+    if eq_times.size == 0:
+        return unavailable("the efit product's equilibrium.time is empty")
     time_index = int(np.argmin(np.abs(eq_times - float(time_ms))))
     manifest["configuration"]["time_ms"] = float(time_ms)
     manifest["configuration"]["equilibrium_time_ms"] = float(eq_times[time_index])
@@ -1858,45 +1884,59 @@ def build_kinetic_efit_ods(
     except Exception as error:  # noqa: BLE001 - an unusable equilibrium is not a crash
         return unavailable(f"cannot build a psi map from the equilibrium: {error}")
 
-    work = Path(workdir) if workdir is not None else Path(tempfile.mkdtemp(prefix=f"{stage}-"))
-    config = KineticEFITConfig(
-        executable=executable,
-        workdir=work,
-        shot=shot,
-        time_ms=float(time_ms),
-        encoding=encoding,
-        # 'auto' is the VEST policy ratio, and it only applies when the ODS has
-        # no ion data -- which is exactly the electron_efit case.
-        ti_te_ratio="auto",
-    )
+    # A caller-supplied workdir is the caller's to keep. One we invent is ours to
+    # remove: EFIT leaves a kfile and its outputs per PLASMA scale, and this stage
+    # is registered for every shot, so leaking one directory per shot would fill
+    # the filesystem the products themselves live on.
+    ephemeral = workdir is None
+    work = Path(tempfile.mkdtemp(prefix=f"{stage}-")) if ephemeral else Path(workdir)
     try:
-        chain = run_kinetic_chain(ods, geq, float(time_ms), efit_config=config)
-    except Exception as error:  # noqa: BLE001 - recorded, so one shot cannot fail a run
-        manifest["status"] = "failed"
-        manifest["error"] = f"{type(error).__name__}: {error}"
-        manifest["traceback"] = traceback.format_exc()
-        return out, manifest
+        config = KineticEFITConfig(
+            executable=executable,
+            workdir=work,
+            shot=shot,
+            time_ms=float(time_ms),
+            encoding=encoding,
+            # 'auto' is the VEST policy ratio, and it only applies when the ODS
+            # has no ion data -- which is exactly the electron_efit case.
+            ti_te_ratio="auto",
+        )
+        try:
+            chain = run_kinetic_chain(ods, geq, float(time_ms), efit_config=config)
+        except Exception as error:  # noqa: BLE001 - recorded, one shot cannot fail a run
+            manifest["status"] = "failed"
+            manifest["error"] = f"{type(error).__name__}: {error}"
+            manifest["traceback"] = traceback.format_exc()
+            return out, manifest
 
-    result = chain["kinetic_efit"]
-    manifest["reconstruction"] = {
-        "status": result.status,
-        "converged": bool(result.converged),
-        "scale": result.scale,
-        "chi2": result.chi2,
-        "reason": result.reason,
-    }
-    if result.status == "skipped":
-        return unavailable(result.reason or "EFIT executable is not configured")
-    if not result.converged or result.gfile is None:
-        manifest["status"] = "no_output"
-        manifest["error"] = result.reason or "no PLASMA scale converged"
-        return out, manifest
+        result = chain["kinetic_efit"]
+        manifest["reconstruction"] = {
+            "status": result.status,
+            "converged": bool(result.converged),
+            "scale": result.scale,
+            "chi2": result.chi2,
+            "reason": result.reason,
+        }
+        if result.status == "skipped":
+            return unavailable(result.reason or "EFIT executable is not configured")
+        if not result.converged or result.gfile is None:
+            manifest["status"] = "no_output"
+            manifest["error"] = result.reason or "no PLASMA scale converged"
+            return out, manifest
 
-    to_omas(read_geqdsk_file(result.gfile), ods=out)
-    manifest["status"] = "success"
-    manifest["quality_summary"]["unavailable"] = []
-    manifest["output_gfile"] = str(result.gfile)
-    return out, manifest
+        # Read the g-file before the workdir goes away.
+        to_omas(read_geqdsk_file(result.gfile), ods=out)
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+        # Recording a path under a directory about to be deleted would name a
+        # file nobody can open; the name is what identifies the reconstruction.
+        manifest["output_gfile"] = (
+            Path(result.gfile).name if ephemeral else str(result.gfile)
+        )
+        return out, manifest
+    finally:
+        if ephemeral:
+            shutil.rmtree(work, ignore_errors=True)
 
 
 def read_geqdsk_file(path: str | Path):
