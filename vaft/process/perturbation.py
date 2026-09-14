@@ -23,6 +23,16 @@ reduction records which window it used and where that window came from. The
 legacy numbers survive only as :data:`LEGACY_WINDOWS`, so an old result can
 still be reproduced deliberately.
 
+**An island width is not a threshold.** GPEC reports the island each
+resonant surface would open, and whether those islands overlap decides
+whether the region goes stochastic. The comparison it is made against --
+the distance to the nearest neighbouring surface -- is pure geometry, and
+GPEC leaves its own ``w_isl_v_crit`` at zero on an ideal run, so it has to be
+computed. It is, here, and it reproduces GPEC's own Chirikov parameter
+exactly: ``w_isl / d_nn`` equals the ``K_isl`` in the file to the last bit on
+every surface of every run checked, which is what makes the derived
+quantities trustworthy rather than merely plausible.
+
 **A reduction is not a verdict.** ``vaft.process`` computes; it does not
 decide. The thresholds the legacy compared against -- a Chirikov parameter of
 1, a penetration ratio of 1, an edge overlap of 7.4e-4 -- are arguments here
@@ -43,11 +53,21 @@ from typing import Mapping, Sequence
 import numpy as np
 
 __all__ = [
+    "COINCIDENT_POLICIES",
+    "IslandOverlap",
+    "IslandPairs",
     "LEGACY_WINDOWS",
     "RESONANT_RESPONSE_COLUMNS",
     "RESONANT_STATISTICS",
     "ResonantWindow",
     "amplification_ratio",
+    "chirikov",
+    "critical_island_width",
+    "group_coincident_islands",
+    "island_overlap_width",
+    "island_pairs",
+    "nearest_surface_spacing",
+    "penetration_ratio",
     "resonant_metrics",
     "resonant_windows",
     "reduce_resonant",
@@ -484,3 +504,490 @@ def amplification_ratio(
     if not np.isfinite(case) or not np.isfinite(reference) or reference == 0.0:
         return float("nan")
     return float(case / reference)
+
+
+# --- island geometry ----------------------------------------------------------
+
+#: How to give one width to several islands that sit on the same surface.
+#: ``envelope`` takes the widest, ``rss`` adds them in quadrature; neither is
+#: derivable from the others, so the choice is the caller's and is recorded.
+COINCIDENT_POLICIES: tuple[str, ...] = ("envelope", "rss")
+
+
+@dataclass(frozen=True)
+class IslandPairs:
+    """Adjacent island pairs, sorted outward, and whether each pair touches."""
+
+    inner_psi_norm: np.ndarray
+    outer_psi_norm: np.ndarray
+    spacing: np.ndarray
+    inner_right: np.ndarray
+    outer_left: np.ndarray
+    gap: np.ndarray
+    chirikov: np.ndarray
+    overlaps: np.ndarray
+
+    def __len__(self) -> int:
+        return int(self.spacing.size)
+
+
+@dataclass(frozen=True)
+class IslandOverlap:
+    """How far in from the boundary the islands are continuously overlapping."""
+
+    width: float
+    first_gap_psi_norm: float | None
+    first_gap_inner: float | None
+    first_gap_outer: float | None
+    edge_connected: bool
+    onset_scale: float | None
+    max_surface_chirikov: float | None
+    max_pair_chirikov: float | None
+    separatrix_psi_norm: float
+    policy: str
+
+
+def _island_arrays(psi_norm, width) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """``(sorted psi, sorted width, the order that sorted them)``, refusing ties."""
+    psi_norm = np.asarray(psi_norm, dtype=float)
+    width = np.asarray(width, dtype=float)
+    if psi_norm.ndim != 1 or width.shape != psi_norm.shape:
+        raise ValueError(
+            f"{width.shape} widths against {psi_norm.shape} surfaces; islands are "
+            "one per rational surface"
+        )
+    order = np.argsort(psi_norm)
+    ordered = psi_norm[order]
+    if ordered.size > 1 and np.any(np.diff(ordered) <= 0.0):
+        raise ValueError(
+            "two rational surfaces share a position; islands of different helicity "
+            "can sit on the same surface, and group_coincident_islands has to give "
+            "them one width before the spacing between surfaces means anything"
+        )
+    return ordered, width[order], order
+
+
+def nearest_surface_spacing(psi_norm) -> np.ndarray:
+    """Distance from each rational surface to its nearest neighbour.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Rational-surface positions, in any order [-].
+
+    Returns
+    -------
+    ndarray
+        One distance per surface, in the input's order; ``nan`` for a single
+        surface, which has no neighbour [-].
+
+    Raises
+    ------
+    ValueError
+        Two surfaces share a position.
+
+    Processing steps
+    ----------------
+    1. Sort the surfaces outward.
+    2. Take the smaller of the two gaps either side; an end surface has one.
+    3. Put the result back in the caller's order.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [legacy] ``gpec_analysis_metrics._nearest_neighbour_spacing`` and
+       ``gpec_multimode_metrics.compute_surface_chirikov``, which computed the
+       same spacing twice and disagreed about repeated positions: one
+       tolerated them, the other refused. This refuses.
+    """
+    ordered, _, order = _island_arrays(psi_norm, np.zeros_like(np.asarray(psi_norm, float)))
+    result = np.full(ordered.size, np.nan)
+    if ordered.size < 2:
+        return result
+    gaps = np.diff(ordered)
+    result[0], result[-1] = gaps[0], gaps[-1]
+    if ordered.size > 2:
+        result[1:-1] = np.minimum(gaps[:-1], gaps[1:])
+    unsorted = np.empty_like(result)
+    unsorted[order] = result
+    return unsorted
+
+
+def critical_island_width(psi_norm) -> np.ndarray:
+    """The island width at which a surface's islands reach its neighbour's.
+
+    Purely geometric: an island overlaps its neighbour when it is as wide as
+    the distance to that neighbour, so the critical width *is* the
+    nearest-neighbour spacing.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Rational-surface positions [-].
+
+    Returns
+    -------
+    ndarray
+        Critical width per surface, in the same units as ``psi_norm`` [-].
+
+    Convention
+    ----------
+    Widths are full widths, in normalized poloidal flux, matching what GPEC
+    writes as ``w_isl``. The identity this rests on -- ``w_isl / w_crit``
+    equalling GPEC's own ``K_isl`` -- holds because GPEC forms its Chirikov
+    parameter from a half width over a half distance, and the halves cancel.
+
+    Limitations
+    -----------
+    Undefined for a single surface, which has no neighbour: ``nan``.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [gpec] Reproduces GPEC's own ``K_isl`` exactly when divided into
+       ``w_isl``: zero relative difference on every surface of the DIII-D
+       n=1, n=2 and n=3 ideal runs.
+    .. [ideal] GPEC leaves its own ``w_isl_v_crit`` at zero on an ideal run,
+       which is why this is computed rather than read.
+    """
+    return nearest_surface_spacing(psi_norm)
+
+
+def penetration_ratio(psi_norm, width) -> np.ndarray:
+    """Island width as a fraction of the width at which islands would overlap.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Rational-surface positions [-].
+    width : array_like
+        Full island width per surface, in the same units [-].
+
+    Returns
+    -------
+    ndarray
+        ``width / critical_island_width``; one at overlap [-].
+
+    Convention
+    ----------
+    A ratio, not a verdict: the value one is where islands touch, and
+    comparing against it is the caller's to do.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [legacy] ``gpec_analysis_metrics.compute_critical_island_width``.
+    """
+    _island_arrays(psi_norm, width)  # refuses a tie or a shape mismatch
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.asarray(width, dtype=float) / critical_island_width(psi_norm)
+
+
+def chirikov(psi_norm, width, *, definition: str = "surface") -> np.ndarray:
+    """The island-overlap parameter, by either of the two definitions in use.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Rational-surface positions [-].
+    width : array_like
+        Full island width per surface [-].
+    definition : str, optional
+        ``"surface"`` centres it on each surface, ``width / d_nn``, and
+        returns one value per surface. ``"pair"`` takes each adjacent pair,
+        ``(w_inner + w_outer) / 2 / spacing``, and returns one value per
+        *pair* -- one fewer than the surfaces [n/a].
+
+    Returns
+    -------
+    ndarray
+        One value per surface, or per pair; both in the caller's order [-].
+
+    Raises
+    ------
+    ValueError
+        ``definition`` is neither, or two surfaces share a position.
+
+    Convention
+    ----------
+    The two definitions answer different questions and disagree by design:
+    the surface form asks whether one island reaches its nearest neighbour,
+    the pair form whether two particular islands reach each other. GPEC's own
+    ``K_isl`` is the surface form.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [legacy] ``gpec_multimode_metrics.compute_surface_chirikov`` and
+       ``compute_pair_chirikov``.
+    """
+    if definition not in ("surface", "pair"):
+        raise ValueError(f"definition must be 'surface' or 'pair', not {definition!r}")
+    if definition == "surface":
+        return penetration_ratio(psi_norm, width)
+    return island_pairs(psi_norm, width).chirikov
+
+
+def island_pairs(psi_norm, width) -> IslandPairs:
+    """Every adjacent pair of islands, with the gap between their separatrices.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Rational-surface positions [-].
+    width : array_like
+        Full island width per surface [-].
+
+    Returns
+    -------
+    IslandPairs
+        One entry per adjacent pair, sorted outward; empty for fewer than two
+        surfaces [-].
+
+    Processing steps
+    ----------------
+    1. Sort outward.
+    2. For each pair, the gap is the spacing less the two half widths.
+    3. A gap at or below zero -- within rounding -- is contact.
+
+    Convention
+    ----------
+    Round-off-scale residual gaps count as contact rather than separation, so
+    two separatrices that meet exactly are not reported as apart.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [legacy] ``gpec_multimode_metrics.compute_pair_chirikov``.
+    """
+    ordered, ordered_width, _ = _island_arrays(psi_norm, width)
+    if ordered.size < 2:
+        empty = np.empty(0, dtype=float)
+        return IslandPairs(empty, empty, empty, empty, empty, empty, empty,
+                           np.empty(0, dtype=bool))
+    spacing = np.diff(ordered)
+    half_sum = 0.5 * (ordered_width[:-1] + ordered_width[1:])
+    gap = spacing - half_sum
+    return IslandPairs(
+        inner_psi_norm=ordered[:-1],
+        outer_psi_norm=ordered[1:],
+        spacing=spacing,
+        inner_right=ordered[:-1] + 0.5 * ordered_width[:-1],
+        outer_left=ordered[1:] - 0.5 * ordered_width[1:],
+        gap=gap,
+        chirikov=half_sum / spacing,
+        overlaps=(gap < 0.0) | np.isclose(gap, 0.0, rtol=1.0e-12, atol=1.0e-14),
+    )
+
+
+def group_coincident_islands(
+    psi_norm,
+    width,
+    *,
+    policy: str = "envelope",
+    psi_tol: float = 1.0e-8,
+) -> tuple[np.ndarray, np.ndarray, tuple[tuple[int, ...], ...]]:
+    """Collapse islands that sit on the same surface into one.
+
+    Several toroidal modes resonate at the same q, so a multi-mode study has
+    islands stacked on one surface. The spacing between *surfaces* means
+    nothing until those are one island, and the width that one island should
+    have is not derivable -- hence ``policy``.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Island positions, possibly with repeats [-].
+    width : array_like
+        Full width of each [-].
+    policy : str, optional
+        One of :data:`COINCIDENT_POLICIES`: ``envelope`` takes the widest of a
+        stack, ``rss`` adds them in quadrature [n/a].
+    psi_tol : float, optional
+        How close two positions must be to count as the same surface [-].
+
+    Returns
+    -------
+    tuple
+        ``(psi_norm, width, members)`` -- one entry per distinct surface,
+        sorted outward, with ``members`` giving the input indices that went
+        into each [-].
+
+    Raises
+    ------
+    ValueError
+        ``policy`` is not one of :data:`COINCIDENT_POLICIES`, or ``psi_tol``
+        is negative.
+
+    Convention
+    ----------
+    ``envelope`` is the conservative reading -- a stack is as wide as its
+    widest member -- and ``rss`` treats the modes as independent
+    contributions. They differ by up to the square root of the stack size,
+    and neither is a default the physics supplies, so the choice travels with
+    the result.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [legacy] ``gpec_multimode_metrics._group_coincident_islands``.
+    """
+    if policy not in COINCIDENT_POLICIES:
+        raise ValueError(f"policy must be one of {list(COINCIDENT_POLICIES)}, not {policy!r}")
+    if psi_tol < 0.0:
+        raise ValueError(f"psi_tol must be non-negative, not {psi_tol!r}")
+    psi_norm = np.asarray(psi_norm, dtype=float)
+    width = np.asarray(width, dtype=float)
+    if psi_norm.ndim != 1 or width.shape != psi_norm.shape:
+        raise ValueError(f"{width.shape} widths against {psi_norm.shape} surfaces")
+    if psi_norm.size == 0:
+        return np.empty(0), np.empty(0), ()
+
+    order = np.argsort(psi_norm)
+    clusters: list[list[int]] = []
+    for index in order:
+        if clusters and abs(psi_norm[index] - psi_norm[clusters[-1][-1]]) <= psi_tol:
+            clusters[-1].append(int(index))
+        else:
+            clusters.append([int(index)])
+
+    centres, widths, members = [], [], []
+    for cluster in clusters:
+        stack = width[cluster]
+        widths.append(float(np.max(stack)) if policy == "envelope"
+                      else float(np.sqrt(np.sum(stack**2))))
+        centres.append(float(np.mean(psi_norm[cluster])))
+        members.append(tuple(cluster))
+    return np.asarray(centres), np.asarray(widths), tuple(members)
+
+
+def island_overlap_width(
+    psi_norm,
+    width,
+    *,
+    separatrix: float = 1.0,
+    policy: str = "envelope",
+    psi_tol: float = 1.0e-8,
+) -> IslandOverlap:
+    """How far in from the boundary the islands overlap without a break.
+
+    Starting at the outermost pair and walking inward while pairs touch, the
+    first gap is the inner edge of the stochastic region. A region that does
+    not reach the boundary has zero width, however much the islands overlap
+    further in: the quantity is about the edge being connected to the wall,
+    not about overlap in general.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Island positions [-].
+    width : array_like
+        Full island width per surface [-].
+    separatrix : float, optional
+        Where the boundary is, which the width is measured in from [-].
+    policy : str, optional
+        Passed to :func:`group_coincident_islands` [n/a].
+    psi_tol : float, optional
+        Passed to :func:`group_coincident_islands` [-].
+
+    Returns
+    -------
+    IslandOverlap
+        The width, the first gap that broke the chain, whether the chain
+        reached the boundary at all, and the two Chirikov maxima [-].
+
+    Raises
+    ------
+    ValueError
+        ``separatrix`` is not finite, or ``policy``/``psi_tol`` are invalid.
+
+    Processing steps
+    ----------------
+    1. Collapse coincident surfaces under ``policy``.
+    2. Form the adjacent pairs and their gaps.
+    3. If the outermost pair does not touch, the width is zero.
+    4. Otherwise walk inward to the first pair that does not touch; its gap
+       midpoint is the inner boundary. With no such gap, the innermost
+       island's inner separatrix is.
+
+    Convention
+    ----------
+    Measured inward from ``separatrix`` and clipped to [0, 1]: it is a width
+    in normalized flux, not a position.
+
+    Limitations
+    -----------
+    ``onset_scale`` is the factor the perturbation field would have to be
+    multiplied by for the outermost pair to reach contact, on the assumption
+    that island width scales as the square root of the field. That assumption
+    is fixed-equilibrium linear response and is recorded, not checked.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [legacy] ``gpec_multimode_metrics.compute_island_overlap_width``.
+    """
+    if not np.isfinite(separatrix):
+        raise ValueError(f"separatrix must be finite, not {separatrix!r}")
+    centres, widths, _ = group_coincident_islands(
+        psi_norm, width, policy=policy, psi_tol=psi_tol
+    )
+    surface = penetration_ratio(centres, widths) if centres.size else np.empty(0)
+    pairs = island_pairs(centres, widths)
+
+    def finite_max(values):
+        finite = np.asarray(values, dtype=float)
+        finite = finite[np.isfinite(finite)]
+        return float(finite.max()) if finite.size else None
+
+    blank = IslandOverlap(0.0, None, None, None, False, None,
+                          finite_max(surface), finite_max(pairs.chirikov),
+                          float(separatrix), policy)
+    if len(pairs) == 0:
+        return blank
+
+    outer = float(pairs.chirikov[-1])
+    # Island width goes as the square root of the field, so the field has to
+    # grow by 1/kappa^2 for the outermost pair to reach contact.
+    onset = float(1.0 / outer**2) if outer > 0.0 else None
+    if not bool(pairs.overlaps[-1]):
+        inner, outer_edge = float(pairs.inner_right[-1]), float(pairs.outer_left[-1])
+        return IslandOverlap(0.0, 0.5 * (inner + outer_edge), inner, outer_edge,
+                             False, onset, finite_max(surface),
+                             finite_max(pairs.chirikov), float(separatrix), policy)
+
+    broken = np.nonzero(~pairs.overlaps)[0]
+    if broken.size:
+        index = int(broken[-1])
+        inner, outer_edge = float(pairs.inner_right[index]), float(pairs.outer_left[index])
+        gap_psi = 0.5 * (inner + outer_edge)
+        boundary = gap_psi
+    else:
+        inner = outer_edge = gap_psi = None
+        boundary = float(centres[0] - 0.5 * widths[0])
+    return IslandOverlap(
+        float(np.clip(float(separatrix) - boundary, 0.0, 1.0)),
+        gap_psi, inner, outer_edge, True, onset,
+        finite_max(surface), finite_max(pairs.chirikov), float(separatrix), policy,
+    )

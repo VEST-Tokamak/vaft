@@ -104,3 +104,29 @@ class PedestalStub:
         self.reason = reason
         self.coordinate = coordinate
         self.inner_edge = (position - 0.5 * width) if inner_edge is ... else inner_edge
+
+
+def island_chain(*, overlapping_outer=True, break_at=None, count=5, spacing=0.1,
+                 start=0.5, width=None):
+    """A chain of islands, sorted outward, with a controllable break.
+
+    ``overlapping_outer`` decides whether the outermost pair touches, which
+    is what makes an overlap region edge-connected; ``break_at`` opens a gap
+    between that pair index and the next, so a chain can overlap inside and
+    still not reach the boundary.
+    """
+    psi = start + spacing * np.arange(count, dtype=float)
+    if width is None:
+        # Wide enough that neighbours touch: half-widths sum to the spacing.
+        width = np.full(count, 1.2 * spacing)
+    else:
+        width = np.full(count, float(width))
+    if not overlapping_outer:
+        width = width.copy()
+        width[-1] = 0.1 * spacing
+        width[-2] = 0.1 * spacing
+    if break_at is not None:
+        width = width.copy()
+        width[break_at] = 0.1 * spacing
+        width[break_at + 1] = 0.1 * spacing
+    return psi, width
