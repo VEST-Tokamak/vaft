@@ -1437,13 +1437,16 @@ def active_window(
     The end rule is the weak one.  A disruption's vessel-current tail can sit at a
     third of the peak for a hundred milliseconds, above any end threshold that
     still separates plasma from a normal termination, and is then ended by the
-    collapse fallback rather than by the threshold.  And the threshold is scaled
-    from the largest excess anywhere in the search mask, which need not lie in
-    the segment being judged: when it does not, the segment's own peak can sit
-    below the threshold, the extension is skipped and the window is the segment
-    as found, flagged ``offset_threshold_above_peak``.  Thirteen shots of the
-    corpus reach that -- all of them early records with windows a tenth the
-    usual length -- flagged, not repaired, tracked in issue #726.
+    collapse fallback rather than by the threshold.  The threshold is scaled
+    from the amplitude the detector *accepted* -- the largest segment, not the
+    largest sample in the search stretch -- because a spike the segment tests
+    refused would otherwise set the level the pulse has to fall below (#726).
+
+    And the window is the *envelope* of its segments, which for a record of two
+    brief blips tens of milliseconds apart is mostly gap: three corpus records
+    report windows that are 7 to 19 % above threshold.  ``multiple_segments``
+    says a window has gaps but not how much of it is gap, and the extent is
+    consumed as a duration -- tracked in issue #752.
 
     Provenance
     ----------
@@ -1577,6 +1580,15 @@ def _active_window(
 
     first, last = segments[0][0], segments[-1][1]
     flags: list[str] = list(ref_flags)
+    # The end rule is judged against the amplitude this detector *accepted*,
+    # not against the largest sample in the search stretch.  They differ
+    # exactly where a run the segment tests refused -- an optical spike, a
+    # coil-firing impulse -- holds the record's maximum: scaling the end
+    # threshold from it asks the pulse to fall below a level set by noise the
+    # detector had already thrown away, which on the corpus left thirteen
+    # windows unable to end at all (#726).
+    accepted_peak = max(float(y[a:b].max()) - baseline for a, b in segments)
+    evidence["accepted_peak"] = accepted_peak
     # Offset against the trailing reference, when there is a quiet one.
     n_trail = max(2, int(round(float(trailing_fraction) * y.size)))
     trail = np.zeros(y.size, dtype=bool)
@@ -1585,7 +1597,7 @@ def _active_window(
     trail_quiet = bool(
         np.isfinite(trail_baseline) and np.isfinite(trail_spread)
         and (trail_spread <= 3.0 * spread if spread > 0 else trail_spread == 0.0)
-        and (trail_baseline - baseline) < float(trailing_max_fraction) * peak
+        and (trail_baseline - baseline) < float(trailing_max_fraction) * accepted_peak
     )
     evidence["trailing_baseline"] = trail_baseline
     evidence["trailing_sigma"] = trail_spread
@@ -1597,11 +1609,11 @@ def _active_window(
     # the leading baseline judges it instead.
     end_threshold = None
     if trail_quiet:
-        trailing = trail_baseline + max(end_frac * peak, float(sigma) * trail_spread)
-        if trailing < baseline + peak:
+        trailing = trail_baseline + max(end_frac * accepted_peak, float(sigma) * trail_spread)
+        if trailing < baseline + accepted_peak:
             end_threshold = trailing
     if end_threshold is None and end_frac > float(fraction):
-        end_threshold = baseline + max(end_frac * peak, float(sigma) * spread)
+        end_threshold = baseline + max(end_frac * accepted_peak, float(sigma) * spread)
     if end_threshold is not None:
         above_end = _bridged(y > end_threshold, gap)
         # A trailing segment whose own peak never reaches the end threshold is
@@ -1615,10 +1627,11 @@ def _active_window(
         i_peak_last = seg0 + int(np.argmax(y[seg0:seg1]))
         stop = _extend_forward(above_end, i_peak_last, quiet)
         if stop <= i_peak_last:
-            # Reachable: ``peak`` is the largest excess in the search mask and
-            # ``i_peak_last`` the peak of the last segment, and a spike refused
-            # by the segment tests still scales the threshold (#726).  The
-            # window stays the segment as found rather than being extended.
+            # Defensive since #726 scaled the threshold from the accepted
+            # amplitude: the largest accepted segment is above a fraction of
+            # its own peak by construction, and the drop loop leaves that one
+            # or a later one at least as large.  Kept because "the window ends
+            # before its own peak" is not a shape to report as a window.
             flags.append("offset_threshold_above_peak")
         elif stop < y.size:
             last = stop
