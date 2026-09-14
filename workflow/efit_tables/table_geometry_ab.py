@@ -82,6 +82,29 @@ EFIT_ONLY_INPUTS = ("lim.dat",)
 ERA = "vest-pre-43017-pf1906"
 
 
+def _same_tables(left: Path, right: Path) -> bool:
+    """Whether two directories hold the same Green tables.
+
+    Guards the one way this study can silently become meaningless: #695's own
+    conclusion moved the regenerated table into ``vaft/data/efit``, so the
+    default "packaged" side is no longer the legacy table it was written
+    against.
+    """
+    import hashlib
+
+    def digest(directory: Path) -> str | None:
+        parts = hashlib.sha256()
+        for filename in TABLE_FILES:
+            path = directory / filename
+            if not path.is_file():
+                return None
+            parts.update(hashlib.sha256(path.read_bytes()).digest())
+        return parts.hexdigest()
+
+    left_digest = digest(left)
+    return left_digest is not None and left_digest == digest(right)
+
+
 def _module(path: Path, name: str):
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
@@ -194,6 +217,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="a 129x129 table directory from regenerate_legacy_table.py, with its manifest",
     )
     parser.add_argument(
+        "--packaged",
+        type=Path,
+        default=None,
+        help="the legacy table to compare against (default: vaft/data/efit). Since #695 that "
+        "directory holds the regenerated table, so re-running this study needs the pre-switch "
+        "table passed explicitly; it is recoverable from git history.",
+    )
+    parser.add_argument(
         "--stage",
         required=True,
         type=Path,
@@ -223,8 +254,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     efit = str(resolved["efit"])
 
-    packaged = Path(data_path("efit")).resolve()
+    packaged = (args.packaged.expanduser() if args.packaged else Path(data_path("efit"))).resolve()
     regenerated = args.regenerated.expanduser().resolve()
+    if packaged == regenerated or _same_tables(packaged, regenerated):
+        print(
+            f"{packaged} and {regenerated} are the same table, so there is nothing to attribute. "
+            "Since #695 the packaged directory holds the regenerated table; pass the pre-switch "
+            "table with --packaged.",
+            file=sys.stderr,
+        )
+        return 2
     # The regenerated side must be the routine grid and the routine box, or
     # this measures #459's question again instead of this one.
     study.verify_table(regenerated, study.CASES["A"])

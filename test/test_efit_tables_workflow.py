@@ -49,7 +49,10 @@ def test_a_table_compared_with_itself_is_identical_everywhere(compare_tables):
     for file_key in ("ep", "ec", "rfcoil", "rv"):
         for label, delta in tables[file_key]["by_record"].items():
             assert delta.get("identical"), (file_key, label)
-    assert report["a"]["identity"]["provenance"] == "unrecorded"
+    # Since #695 the packaged directory carries the manifest of the EFUND run
+    # that produced it, so every EFIT run records which table it consumed.
+    assert report["a"]["identity"]["provenance"] == "manifest"
+    assert report["a"]["identity"]["identity"]
     text = compare_tables.markdown(report)
     assert "## Tables at 129x129" in text and "| ep | rsilpc |" in text
 

@@ -382,11 +382,28 @@ def test_table_identity_distinguishes_manifested_from_legacy_directories(geometr
     assert record["identity"] == read_table_manifest(generated)["table"]["identity"]
 
 
-def test_packaged_table_directory_has_no_recorded_provenance():
+def test_the_packaged_table_directory_now_records_its_provenance():
+    """Reversed by #695, which is the whole point of that change.
+
+    This asserted `unrecorded` for as long as `vaft/data/efit` held tables of
+    unknown origin. They are now the output of a recorded EFUND run over the
+    canonical static geometry, so an EFIT run against them records which table
+    it consumed by identity rather than by the hash of a namelist.
+    """
     from vaft.data.resources import data_path
 
     record = table_identity(data_path("efit"))
+    assert record["provenance"] == "manifest"
+    assert record["identity"] and len(record["identity"]) == 64
+    assert record["mhdin_sha256"] is not None
+
+
+def test_a_directory_without_a_manifest_still_reads_as_unrecorded(tmp_path):
+    """The other half: the distinction has to still exist to be worth making."""
+    (tmp_path / "mhdin.dat").write_text(" &machinein\n /\n", encoding="utf-8")
+    record = table_identity(tmp_path)
     assert record["provenance"] == "unrecorded"
+    assert record["identity"] is None
     assert record["mhdin_sha256"] is not None
 
 

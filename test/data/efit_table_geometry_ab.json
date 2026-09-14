@@ -185,6 +185,19 @@
    "zf"
   ]
  },
+ "packaged_table": {
+  "files": {
+   "brzgfc.dat": "34ec35458bc270af10e30f9e7246bd8122a1c86ab587a19e6e6eff6ed8270948",
+   "ec129129.ddd": "b2570c761691bebca47df641ad47f3010edded06d00ac089453717aeed002c8d",
+   "ep129129.ddd": "03fe274694893f0328eb64aa441546030b3f9dea9ad44c026f238a826d67f934",
+   "lim.dat": "647f5c21edbe9979381f0a44396ac22588b5d1ed0d6da485f32f5243ded767ec",
+   "mhdin.dat": "20fb27feaead393a21f635b1f551a1efaace0e90a606517b53b1cf38dbdddbc3",
+   "mhdout.dat": "420a1f45c339107503817c7155dddf3b15fe6a0ed4dccd7a89cba2e002b1fdfc",
+   "rfcoil.ddd": "9f9a42b6bbe7dc57322613a0d77f0f670d9e8031407eec7dc4f156cf16e571f3",
+   "rv129129.ddd": "6884c517cfbefc4f2c2948a67621d832e2544aa15941865470ca726b147a870f"
+  },
+  "note": "The pre-switch vaft/data/efit, of unrecorded origin. #695 replaced it with the regenerated table, so this study's PP arm can only be reproduced against a copy recovered from git history; pass it with --packaged."
+ },
  "reference_case": "PP",
  "regenerated_table": {
   "directory": "/private/tmp/claude-501/-Users-yun-git-vaft--claude-worktrees-workflow-chain-enhancement-c328b7/39ea1cb1-126a-47f5-be02-a50f633690a4/scratchpad/tables/fresh_129x129",
