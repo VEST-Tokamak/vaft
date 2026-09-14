@@ -68,16 +68,32 @@ ASSEMBLIES: tuple[dict[str, Any], ...] = (
         "name": "Mid triple Langmuir probe",
         "z": MID_Z_M,
         "position_key": "mid_r",
-        "phi": port_phi(MID_PORT),
+        # The port, not the angle: resolving phi here would read and validate
+        # vest.yaml at import time, which makes this module unimportable when
+        # that file is malformed instead of failing in the one mapper call that
+        # needs it. :func:`_assembly_phi` resolves it at write time.
+        "port": MID_PORT,
     },
     {
         "key": "upper",
         "name": "Upper triple Langmuir probe",
         "z": UPPER_Z_M,
         "position_key": "upper_r",
-        "phi": port_toroidal_angle(UPPER_CLOCK_HOUR),
+        "clock": UPPER_CLOCK_HOUR,
     },
 )
+
+
+def _assembly_phi(assembly: dict[str, Any]) -> float:
+    """The IMAS toroidal angle of an assembly, from its port or clock position.
+
+    The upper assembly has a clock position (4 o'clock, from issue #152) but no
+    port name -- the 2023 port document marks 4U6 "Available", so there is no
+    entry to look up.
+    """
+    if "port" in assembly:
+        return port_phi(str(assembly["port"]))
+    return port_toroidal_angle(float(assembly["clock"]))
 
 
 class LangmuirProbeConfigError(ValueError):
@@ -310,7 +326,7 @@ def vfit_langmuir_probes_dynamic(
         set_path(ods, f"{prefix}.identifier", f"langmuir_probes:{assembly['key']}")
         set_path(ods, f"{prefix}.name", assembly["name"])
         set_path(ods, f"{prefix}.position.z", assembly["z"])
-        set_path(ods, f"{prefix}.position.phi", assembly["phi"])
+        set_path(ods, f"{prefix}.position.phi", _assembly_phi(assembly))
         position_r = positions.get(assembly["position_key"])
         if position_r is not None:
             set_path(ods, f"{prefix}.position.r", float(position_r))

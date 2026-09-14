@@ -388,20 +388,29 @@ def resolve_sxr_geometry_root(geometry_root: str | Path | None = None) -> Path |
 
 
 
-def _geometry_phi_to_imas(stored_deg_or_rad: float) -> float:
+def _geometry_phi_to_imas(stored_rad: float) -> float:
     """Convert the geometry table's stored angle to an IMAS toroidal angle.
 
     The column is in radians, and holds a VEST clock angle unless
     :data:`SXR_GEOMETRY_PHI_IS_VEST_CLOCK_ANGLE` says otherwise.
     """
     if not SXR_GEOMETRY_PHI_IS_VEST_CLOCK_ANGLE:
-        return float(stored_deg_or_rad)
-    return clock_angle_to_toroidal_angle(float(np.rad2deg(stored_deg_or_rad)))
+        return float(stored_rad)
+    return clock_angle_to_toroidal_angle(float(np.rad2deg(stored_rad)))
 
 
 @lru_cache(maxsize=8)
 def load_sxr_geometry_table(geometry_table: str | Path | None = None) -> dict[tuple[str, int], dict[str, Any]]:
-    """Load SXR LOS endpoint geometry keyed by ``(array, channel)``."""
+    """Load SXR LOS endpoint geometry keyed by ``(array, channel)``.
+
+    The returned ``phi`` is an **IMAS toroidal angle in radians**, converted
+    from the VEST clock angle the CSV stores (see
+    :data:`SXR_GEOMETRY_PHI_IS_VEST_CLOCK_ANGLE`).  The conversion happens here
+    rather than at the IDS write so that this function and the IDS cannot
+    disagree about which frame a chord is in -- returning the raw column while
+    the mapper converted it would put a caller's chord 120 degrees from where
+    the IDS says it is.
+    """
     table_path = resolve_sxr_geometry_table(geometry_table)
     if table_path is None:
         return {}
@@ -415,7 +424,7 @@ def load_sxr_geometry_table(geometry_table: str | Path | None = None) -> dict[tu
             "first_z": float(row["first_z"]),
             "second_r": float(row["second_r"]),
             "second_z": float(row["second_z"]),
-            "phi": float(row.get("phi", 0.0)),
+            "phi": _geometry_phi_to_imas(float(row.get("phi", 0.0))),
         }
     return geometry
 
@@ -558,10 +567,8 @@ def _geometry_for_channel(
             return None
         first = (float(table_entry["first_r"]), float(table_entry["first_z"]))
         second = (float(table_entry["second_r"]), float(table_entry["second_z"]))
-        stored_phi = table_entry.get("phi")
-        if stored_phi is None:
-            return first, second, None
-        return first, second, _geometry_phi_to_imas(float(stored_phi))
+        # Already an IMAS toroidal angle: load_sxr_geometry_table converts.
+        return first, second, float(table_entry["phi"])
 
     if geometry_root is None:
         return None

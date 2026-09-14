@@ -170,3 +170,63 @@ def test_validation_rejects(label, record):
 
 def test_validation_accepts_the_packaged_table():
     validate_port_map(load_port_map())
+
+
+# ---------------------------------------------------------------------------
+# Loading: cached, isolated, and on one error type
+# ---------------------------------------------------------------------------
+
+
+def _table_with(replacement: str, tmp_path):
+    """The packaged table with its first port entry replaced."""
+    from vaft.machine_mapping.registry import registry_path
+
+    source = registry_path().read_text(encoding="utf-8")
+    original = "    - {name: 1MU10,  clock: 1,"
+    assert source.count(original) == 1
+    target = tmp_path / "vest.yaml"
+    target.write_text(source.replace(original, replacement, 1), encoding="utf-8")
+    return target
+
+
+def test_repeated_lookups_do_not_reparse_the_table():
+    """port_phi is called per diagnostic channel; parsing there is not free."""
+    from vaft.machine_mapping.registry import _load_port_map_cached, registry_path
+
+    load_port_map()
+    before = _load_port_map_cached.cache_info().misses
+    for _ in range(50):
+        port_phi("11M12")
+        port_clock("10MR")
+    assert _load_port_map_cached.cache_info().misses == before
+
+
+def test_a_returned_table_can_be_mutated_without_poisoning_the_cache():
+    first = load_port_map()
+    first["11M12"]["clock"] = 99
+    first["11M12"]["use"] = "corrupted"
+    assert load_port_map()["11M12"]["clock"] == 11
+    assert port_clock("11M12") == 11
+
+
+def test_a_port_entry_without_a_name_raises_the_documented_error(tmp_path):
+    """Not a bare KeyError: callers are told to catch PortMapError."""
+    table = _table_with("    - {clock: 1,", tmp_path)
+    with pytest.raises(PortMapError, match="missing name"):
+        load_port_map(table)
+
+
+def test_a_non_mapping_port_entry_is_named_for_what_is_wrong(tmp_path):
+    table = _table_with("    - not-a-mapping\n    - {name: 1MU10, clock: 1,", tmp_path)
+    with pytest.raises(PortMapError, match="must be a mapping"):
+        load_port_map(table)
+
+
+def test_a_duplicate_port_name_is_reported_as_a_duplicate(tmp_path):
+    table = _table_with(
+        "    - {name: 10MR, clock: 10, chamber: main, size: rectangular, use: Duplicate}\n"
+        "    - {name: 1MU10,  clock: 1,",
+        tmp_path,
+    )
+    with pytest.raises(PortMapError, match="duplicate port name"):
+        load_port_map(table)

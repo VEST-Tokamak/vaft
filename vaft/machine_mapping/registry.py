@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -115,14 +116,19 @@ def validate_diagnostic_registry(registry: Mapping[str, Mapping[str, Any]]) -> N
                 raise DiagnosticRegistryError(f"{context}: file source requires formats and patterns")
 
 
-def load_port_map(path: str | Path | None = None) -> dict[str, dict[str, Any]]:
-    """Load and validate the VEST port table, keyed by port name.
+@lru_cache(maxsize=4)
+def _load_port_map_cached(source: Path) -> tuple[tuple[str, tuple[tuple[str, Any], ...]], ...]:
+    """Parse and validate the port table once per file.
 
-    The returned records carry the ``clock`` position only.  A toroidal angle is
-    *derived* (:func:`port_phi`), never stored, so the table and the convention
-    cannot drift apart.
+    Cached because :func:`port_phi` is called per diagnostic channel, and
+    without this every call re-read and re-validated the whole of ``vest.yaml``
+    -- about 90 ms each, which a per-channel loop pays once per channel.  The
+    same ``lru_cache`` treatment the channel tables in
+    :mod:`vaft.machine_mapping.magnetics` get, for the same reason.
+
+    Hashable items are returned so the cache cannot hand out a shared mutable
+    dict that a caller could corrupt for everyone else.
     """
-    source = registry_path(path)
     content = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
     block = content.get(PORT_MAP_KEY)
     if not isinstance(block, Mapping):
@@ -130,11 +136,37 @@ def load_port_map(path: str | Path | None = None) -> dict[str, dict[str, Any]]:
     ports = block.get("ports")
     if not isinstance(ports, list) or not ports:
         raise PortMapError(f"{source}: {PORT_MAP_KEY}.ports must be a non-empty list")
-    normalized = {str(record["name"]): dict(record) for record in ports if isinstance(record, Mapping)}
-    if len(normalized) != len(ports):
-        raise PortMapError(f"{source}: every {PORT_MAP_KEY}.ports entry needs a unique name")
+
+    normalized: dict[str, dict[str, Any]] = {}
+    for index, record in enumerate(ports):
+        context = f"{source}: {PORT_MAP_KEY}.ports[{index}]"
+        if not isinstance(record, Mapping):
+            raise PortMapError(f"{context}: entry must be a mapping")
+        if "name" not in record:
+            raise PortMapError(f"{context}: missing name")
+        name = str(record["name"])
+        if name in normalized:
+            raise PortMapError(f"{context}: duplicate port name {name!r}")
+        normalized[name] = dict(record)
+
     validate_port_map(normalized)
-    return normalized
+    return tuple((name, tuple(record.items())) for name, record in normalized.items())
+
+
+def load_port_map(path: str | Path | None = None) -> dict[str, dict[str, Any]]:
+    """Load and validate the VEST port table, keyed by port name.
+
+    The returned records carry the ``clock`` position only.  A toroidal angle is
+    *derived* (:func:`port_phi`), never stored, so the table and the convention
+    cannot drift apart.
+
+    A fresh dict is built on each call, so a caller may mutate the result
+    without disturbing the cached parse behind it.
+    """
+    return {
+        name: dict(items)
+        for name, items in _load_port_map_cached(registry_path(path))
+    }
 
 
 def validate_port_map(ports: Mapping[str, Mapping[str, Any]]) -> None:
@@ -181,10 +213,10 @@ def validate_port_map(ports: Mapping[str, Mapping[str, Any]]) -> None:
 
 def port_clock(name: str, path: str | Path | None = None) -> float:
     """The clock position of a named port.  Clockwise-positive, not IMAS phi."""
-    ports = load_port_map(path)
-    if name not in ports:
-        raise PortMapError(f"{PORT_MAP_KEY}: no port named {name!r}")
-    return float(ports[name]["clock"])
+    for port_name, items in _load_port_map_cached(registry_path(path)):
+        if port_name == name:
+            return float(dict(items)["clock"])
+    raise PortMapError(f"{PORT_MAP_KEY}: no port named {name!r}")
 
 
 def port_clock_angle(name: str, path: str | Path | None = None) -> float:

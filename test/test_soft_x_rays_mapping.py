@@ -79,8 +79,11 @@ def test_packaged_soft_x_ray_geometry_table_is_available():
     assert ("lowermid", 1) in geometry
     assert geometry[("horizontal", 1)]["daq_label"] == "17592"
     assert geometry[("lowermid", 1)]["daq_label"] == "22577"
+    # The CSV column holds a VEST clock angle; the loader returns IMAS phi, so
+    # that it and the IDS cannot disagree about a chord's frame (issue #746).
+    # The raw column is asserted above, through pandas.
     np.testing.assert_allclose(geometry[("horizontal", 1)]["phi"], 0.0)
-    np.testing.assert_allclose(geometry[("lowermid", 1)]["phi"], 2.0 * np.pi / 3.0)
+    np.testing.assert_allclose(geometry[("lowermid", 1)]["phi"], np.deg2rad(240.0))
 
 
 

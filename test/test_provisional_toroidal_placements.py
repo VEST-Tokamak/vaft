@@ -36,16 +36,14 @@ def test_sxr_geometry_column_is_converted_not_passed_through():
 
 
 def test_sxr_arrays_land_where_the_conversion_says():
-    from vaft.machine_mapping.soft_x_rays import _geometry_phi_to_imas, load_sxr_geometry_table
+    from vaft.machine_mapping.soft_x_rays import load_sxr_geometry_table
 
     by_array = {}
     for (array, _), row in load_sxr_geometry_table().items():
         by_array.setdefault(array, float(row["phi"]))
 
-    resolved = {
-        array: round(float(np.rad2deg(_geometry_phi_to_imas(stored))), 6)
-        for array, stored in by_array.items()
-    }
+    # The loader already returns IMAS phi.
+    resolved = {array: round(float(np.rad2deg(phi)), 6) for array, phi in by_array.items()}
     assert resolved == {
         "horizontal": 0.0,   # 12MM10, corroborated by the port document
         "vertical": 0.0,     # 12MM10
