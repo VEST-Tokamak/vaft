@@ -204,6 +204,7 @@ from .renderers.fields import (
     equilibrium_field_psi,
     equilibrium_field_psi_vacuum,
     passive_structure_field_wall_reduction,
+    vacuum_field,
 )
 from .renderers.geometry import (
     charge_exchange_geometry_poloidal,

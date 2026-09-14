@@ -102,6 +102,9 @@ _SUBJECTS = (
     Subject("machine", "machine"),
     # Reconstructions, models, and codes
     Subject("equilibrium", "reconstruction"),
+    # The field the coils and the vessel make with no plasma in it: a model of
+    # the machine, not a reconstruction of a discharge.
+    Subject("vacuum", "model", ("vacuum_field", "null_field")),
     Subject("core_profiles", "reconstruction"),
     Subject("mhd_linear", "model"),
     Subject("nbi", "machine", ("neutral_beam", "nubeam")),
