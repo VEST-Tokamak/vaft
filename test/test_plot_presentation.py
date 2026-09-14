@@ -190,21 +190,34 @@ def test_a_row_is_as_tall_as_the_member_standing_in_it_asks():
     plain = renderers.render_panels(with_trace, format="double_column")[0].get_size_inches()
     assert tall[0] == plain[0] == 7.0, "a composite keeps the format's width"
     assert tall[1] > plain[1]
-    # A plain grid of traces keeps the cell height the grid always used.
+    # A plain grid of traces keeps the cell height the grid always used:
+    # three rows of 0.4 x 3.5 in on a double column.
     grid = Panels(models=tuple(trace(i) for i in range(6)), ncols=2)
     figure, _ = renderers.render_panels(grid, format="double_column")
-    assert figure.get_size_inches()[1] == pytest.approx(3 * max(0.9, GEOMETRY["LineSeries"].aspect * 3.5))
+    assert figure.get_size_inches()[1] == pytest.approx(4.2)
     # The ceiling still binds.
     deep = Panels(models=tuple(trace(i) for i in range(30)), ncols=1)
     assert renderers.render_panels(deep, format="screen")[0].get_size_inches()[1] == FORMATS["screen"].max_height_in
 
 
 def test_the_equilibrium_overview_takes_its_height_from_the_flux_map(sample):
-    figure, _ = vaft.omas.plot_equilibrium_overview(sample, format="double_column")
+    figure, axes = vaft.omas.plot_equilibrium_overview(sample, format="double_column")
     width, height = figure.get_size_inches()
     assert width == 7.0
-    plain_rows = 3 * max(0.9, GEOMETRY["LineSeries"].aspect * 7.0 / 3)
-    assert plain_rows < height <= FORMATS["double_column"].max_height_in
+    assert 3 * max(0.9, 0.4 * 7.0 / 3) < height <= FORMATS["double_column"].max_height_in
+    # The map is drawn taller, not just given a taller canvas: its axes, in
+    # inches, exceeds what the plain three rows gave it.
+    figure.canvas.draw()
+    drawn = np.asarray(axes).ravel()[0].get_position().height * height
+    assert drawn > 3.0, "a double column draws the map at 3.3 in; three plain rows gave it 1.8"
+    # At screen the map is width-limited by the three columns' 10 pt labels,
+    # so its drawn height is what the column allows (2.4 in, as before); the
+    # canvas grows for the text panel's fourteen lines, not for the map.
+    figure, axes = vaft.omas.plot_equilibrium_overview(sample, format="screen")
+    figure.canvas.draw()
+    assert np.asarray(axes).ravel()[0].get_position().height * figure.get_size_inches()[1] > 2.2
+    # The diagnostics overview is traces only and is exactly as tall as before.
+    assert tuple(vaft.omas.plot_diagnostics_overview(sample, format="double_column")[0].get_size_inches()) == (7.0, 4.2)
 
 
 def test_a_time_trace_is_the_landscape_strip_its_policy_says():

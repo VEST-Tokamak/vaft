@@ -8,6 +8,8 @@ themselves.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from typing import Any
 
 import numpy as np
@@ -107,9 +109,14 @@ def _draw_text_panel(
     """Place a :class:`TextPanel`'s lines in an axes with no frame."""
     axis = ax if ax is not None else plt.subplots()[1]
     axis.set_axis_off()
+    # Clipped to its own cell: a text block that overran it would inflate
+    # the figure's tight bounding box and shrink every other axes to make
+    # room (issue #711); a cut last line is the lesser harm, and the grid
+    # policy asks for the height the lines need in the first place.
     axis.text(
         0.02, 0.98, "\n".join(model.lines), transform=axis.transAxes,
         ha="left", va="top", family="monospace", fontsize="small", linespacing=1.4,
+        clip_on=True,
     )
     if model.title:
         axis.set_title(model.title)
@@ -171,10 +178,18 @@ def render_panels(
         for axis in list(figure.axes):
             axis.remove()
         gridspec = figure.add_gridspec(model.nrows, model.ncols)
-        flat = np.array(
-            [figure.add_subplot(gridspec[r:r + rs, c:c + cs]) for r, c, rs, cs in model.spans],
-            dtype=object,
+        # A field map's colorbar gets a cell of its own beside the map, the
+        # arrangement the slice navigator uses: a colorbar taken out of an
+        # equal-aspect axes shrinks the map instead, and the taller the row
+        # the smaller the map came out (issue #711).
+        field_slot = next(
+            (i for i, m in enumerate(model.models) if isinstance(m, Field2D) and m.colorbar), None,
         )
+        flat, colorbar_axes = slice_grid_axes(figure, gridspec, model, top=0, colorbar_slot=field_slot)
+        if colorbar_axes is not None:
+            styles = [dict(s) for s in (model.member_styles or ({},) * len(model.models))]
+            styles[field_slot]["colorbar_ax"] = colorbar_axes
+            model = replace(model, member_styles=tuple(styles))
         grid = flat
     else:
         if figsize is None:

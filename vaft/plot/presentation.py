@@ -230,9 +230,7 @@ _RZ_AXES_FRACTION_WITH_COLORBAR = 0.7
 
 #: The height/width ratio of one cell of a composite grid, and the least a
 #: row may be given, so a wide grid does not collapse its rows.
-#: A plain cell is a time trace's landscape strip, so a grid of traces asks
-#: nothing more of its rows than the grid always gave them.
-_PANEL_CELL_ASPECT = GEOMETRY["LineSeries"].aspect
+_PANEL_CELL_ASPECT = 0.4
 _PANEL_MIN_ROW_IN = 0.9
 
 #: The role a geometry layer carries when it belongs to the plasma rather
@@ -328,7 +326,7 @@ class Presentation:
             return _snug(width, _native_ratio(model), _RZ_AXES_FRACTION, ceiling)
         # grid: one width whatever the column count; the rows add height,
         # each as tall as the members standing in it ask (issue #711).
-        return (width, min(max(_grid_height(model, width), 0.5 * width), ceiling))
+        return (width, min(max(_grid_height(model, width, self.format.base_font_pt), 0.5 * width), ceiling))
 
     def rc(self) -> dict[str, Any]:
         """The rcParams this presentation sets, theme baseline times format scale."""
@@ -423,7 +421,7 @@ def _native_ratio(model: Any) -> float:
 _CELL_MAX_ASPECT = 2.5
 
 
-def _grid_height(model: Any, width: float) -> float:
+def _grid_height(model: Any, width: float, base_font_pt: float = 10.0) -> float:
     """The height a composite's rows need under one fixed ``width``.
 
     Every member asks for the height its own geometry policy would give it
@@ -447,27 +445,49 @@ def _grid_height(model: Any, width: float) -> float:
     # counts rows as the deepest stack, not the LCM it is built on.
     rows = [_visual_rows(model) * cell / nrows] * nrows
     for member, (row, _col, rowspan, colspan) in zip(members, spans):
-        need = _cell_ratio(member) * colspan * column_width
+        need = _cell_need(member, colspan * column_width, base_font_pt)
         have = sum(rows[row:row + rowspan])
-        if need > have > 0.0:
+        if need is not None and need > have > 0.0:
             scale = need / have
             rows[row:row + rowspan] = [height * scale for height in rows[row:row + rowspan]]
     return float(sum(rows))
 
 
-def _cell_ratio(member: Any) -> float:
-    """Height over width a member asks of the cell it stands in."""
+#: The width an axes' y label and tick labels take, per point of base font
+#: (0.6 in at 10 pt): what a cell loses before its map can start.
+_LABEL_ALLOWANCE_PER_PT = 0.06
+
+#: A text panel is set at Matplotlib's "small" -- 0.833 of the base font --
+#: with 1.4 line spacing; this turns the base font into a line's inches.
+_TEXT_LINE_PER_PT = 0.833 * 1.4 / 72.0
+
+
+def _cell_need(member: Any, cell_width: float, base_font_pt: float = 10.0) -> float | None:
+    """The height in inches a member asks of its cell, or ``None`` to accept it.
+
+    Only a member whose shape is not its own to give asks: an R-Z map or an
+    image must keep its coordinate ratio, a text block must fit its lines.
+    A trace, a profile or a spectrum takes whatever height the grid gives
+    its row, so a grid of them is exactly as tall as it always was.
+    """
     policy = GEOMETRY.get(type(member).__name__, GeometryPolicy("aspect", 0.62))
-    if policy.kind == "aspect":
-        return float(policy.aspect or 0.62)
     if policy.kind == "extent":
         span = rz_extent(member)
         ratio = span[1] / span[0] if span else _RZ_FALLBACK_ASPECT
         usable = _RZ_AXES_FRACTION_WITH_COLORBAR if _has_colorbar(member) else _RZ_AXES_FRACTION
-        return min(ratio, _CELL_MAX_ASPECT) * usable / _RZ_AXES_HEIGHT_FRACTION
+        # Inside a grid the cell also pays for its own axis labels and ticks,
+        # a cost in inches that grows with the type size, not with the cell;
+        # the map is only as wide as what is left, and equal scaling then
+        # fixes its height from that width.  Asking for more would give the
+        # row height the map cannot use.
+        drawn_width = max(cell_width * usable - _LABEL_ALLOWANCE_PER_PT * base_font_pt, 0.3 * cell_width)
+        return min(ratio, _CELL_MAX_ASPECT) / _RZ_AXES_HEIGHT_FRACTION * drawn_width
     if policy.kind == "native":
-        return min(_native_ratio(member), _CELL_MAX_ASPECT)
-    return 0.62
+        return min(_native_ratio(member), _CELL_MAX_ASPECT) * cell_width
+    lines = getattr(member, "lines", None)
+    if lines is not None and type(member).__name__ == "TextPanel":
+        return (len(lines) + 2.0) * _TEXT_LINE_PER_PT * base_font_pt
+    return None
 
 
 def _visual_rows(model: Any) -> int:
