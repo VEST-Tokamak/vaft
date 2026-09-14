@@ -994,3 +994,64 @@ def test_an_accepted_optional_product_reaches_its_own_source(tmp_path, monkeypat
     # The baseline source is never touched by the optional diagnostic.
     assert all(entry["source"] != "main" for entry in sent)
     assert sent[0]["ids"] == ["dataset_description", "magnetics"]
+
+
+# --------------------------------------------------------------------------- #
+# the finalizer must not prune on a listing it could not trust
+# --------------------------------------------------------------------------- #
+
+
+def test_the_finalizer_refuses_an_unreachable_listing(tmp_path, monkeypatch):
+    """An unreadable folder must not read as "no files present".
+
+    `_remote_entries` reports an absent folder and an unreachable one the same
+    way. The finalizer acts on that emptiness by pruning links, and the master
+    it produces is the commit point -- so a transient listing failure would
+    publish a master describing only the in-flight stage, which is the exact
+    harm the write ordering exists to prevent.
+    """
+    def unreachable(*_args, **_kwargs):
+        raise OSError("HSDS is busy")
+
+    monkeypatch.setattr(replication, "_require_remote_entries", unreachable)
+
+    previous = tmp_path / "previous.h5"
+    _master(previous, ["magnetics"])
+    finalize = replication._master_finalizer("main", 39915, previous)
+
+    with pytest.raises(OSError, match="busy"):
+        finalize(_master(tmp_path / "current.h5", ["equilibrium"]))
+
+
+def test_the_finalizer_refuses_a_listing_with_no_ids_files(tmp_path, monkeypatch):
+    """The payload is already uploaded, so a healthy folder cannot be empty."""
+    monkeypatch.setattr(replication, "_require_remote_entries", lambda *a, **k: ())
+
+    previous = tmp_path / "previous.h5"
+    _master(previous, ["magnetics"])
+    finalize = replication._master_finalizer("main", 39915, previous)
+
+    with pytest.raises(replication.ReplicationError, match="lists no IDS files"):
+        finalize(_master(tmp_path / "current.h5", ["equilibrium"]))
+
+
+def test_the_finalizer_carries_the_previous_links_when_the_listing_is_sound(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        replication,
+        "_require_remote_entries",
+        lambda *a, **k: ("magnetics.h5", "equilibrium.h5", "master.h5"),
+    )
+
+    previous = tmp_path / "previous.h5"
+    _master(previous, ["magnetics"])
+    current = _master(tmp_path / "current.h5", ["equilibrium"])
+
+    replication._master_finalizer("main", 39915, previous)(current)
+
+    assert external_h5_links(current) == ["equilibrium.h5", "magnetics.h5"]
+
+
+def test_a_first_write_needs_no_finalizer():
+    assert replication._master_finalizer("main", 39915, None) is None
