@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -236,7 +238,31 @@ def _reliability_ods():
         "dataset_description.data_entry.machine": "VEST",
         "dataset_description.data_entry.run": 1,
         "equilibrium.ids_properties.comment": "current EFIT",
-        "equilibrium.code.parameters.time_slice.0.meqdsk.mapping_source_revision": "efit-revision",
+        # The one string that replicates, as the EFIT stage writes it (#380,
+        # #728).  The per-slice parser cache this used to read stays on the
+        # local product and never reaches a replica.
+        "equilibrium.code.parameters": json.dumps(
+            {
+                "efit_collection": {
+                    "status": "completed",
+                    "mapping_source_revision": "efit-revision",
+                    "artifact_hashes": {
+                        "/w/g039915.00010": "gsha",
+                        "/w/m039915.00010": "msha",
+                    },
+                    "slice_statuses": [
+                        # A rejected slice the equilibrium does not carry, first,
+                        # so position and time disagree.
+                        {"time": 0.05, "overall_status": "rejected",
+                         "provenance": {"outputs": {"gfile": None, "mfile": None}}},
+                        {"time": 0.1, "overall_status": "converged",
+                         "provenance": {"outputs": {"gfile": "/w/g039915.00010",
+                                                    "mfile": "/w/m039915.00010"}}},
+                    ],
+                }
+            },
+            sort_keys=True,
+        ),
         "equilibrium.time": [0.1],
         "equilibrium.time_slice": [
             {
@@ -546,3 +572,92 @@ def test_the_shot_overview_loads_what_the_shot_class_reads():
     loaded, and the class decides BD failure versus Vacuum on the barometry."""
     paths = summary_module.PRESETS["shot_overview"].paths
     assert "barometry" in paths and "dataset_description" in paths
+
+
+# --- lineage reads what replicates, not what stays local (#728) --------------
+
+
+def _lineage(ods, eq_index=0):
+    from vaft.database._summary import _equilibrium_lineage
+
+    return json.loads(_equilibrium_lineage(ods, eq_index))
+
+
+def test_lineage_resolves_the_artifact_hashes_through_the_payload():
+    """The hashes are in the string the stage writes, keyed by the file's path.
+
+    A slice status carries the time it was reconstructed at and the outputs
+    that run produced, and `artifact_hashes` is keyed by those same paths, so
+    the lineage can reach them without the parser cache that stays local.
+    """
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    for path, value in _reliability_ods().items():
+        ods[path] = value
+
+    lineage = _lineage(ods)
+
+    assert lineage["gfile_sha256"] == "gsha"
+    assert lineage["mfile_sha256"] == "msha"
+    assert lineage["mapping_source_revision"] == "efit-revision"
+
+
+def test_the_slice_is_matched_by_time_not_by_position():
+    """`slice_statuses` holds rejected slices that the equilibrium does not.
+
+    The fixture puts a rejected slice first, so an implementation that indexed
+    the statuses by `eq_index` would read the wrong one -- and would read
+    `None` outputs, which is the shape that made this worth pinning.
+    """
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    for path, value in _reliability_ods().items():
+        ods[path] = value
+    statuses = json.loads(ods["equilibrium.code.parameters"])["efit_collection"][
+        "slice_statuses"
+    ]
+
+    from vaft.database._summary import _slice_time
+
+    assert statuses[0]["time"] != _slice_time(ods, 0)
+    assert _lineage(ods)["gfile_sha256"] == "gsha"
+
+
+def test_a_field_the_replica_cannot_carry_says_so():
+    """An absent key reads as "nobody hashed it"; this is the other thing.
+
+    Three lineage fields were silently dropped from every summary built from
+    the database for a year because a missing key and an unreplicated one look
+    identical (#728).
+    """
+    from omas import ODS
+
+    payload = {"efit_collection": {"status": "completed", "artifact_hashes": {},
+                                   "slice_statuses": []}}
+    ods = ODS(consistency_check=False)
+    for path, value in _reliability_ods().items():
+        ods[path] = value
+    ods["equilibrium.code.parameters"] = json.dumps(payload, sort_keys=True)
+
+    lineage = _lineage(ods)
+
+    assert lineage["gfile_sha256"] == "not replicated"
+    assert lineage["mfile_sha256"] == "not replicated"
+    assert "mapping_source_revision" not in lineage
+
+
+def test_a_non_efit_payload_is_left_alone():
+    """CHEASE writes its own JSON there, and mhd_linear writes XML."""
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    for path, value in _reliability_ods().items():
+        ods[path] = value
+    ods["equilibrium.code.parameters"] = json.dumps({"comparison_metrics": {}})
+
+    lineage = _lineage(ods)
+
+    assert "gfile_sha256" not in lineage
+    assert lineage["machine"] == "VEST"
