@@ -108,16 +108,25 @@ def _boundary(z_half: float) -> GeometryLayer:
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("name", BASE_RENDERERS)
-def test_no_preset_draws_exactly_what_it_drew_before(name):
+def test_the_default_is_the_screen_format_and_legacy_is_the_old_size(name):
+    """format=None means screen (issue #712); format="legacy" is the renderer's own size."""
     from vaft.plot.renderers import geometry
 
     render = getattr(renderers, name, None) or getattr(geometry, name)
     plain = render(_minimal(name), show=False)
-    explicit = render(_minimal(name), show=False, format=None, theme=None)
-    assert _fingerprint(plain[0], plain[1]) == _fingerprint(explicit[0], explicit[1])
+    screen = render(_minimal(name), show=False, format="screen")
+    assert _fingerprint(plain[0], plain[1]) == _fingerprint(screen[0], screen[1])
+    legacy = render(_minimal(name), show=False, format="legacy")
+    module = getattr(geometry if name.startswith("render_geometry") else renderers, name).__module__
+    import importlib
+
+    default = getattr(importlib.import_module(module), "_DEFAULT_FIGSIZE", None)
+    if default is not None:
+        assert tuple(legacy[0].get_size_inches()) == tuple(default)
+    assert legacy[1] is not None
 
 
-def test_the_canonical_plots_are_untouched_without_a_preset(sample):
+def test_the_canonical_plots_take_the_screen_format_by_default(sample):
     before = dict(matplotlib.rcParams)
     for call in (
         lambda **k: vaft.omas.plot_plasma_current_time(sample, **k),
@@ -125,9 +134,24 @@ def test_the_canonical_plots_are_untouched_without_a_preset(sample):
         lambda **k: vaft.omas.plot_flux_loop_time_flux(sample, layout="subplots", **k),
     ):
         plain = call()
-        explicit = call(format=None, theme=None)
-        assert _fingerprint(*plain) == _fingerprint(*explicit)
+        screen = call(format="screen")
+        assert _fingerprint(*plain) == _fingerprint(*screen)
+        assert plain[0].get_size_inches()[0] <= FORMATS["screen"].width_in
+    legacy = vaft.omas.plot_plasma_current_time(sample, format="legacy")
+    assert tuple(legacy[0].get_size_inches()) == (6.0, 2.5)
     assert dict(matplotlib.rcParams) == before
+
+
+def test_the_default_yields_to_a_canvas_somebody_else_decides(sample):
+    """A caller's ax= or figsize= still takes the untouched path."""
+    figure, axis = plt.subplots(figsize=(4.0, 3.0))
+    vaft.omas.plot_plasma_current_time(sample, ax=axis)
+    assert tuple(figure.get_size_inches()) == (4.0, 3.0)
+    sized, _ = vaft.omas.plot_plasma_current_time(sample, figsize=(5.0, 5.0))
+    assert tuple(sized.get_size_inches()) == (5.0, 5.0)
+    # The theme alone keeps the default canvas.
+    themed, _ = vaft.omas.plot_plasma_current_time(sample, theme="technical")
+    assert tuple(themed.get_size_inches()) == tuple(vaft.omas.plot_plasma_current_time(sample, format="screen")[0].get_size_inches())
 
 
 def test_global_rcparams_are_what_they_were_afterwards(sample):
@@ -151,10 +175,11 @@ def test_formats_resolve_deterministic_widths():
     for name, width in (("single_column", 3.375), ("double_column", 7.0), ("screen", 6.5)):
         sizes = {tuple(renderers.render_line_series(model, format=name)[0].get_size_inches()) for _ in range(2)}
         assert len(sizes) == 1 and next(iter(sizes))[0] == width
-    # screen is a canonical width, not an alias of the legacy default.
-    assert tuple(renderers.render_line_series(model)[0].get_size_inches()) != tuple(
+    # The default is the screen format (issue #712); legacy is the old constant.
+    assert tuple(renderers.render_line_series(model)[0].get_size_inches()) == tuple(
         renderers.render_line_series(model, format="screen")[0].get_size_inches()
     )
+    assert tuple(renderers.render_line_series(model, format="legacy")[0].get_size_inches()) == (6.0, 2.5)
 
 
 def test_geometries_take_different_heights_under_one_format():

@@ -233,9 +233,11 @@ fig, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="outboard", layout
 
 Rules worth knowing:
 
-- With neither keyword every plot draws exactly what it drew before the presets
-  existed; `format="screen"` is a canonical width, not an alias of those legacy
-  sizes, so the two differ today.
+- `format=None` means `screen` for a figure the plot creates itself (issue #712):
+  6.5 in wide, 10 pt type, the height its view kind asks. It yields to a caller's
+  `ax=` and to an explicit `figsize=`. `format="legacy"` pins the sizes the
+  renderers had before the presets existed, for a workflow whose reference
+  images must not move. `theme=None` stays Matplotlib's own look.
 - Nothing mutates global Matplotlib state: a preset is applied around one render
   and `rcParams` are what they were once the figure is returned.
 - A caller who owns the axes keeps the canvas: `ax=` together with `format=` is

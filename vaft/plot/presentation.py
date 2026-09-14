@@ -26,11 +26,13 @@ go on which axes is the semantic layout's, issue #260):
     a baseline of every theme, not a theme of its own: both colour cycles
     are colour-blind safe.
 
-Both presets are opt-in.  With ``format=None, theme=None`` every renderer
-does exactly what it did before this module existed; ``format="screen"`` is
-a canonical width, not an alias of those legacy sizes (they were never one
-width), so the two differ today and the default migration -- making
-``None`` mean ``screen`` -- is a later, deliberate step.
+``format=None`` means :data:`DEFAULT_FORMAT` -- ``screen`` -- for a figure
+the renderer creates on its own (issue #712, the presentation contract's
+last phase); the default yields to a caller's ``ax=`` and to an explicit
+``figsize=``, which decide the canvas themselves.  ``format="legacy"``
+names the sizes the renderers had before this module existed (they were
+never one width), so a workflow whose reference images predate it can pin
+them.  ``theme=None`` stays Matplotlib's own look.
 
 Nothing here mutates global Matplotlib state.  A :class:`Presentation` is
 applied as a :func:`matplotlib.rc_context` around one whole render (axes
@@ -61,6 +63,7 @@ from .intent import (  # noqa: F401  re-exported: the colour vocabulary lives be
 )
 
 __all__ = [
+    "DEFAULT_FORMAT",
     "EQUILIBRIUM_ROLE",
     "FORMATS",
     "FigureFormat",
@@ -99,6 +102,14 @@ class FigureFormat:
     panel_gap_pt: float = 6.0
     outer_pad_pt: float = 3.0
 
+
+#: What ``format=None`` means for a figure the renderer creates itself.
+DEFAULT_FORMAT = "screen"
+
+#: The spelling of "the renderers' own sizes from before the presentation
+#: contract": no format resolution at all, the path a reference-image
+#: workflow pins when it must not move.
+LEGACY_FORMAT = "legacy"
 
 #: The recurring physical constraints of scientific figures, without naming
 #: a publisher: a screen figure, a single column (86 mm) and a double column
@@ -592,7 +603,7 @@ def resolve_presentation(
     # A control spells "no theme" as the ``"none"`` sentinel every choice
     # control uses, and ``as_style`` must keep passing that word along since
     # it is also a real uncertainty mode -- so it is read as absence here.
-    format = None if format in (None, "", "none") else format
+    format = None if format in (None, "", "none", LEGACY_FORMAT) else format
     theme = None if theme in (None, "", "none") else theme
     if format is None and theme is None:
         return None
@@ -642,9 +653,11 @@ def apply_axes_theme(axes: Any, theme: Theme) -> None:
 def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
     """Give a base renderer ``format=`` and ``theme=``, applied around it.
 
-    The renderer keeps its body: with neither preset the wrapper calls it
-    exactly as before, which is what makes ``format=None, theme=None`` the
-    legacy path by construction rather than by care.  With a preset the
+    The renderer keeps its body.  ``format=None`` on a canvas nobody else
+    decides (no ``ax=``, no ``figsize=``) means :data:`DEFAULT_FORMAT`; a
+    caller's ``ax=``, an explicit ``figsize=`` or ``format="legacy"`` take
+    the untouched path, where the wrapper calls the renderer exactly as it
+    was called before the contract existed.  With a preset the
     wrapper resolves it (refusing ``ax=`` or ``figsize=`` beside ``format=``),
     opens the presentation context for the whole render -- axes creation,
     artists, legend, ticks, the renderer's own ``finalize`` -- computes the
@@ -660,6 +673,9 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
         @functools.wraps(render)
         def wrapper(model: Any, *args: Any, ax: Any = None, figsize: Any = None,
                     format: str | None = None, theme: str | None = None, **kwargs: Any) -> Any:
+            if format is None and ax is None and figsize is None:
+                # The canonical default, for a canvas nobody else decides.
+                format = DEFAULT_FORMAT
             presentation = resolve_presentation(format, theme, ax=ax, figsize=figsize)
             if presentation is None:
                 return render(model, *args, ax=ax, figsize=figsize, **kwargs)

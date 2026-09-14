@@ -256,7 +256,9 @@ def test_a_profile_that_cannot_be_derived_is_omitted_and_the_column_restacks(sho
         "Poloidal flux", "Pressure", "Safety Factor q", "dp/dpsi", "F dF/dpsi", "Global quantities",
     ]
     # The figure keeps the height of a three-panel column, not six grid rows.
-    assert figure.get_size_inches()[1] < 12
+    from vaft.plot.presentation import FORMATS
+
+    assert figure.get_size_inches()[1] <= FORMATS["screen"].max_height_in
     plt.close(figure)
 
 
