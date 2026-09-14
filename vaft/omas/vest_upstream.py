@@ -1794,11 +1794,18 @@ def _has_kinetic_slice(ods: ODS) -> bool:
     uses to decide which slices may keep a total pressure, so the two cannot
     disagree about what counts as kinetic.
     """
-    if "core_profiles" not in ods:
+    # Guard the full path. `core_profiles` being present says nothing about
+    # `profiles_1d`: a product whose slices were all rejected still carries the
+    # IDS, and asking for the list there returned a float rather than raising.
+    if "core_profiles.profiles_1d" not in ods:
+        return False
+    try:
+        count = len(ods["core_profiles.profiles_1d"])
+    except TypeError:  # an AoS that is not a list is an AoS with no slices
         return False
     return any(
         f"core_profiles.profiles_1d.{index}.ion.0.temperature" in ods
-        for index in range(len(ods["core_profiles.profiles_1d"]))
+        for index in range(count)
     )
 
 

@@ -96,3 +96,16 @@ def test_a_missing_efit_product_is_reported_not_silently_skipped(tmp_path):
     assert manifest["status"] == "unavailable"
     assert "missing" in manifest["error"]
     assert "nope.json" in manifest["error"]
+
+
+def test_a_product_whose_slices_were_all_rejected_is_not_kinetic():
+    """`core_profiles` present does not mean `profiles_1d` is a list.
+
+    When every profile time is out of tolerance the product still carries the
+    IDS, and asking for the slice list there returned a float rather than
+    raising -- so a parent-level guard crashed instead of answering.
+    """
+    ods = ODS(consistency_check=False)
+    ods["core_profiles.time"] = np.array([0.306])
+    assert "core_profiles" in ods
+    assert vu._has_kinetic_slice(ods) is False
