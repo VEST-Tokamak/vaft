@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>d1ae56e</code>. What is described
+  <code>308458e</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -308,7 +308,11 @@ are library API.</p>
   </tbody>
 </table>
 
-<p>All four share one on-disk convention, rooted at <code class="language-plaintext highlighter-rouge">base_dir</code> (<code class="language-plaintext highlighter-rouge">/srv/vest.filedb/public</code> in every shipped config):</p>
+<p>All four share one on-disk root, <code class="language-plaintext highlighter-rouge">base_dir</code> (<code class="language-plaintext highlighter-rouge">/srv/vest.filedb/public</code> in every shipped config), and
+pipeline 1 writes under it in one of two layouts selected by the <code class="language-plaintext highlighter-rouge">layout:</code> config key.</p>
+
+<p><code class="language-plaintext highlighter-rouge">layout: shot_first</code> (the default) is the legacy server hierarchy, kept so this pipeline stays
+directly diffable against the reference output:</p>
 
 <div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>{base_dir}/{shot}/
 ├── diagnostics/          vest_{shot}_daq_raw.json.gz, Thomson *.mat
@@ -319,6 +323,26 @@ are library API.</p>
 ├── linear_stability/     {time}/{dcon,rdcon,stride}/nn={n}/
 └── logs/
 </code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">layout: filedb</code> is the canonical grammar (#77), resolved through
+<code class="language-plaintext highlighter-rouge">vaft.database.filedb.FileDB</code> so no path is reconstructed by hand:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>{base_dir}/
+├── raw/{shot}/
+├── omas/static/{machine_version}/
+├── omas/{stage}/{shot}/                          diagnostics, eddy, impa, ...
+├── omas/{stage}/{family}/{shot}/                 efit, chease, mhd_linear, gpec_ideal
+├── efit/{family}/{shot}/
+├── chease/{family}/{shot}/
+└── gpec/{family}/{refinement}/{product}/{shot}/n={n}/
+</code></pre></div></div>
+
+<p>with an artifact class (<code class="language-plaintext highlighter-rouge">input</code>, <code class="language-plaintext highlighter-rouge">output</code>, <code class="language-plaintext highlighter-rouge">log</code>, <code class="language-plaintext highlighter-rouge">plot</code>, <code class="language-plaintext highlighter-rouge">config</code>, <code class="language-plaintext highlighter-rouge">work</code>, <code class="language-plaintext highlighter-rouge">metadata</code>) as the leaf.
+<code class="language-plaintext highlighter-rouge">{family}</code> is the reconstruction lineage a product descends from — <code class="language-plaintext highlighter-rouge">magnetic</code>, <code class="language-plaintext highlighter-rouge">electron</code> or
+<code class="language-plaintext highlighter-rouge">kinetic</code>; <code class="language-plaintext highlighter-rouge">{refinement}</code> is the equilibrium actually handed to the solver (<code class="language-plaintext highlighter-rouge">chease</code>, or <code class="language-plaintext highlighter-rouge">none</code>); and
+<code class="language-plaintext highlighter-rouge">{product}</code> is the stability calculation that ran: <code class="language-plaintext highlighter-rouge">dcon-peeling</code>, <code class="language-plaintext highlighter-rouge">dcon-kink</code>, <code class="language-plaintext highlighter-rouge">rdcon</code>, <code class="language-plaintext highlighter-rouge">stride</code> or
+<code class="language-plaintext highlighter-rouge">ideal-gpec</code>. DCON’s two edge treatments are separate products rather than two views of one run,
+because a run yields one of them and can never yield both.</p>
 
 <hr />
 
@@ -1168,7 +1192,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-14 15:29:02 +0000"
+        "time": "2026-09-14 15:34:03 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
