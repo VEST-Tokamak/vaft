@@ -374,18 +374,23 @@ pf.keys()                        # the 22 sections, in file order
 pf.unit("te")                    # 'KeV' — what the file declares, not what we assume
 pf.section("omgeb").derivative   # the file's own third column, kept
 
-write_pfile(pf, "again")         # byte-identical to the file it came from
+write_pfile(pf, "again")         # byte-identical: see below
 
 profiles = kinetic_profiles_from_pfile(pf)   # now in m^-3, eV, rad/s, Pa, V/m
 ```
 
 `PFile` is the file as written and converts nothing; `kinetic_profiles_from_pfile` applies the one
-unit ladder. Keeping them apart means "this is byte-for-byte the file we read" and "these are the
+unit ladder. Writing puts the sections back into the format's own order, so a file that was already
+canonical — as all 57 reference files are — comes back byte for byte, and one that was not is
+normalised rather than reproduced. Line endings are LF. The conversion is deliberately lossy in one
+direction: `KineticProfiles` holds profiles, so the derivative columns and the per-section units stay
+on the `PFile`, which is where a future pfile writer has to take them from. Keeping them apart means "this is byte-for-byte the file we read" and "these are the
 right units" can fail independently.
 
 **The derivative column is data, not something to recompute.** Writing it back as read reproduces
-all 57 reference files byte for byte; recomputing it with `np.gradient` reproduces none of them, and
-only four of the 22 sections agree even to one part in a million. `write_pfile` therefore preserves
+all 57 reference files byte for byte; recomputing it with `np.gradient` reproduces none of them —
+at most 8 of a file's 22 sections agree with a recomputation to one part in a million, and no section
+agrees across every file. `write_pfile` therefore preserves
 it and computes one only for a section built in memory, or when you pass
 `recompute_derivatives=True` because you changed the values.
 

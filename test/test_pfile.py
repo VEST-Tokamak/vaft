@@ -8,6 +8,7 @@ from pfile_fixtures import SECTIONS, write_pfile_file
 
 from vaft.data.pfile import (
     PFILE_SECTION_ORDER,
+    PFILE_UNITS,
     PFILE_TO_CONTAINER,
     PFile,
     PFileFormatError,
@@ -40,13 +41,39 @@ def run(tmp_path):
 # --- the transcript -----------------------------------------------------------
 
 
-def test_every_section_is_read_in_file_order_with_its_own_unit(run):
-    pfile, expected = run
+def test_every_section_is_read_in_file_order_with_its_own_unit(tmp_path):
+    """File order, not the format's order: a file written backwards has to
+    come back backwards, or nothing downstream can tell the two apart."""
+    expected = write_pfile_file(tmp_path, scrambled=True)
+    pfile = read_pfile(expected["path"])
     assert pfile.keys() == tuple(expected["keys"])
-    assert pfile.keys() == PFILE_SECTION_ORDER  # the fixture writes all 22
+    assert pfile.keys() == tuple(reversed(PFILE_SECTION_ORDER))
     assert pfile.unit("ne") == "10^20/m^3"
     assert pfile.unit("te") == "KeV"
     assert pfile.unit("kpol") == "km/s/T"
+
+
+def test_writing_puts_the_sections_back_into_the_formats_order(tmp_path):
+    """However they arrived. A consumer reads a pfile top to bottom, so the
+    order is part of the format rather than of the particular file."""
+    expected = write_pfile_file(tmp_path, scrambled=True)
+    written = read_pfile(write_pfile(read_pfile(expected["path"]), tmp_path / "out"))
+    assert written.keys() == PFILE_SECTION_ORDER
+
+
+def test_the_optional_pressure_block_lands_after_ptot(tmp_path):
+    expected = write_pfile_file(tmp_path, pplas=True)
+    written = read_pfile(write_pfile(read_pfile(expected["path"]), tmp_path / "out"))
+    keys = list(written.keys())
+    assert keys[keys.index("ptot") + 1] == "pplas"
+
+
+def test_the_optional_pressure_block_is_not_written_first_when_ptot_is_absent(tmp_path):
+    """`pplas` belongs after `ptot`; with no `ptot` to follow it goes last.
+    At the front it would put a pressure block above the densities."""
+    expected = write_pfile_file(tmp_path, only=("ne", "te"), pplas=True)
+    written = read_pfile(write_pfile(read_pfile(expected["path"]), tmp_path / "out"))
+    assert written.keys() == ("ne", "te", "pplas")
 
 
 def test_an_empty_unit_is_an_empty_unit_and_not_a_missing_one(run):
@@ -80,6 +107,34 @@ def test_a_section_this_module_does_not_catalogue_is_kept(tmp_path):
     assert "zeff" in pfile.keys()
     assert pfile.unit("zeff") == "-"
     assert pfile.section("zeff").label == ""  # not catalogued, still present
+
+
+def test_the_arrays_are_read_only(run):
+    """A profile set that says it is what the file said has to be."""
+    pfile, _ = run
+    section = pfile.section("ne")
+    assert not section.values.flags.writeable
+    assert not section.psi_norm.flags.writeable
+    assert not section.derivative.flags.writeable
+    with pytest.raises(ValueError):
+        section.values[0] = 0.0
+
+
+def test_a_section_key_is_kept_as_written(tmp_path):
+    """Not normalised. Lowercasing `NE` would quietly map it onto `n_e`,
+    turning a section this module has never seen into one it thinks it
+    understands."""
+    path = tmp_path / "p000000.00000"
+    path.write_text(
+        "3 psinorm NE(10^20/m^3) dNE/dpsiN\n"
+        " 0.00000000e+00   1.00000000e+00   0.00000000e+00\n"
+        " 5.00000000e-01   2.00000000e+00   0.00000000e+00\n"
+        " 1.00000000e+00   3.00000000e+00   0.00000000e+00\n",
+        encoding="utf-8",
+    )
+    pfile = read_pfile(path)
+    assert pfile.keys() == ("NE",)
+    assert "NE" in kinetic_profiles_from_pfile(pfile).extras
 
 
 def test_a_grid_other_than_201_points_reads(tmp_path):
@@ -123,11 +178,76 @@ def test_a_ragged_row_is_named_rather_than_skipped(tmp_path):
         read_pfile(expected["path"])
 
 
+def test_a_row_with_too_many_columns_is_refused(tmp_path):
+    """Not merely too few: an extra column means the file is not what its
+    header says, and truncating it silently would discard data."""
+    expected = write_pfile_file(tmp_path, extra_column_in_row=2)
+    with pytest.raises(PFileFormatError, match=r"section ne row 3 has 4 columns"):
+        read_pfile(expected["path"])
+
+
+def test_a_line_that_is_not_a_section_header_is_not_read_as_one(tmp_path):
+    """Any line beginning with an integer used to become a section, so a
+    trailing note above three numbers parsed into a profile named `of`."""
+    expected = write_pfile_file(tmp_path, only=("ne",), footer="3 columns of something else")
+    pfile = read_pfile(expected["path"])
+    assert pfile.keys() == ("ne",)
+
+
+def test_a_row_of_numbers_outside_any_block_is_refused(tmp_path):
+    """Which is what a species count short of the rows beneath it leaves --
+    skipping it is how a species, or a profile's tail, disappears."""
+    expected = write_pfile_file(tmp_path, only=("ne",))
+    text = expected["path"].read_text(encoding="utf-8").replace(
+        "3 N Z A of ION SPECIES", "2 N Z A of ION SPECIES", 1
+    )
+    expected["path"].write_text(text, encoding="utf-8")
+    with pytest.raises(PFileFormatError, match="outside any block"):
+        read_pfile(expected["path"])
+
+
+def test_a_section_declaring_no_rows_is_refused(tmp_path):
+    path = tmp_path / "empty_section"
+    path.write_text("0 psinorm ne(10^20/m^3) dne/dpsiN\n", encoding="utf-8")
+    with pytest.raises(PFileFormatError, match="declares 0 rows"):
+        read_pfile(path)
+
+
 def test_a_file_with_no_sections_is_refused(tmp_path):
     path = tmp_path / "notapfile"
     path.write_text("some notes\nand nothing numeric\n", encoding="utf-8")
     with pytest.raises(PFileFormatError, match="holds no profile sections"):
         read_pfile(path)
+
+
+def test_a_species_block_of_another_length_is_numbered_rather_than_guessed(tmp_path):
+    """The three-row convention is impurity, main ion, fast ion. The writer
+    this reads after omits the impurity row when a run has none, so a
+    two-row block is main ion and fast ion -- and labelling deuterium as the
+    impurity would be worse than not labelling it."""
+    expected = write_pfile_file(tmp_path, species_rows=2)
+    pfile = read_pfile(expected["path"])
+    assert [s.label for s in pfile.species] == ["species 1", "species 2"]
+    assert pfile.species[0].a == pytest.approx(12.0107)
+
+
+def test_a_file_with_no_species_block_reads_and_writes(tmp_path):
+    expected = write_pfile_file(tmp_path, species=False, only=("ne", "te"))
+    pfile = read_pfile(expected["path"])
+    assert pfile.species == ()
+    out = write_pfile(pfile, tmp_path / "again")
+    assert out.read_text(encoding="utf-8") == expected["path"].read_text(encoding="utf-8")
+
+
+def test_a_section_on_its_own_coordinate_is_refused_when_built_in_memory(tmp_path):
+    """read_pfile checks this; so must the container. The writer pairs the
+    file's coordinate with each section's values, so a section on its own
+    grid would be written out reprojected onto one that is not its own."""
+    psi = np.linspace(0.0, 1.0, 5)
+    ok = PFileSection(key="ne", unit="10^20/m^3", psi_norm=psi, values=np.arange(5.0))
+    shifted = PFileSection(key="te", unit="KeV", psi_norm=psi + 0.25, values=np.arange(5.0))
+    with pytest.raises(PFileFormatError, match="different radial coordinate"):
+        PFile(psi_norm=psi, sections=(ok, shifted))
 
 
 def test_one_quantity_may_not_appear_twice(tmp_path):
@@ -187,6 +307,17 @@ def test_writing_refuses_a_coordinate_that_does_not_increase(tmp_path):
         write_pfile(pfile, tmp_path / "backwards")
 
 
+def test_writing_refuses_a_derivative_that_is_not_finite(tmp_path):
+    """Both columns are ones consumers spline."""
+    psi = np.linspace(0.0, 1.0, 5)
+    section = PFileSection(
+        key="ne", unit="10^20/m^3", psi_norm=psi, values=np.ones(5),
+        derivative=np.array([np.nan, 1.0, 2.0, 3.0, 4.0]),
+    )
+    with pytest.raises(PFileFormatError, match="derivatives that are not finite"):
+        write_pfile(PFile(psi_norm=psi, sections=(section,)), tmp_path / "nan")
+
+
 def test_writing_refuses_a_value_that_is_not_finite(tmp_path):
     psi = np.linspace(0.0, 1.0, 5)
     values = np.array([1.0, 2.0, np.nan, 4.0, 5.0])
@@ -199,6 +330,15 @@ def test_writing_refuses_a_value_that_is_not_finite(tmp_path):
 
 
 def test_an_uncatalogued_section_is_written_after_the_known_ones(tmp_path):
+    """Even one that arrived in the middle of the file."""
+    expected = write_pfile_file(tmp_path, unknown_section_in_the_middle=True)
+    pfile = read_pfile(expected["path"])
+    assert pfile.keys()[2] == "zeff"  # where the file put it
+    written = read_pfile(write_pfile(pfile, tmp_path / "moved"))
+    assert written.keys()[-1] == "zeff"
+
+
+def test_an_uncatalogued_section_appended_to_a_file_survives(tmp_path):
     expected = write_pfile_file(tmp_path, unknown_section=True)
     pfile = read_pfile(expected["path"])
     written = read_pfile(write_pfile(pfile, tmp_path / "again"))
@@ -297,7 +437,23 @@ def test_provenance_names_the_pfile_section_and_the_conversion(run):
     assert profiles.provenance["n_e"].endswith("section ne [10^20/m^3] -> m^-3")
 
 
-def test_every_section_name_in_the_fixture_is_catalogued():
-    """The fixture is the format; if it grows a section the module has never
-    heard of, that is a gap rather than a fixture quirk."""
+def test_the_remaining_mapped_fields_convert(run):
+    pfile, expected = run
+    profiles = kinetic_profiles_from_pfile(pfile)
+    for section, field, factor in (
+        ("ni", "n_i", 1e20), ("nz1", "n_z", 1e20), ("nb", "n_fast", 1e20),
+        ("ti", "T_i", 1e3), ("pb", "p_fast", 1e3),
+    ):
+        np.testing.assert_allclose(
+            getattr(profiles, field), expected["values"][section] * factor
+        )
+    assert profiles.T_z is None  # a pfile carries no impurity temperature
+
+
+def test_the_module_and_the_fixture_agree_about_the_format():
+    """The fixture is the format written out independently; if the two drift,
+    one of them has stopped describing the reference files."""
     assert tuple(key for key, _ in SECTIONS) == PFILE_SECTION_ORDER
+    assert {key: unit for key, unit in SECTIONS} == {
+        key: PFILE_UNITS[key] for key, _ in SECTIONS
+    }

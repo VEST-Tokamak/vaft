@@ -30,10 +30,11 @@ was measured against the 57 shipped ``p045453.*`` files rather than assumed:
 - **The derivative column cannot be recomputed.**  Preserving it, a file
   round-trips byte-identically 57 times out of 57; recomputing it with
   ``np.gradient(..., edge_order=2)`` -- which is what the writer this
-  replaces used -- round-trips 0 times out of 57, and only 4 of the 22
-  sections agree even to one part in a million.  So the derivative is data,
-  read and written like any other column, and :func:`write_pfile` only
-  computes one for a section that has none.
+  replaces used -- round-trips 0 times out of 57.  At most 8 of a file's 22
+  sections agree with a recomputation to one part in a million, and no
+  section agrees across every file.  So the derivative is data, read and
+  written like any other column, and :func:`write_pfile` only computes one
+  for a section that has none.
 - **Every section carries the same psinorm column**, bit for bit, in every
   one of those files.  It is therefore checked, rather than taken from the
   first section and assumed of the rest.
@@ -48,9 +49,8 @@ operation that changes it.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from types import MappingProxyType
 from typing import Mapping, Sequence
 
 import numpy as np
@@ -93,10 +93,10 @@ PFILE_SECTION_ORDER: tuple[str, ...] = (
     "vtor1", "vpol1",
 )
 
-#: The unit each section declares.  Read from the file rather than taken from
-#: here -- this is the default for a section built in memory, and what a
-#: reader checks a surprising file against.  Every key's unit is constant
-#: across the reference files.
+#: The unit each section carries in the reference corpus -- constant across
+#: all 57 files, for every key.  A reader takes the unit from the file it is
+#: reading and never from here; this is for a caller building a section in
+#: memory, and as the record of what the format is expected to say.
 PFILE_UNITS: Mapping[str, str] = {
     "ne": "10^20/m^3", "ni": "10^20/m^3", "nz1": "10^20/m^3", "nb": "10^20/m^3",
     "te": "KeV", "ti": "KeV",
@@ -184,9 +184,13 @@ PFILE_UNIT_LADDER: Mapping[str, tuple[str, float]] = {
 
 _SPECIES_HEADER = "N Z A of ION SPECIES"
 
-#: The row of the species block a pfile writes first, then second, then
-#: third.  The block itself carries no labels, only numbers, so the position
-#: is the only thing that says which species a row is.
+#: What the three rows of a species block are, in order.  The block carries
+#: no labels, only numbers, so position is the only thing that says which
+#: species a row is -- and the convention holds for a *three*-row block
+#: only.  The writer this module reads after omits the impurity row when the
+#: run has no impurity density, so a two-row block is main ion and fast ion,
+#: not impurity and main ion; rather than guess, anything but three rows is
+#: numbered.
 SPECIES_ORDER: tuple[str, ...] = ("impurity", "main ion", "fast ion")
 
 
@@ -208,7 +212,15 @@ def _psinorm_derivative(psi_norm: np.ndarray, values: np.ndarray) -> np.ndarray:
     reused: it is a different stencil, and its own docstring pins its results
     so they do not move.
     """
-    return np.gradient(np.asarray(values, dtype=float), np.asarray(psi_norm, dtype=float), edge_order=2)
+    values = np.asarray(values, dtype=float)
+    psi_norm = np.asarray(psi_norm, dtype=float)
+    if values.size < 2:
+        raise PFileFormatError(
+            f"cannot compute a derivative for a section of {values.size} point(s); "
+            "supply one, or give the section more points"
+        )
+    # edge_order=2 needs three points; two of them still have a slope.
+    return np.gradient(values, psi_norm, edge_order=2 if values.size >= 3 else 1)
 
 
 @dataclass(frozen=True, eq=False)
@@ -279,6 +291,16 @@ class PFile:
                     f"{section.key} is on {section.psi_norm.size} points against the "
                     f"file's {self.psi_norm.size}"
                 )
+            if not np.array_equal(section.psi_norm, self.psi_norm):
+                # Not merely the same length: the same coordinate.  The writer
+                # pairs the file's psi with each section's values, so a section
+                # on its own grid would be written out reprojected onto a
+                # coordinate that is not its own, silently -- which is the one
+                # thing this module exists to stop.
+                raise PFileFormatError(
+                    f"{section.key} is on a different radial coordinate from the "
+                    "file; a pfile's blocks share one"
+                )
 
     def __len__(self) -> int:
         return int(self.psi_norm.size)
@@ -302,12 +324,34 @@ class PFile:
 # --- reading -----------------------------------------------------------------
 
 
+def _is_data_row(line: str) -> bool:
+    """Whether every token on the line is a number.
+
+    A line like this between blocks is not free text -- it is a row that has
+    come adrift of the block that should have held it, which is what a
+    species count smaller than the rows beneath it produces.  Skipping it
+    silently is how a species, or a profile's tail, disappears.
+    """
+    tokens = line.split()
+    if not tokens:
+        return False
+    try:
+        for token in tokens:
+            _float(token)
+    except ValueError:
+        return False
+    return True
+
+
 def _parse_block_header(line: str) -> tuple[int, str, str] | None:
     """``(count, key, unit)`` for a profile header, or ``None`` if not one.
 
-    A header is ``<count> psinorm <key>(<unit>) d<key>/dpsiN``.  The unit may
-    be empty -- ``omghb()`` is written that way -- so an absent unit is
-    ``""`` rather than a missing one.
+    A header is ``<count> psinorm <key>(<unit>) d<key>/dpsiN``.  The second
+    token really is checked: without it, any line beginning with an integer
+    becomes a section, so a file carrying a trailing note like ``3 columns of
+    something else`` above three numbers parses into a phantom profile named
+    ``of``.  The unit may be empty -- ``omghb()`` is written that way -- so
+    an absent unit is ``""`` rather than a missing one.
     """
     parts = line.split()
     if len(parts) < 3:
@@ -316,14 +360,20 @@ def _parse_block_header(line: str) -> tuple[int, str, str] | None:
         count = int(parts[0])
     except ValueError:
         return None
+    if parts[1].lower() != "psinorm":
+        return None
     quantity = parts[2]
-    if "(" in quantity and quantity.endswith(")"):
+    if "(" in quantity:
+        if not quantity.endswith(")"):
+            raise PFileFormatError(
+                f"section header {line.strip()!r} opens a unit it never closes"
+            )
         key, _, rest = quantity.partition("(")
         unit = rest[:-1]
     else:
         key, unit = quantity, ""
     if not key:
-        return None
+        raise PFileFormatError(f"section header {line.strip()!r} names no quantity")
     return count, key, unit
 
 
@@ -333,6 +383,11 @@ def _rows(lines: Sequence[str], start: int, count: int, what: str, width: int) -
     The readers this replaces skipped a short or ragged row and carried on,
     so a truncated file became a shorter profile with no diagnostic.
     """
+    if count <= 0:
+        raise PFileFormatError(
+            f"{what} declares {count} rows; a block with no rows would leave the "
+            "file's radial coordinate empty rather than absent"
+        )
     if start + count > len(lines):
         raise PFileFormatError(
             f"{what} declares {count} rows but the file ends after "
@@ -359,7 +414,15 @@ def read_pfile(path: str | Path) -> PFile:
     dropped.  :func:`write_pfile` writes such a file back byte for byte.
     """
     path = Path(path).expanduser()
-    lines = path.read_text(encoding="utf-8", errors="strict").splitlines()
+    try:
+        text = path.read_text(encoding="utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise PFileFormatError(
+            f"{path.name} is not UTF-8 text ({exc}); a pfile is plain ASCII, so "
+            "this is a damaged or misidentified file rather than one to decode "
+            "past"
+        ) from exc
+    lines = text.splitlines()
 
     sections: list[PFileSection] = []
     species: list[Species] = []
@@ -373,11 +436,18 @@ def read_pfile(path: str | Path) -> PFile:
             continue
 
         if _SPECIES_HEADER in line:
-            count = int(line.split()[0])
+            try:
+                count = int(line.split()[0])
+            except ValueError as exc:
+                raise PFileFormatError(
+                    f"the species block header {line.strip()!r} does not begin with a "
+                    "row count"
+                ) from exc
             table = _rows(lines, index + 1, count, "species block", 3)
+            labelled = SPECIES_ORDER if count == len(SPECIES_ORDER) else ()
             species = [
                 Species(
-                    label=SPECIES_ORDER[row] if row < len(SPECIES_ORDER) else f"species {row + 1}",
+                    label=labelled[row] if row < len(labelled) else f"species {row + 1}",
                     n=float(values[0]),
                     z=float(values[1]),
                     a=float(values[2]),
@@ -389,6 +459,13 @@ def read_pfile(path: str | Path) -> PFile:
 
         header = _parse_block_header(line)
         if header is None:
+            if _is_data_row(line):
+                raise PFileFormatError(
+                    f"line {index + 1} is a row of numbers outside any block: "
+                    f"{line.strip()!r}. A block whose declared count is short of the "
+                    "rows beneath it leaves them here, and skipping them is how a "
+                    "species or a profile's tail disappears"
+                )
             index += 1
             continue
         count, key, unit = header
@@ -432,7 +509,9 @@ def _write_order(keys: Sequence[str]) -> list[str]:
     """Catalogued sections in the format's order, then the rest as they came."""
     known = [key for key in PFILE_SECTION_ORDER if key in keys]
     if "pplas" in keys:
-        known.insert(known.index("ptot") + 1 if "ptot" in known else 0, "pplas")
+        # After ptot, and after everything when there is no ptot -- never at
+        # the front, which would put a pressure block above the densities.
+        known.insert(known.index("ptot") + 1 if "ptot" in known else len(known), "pplas")
     return known + [key for key in keys if key not in known]
 
 
@@ -451,6 +530,12 @@ def write_pfile(
     ``recompute_derivatives=True`` recomputes every section anyway, for a
     caller who has changed the values; a section with no derivative of its
     own is computed either way.
+
+    Sections come out in the format's own order, whatever order they were
+    read in, with any section this module does not catalogue after them -- so
+    a file that was already canonical, as all the reference files are, comes
+    back byte for byte, and one that was not is normalised rather than
+    reproduced.  Line endings are LF.
 
     Refuses a value that is not finite and a coordinate that does not
     increase, as :func:`~vaft.data.kinetic_profiles.write_kin` does, since
@@ -476,15 +561,17 @@ def write_pfile(
     for key in ordered:
         section = pfile.section(key)
         values = np.asarray(section.values, dtype=float)
-        if not np.all(np.isfinite(values)):
-            raise PFileFormatError(
-                f"section {key} holds {int(np.count_nonzero(~np.isfinite(values)))} "
-                "values that are not finite"
-            )
         if recompute_derivatives or section.derivative is None:
             derivative = _psinorm_derivative(psi, values)
         else:
             derivative = np.asarray(section.derivative, dtype=float)
+        for column, name in ((values, "values"), (derivative, "derivatives")):
+            if not np.all(np.isfinite(column)):
+                raise PFileFormatError(
+                    f"section {key} holds "
+                    f"{int(np.count_nonzero(~np.isfinite(column)))} {name} that are "
+                    "not finite; both columns are ones consumers spline"
+                )
         lines.append(f"{values.size} psinorm {key}({section.unit}) d{key}/dpsiN")
         lines.extend(
             f" {a:.8e}   {b:.8e}   {c:.8e}" for a, b, c in zip(psi, values, derivative)
@@ -541,15 +628,15 @@ def kinetic_profiles_from_pfile(pfile: PFile) -> KineticProfiles:
             provenance[section.key] = (
                 f"{source} section {section.key} "
                 f"[{section.unit or 'no unit declared'}], not converted"
-            )
+            ).lstrip()
             continue
         fields[target] = _converted(section, target)
         provenance[target] = (
             f"{source} section {section.key} [{section.unit}] -> {KINETIC_UNITS[target]}"
-        )
+        ).lstrip()
 
     if pfile.species:
-        provenance["species"] = f"{source} {_SPECIES_HEADER}"
+        provenance["species"] = f"{source} {_SPECIES_HEADER}".lstrip()
 
     return KineticProfiles(
         psi_norm=np.asarray(pfile.psi_norm, dtype=float),

@@ -111,8 +111,14 @@ def write_pfile_file(
     ragged_row=None,
     unknown_unit_in=None,
     unknown_section=False,
+    unknown_section_in_the_middle=False,
     only=None,
     descending_psi=False,
+    scrambled=False,
+    pplas=False,
+    species_rows=None,
+    extra_column_in_row=None,
+    footer=None,
 ):
     """Write a synthetic pfile; returns the ground truth it wrote.
 
@@ -121,10 +127,24 @@ def write_pfile_file(
     declared row count exceed the rows that follow, ``ragged_row`` drops a
     token from one row, ``unknown_unit_in`` relabels a named section's unit,
     and ``unknown_section`` appends a block this module does not catalogue.
+    ``scrambled`` writes the sections in reverse, ``pplas`` adds the optional
+    non-standard pressure block, ``species_rows`` writes a species block of
+    another length, ``extra_column_in_row`` adds a fourth column to one row,
+    and ``footer`` appends a trailing line.
     """
     psi = np.linspace(0.0, 1.0, points)
     values = profile_values(psi)
+    values["pplas"] = 12.0 * (0.05 + 0.95 * np.exp(-psi))
+    values["zeff"] = 1.0 + psi
     order = [(key, unit) for key, unit in SECTIONS if only is None or key in only]
+    if pplas:
+        # Written where a non-standard block actually turns up -- not in the
+        # slot it belongs in, so a writer has to put it there.
+        order = order + [("pplas", "KPa")]
+    if unknown_section_in_the_middle:
+        order = order[:2] + [("zeff", "-")] + order[2:]
+    if scrambled:
+        order = order[::-1]
 
     # A derivative that is emphatically not the numerical derivative of the
     # values, so that recomputing one is a visible change rather than a
@@ -132,10 +152,11 @@ def write_pfile_file(
     derivatives = {key: -0.5 * array - 0.125 for key, array in values.items()}
 
     written_psi = psi[::-1].copy() if descending_psi else psi
+    rows_written = SPECIES_ROWS if species_rows is None else SPECIES_ROWS[:species_rows]
     lines: list[str] = []
     if species:
-        lines.append(f"{len(SPECIES_ROWS)} N Z A of ION SPECIES")
-        lines += [f" {n:.6f}   {z:.6f}   {a:.6f}" for n, z, a in SPECIES_ROWS]
+        lines.append(f"{len(rows_written)} N Z A of ION SPECIES")
+        lines += [f" {n:.6f}   {z:.6f}   {a:.6f}" for n, z, a in rows_written]
 
     for key, unit in order:
         section_psi = written_psi
@@ -149,6 +170,8 @@ def write_pfile_file(
         body = [f" {a:.8e}   {b:.8e}   {c:.8e}" for a, b, c in rows]
         if ragged_row is not None and key == order[0][0]:
             body[ragged_row] = body[ragged_row].rsplit("   ", 1)[0]
+        if extra_column_in_row is not None and key == order[0][0]:
+            body[extra_column_in_row] += "   0.00000000e+00"
         lines += body
 
     if unknown_section:
@@ -159,6 +182,9 @@ def write_pfile_file(
             for a, b, c in zip(written_psi, extra, -0.5 * extra - 0.125)
         ]
 
+    if footer is not None:
+        lines.append(footer)
+
     target = path / name
     target.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return {
@@ -167,6 +193,6 @@ def write_pfile_file(
         "values": values,
         "derivatives": derivatives,
         "keys": [key for key, _ in order] + (["zeff"] if unknown_section else []),
-        "species": SPECIES_ROWS,
+        "species": rows_written,
         "points": points,
     }
