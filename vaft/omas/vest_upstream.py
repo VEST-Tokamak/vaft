@@ -1723,22 +1723,12 @@ def build_core_profiles_ods(
     return ods, manifest
 
 
-#: Which IDS each upstream stage contributes to a kinetic reconstruction.
-#: `magnetics`/`pf_active` are what `generate_kfile` needs to build the base
-#: magnetic kfile from the ODS itself; `equilibrium` is the magnetic EFIT
-#: solution the Thomson positions are mapped through.
-_KINETIC_INPUT_IDS = {
-    "diagnostics": ("magnetics", "pf_active", "tf", "wall"),
-    "efit": ("equilibrium",),
-}
-
-
 def build_kinetic_efit_ods(
     *,
     shot: int,
     stage: str,
     core_profiles_product: str | Path,
-    diagnostics_product: str | Path,
+    constraints_product: str | Path,
     efit_product: str | Path,
     time_ms: float | None = None,
     workdir: str | Path | None = None,
@@ -1749,11 +1739,18 @@ def build_kinetic_efit_ods(
     """Reconstruct a kinetic-pressure equilibrium from products already on disk.
 
     Nothing is read from outside the FileDB.  The base magnetic kfile is built
-    from this ODS's own `magnetics` by :func:`vaft.code.efit.generate_kfile` --
-    the default path through ``prepare_kinetic_efit_inputs`` -- and the R -> psi_N
-    map comes from the stage's own `equilibrium` through
-    :func:`vaft.data.eqdsk.from_equilibrium`, so no g-file has to be located on a
-    filesystem the stage does not own.
+    by :func:`vaft.code.efit.generate_kfile` -- the default path through
+    ``prepare_kinetic_efit_inputs`` -- from the EFIT stage's own *constraints*
+    product, and the R -> psi_N map comes from the magnetic EFIT *solution*
+    through :func:`vaft.data.eqdsk.from_equilibrium`, so no g-file has to be
+    located on a filesystem the stage does not own.
+
+    Those are two different products and both are `equilibrium`, which is why
+    they are not merged: the constraints product carries
+    ``code.parameters`` (the ``IN1`` namelist ``generate_kfile`` reads) and
+    ``time_slice.*.constraints``, while the solution carries the flux map.  The
+    psi map travels as ``geq``, which ``run_kinetic_chain`` already takes
+    separately from the ODS, so neither has to overwrite the other.
 
     ``stage`` is ``electron_efit`` or ``kinetic_efit``, and it must agree with
     what the core-profile product actually measured: the ion diagnostic is what
@@ -1774,7 +1771,7 @@ def build_kinetic_efit_ods(
     manifest = _external_profile_manifest(stage, shot, run, era.name)
     manifest["input"] = {
         "core_profiles_product": str(core_profiles_product),
-        "diagnostics_product": str(diagnostics_product),
+        "constraints_product": str(constraints_product),
         "efit_product": str(efit_product),
     }
     manifest["configuration"]["encoding"] = encoding
@@ -1798,7 +1795,7 @@ def build_kinetic_efit_ods(
 
     for label, path in (
         ("core_profiles", core_profiles_product),
-        ("diagnostics", diagnostics_product),
+        ("constraints", constraints_product),
         ("efit", efit_product),
     ):
         if not Path(path).exists():
@@ -1816,16 +1813,25 @@ def build_kinetic_efit_ods(
     if "thomson_scattering" not in ods:
         return unavailable("the core-profile product carries no thomson_scattering")
 
-    # The reconstruction needs what the profile product does not carry: the
-    # magnetics `generate_kfile` reads, and the magnetic equilibrium the Thomson
-    # positions are mapped through.
-    for label, path in (("diagnostics", diagnostics_product), ("efit", efit_product)):
-        source, _ = load_ods(Path(path))
-        for name in _KINETIC_INPUT_IDS[label]:
-            if name in source:
-                ods[name] = source[name]
+    # What `generate_kfile` actually reads is the EFIT stage's *constraints*
+    # product: `code.parameters` holds the IN1 namelist (TABLE_DIR/INPUT_DIR)
+    # and `time_slice.*.constraints` the measurements already folded in from
+    # magnetics. The efit *output* product cannot stand in for it -- its
+    # `code.parameters` records collection provenance instead, and on products
+    # written before #642 it is a flat string rather than a tree.
+    constraints, _ = load_ods(Path(constraints_product))
+    if "equilibrium" not in constraints:
+        return unavailable("the constraints product carries no equilibrium")
+    ods["equilibrium"] = constraints["equilibrium"]
 
-    if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
+    # The solution stays out of the ODS on purpose: it is `equilibrium` too, so
+    # merging it would overwrite the constraints the kfile is built from. It
+    # only has to reach `geq`, which is a separate argument.
+    solution, _ = load_ods(Path(efit_product))
+    if (
+        "equilibrium.time_slice" not in solution
+        or not len(solution["equilibrium.time_slice"])
+    ):
         return unavailable("the efit product carries no equilibrium time slice")
 
     if time_ms is None:
@@ -1834,7 +1840,7 @@ def build_kinetic_efit_ods(
         else:
             return unavailable("no core_profiles slice to reconstruct at")
 
-    eq_times = np.asarray(ods["equilibrium.time"], dtype=float) * 1e3
+    eq_times = np.asarray(solution["equilibrium.time"], dtype=float) * 1e3
     time_index = int(np.argmin(np.abs(eq_times - float(time_ms))))
     manifest["configuration"]["time_ms"] = float(time_ms)
     manifest["configuration"]["equilibrium_time_ms"] = float(eq_times[time_index])
@@ -1848,7 +1854,7 @@ def build_kinetic_efit_ods(
     # against the packaged g-file: psi_N agrees to 2e-16. Anything that later
     # wants *absolute* psi off this object has to convert first.
     try:
-        geq = from_equilibrium(as_equilibrium(ods, time_index=time_index))
+        geq = from_equilibrium(as_equilibrium(solution, time_index=time_index))
     except Exception as error:  # noqa: BLE001 - an unusable equilibrium is not a crash
         return unavailable(f"cannot build a psi map from the equilibrium: {error}")
 
