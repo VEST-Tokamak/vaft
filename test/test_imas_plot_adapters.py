@@ -37,7 +37,11 @@ def test_every_canonical_plot_has_an_imas_adapter():
     for name in canonical_names():
         function = getattr(vaft.imas, f"plot_{name}")
         assert name in (function.__doc__ or ""), name
-    assert {n for n in dir(vaft.imas) if n.startswith("plot_")} == {f"plot_{n}" for n in canonical_names()}
+    # The two explorers are entry points over the canonical plots, not plots
+    # (issues #261 and #482); they are twins of vaft.omas's.
+    entry_points = {"plot_equilibrium_interactive", "plot_diagnostics_time_interactive"}
+    assert {n for n in dir(vaft.imas) if n.startswith("plot_")} == {f"plot_{n}" for n in canonical_names()} | entry_points
+    assert entry_points <= {n for n in dir(vaft.omas) if n.startswith("plot_")}
 
 
 def test_native_classes_are_never_patched(entry):

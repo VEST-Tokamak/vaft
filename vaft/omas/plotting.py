@@ -31,7 +31,10 @@ from vaft.plot._migration import (
     RENAMED_REMOVAL_RELEASE as _RENAMED_REMOVAL_RELEASE,
 )
 
-from .interactive import plot_equilibrium_interactive  # public entry point, issue #261
+from .interactive import (  # public entry points, issues #261 and #482
+    plot_diagnostics_time_interactive,
+    plot_equilibrium_interactive,
+)
 from .entries import extract_labels_from_odc, normalize_entries
 
 
@@ -1681,7 +1684,12 @@ def plot_diagnostics_overview(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Fixed-shape time overview across the diagnostic subjects.
+    """Time overview across the diagnostic subjects, one panel per available member.
+
+    A diagnostic the input lacks is left out and the grid shrinks (issue
+    #476); ``members=`` picks the panels by name, and ``interactive=True``
+    -- or :func:`plot_diagnostics_time_interactive` -- offers that and the
+    presets every panel honours as controls (issue #482).
 
     Renders with :func:`vaft.plot.diagnostics_overview`.
     """
@@ -2806,6 +2814,7 @@ __all__ = [
     "plot_equilibrium_overview_convergence",
     "plot_equilibrium_overview_fit_quality",
     "plot_equilibrium_interactive",
+    "plot_diagnostics_time_interactive",
     "plot_equilibrium_overview_histories",
     "plot_equilibrium_overview_profiles",
     "plot_equilibrium_overview_residuals",

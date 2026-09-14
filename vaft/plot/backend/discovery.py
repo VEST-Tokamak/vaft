@@ -50,6 +50,7 @@ from vaft.plot.selection import (
 from vaft.plot.style import UNCERTAINTY_MODES, VALIDITY_MODES
 
 from .recipes import (
+    entry_supports,
     CAMERA_OVERLAYS,
     ChannelProfileRecipe,
     SPECTROGRAM_METHODS,
@@ -90,12 +91,19 @@ __all__ = ["describe_by_ids", "describe_entries", "INTERACTION", "INTERACTION_EN
 #: summary is the baseline; a time-navigable entry point appears beside it.
 INTERACTION: dict[str, tuple[str, ...]] = {
     "equilibrium_overview": ("static", "time-navigable"),
+    "diagnostics_overview": ("static",),
 }
 
 #: The public entry point behind an interaction mode that is not a view.
 INTERACTION_ENTRY_POINTS: dict[str, str] = {
     "time-navigable": "plot_equilibrium_interactive()",
     "controls": "plot_<name>(..., interactive=True)",
+}
+
+#: A plot whose ``controls`` mode has a named entry point of its own, beside
+#: the generic ``interactive=True`` spelling (issue #482).
+CONTROLS_ENTRY_POINTS: dict[str, str] = {
+    "diagnostics_overview": "plot_diagnostics_time_interactive()",
 }
 
 #: What a composite built by code (not a PanelRecipe) draws, for discovery's
@@ -325,6 +333,11 @@ def _declare(record: PlotCapability) -> PlotCapability:
             updates["analysis"] = {"default": methods[0], "methods": parameters}
     if isinstance(recipe, PanelRecipe):
         updates["overview_members"] = _member_subjects(recipe)
+        updates["members"] = {
+            "options": tuple(recipe.members),
+            "declared": tuple(recipe.members),
+            "labels": {name: _identity_of(name) for name in recipe.members},
+        }
         # A composite is drawable by a backend only when every member is.
         from vaft.plot.backends import render_backends_for
 
@@ -431,6 +444,8 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             updates["orientation"] = _orientation_block(recipe)
             if record.coordinates and recipe.index == "time_slice":
                 updates["coordinates"] = _coordinates_block(record, recipe, ods)
+        elif isinstance(recipe, PanelRecipe):
+            updates.update(_composite_facts(record, recipe, entries))
         if _takes_time_slice(record.name):
             updates["slices"] = _slices_block(ods)
         if record.name == "vacuum_field":
@@ -463,10 +478,109 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             updates["interaction"] = tuple(dict.fromkeys((*record.interaction, "controls")))
             updates["interaction_entry_points"] = {
                 **record.interaction_entry_points,
-                "controls": f"{record.function.removesuffix('()')}(..., interactive=True)",
+                "controls": CONTROLS_ENTRY_POINTS.get(
+                    record.name, f"{record.function.removesuffix('()')}(..., interactive=True)"
+                ),
             }
             updates["controls"] = tuple(c.name for c in offered)
     return with_capabilities(record, **updates)
+
+
+def _identity_of(name: str) -> str:
+    """``subject / view / quantity`` of plot ``name``, for a member label."""
+    spec = get_spec(name)
+    parts = [spec.subject or spec.domain, spec.view] + ([spec.quantity] if spec.quantity else [])
+    return " / ".join(parts)
+
+
+def _composite_facts(
+    record: PlotCapability, recipe: PanelRecipe, entries: Sequence[tuple[str, Any]]
+) -> dict[str, Any]:
+    """What a panel composite can offer, folded from its members (issue #482).
+
+    A composite has no facts of its own: its channels, sign policy, validity
+    and overlays are its members'.  Each available member is evaluated the
+    way a single plot is and the results are folded so that a control the
+    composite offers is one every member it reaches can honour --
+    ``_build_panels`` hands the same options to every panel, so a preset
+    only some members know would make the others raise.  Nothing here is
+    hand-listed per composite.
+    """
+    evaluated = {}
+    for name in recipe.members:
+        if any(entry_supports(ods, name) for _, ods in entries):
+            evaluated[name] = describe_one(name, entries)
+    available = tuple(evaluated)
+    facts: dict[str, Any] = {
+        "members": {
+            **(record.members or {}),
+            "available": available,
+            "default": available,
+        },
+    }
+    members = list(evaluated.values())
+    channel_members = [m for m in members if (m.channels or {}).get("total")]
+    if channel_members:
+        # Presets only; individual channel indices mean nothing across panels.
+        # Presets a member lacks would make it raise when the composite
+        # hands them down, so a region or representative preset is offered
+        # only when every channel member has one; the summed counts say how
+        # many channels the presets act on across the panels.
+        channels: dict[str, Any] = {
+            "total": sum(int(m.channels["total"]) for m in channel_members),
+            "usable": sum(int(m.channels.get("usable") or 0) for m in channel_members),
+        }
+        if all(m.channels.get("regions") for m in channel_members):
+            regions: dict[str, int] = {}
+            for m in channel_members:
+                for name, count in m.channels["regions"].items():
+                    regions[name] = regions.get(name, 0) + int(count)
+            channels["regions"] = regions
+        # A representative a member could not resolve is stored as None;
+        # such a preset is offered only when every member resolves it.
+        terms = [set(m.channels.get("representatives") or {}) for m in channel_members]
+        shared = set.intersection(*terms) if terms else set()
+        representatives = {
+            term: channel_members[0].channels["representatives"][term]
+            for term in sorted(shared)
+            if all(m.channels["representatives"].get(term) is not None for m in channel_members)
+        }
+        if representatives:
+            channels["representatives"] = representatives
+        facts["channels"] = channels
+    # A composite may fix a renderer mode for its members (the diagnostics
+    # overview masks flagged channels); the control then starts there, so
+    # opening the controls does not change the figure.
+    member_defaults = dict(recipe.member_defaults)
+    if any((m.validity or {}).get("available") for m in members):
+        facts["validity"] = {"available": True, "modes": VALIDITY_MODES, "default": member_defaults.get("validity", VALIDITY_MODES[0])}
+    if any((m.uncertainty or {}).get("available") for m in members):
+        facts["uncertainty"] = {"available": True, "modes": UNCERTAINTY_MODES, "default": member_defaults.get("uncertainty", UNCERTAINTY_MODES[0])}
+    oriented = [m.orientation for m in members if (m.orientation or {}).get("options")]
+    if oriented:
+        signs = {o.get("default") for o in oriented}
+        facts["orientation"] = {
+            "default": signs.pop() if len(signs) == 1 else "canonical",
+            "options": list(oriented[0]["options"]),
+        }
+    synthetic = [m.synthetic for m in members if (m.synthetic or {}).get("overlay")]
+    if synthetic:
+        facts["synthetic"] = {
+            "overlay": synthetic[0]["overlay"],
+            "available": any(s.get("available") for s in synthetic),
+        }
+    abscissae = [tuple((m.abscissa or {}).get("options") or ()) for m in members]
+    if abscissae and all(abscissae):
+        common = [x for x in abscissae[0] if all(x in options for options in abscissae)]
+        if len(common) > 1:
+            facts["abscissa"] = {"default": "time" if "time" in common else common[0], "options": tuple(common)}
+    units = {tuple((m.display or {}).get("units") or ()) for m in members}
+    unit_defaults = {(m.display or {}).get("unit") for m in members}
+    if len(units) == 1 and len(unit_defaults) == 1 and len(next(iter(units))) > 1:
+        # One shared unit only when every panel draws the same quantity;
+        # an overview of different diagnostics offers none.
+        facts["display"] = {**record.display, "unit": unit_defaults.pop(), "units": next(iter(units))}
+    return facts
 
 
 def _fields_block(record: PlotCapability, ods: Any) -> dict[str, Any]:

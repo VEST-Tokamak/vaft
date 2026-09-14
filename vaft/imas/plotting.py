@@ -91,6 +91,14 @@ def plot_nbi_profile_current_drive(
 __all__ = ["available_plots", "normalize_entries", "render"]
 
 
+from .interactive import (  # noqa: E402  public entry points, issues #261 and #482
+    plot_diagnostics_time_interactive,
+    plot_equilibrium_interactive,
+)
+
+__all__ += ["plot_diagnostics_time_interactive", "plot_equilibrium_interactive"]
+
+
 def render(
     name: str,
     source: Any,
@@ -410,7 +418,7 @@ def plot_diagnostics_overview(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Time histories of every diagnostic subject, one panel each, in a fixed grid: a diagnostic absent from the input is a labelled empty panel, so the figure has the same shape on every shot. Channels the source flagged invalid are excluded by default.
+    """Time histories of every diagnostic subject, one panel each; a diagnostic absent from the input is left out and the grid shrinks (issue #476), and members= picks the panels by name (issue #482). Channels the source flagged invalid are excluded by default.
 
     Renders with :func:`vaft.plot.diagnostics_overview` from native IMAS input.
     """

@@ -5803,6 +5803,18 @@ def field_options_for(name: str) -> tuple[str, ...] | None:
     return tuple(recipe.fields) if isinstance(recipe, FieldRecipe) and recipe.fields else None
 
 
+def member_options_for(name: str) -> tuple[str, ...] | None:
+    """The ``members=`` vocabulary of composite ``name``: its declared panels.
+
+    Only a :class:`PanelRecipe` takes ``members=`` (issue #482); a composite
+    built by code draws what it draws, and a leaf plot has no panels to pick.
+    """
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, PanelRecipe):
+        return tuple(recipe.members)
+    return None
+
+
 def overlay_options_for(name: str) -> tuple[str, ...] | None:
     """The ``overlay=`` vocabulary of plot ``name``."""
     if name == "machine_geometry_poloidal":
@@ -6277,13 +6289,20 @@ def _build_panels(
     # A composite nested inside another composite is still a composite, so drop
     # any inherited flag before re-adding it for this level's members.
     options.pop("_panel_member", None)
-    # A member default is either an extraction option (it shapes the member's
-    # model: selection, synthetic, ...) or a renderer style (validity, ...).
-    # The former goes beneath the caller's options into build_model; the
-    # latter beneath the caller's style into the renderer (issue #260).
+    # ``members=`` picks panels by name (issue #482).  It keeps the declared
+    # order rather than the caller's, so a composite's shape does not depend
+    # on how a selection was spelled, and it never resurrects a panel the
+    # input cannot support: a chosen member without data is left out the way
+    # every unavailable member is (issue #476), with the reason in the error
+    # if nothing is left.  An empty choice means the default -- every
+    # available member -- because a control that has been toggled all the
+    # way off should show the overview again, not an empty figure.
+    chosen = _member_choice(recipe, options.pop("members", None))
     member_options, member_style = split_options(recipe.member_defaults)
     members = []
     for name in recipe.members:
+        if chosen is not None and name not in chosen:
+            continue
         if not any(entry_supports(ods, name) for _, ods in entries):
             continue
         merged = {**member_options, **options}
@@ -6301,7 +6320,7 @@ def _build_panels(
     if not members:
         raise ValueError(
             "none of the panels "
-            + ", ".join(recipe.members)
+            + ", ".join(chosen if chosen is not None else recipe.members)
             + " have data in this input"
         )
     if "title" in options:
@@ -6319,6 +6338,22 @@ def _build_panels(
         suptitle=suptitle,
         member_styles=tuple(dict(member_style) for _ in members),
     )
+
+
+def _member_choice(recipe: PanelRecipe, requested: Any) -> tuple[str, ...] | None:
+    """The members a ``members=`` request names, validated, or ``None`` for all."""
+    if requested is None:
+        return None
+    names = (requested,) if isinstance(requested, str) else tuple(requested)
+    if not names:
+        return None
+    unknown = [name for name in names if name not in recipe.members]
+    if unknown:
+        raise ValueError(
+            f"members {unknown} are not panels of this overview; its members are "
+            + ", ".join(recipe.members)
+        )
+    return tuple(dict.fromkeys(str(name) for name in names))
 
 
 #: Keyword arguments that shape the *model* -- what is extracted -- as opposed
