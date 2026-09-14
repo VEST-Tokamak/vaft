@@ -53,7 +53,6 @@ from .utils import (
 # `vaft.formula`'s own resolution attribute them to the module that defines
 # them; an explicit import does not consult `__all__`, which is why both hold.
 from .virial import *  # noqa: F401,F403
-from .virial import _virial_ratio  # noqa: F401
 
 
 #: What ``from vaft.formula.equilibrium import *`` binds, and therefore what
