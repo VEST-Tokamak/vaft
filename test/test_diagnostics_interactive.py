@@ -108,7 +108,7 @@ def test_members_picks_panels_in_declared_order(sample):
 def test_an_unknown_member_is_refused_by_name(sample):
     with pytest.raises(ValueError, match="not panels of this overview; its members are"):
         build_model(NAME, normalize_entries(sample), members=["plasma_current_time"])
-    with pytest.raises(ValueError, match="is not an overview and takes no members="):
+    with pytest.raises(ValueError, match="is not a panel composite and takes no members="):
         validate_options("plasma_current_time", {"members": ["x"]})
     validate_options(NAME, {"members": ["flux_loop_time_flux"]})
 
@@ -225,6 +225,27 @@ def test_the_database_twins_exist_and_explore_one_shot(monkeypatch):
     assert set(seen["paths"]) >= {"dataset_description", "magnetics"}
     assert [c.name for c in result.controls][0] == "members"
     plt.close(result.figure)
+    # The equilibrium twin must load what its histories read, not only the
+    # slice summary's IDS: without magnetics the measured Ip, the slice
+    # markers and the reconstruction overlay would silently disappear.
+    explorer = db.plot_equilibrium_interactive(39915, backend="none")
+    assert {"equilibrium", "magnetics", "dataset_description"} <= set(seen["paths"])
+    assert [t.get_text() for t in explorer.history_axes[0].get_legend().get_texts()] == ["measured", "slices"]
+    plt.close(explorer.figure)
+
+
+def test_the_twins_read_exactly_what_the_explorer_reads():
+    from vaft.omas.interactive import _HISTORIES, equilibrium_explorer_ids
+    from vaft.plot.backend.recipes import required_ids
+
+    ids = equilibrium_explorer_ids()
+    assert ids[0] == "dataset_description"
+    assert set(required_ids("equilibrium_overview")) <= set(ids)
+    for name, _, fallback in _HISTORIES:
+        assert set(required_ids(name)) <= set(ids)
+        if fallback:
+            assert set(required_ids(fallback)) <= set(ids)
+    assert "magnetics" in ids
 
 
 def test_plotly_redraws_the_composite_too(sample):

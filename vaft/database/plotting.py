@@ -135,20 +135,21 @@ def render(
         return render_ods(name, source_object, ax=ax, show=show, label=_labels(shots, label), **options)
 
 
-def _load_for_interaction(shot: Any, source: str | None, name: str, *, occurrence: Any = None) -> Any:
-    """The declared IDS of one shot, loaded into memory for an explorer.
+def _load_for_interaction(
+    shot: Any, source: str | None, ids: Sequence[str], *, occurrence: Any = None
+) -> Any:
+    """``ids`` of one shot, loaded into memory for an explorer.
 
     An explorer rebuilds its figure on every widget event, long after this
     call returns, so the lazy store the static path opens -- and closes on
-    the way out -- would be gone by then.  The IDS the entry point declares
-    are read once instead; every later frame is served from memory.
+    the way out -- would be gone by then.  The IDS the entry point reads are
+    loaded once instead; every later frame is served from memory.
     """
     from . import load
 
     shots = _shots(shot)
     if len(shots) != 1:
         raise ValueError(f"an interactive entry point explores one shot at a time; got {len(shots)}")
-    ids = _declared_ids(name)
     return load(shots[0], source=_resolve_source(source), paths=list(ids), occurrence=occurrence)
 
 
@@ -163,7 +164,7 @@ def plot_diagnostics_time_interactive(
     """
     from vaft.omas.interactive import plot_diagnostics_time_interactive as explore
 
-    ods = _load_for_interaction(shot, source, "diagnostics_overview", occurrence=occurrence)
+    ods = _load_for_interaction(shot, source, _declared_ids("diagnostics_overview"), occurrence=occurrence)
     return explore(ods, **options)
 
 
@@ -173,12 +174,14 @@ def plot_equilibrium_interactive(
     """Explore one shot's equilibrium slices, from the database.
 
     See :func:`vaft.omas.plot_equilibrium_interactive`; loaded once for the
-    same reason as :func:`plot_diagnostics_time_interactive`.
+    same reason as :func:`plot_diagnostics_time_interactive`, and exactly
+    the IDS the explorer reads (the slice summary's and its histories'), so
+    the measured plasma current and the slice markers are there.
     """
+    from vaft.omas.interactive import equilibrium_explorer_ids
     from vaft.omas.interactive import plot_equilibrium_interactive as explore
 
-    ids = ("equilibrium_overview", "plasma_current_time")
-    ods = _load_for_interaction(shot, source, ids[0], occurrence=occurrence)
+    ods = _load_for_interaction(shot, source, equilibrium_explorer_ids(), occurrence=occurrence)
     return explore(ods, **options)
 
 

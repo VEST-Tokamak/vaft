@@ -38,6 +38,7 @@ from ._plot_recipes import (
 
 __all__ = [
     "InteractiveEquilibrium",
+    "equilibrium_explorer_ids",
     "plot_diagnostics_time_interactive",
     "plot_equilibrium_interactive",
     "BACKENDS",
@@ -53,6 +54,28 @@ __all__ = [
 _HISTORIES = (
     ("plasma_current_time", {"synthetic": "equilibrium"}, "equilibrium_time_plasma_current"),
 )
+
+
+def equilibrium_explorer_ids() -> tuple[str, ...]:
+    """Every IDS :func:`plot_equilibrium_interactive` reads, in declaration order.
+
+    The slice summary's IDS plus those of the histories drawn above it,
+    derived from ``_HISTORIES`` rather than restated, so the IMAS and
+    database twins -- which must load or convert exactly this set -- cannot
+    drift from what the explorer draws.  A twin that left ``magnetics`` out
+    would not fail: the history falls back to the equilibrium's own Ip and
+    the measured waveform, the slice markers and the reconstruction overlay
+    silently disappear.
+    """
+    from vaft.plot.backend.recipes import required_ids
+
+    names = ["equilibrium_overview"]
+    for name, _options, fallback in _HISTORIES:
+        names.extend(n for n in (name, fallback) if n)
+    ids = ["dataset_description"]
+    for name in names:
+        ids.extend(required_ids(name))
+    return tuple(dict.fromkeys(ids))
 
 
 @dataclass

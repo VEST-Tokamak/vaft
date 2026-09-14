@@ -46,11 +46,12 @@ def plot_equilibrium_interactive(source: Any, **options: Any) -> Any:
     """Explore one shot's equilibrium slices, from native IMAS input.
 
     See :func:`vaft.omas.plot_equilibrium_interactive`.  The one entry is
-    converted to an ODS holding the IDS the equilibrium overview and its
-    plasma-current history read, then handed to the OMAS entry point.
+    converted to an ODS holding exactly the IDS the explorer reads
+    (:func:`vaft.omas.interactive.equilibrium_explorer_ids`: the slice
+    summary's and its histories'), then handed to the OMAS entry point.
     """
+    from vaft.omas.interactive import equilibrium_explorer_ids
     from vaft.omas.interactive import plot_equilibrium_interactive as explore
-    from vaft.plot.backend.recipes import required_ids
 
     from .entries import normalize_entries
 
@@ -61,7 +62,4 @@ def plot_equilibrium_interactive(source: Any, **options: Any) -> Any:
             f"got {len(entries)} entries"
         )
     _, entry = entries[0]
-    ids = dict.fromkeys(
-        (*required_ids("equilibrium_overview"), "magnetics", "dataset_description")
-    )
-    return explore(entry.as_ods_for(tuple(ids)), **options)
+    return explore(entry.as_ods_for(equilibrium_explorer_ids()), **options)

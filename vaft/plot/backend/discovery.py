@@ -536,24 +536,31 @@ def _composite_facts(
                 for name, count in m.channels["regions"].items():
                     regions[name] = regions.get(name, 0) + int(count)
             channels["regions"] = regions
-        if all(m.channels.get("representatives") for m in channel_members):
-            channels["representatives"] = {
-                name: index for m in channel_members for name, index in m.channels["representatives"].items()
-            }
+        # A representative a member could not resolve is stored as None;
+        # such a preset is offered only when every member resolves it.
+        terms = [set(m.channels.get("representatives") or {}) for m in channel_members]
+        shared = set.intersection(*terms) if terms else set()
+        representatives = {
+            term: channel_members[0].channels["representatives"][term]
+            for term in sorted(shared)
+            if all(m.channels["representatives"].get(term) is not None for m in channel_members)
+        }
+        if representatives:
+            channels["representatives"] = representatives
         facts["channels"] = channels
     # A composite may fix a renderer mode for its members (the diagnostics
     # overview masks flagged channels); the control then starts there, so
     # opening the controls does not change the figure.
-    defaults = dict(recipe.member_defaults)
+    member_defaults = dict(recipe.member_defaults)
     if any((m.validity or {}).get("available") for m in members):
-        facts["validity"] = {"available": True, "modes": VALIDITY_MODES, "default": defaults.get("validity", VALIDITY_MODES[0])}
+        facts["validity"] = {"available": True, "modes": VALIDITY_MODES, "default": member_defaults.get("validity", VALIDITY_MODES[0])}
     if any((m.uncertainty or {}).get("available") for m in members):
-        facts["uncertainty"] = {"available": True, "modes": UNCERTAINTY_MODES, "default": defaults.get("uncertainty", UNCERTAINTY_MODES[0])}
+        facts["uncertainty"] = {"available": True, "modes": UNCERTAINTY_MODES, "default": member_defaults.get("uncertainty", UNCERTAINTY_MODES[0])}
     oriented = [m.orientation for m in members if (m.orientation or {}).get("options")]
     if oriented:
-        defaults = {o.get("default") for o in oriented}
+        signs = {o.get("default") for o in oriented}
         facts["orientation"] = {
-            "default": defaults.pop() if len(defaults) == 1 else "canonical",
+            "default": signs.pop() if len(signs) == 1 else "canonical",
             "options": list(oriented[0]["options"]),
         }
     synthetic = [m.synthetic for m in members if (m.synthetic or {}).get("overlay")]

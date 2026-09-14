@@ -209,8 +209,8 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
             )
         if key == "members" and _plot_scoped_choices(name, key) is None:
             raise ValueError(
-                f"{name!r} is not an overview and takes no members=; "
-                "members= picks the panels of a composite such as diagnostics_overview"
+                f"{name!r} is not a panel composite and takes no members=; "
+                "members= picks the panels of one such as diagnostics_overview"
             )
         if spec.kind == "choice" and isinstance(value, str):
             choices = _plot_scoped_choices(name, key) or choices_for(spec)
