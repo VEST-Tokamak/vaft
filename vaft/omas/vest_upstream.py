@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 import shutil
 import tempfile
+import traceback
 from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
@@ -1446,6 +1447,503 @@ def build_gpec_ideal_ods(
         "modules_modes": cells,
     }
     return ods, manifest
+
+
+def _external_profile_manifest(stage: str, shot: int, run: int, era_name: str) -> dict[str, Any]:
+    """The manifest shape shared by the externally-uploaded profile stages."""
+    return {
+        "schema_version": 1,
+        "stage": stage,
+        "shot": int(shot),
+        "machine_version": era_name,
+        # Absence is the default outcome. Most VEST shots carry no external
+        # profile upload at all, and that is a normal result rather than a
+        # failure, so the stage starts unavailable and is promoted only once a
+        # mapper has actually written channels.
+        "status": "unavailable",
+        "input": {},
+        "configuration": {"run": int(run)},
+        "quality_summary": {
+            "missing": [],
+            "repaired": [],
+            "disabled": [],
+            "rejected": [],
+            "unavailable": [stage],
+        },
+    }
+
+
+def build_thomson_ods(
+    *,
+    shot: int,
+    data_root: str | Path | None = None,
+    mat_file: str | Path | None = None,
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Build the standalone Thomson scattering product for one shot.
+
+    The mapper resolves its own `.mat` file across the layouts VEST has used
+    over the years, so an explicit ``mat_file`` is an override rather than a
+    requirement.  A shot with no upload yields a provenance-only product whose
+    manifest says ``unavailable``: the stage is optional, so that is recorded
+    and replication skips it rather than failing the run.
+    """
+    from vaft.machine_mapping.thomson_scattering import thomson_scattering
+
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+    ods = ODS(consistency_check=False)
+    dataset_description(
+        ods,
+        shot,
+        {
+            "source_type": "shot",
+            "run": run,
+            "machine": "VEST",
+            "user": "vaft",
+            "description": f"VEST Thomson scattering; machine era {era.name}",
+        },
+    )
+    manifest = _external_profile_manifest("thomson", shot, run, era.name)
+    if mat_file is not None:
+        manifest["input"]["mat_file"] = str(mat_file)
+
+    try:
+        thomson_scattering(ods, shot, data_root=data_root, mat_file=mat_file)
+    except FileNotFoundError as error:
+        # No upload for this shot. Distinguished from a malformed one: the
+        # mapper raises FileNotFoundError only after exhausting every layout.
+        manifest["error"] = f"{type(error).__name__}: {error}"
+        return ods, manifest
+
+    channels = len(ods["thomson_scattering.channel"]) if "thomson_scattering.channel" in ods else 0
+    if channels:
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+        manifest["channels"] = channels
+    return ods, manifest
+
+
+def build_ces_ods(
+    *,
+    shot: int,
+    data_root: str | Path | None = None,
+    mat_file: str | Path | None = None,
+    options: str = "ces",
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Build the standalone charge-exchange product for one shot.
+
+    ``options`` selects which external layout is read (``ces`` for
+    ``CES_{shot}.mat``, ``ids`` for ``IDS_{shot}.mat``); both land in the same
+    ``charge_exchange`` IDS.  Presence of this product is what later routes a
+    shot's kinetic reconstruction to `kinetic-efit` rather than `electron-efit`,
+    so an absent upload must be recorded rather than inferred.
+    """
+    from vaft.machine_mapping.charge_exchange import charge_exchange
+
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+    ods = ODS(consistency_check=False)
+    dataset_description(
+        ods,
+        shot,
+        {
+            "source_type": "shot",
+            "run": run,
+            "machine": "VEST",
+            "user": "vaft",
+            "description": f"VEST charge exchange; machine era {era.name}",
+        },
+    )
+    manifest = _external_profile_manifest("ces", shot, run, era.name)
+    manifest["configuration"]["options"] = options
+    if mat_file is not None:
+        manifest["input"]["mat_file"] = str(mat_file)
+
+    try:
+        charge_exchange(ods, shot, options=options, data_root=data_root, mat_file=mat_file)
+    except FileNotFoundError as error:
+        manifest["error"] = f"{type(error).__name__}: {error}"
+        return ods, manifest
+
+    channels = len(ods["charge_exchange.channel"]) if "charge_exchange.channel" in ods else 0
+    if channels:
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+        manifest["channels"] = channels
+    return ods, manifest
+
+
+#: How CHEASE names the equilibrium it refined, per shot and millisecond.
+#: EFIT's convention is a five-digit, zero-padded time, so the padding has to be
+#: in the format spec rather than typed out as literal zeros -- a discharge at
+#: or past 1000 ms would otherwise build a six-digit suffix that matches no file
+#: and be indistinguishable from having no equilibrium at all.
+GEQDSK_NAME_TEMPLATE = "g0{shot}.{time_ms:05d}"
+
+
+def build_core_profiles_ods(
+    *,
+    shot: int,
+    thomson_product: str | Path,
+    ces_product: str | Path | None = None,
+    geqdsk_dir: str | Path | None = None,
+    geqdsk_template: str = GEQDSK_NAME_TEMPLATE,
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Map Thomson (and CES, when present) onto an equilibrium grid.
+
+    One slice is built per Thomson time that has an equilibrium to map against.
+    A time the ion diagnostic actually covers becomes a kinetic slice; every
+    other time stays electron-only and is stripped of slice-total pressure,
+    because a total computed with a phantom Ti=Te would read as measured to
+    anything that later loads this product.
+
+    The manifest records how many of each were built.  That count is what routes
+    the reconstruction afterwards -- a product with no kinetic slice can only
+    support the `electron-efit` lineage -- so it is written down rather than
+    re-derived by each consumer.
+    """
+    import omas as _omas
+
+    from vaft.code.efit import build_kinetic_core_profiles
+    from vaft.data import read_geqdsk
+    from vaft.process import profile as _profile
+
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+    ods, _ = load_ods(Path(thomson_product))
+    if ces_product is not None and Path(ces_product).exists():
+        ion, _ = load_ods(Path(ces_product))
+        if "charge_exchange" in ion:
+            ods["charge_exchange"] = ion["charge_exchange"]
+
+    manifest = _external_profile_manifest("core_profiles", shot, run, era.name)
+    manifest["input"] = {
+        "thomson_product": str(thomson_product),
+        "ces_product": str(ces_product) if ces_product is not None else None,
+        "geqdsk_dir": str(geqdsk_dir) if geqdsk_dir is not None else None,
+    }
+
+    if "thomson_scattering.time" not in ods:
+        manifest["error"] = "the Thomson product carries no thomson_scattering.time"
+        return ods, manifest
+
+    # Test the full path, not the parent: reading `charge_exchange.channel`
+    # off an ODS that has the IDS but no channels would materialize the node,
+    # and `flat()` does not show an empty one, so the damage is silent.
+    has_ion = (
+        "charge_exchange.channel" in ods
+        and len(ods["charge_exchange.channel"]) > 0
+    )
+    times_ms = np.asarray(ods["thomson_scattering.time"], dtype=float) * 1e3
+
+    # A re-run must not leave a stale slice behind: the mix of kinetic and
+    # electron-only slices depends on which CES product was available, and that
+    # can change between runs.
+    if "core_profiles" in ods:
+        del ods["core_profiles"]
+
+    n_kinetic = 0
+    n_electron = 0
+    missing_equilibrium: list[float] = []
+    for time_ms in times_ms:
+        geq = None
+        if geqdsk_dir is not None:
+            path = Path(geqdsk_dir) / geqdsk_template.format(
+                shot=shot, time_ms=int(time_ms)
+            )
+            if path.exists():
+                try:
+                    geq = read_geqdsk(path)
+                except Exception:  # noqa: BLE001 - a bad g-file is a missing one here
+                    geq = None
+        if geq is None:
+            missing_equilibrium.append(round(float(time_ms), 3))
+            continue
+
+        built_kinetic = False
+        if has_ion:
+            try:
+                # require_ion: only where the ion diagnostic actually covers this
+                # time. Without it a time with no ion data would silently take
+                # the Ti=Te fallback and be indistinguishable from a measured one.
+                build_kinetic_core_profiles(
+                    ods,
+                    geq,
+                    float(time_ms),
+                    ion_index=0,
+                    require_thomson=True,
+                    require_ion=True,
+                    ti_te_fallback=False,
+                )
+                built_kinetic = True
+                n_kinetic += 1
+            except Exception:  # noqa: BLE001 - no ion coverage here; fall back
+                built_kinetic = False
+
+        if not built_kinetic:
+            try:
+                mapped = _profile.equilibrium_mapping_thomson_scattering(ods, geq)
+                n_e_fn, t_e_fn, *_ = _profile.profile_fitting_thomson_scattering(
+                    ods,
+                    float(time_ms),
+                    mapped,
+                    Te_order=2,
+                    Ne_order=2,
+                    fitting_function_te="polynomial",
+                    fitting_function_ne="exponential",
+                )
+                _profile.core_profiles(
+                    ods,
+                    float(time_ms),
+                    mapped,
+                    n_e_fn,
+                    t_e_fn,
+                    geq=geq,
+                    ti_te_fallback=False,
+                )
+                n_electron += 1
+            except Exception:  # noqa: BLE001 - one failed fit is not a failed stage
+                continue
+
+    # Once, not per slice: the call takes the whole IDS, so running it inside
+    # the loop reprocessed every slice built so far on each pass.
+    try:
+        _omas.omas_physics.core_profiles_pressures(ods, update=True)
+    except Exception:  # noqa: BLE001 - pressures are derived, not measured
+        pass
+
+    _profile.strip_electron_only_pressure(ods)
+
+    manifest["slices"] = {
+        "kinetic": n_kinetic,
+        "electron_only": n_electron,
+        "no_equilibrium": len(missing_equilibrium),
+    }
+    # Named so the reconstruction stages can read their own eligibility off the
+    # manifest instead of reloading and re-inspecting the product.
+    manifest["supports_kinetic_efit"] = n_kinetic > 0
+    if n_kinetic or n_electron:
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+    else:
+        manifest["quality_summary"]["missing"] = [
+            f"core_profiles:t={t}ms" for t in missing_equilibrium[:20]
+        ]
+    return ods, manifest
+
+
+def build_kinetic_efit_ods(
+    *,
+    shot: int,
+    stage: str,
+    core_profiles_product: str | Path,
+    constraints_product: str | Path,
+    efit_product: str | Path,
+    time_ms: float | None = None,
+    workdir: str | Path | None = None,
+    executable: str | None = None,
+    encoding: str = "raw6",
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Reconstruct a kinetic-pressure equilibrium from products already on disk.
+
+    Nothing is read from outside the FileDB.  The base magnetic kfile is built
+    by :func:`vaft.code.efit.generate_kfile` -- the default path through
+    ``prepare_kinetic_efit_inputs`` -- from the EFIT stage's own *constraints*
+    product, and the R -> psi_N map comes from the magnetic EFIT *solution*
+    through :func:`vaft.data.eqdsk.from_equilibrium`, so no g-file has to be
+    located on a filesystem the stage does not own.
+
+    Those are two different products and both are `equilibrium`, which is why
+    they are not merged: the constraints product carries
+    ``code.parameters`` (the ``IN1`` namelist ``generate_kfile`` reads) and
+    ``time_slice.*.constraints``, while the solution carries the flux map.  The
+    psi map travels as ``geq``, which ``run_kinetic_chain`` already takes
+    separately from the ODS, so neither has to overwrite the other.
+
+    ``stage`` is ``electron_efit`` or ``kinetic_efit``, and it must agree with
+    what the core-profile product actually measured: the ion diagnostic is what
+    separates a measured Ti from one assumed through a Ti/Te ratio, and a run
+    that quietly produced the other kind would be published into the wrong
+    lineage.  A mismatch is recorded, not raised, because both stages are asked
+    for and only one of them can apply to a given shot.
+    """
+    from vaft.code.efit.kinetic import KineticEFITConfig, run_kinetic_chain
+    from vaft.data.eqdsk import from_equilibrium, to_omas
+    from vaft.process.equilibrium import as_equilibrium
+
+    if stage not in ("electron_efit", "kinetic_efit"):
+        raise ValueError(f"stage must be electron_efit or kinetic_efit; got {stage!r}")
+
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+    manifest = _external_profile_manifest(stage, shot, run, era.name)
+    manifest["input"] = {
+        "core_profiles_product": str(core_profiles_product),
+        "constraints_product": str(constraints_product),
+        "efit_product": str(efit_product),
+    }
+    manifest["configuration"]["encoding"] = encoding
+
+    out = ODS(consistency_check=False)
+    dataset_description(
+        out,
+        shot,
+        {
+            "source_type": "shot",
+            "run": run,
+            "machine": "VEST",
+            "user": "vaft",
+            "description": f"VEST {stage.replace('_', ' ')}; machine era {era.name}",
+        },
+    )
+
+    def unavailable(reason: str) -> tuple[ODS, dict[str, Any]]:
+        manifest["error"] = reason
+        return out, manifest
+
+    for label, path in (
+        ("core_profiles", core_profiles_product),
+        ("constraints", constraints_product),
+        ("efit", efit_product),
+    ):
+        if not Path(path).exists():
+            return unavailable(f"the {label} product is missing: {path}")
+
+    ods, _ = load_ods(Path(core_profiles_product))
+    # Test the full path, not the parent: reading `charge_exchange.channel`
+    # off an ODS that has the IDS but no channels would materialize the node,
+    # and `flat()` does not show an empty one, so the damage is silent.
+    has_ion = (
+        "charge_exchange.channel" in ods
+        and len(ods["charge_exchange.channel"]) > 0
+    )
+    wants_ion = stage == "kinetic_efit"
+    if has_ion != wants_ion:
+        measured = "with" if has_ion else "without"
+        return unavailable(
+            f"this shot's profiles were built {measured} an ion diagnostic, so it "
+            f"belongs to the other lineage, not {stage}"
+        )
+    if "thomson_scattering" not in ods:
+        return unavailable("the core-profile product carries no thomson_scattering")
+
+    # What `generate_kfile` actually reads is the EFIT stage's *constraints*
+    # product: `code.parameters` holds the IN1 namelist (TABLE_DIR/INPUT_DIR)
+    # and `time_slice.*.constraints` the measurements already folded in from
+    # magnetics. The efit *output* product cannot stand in for it -- its
+    # `code.parameters` records collection provenance instead, and on products
+    # written before #642 it is a flat string rather than a tree.
+    constraints, _ = load_ods(Path(constraints_product))
+    if "equilibrium" not in constraints:
+        return unavailable("the constraints product carries no equilibrium")
+    ods["equilibrium"] = constraints["equilibrium"]
+
+    # The solution stays out of the ODS on purpose: it is `equilibrium` too, so
+    # merging it would overwrite the constraints the kfile is built from. It
+    # only has to reach `geq`, which is a separate argument.
+    solution, _ = load_ods(Path(efit_product))
+    if (
+        "equilibrium.time_slice" not in solution
+        or not len(solution["equilibrium.time_slice"])
+    ):
+        return unavailable("the efit product carries no equilibrium time slice")
+
+    if time_ms is None:
+        if "core_profiles.time" in ods and len(ods["core_profiles.time"]):
+            time_ms = float(np.asarray(ods["core_profiles.time"], dtype=float)[0]) * 1e3
+        else:
+            return unavailable("no core_profiles slice to reconstruct at")
+
+    # `time_slice` existing does not guarantee `time` does, and argmin over an
+    # empty array raises. Every other bad-input path here records and returns,
+    # so this one must too -- an optional stage that raises fails the whole run
+    # instead of being skipped.
+    if "equilibrium.time" not in solution:
+        return unavailable("the efit product carries no equilibrium.time")
+    eq_times = np.asarray(solution["equilibrium.time"], dtype=float).reshape(-1) * 1e3
+    if eq_times.size == 0:
+        return unavailable("the efit product's equilibrium.time is empty")
+    time_index = int(np.argmin(np.abs(eq_times - float(time_ms))))
+    manifest["configuration"]["time_ms"] = float(time_ms)
+    manifest["configuration"]["equilibrium_time_ms"] = float(eq_times[time_index])
+
+    # The psi this carries is the ODS's, in weber (#278/#281), where a g-file's
+    # is weber per radian -- measured on 48224, SIMAG and SIBRY come out exactly
+    # 2*pi larger. It does not matter *here*, because every consumer normalizes:
+    # psi_N = (psi - SIMAG)/(SIBRY - SIMAG) in `_psin_of_r`, and psi_norm /
+    # rho_pol_norm / rho_tor_norm in the profile mapper, so a global factor -- or
+    # a COCOS sign flip -- cancels in numerator and denominator alike. Verified
+    # against the packaged g-file: psi_N agrees to 2e-16. Anything that later
+    # wants *absolute* psi off this object has to convert first.
+    try:
+        geq = from_equilibrium(as_equilibrium(solution, time_index=time_index))
+    except Exception as error:  # noqa: BLE001 - an unusable equilibrium is not a crash
+        return unavailable(f"cannot build a psi map from the equilibrium: {error}")
+
+    # A caller-supplied workdir is the caller's to keep. One we invent is ours to
+    # remove: EFIT leaves a kfile and its outputs per PLASMA scale, and this stage
+    # is registered for every shot, so leaking one directory per shot would fill
+    # the filesystem the products themselves live on.
+    ephemeral = workdir is None
+    work = Path(tempfile.mkdtemp(prefix=f"{stage}-")) if ephemeral else Path(workdir)
+    try:
+        config = KineticEFITConfig(
+            executable=executable,
+            workdir=work,
+            shot=shot,
+            time_ms=float(time_ms),
+            encoding=encoding,
+            # 'auto' is the VEST policy ratio, and it only applies when the ODS
+            # has no ion data -- which is exactly the electron_efit case.
+            ti_te_ratio="auto",
+        )
+        try:
+            chain = run_kinetic_chain(ods, geq, float(time_ms), efit_config=config)
+        except Exception as error:  # noqa: BLE001 - recorded, one shot cannot fail a run
+            manifest["status"] = "failed"
+            manifest["error"] = f"{type(error).__name__}: {error}"
+            manifest["traceback"] = traceback.format_exc()
+            return out, manifest
+
+        result = chain["kinetic_efit"]
+        manifest["reconstruction"] = {
+            "status": result.status,
+            "converged": bool(result.converged),
+            "scale": result.scale,
+            "chi2": result.chi2,
+            "reason": result.reason,
+        }
+        if result.status == "skipped":
+            return unavailable(result.reason or "EFIT executable is not configured")
+        if not result.converged or result.gfile is None:
+            manifest["status"] = "no_output"
+            manifest["error"] = result.reason or "no PLASMA scale converged"
+            return out, manifest
+
+        # Read the g-file before the workdir goes away.
+        to_omas(read_geqdsk_file(result.gfile), ods=out)
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+        # Recording a path under a directory about to be deleted would name a
+        # file nobody can open; the name is what identifies the reconstruction.
+        manifest["output_gfile"] = (
+            Path(result.gfile).name if ephemeral else str(result.gfile)
+        )
+        return out, manifest
+    finally:
+        if ephemeral:
+            shutil.rmtree(work, ignore_errors=True)
+
+
+def read_geqdsk_file(path: str | Path):
+    """Read a g-file. Thin indirection so the builder stays import-light."""
+    from vaft.data import read_geqdsk
+
+    return read_geqdsk(path)
 
 
 def write_stage_product(

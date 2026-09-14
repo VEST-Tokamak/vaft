@@ -71,6 +71,9 @@ DEFINITIONAL = frozenset({
     "export_electron_profile_txt",
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
+    # Deleting a sum-over-species leaf from a slice that has no ion species is
+    # what the leaf means, not a method borrowed from anywhere.
+    "strip_electron_only_pressure",
     "compute_time_match_atol",
     "find_time_match_index",
     "normalize_atomic_symbol",

@@ -356,6 +356,53 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
         optional=True,
         note="sparse optional diagnostic; an ineligible product is recorded, not raised",
     ),
+    # Externally produced profile diagnostics. They reach `main` beside the
+    # baseline they describe, but they are optional in the #305 sense: a shot
+    # without a Thomson or CES upload is the normal case, not a failure, so an
+    # ineligible product is recorded as skipped rather than raised.
+    "thomson": StageReplication(
+        source=DEFAULT_SOURCE,
+        ids=("thomson_scattering",),
+        optional=True,
+        note="externally uploaded profile diagnostic; absent on most shots",
+        produced_by="corrective",
+    ),
+    "ces": StageReplication(
+        source=DEFAULT_SOURCE,
+        ids=("charge_exchange",),
+        optional=True,
+        note="externally uploaded ion diagnostic; absent on most shots",
+        produced_by="corrective",
+    ),
+    # The mapped profiles, built from thomson (+ ces) against an equilibrium.
+    # Electron-only slices carry no total pressure, so this product stays free
+    # of any assumed-Ti pressure -- that assumption belongs to electron_efit.
+    "core_profiles": StageReplication(
+        source=DEFAULT_SOURCE,
+        ids=("core_profiles",),
+        optional=True,
+        note="requires thomson; ion channels only when ces is present",
+        produced_by="corrective",
+    ),
+    # Both share the `equilibrium` IDS with the EFIT baseline and with each
+    # other, so all three are separated by source rather than occurrence. Which
+    # of the two runs for a shot is decided by whether CES data exist, not by
+    # configuration: the ion measurement is what makes a reconstruction fully
+    # kinetic rather than electron-only with an assumed Ti/Te ratio.
+    "electron_efit": StageReplication(
+        source="electron-efit",
+        ids=("equilibrium",),
+        optional=True,
+        note="thomson without ces; pressure uses the assumed Ti/Te ratio",
+        produced_by="corrective",
+    ),
+    "kinetic_efit": StageReplication(
+        source="kinetic-efit",
+        ids=("equilibrium",),
+        optional=True,
+        note="thomson with ces; pressure uses the measured ion temperature",
+        produced_by="corrective",
+    ),
     # Shares the `equilibrium` IDS with the EFIT baseline; the source split is
     # what keeps the refinement from overwriting the baseline it refines.
     "chease": StageReplication(

@@ -7,7 +7,11 @@ export PATH="$HOME/.local/bin:$PATH"
 SOURCE="${1:?usage: provision_hsds_shots.sh <source> <first> <last> [owner]}"
 FIRST="${2:?}" ; LAST="${3:?}" ; OWNER="${4:-admin}"
 made=0 ; existed=0 ; failed=0
-for shot in $(ls /srv/vest.filedb/archive | awk -v a="$FIRST" -v b="$LAST" '$1>=a && $1<=b' | sort -n); do
+# The shot index comes from the canonical raw tree. It used to come from a
+# second tree, `archive/`, which no longer exists: its shots were moved into
+# `raw/` so there is one raw convention rather than two that can disagree about
+# which shots exist.
+for shot in $(ls /srv/vest.filedb/raw | awk -v a="$FIRST" -v b="$LAST" '$1>=a && $1<=b' | sort -n); do
   if hstouch -o "$OWNER" "/$SOURCE/$shot/" >/dev/null 2>&1; then made=$((made+1))
   elif python3 -c "
 import h5pyd,logging,sys; logging.disable(logging.WARNING)

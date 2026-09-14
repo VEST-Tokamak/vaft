@@ -88,13 +88,25 @@ _LOG_OWNER = {
     "ingest_soft_x_rays": ("omas", "soft_x_rays"),
     "ingest_camera_visible": ("omas", "camera_visible"),
     "ingest_camera_visible_fluctuation": ("omas", "camera_visible_fluctuation"),
+    # Same arrangement for the Thomson lineage (#130): built by the corrective
+    # pipeline, but their logs belong to the stage that owns the product.
+    "generate_thomson_ods": ("omas", "thomson"),
+    "generate_ces_ods": ("omas", "ces"),
+    "generate_core_profiles_ods": ("omas", "core_profiles"),
+    "generate_electron_efit_ods": ("omas", "electron_efit"),
+    "generate_kinetic_efit_ods": ("omas", "kinetic_efit"),
     **{
         f"replicate_{stage}_to_hsds": ("omas", stage)
         for stage in (
             "diagnostics",
             "impa",
+            "thomson",
+            "ces",
             "eddy",
             "efit",
+            "core_profiles",
+            "electron_efit",
+            "kinetic_efit",
             "chease",
             "mhd_linear",
             "soft_x_rays",
@@ -225,6 +237,61 @@ class PipelinePaths:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "metadata") / "efit_manifest.json")
         return str(self._filedb.omas_manifest("efit", shot=shot))
+
+    # ----------------------------------------------------------------- #
+    # Externally uploaded profile diagnostics and the kinetic lineage.
+    #
+    # These stages are canonical-layout only. The shot-first tree is a
+    # read-only record of what the legacy pipeline produced, and it never
+    # produced any of them, so there is no legacy path to return -- inventing
+    # one would name a file that has never existed (issues #89, #138).
+    # ----------------------------------------------------------------- #
+    def _canonical_only(self, stage: str) -> None:
+        if self.layout == SHOT_FIRST:
+            raise ValueError(
+                f"The {stage!r} stage requires layout: filedb. The shot-first "
+                "tree is a read-only legacy reference and never carried it."
+            )
+
+    def thomson_ods(self, shot) -> str:
+        self._canonical_only("thomson")
+        return str(self._filedb.omas_product("thomson", shot=shot))
+
+    def thomson_manifest(self, shot) -> str:
+        self._canonical_only("thomson")
+        return str(self._filedb.omas_manifest("thomson", shot=shot))
+
+    def ces_ods(self, shot) -> str:
+        self._canonical_only("ces")
+        return str(self._filedb.omas_product("ces", shot=shot))
+
+    def ces_manifest(self, shot) -> str:
+        self._canonical_only("ces")
+        return str(self._filedb.omas_manifest("ces", shot=shot))
+
+    def core_profiles_ods(self, shot) -> str:
+        self._canonical_only("core_profiles")
+        return str(self._filedb.omas_product("core_profiles", shot=shot))
+
+    def core_profiles_manifest(self, shot) -> str:
+        self._canonical_only("core_profiles")
+        return str(self._filedb.omas_manifest("core_profiles", shot=shot))
+
+    def electron_efit_ods(self, shot) -> str:
+        self._canonical_only("electron_efit")
+        return str(self._filedb.omas_product("electron_efit", shot=shot))
+
+    def electron_efit_manifest(self, shot) -> str:
+        self._canonical_only("electron_efit")
+        return str(self._filedb.omas_manifest("electron_efit", shot=shot))
+
+    def kinetic_efit_ods(self, shot) -> str:
+        self._canonical_only("kinetic_efit")
+        return str(self._filedb.omas_product("kinetic_efit", shot=shot))
+
+    def kinetic_efit_manifest(self, shot) -> str:
+        self._canonical_only("kinetic_efit")
+        return str(self._filedb.omas_manifest("kinetic_efit", shot=shot))
 
     def chease_manifest(self, shot) -> str:
         """The CHEASE stage manifest, distinguishing a refinement from a stub."""
