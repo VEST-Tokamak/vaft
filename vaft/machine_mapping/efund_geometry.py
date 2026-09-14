@@ -150,17 +150,9 @@ def equilibrium_probe_count(ods: Any) -> int:
     ``vaft.validation.efit_channels.efit_probe_count`` where that module exists:
     ``min(present, defined)`` against the canonical channel definition.
     """
-    from vaft.machine_mapping.magnetics import (
-        vest_equilibrium_magnetics_channel_definitions,
-    )
+    from vaft.machine_mapping.magnetics import equilibrium_probe_count as _count
 
-    defined = sum(
-        1
-        for entry in vest_equilibrium_magnetics_channel_definitions()
-        if entry.get("kind") == "b_field_pol_probe"
-    )
-    present = len(ods["magnetics.b_field_pol_probe"])
-    return min(present, defined) if defined else present
+    return _count(ods)
 
 
 def _pf1_segment(z: float) -> int:

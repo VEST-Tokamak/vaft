@@ -21,6 +21,7 @@ from vaft.machine_mapping.magnetics import (
     OUTBOARD_FLUX_LOOP_MIN_R,
     OUTBOARD_PROBE_MIN_R,
     SIDE_PROBE_MIN_ABS_Z,
+    equilibrium_probe_count,
     vest_equilibrium_magnetics_channel_definitions,
 )
 
@@ -225,21 +226,14 @@ def apply_channel_decisions(
 
 
 def _efit_bpol_probe_count(magnetics) -> int:
-    """Return the B-pol channels represented in VEST EFIT geometry.
+    """The B-pol channels EFIT's geometry represents.
 
-    The magnetics IDS also carries trailing toroidal-Mirnov phase-reference
-    channels.  They are useful diagnostics, but are not represented in EFIT's
-    ``dprobe.dat``/``mhdin.dat`` geometry and must not become constraints.
-    The fitted count comes from the canonical MD-channel definition rather
-    than from the larger magnetics IDS container.
+    One line, because the rule is not this module's to state: three copies of
+    ``min(present, defined)`` had accumulated and the one here disagreed with
+    the other two when no channel was defined, returning zero probes where
+    they returned every present one.
     """
-    return min(
-        len(magnetics["b_field_pol_probe"]),
-        sum(
-            channel["kind"] == "b_field_pol_probe"
-            for channel in vest_equilibrium_magnetics_channel_definitions()
-        ),
-    )
+    return equilibrium_probe_count(magnetics)
 
 
 def _has_matching_signal(magnetics, path: str) -> bool:

@@ -269,6 +269,47 @@ def test_a_caller_that_wants_a_grid_passes_one():
         )
 
 
+def test_one_probe_count_rule_serves_every_consumer():
+    """Three copies of `min(present, defined)` had accumulated, and disagreed.
+
+    The k-file writer, the channel-decision layer and the EFUND projection each
+    carried the rule. In the degenerate case -- no channel defined -- the
+    writer's copy returned zero probes where the other two returned every
+    probe present, so a machine without VEST's channel table would have had
+    every probe constraint silently dropped from its k-file.
+    """
+    from vaft.code.efit.kfile import _efit_bpol_probe_count
+    from vaft.machine_mapping.efund_geometry import equilibrium_probe_count as projected
+    from vaft.machine_mapping.magnetics import equilibrium_probe_count
+    from vaft.validation.efit_channels import efit_probe_count
+    from vaft.omas.sample import sample_ods
+
+    ods = sample_ods()
+    answers = {
+        equilibrium_probe_count(ods),
+        efit_probe_count(ods),
+        projected(ods),
+        _efit_bpol_probe_count(ods["magnetics"]),
+    }
+    assert len(answers) == 1, answers
+    # The sample carries more channels than EFIT's geometry represents; the
+    # trailing toroidal-Mirnov references are diagnostics, not constraints.
+    assert answers.pop() < len(ods["magnetics.b_field_pol_probe"])
+
+
+def test_the_probe_count_accepts_either_shape():
+    """Its callers hold a whole ODS or a magnetics sub-tree, and both must work."""
+    from vaft.machine_mapping.magnetics import equilibrium_probe_count
+    from vaft.omas.sample import sample_ods
+
+    ods = sample_ods()
+    assert equilibrium_probe_count(ods) == equilibrium_probe_count(ods["magnetics"])
+
+    from omas import ODS
+
+    assert equilibrium_probe_count(ODS(consistency_check=False)) == 0
+
+
 def test_the_writer_holds_no_machine_timing():
     """A VEST window in a generic routine is machine policy in the wrong place."""
     source = Path("vaft/code/efit/kfile.py").read_text(encoding="utf-8")
