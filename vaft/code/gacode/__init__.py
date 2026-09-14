@@ -28,7 +28,7 @@ Typical use::
 
     config = GACODEConfig(home="~/git/gacode", platform="GFORTRAN_OSX_BREW")
     result = neo.run_neo_case(profile, workdir="runs/48224", config=config)
-    result.outputs_native.bootstrap_current_parallel
+    result.outputs_native.bootstrap_current
 """
 
 from __future__ import annotations

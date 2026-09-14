@@ -585,3 +585,32 @@ def test_an_installed_neo_rejection_raises(tmp_path):
     profile = read_input_gacode(REG18 / "input.gacode")
     with pytest.raises(NEOExecutionError, match="n_theta must be odd"):
         run_neo_case(profile, tmp_path / "reg18", config)
+
+
+def test_a_spitzer_run_is_solved_even_though_it_writes_no_transport(tmp_path):
+    """SPITZER_MODEL=1 returns before the transport solve (neo_do.f90:60).
+
+    It writes out.neo.spitzer and never out.neo.transport, so judging it by the
+    transport product would call a good run a failure.
+    """
+    case = tmp_path / "case"
+    case.mkdir()
+    for name in ("out.neo.version", "out.neo.species", "out.neo.grid"):
+        (case / name).write_text((REG18 / name).read_text())
+    (case / "out.neo.spitzer").write_text(
+        "  1.8745606E+00  1.2146011E+00  1.8034935E+00  5.2934556E+00"
+        "  1.0E-02  1.0E-02  2.0E-02  2.0E-02\n"
+    )
+    native = collect_neo_outputs(case)
+    assert native.transport is None
+    assert native.spitzer is not None
+    assert native.spitzer["transport_coefficients"].shape == (2, 2)
+    assert native.solved
+
+
+def test_a_spitzer_run_with_a_non_finite_coefficient_is_not_solved(tmp_path):
+    case = tmp_path / "case"
+    case.mkdir()
+    (case / "out.neo.spitzer").write_text("  NaN  1.0E+00  1.0E+00  1.0E+00\n")
+    native = collect_neo_outputs(case)
+    assert not native.solved

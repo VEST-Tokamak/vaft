@@ -52,6 +52,7 @@ def neo_parameters(
         "N_THETA": int(config.n_theta),
         "N_RADIAL": int(config.n_radial),
         "RMIN_OVER_A": float(config.rmin_over_a),
+        "RMIN_OVER_A_2": float(config.rmin_over_a_2),
         "SILENT_FLAG": 0,
         "EQUILIBRIUM_MODEL": int(config.equilibrium_model),
         "COLLISION_MODEL": int(config.collision_model),
