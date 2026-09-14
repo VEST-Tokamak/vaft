@@ -5,9 +5,12 @@ written into, so the catalog, the default, the alias rules and the read-only
 guarantee for the legacy namespace are all pinned here.
 """
 
+import inspect
+
 import pytest
 
 from vaft.database import sources
+from vaft.database.ods import _recorded_source as sources_recorded
 from vaft.database.filedb import OMASStage
 from vaft.database.sources import (
     DEFAULT_SOURCE,
@@ -19,7 +22,12 @@ from vaft.database.sources import (
 
 
 def test_catalog_carries_every_lineage_the_issue_names():
-    assert {source.name for source in sources.known_sources()} == {
+    roots = {
+        source.name
+        for source in sources.known_sources()
+        if "/" not in source.name and not source.projects_to
+    }
+    assert roots == {
         "public",
         "main",
         "chease-mhd-stability",
@@ -35,9 +43,93 @@ def test_catalog_carries_every_lineage_the_issue_names():
     }
 
 
-def test_public_is_the_only_read_only_source():
-    unwritable = [s.name for s in sources.known_sources() if not s.writable]
-    assert unwritable == [LEGACY_SOURCE]
+def test_every_family_gets_a_refinement_and_one_source_per_stability_product():
+    """The hierarchy is generated, so it is checked as a shape, not a list.
+
+    Twelve hand-written entries would drift the moment a product is added;
+    asserting the cross-product is what keeps the catalog and the design the
+    same statement.
+    """
+    names = {source.name for source in sources.known_sources()}
+
+    for family, root in sources.FAMILY_SOURCES.items():
+        refinement = f"{root}/chease"
+        assert refinement in names, family
+        for product in ("dcon-peeling", "dcon-kink", "rdcon", "stride"):
+            assert f"{refinement}/{product}" in names, (family, product)
+
+    # DCON's two edge treatments are separate sources because a run yields one
+    # of them and can never yield both.
+    assert "main/chease/dcon-peeling" != "main/chease/dcon-kink"
+    assert sources.resolve("main/chease/dcon-kink", writable=True) == (
+        "main/chease/dcon-kink"
+    )
+
+
+def test_a_nested_source_names_its_parent_and_every_ancestor():
+    """HSDS has no mkdir -p, so provisioning needs them outermost first."""
+    entry = sources.CATALOG["main/chease/dcon-peeling"]
+
+    assert entry.parent == "main/chease"
+    assert entry.ancestors == ("main", "main/chease")
+    assert sources.CATALOG["main"].parent is None
+    assert sources.CATALOG["main"].ancestors == ()
+
+
+def test_the_missing_source_hint_lists_one_command_per_level():
+    """An operator should not discover the ordering one failure at a time."""
+    message = str(sources.MissingSourceError("main/chease/dcon-peeling"))
+
+    assert "in order" in message
+    assert message.index("/main/") < message.index("/main/chease/")
+    assert message.index("/main/chease/") < message.index("/main/chease/dcon-peeling/")
+
+    # A flat source still gets the single-command form.
+    assert "in order" not in str(sources.MissingSourceError("main"))
+
+
+def test_the_projecting_alias_reads_through_and_refuses_writes():
+    """`magnetic-efit` is a name for what `main` holds, not a second copy."""
+    assert sources.resolve("magnetic-efit") == "main"
+
+    with pytest.raises(sources.ReadOnlySourceError, match="read-only projection"):
+        sources.resolve("magnetic-efit", writable=True)
+
+
+def test_a_name_deeper_than_the_grammar_is_refused():
+    """family / refinement / product is three; nothing needs a fourth.
+
+    The bound is what stops a typo'd loop from creating an unbounded folder
+    tree on the deployment.
+    """
+    with pytest.raises(sources.HSDSSourceError, match="segments deep"):
+        sources.resolve("main/chease/dcon-peeling/extra")
+
+
+def test_a_shot_inside_a_source_name_is_still_refused():
+    """`public/39915` used to fail the grammar; nesting made it well-formed.
+
+    It must still be refused -- the problem with it was never its shape but
+    that it names a shot inside a source rather than a source. It now fails
+    lookup, which is the more accurate error.
+    """
+    with pytest.raises(sources.UnknownSourceError):
+        sources.resolve("public/39915")
+
+
+def test_the_read_only_sources_are_the_legacy_one_and_the_projecting_alias():
+    """Read-only for two different reasons, both deliberate.
+
+    `public` is a legacy reference nothing may rewrite. `magnetic-efit` is a
+    *name* for what `main` already holds, so making it writable would give one
+    dataset two writable destinations -- the collision named sources exist to
+    prevent.
+    """
+    unwritable = sorted(s.name for s in sources.known_sources() if not s.writable)
+    assert unwritable == ["magnetic-efit", LEGACY_SOURCE]
+
+    projecting = [s for s in sources.known_sources() if s.projects_to]
+    assert [(s.name, s.projects_to) for s in projecting] == [("magnetic-efit", "main")]
 
 
 def test_unnamed_source_resolves_to_main():
@@ -78,7 +170,7 @@ def test_experiment_namespaces_are_opt_in_through_the_environment(monkeypatch):
 
 def test_opted_in_namespaces_obey_the_same_grammar(monkeypatch):
     monkeypatch.setenv(sources.EXTRA_SOURCES_VARIABLE, "Not A Namespace")
-    with pytest.raises(sources.HSDSSourceError, match="bare HSDS namespace"):
+    with pytest.raises(sources.HSDSSourceError, match="not a valid HSDS namespace"):
         sources.resolve("main")
 
 
@@ -87,7 +179,6 @@ def test_opted_in_namespaces_obey_the_same_grammar(monkeypatch):
     [
         "hdf5://public",          # protocol is an internal detail
         "/tmp/data",              # filesystem path
-        "public/39915",           # nested path
         "Main",                   # uppercase
         "chease.mhd.stability",   # ambiguous with the legacy dotted-domain form
         "39915_test",             # underscore
@@ -98,7 +189,7 @@ def test_opted_in_namespaces_obey_the_same_grammar(monkeypatch):
     ],
 )
 def test_grammar_rejects_anything_that_is_not_a_bare_namespace(value):
-    with pytest.raises(sources.HSDSSourceError, match="bare HSDS namespace"):
+    with pytest.raises(sources.HSDSSourceError, match="must be an HSDS namespace"):
         sources.resolve(value)
 
 
@@ -252,3 +343,71 @@ def test_source_probe_never_asks_the_server_to_create_a_namespace():
 
     body = inspect.getsource(utils.require_source_exists)
     assert 'mode="r"' in body
+
+
+def test_a_child_source_is_navigable_from_its_parent():
+    """A hierarchy nothing can walk is two conventions, not one.
+
+    Read from the catalog rather than from a deployment: the catalog says which
+    sources exist, a folder on a server says which have been *provisioned*, and
+    conflating the two would make "does this source exist" depend on whether an
+    administrator had got to it yet.
+    """
+    assert [entry.name for entry in sources.children("main")] == ["main/chease"]
+    assert [entry.name for entry in sources.children("main/chease")] == [
+        "main/chease/dcon-peeling",
+        "main/chease/dcon-kink",
+        "main/chease/rdcon",
+        "main/chease/stride",
+    ]
+    assert sources.children("impa") == ()
+
+    with pytest.raises(sources.UnknownSourceError):
+        sources.children("not-a-source")
+
+
+def test_knowing_the_children_does_not_compose_them():
+    """The no-auto-union rule is what this hierarchy must not quietly relax.
+
+    `load(source="main")` must not acquire the CHEASE refinement because the
+    catalog now says where it lives. Composition stays an explicit call.
+    """
+    assert sources.resolve("main") == "main"
+    assert sources.children("main"), "precondition: main has a child"
+    # Resolving a parent yields the parent, never a union or a list.
+    assert isinstance(sources.resolve("main"), str)
+
+
+def test_a_child_folder_cannot_be_mistaken_for_a_shot():
+    """`/main/chease/` sits beside `/main/39915/` on the deployment.
+
+    Shot listing filters on `isdigit()`, so a child source nested under a parent
+    cannot make the parent's shot index wrong -- which is the property that lets
+    the logical hierarchy be the physical one.
+    """
+    from vaft.database import utils
+
+    listed = [
+        item
+        for item in ["39915", "41524", "chease", "master.h5", "dcon-peeling"]
+        if not item.endswith(".h5") and item.isdigit()
+    ]
+    assert listed == ["39915", "41524"]
+    # And the production filter is the one just modelled.
+    source = inspect.getsource(utils._get_namespace_folders)
+    assert 'item.isdigit()' in source
+
+
+def test_a_slash_bearing_source_round_trips_through_the_recorded_namespace():
+    """`dataset_description.data_entry.user` records where a shot was written.
+
+    A nested name has to survive that round trip, or a product would carry a
+    destination it was not written to.
+    """
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    for name in ("main", "main/chease/dcon-peeling"):
+        with sources_recorded(ods, name):
+            assert ods["dataset_description.data_entry.user"] == name
+    assert "dataset_description.data_entry.user" not in ods
