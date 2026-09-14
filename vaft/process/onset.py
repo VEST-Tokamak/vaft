@@ -1437,10 +1437,13 @@ def active_window(
     The end rule is the weak one.  A disruption's vessel-current tail can sit at a
     third of the peak for a hundred milliseconds, above any end threshold that
     still separates plasma from a normal termination, and is then ended by the
-    collapse fallback rather than by the threshold.  Thirteen shots of the corpus
-    reach the ``offset_threshold_above_peak`` guard, where the trailing level and
-    the peak leave no usable end threshold; they are flagged, not repaired,
-    tracked in issue #409.
+    collapse fallback rather than by the threshold.  And the threshold is scaled
+    from the largest excess anywhere in the search mask, which need not lie in
+    the segment being judged: when it does not, the segment's own peak can sit
+    below the threshold, the extension is skipped and the window is the segment
+    as found, flagged ``offset_threshold_above_peak``.  Thirteen shots of the
+    corpus reach that -- all of them early records with windows a tenth the
+    usual length -- flagged, not repaired, tracked in issue #726.
 
     Provenance
     ----------
@@ -1612,8 +1615,10 @@ def _active_window(
         i_peak_last = seg0 + int(np.argmax(y[seg0:seg1]))
         stop = _extend_forward(above_end, i_peak_last, quiet)
         if stop <= i_peak_last:
-            # Unreachable with the threshold below the peak; the guard against a
-            # segment ending before its own peak (an empty run) stays.
+            # Reachable: ``peak`` is the largest excess in the search mask and
+            # ``i_peak_last`` the peak of the last segment, and a spike refused
+            # by the segment tests still scales the threshold (#726).  The
+            # window stays the segment as found rather than being extended.
             flags.append("offset_threshold_above_peak")
         elif stop < y.size:
             last = stop
