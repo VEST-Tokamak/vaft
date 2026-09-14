@@ -145,3 +145,64 @@ result, and the result was negative. What it does leave behind is the
 provenance chain: a table can now be generated from the canonical geometry
 for a named era with a manifest, compared with any other, and every EFIT run
 records the table it consumed (`efit_configuration.json` → `table`).
+
+> **Superseded by the section below (#695).** The decision rule above is about
+> χ², the axis and `jflag`, and every one of those readings still holds. The
+> effect the table does have is the one dismissed here as "a boundary-finder
+> edge case": arm A losing the separatrix off grid at 0.323 s. That was 1 of
+> 4 slices in this sample and it is 15 of 82 across the reference set. The
+> rule did not test for it.
+
+## The table against the namelist, over the whole reference set (#695)
+
+`table_geometry_ab.py` runs the 2×2 that the four-slice A/B above could not:
+the packaged `.ddd` tables against regenerated ones, crossed with the
+packaged `mhdin.dat` against a regenerated one, over all 82 plasma slices of
+the three reference discharges. Everything else is held fixed, including one
+acceptance envelope for all four cases.
+
+| case | tables | `mhdin.dat` | equilibria | accepted | `bound` | `findax` |
+| --- | --- | --- | --- | --- | --- | --- |
+| PP | packaged | packaged | 31 | 18 | 41 | 17 |
+| PF | packaged | regenerated | 31 | 18 | 41 | 17 |
+| FP | regenerated | packaged | **46** | **30** | 41 | **2** |
+| FF | regenerated | regenerated | 46 | 30 | 41 | 2 |
+
+**The namelist is inert and the tables carry all of it.** PP and PF agree on
+every count on every shot; so do FP and FF. That is what the file comparison
+predicted: everything EFIT reads from `mhdin.dat` is identical between the
+two — `turnfc`, which scales the coil currents it fits
+(`data_input.F90:2575`), `rsi`, which normalises the flux loops (`:2601`),
+and the probe positions — except that all 64 probe angles read −270° in one
+file and +90° in the other, which is the same angle. What genuinely differs
+is the F-coil description: 16 lumped conductors against 302 discrete
+filaments, with `fcturn` following. Those are EFUND inputs and reach EFIT
+only through the tables.
+
+**What the table changes is where the boundary goes, not how well the fit
+works.** `findax`, which rejects a separatrix point landing within two cells
+of the grid edge, fails 17 times under the packaged table and twice under the
+regenerated one. `bound` fails 41 times under both, so the 29-slice collapse
+block is untouched — as it was by the seed (#588) and by the domain and grid
+(#459). The packaged table accounts for the entire `findax` population that
+#171 recorded and none of the collapse block.
+
+**The extra yield is not evidence that the regenerated table is correct.** On
+every slice both tables reconstruct, EFIT reports the same χ² to the digits
+it prints, while the boundary moves: q95 by 2–4 %, the minor radius by under
+1 %. The two tables agree about the measurements and disagree about the
+plasma. Magnetics alone cannot separate them, which is what the kinetic arm
+of the reference set exists for.
+
+So the case for the regenerated table rests on provenance, not on yield: it
+is generated from named, hashed era assets by a recorded EFUND build, and it
+resolves each PF coil into 302 filaments rather than 16 boxes — a finer
+representation of the same geometry. The packaged table has no recoverable
+origin, and the `mhdin.dat` shipped beside it cannot be consumed by this
+EFUND revision at all (`islpfc` sits in the wrong namelist group), so it is
+not even the input that produced it.
+
+**What this means for the studies already run.** The #171 baseline, the #588
+seed study and the #459 domain/grid study all ran against the packaged table,
+which is case PP. Their comparisons are internally consistent. Their absolute
+yields are the packaged table's, and a switch would change them.
