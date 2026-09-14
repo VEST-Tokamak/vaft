@@ -62,7 +62,10 @@ def _walk(obj, path, out, theme):
             style = getattr(item, "style", None)
             if style is not None and hasattr(style, "get"):
                 for key in ("color", "markerfacecolor", "markeredgecolor"):
-                    if key in style:
+                    # Continuous maps hand out RGBA tuples whose last digits
+                    # depend on the platform's solve; they are outside the
+                    # vocabulary and outside the snapshot.
+                    if isinstance(style.get(key), str):
                         out[f"{path}.{attr}:{key}={resolve_color(style[key], theme)}"] += 1
             _walk(item, f"{path}.{attr}", out, theme)
 
