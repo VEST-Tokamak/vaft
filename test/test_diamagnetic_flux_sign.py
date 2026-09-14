@@ -33,6 +33,7 @@ from omas import ODS
 import vaft
 from vaft.code.efit.config import EFITConstraintConfig, EFITScientificConfig
 from vaft.code.efit.kfile import generate_kfile
+from efit_constraint_fixtures import select_table_coilset
 from vaft.omas.sample import sample_ods
 
 TABLES = Path(vaft.__file__).parent / "data" / "efit"
@@ -50,9 +51,12 @@ def _constraints_from(sample, index=SLICE):
     time = float(sample["equilibrium.time"][index])
     ods["equilibrium.time"] = np.array([time])
     ods["equilibrium.time_slice.0.time"] = time
+    # The packaged sample predates the coilset change and still carries the
+    # legacy twenty-six channels; take the sixteen the table describes (#708).
     ods["equilibrium.time_slice.0.constraints"] = copy.deepcopy(
         sample[f"equilibrium.time_slice.{index}.constraints"]
     )
+    select_table_coilset(ods)
     ods["equilibrium.code.parameters.time_slice.0.IN1.INPUT_DIR"] = f"{TABLES}/"
     ods["equilibrium.code.parameters.time_slice.0.IN1.VCURRT"] = np.zeros(950)
     return ods

@@ -511,11 +511,12 @@ def generate_constraints_ods(
         PM[f"time_slice.{i}.IN1.PCURBD"] = 1
         PM[f"time_slice.{i}.IN1.KCALPA"] = 0
         PM[f"time_slice.{i}.IN1.KCGAMA"] = 0
-        PM[f"time_slice.{i}.IN1.CUTIP"] = 50000.0
-        PM[f"time_slice.{i}.IN1.RZERO"] = 0.4
-        PM[f"time_slice.{i}.IN1.RELIP"] = 0.4
-        PM[f"time_slice.{i}.IN1.AELIP"] = 0.3
-        PM[f"time_slice.{i}.IN1.EELIP"] = 1.6
+        # The seed ellipse, the reference radius and the plasma-current floor
+        # are NOT written here. They were, as five VEST numbers, and the writer
+        # took them from `EFITScientificConfig` regardless -- so they never
+        # reached a k-file and simply sat in the stored parameters
+        # contradicting the live values. `CUTIP` said 50000 A where the
+        # configuration says 5000.
 
         # Add wall eddy current to the k-file
         Iwall = []
@@ -652,11 +653,22 @@ def generate_kfile(
         CSTR = EQ[f"time_slice.{time_idx}.constraints"]
 
         ## (1) PF Coil currents with weight
-        # The constraint tree now carries exactly the groups EFIT's table has,
-        # in its order, so there is nothing to select.
-        nfsum = _machine_count("nfsum", len(CSTR["pf_current"]))
-        pf_indices = list(range(min(len(CSTR["pf_current"]), nfsum)))
-        nbcoil = len(pf_indices)
+        # The constraint tree carries exactly the groups EFIT's table has, in
+        # its order, so there is nothing to select -- and a disagreement is an
+        # error rather than something to trim. Taking `min()` here silently
+        # dropped the trailing groups of a tree longer than the table, which
+        # is the shape of every future mistake in this area: the k-file still
+        # looks well formed and simply omits coils.
+        available = len(CSTR["pf_current"])
+        nfsum = _machine_count("nfsum", available)
+        if nfsum != available:
+            raise ValueError(
+                f"the table declares nfsum = {nfsum} but the constraint tree carries "
+                f"{available} PF current groups; they describe different coilsets. "
+                f"Table directory: {PM['time_slice.0.IN1.INPUT_DIR']}"
+            )
+        pf_indices = list(range(available))
+        nbcoil = available
         matrix = constraint_config.coil_constraint_matrix
         if len(matrix) != nbcoil:
             raise ValueError(

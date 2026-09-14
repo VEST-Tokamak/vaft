@@ -44,7 +44,6 @@ from .legacy import (
     smooth,
     vest_rspv1,
     calculate_md_by_ods,
-    brokenFinder,
     vest_signal_onoffsetpeak,
     vest_Halpha_tstart_tend,
     set_discharge_index,

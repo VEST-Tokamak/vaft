@@ -229,6 +229,52 @@ def test_a_pf_active_missing_a_driven_circuit_is_refused():
         )
 
 
+def test_a_table_describing_a_different_coilset_is_refused(tmp_path):
+    """A silent trim is the shape of every future mistake in this area.
+
+    The writer used to take `min(groups in the tree, nfsum in the table)`, so a
+    constraint tree describing more coils than the table declared simply lost
+    its trailing groups. The k-file stayed well formed and quietly omitted
+    them, which is exactly what nobody would notice. It is an error now, and
+    the message names both sides.
+    """
+    ods = _constraints_ods(tmp_path)
+    # The fixture's tree carries sixteen PF groups; say the table has two.
+    (tmp_path / "mhdin.dat").write_text(" &machinein\n nfsum = 2\n /\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="different coilsets"):
+        generate_kfile(ods, 39915, save_dir=str(tmp_path), config=EFITScientificConfig())
+
+
+def test_a_table_that_agrees_still_writes(tmp_path):
+    """The other half: the check must not refuse the routine case."""
+    ods = _constraints_ods(tmp_path)
+    (tmp_path / "mhdin.dat").write_text(" &machinein\n nfsum = 16\n /\n", encoding="utf-8")
+
+    generate_kfile(ods, 39915, save_dir=str(tmp_path), config=EFITScientificConfig())
+    text = next((tmp_path / "kfile").iterdir()).read_text(encoding="utf-8")
+    # All sixteen groups reach the writer: the repeat count in FWTFC is the
+    # number of coils the k-file actually carries.
+    assert "FWTFC= 16*" in text
+    assert "BRSP= " in text and " KCCOILS = 12" in text
+
+
+def test_the_constraints_tree_stores_no_machine_values_the_writer_overrides():
+    """Five VEST numbers sat in the stored parameters and never reached a k-file.
+
+    `generate_constraints_ods` wrote CUTIP, RZERO, RELIP, AELIP and EELIP into
+    `code.parameters`, and the writer took all five from the configuration
+    instead -- so they were inert, and `CUTIP` had drifted to 50000 A against
+    the configuration's 5000. Anything the writer overrides must not be stored
+    beside it pretending to be the value in force.
+    """
+    from pathlib import Path as _Path
+
+    source = (_Path("vaft/code/efit/kfile.py")).read_text(encoding="utf-8")
+    for key in ("IN1.CUTIP", "IN1.RZERO", "IN1.RELIP", "IN1.AELIP", "IN1.EELIP"):
+        assert f'PM[f"time_slice.{{i}}.{key}"]' not in source, key
+
+
 def test_legacy_profile_order_arguments_remain_supported(tmp_path):
     ods = _constraints_ods(tmp_path)
     generate_kfile(ods, 39915, 3, 4, save_dir=str(tmp_path))
