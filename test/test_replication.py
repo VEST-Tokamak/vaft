@@ -403,13 +403,25 @@ def test_derived_images_are_not_mistaken_for_stage_ids():
 # --------------------------------------------------------------------------- #
 
 
+#: Every fixture here is the magnetic-EFIT lineage, which is the only one
+#: pipeline 1 produces today. Named once so a future family test has something
+#: to vary rather than a literal to hunt for.
+FAMILY = "magnetic"
+
+def _lineage(stage):
+    """The lineage arguments a stage's FileDB path takes."""
+    from vaft.database.filedb import stage_lineage
+
+    return stage_lineage(stage, family=FAMILY)
+
+
 def _stage_product(db, stage, shot, ods, status="success", manifest_extra=None):
     from vaft.omas import save as save_local
 
-    product = db.omas_product(stage, shot=shot)
+    product = db.omas_product(stage, shot=shot, **_lineage(stage))
     product.parent.mkdir(parents=True, exist_ok=True)
     save_local(ods, product)
-    manifest = db.omas_manifest(stage, shot=shot)
+    manifest = db.omas_manifest(stage, shot=shot, **_lineage(stage))
     manifest.parent.mkdir(parents=True, exist_ok=True)
     payload = {"stage": stage, "status": status, **(manifest_extra or {})}
     manifest.write_text(json.dumps(payload), encoding="utf-8")
@@ -503,11 +515,11 @@ def test_a_failed_stability_replication_leaves_the_baseline_alone(tmp_path, monk
 
     # The EFIT record is untouched: separate stages, separate records.
     assert replication.read_record(
-        db.omas_replication_record("efit", shot=39915)
+        db.omas_replication_record("efit", family="magnetic", shot=39915)
     ) == baseline
     assert (
         replication.read_record(
-            db.omas_replication_record("mhd_linear", shot=39915)
+            db.omas_replication_record("mhd_linear", family="magnetic", shot=39915)
         ).state
         == "failed"
     )
@@ -604,7 +616,7 @@ def test_per_code_and_mode_stability_detail_travels_in_the_shapes_that_exist(
     # Per-(code, mode) status lives in the manifest, and the manifest is not
     # replicated: `replicate_stage` reads it to decide eligibility and sends
     # only the IDS the stage owns, so nothing carries that status onward.
-    manifest = json.loads(db.omas_manifest("mhd_linear", shot=39915).read_text(encoding="utf-8"))
+    manifest = json.loads(db.omas_manifest("mhd_linear", family="magnetic", shot=39915).read_text(encoding="utf-8"))
     assert manifest["modules_modes"]["t=316/stride/n=1"]["status"] == "failed"
     assert set(replicated.keys()) <= {"mhd_linear", "ntms", "dataset_description"}
     assert "failed" not in json.dumps(replicated["mhd_linear.code.parameters"])

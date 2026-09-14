@@ -34,7 +34,7 @@ from collections.abc import Callable
 from typing import Any
 
 from . import sources as _sources
-from .filedb import FileDB, OMASStage
+from .filedb import LEGACY_FAMILY, FileDB, OMASStage, stage_lineage
 from .sources import MissingSourceError
 
 
@@ -446,6 +446,7 @@ def replicate_stage(
     shot: int,
     *,
     filedb: FileDB,
+    family: str = LEGACY_FAMILY,
     attempts: int = 3,
     retry_delay: float = 5.0,
     validate: bool = True,
@@ -472,6 +473,12 @@ def replicate_stage(
     """
     entry = _sources.replication_for_stage(stage)
     name = OMASStage(stage).value
+
+    # Which lineage this product belongs to. The default describes the only
+    # route pipeline 1 runs today -- magnetic EFIT -- and is a default rather
+    # than a literal so the electron-EFIT and kinetic-EFIT routes need a caller
+    # change, not a resolver change.
+    lineage = stage_lineage(name, family=family)
     if entry.source is None:
         raise StageNotReplicableError(
             f"The {name} stage is not replicated to HSDS"
@@ -486,9 +493,9 @@ def replicate_stage(
     source = _sources.resolve(entry.source, writable=True)
 
     shot = int(shot)
-    product = filedb.omas_product(name, shot=shot)
-    manifest_path = filedb.omas_manifest(name, shot=shot)
-    record_path = filedb.omas_replication_record(name, shot=shot)
+    product_path = filedb.omas_product(name, shot=shot, **lineage)
+    manifest_path = filedb.omas_manifest(name, shot=shot, **lineage)
+    record_path = filedb.omas_replication_record(name, shot=shot, **lineage)
 
     def skipped(reason: str) -> ReplicationRecord:
         """Record why an optional stage published nothing, and carry on."""
@@ -496,7 +503,7 @@ def replicate_stage(
             stage=name, shot=shot, source=source,
             remote_uri=f"hdf5://{source}/{shot}/", ids=entry.ids,
             occurrence=entry.occurrence,
-            product_sha256=sha256_file(product) if product.exists() else "",
+            product_sha256=sha256_file(product_path) if product_path.exists() else "",
             state="skipped", attempts=0, started_at=_now(), completed_at=_now(),
             error=reason,
         )
@@ -505,12 +512,12 @@ def replicate_stage(
         return record
 
     try:
-        _check_eligible(_read_manifest(manifest_path), name, product)
+        _check_eligible(_read_manifest(manifest_path), name, product_path)
     except ProductNotEligibleError as error:
         if not entry.optional:
             raise
         return skipped(str(error))
-    product_sha256 = sha256_file(product)
+    product_sha256 = sha256_file(product_path)
 
     previous = read_record(record_path)
     if not force and is_reusable(
@@ -524,16 +531,16 @@ def replicate_stage(
     from ..omas import load as load_local
     from . import save as save_remote
 
-    ods = load_local(product)
+    ods = load_local(product_path)
     projected, present = _project(ods, entry.ids)
     if not present and entry.optional:
         return skipped(
-            f"The {name} product at {product} carries none of the IDS this stage "
+            f"The {name} product at {product_path} carries none of the IDS this stage "
             f"owns ({', '.join(entry.ids)})."
         )
     if not present:
         raise ProductNotEligibleError(
-            f"The {name} product at {product} carries none of the IDS this stage "
+            f"The {name} product at {product_path} carries none of the IDS this stage "
             f"owns ({', '.join(entry.ids)}); there is nothing to replicate."
         )
 
