@@ -382,7 +382,7 @@ def _draw_into(canvas: Any, model: Any, draw: Callable[..., Any], style: dict | 
     style = dict(style or {})
     if isinstance(model, Panels):
         from ..models import Field2D
-        from .panels import render_panels, slice_grid_axes
+        from .panels import slice_grid_axes
 
         # The panels renderer lays a Panels model out on a figure of its own
         # making; here it gets the sub-figure's axes in the model's shape, with
@@ -395,7 +395,10 @@ def _draw_into(canvas: Any, model: Any, draw: Callable[..., Any], style: dict | 
         if colorbar is not None and field_slot is not None:
             styles[field_slot]["colorbar_ax"] = colorbar
         model = replace(model, member_styles=tuple(styles))
-        render_panels(model, ax=axes, show=False, **style)
+        # Through ``draw`` like a single panel, so the style fixed at the call
+        # (a theme, a legend flag) reaches a composite too; the renderer it
+        # resolves to for a Panels model is the panels renderer.
+        draw(model, ax=axes, show=False, **style)
         return axes
     axis = canvas.add_subplot(1, 1, 1)
     draw(model, ax=axis, show=False, **style)

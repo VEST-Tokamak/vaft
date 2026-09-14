@@ -350,13 +350,74 @@ def test_paths_that_cannot_apply_a_preset_say_so(sample):
     with pytest.raises(NotImplementedError, match="backend='plotly'"):
         vaft.omas.plot_plasma_current_time(sample, backend="plotly", format="single_column")
     with pytest.raises(NotImplementedError, match="interactive=True"):
-        vaft.omas.plot_plasma_current_time(sample, interactive=True, interaction_backend="none", theme="minimal")
+        vaft.omas.plot_plasma_current_time(sample, interactive=True, interaction_backend="none", format="single_column")
 
 
-def test_the_option_schema_knows_the_presets_and_offers_no_control(sample):
+def test_the_option_schema_knows_the_presets_and_the_theme_is_a_control(sample):
     assert {"format", "theme"} <= STYLE_OPTIONS
     validate_options("plasma_current_time", {"format": "single_column", "theme": "technical"})
     from vaft.plot.controls import controls_for
 
     record = next(r for r in vaft.omas.available_plots(sample) if r.name == "plasma_current_time")
-    assert not {"format", "theme"} & {c.name for c in controls_for(record)}
+    names = [c.name for c in controls_for(record)]
+    # Every plot offers the theme last; the canvas is the controls figure's,
+    # so there is no format control (issue #710).
+    assert names[-1] == "theme" and "format" not in names
+    theme = controls_for(record)[-1]
+    assert theme.group == "style" and theme.default == "none"
+    assert theme.options == ("none", "technical", "minimal", "monochrome")
+
+
+# ---------------------------------------------------------------------------
+# the theme as a control (issue #710)
+# ---------------------------------------------------------------------------
+
+def test_a_theme_is_chosen_live_and_undone_live(sample):
+    result = vaft.omas.plot_flux_loop_time_flux(sample, selection="all", interactive=True, interaction_backend="none")
+    plain = [(l.get_linestyle(), l.get_marker(), l.get_color()) for l in result.axes.lines[:6]]
+    result.state.set("theme", "monochrome")
+    mono = [(l.get_linestyle(), l.get_marker(), l.get_color()) for l in result.axes.lines[:6]]
+    assert len({(ls, m) for ls, m, _ in mono}) == 6
+    for _, _, colour in mono:
+        r, g, b, _ = matplotlib.colors.to_rgba(colour)
+        assert r == g == b
+    assert result.axes.xaxis.majorTicks[0]._tickdir == "in"
+    result.state.set("theme", "none")
+    back = [(l.get_linestyle(), l.get_marker(), l.get_color()) for l in result.axes.lines[:6]]
+    assert back == plain, "a theme switched off leaves nothing behind"
+    plt.close(result.figure)
+
+
+def test_a_theme_given_to_the_call_is_the_controls_starting_value(sample):
+    result = vaft.omas.plot_plasma_current_time(sample, interactive=True, interaction_backend="none", theme="technical")
+    assert result.state["theme"] == "technical"
+    assert matplotlib.colors.to_hex(result.axes.lines[0].get_color()) == "#000000"
+    plt.close(result.figure)
+    with pytest.raises(NotImplementedError, match="format="):
+        vaft.omas.plot_plasma_current_time(sample, interactive=True, interaction_backend="none", format="screen")
+
+
+def test_plotly_controls_offer_no_theme(sample):
+    pytest.importorskip("plotly")
+    result = vaft.omas.plot_plasma_current_time(
+        sample, interactive=True, interaction_backend="none", backend="plotly",
+    )
+    assert "theme" not in [c.name for c in result.controls]
+    assert resolve_presentation("none", "none") is None and resolve_presentation("", None) is None
+    # A theme given to the call is refused there as the static Plotly path refuses it.
+    with pytest.raises(NotImplementedError, match="theme="):
+        vaft.omas.plot_plasma_current_time(
+            sample, interactive=True, interaction_backend="none", backend="plotly", theme="minimal",
+        )
+
+
+def test_a_theme_fixed_at_the_call_reaches_a_composite_redraw(sample):
+    """With the theme not among the controls it is fixed style, for panels too."""
+    result = vaft.omas.plot_flux_loop_time_flux(
+        sample, layout="subplots", interactive=True, interaction_backend="none",
+        controls=["selection"], theme="technical",
+    )
+    axes = np.asarray(result.axes).ravel()
+    assert all(matplotlib.colors.to_hex(a.lines[0].get_color()) == "#000000" for a in axes if a.lines)
+    assert axes[0].xaxis.majorTicks[0]._tickdir == "in"
+    plt.close(result.figure)

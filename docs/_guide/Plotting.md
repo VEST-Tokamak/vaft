@@ -240,8 +240,10 @@ Rules worth knowing:
   and `rcParams` are what they were once the figure is returned.
 - A caller who owns the axes keeps the canvas: `ax=` together with `format=` is
   refused (pass `theme=` only), as is `figsize=` together with `format=`.
-- `backend="plotly"` and `interactive=True` cannot apply the presets yet and say
-  so rather than draw something else.
+- `backend="plotly"` cannot apply the presets and says so rather than draw
+  something else. `interactive=True` offers `theme` as a control on every plot
+  (the widget strip's last entry) and refuses `format=`, since the controls
+  figure owns its canvas.
 - A recipe that sets a series' colour explicitly keeps it under any theme; the
   theme is the baseline for series that do not.
 

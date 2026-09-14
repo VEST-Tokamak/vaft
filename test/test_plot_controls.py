@@ -102,7 +102,7 @@ def test_a_channel_line_offers_selection_layout_unit_sign_and_validity(catalog):
     controls = controls_for(catalog["flux_loop_time_flux"])
     names = [c.name for c in controls]
     # No synthetic control: this input has no reconstruction overlay to show.
-    assert names == ["selection", "channels", "layout", "yunit", "x", "orientation", "validity"]
+    assert names == ["selection", "channels", "layout", "yunit", "x", "orientation", "validity", "theme"]
     by_name = {c.name: c for c in controls}
     assert by_name["selection"].options == ("inboard_mid", "outboard_mid", "inboard", "outboard", "active", "valid", "all")
     assert by_name["selection"].default == "active"
@@ -117,7 +117,7 @@ def test_a_channel_line_offers_selection_layout_unit_sign_and_validity(catalog):
 
 def test_a_profile_offers_its_slice_and_its_sign(catalog):
     controls = controls_for(catalog["equilibrium_profile_q"])
-    assert [c.name for c in controls] == ["time_slice", "coordinate", "orientation"]
+    assert [c.name for c in controls] == ["time_slice", "coordinate", "orientation", "theme"]
     slices = controls[0]
     assert slices.kind == "choice" and slices.group == "slice"
     assert slices.options == tuple(catalog["equilibrium_profile_q"].slices["usable"])
@@ -130,7 +130,7 @@ def test_a_profile_offers_its_slice_and_its_sign(catalog):
 
 def test_the_psi_map_offers_units_and_style_but_the_vacuum_map_no_style(catalog):
     names = [c.name for c in controls_for(catalog["equilibrium_field_psi"])]
-    assert names[-3:] == ["units", "overlay", "style"]
+    assert names[-4:] == ["units", "overlay", "style", "theme"]
     units = next(c for c in controls_for(catalog["equilibrium_field_psi"]) if c.name == "units")
     assert units.options == ("Wb", "mWb", "Wb/rad", "mWb/rad") and units.default == "mWb"
     assert "style" not in [c.name for c in controls_for(catalog["equilibrium_field_psi_vacuum"])]
@@ -138,7 +138,7 @@ def test_the_psi_map_offers_units_and_style_but_the_vacuum_map_no_style(catalog)
 
 def test_a_spectrogram_offers_the_analysis_it_states_and_nothing_else(catalog):
     controls = controls_for(catalog["mirnov_spectrogram"])
-    assert [c.name for c in controls] == ["method"]
+    assert [c.name for c in controls] == ["method", "theme"]
     assert controls[0].options == ("stft", "hann_fft", "cwt") and controls[0].default == "stft"
 
 

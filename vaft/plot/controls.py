@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .display import COORDINATE_LABELS, PSI_STYLES
+from .presentation import THEMES
 from .selection import REGION_PRESETS, REPRESENTATIVE_PRESETS, SIGNAL_PRESETS
 from .style import UNCERTAINTY_MODES, VALIDITY_MODES
 
@@ -69,6 +70,11 @@ class ControlSpec:
     #: belong to the flux field; while another field is chosen they are not
     #: sent to the builder (issue #483).
     applies_to: Mapping[str, tuple[Any, ...]] = field(default_factory=dict)
+    #: A value that means "leave the option out" for a renderer-side control,
+    #: the way the ``"none"`` choice does for a builder option.  Set only where
+    #: the word is not itself a mode: ``uncertainty="none"`` is one and must be
+    #: passed; ``theme="none"`` is the absence of a theme (issue #710).
+    absent: Any = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "applies_to", dict(self.applies_to))
@@ -127,7 +133,8 @@ def controls_for(
     Only facts the record states produce a control: a plot with one layout
     offers no layout control, a record without validity facts no validity
     control.  ``include_style`` adds the renderer-side modes (validity,
-    uncertainty); ``include_backend`` adds the rendering library, off by
+    uncertainty) and the theme, which every plot offers; ``include_backend``
+    adds the rendering library, off by
     default because changing it replaces the figure object.
     """
     controls: list[ControlSpec] = []
@@ -308,4 +315,9 @@ def _style_controls(record: Any) -> list[ControlSpec]:
         modes = tuple(uncertainty.get("modes") or UNCERTAINTY_MODES)
         default = uncertainty.get("default") if uncertainty.get("default") in modes else modes[0]
         controls.append(ControlSpec("uncertainty", "choice", "Uncertainty", default, modes, group="style"))
+    # The visual grammar applies to any Matplotlib figure, so every plot
+    # offers it (issue #710).  There is no format control: the controls figure
+    # owns its canvas and draws each redraw into it with ax=, which is exactly
+    # the case format= refuses (issue #689 section 11).
+    controls.append(ControlSpec("theme", "choice", "Theme", NONE, (NONE, *THEMES), group="style", absent=NONE))
     return controls
