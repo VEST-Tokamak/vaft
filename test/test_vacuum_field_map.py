@@ -25,9 +25,9 @@ def solved():
 @pytest.fixture(autouse=True)
 def _empty_cache():
     """No test may inherit another's cached matrices."""
-    pw._VACUUM_MAP_CACHE.clear()
+    pw.clear_vacuum_field_cache()
     yield
-    pw._VACUUM_MAP_CACHE.clear()
+    pw.clear_vacuum_field_cache()
 
 
 COARSE = (np.linspace(0.12, 0.74, 9), np.linspace(-1.1, 1.1, 11))
@@ -186,3 +186,37 @@ def test_a_geometry_only_sample_solves_its_own_eddy_currents():
     assert "time" not in ods["pf_passive"]
     result = pw.compute_vacuum_field_map(ods, time=0.29, grid=COARSE)
     assert np.isfinite(result["psi"]).all()
+
+
+def test_a_recalled_eddy_solve_is_the_solve_it_recalls():
+    """A second fresh ODS with the same PF programme gets bit-identical currents."""
+    first = vaft.omas.sample_ods()
+    pw.compute_vacuum_field_map(first, time=0.29, grid=COARSE)
+    assert len(pw._VACUUM_EDDY_CACHE) == 1
+    second = vaft.omas.sample_ods()
+    pw.compute_vacuum_field_map(second, time=0.29, grid=COARSE)
+    assert len(pw._VACUUM_EDDY_CACHE) == 1, "the same programme must not be solved twice"
+    np.testing.assert_array_equal(second["pf_passive.time"], first["pf_passive.time"])
+    for index in range(len(first["pf_passive.loop"])):
+        np.testing.assert_array_equal(
+            second[f"pf_passive.loop.{index}.current"], first[f"pf_passive.loop.{index}.current"]
+        )
+
+
+def test_the_budget_counts_the_columns_that_are_cached(solved):
+    """One column per coil or loop, not per filament (review of #690)."""
+    src_r, _, _, groups = pw._vacuum_sources(solved)
+    columns = len(set(groups))
+    assert columns < len(src_r), "VEST coils have several elements each"
+    r_axis, z_axis = pw._vacuum_map_grid(solved, 129)
+    with pytest.raises(ValueError, match=f"over {columns} coils and loops") as info:
+        pw._refuse_oversized_grid(solved, r_axis, z_axis)
+    needed = 3 * 129 * 129 * columns * 8 / 1024 ** 2
+    assert f"needs {needed:.0f} MB" in str(info.value)
+
+
+def test_clearing_the_cache_is_public(solved):
+    pw.compute_vacuum_field_map(solved, time=0.29, grid=COARSE)
+    assert pw._VACUUM_MAP_CACHE
+    pw.clear_vacuum_field_cache()
+    assert not pw._VACUUM_MAP_CACHE and not pw._VACUUM_EDDY_CACHE

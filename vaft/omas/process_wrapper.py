@@ -895,13 +895,27 @@ _VACUUM_EDDY_CACHE: dict[tuple, tuple] = {}
 _VACUUM_EDDY_CACHE_LIMIT = 2
 
 
-def _machine_fingerprint(ods: ODS) -> tuple:
+def clear_vacuum_field_cache() -> None:
+    """Release the cached vacuum response matrices and eddy solves.
+
+    Together they can hold a few hundred megabytes for a session; a notebook
+    that is done sliding through a start-up can give that back without
+    reaching into private names.
+    """
+    _VACUUM_MAP_CACHE.clear()
+    _VACUUM_EDDY_CACHE.clear()
+
+
+def _machine_fingerprint(ods: ODS, sources: Optional[tuple] = None) -> tuple:
     """What the response matrices depend on, besides the observation points.
 
     Derived from :func:`_vacuum_sources` rather than restated, so a cached
-    matrix can never outlive a geometry change it did not notice.
+    matrix can never outlive a geometry change it did not notice.  ``sources``
+    lets a caller that has already extracted them pass them in: the
+    extraction is 1480 path reads on VEST, and one evaluation asks three
+    times.
     """
-    src_r, src_z, turns, groups = _vacuum_sources(ods)
+    src_r, src_z, turns, groups = sources if sources is not None else _vacuum_sources(ods)
     return (
         np.asarray(src_r, dtype=float).tobytes(),
         np.asarray(src_z, dtype=float).tobytes(),
@@ -910,10 +924,10 @@ def _machine_fingerprint(ods: ODS) -> tuple:
     )
 
 
-def _vacuum_response(ods: ODS, r_axis: ndarray, z_axis: ndarray):
+def _vacuum_response(ods: ODS, r_axis: ndarray, z_axis: ndarray, sources: Optional[tuple] = None):
     """Cached ``(Psi, Bz, Br)`` response of one grid to every coil and loop."""
     key = (
-        _machine_fingerprint(ods),
+        _machine_fingerprint(ods, sources),
         r_axis.tobytes(),
         z_axis.tobytes(),
     )
@@ -928,7 +942,7 @@ def _vacuum_response(ods: ODS, r_axis: ndarray, z_axis: ndarray):
     return cached
 
 
-def _solve_or_recall_eddy_currents(ods: ODS) -> None:
+def _solve_or_recall_eddy_currents(ods: ODS, sources: Optional[tuple] = None) -> None:
     """Fill in ``pf_passive`` currents, reusing an identical earlier solve.
 
     The vessel's response is fixed by the machine and the PF programme, so two
@@ -942,7 +956,7 @@ def _solve_or_recall_eddy_currents(ods: ODS) -> None:
         np.asarray(pf[f"coil.{i}.current.data"], dtype=float)
         for i in range(len(pf["coil"]))
     ]) if len(pf["coil"]) else np.zeros((time_base.size, 0))
-    key = (_machine_fingerprint(ods), time_base.tobytes(), coil_currents.tobytes())
+    key = (_machine_fingerprint(ods, sources), time_base.tobytes(), coil_currents.tobytes())
 
     cached = _VACUUM_EDDY_CACHE.get(key)
     if cached is None:
@@ -984,24 +998,33 @@ def _vacuum_currents(ods: ODS, indices) -> ndarray:
 
 
 #: How much one cached grid's response may occupy, in bytes.  Three dense
-#: (n_points x n_sources) float64 matrices, so it grows with the fourth power
-#: of the resolution -- 97 MB at 65 on VEST, 591 MB at 129.
+#: (n_points x n_columns) float64 matrices, one column per coil or loop, so it
+#: grows with the fourth power of the resolution -- 97 MB at 65 on VEST's 960
+#: columns, 383 MB at 129.
 _VACUUM_RESPONSE_BUDGET = 200 * 1024 ** 2
 
 
-def _refuse_oversized_grid(ods: ODS, r_axis: ndarray, z_axis: ndarray) -> None:
+def _refuse_oversized_grid(
+    ods: ODS, r_axis: ndarray, z_axis: ndarray, sources: Optional[tuple] = None
+) -> None:
     """Refuse a grid whose cached response would not fit, naming one that does.
 
     Silently allocating several hundred megabytes -- and then keeping it, since
     the point of the cache is to keep it -- is worse than saying no.
+
+    The estimate counts what is cached: :func:`compute_point_response_matrices_ods`
+    sums a coil's elements into one column, so the width is the number of
+    coils and loops, not of filaments -- on VEST 960 against 1480.  Counting
+    filaments overstated the cost by half and refused grids that fit.
     """
-    sources = len(_vacuum_sources(ods)[0])
-    needed = 3 * r_axis.size * z_axis.size * sources * 8
+    groups = (sources if sources is not None else _vacuum_sources(ods))[3]
+    columns = len(set(groups))
+    needed = 3 * r_axis.size * z_axis.size * columns * 8
     if needed <= _VACUUM_RESPONSE_BUDGET:
         return
-    affordable = int(np.sqrt(_VACUUM_RESPONSE_BUDGET / (3 * sources * 8)))
+    affordable = int(np.sqrt(_VACUUM_RESPONSE_BUDGET / (3 * columns * 8)))
     raise ValueError(
-        f"a {r_axis.size}x{z_axis.size} grid over {sources} source filaments "
+        f"a {r_axis.size}x{z_axis.size} grid over {columns} coils and loops "
         f"needs {needed / 1024 ** 2:.0f} MB of cached response matrices, above "
         f"the {_VACUUM_RESPONSE_BUDGET / 1024 ** 2:.0f} MB budget; "
         f"resolution={affordable} fits"
@@ -1084,10 +1107,13 @@ def compute_vacuum_field_map(
     ``psi`` is full weber, as the Green's functions return it, not weber per
     radian -- see :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor`.
     """
+    # Extracted once and handed down: the eddy key, the budget and the
+    # response key all derive from the same filaments.
+    sources = _vacuum_sources(ods)
     if "time" not in ods["pf_passive"]:
         # Geometry-only samples carry no passive-loop waveform; solve it rather
         # than refusing, matching compute_null_ods.
-        _solve_or_recall_eddy_currents(ods)
+        _solve_or_recall_eddy_currents(ods, sources)
 
     if grid is None:
         r_axis, z_axis = _vacuum_map_grid(ods, resolution)
@@ -1100,8 +1126,8 @@ def compute_vacuum_field_map(
     time_base = np.asarray(ods["pf_active.time"], dtype=float)
     index = int(np.argmin(np.abs(time_base - float(time))))
 
-    _refuse_oversized_grid(ods, r_axis, z_axis)
-    psi_response, bz_response, br_response = _vacuum_response(ods, r_axis, z_axis)
+    _refuse_oversized_grid(ods, r_axis, z_axis, sources)
+    psi_response, bz_response, br_response = _vacuum_response(ods, r_axis, z_axis, sources)
     width = len(ods["pf_active.coil"]) + len(ods["pf_passive.loop"])
     psi_response = psi_response[:, :width]
     shape = (r_axis.size, z_axis.size)
