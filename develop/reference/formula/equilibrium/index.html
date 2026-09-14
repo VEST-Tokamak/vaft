@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>661a53e</code>. What is described
+  <code>b75048c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -4698,7 +4698,7 @@ raising when the denominator is zero or non-finite, matching
 
 <p>Poloidal beta from the Shafranov integrals, low-aspect-ratio closure.</p>
 
-\[\beta_p = \frac{(S_1 + S_2)(\alpha - 1) + \alpha\hat\mu_i + S_3}{3(\alpha-1) + 1}\]
+\[\beta_p = \frac{(S_1 + S_2)(\alpha - 1) + \alpha\mu_i + S_3}{3(\alpha-1) + 1}\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
@@ -4711,7 +4711,7 @@ raising when the denominator is zero or non-finite, matching
 </td></tr>
   <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
 </td></tr>
-  <tr><td><code>mui_hat</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\hat\mu_i$.</p>
+  <tr><td><code>mui_hat</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter.</p>
 </td></tr>
   </tbody>
 </table>
@@ -4726,9 +4726,15 @@ raising when the denominator is zero or non-finite, matching
 
 <p><strong>Convention.</strong></p>
 
-<p>$S_1$-$S_3$ and $\hat\mu_i$ in the Lao/EFIT normalisation by $B_{pa}$
-(<code class="language-plaintext highlighter-rouge">virial_beta_p_from_volume</code>).  The closure retains the diamagnetic
-term, so it holds at low aspect ratio where the Lao form does not.</p>
+<p>Despite the parameter name, this takes $\mu_i$ in the <strong>volume</strong> sign the
+three virial relations use – $\langle B_{tv}^2-B_t^2\rangle/B_{pa}^2$,
+positive when diamagnetic – not the flux-sign $\hat\mu_i$ that
+<code class="language-plaintext highlighter-rouge">virial_muihat_from_Bt_R0_dphi</code> produces. The two are negatives of
+each other, so the wrong one returns $\beta_p \mp 2\mu_i$ with nothing in
+the number to show it. $S_1$-$S_3$ are in the Lao/EFIT normalisation by
+$B_{pa}$ (<code class="language-plaintext highlighter-rouge">virial_beta_p_from_volume</code>). The closure retains the
+diamagnetic term, so it holds at low aspect ratio where the Lao form does
+not.</p>
 
 <p><strong>References.</strong></p>
 
@@ -4950,6 +4956,8 @@ on the same inputs.</p>
 
 <p class="formula-signature"><code>virial_beta_pd_from_S_mu_rt(S1, S2, mui, RT_over_R0)</code></p>
 
+<p><strong>Convention-sensitive.</strong> </p>
+
 <p>Diamagnetic poloidal beta $\beta_{p,d}$ from $S_1$, $S_2$ and $\mu_i$.</p>
 
 \[\beta_{p,d}^{\mathrm{vir}} = \frac{S_1}{2} - \mu_i + \frac{S_2}{2}\left(1 - \frac{R_T}{R_0}\right)\]
@@ -4975,6 +4983,16 @@ on the same inputs.</p>
 </td></tr>
   </tbody>
 </table>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The one consumer in this module that takes the flux-sign $\hat\mu_i$</strong>,
+the quantity <code class="language-plaintext highlighter-rouge">virial_muihat_from_Bt_R0_dphi</code> and
+<code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.computed_diamagnetism_from_phi</code> produce –
+not the volume $\mu_i$ every closure here takes. The two are negatives of
+each other, so the wrong one returns $\beta_p \mp 2\mu_i$ with nothing in
+the number to show it. The parameter is named <code class="language-plaintext highlighter-rouge">mui</code> for history; read it
+as $\hat\mu_i$.</p>
 
 <p><strong>Validity.</strong></p>
 
@@ -5008,7 +5026,7 @@ are identical by construction, not by approximation.</p>
 </td></tr>
   <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
 </td></tr>
-  <tr><td><code>mui</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\hat\mu_i$.</p>
+  <tr><td><code>mui</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\mu_i$, volume convention – see Convention.</p>
 </td></tr>
   <tr><td><code>eps</code></td><td>float, optional</td><td>-</td><td><p>Denominator magnitude below which the result is NaN, forwarded to the closure; default <code class="language-plaintext highlighter-rouge">VIRIAL_SINGULAR_EPS</code>.</p>
 </td></tr>
@@ -5378,7 +5396,7 @@ not a thermal speed.</p>
 
 <p>Internal inductance from the Shafranov integrals, low-aspect-ratio closure.</p>
 
-\[l_i = \frac{S_1 + S_2 - 2\hat\mu_i - 3S_3}{3\alpha - 2}\]
+\[l_i = \frac{S_1 + S_2 - 2\mu_i - 3S_3}{3\alpha - 2}\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
@@ -5391,7 +5409,7 @@ not a thermal speed.</p>
 </td></tr>
   <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
 </td></tr>
-  <tr><td><code>mui_hat</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\hat\mu_i$.</p>
+  <tr><td><code>mui_hat</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\mu_i$, volume convention – see Convention.</p>
 </td></tr>
   </tbody>
 </table>
@@ -5405,6 +5423,13 @@ not a thermal speed.</p>
 </table>
 
 <p><strong>Convention.</strong></p>
+
+<p>Despite the parameter name, this takes $\mu_i$ in the <strong>volume</strong> sign the
+three virial relations use – $\langle B_{tv}^2-B_t^2\rangle/B_{pa}^2$,
+positive when diamagnetic – not the flux-sign $\hat\mu_i$ that
+<code class="language-plaintext highlighter-rouge">virial_muihat_from_Bt_R0_dphi</code> produces. The two are negatives of
+each other, so the wrong one returns a result off by $2\mu_i$ with nothing
+in the number to show it.</p>
 
 <p>Companion of <code class="language-plaintext highlighter-rouge">virial_beta_p_from_S_alpha_mu</code>, same normalisation.</p>
 
@@ -6303,7 +6328,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-14 13:35:25 +0000"
+        "time": "2026-09-14 13:53:04 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
