@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>0cff3da</code>. What is described
+  <code>ce4aec9</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -288,7 +288,7 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td>
-    <td><code>vaft.formula.equilibrium</code></td><td>107</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
+    <td><code>vaft.formula.equilibrium</code></td><td>110</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/stability/">stability</a></td>
@@ -400,7 +400,7 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="equilibrium">Equilibrium</h2>
 
-<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/develop/reference/formula/equilibrium/">107 functions</a>.</p>
+<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/develop/reference/formula/equilibrium/">110 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/equilibrium/#alpha_heating_power_from_n_D_n_T_T_keV_V"><code>alpha_heating_power_from_n_D_n_T_T_keV_V</code></a> <em>(empirical)</em> &mdash; D-T alpha heating power with the rough $\langle\sigma v\rangle \propto T^2$ fit.
@@ -454,6 +454,8 @@ which documents the conventions and cites every entry.</p>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e"><code>cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e</code></a> &mdash; Classical electron-cyclotron emission power density, no reabsorption.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta"><code>cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta</code></a> <em>(convention)</em> &mdash; Cylindrical safety factor with a shape function.
+</li>
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#decay_index_from_bz"><code>decay_index_from_bz</code></a> <em>(convention)</em> &mdash; Field decay index $n = -\dfrac{R}{B_Z}\dfrac{\partial B_Z}{\partial R}$.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#dimensionless_scaling_coeffs_from_engineering_scaling_coeffs"><code>dimensionless_scaling_coeffs_from_engineering_scaling_coeffs</code></a> &mdash; Dimensionless scaling indices $(\mu_\rho, \mu_\beta, \mu_\nu)$ from engineering exponents.
 </li>
@@ -511,6 +513,16 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#poloidal_field_factor"><code>poloidal_field_factor</code></a> <em>(convention)</em> &mdash; Sauter Eq. 20 prefactor $k = \sigma_{R\varphi Z}\,\sigma_{B_p}/(2\pi)^{e_{B_p}}$.
 </li>
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#poloidal_field_magnitude"><code>poloidal_field_magnitude</code></a> <em>(convention)</em> &mdash; <table>
+  <tbody>
+    <tr>
+      <td>Poloidal field strength $</td>
+      <td>B_p</td>
+      <td>= \sqrt{B_R^2 + B_Z^2}$.</td>
+    </tr>
+  </tbody>
+</table>
+</li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#psi_from_RBtheta"><code>psi_from_RBtheta</code></a> <em>(convention)</em> &mdash; Poloidal flux $\psi$ from a line integral of $R B_\theta$ across flux surfaces.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#psi_normalised"><code>psi_normalised</code></a> <em>(convention)</em> &mdash; Normalised poloidal flux $\psi_N$.
@@ -552,6 +564,8 @@ which documents the conventions and cites every entry.</p>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#stored_energy_from_p_V"><code>stored_energy_from_p_V</code></a> <em>(convention)</em> &mdash; Stored energy as pressure times volume, $W = pV$.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#surface_poloidal_flux_from_psi_boundary"><code>surface_poloidal_flux_from_psi_boundary</code></a> <em>(convention)</em> &mdash; Total poloidal flux at the plasma surface, $\Phi_{surface} = 2\pi\psi_b$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#toroidal_electric_field"><code>toroidal_electric_field</code></a> <em>(convention)</em> &mdash; Toroidal electric field $E_\varphi = -\dfrac{1}{2\pi R}\dfrac{\partial\psi}{\partial t}$.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#toroidal_flux_from_q_psi"><code>toroidal_flux_from_q_psi</code></a> <em>(convention)</em> &mdash; Cumulative toroidal flux $\Phi(\psi)$ from the $q$ profile on a full-weber grid.
 </li>
@@ -1102,7 +1116,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-11 06:55:56 +0000"
+        "time": "2026-09-14 05:50:54 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
