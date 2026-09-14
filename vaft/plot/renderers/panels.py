@@ -25,6 +25,7 @@ from ..models import (
     TextPanel,
 )
 from ..registry import renderer
+from ..presentation import presented
 from ..style import finalize, resolve_axes
 
 __all__ = [
@@ -115,13 +116,16 @@ def _draw_text_panel(
     return axis.figure, axis
 
 
+@presented(default_figsize=None)
 def render_panels(
     model: Panels,
     *,
     ax: Any = None,
     show: bool = False,
     figsize: tuple[float, float] | None = None,
-    **style: Any,
+        format: str | None = None,
+    theme: str | None = None,
+**style: Any,
 ) -> tuple[Figure, np.ndarray]:
     """Draw each model in a :class:`Panels` grid into its own axes.
 

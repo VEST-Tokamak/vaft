@@ -18,11 +18,13 @@ from matplotlib.figure import Figure
 
 from ..models import LineSeries
 from ..registry import renderer
+from ..presentation import presented
 from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axes, trace_labels
 
 _DEFAULT_FIGSIZE = (6.0, 2.5)
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_line_series(
     model: LineSeries,
     *,
@@ -33,7 +35,9 @@ def render_line_series(
     grid: bool = True,
     uncertainty: str = "auto",
     validity: str = "show",
-    **style: Any,
+        format: str | None = None,
+    theme: str | None = None,
+**style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`LineSeries` into one axes.
 

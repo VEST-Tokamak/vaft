@@ -18,6 +18,7 @@ from matplotlib.figure import Figure
 
 from ..models import Geometry3DLayers, GeometryLayer, GeometryLayers
 from ..registry import renderer
+from ..presentation import presented
 from ..style import finalize, resolve_axes
 
 __all__ = [
@@ -90,6 +91,7 @@ def _entry_colors(model: GeometryLayers) -> dict[str, Any]:
     return {entry: colors[index % len(colors)] for index, entry in enumerate(entries)}
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_geometry_layers(
     model: GeometryLayers,
     *,
@@ -98,7 +100,9 @@ def render_geometry_layers(
     figsize: tuple[float, float] | None = None,
     legend: bool = True,
     grid: bool = True,
-    **style: Any,
+        format: str | None = None,
+    theme: str | None = None,
+**style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`GeometryLayers` stack into one equal-aspect axes.
 
@@ -385,9 +389,9 @@ def machine_geometry_topview(
     return render_geometry_layers(model, ax=ax, show=show, **style)
 
 
-def _resolve_3d_axes(ax: Axes | None) -> tuple[Figure, Axes]:
+def _resolve_3d_axes(ax: Axes | None, figsize: tuple[float, float] | None = None) -> tuple[Figure, Axes]:
     if ax is None:
-        figure = plt.figure(figsize=_DEFAULT_FIGSIZE)
+        figure = plt.figure(figsize=figsize or _DEFAULT_FIGSIZE)
         return figure, figure.add_subplot(projection="3d")
     if getattr(ax, "name", "") == "3d":
         return ax.figure, ax
@@ -402,13 +406,17 @@ def _resolve_3d_axes(ax: Axes | None) -> tuple[Figure, Axes]:
     return figure, figure.add_subplot(projection="3d")
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_geometry_3d_layers(
     model: Geometry3DLayers,
     *,
     ax: Axes | None = None,
     show: bool = False,
     legend: bool = True,
-    **style: Any,
+        figsize: tuple[float, float] | None = None,
+    format: str | None = None,
+    theme: str | None = None,
+**style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Geometry3DLayers` stack into one 3D machine view.
 
@@ -421,7 +429,7 @@ def render_geometry_3d_layers(
             f"expected a vaft.plot.models.Geometry3DLayers; got {type(model).__name__}. "
             "Adapters such as vaft.omas.plot_* build the model from data objects."
         )
-    figure, axes = _resolve_3d_axes(ax)
+    figure, axes = _resolve_3d_axes(ax, figsize)
 
     labelled = False
     for layer in model.layers:

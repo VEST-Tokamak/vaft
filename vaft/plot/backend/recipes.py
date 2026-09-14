@@ -36,6 +36,7 @@ import numpy as np
 # One shared non-mutating accessor, dispatched on the object (issues #118, #63).
 from vaft.plot.backend.access import array as _array, count as _count, get as _get, has as _has
 
+from vaft.plot.presentation import EQUILIBRIUM_ROLE
 from vaft.plot.models import (
     Field2D,
     Geometry3DLayer,
@@ -733,6 +734,9 @@ class GeometryRecipe:
     #: Annotate each point of a ``points`` layer with its channel index, so a
     #: sensor in the view can be named in ``selection=`` without a lookup.
     annotate_indices: bool = False
+    #: ``GeometryLayer.role`` of every layer: ``"equilibrium"`` for a view of
+    #: the plasma itself, whose outline must not size a canvas (issue #689).
+    role: str = ""
 
 
 @dataclass(frozen=True)
@@ -1508,6 +1512,7 @@ RECIPES: dict[str, Any] = {
             ),
         ),
         title="Plasma Boundary",
+        role=EQUILIBRIUM_ROLE,
     ),
     "thomson_scattering_geometry_poloidal": GeometryRecipe(
         layers=(
@@ -5614,6 +5619,7 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
             if r_values:
                 layers.append(
                     GeometryLayer(
+                        role=recipe.role,
                         r=r_values,
                         z=z_values,
                         kind="points",
@@ -5626,6 +5632,7 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                     color = style.get("color", "0.3")
                     for index, r_value, z_value in zip(placed, r_values, z_values):
                         layers.append(GeometryLayer(
+                            role=recipe.role,
                             r=[r_value], z=[z_value], kind="text", label=str(index),
                             style={"color": color, "fontsize": 5, "ha": "left", "va": "bottom",
                                    "xytext": (2, 1), "textcoords": "offset points"},
@@ -5638,6 +5645,7 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                 continue
             layers.append(
                 GeometryLayer(
+                    role=recipe.role,
                     r=r,
                     z=z,
                     kind=kind,
@@ -5920,7 +5928,7 @@ def _poloidal_overlays(
         if boundary_r is not None and boundary_z is not None:
             layers.append(GeometryLayer(
                 r=boundary_r, z=boundary_z, kind="polygon", label="Boundary",
-                style={"color": "#e41a1c"},
+                style={"color": "#e41a1c"}, role=EQUILIBRIUM_ROLE,
             ))
     if "axis" in names:
         base = f"equilibrium.time_slice.{time_slice}.global_quantities.magnetic_axis"
@@ -5930,6 +5938,7 @@ def _poloidal_overlays(
             layers.append(GeometryLayer(
                 r=np.array([axis_r]), z=np.array([axis_z]), kind="points", label="Magnetic axis",
                 style={"marker": "+", "color": "k", "markersize": 10, "markeredgewidth": 1.5},
+                role=EQUILIBRIUM_ROLE,
             ))
     return layers
 

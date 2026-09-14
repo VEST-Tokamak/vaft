@@ -206,12 +206,15 @@ def finalize(
     *,
     show: bool = False,
     tight_layout: bool = True,
+    pad: float | None = None,
 ) -> tuple[Figure, Any]:
     """Apply the shared closing steps and honor the ``show`` contract.
 
     ``tight_layout`` is for a figure the renderer created; a caller-supplied
     ``ax=`` belongs to the caller's figure, whose layout is theirs (issue #260
-    section 8), so renderers pass ``tight_layout=ax is None``.
+    section 8), so renderers pass ``tight_layout=ax is None``.  ``pad`` is
+    the layout padding in font units when a presentation format sets one
+    (issue #689); ``None`` keeps Matplotlib's default.
     """
     if tight_layout:
         # Dense panel grids can be impossible to lay out tightly; that is a
@@ -219,7 +222,10 @@ def finalize(
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message=".*[Tt]ight layout.*")
             try:
-                figure.tight_layout()
+                if pad is None:
+                    figure.tight_layout()
+                else:
+                    figure.tight_layout(pad=pad)
             except Exception:  # pragma: no cover - layout engines can refuse
                 pass
     if show:

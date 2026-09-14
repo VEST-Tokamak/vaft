@@ -17,6 +17,7 @@ from matplotlib.figure import Figure
 
 from ..models import Profile1D
 from ..registry import renderer
+from ..presentation import presented
 from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axes, trace_labels
 
 __all__ = [
@@ -43,6 +44,7 @@ __all__ = [
 _DEFAULT_FIGSIZE = (6.0, 4.0)
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_profile_1d(
     model: Profile1D,
     *,
@@ -53,7 +55,9 @@ def render_profile_1d(
     grid: bool = True,
     uncertainty: str = "auto",
     validity: str = "show",
-    **style: Any,
+        format: str | None = None,
+    theme: str | None = None,
+**style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Profile1D` into one axes."""
     if not isinstance(model, Profile1D):
