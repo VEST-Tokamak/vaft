@@ -440,6 +440,11 @@ def resolve_presentation(
     Refusing rather than ignoring is the contract (issue #689 section 11);
     a ``theme=`` alone is fine with either, it changes artists, not canvases.
     """
+    # A control spells "no theme" as the ``"none"`` sentinel every choice
+    # control uses, and ``as_style`` must keep passing that word along since
+    # it is also a real uncertainty mode -- so it is read as absence here.
+    format = None if format in (None, "", "none") else format
+    theme = None if theme in (None, "", "none") else theme
     if format is None and theme is None:
         return None
     fmt = None

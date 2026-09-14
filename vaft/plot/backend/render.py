@@ -100,9 +100,17 @@ def _render_interactive(
 
     if ax is not None:
         raise TypeError("interactive=True draws its own figure and takes no ax=")
-    _refuse_presentation(options, "interactive=True draws its own controls figure and does not take them yet")
+    # A theme is a control here (issue #710); the canvas is the controls
+    # figure's, so format= alone is refused.
+    _refuse_presentation(
+        options, "interactive=True draws its own controls figure", keys=("format",)
+    )
     record = describe_one(spec.name, entries)
     offered = controls_for(record)
+    if backend == "plotly":
+        # Plotly cannot apply a Matplotlib theme; the control is not offered
+        # rather than raising on first use.
+        offered = tuple(c for c in offered if c.name != "theme")
     if controls != "auto":
         wanted = [controls] if isinstance(controls, str) else list(controls)
         unknown = [name for name in wanted if name not in {c.name for c in offered}]
@@ -130,13 +138,16 @@ def _render_interactive(
     )
 
 
-def _refuse_presentation(options: Mapping[str, Any], because: str) -> None:
+def _refuse_presentation(
+    options: Mapping[str, Any], because: str, *, keys: tuple[str, ...] = ("format", "theme")
+) -> None:
     """Refuse ``format=``/``theme=`` where they would otherwise be dropped.
 
     They are Matplotlib presentation presets (issue #689) and a path that
-    cannot apply them must say so rather than draw something else.
+    cannot apply them must say so rather than draw something else.  ``keys``
+    narrows the refusal to the presets a path really cannot take.
     """
-    named = [key for key in ("format", "theme") if options.get(key) is not None]
+    named = [key for key in keys if options.get(key) not in (None, "", "none")]
     if named:
         what = " and ".join(f"{key}=" for key in named)
         verb = "is a Matplotlib presentation preset" if len(named) == 1 else "are Matplotlib presentation presets"

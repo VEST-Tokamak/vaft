@@ -223,7 +223,7 @@ def test_the_control_layer_offers_field_and_overlay(sample):
 
     record = next(r for r in vaft.omas.available_plots(sample) if r.name == "equilibrium_field_2d")
     names = [c.name for c in controls_for(record)]
-    assert names == ["time_slice", "units", "field", "overlay", "style"]
+    assert names == ["time_slice", "units", "field", "overlay", "style", "theme"]
     field = next(c for c in controls_for(record) if c.name == "field")
     overlay = next(c for c in controls_for(record) if c.name == "overlay")
     assert field.options == EQUILIBRIUM_FIELD_NAMES and field.default == "psi"
