@@ -2480,7 +2480,7 @@ def pedestal_top(
     ``fallback = 0.85`` is a validated-workflow default: the value decision
     D-05 names when profiles are missing or the fit is unreliable, chosen from
     the legacy windows rather than derived.  ``window = (0.4, 1.05)`` and
-    ``min_points = 12`` are numerical convenience -- enough of the edge to
+    ``min_points = 20`` are numerical convenience -- enough of the edge to
     resolve a pedestal, and more samples than the model has parameters.
     :data:`PEDESTAL_RESOLUTION_FACTOR` is an empirical estimate: the measured
     separation between a pure-noise fit and a real one.

@@ -93,6 +93,7 @@ __all__ = [
     "calculate_average_boundary_poloidal_field",
     "calculate_diamagnetism",
     "calculate_q_profile_from_psi",
+    "find_rational_surfaces",
     "calculate_reconstructed_diamagnetic_flux",
     "computed_diamagnetism_from_phi",
     "contour_shape_parameters",
@@ -3808,3 +3809,151 @@ def grad_shafranov_residual(
         source=source,
         mask=mask,
     )
+
+
+def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
+    """Where a toroidal mode resonates: the surfaces with q = m / n.
+
+    A perturbation with toroidal mode number ``n`` resonates where the safety
+    factor equals ``m / n`` for an integer ``m``. This finds those crossings
+    by linear interpolation on the ``q`` profile, so the result is the
+    equilibrium's own answer and needs no perturbed-equilibrium code.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Normalized poloidal flux, increasing [-].
+    q : array_like
+        Safety factor on ``psi_norm`` [-].
+    n : int
+        Toroidal mode number; its sign is ignored [-].
+    m_range : tuple of int, optional
+        ``(m_min, m_max)`` to search; the range ``q`` actually spans by
+        default [-].
+
+    Returns
+    -------
+    dict of str to ndarray
+        ``m`` (poloidal mode number), ``q_rational`` (= m / n) and
+        ``psi_n_rational`` (where the crossing is), ordered outward [-].
+
+    Raises
+    ------
+    ValueError
+        ``psi_norm`` and ``q`` differ in length, ``psi_norm`` does not
+        increase, or ``n`` is zero.
+
+    Processing steps
+    ----------------
+    1. Drop non-finite samples.
+    2. For each integer ``m`` in range, find every bracket where ``q - m/n``
+       changes sign and interpolate the crossing linearly.
+    3. Sort the crossings outward.
+
+    Limitations
+    -----------
+    Accuracy is that of linear interpolation, so the error scales with the
+    square of the local grid spacing and with the curvature of ``q`` -- which
+    means it is worst exactly where ``q`` is steepest, at the edge. On the
+    grid GPEC itself writes, which is refined around the rational surfaces
+    (a spacing of 3.6e-06 at the outermost surface of the DIII-D example
+    against 7.4e-03 in the core), the surfaces come back to 1.4e-09 in
+    ``psi_norm``. On a uniform grid of the kind an equilibrium reconstruction
+    produces they do not: 6.5e-04 at 129 points and 4.0e-05 at 513, in both
+    cases dominated by the outermost surface. Interpolate ``q`` onto a finer
+    grid before asking, if the answer has to be better than that.
+
+    A reversed-shear ``q`` resonates twice on the same ``m``, and both
+    crossings are returned. A root that sits exactly on a grid point, or a
+    ``q`` that is flat at ``m / n`` over an interval, is returned once -- at
+    the node and at the start of the flat region respectively -- rather than
+    once per sign change, which would double-count it.
+
+    Applicability
+    -------------
+    Machine-independent. Any monotonic radial coordinate; the name says
+    ``psi_norm`` because that is what the perturbed-equilibrium codes report
+    their rational surfaces on.
+
+    Provenance
+    ----------
+    .. [legacy] ``gpec_multimode_metrics.rational_surface_table`` derived the
+       same surfaces from GPEC output; this takes them from the equilibrium,
+       so they can be known before a run -- at the accuracy the equilibrium's
+       own grid supports, which the Limitations quantify.
+    """
+    psi_norm = np.asarray(psi_norm, dtype=float)
+    q = np.asarray(q, dtype=float)
+    if psi_norm.ndim != 1 or q.ndim != 1:
+        raise ValueError(
+            f"psi_norm is {psi_norm.ndim}-D and q is {q.ndim}-D; a profile is one "
+            "dimensional, and flattening a (time, radius) array here would "
+            "interpolate across the time axis"
+        )
+    if psi_norm.shape != q.shape:
+        raise ValueError(
+            f"{psi_norm.size} coordinate points against {q.size} q values"
+        )
+    if n != int(n):
+        raise ValueError(f"n must be a whole toroidal mode number, not {n!r}")
+    if int(n) == 0:
+        raise ValueError("n must be non-zero; q = m / n is undefined for n = 0")
+    finite = np.isfinite(psi_norm) & np.isfinite(q)
+    psi_norm, q = psi_norm[finite], q[finite]
+    if psi_norm.size < 2:
+        raise ValueError("need at least two finite samples to find a crossing")
+    if not np.all(np.diff(psi_norm) > 0):
+        raise ValueError(
+            "psi_norm must increase; a crossing is located by interpolation and a "
+            "non-monotonic coordinate would place it ambiguously"
+        )
+
+    order = abs(int(n))
+    if m_range is None:
+        lo = int(np.ceil(np.nanmin(q) * order))
+        hi = int(np.floor(np.nanmax(q) * order))
+    else:
+        lo, hi = int(m_range[0]), int(m_range[1])
+        if lo > hi:
+            raise ValueError(
+                f"m_range is ({lo}, {hi}), which is empty; a reversed range would "
+                "return no surfaces and read as a plasma with no resonance"
+            )
+
+    modes: list[int] = []
+    q_rational: list[float] = []
+    positions: list[float] = []
+    for m in range(lo, hi + 1):
+        target = m / order
+        residual = q - target
+        # Exact zeros are roots in their own right, and are taken first: a
+        # root sitting on a node otherwise shows up as two sign changes,
+        # +1 -> 0 and 0 -> -1, that interpolate to the same point, and a q
+        # flat at m/n over an interval shows up as one at each end of it.
+        # Either way it is one surface, and counting it twice would double its
+        # weight in every reduction downstream.
+        zero = residual == 0.0
+        crossings = [
+            float(psi_norm[index])
+            for index in np.nonzero(zero)[0]
+            if index == 0 or not zero[index - 1]
+        ]
+        for index in np.nonzero(np.diff(np.sign(residual)) != 0)[0]:
+            if zero[index] or zero[index + 1]:
+                continue  # already taken, as the zero itself
+            span = residual[index + 1] - residual[index]
+            weight = -residual[index] / span
+            crossings.append(
+                float(psi_norm[index] + weight * (psi_norm[index + 1] - psi_norm[index]))
+            )
+        for crossing in crossings:
+            modes.append(m)
+            q_rational.append(target)
+            positions.append(crossing)
+
+    outward = np.argsort(positions) if positions else np.empty(0, dtype=int)
+    return {
+        "m": np.asarray(modes, dtype=int)[outward],
+        "q_rational": np.asarray(q_rational, dtype=float)[outward],
+        "psi_n_rational": np.asarray(positions, dtype=float)[outward],
+    }
