@@ -1642,23 +1642,28 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     return W_B
 
 
-#: Sign of VEST's vacuum toroidal field, as a machine fact rather than a
-#: per-file convention.
-#:
-#: Converting a *measured* diamagnetic flux into mu_i is linear in the toroidal
-#: field, so it needs that field's direction -- and the stored quantities cannot
-#: supply it. `profiles_1d.f` has a reliable magnitude and an unreliable sign
-#: (shot 39915 stores +0.0598 in the packaged sample and -0.0598 in the
-#: database, with an identical measurement, and the database declares no
-#: COCOS); `vacuum_toroidal_field.b0` is the reverse, uniformly positive across
-#: the history but drifting up to 39% in magnitude within one shot (#325).
-#:
-#: So the magnitude comes from |F_boundary| and the direction from here. VEST's
-#: field is positive, which is why a diamagnetic plasma stores a *negative*
-#: flux -- the convention test/test_diamagnetic_flux_sign.py pins end to end.
-#: A machine with a reversed field changes this constant and nothing else;
-#: it is deliberately not an abs() hidden inside a formula.
-VEST_TOROIDAL_FIELD_SIGN = +1.0
+def _vest_toroidal_field_sign() -> float:
+    """The direction of VEST's vacuum toroidal field, from the machine layer.
+
+    Converting a *measured* diamagnetic flux into mu_i is linear in the toroidal
+    field, so it needs that field's direction -- and the stored quantities cannot
+    supply it. ``profiles_1d.f`` has a reliable magnitude and an unreliable sign
+    (shot 39915 stores +0.0598 in the packaged sample and -0.0598 in the
+    database, with an identical measurement, and the database declares no
+    COCOS); ``vacuum_toroidal_field.b0`` is the reverse, uniformly positive
+    across the history but drifting up to 39% in magnitude within one shot
+    (#325). So the magnitude comes from ``|F_boundary|`` and the direction from
+    here.
+
+    Read from :data:`vaft.machine_mapping.BT_SIGN_VEST_TO_IMAS` rather than
+    restated: that record is the one place this machine fact lives, it carries
+    the evidence behind it, and it is marked ``confirmed=False`` pending #298.
+    A second copy here would be a second thing to change if #298 comes back
+    reversed -- and the copy would not know it was provisional.
+    """
+    from vaft.machine_mapping import BT_SIGN_VEST_TO_IMAS
+
+    return float(BT_SIGN_VEST_TO_IMAS.sign)
 
 
 def _virial_measured_diamagnetic_flux(ods, eq_idx: int) -> float:
@@ -2367,9 +2372,9 @@ def compute_virial_equilibrium_quantities_ods(
         delta_phi_measured = _virial_measured_diamagnetic_flux(ods, eq_idx)
         # |F_boundary|, not b0*R_0: b0's magnitude drifts within a shot (#325)
         # and F's sign is not trustworthy across sources, so each contributes
-        # only what it is good for. See VEST_TOROIDAL_FIELD_SIGN.
+        # only what it is good for. See _vest_toroidal_field_sign.
         _b_t_for_flux = (
-            VEST_TOROIDAL_FIELD_SIGN * abs(F_boundary) / R_0
+            _vest_toroidal_field_sign() * abs(F_boundary) / R_0
             if np.isfinite(F_boundary) and R_0
             else np.nan
         )

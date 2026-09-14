@@ -339,10 +339,16 @@ def test_the_measured_conversion_takes_its_magnitude_from_F_and_its_sign_from_th
     flattened a trend that is real: the plasma becomes more diamagnetic through
     the discharge.
     """
-    from vaft.omas.process_wrapper import VEST_TOROIDAL_FIELD_SIGN
+    from vaft.omas.process_wrapper import _vest_toroidal_field_sign
+
+    VEST_TOROIDAL_FIELD_SIGN = _vest_toroidal_field_sign()
     from vaft.formula.equilibrium import virial_muihat_from_Bt_R0_dphi
 
     assert VEST_TOROIDAL_FIELD_SIGN > 0, "VEST's toroidal field is positive"
+    # One record, not two: the machine layer owns this sign and marks it
+    # unconfirmed pending #298, so a local copy could not stay in step.
+    from vaft.machine_mapping import BT_SIGN_VEST_TO_IMAS
+    assert VEST_TOROIDAL_FIELD_SIGN == float(BT_SIGN_VEST_TO_IMAS.sign)
 
     ods = sample_ods()
     rows = vaft.omas.compute_virial_equilibrium_quantities_ods(ods)
