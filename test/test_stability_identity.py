@@ -181,7 +181,6 @@ pytestmark_hsds = pytest.mark.xfail(
 )
 
 
-@pytestmark_hsds
 def test_the_logical_source_hierarchy_resolves_as_written():
     """Logical source names mirror the scientific chain and stay distinct."""
     names = (
@@ -199,7 +198,6 @@ def test_the_logical_source_hierarchy_resolves_as_written():
     assert resolved["main"] == "main"
 
 
-@pytestmark_hsds
 def test_the_three_families_are_three_sources_before_their_pipelines_exist():
     resolved = {
         family: _sources.resolve(f"{family}/chease/dcon-kink")
@@ -209,25 +207,34 @@ def test_the_three_families_are_three_sources_before_their_pipelines_exist():
     assert len(set(resolved.values())) == 3
 
 
-@pytestmark_hsds
 def test_magnetic_efit_is_a_read_only_projection_of_main():
     """The alias names an equilibrium family, and creates no dataset of its own.
 
-    It resolves to `main`'s storage and projects to the `equilibrium` IDS, so it
-    can never be a write destination -- otherwise the same product would have two
-    writable canonical homes.
+    It resolves to `main`'s storage, so it can never be a write destination --
+    otherwise the same product would have two writable canonical homes, which is
+    the collision named sources exist to prevent.
     """
-    resolution = _sources.resolve_source("magnetic-efit")
+    assert _sources.resolve("magnetic-efit") == "main"
 
-    assert resolution.name == "main"
-    assert resolution.projection == ("equilibrium",)
-    assert resolution.writable is False
+    entry = _sources.CATALOG["magnetic-efit"]
+    assert entry.projects_to == "main"
+    assert entry.writable is False
 
-    with pytest.raises(_sources.HSDSSourceError):
+    with pytest.raises(_sources.ReadOnlySourceError, match="read-only projection"):
         _sources.resolve("magnetic-efit", writable=True)
 
 
-@pytestmark_hsds
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "`chease-mhd-stability` is still the live destination for mhd_linear, "
+        "so it must stay writable until the per-product assembly (#137) moves "
+        "that stage onto the hierarchy. Retiring it before then would leave the "
+        "stability stage with nowhere to write. It becomes read-only in the "
+        "same change that moves the destinations, and is deleted by the gated "
+        "migration in #94."
+    ),
+)
 def test_the_legacy_combined_source_stays_readable_and_unwritable():
     """`chease-mhd-stability` is migrated and retired, not silently redirected.
 
@@ -247,10 +254,20 @@ def test_a_malformed_hierarchical_name_is_still_refused():
             _sources.resolve(name)
 
 
-@pytestmark_hsds
 def test_loading_a_parent_never_composes_its_children():
-    """`main` must not acquire its refinement or stability products implicitly."""
+    """`main` must not acquire its refinement or stability products implicitly.
+
+    The hierarchy makes the relationship *visible*, which is the whole point --
+    and is also the thing that could quietly turn into composition. Naming a
+    parent resolves to that parent alone; walking to a child is a separate call
+    a caller has to make.
+    """
+    parent = _sources.resolve("main")
     child = _sources.resolve("main/chease/dcon-kink")
 
-    assert child != _sources.resolve("main")
-    assert _sources.children_of("main") == ()
+    assert child != parent
+    assert isinstance(parent, str), "resolution is one source, never a union"
+
+    # The children are discoverable, and discovering them composes nothing.
+    assert [entry.name for entry in _sources.children("main")] == ["main/chease"]
+    assert _sources.resolve("main") == parent
