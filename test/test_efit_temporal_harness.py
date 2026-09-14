@@ -46,7 +46,6 @@ def test_a_sub_millisecond_slice_writes_itimeu_and_a_whole_one_does_not(tmp_path
     import warnings
 
     import vaft
-    from efit_constraint_fixtures import select_table_coilset
     from vaft.code.efit.kfile import generate_constraints_ods, generate_kfile
 
     ods = vaft.omas.sample_ods()
@@ -63,11 +62,6 @@ def test_a_sub_millisecond_slice_writes_itimeu_and_a_whole_one_does_not(tmp_path
             [1e-4, 1e-4, 5e-2, 3e-2, 1e-2, 1e-1, 1e-2, 1e-1, 1e-2], [1, 1, 1, 0.1, 0.1, 0.1, 0.01, 0.01],
             broken=[], fit=0,
         )
-    # `generate_constraints_ods` wrote its product to disk; this passes the
-    # sample itself, whose stored tree predates the coilset change and still
-    # carries the legacy twenty-six channels (#708).
-    select_table_coilset(ods)
-    select_table_coilset(ods, 1)
     generate_kfile(ods, 39915, save_dir=str(tmp_path))
     whole = (tmp_path / "kfile" / "k039915.00319").read_text()
     sub = (tmp_path / "kfile" / "k039915.00319_320").read_text()  # exact microsecond, as EFIT names it

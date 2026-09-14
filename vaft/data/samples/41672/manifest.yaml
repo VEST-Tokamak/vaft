@@ -17,14 +17,14 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 31524361
-    sha256: 023823602d54e78799eb86dd7a4ade65e11d08332608a2b7bcc3317ef8393ccf
+    size: 31512745
+    sha256: e6ca10064752e2779ca98fb8bdb5dd06496f97a5f338f40219a2d4032b8b88be
 generation:
   command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
     vaft/data/samples/41672/manifest.yaml --canonical-source vaft/data/samples/41672/source/pipeline-until-efit.json.gz
   canonical_source: source/pipeline-until-efit.json.gz
-  canonical_sha256: fbdc476145cf472a6b522f50bffae0d06117c1dc90be44692bb6a5deff6e22db
-  materialized_leaves: 26988
+  canonical_sha256: feb0714de1e3c3d3ef6d099d59c8fb076035baa6f974ec4f8ef29fcc92958fea
+  materialized_leaves: 25848
   normalizations:
   - remove non-DD equilibrium.code.parameters parser cache
   - remove only scalar-default placeholders for unavailable heterogeneous Mirnov signals
@@ -153,12 +153,12 @@ corrections:
   to: CII_4267 / 426.7e-9
   reason: '3726 Angstrom is the well-known [O II] line, which processed_line.5 of
     the same channel already and correctly claims; the representative visible C II
-    line the filterscope observes is near 4267 Angstrom. The old pair therefore
-    named two different species at one wavelength, which a species-aware selector
-    would have resolved to the wrong ion. Applied in place rather than by rerunning
-    the pipeline, for the same reason as the #288 correction: the mapper writes both
-    leaves as constants from vaft.machine_mapping.spectrometer_uv.SIGNALS, and no
-    stage output depends on either, so the intensity series recorded from DAQ field
-    142 is untouched. SIGNALS was corrected in the same change, so a regeneration
-    reproduces these values rather than reverting them, and the stage hashes still
-    describe the run that produced the rest of the artifact.'
+    line the filterscope observes is near 4267 Angstrom. The old pair therefore named
+    two different species at one wavelength, which a species-aware selector would
+    have resolved to the wrong ion. Applied in place rather than by rerunning the
+    pipeline, for the same reason as the #288 correction: the mapper writes both leaves
+    as constants from vaft.machine_mapping.spectrometer_uv.SIGNALS, and no stage output
+    depends on either, so the intensity series recorded from DAQ field 142 is untouched.
+    SIGNALS was corrected in the same change, so a regeneration reproduces these values
+    rather than reverting them, and the stage hashes still describe the run that produced
+    the rest of the artifact.'
