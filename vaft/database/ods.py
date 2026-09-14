@@ -519,6 +519,15 @@ def save_ods(
         HSDS shot URI for ``env="server"`` or local directory path for ``env="local"``.
     """
     _ = filename
+    if finalize_master is not None and env != "server":
+        # The hook runs inside the upload loop, which only the server path
+        # reaches. Raising beats the silent no-op a local write would otherwise
+        # give, for the same reason `vaft.database.save` refuses it on the
+        # native IDS path.
+        raise TypeError(
+            f"finalize_master applies to env='server' only; got env={env!r}. "
+            "A local write uploads nothing, so the hook would never run."
+        )
     logging.getLogger().setLevel(logging.WARNING)
 
     source = resolve_source(source, directory=directory, writable=env == "server")

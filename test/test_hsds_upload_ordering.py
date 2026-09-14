@@ -275,6 +275,12 @@ def test_a_retry_after_a_crash_reaches_the_clean_write_state(tmp_path, remote):
             shot_dir=shot_dir, directory="main", shot=1, finalize_master=finalize
         )
 
+    # The state *between* the attempts is the half this test is named for: while
+    # the retry is pending the shot must still resolve to what it held before.
+    # Asserting only the end state passes whatever the upload order is, because
+    # the retry converges either way.
+    assert remote.links() == ["magnetics.h5"]
+
     remote.fail_on = None
     fresh_master()
     ods_module._upload_local_shot(
@@ -300,3 +306,38 @@ def test_publishing_twice_is_idempotent(tmp_path, remote):
 
     assert remote.links() == first_links
     assert sorted(p.name for p in remote.root.glob("*.h5")) == first_names
+
+
+# --------------------------------------------------------------------------- #
+# the hook is refused where it could not run
+# --------------------------------------------------------------------------- #
+
+
+def test_a_local_write_refuses_the_hook_instead_of_ignoring_it(tmp_path):
+    """A local write uploads nothing, so the hook would never fire."""
+    from omas import ODS
+
+    from vaft.database.ods import save_ods
+
+    with pytest.raises(TypeError, match="env='server' only"):
+        save_ods(
+            ODS(),
+            1,
+            env="local",
+            path=str(tmp_path),
+            finalize_master=lambda _p: None,
+        )
+
+
+def test_the_native_ids_path_refuses_the_hook(monkeypatch):
+    """The IMAS writer manages its own master, so the hook cannot apply.
+
+    Type detection is patched rather than satisfied with a real `IDSToplevel`:
+    what is under test is the guard, not `_is_imas_ids`.
+    """
+    import vaft.database as database
+
+    monkeypatch.setattr(database, "_is_imas_ids", lambda obj: True)
+
+    with pytest.raises(TypeError, match="OMAS write path only"):
+        database.save(object(), 1, finalize_master=lambda _p: None)
