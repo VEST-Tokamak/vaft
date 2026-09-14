@@ -1782,7 +1782,7 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
     )
     return Spectrogram.from_result(
         result,
-        max_frequency=options.get("max_frequency"),
+        max_frequency=options.get("max_frequency", _default_display_band(result)),
         cmap=options.get("cmap", "turbo"),
         title=_channel_label(ods, "interferometer.channel.{i}.name", index, f"channel {index}"),
         value_label="Fluctuation Magnitude",
@@ -6104,6 +6104,54 @@ def _spectrogram_method(options: dict, plot_name: str | None = None) -> str:
     return method
 
 
+#: How bright a frequency row must be, relative to the brightest pixel of the
+#: whole map, to count as something the reader can actually see. A `hot_r` or
+#: `turbo` map renders anything well below this as background, so rows under it
+#: contribute nothing but empty axis.
+_SPECTROGRAM_VISIBLE_FRACTION = 0.01
+
+
+def _default_display_band(result: Any) -> float | None:
+    """Return a display ceiling for a spectrogram, or None to show everything.
+
+    A spectrogram is analysed to Nyquist, which for a diagnostic sampled far
+    above its physics band means the content occupies the bottom few percent of
+    the axis and the default render reads as an empty map. VEST soft X-ray
+    digitizers sample near 1 MHz while the plasma content sits below ~30 kHz
+    (#765).
+
+    The ceiling comes from the map itself rather than from a machine constant,
+    so nothing VEST-specific is baked into a general renderer: it sits one bin
+    above the highest frequency whose brightest pixel still reaches
+    :data:`_SPECTROGRAM_VISIBLE_FRACTION` of the map's peak. Above that the
+    colormap draws background, so nothing is hidden that was visible.
+
+    A broadband channel keeps its whole axis, because its top rows are as
+    bright as its bottom ones. An explicit ``max_frequency`` or
+    ``frequency_range`` always wins -- this only fills the unspecified case.
+
+    The brightness of a row is its maximum over time, not its mean: a burst
+    confined to a few milliseconds is exactly what these maps are read for, and
+    averaging it against a quiet shot would hide it.
+    """
+    frequency = np.asarray(result.frequency, dtype=float)
+    magnitude = np.abs(np.asarray(result.magnitude, dtype=float))
+    if frequency.size < 2 or magnitude.ndim != 2 or magnitude.shape[0] != frequency.size:
+        return None
+    magnitude = np.where(np.isfinite(magnitude), magnitude, 0.0)
+    peak = float(magnitude.max())
+    if peak <= 0.0:
+        return None
+    visible = np.nonzero(magnitude.max(axis=1) >= _SPECTROGRAM_VISIBLE_FRACTION * peak)[0]
+    if visible.size == 0:
+        return None
+    highest = int(visible[-1])
+    if highest >= frequency.size - 1:
+        return None  # the content really does fill the band; show all of it
+    # One bin of headroom, so the cut does not sit exactly on the last content.
+    return float(frequency[highest + 1])
+
+
 def _spectrogram_result(
     time: np.ndarray,
     values: np.ndarray,
@@ -6213,7 +6261,7 @@ def _build_spectrogram(
     )
     return Spectrogram.from_result(
         result,
-        max_frequency=options.get("max_frequency"),
+        max_frequency=options.get("max_frequency", _default_display_band(result)),
         cmap=options.get("cmap", "hot_r"),
         title=_channel_label(ods, recipe.label_path, index, f"channel {index}"),
         value_label=recipe.value_label,

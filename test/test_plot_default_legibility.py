@@ -1,12 +1,15 @@
-"""Defaults that made a correct plot unreadable.
+"""Two defaults that made a correct plot unreadable.
 
-Found by plotting real published data rather than a fixture, and about the
-*unspecified* case: an explicit argument always decided correctly, so nothing
-in the suite noticed.
+Both were found by plotting real published data rather than a fixture, and
+both are about the *unspecified* case: an explicit argument always decided
+correctly, so nothing in the suite noticed.
 
 * A geometry view went straight to `axes.legend`, bypassing the shared policy
   that replaces a legend with a count note past `LEGEND_MAX_ENTRIES`. Forty
   soft X-ray sight lines drew forty legend entries over the drawing (#764).
+* A spectrogram is analysed to Nyquist. For a diagnostic sampled far above its
+  physics band that put the content in the bottom few percent of the axis, so
+  the default render read as an empty map (#765).
 """
 
 from __future__ import annotations
@@ -19,7 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-from vaft.plot.models import GeometryLayer, GeometryLayers
+from vaft.plot.models import GeometryLayer, GeometryLayers, Spectrogram
 from vaft.plot.renderers.geometry import render_geometry_layers
 from vaft.plot.style import LEGEND_MAX_ENTRIES, apply_legend
 
@@ -96,3 +99,107 @@ class TestTheLoneEntryDistinction:
         axes.plot([0, 1], [0, 1], label="only")
         apply_legend(axes, legend=None, lone_entry=True)
         assert axes.get_legend() is not None
+
+
+class TestSpectrogramDefaultBand:
+    """The unspecified case: a map analysed to Nyquist that is nearly all background."""
+
+    @staticmethod
+    def _stft(signal: np.ndarray, sample_rate: float = 500_000.0):
+        from vaft.plot.backend.recipes import _spectrogram_result
+
+        time = np.arange(signal.size) / sample_rate
+        return _spectrogram_result(
+            time, signal, method="stft", sample_rate=sample_rate, options={}
+        )
+
+    @staticmethod
+    def _tone(sample_rate: float = 500_000.0, frequency: float = 2_000.0, seconds: float = 0.05):
+        time = np.arange(0.0, seconds, 1.0 / sample_rate)
+        return np.sin(2 * np.pi * frequency * time)
+
+    def test_a_narrowband_channel_is_zoomed_to_its_content(self):
+        from vaft.plot.backend.recipes import _default_display_band
+
+        result = self._stft(self._tone())
+        ceiling = _default_display_band(result)
+        assert ceiling is not None
+        assert 2_000.0 < ceiling < 20_000.0, (
+            "a 2 kHz tone sampled at 500 kHz must not be drawn on a 250 kHz axis"
+        )
+
+    def test_a_realistic_noise_floor_does_not_defeat_the_zoom(self):
+        """The rule reads brightness, not accumulated magnitude.
+
+        A 1% white-noise floor spreads a large *share* of the total magnitude
+        across the whole band while being invisible in the render. A rule based
+        on cumulative share gives up here and shows the full axis; measuring
+        each row against the map's peak does not.
+        """
+        from vaft.plot.backend.recipes import _default_display_band
+
+        tone = self._tone()
+        noise = np.random.default_rng(0).standard_normal(tone.size)
+        result = self._stft(tone + 0.01 * noise)
+        ceiling = _default_display_band(result)
+        assert ceiling is not None and ceiling < 20_000.0
+
+    def test_a_broadband_channel_keeps_its_whole_axis(self):
+        """The zoom is data-driven, so genuinely broadband content is not cropped."""
+        from vaft.plot.backend.recipes import _default_display_band
+
+        noise = np.random.default_rng(1).standard_normal(self._tone().size)
+        assert _default_display_band(self._stft(noise)) is None
+
+    def test_an_empty_map_asks_for_no_zoom(self):
+        from vaft.plot.backend.recipes import _default_display_band
+
+        frequency = np.linspace(0.0, 1000.0, 10)
+        time = np.linspace(0.0, 1.0, 5)
+        empty = Spectrogram(
+            time=time, frequency=frequency, magnitude=np.zeros((10, time.size))
+        )
+        assert _default_display_band(empty) is None
+
+    def test_a_map_of_nothing_but_nans_asks_for_no_zoom(self):
+        from vaft.plot.backend.recipes import _default_display_band
+
+        frequency = np.linspace(0.0, 1000.0, 10)
+        time = np.linspace(0.0, 1.0, 5)
+        nans = Spectrogram(
+            time=time, frequency=frequency, magnitude=np.full((10, time.size), np.nan)
+        )
+        assert _default_display_band(nans) is None
+
+
+class TestSpectrogramDefaultReachesTheModel:
+    """End to end through the recipe, which is where the default was missing."""
+
+    @staticmethod
+    def _narrowband_ods():
+        from omas import ODS
+
+        sample_rate = 500_000.0
+        time = np.arange(0.0, 0.05, 1.0 / sample_rate)
+        ods = ODS()
+        ods["magnetics.b_field_pol_probe.0.voltage.data"] = np.sin(2 * np.pi * 2_000.0 * time)
+        ods["magnetics.b_field_pol_probe.0.voltage.time"] = time
+        ods["magnetics.b_field_pol_probe.0.name"] = "synthetic"
+        return ods
+
+    def _model(self, **options):
+        from vaft.omas.entries import normalize_entries
+        from vaft.plot.backend.recipes import build_model
+
+        return build_model(
+            "mirnov_spectrogram", normalize_entries(self._narrowband_ods()), **options
+        )
+
+    def test_the_built_model_carries_the_default_ceiling(self):
+        model = self._model()
+        assert model.max_frequency is not None
+        assert model.max_frequency < model.frequency[-1] / 10
+
+    def test_an_explicit_ceiling_still_decides(self):
+        model = self._model(max_frequency=123_456.0)
+        assert model.max_frequency == 123_456.0
