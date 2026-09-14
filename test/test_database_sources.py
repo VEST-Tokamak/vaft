@@ -28,6 +28,10 @@ def test_catalog_carries_every_lineage_the_issue_names():
         "electron-efit",
         "kinetic-efit",
         "impa",
+        # Same IDS as the routine camera product in `main`, so it needs its own
+        # lineage rather than an occurrence: lazy HSDS access reads occurrence
+        # 0 only (#599).
+        "camera-visible-fluctuation",
     }
 
 
