@@ -45,7 +45,7 @@ _EFIT_CONSTRAINT_FAMILY = {
 }
 
 
-def build_efit_coil_currents(destination, source, *, tstart, tend, dt) -> None:
+def build_efit_coil_currents(destination, source, *, window=None) -> None:
     """The EFIT current groups, built from the machine's own PF circuits.
 
     VEST energises ten PF circuits.  EFIT's VEST table carries sixteen current
@@ -58,6 +58,15 @@ def build_efit_coil_currents(destination, source, *, tstart, tend, dt) -> None:
     :mod:`vaft.machine_mapping.efund_geometry`, the same module that projects
     the F-coil groups for EFUND, so the table and the k-file cannot disagree
     about which coils exist.  Circuits are matched by name, not by position.
+
+    ``window`` is ``(tstart, tend, dt)`` to resample the currents onto, and
+    defaults to **not resampling**: the currents are taken on the time base
+    they were measured on.  This used to be a fixed 0.26-0.36 s at 40 us
+    written into the writer, which is VEST's analysis window and had no
+    business here -- and was inert besides.  Every packaged product already
+    arrives on exactly that grid (2500 uniform 40 us samples from 0.26 s), so
+    the interpolation was a series onto its own abscissa.  A caller that does
+    need a different grid resolves one from the machine layer and passes it.
     """
     from vaft.machine_mapping.efund_geometry import (
         EFIT16_GROUP_NAMES,
@@ -76,11 +85,18 @@ def build_efit_coil_currents(destination, source, *, tstart, tend, dt) -> None:
         )
 
     time = np.asarray(source["time"], dtype=float)
-    if dt > 0:
-        start, end = max(float(tstart), time[0]), min(float(tend), time[-1])
-        resampled = np.arange(start, end, dt)
-    else:
+    if window is None:
         resampled = time
+    else:
+        tstart, tend, dt = (float(value) for value in window)
+        if dt <= 0:
+            raise ValueError(f"the resampling step must be positive, got {dt}")
+        resampled = np.arange(max(tstart, time[0]), min(tend, time[-1]), dt)
+        if resampled.size == 0:
+            raise ValueError(
+                f"the window {tstart}-{tend} s does not overlap the record "
+                f"{time[0]}-{time[-1]} s"
+            )
 
     destination["ids_properties.comment"] = "PF config from vest_pf_active, grouped for EFIT"
     destination["ids_properties.homogeneous_time"] = 1
@@ -261,6 +277,7 @@ def generate_constraints_ods(
     decisions: ChannelDecisions | None = None,
     recovery=None,
     average_window: float = DEFAULT_AVERAGE_WINDOW,
+    coil_current_window: tuple[float, float, float] | None = None,
 ) -> ChannelDecisions:
     """Generate the constraints ODS, ``save_dir/{shotnumber}_constraints.json``.
 
@@ -305,13 +322,7 @@ def generate_constraints_ods(
     PF_orig = ods["pf_active"]
 
     ## (1) The EFIT current groups, from the ten measured PF circuits.
-    tstart = 0.26
-    #    if shotnumber>=43635:
-    #        tstart=0.245
-    tend = 0.36
-    dt = 4e-5
-
-    build_efit_coil_currents(PF, PF_orig, tstart=tstart, tend=tend, dt=dt)
+    build_efit_coil_currents(PF, PF_orig, window=coil_current_window)
 
     for i, _ in enumerate(PF["coil"]):
         PF[f"coil.{i}.current.time"] = PF["time"]

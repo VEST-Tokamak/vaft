@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from dataclasses import replace
 
 import numpy as np
@@ -201,12 +202,80 @@ def test_the_coil_currents_fan_one_circuit_out_to_its_groups():
         source[f"pf_active.coil.{index}.current.data"] = np.full(64, float(name[2:]))
 
     built = ODS(consistency_check=False)["pf_active"]
-    build_efit_coil_currents(built, source["pf_active"], tstart=0.26, tend=0.36, dt=4e-5)
+    build_efit_coil_currents(built, source["pf_active"])
 
     assert len(built["coil"]) == 16
     currents = [float(built[f"coil.{i}.current.data"][0]) for i in range(16)]
     assert currents == [1.0] * 8 + [5.0, 5.0, 6.0, 6.0, 9.0, 9.0, 10.0, 10.0]
     assert [str(built[f"coil.{i}.name"]) for i in range(16)] == list(EFIT16_GROUP_NAMES)
+
+
+def test_the_coil_currents_are_taken_on_the_time_base_they_were_measured_on():
+    """The writer had VEST's analysis window written into it, and did not need it.
+
+    `build_efit_coil_currents` resampled onto a fixed 0.26-0.36 s at 40 us.
+    Every packaged product already arrives on exactly that grid -- 2500 uniform
+    40 us samples from 0.26 s -- so the interpolation was a series onto its own
+    abscissa, and the three machine numbers bought nothing. Not resampling is
+    now the default, and a caller that needs a grid passes one.
+    """
+    from omas import ODS
+
+    from vaft.code.efit.kfile import build_efit_coil_currents
+
+    source = ODS(consistency_check=False)
+    # Deliberately not the old hard-coded grid.
+    base = np.linspace(0.30, 0.34, 7)
+    source["pf_active.time"] = base
+    for index, name in enumerate(["PF1", "PF5", "PF6", "PF9", "PF10"]):
+        source[f"pf_active.coil.{index}.name"] = name
+        source[f"pf_active.coil.{index}.current.data"] = np.arange(7, dtype=float)
+
+    built = ODS(consistency_check=False)["pf_active"]
+    build_efit_coil_currents(built, source["pf_active"])
+    np.testing.assert_array_equal(np.asarray(built["time"]), base)
+    np.testing.assert_array_equal(
+        np.asarray(built["coil.0.current.data"]), np.arange(7, dtype=float)
+    )
+
+
+def test_a_caller_that_wants_a_grid_passes_one():
+    from omas import ODS
+
+    from vaft.code.efit.kfile import build_efit_coil_currents
+
+    source = ODS(consistency_check=False)
+    source["pf_active.time"] = np.linspace(0.30, 0.34, 5)
+    for index, name in enumerate(["PF1", "PF5", "PF6", "PF9", "PF10"]):
+        source[f"pf_active.coil.{index}.name"] = name
+        source[f"pf_active.coil.{index}.current.data"] = np.linspace(0.0, 4.0, 5)
+
+    built = ODS(consistency_check=False)["pf_active"]
+    build_efit_coil_currents(built, source["pf_active"], window=(0.31, 0.33, 0.005))
+    grid = np.asarray(built["time"])
+    # `np.arange`'s half-open end is approximate in floating point, so pin the
+    # contract -- start, step, and inside the record -- not the element count.
+    assert grid[0] == pytest.approx(0.31)
+    np.testing.assert_allclose(np.diff(grid), 0.005)
+    assert grid[-1] <= 0.33 + 1e-12
+
+    with pytest.raises(ValueError, match="step must be positive"):
+        build_efit_coil_currents(
+            ODS(consistency_check=False)["pf_active"], source["pf_active"], window=(0.31, 0.33, 0.0)
+        )
+    with pytest.raises(ValueError, match="does not overlap"):
+        build_efit_coil_currents(
+            ODS(consistency_check=False)["pf_active"], source["pf_active"], window=(0.9, 1.0, 0.001)
+        )
+
+
+def test_the_writer_holds_no_machine_timing():
+    """A VEST window in a generic routine is machine policy in the wrong place."""
+    source = Path("vaft/code/efit/kfile.py").read_text(encoding="utf-8")
+    for literal in ("0.26", "0.36", "4e-5"):
+        assert f"tstart = {literal}" not in source
+        assert f"tend = {literal}" not in source
+        assert f"dt = {literal}" not in source
 
 
 def test_a_pf_active_missing_a_driven_circuit_is_refused():
@@ -221,11 +290,7 @@ def test_a_pf_active_missing_a_driven_circuit_is_refused():
     partial["pf_active.coil.0.current.data"] = np.zeros(64)
     with pytest.raises(ValueError, match="PF10, PF5, PF6, PF9"):
         build_efit_coil_currents(
-            ODS(consistency_check=False)["pf_active"],
-            partial["pf_active"],
-            tstart=0.26,
-            tend=0.36,
-            dt=4e-5,
+            ODS(consistency_check=False)["pf_active"], partial["pf_active"]
         )
 
 
