@@ -19,6 +19,7 @@ from vaft.database.replication import (
     StageNotReplicableError,
     is_reusable,
     replicate_stage,
+    sha256_file,
 )
 from vaft.database.staging import external_h5_links, merge_master_links
 
@@ -491,6 +492,46 @@ def test_the_refinement_and_the_baseline_land_in_different_sources(tmp_path, mon
     assert baseline.source == "main"
     assert refined.source == "chease-mhd-stability"
     assert baseline.ids == refined.ids == ("equilibrium",)
+
+
+def test_replication_reads_the_family_it_is_given(tmp_path, monkeypatch):
+    """The lineage a product was written under has to reach the reader.
+
+    `PipelinePaths` files an electron-EFIT run's products under
+    `omas/efit/electron/...`. If replication defaults to `magnetic` regardless,
+    it either fails on a path the pipeline never wrote or -- worse, when an
+    earlier magnetic run left one there -- publishes the magnetic equilibrium to
+    HSDS under the electron campaign. That is the lineage collision this grammar
+    exists to prevent, at the one boundary that leaves the local tree.
+    """
+    from vaft.database.filedb import stage_lineage
+
+    db = FileDB(tmp_path)
+    for family, comment in (("magnetic", "the magnetic one"), ("electron", "the electron one")):
+        ods = ODS(consistency_check=False)
+        ods["equilibrium.ids_properties.comment"] = comment
+        lineage = stage_lineage("efit", family=family)
+        product = db.omas_product("efit", shot=39915, **lineage)
+        product.parent.mkdir(parents=True, exist_ok=True)
+        from vaft.omas import save as save_local
+
+        save_local(ods, product)
+        manifest = db.omas_manifest("efit", shot=39915, **lineage)
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(json.dumps({"stage": "efit", "status": "success"}), encoding="utf-8")
+
+    sent = []
+    _patch_remote(monkeypatch, sent=sent)
+    electron = replicate_stage("efit", 39915, filedb=db, family="electron")
+
+    assert electron.state in ("success", "validated")
+    assert (
+        electron.product_sha256
+        == sha256_file(db.omas_product("efit", shot=39915, family="electron"))
+    )
+    assert electron.product_sha256 != sha256_file(
+        db.omas_product("efit", shot=39915, family="magnetic")
+    ), "the electron run must not have replicated the magnetic product"
 
 
 def test_a_failed_stability_replication_leaves_the_baseline_alone(tmp_path, monkeypatch):

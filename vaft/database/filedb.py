@@ -926,14 +926,18 @@ def _propose_mapping(relative: Path, target: FileDB) -> tuple[Path | None, str |
         if parsed is None:
             return None, "stability artifact has no recognizable code and mode"
         code, mode, remaining = parsed
-        # A legacy DCON cell is filed as the legacy product, not guessed into an
-        # edge branch: the tree it came from recorded no edge treatment, and
-        # attributing it to one would invent provenance the migration cannot
-        # verify. RDCON/STRIDE/ideal-GPEC carry no such ambiguity and keep their
-        # names.
-        product = LEGACY_DCON_PRODUCT if code == GPECCode.DCON.value else code
+        # Every legacy code name is also a `StabilityProduct` value, so the code
+        # carries over unchanged -- including DCON, which lands on
+        # `LEGACY_DCON_PRODUCT` because the two spellings coincide by design.
+        # That coincidence is the point: the tree this came from recorded no
+        # edge treatment, so the cell must stay on the legacy product rather
+        # than being guessed into `dcon-peeling` or `dcon-kink`, which would
+        # invent provenance the migration cannot verify. The assertion is here
+        # so that renaming either spelling fails loudly instead of silently
+        # attributing legacy runs to an edge branch.
+        assert LEGACY_DCON_PRODUCT == GPECCode.DCON.value == StabilityProduct.DCON_LEGACY.value
         return target.gpec(
-            product,
+            code,
             shot,
             mode,
             family=LEGACY_FAMILY,
@@ -1039,12 +1043,12 @@ def audit_legacy_filedb(
 
 __all__ = [
     "ArtifactClass",
+    "EquilibriumFamily",
     "FileDB",
     "FileDBConfigError",
     "FileDBDomain",
     "FileDBError",
     "FileDBPathError",
-    "EquilibriumFamily",
     "GPECCode",
     "LEGACY_DCON_PRODUCT",
     "LEGACY_FAMILY",
@@ -1057,7 +1061,7 @@ __all__ = [
     "LegacyResolution",
     "OMASStage",
     "Refinement",
-    "stage_lineage",
     "StabilityProduct",
     "audit_legacy_filedb",
+    "stage_lineage",
 ]

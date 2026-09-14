@@ -22,7 +22,7 @@ import tempfile
 
 os.environ.setdefault("MPLCONFIGDIR", tempfile.mkdtemp(prefix="vaft-mpl-"))
 
-from vaft.database.filedb import FileDB
+from vaft.database.filedb import LEGACY_FAMILY, FileDB
 from vaft.database.replication import replicate_stage
 
 
@@ -58,6 +58,16 @@ def main() -> int:
         action="store_true",
         help="Re-send even when the recorded product hash still matches.",
     )
+    parser.add_argument(
+        "--equilibrium-family",
+        default=LEGACY_FAMILY,
+        help=(
+            "Which reconstruction lineage this product belongs to "
+            "(magnetic, electron, kinetic). Must match the pipeline that "
+            "produced it: the stage product is read from that family's path, "
+            "so a mismatch reads a different shot's lineage or nothing at all."
+        ),
+    )
     args = parser.parse_args()
 
     # force=True: vaft.database.raw installs a root handler at import time, which
@@ -72,6 +82,7 @@ def main() -> int:
         args.stage,
         args.shot,
         filedb=FileDB(args.filedb_root),
+        family=args.equilibrium_family,
         attempts=args.attempts,
         retry_delay=args.retry_delay,
         validate=not args.no_validate,

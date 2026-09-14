@@ -250,6 +250,65 @@ def test_gpec_module_paths_match_filedb_for_every_code_and_several_modes():
             )
 
 
+def test_the_shot_first_tree_keeps_the_module_spelling_for_a_product():
+    """The legacy layout has no place to record an edge treatment.
+
+    The Snakemake wildcard carries the *product*, because it has to tell
+    `dcon-peeling` from `dcon-kink`. Interpolating that straight into the
+    shot-first tree would write `linear_stability/dcon-peeling/`, where the
+    reference output this layout exists to stay diffable against has
+    `linear_stability/dcon/` -- and would re-solve every DCON cell of an
+    existing tree, because the old directory no longer matches.
+    """
+    paths = MODULE.PipelinePaths(BASE_DIR, MODULE.SHOT_FIRST)
+
+    legacy = f"{BASE_DIR}/{SHOT}/linear_stability/dcon/n=1/status.txt"
+    assert paths.gpec_module_status(SHOT, "dcon", 1) == legacy
+    assert paths.gpec_module_status(SHOT, "dcon-peeling", 1) == legacy
+    # Both DCON products collapse onto one legacy directory. That is the
+    # layout's limitation, not a defect -- a run needing both branches needs
+    # `layout: filedb`, where they are separate identities.
+    assert paths.gpec_module_status(SHOT, "dcon-kink", 1) == legacy
+    assert paths.gpec_module_manifest(SHOT, "ideal-gpec", 2) == (
+        f"{BASE_DIR}/{SHOT}/linear_stability/gpec/n=2/run.json"
+    )
+
+
+def test_an_explicit_edge_treatment_decides_the_product():
+    """So a finished cell can be checked against the product it was filed under.
+
+    `stability_product(cell_product, edge_treatment=output.edge_treatment)` has
+    to be able to disagree with `cell_product`; a version that returned the
+    input unchanged would make that check pass for every cell, including one
+    whose artifact says it truncated at the dW peak.
+    """
+    assert MODULE.stability_product("dcon") == "dcon-peeling"
+    assert MODULE.stability_product("dcon-kink") == "dcon-kink"
+
+    assert (
+        MODULE.stability_product("dcon-peeling", edge_treatment="peak_dw_truncated")
+        == "dcon-kink"
+    )
+    assert (
+        MODULE.stability_product("dcon-kink", edge_treatment="full_edge")
+        == "dcon-peeling"
+    )
+    with pytest.raises(ValueError, match="edge treatment"):
+        MODULE.stability_product("dcon", edge_treatment="sideways")
+
+
+def test_the_module_and_product_translations_are_inverse():
+    """A product added on one side and not the other routes a cell to the wrong
+    solver, so the two maps are held to each other."""
+    for module in ("rdcon", "stride", "gpec"):
+        assert MODULE.solver_module(MODULE.stability_product(module)) == module
+    for product in ("dcon-peeling", "dcon-kink"):
+        assert MODULE.solver_module(product) == "dcon"
+    # Idempotent in both directions: a call site takes whichever it is handed.
+    assert MODULE.solver_module("rdcon") == "rdcon"
+    assert MODULE.stability_product("ideal-gpec") == "ideal-gpec"
+
+
 def test_gpec_module_path_translates_the_ideal_gpec_alias():
     """A solver module is translated to the product its output is filed as.
 
@@ -303,6 +362,23 @@ def test_gpec_module_pattern_does_not_corrupt_an_unrelated_dcon_substring():
     assert status_pattern.startswith("/srv/vest.filedb/mrdcon-archive/")
     assert "{code}" in status_pattern
     assert status_pattern.count("{code}") == 1
+
+
+def test_the_code_wildcard_survives_a_layout_that_rewrites_the_code():
+    """The segment is located by diffing two resolutions, not by matching back.
+
+    `shot_first` files a product under its solver module, so the sentinel that
+    went in is not the segment that comes out. Matching the sentinel back
+    produced a pattern with no `{code}` in it at all, which Snakemake would then
+    treat as a single concrete path -- one rule for every shot and mode.
+    """
+    for layout in (MODULE.SHOT_FIRST, MODULE.FILEDB):
+        paths = MODULE.PipelinePaths(BASE_DIR, layout)
+        for product in ("gpec_module_status", "gpec_module_manifest"):
+            pattern = paths.gpec_module_pattern(product)
+            assert pattern.count("{code}") == 1, (layout, product, pattern)
+            assert "{shot}" in pattern and "{mode}" in pattern
+            assert "dcon" not in pattern, (layout, product, pattern)
 
 
 def test_gpec_module_status_round_trips_every_artifact_class_without_materialization():

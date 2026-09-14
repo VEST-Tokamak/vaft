@@ -31,20 +31,17 @@ def _parse_csv(text: str, cast=str) -> tuple:
     return tuple(cast(item.strip()) for item in str(text).split(",") if item.strip())
 
 
-#: Which executable a stability *product* is produced by. The two DCON products
-#: are one executable run two ways -- the edge treatment is a namelist setting,
-#: not a different program -- which is exactly why the product cannot be
-#: recovered from the module name alone and has to be carried explicitly.
-_PRODUCT_MODULES = {
-    "ideal-gpec": "gpec",
-    "dcon-peeling": "dcon",
-    "dcon-kink": "dcon",
-}
-
-
 def _runner_module(code: str) -> str:
-    """Translate a FileDB stability product to the executable key that runs it."""
-    return _PRODUCT_MODULES.get(code, code)
+    """Translate a FileDB stability product to the executable key that runs it.
+
+    The mapping lives in `paths.py` beside its inverse, because the two have to
+    agree: the Snakemake wildcard carries the product and this turns it back
+    into the executable, so a product added on one side and not the other would
+    route a cell to the wrong solver.
+    """
+    from paths import solver_module
+
+    return solver_module(code)
 
 
 def _time_label(path: Path) -> str:

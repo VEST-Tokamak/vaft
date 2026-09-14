@@ -72,17 +72,37 @@ _MODULE_PRODUCTS = {
 }
 
 
-def stability_product(module: str, *, edge_treatment: str = "full_edge") -> str:
+#: The edge treatment VAFT's shipped namelist produces. `psiedge=1.0` is never
+#: below `psilim`, so DCON integrates once and keeps the full-edge solution
+#: (`vaft/data/gpec/dcon.in`, `dcon/dcon.F:262-279`).
+SHIPPED_DCON_EDGE_TREATMENT = "full_edge"
+
+_DCON_NAMES = frozenset(
+    {"dcon", StabilityProduct.DCON_PEELING.value, StabilityProduct.DCON_KINK.value}
+)
+
+
+def stability_product(module: str, *, edge_treatment: str | None = None) -> str:
     """The product a solver `module` files its output as.
 
-    `edge_treatment` only applies to DCON and defaults to the treatment VAFT's
-    shipped namelist produces. Pass the run's own
-    `DconOutput.edge_treatment` to check a finished cell against the product it
-    was filed under.
+    Idempotent: passing a product returns it unchanged, so a caller that already
+    holds one (the Snakemake wildcard, for instance) need not know which it has.
+
+    `edge_treatment` applies to DCON alone and, when given, **decides** the
+    product -- including when `module` is already a DCON product. That is what
+    makes a finished cell checkable against the product it was filed under::
+
+        stability_product(cell_product, edge_treatment=output.edge_treatment)
+
+    A cell filed as `dcon-peeling` whose artifact says `peak_dw_truncated`
+    resolves to `dcon-kink` here, so the comparison fails as it should. Omit it
+    and a bare "dcon" takes :data:`SHIPPED_DCON_EDGE_TREATMENT`.
     """
-    if module in ("dcon", "dcon-peeling", "dcon-kink"):
-        if module != "dcon":
-            return module
+    if module in _DCON_NAMES:
+        if edge_treatment is None:
+            if module != "dcon":
+                return module
+            edge_treatment = SHIPPED_DCON_EDGE_TREATMENT
         try:
             return DCON_EDGE_PRODUCTS[edge_treatment].value
         except KeyError:
@@ -92,6 +112,25 @@ def stability_product(module: str, *, edge_treatment: str = "full_edge") -> str:
             ) from None
     resolved = _MODULE_PRODUCTS.get(module)
     return resolved.value if resolved is not None else module
+
+
+#: Reverse of the module-to-product translation: which executable produced a
+#: product. The two DCON products are one executable run two ways, so this is
+#: many-to-one and cannot be inverted by string manipulation.
+_PRODUCT_MODULES = {
+    StabilityProduct.IDEAL_GPEC.value: "gpec",
+    StabilityProduct.DCON_PEELING.value: "dcon",
+    StabilityProduct.DCON_KINK.value: "dcon",
+}
+
+
+def solver_module(product: str) -> str:
+    """The executable key that produces `product`.
+
+    Idempotent, so a module passed in comes back out: call sites receive
+    whichever of the two the caller happened to have.
+    """
+    return _PRODUCT_MODULES.get(product, product)
 
 
 class _SnakemakeFileDB(FileDB):
@@ -111,16 +150,24 @@ class _SnakemakeFileDB(FileDB):
 _SHOT_SENTINEL = 987654321
 _VERSION_SENTINEL = "VESTMACHINEVERSIONSENTINEL"
 _MODE_SENTINEL = 123456789
-# Real, valid enum values used purely as substitution placeholders -- unlike
-# shot/version/mode, `FileDB.gpec()` validates these arguments against their
-# enums, so an arbitrary sentinel string is rejected.
+# Two real, valid `StabilityProduct` values -- unlike shot/version/mode,
+# `FileDB.gpec()` validates this argument against its enum, so an arbitrary
+# sentinel string is rejected.
 #
-# Each is substituted back whole-segment, never as a substring: "dcon-peeling"
-# contains "dcon", and "magnetic" could appear in a root directory's name, so a
-# blind `replace()` would corrupt an unrelated part of the path.
+# Two of them, because the code segment is located by *resolving twice and
+# diffing*, not by matching a string. A layout is free to transform the argument
+# on its way into the path -- shot_first maps a product back to its module -- so
+# the segment that ends up there need not be the sentinel that went in. The one
+# segment that changes when only this argument changes is the one to replace,
+# whatever either layout did to it, and a base directory that happens to contain
+# a solver name is identical in both resolutions and so is never touched.
+#
+# There is deliberately no family or refinement sentinel. Those are per-*run*
+# configuration, not per-cell, so they stay literal segments in the resolved
+# pattern rather than becoming Snakemake wildcards -- one pipeline invocation
+# produces exactly one lineage.
 _CODE_SENTINEL = StabilityProduct.DCON_PEELING.value
-_FAMILY_SENTINEL = EquilibriumFamily.MAGNETIC.value
-_REFINEMENT_SENTINEL = Refinement.CHEASE.value
+_ALT_CODE_SENTINEL = StabilityProduct.RDCON.value
 
 
 # Which FileDB domain owns each stage's log.
@@ -439,17 +486,28 @@ class PipelinePaths:
         return str(self._filedb.chease(shot, family=self.family, artifact="output") / "chease_runs.json")
 
     # -- linear stability ---------------------------------------------------
+    def _legacy_cell_dir(self, shot, code: str) -> PurePosixPath:
+        """The shot-first directory for one stability cell.
+
+        Named by the solver *module*, because that is what the legacy server
+        wrote and this layout exists to stay diffable against it path for path.
+        Callers pass whichever of module or product they hold -- the Snakefile
+        carries products, since its wildcard has to tell `dcon-peeling` from
+        `dcon-kink` -- so it is translated back here rather than at each site.
+
+        Both DCON products therefore collapse onto one directory here. That is
+        the legacy layout's limitation, not a defect: it has no place to record
+        an edge treatment, which is why the canonical grammar exists. A run that
+        needs both branches needs `layout: filedb`.
+        """
+        return self._shot_dir(shot, "linear_stability") / solver_module(code)
+
     # One status/manifest pair per (shot, code, mode): `run_gpec_module`
     # writes one, retriable independently of every other cell, matching
     # FileDB's own GPEC grammar (`gpec/{code}/{shot}/n={n}/`) directly.
     def gpec_module_status(self, shot, code: str, mode: int) -> str:
         if self.layout == SHOT_FIRST:
-            return str(
-                self._shot_dir(shot, "linear_stability")
-                / code
-                / f"n={mode}"
-                / "status.txt"
-            )
+            return str(self._legacy_cell_dir(shot, code) / f"n={mode}" / "status.txt")
         return str(
             self._filedb.gpec(
                 stability_product(code),
@@ -463,12 +521,7 @@ class PipelinePaths:
 
     def gpec_module_manifest(self, shot, code: str, mode: int) -> str:
         if self.layout == SHOT_FIRST:
-            return str(
-                self._shot_dir(shot, "linear_stability")
-                / code
-                / f"n={mode}"
-                / "run.json"
-            )
+            return str(self._legacy_cell_dir(shot, code) / f"n={mode}" / "run.json")
         return str(
             self._filedb.gpec(
                 stability_product(code),
@@ -485,7 +538,10 @@ class PipelinePaths:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "linear_stability"))
         if code is None or mode is None:
-            raise ValueError("code and mode are required for a canonical GPEC work directory")
+            raise ValueError(
+                "a stability product (or the solver module that produces one) and a "
+                "toroidal mode are both required for a canonical GPEC work directory"
+            )
         return str(
             self._filedb.gpec(
                 stability_product(code),
@@ -665,27 +721,40 @@ class PipelinePaths:
 
     def gpec_module_pattern(self, product: str) -> str:
         """Return a ``gpec_module_*`` product with ``{shot}``/``{code}``/``{mode}`` wildcards."""
-        resolved = getattr(self, product)(
-            _SHOT_SENTINEL, _CODE_SENTINEL, _MODE_SENTINEL
-        )
-        resolved = resolved.replace(str(_SHOT_SENTINEL), "{shot}")
-        resolved = resolved.replace(str(_MODE_SENTINEL), "{mode}")
-        # `_CODE_SENTINEL` ("dcon") is a real code name, so a blind substring
-        # replace could also rewrite an unrelated occurrence elsewhere in the
-        # path. `code` is always emitted as a whole path segment (never glued
-        # to other text), so only swap segments that match it exactly.
-        segments = [
-            "{code}" if segment == _CODE_SENTINEL else segment
-            for segment in PurePosixPath(resolved).parts
-        ]
-        return str(PurePosixPath(*segments))
+        resolve = getattr(self, product)
+        resolved = resolve(_SHOT_SENTINEL, _CODE_SENTINEL, _MODE_SENTINEL)
+        alternate = resolve(_SHOT_SENTINEL, _ALT_CODE_SENTINEL, _MODE_SENTINEL)
+
+        # The code segment is the one that moved when only the code changed.
+        # Found this way rather than by matching the sentinel back, because a
+        # layout may transform the argument on the way in -- shot_first files a
+        # product under its solver module -- and a sentinel that no longer
+        # appears in the path would silently yield a pattern with no wildcard in
+        # it at all.
+        parts = PurePosixPath(resolved).parts
+        other = PurePosixPath(alternate).parts
+        differing = [i for i, (a, b) in enumerate(zip(parts, other)) if a != b]
+        if len(parts) != len(other) or len(differing) != 1:
+            raise AssertionError(
+                f"{product} must place the stability code in exactly one path "
+                f"segment; resolving it twice differed in {len(differing)} "
+                f"segments ({resolved!r} vs {alternate!r})"
+            )
+
+        segments = list(parts)
+        segments[differing[0]] = "{code}"
+        pattern = str(PurePosixPath(*segments))
+        pattern = pattern.replace(str(_SHOT_SENTINEL), "{shot}")
+        return pattern.replace(str(_MODE_SENTINEL), "{mode}")
 
 
 __all__ = [
     "DCON_EDGE_PRODUCTS",
     "FILEDB",
     "LAYOUTS",
+    "SHIPPED_DCON_EDGE_TREATMENT",
     "SHOT_FIRST",
     "PipelinePaths",
+    "solver_module",
     "stability_product",
 ]

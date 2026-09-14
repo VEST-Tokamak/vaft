@@ -25,6 +25,7 @@ from __future__ import annotations
 import pytest
 
 from vaft.database import sources as _sources
+from vaft.database import filedb
 from vaft.database.filedb import FileDB
 
 FAMILIES = ("magnetic", "electron", "kinetic")
@@ -115,6 +116,34 @@ def test_the_stage_product_is_per_family_and_per_product(db):
     )
 
     assert len({kink, peeling, electron}) == 3
+
+
+def test_the_deferred_product_branch_resolves_when_it_is_switched_on(db, monkeypatch):
+    """Exercise the branch #137 will enable, before #137 enables it.
+
+    `_PRODUCT_STAGES` is empty today, so the code that appends a refinement and
+    a product to a stage path never runs -- and would execute for the first time
+    in production path resolution the day that set is populated. Populating it
+    here runs it now: segment order, the shot that follows, and the refusal of a
+    product for a stage that still does not take one.
+    """
+    monkeypatch.setattr(
+        filedb, "_PRODUCT_STAGES", frozenset({"mhd_linear"}), raising=True
+    )
+
+    assert db.omas(
+        "mhd_linear", shot=SHOT, family="magnetic", refinement="chease",
+        product="dcon-kink", artifact="output",
+    ) == db.root / f"omas/mhd_linear/magnetic/chease/dcon-kink/{SHOT}/output"
+
+    # A stage outside the set still refuses both, so enabling one stage cannot
+    # quietly loosen the others.
+    with pytest.raises(filedb.FileDBPathError, match="product is not valid"):
+        db.omas("chease", shot=SHOT, family="magnetic", product="dcon-kink")
+
+    # And the enabled stage still requires them.
+    with pytest.raises(filedb.FileDBPathError, match="refinement"):
+        db.omas("mhd_linear", shot=SHOT, family="magnetic")
 
 
 def test_a_stability_path_without_a_family_is_refused(db):

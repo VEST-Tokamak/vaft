@@ -64,6 +64,10 @@ CONSTRAINTS_CONFIG = config.get("constraints", {})
 EFIT_CONFIG = config.get("efit", {})
 VEST_CONFIG = config.get("vest", {})
 CHEASE_CONFIG = config.get("chease", {})
+# The lineage this run produces. `PipelinePaths` resolves every product under
+# it, so anything that reads a product back -- replication above all -- has to
+# be told the same thing, or it reads another lineage's path.
+EQUILIBRIUM_FAMILY = config.get("equilibrium_family", "magnetic")
 GPEC_CONFIG = config.get("gpec", {})
 GPEC_MODULES = GPEC_CONFIG.get("modules", ["dcon", "rdcon", "stride", "gpec"])
 GPEC_MODES = GPEC_CONFIG.get("modes", [1, 2])
@@ -842,6 +846,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage diagnostics \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -866,6 +871,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage eddy \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -890,6 +896,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage efit \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -914,6 +921,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage chease \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -941,6 +949,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage impa \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -965,6 +974,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage mhd_linear \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
