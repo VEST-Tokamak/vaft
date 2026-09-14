@@ -618,3 +618,60 @@ def test_a_size_one_r0_array_does_not_break_the_mapping(native):
     ods["equilibrium.vacuum_toroidal_field.r0"] = np.array([0.4])
     core_transport_from_neo(ods, native)
     assert float(ods["core_transport.vacuum_toroidal_field.r0"]) == pytest.approx(0.4)
+
+
+def test_each_slice_is_normalised_by_its_own_vacuum_field(native):
+    """Mapping slice 1 must not inherit slice 0's b0 -- VEST's drifts (#325).
+
+    The trap is circular: this mapper writes core_profiles' own b0, so reading
+    that leaf back by nearest-time lets the first slice answer for every later
+    one. Two slices into one ODS is what exposes it; a single call into a fresh
+    ODS does not.
+    """
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.time"] = np.array([0.30, 0.31])
+    ods["equilibrium.vacuum_toroidal_field.b0"] = np.array([0.15, 0.30])
+    for index, moment in enumerate((0.30, 0.31)):
+        core_profiles_from_neo(ods, native, time=moment, time_index=index)
+
+    recorded = np.atleast_1d(np.asarray(ods["core_profiles.vacuum_toroidal_field.b0"]))
+    np.testing.assert_allclose(recorded, [0.15, 0.30])
+    first = np.asarray(ods["core_profiles.profiles_1d.0.j_bootstrap"])
+    second = np.asarray(ods["core_profiles.profiles_1d.1.j_bootstrap"])
+    # Same solver result, twice the field: exactly half the normalised current.
+    np.testing.assert_allclose(first, 2.0 * second, rtol=1e-12)
+
+
+def test_the_vacuum_field_is_recorded_for_every_mapped_slice(native, ods):
+    """j_bootstrap is <J.B>/B0, so a reader needs the B0 of *that* slice."""
+    for index in range(3):
+        core_profiles_from_neo(ods, native, time=0.3 + 0.01 * index, time_index=index)
+    recorded = np.atleast_1d(np.asarray(ods["core_profiles.vacuum_toroidal_field.b0"]))
+    assert recorded.size == 3
+    assert np.all(np.isfinite(recorded))
+
+
+@requires_sample
+def test_a_run_that_reaches_no_grid_point_is_not_reported_as_written():
+    """A single surface cannot interpolate onto a 129-point grid.
+
+    Writing an all-NaN profile and calling it written would tell a caller
+    gating on the report that the IDS carries a bootstrap current.
+    """
+    from omas import load_omas_json
+
+    ods = load_omas_json(str(SAMPLE), consistency_check=False)
+    report = core_profiles_from_neo(ods, collect_neo_outputs(SINGLE_RUN), time=0.3)
+    assert report["written"] == []
+    assert any("entirely" in reason for reason in report["skipped"])
+    assert "core_profiles.profiles_1d.0.j_bootstrap" not in ods
+
+
+def test_a_single_surface_run_still_maps_into_an_empty_slice(ods, native):
+    """With no grid to honour, one surface is a legitimate one-point profile."""
+    single = collect_neo_outputs(SINGLE_RUN)
+    report = core_profiles_from_neo(ods, single, time=0.3)
+    assert report["written"] == ["j_bootstrap"]
+    assert np.asarray(ods["core_profiles.profiles_1d.0.j_bootstrap"]).size == 1

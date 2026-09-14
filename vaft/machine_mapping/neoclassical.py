@@ -179,32 +179,49 @@ def _species_order(native: Any) -> tuple[Optional[int], list[int]]:
     return electron, [index for index in range(charge.size) if index != electron]
 
 
-def _resolve_b0(ods: ODS, b0: Optional[float], *, time: float) -> Optional[float]:
-    """The vacuum field IMAS normalises ``j_bootstrap`` by, at *time*.
+def _resolve_b0(
+    ods: ODS, b0: Optional[float], *, time: float, time_index: int
+) -> Optional[float]:
+    """The vacuum field IMAS normalises ``j_bootstrap`` by, for this slice.
 
-    ``b0`` is sampled on its own IDS's time base, and the two bases need not be
-    aligned, so each candidate is read at the slice nearest *time* rather than at
-    index 0. VEST's b0 drifts by up to a factor of two within a shot (#325), so
-    taking the first entry is a real error, not a rounding one.
+    VEST's b0 drifts by up to a factor of two within a shot (#325), so which
+    entry is read is a physical question, not a rounding one.
+
+    ``core_profiles`` is preferred, because that is the field IMAS defines
+    ``j_bootstrap`` against -- but it is indexed by ``time_index``, its own slice
+    number, and skipped when it has no entry there. This mapper writes that leaf
+    itself, so a partially populated one is usually its own earlier output;
+    reading it back by nearest-time would let the first slice answer for every
+    later one. ``equilibrium`` keeps its own time base, which need not align, so
+    it is matched on *time*.
     """
     if b0 is not None:
         return float(b0)
-    for ids in ("core_profiles", "equilibrium"):
-        path = f"{ids}.vacuum_toroidal_field.b0"
-        if path not in ods:
-            continue
+
+    def usable(values: np.ndarray, index: int) -> Optional[float]:
+        if index < 0 or index >= values.size:
+            return None
+        if not np.isfinite(values[index]) or values[index] == 0.0:
+            return None
+        return float(values[index])
+
+    path = "core_profiles.vacuum_toroidal_field.b0"
+    if path in ods:
+        found = usable(np.atleast_1d(np.asarray(ods[path], dtype=float)), int(time_index))
+        if found is not None:
+            return found
+
+    path = "equilibrium.vacuum_toroidal_field.b0"
+    if path in ods:
         values = np.atleast_1d(np.asarray(ods[path], dtype=float))
-        if not values.size:
-            continue
         index = 0
-        base = f"{ids}.time"
-        if base in ods:
-            times = np.atleast_1d(np.asarray(ods[base], dtype=float))
+        if "equilibrium.time" in ods:
+            times = np.atleast_1d(np.asarray(ods["equilibrium.time"], dtype=float))
             if times.size:
                 index = int(np.argmin(np.abs(times - float(time))))
-        index = min(index, values.size - 1)
-        if np.isfinite(values[index]) and values[index] != 0.0:
-            return float(values[index])
+        found = usable(values, index)
+        if found is not None:
+            return found
     return None
 
 
@@ -265,7 +282,7 @@ def core_profiles_from_neo(
     current = None if transport is None else transport.get("bootstrap_current")
     if current is None:
         skipped.append("jparB -> j_bootstrap (the run wrote no out.neo.transport)")
-    field = _resolve_b0(ods, b0, time=time)
+    field = _resolve_b0(ods, b0, time=time, time_index=time_index)
     if field is None:
         skipped.append(
             "jparB -> j_bootstrap (no vacuum_toroidal_field.b0 on the ODS and none "
@@ -281,6 +298,7 @@ def core_profiles_from_neo(
 
         existing = ods.get(f"{base}.grid.rho_tor_norm", None)
         existing = None if existing is None else np.atleast_1d(np.asarray(existing, dtype=float))
+        usable = True
         if existing is None or existing.size == 0:
             ods[f"{base}.grid.rho_tor_norm"] = grid
             ods[f"{base}.j_bootstrap"] = values
@@ -292,8 +310,21 @@ def core_profiles_from_neo(
             # is no value to place: those points are left NaN rather than
             # extrapolated to something plausible.
             placed, unevaluated = _onto(existing, grid, values)
-            ods[f"{base}.j_bootstrap"] = placed
-            if unevaluated:
+            # A single-surface run cannot interpolate anywhere, so every point
+            # comes back unevaluated. Writing an all-NaN profile and calling it
+            # written would tell a caller gating on the report that the IDS now
+            # carries a bootstrap current.
+            usable = unevaluated < existing.size
+            if usable:
+                ods[f"{base}.j_bootstrap"] = placed
+            else:
+                skipped.append(
+                    f"j_bootstrap entirely (NEO solved rho_tor_norm "
+                    f"{grid.min():.3f}-{grid.max():.3f} at {grid.size} "
+                    f"{'surface' if grid.size == 1 else 'surfaces'}, which reaches no "
+                    f"point of this slice's {existing.size}-point grid)"
+                )
+            if unevaluated and usable:
                 skipped.append(
                     f"j_bootstrap at {unevaluated} of {existing.size} grid points "
                     f"(NEO solved rho_tor_norm {grid.min():.3f}-{grid.max():.3f}; "
@@ -301,9 +332,13 @@ def core_profiles_from_neo(
                 )
         _set_time_array(ods, "core_profiles.time", time_index, float(time))
         ods["core_profiles.ids_properties.homogeneous_time"] = 1
-        if "core_profiles.vacuum_toroidal_field.b0" not in ods:
-            _set_time_array(ods, "core_profiles.vacuum_toroidal_field.b0", time_index, field)
-        written.append("j_bootstrap")
+        # Per slice, not once: j_bootstrap is <J.B>/B0, so a reader needs the
+        # field *this* slice was divided by. Writing it only the first time
+        # leaves a short array beside a growing time base, and the next slice
+        # then reads the wrong entry back.
+        _set_time_array(ods, "core_profiles.vacuum_toroidal_field.b0", time_index, field)
+        if usable:
+            written.append("j_bootstrap")
 
     skipped.append(
         "jparB -> global_quantities.current_bootstrap (that field is a toroidal "
@@ -408,8 +443,8 @@ def core_transport_from_neo(
 
     _set_time_array(ods, "core_transport.time", time_index, float(time))
     ods["core_transport.ids_properties.homogeneous_time"] = 1
-    field = _resolve_b0(ods, None, time=time)
-    if field is not None and "core_transport.vacuum_toroidal_field.b0" not in ods:
+    field = _resolve_b0(ods, None, time=time, time_index=time_index)
+    if field is not None:
         _set_time_array(ods, "core_transport.vacuum_toroidal_field.b0", time_index, field)
     if "equilibrium.vacuum_toroidal_field.r0" in ods:
         ods["core_transport.vacuum_toroidal_field.r0"] = float(
