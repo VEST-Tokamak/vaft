@@ -228,7 +228,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a8c64df</code>. What is described
+  <code>79377dc</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -718,6 +718,83 @@ sections share one coordinate bit-for-bit in every reference file — and so is 
 section. An unrecognised unit raises on a mapped section, where guessing a factor would be a
 silent factor of a million, but not on one kept in <code class="language-plaintext highlighter-rouge">extras</code>.</p>
 
+<h3 id="mars-profin">MARS <code class="language-plaintext highlighter-rouge">PROF*.IN</code></h3>
+
+<p>MARS reads its kinetic profiles as a deck of two-column ASCII files, one quantity each.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.data</span> <span class="kn">import</span> <span class="n">read_mars_profiles</span><span class="p">,</span> <span class="n">write_mars_profiles</span>
+
+<span class="n">profiles</span> <span class="o">=</span> <span class="nf">read_mars_profiles</span><span class="p">(</span><span class="sh">"</span><span class="s">mars_input/</span><span class="sh">"</span><span class="p">)</span>      <span class="c1"># the whole deck
+</span><span class="n">profiles</span><span class="p">.</span><span class="n">omega_tor</span>                                 <span class="c1"># PROFROT.IN, rad/s
+</span><span class="n">profiles</span><span class="p">.</span><span class="n">omega_exb</span>                                 <span class="c1"># PROFWE.IN, rad/s
+</span><span class="n">profiles</span><span class="p">.</span><span class="n">normalization</span><span class="p">.</span><span class="n">method</span>                      <span class="c1"># "mars_s_squared" — see below
+</span><span class="nf">write_mars_profiles</span><span class="p">(</span><span class="n">profiles</span><span class="p">,</span> <span class="sh">"</span><span class="s">out/</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><strong>The header’s second field names the abscissa, and it is not ψ_N.</strong> MARS branches on it in every
+one of its profile readers and stops on anything else: key <code class="language-plaintext highlighter-rouge">1</code> means the column is <code class="language-plaintext highlighter-rouge">s</code>, the square
+root of the normalised poloidal flux, and key <code class="language-plaintext highlighter-rouge">2</code> means the toroidal equivalent (<code class="language-plaintext highlighter-rouge">marsq.f:16269</code>,
+“RAD = SQRT(TOROIDAL FLUX)”). So a key-1 deck’s column is <code class="language-plaintext highlighter-rouge">s</code>, and <code class="language-plaintext highlighter-rouge">psi_norm</code> is <code class="language-plaintext highlighter-rouge">s²</code> — reading it
+straight through puts every point at the square root of where it belongs, so 0.5 in the file becomes
+ψ_N = 0.25. The conversion is recorded as <code class="language-plaintext highlighter-rouge">normalization.method == "mars_s_squared"</code>, the writer
+converts back (<code class="language-plaintext highlighter-rouge">sqrt(psi_norm)</code>, header key <code class="language-plaintext highlighter-rouge">1</code>), and a key-2 deck is <strong>refused</strong>: reaching poloidal
+flux from a toroidal-flux coordinate needs an equilibrium, which a file-format reader has not got.</p>
+
+<p><strong>The two rotation files are two different quantities</strong>, and this is where C-27 finally closes. MARS’s
+own source settles which is which: <code class="language-plaintext highlighter-rouge">PROFROT.IN</code> is the bulk toroidal <strong>fluid</strong> rotation ω_φ, read
+under <code class="language-plaintext highlighter-rouge">NPROFR</code>, and <code class="language-plaintext highlighter-rouge">PROFWE.IN</code> is the toroidal <strong>E×B</strong> rotation ω_E, read under <code class="language-plaintext highlighter-rouge">NPROFWE</code> into a
+different array. MARS states the relation between them in its own analytic branch — <code class="language-plaintext highlighter-rouge">ROTWE = ROT -
+OMEGAI*</code>, i.e. they differ by the ion diamagnetic frequency. So there is no precedence rule here: a
+deck carrying both reads as two fields, and <code class="language-plaintext highlighter-rouge">write_mars_profiles</code> will not fill <code class="language-plaintext highlighter-rouge">PROFROT.IN</code> from
+<code class="language-plaintext highlighter-rouge">omega_exb</code>, which is what produced every committed deck’s byte-identical pair.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>file</th>
+      <th>→</th>
+      <th>what MARS calls it</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">PROFDEN.IN</code></td>
+      <td><code class="language-plaintext highlighter-rouge">n_e</code></td>
+      <td>plasma density (<code class="language-plaintext highlighter-rouge">NPROFN</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">PROFTE.IN</code> / <code class="language-plaintext highlighter-rouge">PROFTI.IN</code></td>
+      <td><code class="language-plaintext highlighter-rouge">T_e</code> / <code class="language-plaintext highlighter-rouge">T_i</code></td>
+      <td>electron and ion temperature</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">PROFROT.IN</code></td>
+      <td><code class="language-plaintext highlighter-rouge">omega_tor</code></td>
+      <td>fluid rotation ω_φ (<code class="language-plaintext highlighter-rouge">NPROFR</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">PROFWE.IN</code></td>
+      <td><code class="language-plaintext highlighter-rouge">omega_exb</code></td>
+      <td>E×B rotation ω_E (<code class="language-plaintext highlighter-rouge">NPROFWE</code>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">PROFDEN.IN</code> fills <code class="language-plaintext highlighter-rouge">n_e</code> and nothing else — MARS carries one density, so equating the ion density
+with it is a modelling choice a caller makes. Any other <code class="language-plaintext highlighter-rouge">PROF*.IN</code> is kept in <code class="language-plaintext highlighter-rouge">extras</code> under its
+stem.</p>
+
+<p><strong>Nothing is scaled</strong>, which is a finding rather than an assumption: “a MARS input is
+Alfvén-normalised” is the obvious wrong guess. The committed profiles run 1.4e4–1.0e5 rad/s against
+an Alfvén frequency of order 1.4e6 for MAST, and MARS converts the file itself when its <code class="language-plaintext highlighter-rouge">NEXPV</code> flag
+says the file carries absolute values — multiplying the on-axis value by the Alfvén time, which is
+only dimensionally sensible if the file is in rad/s. Note the corollary: under MARS’s default
+<code class="language-plaintext highlighter-rouge">NEXPV = 0</code> only the <em>shape</em> of each profile is used, the scale coming from a namelist amplitude, so
+whether a deck’s numbers reach a run at all is a property of its <code class="language-plaintext highlighter-rouge">RUN.IN</code> rather than of these files.</p>
+
+<p>Files whose ψ columns disagree, in value or in length, are refused rather than reprojected onto one
+another, and so is a header row count that disagrees with the rows beneath it.</p>
+
 <h2 id="exporting">Exporting</h2>
 
 <p>To hand fitted electron profiles to an external code:</p>
@@ -1014,7 +1091,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#pipeline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline</a></li><li class="page-toc-item page-toc-level-2"><a href="#loading-kinetic-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Loading kinetic diagnostics</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-1--equilibrium-mapping" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 1 — equilibrium mapping</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-2--profile-fitting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 2 — profile fitting</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fitting-methods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fitting methods</a></li><li class="page-toc-item page-toc-level-3"><a href="#calling-the-fitting-engine-directly" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Calling the fitting engine directly</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pedestal-top" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pedestal top</a></li><li class="page-toc-item page-toc-level-2"><a href="#writing-core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Writing core_profiles</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#synthetic-profiles-from-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic profiles from equilibrium pressure</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plotting</a></li><li class="page-toc-item page-toc-level-2"><a href="#kinetic-profile-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetic-profile files</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#osborne-pfiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Osborne pfiles</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#exporting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting</a></li><li class="page-toc-item page-toc-level-2"><a href="#full-example" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Full example</a></li><li class="page-toc-item page-toc-level-2"><a href="#choosing-a-fitting-method" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Choosing a fitting method</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#pipeline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline</a></li><li class="page-toc-item page-toc-level-2"><a href="#loading-kinetic-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Loading kinetic diagnostics</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-1--equilibrium-mapping" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 1 — equilibrium mapping</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-2--profile-fitting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 2 — profile fitting</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fitting-methods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fitting methods</a></li><li class="page-toc-item page-toc-level-3"><a href="#calling-the-fitting-engine-directly" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Calling the fitting engine directly</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pedestal-top" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pedestal top</a></li><li class="page-toc-item page-toc-level-2"><a href="#writing-core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Writing core_profiles</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#synthetic-profiles-from-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic profiles from equilibrium pressure</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plotting</a></li><li class="page-toc-item page-toc-level-2"><a href="#kinetic-profile-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetic-profile files</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#osborne-pfiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Osborne pfiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#mars-profin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MARS PROF*.IN</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#exporting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting</a></li><li class="page-toc-item page-toc-level-2"><a href="#full-example" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Full example</a></li><li class="page-toc-item page-toc-level-2"><a href="#choosing-a-fitting-method" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Choosing a fitting method</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
     </nav>
 </aside>
 
@@ -1132,7 +1209,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-14 07:18:40 +0000"
+        "time": "2026-09-14 08:31:55 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
