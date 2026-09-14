@@ -310,6 +310,53 @@ def test_the_probe_count_accepts_either_shape():
     assert equilibrium_probe_count(ODS(consistency_check=False)) == 0
 
 
+def test_the_constraint_families_are_named_not_counted(tmp_path):
+    """Nine numbers in a list, and nothing at a call site said which was which.
+
+    `uncertainty[5]` was the side probes and `uncertainty[6]` the outboard
+    ones; the only place that knew was a module-level index map. The values
+    were copied verbatim into five workflow scripts and a test, where a
+    transposition would have been invisible.
+    """
+    from vaft.code.efit.kfile import ConstraintErrors, ConstraintWeights
+
+    legacy_errors = [1e-4, 1e-4, 5e-2, 3e-2, 1e-2, 1e-1, 1e-2, 1e-1, 1e-2]
+    legacy_weights = [1, 1, 1, 0.1, 0.1, 0.1, 0.01, 0.01]
+
+    errors = ConstraintErrors.from_sequence(legacy_errors)
+    assert errors.pf_current == legacy_errors[0]
+    assert errors.probe_side == legacy_errors[5]
+    assert errors.flux_loop_outboard == legacy_errors[8]
+
+    weights = ConstraintWeights.from_sequence(legacy_weights)
+    assert weights.probe("inboard") == legacy_weights[3]
+    assert weights.probe("side") == legacy_weights[4]
+    assert weights.probe("outboard") == legacy_weights[5]
+    assert weights.flux_loop("inboard") == legacy_weights[6]
+    assert weights.flux_loop("outboard") == legacy_weights[7]
+
+    # The positional order is still accepted, so no caller had to change.
+    assert ConstraintErrors.coerce(legacy_errors) == errors
+    assert ConstraintWeights.coerce(weights) is weights
+
+    # A list of the wrong length is refused, naming the order it wanted.
+    with pytest.raises(ValueError, match="probe_side"):
+        ConstraintErrors.from_sequence(legacy_errors[:-1])
+    with pytest.raises(ValueError, match="flux_loop_outboard"):
+        ConstraintWeights.from_sequence(legacy_weights + [1.0])
+
+
+def test_the_named_and_positional_forms_write_the_same_kfile(tmp_path):
+    """The whole safety argument for the change, in one assertion."""
+    from vaft.code.efit.kfile import ConstraintWeights
+
+    positional = _kfile_text(tmp_path, EFITScientificConfig())
+    assert positional  # the fixture path still works
+
+    weights = ConstraintWeights.from_sequence([1, 1, 1, 0.1, 0.1, 0.1, 0.01, 0.01])
+    assert weights.probe("side") == 0.1
+
+
 def test_the_writer_holds_no_machine_timing():
     """A VEST window in a generic routine is machine policy in the wrong place."""
     source = Path("vaft/code/efit/kfile.py").read_text(encoding="utf-8")

@@ -8,9 +8,11 @@ import numpy as np
 import os
 import re
 import warnings
+from dataclasses import dataclass, fields
 from functools import partial
 from numbers import Integral
 from pathlib import Path
+from typing import Sequence
 from omas import ODS, save_omas_json
 
 from vaft.ods_access import path_value
@@ -168,6 +170,93 @@ PROBE_WEIGHT_INDEX = {"inboard": 3, "side": 4, "outboard": 5}
 FLUX_WEIGHT_INDEX = {"inboard": 6, "outboard": 7}
 
 
+@dataclass(frozen=True)
+class ConstraintErrors:
+    """The relative error assigned to each constraint family.
+
+    Every value is a fraction of the measurement: the stored
+    ``measured_error_upper`` is ``value * measured``.
+
+    These arrived as a nine-element list indexed by position, with the meaning
+    of each slot written down nowhere and copied into five workflow scripts and
+    a test. Naming them is not cosmetic: ``uncertainty[5]`` and
+    ``uncertainty[6]`` are the side probes and the outboard probes, and nothing
+    in a call site said so.
+
+    The probe and flux-loop fields still name VEST's three probe families and
+    two flux-loop families. That is the next thing to move (#708); a named
+    field at least says which family it is.
+    """
+
+    pf_current: float
+    b_field_tor_vacuum_r: float
+    ip: float
+    diamagnetic_flux: float
+    probe_inboard: float
+    probe_side: float
+    probe_outboard: float
+    flux_loop_inboard: float
+    flux_loop_outboard: float
+
+    @classmethod
+    def from_sequence(cls, values: Sequence[float]) -> "ConstraintErrors":
+        """The legacy positional list, in its documented order."""
+        expected = len(fields(cls))
+        values = [float(value) for value in values]
+        if len(values) != expected:
+            raise ValueError(
+                f"expected {expected} constraint errors in the legacy order "
+                f"({', '.join(field.name for field in fields(cls))}), got {len(values)}"
+            )
+        return cls(*values)
+
+    @classmethod
+    def coerce(cls, values: "ConstraintErrors | Sequence[float]") -> "ConstraintErrors":
+        return values if isinstance(values, cls) else cls.from_sequence(values)
+
+
+@dataclass(frozen=True)
+class ConstraintWeights:
+    """The fit weight assigned to each constraint family.
+
+    The eight-element positional twin of :class:`ConstraintErrors`, with the
+    same complaint: ``weighting[6]`` is the inboard flux loops and only
+    ``FLUX_WEIGHT_INDEX`` knew it.
+    """
+
+    pf_current: float
+    ip: float
+    diamagnetic_flux: float
+    probe_inboard: float
+    probe_side: float
+    probe_outboard: float
+    flux_loop_inboard: float
+    flux_loop_outboard: float
+
+    #: The family names the probe and flux-loop weights are keyed by, so a
+    #: caller can look one up without knowing a field name.
+    def probe(self, family: str) -> float:
+        return float(getattr(self, f"probe_{family}"))
+
+    def flux_loop(self, family: str) -> float:
+        return float(getattr(self, f"flux_loop_{family}"))
+
+    @classmethod
+    def from_sequence(cls, values: Sequence[float]) -> "ConstraintWeights":
+        expected = len(fields(cls))
+        values = [float(value) for value in values]
+        if len(values) != expected:
+            raise ValueError(
+                f"expected {expected} constraint weights in the legacy order "
+                f"({', '.join(field.name for field in fields(cls))}), got {len(values)}"
+            )
+        return cls(*values)
+
+    @classmethod
+    def coerce(cls, values: "ConstraintWeights | Sequence[float]") -> "ConstraintWeights":
+        return values if isinstance(values, cls) else cls.from_sequence(values)
+
+
 def apply_channel_decisions(
     EQ,
     decisions: ChannelDecisions,
@@ -181,9 +270,9 @@ def apply_channel_decisions(
     Per slice and submitted channel whose constraint already exists: a
     ``missing`` decision is skipped (the #145 placeholder stands); every
     other state writes ``weight = nominal * weight_factor``, where the
-    nominal weight is the family's entry of ``weighting`` (probes: inboard
-    ``[3]``, side ``[4]``, outboard ``[5]``; flux loops: inboard ``[6]``,
-    outboard ``[7]``); a ``recovered`` slice also writes the backend's value
+    nominal weight is the family's entry of ``weighting``, which may be a
+    :class:`ConstraintWeights` or the legacy positional list; a ``recovered``
+    slice also writes the backend's value
     into ``measured`` and, when it supplied one, its uncertainty into
     ``measured_error_upper``.  A channel in no family gets no weight, as the
     legacy builder left it.  Nothing is invented: a decision for a channel
@@ -193,17 +282,18 @@ def apply_channel_decisions(
     ``code.parameters.channel_decisions`` (channels with a notable state
     only) so the product says why a constraint carries the weight it does.
     """
+    weights = ConstraintWeights.coerce(weighting)
     inboard_flux, outboard_flux = (set(int(k) for k in fam) for fam in flux_families)
     written = 0
     skipped: list[tuple[str, int]] = []
     for (kind, index), decision in decisions.entries.items():
         if kind == "b_field_pol_probe":
             family = family_of(index, families)
-            nominal = None if family is None else float(weighting[PROBE_WEIGHT_INDEX[family]])
+            nominal = None if family is None else weights.probe(family)
             node = "bpol_probe"
         elif kind == "flux_loop":
             family = "inboard" if index in inboard_flux else "outboard" if index in outboard_flux else None
-            nominal = None if family is None else float(weighting[FLUX_WEIGHT_INDEX[family]])
+            nominal = None if family is None else weights.flux_loop(family)
             node = "flux_loop"
         else:
             continue
@@ -311,6 +401,10 @@ def generate_constraints_ods(
     ]
     # For later need to develop option to add other constraints (e.g. internal magnetic probe, thomson scattering, etc.)
 
+    # Accepts the legacy positional lists; everything below reads names.
+    errors = ConstraintErrors.coerce(uncertainty)
+    weights = ConstraintWeights.coerce(weighting)
+
     ods_tmp = ODS()
     PF = ods_tmp["pf_active"]
     PF_orig = ods["pf_active"]
@@ -321,7 +415,7 @@ def generate_constraints_ods(
     for i, _ in enumerate(PF["coil"]):
         PF[f"coil.{i}.current.time"] = PF["time"]
         PF[f"coil.{i}.current.data_error_upper"] = abs(
-            uncertainty[0] * PF[f"coil.{i}.current.data"]
+            errors.pf_current * PF[f"coil.{i}.current.data"]
         )
 
     #    print('___',PF['coil.0.current.data'])
@@ -331,17 +425,17 @@ def generate_constraints_ods(
     TF = ods["tf"]
     TF["b_field_tor_vacuum_r.time"] = TF["time"]
     TF["b_field_tor_vacuum_r.data_error_upper"] = abs(
-        uncertainty[1] * TF["b_field_tor_vacuum_r.data"]
+        errors.b_field_tor_vacuum_r * TF["b_field_tor_vacuum_r.data"]
     )
 
     ## (3) Ip
     MG = ods["magnetics"]
-    MG["ip.0.data_error_upper"] = abs(uncertainty[2] * MG["ip.0.data"])
+    MG["ip.0.data_error_upper"] = abs(errors.ip * MG["ip.0.data"])
 
     ## (4) Diamagnetic flux
     MG["diamagnetic_flux.0.time"] = MG["time"]
     MG["diamagnetic_flux.0.data_error_upper"] = abs(
-        uncertainty[3] * MG["diamagnetic_flux.0.data"]
+        errors.diamagnetic_flux * MG["diamagnetic_flux.0.data"]
     )
 
     ## (5) Poloidal magnetic probe
@@ -375,18 +469,18 @@ def generate_constraints_ods(
     for i in Index_inBz:
         MG[f"b_field_pol_probe.{i}.field.time"] = MG["time"]
         MG[f"b_field_pol_probe.{i}.field.data_error_upper"] = abs(
-            uncertainty[4] * MG[f"b_field_pol_probe.{i}.field.data"]
+            errors.probe_inboard * MG[f"b_field_pol_probe.{i}.field.data"]
         )
     for i in Index_sideBz:
         MG[f"b_field_pol_probe.{i}.field.time"] = MG["time"]
         MG[f"b_field_pol_probe.{i}.field.data_error_upper"] = abs(
-            uncertainty[5] * MG[f"b_field_pol_probe.{i}.field.data"]
+            errors.probe_side * MG[f"b_field_pol_probe.{i}.field.data"]
         )
 
     for i in Index_outBz:
         MG[f"b_field_pol_probe.{i}.field.time"] = MG["time"]
         MG[f"b_field_pol_probe.{i}.field.data_error_upper"] = abs(
-            uncertainty[6] * MG[f"b_field_pol_probe.{i}.field.data"]
+            errors.probe_outboard * MG[f"b_field_pol_probe.{i}.field.data"]
         )
 
     ## (6) Flux loops
@@ -419,13 +513,13 @@ def generate_constraints_ods(
     for i in Index_inFlux:
         MG[f"flux_loop.{i}.flux.time"] = MG["time"]
         MG[f"flux_loop.{i}.flux.data_error_upper"] = abs(
-            uncertainty[7] * MG[f"flux_loop.{i}.flux.data"]
+            errors.flux_loop_inboard * MG[f"flux_loop.{i}.flux.data"]
         )
 
     for i in Index_OutFlux:
         MG[f"flux_loop.{i}.flux.time"] = MG["time"]
         MG[f"flux_loop.{i}.flux.data_error_upper"] = abs(
-            uncertainty[8] * MG[f"flux_loop.{i}.flux.data"]
+            errors.flux_loop_outboard * MG[f"flux_loop.{i}.flux.data"]
         )
 
     # Convert diagnostics ODS to equilibrium constraints ODS
@@ -466,9 +560,9 @@ def generate_constraints_ods(
     # reconstruction, which is not what EFIT does.
     for i in range(len(EQ["time"])):
         for j in range(len(EQ[f"time_slice.{i}.constraints.pf_current"])):
-            EQ[f"time_slice.{i}.constraints.pf_current.{j}.weight"] = weighting[0]
-        EQ[f"time_slice.{i}.constraints.ip.weight"] = weighting[1]
-        EQ[f"time_slice.{i}.constraints.diamagnetic_flux.weight"] = weighting[2]
+            EQ[f"time_slice.{i}.constraints.pf_current.{j}.weight"] = weights.pf_current
+        EQ[f"time_slice.{i}.constraints.ip.weight"] = weights.ip
+        EQ[f"time_slice.{i}.constraints.diamagnetic_flux.weight"] = weights.diamagnetic_flux
 
     if decisions is None:
         # The legacy interface: the manual list and the fit option are the
