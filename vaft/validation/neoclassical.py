@@ -122,10 +122,15 @@ def bootstrap_models(
         provenance.setdefault("time", result.time)
 
     if include_stored:
-        stored, label = _stored_bootstrap(ods, provenance.get("provider", {}))
-        if stored is not None and grid is not None and stored.size == grid.size:
+        stored, label, stored_grid = _stored_bootstrap(ods, provenance.get("provider", {}))
+        admitted, reason = _admissible(stored, stored_grid, grid)
+        if admitted:
             series[label] = {"j_bootstrap": stored, "source": "stored"}
             provenance["stored_series"] = label
+        elif reason is not None:
+            # Say why rather than leaving the series quietly absent: "NEO is missing
+            # from this comparison" and "NEO was dropped" look identical otherwise.
+            provenance["stored_series_rejected"] = {"label": label, "reason": reason}
 
     if grid is None:
         raise ValueError("no model was evaluated; `models` was empty")
@@ -245,10 +250,39 @@ def _array(ods: Any, path: str) -> Optional[np.ndarray]:
     return values if values.size else None
 
 
-def _stored_bootstrap(ods: Any, provider: Mapping[str, Any]) -> tuple[Optional[np.ndarray], str]:
-    """An already-written j_bootstrap and the name of whatever wrote it."""
+def _admissible(
+    values: Optional[np.ndarray], source: Optional[np.ndarray], grid: Optional[np.ndarray]
+) -> tuple[bool, Optional[str]]:
+    """Whether a stored profile may join a comparison on *grid*.
+
+    Equal length is not equal radii. The stored profile lives on the ``core_profiles``
+    grid and the analytic ones on the ``equilibrium`` grid; those are different objects
+    that often have the same number of points, so admitting on length alone would
+    compare two models at different radii and report full agreement about it.
+    """
+    if values is None or grid is None:
+        return False, None
+    if source is None:
+        return False, "core_profiles carries no grid.rho_tor_norm to place it on"
+    if values.size != source.size:
+        return False, (
+            f"it has {values.size} points against a {source.size}-point core_profiles grid"
+        )
+    if source.size != grid.size or not np.allclose(source, grid, rtol=0.0, atol=1e-9):
+        return False, (
+            "it is on the core_profiles radial grid, which is not the equilibrium grid "
+            "the analytic models were evaluated on; comparing them would pair different radii"
+        )
+    return True, None
+
+
+def _stored_bootstrap(
+    ods: Any, provider: Mapping[str, Any]
+) -> tuple[Optional[np.ndarray], str, Optional[np.ndarray]]:
+    """An already-written j_bootstrap, who wrote it, and the grid it sits on."""
     index = provider.get("core_profiles_index", 0)
     values = _array(ods, f"core_profiles.profiles_1d.{index}.j_bootstrap")
+    source = _array(ods, f"core_profiles.profiles_1d.{index}.grid.rho_tor_norm")
     label = "stored"
     try:
         if "core_profiles.code.name" in ods:
@@ -257,7 +291,7 @@ def _stored_bootstrap(ods: Any, provider: Mapping[str, Any]) -> tuple[Optional[n
                 label = written_by.lower()
     except (KeyError, ValueError, TypeError):
         pass
-    return values, label
+    return values, label, source
 
 
 def _integrate(values: np.ndarray, grid: np.ndarray, area: Optional[np.ndarray]) -> float:

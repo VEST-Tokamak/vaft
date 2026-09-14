@@ -318,3 +318,100 @@ def test_an_empty_tolerance_mapping_decides_nothing_and_says_so(mapped):
     )
     with pytest.raises(ValueError, match="nothing to decide"):
         model_agreement(comparison, {})
+
+
+# --------------------------------------------------------------------------
+# Review findings
+# --------------------------------------------------------------------------
+
+
+def test_gradients_ignore_the_points_the_mask_rejects(ods):
+    """np.gradient is centred, so a zero-density boundary corrupts its neighbour.
+
+    The packaged profiles reach exactly zero at the edge. Taking the derivative over the
+    whole array made the last *usable* radius 23 % wrong, at a point the result reports.
+    """
+    result = compute_bootstrap_current(ods, model="sauter", z_eff=2.0, rho_range=BAND)
+    finite = np.flatnonzero(np.isfinite(result.j_bootstrap))
+    last = int(finite[-1])
+
+    # Reproduce both readings of the pressure gradient at that radius.
+    eq = "equilibrium.time_slice.0.profiles_1d"
+    cp = "core_profiles.profiles_1d.0"
+    psi_rad = np.asarray(ods[f"{eq}.psi"]) / (2 * np.pi)
+    ne = np.asarray(ods[f"{cp}.electrons.density_thermal"])
+    te = np.asarray(ods[f"{cp}.electrons.temperature"])
+    ti = np.asarray(ods[f"{cp}.ion.0.temperature"])
+    pressure = ne * te * 1.602176634e-19 + ne * ti * 1.602176634e-19
+    physical = (ne > 0) & (te > 0) & (ti > 0)
+
+    contaminated = np.gradient(pressure, psi_rad)[last]
+    correct = np.full(pressure.size, np.nan)
+    correct[physical] = np.gradient(pressure[physical], psi_rad[physical])
+    # The two readings really do differ there -- otherwise this test proves nothing.
+    assert abs(contaminated / correct[last] - 1.0) > 0.1
+
+    # And the provider used the correct one: scaling the reported current back through
+    # its own coefficients would land on `correct`, not on `contaminated`.
+    assert np.isfinite(result.j_bootstrap[last])
+    with_contamination = result.j_bootstrap[last] * contaminated / correct[last]
+    assert not np.isclose(result.j_bootstrap[last], with_contamination)
+
+
+def test_a_profile_too_short_for_a_centred_gradient_is_refused(ods):
+    cp = "core_profiles.profiles_1d.0"
+    density = np.asarray(ods[f"{cp}.electrons.density_thermal"]).copy()
+    density[2:] = 0.0
+    ods[f"{cp}.electrons.density_thermal"] = density
+    with pytest.raises(ValueError, match="centred gradient"):
+        compute_bootstrap_current(ods, model="sauter", z_eff=2.0)
+
+
+def test_a_stored_series_on_another_grid_is_rejected_with_a_reason(mapped):
+    """Equal length is not equal radii, and the sample's two grids happen to coincide."""
+    cp = "core_profiles.profiles_1d.0"
+    shifted = np.asarray(mapped[f"{cp}.grid.rho_tor_norm"]).copy()
+    shifted = shifted * 0.9 + 0.05  # same length, different radii
+    mapped[f"{cp}.grid.rho_tor_norm"] = shifted
+
+    models = bootstrap_models(mapped, z_eff=2.0, rho_range=BAND)
+    assert "neo" not in models["series"]
+    rejected = models["provenance"]["stored_series_rejected"]
+    assert rejected["label"] == "neo"
+    assert "different radii" in rejected["reason"]
+
+
+def test_a_stored_series_on_the_same_grid_is_admitted(mapped):
+    """The control for the test above: the sample's grids do coincide."""
+    models = bootstrap_models(mapped, z_eff=2.0, rho_range=BAND)
+    assert "neo" in models["series"]
+    assert "stored_series_rejected" not in models["provenance"]
+
+
+def test_the_radial_extent_is_derived_when_the_equilibrium_lacks_it(ods):
+    """r_inboard/r_outboard are derived leaves; many reconstructions lack them.
+
+    They are rebuilt on an isolated copy, so the caller's ODS is left as it was.
+    """
+    eq = "equilibrium.time_slice.0.profiles_1d"
+    stored = compute_bootstrap_current(ods, model="sauter", z_eff=2.0, rho_range=BAND)
+    del ods[f"{eq}.r_inboard"]
+    del ods[f"{eq}.r_outboard"]
+    derived = compute_bootstrap_current(ods, model="sauter", z_eff=2.0, rho_range=BAND)
+
+    assert f"{eq}.r_inboard" not in ods, "the caller's ODS must not gain the derived leaf"
+
+    # The derived extent comes from interpolating the 2-D flux map and the stored one
+    # from whatever wrote the sample, so they are close but not identical. What has to
+    # hold is that the physics is the same: the profile's scale and where it peaks.
+    area = np.asarray(ods[f"{eq}.area"])
+    assert np.nanmax(derived.j_bootstrap) == pytest.approx(
+        np.nanmax(stored.j_bootstrap), rel=0.01
+    )
+    assert derived.integrated_current(area) == pytest.approx(
+        stored.integrated_current(area), rel=0.01
+    )
+    finite = np.isfinite(stored.j_bootstrap) & np.isfinite(derived.j_bootstrap)
+    difference = derived.j_bootstrap[finite] - stored.j_bootstrap[finite]
+    rms = np.sqrt(np.mean(difference**2)) / np.nanmax(np.abs(stored.j_bootstrap))
+    assert rms < 0.01

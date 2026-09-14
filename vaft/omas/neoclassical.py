@@ -311,8 +311,21 @@ def compute_bootstrap_current(
     factor = ods_psi_to_wb_per_radian_factor(ods, time_index=eq_index)
     psi_radian = psi * factor
 
-    usable = keep & np.isfinite(density) & np.isfinite(temperature) & np.isfinite(ion_temperature)
-    usable &= (density > 0.0) & (temperature > 0.0) & (ion_temperature > 0.0) & (epsilon > 0.0)
+    # Two masks, deliberately separate. `physical` is where the state is usable at all;
+    # `keep` is the band the caller asked to see. Gradients are taken over `physical`
+    # only -- np.gradient is a centred difference, so including a zero-density boundary
+    # point corrupts its neighbour, which is a point the mask kept. But they are *not*
+    # taken over `keep`: a radius excluded only by rho_range is real data, and dropping
+    # it would corrupt the gradient at the band edge instead.
+    physical = np.isfinite(density) & np.isfinite(temperature) & np.isfinite(ion_temperature)
+    physical &= (density > 0.0) & (temperature > 0.0) & (ion_temperature > 0.0)
+    physical &= (epsilon > 0.0) & np.isfinite(q_profile) & np.isfinite(f_profile)
+    usable = keep & physical
+    if int(np.count_nonzero(physical)) < 3:
+        raise ValueError(
+            "fewer than three grid points carry a positive density and temperature; a "
+            "centred gradient cannot be formed"
+        )
     if int(np.count_nonzero(usable)) < 2:
         raise ValueError(
             "fewer than two grid points carry a positive density and temperature inside "
@@ -321,10 +334,17 @@ def compute_bootstrap_current(
 
     pressure_e = density * temperature * _ELEMENTARY_CHARGE
     pressure_i = density * ion_temperature * _ELEMENTARY_CHARGE
-    gradient = lambda values: np.gradient(values, psi_radian)  # noqa: E731
-    log_gradient = lambda values: np.divide(  # noqa: E731
-        gradient(values), values, out=np.zeros_like(values), where=usable
-    )
+
+    def gradient(values: np.ndarray) -> np.ndarray:
+        """d/dpsi over the physical points, placed back on the full grid."""
+        full = np.full(values.size, np.nan)
+        full[physical] = np.gradient(values[physical], psi_radian[physical])
+        return full
+
+    def log_gradient(values: np.ndarray) -> np.ndarray:
+        return np.divide(
+            gradient(values), values, out=np.full(values.size, np.nan), where=physical
+        )
 
     nu_e = np.asarray(
         electron_collisionality_sauter(
