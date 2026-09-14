@@ -751,7 +751,108 @@ def extract_volume_averaged(ods, shot: int) -> list[dict]:
     return rows
 
 
-def _equilibrium_lineage(ods, eq_index: int) -> str:
+def _efit_collection(ods) -> dict:
+    """The EFIT collection payload, parsed out of the one string that replicates.
+
+    ``equilibrium.code.parameters`` is a `STR_0D`, so this is where the EFIT
+    stage puts the provenance that has to survive an entry (#380).  Everything
+    else it writes under that field is a local parser cache that is left behind
+    on purpose (#642), which is why the lineage below reads the string rather
+    than the cache it used to read.
+    """
+    raw = _safe_get(ods, "equilibrium.code.parameters", None)
+    if not isinstance(raw, str):
+        return {}
+    try:
+        return dict(json.loads(raw).get("efit_collection") or {})
+    except (TypeError, ValueError, AttributeError):
+        return {}  # CHEASE writes its own payload here, and XML is not ours
+
+
+def _slice_artifacts(collection: dict, eq_time) -> dict:
+    """The artifact hashes of the slice at ``eq_time``, from the payload.
+
+    A slice status carries the time it was reconstructed at and the paths of
+    the files that run produced; ``artifact_hashes`` is keyed by those same
+    paths.  Matching on time rather than on position is what makes this safe:
+    a rejected slice is in ``slice_statuses`` and not in ``equilibrium``, so
+    the two are not index-aligned.
+    """
+    if eq_time is None or not np.isfinite(_as_float(eq_time)):
+        return {}
+    hashes = collection.get("artifact_hashes") or {}
+    best, best_delta = None, None
+    for status in collection.get("slice_statuses") or []:
+        if not isinstance(status, dict):
+            continue
+        delta = abs(_as_float(status.get("time")) - _as_float(eq_time))
+        if not np.isfinite(delta):
+            continue
+        if best_delta is None or delta < best_delta:
+            best, best_delta = status, delta
+    if best is None or best_delta > _SLICE_TIME_TOLERANCE_S:
+        return {}
+    outputs = (best.get("provenance") or {}).get("outputs") or {}
+    found = {}
+    for kind in ("gfile", "mfile"):
+        path = outputs.get(kind)
+        if not path:
+            # The run recorded that it produced no such file -- an optional
+            # m-file, a slice that never converged.  That is an answer, not a
+            # gap, and saying "not replicated" would send a reader after a
+            # file nobody wrote.
+            found[f"{kind}_sha256"] = _NOT_PRODUCED
+        elif path in hashes:
+            found[f"{kind}_sha256"] = hashes[path]
+    return found
+
+
+#: How far a payload slice time may sit from an equilibrium slice time and
+#: still be the same reconstruction.  The two come from the same run, so this
+#: is a float-comparison margin, not a search window.
+_SLICE_TIME_TOLERANCE_S = 1.0e-6
+
+#: Recorded in place of a lineage field a replica cannot carry.  A field that
+#: cannot be filled is named rather than dropped: an absent key reads the same
+#: as an artifact nobody hashed, which is how three of these went missing from
+#: every summary for a year (#728).
+_UNAVAILABLE = "not replicated"
+
+#: Recorded when the payload says that run produced no such artifact.  The
+#: distinction from :data:`_UNAVAILABLE` is the whole point of this field
+#: existing: one is a gap in what travelled, the other is a fact about the run.
+_NOT_PRODUCED = "not produced"
+
+
+def _slice_time(ods, eq_index: int):
+    """The time of one equilibrium slice, or ``None`` when it is not recorded.
+
+    :func:`_extract_time` falls back to the slice's own index, which is right
+    for a column of times and wrong here: an index used as a time would match
+    whatever status happens to sit near that many seconds.
+    """
+    eq_slice = _safe_get(ods, f"equilibrium.time_slice.{eq_index}", None)
+    if eq_slice is not None:
+        try:
+            if "time" in eq_slice:
+                return _as_float(eq_slice["time"])
+        except Exception:
+            pass
+    if "equilibrium.time" in ods:
+        times = np.asarray(ods["equilibrium.time"], dtype=float)
+        if eq_index < len(times):
+            return float(times[eq_index])
+    return None
+
+
+def _equilibrium_lineage(ods, eq_index: int, collection: dict | None = None) -> str:
+    """The lineage blob for one equilibrium slice.
+
+    ``collection`` is the parsed EFIT payload.  The caller loops over slices and
+    the payload is one string per shot carrying a hash per artifact, so it is
+    parsed once there and passed in; parsed here it would be a six-figure-byte
+    parse per slice.
+    """
     values = {}
     for name, path in (
         ("machine", "dataset_description.data_entry.machine"),
@@ -760,19 +861,6 @@ def _equilibrium_lineage(ods, eq_index: int) -> str:
         ("comment", "equilibrium.ids_properties.comment"),
         ("code_name", "equilibrium.code.name"),
         ("code_version", "equilibrium.code.version"),
-        (
-            "mapping_source_revision",
-            "equilibrium.code.parameters.time_slice."
-            f"{eq_index}.meqdsk.mapping_source_revision",
-        ),
-        (
-            "gfile_sha256",
-            f"equilibrium.code.parameters.time_slice.{eq_index}.artifacts.gfile.sha256",
-        ),
-        (
-            "mfile_sha256",
-            f"equilibrium.code.parameters.time_slice.{eq_index}.artifacts.mfile.sha256",
-        ),
     ):
         value = _safe_get(ods, path, None)
         if value is not None:
@@ -783,6 +871,17 @@ def _equilibrium_lineage(ods, eq_index: int) -> str:
             except (TypeError, ValueError):
                 value = str(value)
             values[name] = value
+
+    collection = _efit_collection(ods) if collection is None else collection
+    revision = collection.get("mapping_source_revision")
+    if revision is not None:
+        values["mapping_source_revision"] = str(revision)
+    artifacts = _slice_artifacts(collection, _slice_time(ods, eq_index))
+    for name in ("gfile_sha256", "mfile_sha256"):
+        if name in artifacts:
+            values[name] = artifacts[name]
+        elif collection:
+            values[name] = _UNAVAILABLE
     return json.dumps(values, sort_keys=True, separators=(",", ":"))
 
 
@@ -843,10 +942,11 @@ def _extract_efit_reliability_families(
     if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
         return []
     equilibrium_times = _safe_get(ods, "equilibrium.time", [])
+    collection = _efit_collection(ods)
     rows: list[dict] = []
     for eq_index in range(len(ods["equilibrium.time_slice"])):
         equilibrium_slice = ods["equilibrium.time_slice"][eq_index]
-        lineage = _equilibrium_lineage(ods, eq_index)
+        lineage = _equilibrium_lineage(ods, eq_index, collection)
         time_s = _extract_time(equilibrium_slice, equilibrium_times, eq_index)
         ip_kA = _as_float(_safe_get(equilibrium_slice, "global_quantities.ip")) / 1e3
         aggregate_chi_squared = _as_float(

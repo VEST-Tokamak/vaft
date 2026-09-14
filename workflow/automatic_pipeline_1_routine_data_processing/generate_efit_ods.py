@@ -11,6 +11,7 @@ from pathlib import Path
 from omas import ODS, load_omas_json, save_omas_json
 
 from vaft.code.efit import EFITConfig, collect_efit_outputs
+from vaft.data.meqdsk import EFIT_MAPPING_SOURCE_REVISION
 from vaft.omas.vest_upstream import write_manifest
 
 
@@ -33,6 +34,7 @@ def efit_collection_parameters(
     mapping_diagnostics,
     artifact_hashes,
     artifact_manifest,
+    mapping_source_revision=EFIT_MAPPING_SOURCE_REVISION,
 ) -> str:
     """Serialize the EFIT collection payload for `equilibrium.code.parameters`.
 
@@ -40,6 +42,12 @@ def efit_collection_parameters(
     records has to travel inside one serialized document. Kept as a function so
     a reader can recover the payload with `json.loads` and a test can pin the
     round trip without running the stage.
+
+    `mapping_source_revision` is the revision of the m-file mapper that built
+    this product. It is also written into the per-slice parser cache, but that
+    cache stays on the local product (#642), and a revision read back from the
+    reader's own constant would describe the reader rather than the run -- so
+    it is recorded here, where it replicates (#728).
     """
     return json.dumps(
         {
@@ -49,6 +57,7 @@ def efit_collection_parameters(
                 "mapping_diagnostics": list(mapping_diagnostics),
                 "artifact_hashes": dict(artifact_hashes),
                 "artifact_manifest": artifact_manifest,
+                "mapping_source_revision": str(mapping_source_revision),
             }
         },
         sort_keys=True,

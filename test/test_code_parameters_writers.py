@@ -68,10 +68,6 @@ ALLOWED: dict[str, tuple[tuple[str, str, str], ...]] = {
          "replicated copy of this provenance is the JSON string generate_efit_ods.py "
          "writes (#380)"),
     ),
-    "vaft/database/_summary.py": (
-        ("equilibrium.code.parameters.time_slice.", "read",
-         "shot overview reads the cache from the local product it summarizes"),
-    ),
     "vaft/omas/efit_quality.py": (
         ("equilibrium.code.parameters.time_slice.", "read", "fit quality reads the cache"),
     ),
@@ -81,9 +77,6 @@ ALLOWED: dict[str, tuple[tuple[str, str, str], ...]] = {
     # -- Tests that build or read that cache as a fixture.
     "test/test_aeqdsk.py": (
         ("equilibrium.code.parameters.time_slice.", "read", "a-file cache fixture"),
-    ),
-    "test/test_database_summary.py": (
-        ("equilibrium.code.parameters.time_slice.", "write", "shot overview fixture"),
     ),
     "test/test_diamagnetic_flux_sign.py": (
         ("equilibrium.code.parameters.time_slice.", "write", "k-file namelist fixture"),
