@@ -5,11 +5,12 @@ This module provides common utility functions and fitting utilities used through
 the formula module.
 """
 
+import warnings
+
 import numpy as np
-from typing import Union, Tuple, List, Dict
-from scipy.optimize import curve_fit
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
+from typing import Union, Tuple, List, Dict, NamedTuple
+from scipy.linalg import cho_factor, cho_solve
+from scipy.optimize import curve_fit, minimize
 from vaft.compat import trapz_compat
 
 
@@ -75,6 +76,248 @@ def trapz_integral(x: np.ndarray, y: np.ndarray) -> float:
     return trapz_compat(y, x=x)
 
 
+
+
+# ---------------------------------------------------------------------------
+# Gaussian-process regression (issue #426)
+#
+# Written against scipy so that scikit-learn is an optional dependency rather
+# than a hard one: it was imported at module scope for this single fitting
+# mode, and every module that needed `gradient` paid the whole import.
+# ---------------------------------------------------------------------------
+
+#: Kernel hyperparameter bounds, matching the sklearn kernel this replaced
+#: (``ConstantKernel(1.0, (1e-3, 1e3)) * RBF(0.3, (0.05, 5.0))``).
+_GP_CONSTANT_BOUNDS = (1e-3, 1e3)
+_GP_LENGTH_SCALE_BOUNDS = (0.05, 5.0)
+_GP_JITTER = 1e-10
+
+
+def _target_scale(values) -> float:
+    """The standard deviation to normalise a target by, or 1.0 when it has none.
+
+    Both Gaussian-process paths normalise by this, so both reject a
+    non-finite scale the same way; ``float(np.std(...)) or 1.0`` does not,
+    because NaN is truthy (#714).
+    """
+    scale = float(np.std(np.asarray(values, dtype=float)))
+    return scale if np.isfinite(scale) and scale != 0.0 else 1.0
+
+
+def _gp_kernel(xa: np.ndarray, xb: np.ndarray, constant: float, length_scale: float) -> np.ndarray:
+    """Squared-exponential covariance, ``constant * exp(-d^2 / 2 l^2)``."""
+    distance = xa.reshape(-1, 1) - xb.reshape(1, -1)
+    return constant * np.exp(-0.5 * (distance / length_scale) ** 2)
+
+
+def _gp_posterior(x, y, noise_variance, x_eval, constant, length_scale):
+    """Posterior mean and standard deviation at ``x_eval``, hyperparameters fixed.
+
+    Cholesky rather than an explicit inverse: the covariance is symmetric
+    positive definite by construction, and ``cho_solve`` is both faster and
+    better conditioned than forming ``K^-1``.
+    """
+    gram = _gp_kernel(x, x, constant, length_scale)
+    gram[np.diag_indices_from(gram)] += noise_variance + _GP_JITTER
+    factor = cho_factor(gram, lower=True)
+    weights = cho_solve(factor, y)
+
+    cross = _gp_kernel(x_eval, x, constant, length_scale)
+    mean = cross @ weights
+
+    solved = cho_solve(factor, cross.T)
+    variance = constant - np.einsum("ij,ji->i", cross, solved)
+    return mean, np.sqrt(np.clip(variance, 0.0, None))
+
+
+def _gp_negative_log_marginal_likelihood(theta, x, y, noise_variance):
+    """-log p(y | x) for log-hyperparameters ``theta = (log c, log l)``."""
+    constant, length_scale = np.exp(theta)
+    gram = _gp_kernel(x, x, constant, length_scale)
+    gram[np.diag_indices_from(gram)] += noise_variance + _GP_JITTER
+    try:
+        factor = cho_factor(gram, lower=True)
+    except np.linalg.LinAlgError:
+        return np.inf
+    weights = cho_solve(factor, y)
+    log_determinant = 2.0 * np.sum(np.log(np.diag(factor[0])))
+    return 0.5 * (y @ weights + log_determinant + y.size * np.log(2.0 * np.pi))
+
+
+class _GPState(NamedTuple):
+    """One trained Gaussian process: the data it saw and the fit it settled on.
+
+    Split out of :func:`gp_fit` so a caller that evaluates the same fit many
+    times -- :func:`fit_profile` hands back a callable that does exactly that --
+    pays the hyperparameter search once instead of once per evaluation.
+    """
+
+    x: np.ndarray
+    y_normalised: np.ndarray
+    noise_variance: np.ndarray
+    constant: float
+    length_scale: float
+    y_mean: float
+    y_scale: float
+
+
+def _gp_train(x, y, y_std, *, n_restarts_optimizer: int = 5, random_state: int = 0) -> "_GPState":
+    """Standardise, optimise the marginal likelihood, and return the fit."""
+    x = np.asarray(x, dtype=float).reshape(-1)
+    y = np.asarray(y, dtype=float).reshape(-1)
+    if x.size != y.size:
+        raise ValueError(f"gp_fit: x and y must be the same length, got {x.size} and {y.size}")
+
+    # Checked here rather than left to scipy: `cho_solve` validates its input
+    # and raises "array must not contain infs or NaNs" from three frames down,
+    # naming neither the argument nor the caller. `fit_profile` masks its
+    # primary data but appends `gp_anchor` points afterwards, so a non-finite
+    # anchor reaches this untouched (#714).
+    for name, values in (("x", x), ("y", y)):
+        if not np.all(np.isfinite(values)):
+            raise ValueError(
+                f"gp_fit: {name} contains non-finite values, which the covariance "
+                "solve cannot accept; mask them before fitting (a gp_anchor point "
+                "is appended after fit_profile's own masking)."
+            )
+
+    # Standardise, as sklearn's normalize_y=True does: the hyperparameter
+    # bounds are then scale-free.
+    y_mean = float(np.mean(y))
+    y_scale = _target_scale(y)
+    y_normalised = (y - y_mean) / y_scale
+
+    if y_std is None:
+        noise_variance = np.full(x.size, _GP_JITTER)
+    else:
+        noise_variance = (np.asarray(y_std, dtype=float).reshape(-1) / y_scale) ** 2
+
+    bounds = [np.log(_GP_CONSTANT_BOUNDS), np.log(_GP_LENGTH_SCALE_BOUNDS)]
+    starts = [np.array([np.log(1.0), np.log(0.3)])]
+    rng = np.random.default_rng(random_state)
+    for _ in range(max(0, int(n_restarts_optimizer))):
+        starts.append(np.array([rng.uniform(*bounds[0]), rng.uniform(*bounds[1])]))
+
+    best_theta, best_value = starts[0], np.inf
+    for start in starts:
+        result = minimize(
+            _gp_negative_log_marginal_likelihood,
+            start,
+            args=(x, y_normalised, noise_variance),
+            method="L-BFGS-B",
+            bounds=bounds,
+        )
+        if result.fun < best_value:
+            best_theta, best_value = result.x, float(result.fun)
+
+    # No restart produced a finite marginal likelihood, so there are no
+    # hyperparameters to evaluate at. Say which stage gave up rather than
+    # letting the posterior raise the same LinAlgError one frame later.
+    if not np.isfinite(best_value):
+        raise ValueError(
+            "gp_fit: no restart produced a finite marginal likelihood, so no "
+            "hyperparameters were found. The covariance is singular for this "
+            "data -- check for duplicated abscissae, or for a supplied y_std "
+            "that is zero where the data repeats."
+        )
+
+    constant, length_scale = np.exp(best_theta)
+    return _GPState(
+        x=x,
+        y_normalised=y_normalised,
+        noise_variance=noise_variance,
+        constant=float(constant),
+        length_scale=float(length_scale),
+        y_mean=y_mean,
+        y_scale=y_scale,
+    )
+
+
+def _gp_evaluate(state: "_GPState", x_eval):
+    """Posterior mean and standard deviation of a trained fit, in data units."""
+    x_eval = np.asarray(x_eval, dtype=float).reshape(-1)
+    mean, std = _gp_posterior(
+        state.x, state.y_normalised, state.noise_variance, x_eval,
+        state.constant, state.length_scale,
+    )
+    return mean * state.y_scale + state.y_mean, std * state.y_scale
+
+
+def gp_fit(x, y, y_std, x_eval, *, n_restarts_optimizer: int = 5, random_state: int = 0):
+    """Fit a squared-exponential Gaussian process and evaluate it on a grid.
+
+    Parameters
+    ----------
+    x : array-like
+        Data abscissae, 1-D [any].
+    y : array-like
+        Data values [any].
+    y_std : array-like or None
+        Per-point one-sigma uncertainty, entering as the diagonal noise;
+        ``None`` uses a numerical jitter [any].
+    x_eval : array-like
+        Evaluation grid [any].
+    n_restarts_optimizer : int, optional
+        Extra random restarts of the marginal-likelihood optimisation, on top of
+        the one from the default hyperparameters; default 5 [-].
+    random_state : int, optional
+        Seed for the restart draws, so a fit is reproducible; default 0 [-].
+
+    Returns
+    -------
+    mean : np.ndarray
+        Posterior mean on ``x_eval`` [any].
+    std : np.ndarray
+        Posterior standard deviation on ``x_eval`` [any].
+
+    Numerical notes
+    ---------------
+    ``y`` is standardised before fitting and the posterior is mapped back,
+    which is what makes one set of hyperparameter bounds work for data in
+    m^-3 and in keV alike.  The marginal likelihood is optimised with
+    ``scipy.optimize.minimize`` (L-BFGS-B) over the log-hyperparameters.
+
+    References
+    ----------
+    .. [1] C. E. Rasmussen and C. K. I. Williams, *Gaussian Processes for
+           Machine Learning*, MIT Press (2006), Algorithm 2.1 and Eq. (5.8).
+    """
+    state = _gp_train(
+        x, y, y_std,
+        n_restarts_optimizer=n_restarts_optimizer,
+        random_state=random_state,
+    )
+    return _gp_evaluate(state, x_eval)
+
+
+def _guarded_ratio(numerator, denominator, *, what: str, because: str):
+    """Divide, or warn and return NaN when the denominator vanishes.
+
+    NaN rather than an exception because these ratios sit under plotting and
+    summary paths, where one degenerate slice should blank a point rather than
+    take down the figure; a warning rather than a silent NaN because the
+    degenerate case is real -- packaged VEST samples contain a slice whose axis
+    and boundary flux are equal -- and it used to propagate as ``inf`` with
+    nothing to say where it started.
+
+    Mirrors ``vaft.formula.equilibrium._virial_ratio``, which makes the same
+    trade for the Shafranov closures but is called in tight loops where the
+    warning would be noise.
+    """
+    denominator = np.asarray(denominator, dtype=float)
+    degenerate = ~np.isfinite(denominator) | (denominator == 0.0)
+    if np.any(degenerate):
+        warnings.warn(
+            f"{what}: {because} is zero or non-finite, so the ratio is undefined; "
+            "returning nan",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        safe = np.where(degenerate, np.nan, denominator)
+        return np.asarray(numerator, dtype=float) / safe
+    return numerator / denominator
+
+
 def normalize_profile(x: Union[float, np.ndarray],
                      x_axis: float,
                      x_boundary: float) -> Union[float, np.ndarray]:
@@ -96,13 +339,18 @@ def normalize_profile(x: Union[float, np.ndarray],
     float or np.ndarray
         Normalised values, 0 at the axis value and 1 at the boundary value [-].
 
-    Limitations
-    -----------
-    No guard against ``x_boundary == x_axis``: a degenerate equilibrium with
-    equal axis and boundary flux, which packaged VEST samples do contain,
-    returns ``inf``/``nan``.  Tracked in #357.
+    Numerical notes
+    ---------------
+    A degenerate profile whose axis and boundary values are equal -- which
+    packaged VEST samples do contain -- warns and returns ``nan`` rather than
+    propagating ``inf``.
     """
-    return (x - x_axis) / (x_boundary - x_axis)
+    return _guarded_ratio(
+        x - x_axis,
+        x_boundary - x_axis,
+        what="normalize_profile",
+        because="x_boundary - x_axis",
+    )
 
 
 def calculate_peaking_factor(central: float,
@@ -123,11 +371,13 @@ def calculate_peaking_factor(central: float,
     float
         Peaking factor [-].
 
-    Limitations
-    -----------
-    No guard against a zero volume average.  Tracked in #357.
+    Numerical notes
+    ---------------
+    A zero volume average warns and returns ``nan``.
     """
-    return central / volume_avg
+    return _guarded_ratio(
+        central, volume_avg, what="calculate_peaking_factor", because="volume_avg"
+    )
 
 
 def calculate_volume_weighted_average(x: np.ndarray,
@@ -148,11 +398,16 @@ def calculate_volume_weighted_average(x: np.ndarray,
     float
         Volume-weighted average in the unit of ``x`` [any].
 
-    Limitations
-    -----------
-    No guard against a zero total volume.  Tracked in #357.
+    Numerical notes
+    ---------------
+    A zero total volume warns and returns ``nan``.
     """
-    return np.sum(x * V) / np.sum(V)
+    return _guarded_ratio(
+        np.sum(x * V),
+        np.sum(V),
+        what="calculate_volume_weighted_average",
+        because="sum(V)",
+    )
 
 
 def calculate_poloidal_flux(R: np.ndarray,
@@ -491,14 +746,15 @@ def fit_profile(
         1 (default) weights by ``y_std`` when given; 0 ignores it [-].
     fitting_function : str, optional
         Model name, default ``'polynomial'`` [str].
-        One of ``'gp'``, ``'polynomial'``, ``'free_polynomial'``,
+        One of ``'gp'`` (scipy), ``'gp_sklearn'``, ``'polynomial'``, ``'free_polynomial'``,
         ``'exponential'``, ``'free_exponential'``, ``'linear'``,
         ``'core_poly_edge_exp'``, ``'eped_tanh'``, ``'sqrt'``,
         ``'sqrt_exponential'``.  ``'eped_tanh'`` fits the seven-parameter
         pedestal model ``(f0, f_ped, f_sep, x_ped, width, alpha, beta)`` and is
         what :func:`vaft.process.profile.pedestal_top` uses.
     gp_kernel : sklearn kernel or None, optional
-        Kernel for the GP mode; default constant times RBF [n/a].
+        Kernel for ``'gp_sklearn'`` only; ignored, with a warning, by the scipy
+        ``'gp'`` mode; default constant times RBF [n/a].
     gp_anchor : tuple or None, optional
         ``(x_anchor, y_anchor, y_std_anchor)`` extra points for the GP [n/a].
     n_restarts_optimizer : int, optional
@@ -549,8 +805,6 @@ def fit_profile(
     >>> fit_profile(x, y, y_std, x_eval, fitting_function='linear')
     >>> fit_profile(x, y, y_std, x_eval, order=3, fitting_function='core_poly_edge_exp')
     """
-    import warnings
-
     # --- input sanitization: accept lists, mask non-finite / non-positive-sigma points ---
     x = np.asarray(x, dtype=float).reshape(-1)
     y = np.asarray(y, dtype=float).reshape(-1)
@@ -574,9 +828,7 @@ def fit_profile(
             "fit_profile requires at least 2 valid data points after masking"
         )
 
-    if fitting_function.lower() == 'gp':
-        kernel = gp_kernel or (C(1.0, (1e-3, 1e3)) * RBF(length_scale=0.3, length_scale_bounds=(0.05, 5.0)))
-
+    if fitting_function.lower() in {'gp', 'gp_sklearn'}:
         if gp_anchor is not None:
             x_anchor, y_anchor, y_std_anchor = gp_anchor
             x_gp = np.append(x.ravel(), np.ravel(x_anchor))
@@ -592,22 +844,65 @@ def fit_profile(
             y_gp = y
             y_std_gp = y_std
 
-        gp = GaussianProcessRegressor(
-            kernel=kernel,
-            alpha=y_std_gp**2 if y_std_gp is not None else 1e-10,
-            normalize_y=True,
-            n_restarts_optimizer=n_restarts_optimizer,
-        )
-        gp.fit(x_gp[:, None], y_gp)
+        if fitting_function.lower() == 'gp_sklearn':
+            # Imported here, not at module scope: this branch is the only thing
+            # in vaft.formula that needs scikit-learn, and importing it eagerly
+            # made it a hard dependency of the whole package (#426).
+            try:
+                from sklearn.gaussian_process import GaussianProcessRegressor
+                from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
+            except ImportError as exc:  # pragma: no cover - depends on the environment
+                raise ImportError(
+                    "fitting_function='gp_sklearn' needs scikit-learn, which is an "
+                    "optional dependency: pip install 'vaft[sklearn]', or use "
+                    "fitting_function='gp' for the scipy implementation."
+                ) from exc
 
-        y_eval, y_std_eval = gp.predict(x_eval[:, None], return_std=True)
+            kernel = gp_kernel or (
+                C(1.0, _GP_CONSTANT_BOUNDS) * RBF(0.3, _GP_LENGTH_SCALE_BOUNDS)
+            )
+            # normalize_y standardizes the target but leaves alpha alone, so the
+            # noise has to be handed over already in normalized units -- passing
+            # the raw variance understates it by var(y), which is what this code
+            # used to do.
+            scale = _target_scale(y_gp)
+            alpha = (np.asarray(y_std_gp, float) / scale) ** 2 if y_std_gp is not None else _GP_JITTER
+            gp = GaussianProcessRegressor(
+                kernel=kernel,
+                alpha=alpha,
+                normalize_y=True,
+                n_restarts_optimizer=n_restarts_optimizer,
+            )
+            gp.fit(x_gp[:, None], y_gp)
+            y_eval, y_std_eval = gp.predict(x_eval[:, None], return_std=True)
+
+            def fit_function(x_input):
+                x_arr = np.asarray(x_input, float).reshape(-1, 1)
+                return gp.predict(x_arr)
+
+            return y_eval, y_std_eval, fit_function, None
+
+        if gp_kernel is not None:
+            warnings.warn(
+                "gp_kernel describes a scikit-learn kernel object and is ignored "
+                "by the scipy implementation; pass fitting_function='gp_sklearn' "
+                "to use it.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
+        # Trained once. The returned callable re-evaluates that fit rather than
+        # re-running the hyperparameter search, which is what the sklearn branch
+        # gets for free by handing back a fitted estimator's predict.
+        gp_state = _gp_train(
+            x_gp, y_gp, y_std_gp, n_restarts_optimizer=n_restarts_optimizer
+        )
+        y_eval, y_std_eval = _gp_evaluate(gp_state, x_eval)
 
         def fit_function(x_input):
-            x_arr = np.asarray(x_input, float).reshape(-1, 1)
-            return gp.predict(x_arr)
+            return _gp_evaluate(gp_state, np.asarray(x_input, float).reshape(-1))[0]
 
-        coeffs = None
-        return y_eval, y_std_eval, fit_function, coeffs
+        return y_eval, y_std_eval, fit_function, None
 
     if fitting_function.lower() == 'linear':
         sort_idx = np.argsort(x)

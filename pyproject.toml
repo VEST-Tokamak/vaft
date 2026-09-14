@@ -49,7 +49,6 @@ dependencies = [
   "PyYAML==6.0.2",
   "requests-unixsocket==0.4.1",
   "scikit-image",
-  "scikit-learn",
   "scipy>=1.13.0,<2",
   "seaborn",
   "setuptools>=64.0.0,<81.0.0",
@@ -71,8 +70,14 @@ dependencies = [
 vaft = "vaft.cli._main:main"
 
 [project.optional-dependencies]
+# scikit-learn is needed only by `fit_profile(fitting_function='gp_sklearn')`.
+# The default 'gp' mode is implemented against scipy, so the package no longer
+# pays a heavy import for one optional fitting backend (#426).
+sklearn = ["scikit-learn"]
 dev = [
   "pytest",
+  # for test_fit_profile_gp_backends.py, which compares the two GP backends
+  "scikit-learn",
   # The suite is 4800+ largely independent tests; running them on one core is
   # what made the required CI check a 20-minute gate (issue #413).
   "pytest-xdist",
