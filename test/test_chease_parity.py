@@ -78,9 +78,12 @@ def _q_at(q, psi_norm):
 # (d) EPSLON / NIDEAL defaults
 # ---------------------------------------------------------------------------
 
-_JSK95_PARAMS = {
+#: Minimal params for the namelist writer. Only the EPSLON and NIDEAL lines
+#: are under test here, so the constraint fields carry placeholder values --
+#: the surface itself is asserted in section (a).
+_WRITER_PARAMS = {
     "ASPCT": 0.3, "R0EXP": 1.0, "B0EXP": 0.5, "CURRT": 0.1,
-    "QSPEC": 1.9, "CSSPEC": 0.9872864, "QLOC": np.sqrt(0.95),
+    "QSPEC": 1.9, "CSSPEC": float(np.sqrt(0.95)),
     "SIGNB0XP": 1.0, "SIGNIPXP": 1.0,
 }
 
@@ -96,7 +99,7 @@ def test_the_default_nideal_is_one_upstream_chease_accepts():
     cfg = ch.CHEASEConfig()
     assert cfg.nideal == 6
     assert 0 <= cfg.nideal <= 10
-    text = "".join(ch._namelist_lines(cfg, _JSK95_PARAMS))
+    text = "".join(ch._namelist_lines(cfg, _WRITER_PARAMS))
     assert "NIDEAL=6," in text
 
 
@@ -110,7 +113,7 @@ def test_namelist_epslon_default_and_jsk95_nideal_on_request():
     """
     cfg = ch.CHEASEConfig(nideal=11)
     assert cfg.epslon_exponent == 10
-    text = "".join(ch._namelist_lines(cfg, _JSK95_PARAMS))
+    text = "".join(ch._namelist_lines(cfg, _WRITER_PARAMS))
     assert "EPSLON=1.0E-10," in text
     assert "NIDEAL=11," in text
     assert "NCSCAL=1," in text
@@ -120,7 +123,7 @@ def test_namelist_epslon_exponent_is_configurable():
     cfg = ch.CHEASEConfig(epslon_exponent=9)
     params = {
         "ASPCT": 0.3, "R0EXP": 1.0, "B0EXP": 0.5, "CURRT": 0.1,
-        "QSPEC": 1.9, "CSSPEC": 0.0, "QLOC": 0.0,
+        "QSPEC": 1.9, "CSSPEC": 0.0,
         "SIGNB0XP": 1.0, "SIGNIPXP": 1.0,
     }
     text = "".join(ch._namelist_lines(cfg, params))

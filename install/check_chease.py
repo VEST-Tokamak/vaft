@@ -22,8 +22,10 @@ from _external_code_common import (  # noqa: E402
     FAIL,
     PASS,
     SKIP,
-    WARN,  # noqa: F401 -- the shared vocabulary is an interface, see
-           # test_install_bootstrap.py::test_external_code_checkers_share_the_vaft_vocabulary
+    # Imported, not used here: test_install_bootstrap.py's
+    # test_external_code_checkers_share_the_vaft_vocabulary requires every
+    # checker to expose the whole shared vocabulary.
+    WARN,  # noqa: F401
     CheckResult,
     check_build_record,
     check_executables,
@@ -198,8 +200,8 @@ def check_reference_run(prefix: Optional[str], *, skip: bool) -> tuple[CheckResu
             CheckResult(
                 label,
                 FAIL,
-                f"this CHEASE rejects NIDEAL={UPSTREAM_NIDEAL}, which upstream documents "
-                "as valid",
+                f"this CHEASE rejects NIDEAL={UPSTREAM_NIDEAL}, which upstream "
+                "documents as valid",
                 "Upstream CHEASE accepts NIDEAL 1 to 10 (cotrol.f90). A build that "
                 "refuses 6 is not the revision VAFT targets; check which CHEASE "
                 f"source was compiled. The full run is in {workdir}.",

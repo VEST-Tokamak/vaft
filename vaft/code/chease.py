@@ -36,9 +36,10 @@ class CHEASEConfig:
     relax: float = 0.5
     # Upstream CHEASE validates this range (`cotrol.f90`: 0 to 10) and quits
     # in `cotrol` on anything outside it, before any equilibrium work. 6 is
-    # upstream's own default and the value every VAFT caller that actually runs
-    # CHEASE already passed by hand. The VEST `jsk95` workflow uses 11, which
-    # only its own CHEASE revision accepts; pass `nideal=11` explicitly for it.
+    # upstream's own default (`preset.f90:104`) and the value every VAFT caller
+    # that actually runs CHEASE already passed by hand. The VEST `jsk95`
+    # workflow uses 11, which only its own CHEASE revision accepts; pass
+    # `nideal=11` explicitly for it.
     nideal: int = 6
     nw: int = 513
     epslon_exponent: int = 10  # emits EPSLON=1.0E-{exp}
@@ -592,9 +593,8 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
         from scipy.interpolate import interp1d
 
         x_q = np.linspace(0.0, 1.0, q.size)
-        q_at = float(
-            interp1d(x_q, q, kind="cubic", fill_value="extrapolate")(constraint_psi_norm)
-        )
+        q_of_psi_norm = interp1d(x_q, q, kind="cubic", fill_value="extrapolate")
+        q_at = float(q_of_psi_norm(constraint_psi_norm))
         qval = q_at * sign_q
         csspec = _csspec_from_psi_norm(constraint_psi_norm)
     else:
