@@ -36,7 +36,12 @@ from ._plot_recipes import (
     resolve_time_slice,
 )
 
-__all__ = ["InteractiveEquilibrium", "plot_equilibrium_interactive", "BACKENDS"]
+__all__ = [
+    "InteractiveEquilibrium",
+    "plot_diagnostics_time_interactive",
+    "plot_equilibrium_interactive",
+    "BACKENDS",
+]
 
 #: The time history drawn above the slice summary, with a shared time marker:
 #: the measured plasma-current waveform with the reconstruction's prediction
@@ -137,6 +142,38 @@ def plot_equilibrium_interactive(
     )
     return InteractiveEquilibrium(
         figure=figure, slice_axes=slice_axes, navigator=navigator, history_axes=history_axes, widget=widget
+    )
+
+
+def plot_diagnostics_time_interactive(
+    source: Any,
+    *,
+    backend: str = "auto",
+    show: bool = False,
+    **options: Any,
+) -> Any:
+    """The diagnostics overview with its panels and processing chosen live (issue #482).
+
+    A thin entry point over ``plot_diagnostics_overview(..., interactive=True)``:
+    the same composite, the same options, the same figure for the same
+    values.  The controls are read off the composite's capability record --
+    which panels the input can draw (``members``), the channel preset,
+    abscissa, sign and validity mode every panel honours -- so nothing here
+    is hand-listed; ``plot_diagnostics_overview(source, members=[...],
+    selection=..., validity=...)`` draws exactly what the controls show.
+    ``backend`` names the *interaction* (:data:`BACKENDS`), as it does for
+    :func:`plot_equilibrium_interactive`; the drawing library is the
+    ``backend=`` of the static call and is passed here as ``render_backend=``.
+    Returns a :class:`vaft.plot.renderers.interactive.Interactive`.
+    """
+    from .plotting import render
+
+    if backend not in BACKENDS:
+        raise ValueError(f"backend must be one of {', '.join(BACKENDS)}; got {backend!r}")
+    render_backend = options.pop("render_backend", None)
+    return render(
+        "diagnostics_overview", source, show=show, interactive=True,
+        interaction_backend=backend, backend=render_backend, **options,
     )
 
 

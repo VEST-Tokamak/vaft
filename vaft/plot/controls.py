@@ -131,6 +131,7 @@ def controls_for(
     default because changing it replaces the figure object.
     """
     controls: list[ControlSpec] = []
+    controls.extend(_member_controls(record))
     controls.extend(_slice_controls(record))
     controls.extend(_selection_controls(record))
     controls.extend(_layout_controls(record))
@@ -143,6 +144,24 @@ def controls_for(
             "backend", "choice", "Rendering backend", record.backends[0], tuple(record.backends), group="backend",
         ))
     return tuple(controls)
+
+
+def _member_controls(record: Any) -> list[ControlSpec]:
+    """Which panels of a composite to draw (issue #482).
+
+    Offered only when the input can draw more than one member; the default
+    is every available one, which is also what the static call draws, so
+    the toggles start from the figure the reader already has.
+    """
+    members: Mapping[str, Any] = getattr(record, "members", None) or {}
+    available = tuple(members.get("available") or ())
+    if len(available) < 2:
+        return []
+    labels = members.get("labels") or {}
+    return [ControlSpec(
+        "members", "multi", "Panels", available, available,
+        tuple(str(labels.get(name, name)) for name in available), group="layout",
+    )]
 
 
 def _slice_controls(record: Any) -> list[ControlSpec]:
@@ -282,9 +301,11 @@ def _style_controls(record: Any) -> list[ControlSpec]:
     validity: Mapping[str, Any] = record.validity or {}
     if validity.get("available"):
         modes = tuple(validity.get("modes") or VALIDITY_MODES)
-        controls.append(ControlSpec("validity", "choice", "Flagged samples", modes[0], modes, group="style"))
+        default = validity.get("default") if validity.get("default") in modes else modes[0]
+        controls.append(ControlSpec("validity", "choice", "Flagged samples", default, modes, group="style"))
     uncertainty: Mapping[str, Any] = record.uncertainty or {}
     if uncertainty.get("available"):
         modes = tuple(uncertainty.get("modes") or UNCERTAINTY_MODES)
-        controls.append(ControlSpec("uncertainty", "choice", "Uncertainty", modes[0], modes, group="style"))
+        default = uncertainty.get("default") if uncertainty.get("default") in modes else modes[0]
+        controls.append(ControlSpec("uncertainty", "choice", "Uncertainty", default, modes, group="style"))
     return controls

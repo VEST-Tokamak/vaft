@@ -523,10 +523,10 @@ def spectrometer_uv_time_impurity(
     view="overview",
     quantity="",
     description=(
-        "Time histories of every diagnostic subject, one panel each, in a fixed "
-        "grid: a diagnostic absent from the input is a labelled empty panel, so "
-        "the figure has the same shape on every shot. Channels the source "
-        "flagged invalid are excluded by default."
+        "Time histories of every diagnostic subject, one panel each; a "
+        "diagnostic absent from the input is left out and the grid shrinks "
+        "(issue #476), and members= picks the panels by name (issue #482). "
+        "Channels the source flagged invalid are excluded by default."
     ),
     ids=("magnetics", "interferometer", "thomson_scattering", "charge_exchange",
          "spectrometer_uv", "barometry", "soft_x_rays"),
