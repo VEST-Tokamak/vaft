@@ -320,7 +320,7 @@ def _guarded_ratio(numerator, denominator, *, what: str, because: str):
     and boundary flux are equal -- and it used to propagate as ``inf`` with
     nothing to say where it started.
 
-    Mirrors ``vaft.formula.equilibrium._virial_ratio``, which makes the same
+    Mirrors ``vaft.formula.virial._virial_ratio``, which makes the same
     trade for the Shafranov closures but is called in tight loops where the
     warning would be noise.
     """
