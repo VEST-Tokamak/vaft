@@ -623,10 +623,17 @@ class PlasmaTiming:
 
     @property
     def chosen(self) -> PulseWindow | None:
-        """The detector window ``source`` names, or ``None`` when none was used."""
-        if self.source is None:
-            return None
-        return self.ip if self.source == SOURCE_IP else self.optical
+        """The detector window ``source`` names, or ``None`` when none was used.
+
+        Named explicitly rather than "the current when it says ip, otherwise
+        the light": a source this class has not heard of must resolve to
+        nothing, not to whichever window happens to be the fallback.
+        """
+        if self.source == SOURCE_IP:
+            return self.ip
+        if self.source in (SOURCE_H_PRIMARY, SOURCE_H_FAST, SOURCE_H_SECONDARY):
+            return self.optical
+        return None
 
     @property
     def duty_cycle(self) -> float | None:

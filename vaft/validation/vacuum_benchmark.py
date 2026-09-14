@@ -130,18 +130,23 @@ MIN_ARRAY_MEMBERS = 7
 #: both neighbours) before its contradiction fraction means anything.
 ARRAY_CONTRADICTION_MIN_SCORED = 0.5
 
-#: Schema of ``plasma_free_evidence`` (#409).  3: the boundary comes from the
-#: shared plasma-timing policy with its provenance, and nothing else -- the
-#: two retired detectors (the legacy Ip discharge detector and a sigma
-#: crossing of the current, both of which fired on PF pickup) that schema 2
-#: still reported under ``legacy`` are gone with them.
-PLASMA_FREE_EVIDENCE_SCHEMA = 3
+#: Schema of ``plasma_free_evidence`` (#409).  4: the embedded plasma-timing
+#: summary carries ``duty_cycle``, how much of the window the chosen detector
+#: was above threshold (#752) -- a fifth of the corpus's light windows are
+#: envelopes with gaps, so the boundary's extent alone does not say what it
+#: bounded.  3: the boundary comes from the shared plasma-timing policy with
+#: its provenance, and nothing else -- the two retired detectors (the legacy
+#: Ip discharge detector and a sigma crossing of the current, both of which
+#: fired on PF pickup) that schema 2 still reported under ``legacy`` are gone
+#: with them.
+PLASMA_FREE_EVIDENCE_SCHEMA = 4
 
-#: Schema of a :func:`run_benchmark_case` record.  4 follows the evidence
-#: schema (the ``legacy`` block a case's ``plasma_free_evidence`` carried is
-#: gone); 3: ``channels.flagged`` and the conditioned ``metrics.summary.scored``
+#: Schema of a :func:`run_benchmark_case` record.  5 follows the evidence
+#: schema again (its ``plasma_timing`` block carries ``duty_cycle``); 4
+#: followed it too (the ``legacy`` block a case's ``plasma_free_evidence``
+#: carried is gone); 3: ``channels.flagged`` and the conditioned ``metrics.summary.scored``
 #: block (its ``count`` excludes flagged probes); 2 followed the evidence schema.
-BENCHMARK_CASE_SCHEMA = 4
+BENCHMARK_CASE_SCHEMA = 5
 
 
 class BenchmarkError(ValueError):
