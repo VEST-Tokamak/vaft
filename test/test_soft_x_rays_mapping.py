@@ -96,9 +96,11 @@ def test_soft_x_rays_uses_packaged_phi_for_default_daq_mapping(tmp_path):
         sample_rate=1.0,
         time_offset=0.0,
     )
+    # The packaged table stores 120 deg as a VEST *clock* angle; the IMAS
+    # toroidal angle is its reflection, 240 deg (issues #718, #746).
     np.testing.assert_allclose(
         ods["soft_x_rays.channel.0.line_of_sight.first_point.phi"],
-        2.0 * np.pi / 3.0,
+        np.deg2rad(240.0),
     )
     assert ods["soft_x_rays.channel.0.filter_window.0.material.index"] == 10
     assert ods["soft_x_rays.channel.0.filter_window.0.thickness"] == pytest.approx(0.2e-6)

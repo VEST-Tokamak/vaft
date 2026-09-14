@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from .conventions import clock_angle_to_toroidal_angle
 from .utils import path_exists, resolve_data_root, set_path
 
 # ``sample_v3.py`` records a waveform relative to its digitizer trigger and
@@ -38,20 +39,26 @@ DEFAULT_SAMPLE_RATES: dict[str, float] = {
 # Kept as a compatibility alias for callers that explicitly build a 22577 axis.
 DEFAULT_SAMPLE_RATE = DEFAULT_SAMPLE_RATES["22577"]
 
-# The `phi` column of vaft/data/geometry/line_of_sight_endpoints.csv is
-# UNRESOLVED against the port table (issue #718).
+# The `phi` column of vaft/data/geometry/line_of_sight_endpoints.csv holds a
+# VEST *clock* angle, not IMAS phi, and is converted on read.
 #
-# DAQ 17592 (horizontal, vertical) carries phi = 0, which is 12 o'clock in both
-# the VEST clock frame and IMAS phi -- 0 is its own reflection -- and the
-# port-status document does put soft X-ray at 12MM10 and 12T6. That one is
-# consistent however it was meant.
+# DAQ 17592 (horizontal, vertical) carries 0, which is 12 o'clock in both
+# coordinates -- 0 is its own reflection -- and agrees with the port-status
+# document's `12MM10 : Soft X-ray`. That one is right however it was meant.
 #
-# DAQ 22577 (bottom, lowermid) carries 120 degrees, and that is consistent with
-# nothing. Read as a VEST clock angle it is 4 o'clock; read as IMAS phi it is
-# 8 o'clock; the document lists soft X-ray at neither, only at 12MM10, 1T6 and
-# 12T6. So we cannot tell which frame the column is in, and converting it would
-# be guessing at a value that is already unexplained. It is left exactly as it
-# was until the SXR installation record settles it.
+# DAQ 22577 (bottom, lowermid) carries 120, and this is the PROVISIONAL part
+# (issue #746). Reading it as a clock angle makes it 4 o'clock, hence phi = 240,
+# and that is the reading taken here because every other legacy angle issue #718
+# audited was a clock angle written into an IMAS field -- the interferometer's
+# 5.240 rad and all three Mirnov arrays. But the port document lists soft X-ray
+# only at 12MM10, 1T6 and 12T6, so 4 o'clock is not corroborated; if the column
+# was in fact already IMAS phi, the right answer is 120 and this conversion is
+# wrong for these two arrays. Either way the document does not record an SXR
+# array where this one sits, so it is likely out of date for this system.
+SXR_GEOMETRY_PHI_IS_VEST_CLOCK_ANGLE = True
+"""PROVISIONAL (issue #746): the geometry table's ``phi`` column is read as a
+VEST clock angle and negated into IMAS phi. Set ``False`` if the SXR
+installation record shows the column was already IMAS phi."""
 DEFAULT_TIME_OFFSET = 0.0
 DEFAULT_ENERGY_BAND = (0.0, 20_000.0)
 PACKAGED_GEOMETRY_TABLE = "geometry/line_of_sight_endpoints.csv"
@@ -380,6 +387,18 @@ def resolve_sxr_geometry_root(geometry_root: str | Path | None = None) -> Path |
     return None
 
 
+
+def _geometry_phi_to_imas(stored_deg_or_rad: float) -> float:
+    """Convert the geometry table's stored angle to an IMAS toroidal angle.
+
+    The column is in radians, and holds a VEST clock angle unless
+    :data:`SXR_GEOMETRY_PHI_IS_VEST_CLOCK_ANGLE` says otherwise.
+    """
+    if not SXR_GEOMETRY_PHI_IS_VEST_CLOCK_ANGLE:
+        return float(stored_deg_or_rad)
+    return clock_angle_to_toroidal_angle(float(np.rad2deg(stored_deg_or_rad)))
+
+
 @lru_cache(maxsize=8)
 def load_sxr_geometry_table(geometry_table: str | Path | None = None) -> dict[tuple[str, int], dict[str, Any]]:
     """Load SXR LOS endpoint geometry keyed by ``(array, channel)``."""
@@ -539,7 +558,10 @@ def _geometry_for_channel(
             return None
         first = (float(table_entry["first_r"]), float(table_entry["first_z"]))
         second = (float(table_entry["second_r"]), float(table_entry["second_z"]))
-        return first, second, float(table_entry.get("phi", 0.0))
+        stored_phi = table_entry.get("phi")
+        if stored_phi is None:
+            return first, second, None
+        return first, second, _geometry_phi_to_imas(float(stored_phi))
 
     if geometry_root is None:
         return None

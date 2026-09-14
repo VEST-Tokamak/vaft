@@ -21,6 +21,7 @@ from typing import Any, Iterator, Sequence
 
 import numpy as np
 
+from .registry import port_phi
 from .utils import resolve_data_root, set_path
 
 DEFAULT_NEAR_BLACK_THRESHOLD = 35
@@ -75,7 +76,8 @@ class CameraHeaderInfo:
 #: ports sit 120 degrees apart, the first centred on 30 degrees. Machine
 #: geometry, kept here rather than in the notebooks that project it.
 #:
-#: UNRECONCILED with the port table (issue #718). The rectangular main-chamber
+#: PROVISIONAL / UNRECONCILED with the port table (issue #746). The rectangular
+#: main-chamber
 #: ports are 2MR, 6MR and 10MR, which *are* 120 degrees apart, and the camera
 #: itself looks through 6MR -- but 2MR and 10MR are at 300 and 60 degrees of
 #: IMAS phi (60 and 300 of VEST clock angle), and neither pair is the 30/150
@@ -90,6 +92,12 @@ PORT_TOP_M = 0.57 - 0.2355
 PORT_HEIGHT_M = 0.692
 PORT_FIRST_CENTRE_RAD = np.deg2rad(30.0)
 PORT_SEPARATION_RAD = np.deg2rad(120.0)
+
+#: The port the fast camera itself looks through.  The port-status document
+#: states this outright -- ``6MR : Entrance``, with the fast camera, the
+#: H-alpha / O I filterscope and the hard X-ray detector all listed there -- so
+#: unlike the two landmark angles above this is not an inference.
+CAMERA_PORT = "6MR"
 
 
 def vest_port_corner_points() -> np.ndarray:
@@ -329,6 +337,16 @@ def vfit_camera_visible_static(
         set_path(ods, "camera_visible.ids_properties.source", str(source))
 
     set_path(ods, "camera_visible.channel.0.name", channel_name)
+    # Where the camera views from. The two landmark angles above are a separate,
+    # still-unreconciled frame (issue #746); this one comes straight from the
+    # port document.
+    set_path(ods, "camera_visible.channel.0.aperture.0.centre.r", PORT_MAJOR_RADIUS_M)
+    set_path(ods, "camera_visible.channel.0.aperture.0.centre.phi", port_phi(CAMERA_PORT))
+    set_path(
+        ods,
+        "camera_visible.channel.0.aperture.0.centre.z",
+        PORT_TOP_M - 0.5 * PORT_HEIGHT_M,
+    )
     set_path(ods, "camera_visible.channel.0.detector.0.lines_n", int(lines_n))
     set_path(ods, "camera_visible.channel.0.detector.0.columns_n", int(columns_n))
     if exposure_time_s is not None:
