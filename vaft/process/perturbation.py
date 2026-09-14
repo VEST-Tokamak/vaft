@@ -513,18 +513,40 @@ def amplification_ratio(
 #: derivable from the others, so the choice is the caller's and is recorded.
 COINCIDENT_POLICIES: tuple[str, ...] = ("envelope", "rss")
 
+#: How large a residual gap still counts as separatrices in contact, as a
+#: fraction of the spacing between the two surfaces.
+_CONTACT_TOLERANCE = 1.0e-12
 
-@dataclass(frozen=True)
+
+@dataclass(frozen=True, eq=False)
 class IslandPairs:
-    """Adjacent island pairs, sorted outward, and whether each pair touches."""
+    """Adjacent island pairs, **sorted outward**, and whether each touches.
 
+    Sorted, not in the caller's order: a pair is defined by two neighbours,
+    and which two are neighbours is a property of the sorted sequence. The
+    index arrays map each pair back to the rows it came from, so a caller
+    with unsorted input can still say which helicities a pair joins.
+
+    ``eq`` is off because the fields are arrays: a generated ``__eq__`` would
+    raise rather than answer.
+    """
+
+    #: Index into the caller's arrays of the inner and outer member [-].
+    inner_index: np.ndarray
+    outer_index: np.ndarray
+    #: Where the two islands sit [-].
     inner_psi_norm: np.ndarray
     outer_psi_norm: np.ndarray
+    #: Distance between their centres [-].
     spacing: np.ndarray
+    #: The separatrices that face each other [-].
     inner_right: np.ndarray
     outer_left: np.ndarray
+    #: Distance between those separatrices; negative once they overlap [-].
     gap: np.ndarray
+    #: Half-widths summed over the spacing; one at contact [-].
     chirikov: np.ndarray
+    #: Whether the two islands touch or overlap [-].
     overlaps: np.ndarray
 
     def __len__(self) -> int:
@@ -535,14 +557,24 @@ class IslandPairs:
 class IslandOverlap:
     """How far in from the boundary the islands are continuously overlapping."""
 
+    #: Radial extent of the region, inward from the separatrix; zero when the
+    #: islands do not reach it [-].
     width: float
+    #: The gap that ended the chain, and the two separatrices bounding it;
+    #: ``None`` when no gap was reached [-].
     first_gap_psi_norm: float | None
     first_gap_inner: float | None
     first_gap_outer: float | None
+    #: Whether the outermost island reaches the separatrix at all [-].
     edge_connected: bool
+    #: Factor the field would have to grow by for the outermost pair to touch,
+    #: on square-root scaling; ``None`` when that pair already touches or has
+    #: no width [-].
     onset_scale: float | None
+    #: The largest value of each Chirikov definition over the islands [-].
     max_surface_chirikov: float | None
     max_pair_chirikov: float | None
+    #: What the result was measured against, and how stacks were combined [-].
     separatrix_psi_norm: float
     policy: str
 
@@ -556,6 +588,17 @@ def _island_arrays(psi_norm, width) -> tuple[np.ndarray, np.ndarray, np.ndarray]
             f"{width.shape} widths against {psi_norm.shape} surfaces; islands are "
             "one per rational surface"
         )
+    if not np.all(np.isfinite(psi_norm)):
+        raise ValueError(
+            "a rational surface is at a non-finite position; it would defeat the "
+            "tie check and place an island nowhere"
+        )
+    if not np.all(np.isfinite(width)):
+        # A NaN width silently breaks an overlap chain -- its gap is NaN, so
+        # the pair reads as separated and the region ends there.
+        raise ValueError("an island has a non-finite width")
+    if np.any(width < 0.0):
+        raise ValueError("an island has a negative width")
     order = np.argsort(psi_norm)
     ordered = psi_norm[order]
     if ordered.size > 1 and np.any(np.diff(ordered) <= 0.0):
@@ -674,6 +717,12 @@ def penetration_ratio(psi_norm, width) -> np.ndarray:
     ndarray
         ``width / critical_island_width``; one at overlap [-].
 
+    Raises
+    ------
+    ValueError
+        ``width`` is not one per surface, two surfaces share a position, or a
+        position or width is not finite or a width is negative.
+
     Convention
     ----------
     A ratio, not a verdict: the value one is where islands touch, and
@@ -710,12 +759,21 @@ def chirikov(psi_norm, width, *, definition: str = "surface") -> np.ndarray:
     Returns
     -------
     ndarray
-        One value per surface, or per pair; both in the caller's order [-].
+        For ``"surface"``, one value per surface in the caller's order. For
+        ``"pair"``, one per adjacent pair **sorted outward** -- which two
+        islands are neighbours is a property of the sorted sequence, and
+        :class:`IslandPairs` carries the indices that map each pair back [-].
 
     Raises
     ------
     ValueError
         ``definition`` is neither, or two surfaces share a position.
+
+    Defaults
+    --------
+    ``definition="surface"`` is a legacy compatibility value: it is the form
+    GPEC itself reports as ``K_isl``, so it is what a caller comparing with a
+    file will want. It also returns a different array length from ``"pair"``.
 
     Convention
     ----------
@@ -756,16 +814,28 @@ def island_pairs(psi_norm, width) -> IslandPairs:
         One entry per adjacent pair, sorted outward; empty for fewer than two
         surfaces [-].
 
+    Raises
+    ------
+    ValueError
+        ``width`` is not one per surface, two surfaces share a position, or a
+        position or width is not finite or a width is negative.
+
     Processing steps
     ----------------
     1. Sort outward.
     2. For each pair, the gap is the spacing less the two half widths.
     3. A gap at or below zero -- within rounding -- is contact.
 
+    Defaults
+    --------
+    The contact tolerance is a numerical convenience, 1e-12 of the spacing.
+
     Convention
     ----------
-    Round-off-scale residual gaps count as contact rather than separation, so
-    two separatrices that meet exactly are not reported as apart.
+    Residual gaps below that fraction of the spacing count as contact rather
+    than separation, so two separatrices that meet exactly are not reported
+    as apart -- and "round-off" means the same thing at every radius, which a
+    fixed absolute tolerance does not.
 
     Applicability
     -------------
@@ -775,15 +845,18 @@ def island_pairs(psi_norm, width) -> IslandPairs:
     ----------
     .. [legacy] ``gpec_multimode_metrics.compute_pair_chirikov``.
     """
-    ordered, ordered_width, _ = _island_arrays(psi_norm, width)
+    ordered, ordered_width, order = _island_arrays(psi_norm, width)
     if ordered.size < 2:
         empty = np.empty(0, dtype=float)
-        return IslandPairs(empty, empty, empty, empty, empty, empty, empty,
-                           np.empty(0, dtype=bool))
+        index = np.empty(0, dtype=int)
+        return IslandPairs(index, index, empty, empty, empty, empty, empty,
+                           empty, empty, np.empty(0, dtype=bool))
     spacing = np.diff(ordered)
     half_sum = 0.5 * (ordered_width[:-1] + ordered_width[1:])
     gap = spacing - half_sum
     return IslandPairs(
+        inner_index=order[:-1],
+        outer_index=order[1:],
         inner_psi_norm=ordered[:-1],
         outer_psi_norm=ordered[1:],
         spacing=spacing,
@@ -791,7 +864,11 @@ def island_pairs(psi_norm, width) -> IslandPairs:
         outer_left=ordered[1:] - 0.5 * ordered_width[1:],
         gap=gap,
         chirikov=half_sum / spacing,
-        overlaps=(gap < 0.0) | np.isclose(gap, 0.0, rtol=1.0e-12, atol=1.0e-14),
+        # Scaled to the spacing, so "round-off" means the same thing whether
+        # the surfaces are a thousandth apart or a whole unit. A fixed atol --
+        # what the code this replaces used, with an rtol against zero that
+        # could never contribute -- is a different criterion at every radius.
+        overlaps=gap <= _CONTACT_TOLERANCE * spacing,
     )
 
 
@@ -819,7 +896,10 @@ def group_coincident_islands(
         One of :data:`COINCIDENT_POLICIES`: ``envelope`` takes the widest of a
         stack, ``rss`` adds them in quadrature [n/a].
     psi_tol : float, optional
-        How close two positions must be to count as the same surface [-].
+        How close two positions must be to count as the same surface.
+        Clustering is single-linkage: each island is compared with the last
+        one added, so a chain of islands each within ``psi_tol`` of the
+        previous collapses together however far the chain reaches [-].
 
     Returns
     -------
@@ -831,8 +911,16 @@ def group_coincident_islands(
     Raises
     ------
     ValueError
-        ``policy`` is not one of :data:`COINCIDENT_POLICIES`, or ``psi_tol``
-        is negative.
+        ``policy`` is not one of :data:`COINCIDENT_POLICIES`, ``psi_tol`` is
+        negative, or ``width`` is not one per surface.
+
+    Defaults
+    --------
+    ``policy="envelope"`` is a numerical convenience -- the conservative of
+    the two -- and ``psi_tol=1e-8`` is an empirical estimate: it separates
+    the genuinely distinct surfaces of the runs looked at, whose closest
+    non-coincident pair is 7.9e-13 apart, from the exactly coincident ones.
+    Neither is supplied by the physics.
 
     Convention
     ----------
@@ -889,11 +977,17 @@ def island_overlap_width(
 ) -> IslandOverlap:
     """How far in from the boundary the islands overlap without a break.
 
-    Starting at the outermost pair and walking inward while pairs touch, the
-    first gap is the inner edge of the stochastic region. A region that does
-    not reach the boundary has zero width, however much the islands overlap
-    further in: the quantity is about the edge being connected to the wall,
-    not about overlap in general.
+    Two conditions, and the first is what makes the quantity mean anything:
+    the outermost island must actually reach ``separatrix``, and from there
+    the chain is followed inward while adjacent pairs touch. The first gap is
+    the inner edge of the region. Islands overlapping deep in the core are
+    not an edge-connected layer however much they overlap, and a region of
+    zero extent is not connected to anything.
+
+    **This differs from the code it replaces**, which decided the question
+    from whether the outermost *pair* overlapped and never looked at where
+    the outermost island ended -- so a stochastic patch at psi_n = 0.2 came
+    back as an edge layer 0.83 wide.
 
     Parameters
     ----------
@@ -917,21 +1011,33 @@ def island_overlap_width(
     Raises
     ------
     ValueError
-        ``separatrix`` is not finite, or ``policy``/``psi_tol`` are invalid.
+        ``separatrix`` is not finite, ``policy``/``psi_tol`` are invalid, or
+        the islands do not pass :func:`island_pairs`' checks.
 
     Processing steps
     ----------------
     1. Collapse coincident surfaces under ``policy``.
     2. Form the adjacent pairs and their gaps.
-    3. If the outermost pair does not touch, the width is zero.
-    4. Otherwise walk inward to the first pair that does not touch; its gap
+    3. If the outermost island does not reach ``separatrix``, the width is
+       zero and the region is not edge-connected.
+    4. If the outermost pair does not touch, likewise.
+    5. Otherwise walk inward to the first pair that does not touch; its gap
        midpoint is the inner boundary. With no such gap, the innermost
        island's inner separatrix is.
 
     Convention
     ----------
-    Measured inward from ``separatrix`` and clipped to [0, 1]: it is a width
-    in normalized flux, not a position.
+    Measured inward from ``separatrix`` and clipped to it: the result is a
+    width measured from the boundary, so it cannot exceed the boundary's own
+    position. A fixed upper bound of one -- what the code this replaces used
+    -- reports a width larger than the plasma whenever the innermost island
+    extends past the axis.
+
+    Defaults
+    --------
+    ``separatrix = 1.0`` is a numerical convenience: the last closed flux
+    surface in normalized poloidal flux. ``policy`` and ``psi_tol`` are
+    passed through and documented on :func:`group_coincident_islands`.
 
     Limitations
     -----------
@@ -961,33 +1067,59 @@ def island_overlap_width(
         finite = finite[np.isfinite(finite)]
         return float(finite.max()) if finite.size else None
 
-    blank = IslandOverlap(0.0, None, None, None, False, None,
-                          finite_max(surface), finite_max(pairs.chirikov),
-                          float(separatrix), policy)
-    if len(pairs) == 0:
-        return blank
+    max_surface = finite_max(surface)
+    max_pair = finite_max(pairs.chirikov)
+    separatrix = float(separatrix)
 
-    outer = float(pairs.chirikov[-1])
+    def result(width_value, gap_psi, gap_inner, gap_outer, connected, onset):
+        # A region of zero extent is not connected to anything, whatever the
+        # geometry says about reaching: a separatrix that sits inside the
+        # island stack would otherwise be reported as reached and empty.
+        connected = bool(connected and width_value > 0.0)
+        return IslandOverlap(width_value, gap_psi, gap_inner, gap_outer, connected,
+                             onset, max_surface, max_pair, separatrix, policy)
+
+    if centres.size == 0:
+        return result(0.0, None, None, None, False, None)
+
+    outer_edge = float(centres[-1] + 0.5 * widths[-1])
+    # The question is whether the stochastic region touches the wall, so the
+    # outermost island has to reach the separatrix. Deciding it from whether
+    # the outermost *pair* overlap -- which is what the code this replaces did,
+    # and what an earlier draft of this one did -- reports a stochastic patch
+    # deep in the core as an edge-connected layer.
+    reach = _CONTACT_TOLERANCE * max(abs(separatrix), 1.0)
+    if outer_edge < separatrix - reach:
+        return result(0.0, None, None, None, False, None)
+
+    if len(pairs) == 0:
+        # One island, and it reaches the wall: the region is that island.
+        return result(
+            float(np.clip(separatrix - (centres[0] - 0.5 * widths[0]), 0.0, separatrix)),
+            None, None, None, True, None,
+        )
+
+    outer_kappa = float(pairs.chirikov[-1])
     # Island width goes as the square root of the field, so the field has to
     # grow by 1/kappa^2 for the outermost pair to reach contact.
-    onset = float(1.0 / outer**2) if outer > 0.0 else None
+    onset = float(1.0 / outer_kappa**2) if outer_kappa > 0.0 else None
     if not bool(pairs.overlaps[-1]):
-        inner, outer_edge = float(pairs.inner_right[-1]), float(pairs.outer_left[-1])
-        return IslandOverlap(0.0, 0.5 * (inner + outer_edge), inner, outer_edge,
-                             False, onset, finite_max(surface),
-                             finite_max(pairs.chirikov), float(separatrix), policy)
+        inner, outer = float(pairs.inner_right[-1]), float(pairs.outer_left[-1])
+        return result(0.0, 0.5 * (inner + outer), inner, outer, False, onset)
 
     broken = np.nonzero(~pairs.overlaps)[0]
     if broken.size:
         index = int(broken[-1])
-        inner, outer_edge = float(pairs.inner_right[index]), float(pairs.outer_left[index])
-        gap_psi = 0.5 * (inner + outer_edge)
+        inner, outer = float(pairs.inner_right[index]), float(pairs.outer_left[index])
+        gap_psi = 0.5 * (inner + outer)
         boundary = gap_psi
     else:
-        inner = outer_edge = gap_psi = None
+        inner = outer = gap_psi = None
         boundary = float(centres[0] - 0.5 * widths[0])
-    return IslandOverlap(
-        float(np.clip(float(separatrix) - boundary, 0.0, 1.0)),
-        gap_psi, inner, outer_edge, True, onset,
-        finite_max(surface), finite_max(pairs.chirikov), float(separatrix), policy,
+    # Clipped to the separatrix, not to one: the result is a width measured
+    # inward from it, so it cannot exceed it, and a fixed upper bound of one
+    # would report a width larger than the plasma it was measured in.
+    return result(
+        float(np.clip(separatrix - boundary, 0.0, abs(separatrix))),
+        gap_psi, inner, outer, True, onset,
     )

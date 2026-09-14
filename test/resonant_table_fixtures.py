@@ -37,6 +37,19 @@ import numpy as np
 REFERENCE_SURFACES = (0.5936, 0.8186, 0.9282, 0.9884)
 
 
+def _nearest(psi):
+    """Distance from each surface to its nearest neighbour."""
+    ps = np.sort(np.asarray(psi, dtype=float))
+    gaps = np.diff(ps)
+    out = np.empty(ps.size)
+    out[0], out[-1] = gaps[0], gaps[-1]
+    if ps.size > 2:
+        out[1:-1] = np.minimum(gaps[:-1], gaps[1:])
+    result = np.empty_like(out)
+    result[np.argsort(psi)] = out
+    return result
+
+
 def resonant_table(surfaces=REFERENCE_SURFACES, *, n_tor=1, phase=True):
     """A resonant table with one row per surface."""
     psi = np.asarray(surfaces, dtype=float)
@@ -61,8 +74,11 @@ def resonant_table(surfaces=REFERENCE_SURFACES, *, n_tor=1, phase=True):
         "w_isl_v": 0.05 * np.exp(-1.5 * psi),
         # Zero on an ideal run, exactly as GPEC writes it.
         "w_isl_v_crit": np.zeros(count),
-        "K_isl": np.linspace(0.30, 0.48, count),
-        "K_isl_v": np.linspace(0.20, 0.35, count),
+        # As GPEC builds it: the island width over the nearest-neighbour
+        # spacing. A fixture that made these independent would contradict the
+        # identity the island metrics rest on.
+        "K_isl": 0.08 * np.exp(-1.5 * psi) / _nearest(psi),
+        "K_isl_v": 0.05 * np.exp(-1.5 * psi) / _nearest(psi),
         # Zero on an ideal run, as GPEC writes them.
         "Phi_res_crit": np.zeros(count),
         "B_pen": 0.3 * magnitude * np.exp(1j * angle),
@@ -107,26 +123,40 @@ class PedestalStub:
 
 
 def island_chain(*, overlapping_outer=True, break_at=None, count=5, spacing=0.1,
-                 start=0.5, width=None):
+                 separatrix=1.0, width=None, coincident=False):
     """A chain of islands, sorted outward, with a controllable break.
 
-    ``overlapping_outer`` decides whether the outermost pair touches, which
-    is what makes an overlap region edge-connected; ``break_at`` opens a gap
-    between that pair index and the next, so a chain can overlap inside and
-    still not reach the boundary.
+    By default the chain **reaches** ``separatrix``: its outermost island's
+    outer edge lands exactly there, because an overlap region that does not
+    touch the boundary is not an edge-connected one, and a fixture that fell
+    short could not tell the two apart.
+
+    ``overlapping_outer`` decides whether the outermost pair touches;
+    ``break_at`` opens a gap between that pair index and the next, so a chain
+    can overlap inside and still be broken further out; ``coincident`` stacks
+    two islands on one surface, which is the only configuration real data
+    overlaps in.
     """
-    psi = start + spacing * np.arange(count, dtype=float)
     if width is None:
-        # Wide enough that neighbours touch: half-widths sum to the spacing.
+        # Half-widths sum to 1.2x the spacing, so neighbours overlap.
         width = np.full(count, 1.2 * spacing)
     else:
         width = np.full(count, float(width))
+    # Placed so the outermost separatrix lands on the boundary.
+    psi = separatrix - 0.5 * width[-1] - spacing * np.arange(count - 1, -1, -1, dtype=float)
     if not overlapping_outer:
+        # Shrink only the inner member, so the outermost island still reaches
+        # the boundary and the chain is broken by the pair rather than by not
+        # arriving -- which is a different branch.
         width = width.copy()
-        width[-1] = 0.1 * spacing
         width[-2] = 0.1 * spacing
     if break_at is not None:
+        if not 0 <= break_at < count - 1:
+            raise ValueError(f"break_at must index a pair, 0..{count - 2}")
         width = width.copy()
         width[break_at] = 0.1 * spacing
         width[break_at + 1] = 0.1 * spacing
+    if coincident:
+        psi = np.concatenate([psi, [psi[1]]])
+        width = np.concatenate([width, [0.5 * width[1]]])
     return psi, width
