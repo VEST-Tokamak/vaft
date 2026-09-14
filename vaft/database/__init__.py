@@ -20,7 +20,8 @@ OMAS/IMAS artifact loading remains exposed through :mod:`vaft.omas` and
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from pathlib import Path
 from importlib import import_module
 from typing import Literal
 import warnings
@@ -279,6 +280,7 @@ def save(
     occurrence: int | Mapping[str, int] | None = None,
     imas_version: str | None = None,
     derived_cache: Literal["auto", "none", "imas-images", "omas", "both"] = "auto",
+    finalize_master: Callable[[Path], None] | None = None,
 ):
     """Write an OMAS ODS or native IDS to remote HSDS storage.
 
@@ -286,6 +288,12 @@ def save(
     ``main``. The legacy ``public`` source is read-only and is refused here, so
     a lineage cannot be overwritten by falling back to it. ``target`` and
     ``directory`` are deprecated aliases for ``source``.
+
+    ``finalize_master`` is handed the local ``master.h5`` after the payload is
+    remote and immediately before the master replaces the one already there.
+    Replication uses it to merge the pre-write master's links in locally, so a
+    stage write never leaves an observably stage-only master behind. It applies
+    to the OMAS path only; the native IDS writer owns its own layout.
     """
     from .sources import resolve
 
@@ -297,6 +305,12 @@ def save(
             f"representation={representation!r} does not match the supplied object"
         )
     if inferred == "imas":
+        if finalize_master is not None:
+            raise TypeError(
+                "finalize_master applies to the OMAS write path only; the native "
+                "IDS writer manages its own master. Passing it here would be a "
+                "silent no-op."
+            )
         from .ids import save as save_ids
 
         return save_ids(
@@ -314,6 +328,7 @@ def save(
     return save_ods(
         data,
         shot,
+        finalize_master=finalize_master,
         source=source,
         occurrence=mapped,
         imas_version=imas_version,

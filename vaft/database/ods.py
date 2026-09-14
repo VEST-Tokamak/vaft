@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 import time as wall_time
 from datetime import datetime, timezone
-from typing import Literal, Optional, Union
+from typing import Callable, Iterable, Literal, Optional, Union
 
 import omas
 import numpy as np
@@ -209,16 +209,67 @@ def _upload_local_image(local_path: Path, remote_uri: str) -> str:
     return remote_uri
 
 
-def _upload_local_shot(shot_dir: Path, directory: str, shot: int) -> list[str]:
-    """Upload every generated IMAS HDF5 image for one shot to HSDS."""
-    h5_files = sorted(
+#: The shot's master carries external links to every IDS file beside it, and
+#: readers resolve a shot's contents from those links rather than from the
+#: folder listing. Replacing it is therefore the commit point of a write: until
+#: it lands, the shot still reads as whatever was there before.
+MASTER_FILENAME = "master.h5"
+
+
+def upload_order(filenames: Iterable[str]) -> list[str]:
+    """Order a shot's files so the master is uploaded last.
+
+    Uploading is file-by-file and cannot be made atomic, so the order decides
+    what a crash leaves behind. Every payload file goes up while the remote
+    master still describes the previous state, and the master is replaced only
+    once its payload is in place.
+
+    This used to be plain alphabetical order, which put ``master.h5`` ahead of
+    part of the payload for four of the seven replicating stages -- including
+    ``diagnostics``, the routine baseline. The three that were safe were safe
+    only because their IDS names happen to sort before the string ``master``,
+    which is not a property anyone chose.
+    """
+    names = sorted(filenames)
+    payload = [name for name in names if Path(name).name != MASTER_FILENAME]
+    master = [name for name in names if Path(name).name == MASTER_FILENAME]
+    return payload + master
+
+
+def _upload_local_shot(
+    shot_dir: Path,
+    directory: str,
+    shot: int,
+    *,
+    finalize_master: Optional[Callable[[Path], None]] = None,
+) -> list[str]:
+    """Upload every generated IMAS HDF5 image for one shot to HSDS.
+
+    ``finalize_master`` is called with the local master immediately before it
+    is uploaded, and after the payload is already remote. Replication uses it
+    to fold the pre-write master's links in locally, so the remote master goes
+    from "the previous state" to "the previous state plus this stage" in a
+    single write and is never observably stage-only.
+
+    What this guarantees: a crash at any point cannot orphan IDS that were
+    already published for this shot, because the master that names them is
+    replaced last and only once. What it does not guarantee: the payload may be
+    partly uploaded when the crash happens, so this write's own data can be
+    missing until a retry. That is ordering, not transactionality.
+    """
+    h5_files = [
         path for path in shot_dir.iterdir() if path.is_file() and path.suffix == ".h5"
-    )
+    ]
     if not h5_files:
         raise FileNotFoundError(f"No IMAS HDF5 images were generated in {shot_dir}")
 
+    by_name = {path.name: path for path in h5_files}
+    ordered = [by_name[name] for name in upload_order(by_name)]
+
     uploaded = []
-    for local_path in h5_files:
+    for local_path in ordered:
+        if local_path.name == MASTER_FILENAME and finalize_master is not None:
+            finalize_master(local_path)
         remote_uri = f"hdf5://{directory}/{shot}/{local_path.name}"
         print(f"[INFO] Uploading {local_path} -> {remote_uri}")
         uploaded.append(_upload_local_image(local_path, remote_uri))
@@ -440,6 +491,7 @@ def save_ods(
     imas_version: Optional[str] = None,
     verbose: bool = True,
     derived_cache: Literal["auto", "none", "imas-images", "omas", "both"] = "auto",
+    finalize_master: Optional[Callable[[Path], None]] = None,
 ) -> Optional[str]:
     """
     Save ODS data by converting it to IMAS HDF5 images.
@@ -545,7 +597,12 @@ def save_ods(
             verbose=verbose,
             uri="imas:hdf5?path=" + str(shot_dir),
         )
-        _upload_local_shot(shot_dir=shot_dir, directory=source, shot=shot)
+        _upload_local_shot(
+            shot_dir=shot_dir,
+            directory=source,
+            shot=shot,
+            finalize_master=finalize_master,
+        )
         if derived_mode != "none":
             wall_time.sleep(8.0)
         if derived_mode in {"imas-images", "both"}:
