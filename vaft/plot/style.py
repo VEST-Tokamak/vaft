@@ -18,6 +18,8 @@ from typing import Any, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+from .intent import active_theme, resolve_style
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
@@ -329,6 +331,17 @@ def draw_series(
     if x.size == 1 and not options.get("marker") and not series.style.get("marker"):
         # A single sample has no line to draw; without a marker it is invisible.
         options["marker"] = "o"
+
+    # A recipe says what a colour means; the theme in force says what it is
+    # (issue #709).  Resolved before the invalid demotion so precedence is
+    # unchanged: a recipe's colour still wins over the invalid grey.
+    options = resolve_style(options)
+    if active_theme() is not None and _scatter_like(series, options):
+        # Marker-only points are every one a sample; a theme's prop cycle
+        # may thin markers along a dense line (``markevery``) and must not
+        # thin these.  Matplotlib reads ``None`` as "take the cycle's", so
+        # the stride is spelled out.
+        options.setdefault("markevery", 1)
 
     if invalid_channel:
         options.setdefault("color", INVALID_COLOR)

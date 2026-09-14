@@ -44,10 +44,21 @@ from __future__ import annotations
 
 import contextlib
 import functools
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any, Callable, Mapping
 
 import numpy as np
+
+from .intent import (  # noqa: F401  re-exported: the colour vocabulary lives beside the themes
+    DEFAULT_COLOURS,
+    DEFAULT_PALETTE,
+    active_theme,
+    palette,
+    resolve_color,
+    resolve_style,
+    themed,
+)
 
 __all__ = [
     "EQUILIBRIUM_ROLE",
@@ -60,7 +71,9 @@ __all__ = [
     "Theme",
     "apply_axes_theme",
     "presented",
+    "resolve_color",
     "resolve_presentation",
+    "resolve_style",
     "rz_extent",
 ]
 
@@ -135,6 +148,17 @@ class Theme:
     #: Baselines in points; a format scales them.
     line_pt: float = 1.2
     marker_pt: float = 4.0
+    #: The distinguishing colours ``palette:<n>`` tokens take; ``None`` uses
+    #: ``colors`` (issue #709).
+    palette: tuple[str, ...] | None = None
+    #: Colour intent tokens this theme overrides (``role:``, ``feature:``,
+    #: ``state:``, ``emphasis:``): a colour, or a style patch when colour
+    #: alone cannot carry the distinction.  Anything not named keeps the
+    #: default of :data:`vaft.plot.intent.DEFAULT_COLOURS`.
+    intents: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "intents", MappingProxyType(dict(self.intents)))
 
     def prop_cycle(self):
         """The ``axes.prop_cycle`` this theme sets, every sub-cycle equal in length."""
@@ -165,22 +189,51 @@ _MONO_GREYS = ("0.0", "0.4", "0.0", "0.4", "0.0", "0.4")
 _MONO_LINESTYLES = ("-", "--", "-.", ":", "-", "--")
 _MONO_MARKERS = ("", "", "o", "s", "^", "D")
 
+#: What each theme makes of the colour intents that are not palette slots.
+#: Greys are left as they are: every theme's emphasis ladder is the default.
+_TECHNICAL_INTENTS = {
+    "role:measured": "#000000", "role:reconstructed": "#D55E00", "role:reference": "#000000",
+    "feature:boundary": "#D55E00", "feature:coil": "#0072B2", "feature:limiter": "#000000",
+    "feature:axis": "#000000",
+    "state:enabled": "#000000", "state:disabled": "#E69F00", "state:missing": "#CC79A7",
+    "emphasis:alert": "#D55E00",
+}
+_MINIMAL_INTENTS = {
+    "role:reconstructed": "#EE6677", "role:reference": "0.2",
+    "feature:boundary": "#EE6677", "feature:coil": "#4477AA", "feature:wall": "0.5",
+    "feature:limiter": "0.2", "feature:axis": "0.2", "feature:passive": "0.7",
+    "state:disabled": "#CCBB44", "state:missing": "#EE6677",
+    "emphasis:alert": "#EE6677",
+}
+#: Where colour cannot carry a distinction, a patch adds a dash or a marker;
+#: a patch never names markerfacecolor, so a hollow marker stays hollow.
+_MONOCHROME_INTENTS = {
+    "role:measured": "0.0",
+    "role:reconstructed": {"color": "0.45", "marker": "^"},
+    "role:reference": "0.0",
+    "feature:boundary": {"color": "0.0", "linestyle": "--"},
+    "feature:wall": "0.5", "feature:coil": "0.3", "feature:limiter": "0.0",
+    "feature:axis": "0.0", "feature:passive": "0.6",
+    "state:enabled": "0.0", "state:disabled": "0.45", "state:missing": "0.0",
+    "emphasis:alert": "0.0",
+}
+
 THEMES: Mapping[str, Theme] = {
     "technical": Theme(
         "technical", font_family=("DejaVu Sans",), tick_direction="in",
         grid=True, grid_alpha=0.3, spines=("left", "right", "top", "bottom"),
-        colors=_OKABE_ITO, line_pt=1.2, marker_pt=4.0,
+        colors=_OKABE_ITO, line_pt=1.2, marker_pt=4.0, intents=_TECHNICAL_INTENTS,
     ),
     "minimal": Theme(
         "minimal", font_family=("Helvetica", "Arial", "DejaVu Sans"), tick_direction="out",
         grid=False, grid_alpha=0.0, spines=("left", "bottom"),
-        colors=_TOL_BRIGHT, line_pt=1.5, marker_pt=4.0,
+        colors=_TOL_BRIGHT, line_pt=1.5, marker_pt=4.0, intents=_MINIMAL_INTENTS,
     ),
     "monochrome": Theme(
         "monochrome", font_family=("DejaVu Sans",), tick_direction="in",
         grid=True, grid_alpha=0.2, spines=("left", "right", "top", "bottom"),
         colors=_MONO_GREYS, linestyles=_MONO_LINESTYLES, markers=_MONO_MARKERS,
-        markevery=0.1, line_pt=1.2, marker_pt=4.0,
+        markevery=0.1, line_pt=1.2, marker_pt=4.0, intents=_MONOCHROME_INTENTS,
     ),
 }
 
@@ -385,13 +438,21 @@ class Presentation:
         return rc
 
     def context(self) -> contextlib.AbstractContextManager:
-        """A context that applies :meth:`rc` for one render and restores after."""
+        """A context that applies :meth:`rc` for one render and restores after.
+
+        It also makes the theme the one colour intents resolve against
+        (:func:`vaft.plot.intent.themed`), for exactly as long.
+        """
         import matplotlib
 
         rc = self.rc()
-        if not rc:
+        if not rc and self.theme is None:
             return contextlib.nullcontext()
-        return matplotlib.rc_context(rc=rc)
+        stack = contextlib.ExitStack()
+        if rc:
+            stack.enter_context(matplotlib.rc_context(rc=rc))
+        stack.enter_context(themed(self.theme))
+        return stack
 
 
 def _snug(width: float, ratio: float, usable: float, ceiling: float) -> tuple[float, float]:
