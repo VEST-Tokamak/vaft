@@ -127,7 +127,7 @@ def test_routine_defaults_preserve_documented_kfile_semantics(tmp_path):
         "KFFFNC": "0",
         "PCURBD": "1",
         "FCURBD": "1",
-        "CUTIP": "5000.0",
+        "CUTIP": "15000.0",
         "RELIP": "0.4",
         "AELIP": "0.3",
         "EELIP": "1.6",
@@ -175,6 +175,91 @@ def test_the_coil_groups_come_from_the_machine_not_from_a_written_down_list():
         assert not hasattr(package, gone), gone
         assert not hasattr(kfile_module, gone), gone
         assert not hasattr(legacy_module, gone), gone
+
+
+#: The matrix that was written out by index, kept here so the derivation is
+#: checked against the thing it replaced rather than against itself.
+RETIRED_COIL_MATRIX = tuple(
+    tuple(row)
+    for row in [
+        [1.0 if c < 7 else 0.0 for c in range(12)],
+        *[
+            [(-1.0 if c == k else 0.0) for c in range(12)]
+            for k in range(7)
+        ],
+        [1.0 if c == 7 else 0.0 for c in range(12)],
+        [-1.0 if c == 7 else 0.0 for c in range(12)],
+        [1.0 if c == 8 else 0.0 for c in range(12)],
+        [-1.0 if c == 8 else 0.0 for c in range(12)],
+        [1.0 if c == 9 else 0.0 for c in range(12)],
+        [(-1.0 if c == 9 else 0.0) + (1.0 if c == 11 else 0.0) for c in range(12)],
+        [(1.0 if c == 10 else 0.0) + (-1.0 if c == 11 else 0.0) for c in range(12)],
+        [-1.0 if c == 10 else 0.0 for c in range(12)],
+    ]
+)
+
+
+def test_the_coil_constraint_matrix_is_derived_from_the_machine():
+    """#708: the equalities follow from the coilset, not from a table by index.
+
+    Splitting a circuit into current groups does not split its current, so each
+    circuit ties its extra groups back to its first; each series-wired pair
+    adds one more. For VEST that is 7 + 4 + 1 = 12 columns over 16 groups.
+
+    Checked against the retired literal element for element, because a
+    derivation verified only against itself proves nothing. The retired matrix
+    had its twelfth column -- the PF9/PF10 tie -- written as two bare index
+    assignments with no explanation; it is now a `ties:` entry carrying its
+    evidence.
+    """
+    policy = vest_efit_coilset_policy()
+    derived = policy.constraint_matrix()
+
+    assert len(derived) == policy.nfsum == 16
+    assert len(derived[0]) == 12
+    assert derived == RETIRED_COIL_MATRIX
+    assert policy.constraint_targets() == (0.0,) * 12
+
+    # Every column is one equality: a +1, a -1, and nothing else.
+    for column in range(12):
+        values = [derived[row][column] for row in range(16)]
+        assert sorted(v for v in values if v) == [-1.0, 1.0], column
+
+
+def test_a_config_without_a_matrix_lets_the_machine_supply_one():
+    from vaft.code.efit.config import EFITConstraintConfig
+
+    assert EFITConstraintConfig().coil_constraint_matrix is None
+    assert EFITConstraintConfig().coil_constraint_targets is None
+
+    # An explicit matrix is still validated.
+    with pytest.raises(ValueError, match="rectangular"):
+        EFITConstraintConfig(coil_constraint_matrix=((1.0, 0.0), (1.0,)))
+    with pytest.raises(ValueError, match="needs a coil_constraint_matrix"):
+        EFITConstraintConfig(coil_constraint_targets=(0.0,))
+
+
+def test_the_plasma_current_floor_is_the_vacuum_switch():
+    """`CUTIP` decides when there is no plasma worth fitting, not a tolerance.
+
+    EFIT tests `|Ip| <= cutip` and then stops reconstructing: `ivacum = 1`,
+    `ierchk = 0`, `iconvr = 3` (`data_input.F90:2454`). Raised from 5 kA to
+    15 kA in #708.
+
+    It is not `IP_FIT_FLOOR`, which is the probe-recovery backend's floor and
+    a different quantity entirely; the two were being read as one because both
+    are "a plasma current below which something stops".
+    """
+    from vaft.code.efit.config import EFITInitializationConfig
+    from vaft.code.efit.recovery import IP_FIT_FLOOR
+
+    assert EFITInitializationConfig().current_threshold == 15_000.0
+    assert IP_FIT_FLOOR != EFITInitializationConfig().current_threshold
+
+    # A floor is a floor: negative is refused, zero means "always reconstruct".
+    with pytest.raises(ValueError, match="non-negative"):
+        EFITInitializationConfig(current_threshold=-1.0)
+    assert EFITInitializationConfig(current_threshold=0.0).current_threshold == 0.0
 
 
 def test_the_coilset_is_configuration_and_derives_its_own_names():
