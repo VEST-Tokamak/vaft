@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>9145cff</code>. What is described
+  <code>11c54f6</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1929,6 +1929,13 @@ and $D = 1 + \alpha_P$,</p>
   </tbody>
 </table>
 
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    When $1 + \alpha_P$ vanishes, which is the exact-power-degradation case
+    $\alpha_P = -1$: every index divides by it, so the transformation has no
+    value there rather than a special one [-].</p>
+
 <p><strong>Assumptions.</strong></p>
 
 <p>Constant safety factor, $I_p \propto a^2B/R$, so current is absorbed into
@@ -1936,8 +1943,8 @@ the size and field indices; temperature eliminated through $P = W/\tau_E$.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>Returns <code class="language-plaintext highlighter-rouge">None</code> instead of a tuple when $1 + \alpha_P$ vanishes (tracked in
-#352); indices are rounded to three decimals.</p>
+<p><code class="language-plaintext highlighter-rouge">a_eps</code> is accepted and unused; <code class="language-plaintext highlighter-rouge">a_M</code> and <code class="language-plaintext highlighter-rouge">a_kappa</code> are returned
+unchanged, so the transformation is a no-op for those two axes.</p>
 
 <p><strong>References.</strong></p>
 
@@ -3048,9 +3055,9 @@ dependent variable of dimensionless confinement scalings.</p>
   </tbody>
 </table>
 
-<p><strong>Limitations.</strong></p>
+<p><strong>Numerical notes.</strong></p>
 
-<p>No guard against a zero volume average.  Tracked in #357.</p>
+<p>A zero volume average warns and returns <code class="language-plaintext highlighter-rouge">nan</code>.</p>
 
 <p><strong>See Also.</strong></p>
 
@@ -3309,11 +3316,10 @@ spacing of <code class="language-plaintext highlighter-rouge">l</code>.</p>
 both cancel in the ratio, provided all three inputs share one convention.
 Equals the IMAS <code class="language-plaintext highlighter-rouge">profiles_1d.psi_norm</code> label.</p>
 
-<p><strong>Limitations.</strong></p>
+<p><strong>Numerical notes.</strong></p>
 
-<p>Divides by <code class="language-plaintext highlighter-rouge">psi_boundary - psi_axis</code> without a guard; a degenerate
-equilibrium with equal axis and boundary flux returns <code class="language-plaintext highlighter-rouge">inf</code>/<code class="language-plaintext highlighter-rouge">nan</code>.
-Tracked in #357.</p>
+<p>A degenerate equilibrium with equal axis and boundary flux warns and
+returns <code class="language-plaintext highlighter-rouge">nan</code> rather than <code class="language-plaintext highlighter-rouge">inf</code>.</p>
 
 <p><strong>See Also.</strong></p>
 
@@ -3702,8 +3708,12 @@ sample, so a profile that starts inside the plasma is mis-normalised.</p>
 
 <p><strong>Numerical notes.</strong></p>
 
-<p>Cumulative trapezoidal integral rebuilt from scratch at every sample
-($O(N^2)$; tracked in #357); the denominator is not guarded against zero.</p>
+<p>One vectorised cumulative trapezoid
+(<code class="language-plaintext highlighter-rouge">scipy.integrate.cumulative_trapezoid</code>), not a rebuild per sample. A
+vanishing or non-finite total integral warns and yields <code class="language-plaintext highlighter-rouge">nan</code> rather than
+<code class="language-plaintext highlighter-rouge">inf</code>. A uniformly signed $q$ is fine – numerator and denominator flip
+together – but one that changes sign makes the cumulative ratio negative
+on some samples, and those warn rather than becoming a silent <code class="language-plaintext highlighter-rouge">nan</code>.</p>
 
 <p><strong>References.</strong></p>
 
@@ -6292,7 +6302,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-14 09:44:06 +0000"
+        "time": "2026-09-14 09:50:05 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
