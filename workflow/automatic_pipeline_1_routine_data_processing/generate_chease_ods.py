@@ -57,6 +57,29 @@ def _read_runs_summary(path: Path) -> dict[str, Any]:
         return {}
 
 
+def _provenance_inputs(runs_summary: dict) -> list[dict]:
+    """The EFIT artifacts this refinement consumed, by path *and* digest.
+
+    The CHEASE stage manifest carried no record of its inputs at all, so "which
+    EFIT produced this CHEASE" was answerable only by trusting that the files at
+    the paths in `chease_runs.json` had not changed since. This makes the link
+    checkable: each entry pairs the input g-file's SHA-256 with the digest of
+    the refined g-file it produced, which is the file the stability stage opens.
+
+    Records from before `run_chease_refinement.py` wrote the digests carry "",
+    which says "not recorded" rather than claiming a hash nobody took.
+    """
+    return [
+        {
+            "path": record.get("input", ""),
+            "sha256": record.get("input_sha256", ""),
+            "output_sha256": record.get("output_sha256", ""),
+            "status": record.get("status", "unknown"),
+        }
+        for record in runs_summary.get("records", [])
+    ]
+
+
 def _records_summary(runs_summary: dict[str, Any]) -> list[dict[str, Any]]:
     """Per-input-gfile status, including slices that were never refined."""
     return [
@@ -159,6 +182,9 @@ def main() -> int:
             "gfiles": len(gfiles),
             "parse_errors": parse_errors,
             "records_summary": records_summary,
+            # The middle link of the provenance chain: EFIT artifact digest ->
+            # this input -> this output -> the stability run that consumes it.
+            "input": _provenance_inputs(runs_summary),
         },
         args.metadata,
     )
