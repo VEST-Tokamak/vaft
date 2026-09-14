@@ -1575,6 +1575,13 @@ def build_ces_ods(
     return ods, manifest
 
 
+#: How far a profile time may sit from the reconstructed slice it is mapped
+#: against. The profile layer already resolves its own samples within 1 ms
+#: (`vaft.process.profile`), and an equilibrium grid is sparser, so this is
+#: deliberately looser -- but it is bounded, because "nearest" over a
+#: non-overlapping time base is not a match at all.
+EQUILIBRIUM_TIME_TOLERANCE_MS = 2.0
+
 #: How CHEASE names the equilibrium it refined, per shot and millisecond.
 #: EFIT's convention is a five-digit, zero-padded time, so the padding has to be
 #: in the format spec rather than typed out as literal zeros -- a discharge at
@@ -1589,6 +1596,7 @@ def build_core_profiles_ods(
     thomson_product: str | Path,
     ces_product: str | Path | None = None,
     efit_product: str | Path | None = None,
+    equilibrium_tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
     geqdsk_dir: str | Path | None = None,
     geqdsk_template: str = GEQDSK_NAME_TEMPLATE,
     run: int = 1,
@@ -1627,6 +1635,7 @@ def build_core_profiles_ods(
         "thomson_product": str(thomson_product),
         "ces_product": str(ces_product) if ces_product is not None else None,
         "efit_product": str(efit_product) if efit_product is not None else None,
+        "equilibrium_tolerance_ms": float(equilibrium_tolerance_ms),
         "geqdsk_dir": str(geqdsk_dir) if geqdsk_dir is not None else None,
     }
 
@@ -1674,10 +1683,17 @@ def build_core_profiles_ods(
         geq = None
         if solution is not None:
             index = int(np.argmin(np.abs(eq_times_ms - float(time_ms))))
-            try:
-                geq = from_equilibrium(as_equilibrium(solution, time_index=index))
-            except Exception:  # noqa: BLE001 - an unusable slice is a missing one
+            # Nearest is not the same as close. On 48226 the Thomson window
+            # (298-307 ms) and the reconstructed window (308-311 ms) do not
+            # overlap at all, and an unguarded argmin mapped every profile onto
+            # an equilibrium 7-10 ms away while reporting nothing missing.
+            if abs(float(eq_times_ms[index]) - float(time_ms)) > equilibrium_tolerance_ms:
                 geq = None
+            else:
+                try:
+                    geq = from_equilibrium(as_equilibrium(solution, time_index=index))
+                except Exception:  # noqa: BLE001 - an unusable slice is a missing one
+                    geq = None
         elif geqdsk_dir is not None:
             path = Path(geqdsk_dir) / geqdsk_template.format(
                 shot=shot, time_ms=int(time_ms)
@@ -1771,6 +1787,7 @@ def build_kinetic_efit_ods(
     constraints_product: str | Path,
     efit_product: str | Path,
     time_ms: float | None = None,
+    equilibrium_tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
     workdir: str | Path | None = None,
     executable: str | None = None,
     encoding: str = "raw6",
@@ -1898,6 +1915,17 @@ def build_kinetic_efit_ods(
     time_index = int(np.argmin(np.abs(eq_times - float(time_ms))))
     manifest["configuration"]["time_ms"] = float(time_ms)
     manifest["configuration"]["equilibrium_time_ms"] = float(eq_times[time_index])
+    manifest["configuration"]["equilibrium_tolerance_ms"] = float(equilibrium_tolerance_ms)
+    # Reconstructing a 298 ms profile against a 308 ms equilibrium is not a
+    # near miss in a discharge this short -- it is a different plasma. Refuse
+    # rather than produce a number nobody can tell is meaningless.
+    offset = abs(float(eq_times[time_index]) - float(time_ms))
+    if offset > equilibrium_tolerance_ms:
+        return unavailable(
+            f"the nearest reconstructed equilibrium is {offset:.1f} ms from the "
+            f"profile time ({time_ms:.1f} ms), beyond the "
+            f"{equilibrium_tolerance_ms:.1f} ms tolerance"
+        )
 
     # The psi this carries is the ODS's, in weber (#278/#281), where a g-file's
     # is weber per radian -- measured on 48224, SIMAG and SIBRY come out exactly
