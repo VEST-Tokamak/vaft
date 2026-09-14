@@ -208,8 +208,11 @@ def test_the_boundary_alone_never_sizes_the_canvas():
     b = renderers.render_geometry_layers(with_large, format="screen")[0].get_size_inches()
     np.testing.assert_array_equal(a, b)
     assert rz_extent(GeometryLayers(layers=(_boundary(0.9),))) is None
+    from vaft.plot import presentation as pres
+
     only_boundary = renderers.render_geometry_layers(GeometryLayers(layers=(_boundary(0.9),)), format="screen")[0]
-    assert only_boundary.get_size_inches()[1] == pytest.approx(6.5 * 7.0 / 6.0)
+    # The portrait ratio the R-Z renderers always used, on the width the axes gets.
+    assert only_boundary.get_size_inches()[1] == pytest.approx(6.5 * pres._RZ_AXES_FRACTION * pres._RZ_FALLBACK_ASPECT)
 
 
 def test_a_field_takes_its_extent_from_its_overlays_then_its_grid():
