@@ -324,11 +324,21 @@ class Presentation:
             return _snug(width, ratio, usable, ceiling)
         if policy.kind == "native":
             return _snug(width, _native_ratio(model), _RZ_AXES_FRACTION, ceiling)
-        # grid: one width whatever the column count; rows add height.
-        ncols = max(1, int(getattr(model, "ncols", 1) or 1))
-        rows = _visual_rows(model)
-        cell = max(_PANEL_MIN_ROW_IN, _PANEL_CELL_ASPECT * width / ncols)
-        return (width, min(max(rows * cell, 0.5 * width), ceiling))
+        # grid: one width whatever the column count; the rows add height,
+        # each as tall as the members standing in it ask (issue #711).
+        return (width, min(max(sum(self.row_heights(model)), 0.5 * width), ceiling))
+
+    def row_heights(self, model: Any) -> list[float]:
+        """The heights, in inches, a composite's rows need under this format.
+
+        What :meth:`figsize` sums for a ``Panels`` model; a renderer takes
+        them as ``row_heights`` so the grid divides the canvas the way the
+        members asked rather than equally (issue #711).  Empty without a
+        format.
+        """
+        if self.format is None:
+            return []
+        return _grid_rows(model, self.format.width_in, self.format.base_font_pt)
 
     def rc(self) -> dict[str, Any]:
         """The rcParams this presentation sets, theme baseline times format scale."""
@@ -415,6 +425,84 @@ def _native_ratio(model: Any) -> float:
     if len(shape) < 2 or shape[1] == 0:
         return 1.0
     return float(shape[0]) / float(shape[1])
+
+
+#: The tallest a member's cell gets relative to its width inside a grid: a
+#: composite's width is the format's and cannot follow one member's ratio,
+#: so a very tall machine keeps equal scaling inside its own panel instead.
+_CELL_MAX_ASPECT = 2.5
+
+
+def _grid_rows(model: Any, width: float, base_font_pt: float = 10.0) -> list[float]:
+    """The height a composite's rows need under one fixed ``width``.
+
+    Every member asks for the height its own geometry policy would give it
+    on the width of the columns it spans -- a time trace its landscape
+    strip, a field map its R-Z ratio less the colorbar's share, an image
+    its pixel ratio -- and a row is as tall as the tallest request across
+    it.  The rows start at the plain cell height the grid always used, so
+    a grid of time traces is exactly as tall as before; only a member that
+    needs more raises its rows, proportionally when it spans several.
+    Whole-figure only: the slice navigator sizes its own canvas.
+    """
+    members = tuple(getattr(model, "models", ()) or ())
+    ncols = max(1, int(getattr(model, "ncols", 1) or 1))
+    nrows = max(1, int(getattr(model, "nrows", 1) or 1))
+    spans = tuple(getattr(model, "spans", None) or ())
+    if not spans:
+        spans = tuple((i // ncols, i % ncols, 1, 1) for i in range(len(members)))
+    column_width = width / ncols
+    # A row is never shorter than an axes with its title and x label set at
+    # the format's type: the plain floor plus three lines.
+    floor = _PANEL_MIN_ROW_IN + 3.0 * _TEXT_LINE_PER_PT * base_font_pt
+    cell = max(floor, _PANEL_CELL_ASPECT * column_width)
+    # The plain grid's height, spread over the structural rows: a spans grid
+    # counts rows as the deepest stack, not the LCM it is built on.
+    rows = [_visual_rows(model) * cell / nrows] * nrows
+    for member, (row, _col, rowspan, colspan) in zip(members, spans):
+        need = _cell_need(member, colspan * column_width, base_font_pt)
+        have = sum(rows[row:row + rowspan])
+        if need is not None and need > have > 0.0:
+            scale = need / have
+            rows[row:row + rowspan] = [height * scale for height in rows[row:row + rowspan]]
+    return [float(height) for height in rows]
+
+
+#: The width an axes' y label and tick labels take, per point of base font
+#: (0.6 in at 10 pt): what a cell loses before its map can start.
+_LABEL_ALLOWANCE_PER_PT = 0.06
+
+#: A text panel is set at Matplotlib's "small" -- 0.833 of the base font --
+#: with 1.4 line spacing; this turns the base font into a line's inches.
+_TEXT_LINE_PER_PT = 0.833 * 1.4 / 72.0
+
+
+def _cell_need(member: Any, cell_width: float, base_font_pt: float = 10.0) -> float | None:
+    """The height in inches a member asks of its cell, or ``None`` to accept it.
+
+    Only a member whose shape is not its own to give asks: an R-Z map or an
+    image must keep its coordinate ratio, a text block must fit its lines.
+    A trace, a profile or a spectrum takes whatever height the grid gives
+    its row, so a grid of them is exactly as tall as it always was.
+    """
+    policy = GEOMETRY.get(type(member).__name__, GeometryPolicy("aspect", 0.62))
+    if policy.kind == "extent":
+        span = rz_extent(member)
+        ratio = span[1] / span[0] if span else _RZ_FALLBACK_ASPECT
+        usable = _RZ_AXES_FRACTION_WITH_COLORBAR if _has_colorbar(member) else _RZ_AXES_FRACTION
+        # Inside a grid the cell also pays for its own axis labels and ticks,
+        # a cost in inches that grows with the type size, not with the cell;
+        # the map is only as wide as what is left, and equal scaling then
+        # fixes its height from that width.  Asking for more would give the
+        # row height the map cannot use.
+        drawn_width = max(cell_width * usable - _LABEL_ALLOWANCE_PER_PT * base_font_pt, 0.3 * cell_width)
+        return min(ratio, _CELL_MAX_ASPECT) / _RZ_AXES_HEIGHT_FRACTION * drawn_width
+    if policy.kind == "native":
+        return min(_native_ratio(member), _CELL_MAX_ASPECT) * cell_width
+    lines = getattr(member, "lines", None)
+    if lines is not None and type(member).__name__ == "TextPanel":
+        return (len(lines) + 2.0) * _TEXT_LINE_PER_PT * base_font_pt
+    return None
 
 
 def _visual_rows(model: Any) -> int:
@@ -518,6 +606,9 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
                 size = presentation.figsize(
                     model, figsize or default_figsize, colorbar=kwargs.get("colorbar"),
                 )
+                if presentation.format is not None and type(model).__name__ == "Panels":
+                    # The rows the format sized, for the grid to honour.
+                    kwargs.setdefault("row_heights", presentation.row_heights(model))
                 if ax is not None and presentation.theme is not None:
                     for axis in _axes_of(ax):
                         apply_axes_theme(axis, presentation.theme)
