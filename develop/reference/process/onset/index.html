@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>308458e</code>. What is described
+  <code>5e78d8e</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -478,13 +478,16 @@ here reports the record bounds when it found no pulse.</p>
 <p>The end rule is the weak one.  A disruption’s vessel-current tail can sit at a
 third of the peak for a hundred milliseconds, above any end threshold that
 still separates plasma from a normal termination, and is then ended by the
-collapse fallback rather than by the threshold.  And the threshold is scaled
-from the largest excess anywhere in the search mask, which need not lie in
-the segment being judged: when it does not, the segment’s own peak can sit
-below the threshold, the extension is skipped and the window is the segment
-as found, flagged <code class="language-plaintext highlighter-rouge">offset_threshold_above_peak</code>.  Thirteen shots of the
-corpus reach that – all of them early records with windows a tenth the
-usual length – flagged, not repaired, tracked in issue #726.</p>
+collapse fallback rather than by the threshold.  The threshold is scaled
+from the amplitude the detector <em>accepted</em> – the largest segment, not the
+largest sample in the search stretch – because a spike the segment tests
+refused would otherwise set the level the pulse has to fall below (#726).</p>
+
+<p>And the window is the <em>envelope</em> of its segments, which for a record of two
+brief blips tens of milliseconds apart is mostly gap: three corpus records
+report windows that are 7 to 19 % above threshold.  <code class="language-plaintext highlighter-rouge">multiple_segments</code>
+says a window has gaps but not how much of it is gap, and the extent is
+consumed as a duration – tracked in issue #752.</p>
 
 <p><strong>Provenance.</strong></p>
 
@@ -1679,7 +1682,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-14 15:34:03 +0000"
+        "time": "2026-09-14 16:11:27 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
