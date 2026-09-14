@@ -406,24 +406,21 @@ separately.
 
 ### CHEASE and the `nideal` default
 
-`CHEASEConfig.nideal` defaults to `11`, which reproduces the VEST `jsk95`
-workflow against the CHEASE build that group uses. Upstream CHEASE accepts 1
-through 10 and rejects 11 outright:
+`CHEASEConfig.nideal` defaults to `6`, which upstream CHEASE accepts and which
+is its own documented default for writing the EQDSK that VAFT reads back.
+
+It used to default to `11`, the value the VEST `jsk95` workflow runs against
+the CHEASE build that group uses. Upstream validates the range in `cotrol.f90`
+(0 to 10) and quits before doing any equilibrium work on anything outside it:
 
 ```
 WRONG VALUE FOR NIDEAL IT HAS TO BE 1,2,3,4,5,6,7,8,9 OR 10
  after cotrol, output_flag =         -798
 ```
 
-So a CHEASE built from the public repository refuses the default configuration,
-on every platform -- this is a code-version difference, not a Windows one. Pass
-`CHEASEConfig(nideal=6)`, which is upstream's own default and the one documented
-as writing the EQDSK that VAFT reads back, or use the CHEASE revision the VEST
-workflow was written against.
-
-`check_chease.py` detects exactly this: it runs with the VAFT default first, and
-if CHEASE rejects it, retries with 6 and reports a WARN naming the difference
-rather than a failure.
+so a CHEASE built from the public repository refused the default configuration
+on every platform. That is fixed (#717); pass `CHEASEConfig(nideal=11)`
+explicitly if you are running against the jsk95 CHEASE revision.
 
 ### Two suite tests start running once CHEASE is installed
 
@@ -431,8 +428,6 @@ rather than a failure.
 a machine without CHEASE. Installing it un-skips them, and two then fail against
 a CHEASE built from the public repository:
 
-- `test_run_chease_integration_when_available` — the same `nideal` mismatch as
-  above: CHEASE refuses the default configuration and writes no EQDSK.
 - `test_run_chease_gfile_and_equivalent_ods_input_agree` — `ZMAXIS` differs from
   the reference by about 1.5e-5 relative, against an `rtol` of 1e-7.
 

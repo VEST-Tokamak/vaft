@@ -7,7 +7,8 @@ applying the edits in chease_jsk95.md:
     pytest -q scratchpad/port/test_chease_parity.py
 
 These tests exercise:
-  * namelist writer emits EPSLON=1.0E-10 and NIDEAL=11 (jsk95 defaults),
+  * namelist writer emits EPSLON=1.0E-10 by default and NIDEAL=11 when jsk95's
+    value is asked for (it is no longer the default -- see #717),
   * CSSPEC and QSPEC are driven by the q95 (double-sqrt) constraint,
   * _resolve_executable honors the $CHEASE environment variable.
 """
@@ -71,16 +72,39 @@ def _expected_q95(q, qloc):
 # (d) EPSLON / NIDEAL defaults
 # ---------------------------------------------------------------------------
 
-def test_namelist_epslon_and_nideal_defaults_match_jsk95():
+_JSK95_PARAMS = {
+    "ASPCT": 0.3, "R0EXP": 1.0, "B0EXP": 0.5, "CURRT": 0.1,
+    "QSPEC": 1.9, "CSSPEC": 0.9872864, "QLOC": np.sqrt(0.95),
+    "SIGNB0XP": 1.0, "SIGNIPXP": 1.0,
+}
+
+
+def test_the_default_nideal_is_one_upstream_chease_accepts():
+    """The default has to be runnable, not merely faithful to jsk95.
+
+    Upstream CHEASE validates the range in ``cotrol.f90`` (0 to 10) and quits
+    before doing any equilibrium work on anything outside it, so the previous
+    default of 11 meant a bare ``CHEASEConfig()`` could not run at all against
+    a CHEASE built from the public repository. See #717.
+    """
     cfg = ch.CHEASEConfig()
-    assert cfg.nideal == 11
+    assert cfg.nideal == 6
+    assert 0 <= cfg.nideal <= 10
+    text = "".join(ch._namelist_lines(cfg, _JSK95_PARAMS))
+    assert "NIDEAL=6," in text
+
+
+def test_namelist_epslon_default_and_jsk95_nideal_on_request():
+    """jsk95 parity is a property of the writer, not of the default.
+
+    ``NIDEAL=11`` is what the VEST jsk95 workflow runs, against the CHEASE
+    revision that group uses. It stopped being the default in #717 because
+    upstream rejects it, but asking for it must still emit it -- that is the
+    parity claim this file exists to defend.
+    """
+    cfg = ch.CHEASEConfig(nideal=11)
     assert cfg.epslon_exponent == 10
-    params = {
-        "ASPCT": 0.3, "R0EXP": 1.0, "B0EXP": 0.5, "CURRT": 0.1,
-        "QSPEC": 1.9, "CSSPEC": 0.9872864, "QLOC": np.sqrt(0.95),
-        "SIGNB0XP": 1.0, "SIGNIPXP": 1.0,
-    }
-    text = "".join(ch._namelist_lines(cfg, params))
+    text = "".join(ch._namelist_lines(cfg, _JSK95_PARAMS))
     assert "EPSLON=1.0E-10," in text
     assert "NIDEAL=11," in text
     assert "NCSCAL=1," in text

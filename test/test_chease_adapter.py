@@ -173,10 +173,11 @@ def test_run_chease_preserves_source_limiter_from_a_file_path(tmp_path):
     from vaft.data.resources import data_path
 
     source_path = data_path("efit/g039915.00319")
-    # Matches the settings run_chease_refinement.py's own defaults use and
-    # this repository's real shot-39915 validation confirmed converges;
-    # CHEASEConfig's bare defaults (nideal=11) are untuned for VEST and do
-    # not converge here, which is a separate, pre-existing gap, not this fix.
+    # The settings run_chease_refinement.py uses and this repository's real
+    # shot-39915 validation confirmed converge. Since #717 these are also
+    # CHEASEConfig's defaults -- `nideal` was the last one that differed --
+    # but they stay spelled out here so the test says what it exercises rather
+    # than inheriting it silently.
     config = CHEASEConfig(
         workdir=tmp_path,
         create_plot=False,

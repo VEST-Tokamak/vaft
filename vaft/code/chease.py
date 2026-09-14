@@ -34,7 +34,12 @@ class CHEASEConfig:
     workdir: Path | str = Path(".")
     target_psin: float = 0.993
     relax: float = 0.5
-    nideal: int = 11
+    # Upstream CHEASE validates this range (`cotrol.f90`: 0 to 10) and quits
+    # in `cotrol` on anything outside it, before any equilibrium work. 6 is
+    # upstream's own default and the value every VAFT caller that actually runs
+    # CHEASE already passed by hand. The VEST `jsk95` workflow uses 11, which
+    # only its own CHEASE revision accepts; pass `nideal=11` explicitly for it.
+    nideal: int = 6
     nw: int = 513
     # --- jsk95 parity knobs (defaults reproduce eqdsk.py run_mode='jsk95') ---
     epslon_exponent: int = 10  # emits EPSLON=1.0E-{exp}; jsk95 uses 10
