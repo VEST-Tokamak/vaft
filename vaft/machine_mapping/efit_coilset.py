@@ -71,6 +71,49 @@ class EFITCoilsetPolicy:
                 seen.append(circuit)
         return tuple(seen)
 
+    def constraint_matrix(self) -> tuple[tuple[float, ...], ...]:
+        """The k-file's ``&INWANT`` coil-constraint matrix, derived.
+
+        One row per group, one column per equality. With all-zero targets each
+        column ``c`` asserts ``sum_r C[r][c] * I_r = 0``, so an equality is a
+        ``+1`` and a ``-1``.
+
+        Two kinds, and both come from the machine rather than from a hand-made
+        table. Splitting a circuit into groups does not split its current, so
+        each circuit contributes one column per extra group tying it back to
+        its first. Then each configured series tie contributes one more.
+
+        This was sixteen rows by twelve columns written out by index, with the
+        last two lines -- the PF9/PF10 tie -- carrying no explanation at all.
+        """
+        index = {name: position for position, name in enumerate(self.group_names)}
+        columns: list[list[float]] = []
+
+        for circuit in self.circuits:
+            members = [name for name in self.group_names if self.source_circuit[name] == circuit]
+            first = members[0]
+            for other in members[1:]:
+                column = [0.0] * len(self.group_names)
+                column[index[first]] = 1.0
+                column[index[other]] = -1.0
+                columns.append(column)
+
+        for tied in self.ties:
+            head = tied[0]
+            for other in tied[1:]:
+                column = [0.0] * len(self.group_names)
+                column[index[head]] = 1.0
+                column[index[other]] = -1.0
+                columns.append(column)
+
+        return tuple(
+            tuple(column[row] for column in columns) for row in range(len(self.group_names))
+        )
+
+    def constraint_targets(self) -> tuple[float, ...]:
+        """One zero per column: every constraint here is an equality."""
+        return (0.0,) * len(self.constraint_matrix()[0])
+
     def group_for_element(self, coil_name: str, z: float) -> str | None:
         """The group an element belongs to, from its own position.
 

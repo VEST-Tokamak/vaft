@@ -648,6 +648,7 @@ def generate_kfile(
     save_dir="./tmp",
     *,
     config: EFITConfig | EFITScientificConfig | None = None,
+    coilset=None,
 ):
     """
     Generate k-files under ``save_dir/kfile`` for the requested shot.
@@ -770,7 +771,22 @@ def generate_kfile(
             )
         pf_indices = list(range(available))
         nbcoil = available
+        # `None` means "the coilset says": splitting a circuit into groups does
+        # not split its current, and series-wired circuits carry one, so the
+        # equalities follow from the machine description rather than from a
+        # table written out by index.
         matrix = constraint_config.coil_constraint_matrix
+        targets = constraint_config.coil_constraint_targets
+        if matrix is None:
+            if coilset is None:
+                from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
+
+                coilset = vest_efit_coilset_policy()
+            matrix = coilset.constraint_matrix()
+            if targets is None:
+                targets = coilset.constraint_targets()
+        elif targets is None:
+            targets = (0.0,) * len(matrix[0])
         if len(matrix) != nbcoil:
             raise ValueError(
                 "coil_constraint_matrix row count must match the selected "
@@ -1033,7 +1049,7 @@ def generate_kfile(
         f.write(f" NCCOIL = {constraint_config.nccoil}\n")
         f.write(
             _namelist_array(
-                "XCOILS", constraint_config.coil_constraint_targets, per_line=8
+                "XCOILS", targets, per_line=8
             )
         )
         f.write(" /\n")
