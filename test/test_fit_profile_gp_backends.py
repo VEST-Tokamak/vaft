@@ -117,3 +117,72 @@ def test_the_scipy_backend_warns_that_it_cannot_use_an_sklearn_kernel():
     x, y, y_std = _noisy_exponential(n=12)
     with pytest.warns(RuntimeWarning, match="scikit-learn kernel"):
         fit_profile(x, y, y_std, x, fitting_function="gp", gp_kernel=RBF(0.3))
+
+
+# --- the fit is trained once, and the callable re-evaluates it -------------------
+
+
+def test_the_returned_callable_reuses_the_fit_instead_of_refitting():
+    """The callable is evaluated many times; the hyperparameter search runs once.
+
+    `vaft.process.profile.core_profiles` evaluates the returned callable on the
+    equilibrium grid and `FittedProfile` keeps it for later re-evaluation, so a
+    callable that refits pays the whole marginal-likelihood optimisation on
+    every call.  The sklearn branch gets this for free by handing back a fitted
+    estimator's `predict`; the scipy branch has to be told.
+    """
+    from vaft.formula import utils as formula_utils
+
+    calls = {"n": 0}
+    original = formula_utils._gp_negative_log_marginal_likelihood
+
+    def counting(*args, **kwargs):
+        calls["n"] += 1
+        return original(*args, **kwargs)
+
+    x, y, y_std = _noisy_exponential(n=20)
+    x_eval = np.linspace(0.0, 1.0, 40)
+
+    formula_utils._gp_negative_log_marginal_likelihood = counting
+    try:
+        y_fit, _, fit_function, _ = fit_profile(
+            x, y, y_std, x_eval, fitting_function="gp"
+        )
+        after_fit = calls["n"]
+        assert after_fit > 0, "the fit should have optimised something"
+        for _ in range(3):
+            fit_function(x_eval)
+        assert calls["n"] == after_fit, (
+            f"the callable re-ran the hyperparameter search: {calls['n'] - after_fit} "
+            "extra objective evaluations over three calls"
+        )
+    finally:
+        formula_utils._gp_negative_log_marginal_likelihood = original
+
+    # Re-evaluating the same fit on the same grid must reproduce it exactly.
+    np.testing.assert_allclose(fit_function(x_eval), y_fit)
+
+
+def test_a_non_finite_target_scale_falls_back_the_same_way_in_both_branches():
+    """NaN is truthy, so ``float(np.std(...)) or 1.0`` would accept it (#714)."""
+    from vaft.formula.utils import _target_scale
+
+    assert _target_scale([np.nan, 1.0]) == 1.0
+    assert _target_scale([2.0, 2.0]) == 1.0
+    assert _target_scale([0.0, 2.0]) == 1.0
+
+
+def test_a_non_finite_anchor_is_refused_by_name_not_by_scipy():
+    """`fit_profile` masks its data, then appends the anchor after the mask.
+
+    A non-finite anchor therefore reaches the covariance solve untouched, where
+    scipy raises "array must not contain infs or NaNs" from three frames down,
+    naming neither the argument nor the caller (#714).
+    """
+    x, y, y_std = _noisy_exponential(n=10)
+    with pytest.raises(ValueError, match="gp_anchor"):
+        fit_profile(
+            x, y, y_std, x,
+            fitting_function="gp",
+            gp_anchor=(np.array([1.2]), np.array([np.nan]), np.array([0.01])),
+        )

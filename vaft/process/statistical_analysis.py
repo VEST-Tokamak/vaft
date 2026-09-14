@@ -446,6 +446,57 @@ def analyze_significance(results: RegressionResults,
     return significance
 
 
+def _goodness_of_fit(y_actual, y_pred):
+    """Coefficient of determination, root-mean-square error and mean absolute error.
+
+    Three lines of numpy rather than a scikit-learn import, which made an
+    optional dependency a hard one for two metrics (#426).  Separated from
+    :func:`compute_metrics` so the arithmetic can be tested without building a
+    regression result around it.
+
+    Parameters
+    ----------
+    y_actual : array_like
+        Observed values, in their own unit [any].
+    y_pred : array_like
+        Predicted values on the same points [any].
+
+    Returns
+    -------
+    tuple of float
+        The coefficient of determination, dimensionless; the root-mean-square
+        error and the mean absolute error, both in the unit of *y_actual* [-].
+
+    Convention
+    ----------
+    A constant observed series has no variance to explain.  The score is then
+    1.0 when the prediction matches it exactly and 0.0 otherwise, which is what
+    ``sklearn.metrics.r2_score`` reports and what callers thresholding on this
+    value already expect; returning NaN there would change the answer rather
+    than inline the metric.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] The definitions of ``sklearn.metrics.r2_score`` and
+       ``mean_squared_error``, which this replaced in-place (#426).
+    """
+    y_actual = np.asarray(y_actual, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    residual = y_actual - y_pred
+    total = y_actual - np.mean(y_actual)
+    denominator = float(np.sum(total**2))
+    numerator = float(np.sum(residual**2))
+    if denominator:
+        r2 = 1.0 - numerator / denominator
+    else:
+        r2 = 1.0 if numerator == 0.0 else 0.0
+    return r2, float(np.sqrt(np.mean(residual**2))), float(np.mean(np.abs(residual)))
+
+
 def compute_metrics(results: RegressionResults, 
                    df: pd.DataFrame,
                    target_param: str = 'tauE_s') -> Dict[str, float]:
@@ -515,12 +566,7 @@ def compute_metrics(results: RegressionResults,
     # Both metrics inline rather than through scikit-learn: they are three
     # lines of numpy, and importing sklearn for them made it a hard dependency
     # of the whole package (#426).
-    residual = y_actual - y_pred
-    total = y_actual - np.mean(y_actual)
-    denominator = float(np.sum(total**2))
-    r2 = 1.0 - float(np.sum(residual**2)) / denominator if denominator else float("nan")
-    rmse = float(np.sqrt(np.mean(residual**2)))
-    mae = np.mean(np.abs(y_actual - y_pred))
+    r2, rmse, mae = _goodness_of_fit(y_actual, y_pred)
     
     # Relative errors
     relative_error = np.abs((y_actual - y_pred) / y_actual) * 100

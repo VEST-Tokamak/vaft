@@ -8,7 +8,7 @@ the formula module.
 import warnings
 
 import numpy as np
-from typing import Union, Tuple, List, Dict
+from typing import Union, Tuple, List, Dict, NamedTuple
 from scipy.linalg import cho_factor, cho_solve
 from scipy.optimize import curve_fit, minimize
 from vaft.compat import trapz_compat
@@ -93,6 +93,17 @@ _GP_LENGTH_SCALE_BOUNDS = (0.05, 5.0)
 _GP_JITTER = 1e-10
 
 
+def _target_scale(values) -> float:
+    """The standard deviation to normalise a target by, or 1.0 when it has none.
+
+    Both Gaussian-process paths normalise by this, so both reject a
+    non-finite scale the same way; ``float(np.std(...)) or 1.0`` does not,
+    because NaN is truthy (#714).
+    """
+    scale = float(np.std(np.asarray(values, dtype=float)))
+    return scale if np.isfinite(scale) and scale != 0.0 else 1.0
+
+
 def _gp_kernel(xa: np.ndarray, xb: np.ndarray, constant: float, length_scale: float) -> np.ndarray:
     """Squared-exponential covariance, ``constant * exp(-d^2 / 2 l^2)``."""
     distance = xa.reshape(-1, 1) - xb.reshape(1, -1)
@@ -131,6 +142,105 @@ def _gp_negative_log_marginal_likelihood(theta, x, y, noise_variance):
     weights = cho_solve(factor, y)
     log_determinant = 2.0 * np.sum(np.log(np.diag(factor[0])))
     return 0.5 * (y @ weights + log_determinant + y.size * np.log(2.0 * np.pi))
+
+
+class _GPState(NamedTuple):
+    """One trained Gaussian process: the data it saw and the fit it settled on.
+
+    Split out of :func:`gp_fit` so a caller that evaluates the same fit many
+    times -- :func:`fit_profile` hands back a callable that does exactly that --
+    pays the hyperparameter search once instead of once per evaluation.
+    """
+
+    x: np.ndarray
+    y_normalised: np.ndarray
+    noise_variance: np.ndarray
+    constant: float
+    length_scale: float
+    y_mean: float
+    y_scale: float
+
+
+def _gp_train(x, y, y_std, *, n_restarts_optimizer: int = 5, random_state: int = 0) -> "_GPState":
+    """Standardise, optimise the marginal likelihood, and return the fit."""
+    x = np.asarray(x, dtype=float).reshape(-1)
+    y = np.asarray(y, dtype=float).reshape(-1)
+    if x.size != y.size:
+        raise ValueError(f"gp_fit: x and y must be the same length, got {x.size} and {y.size}")
+
+    # Checked here rather than left to scipy: `cho_solve` validates its input
+    # and raises "array must not contain infs or NaNs" from three frames down,
+    # naming neither the argument nor the caller. `fit_profile` masks its
+    # primary data but appends `gp_anchor` points afterwards, so a non-finite
+    # anchor reaches this untouched (#714).
+    for name, values in (("x", x), ("y", y)):
+        if not np.all(np.isfinite(values)):
+            raise ValueError(
+                f"gp_fit: {name} contains non-finite values, which the covariance "
+                "solve cannot accept; mask them before fitting (a gp_anchor point "
+                "is appended after fit_profile's own masking)."
+            )
+
+    # Standardise, as sklearn's normalize_y=True does: the hyperparameter
+    # bounds are then scale-free.
+    y_mean = float(np.mean(y))
+    y_scale = _target_scale(y)
+    y_normalised = (y - y_mean) / y_scale
+
+    if y_std is None:
+        noise_variance = np.full(x.size, _GP_JITTER)
+    else:
+        noise_variance = (np.asarray(y_std, dtype=float).reshape(-1) / y_scale) ** 2
+
+    bounds = [np.log(_GP_CONSTANT_BOUNDS), np.log(_GP_LENGTH_SCALE_BOUNDS)]
+    starts = [np.array([np.log(1.0), np.log(0.3)])]
+    rng = np.random.default_rng(random_state)
+    for _ in range(max(0, int(n_restarts_optimizer))):
+        starts.append(np.array([rng.uniform(*bounds[0]), rng.uniform(*bounds[1])]))
+
+    best_theta, best_value = starts[0], np.inf
+    for start in starts:
+        result = minimize(
+            _gp_negative_log_marginal_likelihood,
+            start,
+            args=(x, y_normalised, noise_variance),
+            method="L-BFGS-B",
+            bounds=bounds,
+        )
+        if result.fun < best_value:
+            best_theta, best_value = result.x, float(result.fun)
+
+    # No restart produced a finite marginal likelihood, so there are no
+    # hyperparameters to evaluate at. Say which stage gave up rather than
+    # letting the posterior raise the same LinAlgError one frame later.
+    if not np.isfinite(best_value):
+        raise ValueError(
+            "gp_fit: no restart produced a finite marginal likelihood, so no "
+            "hyperparameters were found. The covariance is singular for this "
+            "data -- check for duplicated abscissae, or for a supplied y_std "
+            "that is zero where the data repeats."
+        )
+
+    constant, length_scale = np.exp(best_theta)
+    return _GPState(
+        x=x,
+        y_normalised=y_normalised,
+        noise_variance=noise_variance,
+        constant=float(constant),
+        length_scale=float(length_scale),
+        y_mean=y_mean,
+        y_scale=y_scale,
+    )
+
+
+def _gp_evaluate(state: "_GPState", x_eval):
+    """Posterior mean and standard deviation of a trained fit, in data units."""
+    x_eval = np.asarray(x_eval, dtype=float).reshape(-1)
+    mean, std = _gp_posterior(
+        state.x, state.y_normalised, state.noise_variance, x_eval,
+        state.constant, state.length_scale,
+    )
+    return mean * state.y_scale + state.y_mean, std * state.y_scale
 
 
 def gp_fit(x, y, y_std, x_eval, *, n_restarts_optimizer: int = 5, random_state: int = 0):
@@ -172,46 +282,12 @@ def gp_fit(x, y, y_std, x_eval, *, n_restarts_optimizer: int = 5, random_state: 
     .. [1] C. E. Rasmussen and C. K. I. Williams, *Gaussian Processes for
            Machine Learning*, MIT Press (2006), Algorithm 2.1 and Eq. (5.8).
     """
-    x = np.asarray(x, dtype=float).reshape(-1)
-    y = np.asarray(y, dtype=float).reshape(-1)
-    x_eval = np.asarray(x_eval, dtype=float).reshape(-1)
-
-    # Standardise, as sklearn's normalize_y=True does: the hyperparameter
-    # bounds are then scale-free.
-    y_mean = float(np.mean(y))
-    y_scale = float(np.std(y))
-    if not np.isfinite(y_scale) or y_scale == 0.0:
-        y_scale = 1.0
-    y_normalised = (y - y_mean) / y_scale
-
-    if y_std is None:
-        noise_variance = np.full(x.size, _GP_JITTER)
-    else:
-        noise_variance = (np.asarray(y_std, dtype=float).reshape(-1) / y_scale) ** 2
-
-    bounds = [np.log(_GP_CONSTANT_BOUNDS), np.log(_GP_LENGTH_SCALE_BOUNDS)]
-    starts = [np.array([np.log(1.0), np.log(0.3)])]
-    rng = np.random.default_rng(random_state)
-    for _ in range(max(0, int(n_restarts_optimizer))):
-        starts.append(np.array([rng.uniform(*bounds[0]), rng.uniform(*bounds[1])]))
-
-    best_theta, best_value = starts[0], np.inf
-    for start in starts:
-        result = minimize(
-            _gp_negative_log_marginal_likelihood,
-            start,
-            args=(x, y_normalised, noise_variance),
-            method="L-BFGS-B",
-            bounds=bounds,
-        )
-        if result.fun < best_value:
-            best_theta, best_value = result.x, float(result.fun)
-
-    constant, length_scale = np.exp(best_theta)
-    mean, std = _gp_posterior(
-        x, y_normalised, noise_variance, x_eval, constant, length_scale
+    state = _gp_train(
+        x, y, y_std,
+        n_restarts_optimizer=n_restarts_optimizer,
+        random_state=random_state,
     )
-    return mean * y_scale + y_mean, std * y_scale
+    return _gp_evaluate(state, x_eval)
 
 
 def _guarded_ratio(numerator, denominator, *, what: str, because: str):
@@ -789,7 +865,7 @@ def fit_profile(
             # noise has to be handed over already in normalized units -- passing
             # the raw variance understates it by var(y), which is what this code
             # used to do.
-            scale = float(np.std(y_gp)) or 1.0
+            scale = _target_scale(y_gp)
             alpha = (np.asarray(y_std_gp, float) / scale) ** 2 if y_std_gp is not None else _GP_JITTER
             gp = GaussianProcessRegressor(
                 kernel=kernel,
@@ -815,16 +891,16 @@ def fit_profile(
                 stacklevel=2,
             )
 
-        y_eval, y_std_eval = gp_fit(
-            x_gp, y_gp, y_std_gp, x_eval, n_restarts_optimizer=n_restarts_optimizer
+        # Trained once. The returned callable re-evaluates that fit rather than
+        # re-running the hyperparameter search, which is what the sklearn branch
+        # gets for free by handing back a fitted estimator's predict.
+        gp_state = _gp_train(
+            x_gp, y_gp, y_std_gp, n_restarts_optimizer=n_restarts_optimizer
         )
+        y_eval, y_std_eval = _gp_evaluate(gp_state, x_eval)
 
         def fit_function(x_input):
-            x_arr = np.asarray(x_input, float).reshape(-1)
-            mean, _ = gp_fit(
-                x_gp, y_gp, y_std_gp, x_arr, n_restarts_optimizer=n_restarts_optimizer
-            )
-            return mean
+            return _gp_evaluate(gp_state, np.asarray(x_input, float).reshape(-1))[0]
 
         return y_eval, y_std_eval, fit_function, None
 
