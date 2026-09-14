@@ -447,8 +447,7 @@ def _field_count(conn: Any, table: str, shot: int) -> int:
         cursor.close()
 
 
-@lru_cache(maxsize=4096)
-def _generation_from_counts(shot: int, count_v2: int, count_v3: int) -> Optional[int]:
+def _generation_from_counts(count_v2: int, count_v3: int) -> Optional[int]:
     """Pick the generation from each table's field count for one shot.
 
     Whichever table actually holds the shot wins.  When both do -- 19 shots
@@ -463,6 +462,12 @@ def _generation_from_counts(shot: int, count_v2: int, count_v3: int) -> Optional
     return 2
 
 
+#: Resolved generation per shot.  Only *answers* are stored, never the outcome
+#: of a failed read: which table holds a shot does not change while the process
+#: runs, but a query that errored has not established anything.
+_GENERATION_CACHE: dict[int, Optional[int]] = {}
+
+
 def waveform_generation_for_shot(conn: Any, shot: int) -> Optional[int]:
     """Return which waveform table holds ``shot``, or ``None`` if neither does.
 
@@ -470,16 +475,22 @@ def waveform_generation_for_shot(conn: Any, shot: int) -> Optional[int]:
     the boundary does not match them: `_2` spans 29350-47588 and `_3` spans
     42647-48864, so a range rule either misses 598 shots outright or silently
     reads a stub for 19 more (issue #761).
+
+    A read error propagates.  Reporting it as "no data" would be the same
+    mistake as #446, where a busy server was recorded as a missing namespace:
+    both callers retry on :class:`MysqlError`, and a swallowed error would skip
+    that and hand back a shot that merely looks empty.
     """
     shot = int(shot)
-    counts = {}
-    for generation, table in _WAVEFORM_TABLES.items():
-        try:
-            counts[generation] = _field_count(conn, table, shot)
-        except MysqlError as error:  # a table that cannot be read holds nothing
-            logger.debug("%s unreadable for shot %s: %s", table, shot, error)
-            counts[generation] = 0
-    return _generation_from_counts(shot, counts.get(2, 0), counts.get(3, 0))
+    if shot in _GENERATION_CACHE:
+        return _GENERATION_CACHE[shot]
+    counts = {
+        generation: _field_count(conn, table, shot)
+        for generation, table in _WAVEFORM_TABLES.items()
+    }
+    generation = _generation_from_counts(counts.get(2, 0), counts.get(3, 0))
+    _GENERATION_CACHE[shot] = generation
+    return generation
 
 
 def upgrade_archive_timebase(payload: dict) -> dict:
@@ -1217,12 +1228,14 @@ def get_all_field_codes_for_shot(shot: int, max_retries: int = 3):
         conn = None
         try:
             conn = DB_POOL.get_connection()
-            cursor = conn.cursor()
 
             generation = waveform_generation_for_shot(conn, shot)
             if generation is None:
                 logger.info("No waveform table holds shot %s.", shot)
                 return []
+            # Opened only once there is a query to run, so the early return
+            # above cannot leave one behind on a pooled connection.
+            cursor = conn.cursor()
             query = (
                 "SELECT DISTINCT shotDataFieldCode "
                 f"FROM {_WAVEFORM_TABLES[generation]} "
