@@ -326,7 +326,19 @@ class Presentation:
             return _snug(width, _native_ratio(model), _RZ_AXES_FRACTION, ceiling)
         # grid: one width whatever the column count; the rows add height,
         # each as tall as the members standing in it ask (issue #711).
-        return (width, min(max(_grid_height(model, width, self.format.base_font_pt), 0.5 * width), ceiling))
+        return (width, min(max(sum(self.row_heights(model)), 0.5 * width), ceiling))
+
+    def row_heights(self, model: Any) -> list[float]:
+        """The heights, in inches, a composite's rows need under this format.
+
+        What :meth:`figsize` sums for a ``Panels`` model; a renderer takes
+        them as ``row_heights`` so the grid divides the canvas the way the
+        members asked rather than equally (issue #711).  Empty without a
+        format.
+        """
+        if self.format is None:
+            return []
+        return _grid_rows(model, self.format.width_in, self.format.base_font_pt)
 
     def rc(self) -> dict[str, Any]:
         """The rcParams this presentation sets, theme baseline times format scale."""
@@ -421,7 +433,7 @@ def _native_ratio(model: Any) -> float:
 _CELL_MAX_ASPECT = 2.5
 
 
-def _grid_height(model: Any, width: float, base_font_pt: float = 10.0) -> float:
+def _grid_rows(model: Any, width: float, base_font_pt: float = 10.0) -> list[float]:
     """The height a composite's rows need under one fixed ``width``.
 
     Every member asks for the height its own geometry policy would give it
@@ -440,7 +452,10 @@ def _grid_height(model: Any, width: float, base_font_pt: float = 10.0) -> float:
     if not spans:
         spans = tuple((i // ncols, i % ncols, 1, 1) for i in range(len(members)))
     column_width = width / ncols
-    cell = max(_PANEL_MIN_ROW_IN, _PANEL_CELL_ASPECT * column_width)
+    # A row is never shorter than an axes with its title and x label set at
+    # the format's type: the plain floor plus three lines.
+    floor = _PANEL_MIN_ROW_IN + 3.0 * _TEXT_LINE_PER_PT * base_font_pt
+    cell = max(floor, _PANEL_CELL_ASPECT * column_width)
     # The plain grid's height, spread over the structural rows: a spans grid
     # counts rows as the deepest stack, not the LCM it is built on.
     rows = [_visual_rows(model) * cell / nrows] * nrows
@@ -450,7 +465,7 @@ def _grid_height(model: Any, width: float, base_font_pt: float = 10.0) -> float:
         if need is not None and need > have > 0.0:
             scale = need / have
             rows[row:row + rowspan] = [height * scale for height in rows[row:row + rowspan]]
-    return float(sum(rows))
+    return [float(height) for height in rows]
 
 
 #: The width an axes' y label and tick labels take, per point of base font
@@ -591,6 +606,9 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
                 size = presentation.figsize(
                     model, figsize or default_figsize, colorbar=kwargs.get("colorbar"),
                 )
+                if presentation.format is not None and type(model).__name__ == "Panels":
+                    # The rows the format sized, for the grid to honour.
+                    kwargs.setdefault("row_heights", presentation.row_heights(model))
                 if ax is not None and presentation.theme is not None:
                     for axis in _axes_of(ax):
                         apply_axes_theme(axis, presentation.theme)

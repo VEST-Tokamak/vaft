@@ -160,6 +160,7 @@ def resolve_axes(
     sharex: bool = False,
     sharey: bool = False,
     squeeze: bool = True,
+    gridspec_kw: dict[str, Any] | None = None,
 ) -> tuple[Figure, Any]:
     """Return ``(figure, axes)`` for a renderer.
 
@@ -177,6 +178,7 @@ def resolve_axes(
             sharex=sharex,
             sharey=sharey,
             squeeze=squeeze and needed == 1,
+            gridspec_kw=gridspec_kw,
         )
         return figure, axes
 

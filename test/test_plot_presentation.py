@@ -216,6 +216,13 @@ def test_the_equilibrium_overview_takes_its_height_from_the_flux_map(sample):
     figure, axes = vaft.omas.plot_equilibrium_overview(sample, format="screen")
     figure.canvas.draw()
     assert np.asarray(axes).ravel()[0].get_position().height * figure.get_size_inches()[1] > 2.2
+    # The rows are divided the way the members asked: the text panel's row is
+    # taller than a profile's, and its fourteen lines are not cut.
+    figure, axes = vaft.omas.plot_equilibrium_overview(sample, format="double_column")
+    figure.canvas.draw()
+    flat = np.asarray(axes).ravel()
+    text_axis, profile_axis = flat[-1], flat[1]
+    assert text_axis.get_position().height > profile_axis.get_position().height
     # The diagnostics overview is traces only and is exactly as tall as before.
     assert tuple(vaft.omas.plot_diagnostics_overview(sample, format="double_column")[0].get_size_inches()) == (7.0, 4.2)
 

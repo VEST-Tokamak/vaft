@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from typing import Any
+from typing import Any, Sequence
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -130,6 +130,7 @@ def render_panels(
     ax: Any = None,
     show: bool = False,
     figsize: tuple[float, float] | None = None,
+    row_heights: Sequence[float] | None = None,
     format: str | None = None,
     theme: str | None = None,
     **style: Any,
@@ -139,6 +140,9 @@ def render_panels(
     A caller-supplied ``ax=`` is the grid: exactly one axes per panel, filled
     in order.  Those axes are the caller's to configure, so ``model.share_x``
     and the tight layout apply only to a figure this renderer creates itself.
+    ``row_heights`` are relative heights for the grid's rows -- one per row
+    -- which a presentation format supplies from what the members asked
+    (issue #711); ``None`` divides the canvas equally, as always.
     """
     if not isinstance(model, Panels):
         raise TypeError(
@@ -177,7 +181,7 @@ def render_panels(
         figure = resolve_axes(None, figsize=figsize)[0]
         for axis in list(figure.axes):
             axis.remove()
-        gridspec = figure.add_gridspec(model.nrows, model.ncols)
+        gridspec = figure.add_gridspec(model.nrows, model.ncols, height_ratios=_row_ratios(row_heights, model.nrows))
         # A field map's colorbar gets a cell of its own beside the map, the
         # arrangement the slice navigator uses: a colorbar taken out of an
         # equal-aspect axes shrinks the map instead, and the taller the row
@@ -197,6 +201,7 @@ def render_panels(
                 _DEFAULT_PANEL_WIDTH * model.ncols,
                 _DEFAULT_PANEL_HEIGHT * model.nrows,
             )
+        ratios = _row_ratios(row_heights, model.nrows)
         figure, axes = resolve_axes(
             None,
             nrows=model.nrows,
@@ -205,6 +210,7 @@ def render_panels(
             sharex=model.share_x,
             sharey=model.share_y,
             squeeze=False,
+            gridspec_kw={"height_ratios": ratios} if ratios is not None else None,
         )
         grid = np.asarray(axes, dtype=object).reshape(model.nrows, model.ncols)
         flat = grid.ravel()
@@ -263,6 +269,16 @@ def visual_rows(model: Panels) -> int:
         for c in range(col, col + colspan):
             columns[c] = columns.get(c, 0) + 1
     return max(columns.values()) if columns else 1
+
+
+def _row_ratios(row_heights: Sequence[float] | None, nrows: int) -> list[float] | None:
+    """``row_heights`` as gridspec ratios, or ``None`` when they do not fit the grid."""
+    if row_heights is None:
+        return None
+    ratios = [float(h) for h in row_heights]
+    if len(ratios) != nrows or any(h <= 0 for h in ratios):
+        return None
+    return ratios
 
 
 def slice_grid_axes(figure: Any, grid: Any, model: Panels, *, top: int = 0, colorbar_slot: int | None = None):
