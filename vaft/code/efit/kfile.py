@@ -48,7 +48,7 @@ _EFIT_CONSTRAINT_FAMILY = {
 }
 
 
-def build_efit_coil_currents(destination, source, *, window=None) -> None:
+def build_efit_coil_currents(destination, source, *, coilset=None, window=None) -> None:
     """The EFIT current groups, built from the machine's own PF circuits.
 
     VEST energises ten PF circuits.  EFIT's VEST table carries sixteen current
@@ -57,10 +57,11 @@ def build_efit_coil_currents(destination, source, *, window=None) -> None:
     bookkeeping, so every group takes the current of the circuit it belongs
     to, and the eight solenoid segments all carry PF1.
 
-    The grouping and the circuit each group belongs to come from
-    :mod:`vaft.machine_mapping.efund_geometry`, the same module that projects
-    the F-coil groups for EFUND, so the table and the k-file cannot disagree
-    about which coils exist.  Circuits are matched by name, not by position.
+    ``coilset`` is the resolved coilset policy -- which circuits the table
+    describes and how each is split -- and defaults to the configured one.  It
+    is the same policy the EFUND projection is given, so the table and the
+    k-file cannot disagree about which coils exist.  Circuits are matched by
+    name, not by position.
 
     ``window`` is ``(tstart, tend, dt)`` to resample the currents onto, and
     defaults to **not resampling**: the currents are taken on the time base
@@ -71,15 +72,15 @@ def build_efit_coil_currents(destination, source, *, window=None) -> None:
     the interpolation was a series onto its own abscissa.  A caller that does
     need a different grid resolves one from the machine layer and passes it.
     """
-    from vaft.machine_mapping.efund_geometry import (
-        EFIT16_GROUP_NAMES,
-        EFIT16_SOURCE_CIRCUIT,
-    )
+    if coilset is None:
+        from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
+
+        coilset = vest_efit_coilset_policy()
 
     by_name: dict[str, int] = {}
     for index in range(len(source["coil"])):
         by_name[str(source[f"coil.{index}.name"])] = index
-    missing = sorted(set(EFIT16_SOURCE_CIRCUIT.values()) - set(by_name))
+    missing = sorted(set(coilset.source_circuit.values()) - set(by_name))
     if missing:
         raise ValueError(
             "pf_active is missing the circuits EFIT's groups are driven by: "
@@ -104,8 +105,8 @@ def build_efit_coil_currents(destination, source, *, window=None) -> None:
     destination["ids_properties.comment"] = "PF config from vest_pf_active, grouped for EFIT"
     destination["ids_properties.homogeneous_time"] = 1
     destination["time"] = resampled
-    for group, name in enumerate(EFIT16_GROUP_NAMES):
-        circuit = by_name[EFIT16_SOURCE_CIRCUIT[name]]
+    for group, name in enumerate(coilset.group_names):
+        circuit = by_name[coilset.source_circuit[name]]
         destination[f"coil.{group}.name"] = name
         destination[f"coil.{group}.identifier"] = name
         destination[f"coil.{group}.current.data"] = np.interp(
@@ -362,6 +363,7 @@ def generate_constraints_ods(
     recovery=None,
     average_window: float = DEFAULT_AVERAGE_WINDOW,
     coil_current_window: tuple[float, float, float] | None = None,
+    coilset=None,
 ) -> ChannelDecisions:
     """Generate the constraints ODS, ``save_dir/{shotnumber}_constraints.json``.
 
@@ -410,7 +412,7 @@ def generate_constraints_ods(
     PF_orig = ods["pf_active"]
 
     ## (1) The EFIT current groups, from the ten measured PF circuits.
-    build_efit_coil_currents(PF, PF_orig, window=coil_current_window)
+    build_efit_coil_currents(PF, PF_orig, coilset=coilset, window=coil_current_window)
 
     for i, _ in enumerate(PF["coil"]):
         PF[f"coil.{i}.current.time"] = PF["time"]

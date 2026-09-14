@@ -6,7 +6,9 @@ import numpy as np
 import pytest
 from omas import ODS
 
-from vaft.machine_mapping.efund_geometry import EFIT16_GROUP_NAMES
+from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
+
+COILSET = vest_efit_coilset_policy()
 from vaft.code.efit import (
     EFITConfig,
     EFITConstraintConfig,
@@ -151,23 +153,18 @@ def test_the_coil_groups_come_from_the_machine_not_from_a_written_down_list():
     and the grouping from each element's own position, in the one module that
     also projects the F-coil groups for EFUND.
     """
-    from vaft.machine_mapping.efund_geometry import (
-        EFIT16_GROUP_NAMES,
-        EFIT16_SOURCE_CIRCUIT,
-        efit16_group_for_element,
-    )
 
-    assert len(EFIT16_GROUP_NAMES) == 16
-    assert [EFIT16_SOURCE_CIRCUIT[name] for name in EFIT16_GROUP_NAMES] == (
+    assert len(COILSET.group_names) == 16
+    assert [COILSET.source_circuit[name] for name in COILSET.group_names] == (
         ["PF1"] * 8 + ["PF5", "PF5", "PF6", "PF6", "PF9", "PF9", "PF10", "PF10"]
     )
-    assert efit16_group_for_element("PF1", 0.15) == "PF1-1"
-    assert efit16_group_for_element("PF1", 1.10) == "PF1-4"
-    assert efit16_group_for_element("PF1", -0.15) == "PF1-5"
-    assert efit16_group_for_element("PF9", 1.0) == "PF9U"
-    assert efit16_group_for_element("PF9", -1.0) == "PF9L"
+    assert COILSET.group_for_element("PF1", 0.15) == "PF1-1"
+    assert COILSET.group_for_element("PF1", 1.10) == "PF1-4"
+    assert COILSET.group_for_element("PF1", -0.15) == "PF1-5"
+    assert COILSET.group_for_element("PF9", 1.0) == "PF9U"
+    assert COILSET.group_for_element("PF9", -1.0) == "PF9L"
     for absent in ("PF2", "PF3", "PF4", "PF7", "PF8"):
-        assert efit16_group_for_element(absent, 0.5) is None
+        assert COILSET.group_for_element(absent, 0.5) is None
 
     # The old names are gone from the package, not merely unused.
     import vaft.code.efit as package
@@ -178,6 +175,89 @@ def test_the_coil_groups_come_from_the_machine_not_from_a_written_down_list():
         assert not hasattr(package, gone), gone
         assert not hasattr(kfile_module, gone), gone
         assert not hasattr(legacy_module, gone), gone
+
+
+def test_the_coilset_is_configuration_and_derives_its_own_names():
+    """#708: the coilset stops being three literals in the projection module.
+
+    A sixteen-name tuple, a tuple of solenoid edges, and an
+    `if coil_name == "PF1" ... elif coil_name in (...)` that returned None --
+    silently -- for every circuit EFIT had no group for. All three are now
+    `vest.yaml`'s `efit_coilset`, and the names are derived from the splits
+    rather than written down: that ordering is the table's `fcid` order and the
+    k-file's `BRSP` order at once, so the two cannot disagree.
+    """
+    policy = vest_efit_coilset_policy()
+
+    assert policy.nfsum == len(policy.group_names) == 16
+    assert policy.circuits == ("PF1", "PF5", "PF6", "PF9", "PF10")
+    # Derived, not listed: an axial split gives upper by ascending |z| then
+    # lower the same way; a midplane split gives U then L.
+    assert policy.group_names[:8] == tuple(f"PF1-{n}" for n in range(1, 9))
+    assert policy.group_names[8:] == ("PF5U", "PF5L", "PF6U", "PF6L", "PF9U", "PF9L", "PF10U", "PF10L")
+
+    assert policy.group_for_element("PF1", 0.15) == "PF1-1"
+    assert policy.group_for_element("PF1", 1.10) == "PF1-4"
+    assert policy.group_for_element("PF1", -0.15) == "PF1-5"
+    assert policy.group_for_element("PF9", 1.0) == "PF9U"
+    assert policy.group_for_element("PF9", -1.0) == "PF9L"
+    # A circuit with no group is a real answer, not a failure.
+    for absent in ("PF2", "PF3", "PF4", "PF7", "PF8"):
+        assert policy.group_for_element(absent, 0.5) is None
+
+    # The series tie is machine wiring and is carried with its provenance.
+    assert policy.ties == (("PF9L", "PF10U"),)
+    assert policy.status["tie:PF9L=PF10U"] == "measured"
+    assert "bit-identical" in policy.provenance["tie:PF9L=PF10U"]
+
+    # And the literals are gone from the projection module, not just unused.
+    import vaft.machine_mapping.efund_geometry as projection
+
+    for gone in ("EFIT16_GROUP_NAMES", "EFIT16_SOURCE_CIRCUIT", "PF1_SEGMENT_EDGES",
+                 "efit16_group_for_element"):
+        assert not hasattr(projection, gone), gone
+
+
+def test_a_malformed_coilset_is_refused(tmp_path):
+    """A policy file is only worth having if it is checked."""
+    import yaml
+
+    from vaft.machine_mapping.efit_coilset import _build
+    from vaft.machine_mapping.utils import VestConfigurationError
+
+    good = {
+        "efit_coilset": {
+            "groups": {
+                "PF1": {"split": "axial", "edges": [0.0, 0.5, 1.0],
+                        "status": "inferred", "provenance": "x"},
+                "PF5": {"split": "midplane", "status": "inferred", "provenance": "x"},
+            }
+        }
+    }
+    policy = _build(good)
+    # Two halves of two segments, then the pair: six groups.
+    assert policy.group_names == ("PF1-1", "PF1-2", "PF1-3", "PF1-4", "PF5U", "PF5L")
+
+    def broken(**changes):
+        import copy
+
+        document = copy.deepcopy(good)
+        document["efit_coilset"]["groups"]["PF1"].update(changes)
+        return document
+
+    with pytest.raises(VestConfigurationError, match="split must be one of"):
+        _build(broken(split="sideways"))
+    with pytest.raises(VestConfigurationError, match="edges must increase"):
+        _build(broken(edges=[0.0, 1.0, 0.5]))
+    with pytest.raises(VestConfigurationError, match="edges must start at 0"):
+        _build(broken(edges=[0.1, 1.0]))
+    with pytest.raises(VestConfigurationError, match="status must be one of"):
+        _build(broken(status="probably"))
+    with pytest.raises(VestConfigurationError, match="not groups of any listed circuit"):
+        document = {"efit_coilset": {**good["efit_coilset"],
+                                     "ties": [{"groups": ["PF9L", "PF10U"],
+                                               "status": "measured", "provenance": "x"}]}}
+        _build(document)
 
 
 def test_the_coil_currents_fan_one_circuit_out_to_its_groups():
@@ -207,7 +287,7 @@ def test_the_coil_currents_fan_one_circuit_out_to_its_groups():
     assert len(built["coil"]) == 16
     currents = [float(built[f"coil.{i}.current.data"][0]) for i in range(16)]
     assert currents == [1.0] * 8 + [5.0, 5.0, 6.0, 6.0, 9.0, 9.0, 10.0, 10.0]
-    assert [str(built[f"coil.{i}.name"]) for i in range(16)] == list(EFIT16_GROUP_NAMES)
+    assert [str(built[f"coil.{i}.name"]) for i in range(16)] == list(COILSET.group_names)
 
 
 def test_the_coil_currents_are_taken_on_the_time_base_they_were_measured_on():

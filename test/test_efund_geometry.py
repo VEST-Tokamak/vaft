@@ -13,8 +13,8 @@ import numpy as np
 import pytest
 
 from vaft.data.resources import data_path
+from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
 from vaft.machine_mapping.efund_geometry import (
-    EFIT16_GROUP_NAMES,
     efund_geometry_from_static,
     efund_probe_angle_deg,
     equilibrium_probe_count,
@@ -22,6 +22,7 @@ from vaft.machine_mapping.efund_geometry import (
 )
 
 LEGACY_ERA = "vest-pre-43017-pf1906"
+COILSET = vest_efit_coilset_policy()
 
 
 @pytest.fixture(scope="module")
@@ -64,13 +65,12 @@ def test_fcoil_groups_are_the_k_file_groups(geometry):
     A second list written down anywhere else is how the table and the k-file
     would come to disagree about which coils exist.
     """
-    from vaft.machine_mapping.efund_geometry import EFIT16_SOURCE_CIRCUIT
 
-    assert geometry.group_names == EFIT16_GROUP_NAMES
-    assert len(EFIT16_GROUP_NAMES) == 16
+    assert geometry.group_names == COILSET.group_names
+    assert len(COILSET.group_names) == 16
     # Eight solenoid segments on one circuit, then four pairs split at the
     # midplane: sixteen groups over five of the machine's ten circuits.
-    assert [EFIT16_SOURCE_CIRCUIT[name] for name in EFIT16_GROUP_NAMES] == (
+    assert [COILSET.source_circuit[name] for name in COILSET.group_names] == (
         ["PF1"] * 8 + ["PF5", "PF5", "PF6", "PF6", "PF9", "PF9", "PF10", "PF10"]
     )
     assert set(np.unique(geometry.fcoil_group)) == set(range(1, 17))

@@ -1736,6 +1736,64 @@ diagnostics_time_policies:
     ec_power: full_discharge
 
 # Plasma-timing policy (issue #409): where the plasma window is searched for
+# EFIT coilset policy (issue #708): what EFIT is told VEST's PF circuits are.
+# Which of the ten circuits its Green table describes, how each is split into
+# current groups, and which groups are wired in series.
+#
+# Resolved by `vaft.machine_mapping.efit_coilset.vest_efit_coilset_policy` and
+# handed to the EFUND projection and the k-file writer. Splitting a circuit is
+# EFIT's bookkeeping, not a different machine: every group of a circuit carries
+# that circuit's current, which is what `ties` says in the k-file's &INWANT
+# matrix. VEST energises ten circuits; sixteen groups is how EFIT counts them.
+#
+# Like `diagnostics_time_policies` and `plasma_timing` this is pipeline policy,
+# outside the `0:` / shot overrides.
+efit_coilset:
+
+  # The circuits the Green table describes. Only these five are listed because
+  # only these five are in the table that ships today; the table's `nfsum`
+  # and this list must agree, and changing either means regenerating the other
+  # (issue #708 stage 8). PF2, PF3, PF4, PF7 and PF8 are absent here exactly as
+  # they are absent from the table.
+  groups:
+    PF1:
+      split: axial
+      edges: [0.0, 0.3, 0.6, 0.9, 1.2]   # |z| boundaries, mirrored below z=0
+      status: inferred
+      provenance: >-
+        The legacy mhdin.dat described the solenoid as eight axial conductors
+        and these are its boundaries. Turn-conserving: the eight segments hold
+        632 turns in total, PF1's full winding.
+    PF5:
+      split: midplane
+      status: inferred
+      provenance: "Legacy convention: a non-solenoid circuit is split at z = 0."
+    PF6:
+      split: midplane
+      status: inferred
+      provenance: "as PF5"
+    PF9:
+      split: midplane
+      status: inferred
+      provenance: "as PF5"
+    PF10:
+      split: midplane
+      status: inferred
+      provenance: "as PF5"
+
+  # Circuits driven by one current. Each entry is one equality row of the
+  # k-file's &INWANT matrix, on top of the rows tying a circuit's own groups
+  # together.
+  ties:
+    - groups: [PF9L, PF10U]
+      status: measured
+      provenance: >-
+        Issue #695: PF9 and PF10 currents are bit-identical -- the same
+        samples, not equal within noise -- over the whole record in shots
+        39915, 41524 and 41672. The legacy &INWANT matrix asserted the same
+        equality in its twelfth column, where it was written down without
+        being said.
+
 # and the VEST-tuned rules the generic detectors in `vaft.process.onset` run
 # with. `vaft.omas.plasma_timing` composes them into the plasma window with its
 # provenance; the raw-field diamagnetic mapper reads the same rules. Like
