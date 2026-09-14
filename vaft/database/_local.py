@@ -313,19 +313,29 @@ def _as_text(value):
         return value.decode("utf-8", "replace")
     if not isinstance(value, np.ndarray):
         return None
+
+    items = value.ravel().tolist()
     if value.dtype.kind == "S":
-        items = value.ravel().tolist()
-    elif value.dtype.kind == "O" and any(
-        isinstance(item, bytes) for item in value.ravel().tolist()
+        pass
+    elif value.dtype.kind == "O" and items and all(
+        isinstance(item, bytes) for item in items
     ):
-        items = value.ravel().tolist()
+        # Every element, not any: one stray byte string in a mixed array would
+        # otherwise take `str()` to the rest and quietly rewrite numbers as text.
+        pass
     else:
         return None
-    decoded = [
-        item.decode("utf-8", "replace") if isinstance(item, bytes) else str(item)
-        for item in items
-    ]
-    return np.array(decoded).reshape(value.shape)
+
+    if value.ndim == 0:
+        # A zero-dimensional array is a scalar leaf. Returning a 0-d array here
+        # would leave it comparing unequal by type against the JSON path, which
+        # is the asymmetry this exists to remove.
+        return items[0].decode("utf-8", "replace")
+
+    decoded = [item.decode("utf-8", "replace") for item in items]
+    # `dtype=str` rather than letting NumPy infer: an empty leaf would otherwise
+    # come back `float64`, turning a string leaf numeric.
+    return np.array(decoded, dtype=str).reshape(value.shape)
 
 
 def _decode_byte_strings(ods) -> None:

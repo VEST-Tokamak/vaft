@@ -138,6 +138,38 @@ class TestTheDecodeHelper:
     def test_an_object_array_holding_no_bytes_is_declined(self):
         assert _as_text(np.array(["a", "bb"], dtype=object)) is None
 
+    def test_an_empty_string_array_stays_a_string_array(self):
+        """Letting NumPy infer from an empty list gives float64.
+
+        That turns a declared-but-empty string leaf numeric, which is a
+        `structure.type` difference against the JSON path -- the class of
+        mismatch this whole normalization exists to remove.
+        """
+        out = _as_text(np.array([], dtype="S5"))
+        assert out is not None
+        assert out.dtype.kind == "U", f"empty leaf became {out.dtype}"
+        assert out.shape == (0,)
+
+    def test_a_zero_dimensional_byte_array_becomes_a_plain_string(self):
+        """A 0-d array is a scalar leaf; the checker gives `str` for one.
+
+        Returning a 0-d array would leave it comparing unequal by type against
+        the JSON path for that leaf shape.
+        """
+        out = _as_text(np.array(b"Vertical SXR Ch 1"))
+        assert isinstance(out, str)
+        assert out == "Vertical SXR Ch 1"
+
+    def test_a_mixed_object_array_is_declined_rather_than_stringified(self):
+        """One stray byte string must not take `str()` to the rest.
+
+        Requiring every element to be bytes, not any, keeps a number a number.
+        """
+        assert _as_text(np.array([b"a", 3], dtype=object)) is None
+
+    def test_an_empty_object_array_is_declined(self):
+        assert _as_text(np.array([], dtype=object)) is None
+
     @pytest.mark.parametrize(
         "value",
         ["already text", 3, 3.5, np.array([1.0, 2.0]), np.array([1, 2], dtype=np.int32), None],
