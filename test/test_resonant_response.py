@@ -9,6 +9,7 @@ from resonant_table_fixtures import PedestalStub, q_profile, resonant_table
 from vaft.process.equilibrium import find_rational_surfaces
 from vaft.process.perturbation import (
     LEGACY_WINDOWS,
+    RESONANT_RESPONSE_COLUMNS,
     RESONANT_STATISTICS,
     ResonantWindow,
     amplification_ratio,
@@ -49,8 +50,14 @@ def test_a_window_records_where_its_boundary_came_from():
 
 
 def test_the_legacy_windows_are_available_but_never_the_default():
+    """The bounds are written out here rather than compared with the constant
+    they came from: reproducing an old number is the only reason they exist,
+    and a test that checks the function against its own table would not
+    notice them changing."""
     legacy = resonant_windows(legacy=True)
-    assert (legacy["core"].low, legacy["core"].high) == LEGACY_WINDOWS["core"]
+    assert (legacy["core"].low, legacy["core"].high) == (0.0, 0.8)
+    assert (legacy["edge"].low, legacy["edge"].high) == (0.8, 0.95)
+    assert (legacy["total"].low, legacy["total"].high) == (0.0, 1.0)
     assert "legacy" in legacy["edge"].source
     with pytest.raises(ValueError, match="needs a PedestalTop"):
         resonant_windows()
@@ -59,6 +66,38 @@ def test_the_legacy_windows_are_available_but_never_the_default():
 def test_a_pedestal_on_another_coordinate_is_refused():
     with pytest.raises(ValueError, match="needs an equilibrium"):
         resonant_windows(PedestalStub(coordinate="rho_tor"))
+
+
+def test_an_object_that_never_declared_a_coordinate_is_refused(tmp_path):
+    """Defaulting to psi_norm would turn "it did not say" into "it is
+    psi_norm" -- the conflation pedestal_top raises rather than make."""
+
+    class Bare:
+        inner_edge, position, method, reason = 0.8, 0.85, "?", ""
+
+    with pytest.raises(ValueError, match="declares no radial coordinate"):
+        resonant_windows(Bare())
+
+
+@pytest.mark.parametrize("boundary", [-0.35, 1.3, float("nan")])
+def test_a_boundary_outside_the_plasma_is_refused(boundary):
+    """It builds windows that still look fine: a boundary of 1.3 makes "core"
+    the whole plasma and "edge" empty, so a caller gets a finite, plausible
+    number labelled edge that is the total reduction."""
+    with pytest.raises(ValueError, match="outside the normalized flux range"):
+        resonant_windows(PedestalStub(inner_edge=boundary))
+
+
+def test_the_windows_work_with_the_real_pedestal_class():
+    """The stub reads four attributes; this checks the contract against the
+    class that actually produces them."""
+    from vaft.process.profile import PedestalTop
+
+    pedestal = PedestalTop(position=0.93, method="eped_fit", quantity="p_total",
+                           coordinate="psi_norm", width=0.06)
+    windows = resonant_windows(pedestal)
+    assert windows["core"].high == pytest.approx(pedestal.inner_edge)
+    assert "eped_fit" in windows["edge"].source
 
 
 def test_a_surface_on_the_boundary_belongs_to_both_neighbours():
@@ -118,6 +157,58 @@ def test_each_statistic_reduces_as_it_says(  ):
         ) == pytest.approx(expected)
 
 
+def test_a_signed_real_column_keeps_its_sign():
+    """A rotation profile that changes sign has a mean near zero; rectifying
+    it would report a large positive rotation the plasma does not have."""
+    table = resonant_table()
+    window = ResonantWindow("all", 0.0, 1.0, "test")
+    omega = table["omega_E_rational"]
+    assert omega.min() < 0 < omega.max()
+    assert reduce_resonant(
+        table["psi_n_rational"], omega, window=window, statistic="mean"
+    ) == pytest.approx(float(np.mean(omega)))
+    assert reduce_resonant(
+        table["psi_n_rational"], omega, window=window, statistic="min"
+    ) == pytest.approx(float(np.min(omega)))
+
+
+def test_the_metric_table_passes_its_statistic_through():
+    table = resonant_table()
+    windows = resonant_windows(legacy=True)
+    for statistic in ("max", "min", "mean"):
+        metrics = resonant_metrics(
+            table, windows=windows, columns=["K_isl"], statistic=statistic
+        )
+        direct = reduce_resonant(
+            table["psi_n_rational"], table["K_isl"],
+            window=windows["total"], statistic=statistic,
+        )
+        assert metrics[("K_isl", "total")] == pytest.approx(direct)
+    assert len({
+        resonant_metrics(table, windows=windows, columns=["K_isl"], statistic=s)[
+            ("K_isl", "total")
+        ]
+        for s in ("max", "min", "mean")
+    }) == 3
+
+
+def test_amplification_passes_its_statistic_through():
+    table = resonant_table()
+    window = ResonantWindow("all", 0.0, 1.0, "test")
+    ratios = {
+        s: amplification_ratio(
+            table["psi_n_rational"], table["Phi_res"],
+            table["psi_n_rational"], table["Phi_res_v"], window=window, statistic=s,
+        )
+        for s in ("rms", "max", "mean")
+    }
+    assert len(set(ratios.values())) == 3
+    assert ratios["max"] == pytest.approx(
+        reduce_resonant(table["psi_n_rational"], table["Phi_res"], window=window, statistic="max")
+        / reduce_resonant(table["psi_n_rational"], table["Phi_res_v"], window=window, statistic="max")
+    )
+
+
 def test_an_unknown_statistic_is_refused():
     table = resonant_table()
     window = ResonantWindow("all", 0.0, 1.0, "test")
@@ -149,14 +240,47 @@ def test_the_metric_table_covers_every_column_and_window():
     assert set(metrics) == {(c, w) for c in ("Phi_res", "K_isl") for w in windows}
 
 
-def test_the_coordinates_are_not_reduced_as_if_they_were_quantities():
-    """psi_n_rational, q_rational and m_rational say where a row is, not what
-    it holds; an RMS of them is a number with no meaning."""
+def test_only_the_response_columns_are_reduced_by_default():
+    """A real table carries twenty-five columns and most are not a response:
+    rho_rational is a coordinate, T_e_rational is the equilibrium sampled at
+    the surfaces. An RMS of either is a number that reads like a metric."""
     table = resonant_table()
     metrics = resonant_metrics(table, windows=resonant_windows(legacy=True))
     reduced = {column for column, _ in metrics}
-    assert not reduced & {"psi_n_rational", "q_rational", "m_rational"}
+    assert reduced == set(RESONANT_RESPONSE_COLUMNS) & set(table)
+    assert not reduced & {
+        "psi_n_rational", "q_rational", "m_rational", "rho_rational",
+        "rho1_rational", "q1_rational", "T_e_rational", "n_e_rational",
+        "area_rational", "dqdpsi_n_rational", "omega_E_rational",
+    }
     assert "Phi_res" in reduced and "w_isl_v_crit" in reduced
+
+
+def test_a_column_that_is_not_a_response_can_still_be_asked_for():
+    table = resonant_table()
+    metrics = resonant_metrics(
+        table, windows=resonant_windows(legacy=True), columns=["rho_rational"]
+    )
+    assert set(metrics) == {("rho_rational", w) for w in ("core", "edge", "total")}
+
+
+def test_a_table_with_rational_surfaces_but_no_response_is_refused():
+    """A reconstruction run carries q_rational and nothing perturbed; reducing
+    what it does have returns a plausible table holding no resonant physics."""
+    table = resonant_table()
+    reconstruction = {
+        k: table[k] for k in ("psi_n_rational", "q_rational", "dqdpsi_n_rational")
+    }
+    with pytest.raises(KeyError, match="none of the resonant response columns"):
+        resonant_metrics(reconstruction, windows=resonant_windows(legacy=True))
+
+
+def test_a_column_that_is_not_there_is_named():
+    table = resonant_table()
+    with pytest.raises(KeyError, match=r"no \['nonesuch'\]"):
+        resonant_metrics(
+            table, windows=resonant_windows(legacy=True), columns=["nonesuch"]
+        )
 
 
 def test_a_table_without_its_coordinate_is_refused():
@@ -222,9 +346,74 @@ def test_rational_surfaces_are_found_where_q_equals_m_over_n():
 
 
 def test_the_surfaces_come_back_ordered_outward():
-    psi, q = q_profile()
-    found = find_rational_surfaces(psi, q, 2)
+    """On reversed shear, where generation order is by mode number and the
+    two crossings of one mode sit at opposite ends of the plasma, so the sort
+    is the only thing putting them in radial order."""
+    psi, q = q_profile(reversed_shear=True)
+    # n=4 so several modes resonate twice and their crossings interleave:
+    # generated by mode, m=5 gives 0.19 and 0.71 before m=6 gives 0.06, so
+    # generation order is not radial order and the sort has to do the work.
+    found = find_rational_surfaces(psi, q, 4)
     assert np.all(np.diff(found["psi_n_rational"]) > 0)
+    assert found["m"][0] > found["m"][1], "the modes must interleave for this to bite"
+    monotonic_psi, monotonic_q = q_profile()
+    assert np.all(np.diff(find_rational_surfaces(monotonic_psi, monotonic_q, 2)["psi_n_rational"]) > 0)
+
+
+def test_a_root_exactly_on_a_grid_point_is_one_surface():
+    """It shows up as two sign changes, +1 -> 0 and 0 -> -1, both
+    interpolating to the same point; counted twice it would double its weight
+    in every reduction downstream."""
+    found = find_rational_surfaces([0.0, 0.25, 0.5, 0.75, 1.0],
+                                   [1.0, 1.5, 2.0, 2.5, 3.0], 1)
+    assert found["m"].tolist() == [1, 2, 3]
+    np.testing.assert_allclose(found["psi_n_rational"], [0.0, 0.5, 1.0])
+
+
+def test_a_tangent_root_is_found_once():
+    psi = np.linspace(0.0, 1.0, 101)
+    found = find_rational_surfaces(psi, 2.0 + (psi - 0.5) ** 2, 1)
+    assert found["m"].tolist() == [2]
+    assert found["psi_n_rational"][0] == pytest.approx(0.5)
+
+
+def test_a_flat_resonant_interval_is_one_surface():
+    found = find_rational_surfaces(np.linspace(0.0, 1.0, 7),
+                                   [1.0, 1.5, 2.0, 2.0, 2.0, 2.5, 3.0], 1)
+    assert found["m"].tolist() == [1, 2, 3]
+
+
+def test_accuracy_degrades_on_a_grid_that_is_not_refined_at_the_surfaces():
+    """The 1e-9 agreement with GPEC is a property of GPEC's own adaptively
+    refined grid, not of this routine; on a uniform grid the error is that of
+    linear interpolation and is worst where q is steepest."""
+    fine = np.linspace(0.0, 1.0, 20001)
+    q_fine = 1.05 + 4.55 * fine**2
+    truth = find_rational_surfaces(fine, q_fine, 1)["psi_n_rational"]
+    errors = []
+    for points in (129, 513):
+        coarse = np.linspace(0.0, 1.0, points)
+        got = find_rational_surfaces(coarse, 1.05 + 4.55 * coarse**2, 1)["psi_n_rational"]
+        errors.append(np.abs(got - truth).max())
+    assert errors[0] > errors[1]          # finer is better
+    assert errors[1] < 0.25 * errors[0]   # and roughly quadratically so
+
+
+def test_an_inverted_mode_range_is_refused():
+    psi, q = q_profile()
+    with pytest.raises(ValueError, match="which is empty"):
+        find_rational_surfaces(psi, q, 1, m_range=(5, 2))
+
+
+def test_a_two_dimensional_profile_is_refused():
+    with pytest.raises(ValueError, match="one dimensional"):
+        find_rational_surfaces(np.ones((2, 3)), np.ones((2, 3)), 1)
+
+
+def test_a_fractional_mode_number_is_refused():
+    psi, q = q_profile()
+    with pytest.raises(ValueError, match="whole toroidal mode number"):
+        find_rational_surfaces(psi, q, 2.7)
 
 
 def test_a_higher_toroidal_mode_resonates_more_often():

@@ -3852,10 +3852,22 @@ def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
 
     Limitations
     -----------
+    Accuracy is that of linear interpolation, so the error scales with the
+    square of the local grid spacing and with the curvature of ``q`` -- which
+    means it is worst exactly where ``q`` is steepest, at the edge. On the
+    grid GPEC itself writes, which is refined around the rational surfaces
+    (a spacing of 3.6e-06 at the outermost surface of the DIII-D example
+    against 7.4e-03 in the core), the surfaces come back to 1.4e-09 in
+    ``psi_norm``. On a uniform grid of the kind an equilibrium reconstruction
+    produces they do not: 6.5e-04 at 129 points and 4.0e-05 at 513, in both
+    cases dominated by the outermost surface. Interpolate ``q`` onto a finer
+    grid before asking, if the answer has to be better than that.
+
     A reversed-shear ``q`` resonates twice on the same ``m``, and both
-    crossings are returned; a surface tangent to ``m / n`` without crossing
-    it is not found at all, because linear interpolation cannot see a
-    touching root.
+    crossings are returned. A root that sits exactly on a grid point, or a
+    ``q`` that is flat at ``m / n`` over an interval, is returned once -- at
+    the node and at the start of the flat region respectively -- rather than
+    once per sign change, which would double-count it.
 
     Applicability
     -------------
@@ -3867,14 +3879,23 @@ def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
     ----------
     .. [legacy] ``gpec_multimode_metrics.rational_surface_table`` derived the
        same surfaces from GPEC output; this takes them from the equilibrium,
-       so it works before a run rather than only after one.
+       so they can be known before a run -- at the accuracy the equilibrium's
+       own grid supports, which the Limitations quantify.
     """
     psi_norm = np.asarray(psi_norm, dtype=float)
     q = np.asarray(q, dtype=float)
+    if psi_norm.ndim != 1 or q.ndim != 1:
+        raise ValueError(
+            f"psi_norm is {psi_norm.ndim}-D and q is {q.ndim}-D; a profile is one "
+            "dimensional, and flattening a (time, radius) array here would "
+            "interpolate across the time axis"
+        )
     if psi_norm.shape != q.shape:
         raise ValueError(
             f"{psi_norm.size} coordinate points against {q.size} q values"
         )
+    if n != int(n):
+        raise ValueError(f"n must be a whole toroidal mode number, not {n!r}")
     if int(n) == 0:
         raise ValueError("n must be non-zero; q = m / n is undefined for n = 0")
     finite = np.isfinite(psi_norm) & np.isfinite(q)
@@ -3893,6 +3914,11 @@ def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
         hi = int(np.floor(np.nanmax(q) * order))
     else:
         lo, hi = int(m_range[0]), int(m_range[1])
+        if lo > hi:
+            raise ValueError(
+                f"m_range is ({lo}, {hi}), which is empty; a reversed range would "
+                "return no surfaces and read as a plasma with no resonance"
+            )
 
     modes: list[int] = []
     q_rational: list[float] = []
@@ -3900,16 +3926,30 @@ def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
     for m in range(lo, hi + 1):
         target = m / order
         residual = q - target
+        # Exact zeros are roots in their own right, and are taken first: a
+        # root sitting on a node otherwise shows up as two sign changes,
+        # +1 -> 0 and 0 -> -1, that interpolate to the same point, and a q
+        # flat at m/n over an interval shows up as one at each end of it.
+        # Either way it is one surface, and counting it twice would double its
+        # weight in every reduction downstream.
+        zero = residual == 0.0
+        crossings = [
+            float(psi_norm[index])
+            for index in np.nonzero(zero)[0]
+            if index == 0 or not zero[index - 1]
+        ]
         for index in np.nonzero(np.diff(np.sign(residual)) != 0)[0]:
+            if zero[index] or zero[index + 1]:
+                continue  # already taken, as the zero itself
             span = residual[index + 1] - residual[index]
-            if span == 0:
-                continue
             weight = -residual[index] / span
-            modes.append(m)
-            q_rational.append(target)
-            positions.append(
+            crossings.append(
                 float(psi_norm[index] + weight * (psi_norm[index + 1] - psi_norm[index]))
             )
+        for crossing in crossings:
+            modes.append(m)
+            q_rational.append(target)
+            positions.append(crossing)
 
     outward = np.argsort(positions) if positions else np.empty(0, dtype=int)
     return {

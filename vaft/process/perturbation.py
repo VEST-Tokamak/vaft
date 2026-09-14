@@ -44,6 +44,7 @@ import numpy as np
 
 __all__ = [
     "LEGACY_WINDOWS",
+    "RESONANT_RESPONSE_COLUMNS",
     "RESONANT_STATISTICS",
     "ResonantWindow",
     "amplification_ratio",
@@ -55,8 +56,28 @@ __all__ = [
 
 #: The statistics a resonant column may be reduced with. ``rms`` is the
 #: legacy's choice for the resonant field, ``max`` for the island and
-#: overlap columns, where the worst surface is the one that matters.
-RESONANT_STATISTICS: tuple[str, ...] = ("rms", "max", "mean", "sum")
+#: overlap columns, where the worst surface is the one that matters, and
+#: ``min`` for the critical width that is a ratio's denominator.
+RESONANT_STATISTICS: tuple[str, ...] = ("rms", "max", "min", "mean", "sum")
+
+#: The columns of a resonant table that are a *response* -- what the
+#: perturbation did at each surface -- as opposed to where the surface is or
+#: what the equilibrium was like there.
+#:
+#: :func:`resonant_metrics` reduces these and nothing else unless told
+#: otherwise, and the distinction is not pedantry. A real GPEC table carries
+#: twenty-five columns, and among them are ``rho_rational`` and
+#: ``q1_rational``, which are coordinates, and ``T_e_rational`` and
+#: ``n_e_rational``, which are the equilibrium profiles sampled at the
+#: surfaces. Reducing those gives a number -- an RMS of a radial coordinate,
+#: or an edge temperature of zero on a run that never filled the column --
+#: that reads exactly like a resonant metric and is not one.
+RESONANT_RESPONSE_COLUMNS: tuple[str, ...] = (
+    "Phi_res", "Phi_res_v", "Phi_res_crit",
+    "Delta", "B_pen", "I_res",
+    "w_isl", "w_isl_v", "w_isl_v_crit",
+    "K_isl", "K_isl_v",
+)
 
 #: The windows the legacy metrics hard-coded, kept so that an old number can
 #: be reproduced on purpose. They are *not* a default: the boundary between
@@ -153,7 +174,16 @@ def resonant_windows(pedestal=None, *, legacy: bool = False) -> dict[str, Resona
             "resonant_windows needs a PedestalTop, or legacy=True to use the fixed "
             "0.8/0.95 windows the code this replaces hard-coded"
         )
-    coordinate = getattr(pedestal, "coordinate", "psi_norm")
+    coordinate = getattr(pedestal, "coordinate", None)
+    if coordinate is None:
+        # Defaulting to psi_norm would turn "this object never said which
+        # coordinate it is on" into "it is on psi_norm", which is the
+        # conflation pedestal_top raises CoordinateUnavailableError to stop.
+        raise ValueError(
+            f"{type(pedestal).__name__} declares no radial coordinate; these "
+            "windows are normalized poloidal flux and will not assume that of "
+            "an object that did not say so"
+        )
     if coordinate != "psi_norm":
         raise ValueError(
             f"the pedestal boundary is in {coordinate!r}; these windows are "
@@ -166,6 +196,16 @@ def resonant_windows(pedestal=None, *, legacy: bool = False) -> dict[str, Resona
         source = f"pedestal_top position ({pedestal.method})"
     else:
         source = f"pedestal_top inner edge ({pedestal.method})"
+    if not np.isfinite(boundary) or not 0.0 <= boundary <= 1.0:
+        # Out of range the windows still *build*, and one of them silently
+        # becomes the whole plasma under another name: a boundary of 1.3 makes
+        # "core" cover everything and "edge" cover nothing, and the caller
+        # gets a finite, plausible number labelled edge.
+        raise ValueError(
+            f"the pedestal boundary is at {boundary!r}, outside the normalized "
+            "flux range [0, 1]; a window built from it would relabel the whole "
+            "plasma as one region rather than divide it"
+        )
     if pedestal.reason:
         source += f": {pedestal.reason}"
     return {
@@ -182,7 +222,9 @@ def reduce_resonant(psi_norm, values, *, window: ResonantWindow, statistic: str 
     resonance parameter -- are reduced on their magnitude: a complex mean
     depends on a gauge the file does not fix, so averaging the phase would
     give an answer that changes with a convention rather than with the
-    plasma.
+    plasma. A **real** column keeps its sign, so ``mean`` of a rotation
+    profile that changes sign is that mean and not its rectification; pass
+    ``numpy.abs(values)`` to reduce a signed column on magnitude.
 
     Parameters
     ----------
@@ -209,9 +251,14 @@ def reduce_resonant(psi_norm, values, *, window: ResonantWindow, statistic: str 
 
     Processing steps
     ----------------
-    1. Take the magnitude, so a complex column reduces to a real one.
+    1. Take the magnitude of a complex column; leave a real one signed.
     2. Select the surfaces inside ``window``.
     3. Drop non-finite samples, then apply ``statistic``.
+
+    Convention
+    ----------
+    A complex column reduces on its magnitude and a real one keeps its sign;
+    the value comes back in the column's own unit, unscaled.
 
     Limitations
     -----------
@@ -234,7 +281,11 @@ def reduce_resonant(psi_norm, values, *, window: ResonantWindow, statistic: str 
             f"statistic must be one of {list(RESONANT_STATISTICS)}, not {statistic!r}"
         )
     psi_norm = np.asarray(psi_norm, dtype=float)
-    magnitude = np.abs(np.asarray(values))
+    column = np.asarray(values)
+    # A complex column has no ordering, so it reduces on its magnitude. A real
+    # one keeps its sign: rectifying it would turn the mean of a rotation
+    # profile that changes sign into a number with no physical reading.
+    magnitude = np.abs(column) if np.iscomplexobj(column) else column.astype(float)
     if magnitude.shape != psi_norm.shape:
         raise ValueError(
             f"{magnitude.shape} values against {psi_norm.shape} surfaces; a resonant "
@@ -302,8 +353,10 @@ def resonant_metrics(
     windows : mapping of str to ResonantWindow
         The windows to reduce over, from :func:`resonant_windows` [-].
     columns : sequence of str, optional
-        Which columns to reduce; every column but the coordinates by default
-        [n/a].
+        Which columns to reduce; those of :data:`RESONANT_RESPONSE_COLUMNS`
+        the table carries, by default. Anything else -- a coordinate, or an
+        equilibrium profile sampled at the surfaces -- has to be named, so
+        that reducing it is a decision rather than a side effect [n/a].
     statistic : str, optional
         One of :data:`RESONANT_STATISTICS` [n/a].
 
@@ -315,7 +368,21 @@ def resonant_metrics(
     Raises
     ------
     KeyError
-        The table carries no ``psi_n_rational``.
+        The table carries no ``psi_n_rational``, no response column at all, or
+        not one that ``columns`` named.
+
+    Convention
+    ----------
+    Inherits :func:`reduce_resonant`'s -- magnitudes for complex columns,
+    the column's own unit -- and the window convention of whatever
+    :func:`resonant_windows` produced.
+
+    Limitations
+    -----------
+    A reconstruction run carries rational surfaces and no perturbed response,
+    and a kinetic run may carry no rational-surface block at all -- its table
+    comes back empty. Both are refused here rather than reduced into something
+    that looks like an answer.
 
     Applicability
     -------------
@@ -333,11 +400,18 @@ def resonant_metrics(
         )
     psi_norm = np.asarray(table["psi_n_rational"], dtype=float)
     if columns is None:
-        columns = [
-            name
-            for name in table
-            if name not in ("psi_n_rational", "q_rational", "m_rational")
-        ]
+        columns = [name for name in RESONANT_RESPONSE_COLUMNS if name in table]
+        if not columns:
+            raise KeyError(
+                "the table carries none of the resonant response columns "
+                f"{list(RESONANT_RESPONSE_COLUMNS)}; it has {sorted(table)}, which "
+                "are coordinates and equilibrium samples. A reconstruction run "
+                "carries rational surfaces without a response, and reducing what it "
+                "does have would return a plausible table holding no resonant physics"
+            )
+    missing = [name for name in columns if name not in table]
+    if missing:
+        raise KeyError(f"the table carries no {missing}; it has {sorted(table)}")
     return {
         (name, window_name): reduce_resonant(
             psi_norm, table[name], window=window, statistic=statistic

@@ -11,8 +11,19 @@ The awkward details here are the ones a real run has:
   rather than raise;
 * they are **not evenly spaced**: 0.59, 0.82, 0.93, 0.99, bunched towards the
   edge, so where a window boundary falls decides how many it catches;
-* ``w_isl_v_crit`` is **identically zero** on an ideal run, which is why the
-  geometric critical width has to be computed rather than read;
+* ``|Phi_res|`` **spikes at the outermost surface** rather than falling
+  outward. That is what the DIII-D ideal run does (3.37e-4, 2.51e-4, 4.87e-5,
+  5.74e-4 in tesla), and it is the whole reason the window boundary matters:
+  the legacy edge window stops at 0.95 and drops the largest surface in the
+  run. A fixture that fell monotonically would move the same number the
+  *other* way and make a window bug look harmless;
+* a real table carries **twenty-five** columns, not five, and most of them are
+  not a response: ``rho_rational`` and ``q1_rational`` are coordinates,
+  ``T_e_rational`` and ``n_e_rational`` are the equilibrium sampled at the
+  surfaces. Several are identically zero on an ideal run;
+* ``w_isl_v_crit``, ``Phi_res_crit`` and the profile columns are
+  **identically zero** on an ideal run, which is why the geometric critical
+  width has to be computed rather than read;
 * the complex columns have a phase that varies surface to surface, so a
   reduction that averaged them instead of their magnitudes would give a
   different answer.
@@ -31,9 +42,11 @@ def resonant_table(surfaces=REFERENCE_SURFACES, *, n_tor=1, phase=True):
     psi = np.asarray(surfaces, dtype=float)
     count = psi.size
     q = np.arange(2, 2 + count, dtype=float)
-    # Magnitudes that fall outward, and a phase that turns, so a complex mean
-    # and a mean magnitude are different numbers.
+    # Magnitudes shaped like the real run's: falling outward, then spiking at
+    # the last surface. A phase that turns, so a complex mean and a mean
+    # magnitude are different numbers.
     magnitude = 5.0e-4 * np.exp(-2.0 * psi)
+    magnitude[-1] = 1.8 * magnitude[0]
     angle = np.linspace(0.0, 2.4, count) if phase else np.zeros(count)
     flux = magnitude * np.exp(1j * angle)
     return {
@@ -50,6 +63,20 @@ def resonant_table(surfaces=REFERENCE_SURFACES, *, n_tor=1, phase=True):
         "w_isl_v_crit": np.zeros(count),
         "K_isl": np.linspace(0.30, 0.48, count),
         "K_isl_v": np.linspace(0.20, 0.35, count),
+        # Zero on an ideal run, as GPEC writes them.
+        "Phi_res_crit": np.zeros(count),
+        "B_pen": 0.3 * magnitude * np.exp(1j * angle),
+        # Not a response: coordinates and the equilibrium at the surfaces.
+        # A reduction must not reach these unless it is asked to.
+        "area_rational": 2.0 + psi,
+        "dqdpsi_n_rational": np.linspace(2.0, 55.0, count),
+        "rho_rational": np.sqrt(psi),
+        "rho1_rational": np.sqrt(psi) * 0.98,
+        "q1_rational": q * 1.01,
+        "T_e_rational": np.zeros(count),
+        "n_e_rational": np.zeros(count),
+        # Signed and changing sign, so rectifying it is visible.
+        "omega_E_rational": np.linspace(-3.0e4, 1.0e4, count),
     }
 
 

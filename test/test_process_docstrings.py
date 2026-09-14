@@ -189,6 +189,8 @@ STATEFUL = frozenset({
 CONVENTION_SENSITIVE = frozenset({
     # perturbation: the resonant reductions state their radial window
     # convention and their tesla-not-gauss unit choice.
+    "reduce_resonant",
+    "resonant_metrics",
     "resonant_windows",
     "rms_resonant_field",
 
