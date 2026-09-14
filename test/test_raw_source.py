@@ -335,3 +335,109 @@ def test_a_rewritten_archive_is_not_served_from_cache(tmp_path):
     second = raw._load_from_sample_file(777, [13], str(path))
     assert second is not None
     np.testing.assert_allclose(second[1], [9.0, 9.0, 9.0, 9.0])
+
+
+class _FakeCursor:
+    """Answers the field-count query from a per-table mapping."""
+
+    def __init__(self, counts: dict[str, int]) -> None:
+        self._counts = counts
+        self._value = 0
+
+    def execute(self, query: str, params=None) -> None:
+        for table, count in self._counts.items():
+            if table in query:
+                self._value = count
+                return
+        self._value = 0
+
+    def fetchone(self):
+        return (self._value,)
+
+    def close(self) -> None:
+        pass
+
+
+class _FakeConnection:
+    def __init__(self, counts: dict[str, int], error: Exception | None = None) -> None:
+        self._counts = counts
+        self._error = error
+        self.cursors = 0
+
+    def cursor(self):
+        self.cursors += 1
+        if self._error is not None:
+            raise self._error
+        return _FakeCursor(self._counts)
+
+
+def test_the_table_that_holds_the_shot_wins_over_the_shot_number():
+    """Issue #761: `_2` runs past the nominal boundary, so the range rule lies.
+
+    42194 sits above 42190 and exists only in `shotDataWaveform_2`. Choosing by
+    shot number queried the empty `_3` and the export failed outright.
+    """
+    raw._GENERATION_CACHE.clear()
+    conn = _FakeConnection({"shotDataWaveform_2": 114, "shotDataWaveform_3": 0})
+    assert raw.waveform_generation_for_shot(conn, 42194) == 2
+
+
+def test_a_stub_does_not_outrank_the_full_record():
+    """The truncating half of #761, which reported success.
+
+    19 shots exist in both tables with a two-to-four field stub on the `_3`
+    side. Reading it produced a product carrying 2 of shot 42647's 127 fields
+    while the manifest said the export succeeded.
+    """
+    raw._GENERATION_CACHE.clear()
+    conn = _FakeConnection({"shotDataWaveform_2": 127, "shotDataWaveform_3": 2})
+    assert raw.waveform_generation_for_shot(conn, 42647) == 2
+
+
+def test_the_newer_table_still_wins_where_it_is_the_real_one():
+    raw._GENERATION_CACHE.clear()
+    conn = _FakeConnection({"shotDataWaveform_2": 0, "shotDataWaveform_3": 145})
+    assert raw.waveform_generation_for_shot(conn, 43000) == 3
+
+
+def test_a_shot_in_neither_table_resolves_to_nothing():
+    """Registered in the shot list but never acquired -- 2321 of these exist."""
+    raw._GENERATION_CACHE.clear()
+    conn = _FakeConnection({"shotDataWaveform_2": 0, "shotDataWaveform_3": 0})
+    assert raw.waveform_generation_for_shot(conn, 29400) is None
+
+
+def test_vest_check_table_asks_the_database_before_guessing():
+    raw._GENERATION_CACHE.clear()
+    conn = _FakeConnection({"shotDataWaveform_2": 141, "shotDataWaveform_3": 2})
+    assert raw.vest_check_table(conn, 42823) == 2
+    # Without a connection there is nothing to ask, so the ranges are all there is.
+    assert raw.vest_check_table(None, 40000) == 2
+    assert raw.vest_check_table(None, 48000) == 3
+
+
+def test_a_read_error_is_not_reported_as_an_empty_shot():
+    """#446's mistake, not repeated: a failed read is not an absence.
+
+    Both callers retry on MysqlError. Recording the failure as "0 fields" would
+    resolve to "no table holds this shot", and each caller returns immediately
+    on that -- skipping its own retry loop and handing back a shot that merely
+    looks empty.
+    """
+    raw._GENERATION_CACHE.clear()
+    conn = _FakeConnection({}, error=raw.MysqlError("server has gone away"))
+    with pytest.raises(raw.MysqlError):
+        raw.waveform_generation_for_shot(conn, 42194)
+    # and nothing was learned, so nothing was remembered
+    assert 42194 not in raw._GENERATION_CACHE
+
+
+def test_the_resolution_is_remembered_per_shot():
+    """load_raw runs once per field; without this each one costs two COUNTs."""
+    raw._GENERATION_CACHE.clear()
+    conn = _FakeConnection({"shotDataWaveform_2": 141, "shotDataWaveform_3": 0})
+    assert raw.waveform_generation_for_shot(conn, 42823) == 2
+    first = conn.cursors
+    for _ in range(20):
+        assert raw.waveform_generation_for_shot(conn, 42823) == 2
+    assert conn.cursors == first, "the tables were re-queried for a known shot"
