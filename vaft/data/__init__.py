@@ -49,10 +49,19 @@ __all__ = [
     "PFile",
     "PFileFormatError",
     "PFileSection",
+    "MARS_FIELD_FILES",
+    "MARS_PROFILE_FILES",
+    "MARS_PROFILE_LABELS",
+    "MARS_RADIAL_VARIABLES",
+    "MarsProfile",
+    "MarsProfileFormatError",
     "kinetic_profiles",
+    "mars_profiles",
     "kinetic_profiles_from_pfile",
     "pfile",
     "read_kin",
+    "read_mars_profile",
+    "read_mars_profiles",
     "read_pfile",
     "read_aeqdsk",
     "read_keqdsk",
@@ -67,6 +76,8 @@ __all__ = [
     "to_omas",
     "write_geqdsk",
     "write_kin",
+    "write_mars_profile",
+    "write_mars_profiles",
     "write_pfile",
     "VAFT_INTERNAL_COCOS",
     "VFITResult",
@@ -154,11 +165,21 @@ _EXPORT_MAP = {
     "kinetic_profiles_from_pfile": (".pfile", "kinetic_profiles_from_pfile"),
     "read_pfile": (".pfile", "read_pfile"),
     "write_pfile": (".pfile", "write_pfile"),
+    "MARS_FIELD_FILES": (".mars_profiles", "MARS_FIELD_FILES"),
+    "MARS_PROFILE_FILES": (".mars_profiles", "MARS_PROFILE_FILES"),
+    "MARS_PROFILE_LABELS": (".mars_profiles", "MARS_PROFILE_LABELS"),
+    "MARS_RADIAL_VARIABLES": (".mars_profiles", "MARS_RADIAL_VARIABLES"),
+    "MarsProfile": (".mars_profiles", "MarsProfile"),
+    "MarsProfileFormatError": (".mars_profiles", "MarsProfileFormatError"),
+    "read_mars_profile": (".mars_profiles", "read_mars_profile"),
+    "read_mars_profiles": (".mars_profiles", "read_mars_profiles"),
+    "write_mars_profile": (".mars_profiles", "write_mars_profile"),
+    "write_mars_profiles": (".mars_profiles", "write_mars_profiles"),
 }
 
 
 def __getattr__(name: str):
-    if name in {"resources", "open_adas", "kinetic_profiles", "pfile"}:
+    if name in {"resources", "open_adas", "kinetic_profiles", "pfile", "mars_profiles"}:
         module = import_module(f".{name}", __name__)
         globals()[name] = module
         return module
