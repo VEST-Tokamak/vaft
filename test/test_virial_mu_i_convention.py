@@ -323,3 +323,91 @@ def test_one_report_publishes_one_mu_i_convention():
     # Both are the volume convention, so both are comparable with the
     # equilibrium's own -- which is the point of publishing them.
     assert energy > 0 > equilibrium
+
+
+def test_the_measured_conversion_takes_its_magnitude_from_F_and_its_sign_from_the_machine():
+    """Each stored field contributes only what it is good for.
+
+    `vacuum_toroidal_field.b0` is uniformly positive across the history but its
+    magnitude drifts up to 39% within a single shot (#325). `profiles_1d.f` is
+    the reverse: a stable magnitude with a sign that differs between sources
+    for the same shot. So the conversion takes |F_boundary| for the magnitude
+    and `VEST_TOROIDAL_FIELD_SIGN` for the direction, and the measurement's own
+    sign then carries the physics.
+
+    Using b0 understated the measured mu_i by up to 39% on this sample, which
+    flattened a trend that is real: the plasma becomes more diamagnetic through
+    the discharge.
+    """
+    from vaft.omas.process_wrapper import VEST_TOROIDAL_FIELD_SIGN
+    from vaft.formula.equilibrium import virial_muihat_from_Bt_R0_dphi
+
+    assert VEST_TOROIDAL_FIELD_SIGN > 0, "VEST's toroidal field is positive"
+
+    ods = sample_ods()
+    rows = vaft.omas.compute_virial_equilibrium_quantities_ods(ods)
+    checked, measured_values = 0, []
+    for index, row in rows.items():
+        eq = ods["equilibrium.time_slice"][index]
+        measured = row["mu_i_sources"].get("measured")
+        if measured is None or not np.isfinite(measured):
+            continue
+        f_edge = abs(float(np.asarray(eq["profiles_1d.f"], float)[-1]))
+        r_0 = float(eq["boundary.geometric_axis.r"])
+        flux = row["mu_i_sources"].get("measured_diamagnetic_flux")
+        if flux is None or not np.isfinite(flux):
+            flux = _measured_flux(ods, index)
+        expected = -virial_muihat_from_Bt_R0_dphi(
+            VEST_TOROIDAL_FIELD_SIGN * f_edge / r_0, r_0,
+            flux, row["B_pa"], row["V_p"],
+        )
+        assert measured == pytest.approx(expected, rel=1e-9), (
+            "the conversion must use |F_boundary|, not b0*R_0"
+        )
+        measured_values.append(measured)
+        checked += 1
+    assert checked >= 8
+    # A diamagnetic loop gives a positive volume mu_i, and the trend b0's drift
+    # was hiding is monotone across this discharge.
+    assert min(measured_values) > 0
+    assert measured_values[-1] > 1.7 * measured_values[0]
+
+
+def _measured_flux(ods, index):
+    return float(np.interp(
+        float(ods["equilibrium.time"][index]),
+        np.asarray(ods["magnetics.time"], float),
+        np.asarray(ods["magnetics.diamagnetic_flux.0.data"], float),
+    ))
+
+
+def test_the_measured_mu_i_does_not_move_when_the_stored_F_sign_flips():
+    """The blind spot that hid this twice: the packaged sample stores F > 0, so
+    an `abs()` on it is a no-op and every test written against that sample
+    passes either way.
+
+    The database stores the same shot with F < 0 and an identical measurement,
+    so a conversion that used the stored sign would read the same plasma as
+    diamagnetic from one source and paramagnetic from the other. The volume
+    mu_i is quadratic in F and cannot notice; this one must not either.
+    """
+    ods = sample_ods()
+    base = vaft.omas.compute_virial_equilibrium_quantities_ods(
+        copy.deepcopy(ods), time_slice=0
+    )[0]
+
+    flipped_ods = copy.deepcopy(ods)
+    f = np.asarray(flipped_ods["equilibrium.time_slice.0.profiles_1d.f"], float)
+    assert f[-1] > 0, "the packaged sample stores a positive F; that is the trap"
+    flipped_ods["equilibrium.time_slice.0.profiles_1d.f"] = -f
+    flipped = vaft.omas.compute_virial_equilibrium_quantities_ods(
+        flipped_ods, time_slice=0
+    )[0]
+
+    # Quadratic in F, so untouched.
+    assert flipped["mui"] == pytest.approx(base["mui"], rel=1e-9)
+    # Linear in F, so this is the one that would flip on the stored sign.
+    assert flipped["mu_i_sources"]["measured"] == pytest.approx(
+        base["mu_i_sources"]["measured"], rel=1e-9
+    ), "a COCOS-dependent stored sign must not reach the measured mu_i"
+    assert flipped["mu_i_sources"]["measured"] > 0

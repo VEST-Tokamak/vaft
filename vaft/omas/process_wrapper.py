@@ -1642,6 +1642,25 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     return W_B
 
 
+#: Sign of VEST's vacuum toroidal field, as a machine fact rather than a
+#: per-file convention.
+#:
+#: Converting a *measured* diamagnetic flux into mu_i is linear in the toroidal
+#: field, so it needs that field's direction -- and the stored quantities cannot
+#: supply it. `profiles_1d.f` has a reliable magnitude and an unreliable sign
+#: (shot 39915 stores +0.0598 in the packaged sample and -0.0598 in the
+#: database, with an identical measurement, and the database declares no
+#: COCOS); `vacuum_toroidal_field.b0` is the reverse, uniformly positive across
+#: the history but drifting up to 39% in magnitude within one shot (#325).
+#:
+#: So the magnitude comes from |F_boundary| and the direction from here. VEST's
+#: field is positive, which is why a diamagnetic plasma stores a *negative*
+#: flux -- the convention test/test_diamagnetic_flux_sign.py pins end to end.
+#: A machine with a reversed field changes this constant and nothing else;
+#: it is deliberately not an abs() hidden inside a formula.
+VEST_TOROIDAL_FIELD_SIGN = +1.0
+
+
 def _virial_measured_diamagnetic_flux(ods, eq_idx: int) -> float:
     """The measured diamagnetic flux at one equilibrium slice time, or NaN.
 
@@ -2346,9 +2365,17 @@ def compute_virial_equilibrium_quantities_ods(
         # diamagnetic loop.
         mui_measured = np.nan
         delta_phi_measured = _virial_measured_diamagnetic_flux(ods, eq_idx)
+        # |F_boundary|, not b0*R_0: b0's magnitude drifts within a shot (#325)
+        # and F's sign is not trustworthy across sources, so each contributes
+        # only what it is good for. See VEST_TOROIDAL_FIELD_SIGN.
+        _b_t_for_flux = (
+            VEST_TOROIDAL_FIELD_SIGN * abs(F_boundary) / R_0
+            if np.isfinite(F_boundary) and R_0
+            else np.nan
+        )
         if (
             np.isfinite(delta_phi_measured)
-            and np.isfinite(B_t0)
+            and np.isfinite(_b_t_for_flux)
             and np.isfinite(R_0)
             and np.isfinite(B_pa)
             and B_pa > 0.0
@@ -2362,15 +2389,14 @@ def compute_virial_equilibrium_quantities_ods(
             # self-consistently wrong before this became a comparison of two
             # different things.
             #
-            # This is only the flux/volume conversion, and it is exact in the
-            # *sign* alone. The flux form is the volume one to first order in
-            # (F - F_b)/F_b: on this sample the two differ in magnitude by 3%
-            # at slice 0 and 41% by slice 7, and nothing here can do better
-            # from a single flux measurement. Which toroidal field belongs in
-            # the conversion, and therefore what sign a measured flux carries
-            # relative to the stored F, is separately unresolved: see #691.
+            # The remaining approximation is first order in (F - F_b)/F_b,
+            # which no single flux measurement can improve on -- not a sign
+            # ambiguity. The sign is settled: the measurement carries it, in
+            # the convention test/test_diamagnetic_flux_sign.py pins.
             mui_measured = -float(
-                virial_muihat_from_Bt_R0_dphi(B_t0, R_0, delta_phi_measured, B_pa, V_p)
+                virial_muihat_from_Bt_R0_dphi(
+                    _b_t_for_flux, R_0, delta_phi_measured, B_pa, V_p
+                )
             )
         # The same three closures again, on the measured mu_i, so the comparison
         # against the reconstruction is like for like.
