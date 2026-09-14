@@ -423,8 +423,18 @@ from vaft.data import read_mars_profiles, write_mars_profiles
 profiles = read_mars_profiles("mars_input/")      # the whole deck
 profiles.omega_tor                                 # PROFROT.IN, rad/s
 profiles.omega_exb                                 # PROFWE.IN, rad/s
+profiles.normalization.method                      # "mars_s_squared" — see below
 write_mars_profiles(profiles, "out/")
 ```
+
+**The header's second field names the abscissa, and it is not ψ_N.** MARS branches on it in every
+one of its profile readers and stops on anything else: key `1` means the column is `s`, the square
+root of the normalised poloidal flux, and key `2` means the toroidal equivalent (`marsq.f:16269`,
+"RAD = SQRT(TOROIDAL FLUX)"). So a key-1 deck's column is `s`, and `psi_norm` is `s²` — reading it
+straight through puts every point at the square root of where it belongs, so 0.5 in the file becomes
+ψ_N = 0.25. The conversion is recorded as `normalization.method == "mars_s_squared"`, the writer
+converts back (`sqrt(psi_norm)`, header key `1`), and a key-2 deck is **refused**: reaching poloidal
+flux from a toroidal-flux coordinate needs an equilibrium, which a file-format reader has not got.
 
 **The two rotation files are two different quantities**, and this is where C-27 finally closes. MARS's
 own source settles which is which: `PROFROT.IN` is the bulk toroidal **fluid** rotation ω_φ, read

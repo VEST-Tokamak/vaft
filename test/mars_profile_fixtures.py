@@ -4,6 +4,11 @@ The format is what the committed decks carry: a ``<count> <irad>`` header,
 then that many rows of two ``%.18e`` columns, one file per quantity, every
 file in a deck on the same radial coordinate.
 
+The first column is the file's own abscissa -- ``s``, the square root of the
+normalised poloidal flux, for the ``1`` key every committed deck carries --
+so the ground truth returns both it and the ``psi_norm = s**2`` a reader
+should produce from it.
+
 **The one deliberate divergence: ``PROFROT.IN`` and ``PROFWE.IN`` hold
 different profiles here.**  In all 29 committed files they are byte-identical,
 because the converter that wrote them put the same ``.kin`` column into both.
@@ -53,7 +58,10 @@ def write_mars_deck(
     wrong_count_in=None,
     ragged_row_in=None,
     unknown_file=False,
+    unreadable_file=False,
     irad=1,
+    irad_in=None,
+    blank_line_in=None,
 ):
     """Write a synthetic deck into ``path``; returns the ground truth.
 
@@ -61,8 +69,11 @@ def write_mars_deck(
     corpus's copied pair, ``mismatched_psi_in`` puts one named file on its own
     coordinate, ``short_psi_in`` gives one file a shorter grid,
     ``wrong_count_in`` makes a header disagree with the rows beneath it,
-    ``ragged_row_in`` drops a token from a row, and ``unknown_file`` adds a
-    ``PROF*.IN`` this module does not recognise.
+    ``ragged_row_in`` drops a token from a row, ``unknown_file`` adds a
+    two-column ``PROF*.IN`` this module does not recognise,
+    ``unreadable_file`` adds one in a different MARS layout altogether,
+    ``irad_in`` gives one file its own radial-variable key, and
+    ``blank_line_in`` puts a blank line inside a file's rows.
     """
     psi = np.linspace(0.0, 1.0, points)
     values = deck_values(psi)
@@ -79,24 +90,36 @@ def write_mars_deck(
         if short_psi_in == name:
             file_psi, column = psi[:-1], column[:-1]
         declared = len(file_psi) + 1 if wrong_count_in == name else len(file_psi)
-        lines = [f"{declared} {irad}"]
+        key = irad_in[name] if irad_in and name in irad_in else irad
+        lines = [f"{declared} {key}"]
         rows = [f"{a:.18e} {b:.18e}" for a, b in zip(file_psi, column)]
         if ragged_row_in == name:
             rows[2] = rows[2].split(" ")[0]
+        if blank_line_in == name:
+            rows.insert(3, "")
         lines += rows
         (path / name).write_text("\n".join(lines) + "\n", encoding="utf-8")
         written[name] = column
 
     if unknown_file:
+        # A real MARS file this module does not catalogue.
         extra = 2.0 + psi
         lines = [f"{points} {irad}"]
         lines += [f"{a:.18e} {b:.18e}" for a, b in zip(psi, extra)]
-        (path / "PROFZEF.IN").write_text("\n".join(lines) + "\n", encoding="utf-8")
-        written["PROFZEF.IN"] = extra
+        (path / "PROFZEFF.IN").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        written["PROFZEFF.IN"] = extra
+
+    if unreadable_file:
+        # PROFPA.IN carries one column per species, not two: a different MARS
+        # layout, present in a legitimate deck.
+        lines = [f"{points} {irad}"]
+        lines += [f"{a:.18e} {a:.18e} {a:.18e}" for a in psi]
+        (path / "PROFPA.IN").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     return {
         "directory": path,
-        "psi_norm": psi,
+        "coordinate": psi,
+        "psi_norm": psi**2,
         "values": written,
         "points": points,
         "irad": irad,
