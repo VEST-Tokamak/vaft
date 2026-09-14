@@ -163,28 +163,68 @@ def _preconditions(native: Any) -> tuple[Optional[_Scales], Optional[np.ndarray]
 
 
 def _species_order(native: Any) -> tuple[Optional[int], list[int]]:
-    """``(electron index, ion indices)`` in NEO's own species order."""
+    """``(electron index, ion indices)`` in NEO's own species order.
+
+    The electron is the species carrying *negative* charge, not merely the
+    smallest one: with adiabatic electrons (``AE_FLAG=1``) NEO writes only ions,
+    and taking the minimum would label the lowest-Z ion an electron and drop it
+    from the ion list at the same time.
+    """
     charge = getattr(native, "species_charge", None)
     if charge is None:
         return None, []
     charge = np.atleast_1d(np.asarray(charge, dtype=float))
-    electron = int(np.argmin(charge))
+    negative = np.flatnonzero(charge < 0.0)
+    electron = int(negative[0]) if negative.size else None
     return electron, [index for index in range(charge.size) if index != electron]
 
 
-def _resolve_b0(ods: ODS, b0: Optional[float]) -> Optional[float]:
-    """The vacuum field IMAS normalises ``j_bootstrap`` by."""
+def _resolve_b0(ods: ODS, b0: Optional[float], *, time: float) -> Optional[float]:
+    """The vacuum field IMAS normalises ``j_bootstrap`` by, at *time*.
+
+    ``b0`` is sampled on its own IDS's time base, and the two bases need not be
+    aligned, so each candidate is read at the slice nearest *time* rather than at
+    index 0. VEST's b0 drifts by up to a factor of two within a shot (#325), so
+    taking the first entry is a real error, not a rounding one.
+    """
     if b0 is not None:
         return float(b0)
-    for path in (
-        "core_profiles.vacuum_toroidal_field.b0",
-        "equilibrium.vacuum_toroidal_field.b0",
-    ):
-        if path in ods:
-            values = np.atleast_1d(np.asarray(ods[path], dtype=float))
-            if values.size and np.isfinite(values[0]) and values[0] != 0.0:
-                return float(values[0])
+    for ids in ("core_profiles", "equilibrium"):
+        path = f"{ids}.vacuum_toroidal_field.b0"
+        if path not in ods:
+            continue
+        values = np.atleast_1d(np.asarray(ods[path], dtype=float))
+        if not values.size:
+            continue
+        index = 0
+        base = f"{ids}.time"
+        if base in ods:
+            times = np.atleast_1d(np.asarray(ods[base], dtype=float))
+            if times.size:
+                index = int(np.argmin(np.abs(times - float(time))))
+        index = min(index, values.size - 1)
+        if np.isfinite(values[index]) and values[index] != 0.0:
+            return float(values[index])
     return None
+
+
+def _onto(target: np.ndarray, source: np.ndarray, values: np.ndarray) -> tuple[np.ndarray, int]:
+    """Place *values* onto *target*, leaving NaN where *source* does not reach.
+
+    ``np.interp`` clamps outside its range, which would publish the edge value
+    across a region NEO never solved. Returns the array and how many points were
+    left unevaluated.
+    """
+    order = np.argsort(source)
+    # anti-alias: spatial. Both grids are rho_tor_norm, a flux coordinate, so
+    # there is no sampling rate here to reduce and nothing to fold (#425). The
+    # target is the equilibrium's own radial grid, which is finer than NEO's
+    # handful of solved surfaces, so this is a refinement rather than a
+    # decimation in any case.
+    placed = np.interp(target, source[order], values[order])
+    outside = (target < source.min()) | (target > source.max())
+    placed[outside] = np.nan
+    return placed, int(np.count_nonzero(outside))
 
 
 def core_profiles_from_neo(
@@ -225,7 +265,7 @@ def core_profiles_from_neo(
     current = None if transport is None else transport.get("bootstrap_current")
     if current is None:
         skipped.append("jparB -> j_bootstrap (the run wrote no out.neo.transport)")
-    field = _resolve_b0(ods, b0)
+    field = _resolve_b0(ods, b0, time=time)
     if field is None:
         skipped.append(
             "jparB -> j_bootstrap (no vacuum_toroidal_field.b0 on the ODS and none "
@@ -235,12 +275,30 @@ def core_profiles_from_neo(
     if scales is not None and grid is not None and current is not None and field is not None:
         base = f"core_profiles.profiles_1d.{time_index}"
         _ensure_aos(ods, "core_profiles.profiles_1d", time_index)
-        ods[f"{base}.grid.rho_tor_norm"] = grid
         # <j.B>/B_unit, then into IMAS's <J.B>/B0. B_unit is per-radius and
         # signed; both matter.
-        ods[f"{base}.j_bootstrap"] = (
-            np.asarray(current, dtype=float) * scales.current * scales.b_unit / field
-        )
+        values = np.asarray(current, dtype=float) * scales.current * scales.b_unit / field
+
+        existing = ods.get(f"{base}.grid.rho_tor_norm", None)
+        existing = None if existing is None else np.atleast_1d(np.asarray(existing, dtype=float))
+        if existing is None or existing.size == 0:
+            ods[f"{base}.grid.rho_tor_norm"] = grid
+            ods[f"{base}.j_bootstrap"] = values
+        else:
+            # The slice's grid is its contract with every other profile on it --
+            # ne, Te, the ion channels. Replacing it with NEO's would orphan all
+            # of them, so the current is placed onto the grid that is already
+            # there. NEO solves a handful of surfaces, so outside its span there
+            # is no value to place: those points are left NaN rather than
+            # extrapolated to something plausible.
+            placed, unevaluated = _onto(existing, grid, values)
+            ods[f"{base}.j_bootstrap"] = placed
+            if unevaluated:
+                skipped.append(
+                    f"j_bootstrap at {unevaluated} of {existing.size} grid points "
+                    f"(NEO solved rho_tor_norm {grid.min():.3f}-{grid.max():.3f}; "
+                    "outside that span the value is left unevaluated, not extrapolated)"
+                )
         _set_time_array(ods, "core_profiles.time", time_index, float(time))
         ods["core_profiles.ids_properties.homogeneous_time"] = 1
         if "core_profiles.vacuum_toroidal_field.b0" not in ods:
@@ -287,14 +345,22 @@ def core_transport_from_neo(
     if transport is None:
         skipped.append("fluxes (the run wrote no out.neo.transport)")
     electron, ions = _species_order(native)
-    if electron is None:
+    if getattr(native, "species_charge", None) is None:
         skipped.append(
             "fluxes (the run wrote no out.neo.species, so a flux cannot be attributed "
             "to a species)"
         )
+    elif electron is None:
+        # AE_FLAG=1: NEO treats the electrons adiabatically and writes only ions.
+        # The ion fluxes are still real and are mapped; there is simply no
+        # electron channel to fill.
+        skipped.append(
+            "electrons.particles.flux, electrons.energy.flux (this run carries no "
+            "electron species, which is what an adiabatic-electron run looks like)"
+        )
 
     model = _model_position(ods)
-    if scales is None or grid is None or transport is None or electron is None:
+    if scales is None or grid is None or transport is None or not ions:
         return {"model": model, "written": written, "skipped": skipped}
 
     _ensure_aos(ods, "core_transport.model", model)
@@ -313,9 +379,10 @@ def core_transport_from_neo(
 
     particle = np.atleast_2d(np.asarray(transport["particle_flux"], dtype=float))
     energy = np.atleast_2d(np.asarray(transport["energy_flux"], dtype=float))
-    ods[f"{base}.electrons.particles.flux"] = particle[electron] * scales.particle_flux
-    ods[f"{base}.electrons.energy.flux"] = energy[electron] * scales.energy_flux
-    written.extend(["electrons.particles.flux", "electrons.energy.flux"])
+    if electron is not None:
+        ods[f"{base}.electrons.particles.flux"] = particle[electron] * scales.particle_flux
+        ods[f"{base}.electrons.energy.flux"] = energy[electron] * scales.energy_flux
+        written.extend(["electrons.particles.flux", "electrons.energy.flux"])
 
     mass = getattr(native, "species_mass", None)
     charge = np.atleast_1d(np.asarray(native.species_charge, dtype=float))
@@ -341,12 +408,12 @@ def core_transport_from_neo(
 
     _set_time_array(ods, "core_transport.time", time_index, float(time))
     ods["core_transport.ids_properties.homogeneous_time"] = 1
-    field = _resolve_b0(ods, None)
+    field = _resolve_b0(ods, None, time=time)
     if field is not None and "core_transport.vacuum_toroidal_field.b0" not in ods:
         _set_time_array(ods, "core_transport.vacuum_toroidal_field.b0", time_index, field)
     if "equilibrium.vacuum_toroidal_field.r0" in ods:
         ods["core_transport.vacuum_toroidal_field.r0"] = float(
-            ods["equilibrium.vacuum_toroidal_field.r0"]
+            np.ravel(np.asarray(ods["equilibrium.vacuum_toroidal_field.r0"], dtype=float))[0]
         )
 
     _write_provenance(ods, native, "core_transport")

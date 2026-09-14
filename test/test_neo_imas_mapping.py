@@ -459,13 +459,16 @@ def test_the_mapped_current_agrees_with_the_analytic_model_in_magnitude():
     ) / abs(float(np.ravel(ods["equilibrium.vacuum_toroidal_field.b0"])[0]))
 
     analytic_rho = get("rho_tor_norm")[usable]
-    band = mapped_rho > 0.3
+    # j_bootstrap now lands on the slice's own 129-point grid, NaN outside the
+    # seven surfaces NEO solved, so compare only where NEO actually has an answer.
+    band = np.isfinite(mapped_current) & (mapped_rho > 0.3)
+    assert band.sum() > 10, "the interpolated band should cover most of NEO's span"
     interpolated = np.interp(mapped_rho[band], analytic_rho, analytic)
     ratio = mapped_current[band] / interpolated
     assert np.all(ratio > 0.5) and np.all(ratio < 2.0), ratio
     # Both peak in the outer half, not at the axis.
     assert 0.35 < analytic_rho[np.argmax(analytic)] < 0.8
-    assert 0.35 < mapped_rho[np.argmax(mapped_current)] < 0.8
+    assert 0.35 < mapped_rho[np.nanargmax(mapped_current)] < 0.8
 
 
 # --------------------------------------------------------------------------
@@ -516,5 +519,102 @@ def test_the_whole_chain_runs_from_the_packaged_ods_to_an_ids(tmp_path):
     )
     current = np.asarray(ods["core_profiles.profiles_1d.0.j_bootstrap"])
     rho = np.asarray(ods["core_profiles.profiles_1d.0.grid.rho_tor_norm"])
-    assert np.all(current[rho > 0.3] > 0.0), "co-field: VEST has Ip parallel to Bt"
-    assert np.max(np.abs(current)) < 1.0e6, "a kA/m^2-scale plasma, not MA/m^2"
+    # The packaged slice has its own 129-point grid, so the current lands on it
+    # with NaN outside the surfaces NEO solved.
+    band = np.isfinite(current) & (rho > 0.3)
+    assert band.sum() > 10
+    assert np.all(current[band] > 0.0), "co-field: VEST has Ip parallel to Bt"
+    assert np.nanmax(np.abs(current)) < 1.0e6, "a kA/m^2-scale plasma, not MA/m^2"
+
+
+# --------------------------------------------------------------------------
+# Review findings
+# --------------------------------------------------------------------------
+
+
+@requires_sample
+def test_an_existing_radial_grid_is_never_replaced():
+    """The slice's grid is its contract with every other profile on it.
+
+    Replacing it with NEO's seven surfaces would orphan ne, Te and the ion
+    channels from their coordinate, and a real IMAS put would fail the
+    coordinate check.
+    """
+    from omas import load_omas_json
+
+    ods = load_omas_json(str(SAMPLE), consistency_check=False)
+    base = "core_profiles.profiles_1d.0"
+    before = np.asarray(ods[f"{base}.grid.rho_tor_norm"]).copy()
+    electrons = np.asarray(ods[f"{base}.electrons.density_thermal"]).size
+
+    core_profiles_from_neo(ods, collect_neo_outputs(PROFILE_RUN), time=0.3, time_index=0)
+
+    np.testing.assert_array_equal(np.asarray(ods[f"{base}.grid.rho_tor_norm"]), before)
+    assert np.asarray(ods[f"{base}.j_bootstrap"]).size == before.size == electrons
+
+
+@requires_sample
+def test_outside_neos_span_the_current_is_unevaluated_not_extrapolated():
+    """np.interp would clamp, publishing an edge value across untouched radii."""
+    from omas import load_omas_json
+
+    ods = load_omas_json(str(SAMPLE), consistency_check=False)
+    native = collect_neo_outputs(PROFILE_RUN)
+    report = core_profiles_from_neo(ods, native, time=0.3, time_index=0)
+
+    rho = np.asarray(ods["core_profiles.profiles_1d.0.grid.rho_tor_norm"])
+    current = np.asarray(ods["core_profiles.profiles_1d.0.j_bootstrap"])
+    solved = np.asarray(native.coordinates["rho_tor_norm"])
+    assert np.all(np.isnan(current[rho < solved.min()]))
+    assert np.all(np.isnan(current[rho > solved.max()]))
+    assert np.all(np.isfinite(current[(rho >= solved.min()) & (rho <= solved.max())]))
+    assert any("unevaluated" in reason for reason in report["skipped"])
+
+
+def test_the_vacuum_field_is_read_at_the_slice_being_mapped(native):
+    """b0 is sampled on its own time base, and VEST's drifts within a shot (#325)."""
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.time"] = np.array([0.30, 0.31])
+    ods["equilibrium.vacuum_toroidal_field.b0"] = np.array([0.15, 0.30])
+
+    core_profiles_from_neo(ods, native, time=0.31, time_index=1)
+    first = np.asarray(ods["core_profiles.profiles_1d.1.j_bootstrap"])
+
+    other = ODS(consistency_check=False)
+    core_profiles_from_neo(other, native, time=0.31, time_index=1, b0=0.30)
+    np.testing.assert_allclose(first, np.asarray(other["core_profiles.profiles_1d.1.j_bootstrap"]))
+
+
+def test_an_adiabatic_electron_run_does_not_label_an_ion_as_the_electron(tmp_path, ods):
+    """With AE_FLAG=1 NEO writes only ions, and argmin would pick the lowest Z.
+
+    Both halves of that failure matter: the ion's flux would be published as the
+    electron's, and the ion would vanish from the ion list.
+    """
+    case = tmp_path / "case"
+    shutil.copytree(PROFILE_RUN, case)
+    # Two ions, no electron -- exactly what a real AE_FLAG=1 run writes.
+    (case / "out.neo.species").write_text(
+        "  0.10000000E+01  0.10000000E+01  0.60000000E+01  0.60000000E+01\n"
+    )
+    native = collect_neo_outputs(case)
+    assert np.all(np.asarray(native.species_charge) > 0)
+
+    report = core_transport_from_neo(ods, native)
+    assert not any(name.startswith("electrons") for name in report["written"])
+    assert any("electron" in reason for reason in report["skipped"])
+    base = "core_transport.model.0.profiles_1d.0"
+    assert f"{base}.electrons.particles.flux" not in ods
+
+
+def test_a_size_one_r0_array_does_not_break_the_mapping(native):
+    """OMAS permits r0 as a one-element array; float() on one is deprecated."""
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.vacuum_toroidal_field.b0"] = np.array([0.15])
+    ods["equilibrium.vacuum_toroidal_field.r0"] = np.array([0.4])
+    core_transport_from_neo(ods, native)
+    assert float(ods["core_transport.vacuum_toroidal_field.r0"]) == pytest.approx(0.4)
