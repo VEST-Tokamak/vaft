@@ -3102,8 +3102,10 @@ VACUUM_FIELDS: dict[str, VacuumField] = {
 VACUUM_FIELD_NAMES = tuple(VACUUM_FIELDS)
 
 #: Where the decay index is passively stable for a rigid current ring.  Drawn
-#: as two grey contours beneath the filled map, so the band a startup has to
-#: sit inside is visible without reading the colourbar.
+#: as two grey dashed contours beneath the filled map.  Shading the area
+#: between them was tried and dropped: at the instants that matter the window
+#: covers nearly the whole vessel, so filling it marks nothing, and the two
+#: boundaries already say where it ends.
 DECAY_INDEX_STABLE_BAND = (0.0, 1.5)
 
 
