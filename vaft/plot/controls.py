@@ -133,7 +133,8 @@ def controls_for(
     Only facts the record states produce a control: a plot with one layout
     offers no layout control, a record without validity facts no validity
     control.  ``include_style`` adds the renderer-side modes (validity,
-    uncertainty); ``include_backend`` adds the rendering library, off by
+    uncertainty) and the theme, which every plot offers; ``include_backend``
+    adds the rendering library, off by
     default because changing it replaces the figure object.
     """
     controls: list[ControlSpec] = []

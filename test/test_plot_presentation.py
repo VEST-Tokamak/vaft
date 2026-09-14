@@ -404,3 +404,20 @@ def test_plotly_controls_offer_no_theme(sample):
     )
     assert "theme" not in [c.name for c in result.controls]
     assert resolve_presentation("none", "none") is None and resolve_presentation("", None) is None
+    # A theme given to the call is refused there as the static Plotly path refuses it.
+    with pytest.raises(NotImplementedError, match="theme="):
+        vaft.omas.plot_plasma_current_time(
+            sample, interactive=True, interaction_backend="none", backend="plotly", theme="minimal",
+        )
+
+
+def test_a_theme_fixed_at_the_call_reaches_a_composite_redraw(sample):
+    """With the theme not among the controls it is fixed style, for panels too."""
+    result = vaft.omas.plot_flux_loop_time_flux(
+        sample, layout="subplots", interactive=True, interaction_backend="none",
+        controls=["selection"], theme="technical",
+    )
+    axes = np.asarray(result.axes).ravel()
+    assert all(matplotlib.colors.to_hex(a.lines[0].get_color()) == "#000000" for a in axes if a.lines)
+    assert axes[0].xaxis.majorTicks[0]._tickdir == "in"
+    plt.close(result.figure)

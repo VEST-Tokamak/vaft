@@ -108,8 +108,10 @@ def _render_interactive(
     record = describe_one(spec.name, entries)
     offered = controls_for(record)
     if backend == "plotly":
-        # Plotly cannot apply a Matplotlib theme; the control is not offered
-        # rather than raising on first use.
+        # Plotly cannot apply a Matplotlib theme: the control is not offered
+        # rather than raising on first use, and a theme given to the call is
+        # refused as the static Plotly path refuses it.
+        _refuse_presentation(options, "backend='plotly' does not apply them", keys=("theme",))
         offered = tuple(c for c in offered if c.name != "theme")
     if controls != "auto":
         wanted = [controls] if isinstance(controls, str) else list(controls)
