@@ -192,7 +192,7 @@ from .renderers.panels import render_panels
 from .renderers.profiles import render_profile_1d
 from .renderers.spectra import render_power_spectrum
 from .renderers.spectrograms import render_spectrogram
-from .presentation import FORMATS, THEMES, resolve_presentation
+from .presentation import DEFAULT_FORMAT, FORMATS, THEMES, resolve_presentation
 from .style import save_figure
 
 # Canonical renderers are re-exported explicitly rather than bound in a loop, so
@@ -343,6 +343,7 @@ from .parameter_history import plot_parameter_history
 # Public surface that is not a canonical renderer.
 _SUPPORT_EXPORTS = (
     "Field2D",
+    "DEFAULT_FORMAT",
     "FORMATS",
     "PSI_STYLES",
     "Geometry3DLayer",
