@@ -41,7 +41,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from enum import Enum
 import hashlib
 import os
@@ -1041,6 +1041,223 @@ def audit_legacy_filedb(
     )
 
 
+# ---------------------------------------------------------------------------
+# Relocating a canonical tree onto the lineage-bearing grammar (#77 / #527).
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class GrammarRelocation:
+    """One subtree that moves, and the rule that says where."""
+
+    source: str
+    target: str
+    rule: str
+
+
+@dataclass(frozen=True)
+class GrammarRelocationReport:
+    """What a canonical root needs before it resolves under the new grammar.
+
+    Reports *subtrees*, not files: `efit/39915` moving to `efit/magnetic/39915`
+    is a single rename of a directory, whatever it contains. That is what makes
+    this a relocation rather than a rewrite -- no file is opened, read, hashed or
+    written, so nothing in the tree can be corrupted by it.
+    """
+
+    root: str
+    applied: bool
+    relocations: tuple[GrammarRelocation, ...]
+    already_canonical: tuple[str, ...]
+    collisions: tuple[str, ...]
+    unrecognized: tuple[str, ...]
+
+    @property
+    def safe_to_apply(self) -> bool:
+        """Whether applying this plan would move every subtree it found.
+
+        A collision means a target is already occupied, which this refuses to
+        resolve: the two subtrees were written by different runs, and which one
+        is authoritative is not a question a path rewriter can answer.
+        """
+        return not self.collisions
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": 1,
+            "dry_run": not self.applied,
+            "root": self.root,
+            "summary": {
+                "relocations": len(self.relocations),
+                "already_canonical": len(self.already_canonical),
+                "collisions": len(self.collisions),
+                "unrecognized": len(self.unrecognized),
+                "safe_to_apply": self.safe_to_apply,
+            },
+            "relocations": [asdict(item) for item in self.relocations],
+            "already_canonical": list(self.already_canonical),
+            "collisions": list(self.collisions),
+            "unrecognized": list(self.unrecognized),
+        }
+
+
+def _is_shot_directory(name: str) -> bool:
+    """Whether `name` is a shot number rather than a lineage segment.
+
+    This is the whole discriminator between the two grammars, and it is exact:
+    a shot is `_positive_integer`, and no `EquilibriumFamily`, `Refinement` or
+    `StabilityProduct` value is all digits. So `efit/39915` can only be the old
+    shape and `efit/magnetic` can only be the new one -- there is no input on
+    which the two are ambiguous, which is what makes re-running this safe.
+    """
+    return name.isdigit() and not name.startswith("0")
+
+
+def _plan_grammar_relocation(root: Path) -> GrammarRelocationReport:
+    relocations: list[GrammarRelocation] = []
+    already: list[str] = []
+    unrecognized: list[str] = []
+
+    families = {item.value for item in EquilibriumFamily}
+    legacy_codes = {item.value for item in GPECCode}
+    products = {item.value for item in StabilityProduct}
+
+    def record(node: Path, target: Path, rule: str) -> None:
+        relocations.append(
+            GrammarRelocation(
+                source=node.relative_to(root).as_posix(),
+                target=target.relative_to(root).as_posix(),
+                rule=rule,
+            )
+        )
+
+    # efit/{shot} and chease/{shot} gain the family that produced them.
+    for domain in (FileDBDomain.EFIT.value, FileDBDomain.CHEASE.value):
+        base = root / domain
+        if not base.is_dir():
+            continue
+        for node in sorted(base.iterdir()):
+            if not node.is_dir():
+                unrecognized.append(node.relative_to(root).as_posix())
+            elif node.name in families:
+                already.append(node.relative_to(root).as_posix())
+            elif _is_shot_directory(node.name):
+                record(node, base / LEGACY_FAMILY / node.name, f"{domain}/{{shot}}")
+            else:
+                unrecognized.append(node.relative_to(root).as_posix())
+
+    # gpec/{code} becomes gpec/{family}/{refinement}/{product}: the whole code
+    # subtree moves at once, so every (shot, mode) cell under it travels in one
+    # rename rather than one per cell.
+    gpec = root / FileDBDomain.GPEC.value
+    if gpec.is_dir():
+        for node in sorted(gpec.iterdir()):
+            if not node.is_dir():
+                unrecognized.append(node.relative_to(root).as_posix())
+            elif node.name in families:
+                already.append(node.relative_to(root).as_posix())
+            elif node.name in legacy_codes or node.name in products:
+                # DCON keeps the legacy product spelling. The tree records no
+                # edge treatment, so attributing it to `dcon-peeling` or
+                # `dcon-kink` would invent provenance the move cannot verify.
+                record(
+                    node,
+                    gpec / LEGACY_FAMILY / LEGACY_REFINEMENT / node.name,
+                    "gpec/{code}",
+                )
+            else:
+                unrecognized.append(node.relative_to(root).as_posix())
+
+    # The OMAS stages that belong to one family gain it too.
+    omas = root / FileDBDomain.OMAS.value
+    if omas.is_dir():
+        for stage_dir in sorted(omas.iterdir()):
+            if not stage_dir.is_dir() or stage_dir.name not in _FAMILY_STAGES:
+                continue
+            for node in sorted(stage_dir.iterdir()):
+                if not node.is_dir():
+                    unrecognized.append(node.relative_to(root).as_posix())
+                elif node.name in families:
+                    already.append(node.relative_to(root).as_posix())
+                elif _is_shot_directory(node.name):
+                    record(
+                        node,
+                        stage_dir / LEGACY_FAMILY / node.name,
+                        f"omas/{stage_dir.name}/{{shot}}",
+                    )
+                else:
+                    unrecognized.append(node.relative_to(root).as_posix())
+
+    collisions = tuple(
+        item.source for item in relocations if (root / item.target).exists()
+    )
+    return GrammarRelocationReport(
+        root=str(root),
+        applied=False,
+        relocations=tuple(relocations),
+        already_canonical=tuple(already),
+        collisions=collisions,
+        unrecognized=tuple(unrecognized),
+    )
+
+
+def audit_filedb_grammar(
+    root: str | os.PathLike[str],
+) -> GrammarRelocationReport:
+    """Plan a canonical root's move onto the lineage-bearing grammar, changing nothing.
+
+    A tree written before the grammar carried `family`/`refinement`/`product`
+    resolves to nothing afterwards: `FileDB.efit(shot, family=...)` looks under
+    `efit/magnetic/{shot}`, and the data is at `efit/{shot}`. This says what has
+    to move.
+
+    Re-running on an already-moved tree reports every subtree as
+    `already_canonical` and plans nothing, because a shot directory and a family
+    directory can never be confused -- see :func:`_is_shot_directory`.
+    """
+    source = Path(root).expanduser()
+    if not source.is_dir():
+        raise FileNotFoundError(f"FileDB root is not a directory: {source}")
+    return _plan_grammar_relocation(source)
+
+
+def relocate_filedb_grammar(
+    root: str | os.PathLike[str],
+    *,
+    apply: bool = False,
+) -> GrammarRelocationReport:
+    """Move a canonical root onto the lineage-bearing grammar.
+
+    Dry run unless ``apply=True``, and refused outright when the plan collides
+    with something already at a target. Two subtrees claiming one destination
+    were written by different runs, and which is authoritative is not a question
+    a path rewriter can answer -- so it stops and says which, rather than
+    merging or overwriting.
+
+    Directories are renamed, never copied and never opened: no file in the tree
+    is read or written by this, so an interrupted run leaves every subtree either
+    wholly moved or wholly where it was.
+    """
+    report = audit_filedb_grammar(root)
+    if not apply:
+        return report
+    if not report.safe_to_apply:
+        raise FileDBPathError(
+            "Refusing to relocate: "
+            f"{len(report.collisions)} subtree(s) already have something at their "
+            f"destination ({', '.join(report.collisions[:5])}"
+            f"{', ...' if len(report.collisions) > 5 else ''}). "
+            "Resolve which copy is authoritative before moving."
+        )
+
+    base = Path(root).expanduser()
+    for item in report.relocations:
+        target = base / item.target
+        target.parent.mkdir(parents=True, exist_ok=True)
+        (base / item.source).rename(target)
+    return replace(report, applied=True)
+
+
 __all__ = [
     "ArtifactClass",
     "EquilibriumFamily",
@@ -1050,6 +1267,8 @@ __all__ = [
     "FileDBError",
     "FileDBPathError",
     "GPECCode",
+    "GrammarRelocation",
+    "GrammarRelocationReport",
     "LEGACY_DCON_PRODUCT",
     "LEGACY_FAMILY",
     "LEGACY_REFINEMENT",
@@ -1062,6 +1281,8 @@ __all__ = [
     "OMASStage",
     "Refinement",
     "StabilityProduct",
+    "audit_filedb_grammar",
     "audit_legacy_filedb",
+    "relocate_filedb_grammar",
     "stage_lineage",
 ]

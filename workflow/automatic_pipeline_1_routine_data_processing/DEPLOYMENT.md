@@ -326,6 +326,49 @@ tree — if the shot-first root is `/srv/vest.filedb/public`, then
 python -m vaft.cli filedb audit /srv/vest.filedb/public --target-root "$VAFT_FILEDB_DIR"
 ```
 
+### Relocating a canonical root written before the lineage segments
+
+A canonical tree written before `family`/`refinement`/`product` became path
+segments (#527) resolves to nothing afterwards, and nothing warns about it: the
+resolver asks for `efit/magnetic/{shot}` and returns a path, the data is at
+`efit/{shot}`, and the path is simply empty. Deployments created before that
+change need their subtrees moved once.
+
+Dry run first — it prints the plan and changes nothing:
+
+```bash
+python -m vaft.cli filedb relocate "$VAFT_FILEDB_DIR"
+```
+
+Read the plan, then apply it:
+
+```bash
+python -m vaft.cli filedb relocate "$VAFT_FILEDB_DIR" --apply
+```
+
+What it does and does not do:
+
+- **Directories are renamed, never copied.** No file in the tree is opened,
+  read, hashed or written, so an interrupted run leaves each subtree either
+  wholly moved or wholly where it was — never half written.
+- **The whole `gpec/{code}` subtree moves at once**, so every `(shot, mode)` cell
+  under it travels in one rename rather than one per cell.
+- **A DCON cell keeps the legacy `dcon` product** rather than becoming
+  `dcon-peeling` or `dcon-kink`. The old tree recorded no edge treatment, so
+  neither branch can be asserted, and guessing would put provenance on disk that
+  the move cannot verify.
+- **Stages that belong to no family are untouched** — `raw/`, `omas/static/`,
+  `omas/diagnostics/`, `omas/eddy/`, `omas/impa/`.
+- **An occupied destination stops the whole run**, before anything moves. Two
+  subtrees claiming one path were written by different runs, and which is
+  authoritative is not a question this can answer. Resolve it by hand first.
+- **Re-running is a no-op.** A shot directory is all digits and a lineage segment
+  never is, so the two grammars cannot be confused and a second `--apply` moves
+  nothing.
+
+The dry run exits non-zero when the plan has collisions, so a script can gate on
+it rather than parsing the JSON.
+
 Keep the bootstrap config separate from production, with replication off:
 
 ```bash
