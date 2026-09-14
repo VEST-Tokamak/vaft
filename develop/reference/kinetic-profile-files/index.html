@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Kinetic profile file formats · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,15 +25,17 @@
 
 
 
+            <link rel="prev" href="/vaft/develop/reference/formula/neoclassical/" />
+        
 
         
-            <link rel="next" href="/vaft/develop" />
+            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
         
     </head>
     <body>
         
         
-        <div class="book"><div class="book-summary">
+        <div class="book has-page-toc"><div class="book-summary">
     <script type="text/javascript">
         // Fixes the page links scroll problem on both desktop and mobile browsers
         function pageScrollToTop(element) {
@@ -149,7 +151,7 @@
                     </li>
                 
                     
-                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    <li class="chapter active" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
                     
                         <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
                     </li>
@@ -216,11 +218,15 @@
 <div class="book-body">
                 <div class="book-header" role="navigation">
                     
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
                     <!-- Title -->
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >VAFT</a>
+                            <a href="." >Kinetic profile file formats</a>
                         
                     </h1>
                 </div>
@@ -246,28 +252,214 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="">VAFT</h1>
+                        <h1 id="/reference/Kinetic_profile_files">Kinetic profile file formats</h1>
                     
-<style type="text/css" media="screen">
-  .container {
-    margin: 10px auto;
-    max-width: 600px;
-    text-align: center;
-  }
-  h1 {
-    margin: 30px 0;
-    font-size: 4em;
-    line-height: 1;
-    letter-spacing: -1px;
-  }
-</style>
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>One container behind three profile file formats, and the TRANSP conversion that fills it.</dd>
+    <dt>Prerequisites / inputs</dt><dd>A TRANSP run, or a .kin, pfile or MARS deck to read.</dd>
+    <dt>Expected result</dt><dd>A KineticProfiles set whose units and radial coordinate are stated rather than assumed.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
 
-<div class="container">
-  <h1>404</h1>
+<p>Three file formats carry kinetic profiles into the codes VAFT drives, and they disagree about
+almost everything: what the radial coordinate is, what units the numbers are in, and what the
+rotation column means. <code class="language-plaintext highlighter-rouge">vaft.data.kinetic_profiles.KineticProfiles</code> is the one container all three
+read into, and this page is the contract each of them keeps with it.</p>
 
-  <p><strong>Page not found :(</strong></p>
-  <p>The requested page could not be found.</p>
-</div>
+<h2 id="the-container-fixes-the-units">The container fixes the units</h2>
+
+<p>Densities in m⁻³, temperatures in eV, angular frequencies in rad/s, pressures in Pa, electric fields
+in V/m — the set <code class="language-plaintext highlighter-rouge">vaft.data.KINETIC_UNITS</code> names, and the set GPEC’s own reader consumes, so the
+<code class="language-plaintext highlighter-rouge">.kin</code> path needs no conversion at all. Every reader converts into them and records what it
+converted from. Nothing carries free-text units around.</p>
+
+<p>Two fields exist because one of them kept being written into the other:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>field</th>
+      <th>what it is</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">omega_tor</code></td>
+      <td>toroidal angular velocity, ω_φ</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">omega_exb</code></td>
+      <td>E×B rotation frequency, ω_E</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>They differ by the ion diamagnetic frequency. The <code class="language-plaintext highlighter-rouge">.kin</code> rotation column is ω_E, so <code class="language-plaintext highlighter-rouge">write_kin</code>
+refuses a set that carries only ω_φ.</p>
+
+<h2 id="the-radial-coordinate-is-never-rescaled-on-read">The radial coordinate is never rescaled on read</h2>
+
+<p><code class="language-plaintext highlighter-rouge">normalization.method</code> says how the coordinate came to be what it is, and the value is not always
+<code class="language-plaintext highlighter-rouge">"as_read"</code>:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>format</th>
+      <th>coordinate in the file</th>
+      <th><code class="language-plaintext highlighter-rouge">method</code></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">.kin</code></td>
+      <td>ψ_N</td>
+      <td><code class="language-plaintext highlighter-rouge">as_read</code></td>
+    </tr>
+    <tr>
+      <td>pfile</td>
+      <td>ψ_N (<code class="language-plaintext highlighter-rouge">psinorm</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">as_read</code></td>
+    </tr>
+    <tr>
+      <td>MARS <code class="language-plaintext highlighter-rouge">PROF*.IN</code></td>
+      <td><code class="language-plaintext highlighter-rouge">s</code> = √ψ_poloidal (header key 1)</td>
+      <td><code class="language-plaintext highlighter-rouge">mars_s_squared</code></td>
+    </tr>
+    <tr>
+      <td>TRANSP</td>
+      <td><code class="language-plaintext highlighter-rouge">PLFLX / PLFLXA</code> on <code class="language-plaintext highlighter-rouge">XB</code></td>
+      <td><code class="language-plaintext highlighter-rouge">transp_plflx_over_plflxa</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Making a coordinate span exactly [0, 1] is <code class="language-plaintext highlighter-rouge">normalize_psi()</code>, a separate named operation that has no
+default method — passing <code class="language-plaintext highlighter-rouge">axis=</code>/<code class="language-plaintext highlighter-rouge">edge=</code> and silently getting a min–max stretch instead would be the
+rescale this whole design exists to prevent, only with a provenance record vouching for it.</p>
+
+<h2 id="reading-a-transp-run">Reading a TRANSP run</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code.transp</span> <span class="kn">import</span> <span class="n">read_transp_profiles</span>
+
+<span class="n">profiles</span> <span class="o">=</span> <span class="nf">read_transp_profiles</span><span class="p">(</span><span class="sh">"</span><span class="s">45453X01.CDF</span><span class="sh">"</span><span class="p">,</span> <span class="n">time_s</span><span class="o">=</span><span class="mf">0.750</span><span class="p">)</span>
+<span class="n">profiles</span><span class="p">.</span><span class="n">psi_norm</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>                 <span class="c1"># exactly 1.0 — the last closed flux surface
+</span><span class="n">profiles</span><span class="p">.</span><span class="n">provenance</span><span class="p">[</span><span class="sh">"</span><span class="s">omega_exb</span><span class="sh">"</span><span class="p">]</span>      <span class="c1"># "-d(VRPOT)/d(PLFLX) ... [VOLTS per Wb/rad = rad/s]"
+</span><span class="n">profiles</span><span class="p">.</span><span class="n">provenance</span><span class="p">[</span><span class="sh">"</span><span class="s">target_grid</span><span class="sh">"</span><span class="p">]</span>    <span class="c1"># which grid, and why
+</span></code></pre></div></div>
+
+<p>This is the one place under <code class="language-plaintext highlighter-rouge">vaft.code</code> that converts anything. Every other module there keeps its
+code’s own names and units; this one converts because turning a run into a <code class="language-plaintext highlighter-rouge">.kin</code> needs the two
+radial grids reconciled and the potential differentiated, and doing that at each call site is how
+the grids came to be conflated in the first place.</p>
+
+<p><strong>ψ_N is <code class="language-plaintext highlighter-rouge">PLFLX / PLFLXA</code></strong> — the flux enclosed by each zone boundary over the flux enclosed by the
+plasma boundary. Not <code class="language-plaintext highlighter-rouge">(P − P[0]) / (P[−1] − P[0])</code>, which declares the innermost zone boundary to be
+the magnetic axis and moves the whole grid inward by 0.0049 for the MAST reference run.</p>
+
+<p><strong>ω_E is <code class="language-plaintext highlighter-rouge">−dΦ/dψ</code> from <code class="language-plaintext highlighter-rouge">VRPOT</code> and <code class="language-plaintext highlighter-rouge">PLFLX</code></strong>, and needs no unit conversion: <code class="language-plaintext highlighter-rouge">VRPOT</code> is in volts and
+<code class="language-plaintext highlighter-rouge">PLFLX</code> in webers per radian, and a volt per weber is an inverse second.</p>
+
+<p><strong>The result is on the zone-boundary grid <code class="language-plaintext highlighter-rouge">XB</code>.</strong> TRANSP writes the kinetic profiles on the zone
+centres <code class="language-plaintext highlighter-rouge">X</code> and the flux on the boundaries <code class="language-plaintext highlighter-rouge">XB</code>, and the two interleave — <code class="language-plaintext highlighter-rouge">X[i]</code> is half a cell
+inside <code class="language-plaintext highlighter-rouge">XB[i]</code>, and in a real run they are the <em>same length</em>, which is why nothing anywhere resolves
+a grid by counting. Choosing <code class="language-plaintext highlighter-rouge">XB</code> leaves ψ_N and ω_E untouched and interpolates only the smooth
+kinetic profiles. Measured on the reference run at 750 ms, the choice is not symmetric:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>default <code class="language-plaintext highlighter-rouge">target_grid="XB"</code></th>
+      <th><code class="language-plaintext highlighter-rouge">target_grid="X"</code></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>edge ψ_N stays exactly 1.0</td>
+      <td>edge ψ_N falls to 0.9857, losing the last closed surface</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">n_e</code> moves ≤ 4.2% of peak, resampling</td>
+      <td>ψ_N moves by up to 0.036</td>
+    </tr>
+    <tr>
+      <td>the one clamped point is the outermost, and moves by nothing</td>
+      <td>the clamped point is the <strong>innermost</strong>, where a constant stands in badly for a quantity varying quadratically towards the axis</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The edge matters because GPEC’s <code class="language-plaintext highlighter-rouge">read_kin</code> re-splines onto a uniform [0, 1] grid <em>with
+extrapolation</em>: a set whose outermost point is the last closed surface is the one it can use.
+Whichever grid is chosen, the provenance records which quantities were interpolated and how many
+points fell outside their source range.</p>
+
+<h3 id="what-changed-against-the-legacy-converter">What changed against the legacy converter</h3>
+
+<p>The scripts this replaces produced <code class="language-plaintext highlighter-rouge">sample/transp_example/input/g045453.00750.kin</code> by going through
+a 201-point pfile. Reading the same run directly:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>quantity</th>
+      <th>agreement</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">n_e</code>, <code class="language-plaintext highlighter-rouge">n_i</code></td>
+      <td>≤ 1.8% of peak</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">T_e</code>, <code class="language-plaintext highlighter-rouge">T_i</code></td>
+      <td>≤ 1.2% of peak</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">omega_tor</code></td>
+      <td>≤ 7.8% of peak, all points within 10%</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">omega_exb</code></td>
+      <td>97.5% of points within 10% of peak (98.5% against the pfile’s own <code class="language-plaintext highlighter-rouge">omgeb</code>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The profile deltas are resampling — the reference was interpolated twice, CDF → 201-point pfile →
+<code class="language-plaintext highlighter-rouge">.kin</code>, against one step here.</p>
+
+<p>ω_E is the one quantity with real outliers, and there are five rather than one: ψ_N = 0.120, 0.125,
+0.990, 0.995 and 1.000, the largest being 26% at the edge. Three are at the boundary, where a
+one-sided derivative on the file’s own 20-point grid differs from the same formula applied to a
+ten-times interpolant of it. The pair at ψ_N ≈ 0.12 is not explained by that and is a genuine
+difference in where the derivative is evaluated. Against the pfile’s own <code class="language-plaintext highlighter-rouge">omgeb</code>, which is derived
+the same way, three points exceed 10% instead of five.</p>
+
+<p>The migration’s fix-forward decision records such a change rather than driving it to zero.
+Differentiating the file’s own data is the more defensible of the two, and <code class="language-plaintext highlighter-rouge">omega_tor</code> is now read
+from <code class="language-plaintext highlighter-rouge">OMEG_VTR</code> — the measured charge-exchange rotation the legacy writer preferred — rather than
+from <code class="language-plaintext highlighter-rouge">OMEGA</code>, which is a different quantity in the same file.</p>
+
+<h2 id="the-three-file-formats">The three file formats</h2>
+
+<p><code class="language-plaintext highlighter-rouge">.kin</code> (GPEC), the Osborne pfile, and MARS <code class="language-plaintext highlighter-rouge">PROF*.IN</code> each have their own section in
+<a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/">Equilibrium and kinetic profiles</a>,
+covering the header and footer rules, the unit ladders, the rotation mappings and what each reader
+refuses. In short:</p>
+
+<ul>
+  <li><strong><code class="language-plaintext highlighter-rouge">.kin</code></strong> — six columns, <code class="language-plaintext highlighter-rouge">psi ni ne ti te wexb</code>. The header/footer rule is GPEC’s own
+<code class="language-plaintext highlighter-rouge">readtable</code>: the first contiguous block of numeric lines, and nothing after it.</li>
+  <li><strong>pfile</strong> — a species block and 22 sections, each with its own unit and an inline derivative
+column that is preserved rather than recomputed, because recomputing it reproduces none of the
+reference files.</li>
+  <li><strong>MARS <code class="language-plaintext highlighter-rouge">PROF*.IN</code></strong> — one quantity per file. <code class="language-plaintext highlighter-rouge">PROFROT.IN</code> is ω_φ and <code class="language-plaintext highlighter-rouge">PROFWE.IN</code> is ω_E; they are
+never merged and neither takes precedence.</li>
+</ul>
 
 
 </section>
@@ -325,17 +517,32 @@ window.MathJax = {
     }
 </script>
 
-<a href="/vaft/develop/" class="navigation navigation-pre navigation-unique">
-                        <i class="fa"></i>
-                    </a>
+
+                        <a href="/vaft/develop/reference/formula/neoclassical/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: neoclassical">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
 
                     
-                        <a href="/vaft/develop" class="navigation navigation-next navigation-unique" aria-label="Next page: ">
+                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
                 </div>
             </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-container-fixes-the-units" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The container fixes the units</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-radial-coordinate-is-never-rescaled-on-read" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The radial coordinate is never rescaled on read</a></li><li class="page-toc-item page-toc-level-2"><a href="#reading-a-transp-run" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reading a TRANSP run</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#what-changed-against-the-legacy-converter" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What changed against the legacy converter</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#the-three-file-formats" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The three file formats</a></li></ul>
+    </nav>
+</aside>
 
             
 
@@ -348,14 +555,12 @@ window.MathJax = {
         "level": "1.1",
         "depth": 1,
         
-
-        
         "next": {
-            "title": "",
+            "title": "VEST diagnostics and data availability",
             "level": "1.2",
             "depth": 1,
-            "path": "",
-            "ref": "",
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
             "articles": []
         },
         
@@ -447,8 +652,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "404.html",
-        "mtime": "",
+        "path": "_guide/Kinetic_profile_files.md",
+        "mtime": "2026-09-14 09:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
