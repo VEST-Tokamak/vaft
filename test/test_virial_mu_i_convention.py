@@ -9,13 +9,23 @@ There are two in this codebase, and they are negatives of each other:
   negative of the volume form because
   ``B_tv^2 - B_t^2 = (F_b-F)(F_b+F)/R^2 ~ -2*F_b*(F-F_b)/R^2``.
 
-The rule, with its one exception:
+There is no reliable rule in the *names*. ``hat`` and ``from_phi`` usually mean
+the flux convention, but the module has counterexamples in both directions:
+``approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi`` carries neither and
+yields flux, while ``virial_bp_li_lihat_from_S123`` carries ``hat`` and yields
+volume. What is reliable is the map, which this file pins:
 
-* every **producer** whose name carries ``hat`` or ``from_phi`` yields the flux
-  convention; every other producer yields the volume convention;
-* every **consumer** takes the volume convention, except
-  ``virial_beta_pd_from_S_mu_rt``, which takes the flux one and now says so in
-  its Convention section.
+* **flux producers** -- ``virial_muihat_from_Bt_R0_dphi``,
+  ``computed_diamagnetism_from_phi``,
+  ``approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi``;
+* **volume producers** -- ``calculate_diamagnetism``, the wrapper's ``mui``,
+  and the third return of ``virial_bp_li_lihat_from_S123`` (the three relations
+  solve for it, so it is volume by construction);
+* **every consumer takes volume**, except ``virial_beta_pd_from_S_mu_rt``,
+  which takes flux and says so in its Convention section.
+
+An earlier version of this header stated the naming as a rule. It was false in
+both directions on the day it was written.
 
 Nothing said any of this before, so the pipeline fed the flux quantity to
 closures that need the volume one, putting a systematic ``2*mu_i`` into every
@@ -174,11 +184,23 @@ def test_alpha_survives_a_nan_cell_outside_the_plasma():
     # ... and the other half: a NaN *inside* the plasma must stay NaN. Dropping
     # every NaN would have returned a plausible-looking biased alpha here, which
     # is worse than the failure it was fixing.
+    #
+    # Both functions, not just one. shafranov_integrals returned its 0.0
+    # sentinel for an undetermined denominator, and 0.0 is pair_23's exact
+    # singular point -- a plausible-looking alpha that passes the wrapper's
+    # `isfinite` abstain guard, which is how the first version of this fix made
+    # things worse rather than better.
     b_r_holed = np.where(rm == 0.0, np.nan, 0.2 / np.where(rm == 0.0, 1.0, rm))
     b_r_holed[20, 15] = np.nan
     assert not np.isfinite(
         efit_virial_volume_integrals(rm, zm, rb, zb, b_r_holed, b_z)["alpha"]
     ), "a NaN inside the plasma must not be silently dropped"
+    *_, alpha_holed = shafranov_integrals(
+        rb, zb, np.full_like(rb, 0.2), rm, zm, b_r_holed, b_z, B_ref=0.2, volume=1.0
+    )
+    assert not np.isfinite(alpha_holed), (
+        "an undetermined alpha must abstain, not return the 0.0 sentinel"
+    )
 
 
 def test_mu_i_excludes_a_nan_cell_rather_than_counting_its_vacuum_term():
@@ -228,16 +250,18 @@ def test_the_measured_mu_i_reaches_the_closures_on_their_own_convention():
         # convention; the reconstruction is paramagnetic. They disagree, and
         # the disagreement is only readable because both are on one convention.
         assert measured > 0 > row["mui"]
-        # The closure on the measured mu_i must be the same function of it that
-        # the derived one is of the derived mu_i -- not off by 2*mu_i.
-        from vaft.formula.equilibrium import virial_pair_13_from_S_alpha_mu
-
-        expected, _ = virial_pair_13_from_S_alpha_mu(
-            row["s_1"], row["s_2"], row["s_3"], row["alpha"], measured
-        )
-        assert row["measured_mu_i_closures"]["pair_13"]["beta_p"] == pytest.approx(
-            expected, rel=1e-12
-        )
+        # The two closures must differ by exactly what their two mu_i differ by,
+        # and by nothing else. Re-deriving the measured one from `measured`
+        # cannot see a 2*mu_i error, because both sides would carry it; the
+        # derived closure is the independent anchor.
+        #
+        # pair_13: beta_p = ((alpha-1)(S1+S2) + S3 + alpha*mu) / (3*alpha-2),
+        # so a change of mu moves it by alpha*dmu/(3*alpha-2).
+        derived_bp = row["pair_13"]["beta_p"]
+        measured_bp = row["measured_mu_i_closures"]["pair_13"]["beta_p"]
+        alpha = row["alpha"]
+        expected_gap = alpha * (measured - row["mui"]) / (3.0 * alpha - 2.0)
+        assert measured_bp - derived_bp == pytest.approx(expected_gap, rel=1e-9)
         checked += 1
     assert checked >= 8
 
@@ -261,5 +285,41 @@ def test_beta_pd_is_fed_the_flux_quantity_it_is_written_for():
         row["s_1"], row["s_2"], row["mui_from_flux"], rt_over_r0
     )
     assert row["beta_pd_vir"] == pytest.approx(expected, rel=1e-9)
-    # And it is close to the Lao beta_p, which the volume-fed version would not be.
-    assert abs(row["beta_pd_vir"] - row["beta_p"]) < abs(2.0 * row["mui"])
+    # And it estimates the same quantity as the Lao beta_p, so the two differ
+    # only by the second-order gap between the conventions -- far less than the
+    # 2*mu_i a volume-fed version would be out by. An earlier version of this
+    # assertion used `< 2*|mu_i|`, which the volume-fed version also satisfies
+    # (its difference is exactly 2*|mu_i|, landing a few ulp under).
+    assert abs(row["beta_pd_vir"] - row["beta_p"]) < 0.5 * abs(2.0 * row["mui"])
+
+
+def test_one_report_publishes_one_mu_i_convention():
+    """Two signs for one quantity in a single report is how this went wrong.
+
+    `_diamagnetic_energy` computes its mu_i on the flux convention because
+    `virial_beta_pd_from_S_mu_rt` takes that -- correctly. But it published the
+    flux value under `mui_measured` while the neighbouring check published the
+    volume one under `mu_i_measured`, so the same slice carried +0.63 and -0.63
+    for the same physical quantity.
+    """
+    from vaft.validation import validate_equilibrium
+
+    report = validate_equilibrium(sample_ods(), time_slice=0)
+
+    def field(category, check, name):
+        entry = next(
+            e for e in report[category][check]["slices"] if e["time_slice"] == 0
+        )
+        return entry.get(name)
+
+    energy = field("independent_validation", "diamagnetic_energy", "mui_measured")
+    measured = field("independent_validation", "virial_measured_mu_i", "mu_i_measured")
+    equilibrium = field("physical_validity", "virial_parameter_plausibility", "mui")
+
+    assert energy is not None and measured is not None
+    assert energy == pytest.approx(measured, rel=1e-12), (
+        "the two published measured mu_i must be the same number"
+    )
+    # Both are the volume convention, so both are comparable with the
+    # equilibrium's own -- which is the point of publishing them.
+    assert energy > 0 > equilibrium

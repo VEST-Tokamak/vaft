@@ -2362,9 +2362,13 @@ def compute_virial_equilibrium_quantities_ods(
             # self-consistently wrong before this became a comparison of two
             # different things.
             #
-            # This is only the flux/volume conversion. Which toroidal field
-            # belongs here, and therefore what sign a measured flux carries
-            # relative to the stored F, is unresolved: see #691.
+            # This is only the flux/volume conversion, and it is exact in the
+            # *sign* alone. The flux form is the volume one to first order in
+            # (F - F_b)/F_b: on this sample the two differ in magnitude by 3%
+            # at slice 0 and 41% by slice 7, and nothing here can do better
+            # from a single flux measurement. Which toroidal field belongs in
+            # the conversion, and therefore what sign a measured flux carries
+            # relative to the stored F, is separately unresolved: see #691.
             mui_measured = -float(
                 virial_muihat_from_Bt_R0_dphi(B_t0, R_0, delta_phi_measured, B_pa, V_p)
             )

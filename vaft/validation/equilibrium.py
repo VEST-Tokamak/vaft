@@ -1131,8 +1131,14 @@ def _diamagnetic_energy(ods: Any, index: int, virial: Mapping[str, Any], dia_row
         return _result(ValidationStatus.INDETERMINATE,
                        reason=f"the virial inputs are not decided: {', '.join(missing) or 'non-positive volume, field or radius'}",
                        measured_flux=measured)
-    mui = _float(computed_diamagnetism_from_phi(measured, b_t0, r_0, needed["V_p"], needed["B_pa"]))
-    beta_pd = _float(virial_beta_pd_from_S_mu_rt(needed["s_1"], needed["s_2"], mui, needed["rt"] / r_0))
+    # computed_diamagnetism_from_phi is the flux convention, which is what
+    # virial_beta_pd_from_S_mu_rt takes -- that pairing is internally correct
+    # and stays. What is published as `mui_measured` is the *volume* value,
+    # because every other mu_i in this report is on that convention and two
+    # signs for one quantity in one report is how this went wrong before.
+    mui_hat = _float(computed_diamagnetism_from_phi(measured, b_t0, r_0, needed["V_p"], needed["B_pa"]))
+    beta_pd = _float(virial_beta_pd_from_S_mu_rt(needed["s_1"], needed["s_2"], mui_hat, needed["rt"] / r_0))
+    mui = -mui_hat
     fields = dict(measured_flux=measured, B_t0=b_t0, R_0=r_0, mui_measured=mui, beta_p_diamagnetic=beta_pd,
                   W_kin_virial=needed["W_kin"],
                   thermal_energy=_float(descriptors["thermal_energy"].value) if descriptors and "thermal_energy" in descriptors else math.nan)

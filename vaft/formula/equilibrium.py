@@ -2545,7 +2545,7 @@ def virial_li_from_S_alpha_mu(S1: float,
                              mui_hat: float) -> float:
     r"""Internal inductance from the Shafranov integrals, low-aspect-ratio closure.
 
-    $$l_i = \frac{S_1 + S_2 - 2\hat\mu_i - 3S_3}{3\alpha - 2}$$
+    $$l_i = \frac{S_1 + S_2 - 2\mu_i - 3S_3}{3\alpha - 2}$$
 
     Parameters
     ----------
@@ -2558,7 +2558,7 @@ def virial_li_from_S_alpha_mu(S1: float,
     alpha : float
         Closure coefficient multiplying $l_i$ in the third virial relation [-].
     mui_hat : float
-        Diamagnetic parameter $\hat\mu_i$ [-].
+        Diamagnetic parameter $\mu_i$, volume convention -- see Convention [-].
 
     Returns
     -------
@@ -2903,7 +2903,7 @@ def virial_bongard_from_S_alpha_mu(
     alpha : float
         Closure coefficient multiplying $l_i$ in the third virial relation [-].
     mui : float
-        Diamagnetic parameter $\hat\mu_i$ [-].
+        Diamagnetic parameter $\mu_i$, volume convention -- see Convention [-].
     eps : float, optional
         Denominator magnitude below which the result is NaN, forwarded to the
         closure; default :data:`VIRIAL_SINGULAR_EPS` [-].
