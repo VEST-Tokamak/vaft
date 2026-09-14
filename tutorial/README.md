@@ -50,7 +50,7 @@ relevant external-code roots, such as `CHEASEHOME`, `EFITHOME`, and `GPECHOME`.
 | 01 | Getting Started with VAFT | diagnostic data and public plotting APIs | complete |
 | 02 | Operation Scenario and Vacuum Fields | discharge operation and vacuum-field interpretation | complete |
 | 03 | Equilibrium and Kinetic Profiles | reconstruction, profiles, and forward equilibrium | complete |
-| 04 | Fluctuations and Transient Events | spectral analysis and event interpretation | scaffold |
+| 04 | Fluctuations and Transient Events | spectral analysis and event interpretation | complete |
 | 05 | MHD Linear Stability and 3D Perturbed Equilibrium | equilibrium-to-stability/response modelling | scaffold |
 | 06 | Operational Space and Statistics | cross-shot filtering, limits, and statistical analysis | scaffold |
 
@@ -252,5 +252,5 @@ and Session 01 must not contradict it. The existing
 [plotting sample notebook](../notebooks/plotting_sample_using_vaft_plot_module.ipynb)
 remains a specialized reference with broader research-oriented examples.
 
-Session 02 is the next content milestone. The presence of all six scaffold
-artifacts does not mean the remaining course content is complete.
+Session 05 is the next content milestone. The presence of a scaffold artifact
+does not mean the session's content is complete.
