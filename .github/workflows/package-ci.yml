@@ -87,6 +87,16 @@ jobs:
       - name: Install vaft with dev dependencies
         run: python -m pip install -e ".[dev]"
 
+      # A separate step, before the suite, because it is the cheapest possible
+      # signal and its failure mode is unambiguous: a name that does not exist
+      # cannot be a flake, an environment difference, or a tolerance. F821 was
+      # silently disabled for `vaft/formula/` by a star import for long enough
+      # that a public function raised NameError on every call (#753); running it
+      # here means the next star import fails a gate rather than waiting for
+      # someone to call the function it blinded.
+      - name: Check for undefined names
+        run: python -m ruff check --select F821 --output-format concise vaft/formula/
+
       - name: Run the development-confidence selection
         # This job is NOT a Linux platform-support claim. Linux is simply the
         # canonical environment the development-confidence suite runs in; the

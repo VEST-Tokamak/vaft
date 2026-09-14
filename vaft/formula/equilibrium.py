@@ -28,7 +28,7 @@ import numpy as np
 
 from ._exports import public_names
 from .constants import (
-    MU0, QE, ME, MI_P,
+    MU0, QE, ME, MI_P, EPS0, C_LIGHT,
     E_ALPHA, SIGMA_V_COEF,
     SPITZER_RESISTIVITY_COEF,
     C_B, K_B_COEF,
@@ -52,7 +52,53 @@ from .utils import (
 # working. Deliberately absent from this module's `__all__`, so the catalog and
 # `vaft.formula`'s own resolution attribute them to the module that defines
 # them; an explicit import does not consult `__all__`, which is why both hold.
-from .virial import *  # noqa: F401,F403
+# Spelled out rather than `import *`. A star import makes ruff abandon F821
+# (undefined-name) for the *whole* module, which is how the synchrotron function
+# went on referencing names #368 had deleted without any check noticing (#753).
+# This module is 4000 lines of pure formulas; that is the last place to give up
+# undefined-name detection for a compatibility shim.
+#
+# The list is `virial.__all__`, which is what the star import bound. It has to be
+# kept in step by hand, and
+# `test_the_virial_compatibility_shim_still_re_exports_without_a_star_import`
+# iterates `virial.__all__` and fails if a name is missing here -- so a closure
+# added there without being added here breaks a test rather than a caller.
+from .virial import (  # noqa: F401
+    VIRIAL_SINGULAR_EPS,
+    approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi,
+    virial_D0_boundary_from_bp_li_eK,
+    virial_S1_approx,
+    virial_S2_approx_from_D0_a_R0,
+    virial_S3_approx_from_eK_d,
+    virial_alpha_approx_from_kappa,
+    virial_alpha_from_R_Bz_Bp_dl,
+    virial_beta_p_from_S_alpha_mu,
+    virial_beta_p_from_S_li,
+    virial_beta_p_from_volume,
+    virial_beta_p_lao_from_S_mu_rt,
+    virial_beta_p_li_from_S_alpha_mu_rt,
+    virial_beta_pd_from_S_mu_rt,
+    virial_bongard_from_S_alpha_mu,
+    virial_bp_li_lihat_from_S123,
+    virial_closure_denominators,
+    virial_full_123_from_S_alpha_rt,
+    virial_identity_residuals,
+    virial_kinetic_energy,
+    virial_lao_from_S_alpha_mu_rt,
+    virial_li_from_S_alpha_mu,
+    virial_li_from_S_alpha_rt,
+    virial_li_from_volume,
+    virial_magnetic_energy,
+    virial_muihat_from_Bt_R0_dphi,
+    virial_normalized_residual,
+    virial_pair_12_from_S_mu_rt,
+    virial_pair_13_from_S_alpha_mu,
+    virial_pair_23_from_S_alpha_mu_rt,
+    virial_residual_rms,
+    virial_stability_criterion,
+    virial_theorem,
+    virial_thermal_energy,
+)
 
 
 #: What ``from vaft.formula.equilibrium import *`` binds, and therefore what
@@ -2551,7 +2597,12 @@ def cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e(
     .. [2] B. A. Trubnikov, in *Reviews of Plasma Physics*, Vol. 7, Consultants
            Bureau (1979), p. 345.
     """
-    coeff = e**4 / (3.0 * np.pi * epsilon_0 * m_e**3 * c**3)
+    # QE/EPS0/ME/C_LIGHT, not the lower-case `e`/`epsilon_0`/`m_e`/`c` this
+    # module used to define: #368 moved those to `constants.py` because the
+    # lower-case spellings leaked into `vaft.formula.__all__`, and this function
+    # was the one caller left behind, so it has raised NameError ever since
+    # (#753).
+    coeff = QE**4 / (3.0 * np.pi * EPS0 * ME**3 * C_LIGHT**3)
     return coeff * n_e_m3 * B_t_T**2 * (T_e_eV * QE)
 
 def loss_power_from_p_heat_dWdt_p_rad(P_heat: float, dWdt: float, p_rad: float) -> float:

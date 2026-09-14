@@ -84,6 +84,11 @@ dev = [
   "pre-commit",
   "black",
   "flake8",
+  # F821 (undefined name) is a required check on vaft/formula/. flake8 carries
+  # the same pyflakes code, but ruff runs it over the tree in well under a
+  # second, which is what makes it affordable as a gate rather than a nightly
+  # (issue #753).
+  "ruff",
   "ipykernel>=7.2.0",
   "nbclient>=0.10",
   "nbformat>=5.10",
