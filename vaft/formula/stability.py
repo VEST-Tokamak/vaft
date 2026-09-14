@@ -31,41 +31,76 @@ from .constants import (
 )
 from .utils import gradient
 
+#: What ``from vaft.formula.stability import *`` binds, and therefore what
+#: reaches ``vaft.formula.__all__``. Stability limits, operational boundaries and transport figures.
+#: Declared so the package stops re-exporting this module's own imports --
+#: ``np``, ``warnings``, ``Union``, ``curve_fit`` -- as though they were
+#: formulas (#368).
+__all__ = [
+    "ballooning_alpha_from_p_B_R",
+    "ballooning_stability_criterion",
+    "beta_N_from_beta_a_B0_Ip",
+    "beta_pol_from_beta_tor",
+    "beta_stability_boundary",
+    "beta_tor_from_beta_pol",
+    "c_s_from_Te_Ti_mi",
+    "collisionality_from_n_T_B_R",
+    "empirical_li_qa",
+    "greenwald_density",
+    "greenwald_fraction",
+    "kink_stability_criterion",
+    "li_from_qa_empirical",
+    "plasma_stability_margins",
+    "power_limit_from_beta",
+    "power_limit_from_q",
+    "rhostar_from_Te_a_Bt",
+    "sawtooth_stability_criterion",
+    "v_alfven_from_B_n_mi",
+]
+
+
 # ------------------------------------------------------------------
 # Beta Calculations
 # ------------------------------------------------------------------
 
-def beta_N_from_beta_a_B0_Ip(beta: float,
+def beta_N_from_beta_a_B0_Ip(beta_percent: float,
                             a: float,
                             B0: float,
-                            I_p: float) -> float:
-    r"""Normalised beta evaluated literally as $\beta\,a\,B_0/I_p$.
+                            I_p_MA: float) -> float:
+    r"""Normalised beta in the Troyon convention, %·m·T/MA.
 
-    $$\beta_N = \frac{\beta\,a\,B_0}{I_p}$$
+    $$\beta_N = \frac{\beta[\%]\;a[\mathrm{m}]\;B_0[\mathrm{T}]}{I_p[\mathrm{MA}]}$$
 
     Parameters
     ----------
-    beta : float
-        Toroidal beta as a fraction [-].
+    beta_percent : float
+        Toroidal beta **in percent**, not as a fraction [%].
     a : float
         Minor radius [m].
     B0 : float
         Toroidal field on axis [T].
-    I_p : float
-        Plasma current [A].
+    I_p_MA : float
+        Plasma current **in megaamperes** [MA].
 
     Returns
     -------
     float
-        The ratio in fraction-metre-tesla per ampere [m T/A].
+        Normalised beta, directly comparable with the Troyon limit [%·m·T/MA].
 
     Convention
     ----------
-    The community $\beta_N$ (Troyon) is quoted in %·m·T/MA, i.e. $\beta$ in
-    percent and $I_p$ in MA, and the Troyon limit is $\beta_N \lesssim 2.8$ in
-    those units.  This function does not rescale: with the SI inputs above the
-    result is $10^{-8}$ times the conventional number.  Feed $\beta$ in percent
-    and $I_p$ in MA to obtain it directly.  Tracked in #349.
+    Percent and megaamperes, which is how Troyon [1]_ and the ITER Physics
+    Basis [2]_ quote $\beta_N$ and the only convention in which the limit
+    $\beta_N \lesssim 2.8$ means anything. The parameter names carry their
+    units because this function used to take SI -- a fraction and amperes --
+    and return $10^{-8}$ times the conventional number, which no rescaling of
+    the *output* fixes for a reader comparing against 2.8 (#349).
+
+    Physical interpretation
+    -----------------------
+    The pressure a tokamak can hold scales with $I_p/(aB_0)$, so dividing it
+    out leaves a figure that is comparable across machines; exceeding ~2.8
+    means an ideal-MHD beta limit rather than a machine-specific one.
 
     References
     ----------
@@ -73,7 +108,7 @@ def beta_N_from_beta_a_B0_Ip(beta: float,
     .. [2] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 3,
            Sec. 2.1 (definition of $\beta_N$).
     """
-    return beta * a * B0 / I_p
+    return beta_percent * a * B0 / I_p_MA
 
 
 def beta_pol_from_beta_tor(beta_tor: float,
