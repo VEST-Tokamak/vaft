@@ -12,8 +12,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 import shutil
 from typing import TYPE_CHECKING, Protocol
+
+import numpy as np
 
 from . import _runtime as rt
 
@@ -40,6 +43,15 @@ class Solver(Protocol):
 
     def prepare(self, ctx: SolverContext) -> None:
         """Write this solver's namelist(s) and companion input files into ``ctx.run_dir``."""
+        ...
+
+    def prepare_companions(self, run_dir: Path, mode: int, config) -> None:
+        """Refine companion inputs using what this solver has just written.
+
+        Called after the solver exits 0 and before its companions run, so a
+        companion's namelist can depend on the solver's own output. Optional:
+        solvers that do not define it are skipped.
+        """
         ...
 
     def output_patterns(self, mode: int) -> tuple[str, ...]:
@@ -294,6 +306,123 @@ class DCONSolver:
         return f"dcon_output_n{mode}.nc"
 
 
+def _namelist_array(name: str, values, *, note: str = "") -> str:
+    """One Fortran namelist assignment holding every element of *values*.
+
+    Written out element by element rather than with a repeat count, because
+    the values differ per surface -- which is the whole point of #716. The
+    trailing comment replaces the one on the line being overwritten, so the
+    file still says what the numbers are and where they came from.
+    """
+    body = ", ".join(f"{float(v):.6e}" for v in values)
+    comment = f"  ! {note}" if note else ""
+    return f"    {name}={body}{comment}\n"
+
+
+def _replace_namelist_scalar(text: str, name: str, replacement: str) -> str:
+    """Swap a scalar `name=value` assignment for *replacement*, keeping comments.
+
+    The packaged `rmatch.in` writes `eta` and `massden` as a single value with
+    a trailing comment. Matching the assignment alone leaves the comment on a
+    line of its own, which Fortran's namelist reader treats as a continuation
+    of the list and then fails on -- so the whole line goes.
+    """
+    pattern = re.compile(rf"^[ \t]*{re.escape(name)}[ \t]*=.*$\n?", re.MULTILINE)
+    if not pattern.search(text):
+        raise ValueError(
+            f"rmatch.in has no `{name}` assignment to replace; the packaged "
+            "template has changed shape"
+        )
+    return pattern.sub(replacement, text, count=1)
+
+
+def enable_rdcon_matching_output(path: Path) -> bool:
+    """Make RDCON write the solution `rmatch` reads, and only that.
+
+    The packaged `rdcon.in` ships `bin_delmatch=f`, whose own comment reads
+    "Output solution for rmatch" -- so `rmatch` then dies on a missing
+    `gal_solution.dat` before it can use any of the per-surface inputs
+    #716 is about. `rdcon/gal.f:2007` writes both files `rmatch` opens under
+    that one flag::
+
+        IF (bin_delmatch) THEN
+           CALL bin_open(gal_bin_unit,'gal_solution.dat',...)
+           ...
+           CALL bin_open(gal_bin_unit,'gal_solution_cut.dat',...)
+
+    `out_galsol` and `bin_galsol` are deliberately left alone: they add a dozen
+    `galsol_left_*`/`galsol_right_*` files per run that `rmatch` never reads.
+
+    Returns whether the file had to be changed.
+    """
+    text = path.read_text(encoding="utf-8")
+    updated, count = re.subn(
+        r"^([ \t]*bin_delmatch[ \t]*=[ \t]*)[fF]\b", r"\1t", text, count=1, flags=re.MULTILINE
+    )
+    if count:
+        path.write_text(updated, encoding="utf-8")
+    return bool(count)
+
+
+def write_rmatch_resistive_layers(run_dir: Path, mode: int, options) -> dict:
+    """Give rmatch one `eta` and one `massden` per rational surface (#716).
+
+    Reads the surfaces out of the `rdcon_output_n<mode>.nc` RDCON has just
+    written, evaluates the supplied kinetic profiles there, and rewrites
+    `rmatch.in` in place. Returns what was written, so a caller can report it.
+    """
+    from vaft.process.equilibrium import resistive_layer_at
+
+    from ._matching_output import read_pest3_matching_output
+
+    # Nothing here may turn a run that would have worked into a failure: this
+    # only fills in a companion's input, and the companion is optional. RDCON
+    # can exit 0 having written no output at all -- it does exactly that when
+    # it cannot find the boundary -- so an unreadable result means "leave the
+    # template alone", not "abort".
+    try:
+        native = read_pest3_matching_output(run_dir, solver="rdcon", mode=mode)
+    except Exception as error:  # noqa: BLE001 -- see above
+        return {"surfaces": 0, "skipped": f"{type(error).__name__}: {error}"}
+    if native.psi_n_rational is None:
+        return {"surfaces": 0}
+    surfaces = np.asarray(native.psi_n_rational, dtype=float).ravel()
+    if surfaces.size == 0:
+        return {"surfaces": 0}
+
+    layers = resistive_layer_at(
+        surfaces,
+        psi_norm=options.psi_norm,
+        t_e=options.t_e,
+        n_e=options.n_e,
+        ion_mass_amu=options.ion_mass_amu,
+        z_eff=options.z_eff,
+        ln_lambda=options.ln_lambda,
+    )
+
+    path = run_dir / "rmatch.in"
+    text = path.read_text(encoding="utf-8")
+    note = (
+        f"per rational surface, from Te/ne at the {surfaces.size} surfaces "
+        "rdcon reported (vaft)"
+    )
+    text = _replace_namelist_scalar(
+        text, "eta", _namelist_array("eta", layers["eta"], note=f"Ohm m, {note}")
+    )
+    text = _replace_namelist_scalar(
+        text,
+        "massden",
+        _namelist_array("massden", layers["mass_density"], note=f"kg/m^3, {note}"),
+    )
+    path.write_text(text, encoding="utf-8")
+    return {
+        "surfaces": int(surfaces.size),
+        "psi_n": surfaces,
+        "eta": layers["eta"],
+        "mass_density": layers["mass_density"],
+    }
+
+
 class RDCONSolver:
     name = "rdcon"
 
@@ -303,6 +432,10 @@ class RDCONSolver:
         # RDCON just wrote into this same directory (vmat.bin, etc).
         shutil.copy2(ctx.template_dir / "rmatch.in", ctx.run_dir / "rmatch.in")
 
+        options = getattr(ctx.config, "rdcon", None)
+        if options is not None and options.has_kinetic_profiles:
+            enable_rdcon_matching_output(ctx.run_dir / "rdcon.in")
+
     def output_patterns(self, mode: int) -> tuple[str, ...]:
         return (
             f"rdcon_output_n{mode}.nc",
@@ -311,6 +444,21 @@ class RDCONSolver:
             "globalsol.bin",
             "vmat.bin",
         )
+
+    def prepare_companions(self, run_dir: Path, mode: int, config) -> None:
+        """Fill rmatch's per-surface `eta`/`massden` from the plasma (#716).
+
+        Deferred to here rather than done in `prepare` because the arrays have
+        to line up with the rational surfaces RDCON itself found: it writes
+        them into `rdcon_output_n<N>.nc`, and `rmatch` clamps its `msing` to
+        that same count. Deriving the surfaces independently from the q profile
+        would agree only approximately, and on an equilibrium with a bad
+        on-axis q point not even that.
+        """
+        options = getattr(config, "rdcon", None)
+        if options is None or not options.has_kinetic_profiles:
+            return
+        write_rmatch_resistive_layers(run_dir, mode, options)
 
     def companion_executables(self) -> tuple[str, ...]:
         return ("rmatch",)

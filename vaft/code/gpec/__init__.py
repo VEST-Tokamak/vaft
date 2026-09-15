@@ -373,6 +373,13 @@ def _run_module(
         reason = ""
         companion_failures: list[str] = []
         if returncode == 0:
+            # A companion's namelist may depend on what the solver just wrote --
+            # rmatch's per-surface eta/massden do (#716) -- so solvers get a
+            # chance to refine those inputs here, between the two programs.
+            refine = getattr(solver, "prepare_companions", None)
+            if refine is not None:
+                refine(run_dir, mode, config)
+
             for companion in solver.companion_executables():
                 companion_exec = rt.optional_executable(config, companion)
                 if companion_exec is not None and is_executable(companion_exec):

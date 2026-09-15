@@ -94,6 +94,8 @@ __all__ = [
     "calculate_diamagnetism",
     "calculate_q_profile_from_psi",
     "find_rational_surfaces",
+    "resistive_layer_at",
+    "resistive_layer_parameters",
     "calculate_reconstructed_diamagnetic_flux",
     "computed_diamagnetism_from_phi",
     "contour_shape_parameters",
@@ -3809,6 +3811,249 @@ def grad_shafranov_residual(
         source=source,
         mask=mask,
     )
+
+
+def resistive_layer_parameters(
+    psi_norm,
+    q,
+    n,
+    *,
+    t_e,
+    n_e,
+    psi_norm_kinetic=None,
+    ion_mass_amu=1.0,
+    z_eff=2.0,
+    ln_lambda=17.0,
+    m_range=None,
+):
+    """Resistivity and mass density at each rational surface of a toroidal mode.
+
+    Asymptotic-matching codes -- RDCON's ``rmatch``, STRIDE -- ask for one
+    resistivity and one mass density *per rational surface*, because the
+    resistive layer width and the reconnection rate are set locally. This
+    composes the two things needed to answer that from an equilibrium and its
+    kinetic profiles: where the surfaces are, and what the plasma is like
+    there.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Normalized poloidal flux of the ``q`` profile, increasing [-].
+    q : array_like
+        Safety factor on ``psi_norm`` [-].
+    n : int
+        Toroidal mode number; its sign is ignored [-].
+    t_e : array_like
+        Electron temperature [eV].
+    n_e : array_like
+        Electron density [m^-3].
+    psi_norm_kinetic : array_like, optional
+        Normalized poloidal flux of ``t_e``/``n_e``; ``psi_norm`` by default,
+        which requires the kinetic profiles to already be on the q grid [-].
+    ion_mass_amu : float, optional
+        Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default,
+        which is what VEST runs [-].
+    z_eff : float, optional
+        Effective ion charge, passed to the Spitzer resistivity [-].
+    ln_lambda : float, optional
+        Coulomb logarithm, passed to the Spitzer resistivity [-].
+    m_range : tuple of int, optional
+        Forwarded to :func:`find_rational_surfaces` [-].
+
+    Returns
+    -------
+    dict of str to ndarray
+        ``m``, ``q_rational`` and ``psi_n_rational`` as
+        :func:`find_rational_surfaces` returns them, ordered outward, plus
+        ``mass_density`` [kg m^-3], the ``t_e`` [eV] and ``n_e`` [m^-3] each
+        was computed from, and the Spitzer resistivity ``eta`` [Ohm m].
+
+    Raises
+    ------
+    ValueError
+        A kinetic profile does not match its coordinate in length, or
+        ``ion_mass_amu`` is not positive. Propagates
+        :func:`find_rational_surfaces`'s own validation.
+
+    Processing steps
+    ----------------
+    1. Locate the rational surfaces with :func:`find_rational_surfaces`.
+    2. Interpolate ``t_e`` and ``n_e`` linearly onto those surfaces.
+    3. Evaluate
+       :func:`vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda`
+       at each, and take the mass density as ``n_e * ion_mass_amu * m_p``,
+       which assumes quasineutrality with a single bulk ion species.
+
+    Limitations
+    -----------
+    Spitzer resistivity carries no neoclassical trapped-particle correction,
+    so it underestimates the parallel resistivity of a spherical tokamak,
+    where the trapped fraction is large; the returned ``eta`` is a lower
+    bound in that sense.
+
+    It also diverges as ``T_e`` goes to zero. A reconstruction whose
+    ``T_e`` reaches zero at the separatrix therefore yields a non-finite
+    ``eta`` at any rational surface that sits on that point, and surfaces
+    within a few percent of it are dominated by however the profile was
+    extrapolated rather than by measurement. Both are reported rather than
+    clipped, because the right floor is a property of the discharge and not
+    of this function.
+
+    The mass density ignores impurities: with a non-unit ``z_eff`` the bulk
+    ion density is below ``n_e``, so this overestimates it by roughly the
+    dilution factor.
+
+    Applicability
+    -------------
+    Machine-independent. The ``ion_mass_amu`` default of 1 is the only VEST
+    choice, and it is a keyword.
+
+    Provenance
+    ----------
+    .. [issue] #716 -- the packaged ``rmatch.in`` supplied a single scalar
+       where the code wants one value per rational surface, so ``rmatch``
+       stopped before writing its global solution.
+    """
+    import numpy as _np
+
+    from vaft.formula.constants import MI_P
+    from vaft.formula.equilibrium import (
+        spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
+    )
+
+    if float(ion_mass_amu) <= 0.0:
+        raise ValueError(f"ion_mass_amu must be positive, got {ion_mass_amu!r}")
+
+    surfaces = find_rational_surfaces(psi_norm, q, n, m_range=m_range)
+    return {
+        **surfaces,
+        **resistive_layer_at(
+            surfaces["psi_n_rational"],
+            psi_norm=psi_norm if psi_norm_kinetic is None else psi_norm_kinetic,
+            t_e=t_e,
+            n_e=n_e,
+            ion_mass_amu=ion_mass_amu,
+            z_eff=z_eff,
+            ln_lambda=ln_lambda,
+        ),
+    }
+
+
+def resistive_layer_at(
+    psi_n_surfaces,
+    *,
+    psi_norm,
+    t_e,
+    n_e,
+    ion_mass_amu=1.0,
+    z_eff=2.0,
+    ln_lambda=17.0,
+):
+    """Resistivity and mass density at flux surfaces someone else located.
+
+    The companion to :func:`resistive_layer_parameters`, for when the surfaces
+    are already known -- read back from a solver that reported its own, which
+    is the only way to be sure the values line up with what that solver will
+    index.
+
+    Parameters
+    ----------
+    psi_n_surfaces : array_like
+        Normalized poloidal flux of each surface, ordered as the consumer
+        expects them [-].
+    psi_norm : array_like
+        Normalized poloidal flux of ``t_e``/``n_e`` [-].
+    t_e : array_like
+        Electron temperature [eV].
+    n_e : array_like
+        Electron density [m^-3].
+    ion_mass_amu : float, optional
+        Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default [-].
+    z_eff : float, optional
+        Effective ion charge [-].
+    ln_lambda : float, optional
+        Coulomb logarithm [-].
+
+    Returns
+    -------
+    dict of str to ndarray
+        ``mass_density`` [kg m^-3], the ``t_e`` [eV] and ``n_e`` [m^-3] each
+        was computed from, and the Spitzer resistivity ``eta`` [Ohm m].
+
+    Raises
+    ------
+    ValueError
+        A kinetic profile does not match its coordinate in length, or
+        ``ion_mass_amu`` is not positive.
+
+    Processing steps
+    ----------------
+    1. Interpolate ``t_e`` and ``n_e`` linearly onto ``psi_n_surfaces``.
+    2. Evaluate the Spitzer resistivity at each, and take the mass density as
+       ``n_e * ion_mass_amu * m_p``.
+
+    Limitations
+    -----------
+    As :func:`resistive_layer_parameters`: Spitzer carries no neoclassical
+    correction and diverges as ``T_e`` goes to zero, and the mass density
+    ignores impurity dilution.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [issue] #716.
+    """
+    import numpy as _np
+
+    from vaft.formula.constants import MI_P
+    from vaft.formula.equilibrium import (
+        spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
+    )
+
+    if float(ion_mass_amu) <= 0.0:
+        raise ValueError(f"ion_mass_amu must be positive, got {ion_mass_amu!r}")
+
+    coordinate = _np.asarray(psi_norm, dtype=float)
+    t_e = _np.asarray(t_e, dtype=float)
+    n_e = _np.asarray(n_e, dtype=float)
+    for name, values in (("t_e", t_e), ("n_e", n_e)):
+        if values.shape != coordinate.shape:
+            raise ValueError(
+                f"{name} has {values.size} points against {coordinate.size} "
+                "coordinate points"
+            )
+
+    where = _np.asarray(psi_n_surfaces, dtype=float)
+    t_e_at = _np.interp(where, coordinate, t_e)
+    n_e_at = _np.interp(where, coordinate, n_e)
+
+    # `_np.float64` rather than `float`: the formula divides by T_e**1.5, and
+    # a Python float raises ZeroDivisionError there while IEEE gives `inf`.
+    # The divergence at T_e = 0 is a real property of Spitzer and the caller
+    # has to see it, so it is returned as a non-finite value rather than as an
+    # exception from three frames down.
+    with _np.errstate(divide="ignore", invalid="ignore"):
+        eta = _np.array(
+            [
+                spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(
+                    _np.float64(value),
+                    Z_eff=float(z_eff),
+                    ln_Lambda=float(ln_lambda),
+                )
+                for value in t_e_at
+            ],
+            dtype=float,
+        )
+
+    return {
+        "eta": eta,
+        "mass_density": n_e_at * float(ion_mass_amu) * MI_P,
+        "t_e": t_e_at,
+        "n_e": n_e_at,
+    }
 
 
 def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
