@@ -395,7 +395,8 @@ def test_shot_overview_extractor_uses_the_shared_plasma_timing(monkeypatch):
     monkeypatch.setattr(
         summary_module,
         "_plasma_timing",
-        lambda _ods: SimpleNamespace(found=True, onset=0.1, offset=0.2, source="h_alpha_primary"),
+        lambda _ods: SimpleNamespace(found=True, onset=0.1, offset=0.2, source="h_alpha_primary",
+                                        duty_cycle=1.0),
     )
     monkeypatch.setattr(
         summary_module,
@@ -721,3 +722,40 @@ def test_the_payload_is_parsed_once_for_a_whole_shot(monkeypatch):
     summary_module.extract_efit_magnetic_reliability(ods, 39915)
 
     assert len(calls) == 1
+
+
+def test_the_shot_overview_says_how_much_of_the_pulse_was_active(monkeypatch):
+    """`pulse_duration_s` is an envelope; the column beside it says what of it counted.
+
+    A record of two brief flashes tens of milliseconds apart reports a long
+    window that is mostly gap, and until #752 a reader of the overview had no
+    way to tell that from a plasma that lasted as long as the window says.
+    `pulse_duration_s` keeps its meaning; the duty cycle is reported next to
+    it rather than folded into it.
+    """
+    from types import SimpleNamespace
+
+    ods = {
+        "magnetics.ip.0.data": [0, 10_000, 20_000, 0],
+        "tf.time": [0.0, 0.1, 0.2, 0.3],
+        "tf.b_field_tor_vacuum_r.data": [0.0, 0.04, 0.08, 0.0],
+        "tf.r0": 0.4,
+    }
+    monkeypatch.setattr(
+        summary_module,
+        "_plasma_timing",
+        lambda _ods: SimpleNamespace(found=True, onset=0.1, offset=0.2,
+                                     source="h_alpha_primary", duty_cycle=0.09),
+    )
+    monkeypatch.setattr(
+        summary_module, "_ip_peak",
+        lambda _ods, timing: SimpleNamespace(found=True, value=10_000.0))
+    monkeypatch.setattr(
+        summary_module, "_shot_class",
+        lambda _ods, timing: SimpleNamespace(label="Plasma"))
+
+    row = summary_module.extract_shot_overview(ods, 42)[0]
+
+    assert row["pulse_duration_s"] == pytest.approx(0.1)
+    assert row["pulse_duty_cycle"] == pytest.approx(0.09)
+    assert "pulse_duty_cycle" in summary_module.SHOT_OVERVIEW_COLUMNS

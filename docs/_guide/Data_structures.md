@@ -708,11 +708,20 @@ why the conversion derives them once:
 vaft.omas.find_vloop_onset(ods)
 vaft.omas.find_ip_onset(ods)
 vaft.omas.find_breakdown_onset(ods)
-vaft.omas.find_pulse_duration(ods)     # plasma offset - onset
+vaft.omas.find_pulse_duration(ods)     # plasma offset - onset, gaps included
 vaft.omas.find_pf_active_onset(ods)    # one entry per coil, nan for a coil that did not fire
 vaft.omas.find_max_ip(ods)             # representative peak Ip inside the plasma window
 vaft.omas.find_bt(ods)                 # mean toroidal field over the plasma window
 ```
+
+A window is the **envelope** of the segments its detector accepted, so its extent is not the same
+question as how long the plasma was there. On a record of two brief flashes tens of milliseconds
+apart the window spans both and the quiet between them: three corpus records report windows that are
+7–19 % above threshold. `plasma_timing(ods).duty_cycle` is that fraction, the shot overview carries
+it as `pulse_duty_cycle` beside `pulse_duration_s`, and the onset corpus keeps it per detector.
+`find_pulse_duration` is unchanged and still returns the extent — a duration and a duty cycle are two
+answers, and folding one into the other would move a published column under its readers
+([#752](https://github.com/VEST-Tokamak/vaft/issues/752)).
 
 The records behind them carry the evidence: `vaft.omas.plasma_timing.plasma_timing(ods)` (the window, its
 source, the light/current agreement) and `vaft.omas.discharge_timing.discharge_timing(ods)` (every coil's

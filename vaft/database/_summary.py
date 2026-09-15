@@ -207,6 +207,11 @@ SHOT_OVERVIEW_COLUMNS = (
     "plasma_onset_time_s",
     "plasma_onset_source",
     "pulse_duration_s",
+    # The window is the envelope of the detector's segments, so its extent is
+    # not how long the plasma was there.  Reported beside the duration rather
+    # than folded into it: changing what `pulse_duration_s` means would move a
+    # published column under its readers (#752).
+    "pulse_duty_cycle",
     "max_ip_kA",
     "mean_b_t_T",
     "shot_class",
@@ -1123,6 +1128,7 @@ def extract_shot_overview(ods, shot: int) -> list[dict]:
             "plasma_onset_time_s": onset,
             "plasma_onset_source": str(timing.source) if found else "none",
             "pulse_duration_s": offset - onset,
+            "pulse_duty_cycle": timing.duty_cycle if found else float("nan"),
             "max_ip_kA": max_ip / 1e3,
             "mean_b_t_T": float(np.nanmean(field_at_reference[in_pulse])) if found else float("nan"),
             "shot_class": shot_class,

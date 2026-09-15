@@ -183,15 +183,48 @@ class PulseWindow:
 
     @property
     def duration_s(self) -> float | None:
+        """Extent of the window: ``offset - onset``, gaps included."""
         if not self.found:
             return None
         return float(self.offset.time - self.onset.time)
+
+    @property
+    def active_s(self) -> float | None:
+        """How much of the window is actually above threshold.
+
+        The window is the *envelope* of its segments, so on a record of two
+        brief flashes tens of milliseconds apart this is a small fraction of
+        :attr:`duration_s` -- and a consumer reading the extent as a duration
+        has no other way to tell (issue #752).
+        """
+        if not self.found:
+            return None
+        # Each segment's own extent, measured the way ``duration_s`` measures
+        # the envelope -- last sample minus first -- so one uninterrupted
+        # segment gives exactly ``duration_s`` rather than one sample more.
+        return float(sum(s.end_time - s.start_time for s in self.segments))
+
+    @property
+    def duty_cycle(self) -> float | None:
+        """``active_s / duration_s``: 1 for one uninterrupted run, less with gaps.
+
+        ``None`` when there is no window.  A single-sample window has a
+        duration of zero and reports ``1.0``: it is not interrupted.
+        """
+        if not self.found:
+            return None
+        extent = self.duration_s
+        if extent is None or extent <= 0.0:
+            return 1.0
+        return float(self.active_s / extent)
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "start": self.start,
             "end": self.end,
             "duration_s": self.duration_s,
+            "active_s": self.active_s,
+            "duty_cycle": self.duty_cycle,
             "flags": list(self.flags),
             "segments": [s.as_dict() for s in self.segments],
             "onset": self.onset.as_dict(),

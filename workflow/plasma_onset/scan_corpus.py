@@ -48,7 +48,8 @@ from vaft.machine_mapping.utils import (
 
 LOGGER = logging.getLogger("scan_corpus")
 
-CORPUS_SCHEMA = 1
+#: 2: every window record carries ``duty_cycle`` (#752).
+CORPUS_SCHEMA = 2
 DEFAULT_TABLE = Path(__file__).resolve().parents[2] / "test" / "data" / "onset_corpus.json"
 #: Rows are checkpointed to the table this often, so an aborted scan keeps what it did.
 CHECKPOINT_EVERY = 100
@@ -67,6 +68,10 @@ def _window_record(window: dict[str, Any] | None) -> dict[str, Any] | None:
     return {
         "start": float(window["start"]) if found else None,
         "end": float(window["end"]) if found else None,
+        # A window is the envelope of its segments, so its extent is not how
+        # much of it was active.  Kept per row because it is the measure this
+        # table cannot be asked for afterwards (#752).
+        "duty_cycle": float(window["duty_cycle"]) if found and window.get("duty_cycle") is not None else None,
         "flags": list(window.get("flags", ())),
     }
 
@@ -157,6 +162,25 @@ def summarize(rows: Iterable[dict[str, Any]], policy) -> dict[str, Any]:
             "min": float(min(values)), "max": float(max(values)), "median": float(np.median(values)),
         }
 
+    def duty(records):
+        """How many of a detector's windows are envelopes, and how hollow (#752).
+
+        A window spans the gaps between its segments, so its extent is not how
+        long the signal was there.  Counted per detector because they differ:
+        the current is one run, the light is not always.
+        """
+        values = [r["duty_cycle"] for r in records if r.get("duty_cycle") is not None]
+        if not values:
+            return None
+        return {
+            "windows": len(values),
+            "median": float(np.median(values)),
+            "min": float(min(values)),
+            "below_1": sum(1 for v in values if v < 1.0),
+            "below_0p5": sum(1 for v in values if v < 0.5),
+            "below_0p3": sum(1 for v in values if v < 0.3),
+        }
+
     return {
         "shots": len(rows),
         "judged": len(judged),
@@ -176,6 +200,10 @@ def summarize(rows: Iterable[dict[str, Any]], policy) -> dict[str, Any]:
         "end_range_s": [min(ends), max(ends)] if ends else None,
         "consistent_ip_minus_light_onset_s": spread(deltas),
         "consistent_ip_minus_light_offset_s": spread(end_deltas),
+        "duty_cycle": {
+            "h_alpha": duty([r["h_alpha"] for r in light]),
+            "ip": duty([r["ip"] for r in current]),
+        },
         "inside_range": all(
             policy.window.tstart <= r["start"] <= r["end"] <= policy.window.tend for r in windows
         ),
