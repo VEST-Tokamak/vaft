@@ -114,6 +114,11 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("basis"), OptionSpec("segment"), OptionSpec("mode"), OptionSpec("max_modes", "int"),
         OptionSpec("whole_wall", "bool"), OptionSpec("remap_em_coupling", "bool"), OptionSpec("rows"),
         OptionSpec("rules"), OptionSpec("orders"), OptionSpec("drive"), OptionSpec("metrics"),
+        # Neoclassical bootstrap comparison: the effective charge and the radial
+        # band are physics choices the provider refuses to make for the caller.
+        OptionSpec("z_eff", "float"), OptionSpec("rho_range", "range"),
+        OptionSpec("ion_index", "int"), OptionSpec("include_stored", "bool"),
+        OptionSpec("models"), OptionSpec("order"),
         OptionSpec("which"), OptionSpec("rule"), OptionSpec("M"), OptionSpec("grid_shape"),
         OptionSpec("phi0", "float"), OptionSpec("pose_path"), OptionSpec("quantity"), OptionSpec("r0", "float"),
         OptionSpec("reference_slopes"), OptionSpec("sample_rate", "float"), OptionSpec("series_label", "str"),

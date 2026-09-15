@@ -194,6 +194,36 @@ _EQ_COORDS = (
 
 
 @_profile_renderer(
+    domain="core_profiles", quantity="bootstrap_current",
+    subject="neoclassical",
+    description=(
+        "Bootstrap current density from each neoclassical model on one radial axis: "
+        "the Sauter and Redl formulas against whatever solver result the ODS carries."
+    ),
+    ids=("core_profiles", "equilibrium"),
+    required_paths=(
+        "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
+        "equilibrium.time_slice.{i}.profiles_1d.psi",
+        "equilibrium.time_slice.{i}.profiles_1d.q",
+        "equilibrium.time_slice.{i}.profiles_1d.f",
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+        # The electron density is required too, in either of its two spellings,
+        # which the recipe's own `available` predicate checks.
+    ),
+    optional_paths=(
+        "equilibrium.time_slice.{i}.profiles_1d.trapped_fraction",
+        "core_profiles.profiles_1d.{i}.zeff",
+        "core_profiles.profiles_1d.{i}.j_bootstrap",
+    ),
+)
+def neoclassical_profile_bootstrap_current(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Bootstrap current density, one series per neoclassical model."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
     domain="equilibrium", quantity="pressure",
     subject="equilibrium",
     description="Equilibrium 1D pressure profile.",
