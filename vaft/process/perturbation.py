@@ -44,6 +44,16 @@ basis -- its singular values agree with ``C_f_xe_out_singval`` to 1.4e-5.
 and nothing here maps a family name to a variable, because four of the five
 have no counterpart on the basis the field lives on.
 
+**Several mode numbers meet only at a rational surface.** A harmonic
+``(m, n)`` varies as ``exp(i (m theta - n zeta))``, so on the surface
+``q = m / n`` its phase is ``n (q theta - zeta)`` -- ``n`` times one angle,
+whatever ``n`` is. Every mode resonating at one ``q`` is therefore a
+harmonic of a single Fourier series, and :func:`composite_drive_at_q` sums
+them as one. Away from such a surface they are unlike things and nothing
+here adds them; Chirikov parameters in particular are not additive across
+``n`` at all, which the legacy acknowledged by naming the column that added
+them ``sum_K_isl_wrong``.
+
 **A reduction is not a verdict.** ``vaft.process`` computes; it does not
 decide. The thresholds the legacy compared against -- a Chirikov parameter of
 1, a penetration ratio of 1, an edge overlap of 7.4e-4 -- are arguments here
@@ -59,19 +69,26 @@ which unit it is showing.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from fractions import Fraction
 from typing import Mapping, Sequence
 
 import numpy as np
 
 __all__ = [
+    "align_surfaces_by_q",
+    "AlignedSurface",
     "amplification_ratio",
     "chirikov",
     "COINCIDENT_POLICIES",
+    "COMPOSITE_COMBINATIONS",
+    "composite_drive_at_q",
+    "CompositeDrive",
     "critical_island_width",
     "edge_overlap_metric",
     "EdgeOverlap",
     "energy_norm_matrix",
     "group_coincident_islands",
+    "helical_phase_sweep",
     "island_overlap_width",
     "island_pairs",
     "IslandOverlap",
@@ -80,6 +97,8 @@ __all__ = [
     "nearest_surface_spacing",
     "NEGATIVE_EIGENVALUE_POLICIES",
     "penetration_ratio",
+    "q_composite_table",
+    "reduce_delta_e",
     "reduce_resonant",
     "resonant_metrics",
     "RESONANT_RESPONSE_COLUMNS",
@@ -87,6 +106,8 @@ __all__ = [
     "resonant_windows",
     "ResonantWindow",
     "rms_resonant_field",
+    "SURFACE_MEMBERSHIPS",
+    "SurfaceMember",
 ]
 
 #: The statistics a resonant column may be reduced with. ``rms`` is the
@@ -1414,3 +1435,675 @@ def edge_overlap_metric(
         dominant_mode=dominant,
         b_t0=float(b_t0),
     )
+
+
+# --------------------------------------------------------------------------
+# Several toroidal mode numbers at once
+# --------------------------------------------------------------------------
+
+SURFACE_MEMBERSHIPS: tuple[str, ...] = ("resonant", "non_resonant", "absent")
+"""Why a mode does or does not appear at an aligned surface.
+
+``resonant``
+    The run reports a surface there.
+``non_resonant``
+    ``n * q`` is not an integer, so this mode has no rational surface at that
+    ``q`` and cannot have one. Decidable from arithmetic alone.
+``absent``
+    ``n * q`` *is* an integer, so the surface exists, but the run does not
+    report it -- it fell outside what that run resolved. GPEC truncates at
+    its own ``qlim``, which differs between modes of one equilibrium: 5.2,
+    5.1 and 5.066667 for n = 1, 2 and 3 of the DIII-D reference.
+"""
+
+COMPOSITE_COMBINATIONS: tuple[str, ...] = ("peak", "quadrature", "linear")
+
+
+@dataclass(frozen=True)
+class SurfaceMember:
+    """One toroidal mode's standing at one aligned rational surface."""
+
+    n: int
+    membership: str
+    m: int | None = None
+    index: int | None = None
+    psi_norm: float | None = None
+
+
+@dataclass(frozen=True)
+class AlignedSurface:
+    """One rational ``q``, and where each mode stands on it."""
+
+    q: float
+    members: tuple[SurfaceMember, ...]
+
+    @property
+    def resonant_modes(self) -> tuple[int, ...]:
+        """The mode numbers that actually have a surface here."""
+        return tuple(x.n for x in self.members if x.membership == "resonant")
+
+
+@dataclass(frozen=True)
+class CompositeDrive:
+    """A drive summed over the modes that share one rational surface."""
+
+    q: float
+    modes: tuple[int, ...]
+    contributions: tuple[complex, ...]
+    peak: float
+    peak_angle: float
+    quadrature: float
+    linear_bound: float
+
+
+def _rational_q(n: int, q: float, *, tolerance: float) -> Fraction | None:
+    """``q`` as the fraction ``m / n``, or ``None`` when ``n * q`` is not an
+    integer to within ``tolerance``."""
+    product = n * q
+    nearest = round(product)
+    if abs(product - nearest) > tolerance:
+        return None
+    return Fraction(int(nearest), int(n))
+
+
+def align_surfaces_by_q(
+    tables: Mapping[int, Mapping[str, object]],
+    *,
+    integrality_tolerance: float = 1e-6,
+) -> tuple[AlignedSurface, ...]:
+    """Match rational surfaces across toroidal mode numbers by their ``q``.
+
+    Parameters
+    ----------
+    tables : mapping of int to mapping
+        One resonant table per toroidal mode number, each carrying at least a
+        ``q_rational`` column -- the shape
+        :meth:`~vaft.code.gpec.GpecProfileOutput.resonant_table` returns.
+        ``psi_n_rational`` is recorded when present [n/a].
+    integrality_tolerance : float, optional
+        How far ``n * q`` may sit from an integer and still count as a
+        rational surface of that mode [-].
+
+    Returns
+    -------
+    tuple of AlignedSurface
+        Every ``q`` at which any mode resonates, ascending, each carrying one
+        :class:`SurfaceMember` per mode in the input [n/a].
+
+    Raises
+    ------
+    ValueError
+        A mode number is not a positive integer, a table has no
+        ``q_rational``, a ``q`` is not finite, or ``n * q`` is not an integer
+        for a surface the run itself reports.
+
+    Applicability
+    -------------
+    Machine-independent. Nothing here reads a machine, a code or a file; the
+    input is a column of ``q`` per mode number.
+
+    Convention
+    ----------
+    Surfaces are matched on the **exact rational** ``m / n``, not on a
+    tolerance around a float. On the DIII-D reference ``q_rational`` is
+    exactly ``m / n`` in double precision for every surface of every mode,
+    and IEEE division is correctly rounded, so two fractions that reduce to
+    the same rational give the same double -- ``4/3`` and ``8/6`` compare
+    equal. The positions do not: at ``q = 2`` the three runs put
+    ``psi_n_rational`` at 0.59364383816324717, 0.59364383816324717 and
+    0.59364383816403732, differing in the thirteenth digit. ``q`` is the key
+    because it is exact; ``psi`` is the root finder's answer and is not.
+
+    Defaults
+    --------
+    ``integrality_tolerance = 1e-6`` is a numerical convenience: loose
+    enough for a ``q`` that has been through a file format, tight enough
+    that no two rationals of any mode number below a few hundred can be
+    confused. It is not a matching tolerance -- the match itself is exact.
+
+    Processing steps
+    ----------------
+    1. Turn each reported ``q`` into the fraction ``m / n`` and refuse a
+       surface whose ``n * q`` is not integral -- a run reporting one is
+       reporting something that is not a rational surface.
+    2. Collect the union of those fractions across modes, ascending.
+    3. For every mode at every ``q``, record ``resonant`` when the run
+       reports a surface, ``non_resonant`` when ``n * q`` is not an integer,
+       and ``absent`` when it is but the run reports nothing.
+
+    Limitations
+    -----------
+    ``absent`` and ``resonant`` are statements about one run's radial extent,
+    not about the plasma: a surface the run truncated away is real. Nothing
+    here reads ``qlim``, so ``absent`` cannot distinguish a truncated run
+    from a failed root find.
+
+    Provenance
+    ----------
+    .. [legacy] ``gpec_multimode_metrics.align_surfaces_by_q``, which matched
+       the single nearest surface within ``q_tol = 0.05`` of four hard-coded
+       targets ``(2, 3, 4, 5)``. Three departures. The window is absolute, so
+       it admits more than one rational once the spacing ``1 / n`` falls
+       below it -- at n = 20 exactly, where it silently keeps the nearest and
+       drops the rest. A mode out of tolerance was dropped from the group
+       with no record, which is indistinguishable here from a mode that
+       cannot resonate at that ``q`` at all. And its tolerance test was
+       ``abs(q - target) > q_tol``, which is ``False`` for a ``nan``, so a
+       ``nan`` ``q`` was returned as a match.
+    """
+    if not tables:
+        return ()
+    per_mode: dict[int, dict[Fraction, tuple[int, float | None]]] = {}
+    for mode, table in tables.items():
+        if not isinstance(mode, (int, np.integer)) or isinstance(mode, bool) or int(mode) <= 0:
+            raise ValueError(f"toroidal mode numbers are positive integers, not {mode!r}")
+        mode = int(mode)
+        if "q_rational" not in table:
+            raise ValueError(f"the table for n = {mode} has no q_rational column")
+        q_values = np.atleast_1d(np.asarray(table["q_rational"], dtype=float))
+        psi_values = None
+        if "psi_n_rational" in table:
+            psi_values = np.atleast_1d(np.asarray(table["psi_n_rational"], dtype=float))
+            if psi_values.size != q_values.size:
+                raise ValueError(
+                    f"n = {mode} reports {q_values.size} values of q against "
+                    f"{psi_values.size} positions"
+                )
+        found: dict[Fraction, tuple[int, float | None]] = {}
+        for index, q in enumerate(q_values):
+            if not np.isfinite(q):
+                raise ValueError(f"n = {mode} surface {index} has q = {q}")
+            fraction = _rational_q(mode, float(q), tolerance=integrality_tolerance)
+            if fraction is None:
+                raise ValueError(
+                    f"n = {mode} reports a surface at q = {q!r}, where n * q = "
+                    f"{mode * q!r} is not an integer, so it is not a rational surface"
+                )
+            found[fraction] = (index, None if psi_values is None else float(psi_values[index]))
+        per_mode[mode] = found
+
+    surfaces = []
+    for fraction in sorted(set().union(*(set(f) for f in per_mode.values()))):
+        members = []
+        for mode in sorted(per_mode):
+            m_times_n = fraction * mode
+            if m_times_n.denominator != 1:
+                members.append(SurfaceMember(n=mode, membership="non_resonant"))
+                continue
+            hit = per_mode[mode].get(fraction)
+            if hit is None:
+                members.append(SurfaceMember(n=mode, membership="absent", m=int(m_times_n)))
+                continue
+            index, psi = hit
+            members.append(
+                SurfaceMember(
+                    n=mode, membership="resonant", m=int(m_times_n), index=index, psi_norm=psi
+                )
+            )
+        surfaces.append(AlignedSurface(q=float(fraction), members=tuple(members)))
+    return tuple(surfaces)
+
+
+def composite_drive_at_q(
+    tables: Mapping[int, Mapping[str, object]],
+    q: float,
+    column: str,
+    *,
+    weights: Mapping[int, complex] | None = None,
+    integrality_tolerance: float = 1e-6,
+    angle_points: int = 721,
+) -> CompositeDrive:
+    """Sum one resonant column over every mode that resonates at a given ``q``.
+
+    Parameters
+    ----------
+    tables : mapping of int to mapping
+        One resonant table per toroidal mode number, as
+        :func:`align_surfaces_by_q` takes [n/a].
+    q : float
+        The rational surface to sum at [-].
+    column : str
+        The column to sum. Complex is the point -- a magnitude carries no
+        phase to interfere with [n/a].
+    weights : mapping of int to complex, optional
+        Per-mode complex weight, applied before the sum. A unit-modulus
+        weight rotates a mode's phase; a real one rescales its amplitude
+        [n/a].
+    integrality_tolerance : float, optional
+        Passed to :func:`align_surfaces_by_q` [-].
+    angle_points : int, optional
+        How finely the helical angle is sampled when finding the peak [-].
+
+    Returns
+    -------
+    CompositeDrive
+        ``peak`` and ``peak_angle`` are the largest real amplitude over the
+        helical angle and where it occurs; ``quadrature`` is
+        ``sqrt(sum |z|**2)``; ``linear_bound`` is ``sum |z|``, the value the
+        peak would reach if every mode aligned. Units follow ``column``;
+        ``peak_angle`` is in [rad] and the rest are [n/a].
+
+    Raises
+    ------
+    ValueError
+        No mode resonates at ``q``, the column is missing from a resonating
+        mode's table, a contribution is not finite, ``angle_points`` is less
+        than 2, or a weight names a mode that is not in ``tables``.
+
+    Applicability
+    -------------
+    Machine-independent. The helical angle exists wherever ``q = m / n``
+    does, which is every tokamak.
+
+    Convention
+    ----------
+    **The modes that share a rational surface also share a helical angle,
+    and that is what makes this sum well defined.** A harmonic ``(m, n)``
+    varies as ``exp(i (m theta - n zeta))``, and on the surface ``q = m / n``
+    that phase is ``n (q theta - zeta)`` -- ``n`` times the single angle
+    ``u = q theta - zeta``, whatever ``n`` is. So every mode resonating at
+    one ``q`` is a harmonic of one Fourier series in ``u``, the ``n``-th, and
+    summing them is ordinary Fourier synthesis rather than an addition of
+    unlike things. Away from a rational surface it would be neither.
+
+    The origin of ``u`` is a gauge: shifting it by ``d`` takes ``z_n`` to
+    ``z_n exp(i n d)``, so the amplitude at a *particular* angle means
+    nothing unless the caller fixed that origin -- through the coil geometry,
+    say. ``peak`` is invariant under the shift and is the number to quote;
+    ``peak_angle`` is reported relative to the input's own origin and moves
+    with it. ``quadrature`` and ``linear_bound`` are invariant too.
+
+    Defaults
+    --------
+    ``angle_points = 721`` is a numerical convenience: half-degree sampling
+    of a full turn, refined afterwards by golden-section search. Over 300
+    random cases of two to five modes with ``n`` up to 12, the peak it
+    returns matched a two-million-point scan exactly.
+
+    Processing steps
+    ----------------
+    1. Align the surfaces and keep the modes that resonate at ``q``.
+    2. Weight each mode's contribution.
+    3. Evaluate ``sum_n Re(z_n exp(i n u))`` over ``u`` in ``[0, 2 pi)``,
+       take the largest, and refine it by golden-section search.
+    4. Report the quadrature sum and the aligned-phase bound alongside.
+
+    Limitations
+    -----------
+    The peak is over the helical angle at one surface; it is not an island
+    width, and the modes do not combine into one. Chirikov parameters in
+    particular are **not** additive across ``n`` -- the legacy summed them
+    into a column it named ``sum_K_isl_wrong``, and nothing here reproduces
+    that sum under a better name.
+
+    Provenance
+    ----------
+    .. [legacy] ``gpec_multimode_metrics.composite_drive_at_q``, which
+       returned ``abs(sum(z))`` at the caller's fixed phases and
+       ``sum(abs(z))`` beside it, with a third key duplicating the second.
+       The first is this function's drive at whatever angle the weights
+       happen to encode, which is gauge-dependent and was reported as though
+       it were not; the second is ``linear_bound``. The angle the legacy
+       swept was never identified as the helical one.
+    .. [convention] The legacy's own multi-n artefact records the phase
+       convention it combined under: ``sample/gpec_optimization_examples/``
+       ``q2p0_harmonic/gpec_multimode_summary_n12.json`` carries
+       ``phase_convention = "real(B_n * exp(i * n * phi))"``.
+    """
+    if int(angle_points) < 2:
+        raise ValueError(f"angle_points must be at least 2, not {angle_points!r}")
+    if weights:
+        unknown = sorted(set(weights) - set(tables))
+        if unknown:
+            raise ValueError(f"weights name modes that are not in tables: {unknown}")
+    aligned = align_surfaces_by_q(tables, integrality_tolerance=integrality_tolerance)
+    match = next((s for s in aligned if s.q == float(q)), None)
+    modes = () if match is None else match.resonant_modes
+    if not modes:
+        raise ValueError(
+            f"no mode in {sorted(tables)} resonates at q = {q!r}; the surfaces "
+            f"present are {[s.q for s in aligned]}"
+        )
+    contributions = []
+    for member in match.members:
+        if member.membership != "resonant":
+            continue
+        table = tables[member.n]
+        if column not in table:
+            raise ValueError(f"n = {member.n} resonates at q = {q!r} but has no {column!r} column")
+        value = complex(np.atleast_1d(np.asarray(table[column]))[member.index])
+        if not np.isfinite(value.real) or not np.isfinite(value.imag):
+            raise ValueError(f"n = {member.n} has a non-finite {column!r} at q = {q!r}: {value!r}")
+        weight = complex(1.0) if not weights else complex(weights.get(member.n, 1.0))
+        if not np.isfinite(weight.real) or not np.isfinite(weight.imag):
+            raise ValueError(f"the weight for n = {member.n} is not finite: {weight!r}")
+        contributions.append(value * weight)
+
+    values = np.asarray(contributions)
+    orders = np.asarray(modes, dtype=float)
+
+    def amplitude(u: float) -> float:
+        return float(np.sum((values * np.exp(1j * orders * u)).real))
+
+    grid = np.linspace(0.0, 2.0 * np.pi, int(angle_points), endpoint=False)
+    sampled = (values[None, :] * np.exp(1j * np.outer(grid, orders))).real.sum(axis=1)
+    best = int(np.argmax(sampled))
+    step = grid[1] - grid[0] if grid.size > 1 else 2.0 * np.pi
+    low, high = grid[best] - step, grid[best] + step
+    ratio = (np.sqrt(5.0) - 1.0) / 2.0
+    for _ in range(80):
+        left, right = high - ratio * (high - low), low + ratio * (high - low)
+        if amplitude(left) > amplitude(right):
+            high = right
+        else:
+            low = left
+    peak_angle = 0.5 * (low + high)
+    magnitudes = np.abs(values)
+    return CompositeDrive(
+        q=float(q),
+        modes=tuple(modes),
+        contributions=tuple(complex(v) for v in values),
+        peak=amplitude(peak_angle),
+        peak_angle=float(np.mod(peak_angle, 2.0 * np.pi)),
+        quadrature=float(np.sqrt(np.sum(magnitudes**2))),
+        linear_bound=float(np.sum(magnitudes)),
+    )
+
+
+def helical_phase_sweep(
+    tables: Mapping[int, Mapping[str, object]],
+    q: float,
+    column: str,
+    *,
+    angles,
+    weights: Mapping[int, complex] | None = None,
+    integrality_tolerance: float = 1e-6,
+) -> np.ndarray:
+    """The composite drive at one surface, as a function of the helical angle.
+
+    Parameters
+    ----------
+    tables : mapping of int to mapping
+        One resonant table per toroidal mode number [n/a].
+    q : float
+        The rational surface to sweep at [-].
+    column : str
+        The column to sum [n/a].
+    angles : array_like
+        Helical angles to evaluate at [rad].
+    weights : mapping of int to complex, optional
+        Per-mode complex weight, applied before the sum [n/a].
+    integrality_tolerance : float, optional
+        Passed to :func:`align_surfaces_by_q` [-].
+
+    Returns
+    -------
+    ndarray
+        The real amplitude at each angle, in the order given. Units follow
+        ``column`` [n/a].
+
+    Raises
+    ------
+    ValueError
+        As :func:`composite_drive_at_q`, or an angle is not finite.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Convention
+    ----------
+    The angle is the helical one, ``u = q theta - zeta``, in which the mode
+    ``n`` advances as ``exp(i n u)``; :func:`composite_drive_at_q` derives
+    it. Its origin is the input's, and shifting that origin translates the
+    whole curve rather than changing its shape.
+
+    Processing steps
+    ----------------
+    1. Align, weight and collect the contributions, as
+       :func:`composite_drive_at_q` does.
+    2. Evaluate ``sum_n Re(z_n exp(i n u))`` at each requested angle.
+
+    Limitations
+    -----------
+    A sweep resolves a series whose highest harmonic is the largest
+    resonating ``n``; sampling it more coarsely than a few points per period
+    of that harmonic will miss the peak, and nothing here checks the caller's
+    spacing against it.
+
+    Provenance
+    ----------
+    .. [legacy] ``gpec_multimode_metrics.phase_sweep_composite``, which
+       rotated one nominated mode through a default three angles -- 0, 90 and
+       180 degrees, so a sweep could not tell ``+90`` from ``-90`` -- and
+       returned ``nan`` rows rather than an error when no surface matched.
+       Rotating one mode and sweeping the shared angle differ once more than
+       two modes resonate.
+    """
+    requested = np.atleast_1d(np.asarray(angles, dtype=float))
+    if not np.all(np.isfinite(requested)):
+        raise ValueError("every angle must be finite")
+    drive = composite_drive_at_q(
+        tables, q, column, weights=weights, integrality_tolerance=integrality_tolerance
+    )
+    values = np.asarray(drive.contributions)
+    orders = np.asarray(drive.modes, dtype=float)
+    return (values[None, :] * np.exp(1j * np.outer(requested, orders))).real.sum(axis=1)
+
+
+def reduce_delta_e(
+    values: Mapping[int, float],
+    *,
+    combination: str = "quadrature",
+    weights: Mapping[int, float] | None = None,
+) -> float:
+    """Combine a per-mode edge-overlap metric into one number.
+
+    Parameters
+    ----------
+    values : mapping of int to float
+        One :attr:`EdgeOverlap.delta_e` per toroidal mode number [-].
+    combination : {'quadrature', 'linear'}, optional
+        ``quadrature`` is ``sqrt(sum (w d)**2)``; ``linear`` is
+        ``sum w d`` [n/a].
+    weights : mapping of int to float, optional
+        Per-mode weight; every mode present in ``values`` needs one if any
+        does [-].
+
+    Returns
+    -------
+    float
+        The combined metric, in the same units as the inputs [-].
+
+    Raises
+    ------
+    ValueError
+        ``values`` is empty, a value or weight is not finite or not real, a
+        value is negative, the combination is not one of the two, or
+        ``weights`` names a mode that ``values`` does not.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Convention
+    ----------
+    Both combinations are homogeneous of degree one in the weights, so a
+    uniform rescaling moves either by the same factor; what differs is how
+    modes combine with each other, and quadrature is the default because
+    ``delta_e`` is a magnitude with no phase left to interfere.
+
+    Defaults
+    --------
+    ``combination = "quadrature"`` is a conventional choice that follows
+    from what the input is: ``delta_e`` is the magnitude of a projection, so
+    the modes carry no relative phase and adding them linearly would assume
+    one they do not have.
+
+    Processing steps
+    ----------------
+    1. Weight each mode's value.
+    2. Sum the weighted values, in quadrature or linearly.
+
+    Limitations
+    -----------
+    Neither combination is a physical amplitude. ``delta_e`` measures how
+    much of one mode's external field lands on that mode's own most-coupled
+    direction, and those directions belong to different singular value
+    problems, so no combination of them is the overlap of anything.
+
+    Provenance
+    ----------
+    .. [legacy] ``gpec_multimode_metrics.delta_e_weighted_norm``, whose
+       ``use_complex_sum=True`` branch took ``abs(sum(w * complex(v)))``.
+       Its inputs are real by construction -- ``delta_e_vector`` reads
+       ``projected_overlap``, a magnitude -- so that branch equalled the
+       linear sum and the "coherent" name promised a phase that had already
+       been discarded upstream. It is ``linear`` here, under a name that
+       claims no more than it does. Its companion ``delta_e_vector`` was a
+       dictionary comprehension over an attribute name, with an unvalidated
+       region returning ``None`` for every mode; assembling that mapping is
+       the caller's job and needs no function.
+    """
+    if combination not in ("quadrature", "linear"):
+        raise ValueError(
+            f"combination must be 'quadrature' or 'linear', not {combination!r}"
+        )
+    if not values:
+        raise ValueError("no modes were given, so there is nothing to combine")
+    if weights is not None:
+        missing = sorted(set(values) - set(weights))
+        if missing:
+            raise ValueError(f"weights are given but modes {missing} have none")
+        unknown = sorted(set(weights) - set(values))
+        if unknown:
+            raise ValueError(f"weights name modes with no value: {unknown}")
+    total_square = 0.0
+    total_linear = 0.0
+    for mode in sorted(values):
+        value = values[mode]
+        if isinstance(value, complex) or not np.isreal(value):
+            raise ValueError(f"delta_e for n = {mode} is not real: {value!r}")
+        value = float(np.real(value))
+        if not np.isfinite(value):
+            raise ValueError(f"delta_e for n = {mode} is not finite: {value!r}")
+        if value < 0.0:
+            raise ValueError(
+                f"delta_e for n = {mode} is negative ({value!r}); it is the "
+                "magnitude of a projection and cannot be"
+            )
+        weight = 1.0 if weights is None else float(weights[mode])
+        if not np.isfinite(weight):
+            raise ValueError(f"the weight for n = {mode} is not finite: {weight!r}")
+        total_square += (weight * value) ** 2
+        total_linear += weight * value
+    return float(np.sqrt(total_square)) if combination == "quadrature" else float(total_linear)
+
+
+def q_composite_table(
+    tables: Mapping[int, Mapping[str, object]],
+    column: str,
+    *,
+    weights: Mapping[int, complex] | None = None,
+    integrality_tolerance: float = 1e-6,
+    shared_only: bool = False,
+) -> dict[str, np.ndarray]:
+    """One row per rational surface, summed over the modes that reach it.
+
+    Parameters
+    ----------
+    tables : mapping of int to mapping
+        One resonant table per toroidal mode number [n/a].
+    column : str
+        The column to sum [n/a].
+    weights : mapping of int to complex, optional
+        Per-mode complex weight [n/a].
+    integrality_tolerance : float, optional
+        Passed to :func:`align_surfaces_by_q` [-].
+    shared_only : bool, optional
+        Keep only the surfaces every mode resonates at [n/a].
+
+    Returns
+    -------
+    dict of str to ndarray
+        Columns ``q``, ``n_modes``, ``peak``, ``peak_angle``, ``quadrature``
+        and ``linear_bound``, plus ``psi_norm_<n>`` and ``m_<n>`` per mode
+        (``nan`` and ``-1`` where that mode does not resonate). Rows ascend
+        in ``q``, and every aligned surface gets one [n/a].
+
+    Raises
+    ------
+    ValueError
+        As :func:`composite_drive_at_q`, or ``shared_only`` leaves nothing.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Convention
+    ----------
+    A surface a mode cannot resonate at is not a gap in the data, so its
+    ``m_<n>`` is ``-1`` rather than missing, and every row has every column.
+
+    Processing steps
+    ----------------
+    1. Align the surfaces across the modes.
+    2. Compute the composite drive at each.
+    3. Lay the per-mode positions and poloidal mode numbers out beside it.
+
+    Limitations
+    -----------
+    Every row is one surface's own Fourier series; nothing sums down a
+    column. A radial reduction over these rows would mix surfaces whose
+    helical angles are different angles, which is what
+    :func:`reduce_resonant` refuses to do across modes.
+
+    Provenance
+    ----------
+    .. [legacy] ``gpec_multimode_metrics.compute_q_composite_table``, which
+       built rows only for four hard-coded ``q`` values, dropped any row
+       where no mode matched so the row count depended on the data, and
+       emitted per-mode columns only where a mode was present, leaving a
+       frame whose columns varied by row. Two of its columns are not ported:
+       ``K_proxy_sqrt``, the square root of a flux magnitude standing in for
+       a Chirikov parameter, which is not dimensionally a Chirikov parameter
+       of anything; and ``sum_K_isl_wrong``, whose name was its own warning.
+    """
+    aligned = align_surfaces_by_q(tables, integrality_tolerance=integrality_tolerance)
+    modes = sorted(tables)
+    if shared_only:
+        aligned = tuple(s for s in aligned if len(s.resonant_modes) == len(modes))
+        if not aligned:
+            raise ValueError(
+                f"no surface is resonant on every one of n = {modes}; drop "
+                "shared_only to keep the surfaces that some of them reach"
+            )
+    rows: dict[str, list] = {
+        "q": [], "n_modes": [], "peak": [], "peak_angle": [],
+        "quadrature": [], "linear_bound": [],
+    }
+    for mode in modes:
+        rows[f"psi_norm_{mode}"] = []
+        rows[f"m_{mode}"] = []
+    for surface in aligned:
+        drive = composite_drive_at_q(
+            tables, surface.q, column, weights=weights,
+            integrality_tolerance=integrality_tolerance,
+        )
+        rows["q"].append(surface.q)
+        rows["n_modes"].append(len(drive.modes))
+        rows["peak"].append(drive.peak)
+        rows["peak_angle"].append(drive.peak_angle)
+        rows["quadrature"].append(drive.quadrature)
+        rows["linear_bound"].append(drive.linear_bound)
+        by_mode = {x.n: x for x in surface.members}
+        for mode in modes:
+            member = by_mode[mode]
+            rows[f"psi_norm_{mode}"].append(
+                np.nan if member.psi_norm is None else member.psi_norm
+            )
+            rows[f"m_{mode}"].append(-1 if member.membership != "resonant" else member.m)
+    return {
+        key: np.asarray(value, dtype=int if key.startswith("m_") or key == "n_modes" else float)
+        for key, value in rows.items()
+    }

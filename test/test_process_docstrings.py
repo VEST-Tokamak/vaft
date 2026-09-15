@@ -187,6 +187,11 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    "align_surfaces_by_q",
+    "composite_drive_at_q",
+    "helical_phase_sweep",
+    "q_composite_table",
+    "reduce_delta_e",
     # perturbation: the resonant reductions state their radial window
     # convention and their tesla-not-gauss unit choice.
     "chirikov",
