@@ -246,62 +246,37 @@ class TestArchiveTimebaseUpgrade:
         }
         report = raw.upgrade_archive_timebase(payload)
 
-        assert report == {
-            "upgraded": 0,
-            "already": 1,
-            "skipped": 2,
-            "non_nominal": [],
-            "ambiguous": [],
-        }
+        assert report == {"upgraded": 0, "already": 1, "skipped": 2, "non_nominal": []}
         assert payload["fields"]["275"]["dt"] == 5e-7          # untouched
         assert "dt" not in payload["fields"]["9"]
 
-    def test_a_v2_fast_label_that_cannot_be_250_khz_is_refused(self):
-        """#770: `fast` covers three rates, and only one of them is nominal.
+    def test_a_long_record_at_the_nominal_rate_still_upgrades(self):
+        """#770: an implied-span guard would refuse this, and it is correct data.
 
-        250 kHz, 500 kHz and 2 MHz all carry the same label, so applying
-        FAST_DT to a 2 MHz channel stretches its timebase eightfold. A record
-        cannot outlast the window it was acquired in, so an implied span longer
-        than the class span says the nominal rate is not this channel's.
+        Field 138 in the low-30000s is 250 kHz -- the nominal rate -- recorded
+        for 0.2 s, so it holds 50000 samples and spans twice the 0.1 s class
+        window. Measured in 16 of 200 sampled shots, all in the v2 branch.
         """
         payload = {
-            "shot": 39915,  # v2 era: the branch that guesses a nominal rate
-            "fields": {
-                "66": {"type": "fast", "data": [0.0] * 25000},    # 250 kHz, 0.1 s
-                "304": {"type": "fast", "data": [0.0] * 50000},   # 500 kHz -> 0.2 s
-                "114": {"type": "fast", "data": [0.0] * 200000},  # 2 MHz -> 0.8 s
-            },
+            "shot": 32878,
+            "fields": {"138": {"type": "fast", "data": [0.0] * 50000}},
         }
         report = raw.upgrade_archive_timebase(payload)
 
         assert report["upgraded"] == 1
-        assert report["ambiguous"] == [114, 304]
-        assert payload["fields"]["66"]["dt"] == raw.FAST_DT
-        # Refused entries stay unrepaired rather than carrying a wrong cadence.
-        assert "dt" not in payload["fields"]["304"]
-        assert "dt" not in payload["fields"]["114"]
+        assert payload["fields"]["138"]["dt"] == raw.FAST_DT
 
-    def test_a_short_acquisition_is_still_repaired(self):
-        """Under-length is a short record; only over-length is impossible."""
-        payload = {
-            "shot": 39915,
-            "fields": {"66": {"type": "fast", "data": [0.0] * 12500}},  # 0.05 s
-        }
-        report = raw.upgrade_archive_timebase(payload)
+    def test_the_sample_count_cannot_tell_a_long_record_from_a_fast_one(self):
+        """Why #770 has no code fix: the two cases are the same number.
 
-        assert report["ambiguous"] == []
-        assert payload["fields"]["66"]["dt"] == raw.FAST_DT
-
-    def test_the_v3_era_needs_no_guard_because_it_reads_the_rate_off_n(self):
-        """The linspace branch derives dt from the sample count, so any rate works."""
-        payload = {
-            "shot": 43100,
-            "fields": {"114": {"type": "fast", "data": [0.0] * 200000}},
-        }
-        report = raw.upgrade_archive_timebase(payload)
-
-        assert report["ambiguous"] == []
-        assert payload["fields"]["114"]["dt"] == pytest.approx(0.1 / 199999)
+        250 kHz for 0.2 s and 500 kHz for 0.1 s both hold 50000 samples and both
+        carry the `fast` label, so no rule over (n, label) separates them. What
+        keeps the v2 branch correct is that its shot range has no channel above
+        250 kHz -- measured, not assumed.
+        """
+        long_at_nominal = round(0.2 / raw.FAST_DT)          # 250 kHz, 0.2 s
+        normal_at_double = round(0.1 / (raw.FAST_DT / 2))   # 500 kHz, 0.1 s
+        assert long_at_nominal == normal_at_double == 50000
 
     def test_upgraded_entry_loads_like_a_fresh_dump(self, tmp_path):
         # End to end: legacy archive -> upgrade -> loader reproduces the

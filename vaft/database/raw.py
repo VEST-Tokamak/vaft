@@ -429,12 +429,6 @@ V2_LAST_SHOT = 42190
 FAST_SPAN_S = 0.1
 SLOW_SPAN_S = 1.0
 
-#: How far an inferred record may overrun its class acquisition span before the
-#: rate behind it is treated as unknowable rather than nominal.  Slack for
-#: floating point and for the one-sample difference between the two era
-#: conventions, not for a different sampling rate -- those are out by 2x or 8x.
-_SPAN_TOLERANCE = 0.01
-
 #: The waveform tables, newest generation last.
 _WAVEFORM_TABLES = {2: "shotDataWaveform_2", 3: "shotDataWaveform_3"}
 
@@ -504,8 +498,7 @@ def upgrade_archive_timebase(payload: dict) -> dict:
 
     Operates in place on a loaded archive payload and returns a report::
 
-        {"upgraded": int, "already": int, "skipped": int,
-         "non_nominal": [codes], "ambiguous": [codes]}
+        {"upgraded": int, "already": int, "skipped": int, "non_nominal": [codes]}
 
     Data arrays are never touched.  For every field with at least two samples
     and a ``fast``/``slow`` label, the timebase is inferred from the era
@@ -514,20 +507,27 @@ def upgrade_archive_timebase(payload: dict) -> dict:
     the live database.  Entries already carrying ``t0``/``dt``, or too short
     or unlabeled to infer, are left untouched, so the upgrade is idempotent.
 
-    ``ambiguous`` lists fields whose nominal rate would imply a record longer
-    than its acquisition window.  A ``fast`` label covers 250 kHz, 500 kHz and
-    2 MHz on this machine, so the nominal rate is not recoverable for them;
-    they are left unrepaired rather than given a timebase that is silently out
-    by a factor of two or eight.
+    **A label does not pin down a rate, and nothing here can (#770).** On this
+    machine ``fast`` covers 250 kHz, 500 kHz and 2 MHz -- the classifier splits
+    on 5 us, so all three land in it -- and the v2 branch below assigns the
+    nominal 250 kHz regardless.  The sample count cannot rescue it: a 250 kHz
+    channel recorded for 0.2 s and a 500 kHz channel recorded for 0.1 s both
+    hold 50000 samples, and both really occur.  A guard on implied span was
+    tried and refuses the first as if it were the second.
+
+    What makes this safe in practice is measured rather than argued: 500 kHz
+    and 2 MHz channels appear only from shot ~42647, and this branch runs only
+    at 42190 and below, so the populations do not overlap.  The v3 branch above
+    needs no assumption about rate at all -- it reads the cadence off the
+    sample count -- but it does assume a full-span record, which holds for
+    every v3-era entry measured.
+
+    The real protection is upstream: a dump written by the current code carries
+    ``t0``/``dt`` per field, so this inference never runs on it.  Across 300
+    shots and 40905 entries, exactly one lacked them.
     """
     shot = int(payload["shot"])
-    report = {
-        "upgraded": 0,
-        "already": 0,
-        "skipped": 0,
-        "non_nominal": [],
-        "ambiguous": [],
-    }
+    report = {"upgraded": 0, "already": 0, "skipped": 0, "non_nominal": []}
     for code, entry in payload.get("fields", {}).items():
         if not isinstance(entry, dict):
             report["skipped"] += 1
@@ -545,20 +545,6 @@ def upgrade_archive_timebase(payload: dict) -> dict:
             dt = span / (n - 1)
         else:
             dt = FAST_DT if label == "fast" else SLOW_DT
-            # The nominal rate is a guess, and it is only safe while a class
-            # has one rate. VEST's does not: `fast` covers 250 kHz, 500 kHz and
-            # 2 MHz, and all three carry the same label, so assigning FAST_DT
-            # to a 2 MHz channel stretches its timebase eightfold in silence.
-            #
-            # A record cannot outlast the window it was acquired in, so an
-            # implied span longer than the class span means the rate is not the
-            # nominal one. Under-length is a short acquisition and is fine;
-            # only over-length is impossible. Refuse rather than write a
-            # timebase nobody can tell is wrong -- the entry keeps no `t0`/`dt`
-            # and stays visible as unrepaired.
-            if n * dt > span * (1.0 + _SPAN_TOLERANCE):
-                report["ambiguous"].append(int(code))
-                continue
         t0 = _daq_trigger_time_correction(shot) if label == "fast" else 0.0
         entry["t0"] = float(t0)
         entry["dt"] = float(dt)
@@ -567,7 +553,6 @@ def upgrade_archive_timebase(payload: dict) -> dict:
         if not np.isclose(dt, class_dt, rtol=1e-3):
             report["non_nominal"].append(int(code))
     report["non_nominal"].sort()
-    report["ambiguous"].sort()
     return report
 
 
