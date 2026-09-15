@@ -32,6 +32,7 @@ _SUBMODULES = {
     "atomic": ".atomic",
     "statistics": ".statistics",
     "magnetics": ".magnetics",
+    "startup": ".startup",
     "neoclassical": ".neoclassical",
 }
 
@@ -53,6 +54,7 @@ _IMPORT_ORDER = (
     "statistics",
     "magnetics",
     "neoclassical",
+    "startup",
 )
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in
