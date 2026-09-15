@@ -465,6 +465,43 @@ def test_the_gacode_convention_is_registered_and_confirmed():
     assert all(source in convention.reference for source in external), convention.reference
 
 
+def test_the_sign_combination_the_registry_names_is_cocos_2_and_only_cocos_2():
+    """The note's justification, checked rather than asserted in prose.
+
+    `confirmed=True` rests on a chain: the GACODE geometry convention fixes five
+    sign parameters, and that combination identifies one index. The first half is
+    a reading of an external document, but the second is arithmetic OMAS already
+    knows -- so it is checked here. A mistyped sigma in the note (`sigma_RpZ = +1`
+    is COCOS 11's value) would otherwise leave the registry stating a false reason
+    for the index with every other test still green.
+    """
+    from omas.omas_physics import define_cocos
+
+    from vaft.data.cocos import COCOS_INDICES, convention_for
+
+    # Exactly the parameters the `gacode` entry's notes name.
+    claimed = {
+        "exp_Bp": 0,
+        "sigma_Bp": 1,
+        "sigma_RpZ": -1,
+        "sigma_rhotp": 1,
+        "sign_q_pos": 1,
+    }
+    matching = [
+        index
+        for index in COCOS_INDICES
+        if all(define_cocos(index).get(key) == value for key, value in claimed.items())
+    ]
+    assert matching == [convention_for("gacode").cocos] == [2]
+
+    notes = convention_for("gacode").notes
+    for key, value in claimed.items():
+        sign = "+1" if value == 1 else str(value)
+        rendered = f"{key} = {'0' if key == 'exp_Bp' else sign}"
+        if key != "sign_q_pos":  # spelled as "q > 0 for Ip, B0 > 0" in prose
+            assert rendered in notes, rendered
+
+
 def test_reg18_is_self_consistent_with_that_convention(reg18_profile):
     """DIII-D in the normal orientation: Bt clockwise, Ip counter-clockwise."""
     assert _directions(reg18_profile) == (-1, +1)

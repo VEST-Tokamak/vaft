@@ -280,10 +280,14 @@ register_convention(CodeConvention(
     cocos=2,
     psi_unit="Wb/rad",
     reference=(
-        "GACODE geometry documentation (phi clockwise from above, right-handed "
-        "(r, theta, phi), poloidal flux per radian); OMFIT OMFITinputgacode.to_omas "
-        "(cocosio = 2); ProjectTorreyPines/GACODE.jl inputgacode.jl "
-        "(transform_cocos(IMAS.internal_cocos, 2)); GACODE "
+        "GACODE geometry convention, f2py/geo/geo.f90 (phi clockwise from above, "
+        "right-handed (r, theta, phi), poloidal flux per radian); OMFIT "
+        "omfit_classes/omfit_gapy.py:2173 (`cocosio = 2  # GACODE is COCOS 2`, in "
+        "the to_omas that reads input.gacode); "
+        "github.com/ProjectTorreyPines/GACODE.jl src/inputgacode.jl "
+        "(transform_cocos(IMAS.internal_cocos, 2)) with "
+        "github.com/ProjectTorreyPines/CoordinateConventions.jl "
+        "(cocos2 = COCOS(2, 0, 1, -1, 1, 1, -1)); GACODE "
         "f2py/expro/expro_locsim.f90 (btccw = -sign(torfluxa), "
         "ipccw = -sign(q)*sign(torfluxa)); neo/tools/input/reg18/input.gacode"
     ),
