@@ -532,9 +532,15 @@ rule generate_eddy_ods:
 ############################################################
 # Constraints Transformation
 ############################################################
+# The diagnostics product is an input, not just a path: the constraint builder
+# reads `magnetics`, `pf_active` and `tf` out of it, and the eddy stage stores
+# only the `pf_passive` it owns. Declaring it also makes constraints re-run when
+# diagnostics changes, which it did not do while eddy carried a copy.
 rule generate_constraints_ods:
     input:
-        eddy=PATHS.shot_pattern("eddy_ods")
+        eddy=PATHS.shot_pattern("eddy_ods"),
+        diagnostics=PATHS.shot_pattern("diagnostics_ods"),
+        eddy_manifest=PATHS.shot_pattern("eddy_manifest")
     output:
         ods=PATHS.shot_pattern("constraints_ods")
     log:
@@ -559,6 +565,8 @@ rule generate_constraints_ods:
         python {SCRIPT_DIR}/generate_constraints_ods.py \
             --shot {wildcards.shot} \
             --eddy-ods {input.eddy} \
+            --diagnostics-ods {input.diagnostics} \
+            --eddy-manifest {input.eddy_manifest} \
             --output {output.ods} \
             --efit-table-dir "{params.efit_table_dir}" \
             --timeset {params.timeset} \
@@ -751,9 +759,14 @@ if PLOTS_ENABLED:
             """
 
 
+    # The eddy figures forward-model the magnetic response of the vacuum
+    # current system, so they need the diagnostics product's `magnetics` and
+    # `pf_active` beside the `pf_passive` the eddy stage owns.
     rule plot_eddy:
         input:
-            ods=PATHS.shot_pattern("eddy_ods")
+            ods=PATHS.shot_pattern("eddy_ods"),
+            diagnostics=PATHS.shot_pattern("diagnostics_ods"),
+            manifest=PATHS.shot_pattern("eddy_manifest")
         output:
             plots=stage_plot_outputs("eddy"),
             manifest=PATHS.shot_pattern("stage_plot_manifest", "eddy")
@@ -772,6 +785,8 @@ if PLOTS_ENABLED:
                 --stage eddy \
                 --shot {wildcards.shot} \
                 --input {input.ods} \
+                --compose-with diagnostics={input.diagnostics} \
+                --stage-manifest {input.manifest} \
                 --output-dir "{params.directory}" \
                 --metadata {output.manifest} \
                 > {log} 2>&1

@@ -228,6 +228,15 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
     ),
 }
 
+#: Stages whose validation figures need an IDS the stage does not own, and the
+#: stages that own it.  The eddy figures forward-model the magnetic response of
+#: the whole vacuum current system, so they need `pf_active` and `magnetics`
+#: alongside the `pf_passive` the eddy product carries.  Declared here rather
+#: than in the driver, so a figure that grows a dependency is a registry edit.
+STAGE_PLOT_COMPANIONS: dict[str, tuple[str, ...]] = {
+    "eddy": ("diagnostics",),
+}
+
 
 def stages() -> tuple[str, ...]:
     """Every stage with a declared validation-plot set, sorted."""

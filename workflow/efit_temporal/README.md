@@ -16,6 +16,11 @@ PYTHONPATH=. python workflow/efit_temporal/run_cadence_study.py \
     --cadences 1.0,0.4,0.2,0.08 --windows 0.5 --window-scan 1.0,0.2,0.1
 ```
 
+`--eddy-ods` takes a self-contained product such as the packaged
+`pipeline-until-efit` sample. A canonical eddy product carries only the
+`pf_passive` its stage owns, so for one of those name the diagnostics product it
+was computed from with `--diagnostics-ods` as well.
+
 Cadences and windows are in milliseconds and snap to the 40 µs diagnostics
 grid. The input product's own `equilibrium` is discarded and the constraints
 rebuilt for every case; channel selection is the diagnostics-stage

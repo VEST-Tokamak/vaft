@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from omas import load_omas_json
+from vaft.database.composition import compose_stage_products
 
 from vaft.code.efit import generate_constraints_ods
 from vaft.code.efit.config import EFITScientificConfig
@@ -312,7 +312,12 @@ def decision_lines(payload: dict[str, Any]) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--eddy-ods", required=True, type=Path, help="OMAS JSON of the shot's eddy-stage product (equilibrium stripped or not)")
+    parser.add_argument("--eddy-ods", required=True, type=Path, help="OMAS product of the shot's eddy stage (pf_passive)")
+    # Defaults to --eddy-ods: this harness is normally pointed at a packaged
+    # `pipeline-until-efit` product, which is self-contained and is therefore
+    # its own diagnostics half. Composing it with itself is a no-op copy whose
+    # grid check passes trivially, which is the correct answer for that input.
+    parser.add_argument("--diagnostics-ods", default=None, type=Path, help="The diagnostics product the eddy product was computed from (default: --eddy-ods, for a self-contained product)")
     parser.add_argument("--shot", type=int, default=39915)
     parser.add_argument("--table-a", required=True, type=Path)
     parser.add_argument("--table-b", required=True, type=Path)
@@ -356,8 +361,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"copied {LIMITER_FILE} from table A into table B (EFIT reads it from TABLE_DIR; EFUND does not write it)")
     times = [float(t) for t in args.times]
 
-    print(f"loading {args.eddy_ods} ...")
-    source = load_omas_json(str(args.eddy_ods), consistency_check=False)
+    diagnostics_ods = args.diagnostics_ods or args.eddy_ods
+    print(f"loading {diagnostics_ods} + {args.eddy_ods} ...")
+    # strict=False: this harness is routinely pointed at hand-assembled products
+    # whose manifests do not describe the pairing. The time-grid check, which is
+    # the one that protects the constraint interpolation, still runs.
+    source, _ = compose_stage_products(
+        diagnostics=diagnostics_ods, eddy=args.eddy_ods, strict=False
+    )
     if "equilibrium" in source:
         del source["equilibrium"]
     source["equilibrium.time"] = np.asarray(times)

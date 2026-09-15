@@ -537,7 +537,7 @@ PY
 | Check | Expected |
 | --- | --- |
 | Remote folder | `/main/39915/` lists `pf_passive.h5`, `dataset_description.h5`, `master.h5` |
-| Owned IDS only | **No** `magnetics.h5` — the eddy product carries it, but eddy does not own it |
+| Owned IDS only | **No** `magnetics.h5` — the eddy stage solves against it but does not own it, and its product no longer carries it |
 | Record state | `"state": "validated"`, `round_trip.passed = true` |
 | Provenance | `"source": "main"`, `"remote_uri": "hdf5://main/39915/"`, a `product_sha256` |
 | Manifest | unchanged — it describes production, not replication |
@@ -695,7 +695,7 @@ the corrective updaters' one-time bootstrap of their shot registry, which opens
 - [ ] `shot_first` refused before the DAG is built — `WorkflowError`
 - [ ] A canonical product exists for the fixture shot — `omas/eddy/39915/…`, replicable
 - [ ] One stage replicated and validated — `state == "validated"`
-- [ ] Only owned IDS travelled — no `magnetics.h5` from the eddy stage
+- [ ] Only owned IDS travelled — no `magnetics.h5` from the eddy stage (the eddy product is its own projection, so replication is an identity on it)
 - [ ] A second stage did not hide the first — `external_h5_links` lists both
 - [ ] A rerun reused the record — no upload
 - [ ] Per-shot folder behaviour recorded — auto-created, or `hstouch` needed

@@ -35,6 +35,7 @@ from vaft.machine_mapping.magnetics import (
     TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
     vest_equilibrium_magnetics_channel_definitions,
 )
+from vaft.database.composition import compose_stage_products
 from vaft.omas.vest_upstream import (
     build_diagnostics_ods,
     build_eddy_ods,
@@ -88,13 +89,18 @@ def _write_raw_dump(path: Path, shot: int, n_samples: int) -> None:
 
 
 @pytest.fixture(scope="module")
-def full_eddy_ods(tmp_path_factory):
-    """One eddy ODS containing every channel used by EFIT.
+def full_constraints_input_ods(tmp_path_factory):
+    """What the constraint builder is actually given: diagnostics + eddy.
 
     Built once per test module (the raw->static->diagnostics->eddy chain is
     expensive); each test takes a deep copy so it can delete channels
     without affecting other tests.  Diagnostic-only phase-reference probes
     retain their natural empty waveforms.
+
+    The two products are composed rather than taken from eddy alone, because
+    the eddy stage stores only the `pf_passive` it owns.  That is the same
+    composition `generate_constraints_ods.py` performs, so this fixture
+    exercises the real input shape.
     """
     tmp = tmp_path_factory.mktemp("constraints_fixture")
     raw_path = tmp / "raw.json.gz"
@@ -112,17 +118,26 @@ def full_eddy_ods(tmp_path_factory):
     diag_path = tmp / "diagnostics.json"
     write_stage_product(diag_ods, diag_manifest, output=diag_path, metadata=tmp / "diagnostics-manifest.json")
 
-    eddy_ods, _ = build_eddy_ods(
+    eddy_ods, eddy_manifest = build_eddy_ods(
         shot=SHOT, diagnostics_ods=diag_path, static_ods=static_path,
         filament_r=[0.35, 0.35, 0.35], filament_z=[0.25, 0.0, -0.25],
         filament_fraction=[1 / 3, 1 / 3, 1 / 3], dt_sub=5e-5,
+    )
+    eddy_path = tmp / "eddy.json"
+    write_stage_product(
+        eddy_ods, eddy_manifest, output=eddy_path, metadata=tmp / "eddy-manifest.json"
+    )
+
+    ods, _ = compose_stage_products(
+        diagnostics=diag_path, eddy=eddy_path, eddy_manifest=tmp / "eddy-manifest.json"
     )
 
     # The trailing toroidal-Mirnov phase-reference probes are intentionally
     # outside EFIT's dprobe/mhdin geometry.  Their empty data must not enter
     # constraint construction; EFIT uses only the MD probes below.
-    assert len(eddy_ods["magnetics.b_field_pol_probe"]) > _efit_bpol_probe_count()
-    return eddy_ods
+    assert len(ods["magnetics.b_field_pol_probe"]) > _efit_bpol_probe_count()
+    assert "pf_passive.time" in ods
+    return ods
 
 
 def _extract_array(text: str, name: str, next_name: str) -> list[float]:
@@ -159,9 +174,9 @@ def _build_kfile_config(nbcoil: int) -> EFITScientificConfig:
     ],
 )
 def test_constraints_and_kfile_survive_missing_channels(
-    full_eddy_ods, tmp_path, missing_probes, missing_flux, case_id
+    full_constraints_input_ods, tmp_path, missing_probes, missing_flux, case_id
 ):
-    ods = copy.deepcopy(full_eddy_ods)
+    ods = copy.deepcopy(full_constraints_input_ods)
     n_probes = _efit_bpol_probe_count()
     n_flux = len(ods["magnetics.flux_loop"])
 
@@ -260,7 +275,7 @@ def test_constraints_and_kfile_survive_missing_channels(
         assert fwtsi[i] == (0 if i in missing_flux else 1)
 
 
-def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_eddy_ods, tmp_path):
+def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_constraints_input_ods, tmp_path):
     """Constraint generation and EXPMP2/FWTMP2 use EFIT's real probe count.
 
     VAFT's magnetics IDS carries 68 b_field_pol_probe entries: 64 real,
@@ -272,7 +287,7 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_eddy_ods, 
     """
     from vaft.data.resources import data_path
 
-    ods = copy.deepcopy(full_eddy_ods)
+    ods = copy.deepcopy(full_constraints_input_ods)
     n_probes = len(ods["magnetics.b_field_pol_probe"])
     assert n_probes == 68
 

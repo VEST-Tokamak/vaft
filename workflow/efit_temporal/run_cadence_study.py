@@ -51,6 +51,7 @@ import numpy as np
 
 import vaft
 import vaft.omas
+from vaft.database.composition import compose_stage_products
 from vaft.code.efit import generate_constraints_ods
 from vaft.code.efit.config import EFITScientificConfig
 from vaft.code.efit.magnetic import EFITConfig, prepare_efit_inputs, resolved_efit_configuration, run_efit
@@ -278,6 +279,9 @@ def markdown(payload: dict[str, Any]) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--eddy-ods", required=True, type=Path)
+    # See ab_efit_table.py: defaults to --eddy-ods so a self-contained
+    # `pipeline-until-efit` product needs only one path.
+    parser.add_argument("--diagnostics-ods", default=None, type=Path, help="The diagnostics product the eddy product was computed from (default: --eddy-ods).")
     parser.add_argument("--shot", required=True, type=int)
     parser.add_argument("--efit", required=True, help="EFIT executable.")
     parser.add_argument("--tables", default=str(Path(vaft.__file__).parent / "data" / "efit") + "/")
@@ -290,7 +294,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-slices", type=int, default=None, help="Truncate every case to this many slices (smoke runs).")
     args = parser.parse_args(argv)
 
-    source = vaft.omas.load(str(args.eddy_ods))
+    # strict=False for the same reason as the A/B table harness: a study may be
+    # pointed at assembled products, and the time-grid check still runs.
+    source, _ = compose_stage_products(
+        diagnostics=args.diagnostics_ods or args.eddy_ods, eddy=args.eddy_ods, strict=False
+    )
     if args.tstart is None or args.tend is None:
         start, end, record = plasma_window(source)
     else:

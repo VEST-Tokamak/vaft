@@ -29,7 +29,10 @@ PYTHONPATH=$PWD python workflow/efit_tables/ab_efit_table.py --eddy-ods 39915_ed
 ```
 
 The eddy ODS is the shot's `pipeline-until-efit` product (the `equilibrium`
-IDS is stripped by the tool). `reference/` keeps the manifest of the table
+IDS is stripped by the tool). That product is self-contained, so it is also its
+own diagnostics half and `--diagnostics-ods` can be left off; a canonical
+per-stage eddy product carries only `pf_passive`, and then the diagnostics
+product it was computed from has to be named as well. `reference/` keeps the manifest of the table
 generated for this study and the full comparison record, with local paths
 scrubbed.
 

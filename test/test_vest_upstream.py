@@ -359,6 +359,44 @@ def test_eddy_ods_carries_no_stage_specific_impedance_cache_keys(tmp_path):
     assert "pf_passive.M_mat" not in reloaded
 
 
+def _minimal_eddy_product(tmp_path, shot: int):
+    """Build a real eddy product from the smallest inputs the solve accepts.
+
+    Shared by the shape tests below: they are about what the product contains,
+    so they need the real builder rather than a hand-assembled ODS, but nothing
+    about the physics.
+    """
+    static_path = tmp_path / "static.json"
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(
+        static, manifest, output=static_path, metadata=tmp_path / "static-manifest.json"
+    )
+
+    diagnostics = ODS(consistency_check=False)
+    time = np.linspace(0.0, 0.01, 50)
+    diagnostics["pf_active"] = copy.deepcopy(static["pf_active"])
+    diagnostics["pf_active.time"] = time
+    for coil_index in range(len(diagnostics["pf_active.coil"])):
+        diagnostics[f"pf_active.coil.{coil_index}.current.time"] = time
+        diagnostics[f"pf_active.coil.{coil_index}.current.data"] = np.zeros_like(time)
+    diagnostics["magnetics.ip.0.time"] = time
+    diagnostics["magnetics.ip.0.data"] = 1e4 * np.sin(np.linspace(0.0, 1.0, 50))
+    diagnostics["dataset_description.data_entry.pulse"] = int(shot)
+    diagnostics_path = tmp_path / "diagnostics.json"
+    save_ods(diagnostics, diagnostics_path)
+
+    ods, _ = build_eddy_ods(
+        shot=shot,
+        diagnostics_ods=diagnostics_path,
+        static_ods=static_path,
+        filament_r=[0.35, 0.35, 0.35],
+        filament_z=[0.25, 0.0, -0.25],
+        filament_fraction=[1 / 3, 1 / 3, 1 / 3],
+        dt_sub=5e-5,
+    )
+    return ods
+
+
 def test_eddy_ods_updates_homogeneous_time_for_ids_that_gain_a_time_node(tmp_path):
     """pf_passive goes from independent (2) to homogeneous (1) once eddy adds `.time`.
 
@@ -366,8 +404,11 @@ def test_eddy_ods_updates_homogeneous_time_for_ids_that_gain_a_time_node(tmp_pat
     (homogeneous_time=2, no `.time`). compute_eddy_currents() then adds
     `pf_passive.time`, so the flag must flip to 1 to match -- copying the
     static value forward unchanged would leave it claiming "no time" while a
-    time array is actually present. wall/em_coupling never gain `.time`, so
-    they must stay at 2.
+    time array is actually present.
+
+    wall and em_coupling are inputs to the solve, not outputs of it: eddy does
+    not own them, so they are not in the product at all and there is no flag of
+    theirs to get wrong.
     """
     shot = 43017
     static_path = tmp_path / "static.json"
@@ -401,10 +442,45 @@ def test_eddy_ods_updates_homogeneous_time_for_ids_that_gain_a_time_node(tmp_pat
 
     assert "pf_passive.time" in ods
     assert ods["pf_passive.ids_properties.homogeneous_time"] == 1
-    assert "wall.time" not in ods
-    assert ods["wall.ids_properties.homogeneous_time"] == 2
-    assert "em_coupling.time" not in ods
-    assert ods["em_coupling.ids_properties.homogeneous_time"] == 2
+    assert "wall" not in ods
+    assert "em_coupling" not in ods
+
+
+def test_the_eddy_product_carries_no_ids_it_does_not_own(tmp_path):
+    """The workspace holds the diagnostics IDS; the product must not.
+
+    `build_eddy_ods` solves on the diagnostics ODS, so every IDS diagnostics
+    wrote is in hand when the product is built. Returning that ODS is what used
+    to make an eddy product ~2.5x the size of the diagnostics product it had
+    copied, and `replication._project` would still have stripped it on the way
+    to HSDS -- so nothing downstream of replication would have noticed. That is
+    exactly why this has to be asserted on the local product.
+
+    An exact set comparison, not a series of `not in`: a *new* IDS appearing in
+    the product is the same defect and would slip past the weaker form.
+    """
+    shot = 43017
+    ods = _minimal_eddy_product(tmp_path, shot)
+    assert {key.split(".")[0] for key in ods.keys()} == {
+        "dataset_description",
+        "pf_passive",
+    }
+
+
+def test_the_eddy_product_is_exactly_its_declared_projection(tmp_path):
+    """The local product and what replication publishes are the same set.
+
+    This is the invariant the de-duplication buys: `_project` becomes an
+    identity on the eddy product, so what is on disk and what reaches HSDS can
+    no longer disagree about which stage owns what.
+    """
+    from vaft.database.replication import _project
+    from vaft.database.sources import STAGE_REPLICATION
+
+    ods = _minimal_eddy_product(tmp_path, 43017)
+    projected, present = _project(ods, STAGE_REPLICATION["eddy"].ids)
+    assert set(projected.keys()) == set(ods.keys())
+    assert present == STAGE_REPLICATION["eddy"].ids
 
 
 def test_explicit_raw_archive_is_copied_with_machine_readable_provenance(tmp_path):
@@ -768,3 +844,37 @@ def test_a_fully_saturated_component_is_unavailable_not_a_stage_failure():
     handler = source.split("except (")[1].split(")")[0]
     assert "SignalRepairError" in handler
     assert "RawSignalUnavailableError" in handler
+
+
+def test_the_diagnostics_product_carries_no_ids_it_does_not_own(tmp_path):
+    """The same ownership rule, checked on the stage eddy used to copy.
+
+    `build_diagnostics_ods` copies `pf_active`, `tf` and `magnetics` out of the
+    static product -- and those are exactly three of the six IDS it owns, so
+    what it stores is already its own subtree. This records that, so the
+    question does not have to be re-derived the next time a product's size is
+    investigated.
+
+    A subset rather than an equality: a component with no usable raw fields is
+    recorded `unavailable` and its IDS is legitimately absent.
+    """
+    from vaft.database.sources import STAGE_REPLICATION
+
+    shot = 39915
+    raw = tmp_path / "raw.json.gz"
+    _write_raw_dump(raw, shot, {12: np.linspace(1.0, 2.0, 200).tolist()})
+    static_path = tmp_path / "static.json.gz"
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(
+        static, manifest, output=static_path, metadata=tmp_path / "static-manifest.json"
+    )
+
+    ods, _ = build_diagnostics_ods(
+        shot=shot, raw_source=raw, static_ods=static_path,
+        tstart=0.0, tend=0.005, dt=4e-5,
+    )
+
+    top_level = {key.split(".")[0] for key in ods.keys()} - {"dataset_description"}
+    assert top_level <= set(STAGE_REPLICATION["diagnostics"].ids), sorted(
+        top_level - set(STAGE_REPLICATION["diagnostics"].ids)
+    )
