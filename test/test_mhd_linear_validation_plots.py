@@ -311,6 +311,34 @@ def test_the_stage_skips_the_eigenfunction_figure_when_no_cell_carries_one(tmp_p
     assert not (tmp_path / "plot" / "stability_eigenfunction.png").exists()
 
 
+def test_the_stage_skips_the_tearing_figure_for_a_dcon_only_run(tmp_path):
+    """A configuration without a resistive solver is normal, not a failure.
+
+    `gpec.modules` can be any subset, so a shot solved by DCON alone carries no
+    `ntms` and has nothing to draw here. This is the case that justifies
+    comparing the written files against what the manifest reports generating
+    rather than against every declared filename -- without it, that relaxation
+    would rest on a scenario nothing exercises.
+    """
+    manifest = render_stage_plots(
+        "mhd_linear",
+        _mhd_linear_ods(tearing=False),
+        tmp_path / "plot",
+        shot=41234,
+        stage_manifest=_manifest(tmp_path),
+    )
+
+    rows = {row["name"]: row for row in manifest["plots"]}
+    assert rows["ntms_time_delta_prime"]["status"] == "skipped"
+    assert rows["mhd_linear_time_energy_perturbed"]["status"] == "generated"
+    assert not (tmp_path / "plot" / "stability_delta_prime.png").exists()
+
+    # The required figures are still all present, which is what the relaxed
+    # assertion continues to hold the stage to.
+    generated = {row["file"] for row in manifest["plots"] if row["status"] == "generated"}
+    assert set(stage_plot_filenames("mhd_linear", required_only=True)) <= generated
+
+
 # --- empty products ----------------------------------------------------------
 
 @pytest.mark.parametrize(
