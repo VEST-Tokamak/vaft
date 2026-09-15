@@ -1,7 +1,7 @@
 ---
 title: "Process reference: camera_fluctuation"
 author: VEST team
-date: 2026-09-15 16:20
+date: 2026-09-14 12:00
 category: guide
 layout: post
 permalink: /reference/process/camera_fluctuation/
