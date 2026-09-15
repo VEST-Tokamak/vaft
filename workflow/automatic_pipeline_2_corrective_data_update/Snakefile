@@ -24,7 +24,7 @@ PIPELINE1_DIR = SCRIPT_DIR.parent / "automatic_pipeline_1_routine_data_processin
 sys.path.insert(0, str(PIPELINE1_DIR))
 from paths import FILEDB, PipelinePaths
 
-from vaft.database.sources import STAGE_REPLICATION
+from vaft.database.sources import replicable_stages
 
 PATHS = PipelinePaths.from_config(config)
 if PATHS.layout != FILEDB:
@@ -56,8 +56,44 @@ REPLICATION_RETRY_DELAY = HSDS_CONFIG.get("retry_delay", 5.0)
 REPLICATION_CONCURRENCY = HSDS_CONFIG.get("concurrency", 4)
 workflow.global_resources.setdefault("hsds", REPLICATION_CONCURRENCY)
 
-STAGES = ("thomson", "ces", "core_profiles", "electron_efit", "kinetic_efit")
+# The Thomson lineage: a deliberate *subset* of the corrective stages, not all
+# of them. Soft X-ray and camera are ingested by
+# `ingest_external_diagnostics.py`, and `neoclassical` belongs to the GACODE
+# chain, so each has its own producer and none of them belongs in this DAG.
+#
+# Named here rather than derived, because "which stages does this pipeline
+# build" is a real decision -- but checked against the registry, so a stage
+# renamed or retired there fails the run instead of silently dropping out of it.
+THOMSON_LINEAGE = ("thomson", "ces", "core_profiles", "electron_efit", "kinetic_efit")
+_CORRECTIVE = frozenset(replicable_stages(produced_by="corrective"))
+_UNREGISTERED = tuple(stage for stage in THOMSON_LINEAGE if stage not in _CORRECTIVE)
+if _UNREGISTERED:
+    raise WorkflowError(
+        "These stages are not registered as corrective products in "
+        "vaft.database.sources.STAGE_REPLICATION: "
+        + ", ".join(_UNREGISTERED)
+        + ". A workflow consumes the registry rather than restating it, so a "
+        "stage renamed there must be renamed here too."
+    )
+
+STAGES = THOMSON_LINEAGE
 REPLICATE_SCRIPT = PIPELINE1_DIR / "replicate_to_hsds.py"
+
+
+def constraints_for(wildcards):
+    """Pipeline 1's EFIT constraints for this shot.
+
+    A callable rather than a `{shot}`-bearing pattern string: Snakemake does
+    expand braces inside a plain param, but silently, and a path carrying a
+    brace that is not a wildcard would be mangled rather than rejected. Pipeline
+    1 passes its equivalent the same way.
+    """
+    return PATHS.constraints_ods(wildcards.shot)
+
+
+def efit_for(wildcards):
+    """Pipeline 1's magnetic EFIT solution for this shot."""
+    return PATHS.efit_ods(wildcards.shot)
 
 
 def stage_products(shots):
@@ -139,7 +175,7 @@ rule generate_core_profiles_ods:
     params:
         # Pipeline 1's product. A param, not an input: a shot it never
         # reconstructed must be recorded, not raised (see the header).
-        efit=PATHS.shot_pattern("efit_ods")
+        efit=efit_for
     conda:
         CONDA if CONDA else None
     shell:
@@ -174,8 +210,8 @@ for _stage in ("electron_efit", "kinetic_efit"):
             PATHS.shot_pattern("log", "generate_" + _stage + "_ods")
         params:
             stage=_stage,
-            constraints=PATHS.shot_pattern("constraints_ods"),
-            efit=PATHS.shot_pattern("efit_ods"),
+            constraints=constraints_for,
+            efit=efit_for,
             encoding=KINETIC_ENCODING,
             executable=KINETIC_EXECUTABLE
         conda:
