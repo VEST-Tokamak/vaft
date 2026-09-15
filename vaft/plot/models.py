@@ -191,6 +191,16 @@ class Series(ViewModel):
         """
         return is_condemned(record_from_mask(self.validity, self.valid_mask))
 
+    def to_xarray(self, **attrs: Any) -> Any:
+        """This trace as an :class:`xarray.Dataset` with one ``series`` row; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import line_series_dataset
+
+        return line_series_dataset(LineSeries((self,)), **attrs)
+
 
 def _as_series_tuple(series: Iterable[Series] | Series, *, where: str) -> tuple[Series, ...]:
     if isinstance(series, Series):
@@ -229,6 +239,16 @@ class LineSeries(ViewModel):
             if limits is not None:
                 low, high = (float(limits[0]), float(limits[1]))
                 object.__setattr__(self, name, (low, high))
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """The traces as an :class:`xarray.Dataset` on ``(series, sample)``, NaN-padded with a ``length`` coordinate; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import line_series_dataset
+
+        return line_series_dataset(self, **attrs)
 
 
 @dataclass(frozen=True)
@@ -279,6 +299,16 @@ class Profile1D(ViewModel):
                     f"Profile1D.reference_lines holds ReferenceLine entries; got {type(line).__name__}"
                 )
         object.__setattr__(self, "reference_lines", lines)
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """The profiles as an :class:`xarray.Dataset` on ``(series, sample)``; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import profile_dataset
+
+        return profile_dataset(self, **attrs)
 
 
 @dataclass(frozen=True)
@@ -354,6 +384,16 @@ class Field2D(ViewModel):
             )
         object.__setattr__(self, "overlays", tuple(self.overlays))
 
+    def to_xarray(self, **attrs: Any) -> Any:
+        """``values(z, r)`` with the grid as coordinates and the overlays padded on ``(overlay_layer, overlay_point)``; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import field_dataset
+
+        return field_dataset(self, **attrs)
+
 
 @dataclass(frozen=True)
 class GeometryLayer(ViewModel):
@@ -404,6 +444,16 @@ class GeometryLayer(ViewModel):
         object.__setattr__(self, "label", str(self.label))
         object.__setattr__(self, "role", str(self.role))
 
+    def to_xarray(self, **attrs: Any) -> Any:
+        """This layer as a one-layer :class:`xarray.Dataset`; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import geometry_layers_dataset
+
+        return geometry_layers_dataset(GeometryLayers((self,)), **attrs)
+
 
 @dataclass(frozen=True)
 class GeometryLayers(ViewModel):
@@ -431,6 +481,16 @@ class GeometryLayers(ViewModel):
                     f"got {type(layer).__name__}"
                 )
         object.__setattr__(self, "layers", layers)
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """``r``/``z`` padded on ``(layer, point)`` with the layers' kind, label and ``length`` as coordinates; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import geometry_layers_dataset
+
+        return geometry_layers_dataset(self, **attrs)
 
 
 @dataclass(frozen=True)
@@ -465,6 +525,16 @@ class Geometry3DLayer(ViewModel):
         object.__setattr__(self, "style", _frozen_style(self.style))
         object.__setattr__(self, "label", str(self.label))
 
+    def to_xarray(self, **attrs: Any) -> Any:
+        """This layer as a one-layer :class:`xarray.Dataset`; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import geometry_3d_layers_dataset
+
+        return geometry_3d_layers_dataset(Geometry3DLayers((self,)), **attrs)
+
 
 @dataclass(frozen=True)
 class Geometry3DLayers(ViewModel):
@@ -489,6 +559,16 @@ class Geometry3DLayers(ViewModel):
                     f"got {type(layer).__name__}"
                 )
         object.__setattr__(self, "layers", layers)
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """``x``/``y``/``z`` padded on ``(layer, point)``; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import geometry_3d_layers_dataset
+
+        return geometry_3d_layers_dataset(self, **attrs)
 
 
 @dataclass(frozen=True)
@@ -541,6 +621,16 @@ class Image2D(ViewModel):
         if self.vmax is not None:
             object.__setattr__(self, "vmax", float(self.vmax))
 
+    def to_xarray(self, **attrs: Any) -> Any:
+        """``values(row, column)`` with the overlays padded on ``(overlay_layer, overlay_point)``; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import image_dataset
+
+        return image_dataset(self, **attrs)
+
 
 @dataclass(frozen=True)
 class ImageSequence(ViewModel):
@@ -592,6 +682,16 @@ class ImageSequence(ViewModel):
         object.__setattr__(self, "vmin", float(vmin))
         object.__setattr__(self, "vmax", float(vmax))
 
+    def to_xarray(self, **attrs: Any) -> Any:
+        """``frames(time, row, column)``; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import image_sequence_dataset
+
+        return image_sequence_dataset(self, **attrs)
+
 
 @dataclass(frozen=True)
 class Spectrogram(ViewModel):
@@ -638,6 +738,16 @@ class Spectrogram(ViewModel):
             magnitude=result.magnitude,
             **overrides,
         )
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """``magnitude(frequency, time)``; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import spectrogram_dataset
+
+        return spectrogram_dataset(self, **attrs)
 
 
 @dataclass(frozen=True)
@@ -754,6 +864,16 @@ class PowerSpectrum(ViewModel):
         overrides.setdefault("y_label", f"PSD [{result.units}]" if getattr(result, "units", "") else "PSD")
         return cls(frequency=result.frequency, psd=result.psd, **overrides)
 
+    def to_xarray(self, **attrs: Any) -> Any:
+        """``psd(frequency)`` with the fits padded on ``(fit, fit_sample)``; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import power_spectrum_dataset
+
+        return power_spectrum_dataset(self, **attrs)
+
 
 @dataclass(frozen=True)
 class TextPanel(ViewModel):
@@ -770,6 +890,16 @@ class TextPanel(ViewModel):
     def __post_init__(self) -> None:
         object.__setattr__(self, "lines", tuple(str(line) for line in self.lines))
         object.__setattr__(self, "title", str(self.title))
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """The lines as a ``line`` coordinate of an otherwise empty :class:`xarray.Dataset`; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import text_panel_dataset
+
+        return text_panel_dataset(self, **attrs)
 
 
 @dataclass(frozen=True)
@@ -840,3 +970,13 @@ class Panels(ViewModel):
             object.__setattr__(self, "spans", spans)
         object.__setattr__(self, "nrows", nrows)
         object.__setattr__(self, "ncols", ncols)
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """An :class:`xarray.DataTree` with one child dataset per panel, in panel order, the grid facts as root attributes; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import panels_datatree
+
+        return panels_datatree(self, **attrs)

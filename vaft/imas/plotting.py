@@ -21,6 +21,11 @@ the IDS they declare to an OMAS ODS on the way, through
 :meth:`vaft.imas.access.IDSEntry.as_ods_for`; ``available_plots(obj,
 detail=True)`` marks them.  Use :func:`available_plots` to see which plots a
 particular object can produce.
+
+Every ``plot_<stem>`` has two twins (umbrella #434): ``dd_<stem>()`` lists the
+IMAS Data Dictionary paths it reads, and ``extract_<stem>(source, ...)``
+returns the view model undrawn, the same one ``vaft.omas.extract_<stem>``
+builds from an ODS.
 """
 
 from __future__ import annotations
@@ -87,6 +92,25 @@ def plot_nbi_profile_current_drive(
     Renders with :func:`vaft.plot.nbi_profile_current_drive` from native IMAS input.
     """
     return render("nbi_profile_current_drive", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_neoclassical_profile_bootstrap_current(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Bootstrap current density from each neoclassical model on one radial axis.
+
+    The Sauter and Redl formulas against whatever solver result the ODS
+    carries (:func:`vaft.validation.neoclassical.bootstrap_models`), one
+    series per model, so the models are compared on one radial axis.
+
+    Renders with :func:`vaft.plot.neoclassical_profile_bootstrap_current` from native IMAS input.
+    """
+    return render("neoclassical_profile_bootstrap_current", source, ax=ax, show=show, label=label, **options)
 
 __all__ = ["available_plots", "normalize_entries", "render"]
 
@@ -2081,6 +2105,7 @@ __all__ += [
     "plot_mhd_linear_profile_b_field_perturbed",
     "plot_mhd_linear_profile_displacement",
     "plot_nbi_profile_current_drive",
+    "plot_neoclassical_profile_bootstrap_current",
     "plot_nbi_profile_electron_heating",
     "plot_nbi_profile_ion_heating",
     "plot_mhd_linear_time_energy_perturbed",
@@ -2119,3 +2144,12 @@ __all__ += [
     "plot_thomson_scattering_time_electron_temperature",
     "plot_wall_geometry_poloidal",
 ]
+
+# The other two verbs of every plot (umbrella #434): ``dd_<stem>()`` and
+# ``extract_<stem>(source, ...)``, generated from the registry the ``plot_*``
+# above are written against.
+from vaft.plot.backend.facade import install_facades as _install_facades  # noqa: E402
+
+__all__ += list(_install_facades(
+    globals(), normalize=normalize_entries, namespace="vaft.imas", subject="ids",
+))
