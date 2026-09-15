@@ -33,6 +33,17 @@ exactly: ``w_isl / d_nn`` equals the ``K_isl`` in the file to the last bit on
 every surface of every run checked, which is what makes the derived
 quantities trustworthy rather than merely plausible.
 
+**A coupling matrix and a field have to be on one basis.** A GPEC run
+reports five couplings -- flux, current, island width, penetrated flux and
+Delta -- and writes them as ``C_f_x_out`` and its four siblings on the
+*output* harmonic basis ``m_out``, which in the DIII-D example has 129
+entries. The external field ``Phi_xe`` is on ``m``, which has 34. The one
+array that pairs with it is ``C_xe``, the flux coupling on the field's own
+basis -- its singular values agree with ``C_f_xe_out_singval`` to 1.4e-5.
+:func:`edge_overlap_metric` refuses a mismatch rather than broadcasting one,
+and nothing here maps a family name to a variable, because four of the five
+have no counterpart on the basis the field lives on.
+
 **A reduction is not a verdict.** ``vaft.process`` computes; it does not
 decide. The thresholds the legacy compared against -- a Chirikov parameter of
 1, a penetration ratio of 1, an edge overlap of 7.4e-4 -- are arguments here
@@ -53,24 +64,28 @@ from typing import Mapping, Sequence
 import numpy as np
 
 __all__ = [
-    "COINCIDENT_POLICIES",
-    "IslandOverlap",
-    "IslandPairs",
-    "LEGACY_WINDOWS",
-    "RESONANT_RESPONSE_COLUMNS",
-    "RESONANT_STATISTICS",
-    "ResonantWindow",
     "amplification_ratio",
     "chirikov",
+    "COINCIDENT_POLICIES",
     "critical_island_width",
+    "edge_overlap_metric",
+    "EdgeOverlap",
+    "energy_norm_matrix",
     "group_coincident_islands",
     "island_overlap_width",
     "island_pairs",
+    "IslandOverlap",
+    "IslandPairs",
+    "LEGACY_WINDOWS",
     "nearest_surface_spacing",
+    "NEGATIVE_EIGENVALUE_POLICIES",
     "penetration_ratio",
-    "resonant_metrics",
-    "resonant_windows",
     "reduce_resonant",
+    "resonant_metrics",
+    "RESONANT_RESPONSE_COLUMNS",
+    "RESONANT_STATISTICS",
+    "resonant_windows",
+    "ResonantWindow",
     "rms_resonant_field",
 ]
 
@@ -1122,4 +1137,280 @@ def island_overlap_width(
     return result(
         float(np.clip(separatrix - boundary, 0.0, abs(separatrix))),
         gap_psi, inner, outer, True, onset,
+    )
+
+
+# --- singular coupling and the edge overlap -----------------------------------
+
+#: What to do with a negative eigenvalue when building an energy norm. The
+#: code this replaces had three constructions with three different answers
+#: and no way to tell which had been used.
+NEGATIVE_EIGENVALUE_POLICIES: tuple[str, ...] = ("raise", "abs", "drop")
+
+
+@dataclass(frozen=True, eq=False)
+class EdgeOverlap:
+    """How much of an external field drives the dominant coupling mode."""
+
+    #: The metric: the dominant mode's share of the field, per unit field [-].
+    delta_e: float
+    #: How much field each singular mode carries, as a magnitude [T].
+    #: Magnitudes, not complex amplitudes: the phase of a projection onto a
+    #: singular vector is a gauge, and returning it invites a caller to use
+    #: a number that changes with the decomposition rather than the plasma.
+    projection: np.ndarray
+    #: The coupling matrix's singular values, strongest first [-].
+    singular_values: np.ndarray
+    #: Index of the mode carrying the most field, into ``projection`` [-].
+    dominant_mode: int
+    #: What the projection was divided by [T].
+    b_t0: float
+
+
+def energy_norm_matrix(
+    eigenvalues,
+    eigenvectors,
+    *,
+    negative_eigenvalues: str,
+) -> np.ndarray:
+    """The inverse square root of an energy matrix, from its eigendecomposition.
+
+    Parameters
+    ----------
+    eigenvalues : array_like
+        Eigenvalues of the energy matrix [-].
+    eigenvectors : array_like
+        Its eigenvectors, one per row, matching ``eigenvalues`` [-].
+    negative_eigenvalues : str
+        What to do with an eigenvalue at or below zero, one of
+        :data:`NEGATIVE_EIGENVALUE_POLICIES`. Required: the three
+        constructions this replaces answered it three ways, and the answer
+        changes the metric [n/a].
+
+    Returns
+    -------
+    ndarray
+        ``W^{-1/2}``, square and Hermitian [-].
+
+    Raises
+    ------
+    ValueError
+        ``negative_eigenvalues`` is not one of the three; the shapes disagree
+        or ``eigenvectors`` is not square; an eigenvalue is complex or not
+        finite; ``"raise"`` was chosen and an eigenvalue is not positive; or
+        the policy left nothing.
+
+    Processing steps
+    ----------------
+    1. Apply the policy to the eigenvalues.
+    2. Form ``V^H diag(lambda^{-1/2}) V`` over what survives.
+
+    Convention
+    ----------
+    Rows of ``eigenvectors`` are the eigenvectors, so the reconstruction is
+    ``V^H diag(lambda) V``. That is this function's contract, not a claim
+    about any file: see the Limitations.
+
+    Limitations
+    -----------
+    **No run in reach satisfies this contract**, so it is unvalidated against
+    real data. The ideal examples carry ``W_xe`` as identically zero, and
+    every policy then refuses. The kinetic example carries a non-zero one,
+    but that matrix is not Hermitian at all -- ``max|W - W^H|`` is 1.8 times
+    ``max|W|`` -- and its own eigenvector array reconstructs it under none of
+    the four orientations, the closest being ``V^T diag V*`` against the
+    Hermitian part at a relative error of 1.0. Feeding GPEC's own pair in
+    gives a matrix ``N`` with ``max|N W N - I|`` of order ten. Whatever
+    ``W_xe`` and ``W_xe_eigenvector`` are to each other, it is not an
+    eigendecomposition in the sense used here. Establish that before norming
+    a coupling matrix with a file's own arrays.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [C-11] Conventions register C-11: three different ``W^{-1/2}``
+       constructions, with different negative-eigenvalue policies, fed the
+       same metric.
+    """
+    if negative_eigenvalues not in NEGATIVE_EIGENVALUE_POLICIES:
+        raise ValueError(
+            f"negative_eigenvalues must be one of "
+            f"{list(NEGATIVE_EIGENVALUE_POLICIES)}, not {negative_eigenvalues!r}"
+        )
+    values = np.asarray(eigenvalues)
+    if np.iscomplexobj(values):
+        # float(complex) discards the imaginary part with a warning, which
+        # would answer for an input this cannot honour. numpy.linalg.eig
+        # returns a complex dtype even for a real spectrum, so a caller can
+        # reach here with one by accident.
+        if not np.allclose(values.imag, 0.0):
+            raise ValueError(
+                "the eigenvalues are complex; an energy matrix with a complex "
+                "spectrum has no real inverse square root"
+            )
+        values = values.real
+    values = values.astype(float)
+    vectors = np.asarray(eigenvectors)
+    if vectors.ndim != 2 or vectors.shape[0] != values.size:
+        raise ValueError(
+            f"{vectors.shape} eigenvectors against {values.size} eigenvalues; one "
+            "row per eigenvalue"
+        )
+    if vectors.shape[0] != vectors.shape[1]:
+        raise ValueError(
+            f"{vectors.shape} eigenvectors; a complete set is square, and an "
+            "incomplete one gives a norm of a dimension the caller did not ask for"
+        )
+    if not np.all(np.isfinite(values)):
+        # A NaN is not <= 0, so it would slip past every policy and give an
+        # all-NaN norm; an inf gives lambda**-0.5 = 0, dropping a mode in
+        # silence.
+        raise ValueError("an eigenvalue is not finite")
+    keep = np.ones(values.size, dtype=bool)
+    if np.any(values <= 0.0):
+        if negative_eigenvalues == "raise":
+            raise ValueError(
+                f"{int(np.count_nonzero(values <= 0.0))} of {values.size} eigenvalues "
+                "are not positive, so the matrix has no real inverse square root"
+            )
+        if negative_eigenvalues == "abs":
+            values = np.abs(values)
+            keep = values > 0.0
+        else:
+            keep = values > 0.0
+    if not np.any(keep):
+        raise ValueError("no positive eigenvalue survives; there is nothing to norm with")
+    vectors, values = vectors[keep], values[keep]
+    return vectors.conj().T @ np.diag(values ** -0.5) @ vectors
+
+
+def edge_overlap_metric(
+    coupling,
+    external_field,
+    *,
+    b_t0: float,
+    norm=None,
+) -> EdgeOverlap:
+    """How much of an external field lands on the dominant coupling mode.
+
+    The coupling matrix is decomposed, the field is projected onto its
+    singular modes, and the dominant mode's share is reported per unit field.
+
+    Parameters
+    ----------
+    coupling : array_like
+        Coupling matrix, modes by harmonics, complex [-].
+    external_field : array_like
+        The external field on the same harmonic basis, complex [T].
+    b_t0 : float
+        Vacuum toroidal field on axis, which the projection is divided by.
+        Required: the code this replaces defaulted it to one, which silently
+        reports a field in tesla as a dimensionless metric. A GPEC run
+        carries it as a global attribute [T].
+    norm : array_like, optional
+        An energy norm to apply to ``coupling`` first, from
+        :func:`energy_norm_matrix`. Omit it when the matrix is already
+        normed -- GPEC's own ``C_xe`` is [-].
+
+    Returns
+    -------
+    EdgeOverlap
+        The metric, the per-mode projection and the singular values [-].
+
+    Raises
+    ------
+    ValueError
+        The shapes disagree, the coupling matrix or the field holds a
+        non-finite entry, the coupling matrix is empty or identically zero,
+        or ``b_t0`` is not a positive finite real number.
+
+    Processing steps
+    ----------------
+    1. Apply ``norm`` to the coupling matrix when one is given.
+    2. Take its singular value decomposition.
+    3. Project the field onto the conjugated right singular vectors.
+    4. Divide the largest projection by ``b_t0``.
+
+    Convention
+    ----------
+    The projection is reported as a magnitude. A right singular vector is
+    fixed only up to a phase, so the complex overlap is a gauge -- GPEC's own
+    vectors and a fresh decomposition of the same matrix differ by exactly
+    that phase -- and a caller handed the complex number would be reading the
+    decomposition rather than the plasma. The magnitude is not affected. The
+    dominant mode is the one carrying the most field, which need not be the
+    one with the largest singular value.
+
+    Limitations
+    -----------
+    A coupling matrix that a run never filled decomposes to zero singular
+    values and a projection that is just the field's own components, which
+    would report a confident metric for a run that computed nothing. An
+    all-zero matrix is refused for that reason; a merely tiny one is not,
+    and a run whose external field is at the level of floating-point residue
+    -- the n=2 ideal example has a field norm of 1e-19 -- gives a ratio of
+    two residues.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [C-25] Conventions register C-25: the dominant singular vector needs
+       explicit gauge fixing or the complex overlap phase is arbitrary.
+    .. [gpec] Reproduces GPEC's own ``O_CPhi_xe`` to 3e-16 and its
+       ``Phi_overlap_norm`` to 4e-5 on the DIII-D n=1, n=2 and n=3 ideal runs.
+    """
+    matrix = np.asarray(coupling)
+    field = np.asarray(external_field)
+    if matrix.ndim != 2:
+        raise ValueError(f"the coupling matrix is {matrix.ndim}-dimensional")
+    if norm is not None:
+        norm = np.asarray(norm)
+        if norm.shape != (matrix.shape[1], matrix.shape[1]):
+            raise ValueError(
+                f"the norm is {norm.shape} against a coupling matrix with "
+                f"{matrix.shape[1]} harmonics"
+            )
+        matrix = matrix @ norm
+    if field.shape != (matrix.shape[1],):
+        raise ValueError(
+            f"the field has {field.shape} entries against the coupling matrix's "
+            f"{matrix.shape[1]} harmonics; they must be on one basis"
+        )
+    if not np.all(np.isfinite(matrix)) or not np.all(np.isfinite(field)):
+        # numpy's SVD raises LinAlgError on a NaN, which is not the ValueError
+        # this documents, and an inf decomposes to a confident wrong answer.
+        raise ValueError("the coupling matrix or the field holds a non-finite entry")
+    if matrix.size == 0 or not np.any(matrix):
+        # The zero matrix decomposes with V = I, so the projection is just the
+        # field's own components and delta_e comes out plausible for a run
+        # that computed no coupling at all.
+        raise ValueError(
+            "the coupling matrix is empty or identically zero, so it has no "
+            "singular directions; a run that never filled it cannot be given an "
+            "overlap metric"
+        )
+    if not isinstance(b_t0, (int, float, np.integer, np.floating)):
+        raise ValueError(f"b_t0 must be a real number, not {type(b_t0).__name__}")
+    if not np.isfinite(b_t0) or b_t0 <= 0.0:
+        raise ValueError(f"b_t0 must be positive and finite, not {b_t0!r}")
+
+    _, singular_values, right = np.linalg.svd(matrix, full_matrices=False)
+    # numpy returns V^H, so row i is already the conjugate transpose of the
+    # right singular vector: the projection onto it is that row times the
+    # field. Conjugating again gives v^T f, a bilinear form and not a
+    # projection onto anything -- and it disagrees with GPEC by up to 56%.
+    projection = np.abs(right @ field)
+    dominant = int(np.argmax(projection))
+    return EdgeOverlap(
+        delta_e=float(projection[dominant] / b_t0),
+        projection=projection,
+        singular_values=singular_values,
+        dominant_mode=dominant,
+        b_t0=float(b_t0),
     )
