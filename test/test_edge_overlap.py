@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 
 from vaft.process.perturbation import (
-    COUPLING_FAMILIES,
     NEGATIVE_EIGENVALUE_POLICIES,
     edge_overlap_metric,
     energy_norm_matrix,
@@ -110,6 +109,41 @@ def test_the_projection_is_a_magnitude_and_not_a_phase():
     assert rotated.delta_e == pytest.approx(result.delta_e)
 
 
+def test_the_field_is_projected_onto_the_singular_vector_not_its_conjugate():
+    """numpy returns V^H, so its rows are already conjugated; conjugating
+    again gives v^T f, a bilinear form rather than a projection. A diagonal
+    coupling cannot tell the two apart -- its singular vectors are real unit
+    axes -- so this one is genuinely complex and non-diagonal."""
+    coupling = np.array([[1.0 + 2.0j, 0.5 - 1.0j], [0.3 + 0.4j, 2.0 + 0.1j]])
+    field = np.array([1.0 + 1.0j, 2.0 - 3.0j])
+    _, _, right = np.linalg.svd(coupling, full_matrices=False)
+    correct = np.abs(right @ field)
+    wrong = np.abs(right.conj() @ field)
+    assert not np.allclose(correct, wrong), "the fixture must distinguish them"
+    np.testing.assert_allclose(
+        edge_overlap_metric(coupling, field, b_t0=1.0).projection, correct
+    )
+
+
+def test_a_norm_that_does_not_commute_is_applied_on_the_right():
+    """The coupling acts on the field, so the norm goes between them. With a
+    norm that commutes with the coupling -- a scalar multiple, or two
+    diagonals -- either side gives the same singular values and the test
+    proves nothing."""
+    coupling = np.array([[1.0, 2.0], [0.0, 1.0]], dtype=complex)
+    # Symmetric and positive definite, the shape energy_norm_matrix returns --
+    # but it does not commute with the coupling, and coupling @ norm is not the
+    # transpose of norm @ coupling either, so the two sides are distinguishable.
+    norm = np.array([[2.0, 1.0], [1.0, 3.0]], dtype=complex)
+    assert not np.allclose(coupling @ norm, norm @ coupling), "must not commute"
+    expected = np.linalg.svd(coupling @ norm, compute_uv=False)
+    flipped = np.linalg.svd(norm @ coupling, compute_uv=False)
+    assert not np.allclose(np.sort(expected), np.sort(flipped)), "sides must differ"
+    field = np.array([1.0, 0.0], dtype=complex)
+    got = edge_overlap_metric(coupling, field, b_t0=1.0, norm=norm)
+    np.testing.assert_allclose(np.sort(got.singular_values), np.sort(expected))
+
+
 def test_the_toroidal_field_is_required_and_checked():
     """The code this replaces defaulted it to one, which reports a field in
     tesla as a dimensionless metric. A run carries it as an attribute."""
@@ -144,8 +178,51 @@ def test_bases_that_do_not_line_up_are_refused():
         edge_overlap_metric(np.ones(3), np.ones(3), b_t0=1.0)
 
 
-def test_the_five_coupling_families_are_named_and_distinct():
-    """The reader this builds on keeps them apart; the one it replaces
-    flattened all five into one list of surfaces."""
-    assert set(COUPLING_FAMILIES) == {"flux", "current", "island", "penetrated", "delta"}
-    assert len(set(COUPLING_FAMILIES.values())) == 5
+def test_a_coupling_a_run_never_filled_is_refused():
+    """The zero matrix decomposes with V = I, so the projection is just the
+    field's own components and the metric comes out plausible for a run that
+    computed no coupling at all."""
+    with pytest.raises(ValueError, match="identically zero"):
+        edge_overlap_metric(np.zeros((2, 2)), np.ones(2), b_t0=1.0)
+    with pytest.raises(ValueError, match="identically zero"):
+        edge_overlap_metric(np.zeros((0, 2)), np.ones(2), b_t0=1.0)
+
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf])
+def test_a_non_finite_coupling_or_field_is_refused(bad):
+    """numpy's decomposition raises LinAlgError on a NaN, which is not the
+    error this documents, and an infinity decomposes to a confident wrong
+    answer."""
+    coupling = np.array([[1.0, 0.0], [0.0, bad]])
+    with pytest.raises(ValueError, match="non-finite"):
+        edge_overlap_metric(coupling, np.ones(2), b_t0=1.0)
+    with pytest.raises(ValueError, match="non-finite"):
+        edge_overlap_metric(np.eye(2), np.array([1.0, bad]), b_t0=1.0)
+
+
+def test_a_complex_eigenvalue_is_refused_rather_than_truncated():
+    """float(complex) drops the imaginary part with a warning, and
+    numpy.linalg.eig returns a complex dtype even for a real spectrum."""
+    with pytest.raises(ValueError, match="complex"):
+        energy_norm_matrix([1.0 + 1.0j, 2.0], np.eye(2), negative_eigenvalues="raise")
+    # A complex dtype carrying a real spectrum is fine.
+    got = energy_norm_matrix(
+        np.array([4.0 + 0j, 1.0 + 0j]), np.eye(2), negative_eigenvalues="raise"
+    )
+    np.testing.assert_allclose(np.diag(got), [0.5, 1.0])
+
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf])
+def test_a_non_finite_eigenvalue_slips_past_every_policy_unless_refused(bad):
+    """A NaN is not <= 0, so it would reach the norm; an infinity gives
+    lambda**-0.5 = 0 and drops a mode in silence."""
+    for policy in NEGATIVE_EIGENVALUE_POLICIES:
+        with pytest.raises(ValueError, match="not finite"):
+            energy_norm_matrix([1.0, bad], np.eye(2), negative_eigenvalues=policy)
+
+
+def test_an_incomplete_eigenvector_set_is_refused():
+    """It returns a norm of whatever dimension the vectors span, which is not
+    the one the caller asked about."""
+    with pytest.raises(ValueError, match="a complete set is square"):
+        energy_norm_matrix([1.0, 2.0, 3.0], np.eye(5)[:3], negative_eigenvalues="raise")
