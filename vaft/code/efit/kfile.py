@@ -7,7 +7,6 @@ import json
 import numpy as np
 import os
 import re
-import statistics
 import warnings
 from functools import partial
 from numbers import Integral
@@ -27,7 +26,6 @@ from vaft.machine_mapping.magnetics import (
 
 from .legacy import (
     vfit_equilibrium_form_constraints,
-    vfit_pf_active_efit26,
 )
 from .recovery import ProbeFamilies, family_of, gaussian_probe_recovery, probe_families
 from vaft.validation.channel_decision import MISSING, RECOVERED, ChannelDecisions
@@ -47,24 +45,53 @@ _EFIT_CONSTRAINT_FAMILY = {
 }
 
 
-#: Positions, in the 26-channel legacy coil list of
-#: ``legacy.vfit_pf_active_efit26``, of the sixteen groups EFIT's VEST tables
-#: carry: PF1-1..PF1-8, PF5U/L, PF6U/L, PF9U/L, PF10U/L.
-EFIT16_GROUP_POSITIONS: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16, 17, 22, 23, 24, 25)
+def build_efit_coil_currents(destination, source, *, tstart, tend, dt) -> None:
+    """The EFIT current groups, built from the machine's own PF circuits.
 
+    VEST energises ten PF circuits.  EFIT's VEST table carries sixteen current
+    groups over them: the solenoid split into eight axial segments, and PF5,
+    PF6, PF9 and PF10 each split at the midplane.  Splitting a circuit is
+    bookkeeping, so every group takes the current of the circuit it belongs
+    to, and the eight solenoid segments all carry PF1.
 
-def efit16_group_indices(count: int, target: int) -> list[int]:
-    """Indices of the coil channels the k-file writes for an ``nfsum``-group table.
-
-    The routine VEST table has sixteen groups and the constraints ODS carries
-    the twenty-six legacy channels, so the sixteen are picked by position.
-    Any other pairing takes the leading channels.  The same selection defines
-    the F-coil groups ``vaft.machine_mapping.efund_geometry`` projects for
-    EFUND, so table and k-file cannot disagree about which coils exist.
+    The grouping and the circuit each group belongs to come from
+    :mod:`vaft.machine_mapping.efund_geometry`, the same module that projects
+    the F-coil groups for EFUND, so the table and the k-file cannot disagree
+    about which coils exist.  Circuits are matched by name, not by position.
     """
-    if target == 16 and count >= 26:
-        return list(EFIT16_GROUP_POSITIONS)
-    return list(range(min(count, target)))
+    from vaft.machine_mapping.efund_geometry import (
+        EFIT16_GROUP_NAMES,
+        EFIT16_SOURCE_CIRCUIT,
+    )
+
+    by_name: dict[str, int] = {}
+    for index in range(len(source["coil"])):
+        by_name[str(source[f"coil.{index}.name"])] = index
+    missing = sorted(set(EFIT16_SOURCE_CIRCUIT.values()) - set(by_name))
+    if missing:
+        raise ValueError(
+            "pf_active is missing the circuits EFIT's groups are driven by: "
+            + ", ".join(missing)
+            + f" (present: {', '.join(sorted(by_name))})"
+        )
+
+    time = np.asarray(source["time"], dtype=float)
+    if dt > 0:
+        start, end = max(float(tstart), time[0]), min(float(tend), time[-1])
+        resampled = np.arange(start, end, dt)
+    else:
+        resampled = time
+
+    destination["ids_properties.comment"] = "PF config from vest_pf_active, grouped for EFIT"
+    destination["ids_properties.homogeneous_time"] = 1
+    destination["time"] = resampled
+    for group, name in enumerate(EFIT16_GROUP_NAMES):
+        circuit = by_name[EFIT16_SOURCE_CIRCUIT[name]]
+        destination[f"coil.{group}.name"] = name
+        destination[f"coil.{group}.identifier"] = name
+        destination[f"coil.{group}.current.data"] = np.interp(
+            resampled, time, np.asarray(source[f"coil.{circuit}.current.data"], dtype=float)
+        )
 
 
 def _condemned_channels(ods, nbprobe: int) -> set[int]:
@@ -277,14 +304,14 @@ def generate_constraints_ods(
     PF = ods_tmp["pf_active"]
     PF_orig = ods["pf_active"]
 
-    ## (1) PF coil - # 16 coils. It is used for EFIT input, PF1 (CS) Coil is discriesed by 16 coils in EFIT.
+    ## (1) The EFIT current groups, from the ten measured PF circuits.
     tstart = 0.26
     #    if shotnumber>=43635:
     #        tstart=0.245
     tend = 0.36
     dt = 4e-5
 
-    vfit_pf_active_efit26(PF, PF_orig, shotnumber, tstart, tend, dt)
+    build_efit_coil_currents(PF, PF_orig, tstart=tstart, tend=tend, dt=dt)
 
     for i, _ in enumerate(PF["coil"]):
         PF[f"coil.{i}.current.time"] = PF["time"]
@@ -496,73 +523,12 @@ def generate_constraints_ods(
             Iwall.append(np.interp(mytime, PFP["time"], PFP[f"loop.{j}.current"]))
         PM[f"time_slice.{i}.IN1.VCURRT"] = Iwall
 
-        # Add coil geometry to the k-file
-
-        nbcoil1 = 8
-        coilset_opt = "26_coils"
-        if coilset_opt == "16_coils":
-            nbcoil = nbcoil1 + 8
-            nbcons = nbcoil1 + (nbcoil - nbcoil1) / 2
-        elif coilset_opt == "26_coils":
-            nbcoil = nbcoil1 + 18
-            nbcons = int(nbcoil1 + (nbcoil - nbcoil1) / 2)
-            # add extra constraint if needed: PF2U=0, PF2L=0,PF3U=0, PF3L=0,PF4U=0, PF4L=0,PF7U=0, PF7L=0,PF8U=0, PF8L=0
-            add0 = []
-            for i in range(nbcoil):
-                if statistics.mean(PF[f"coil.{i}.current.data"]) == 0.0:
-                    add0.append(i)
-            nbcons = nbcons + int(len(add0) / 2)
-
-        PM[f"time_slice.{i}.INWANT.NCCOIL"] = 0
-        PM[f"time_slice.{i}.INWANT.KCCOILS"] = nbcons
-        PM[f"time_slice.{i}.INWANT.XCOILS"] = np.zeros(nbcons)
-
-        CCOILS = np.zeros((nbcoil, nbcons))
-        for j in range(nbcoil1 - 1):
-            CCOILS[0][j] = 1.0
-            CCOILS[j + 1][j] = -1.0
-
-        if coilset_opt == "16_coils":
-            # Upper and lower is same
-            CCOILS[nbcoil1][nbcoil1 - 1] = 1.0
-            CCOILS[nbcoil1 + 1][nbcoil1 - 1] = -1.0
-            CCOILS[nbcoil1 + 2][nbcoil1] = 1.0
-            CCOILS[nbcoil1 + 3][nbcoil1] = -1.0
-            CCOILS[nbcoil1 + 4][nbcoil1 + 1] = 1.0
-            CCOILS[nbcoil1 + 5][nbcoil1 + 1] = -1.0
-            CCOILS[nbcoil1 + 6][nbcoil1 + 2] = 1.0
-            CCOILS[nbcoil1 + 7][nbcoil1 + 2] = -1.0
-            # PF 9 = PF 10 is same
-            CCOILS[nbcoil1 + 5][nbcoil1 + 3] = 1.0
-            CCOILS[nbcoil1 + 6][nbcoil1 + 3] = -1.0
-        elif coilset_opt == "26_coils":
-            # Upper and lower is same
-            CCOILS[nbcoil1][nbcoil1 - 1] = 1.0
-            CCOILS[nbcoil1 + 1][nbcoil1 - 1] = -1.0
-            CCOILS[nbcoil1 + 2][nbcoil1] = 1.0
-            CCOILS[nbcoil1 + 3][nbcoil1] = -1.0
-            CCOILS[nbcoil1 + 4][nbcoil1 + 1] = 1.0
-            CCOILS[nbcoil1 + 5][nbcoil1 + 1] = -1.0
-            CCOILS[nbcoil1 + 6][nbcoil1 + 2] = 1.0
-            CCOILS[nbcoil1 + 7][nbcoil1 + 2] = -1.0
-            CCOILS[nbcoil1 + 8][nbcoil1 + 3] = 1.0
-            CCOILS[nbcoil1 + 9][nbcoil1 + 3] = -1.0
-            CCOILS[nbcoil1 + 10][nbcoil1 + 4] = 1.0
-            CCOILS[nbcoil1 + 11][nbcoil1 + 4] = -1.0
-            CCOILS[nbcoil1 + 12][nbcoil1 + 5] = 1.0
-            CCOILS[nbcoil1 + 13][nbcoil1 + 5] = -1.0
-            CCOILS[nbcoil1 + 14][nbcoil1 + 6] = 1.0
-            CCOILS[nbcoil1 + 15][nbcoil1 + 6] = -1.0
-            CCOILS[nbcoil1 + 16][nbcoil1 + 7] = 1.0
-            CCOILS[nbcoil1 + 17][nbcoil1 + 7] = -1.0
-            # PF 9 = PF 10 is same
-            CCOILS[nbcoil1 + 15][nbcoil1 + 8] = 1.0
-            CCOILS[nbcoil1 + 16][nbcoil1 + 8] = -1.0
-
-            # force 0 for unused coils
-            for j in range(int(len(add0) / 2)):
-                CCOILS[add0[2 * j]][nbcoil1 + 9 + j] = 1.0
-        PM[f"time_slice.{i}.INWANT.CCOILS"] = CCOILS
+        # The coil constraint matrix is not built here. It used to be, from a
+        # hard-coded choice between a sixteen- and a twenty-six-coil layout,
+        # and none of it ever reached the k-file: the `&INWANT` block is
+        # written from `EFITConstraintConfig` (see the writer below), which
+        # silently overrode these values. It is gone rather than left to be
+        # rediscovered.
 
     # Save the constraints ODS
     ods_eq = ODS()
@@ -689,8 +655,10 @@ def generate_kfile(
         CSTR = EQ[f"time_slice.{time_idx}.constraints"]
 
         ## (1) PF Coil currents with weight
+        # The constraint tree now carries exactly the groups EFIT's table has,
+        # in its order, so there is nothing to select.
         nfsum = _machine_count("nfsum", len(CSTR["pf_current"]))
-        pf_indices = efit16_group_indices(len(CSTR["pf_current"]), nfsum)
+        pf_indices = list(range(min(len(CSTR["pf_current"]), nfsum)))
         nbcoil = len(pf_indices)
         matrix = constraint_config.coil_constraint_matrix
         if constraint_config.use_coil_relation_constraints and len(matrix) != nbcoil:

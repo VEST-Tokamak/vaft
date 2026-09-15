@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 from omas import ODS
 
+from vaft.machine_mapping.efund_geometry import EFIT16_GROUP_NAMES
 from vaft.code.efit import (
     EFITConfig,
     EFITConstraintConfig,
@@ -194,6 +195,95 @@ def test_the_seed_comes_from_the_config_not_the_constraints_tree(tmp_path):
 
     assert " RELIP = 0.32" in text
     assert " RZERO = 0.4" in text
+
+
+def test_the_coil_groups_come_from_the_machine_not_from_a_written_down_list():
+    """The 16- and 26-coil conventions are gone, and this is what replaced them.
+
+    VEST energises ten PF circuits. EFIT's table carries sixteen current
+    groups over them, and that mapping used to live in a hard-coded
+    twenty-six-entry coil list plus a table of positions picking sixteen of
+    it. Both are deleted: each group's circuit is derived from its own name
+    and the grouping from each element's own position, in the one module that
+    also projects the F-coil groups for EFUND.
+    """
+    from vaft.machine_mapping.efund_geometry import (
+        EFIT16_GROUP_NAMES,
+        EFIT16_SOURCE_CIRCUIT,
+        efit16_group_for_element,
+    )
+
+    assert len(EFIT16_GROUP_NAMES) == 16
+    assert [EFIT16_SOURCE_CIRCUIT[name] for name in EFIT16_GROUP_NAMES] == (
+        ["PF1"] * 8 + ["PF5", "PF5", "PF6", "PF6", "PF9", "PF9", "PF10", "PF10"]
+    )
+    assert efit16_group_for_element("PF1", 0.15) == "PF1-1"
+    assert efit16_group_for_element("PF1", 1.10) == "PF1-4"
+    assert efit16_group_for_element("PF1", -0.15) == "PF1-5"
+    assert efit16_group_for_element("PF9", 1.0) == "PF9U"
+    assert efit16_group_for_element("PF9", -1.0) == "PF9L"
+    for absent in ("PF2", "PF3", "PF4", "PF7", "PF8"):
+        assert efit16_group_for_element(absent, 0.5) is None
+
+    # The old names are gone from the package, not merely unused.
+    import vaft.code.efit as package
+    import vaft.code.efit.kfile as kfile_module
+    import vaft.code.efit.legacy as legacy_module
+
+    for gone in ("vfit_pf_active_efit26", "efit16_group_indices", "EFIT16_GROUP_POSITIONS"):
+        assert not hasattr(package, gone), gone
+        assert not hasattr(kfile_module, gone), gone
+        assert not hasattr(legacy_module, gone), gone
+
+
+def test_the_coil_currents_fan_one_circuit_out_to_its_groups():
+    """A split group is bookkeeping: it does not split the current.
+
+    Every solenoid segment carries PF1's measured current and each pair
+    carries its own circuit's, which is what the deleted twenty-six-entry
+    fan-out did by hand. Circuits are matched by name, so a reordered
+    `pf_active` cannot silently swap two coils.
+    """
+    from omas import ODS
+
+    from vaft.code.efit.kfile import build_efit_coil_currents
+
+    source = ODS(consistency_check=False)
+    source["pf_active.time"] = np.linspace(0.25, 0.40, 64)
+    # Deliberately not in PF1..PF10 order: a positional reading would break.
+    for index, name in enumerate(
+        ["PF10", "PF9", "PF8", "PF7", "PF6", "PF5", "PF4", "PF3", "PF2", "PF1"]
+    ):
+        source[f"pf_active.coil.{index}.name"] = name
+        source[f"pf_active.coil.{index}.current.data"] = np.full(64, float(name[2:]))
+
+    built = ODS(consistency_check=False)["pf_active"]
+    build_efit_coil_currents(built, source["pf_active"], tstart=0.26, tend=0.36, dt=4e-5)
+
+    assert len(built["coil"]) == 16
+    currents = [float(built[f"coil.{i}.current.data"][0]) for i in range(16)]
+    assert currents == [1.0] * 8 + [5.0, 5.0, 6.0, 6.0, 9.0, 9.0, 10.0, 10.0]
+    assert [str(built[f"coil.{i}.name"]) for i in range(16)] == list(EFIT16_GROUP_NAMES)
+
+
+def test_a_pf_active_missing_a_driven_circuit_is_refused():
+    """Silently writing a zero current for a missing coil would be worse."""
+    from omas import ODS
+
+    from vaft.code.efit.kfile import build_efit_coil_currents
+
+    partial = ODS(consistency_check=False)
+    partial["pf_active.time"] = np.linspace(0.25, 0.40, 64)
+    partial["pf_active.coil.0.name"] = "PF1"
+    partial["pf_active.coil.0.current.data"] = np.zeros(64)
+    with pytest.raises(ValueError, match="PF10, PF5, PF6, PF9"):
+        build_efit_coil_currents(
+            ODS(consistency_check=False)["pf_active"],
+            partial["pf_active"],
+            tstart=0.26,
+            tend=0.36,
+            dt=4e-5,
+        )
 
 
 def test_legacy_profile_order_arguments_remain_supported(tmp_path):

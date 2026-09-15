@@ -15,13 +15,18 @@ the era through :func:`vaft.omas.vest_upstream.machine_era_for_shot` and builds
 the static ODS for it; this module only projects what it is handed (issue #191
 forbids duplicating shot-boundary logic in EFUND code).
 
-The F-coil grouping is the existing EFIT convention, not a new one: the k-file
-writer selects sixteen of the twenty-six legacy coil channels
-(:func:`vaft.code.efit.kfile.efit16_group_indices`) -- PF1 as eight axial
-segments plus the upper/lower halves of PF5, PF6, PF9 and PF10 -- and the
-routine constraint matrix ties every PF1 segment to the same current.  PF2,
-PF3, PF4, PF7 and PF8 are not in that set; they are absent from the table
+The F-coil grouping is defined here and nowhere else: PF1 as eight axial
+segments plus the upper and lower halves of PF5, PF6, PF9 and PF10, assigned
+from each element's own position by :func:`efit16_group_for_element`.  PF2,
+PF3, PF4, PF7 and PF8 carry no EFIT group; they are absent from the table
 exactly as they are absent from the k-file.
+
+VEST has ten PF circuits, and sixteen groups is EFIT's bookkeeping over them,
+not a different machine: the eight PF1 segments are one solenoid on one
+current, and PF5, PF6, PF9 and PF10 are each one circuit split at the
+midplane.  :data:`EFIT16_SOURCE_CIRCUIT` is that map, and it is what lets the
+k-file be written from the ten measured circuits without an intermediate
+coil list.
 """
 
 from __future__ import annotations
@@ -34,7 +39,9 @@ import numpy as np
 
 __all__ = [
     "EFIT16_GROUP_NAMES",
+    "EFIT16_SOURCE_CIRCUIT",
     "PF1_SEGMENT_EDGES",
+    "efit16_group_for_element",
     "EFUNDGeometry",
     "efund_geometry_from_static",
     "efund_probe_angle_deg",
@@ -43,9 +50,7 @@ __all__ = [
     "vest_acceptance_envelope",
 ]
 
-#: The sixteen EFIT current groups, in k-file order.  Same names and order as
-#: ``vaft.code.efit.legacy.vfit_pf_active_efit26`` restricted by
-#: ``vaft.code.efit.kfile.efit16_group_indices``.
+#: The sixteen EFIT current groups, in k-file order.
 EFIT16_GROUP_NAMES: tuple[str, ...] = (
     "PF1-1",
     "PF1-2",
@@ -72,6 +77,15 @@ EFIT16_GROUP_NAMES: tuple[str, ...] = (
 PF1_SEGMENT_EDGES: tuple[float, ...] = (0.0, 0.3, 0.6, 0.9, 1.2)
 
 _PF1_SEGMENT_TOLERANCE = 1.0e-9
+
+#: Which measured circuit drives each group.  VEST energises one solenoid and
+#: one coil per shaping pair, so eight groups share PF1's current and the rest
+#: come in upper/lower pairs off a single circuit each.  Splitting a circuit
+#: into groups is EFIT's bookkeeping; it does not split the current.
+EFIT16_SOURCE_CIRCUIT: dict[str, str] = {
+    name: ("PF1" if name.startswith("PF1-") else name[:-1])
+    for name in EFIT16_GROUP_NAMES
+}
 
 
 def rectangle_from_outline(
@@ -161,8 +175,12 @@ def _pf1_segment(z: float) -> int:
     raise AssertionError("unreachable")
 
 
-def _group_of(coil_name: str, z: float) -> str | None:
-    """EFIT group for a canonical coil element, or ``None`` outside the set."""
+def efit16_group_for_element(coil_name: str, z: float) -> str | None:
+    """EFIT group for a canonical coil element, or ``None`` outside the set.
+
+    The assignment is made from the element's own position, so the grouping
+    follows the machine description rather than a list written down beside it.
+    """
     if coil_name == "PF1":
         return EFIT16_GROUP_NAMES[_pf1_segment(z)]
     if coil_name in ("PF5", "PF6", "PF9", "PF10"):
@@ -284,7 +302,7 @@ def _fcoils(ods: Any) -> dict[str, Any]:
                     f"(geometry_type {int(geometry['geometry_type'])})"
                 )
             z = float(geometry["rectangle.z"])
-            group = _group_of(coil_name, z)
+            group = efit16_group_for_element(coil_name, z)
             if group is None:
                 continue
             by_group[group].append(

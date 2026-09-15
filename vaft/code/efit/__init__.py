@@ -39,7 +39,6 @@ from .legacy import (
     gauss_fit4,
     min_gauss_fit4,
     vfit_equilibrium_form_constraints,
-    vfit_pf_active_efit26,
     correct_flux_loop,
     vfit_signal_startend,
     smooth,

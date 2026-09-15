@@ -12,8 +12,6 @@ import f90nml
 import numpy as np
 import pytest
 
-from vaft.code.efit.kfile import efit16_group_indices
-from vaft.code.efit.legacy import vfit_pf_active_efit26
 from vaft.data.resources import data_path
 from vaft.machine_mapping.efund_geometry import (
     EFIT16_GROUP_NAMES,
@@ -44,17 +42,6 @@ def packaged_mhdin():
     return f90nml.read(str(data_path("efit/mhdin.dat")))
 
 
-def _legacy_26_names() -> list[str]:
-    # The name list is a local of the legacy mapper; read it off the source
-    # rather than duplicating it, so the two cannot drift apart silently.
-    import inspect
-
-    source = inspect.getsource(vfit_pf_active_efit26)
-    start = source.index("PFname = [")
-    end = source.index("]", start)
-    return [item.strip().strip('"') for item in source[start + len("PFname = [") : end].split(",") if item.strip()]
-
-
 def test_counts_are_the_legacy_table_counts_with_the_canonical_pf1(geometry):
     assert geometry.counts() == {
         "nfcoil": 302,
@@ -69,11 +56,23 @@ def test_counts_are_the_legacy_table_counts_with_the_canonical_pf1(geometry):
     }
 
 
-def test_fcoil_groups_are_the_k_file_selection(geometry):
-    names = _legacy_26_names()
-    selected = [names[index] for index in efit16_group_indices(26, 16)]
-    assert selected == list(EFIT16_GROUP_NAMES)
+def test_fcoil_groups_are_the_k_file_groups(geometry):
+    """One definition of the sixteen groups, shared by the table and the k-file.
+
+    The names, their order and the circuit each is driven by live in
+    `efund_geometry`; the k-file builds its coil currents from the same map.
+    A second list written down anywhere else is how the table and the k-file
+    would come to disagree about which coils exist.
+    """
+    from vaft.machine_mapping.efund_geometry import EFIT16_SOURCE_CIRCUIT
+
     assert geometry.group_names == EFIT16_GROUP_NAMES
+    assert len(EFIT16_GROUP_NAMES) == 16
+    # Eight solenoid segments on one circuit, then four pairs split at the
+    # midplane: sixteen groups over five of the machine's ten circuits.
+    assert [EFIT16_SOURCE_CIRCUIT[name] for name in EFIT16_GROUP_NAMES] == (
+        ["PF1"] * 8 + ["PF5", "PF5", "PF6", "PF6", "PF9", "PF9", "PF10", "PF10"]
+    )
     assert set(np.unique(geometry.fcoil_group)) == set(range(1, 17))
     # Elements are grouped contiguously in group order.
     assert np.all(np.diff(geometry.fcoil_group) >= 0)
@@ -221,6 +220,14 @@ def test_packaged_vessel_loops_and_probes_match_the_projection(geometry, package
 
 
 def test_packaged_pf_groups_agree_on_centroids_and_turns_but_not_discretization(geometry, packaged_mhdin):
+    """The legacy namelist as an independent check on the canonical geometry.
+
+    `vaft/data/efit/mhdin.dat` is kept precisely for this: it describes the
+    same machine, written by other hands, so agreeing with it on centroids and
+    turns is evidence the projection is right rather than merely
+    self-consistent. It lumps each coil where the projection resolves
+    filaments, which is the one thing it must disagree about.
+    """
     in3 = packaged_mhdin["in3"]
     assert packaged_mhdin["machinein"]["nfcoil"] == 16 != geometry.nfcoil
     rows = geometry.group_summary()
