@@ -248,6 +248,7 @@ def check_imas_mapping() -> CheckResult:
     right.
     """
     try:
+        from vaft.code.gacode.neo import run_neo_conductivity_case  # noqa: F401
         from vaft.machine_mapping.neoclassical import (  # noqa: F401
             core_profiles_from_neo,
             core_transport_from_neo,
@@ -262,12 +263,14 @@ def check_imas_mapping() -> CheckResult:
     return CheckResult(
         "IMAS mapping",
         WARN,
-        "bootstrap current maps to core_profiles and the particle/energy fluxes to "
-        "core_transport; conductivity, flows and the analytic theory columns stay native",
-        "Expected. conductivity_parallel needs a second NEO run (EPAR0=1 with the "
-        "gradient scales zeroed), and global_quantities.current_bootstrap is a toroidal "
-        "current, not the integral of the parallel one this writes. Read everything else "
-        "through vaft.code.gacode.neo.collect_neo_outputs.",
+        "bootstrap current and conductivity map to core_profiles and the "
+        "particle/energy fluxes to core_transport; flows and the analytic theory "
+        "columns stay native",
+        "Expected. conductivity_parallel comes from a second, gradient-free run -- "
+        "run_neo_conductivity_case stages it, and core_profiles_from_neo takes it as "
+        "conductivity=. global_quantities.current_bootstrap is a toroidal current, not "
+        "the integral of the parallel one this writes. Read everything else through "
+        "vaft.code.gacode.neo.collect_neo_outputs.",
     )
 
 

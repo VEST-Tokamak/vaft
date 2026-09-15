@@ -131,3 +131,82 @@ def prepare_neo_case(
             "species": tuple(profile.name),
         },
     )
+
+def conductivity_parameters(
+    config: NEOConfig, profile: Optional[GACODEProfile] = None
+) -> dict[str, Any]:
+    """The settings that turn a transport case into a conductivity case.
+
+    NEO does not report a parallel conductivity from a transport solve. The way
+    ``vgen`` obtains one (``vgen/src/vgen_compute_neo.f90:240-260``) is to run the
+    same case again with a unit parallel electric field and every density and
+    temperature gradient switched off: what comes back as ``jpar`` is then the
+    response to the field alone, and dividing by the field gives ``sigma``.
+
+    In file-driven terms that is ``EPAR0=1`` plus ``PROFILE_DLNNDR_<n>_SCALE`` and
+    ``PROFILE_DLNTDR_<n>_SCALE`` set to zero for every species, electrons included.
+    Assembling those by hand is the thing this function exists to prevent: one
+    unzeroed species leaves part of the bootstrap drive in the answer, and the
+    result is still a plausible-looking conductivity.
+
+    The physics settings are the transport case's, unchanged, so the two runs
+    describe the same plasma. A caller who has already set ``EPAR0`` in
+    ``extra_parameters`` is overridden here and told so through the returned
+    parameters, which are what gets written and recorded.
+    """
+    parameters = neo_parameters(config, profile)
+    species = int(parameters["N_SPECIES"])
+    parameters["EPAR0"] = 1.0
+    for index in range(1, species + 1):
+        parameters[f"PROFILE_DLNNDR_{index}_SCALE"] = 0.0
+        parameters[f"PROFILE_DLNTDR_{index}_SCALE"] = 0.0
+    return parameters
+
+
+def prepare_neo_conductivity_case(
+    profile: GACODEProfile,
+    workdir: str | Path,
+    config: Optional[NEOConfig] = None,
+) -> NEOInputs:
+    """Stage the gradient-free companion run that yields a conductivity.
+
+    The counterpart of :func:`prepare_neo_case`, differing only in the parameters
+    from :func:`conductivity_parameters`. It records ``run_mode`` in provenance so
+    a finished directory says which of the two problems it solved -- the two are
+    otherwise indistinguishable from their outputs, and mistaking one for the
+    other would read a bootstrap current as a conductivity.
+    """
+    configuration = config or NEOConfig()
+    directory = Path(workdir)
+    directory.mkdir(parents=True, exist_ok=True)
+
+    if int(configuration.profile_model) >= PROFILE_MODEL_EXPERIMENTAL:
+        absent = profile.check_neo_requirements()
+        if absent:
+            raise ValueError(
+                f"PROFILE_MODEL={configuration.profile_model} reads input.gacode, but "
+                f"the profile is missing {', '.join(absent)}. Nothing is substituted; "
+                "supply them or use PROFILE_MODEL=1 with local parameters."
+            )
+
+    parameters = conductivity_parameters(configuration, profile)
+    input_gacode = write_input_gacode(profile, directory / "input.gacode")
+    input_neo = write_input_neo(parameters, directory / "input.neo")
+    return NEOInputs(
+        workdir=directory,
+        files=(input_gacode, input_neo),
+        profile=profile,
+        input_neo=input_neo,
+        input_gacode=input_gacode,
+        parameters=parameters,
+        provenance={
+            "run_mode": "conductivity",
+            "epar0": 1.0,
+            "gradients_zeroed": True,
+            "recipe": "vgen/src/vgen_compute_neo.f90:240-260",
+            "profile": dict(profile.provenance),
+            "n_exp": profile.n_exp,
+            "n_ion": profile.n_ion,
+            "species": tuple(profile.name),
+        },
+    )
