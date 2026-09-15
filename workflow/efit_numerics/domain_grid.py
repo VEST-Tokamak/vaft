@@ -309,29 +309,23 @@ def outcome(record: dict[str, Any]) -> str:
 
 
 def phases(ods, times: np.ndarray) -> dict[int, str]:
-    """Ramp-up, flat-top and ramp-down, from the plasma current itself.
+    """Ramp-up, flat-top and ramp-down, keyed by integer millisecond.
 
-    #459 asks for phase-resolved summaries and #579's semantics where
-    practical. The boundary used here is nine tenths of the peak current,
-    stated rather than tuned: everything at or above it is the flat top, and
-    the rest is named by which side of the peak it falls on.
+    The rule itself moved to `vaft.validation.classify_equilibrium_regimes`
+    (#76), where it is configuration with its measurement attached, so that
+    this study and the profile-model study cannot drift into classifying the
+    same slice differently. This is the local spelling: the same labels, with
+    `flat` written as `flat_top` because that is the name already in this
+    study's stored tables.
     """
-    current = np.asarray(
-        [
-            abs(float(ods[f"equilibrium.time_slice.{index}.constraints.ip.measured"]))
-            for index in range(times.size)
-        ],
-        dtype=float,
-    )
-    peak = int(np.argmax(current))
-    threshold = 0.9 * current[peak]
+    from vaft.validation import classify_equilibrium_regimes
+
     labels = {}
-    for index, time in enumerate(times):
-        key = int(round(float(time) * 1000.0))
-        if current[index] >= threshold:
-            labels[key] = "flat_top"
-        else:
-            labels[key] = "ramp_up" if index < peak else "ramp_down"
+    for index, item in enumerate(classify_equilibrium_regimes(ods)):
+        if index >= times.size:
+            break
+        key = int(round(float(times[index]) * 1000.0))
+        labels[key] = "flat_top" if item.phase == "flat" else item.phase
     return labels
 
 
