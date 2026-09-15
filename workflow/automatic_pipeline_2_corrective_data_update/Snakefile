@@ -1,0 +1,271 @@
+###############################################################################
+#  Pipeline 2 -- the Thomson lineage
+#  Usage: snakemake --snakefile Snakefile --configfile config.yaml --cores 8
+###############################################################################
+#
+# Externally uploaded profile diagnostics and what is derived from them. Every
+# stage here is optional in the #305 sense: most VEST shots carry no Thomson
+# upload at all, and that is a normal result rather than a failure. Each stage
+# records its own absence and exits 0, so this pipeline can be pointed at the
+# whole shot range without a shot without diagnostics failing the run.
+#
+# Pipeline 1's products (`efit`, its constraints) are passed as **params, not
+# inputs**. Declaring them as inputs would make Snakemake raise for a shot
+# pipeline 1 never reconstructed, which is exactly the case the stages are
+# written to record instead.
+
+import sys
+from pathlib import Path
+
+configfile: "config.yaml"
+
+SCRIPT_DIR = Path(workflow.basedir)
+PIPELINE1_DIR = SCRIPT_DIR.parent / "automatic_pipeline_1_routine_data_processing"
+sys.path.insert(0, str(PIPELINE1_DIR))
+from paths import FILEDB, PipelinePaths
+
+from vaft.database.sources import replicable_stages
+
+PATHS = PipelinePaths.from_config(config)
+if PATHS.layout != FILEDB:
+    raise WorkflowError(
+        "Pipeline 2 requires layout: filedb. Its stages are canonical-layout "
+        "only -- the shot-first tree is a read-only legacy reference and never "
+        "carried them (issues #89, #138)."
+    )
+
+BASE_DIR = config["base_dir"]
+SHOTS = config["shots"]
+CONDA = config.get("conda")
+
+EXTERNAL = config.get("external", {})
+DATA_ROOT = EXTERNAL.get("data_root", "")
+CES_OPTIONS = EXTERNAL.get("ces_options", "ces")
+
+KINETIC_CONFIG = config.get("kinetic", {})
+KINETIC_ENCODING = KINETIC_CONFIG.get("encoding", "raw6")
+KINETIC_EXECUTABLE = KINETIC_CONFIG.get("executable", "")
+
+HSDS_CONFIG = config.get("hsds", {}) or {}
+REPLICATION_ENABLED = bool(HSDS_CONFIG.get("replicate", False))
+REPLICATION_ATTEMPTS = HSDS_CONFIG.get("attempts", 3)
+REPLICATION_RETRY_DELAY = HSDS_CONFIG.get("retry_delay", 5.0)
+# Same bound as pipeline 1: uploads are limited by the HSDS deployment, not by
+# local cores, and 30 parallel uploads against a 4-node server failed on almost
+# every shot.
+REPLICATION_CONCURRENCY = HSDS_CONFIG.get("concurrency", 4)
+workflow.global_resources.setdefault("hsds", REPLICATION_CONCURRENCY)
+
+# The Thomson lineage: a deliberate *subset* of the corrective stages, not all
+# of them. Soft X-ray and camera are ingested by
+# `ingest_external_diagnostics.py`, and `neoclassical` belongs to the GACODE
+# chain, so each has its own producer and none of them belongs in this DAG.
+#
+# Named here rather than derived, because "which stages does this pipeline
+# build" is a real decision -- but checked against the registry, so a stage
+# renamed or retired there fails the run instead of silently dropping out of it.
+THOMSON_LINEAGE = ("thomson", "ces", "core_profiles", "electron_efit", "kinetic_efit")
+_CORRECTIVE = frozenset(replicable_stages(produced_by="corrective"))
+_UNREGISTERED = tuple(stage for stage in THOMSON_LINEAGE if stage not in _CORRECTIVE)
+if _UNREGISTERED:
+    raise WorkflowError(
+        "These stages are not registered as corrective products in "
+        "vaft.database.sources.STAGE_REPLICATION: "
+        + ", ".join(_UNREGISTERED)
+        + ". A workflow consumes the registry rather than restating it, so a "
+        "stage renamed there must be renamed here too."
+    )
+
+STAGES = THOMSON_LINEAGE
+REPLICATE_SCRIPT = PIPELINE1_DIR / "replicate_to_hsds.py"
+
+
+def constraints_for(wildcards):
+    """Pipeline 1's EFIT constraints for this shot.
+
+    A callable rather than a `{shot}`-bearing pattern string: Snakemake does
+    expand braces inside a plain param, but silently, and a path carrying a
+    brace that is not a wildcard would be mangled rather than rejected. Pipeline
+    1 passes its equivalent the same way.
+    """
+    return PATHS.constraints_ods(wildcards.shot)
+
+
+def efit_for(wildcards):
+    """Pipeline 1's magnetic EFIT solution for this shot."""
+    return PATHS.efit_ods(wildcards.shot)
+
+
+def stage_products(shots):
+    return [PATHS.shot_pattern(stage + "_ods").format(shot=shot)
+            for shot in shots for stage in STAGES]
+
+
+def replication_records(shots):
+    return [PATHS.replication_record(shot, stage)
+            for shot in shots for stage in STAGES]
+
+
+rule all:
+    input:
+        replication_records(SHOTS) if REPLICATION_ENABLED else stage_products(SHOTS)
+
+
+############################################################
+# The uploads
+############################################################
+rule generate_thomson_ods:
+    output:
+        ods=PATHS.shot_pattern("thomson_ods"),
+        manifest=PATHS.shot_pattern("thomson_manifest")
+    log:
+        PATHS.shot_pattern("log", "generate_thomson_ods")
+    params:
+        data_root=DATA_ROOT
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_thomson_ods.py \
+            --shot {wildcards.shot} \
+            --data-root "{params.data_root}" \
+            --output {output.ods} \
+            --metadata {output.manifest} \
+            > {log} 2>&1
+        """
+
+
+rule generate_ces_ods:
+    output:
+        ods=PATHS.shot_pattern("ces_ods"),
+        manifest=PATHS.shot_pattern("ces_manifest")
+    log:
+        PATHS.shot_pattern("log", "generate_ces_ods")
+    params:
+        data_root=DATA_ROOT,
+        options=CES_OPTIONS
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_ces_ods.py \
+            --shot {wildcards.shot} \
+            --data-root "{params.data_root}" \
+            --options {params.options} \
+            --output {output.ods} \
+            --metadata {output.manifest} \
+            > {log} 2>&1
+        """
+
+
+############################################################
+# The mapping
+############################################################
+rule generate_core_profiles_ods:
+    input:
+        thomson=PATHS.shot_pattern("thomson_ods"),
+        ces=PATHS.shot_pattern("ces_ods")
+    output:
+        ods=PATHS.shot_pattern("core_profiles_ods"),
+        manifest=PATHS.shot_pattern("core_profiles_manifest")
+    log:
+        PATHS.shot_pattern("log", "generate_core_profiles_ods")
+    params:
+        # Pipeline 1's product. A param, not an input: a shot it never
+        # reconstructed must be recorded, not raised (see the header).
+        efit=efit_for
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_core_profiles_ods.py \
+            --shot {wildcards.shot} \
+            --thomson-product {input.thomson} \
+            --ces-product {input.ces} \
+            --efit-product {params.efit} \
+            --output {output.ods} \
+            --metadata {output.manifest} \
+            > {log} 2>&1
+        """
+
+
+############################################################
+# The kinetic lineages
+############################################################
+# Both are asked for every shot and at most one can apply: whichever the
+# core-profile product did not measure records itself unavailable and exits 0.
+for _stage in ("electron_efit", "kinetic_efit"):
+
+    rule:
+        name: "generate_" + _stage + "_ods"
+        input:
+            core_profiles=PATHS.shot_pattern("core_profiles_ods")
+        output:
+            ods=PATHS.shot_pattern(_stage + "_ods"),
+            manifest=PATHS.shot_pattern(_stage + "_manifest")
+        log:
+            PATHS.shot_pattern("log", "generate_" + _stage + "_ods")
+        params:
+            stage=_stage,
+            constraints=constraints_for,
+            efit=efit_for,
+            encoding=KINETIC_ENCODING,
+            executable=KINETIC_EXECUTABLE
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p $(dirname {log})
+            python {SCRIPT_DIR}/generate_kinetic_efit_ods.py \
+                --shot {wildcards.shot} \
+                --stage {params.stage} \
+                --core-profiles-product {input.core_profiles} \
+                --constraints-product {params.constraints} \
+                --efit-product {params.efit} \
+                --encoding {params.encoding} \
+                --executable "{params.executable}" \
+                --output {output.ods} \
+                --metadata {output.manifest} \
+                > {log} 2>&1
+            """
+
+
+############################################################
+# Replication
+############################################################
+# One rule per stage rather than per shot, as in pipeline 1: a failed kinetic
+# replication cannot then invalidate a Thomson product that already reached
+# `main`, and a retry re-sends only what failed.
+if REPLICATION_ENABLED:
+
+    for _stage in STAGES:
+
+        rule:
+            name: "replicate_" + _stage + "_to_hsds"
+            input:
+                ods=PATHS.shot_pattern(_stage + "_ods"),
+                manifest=PATHS.shot_pattern(_stage + "_manifest")
+            output:
+                record=PATHS.shot_pattern("replication_record", _stage)
+            log:
+                PATHS.shot_pattern("log", "replicate_" + _stage + "_to_hsds")
+            params:
+                stage=_stage
+            resources:
+                hsds=1
+            conda:
+                CONDA if CONDA else None
+            shell:
+                """
+                mkdir -p $(dirname {log})
+                python {REPLICATE_SCRIPT} \
+                    --shot {wildcards.shot} \
+                    --stage {params.stage} \
+                    --filedb-root {BASE_DIR} \
+                    --attempts {REPLICATION_ATTEMPTS} \
+                    --retry-delay {REPLICATION_RETRY_DELAY} \
+                    > {log} 2>&1
+                """
