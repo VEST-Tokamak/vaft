@@ -117,9 +117,17 @@ class TestTemporalBackgroundSubtraction:
         with pytest.raises(ValueError, match="at least 2"):
             subtract_temporal_background(np.zeros((10, 2, 2)), window_frames=1)
 
-    def test_a_window_longer_than_the_record_is_refused(self):
-        with pytest.raises(ValueError, match="exceeds"):
-            subtract_temporal_background(np.zeros((10, 2, 2)), window_frames=11)
+    def test_a_window_longer_than_the_record_clips_the_same_way(self):
+        """Allowed, and every frame is then measured against the whole record.
+
+        Refusing it would make the answer depend on how many frames a caller
+        passed rather than on the window asked for -- and the views read a span
+        around one frame, so a short acquisition would silently get a different
+        background from a long one.
+        """
+        frames = np.arange(10, dtype=float).reshape(10, 1, 1)
+        result = subtract_temporal_background(frames, window_frames=101)
+        np.testing.assert_allclose(result[:, 0, 0], np.arange(10) - 4.5)
 
 
 class TestSummedRegionSignal:
@@ -172,6 +180,14 @@ class TestThePublishedWindow:
 
 
 class TestPixelwiseSpectrogram:
+    def test_a_non_uniform_time_axis_is_refused(self):
+        """The 1-D sibling rejects it; a median step would silently mis-scale the axis."""
+        _, frames = _tone_cube(6_000.0, n_frames=300)
+        time = np.arange(300) / FRAME_RATE
+        time[150:] += 0.01
+        with pytest.raises(ValueError, match="uniformly sampled"):
+            pixelwise_spectrogram(frames, time, window_frames=50)
+
     def test_the_axes_lead_and_the_pixels_trail(self):
         time, frames = _tone_cube(6_000.0, n_frames=300, shape=(4, 5))
         result = pixelwise_spectrogram(frames, time, window_frames=50)

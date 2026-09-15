@@ -87,6 +87,30 @@ class TestTheFluctuationFrame:
             expected = subtract_temporal_background(frames, window_frames=15)[target]
             np.testing.assert_allclose(model.values, expected, atol=1e-9, err_msg=f"frame {target}")
 
+    def test_a_record_shorter_than_the_window_still_gets_that_window(self):
+        """Published shot 28928 holds fourteen frames; the preset is fifteen.
+
+        Clamping the window to the record would substitute a narrower background
+        than the one the title claims, and would make a short acquisition differ
+        from a fourteen-frame stretch of a long one.
+        """
+        n_frames = 14
+        time = np.arange(n_frames) / FRAME_RATE + 0.3
+        frames = (np.arange(n_frames)[:, None, None] * np.ones((1, ROWS, COLS))).astype(int)
+        ods = ODS()
+        vfit_camera_visible_static(ods, lines_n=ROWS, columns_n=COLS)
+        vfit_camera_visible_dynamic(ods, images=list(frames), times_s=list(time))
+
+        model = build_model(
+            "camera_visible_image_fluctuation", _entries(ods), frame_index=0
+        )
+        # The 15-frame window centred on frame 0 clips to frames 0..7.
+        assert model.values[0, 0] == pytest.approx(0.0 - np.arange(0, 8).mean())
+        expected = subtract_temporal_background(
+            np.asarray(frames, dtype=float), window_frames=15
+        )[0]
+        np.testing.assert_allclose(model.values, expected, atol=1e-9)
+
     def test_the_background_window_reaches_the_analysis(self, camera_ods):
         ods, _time, frames = camera_ods
         narrow = build_model(
@@ -173,6 +197,36 @@ class TestTheCameraSpectrogram:
         figure, axes = vaft.omas.plot_camera_visible_spectrogram(ods, nperseg=50)
         assert figure is not None and axes.collections
 
+    def test_it_gets_the_shared_default_display_band(self):
+        """The content is at 6 kHz of a 25 kHz axis; #765's rule must apply here too.
+
+        A quieter scene than the shared fixture: `image_raw` is an integer node,
+        so a 15-count oscillation carries a rounding floor near 1% of its own
+        peak, which is exactly the level at which the shared rule -- correctly --
+        declines to zoom.
+        """
+        n_frames = 200
+        time = np.arange(n_frames) / FRAME_RATE + 0.3
+        frames = np.full((n_frames, ROWS, COLS), 2_000.0)
+        frames[:, :, COLS // 2 :] += 400.0 * np.sin(2 * np.pi * 6_000.0 * time)[:, None, None]
+        ods = ODS()
+        vfit_camera_visible_static(ods, lines_n=ROWS, columns_n=COLS)
+        vfit_camera_visible_dynamic(ods, images=list(frames.astype(int)), times_s=list(time))
+
+        region = (0, ROWS, COLS // 2, COLS)
+        model = build_model(
+            "camera_visible_spectrogram", _entries(ods), region=region, nperseg=50
+        )
+        assert model.max_frequency is not None
+        assert model.max_frequency < model.frequency[-1] / 2, (
+            "a 6 kHz component on a 25 kHz axis must not be drawn on the whole band"
+        )
+        explicit = build_model(
+            "camera_visible_spectrogram", _entries(ods), region=region,
+            nperseg=50, max_frequency=20_000.0,
+        )
+        assert explicit.max_frequency == 20_000.0
+
 
 class TestTheMhdPowerImage:
     def test_the_band_is_the_one_asked_for(self, camera_ods):
@@ -207,11 +261,24 @@ class TestTheMhdPowerImage:
 
     def test_a_record_too_short_for_the_transform_is_refused(self, camera_ods):
         ods, _time, _frames = camera_ods
-        with pytest.raises(ValueError, match="needs 400 frames"):
+        with pytest.raises(ValueError, match="the record holds 200"):
             build_model(
                 "camera_visible_image_mhd_power", _entries(ods),
                 frame_index=100, window_frames=400,
             )
+
+    @pytest.mark.parametrize("target", [0, 3, 100, 196, 199])
+    def test_a_frame_near_either_end_still_gets_its_window(self, camera_ods, target):
+        """The span slides inwards; a frame near the start is not centred but is
+        perfectly analysable, and refusing it would make the first and last
+        millisecond of every movie unreachable."""
+        ods, _time, _frames = camera_ods
+        model = build_model(
+            "camera_visible_image_mhd_power", _entries(ods),
+            frame_index=target, centre_frequency=6_000.0,
+        )
+        assert np.all(np.isfinite(model.values))
+        assert model.values.shape == (ROWS, COLS)
 
     def test_it_renders(self, camera_ods):
         ods, _time, _frames = camera_ods

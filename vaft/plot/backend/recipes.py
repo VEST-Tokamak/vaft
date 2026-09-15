@@ -4150,7 +4150,10 @@ def _build_camera_visible_image_fluctuation(ods: Any, **options: Any) -> Image2D
     cube = _camera_visible_frame_window(
         ods, channel=channel, detector=detector, first=first, last=last
     )
-    fluctuation = subtract_temporal_background(cube, window_frames=min(window, cube.shape[0]))
+    # Not clamped to the cube: the span above already holds every frame the
+    # whole-record window would average, and clamping would substitute a
+    # narrower window whenever the record is shorter than the one asked for.
+    fluctuation = subtract_temporal_background(cube, window_frames=window)
     channel_name = _camera_visible_channel_name(ods, channel)
     title = options.get(
         "title",
@@ -4198,9 +4201,7 @@ def _camera_visible_region_signal(ods: Any, **options: Any):
     ]
     summed = summed_region_signal(np.stack(frames), region=region)
     background = int(options.get("background_frames", BACKGROUND_FRAMES_50KFPS))
-    fluctuation = subtract_temporal_background(
-        summed[:, None], window_frames=min(background, summed.size)
-    )[:, 0]
+    fluctuation = subtract_temporal_background(summed[:, None], window_frames=background)[:, 0]
     return times[keep], fluctuation, region
 
 
@@ -4226,7 +4227,10 @@ def _build_camera_visible_spectrogram(ods: Any, **options: Any) -> Spectrogram:
     where = "whole frame" if region is None else f"rows {region[0]}-{region[1]}, columns {region[2]}-{region[3]}"
     return Spectrogram.from_result(
         result,
-        max_frequency=options.get("max_frequency"),
+        # Through the shared rule, like every other spectrogram here: a camera
+        # analysed to 25 kHz whose content sits at 3-5 kHz otherwise renders
+        # almost empty (#765).
+        max_frequency=_display_ceiling(result, options),
         cmap=options.get("cmap", "hot_r"),
         title=options.get("title", f"{channel_name} summed intensity -- {where}"),
         value_label="Intensity fluctuation",
@@ -4261,21 +4265,27 @@ def _build_camera_visible_image_mhd_power(ods: Any, **options: Any) -> Image2D:
     times = _camera_visible_frame_times(ods, channel=channel, detector=detector)
     background = int(options.get("background_frames", BACKGROUND_FRAMES_50KFPS))
     transform = int(options.get("window_frames", SPECTRAL_WINDOW_FRAMES_50KFPS))
-    span = transform // 2 + background // 2 + 1
-    first = max(0, idx - span)
-    last = min(times.size - 1, idx + span)
-    if last - first + 1 < transform:
+    if times.size < transform:
         raise ValueError(
-            f"a {transform}-frame transform needs {transform} frames around frame {idx}; "
-            f"only {last - first + 1} are available"
+            f"a {transform}-frame transform needs {transform} frames; the record holds "
+            f"{times.size}. Pass a shorter window_frames."
         )
+    # Centred on the frame where the record allows it, and slid inwards rather
+    # than truncated at either end: a frame near the start of a long movie has a
+    # perfectly good window, it just is not centred on it.
+    span = transform // 2 + background // 2 + 1
+    first = min(max(0, idx - span), times.size - 1)
+    last = max(min(times.size - 1, idx + span), 0)
+    if last - first + 1 < transform:
+        shortfall = transform - (last - first + 1)
+        take_before = min(shortfall, first)
+        first -= take_before
+        last = min(times.size - 1, last + (shortfall - take_before))
     cube = _camera_visible_frame_window(
         ods, channel=channel, detector=detector, first=first, last=last
     )
     window_times = times[first : last + 1]
-    fluctuation = subtract_temporal_background(
-        cube, window_frames=min(background, cube.shape[0])
-    )
+    fluctuation = subtract_temporal_background(cube, window_frames=background)
     spectrogram = pixelwise_spectrogram(
         fluctuation, window_times, window_frames=transform,
         overlap=float(options.get("overlap", 0.5)),

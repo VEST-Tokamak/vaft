@@ -89,6 +89,10 @@ MHD_BAND_HALF_WIDTH_HZ = 500.0
 #: Where the reference frequency is looked for, in hertz.
 REFERENCE_SEARCH_RANGE_HZ = (3000.0, 15000.0)
 
+#: Fractional departure from the median frame interval still counted as uniform,
+#: the same tolerance :mod:`vaft.process.fluctuation` applies to a waveform.
+NONUNIFORM_TOLERANCE = 1e-3
+
 
 @dataclass(frozen=True)
 class PixelSpectrogram:
@@ -160,6 +164,12 @@ def subtract_temporal_background(frames, *, window_frames: int = BACKGROUND_FRAM
     odd -- that span is symmetric; an even window takes one more frame from
     before than after.
 
+    A window wider than the record is allowed and clips the same way, so every
+    frame is measured against the whole record.  Refusing it would make the
+    result depend on how many frames a caller happened to pass rather than on
+    the window it asked for: a fourteen-frame acquisition and a fourteen-frame
+    slice of a long one would come out differently.
+
     Frame values and their order are otherwise untouched: this subtracts, it does
     not filter, reorder or resample.
 
@@ -199,11 +209,6 @@ def subtract_temporal_background(frames, *, window_frames: int = BACKGROUND_FRAM
         raise ValueError(
             "window_frames must be at least 2; a one-frame mean is the frame "
             f"itself, so subtracting it yields exactly zero. Got {window_frames!r}"
-        )
-    if window > cube.shape[0]:
-        raise ValueError(
-            f"window_frames {window} exceeds the {cube.shape[0]} frames available; "
-            "the whole record would be one window and the result would be its own mean."
         )
     return cube - _rolling_mean(cube, window)
 
@@ -402,7 +407,16 @@ def pixelwise_spectrogram(
     steps = np.diff(time)
     if not np.all(steps > 0):
         raise ValueError("times must increase strictly")
-    sample_rate = 1.0 / float(np.median(steps))
+    # The same uniformity test `vaft.process.fluctuation.compute_spectrogram`
+    # applies: a frequency axis derived from a median step is meaningless if the
+    # steps are not all that step, and every band selected from it would be wrong.
+    spacing = float(np.median(steps))
+    if np.any(np.abs(steps - spacing) > NONUNIFORM_TOLERANCE * spacing):
+        raise ValueError(
+            "times must be uniformly sampled for a short-time transform; the "
+            f"steps span {steps.min():.6g}-{steps.max():.6g} s around a median of {spacing:.6g} s"
+        )
+    sample_rate = 1.0 / spacing
 
     segment = int(window_frames)
     if segment > cube.shape[0]:
