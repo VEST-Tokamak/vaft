@@ -540,8 +540,8 @@ def upgrade_archive_timebase(payload: dict) -> dict:
         if n < 2 or label not in ("fast", "slow"):
             report["skipped"] += 1
             continue
-        span = FAST_SPAN_S if label == "fast" else SLOW_SPAN_S
         if shot > V2_LAST_SHOT:
+            span = FAST_SPAN_S if label == "fast" else SLOW_SPAN_S
             dt = span / (n - 1)
         else:
             dt = FAST_DT if label == "fast" else SLOW_DT
