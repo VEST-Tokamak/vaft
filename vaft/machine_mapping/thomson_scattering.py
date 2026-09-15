@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 import re
 from typing import Any
@@ -17,6 +18,8 @@ try:
 except ImportError:
     unumpy = None
 
+
+logger = logging.getLogger(__name__)
 
 _CHANNEL_META = (
     (0, 0.475, "Polychrometer 1R1", "poly1R1"),
@@ -72,18 +75,39 @@ def _chord_geometry() -> tuple[float, float]:
 def scattering_volume_phi(r_m: float) -> float:
     """The IMAS toroidal angle of the scattering volume at major radius ``r_m``.
 
-    Raises when the radius is inside the chord's tangency radius: that is not a
-    point on the laser path, so there is no angle to return and defaulting to
-    one would invent a location.
+    Raises when the radius is not a point on the laser path -- inside the
+    chord's tangency radius, or not a finite number. There is no angle to
+    return in that case and defaulting to one would invent a location.
+
+    The IDS writers use :func:`_scattering_volume_phi_or_none` instead, which
+    warns and omits rather than failing a whole shot on one bad radius.
     """
     bisector, tangency = _chord_geometry()
     r = float(r_m)
-    if r < tangency:
+    if not np.isfinite(r) or r < tangency:
         raise ValueError(
-            f"major radius {r:.4f} m is inside the {tangency:.4f} m tangency radius of the "
-            f"{LASER_ENTRY_PORT}-to-{LASER_DUMP_PORT} laser chord, so it is not on the beam path"
+            f"major radius {r:.4f} m is not on the {LASER_ENTRY_PORT}-to-{LASER_DUMP_PORT} "
+            f"laser chord, whose tangency radius is {tangency:.4f} m"
         )
     return float(np.mod(bisector + np.arccos(tangency / r), 2.0 * np.pi))
+
+
+def _scattering_volume_phi_or_none(r_m: float, channel: int) -> float | None:
+    """``scattering_volume_phi``, but a bad radius costs one channel, not the shot.
+
+    The dynamic mapper takes its radii from each shot's ``Rposition`` vector,
+    so a unit slip, a NaN or an off-chord value is a data defect that arrives
+    at runtime. Raising there would drop an entire Thomson mapping over one
+    channel; omitting ``phi`` leaves the rest of that channel intact and says
+    nothing false about where it was.
+    """
+    try:
+        return scattering_volume_phi(r_m)
+    except ValueError as error:
+        logger.warning(
+            "thomson_scattering channel %d: %s; leaving position.phi unwritten", channel, error
+        )
+        return None
 
 
 def _uarray_or_values(values: Any, errors: Any) -> Any:
@@ -372,7 +396,9 @@ def _set_dynamic_from_suffixed(mat_data: dict[str, Any], ods: Any, suffix: str) 
         prefix = f"thomson_scattering.channel.{channel}"
         set_path(ods, f"{prefix}.position.r", float(r_pos))
         set_path(ods, f"{prefix}.position.z", 0)
-        set_path(ods, f"{prefix}.position.phi", scattering_volume_phi(float(r_pos)))
+        phi = _scattering_volume_phi_or_none(float(r_pos), channel)
+        if phi is not None:
+            set_path(ods, f"{prefix}.position.phi", phi)
         set_path(ods, f"{prefix}.name", f"Polychrometer {channel + 1}")
         set_path(
             ods,
@@ -505,7 +531,9 @@ def vfit_thomson_scattering_static(ods: Any) -> None:
         prefix = f"thomson_scattering.channel.{channel}"
         set_path(ods, f"{prefix}.position.r", r_pos)
         set_path(ods, f"{prefix}.position.z", 0)
-        set_path(ods, f"{prefix}.position.phi", scattering_volume_phi(r_pos))
+        phi = _scattering_volume_phi_or_none(r_pos, channel)
+        if phi is not None:
+            set_path(ods, f"{prefix}.position.phi", phi)
         set_path(ods, f"{prefix}.name", name)
 
 

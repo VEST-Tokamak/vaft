@@ -26,6 +26,7 @@ from vaft.machine_mapping.magnetics import (
     _load_static_channels,
     vfit_magnetics_static,
 )
+from vaft.machine_mapping.registry import port_phi
 from vaft.machine_mapping.utils import get_path, path_exists
 
 
@@ -93,8 +94,6 @@ def test_equilibrium_probe_families_sit_where_the_figure_puts_them(family, clock
 
 def test_the_side_family_agrees_with_the_port_document():
     """4 o'clock is ``4ML10 : Magnetic probe 1`` -- an independent source."""
-    from vaft.machine_mapping.registry import port_phi
-
     assert port_toroidal_angle(EQUILIBRIUM_PROBE_CLOCK["side"]) == pytest.approx(port_phi("4ML10"))
 
 
@@ -161,3 +160,60 @@ def test_flux_loops_get_no_toroidal_angle(static_ods):
     for index in range(len(loops)):
         assert not path_exists(static_ods, f"magnetics.flux_loop.{index}.position.phi")
         assert not path_exists(static_ods, f"magnetics.flux_loop.{index}.position.0.phi")
+
+
+# ---------------------------------------------------------------------------
+# Thomson: phi varies along the laser chord
+# ---------------------------------------------------------------------------
+
+
+def test_thomson_volumes_lie_on_the_laser_chord():
+    """Each polychromator's phi follows from its own radius, not a constant."""
+    from vaft.machine_mapping.thomson_scattering import (
+        _CHANNEL_META,
+        _chord_geometry,
+        scattering_volume_phi,
+    )
+
+    _, tangency = _chord_geometry()
+    angles = [np.rad2deg(scattering_volume_phi(r)) for _, r, _, _ in _CHANNEL_META]
+
+    # Not one angle for the whole diagnostic.
+    assert len(set(np.round(angles, 3))) == len(angles)
+    # Every radius is outside the chord's closest approach, as it must be.
+    assert all(r > tangency for _, r, _, _ in _CHANNEL_META)
+    # The volumes straddle the 9MM10 viewing port, which is what picks this
+    # branch of the chord over the one near 12 o'clock.
+    viewing = np.rad2deg(port_phi("9MM10"))
+    assert min(angles) < viewing < max(angles)
+
+
+def test_a_bad_thomson_radius_costs_one_channel_not_the_shot():
+    """Dynamic radii come from each shot's file, so they can be defective."""
+    from vaft.machine_mapping.thomson_scattering import (
+        _scattering_volume_phi_or_none,
+        scattering_volume_phi,
+    )
+
+    assert _scattering_volume_phi_or_none(0.10, 0) is None      # inside the tangency radius
+    assert _scattering_volume_phi_or_none(float("nan"), 1) is None
+    assert _scattering_volume_phi_or_none(0.475, 2) is not None
+
+    # The public helper still refuses rather than inventing a location.
+    with pytest.raises(ValueError, match="not on the"):
+        scattering_volume_phi(0.10)
+
+
+def test_thomson_static_writes_a_distinct_angle_per_channel():
+    import omas
+
+    from vaft.machine_mapping.thomson_scattering import vfit_thomson_scattering_static
+
+    ods = omas.ODS()
+    vfit_thomson_scattering_static(ods)
+    written = [
+        round(float(np.rad2deg(ods[f"thomson_scattering.channel.{i}.position.phi"])), 3)
+        for i in range(5)
+    ]
+    assert written == sorted(written, reverse=True)
+    assert len(set(written)) == 5
