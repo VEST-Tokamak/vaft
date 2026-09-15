@@ -137,9 +137,28 @@ def test_a_run_reports_the_charge_its_species_list_implies(conductivity):
 
 
 def test_the_column_in_input_gacode_says_two_and_neo_ignored_it():
-    """The exact trap this property exists for, asserted rather than described."""
-    text = (CONDUCTIVITY_RUN / "input.neo").read_text(encoding="utf-8")
-    assert "Z_EFF" not in text.upper(), "NEO takes no z_eff key; the species list is Z_eff"
+    """The exact trap the property exists for, on the file that carries it.
+
+    The committed run's `input.gacode` declares `z_eff = 2` and lists one ion.
+    NEO read the species list and ran at 1. Both halves are asserted here because
+    each alone is unremarkable: a file saying 2, and a run reporting 1, are only a
+    trap when they are the same run.
+    """
+    text = (CONDUCTIVITY_RUN / "input.gacode").read_text(encoding="utf-8")
+    assert "# z_eff" in text, "the fixture's input.gacode carries no z_eff block"
+    # Each row of a profile block is "<index> <value>"; the block ends at the next "#".
+    declared = []
+    for row in text.split("# z_eff", 1)[1].splitlines()[1:]:
+        if not row.strip() or row.lstrip().startswith("#"):
+            break  # the next block; a skip here would read the whole file
+        declared.append(float(row.split()[1]))
+    assert declared and all(abs(value - 2.0) < 1e-9 for value in declared), declared[:5]
+
+    species = text.split("# name", 1)[1].splitlines()[1].split()
+    assert species == ["H+"], species
+
+    native = collect_neo_outputs(CONDUCTIVITY_RUN)
+    np.testing.assert_allclose(np.asarray(native.effective_charge, dtype=float), 1.0)
 
 
 def test_a_multi_species_run_reports_a_charge_above_one():
@@ -190,6 +209,38 @@ def test_a_transport_run_passed_as_the_companion_is_refused(ods, transport):
     report = core_profiles_from_neo(ods, transport, time=0.3, time_index=0, conductivity=result)
     assert "conductivity_parallel" not in report["written"]
     assert any("was not staged with EPAR0=1" in r for r in report["skipped"])
+
+
+def test_a_transport_run_read_off_disk_is_refused_too(ods, transport):
+    """The common path: `collect_neo_outputs` returns settings-free NeoOutputs.
+
+    The guard first read the settings only from a NEOResult's provenance, so a bare
+    container -- what every caller who reads a finished directory has -- skipped the
+    check entirely and wrote -193 .. 31 S/m from a transport run. The run directory
+    is known, and its input.neo is still in it, so there is no reason to give up.
+    """
+    report = core_profiles_from_neo(
+        ods, transport, time=0.3, time_index=0, conductivity=transport
+    )
+    assert "conductivity_parallel" not in report["written"]
+    assert "core_profiles.profiles_1d.0.conductivity_parallel" not in ods
+    assert any("was not staged with EPAR0=1" in r for r in report["skipped"])
+
+
+def test_a_non_positive_conductivity_is_refused_whatever_the_settings_said(ods, transport):
+    """The second, independent check: sigma = jpar/E_par is positive by construction.
+
+    It holds even when the settings cannot be found at all -- a directory that no
+    longer exists, say -- which is the only case the parameter check cannot cover.
+    """
+    import dataclasses
+
+    orphaned = dataclasses.replace(transport, directory=None)
+    report = core_profiles_from_neo(
+        ods, transport, time=0.3, time_index=0, conductivity=orphaned
+    )
+    assert "conductivity_parallel" not in report["written"]
+    assert any("positive conductivity" in r for r in report["skipped"])
 
 
 def test_the_dimensionalisation_is_vgens_own_recipe(ods, transport, conductivity):

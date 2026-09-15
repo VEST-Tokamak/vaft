@@ -191,6 +191,13 @@ class _State:
     z_source: str
 
 
+#: What the bootstrap current needs beyond what the conductivity does. The flux map
+#: and F enter only through the psi-derivatives and the <j_par B> definition, and the
+#: ion channel only through the ion collisionality, so a state that lacks them can
+#: still answer for a conductivity -- an electron-only Thomson fit is the case.
+_BOOTSTRAP_ONLY = ("psi", "f")
+
+
 def _read_state(
     ods: Any,
     *,
@@ -198,27 +205,39 @@ def _read_state(
     z_eff: Optional[float],
     ion_index: int,
     rho_range: Optional[Sequence[float]],
+    needs_flux_map: bool = True,
+    needs_ion_temperature: bool = True,
 ) -> _State:
-    """Resolve the slice pair and everything on it, or say what is missing."""
+    """Resolve the slice pair and everything on it, or say what is missing.
+
+    ``needs_flux_map`` and ``needs_ion_temperature`` are the caller's, not the
+    state's: refusing a state for a leaf the requested quantity never reads would
+    be this layer inventing a requirement, and the error would name the wrong
+    quantity while doing it.
+    """
     from vaft.formula.neoclassical import trapped_particle_fraction
     from vaft.omas.general import find_matching_time_indices
 
     cp_index, eq_index, time = find_matching_time_indices(ods, time_slice=time_slice)
     equilibrium = f"equilibrium.time_slice.{eq_index}.profiles_1d"
 
-    required = ("rho_tor_norm", "psi", "q", "f")
+    required = ("rho_tor_norm", "q") + (_BOOTSTRAP_ONLY if needs_flux_map else ())
     missing = [leaf for leaf in required if _array(ods, f"{equilibrium}.{leaf}") is None]
     if missing:
         raise ValueError(
-            f"equilibrium slice {eq_index} is missing {', '.join(missing)}; a bootstrap "
-            "current needs the flux coordinate, the flux map, q and F = R*B_phi. "
+            f"equilibrium slice {eq_index} is missing {', '.join(missing)}; the "
+            "neoclassical coefficients need the flux coordinate and q, and a bootstrap "
+            "current needs the flux map and F = R*B_phi besides. "
             "vaft.omas.update writes the derived ones from a 2-D map."
         )
 
     grid = _array(ods, f"{equilibrium}.rho_tor_norm")
-    psi = _array(ods, f"{equilibrium}.psi")
     q_profile = _array(ods, f"{equilibrium}.q")
+    empty = np.full(grid.size, np.nan)
+    psi = _array(ods, f"{equilibrium}.psi")
+    psi = empty if psi is None else psi
     f_profile = _array(ods, f"{equilibrium}.f")
+    f_profile = empty if f_profile is None else f_profile
 
     keep = np.ones(grid.size, dtype=bool)
     if rho_range is not None:
@@ -243,15 +262,12 @@ def _read_state(
         density = _kinetic_on(ods, cp_index, "electrons.density", grid)
     temperature = _kinetic_on(ods, cp_index, "electrons.temperature", grid)
     ion_temperature = _kinetic_on(ods, cp_index, f"ion.{ion_index}.temperature", grid)
-    absent = [
-        label
-        for label, values in (
-            ("electron density", density),
-            ("electron temperature", temperature),
-            (f"ion {ion_index} temperature", ion_temperature),
-        )
-        if values is None
-    ]
+    channels = [("electron density", density), ("electron temperature", temperature)]
+    if needs_ion_temperature:
+        channels.append((f"ion {ion_index} temperature", ion_temperature))
+    elif ion_temperature is None:
+        ion_temperature = np.full(grid.size, np.nan)
+    absent = [label for label, values in channels if values is None]
     if absent:
         raise ValueError(
             f"core_profiles slice {cp_index} is missing {', '.join(absent)}; the "
@@ -567,7 +583,15 @@ def compute_conductivity(
         raise ValueError(f"model must be one of {MODELS}; got {model!r}")
 
     state = _read_state(
-        ods, time_slice=time_slice, z_eff=z_eff, ion_index=ion_index, rho_range=rho_range
+        ods,
+        time_slice=time_slice,
+        z_eff=z_eff,
+        ion_index=ion_index,
+        rho_range=rho_range,
+        # Neither enters sigma: it is a local function of n_e, T_e, Z_eff and the
+        # trapped fraction, with no flux derivative and no ion channel.
+        needs_flux_map=False,
+        needs_ion_temperature=False,
     )
     grid = state.grid
 

@@ -146,6 +146,7 @@ def read_neo_case(workdir: str | Path) -> Optional[NeoOutputs]:
     """Read a finished run directory without re-running it."""
     return collect_neo_outputs(workdir)
 
+
 def run_neo_conductivity_case(
     profile: GACODEProfile,
     workdir: str | Path,

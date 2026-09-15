@@ -66,6 +66,7 @@ reports what a run actually used, and the provenance records it.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Mapping, Optional
 
 import numpy as np
@@ -447,6 +448,18 @@ def _write_conductivity(
         return []
 
     values = np.asarray(current, dtype=float) * scales.current / scales.electric_field
+    finite = np.isfinite(values)
+    if not finite.any() or np.any(values[finite] <= 0.0):
+        # sigma = jpar/E_par with both in NEO's frame: the COCOS mirroring cancels,
+        # so a non-positive value is not a convention but a wrong run -- a transport
+        # solve passed as the companion produces exactly this, and would otherwise
+        # be written as a conductivity whenever its settings could not be read.
+        skipped.append(
+            "conductivity_parallel (the companion run's jpar does not dimensionalise "
+            "to a positive conductivity, which a response to a parallel field always "
+            "is; the run passed as conductivity= is almost certainly a transport one)"
+        )
+        return []
     base = f"core_profiles.profiles_1d.{time_index}"
     _ensure_aos(ods, "core_profiles.profiles_1d", time_index)
     existing = ods.get(f"{base}.grid.rho_tor_norm", None)
@@ -503,12 +516,18 @@ def _conductivity_fragment(result: Any) -> str:
         f"revision=\"{revision}\"{z_eff} units=\"ohm^-1.m^-1\"/>"
     )
 
-def _run_parameters(result: Any) -> Optional[Mapping[str, Any]]:
-    """The ``input.neo`` settings a result carries, when it carries any.
 
-    A bare :class:`NeoOutputs` read back off disk has none -- the run's inputs are
-    not part of its output -- so absence means "cannot check", not "not a
-    conductivity run".
+def _run_parameters(result: Any) -> Optional[Mapping[str, Any]]:
+    """The ``input.neo`` settings behind a result, from wherever they survive.
+
+    Three places, because the common one is the last: a :class:`NEOResult` carries
+    them in provenance, a staged case carries them directly, and a bare
+    :class:`NeoOutputs` -- what ``collect_neo_outputs`` returns, and what most
+    callers have -- carries none, but knows the directory it was read from, and
+    ``input.neo`` is still sitting in it.
+
+    Returning ``None`` means the settings could not be found at all, which is the
+    only case where the caller's word has to be taken.
     """
     provenance = getattr(result, "provenance", None) or {}
     staged = provenance.get("parameters")
@@ -516,7 +535,23 @@ def _run_parameters(result: Any) -> Optional[Mapping[str, Any]]:
         return staged
     # A staged case, passed before it was run.
     parameters = getattr(result, "parameters", None)
-    return parameters if parameters else None
+    if parameters:
+        return parameters
+    native = _native(result)
+    directory = getattr(native, "directory", None)
+    if directory is None:
+        return None
+    path = Path(directory) / "input.neo"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    settings: dict[str, Any] = {}
+    for line in text.splitlines():
+        if "=" in line and not line.lstrip().startswith("#"):
+            key, _, value = line.partition("=")
+            settings[key.strip().upper()] = value.strip()
+    return settings or None
 
 
 def _is_conductivity_run(parameters: Mapping[str, Any]) -> bool:
