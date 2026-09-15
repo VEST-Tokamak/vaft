@@ -27,11 +27,15 @@ def _constraints_ods(tmp_path, *, time=0.319):
     ods["equilibrium.time"] = np.asarray([time])
     ods["equilibrium.code.parameters.time_slice.0.IN1.INPUT_DIR"] = str(tmp_path)
     ods["equilibrium.code.parameters.time_slice.0.IN1.VCURRT"] = np.asarray([3.0, -2.0])
-    for index in range(16):
+    # As many PF channels as the coilset has groups: the writer refuses a tree
+    # that describes a different coilset from the table, which is the point of
+    # that check, so the fixture must not hard-code a count.
+    for index, name in enumerate(COILSET.group_names):
         root = f"equilibrium.time_slice.0.constraints.pf_current.{index}"
         ods[f"{root}.measured"] = float(index + 1)
         ods[f"{root}.measured_error_upper"] = 0.25
         ods[f"{root}.weight"] = 2.0
+        ods[f"{root}.source"] = name
     scalar_values = {
         "ip": (50_000.0, 20.0, 3.0),
         "diamagnetic_flux": (-0.004, 0.0002, 4.0),
@@ -137,7 +141,7 @@ def test_routine_defaults_preserve_documented_kfile_semantics(tmp_path):
         "MXITER": "-100",
         "IVESEL": "1",
         "IFITVS": "0",
-        "KCCOILS": "12",
+        "KCCOILS": "17",
     }
     for key, value in expected.items():
         assert f" {key} = {value}" in text
@@ -154,17 +158,16 @@ def test_the_coil_groups_come_from_the_machine_not_from_a_written_down_list():
     also projects the F-coil groups for EFUND.
     """
 
-    assert len(COILSET.group_names) == 16
-    assert [COILSET.source_circuit[name] for name in COILSET.group_names] == (
-        ["PF1"] * 8 + ["PF5", "PF5", "PF6", "PF6", "PF9", "PF9", "PF10", "PF10"]
-    )
+    assert len(COILSET.group_names) == COILSET.nfsum == 26
+    assert set(COILSET.source_circuit.values()) == {f"PF{n}" for n in range(1, 11)}
+    assert [COILSET.source_circuit[name] for name in COILSET.group_names[:8]] == ["PF1"] * 8
     assert COILSET.group_for_element("PF1", 0.15) == "PF1-1"
     assert COILSET.group_for_element("PF1", 1.10) == "PF1-4"
     assert COILSET.group_for_element("PF1", -0.15) == "PF1-5"
     assert COILSET.group_for_element("PF9", 1.0) == "PF9U"
     assert COILSET.group_for_element("PF9", -1.0) == "PF9L"
-    for absent in ("PF2", "PF3", "PF4", "PF7", "PF8"):
-        assert COILSET.group_for_element(absent, 0.5) is None
+    # A circuit the machine does not have is still a real answer, not a raise.
+    assert COILSET.group_for_element("PF99", 0.5) is None
 
     # The old names are gone from the package, not merely unused.
     import vaft.code.efit as package
@@ -199,6 +202,63 @@ RETIRED_COIL_MATRIX = tuple(
 )
 
 
+def test_a_discharge_that_energised_a_different_subset_gets_a_kfile():
+    """#708's whole point, and a thing this repository could not do before.
+
+    The table used to describe five circuits, so a discharge that energised
+    PF2 or PF3 produced no k-file for them -- those coils were dropped
+    silently, with no error. The table now describes all ten, so the active
+    set is expressed by the currents and weights rather than by a different
+    table, and no regeneration is needed.
+    """
+    import numpy as np
+    from omas import ODS
+
+    from vaft.machine_mapping.efit_coilset import (
+        detect_energised_circuits,
+        vest_efit_coilset_policy,
+    )
+
+    policy = vest_efit_coilset_policy()
+    assert set(policy.source_circuit.values()) == {f"PF{n}" for n in range(1, 11)}
+
+    # A discharge that used PF3 and left PF5 cold -- the opposite of the
+    # reference era, and impossible to reconstruct before this change.
+    source = ODS(consistency_check=False)
+    times = np.linspace(0.30, 0.34, 32)
+    source["pf_active.time"] = times
+    energised_here = {"PF1": 8_000.0, "PF3": 2_500.0, "PF9": 400.0, "PF10": 400.0}
+    for index in range(1, 11):
+        name = f"PF{index}"
+        source[f"pf_active.coil.{index - 1}.name"] = name
+        source[f"pf_active.coil.{index - 1}.current.data"] = np.full(
+            times.size, energised_here.get(name, 0.0)
+        )
+
+    decision = detect_energised_circuits(
+        source["pf_active"], policy, window=(float(times[0]), float(times[-1]))
+    )
+    assert set(decision.energised) == set(energised_here)
+    assert decision.measured is True
+    # PF3 is not in the declaration, PF5/PF6 are; the disagreement is reported
+    # rather than resolved by preferring one side.
+    assert not decision.agrees_with_declaration
+    assert "PF3" in decision.disagreement and "PF5" in decision.disagreement
+
+    # And the k-file carries PF3's current in PF3's slots, with the circuits
+    # this discharge did not use weighted out.
+    built = ODS(consistency_check=False)["pf_active"]
+    from vaft.code.efit.kfile import build_efit_coil_currents
+
+    build_efit_coil_currents(built, source["pf_active"], coilset=policy)
+    names = [str(built[f"coil.{i}.name"]) for i in range(len(built["coil"]))]
+    currents = [float(built[f"coil.{i}.current.data"][0]) for i in range(len(names))]
+    by_name = dict(zip(names, currents))
+    assert by_name["PF3U"] == by_name["PF3L"] == 2_500.0
+    assert by_name["PF5U"] == by_name["PF5L"] == 0.0
+    assert by_name["PF1-1"] == by_name["PF1-8"] == 8_000.0
+
+
 def test_the_coil_constraint_matrix_is_derived_from_the_machine():
     """#708: the equalities follow from the coilset, not from a table by index.
 
@@ -212,17 +272,33 @@ def test_the_coil_constraint_matrix_is_derived_from_the_machine():
     assignments with no explanation; it is now a `ties:` entry carrying its
     evidence.
     """
+    # The shipped coilset, which since #708 describes all ten circuits.
     policy = vest_efit_coilset_policy()
     derived = policy.constraint_matrix()
+    assert len(derived) == policy.nfsum == 26
+    assert len(derived[0]) == 17  # 7 solenoid + 9 pairs + 1 series tie
 
-    assert len(derived) == policy.nfsum == 16
-    assert len(derived[0]) == 12
-    assert derived == RETIRED_COIL_MATRIX
-    assert policy.constraint_targets() == (0.0,) * 12
+    # And the five-circuit coilset the retired literal was written for, so the
+    # derivation is still checked against the thing it replaced rather than
+    # against itself.
+    from vaft.machine_mapping.efit_coilset import _build
+
+    legacy_groups = {
+        "PF1": {"split": "axial", "edges": [0.0, 0.3, 0.6, 0.9, 1.2],
+                "status": "inferred", "provenance": "x"},
+    }
+    for coil in ("PF5", "PF6", "PF9", "PF10"):
+        legacy_groups[coil] = {"split": "midplane", "status": "inferred", "provenance": "x"}
+    legacy = _build({"efit_coilset": {
+        "groups": legacy_groups,
+        "ties": [{"groups": ["PF9L", "PF10U"], "status": "measured", "provenance": "x"}],
+    }})
+    assert legacy.constraint_matrix() == RETIRED_COIL_MATRIX
+    assert legacy.constraint_targets() == (0.0,) * 12
 
     # Every column is one equality: a +1, a -1, and nothing else.
-    for column in range(12):
-        values = [derived[row][column] for row in range(16)]
+    for column in range(len(derived[0])):
+        values = [derived[row][column] for row in range(policy.nfsum)]
         assert sorted(v for v in values if v) == [-1.0, 1.0], column
 
 
@@ -274,21 +350,23 @@ def test_the_coilset_is_configuration_and_derives_its_own_names():
     """
     policy = vest_efit_coilset_policy()
 
-    assert policy.nfsum == len(policy.group_names) == 16
-    assert policy.circuits == ("PF1", "PF5", "PF6", "PF9", "PF10")
+    assert policy.nfsum == len(policy.group_names) == 26
+    assert policy.circuits == tuple(f"PF{n}" for n in range(1, 11))
     # Derived, not listed: an axial split gives upper by ascending |z| then
     # lower the same way; a midplane split gives U then L.
     assert policy.group_names[:8] == tuple(f"PF1-{n}" for n in range(1, 9))
-    assert policy.group_names[8:] == ("PF5U", "PF5L", "PF6U", "PF6L", "PF9U", "PF9L", "PF10U", "PF10L")
+    assert policy.group_names[8:12] == ("PF2U", "PF2L", "PF3U", "PF3L")
+    assert policy.group_names[-4:] == ("PF9U", "PF9L", "PF10U", "PF10L")
 
     assert policy.group_for_element("PF1", 0.15) == "PF1-1"
     assert policy.group_for_element("PF1", 1.10) == "PF1-4"
     assert policy.group_for_element("PF1", -0.15) == "PF1-5"
     assert policy.group_for_element("PF9", 1.0) == "PF9U"
     assert policy.group_for_element("PF9", -1.0) == "PF9L"
-    # A circuit with no group is a real answer, not a failure.
-    for absent in ("PF2", "PF3", "PF4", "PF7", "PF8"):
-        assert policy.group_for_element(absent, 0.5) is None
+    # Every circuit now has a group; a name the machine does not have still
+    # returns None rather than raising.
+    assert policy.group_for_element("PF2", 0.5) == "PF2U"
+    assert policy.group_for_element("PF99", 0.5) is None
 
     # The series tie is machine wiring and is carried with its provenance.
     assert policy.ties == (("PF9L", "PF10U"),)
@@ -369,10 +447,13 @@ def test_the_coil_currents_fan_one_circuit_out_to_its_groups():
     built = ODS(consistency_check=False)["pf_active"]
     build_efit_coil_currents(built, source["pf_active"])
 
-    assert len(built["coil"]) == 16
-    currents = [float(built[f"coil.{i}.current.data"][0]) for i in range(16)]
-    assert currents == [1.0] * 8 + [5.0, 5.0, 6.0, 6.0, 9.0, 9.0, 10.0, 10.0]
-    assert [str(built[f"coil.{i}.name"]) for i in range(16)] == list(COILSET.group_names)
+    assert len(built["coil"]) == COILSET.nfsum
+    currents = {str(built[f"coil.{i}.name"]): float(built[f"coil.{i}.current.data"][0])
+                for i in range(len(built["coil"]))}
+    assert currents["PF1-1"] == currents["PF1-8"] == 1.0
+    assert currents["PF5U"] == currents["PF5L"] == 5.0
+    assert currents["PF10U"] == currents["PF10L"] == 10.0
+    assert [str(built[f"coil.{i}.name"]) for i in range(COILSET.nfsum)] == list(COILSET.group_names)
 
 
 def test_the_coil_currents_are_taken_on_the_time_base_they_were_measured_on():
@@ -392,8 +473,8 @@ def test_the_coil_currents_are_taken_on_the_time_base_they_were_measured_on():
     # Deliberately not the old hard-coded grid.
     base = np.linspace(0.30, 0.34, 7)
     source["pf_active.time"] = base
-    for index, name in enumerate(["PF1", "PF5", "PF6", "PF9", "PF10"]):
-        source[f"pf_active.coil.{index}.name"] = name
+    for index in range(10):
+        source[f"pf_active.coil.{index}.name"] = f"PF{index + 1}"
         source[f"pf_active.coil.{index}.current.data"] = np.arange(7, dtype=float)
 
     built = ODS(consistency_check=False)["pf_active"]
@@ -411,8 +492,8 @@ def test_a_caller_that_wants_a_grid_passes_one():
 
     source = ODS(consistency_check=False)
     source["pf_active.time"] = np.linspace(0.30, 0.34, 5)
-    for index, name in enumerate(["PF1", "PF5", "PF6", "PF9", "PF10"]):
-        source[f"pf_active.coil.{index}.name"] = name
+    for index in range(10):
+        source[f"pf_active.coil.{index}.name"] = f"PF{index + 1}"
         source[f"pf_active.coil.{index}.current.data"] = np.linspace(0.0, 4.0, 5)
 
     built = ODS(consistency_check=False)["pf_active"]
@@ -541,7 +622,7 @@ def test_a_pf_active_missing_a_driven_circuit_is_refused():
     partial["pf_active.time"] = np.linspace(0.25, 0.40, 64)
     partial["pf_active.coil.0.name"] = "PF1"
     partial["pf_active.coil.0.current.data"] = np.zeros(64)
-    with pytest.raises(ValueError, match="PF10, PF5, PF6, PF9"):
+    with pytest.raises(ValueError, match="PF10"):
         build_efit_coil_currents(
             ODS(consistency_check=False)["pf_active"], partial["pf_active"]
         )
@@ -567,14 +648,14 @@ def test_a_table_describing_a_different_coilset_is_refused(tmp_path):
 def test_a_table_that_agrees_still_writes(tmp_path):
     """The other half: the check must not refuse the routine case."""
     ods = _constraints_ods(tmp_path)
-    (tmp_path / "mhdin.dat").write_text(" &machinein\n nfsum = 16\n /\n", encoding="utf-8")
+    (tmp_path / "mhdin.dat").write_text(f" &machinein\n nfsum = {COILSET.nfsum}\n /\n", encoding="utf-8")
 
     generate_kfile(ods, 39915, save_dir=str(tmp_path), config=EFITScientificConfig())
     text = next((tmp_path / "kfile").iterdir()).read_text(encoding="utf-8")
-    # All sixteen groups reach the writer: the repeat count in FWTFC is the
-    # number of coils the k-file actually carries.
-    assert "FWTFC= 16*" in text
-    assert "BRSP= " in text and " KCCOILS = 12" in text
+    # Every group reaches the writer: the repeat count in FWTFC is the number
+    # of coils the k-file actually carries.
+    assert f"FWTFC= {COILSET.nfsum}*" in text
+    assert "BRSP= " in text and f" KCCOILS = {len(COILSET.constraint_matrix()[0])}" in text
 
 
 def test_the_constraints_tree_stores_no_machine_values_the_writer_overrides():

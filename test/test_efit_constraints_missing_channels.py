@@ -133,10 +133,10 @@ def _extract_array(text: str, name: str, next_name: str) -> list[float]:
 
 
 def _build_kfile_config(nbcoil: int) -> EFITScientificConfig:
-    # No real mhdin.dat table exists in this test, so `nfsum` falls back to
-    # the full 26-segment count; supply a matching-shape (trivial) coil
-    # constraint matrix so generate_kfile's own unrelated shape guard
-    # doesn't block a test that isn't exercising PF-coil constraints.
+    # A trivial coil constraint matrix of the right shape, so generate_kfile's
+    # own unrelated shape guard doesn't block a test that isn't exercising
+    # PF-coil constraints. The shape comes from the constraint tree rather than
+    # a literal: it is the coilset's size, and #708 changed that.
     return EFITScientificConfig(
         profile=EFITProfileConfig(kppcur=2, kffcur=2),
         constraints=EFITConstraintConfig(
@@ -291,7 +291,9 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_eddy_ods, 
 
     assert len(ods["equilibrium.time_slice.0.constraints.bpol_probe"]) == 64
 
-    config = _build_kfile_config(nbcoil=16)
+    config = _build_kfile_config(
+        nbcoil=len(ods["equilibrium.time_slice.0.constraints.pf_current"])
+    )
     kfile_dir = tmp_path / "magpri-kfile"
     generate_kfile(ods, SHOT, save_dir=str(kfile_dir), config=config)
     kfiles = sorted((kfile_dir / "kfile").glob("*"))

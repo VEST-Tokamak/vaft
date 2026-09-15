@@ -118,7 +118,8 @@ def test_namelist_carries_the_counts_and_the_geometry_in_efund_order(geometry):
     assert list(namelist) == ["machinein", "in5", "in3"]
     machine = namelist["machinein"]
     assert machine["device"] == "VEST"
-    assert (machine["nfcoil"], machine["nfsum"], machine["nsilop"], machine["magpri"]) == (302, 16, 11, 64)
+    # #708: every circuit, so all 530 filaments in 26 groups.
+    assert (machine["nfcoil"], machine["nfsum"], machine["nsilop"], machine["magpri"]) == (530, 26, 11, 64)
     assert (machine["necoil"], machine["nesum"], machine["nvesel"], machine["nvsum"], machine["nacoil"]) == (
         0,
         0,
@@ -129,7 +130,7 @@ def test_namelist_carries_the_counts_and_the_geometry_in_efund_order(geometry):
     in3 = namelist["in3"]
     assert in3["rf"] == list(map(float, geometry.fcoil_r))
     assert in3["fcid"] == list(map(int, geometry.fcoil_group))
-    assert in3["turnfc"] == [1.0] * 16
+    assert in3["turnfc"] == [1.0] * 26
     assert in3["vsid"] == list(range(1, 951))
     assert in3["amp2"] == [90.0] * 64
     assert all(len(name) <= 10 for name in in3["mpnam2"] + in3["lpname"] + in3["vsname"])
@@ -254,7 +255,9 @@ def test_packaged_tables_are_big_endian_and_frame_as_their_counts_say():
     skip_unless_materialized(path)
     assert fortran_byte_order(path) == ">"
     arrays = read_fortran_arrays(path)
-    assert [array.size for array in arrays] == [11 * 16, 64 * 16]
+    # nsilop x nfsum and magpri x nfsum; nfsum is 26 since #708 put every
+    # circuit in the table, and these records are sized by it.
+    assert [array.size for array in arrays] == [11 * 26, 64 * 26]
 
 
 # --- running ---------------------------------------------------------------
@@ -432,6 +435,8 @@ def test_efund_generates_a_complete_small_table_for_the_legacy_era(static, tmp_p
     assert manifest_out["efund"]["executable"]["sha256"]
     assert manifest_out["table"]["files"]["rv3333.ddd"]["size"] == result.expected["rv3333.ddd"]
     arrays = read_fortran_arrays(result.files["rfcoil.ddd"])
-    assert [array.size for array in arrays] == [11 * 16, 64 * 16]
+    # nsilop x nfsum and magpri x nfsum; nfsum is 26 since #708 put every
+    # circuit in the table, and these records are sized by it.
+    assert [array.size for array in arrays] == [11 * 26, 64 * 26]
     assert np.all(np.isfinite(arrays[0])) and np.any(arrays[0] != 0.0)
     assert path.is_file()

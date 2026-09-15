@@ -1750,11 +1750,15 @@ diagnostics_time_policies:
 # outside the `0:` / shot overrides.
 efit_coilset:
 
-  # The circuits the Green table describes. Only these five are listed because
-  # only these five are in the table that ships today; the table's `nfsum`
-  # and this list must agree, and changing either means regenerating the other
-  # (issue #708 stage 8). PF2, PF3, PF4, PF7 and PF8 are absent here exactly as
-  # they are absent from the table.
+  # Every circuit the machine has, energised or not. A circuit with no current
+  # becomes a group carrying zero, weighted out of the fit and pinned there --
+  # which costs 0.39 MiB of Green table per group and means a discharge that
+  # energised a different subset needs no new table. Sizing the table to the
+  # energised set instead would make a 170 MB cached artifact a function of the
+  # shot, which is why it is not done.
+  #
+  # This list and the table's `nfsum` must agree; changing one means
+  # regenerating the other.
   groups:
     PF1:
       split: axial
@@ -1764,6 +1768,18 @@ efit_coilset:
         The legacy mhdin.dat described the solenoid as eight axial conductors
         and these are its boundaries. Turn-conserving: the eight segments hold
         632 turns in total, PF1's full winding.
+    PF2:
+      split: midplane
+      status: inferred
+      provenance: "as PF5; unenergised in every reference discharge."
+    PF3:
+      split: midplane
+      status: inferred
+      provenance: "as PF5; unenergised in every reference discharge."
+    PF4:
+      split: midplane
+      status: inferred
+      provenance: "as PF5; unenergised in every reference discharge."
     PF5:
       split: midplane
       status: inferred
@@ -1772,6 +1788,14 @@ efit_coilset:
       split: midplane
       status: inferred
       provenance: "as PF5"
+    PF7:
+      split: midplane
+      status: inferred
+      provenance: "as PF5; unenergised in every reference discharge."
+    PF8:
+      split: midplane
+      status: inferred
+      provenance: "as PF5; unenergised in every reference discharge."
     PF9:
       split: midplane
       status: inferred

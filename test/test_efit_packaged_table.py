@@ -69,31 +69,49 @@ def test_the_manifest_describes_the_files_that_are_there(manifest):
         assert hashlib.sha256(path.read_bytes()).hexdigest() == record["sha256"], name
 
 
-def test_the_legacy_namelist_is_kept_and_is_not_what_built_the_tables(manifest):
-    """The one deliberate inconsistency in the shipped directory.
+def test_the_shipped_namelist_now_matches_the_tables(manifest):
+    """Reversed by #708, and it had to be.
 
-    `mhdin.dat` is still the legacy file: EFIT reads it at runtime, where #695
-    measured a swap as changing nothing, and `test_efund_geometry.py` checks
-    the canonical geometry against it as an independent reference. Overwriting
-    it would make that check compare the geometry against itself. So it
-    describes 16 lumped PF conductors while the tables beside it were built
-    from 302 filaments, and the manifest says so rather than leaving it to be
-    discovered.
+    Until #708 the shipped `mhdin.dat` was the legacy 16-lumped-conductor file
+    while the tables beside it were built from 302 filaments -- inert, because
+    EFIT takes the coil response from the tables and only `nfsum` from the
+    namelist, and the two agreed on that one number.
+
+    They no longer do. The table describes 26 current groups, so a namelist
+    saying 16 would have EFIT reading a different coilset from the one the
+    k-file writes, which `generate_kfile` now refuses outright. The shipped
+    namelist is therefore the one that built the tables.
     """
     import f90nml
 
     packaged = f90nml.read(str(TABLE_DIRECTORY / "mhdin.dat"))
-    assert packaged["machinein"]["nfcoil"] == 16
-    assert manifest["machine"]["counts"]["nfcoil"] == 302
-    assert manifest["machine"]["counts"]["nfsum"] == packaged["machinein"]["nfsum"] == 16
+    assert packaged["machinein"]["nfcoil"] == 530
+    assert manifest["machine"]["counts"]["nfcoil"] == 530
+    assert manifest["machine"]["counts"]["nfsum"] == packaged["machinein"]["nfsum"] == 26
 
-    explanation = manifest["extra"]["mhdin_beside_these_tables_is_not_the_input"]
-    assert "legacy" in explanation and "inert" in explanation
-    # The input that built the tables is recorded by hash, and it is not the
-    # file sitting beside them.
-    built_from = manifest["efund"]["input"]["sha256"]
-    beside = hashlib.sha256((TABLE_DIRECTORY / "mhdin.dat").read_bytes()).hexdigest()
-    assert built_from != beside
+
+def test_the_legacy_namelist_is_preserved_as_an_independent_reference():
+    """The one thing the switch could have quietly cost, kept on purpose.
+
+    The legacy namelist describes the same machine written by other hands, so
+    `test_efund_geometry.py` uses it to check that the canonical projection is
+    right rather than merely self-consistent. It could not stay in the table
+    directory -- its `nfsum` is 16 and would be read by EFIT -- so it moved to
+    `legacy/`, with a README saying why it is there and that it is no longer
+    loadable as a table.
+    """
+    import f90nml
+
+    legacy = TABLE_DIRECTORY / "legacy" / "mhdin.dat"
+    assert legacy.is_file(), "the independent geometry reference must not be dropped"
+    assert (TABLE_DIRECTORY / "legacy" / "README.md").is_file()
+
+    parsed = f90nml.read(str(legacy))
+    assert parsed["machinein"]["nfcoil"] == 16
+    assert parsed["machinein"]["nfsum"] == 16
+    # And it is genuinely a different description, not a copy of the new one.
+    shipped = f90nml.read(str(TABLE_DIRECTORY / "mhdin.dat"))
+    assert parsed["machinein"]["nfcoil"] != shipped["machinein"]["nfcoil"]
 
 
 def test_the_acceptance_envelope_was_not_changed_by_the_switch():
