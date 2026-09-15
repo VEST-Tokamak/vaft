@@ -36,6 +36,8 @@ import numpy as np
 # One shared non-mutating accessor, dispatched on the object (issues #118, #63).
 from vaft.plot.backend.access import array as _array, count as _count, get as _get, has as _has
 
+from vaft.plot.intent import palette
+from vaft.plot.presentation import EQUILIBRIUM_ROLE
 from vaft.plot.models import (
     Field2D,
     Geometry3DLayer,
@@ -733,6 +735,9 @@ class GeometryRecipe:
     #: Annotate each point of a ``points`` layer with its channel index, so a
     #: sensor in the view can be named in ``selection=`` without a lookup.
     annotate_indices: bool = False
+    #: ``GeometryLayer.role`` of every layer: ``"equilibrium"`` for a view of
+    #: the plasma itself, whose outline must not size a canvas (issue #689).
+    role: str = ""
 
 
 @dataclass(frozen=True)
@@ -1469,7 +1474,7 @@ RECIPES: dict[str, Any] = {
                 "wall.description_2d.0.limiter.unit.{i}.outline.z",
                 "wall.description_2d.0.limiter.unit",
                 "",
-                {"color": "0.4"},
+                {"color": "feature:wall"},
             ),
         ),
         title="First Wall",
@@ -1482,7 +1487,7 @@ RECIPES: dict[str, Any] = {
                 "magnetics.flux_loop.{i}.position.0.z",
                 "magnetics.flux_loop",
                 "Flux Loops",
-                {"marker": "s", "markersize": 3, "color": "#377eb8"},
+                {"marker": "s", "markersize": 3, "color": palette(0)},
             ),
             (
                 "points",
@@ -1490,7 +1495,7 @@ RECIPES: dict[str, Any] = {
                 "magnetics.b_field_pol_probe.{i}.position.z",
                 "magnetics.b_field_pol_probe",
                 "B-field Probes",
-                {"marker": "x", "markersize": 4, "color": "#ff7f00"},
+                {"marker": "x", "markersize": 4, "color": palette(1)},
             ),
         ),
         title="Magnetic Diagnostics",
@@ -1504,10 +1509,11 @@ RECIPES: dict[str, Any] = {
                 "equilibrium.time_slice.{i}.boundary.outline.z",
                 "equilibrium.time_slice",
                 "",
-                {"color": "#e41a1c"},
+                {"color": "feature:boundary"},
             ),
         ),
         title="Plasma Boundary",
+        role=EQUILIBRIUM_ROLE,
     ),
     "thomson_scattering_geometry_poloidal": GeometryRecipe(
         layers=(
@@ -1776,7 +1782,7 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
     )
     return Spectrogram.from_result(
         result,
-        max_frequency=options.get("max_frequency"),
+        max_frequency=_display_ceiling(result, options),
         cmap=options.get("cmap", "turbo"),
         title=_channel_label(ods, "interferometer.channel.{i}.name", index, f"channel {index}"),
         value_label="Fluctuation Magnitude",
@@ -1888,7 +1894,7 @@ def _shared_timebase_probes(ods: Any, indices: Sequence[int]) -> tuple[list[int]
 
 
 #: One colour per fitted band, so a band and its fit are read together.
-_PHASE_BAND_COLOURS = ("#377eb8", "#e41a1c", "#4daf4a", "#984ea3", "#ff7f00")
+_PHASE_BAND_COLOURS = (palette(0), palette(8), palette(3), palette(2), palette(1))
 
 
 def _build_mirnov_spatial_phase(
@@ -2210,7 +2216,7 @@ def _build_lines_of_sight(
                     if label_channels
                     else ("Soft X-ray LOS" if not layers else "")
                 ),
-                style={"lw": 0.8} if label_channels else {"lw": 0.6, "color": "#e6ab02"},
+                style={"lw": 0.8} if label_channels else {"lw": 0.6, "color": palette(7)},
             )
         )
     if include_wall:
@@ -2227,7 +2233,7 @@ def _wall_layers(ods: Any) -> list[GeometryLayer]:
         if r is None or z is None or r.size != z.size:
             continue
         layers.append(
-            GeometryLayer(r=r, z=z, kind="polygon", style={"color": "0.4", "lw": 1.0})
+            GeometryLayer(r=r, z=z, kind="polygon", style={"color": "feature:wall", "lw": 1.0})
         )
     return layers
 
@@ -2337,7 +2343,9 @@ def _build_pf_coil_geometry(ods: Any, *, collective: bool = False, **options: An
         if not outlines:
             continue
         name = _channel_label(ods, "pf_active.coil.{i}.name", index, f"PF{index + 1}")
-        color = "#d62728" if collective else f"C{index % 10}"
+        # A collective coil set is a feature; per-coil colours are Matplotlib's
+        # current cycle, which already follows a theme.
+        color = "feature:coil" if collective else f"C{index % 10}"
         for position, (r, z) in enumerate(outlines):
             if collective:
                 label = "" if labelled_set else "PF coils"
@@ -2377,7 +2385,7 @@ def _build_passive_structure_geometry(ods: Any, **options: Any) -> GeometryLayer
             layers.append(GeometryLayer(
                 r=r, z=z, kind="polygon",
                 label="" if layers else "Passive structure",
-                style={"color": "0.55", "lw": 0.5},
+                style={"color": "feature:passive", "lw": 0.5},
             ))
     if not layers:
         raise ValueError(
@@ -2441,7 +2449,7 @@ def _build_wall_mode_shape(ods: Any, **options: Any) -> GeometryLayers:
                 layers.append(GeometryLayer(
                     r=r, z=z, kind="polygon",
                     label="" if labelled_other else "other segments",
-                    style={"color": "0.75", "lw": 0.4},
+                    style={"color": "emphasis:faint", "lw": 0.4},
                 ))
                 labelled_other = True
     if not layers:
@@ -2480,7 +2488,7 @@ def _build_pf_plasma_geometry(ods: Any, **options: Any) -> GeometryLayers:
     wall_z = _array(ods, "wall.description_2d.0.limiter.unit.0.outline.z")
     if wall_r is not None and wall_z is not None and wall_r.size == wall_z.size and wall_r.size >= 3:
         layers.append(GeometryLayer(r=wall_r, z=wall_z, kind="polygon", label="limiter",
-                                    style={"color": "k", "lw": 0.8}))
+                                    style={"color": "feature:limiter", "lw": 0.8}))
     title = options.get(
         "title",
         f"plasma elements at t = {elements['time']:.4f} s: {elements['current'].size} elements, "
@@ -2514,7 +2522,7 @@ def _build_wall_mode_spectrum(ods: Any, **options: Any) -> Panels:
             global_tau = global_tau[:max_modes]
         series.append(Series(
             x=np.arange(1, global_tau.size + 1, dtype=float), y=global_tau,
-            label="whole wall", style={"color": "k", "lw": 1.5, "ls": "--"},
+            label="whole wall", style={"color": "role:reference", "lw": 1.5, "ls": "--"},
         ))
     panel = LineSeries(
         series=tuple(series), x_label="mode number within segment", y_label="decay time",
@@ -2658,7 +2666,7 @@ def _build_wall_reduction_map(ods: Any, **options: Any) -> Field2D:
     error = float(np.linalg.norm((reduced - full)[inside]) / max(np.linalg.norm(full[inside]), 1e-300))
     values = {"full": full, "reduced": reduced, "difference": reduced - full}[which]
     field = np.where(inside, values, np.nan).reshape(gz.shape)
-    overlay = GeometryLayer(r=outline_r, z=outline_z, label="limiter", style={"color": "k", "lw": 0.8})
+    overlay = GeometryLayer(r=outline_r, z=outline_z, label="limiter", style={"color": "feature:limiter", "lw": 0.8})
     n_levels = int(options.get("contour_levels", 15))
     if which == "difference":
         # Grid points next to a wall loop see that loop's own singular field,
@@ -2746,7 +2754,7 @@ def _build_equilibrium_topview(
         x, y = _ring(radius)
         layers.append(
             GeometryLayer(
-                r=x, z=y, kind="polyline", label=label, style={"color": "#e41a1c"}
+                r=x, z=y, kind="polyline", label=label, style={"color": "feature:boundary"}
             )
         )
     return GeometryLayers(
@@ -2780,27 +2788,27 @@ def _pellet_positions(ods: Any, time_slice: int) -> list[tuple[float, float]]:
 #: ``rings`` for a toroidal loop (drawn as the circle at its radius).
 _TOPVIEW_DIAGNOSTICS: tuple[tuple[str, str, str, dict], ...] = (
     ("magnetics.flux_loop", "Flux loops", "rings",
-     {"color": "#377eb8", "lw": 0.6, "linestyle": ":"}),
+     {"color": palette(0), "lw": 0.6, "linestyle": ":"}),
     ("magnetics.b_field_pol_probe", "B-pol probes", "points",
-     {"marker": "x", "markersize": 4, "color": "#ff7f00"}),
+     {"marker": "x", "markersize": 4, "color": palette(1)}),
     ("magnetics.b_field_tor_probe", "B-tor probes", "points",
-     {"marker": "+", "markersize": 5, "color": "#984ea3"}),
+     {"marker": "+", "markersize": 5, "color": palette(2)}),
     ("thomson_scattering.channel", "Thomson scattering", "points",
-     {"marker": "o", "markersize": 3, "color": "#4daf4a"}),
+     {"marker": "o", "markersize": 3, "color": palette(3)}),
     ("charge_exchange.channel", "Charge exchange", "points",
-     {"marker": "d", "markersize": 3, "color": "#a65628"}),
+     {"marker": "d", "markersize": 3, "color": palette(4)}),
     ("langmuir_probes.embedded", "Langmuir probes", "points",
-     {"marker": "v", "markersize": 3, "color": "#f781bf"}),
+     {"marker": "v", "markersize": 3, "color": palette(5)}),
     ("barometry.gauge", "Pressure gauges", "points",
-     {"marker": "p", "markersize": 4, "color": "#999999"}),
+     {"marker": "p", "markersize": 4, "color": palette(6)}),
     ("interferometer.channel", "Interferometer", "segments",
-     {"color": "#377eb8", "lw": 0.8}),
+     {"color": palette(0), "lw": 0.8}),
     ("soft_x_rays.channel", "Soft X-ray LOS", "segments",
-     {"color": "#e6ab02", "lw": 0.6}),
+     {"color": palette(7), "lw": 0.6}),
     ("bolometer.channel", "Bolometer LOS", "segments",
-     {"color": "#e41a1c", "lw": 0.6}),
+     {"color": palette(8), "lw": 0.6}),
     ("spectrometer_uv.channel", "UV spectrometer LOS", "segments",
-     {"color": "#66a61e", "lw": 0.8}),
+     {"color": palette(9), "lw": 0.8}),
 )
 
 
@@ -2886,7 +2894,7 @@ def _build_machine_topview(
             layers.append(
                 GeometryLayer(
                     r=x, z=y, kind="polyline", label=label,
-                    style={"color": "0.4", "lw": 1.0},
+                    style={"color": "feature:wall", "lw": 1.0},
                 )
             )
     if _has(ods, "equilibrium"):
@@ -2931,7 +2939,7 @@ def _build_machine_topview(
                 z=[radius * np.sin(phi)],
                 kind="points",
                 label=f"Pellet {index}",
-                style={"marker": "*", "color": "#984ea3"},
+                style={"marker": "*", "color": palette(2)},
             )
         )
     if not layers:
@@ -3009,6 +3017,14 @@ def _build_vacuum_psi(
 ) -> Field2D:
     """Vacuum poloidal flux from the PF coils, via the OMAS null-field helper.
 
+    Stays on the polynomial-kernel path rather than the cached evaluator behind
+    ``vacuum_field``.  Measured on the packaged shot: this plot draws on the
+    equilibrium's own 129x129 grid, where the exact elliptic Green's functions
+    cost 18 s against 5.8 s and their cached response matrices would be 591 MB.
+    That trade pays for a slider and not for a single figure, which is what
+    this plot is; the two agree on psi to 0.0002% at the 95th percentile
+    either way.
+
     The Green's functions give full weber, whatever convention the stored
     equilibrium uses, so the map is labelled from ``"Wb"`` through the
     display policy (mWb by default; ``units=`` chooses, per-radian included).
@@ -3038,6 +3054,222 @@ def _build_vacuum_psi(
         overlays=tuple(_wall_layers(ods)),
         title=f"Vacuum psi at t = {float(time) * 1e3:.1f} ms",
     )
+
+
+@dataclass(frozen=True)
+class VacuumField:
+    """One quantity the vacuum map can draw, and how it is displayed.
+
+    ``canonical_unit`` is empty for the decay index, which reaches the display
+    policy through :data:`vaft.plot.display.DIMENSIONLESS_DISPLAY` instead.
+    ``upper`` is the percentile the default contour levels stop at.  Confined
+    to the limiter these fields are well behaved -- away from a null the map's
+    maximum sits within about 30% of its 99th percentile -- so stopping there
+    gives away little, and what falls outside saturates rather than vanishing.
+    The decay index is the exception: it diverges wherever B_Z crosses zero,
+    which happens inside the vessel, so it stops sooner.
+    """
+
+    name: str
+    label: str
+    canonical_unit: str
+    subject: str = "vacuum"
+    filled: bool = True
+    upper: float = 99.0
+    lower: float | None = None
+    levels: int = 24
+
+    @property
+    def extend(self) -> str:
+        """How the map saturates outside its levels -- see :class:`Field2D`."""
+        if not self.filled:
+            return "neither"
+        return "max" if self.lower is not None else "both"
+
+
+VACUUM_FIELDS: dict[str, VacuumField] = {
+    field.name: field
+    for field in (
+        VacuumField("psi", "Vacuum Poloidal Flux", "Wb", subject="equilibrium",
+                    filled=False, upper=100.0, levels=40),
+        VacuumField("b_poloidal", "Poloidal Field |B_p|", "T", lower=0.0),
+        # Signed and unbounded: it diverges wherever B_Z crosses zero, so the
+        # levels come from a percentile and the stable band is marked with its
+        # own contours rather than by the colour scale.
+        VacuumField("decay_index", "Field Decay Index n", "", upper=95.0),
+        VacuumField("breakdown", "Breakdown Figure E_t B_t / B_p", "V/m", lower=0.0),
+    )
+}
+
+#: What ``field=`` may name on the vacuum map.
+VACUUM_FIELD_NAMES = tuple(VACUUM_FIELDS)
+
+#: Where the decay index is passively stable for a rigid current ring.  Drawn
+#: as two grey contours beneath the filled map, so the band a startup has to
+#: sit inside is visible without reading the colourbar.
+DECAY_INDEX_STABLE_BAND = (0.0, 1.5)
+
+
+def _vacuum_map_time(ods: Any, time: float | None, time_index: int | None) -> float:
+    """The instant a vacuum map is drawn at: an index, a time, or the default."""
+    if time_index is not None:
+        base = _array(ods, "pf_active.time")
+        if base is None or len(base) == 0:
+            raise ValueError("pf_active.time is required to use time_index=")
+        index = int(time_index)
+        if not -len(base) <= index < len(base):
+            raise ValueError(
+                f"time_index={time_index} is outside the {len(base)} stored PF "
+                "samples"
+            )
+        return float(np.asarray(base, dtype=float)[index])
+    if time is not None:
+        return float(time)
+    return _vacuum_psi_time(ods)
+
+
+def _limiter_interior(ods: Any, r_axis: np.ndarray, z_axis: np.ndarray) -> np.ndarray | None:
+    """Which ``(R, Z)`` grid points lie inside the limiter, or ``None``.
+
+    A vacuum map's extremes are the coils and the vessel conductors it is
+    computed from: on VEST several hundred filaments sit inside the limiter's
+    bounding box, and a grid point landing on one reads that filament's own
+    singular field.  Not one of them lies inside the limiter outline itself,
+    so the plasma-facing region is exactly the part of the map that means
+    anything -- and once it is the only part drawn, the contour levels
+    describe the field a discharge would see instead of a handful of
+    conductors.
+    """
+    from matplotlib.path import Path as _Path
+
+    layers = _wall_layers(ods)
+    if not layers:
+        return None
+    mesh_r, mesh_z = np.meshgrid(r_axis, z_axis, indexing="ij")
+    points = np.column_stack([mesh_r.ravel(), mesh_z.ravel()])
+    inside = np.zeros(points.shape[0], dtype=bool)
+    for layer in layers:
+        outline = np.column_stack([np.asarray(layer.r, dtype=float),
+                                   np.asarray(layer.z, dtype=float)])
+        if outline.shape[0] >= 3:
+            inside |= _Path(outline).contains_points(points)
+    return inside.reshape(mesh_r.shape) if inside.any() else None
+
+
+def _vacuum_levels(values: np.ndarray, field: VacuumField) -> np.ndarray | int:
+    """Contour levels spanning what the map actually holds.
+
+    ``lower=0`` pins a magnitude's scale to zero, so a null reads as a null
+    rather than as the bottom of whatever range this instant happens to have.
+    """
+    finite = values[np.isfinite(values)]
+    if finite.size == 0:
+        return field.levels
+    high = float(np.percentile(finite, field.upper))
+    low = float(field.lower) if field.lower is not None else float(
+        np.percentile(finite, 100.0 - field.upper)
+    )
+    if not high > low:
+        return field.levels
+    return np.linspace(low, high, field.levels)
+
+
+def _build_vacuum_field(
+    ods: Any,
+    *,
+    field: str = "psi",
+    time: float | None = None,
+    time_index: int | None = None,
+    resolution: int = 65,
+    units: str | None = None,
+    **_: Any,
+) -> Field2D:
+    """One quantity of the vacuum field on the poloidal plane, at one instant.
+
+    Flux, poloidal field strength, the decay index and the breakdown figure of
+    merit are four readings of a single evaluation
+    (:func:`vaft.omas.process_wrapper.compute_vacuum_field_map`), so they
+    always describe the same field.  The grid's response to the coils and the
+    vessel is cached, which is what makes ``time_index=`` usable as a slider.
+    """
+    from vaft.formula.equilibrium import (
+        decay_index_from_bz,
+        poloidal_field_magnitude,
+        toroidal_electric_field,
+    )
+    from vaft.omas.process_wrapper import compute_vacuum_field_map
+
+    if field not in VACUUM_FIELDS:
+        raise ValueError(
+            f"unknown vacuum field {field!r}; expected one of "
+            f"{', '.join(VACUUM_FIELD_NAMES)}"
+        )
+    spec = VACUUM_FIELDS[field]
+    # Resolve the instant against the caller's whole ODS: the default is the
+    # breakdown onset, which is read from the magnetics the copy below drops.
+    instant = _vacuum_map_time(ods, time, time_index)
+    # The evaluator solves the vessel currents when they are absent; give it a
+    # private copy so the caller's ODS is left as it was found.
+    ods = _isolated_copy(ods, (*_NULL_FIELD_ROOTS, "tf"))
+    result = compute_vacuum_field_map(ods, time=instant, resolution=int(resolution))
+
+    r_axis, z_axis = result["r"], result["z"]
+    mesh_r = r_axis[:, None]
+    if field == "psi":
+        values = result["psi"]
+    elif field == "b_poloidal":
+        values = poloidal_field_magnitude(result["b_r"], result["b_z"])
+    elif field == "decay_index":
+        # Along R, which is axis 0 of an (R, Z) map.
+        values = decay_index_from_bz(r_axis, result["b_z"], axis=0)
+    else:
+        e_toroidal = toroidal_electric_field(mesh_r, result["dpsi_dt"])
+        b_toroidal = _vacuum_b_toroidal(ods, result["time"], mesh_r)
+        b_poloidal = poloidal_field_magnitude(result["b_r"], result["b_z"])
+        with np.errstate(divide="ignore", invalid="ignore"):
+            values = np.abs(e_toroidal) * np.abs(b_toroidal) / b_poloidal
+        values = np.where(np.isfinite(values), values, np.nan)
+
+    interior = _limiter_interior(ods, r_axis, z_axis)
+    if interior is not None:
+        # Masked here rather than through Field2D.region, so the stable-band
+        # contours are confined too: outside the vessel the decay index is the
+        # coils' own field and its zero crossings are not a stability boundary.
+        values = np.where(interior, values, np.nan)
+
+    display = resolve_display(
+        spec.canonical_unit, unit=units, subject=spec.subject,
+        quantity=field if not spec.canonical_unit else None, data=values,
+    )
+    scaled = values * display.scale
+    bracket = f" [{display.unit}]" if display.unit else ""
+    return Field2D(
+        # Field2D is laid out (len(z), len(r)); the evaluator answers (R, Z).
+        r=r_axis,
+        z=z_axis,
+        values=scaled.T,
+        value_label=f"{spec.label}{bracket}",
+        display=display,
+        filled=spec.filled,
+        contour_levels=_vacuum_levels(scaled.T, spec),
+        secondary_levels=DECAY_INDEX_STABLE_BAND if field == "decay_index" else None,
+        extend=spec.extend,
+        overlays=tuple(_wall_layers(ods)),
+        title=f"{spec.label} at t = {result['time'] * 1e3:.1f} ms (vacuum)",
+    )
+
+
+def _vacuum_b_toroidal(ods: Any, time: float, mesh_r: np.ndarray) -> np.ndarray:
+    """``B_phi = R_0 B_0 / R`` at ``time``, from the TF vacuum field product."""
+    product = _array(ods, "tf.b_field_tor_vacuum_r.data")
+    base = _array(ods, "tf.b_field_tor_vacuum_r.time")
+    if product is None or base is None or len(product) == 0:
+        raise ValueError(
+            "tf.b_field_tor_vacuum_r is required for field='breakdown'; without "
+            "the toroidal field there is no breakdown figure of merit"
+        )
+    index = int(np.argmin(np.abs(np.asarray(base, dtype=float) - float(time))))
+    return float(np.asarray(product, dtype=float)[index]) / mesh_r
 
 
 def _build_core_profile_field(
@@ -3195,6 +3427,126 @@ RECIPES["pf_plasma_geometry_poloidal"] = CallableRecipe(
     builder=_build_pf_plasma_geometry,
     description="The plasma-current elements of pf_plasma, coloured by current.",
 )
+
+
+def _stored_bootstrap_series(ods: Any, time_slice: Any = None) -> dict[str, Any] | None:
+    """Whatever bootstrap current the ODS already carries, as a one-series model set."""
+    index = 0 if time_slice is None else int(time_slice)
+    base = f"core_profiles.profiles_1d.{index}"
+    values = _array(ods, f"{base}.j_bootstrap")
+    grid = _array(ods, f"{base}.grid.rho_tor_norm")
+    if values is None or grid is None or values.size != grid.size:
+        return None
+    label = "stored"
+    try:
+        if "core_profiles.code.name" in ods:
+            written_by = str(ods["core_profiles.code.name"]).strip()
+            if written_by:
+                label = written_by.lower()
+    except (KeyError, ValueError, TypeError):
+        pass
+    return {
+        "rho_tor_norm": grid,
+        "series": {label: {"j_bootstrap": values, "source": "stored"}},
+        "provenance": {},
+    }
+
+
+def _neoclassical_bootstrap_available(ods: Any) -> str | None:
+    """Why this input cannot support the bootstrap comparison, or ``None``.
+
+    The pressure gradients need an electron density, which ``core_profiles`` spells
+    either ``density_thermal`` or ``density`` -- a requirement no single declared path
+    expresses, and the reason this predicate exists rather than another entry in
+    ``required_paths``. Without it a temperature-only fit is advertised as supporting
+    the plot and then raises from the provider.
+    """
+    for index in range(max(_count(ods, "core_profiles.profiles_1d"), 1)):
+        base = f"core_profiles.profiles_1d.{index}.electrons"
+        if any(_array(ods, f"{base}.{leaf}") is not None for leaf in ("density_thermal", "density")):
+            return None
+    return "core_profiles.profiles_1d.{i}.electrons.density_thermal (or density)"
+
+
+def _build_neoclassical_bootstrap(ods: Any, **options: Any) -> Profile1D:
+    """Bootstrap-current profiles from each neoclassical model, on one radial axis.
+
+    One series per model. The analytic ones are evaluated here through
+    :func:`vaft.validation.neoclassical.bootstrap_models`, which composes the ODS-level
+    provider; a solver result already written to ``core_profiles.j_bootstrap`` joins them
+    under the name of whatever wrote it, so a NEO run mapped by
+    :mod:`vaft.machine_mapping.neoclassical` appears beside the formulas it is there to
+    be compared with.
+
+    A caller who has already run the study passes ``rows=`` and nothing is recomputed,
+    the arrangement ``_build_wall_reduction_convergence`` uses -- and it is spelled
+    ``rows`` there and here for the same reason: ``models=`` already means something in
+    :func:`~vaft.validation.neoclassical.bootstrap_models`, namely which analytic
+    formulations to evaluate, and it keeps that meaning as a plot option.
+
+    NEO solves a handful of surfaces, so its profile is NaN outside them. That is carried
+    as a ``valid_mask`` rather than silently interpolated: the gap in the line is the
+    honest statement that the solver was not asked about those radii.
+    """
+    models = options.get("rows")
+    if models is None:
+        from vaft.validation.neoclassical import bootstrap_models
+
+        keys = ("models", "z_eff", "rho_range", "ion_index", "time_slice", "include_stored")
+        passed = {key: options[key] for key in keys if key in options}
+        try:
+            models = bootstrap_models(ods, **passed)
+        except ValueError:
+            # The analytic models need an effective charge, and the provider
+            # refuses to invent one. A solver result already in the ODS is still
+            # worth drawing on its own, so fall back to it rather than showing
+            # nothing -- but only when the caller did not ask for it to be left
+            # out, and only when there is one; otherwise say why nothing is drawn.
+            stored = (
+                _stored_bootstrap_series(ods, passed.get("time_slice"))
+                if passed.get("include_stored", True)
+                else None
+            )
+            if stored is None:
+                raise
+            models = stored
+
+    grid = np.asarray(models["rho_tor_norm"], dtype=float)
+    order = tuple(options.get("order", ("neo", "sauter", "redl")))
+    names = [name for name in order if name in models["series"]]
+    names += [name for name in sorted(models["series"]) if name not in names]
+
+    series: list[Series] = []
+    for name in names:
+        values = np.asarray(models["series"][name]["j_bootstrap"], dtype=float)
+        finite = np.isfinite(values)
+        if not finite.any():
+            continue
+        series.append(
+            Series(
+                x=grid,
+                y=values,
+                label=name,
+                valid_mask=finite if not finite.all() else None,
+                style={"lw": 1.4} if name in ("sauter", "redl") else {"lw": 1.8},
+            )
+        )
+    if not series:
+        raise ValueError("no model produced a finite bootstrap-current profile")
+
+    time = models.get("provenance", {}).get("time")
+    return Profile1D(
+        series=tuple(series),
+        coordinate_label="rho_tor_norm",
+        y_label="Bootstrap current density",
+        y_unit="A.m^-2",
+        title=(
+            "Neoclassical bootstrap current"
+            + ("" if time is None else f" at {float(time):.4g} s")
+        ),
+    )
+
+
 RECIPES["passive_structure_overview_wall_time"] = CallableRecipe(
     builder=_build_wall_mode_spectrum,
     description="Decay-time spectrum of the wall's segment-wise eigenmodes.",
@@ -3206,6 +3558,14 @@ RECIPES["passive_structure_overview_wall_reduction"] = CallableRecipe(
 RECIPES["passive_structure_field_wall_reduction"] = CallableRecipe(
     builder=_build_wall_reduction_map,
     description="The wall's poloidal flux on the equilibrium region: full, reduced or their difference.",
+)
+RECIPES["neoclassical_profile_bootstrap_current"] = CallableRecipe(
+    builder=_build_neoclassical_bootstrap,
+    description=(
+        "Bootstrap current density from each neoclassical model on one radial axis: "
+        "the Sauter and Redl formulas, and a solver result the ODS already carries."
+    ),
+    available=_neoclassical_bootstrap_available,
 )
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
@@ -3222,6 +3582,11 @@ RECIPES["machine_geometry_topview"] = CallableRecipe(
 RECIPES["equilibrium_field_psi_vacuum"] = CallableRecipe(
     builder=_build_vacuum_psi,
     description="Vacuum flux map from the PF currents via vaft.omas.compute_null_ods.",
+)
+RECIPES["vacuum_field"] = CallableRecipe(
+    builder=_build_vacuum_field,
+    description="Flux, |B_p|, the decay index or the breakdown figure of merit "
+                "from one cached vacuum-field evaluation.",
 )
 RECIPES["electron_temperature_field"] = CallableRecipe(
     builder=lambda ods, **options: _build_core_profile_field(
@@ -3448,6 +3813,8 @@ def _efit_overlay_layers(
                 z=overlay["wall_uv"][:, 1],
                 kind="points",
                 label="Wall",
+                # Camera overlays keep literal colours: they must contrast with a
+                # photograph, not follow a theme (issue #709).
                 style={"marker": "o", "markersize": 1, "color": "yellow"},
             )
         )
@@ -5010,14 +5377,14 @@ def _profile_reference_lines(ods: Any, time_slice: int, coordinate: str, traces:
         axis_r = _finite_scalar(_get(ods, f"{base}.r"))
         axis_z = _finite_scalar(_get(ods, f"{base}.z"))
         if axis_r is not None:
-            lines.append(ReferenceLine(axis_r, "Magnetic axis", {"color": "k", "linestyle": "--"}))
+            lines.append(ReferenceLine(axis_r, "Magnetic axis", {"color": "feature:axis", "linestyle": "--"}))
         radii, surface = _wall_midplane_radii(ods, axis_z)
         if radii:
             lines.append(ReferenceLine(min(radii), surface))
             lines.append(ReferenceLine(max(radii), ""))
     elif coordinate == "r_minor" and traces:
         edge = max(float(np.asarray(trace.x)[-1]) for trace in traces if np.asarray(trace.x).size)
-        lines.append(ReferenceLine(edge, "LCFS", {"color": "#e41a1c"}))
+        lines.append(ReferenceLine(edge, "LCFS", {"color": "feature:boundary"}))
     return tuple(lines)
 
 
@@ -5385,6 +5752,7 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
             if r_values:
                 layers.append(
                     GeometryLayer(
+                        role=recipe.role,
                         r=r_values,
                         z=z_values,
                         kind="points",
@@ -5397,6 +5765,7 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                     color = style.get("color", "0.3")
                     for index, r_value, z_value in zip(placed, r_values, z_values):
                         layers.append(GeometryLayer(
+                            role=recipe.role,
                             r=[r_value], z=[z_value], kind="text", label=str(index),
                             style={"color": color, "fontsize": 5, "ha": "left", "va": "bottom",
                                    "xytext": (2, 1), "textcoords": "offset points"},
@@ -5409,6 +5778,7 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                 continue
             layers.append(
                 GeometryLayer(
+                    role=recipe.role,
                     r=r,
                     z=z,
                     kind=kind,
@@ -5566,8 +5936,24 @@ def _style_psi_field(
 
 def field_options_for(name: str) -> tuple[str, ...] | None:
     """The ``field=`` vocabulary of plot ``name``, or ``None`` if it takes none."""
+    if name == "vacuum_field":
+        # Computed, not read from a stored 2-D array, so it is not a
+        # FieldRecipe -- but it selects among quantities the same way.
+        return VACUUM_FIELD_NAMES
     recipe = RECIPES.get(name)
     return tuple(recipe.fields) if isinstance(recipe, FieldRecipe) and recipe.fields else None
+
+
+def member_options_for(name: str) -> tuple[str, ...] | None:
+    """The ``members=`` vocabulary of composite ``name``: its declared panels.
+
+    Only a :class:`PanelRecipe` takes ``members=`` (issue #482); a composite
+    built by code draws what it draws, and a leaf plot has no panels to pick.
+    """
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, PanelRecipe):
+        return tuple(recipe.members)
+    return None
 
 
 def overlay_options_for(name: str) -> tuple[str, ...] | None:
@@ -5675,7 +6061,7 @@ def _poloidal_overlays(
         if boundary_r is not None and boundary_z is not None:
             layers.append(GeometryLayer(
                 r=boundary_r, z=boundary_z, kind="polygon", label="Boundary",
-                style={"color": "#e41a1c"},
+                style={"color": "feature:boundary"}, role=EQUILIBRIUM_ROLE,
             ))
     if "axis" in names:
         base = f"equilibrium.time_slice.{time_slice}.global_quantities.magnetic_axis"
@@ -5684,7 +6070,8 @@ def _poloidal_overlays(
         if axis_r is not None and axis_z is not None:
             layers.append(GeometryLayer(
                 r=np.array([axis_r]), z=np.array([axis_z]), kind="points", label="Magnetic axis",
-                style={"marker": "+", "color": "k", "markersize": 10, "markeredgewidth": 1.5},
+                style={"marker": "+", "color": "feature:axis", "markersize": 10, "markeredgewidth": 1.5},
+                role=EQUILIBRIUM_ROLE,
             ))
     return layers
 
@@ -5845,6 +6232,69 @@ def _spectrogram_method(options: dict, plot_name: str | None = None) -> str:
     return method
 
 
+#: How bright a frequency row must be, relative to the brightest pixel of the
+#: whole map, to count as something the reader can actually see. A `hot_r` or
+#: `turbo` map renders anything well below this as background, so rows under it
+#: contribute nothing but empty axis.
+_SPECTROGRAM_VISIBLE_FRACTION = 0.01
+
+
+def _default_display_band(result: Any) -> float | None:
+    """Return a display ceiling for a spectrogram, or None to show everything.
+
+    A spectrogram is analysed to Nyquist, which for a diagnostic sampled far
+    above its physics band means the content occupies the bottom few percent of
+    the axis and the default render reads as an empty map. VEST soft X-ray
+    digitizers sample near 1 MHz while the plasma content sits below ~30 kHz
+    (#765).
+
+    The ceiling comes from the map itself rather than from a machine constant,
+    so nothing VEST-specific is baked into a general renderer: it sits one bin
+    above the highest frequency whose brightest pixel still reaches
+    :data:`_SPECTROGRAM_VISIBLE_FRACTION` of the map's peak. Above that the
+    colormap draws background, so nothing is hidden that was visible.
+
+    A broadband channel keeps its whole axis, because its top rows are as
+    bright as its bottom ones. :func:`_display_ceiling` is what decides whether
+    to ask at all; this function only answers.
+
+    The brightness of a row is its maximum over time, not its mean: a burst
+    confined to a few milliseconds is exactly what these maps are read for, and
+    averaging it against a quiet shot would hide it.
+    """
+    frequency = np.asarray(result.frequency, dtype=float)
+    magnitude = np.abs(np.asarray(result.magnitude, dtype=float))
+    if frequency.size < 2 or magnitude.ndim != 2 or magnitude.shape[0] != frequency.size:
+        return None
+    magnitude = np.where(np.isfinite(magnitude), magnitude, 0.0)
+    peak = float(magnitude.max())
+    if peak <= 0.0:
+        return None
+    visible = np.nonzero(magnitude.max(axis=1) >= _SPECTROGRAM_VISIBLE_FRACTION * peak)[0]
+    if visible.size == 0:
+        return None
+    highest = int(visible[-1])
+    if highest >= frequency.size - 1:
+        return None  # the content really does fill the band; show all of it
+    # One bin of headroom, so the cut does not sit exactly on the last content.
+    return float(frequency[highest + 1])
+
+
+def _display_ceiling(result: Any, options: dict) -> float | None:
+    """The ``max_frequency`` a built spectrogram carries.
+
+    Anything the caller said decides: ``max_frequency`` is used as given, and a
+    named ``frequency_range`` is already the analysis band, so cropping inside
+    it would hide part of what was asked for and put empty axis below its lower
+    edge. Only when neither is present does the map choose its own band.
+    """
+    if "max_frequency" in options:
+        return options["max_frequency"]
+    if options.get("frequency_range") is not None:
+        return None
+    return _default_display_band(result)
+
+
 def _spectrogram_result(
     time: np.ndarray,
     values: np.ndarray,
@@ -5954,7 +6404,7 @@ def _build_spectrogram(
     )
     return Spectrogram.from_result(
         result,
-        max_frequency=options.get("max_frequency"),
+        max_frequency=_display_ceiling(result, options),
         cmap=options.get("cmap", "hot_r"),
         title=_channel_label(ods, recipe.label_path, index, f"channel {index}"),
         value_label=recipe.value_label,
@@ -6044,13 +6494,20 @@ def _build_panels(
     # A composite nested inside another composite is still a composite, so drop
     # any inherited flag before re-adding it for this level's members.
     options.pop("_panel_member", None)
-    # A member default is either an extraction option (it shapes the member's
-    # model: selection, synthetic, ...) or a renderer style (validity, ...).
-    # The former goes beneath the caller's options into build_model; the
-    # latter beneath the caller's style into the renderer (issue #260).
+    # ``members=`` picks panels by name (issue #482).  It keeps the declared
+    # order rather than the caller's, so a composite's shape does not depend
+    # on how a selection was spelled, and it never resurrects a panel the
+    # input cannot support: a chosen member without data is left out the way
+    # every unavailable member is (issue #476), with the reason in the error
+    # if nothing is left.  An empty choice means the default -- every
+    # available member -- because a control that has been toggled all the
+    # way off should show the overview again, not an empty figure.
+    chosen = _member_choice(recipe, options.pop("members", None))
     member_options, member_style = split_options(recipe.member_defaults)
     members = []
     for name in recipe.members:
+        if chosen is not None and name not in chosen:
+            continue
         if not any(entry_supports(ods, name) for _, ods in entries):
             continue
         merged = {**member_options, **options}
@@ -6068,7 +6525,7 @@ def _build_panels(
     if not members:
         raise ValueError(
             "none of the panels "
-            + ", ".join(recipe.members)
+            + ", ".join(chosen if chosen is not None else recipe.members)
             + " have data in this input"
         )
     if "title" in options:
@@ -6086,6 +6543,22 @@ def _build_panels(
         suptitle=suptitle,
         member_styles=tuple(dict(member_style) for _ in members),
     )
+
+
+def _member_choice(recipe: PanelRecipe, requested: Any) -> tuple[str, ...] | None:
+    """The members a ``members=`` request names, validated, or ``None`` for all."""
+    if requested is None:
+        return None
+    names = (requested,) if isinstance(requested, str) else tuple(requested)
+    if not names:
+        return None
+    unknown = [name for name in names if name not in recipe.members]
+    if unknown:
+        raise ValueError(
+            f"members {unknown} are not panels of this overview; its members are "
+            + ", ".join(recipe.members)
+        )
+    return tuple(dict.fromkeys(str(name) for name in names))
 
 
 #: Keyword arguments that shape the *model* -- what is extracted -- as opposed
@@ -6385,13 +6858,13 @@ def _verification_constraint_panel(
                 y=measured_array,
                 yerr=measured_yerr,
                 label="Measured",
-                style={"color": "black", "marker": "o", "linestyle": "none"},
+                style={"color": "role:measured", "marker": "o", "linestyle": "none"},
             ),
             Series(
                 x=x,
                 y=reconstructed_array,
                 label="Reconstructed",
-                style={"color": "red", "marker": "o", "linestyle": "none"},
+                style={"color": "role:reconstructed", "marker": "o", "linestyle": "none"},
             ),
         ),
         x_label="Constraint index",
@@ -6877,9 +7350,9 @@ RECIPES["equilibrium_overview_verification"] = CallableRecipe(
 #: Marker style per channel state, shared by the submitted and residual views so
 #: a dead channel looks the same in both.
 _STATE_STYLE = {
-    "enabled": {"color": "black", "marker": "o", "linestyle": "none"},
-    "disabled": {"color": "tab:orange", "marker": "x", "linestyle": "none"},
-    "missing": {"color": "tab:red", "marker": "s", "linestyle": "none",
+    "enabled": {"color": "state:enabled", "marker": "o", "linestyle": "none"},
+    "disabled": {"color": "state:disabled", "marker": "x", "linestyle": "none"},
+    "missing": {"color": "state:missing", "marker": "s", "linestyle": "none",
                 "markerfacecolor": "none"},
 }
 
@@ -7169,7 +7642,7 @@ def _build_equilibrium_fit_quality(ods: Any, **options: Any) -> Panels:
                         x=times,
                         y=np.ones_like(times),
                         label="χ²/ν = 1",
-                        style={"linestyle": "--", "color": "0.5", "lw": 1.0},
+                        style={"linestyle": "--", "color": "emphasis:low", "lw": 1.0},
                     ),
                 ),
                 x_label="time",
@@ -7254,7 +7727,7 @@ def _build_equilibrium_fit_quality(ods: Any, **options: Any) -> Panels:
                         x=span,
                         y=np.full(2, sign * level),
                         label=f"±{level:g}σ" if sign > 0 else "",
-                        style={"linestyle": style, "color": "0.6", "lw": 0.9},
+                        style={"linestyle": style, "color": "emphasis:lower", "lw": 0.9},
                     )
                 )
         bias = entry.get("z_bias", float("nan"))
@@ -7318,7 +7791,7 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
                     ),
                     style={
                         "linestyle": ":" if inert else "--",
-                        "color": "0.75" if inert else "0.5",
+                        "color": "emphasis:faint" if inert else "emphasis:low",
                         "lw": 1.0,
                     },
                 )
@@ -7329,7 +7802,7 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
             series.append(
                 Series(x=times, y=acceptance,
                        label=f"acceptance threshold ({name}, {source})",
-                       style={"linestyle": "-.", "color": "tab:red", "lw": 1.0})
+                       style={"linestyle": "-.", "color": "emphasis:alert", "lw": 1.0})
             )
         # For iconvr=2 the statistic with content is how the solve terminated,
         # not the ratio against a tolerance the solver never consults.
@@ -7366,7 +7839,7 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
         if np.isfinite(caps).any():
             series.append(
                 Series(x=times, y=caps, label="cap",
-                       style={"linestyle": "--", "color": "0.5", "lw": 1.0})
+                       style={"linestyle": "--", "color": "emphasis:low", "lw": 1.0})
             )
         hit = sum(1 for block in blocks if block["iterations"]["hit_cap"])
         panels.append(
@@ -7915,7 +8388,7 @@ def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
         ip_series = [Series(x=ip_time, y=ip_data * 1e-3, label="Ip", style={"lw": 1.8})]
         marker = _onset_marker(
             ip_time, ip_data * 1e-3, current_onset, "Ip onset",
-            {"linestyle": "--", "color": "0.35", "lw": 1.0},
+            {"linestyle": "--", "color": "emphasis:strong", "lw": 1.0},
         )
         if marker is not None:
             ip_series.append(marker)
@@ -7942,13 +8415,13 @@ def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
                 x=channel.time,
                 y=np.full(channel.time.size, baseline + band),
                 label=f"±{sigma:g}σ pre-plasma",
-                style={"lw": 0.9, "linestyle": ":", "color": "0.5"},
+                style={"lw": 0.9, "linestyle": ":", "color": "emphasis:low"},
             ),
             Series(
                 x=channel.time,
                 y=np.full(channel.time.size, baseline - band),
                 label="",
-                style={"lw": 0.9, "linestyle": ":", "color": "0.5"},
+                style={"lw": 0.9, "linestyle": ":", "color": "emphasis:low"},
             ),
         ]
         for onset, name, color in (

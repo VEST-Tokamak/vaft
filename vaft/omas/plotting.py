@@ -14,6 +14,13 @@ and returns the renderer's ``(Figure, Axes)`` or ``(Figure, ndarray[Axes])``.
 ``"key"``, or an explicit sequence -- and list/ODC ordering is preserved, so
 repeated calls produce the same legend order.
 
+Every ``plot_<stem>`` has two twins (umbrella #434): ``dd_<stem>()`` lists the
+IMAS Data Dictionary paths it reads without touching data, and
+``extract_<stem>(source, *, label="shot", **extraction_options)`` returns the
+view model the plot draws, undrawn -- ``.to_xarray()`` on it gives an
+:class:`xarray.Dataset`.  A rendering keyword (``ax=``, ``cmap=``) is refused
+by ``extract_*``.
+
 Use :func:`available_plots` to see which plots a particular object can produce,
 and :func:`enable_plot_methods` to opt in to ``ODS.plot_*`` methods.
 :func:`enable_overlay_methods` does the same for OMAS' own
@@ -31,7 +38,10 @@ from vaft.plot._migration import (
     RENAMED_REMOVAL_RELEASE as _RENAMED_REMOVAL_RELEASE,
 )
 
-from .interactive import plot_equilibrium_interactive  # public entry point, issue #261
+from .interactive import (  # public entry points, issues #261 and #482
+    plot_diagnostics_time_interactive,
+    plot_equilibrium_interactive,
+)
 from .entries import extract_labels_from_odc, normalize_entries
 
 
@@ -804,6 +814,26 @@ def plot_equilibrium_field_psi_vacuum(
     """
     return render(
         "equilibrium_field_psi_vacuum", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_vacuum_field(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """One quantity of the coils' and vessel's vacuum field, at one instant.
+
+    ``field=`` chooses among ``psi``, ``b_poloidal``, ``decay_index`` and
+    ``breakdown``; ``time_index=`` steps along the PF time base.
+
+    Renders with :func:`vaft.plot.vacuum_field`.
+    """
+    return render(
+        "vacuum_field", source, ax=ax, show=show, label=label, **options
     )
 
 
@@ -1661,7 +1691,12 @@ def plot_diagnostics_overview(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Fixed-shape time overview across the diagnostic subjects.
+    """Time overview across the diagnostic subjects, one panel per available member.
+
+    A diagnostic the input lacks is left out and the grid shrinks (issue
+    #476); ``members=`` picks the panels by name, and ``interactive=True``
+    -- or :func:`plot_diagnostics_time_interactive` -- offers that and the
+    presets every panel honours as controls (issue #482).
 
     Renders with :func:`vaft.plot.diagnostics_overview`.
     """
@@ -2741,6 +2776,25 @@ def plot_nbi_profile_current_drive(
     """
     return render("nbi_profile_current_drive", source, ax=ax, show=show, label=label, **options)
 
+
+def plot_neoclassical_profile_bootstrap_current(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Bootstrap current density from each neoclassical model on one radial axis.
+
+    The Sauter and Redl formulas against whatever solver result the ODS
+    carries (:func:`vaft.validation.neoclassical.bootstrap_models`), one
+    series per model, so the models are compared on one radial axis.
+
+    Renders with :func:`vaft.plot.neoclassical_profile_bootstrap_current`.
+    """
+    return render("neoclassical_profile_bootstrap_current", source, ax=ax, show=show, label=label, **options)
+
 __all__ = [
     "available_plots",
     "disable_overlay_methods",
@@ -2777,6 +2831,7 @@ __all__ = [
     "plot_equilibrium_field_2d",
     "plot_equilibrium_field_psi",
     "plot_equilibrium_field_psi_vacuum",
+    "plot_vacuum_field",
     "plot_equilibrium_geometry_boundary",
     "plot_equilibrium_geometry_topview",
     "plot_equilibrium_overview",
@@ -2785,6 +2840,7 @@ __all__ = [
     "plot_equilibrium_overview_convergence",
     "plot_equilibrium_overview_fit_quality",
     "plot_equilibrium_interactive",
+    "plot_diagnostics_time_interactive",
     "plot_equilibrium_overview_histories",
     "plot_equilibrium_overview_profiles",
     "plot_equilibrium_overview_residuals",
@@ -2824,6 +2880,7 @@ __all__ = [
     "plot_mhd_linear_profile_b_field_perturbed",
     "plot_mhd_linear_profile_displacement",
     "plot_nbi_profile_current_drive",
+    "plot_neoclassical_profile_bootstrap_current",
     "plot_nbi_profile_electron_heating",
     "plot_nbi_profile_ion_heating",
     "plot_mhd_linear_time_energy_perturbed",
@@ -2910,3 +2967,13 @@ __all__ = [
     "plot_tf_time_b_field_tor_vacuum_r",
     "plot_tf_time_coil_current",
 ]
+
+# The other two verbs of every plot (umbrella #434): ``dd_<stem>()`` lists the
+# Data Dictionary paths, ``extract_<stem>(source, ...)`` returns the view
+# model undrawn.  Generated from the registry the ``plot_*`` above are written
+# against, so the three surfaces cover one set of plots.
+from vaft.plot.backend.facade import install_facades as _install_facades  # noqa: E402
+
+__all__ += list(_install_facades(
+    globals(), normalize=normalize_entries, namespace="vaft.omas", subject="ods",
+))

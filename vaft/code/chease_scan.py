@@ -215,8 +215,9 @@ def scan_chease(
     of a case that failed are still there to look at.
 
     ``config`` supplies the numerical settings.  Note that ``CHEASEConfig``'s
-    own default of ``nideal=11`` is untuned for VEST and does not converge on
-    it; the production settings are ``nideal=6, nw=513, target_psin=0.993,
+    own default was once ``nideal=11``, which upstream CHEASE rejects outright
+    rather than failing to converge; the production settings are
+    ``nideal=6, nw=513, target_psin=0.993,
     relax=0.5``.
 
     With ``keep_going`` a case that raises is recorded with its message and the

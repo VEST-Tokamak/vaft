@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .display import COORDINATE_LABELS, PSI_STYLES
+from .presentation import THEMES
 from .selection import REGION_PRESETS, REPRESENTATIVE_PRESETS, SIGNAL_PRESETS
 from .style import UNCERTAINTY_MODES, VALIDITY_MODES
 
@@ -42,6 +43,10 @@ def _plain(label: str) -> str:
 #: that is otherwise absent.
 NONE = "none"
 
+#: Flux maps with no plasma in them: there is no separatrix to normalise
+#: against and no magnetic axis to mark, so the psi styles do not apply.
+_NO_FLUX_STYLE = frozenset({"equilibrium_field_psi_vacuum", "vacuum_field"})
+
 
 @dataclass(frozen=True)
 class ControlSpec:
@@ -65,6 +70,11 @@ class ControlSpec:
     #: belong to the flux field; while another field is chosen they are not
     #: sent to the builder (issue #483).
     applies_to: Mapping[str, tuple[Any, ...]] = field(default_factory=dict)
+    #: A value that means "leave the option out" for a renderer-side control,
+    #: the way the ``"none"`` choice does for a builder option.  Set only where
+    #: the word is not itself a mode: ``uncertainty="none"`` is one and must be
+    #: passed; ``theme="none"`` is the absence of a theme (issue #710).
+    absent: Any = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "applies_to", dict(self.applies_to))
@@ -123,10 +133,12 @@ def controls_for(
     Only facts the record states produce a control: a plot with one layout
     offers no layout control, a record without validity facts no validity
     control.  ``include_style`` adds the renderer-side modes (validity,
-    uncertainty); ``include_backend`` adds the rendering library, off by
+    uncertainty) and the theme, which every plot offers; ``include_backend``
+    adds the rendering library, off by
     default because changing it replaces the figure object.
     """
     controls: list[ControlSpec] = []
+    controls.extend(_member_controls(record))
     controls.extend(_slice_controls(record))
     controls.extend(_selection_controls(record))
     controls.extend(_layout_controls(record))
@@ -141,7 +153,37 @@ def controls_for(
     return tuple(controls)
 
 
+def _member_controls(record: Any) -> list[ControlSpec]:
+    """Which panels of a composite to draw (issue #482).
+
+    Offered only when the input can draw more than one member; the default
+    is every available one, which is also what the static call draws, so
+    the toggles start from the figure the reader already has.
+    """
+    members: Mapping[str, Any] = getattr(record, "members", None) or {}
+    available = tuple(members.get("available") or ())
+    if len(available) < 2:
+        return []
+    labels = members.get("labels") or {}
+    return [ControlSpec(
+        "members", "multi", "Panels", available, available,
+        tuple(str(labels.get(name, name)) for name in available), group="layout",
+    )]
+
+
 def _slice_controls(record: Any) -> list[ControlSpec]:
+    times: Mapping[str, Any] = getattr(record, "times", None) or {}
+    if times.get("option") == "time_index" and int(times.get("count", 0)) > 1:
+        # A dense time base is a slider, not a list: thousands of samples
+        # cannot be offered as radio buttons, and the reader wants to sweep
+        # them anyway.  The label carries the span, since the positions
+        # themselves are indices.
+        count = int(times["count"])
+        return [ControlSpec(
+            "time_index", "range",
+            f"Time sample ({float(times['start']) * 1e3:.0f}-{float(times['stop']) * 1e3:.0f} ms)",
+            int(times.get("selected") or 0), (0, count - 1, 1), group="slice",
+        )]
     slices: Mapping[str, Any] = getattr(record, "slices", None) or {}
     usable = tuple(int(i) for i in slices.get("usable", ()))
     if len(usable) < 2:
@@ -236,7 +278,10 @@ def _model_controls(record: Any) -> list[ControlSpec]:
         default = tuple(name for name in overlay_defaults_for(record.name) if name in overlays)
         controls.append(ControlSpec("overlay", "multi", "Overlays", default, overlays))
     display: Mapping[str, Any] = record.display or {}
-    if "convention" in display and record.model in ("Field2D", "Panels") and record.name != "equilibrium_field_psi_vacuum":
+    # The psi styles normalise against the separatrix and mark the axis; a
+    # vacuum map has neither, so it offers no flux-map style.
+    if ("convention" in display and record.model in ("Field2D", "Panels")
+            and record.name not in _NO_FLUX_STYLE):
         controls.append(ControlSpec(
             "style", "choice", "Flux map style", PSI_STYLES[0], tuple(PSI_STYLES),
             applies_to=flux_only,
@@ -263,9 +308,16 @@ def _style_controls(record: Any) -> list[ControlSpec]:
     validity: Mapping[str, Any] = record.validity or {}
     if validity.get("available"):
         modes = tuple(validity.get("modes") or VALIDITY_MODES)
-        controls.append(ControlSpec("validity", "choice", "Flagged samples", modes[0], modes, group="style"))
+        default = validity.get("default") if validity.get("default") in modes else modes[0]
+        controls.append(ControlSpec("validity", "choice", "Flagged samples", default, modes, group="style"))
     uncertainty: Mapping[str, Any] = record.uncertainty or {}
     if uncertainty.get("available"):
         modes = tuple(uncertainty.get("modes") or UNCERTAINTY_MODES)
-        controls.append(ControlSpec("uncertainty", "choice", "Uncertainty", modes[0], modes, group="style"))
+        default = uncertainty.get("default") if uncertainty.get("default") in modes else modes[0]
+        controls.append(ControlSpec("uncertainty", "choice", "Uncertainty", default, modes, group="style"))
+    # The visual grammar applies to any Matplotlib figure, so every plot
+    # offers it (issue #710).  There is no format control: the controls figure
+    # owns its canvas and draws each redraw into it with ax=, which is exactly
+    # the case format= refuses (issue #689 section 11).
+    controls.append(ControlSpec("theme", "choice", "Theme", NONE, (NONE, *THEMES), group="style", absent=NONE))
     return controls

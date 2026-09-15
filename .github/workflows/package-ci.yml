@@ -87,6 +87,16 @@ jobs:
       - name: Install vaft with dev dependencies
         run: python -m pip install -e ".[dev]"
 
+      # A separate step, before the suite, because it is the cheapest possible
+      # signal and its failure mode is unambiguous: a name that does not exist
+      # cannot be a flake, an environment difference, or a tolerance. F821 was
+      # silently disabled for `vaft/formula/` by a star import for long enough
+      # that a public function raised NameError on every call (#753); running it
+      # here means the next star import fails a gate rather than waiting for
+      # someone to call the function it blinded.
+      - name: Check for undefined names
+        run: python -m ruff check --select F821 --output-format concise vaft/formula/
+
       - name: Run the development-confidence selection
         # This job is NOT a Linux platform-support claim. Linux is simply the
         # canonical environment the development-confidence suite runs in; the
@@ -258,9 +268,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          # The freshness check diffs the change against its base.
-          fetch-depth: 0
 
       - uses: actions/setup-python@v7
         with:
@@ -272,44 +279,16 @@ jobs:
           # front matter in test/verify_tutorial.py.
           python -m pip install nbformat pyyaml
           sudo apt-get update
-          sudo apt-get install -y latexmk texlive-latex-recommended texlive-pictures
 
       - name: Verify committed tutorial source and artifacts
         run: python test/verify_tutorial.py
 
-      - name: Verify every changed deck input ships a rebuilt PDF
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          python test/verify_tutorial_freshness.py pairing --base "$BASE_SHA" --head HEAD
-
-      - name: Snapshot the committed decks before rebuilding
-        run: |
-          mkdir -p "${RUNNER_TEMP}/committed-decks"
-          cp tutorial/[0-9][0-9]_*.pdf "${RUNNER_TEMP}/committed-decks/"
-
-      - name: Rebuild tutorial slide decks independently
-        run: make -B -C tutorial slides
-
-      # The runner builds on a different TeX Live release than the one that
-      # produced the committed PDFs, and pdfTeX stamps its own version into
-      # every file, so the rebuild is compared on page structure rather than
-      # byte-for-byte.
-      - name: Verify the rebuild reproduces the committed decks
-        run: |
-          python test/verify_tutorial.py
-          python test/verify_tutorial_freshness.py compare \
-            --committed "${RUNNER_TEMP}/committed-decks" \
-            --rebuilt tutorial
-
-      # --- Quarto presentation pilot (issue #322) --------------------------
-      # Session 01's slides are a .qmd rendered to both backends. Nothing is
-      # committed, so CI is what proves the source still builds, and the
-      # artifacts are how a reviewer compares the two forms side by side.
-      # Pinned: under the end-state rule this job is the only producer of the
-      # decks, so an upstream Quarto release must not be able to break the build
-      # with no local signal.
+      # --- Quarto presentations (issue #322) -------------------------------
+      # Every session's slides are one .qmd rendered to both backends. Nothing
+      # is committed, so this job is the only producer of the decks and the only
+      # proof that the sources still build. Quarto is pinned for that reason: an
+      # upstream release must not be able to break the build with no local
+      # signal.
       - name: Install Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         with:
@@ -322,13 +301,13 @@ jobs:
       - name: Install the TeX packages and SVG converter Quarto's Beamer output needs
         run: sudo apt-get install -y texlive-latex-extra texlive-fonts-recommended librsvg2-bin
 
-      - name: Render the presentation pilot to both backends
+      - name: Render every deck to both backends
         run: make -C tutorial presentations
 
       - name: Upload the rendered decks for review
         uses: actions/upload-artifact@v4
         with:
-          name: presentation-pilot
+          name: tutorial-presentations
           if-no-files-found: error
           path: |
             tutorial/presentations/*.html

@@ -76,6 +76,7 @@ CORE_MODULES: tuple[str, ...] = (
     # Registry, taxonomy and display policy: the vocabulary the rest of the
     # package indexes itself by.
     "test_diagnostic_registry.py",
+    "test_diagnostics_interactive.py",
     "test_display_policy.py",
     "test_equilibrium_field_2d.py",
     "test_layout_contract.py",
@@ -83,6 +84,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
     "test_plot_contract.py",
+    "test_plot_intent.py",
+    "test_plot_presentation.py",
     "test_plot_taxonomy.py",
     "test_process_magnetics_geometry.py",
     "test_profile_coordinates.py",

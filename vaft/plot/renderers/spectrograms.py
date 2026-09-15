@@ -9,6 +9,7 @@ from matplotlib.figure import Figure
 
 from ..models import Spectrogram
 from ..registry import renderer
+from ..presentation import presented
 from ..style import finalize, resolve_axes
 
 __all__ = [
@@ -21,6 +22,7 @@ __all__ = [
 _DEFAULT_FIGSIZE = (8.0, 4.0)
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_spectrogram(
     model: Spectrogram,
     *,
@@ -28,6 +30,8 @@ def render_spectrogram(
     show: bool = False,
     figsize: tuple[float, float] | None = None,
     colorbar: bool = True,
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Spectrogram` as a time-frequency mesh."""

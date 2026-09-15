@@ -15,9 +15,13 @@ from vaft.machine_mapping.magnetics import (
     vfit_equilibrium_magnetics,
 )
 from vaft.process.magnetics import (
+    DegenerateBaselineWindowError,
     UnsupportedMagneticsDaqModeError,
     VestMagneticsProcessingConfig,
+    vest_b_field_pol_probe_legacy,
+    vest_equilibrium_magnetics_detailed,
     vest_equilibrium_magnetics_signals,
+    vest_flux_loop_flux_from_voltage,
     vest_flux_loop_legacy,
 )
 
@@ -239,3 +243,156 @@ def test_configs_built_from_vest_yaml_are_always_self_consistent(shot):
     """Every era the YAML can produce must pass the consistency check."""
     config = equilibrium_magnetics_processing_config(shot)
     vest_equilibrium_magnetics_signals(shot, [], lambda _s, _f: None, config=config)
+
+
+# ---------------------------------------------------------------------------
+# Degenerate baseline window error handling (issue #639)
+# ---------------------------------------------------------------------------
+
+def test_b_field_pol_probe_degenerate_baseline_raises():
+    time = np.linspace(0.0, 0.01, 1000)
+    raw = np.sin(np.linspace(0.0, 10.0, 1000))
+    cfg = VestMagneticsProcessingConfig(window_override=(0, 500, 1))
+
+    with pytest.raises(DegenerateBaselineWindowError) as exc_info:
+        vest_b_field_pol_probe_legacy(
+            time, raw, 1.0, shot=41445, config=cfg, channel="probe_test"
+        )
+
+    msg = str(exc_info.value)
+    assert "shot 41445" in msg
+    assert "probe_test" in msg
+    assert "1 valid sample(s)" in msg
+    assert "requires >= 2" in msg
+    assert "time span: [0, 0.01] s" in msg
+
+
+def test_b_field_pol_probe_allow_zero_fallback():
+    time = np.linspace(0.0, 0.01, 1000)
+    raw = np.sin(np.linspace(0.0, 10.0, 1000))
+    cfg = VestMagneticsProcessingConfig(window_override=(0, 500, 1))
+
+    with pytest.warns(UserWarning, match="Degenerate baseline window.*allow_zero_fallback=True"):
+        result = vest_b_field_pol_probe_legacy(
+            time, raw, 1.0, shot=41445, config=cfg, allow_zero_fallback=True
+        )
+
+    assert result.shape == raw.shape
+
+
+def test_flux_loop_degenerate_window_raises():
+    time = np.linspace(0.0, 0.1, 1000)
+    raw = np.cos(np.linspace(0.0, 5.0, 1000))
+    cfg = VestMagneticsProcessingConfig(flux_baseline_window=(0.5, 0.6))
+
+    with pytest.raises(DegenerateBaselineWindowError) as exc_info:
+        vest_flux_loop_legacy(
+            time, raw, 1.0, flux_loop_number=3, config=cfg, shot=43685
+        )
+
+    msg = str(exc_info.value)
+    assert "shot 43685" in msg
+    assert "flux_loop_3" in msg
+    assert "0 valid sample(s)" in msg
+    assert "requires >= 2" in msg
+    assert "time window [0.5, 0.6] s" in msg
+
+
+def test_flux_loop_degenerate_window_allow_zero_fallback():
+    time = np.linspace(0.0, 0.1, 1000)
+    raw = np.cos(np.linspace(0.0, 5.0, 1000))
+    cfg = VestMagneticsProcessingConfig(
+        flux_baseline_window=(0.5, 0.6), allow_zero_fallback=True
+    )
+
+    with pytest.warns(UserWarning, match="Degenerate baseline window.*allow_zero_fallback=True"):
+        result = vest_flux_loop_legacy(
+            time, raw, 1.0, flux_loop_number=3, config=cfg, shot=43685
+        )
+
+    assert result.shape == raw.shape
+
+
+def test_flux_loop_flux_from_voltage_degenerate_samples_raises_and_fallback():
+    time = np.linspace(0.0, 0.1, 1000)
+    voltage = np.ones(1000)
+    cfg = VestMagneticsProcessingConfig(flux_baseline_samples=1)
+
+    with pytest.raises(DegenerateBaselineWindowError) as exc_info:
+        vest_flux_loop_flux_from_voltage(
+            time, voltage, flux_loop_number=2, config=cfg, shot=46404
+        )
+    assert "1 valid sample(s)" in str(exc_info.value)
+
+    with pytest.warns(UserWarning, match="Falling back to zero baseline"):
+        result = vest_flux_loop_flux_from_voltage(
+            time, voltage, flux_loop_number=2, config=cfg, allow_zero_fallback=True
+        )
+    assert result.shape == voltage.shape
+
+
+def test_flux_loop_two_segment_out_of_bounds_raises_and_fallback():
+    # Signal with fewer samples than flux_baseline_first_start (3499)
+    time = np.linspace(0.0, 0.01, 500)
+    raw = np.sin(np.linspace(0.0, 5.0, 500))
+    cfg = VestMagneticsProcessingConfig()
+
+    with pytest.raises(DegenerateBaselineWindowError) as exc_info:
+        vest_flux_loop_legacy(time, raw, 1.0, flux_loop_number=1, config=cfg)
+    assert "0 valid sample(s)" in str(exc_info.value)
+
+    with pytest.warns(UserWarning, match="allow_zero_fallback=True"):
+        result = vest_flux_loop_legacy(
+            time, raw, 1.0, flux_loop_number=1, config=cfg, allow_zero_fallback=True
+        )
+    assert result.shape == raw.shape
+
+
+def test_vest_equilibrium_magnetics_detailed_channel_raises_and_fallback():
+    shot = 41445
+    # Signal too short for default probe baseline (8500 samples)
+    time = np.linspace(0.0, 0.01, 500)
+    data = np.ones(500)
+    channels = [
+        {"field_code": 1, "calibration": 1.0, "kind": "b_field_pol_probe", "name": "Bpol_1"},
+    ]
+    loader = lambda s, f: (time, data)
+    cfg = VestMagneticsProcessingConfig(window_override=(0, 200, 1))
+
+    with pytest.raises(DegenerateBaselineWindowError) as exc_info:
+        vest_equilibrium_magnetics_detailed(
+            shot, channels, loader, config=cfg
+        )
+    assert "Bpol_1" in str(exc_info.value)
+    assert "shot 41445" in str(exc_info.value)
+
+    # With allow_zero_fallback=True, it succeeds with warning
+    with pytest.warns(UserWarning, match="Falling back to zero baseline"):
+        res = vest_equilibrium_magnetics_detailed(
+            shot, channels, loader, config=cfg, allow_zero_fallback=True
+        )
+    assert len(res.probes) == 1
+    assert res.probes[0].size > 0
+
+
+def test_b_field_pol_probe_integer_channel_zero():
+    time = np.linspace(0.0, 0.01, 1000)
+    raw = np.sin(np.linspace(0.0, 10.0, 1000))
+    cfg = VestMagneticsProcessingConfig(window_override=(0, 500, 1))
+
+    with pytest.raises(DegenerateBaselineWindowError) as exc_info:
+        vest_b_field_pol_probe_legacy(
+            time, raw, 1.0, shot=41445, config=cfg, channel=0
+        )
+    assert "channel 0" in str(exc_info.value)
+
+
+def test_nan_contaminated_baseline_window_raises():
+    time = np.linspace(0.0, 0.01, 1000)
+    raw = np.full(1000, np.nan)
+    # Even if 500 samples are in-bounds, they are all NaN
+    cfg = VestMagneticsProcessingConfig(window_override=(0, 500, 500))
+
+    with pytest.raises(DegenerateBaselineWindowError) as exc_info:
+        vest_b_field_pol_probe_legacy(time, raw, 1.0, shot=41445, config=cfg)
+    assert "1 valid sample(s)" in str(exc_info.value)

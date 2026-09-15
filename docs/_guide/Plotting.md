@@ -204,6 +204,60 @@ vaft.omas.plot_spectrometer_uv_time_intensity(
 )
 ```
 
+## Presentation: `format=` and `theme=`
+
+Every canonical `plot_*` takes two presentation presets (issue #689; `format`
+defaults to `screen` since #712, `theme` to none),
+separate from the scientific display policy (units, notation, validity) and
+from the semantic `layout=`:
+
+| keyword | what it decides | presets |
+| --- | --- | --- |
+| `format=` | how large the rendering is: physical width, a height ceiling, base font and the scales of everything measured in points | `screen` (6.5 in, 10 pt), `single_column` (86 mm, 8 pt), `double_column` (178 mm, 8 pt) |
+| `theme=` | which visual grammar: font family, tick direction, grid and spines, the colour cycle and, for `monochrome`, the linestyle and marker cycles that carry the distinction colour would | `technical`, `minimal`, `monochrome` |
+
+The height comes from the view kind, not from the caller: a time trace is a
+landscape strip, a profile near-square, an R--Z view takes its height from the
+machine it draws (wall, coils, sensors -- never the plasma boundary, which moves
+between shots) with `1 unit of R = 1 unit of Z` inside the axes, an image keeps
+its pixel ratio, and a composite divides one fixed width among its panels so the
+panel count never widens the page. Both colour cycles are colour-blind safe, so
+accessibility is a baseline of every theme rather than a theme of its own. No
+publisher is named: the column formats generalise the constraints most physics
+journals share.
+
+```python
+fig, ax = vaft.omas.plot_plasma_current_time(ods, format="single_column", theme="technical")
+fig, axes = vaft.omas.plot_flux_loop_time_flux(ods, selection="outboard", layout="subplots",
+                                               format="double_column", theme="monochrome")
+```
+
+Rules worth knowing:
+
+- `format=None` means `screen` for a figure the plot creates itself (issue #712):
+  6.5 in wide, 10 pt type, the height its view kind asks. It yields to a caller's
+  `ax=` and to an explicit `figsize=`. `format="legacy"` pins the sizes the
+  renderers had before the presets existed, for a workflow whose reference
+  images must not move. `theme=None` stays Matplotlib's own look.
+- Nothing mutates global Matplotlib state: a preset is applied around one render
+  and `rcParams` are what they were once the figure is returned.
+- A caller who owns the axes keeps the canvas: `ax=` together with `format=` is
+  refused (pass `theme=` only), as is `figsize=` together with `format=`.
+- `backend="plotly"` cannot apply the presets and says so rather than draw
+  something else. `interactive=True` offers `theme` as a control on every plot
+  (the widget strip's last entry) and refuses `format=`, since the controls
+  figure owns its canvas.
+- A recipe never names a colour; it names what the colour means, and the theme
+  in force decides what it is (issue #709). The tokens live in
+  `vaft.plot.intent`: `palette:<n>` (the n-th distinguishing colour of a set),
+  `role:measured|reconstructed|reference`, `feature:wall|limiter|boundary|axis|coil|passive`,
+  `state:enabled|disabled|missing`, `emphasis:strong|medium|low|lower|faint|alert`.
+  Without a theme every token resolves to the literal it always stood for, so
+  nothing changes; under `monochrome` every one of them is a grey, and a
+  reconstruction or a boundary gains a marker or a dash instead of a hue. Only
+  the camera overlays keep literal colours — they contrast with a photograph, not
+  with a theme — and `C<n>` follows Matplotlib's current cycle as it always did.
+
 ## Time traces
 
 All of these take an ODS or an ODC as first argument, call `plt.show()` and return `None` —
@@ -417,7 +471,7 @@ your own subplot grids. Everything after the first argument is keyword-only.
 | `mirnov_signal` | `(ods, channels=None, *, probe_group='b_field_pol_probe', time_range=None, preprocess=False, gains=None, ax=None, show=True)` |
 | `mirnov_spectrogram` | `(ods, channel=0, *, probe_group='b_field_pol_probe', time_range=None, preprocess=True, gain=None, sample_rate=None, window_size=500, time_resolution=1, max_frequency=None, cmap='hot_r', ax=None, show=True, return_result=False)` |
 | `toroidal_mode_spectrum` | `(ods, channel_pair=(65, 67), *, probe_group='b_field_pol_probe', time_range=None, preprocess=True, gains=None, phase_geometry=np.pi/6, peak_threshold=0.1, sample_rate=None, axes=None, show=True, return_result=False)` |
-| `toroidal_phase_mode_fit` | `(ods, center_time, *, channels=(64, 65, 66, 67), probe_group='b_field_pol_probe', time_range=None, frequencies=None, num_modes=2, candidate_n=tuple(range(0, 7)), window_size=500, preprocess=True, gains=None, sample_rate=None, peak_threshold=0.1, ax=None, show=True, save_path=None, return_result=False)` |
+| `toroidal_phase_mode_fit` | `(ods, center_time, *, channels=(64, 65, 66, 67), probe_group='b_field_pol_probe', time_range=None, frequencies=None, num_modes=2, candidate_n=tuple(range(-6, 7)), window_size=500, preprocess=True, gains=None, sample_rate=None, peak_threshold=0.1, ax=None, show=True, save_path=None, return_result=False)` |
 
 ```python
 import matplotlib.pyplot as plt
@@ -568,6 +622,41 @@ Two history functions take an ODS/ODC instead of a DataFrame:
 vaft.plot.plot_bremsstrahlung_power_scaling_vs_fundamental_method(ods, Z_eff=2.0)
 vaft.plot.plot_ohmic_power_flux_vs_dissipation_method(ods)
 ```
+
+## Reading without drawing: `dd_*`, `extract_*`, `to_xarray()`
+
+Every canonical plot answers three questions from one recipe (umbrella #434).
+`dd_<stem>()` lists the IMAS Data Dictionary paths the plot reads, without any data;
+`extract_<stem>(source, ...)` returns the view model the plot draws, undrawn; `plot_<stem>`
+is the figure. Both `vaft.omas` and `vaft.imas` carry all three, generated from the same
+registry, so the three surfaces cover one set of plots.
+
+```python
+vaft.omas.dd_plasma_current_time()
+# (DDPath('magnetics/ip(0)/data', role='data', coordinate='magnetics/ip(0)/time', ...), ...)
+
+model = vaft.omas.extract_plasma_current_time(ods, yunit="MA")   # a LineSeries, nothing drawn
+ds = model.to_xarray()                                            # an xarray.Dataset
+ds.y[0, :int(ds.length[0])]                                       # the trace, exactly
+
+vaft.imas.extract_plasma_current_time(entry)                      # the same model from IMAS
+vaft.plot.dd("plasma_current_time"); vaft.plot.extract("plasma_current_time", ods)
+```
+
+`extract_*` takes `label=` and the extraction options of the matching `plot_*`; a rendering
+keyword (`ax=`, `backend=`, `format=`, `theme=`) is refused by name. The paths come in one
+canonical spelling, `magnetics/ip(:)/data` (`vaft.plot.backend.dd` translates to the OMAS
+`magnetics.ip.0.data` and IMAS `ip/data` forms, and `resolve()` reads the Data Dictionary's
+units and coordinates for one). A test asserts every declared path exists in the Data
+Dictionary and carries the units the recipe claims.
+
+`to_xarray()` is lossless and plain: traces of unequal length are stacked on a `series`
+dimension and NaN-padded along `sample`, with a `length` coordinate holding each trace's true
+sample count; channel, entry, validity and position are coordinates on `series`; units, scale
+and title are attributes (JSON text where a value is a list or mapping), so the dataset writes
+to netCDF as it is. A composite (`Panels`) becomes an `xarray.DataTree` with one child per
+panel. `vaft.database` has no `extract_*` yet: its `plot_*` opens IDS selectively and belongs
+with selective loading.
 
 ## Utilities
 

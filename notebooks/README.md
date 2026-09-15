@@ -63,10 +63,11 @@ Pipeline notebooks are expanded as the reusable VAFT functions behind them becom
 - `local_miller_equilibrium_fitting.ipynb`: Local Miller fitting, reconstruction errors, and separatrix limits.
 - `analytic_solovev_equilibrium.ipynb`: Constant-source analytic Solov'ev construction and gridded-field verification.
 - `edge_and_boundary_representation.ipynb`: Limiter/diverted topology, X-points, gaps, and separatrix balance.
-- `linear_ideal_stability_analysis_with_dcon.ipynb`: Blocked on a GPEC-suite build; the notebook documents the `GPECHOME` layout and the case preparation and output validation `vaft.code.gpec` does without the solver.
-- `linear_resistive_stability_analysis_with_rdcon.ipynb`: Blocked on the same GPEC-suite build, for RDCON and its matching data.
+- `linear_ideal_stability_analysis_with_dcon.ipynb`: Ideal MHD stability (delta-W by toroidal mode) with DCON, run on the packaged VEST equilibrium into a temporary directory, mapped into `mhd_linear` and drawn through the plot catalog. Needs `$GPECHOME`; without it each section reports what it would show and skips.
+- `linear_resistive_stability_analysis_with_rdcon.ipynb`: Resistive stability with RDCON -- the classical tearing index Delta-prime per rational surface, mapped into `ntms.deltaw`, with DCON alongside for the ideal context. Needs the same `$GPECHOME`.
 - `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`: Blocked on GPEC itself; the notebook notes that its output readers work on results produced elsewhere, so a run from another machine can still be analysed here.
 - `vest_nbi_analysis_with_nubeam.ipynb`: Neutral-beam deposition, heating, current drive and loss accounting for VEST with NUBEAM. Runs the case stored in `vaft/data/nubeam/vest_case` into a temporary directory; needs `$NUBEAMHOME`, and without it each section reports what it would show and skips.
+- `neoclassical_transport_with_neo.ipynb`: Neoclassical transport and bootstrap current for VEST with NEO (GACODE). Converts the packaged 48224 kinetic state to `input.gacode`, runs NEO into a temporary directory, maps the result into IMAS, and compares it with the Sauter and Redl analytic models; needs `$GACODEHOME` and `$GACODE_PLATFORM`, and without them each section reports what it would show and the analytic comparison still runs.
 
 ### Analysis, Visualization, Reporting, and Comparison
 
@@ -100,13 +101,14 @@ Use the following order as the main technical path through the notebooks. Existi
 15. `linear_resistive_stability_analysis_with_rdcon.ipynb`
 16. `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`
 17. `vest_nbi_analysis_with_nubeam.ipynb`
-18. `plotting_sample_using_vaft_plot_module.ipynb`
-19. `shot_characteristics_classification.ipynb`
-20. `vest_daily_monitoring.ipynb`
-21. `fast_camera_video_analysis.ipynb`
-22. `confinement_time_scaling.ipynb`
-23. `multiple_tokamak_comparison.ipynb`
-24. `publication_figures.ipynb`
+18. `neoclassical_transport_with_neo.ipynb`
+19. `plotting_sample_using_vaft_plot_module.ipynb`
+20. `shot_characteristics_classification.ipynb`
+21. `vest_daily_monitoring.ipynb`
+22. `fast_camera_video_analysis.ipynb`
+23. `confinement_time_scaling.ipynb`
+24. `multiple_tokamak_comparison.ipynb`
+25. `publication_figures.ipynb`
 
 For a shorter review focused only on the notebooks still waiting on an external
 Fortran code, read their **Requirements to run this page** sections:

@@ -30,10 +30,17 @@ from pathlib import Path
 import tempfile
 import time
 from collections.abc import Iterable
+from collections.abc import Callable
 from typing import Any
 
 from . import sources as _sources
-from .filedb import FileDB, OMASStage
+from .filedb import (
+    LEGACY_FAMILY,
+    LEGACY_REFINEMENT,
+    FileDB,
+    OMASStage,
+    stage_lineage,
+)
 from .sources import MissingSourceError
 
 
@@ -257,6 +264,55 @@ def _fetch_remote_master(source: str, shot: int, target: Path) -> Path | None:
     return target
 
 
+def _require_remote_entries(source: str, shot: int) -> tuple[str, ...]:
+    """List a shot folder, letting a failure surface instead of reading as empty.
+
+    :func:`_remote_entries` deliberately conflates "no folder yet" with "could
+    not reach the folder", because a shot's first write has no folder and that
+    is not an error. Any caller that would *act* on the emptiness -- pruning
+    links, say -- needs the two told apart.
+    """
+    from .utils import h5pyd
+
+    return tuple(sorted(h5pyd.Folder(f"/{source}/{shot}/", mode="r")))
+
+
+def _master_finalizer(
+    source: str, shot: int, previous_master: Path | None
+) -> Callable[[Path], None] | None:
+    """Return a hook that merges ``previous_master``'s links into a local master.
+
+    Handed to the writer so it runs after the payload is remote and before the
+    master is replaced. The remote master therefore moves from the previous
+    state straight to the previous state plus this stage, in one write, and is
+    never observably stage-only.
+    """
+    if previous_master is None:
+        return None
+
+    def finalize(local_master: Path) -> None:
+        from .staging import merge_master_links
+
+        # `_remote_entries` reports an unreachable folder and an absent one the
+        # same way, by returning nothing, which is right for a first write but
+        # dangerous here: an empty listing makes `merge_master_links` drop every
+        # carried link, and this master is about to become the commit point. So
+        # the listing is taken strictly. The payload is already uploaded, so a
+        # healthy folder cannot be empty, and a failure is retried by the caller
+        # rather than committed as a pruned master.
+        present = _remote_canonical_files(_require_remote_entries(source, shot))
+        if not present:
+            raise ReplicationError(
+                f"/{source}/{shot}/ lists no IDS files immediately after this "
+                "write uploaded its payload. Refusing to merge against an empty "
+                "listing: it would drop every link the stored master carries and "
+                "publish a master describing only this stage."
+            )
+        merge_master_links(local_master, previous_master, present_files=present)
+
+    return finalize
+
+
 def merge_remote_master(source: str, shot: int, previous_master: Path | None) -> tuple[str, ...]:
     """Fold a pre-write master's links back into the one the write just left.
 
@@ -396,6 +452,9 @@ def replicate_stage(
     shot: int,
     *,
     filedb: FileDB,
+    family: str = LEGACY_FAMILY,
+    refinement: str = LEGACY_REFINEMENT,
+    product: str | None = None,
     attempts: int = 3,
     retry_delay: float = 5.0,
     validate: bool = True,
@@ -406,9 +465,30 @@ def replicate_stage(
     Returns the record that was written. Re-running is cheap: a record that
     already describes this exact product in the required state is reused rather
     than re-sent, so a rerun never repeats the solver stage that produced it.
+
+    Durability, stated exactly. A shot's ``master.h5`` names every IDS file
+    beside it and is what a reader resolves the shot from, so replacing it is
+    the commit point. It is uploaded last, and the pre-write master's links are
+    merged into it locally beforehand, so the remote master moves from the
+    previous state straight to the previous state plus this stage in one write.
+    A crash at any point therefore cannot orphan IDS already published for this
+    shot.
+
+    This is commit ordering, **not** transactionality. An interrupted write can
+    still leave its own payload partly uploaded with the master not yet
+    replaced, so this stage's data may be missing until a retry. Nothing here
+    rolls a partial payload back.
     """
-    entry = _sources.replication_for_stage(stage)
     name = OMASStage(stage).value
+
+    # One statement of the lineage, used twice: it names the local product's
+    # path and computes the remote destination. Deriving the destination from
+    # the same values is what stops the two from disagreeing -- a stage product
+    # read from `magnetic/chease/rdcon` cannot be sent to another product's
+    # source without changing this one call.
+    entry = _sources.replication_for_stage(
+        stage, family=family, refinement=refinement, product=product
+    )
     if entry.source is None:
         raise StageNotReplicableError(
             f"The {name} stage is not replicated to HSDS"
@@ -419,13 +499,19 @@ def replicate_stage(
             f"Replication of the {name} stage is not wired yet; it belongs to "
             f"issue {entry.deferred_to}."
         )
+    # After the two "there is nowhere to send this" guards, so a stage that is
+    # not replicated at all says that rather than complaining about a lineage
+    # argument it would never have used.
+    lineage = stage_lineage(
+        name, family=family, refinement=refinement, product=product
+    )
     # writable=True is what makes it impossible to replicate into `public`.
     source = _sources.resolve(entry.source, writable=True)
 
     shot = int(shot)
-    product = filedb.omas_product(name, shot=shot)
-    manifest_path = filedb.omas_manifest(name, shot=shot)
-    record_path = filedb.omas_replication_record(name, shot=shot)
+    product_path = filedb.omas_product(name, shot=shot, **lineage)
+    manifest_path = filedb.omas_manifest(name, shot=shot, **lineage)
+    record_path = filedb.omas_replication_record(name, shot=shot, **lineage)
 
     def skipped(reason: str) -> ReplicationRecord:
         """Record why an optional stage published nothing, and carry on."""
@@ -433,7 +519,7 @@ def replicate_stage(
             stage=name, shot=shot, source=source,
             remote_uri=f"hdf5://{source}/{shot}/", ids=entry.ids,
             occurrence=entry.occurrence,
-            product_sha256=sha256_file(product) if product.exists() else "",
+            product_sha256=sha256_file(product_path) if product_path.exists() else "",
             state="skipped", attempts=0, started_at=_now(), completed_at=_now(),
             error=reason,
         )
@@ -442,12 +528,12 @@ def replicate_stage(
         return record
 
     try:
-        _check_eligible(_read_manifest(manifest_path), name, product)
+        _check_eligible(_read_manifest(manifest_path), name, product_path)
     except ProductNotEligibleError as error:
         if not entry.optional:
             raise
         return skipped(str(error))
-    product_sha256 = sha256_file(product)
+    product_sha256 = sha256_file(product_path)
 
     previous = read_record(record_path)
     if not force and is_reusable(
@@ -461,16 +547,16 @@ def replicate_stage(
     from ..omas import load as load_local
     from . import save as save_remote
 
-    ods = load_local(product)
+    ods = load_local(product_path)
     projected, present = _project(ods, entry.ids)
     if not present and entry.optional:
         return skipped(
-            f"The {name} product at {product} carries none of the IDS this stage "
+            f"The {name} product at {product_path} carries none of the IDS this stage "
             f"owns ({', '.join(entry.ids)})."
         )
     if not present:
         raise ProductNotEligibleError(
-            f"The {name} product at {product} carries none of the IDS this stage "
+            f"The {name} product at {product_path} carries none of the IDS this stage "
             f"owns ({', '.join(entry.ids)}); there is nothing to replicate."
         )
 
@@ -505,12 +591,22 @@ def replicate_stage(
                         source, shot, Path(workdir) / "master.previous.h5"
                     )
                     captured = True
+                # The merge happens locally, on the master about to be
+                # uploaded, rather than afterwards on the one already there.
+                # Doing it afterwards leaves the remote master describing only
+                # this stage for the length of a fetch-merge-upload round trip,
+                # and a crash inside that window hides every other stage's IDS
+                # exactly as an out-of-order payload upload would.
                 save_remote(
                     projected,
                     shot,
                     source=source,
                     occurrence=occurrence or None,
+                    finalize_master=_master_finalizer(source, shot, previous_master),
                 )
+                # Kept as a safety net: after a local merge it finds nothing to
+                # add and returns without writing. It still repairs a master
+                # left stage-only by an older client or an interrupted write.
                 merge_remote_master(source, shot, previous_master)
                 last_error = None
                 break

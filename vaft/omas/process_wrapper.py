@@ -326,6 +326,39 @@ def compute_grid_response_ods(
         logger.error(f"Error during computation: {e}")
         raise
 
+def _vacuum_sources(ods: ODS) -> Tuple[List[float], List[float], List[float], List[int]]:
+    """Every current-carrying filament of the machine, as the field sees it.
+
+    Coil elements enter individually with their signed turns; a passive loop
+    enters once, at its outline centroid (or its rectangle centre). ``groups``
+    says which coil or loop each filament belongs to, so a response matrix can
+    be summed back down to one column per source.
+
+    This is exactly what a vacuum response depends on besides the observation
+    points, which is why :func:`_machine_fingerprint` keys its cache on it.
+    """
+    pf, pfp = ods["pf_active"], ods["pf_passive"]
+    nbcoil, nbloop = len(pf["coil"]), len(pfp["loop"])
+    src_r, src_z, turns, groups = [], [], [], []
+    for ii in range(nbcoil):
+        for jj in range(len(pf[f"coil.{ii}.element"])):
+            src_r.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.r"]))
+            src_z.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.z"]))
+            turns.append(float(pf[f"coil.{ii}.element.{jj}.turns_with_sign"]))
+            groups.append(ii)
+    for ii in range(nbloop):
+        geometry = pfp[f"loop.{ii}.element[0].geometry"]
+        if geometry["geometry_type"] == GEOMETRY_TYPE_POLYGON:
+            src_r.append(float(np.mean(geometry["outline.r"])))
+            src_z.append(float(np.mean(geometry["outline.z"])))
+        else:
+            src_r.append(float(geometry["rectangle.r"]))
+            src_z.append(float(geometry["rectangle.z"]))
+        turns.append(1.0)
+        groups.append(nbcoil + ii)
+    return src_r, src_z, turns, groups
+
+
 def compute_point_response_matrices_ods(
     ods: ODS,
     rz: List[List[float]],
@@ -376,23 +409,7 @@ def compute_point_response_matrices_ods(
         nbcoil = len(pf["coil"])
         nbloop = len(pfp["loop"])
 
-        src_r, src_z, turns, groups = [], [], [], []
-        for ii in range(nbcoil):
-            for jj in range(len(pf[f"coil.{ii}.element"])):
-                src_r.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.r"]))
-                src_z.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.z"]))
-                turns.append(float(pf[f"coil.{ii}.element.{jj}.turns_with_sign"]))
-                groups.append(ii)
-        for ii in range(nbloop):
-            geometry = pfp[f"loop.{ii}.element[0].geometry"]
-            if geometry["geometry_type"] == GEOMETRY_TYPE_POLYGON:
-                src_r.append(float(np.mean(geometry["outline.r"])))
-                src_z.append(float(np.mean(geometry["outline.z"])))
-            else:
-                src_r.append(float(geometry["rectangle.r"]))
-                src_z.append(float(geometry["rectangle.z"]))
-            turns.append(1.0)
-            groups.append(nbcoil + ii)
+        src_r, src_z, turns, groups = _vacuum_sources(ods)
     except KeyError as e:
         logger.error(f"Missing required data in ODS: {e}")
         raise
@@ -858,6 +875,291 @@ def compute_point_vacuum_fields_ods(
     except KeyError as e:
         logger.error(f"Missing required data in ODS: {e}")
         raise
+
+#: Response matrices for one grid and one machine, keyed by both.  They are a
+#: pure function of geometry, so a time slider pays for them once instead of on
+#: every frame -- 2.4 s against 2.1 ms for the contraction that uses them.
+_VACUUM_MAP_CACHE: dict[tuple, tuple] = {}
+
+#: How many cached grids to keep.  Each is (n_points x n_sources) floats three
+#: times over, ~97 MB at 65x65 on VEST, so this is deliberately small.
+_VACUUM_MAP_CACHE_LIMIT = 4
+
+#: Vessel currents solved from one PF programme, keyed by that programme and
+#: the machine.  A plot that hands the evaluator a private copy of the ODS each
+#: time -- which is how a recipe avoids mutating its caller's -- would otherwise
+#: repeat the same two-second eddy solve on every frame.
+_VACUUM_EDDY_CACHE: dict[tuple, tuple] = {}
+
+#: Two entries: each holds one current per loop per sample, ~19 MB on VEST.
+_VACUUM_EDDY_CACHE_LIMIT = 2
+
+
+def clear_vacuum_field_cache() -> None:
+    """Release the cached vacuum response matrices and eddy solves.
+
+    Together they can hold a few hundred megabytes for a session; a notebook
+    that is done sliding through a start-up can give that back without
+    reaching into private names.
+    """
+    _VACUUM_MAP_CACHE.clear()
+    _VACUUM_EDDY_CACHE.clear()
+
+
+def _machine_fingerprint(ods: ODS, sources: Optional[tuple] = None) -> tuple:
+    """What the response matrices depend on, besides the observation points.
+
+    Derived from :func:`_vacuum_sources` rather than restated, so a cached
+    matrix can never outlive a geometry change it did not notice.  ``sources``
+    lets a caller that has already extracted them pass them in: the
+    extraction is 1480 path reads on VEST, and one evaluation asks three
+    times.
+    """
+    src_r, src_z, turns, groups = sources if sources is not None else _vacuum_sources(ods)
+    return (
+        np.asarray(src_r, dtype=float).tobytes(),
+        np.asarray(src_z, dtype=float).tobytes(),
+        np.asarray(turns, dtype=float).tobytes(),
+        tuple(groups),
+    )
+
+
+def _vacuum_response(ods: ODS, r_axis: ndarray, z_axis: ndarray, sources: Optional[tuple] = None):
+    """Cached ``(Psi, Bz, Br)`` response of one grid to every coil and loop."""
+    key = (
+        _machine_fingerprint(ods, sources),
+        r_axis.tobytes(),
+        z_axis.tobytes(),
+    )
+    cached = _VACUUM_MAP_CACHE.get(key)
+    if cached is None:
+        mesh_r, mesh_z = np.meshgrid(r_axis, z_axis, indexing="ij")
+        points = np.column_stack([mesh_r.ravel(), mesh_z.ravel()]).tolist()
+        cached = compute_point_response_matrices_ods(ods, points)
+        if len(_VACUUM_MAP_CACHE) >= _VACUUM_MAP_CACHE_LIMIT:
+            _VACUUM_MAP_CACHE.pop(next(iter(_VACUUM_MAP_CACHE)))
+        _VACUUM_MAP_CACHE[key] = cached
+    return cached
+
+
+def _solve_or_recall_eddy_currents(ods: ODS, sources: Optional[tuple] = None) -> None:
+    """Fill in ``pf_passive`` currents, reusing an identical earlier solve.
+
+    The vessel's response is fixed by the machine and the PF programme, so two
+    ODS objects carrying the same coil waveforms have the same answer.  Solving
+    it again costs about two seconds, which is most of what an interactive
+    frame would otherwise spend.
+    """
+    pf = ods["pf_active"]
+    time_base = np.asarray(pf["time"], dtype=float)
+    coil_currents = np.column_stack([
+        np.asarray(pf[f"coil.{i}.current.data"], dtype=float)
+        for i in range(len(pf["coil"]))
+    ]) if len(pf["coil"]) else np.zeros((time_base.size, 0))
+    key = (_machine_fingerprint(ods, sources), time_base.tobytes(), coil_currents.tobytes())
+
+    cached = _VACUUM_EDDY_CACHE.get(key)
+    if cached is None:
+        compute_eddy_currents(ods, plasma=[], ip=[])
+        pfp = ods["pf_passive"]
+        cached = (
+            np.asarray(pfp["time"], dtype=float),
+            np.column_stack([np.asarray(pfp[f"loop.{i}.current"], dtype=float)
+                             for i in range(len(pfp["loop"]))]),
+        )
+        if len(_VACUUM_EDDY_CACHE) >= _VACUUM_EDDY_CACHE_LIMIT:
+            _VACUUM_EDDY_CACHE.pop(next(iter(_VACUUM_EDDY_CACHE)))
+        _VACUUM_EDDY_CACHE[key] = cached
+        return
+
+    passive_time, loop_currents = cached
+    ods["pf_passive.time"] = passive_time
+    for index in range(loop_currents.shape[1]):
+        ods[f"pf_passive.loop.{index}.current"] = loop_currents[:, index]
+
+
+def _vacuum_currents(ods: ODS, indices) -> ndarray:
+    """Coil and passive-loop currents at the given samples of the PF time base.
+
+    Returns ``(len(indices), nbcoil + nbloop)``, ordered ``[coils..., loops...]``
+    to match the response matrices' columns.
+
+    Every waveform is read once and then indexed, rather than re-read per
+    sample: on VEST that is 960 IMAS path parses instead of 960 per time, which
+    is the difference between a slider that moves and one that stutters.
+    """
+    pf, pfp = ods["pf_active"], ods["pf_passive"]
+    take = np.asarray(indices, dtype=int).ravel()
+    columns = [np.asarray(pf[f"coil.{i}.current.data"], dtype=float)[take]
+               for i in range(len(pf["coil"]))]
+    columns += [np.asarray(pfp[f"loop.{i}.current"], dtype=float)[take]
+                for i in range(len(pfp["loop"]))]
+    return np.column_stack(columns)
+
+
+#: How much one cached grid's response may occupy, in bytes.  Three dense
+#: (n_points x n_columns) float64 matrices, one column per coil or loop, so it
+#: grows with the fourth power of the resolution -- 97 MB at 65 on VEST's 960
+#: columns, 383 MB at 129.
+_VACUUM_RESPONSE_BUDGET = 200 * 1024 ** 2
+
+
+def _refuse_oversized_grid(
+    ods: ODS, r_axis: ndarray, z_axis: ndarray, sources: Optional[tuple] = None
+) -> None:
+    """Refuse a grid whose cached response would not fit, naming one that does.
+
+    Silently allocating several hundred megabytes -- and then keeping it, since
+    the point of the cache is to keep it -- is worse than saying no.
+
+    The estimate counts what is cached: :func:`compute_point_response_matrices_ods`
+    sums a coil's elements into one column, so the width is the number of
+    coils and loops, not of filaments -- on VEST 960 against 1480.  Counting
+    filaments overstated the cost by half and refused grids that fit.
+    """
+    groups = (sources if sources is not None else _vacuum_sources(ods))[3]
+    columns = len(set(groups))
+    needed = 3 * r_axis.size * z_axis.size * columns * 8
+    if needed <= _VACUUM_RESPONSE_BUDGET:
+        return
+    affordable = int(np.sqrt(_VACUUM_RESPONSE_BUDGET / (3 * columns * 8)))
+    raise ValueError(
+        f"a {r_axis.size}x{z_axis.size} grid over {columns} coils and loops "
+        f"needs {needed / 1024 ** 2:.0f} MB of cached response matrices, above "
+        f"the {_VACUUM_RESPONSE_BUDGET / 1024 ** 2:.0f} MB budget; "
+        f"resolution={affordable} fits"
+    )
+
+
+def _vacuum_map_grid(ods: ODS, resolution: int) -> Tuple[ndarray, ndarray]:
+    """The default ``(R, Z)`` grid: the limiter's bounding box.
+
+    The limiter is the region the field is being read for -- where breakdown
+    happens and where a null has to sit -- so that is what the map covers.  It
+    is not source-free: on VEST several hundred coil filaments lie inside it,
+    and a grid point landing on one reads a meaningless spike.  That is a
+    question for the contour levels, not for the extent.
+    """
+    try:
+        wall_r = np.asarray(
+            ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float)
+        wall_z = np.asarray(
+            ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
+    except (KeyError, ValueError, IndexError):
+        wall_r = wall_z = np.asarray([])
+    if wall_r.size < 3:
+        # No wall: fall back to the filaments' own extent, which at least
+        # brackets the machine.
+        src_r, src_z, _, _ = _vacuum_sources(ods)
+        wall_r, wall_z = np.asarray(src_r), np.asarray(src_z)
+    return (
+        np.linspace(max(float(wall_r.min()), 1e-3), float(wall_r.max()), int(resolution)),
+        np.linspace(float(wall_z.min()), float(wall_z.max()), int(resolution)),
+    )
+
+
+def compute_vacuum_field_map(
+    ods: ODS,
+    *,
+    time: float,
+    grid: Optional[Tuple[ndarray, ndarray]] = None,
+    resolution: int = 65,
+) -> Dict[str, ndarray]:
+    """Vacuum flux and poloidal field on an ``(R, Z)`` grid at one time.
+
+    Everything the startup maps are drawn from -- the flux surfaces, |B_p|, the
+    decay index, the breakdown figure of merit -- comes from this one
+    evaluation, so they are guaranteed to describe the same field.
+
+    The response of the grid to each coil and loop is a pure function of
+    geometry, so it is built once and cached; a different ``time`` then costs
+    only the contraction with that instant's currents.  On VEST that is seconds
+    once against milliseconds a frame, which is what makes a time slider usable.
+
+    Only vacuum sources contribute: coils and vessel eddy currents, no plasma.
+    Above roughly 10 kA of plasma current the map stops describing the machine.
+
+    Parameters
+    ----------
+    ods
+        Needs ``pf_active`` currents; passive-loop currents are solved with
+        :func:`compute_eddy_currents` if they are not already stored.
+    time
+        Seconds.  Snapped to the nearest stored sample, not interpolated; the
+        sample actually used comes back in the result.
+    grid
+        ``(r_axis, z_axis)``.  Defaults to the limiter's bounding box at
+        ``resolution`` points a side.
+    resolution
+        Points per axis for the default grid.  Cost grows as its square: the
+        cached matrices are three arrays of ``resolution**2 x n_sources``.
+
+    Returns
+    -------
+    dict
+        ``r``, ``z`` (the axes), and ``psi`` [Wb], ``b_r``, ``b_z`` [T],
+        ``dpsi_dt`` [Wb/s], each shaped ``(len(r), len(z))``; plus ``time``,
+        the stored sample used, and ``time_index``, its position on the PF time
+        base.
+
+    Notes
+    -----
+    ``psi`` is full weber, as the Green's functions return it, not weber per
+    radian -- see :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor`.
+    """
+    # Extracted once and handed down: the eddy key, the budget and the
+    # response key all derive from the same filaments.
+    sources = _vacuum_sources(ods)
+    if "time" not in ods["pf_passive"]:
+        # Geometry-only samples carry no passive-loop waveform; solve it rather
+        # than refusing, matching compute_null_ods.
+        _solve_or_recall_eddy_currents(ods, sources)
+
+    if grid is None:
+        r_axis, z_axis = _vacuum_map_grid(ods, resolution)
+    else:
+        r_axis = np.asarray(grid[0], dtype=float).ravel()
+        z_axis = np.asarray(grid[1], dtype=float).ravel()
+        if r_axis.size == 0 or z_axis.size == 0:
+            raise ValueError("grid axes must each hold at least one point")
+
+    time_base = np.asarray(ods["pf_active.time"], dtype=float)
+    index = int(np.argmin(np.abs(time_base - float(time))))
+
+    _refuse_oversized_grid(ods, r_axis, z_axis, sources)
+    psi_response, bz_response, br_response = _vacuum_response(ods, r_axis, z_axis, sources)
+    width = len(ods["pf_active.coil"]) + len(ods["pf_passive.loop"])
+    psi_response = psi_response[:, :width]
+    shape = (r_axis.size, z_axis.size)
+
+    # dpsi/dt comes from the model's own flux at the neighbouring samples, so
+    # the induced electric field belongs to the same field as everything else
+    # rather than being spliced in from a measured loop voltage.  All three
+    # samples are read in one pass over the waveforms.
+    lo, hi = max(index - 1, 0), min(index + 1, time_base.size - 1)
+    behind, currents, ahead = _vacuum_currents(ods, (lo, index, hi))
+
+    psi = (psi_response @ currents).reshape(shape)
+    b_z = (bz_response[:, :width] @ currents).reshape(shape)
+    b_r = (br_response[:, :width] @ currents).reshape(shape)
+
+    span = float(time_base[hi] - time_base[lo])
+    if span > 0.0:
+        dpsi_dt = ((psi_response @ (ahead - behind)) / span).reshape(shape)
+    else:
+        dpsi_dt = np.zeros(shape)
+
+    return {
+        "r": r_axis,
+        "z": z_axis,
+        "psi": psi,
+        "b_r": b_r,
+        "b_z": b_z,
+        "dpsi_dt": dpsi_dt,
+        "time": float(time_base[index]),
+        "time_index": index,
+    }
+
 
 def compute_null_ods(ods, time):
     """Compute poloidal flux (psi) on grid at given time using coil and eddy currents.
@@ -1340,6 +1642,30 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     return W_B
 
 
+def _vest_toroidal_field_sign() -> float:
+    """The direction of VEST's vacuum toroidal field, from the machine layer.
+
+    Converting a *measured* diamagnetic flux into mu_i is linear in the toroidal
+    field, so it needs that field's direction -- and the stored quantities cannot
+    supply it. ``profiles_1d.f`` has a reliable magnitude and an unreliable sign
+    (shot 39915 stores +0.0598 in the packaged sample and -0.0598 in the
+    database, with an identical measurement, and the database declares no
+    COCOS); ``vacuum_toroidal_field.b0`` is the reverse, uniformly positive
+    across the history but drifting up to 39% in magnitude within one shot
+    (#325). So the magnitude comes from ``|F_boundary|`` and the direction from
+    here.
+
+    Read from :data:`vaft.machine_mapping.BT_SIGN_VEST_TO_IMAS` rather than
+    restated: that record is the one place this machine fact lives, it carries
+    the evidence behind it, and it is marked ``confirmed=False`` pending #298.
+    A second copy here would be a second thing to change if #298 comes back
+    reversed -- and the copy would not know it was provisional.
+    """
+    from vaft.machine_mapping import BT_SIGN_VEST_TO_IMAS
+
+    return float(BT_SIGN_VEST_TO_IMAS.sign)
+
+
 def _virial_measured_diamagnetic_flux(ods, eq_idx: int) -> float:
     """The measured diamagnetic flux at one equilibrium slice time, or NaN.
 
@@ -1541,7 +1867,7 @@ def _virial_empty_row(alpha_method: str = "volume"):
         "kappa": nan,
         "B_pa": nan, "beta_p": nan, "li": nan,
         "W_mag": nan, "W_kin": nan, "V_p": nan,
-        "mui_hat": nan, "mui": nan, "rt": nan, "phi_dia_comp": nan,
+        "mui_hat": nan, "mui_from_flux": nan, "mui": nan, "rt": nan, "phi_dia_comp": nan,
         "beta_p_vir": nan, "li_vir": nan, "beta_pd_vir": nan,
         "virial_lao": {"beta_p": nan, "li": nan},
         "virial_bongard": {"beta_p": nan, "li": nan},
@@ -1914,10 +2240,35 @@ def compute_virial_equilibrium_quantities_ods(
         elif "global_quantities.magnetic_axis.b_field_tor" in eq_ts:
             B_t0 = float(eq_ts["global_quantities.magnetic_axis.b_field_tor"])
 
+        # mu_i as the three virial relations define it, and as
+        # docs/_guide/Equilibrium.md states it: the volume integral of
+        # B_tv^2 - B_t^2, positive for a diamagnetic plasma.
+        #
+        # This is NOT computed_diamagnetism_from_phi, the EFIT xmui port, which
+        # is its negative: B_tv^2 - B_t^2 ~ -2*F_b*(F - F_b)/R^2 while
+        # Phi = int (B_t - B_tv) dA. Feeding the flux sign to the closures puts
+        # a systematic 2*mu_i into every identity residual -- on an exact
+        # Solov'ev equilibrium the residuals are (-0.675, +0.675, -0.675)
+        # that way against (+0.0005, +0.0003, +0.0001) with this definition,
+        # and on the packaged sample it turned every closure's l_i negative.
+        # The flux quantity is kept beside it under a name that says so.
         mui = np.nan
+        mui_from_flux = np.nan
         if np.isfinite(phi_dia_comp) and np.isfinite(B_t0) and np.isfinite(V_p) and np.isfinite(B_pa):
             if V_p > 0.0 and B_pa > 0.0:
-                mui = computed_diamagnetism_from_phi(phi_dia_comp, B_t0, R_0, V_p, B_pa)
+                mui_from_flux = computed_diamagnetism_from_phi(
+                    phi_dia_comp, B_t0, R_0, V_p, B_pa
+                )
+        if (
+            np.isfinite(B_pa) and B_pa > 0.0
+            and np.isfinite(V_p) and V_p > 0.0
+            and np.isfinite(F_boundary)
+        ):
+            _dV = np.nan_to_num(np.asarray(vol_terms["dV"], float), nan=0.0)
+            # nan_to_num on the *difference*, so a cell whose F is NaN
+            # contributes nothing rather than contributing its vacuum term alone.
+            _diff = (F_boundary / R_safe) ** 2 - (F_2d / R_safe) ** 2
+            mui = float(np.sum(np.nan_to_num(_diff, nan=0.0) * _dV) / (B_pa**2 * V_p))
 
         RT_over_R0 = np.nan
         if np.isfinite(RT) and R_0 != 0.0:
@@ -1942,7 +2293,10 @@ def compute_virial_equilibrium_quantities_ods(
                 beta_p_lao, li_lao = virial_lao_from_S_alpha_mu_rt(
                     S1, S2, S3, alpha, mui, RT_over_R0
                 )
-                beta_pd_vir = virial_beta_pd_from_S_mu_rt(S1, S2, mui, RT_over_R0)
+                # The flux-sign quantity: virial_beta_pd_from_S_mu_rt is written
+                # for mu_i_hat, so feeding it the volume mu_i would return
+                # beta_p - 2*mu_i. This keeps the number develop computed.
+                beta_pd_vir = virial_beta_pd_from_S_mu_rt(S1, S2, mui_from_flux, RT_over_R0)
             except ValueError:
                 beta_p_lao, li_lao, beta_pd_vir = np.nan, np.nan, np.nan
         if np.isfinite(alpha) and np.isfinite(mui):
@@ -2016,17 +2370,38 @@ def compute_virial_equilibrium_quantities_ods(
         # diamagnetic loop.
         mui_measured = np.nan
         delta_phi_measured = _virial_measured_diamagnetic_flux(ods, eq_idx)
+        # |F_boundary|, not b0*R_0: b0's magnitude drifts within a shot (#325)
+        # and F's sign is not trustworthy across sources, so each contributes
+        # only what it is good for. See _vest_toroidal_field_sign.
+        _b_t_for_flux = (
+            _vest_toroidal_field_sign() * abs(F_boundary) / R_0
+            if np.isfinite(F_boundary) and R_0
+            else np.nan
+        )
         if (
             np.isfinite(delta_phi_measured)
-            and np.isfinite(B_t0)
+            and np.isfinite(_b_t_for_flux)
             and np.isfinite(R_0)
             and np.isfinite(B_pa)
             and B_pa > 0.0
             and np.isfinite(V_p)
             and V_p > 0.0
         ):
-            mui_measured = float(
-                virial_muihat_from_Bt_R0_dphi(B_t0, R_0, delta_phi_measured, B_pa, V_p)
+            # Negated: virial_muihat_from_Bt_R0_dphi is the flux convention (the
+            # `hat`), and the closures below now take the volume one, the same
+            # as the equilibrium's own mu_i above. Leaving it on the flux sign
+            # made the measured-vs-reconstructed comparison mixed-convention --
+            # self-consistently wrong before this became a comparison of two
+            # different things.
+            #
+            # The remaining approximation is first order in (F - F_b)/F_b,
+            # which no single flux measurement can improve on -- not a sign
+            # ambiguity. The sign is settled: the measurement carries it, in
+            # the convention test/test_diamagnetic_flux_sign.py pins.
+            mui_measured = -float(
+                virial_muihat_from_Bt_R0_dphi(
+                    _b_t_for_flux, R_0, delta_phi_measured, B_pa, V_p
+                )
             )
         # The same three closures again, on the measured mu_i, so the comparison
         # against the reconstruction is like for like.
@@ -2071,7 +2446,11 @@ def compute_virial_equilibrium_quantities_ods(
             "kappa": float(kappa) if np.isfinite(kappa) else np.nan,
             "B_pa": B_pa, "beta_p": beta_p, "li": li,
             "W_mag": W_mag, "W_kin": W_kin, "V_p": V_p,
-            "mui_hat": float(mui) if np.isfinite(mui) else np.nan,  # backward-compatible key
+            # `hat` names the flux convention throughout this codebase, so this
+            # key keeps the flux quantity it has always carried; `mui` is the
+            # volume one the relations use. They are negatives of each other.
+            "mui_hat": float(mui_from_flux) if np.isfinite(mui_from_flux) else np.nan,
+            "mui_from_flux": float(mui_from_flux) if np.isfinite(mui_from_flux) else np.nan,
             "mui": float(mui) if np.isfinite(mui) else np.nan,
             "rt": RT,
             "phi_dia_comp": phi_dia_comp,

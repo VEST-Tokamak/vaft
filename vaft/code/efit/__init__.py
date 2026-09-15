@@ -64,6 +64,22 @@ from .magnetic import (
     collect_efit_outputs,
     gfile_to_omas,
 )
+from .linearization import (
+    EFITLinearization,
+    EFITLinearizationBlock,
+    EFITLinearizationError,
+    EFITReducedLinearSolve,
+    FamilyInformation,
+    IdentifiabilityConfig,
+    IdentifiabilityReport,
+    IpAccounting,
+    LinearSolveValidation,
+    ModeInformation,
+    RowInformation,
+    SubsetInformation,
+    analyze_efit_identifiability,
+    read_efit_linearization,
+)
 from .kfile import apply_channel_decisions, generate_constraints_ods, generate_kfile
 from .recovery import ProbeFamilies, gaussian_probe_recovery, probe_families
 from .efund import (
@@ -111,6 +127,20 @@ __all__ = [
     "EFITConfig",
     "EFITInputs",
     "EFITResult",
+    "EFITLinearization",
+    "EFITLinearizationBlock",
+    "EFITLinearizationError",
+    "EFITReducedLinearSolve",
+    "FamilyInformation",
+    "IdentifiabilityConfig",
+    "IdentifiabilityReport",
+    "IpAccounting",
+    "LinearSolveValidation",
+    "ModeInformation",
+    "RowInformation",
+    "SubsetInformation",
+    "analyze_efit_identifiability",
+    "read_efit_linearization",
     "resolved_efit_configuration",
     "find_efit_executable",
     "prepare_efit_inputs",

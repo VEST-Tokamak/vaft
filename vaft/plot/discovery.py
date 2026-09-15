@@ -146,6 +146,10 @@ class PlotCapability:
     #: The controls ``plot_*(..., interactive=True)`` offers for this input
     #: (instance level, issue #480), in offer order.
     controls: tuple[str, ...] = ()
+    #: A composite's panels by name (issue #482): ``options`` (declared),
+    #: ``available`` (what this input can draw), ``default`` (what is drawn
+    #: with no ``members=``) and ``labels`` (name -> identity).
+    members: Mapping[str, Any] = field(default_factory=dict)
 
     # The old ``available_plots`` rows were plain dictionaries; keep that
     # access so ``row["name"]`` and friends still work on a record.
@@ -538,6 +542,11 @@ def _compact_notes(record: PlotCapability) -> list[str]:
         ))
     if record.overview_members:
         notes.append("overview: " + " · ".join(record.overview_members))
+    members = record.members or {}
+    if members.get("available") is not None and members.get("options"):
+        notes.append(
+            f"members: {len(members['available'])} of {len(members['options'])} available"
+        )
     if record.overlays:
         notes.append("overlays: " + " | ".join(record.overlays))
     if record.projection:
@@ -641,6 +650,13 @@ def _detail_lines(record: PlotCapability) -> list[str]:
         lines.append(f"  {name}: " + (", ".join(parameters) if parameters else "no parameters"))
     if record.overview_members:
         lines.append("includes: " + ", ".join(record.overview_members))
+    members = record.members or {}
+    if members.get("options"):
+        available = members.get("available")
+        lines.append("members: " + ", ".join(
+            name if available is None or name in available else f"{name} (unavailable)"
+            for name in members["options"]
+        ))
     if record.overlays:
         lines.append("overlays: " + ", ".join(record.overlays))
     if record.synthetic:
@@ -652,7 +668,11 @@ def _detail_lines(record: PlotCapability) -> list[str]:
             extra = f" ({block['flagged']} flagged)" if block.get("flagged") else ""
             lines.append(f"{key}: {state}{extra}")
             if block.get("modes"):
-                lines.append(f"{key} handling: " + " | ".join(block["modes"]))
+                modes = " | ".join(block["modes"])
+                default = block.get("default")
+                lines.append(
+                    f"{key} handling: {default} by default; {modes}" if default else f"{key} handling: {modes}"
+                )
     if record.orientation:
         lines.append(
             f"orientation: {record.orientation['default']} by default; "

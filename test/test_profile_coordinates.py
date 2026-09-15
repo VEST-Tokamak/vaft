@@ -253,7 +253,7 @@ def test_discovery_and_controls_offer_the_coordinates(sample):
     record = next(r for r in vaft.omas.available_plots(sample) if r.name == "equilibrium_profile_q")
     assert record.coordinates["default"] == "rho_tor_norm"
     assert record.coordinates["options"] == PROFILE_COORDINATES
-    assert record.controls == ("time_slice", "coordinate", "orientation")
+    assert record.controls == ("time_slice", "coordinate", "orientation", "theme")
     assert "coordinates: rho_tor_norm (default) | psi_norm | sqrt_phi_norm | r_major | r_minor" in str(
         vaft.omas.available_plots(sample, query="equilibrium", view="profile")
     )

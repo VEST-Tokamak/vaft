@@ -1,0 +1,177 @@
+---
+title: "Operation Scenario and Vacuum Fields"
+subtitle: "VAFT Introductory Tutorial | Session 02"
+format:
+  vaftslides-revealjs: default
+  vaftslides-beamer: default
+bibliography: assets/bibliography/vaft.bib
+---
+
+# Where this session starts
+
+## What session 01 handed over
+
+You can load a discharge, list the IDS roots it carries, and plot any diagnostic
+in it by naming what the thing physically **is**.
+
+That was a tour of measurements. This session asks the question behind them:
+**how was this discharge made, and could it have worked at all?**
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+Open by naming the prerequisite out loud. Session 02 is the first session that
+assumes another one, and the notebook does not say so — say it here.
+
+The audience should leave this slide knowing the shift: session 01 asked *what
+was measured*, session 02 asks *what was done to the machine*.
+
+WARN:
+From this session on the notebooks import NumPy, and from session 03 they also
+reach into VAFT submodules directly. Session 01 promised you would need neither;
+that promise was session-scoped and it stops here. Say so, or someone will think
+the course contradicted itself.
+
+TRANSITION:
+From what a discharge is, to how one is started.
+:::
+
+## Why this session exists
+
+A discharge does not simply happen --- it is **started**.
+
+We read one backwards: from what the plasma did, to the field that let it begin.
+
+::: {.notes}
+[1 min]
+
+NARRATE:
+"Backwards" is the organising idea of the session. The signals that are easiest
+to see — current, light — are the *last* things to happen. The field that made
+them possible existed before there was any plasma to measure it with.
+
+TRANSITION:
+So: what does starting a discharge actually involve?
+:::
+
+# Starting a plasma
+
+## Three phases, three fingerprints
+
+- **Breakdown** --- avalanche, if the field lines are long enough.
+- **Burn-through** --- heat past the radiating impurities, or die.
+- **Ramp-up** --- the transformer drives the current.
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+Take each in turn and name the diagnostic that shows it. Breakdown: the loop
+voltage is already there, H-alpha jumps. Burn-through: impurity lines rise then
+fall as the plasma heats through them. Ramp-up: the plasma current climbs.
+
+The phrase "if the field lines are long enough" is doing real work. An electron
+has to gain ionising energy *before* it reaches a wall, so what matters is the
+**connection length** — how far a field line travels before striking a surface.
+That is why a field null matters and why the session ends there.
+
+WARN:
+Connection length is the one quantity in this session VAFT cannot compute. Say
+that when you say the word, not at the end — the notebook's exercise names it as
+a gap and a student who met the term for the first time there feels ambushed.
+
+TRANSITION:
+Before any of that, the machine already has a field.
+:::
+
+## The vacuum field is a precondition
+
+- $V_{\mathrm{loop}} = -\,\mathrm{d}\psi/\mathrm{d}t$ --- the drive.
+- $B_z$ --- balances the hoop force.
+- $n = -\dfrac{R}{B_z}\dfrac{\partial B_z}{\partial R}$ --- decides whether that
+  balance is *stable*: $0 < n < 1.5$.
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+"Precondition" is the word to stress. These three quantities exist before the
+plasma does, and they decide whether a plasma is possible. None of them is a
+measurement of the plasma.
+
+The decay index deserves both of its failure modes, not just one: below zero the
+plasma is vertically unstable, above 1.5 it loses radial position control. The
+notebook only shows the band; the reason the band has two edges is worth saying
+out loud.
+
+WARN:
+$n$ is undefined where $B_z$ crosses zero. VAFT returns `nan` there rather than a
+large number, which is the honest answer and will look like a gap in the plot.
+
+TRANSITION:
+And the machine is not just its coils.
+:::
+
+# What the coils are not
+
+## The vessel is part of the circuit
+
+Vessel eddy currents are comparable to the plasma current and oppose the coils.
+
+Every magnetic measurement sees the sum of all three.
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+This is the slide that earns the session. A changing coil current induces
+currents in the conducting vessel, those currents make their own field, delayed
+and smeared, and no diagnostic can separate the three contributions for you.
+
+VEST's vessel is represented as about 950 passive filaments. Solving for their
+currents is a *modelling* step, not a measurement — the notebook makes the point
+that the solve is what unlocks the rest of the analysis.
+
+WARN:
+Session 01 said VEST's wall description carries a limiter outline and no
+separate vacuum vessel. That is a statement about the data model. The vessel is
+physically there and is represented through `pf_passive`. Students notice the
+apparent contradiction.
+
+TRANSITION:
+Which means a model is involved — and a model has to be checked.
+:::
+
+## Check the model before you use it
+
+The vacuum-field comparison against measured magnetics comes *before* the
+physics derived from it, not after.
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+The transferable habit of the session. It is cheap to compute a decay index from
+a model that does not reproduce the machine, and the number will look
+reasonable. The check costs one figure.
+
+TRANSITION:
+That is the whole session in one line.
+:::
+
+## Session workflow
+
+solve vessel currents $\rightarrow$ check against magnetics
+
+$\rightarrow$ $V_{\mathrm{loop}}$, $B_z$, decay index $\rightarrow$ breakdown
+time $\rightarrow$ the null
+
+::: {.notes}
+[1 min]
+
+NARRATE:
+Point at each step and name the notebook section. Close by noting that the
+breakdown time is *found from the data*, not read off a trace by eye — that is
+the habit the session is trying to break.
+:::

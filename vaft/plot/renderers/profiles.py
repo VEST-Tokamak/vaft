@@ -17,6 +17,7 @@ from matplotlib.figure import Figure
 
 from ..models import Profile1D
 from ..registry import renderer
+from ..presentation import presented, resolve_style
 from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axes, trace_labels
 
 __all__ = [
@@ -43,6 +44,7 @@ __all__ = [
 _DEFAULT_FIGSIZE = (6.0, 4.0)
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_profile_1d(
     model: Profile1D,
     *,
@@ -53,6 +55,8 @@ def render_profile_1d(
     grid: bool = True,
     uncertainty: str = "auto",
     validity: str = "show",
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Profile1D` into one axes."""
@@ -73,7 +77,7 @@ def render_profile_1d(
     for line in model.reference_lines:
         axes.axvline(
             line.x,
-            **{"color": "0.4", "linestyle": ":", "linewidth": 1.0, **line.style},
+            **resolve_style({"color": "emphasis:medium", "linestyle": ":", "linewidth": 1.0, **line.style}),
             label=line.label or None,
         )
     axes.set_xlabel(model.coordinate_label)
@@ -187,6 +191,36 @@ _EQ_COORDS = (
     "equilibrium.time_slice.{i}.profiles_1d.r_inboard",
     "equilibrium.time_slice.{i}.profiles_1d.r_outboard",
 )
+
+
+@_profile_renderer(
+    domain="core_profiles", quantity="bootstrap_current",
+    subject="neoclassical",
+    description=(
+        "Bootstrap current density from each neoclassical model on one radial axis: "
+        "the Sauter and Redl formulas against whatever solver result the ODS carries."
+    ),
+    ids=("core_profiles", "equilibrium"),
+    required_paths=(
+        "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
+        "equilibrium.time_slice.{i}.profiles_1d.psi",
+        "equilibrium.time_slice.{i}.profiles_1d.q",
+        "equilibrium.time_slice.{i}.profiles_1d.f",
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+        # The electron density is required too, in either of its two spellings,
+        # which the recipe's own `available` predicate checks.
+    ),
+    optional_paths=(
+        "equilibrium.time_slice.{i}.profiles_1d.trapped_fraction",
+        "core_profiles.profiles_1d.{i}.zeff",
+        "core_profiles.profiles_1d.{i}.j_bootstrap",
+    ),
+)
+def neoclassical_profile_bootstrap_current(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Bootstrap current density, one series per neoclassical model."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
 
 
 @_profile_renderer(

@@ -31,7 +31,13 @@ from __future__ import annotations
 import contextlib
 from typing import Any, Sequence
 
-__all__ = ["available_plots", "render", "render_to_file"]
+__all__ = [
+    "available_plots",
+    "plot_diagnostics_time_interactive",
+    "plot_equilibrium_interactive",
+    "render",
+    "render_to_file",
+]
 
 
 def _resolve_source(source: str | None) -> str:
@@ -127,6 +133,56 @@ def render(
         # Models copy what they read into their own arrays and renderers never
         # keep the data object, so the lazy stores may close on the way out.
         return render_ods(name, source_object, ax=ax, show=show, label=_labels(shots, label), **options)
+
+
+def _load_for_interaction(
+    shot: Any, source: str | None, ids: Sequence[str], *, occurrence: Any = None
+) -> Any:
+    """``ids`` of one shot, loaded into memory for an explorer.
+
+    An explorer rebuilds its figure on every widget event, long after this
+    call returns, so the lazy store the static path opens -- and closes on
+    the way out -- would be gone by then.  The IDS the entry point reads are
+    loaded once instead; every later frame is served from memory.
+    """
+    from . import load
+
+    shots = _shots(shot)
+    if len(shots) != 1:
+        raise ValueError(f"an interactive entry point explores one shot at a time; got {len(shots)}")
+    return load(shots[0], source=_resolve_source(source), paths=list(ids), occurrence=occurrence)
+
+
+def plot_diagnostics_time_interactive(
+    shot: Any, source: str | None = None, *, occurrence: Any = None, **options: Any
+) -> Any:
+    """The diagnostics overview with live controls, from the database (issue #482).
+
+    See :func:`vaft.omas.plot_diagnostics_time_interactive`.  The overview's
+    IDS are loaded once, not opened lazily: the controls redraw after this
+    call returns.
+    """
+    from vaft.omas.interactive import plot_diagnostics_time_interactive as explore
+
+    ods = _load_for_interaction(shot, source, _declared_ids("diagnostics_overview"), occurrence=occurrence)
+    return explore(ods, **options)
+
+
+def plot_equilibrium_interactive(
+    shot: Any, source: str | None = None, *, occurrence: Any = None, **options: Any
+) -> Any:
+    """Explore one shot's equilibrium slices, from the database.
+
+    See :func:`vaft.omas.plot_equilibrium_interactive`; loaded once for the
+    same reason as :func:`plot_diagnostics_time_interactive`, and exactly
+    the IDS the explorer reads (the slice summary's and its histories'), so
+    the measured plasma current and the slice markers are there.
+    """
+    from vaft.omas.interactive import equilibrium_explorer_ids
+    from vaft.omas.interactive import plot_equilibrium_interactive as explore
+
+    ods = _load_for_interaction(shot, source, equilibrium_explorer_ids(), occurrence=occurrence)
+    return explore(ods, **options)
 
 
 def render_to_file(

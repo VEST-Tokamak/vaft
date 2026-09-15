@@ -137,10 +137,11 @@ def main(argv: list[str] | None = None) -> int:
             rejected.append({"shot": shot, "reason": str(error)})
 
     payload = {
-        # 3 (#409): the case records are schema 4 and their plasma_free_evidence
-        # schema 3 -- the retired detectors' legacy block is gone; 2 had changed
-        # the case records' shape.
-        "schema_version": 3,
+        # 4 (#752): the case records are schema 5 and their plasma_free_evidence
+        # schema 4 -- the embedded timing summary carries duty_cycle.  3 (#409):
+        # the retired detectors' legacy block is gone; 2 had changed the case
+        # records' shape.
+        "schema_version": 4,
         "configuration": {
             "resistance_scale": args.resistance_scale,
             "n_tau": args.n_tau,

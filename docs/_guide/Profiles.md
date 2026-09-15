@@ -361,6 +361,111 @@ column is ω_E, and a toroidal rotation written there is wrong in a way nothing 
 `sample/output/converted_from_transp.kin` is), a value that is not finite, or a radial coordinate
 that does not increase. Line endings are LF, so a CRLF file does not round-trip byte-identically.
 
+### Osborne pfiles
+
+A pfile is read in two steps, because it carries more than a profile set does: per-section units, a
+derivative column, and an `N Z A of ION SPECIES` block.
+
+```python
+from vaft.data import read_pfile, write_pfile, kinetic_profiles_from_pfile
+
+pf = read_pfile("p045453.00750")
+pf.keys()                        # the 22 sections, in file order
+pf.unit("te")                    # 'KeV' — what the file declares, not what we assume
+pf.section("omgeb").derivative   # the file's own third column, kept
+
+write_pfile(pf, "again")         # byte-identical: see below
+
+profiles = kinetic_profiles_from_pfile(pf)   # now in m^-3, eV, rad/s, Pa, V/m
+```
+
+`PFile` is the file as written and converts nothing; `kinetic_profiles_from_pfile` applies the one
+unit ladder. Writing puts the sections back into the format's own order, so a file that was already
+canonical — as all 57 reference files are — comes back byte for byte, and one that was not is
+normalised rather than reproduced. Line endings are LF. The conversion is deliberately lossy in one
+direction: `KineticProfiles` holds profiles, so the derivative columns and the per-section units stay
+on the `PFile`, which is where a future pfile writer has to take them from. Keeping them apart means "this is byte-for-byte the file we read" and "these are the
+right units" can fail independently.
+
+**The derivative column is data, not something to recompute.** Writing it back as read reproduces
+all 57 reference files byte for byte; recomputing it with `np.gradient` reproduces none of them —
+at most 8 of a file's 22 sections agree with a recomputation to one part in a million, and no section
+agrees across every file. `write_pfile` therefore preserves
+it and computes one only for a section built in memory, or when you pass
+`recompute_derivatives=True` because you changed the values.
+
+**The rotation family is ten sections whose names differ by two letters and whose meanings do not.**
+Three get fields of their own, and the mapping is by exact section name:
+
+| pfile | → | what it is |
+| --- | --- | --- |
+| `omeg` | `omega_tor` | toroidal angular velocity |
+| `omgeb` | `omega_exb` | E×B rotation, −dΦ/dψ |
+| `omegp` | `omega_pol` | poloidal rotation contribution |
+
+The other seven — `omgvb`, `omgpp`, `ommvb`, `ommpp`, `omevb`, `omepp`, `omghb` — keep their pfile
+names in `extras`, in the file's own units, with those units recorded in `provenance`, as do `kpol`,
+`vtor1` and `vpol1`. `ptot` maps to `p_total` as the file's own total, fast ions included, and `pb`
+to `p_fast`; `T_z` has no pfile source.
+
+A section on a different ψ column from the rest is refused rather than quietly reprojected — all 22
+sections share one coordinate bit-for-bit in every reference file — and so is a short or ragged
+section. An unrecognised unit raises on a mapped section, where guessing a factor would be a
+silent factor of a million, but not on one kept in `extras`.
+
+### MARS `PROF*.IN`
+
+MARS reads its kinetic profiles as a deck of two-column ASCII files, one quantity each.
+
+```python
+from vaft.data import read_mars_profiles, write_mars_profiles
+
+profiles = read_mars_profiles("mars_input/")      # the whole deck
+profiles.omega_tor                                 # PROFROT.IN, rad/s
+profiles.omega_exb                                 # PROFWE.IN, rad/s
+profiles.normalization.method                      # "mars_s_squared" — see below
+write_mars_profiles(profiles, "out/")
+```
+
+**The header's second field names the abscissa, and it is not ψ_N.** MARS branches on it in every
+one of its profile readers and stops on anything else: key `1` means the column is `s`, the square
+root of the normalised poloidal flux, and key `2` means the toroidal equivalent (`marsq.f:16269`,
+"RAD = SQRT(TOROIDAL FLUX)"). So a key-1 deck's column is `s`, and `psi_norm` is `s²` — reading it
+straight through puts every point at the square root of where it belongs, so 0.5 in the file becomes
+ψ_N = 0.25. The conversion is recorded as `normalization.method == "mars_s_squared"`, the writer
+converts back (`sqrt(psi_norm)`, header key `1`), and a key-2 deck is **refused**: reaching poloidal
+flux from a toroidal-flux coordinate needs an equilibrium, which a file-format reader has not got.
+
+**The two rotation files are two different quantities**, and this is where C-27 finally closes. MARS's
+own source settles which is which: `PROFROT.IN` is the bulk toroidal **fluid** rotation ω_φ, read
+under `NPROFR`, and `PROFWE.IN` is the toroidal **E×B** rotation ω_E, read under `NPROFWE` into a
+different array. MARS states the relation between them in its own analytic branch — `ROTWE = ROT -
+OMEGAI*`, i.e. they differ by the ion diamagnetic frequency. So there is no precedence rule here: a
+deck carrying both reads as two fields, and `write_mars_profiles` will not fill `PROFROT.IN` from
+`omega_exb`, which is what produced every committed deck's byte-identical pair.
+
+| file | → | what MARS calls it |
+| --- | --- | --- |
+| `PROFDEN.IN` | `n_e` | plasma density (`NPROFN`) |
+| `PROFTE.IN` / `PROFTI.IN` | `T_e` / `T_i` | electron and ion temperature |
+| `PROFROT.IN` | `omega_tor` | fluid rotation ω_φ (`NPROFR`) |
+| `PROFWE.IN` | `omega_exb` | E×B rotation ω_E (`NPROFWE`) |
+
+`PROFDEN.IN` fills `n_e` and nothing else — MARS carries one density, so equating the ion density
+with it is a modelling choice a caller makes. Any other `PROF*.IN` is kept in `extras` under its
+stem.
+
+**Nothing is scaled**, which is a finding rather than an assumption: "a MARS input is
+Alfvén-normalised" is the obvious wrong guess. The committed profiles run 1.4e4–1.0e5 rad/s against
+an Alfvén frequency of order 1.4e6 for MAST, and MARS converts the file itself when its `NEXPV` flag
+says the file carries absolute values — multiplying the on-axis value by the Alfvén time, which is
+only dimensionally sensible if the file is in rad/s. Note the corollary: under MARS's default
+`NEXPV = 0` only the *shape* of each profile is used, the scale coming from a namelist amplitude, so
+whether a deck's numbers reach a run at all is a property of its `RUN.IN` rather than of these files.
+
+Files whose ψ columns disagree, in value or in length, are refused rather than reprojected onto one
+another, and so is a header row count that disagrees with the rows beneath it.
+
 ## Exporting
 
 To hand fitted electron profiles to an external code:

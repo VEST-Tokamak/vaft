@@ -12,4 +12,9 @@ different models be checked for equal view models before anything is drawn
 
 :mod:`vaft.plot` itself never imports this package, and nothing here imports
 ``omas`` or ``imas`` at module level.
+
+:mod:`vaft.plot.backend.dd` spells the paths the recipes read in one canonical
+grammar and asks the Data Dictionary about them; :mod:`vaft.plot.backend.facade`
+generates the ``dd_*``/``extract_*`` twins of every ``plot_*`` adapter
+(umbrella #434).
 """

@@ -20,12 +20,12 @@ Two deliberate exclusions:
     Arranged frames, vendor ``.mcf`` containers, the 2013-era CCD export and
     hard X-ray CSVs. No mapping can read any of it yet.
 
-Products land in ``{root}/ods/{diagnostic}/{shot}/``. That is not one of the
-``FileDBDomain`` values on purpose: neither diagnostic has an ``OMASStage`` of
-its own, and inventing a path under ``omas/`` that ``FileDB.resolve`` would
-reject is worse than an obviously separate tree. Giving these two diagnostics
-real stages, and a ``STAGE_REPLICATION`` entry so their IDSs reach HSDS, is
-issue #130's job.
+Products land in the canonical ``omas/`` domain, resolved through
+``FileDB.omas_product`` / ``FileDB.omas_manifest``. Each tree is a real
+``OMASStage`` with a ``STAGE_REPLICATION`` entry, so these diagnostics publish
+on the same contract as every other stage (#599). They used to sit in an
+``ods/`` tree outside the ``FileDBDomain`` grammar, because no legal canonical
+path existed for them yet.
 
 Run::
 
@@ -60,13 +60,37 @@ RESERVED_TREES = ("camera_visible_fluctuation",)
 REGISTRY_NAME = "ingested_shots.json"
 MANIFEST_NAME = "manifest.json"
 
-#: Product container. HDF5 by default: these are bulk numeric IDSs -- a single
-#: soft X-ray shot is 128 channels x 39k samples, and a camera shot is a stack
-#: of megapixel frames -- and OMAS's JSON writer spends roughly six bytes of
-#: text per float. HDF5 is also what HSDS stores natively, so a product written
-#: here needs no re-encoding to be replicated later.
-PRODUCT_FORMATS = (".h5", ".json", ".json.gz")
-DEFAULT_PRODUCT_FORMAT = ".h5"
+#: The product container is no longer chosen here. Each of these stages
+#: declares it in `vaft.database.filedb.OMAS_PRODUCT_SUFFIXES`, and
+#: `FileDB.omas_product` is what both this script and `replicate_stage` use to
+#: name a product -- so a container picked at the command line could only
+#: produce a file replication would fail to find.
+
+
+def _filedb(root: Path):
+    from vaft.database.filedb import FileDB
+
+    return FileDB(root)
+
+
+def _product_path(root: Path, tree: str, shot: int) -> Path:
+    """Where one shot's product for ``tree`` goes, name and container included.
+
+    Resolved rather than composed: ``replicate_stage`` locates a product with
+    the same call, so a filename invented here would be a product replication
+    could not find.
+    """
+    return _filedb(root).omas_product(tree, shot=shot)
+
+
+def _stage_directory(root: Path, tree: str) -> Path:
+    """Stage-wide scratch that is not shot-scoped -- the ingest registry.
+
+    ``FileDB.omas`` is shot-scoped for every non-static stage, so the registry
+    sits beside the shots rather than inside one. Derived from the resolver's
+    own output so it moves with the grammar instead of being rebuilt by hand.
+    """
+    return _filedb(root).omas(tree, shot=1).parent
 
 
 def _mapper(mapping_name: str) -> Callable[..., None]:
@@ -114,28 +138,23 @@ def _channel_count(ods: Any, tree: str) -> int | None:
 #: would re-type integer nodes in soft X-ray and magnetics products too.
 CAMERA_STORAGE_WIDTH = "int32"
 CAMERA_COMPRESSION = "gzip"
-HDF5_FORMATS = (".h5", ".hdf5")
 
 
-def _camera_storage(tree: str, product_format: str) -> dict[str, Any] | None:
-    """Describe how a camera product is encoded, or None for other trees."""
-    if not tree.startswith("camera"):
+def _storage(tree: str) -> dict[str, Any] | None:
+    """Describe how a product is encoded, or None when nothing is claimed.
+
+    Camera products are also narrowed to ``int32``, because OMAS stores every
+    ``INT_2D`` node as platform ``int64`` and a frame is 8-bit. Soft X-ray
+    products carry floats, which have no width to reclaim, but they compress
+    the same way: measured 154 MiB to 69 MiB on a real product.
+    """
+    if not tree.startswith("camera") and tree != "soft_x_rays":
         return None
-    if product_format.lower() not in HDF5_FORMATS:
-        # A JSON container stores numbers as decimal text: it has neither a
-        # dtype to narrow nor a filter to name, so claiming either would
-        # describe an encoding the file does not have.
-        return {"width": None, "compression": None}
-    return {"width": CAMERA_STORAGE_WIDTH, "compression": CAMERA_COMPRESSION}
+    width = CAMERA_STORAGE_WIDTH if tree.startswith("camera") else None
+    return {"width": width, "compression": CAMERA_COMPRESSION}
 
 
-def build_shot(
-    root: Path,
-    tree: str,
-    shot: int,
-    *,
-    product_format: str = DEFAULT_PRODUCT_FORMAT,
-) -> tuple[Any, dict[str, Any]]:
+def build_shot(root: Path, tree: str, shot: int) -> tuple[Any, dict[str, Any]]:
     """Build one shot's ODS from the consolidated archive.
 
     Camera ODSs come back already narrowed to ``int32``, so the caller must
@@ -169,7 +188,7 @@ def build_shot(
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    storage = _camera_storage(tree, product_format)
+    storage = _storage(tree)
     if storage is not None:
         if storage["width"] is not None:
             from vaft.machine_mapping.camera_visible import narrow_image_storage
@@ -218,7 +237,6 @@ def ingest(
     limit: int | None = None,
     force: bool = False,
     dry_run: bool = False,
-    product_format: str = DEFAULT_PRODUCT_FORMAT,
     shots: Sequence[int] | None = None,
 ) -> dict[str, Any]:
     """Build every shot in the given trees, isolating per-shot failures.
@@ -235,7 +253,7 @@ def ingest(
     for tree in trees:
         # One registry per tree, so a camera run and a soft X-ray run touch
         # different files rather than the same one.
-        registry_path = root / "ods" / tree / REGISTRY_NAME
+        registry_path = _stage_directory(root, tree) / REGISTRY_NAME
         registry = load_registry(registry_path)
         available = discover_shots(root, tree)
         if shots is not None:
@@ -254,17 +272,16 @@ def ingest(
                 LOGGER.info("would ingest %s", key)
                 continue
 
-            output_dir = root / "ods" / tree / str(shot)
+            product = _product_path(root, tree, shot)
+            output_dir = product.parent
             try:
-                ods, manifest = build_shot(
-                    root, tree, shot, product_format=product_format
-                )
+                ods, manifest = build_shot(root, tree, shot)
                 output_dir.mkdir(parents=True, exist_ok=True)
                 write_stage_product(
                     ods,
                     manifest,
-                    output=output_dir / f"{shot}_{tree}{product_format}",
-                    metadata=output_dir / MANIFEST_NAME,
+                    output=product,
+                    metadata=_filedb(root).omas_manifest(tree, shot=shot),
                     compression=manifest.get("storage", {}).get("compression"),
                 )
             except Exception as exc:  # noqa: BLE001 - one bad shot must not stop the run
@@ -313,12 +330,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="append",
         help="Build only these shots (repeatable)",
     )
-    parser.add_argument(
-        "--format",
-        default=DEFAULT_PRODUCT_FORMAT,
-        choices=PRODUCT_FORMATS,
-        help="Product container (default: %(default)s)",
-    )
     parser.add_argument("--force", action="store_true", help="Rebuild shots already recorded")
     parser.add_argument("--dry-run", action="store_true", help="List what would be built")
     parser.add_argument("--verbose", action="store_true")
@@ -350,7 +361,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         limit=args.limit,
         force=args.force,
         dry_run=args.dry_run,
-        product_format=args.format,
         shots=args.shot,
     )
 
