@@ -1782,7 +1782,7 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
     )
     return Spectrogram.from_result(
         result,
-        max_frequency=options.get("max_frequency", _default_display_band(result)),
+        max_frequency=_display_ceiling(result, options),
         cmap=options.get("cmap", "turbo"),
         title=_channel_label(ods, "interferometer.channel.{i}.name", index, f"channel {index}"),
         value_label="Fluctuation Magnitude",
@@ -6127,8 +6127,8 @@ def _default_display_band(result: Any) -> float | None:
     colormap draws background, so nothing is hidden that was visible.
 
     A broadband channel keeps its whole axis, because its top rows are as
-    bright as its bottom ones. An explicit ``max_frequency`` or
-    ``frequency_range`` always wins -- this only fills the unspecified case.
+    bright as its bottom ones. :func:`_display_ceiling` is what decides whether
+    to ask at all; this function only answers.
 
     The brightness of a row is its maximum over time, not its mean: a burst
     confined to a few milliseconds is exactly what these maps are read for, and
@@ -6150,6 +6150,21 @@ def _default_display_band(result: Any) -> float | None:
         return None  # the content really does fill the band; show all of it
     # One bin of headroom, so the cut does not sit exactly on the last content.
     return float(frequency[highest + 1])
+
+
+def _display_ceiling(result: Any, options: dict) -> float | None:
+    """The ``max_frequency`` a built spectrogram carries.
+
+    Anything the caller said decides: ``max_frequency`` is used as given, and a
+    named ``frequency_range`` is already the analysis band, so cropping inside
+    it would hide part of what was asked for and put empty axis below its lower
+    edge. Only when neither is present does the map choose its own band.
+    """
+    if "max_frequency" in options:
+        return options["max_frequency"]
+    if options.get("frequency_range") is not None:
+        return None
+    return _default_display_band(result)
 
 
 def _spectrogram_result(
@@ -6261,7 +6276,7 @@ def _build_spectrogram(
     )
     return Spectrogram.from_result(
         result,
-        max_frequency=options.get("max_frequency", _default_display_band(result)),
+        max_frequency=_display_ceiling(result, options),
         cmap=options.get("cmap", "hot_r"),
         title=_channel_label(ods, recipe.label_path, index, f"channel {index}"),
         value_label=recipe.value_label,

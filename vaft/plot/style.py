@@ -155,7 +155,11 @@ def apply_legend(
         return
     judged = sum(1 for handle in handles if getattr(handle, "get_gid", lambda: None)() != _ROLE_GID)
     if judged > LEGEND_MAX_ENTRIES:
-        axes.text(
+        # `Axes3D.text` takes (x, y, z, s), so the 2-D call would raise there;
+        # a 3-D axes offers `text2D` for exactly this, a note in axes
+        # coordinates over the projection.
+        place = getattr(axes, "text2D", axes.text)
+        place(
             0.99, 0.97, f"{count} traces", transform=axes.transAxes,
             ha="right", va="top", fontsize="small", alpha=0.7, gid=_COUNT_NOTE_GID,
         )

@@ -22,8 +22,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-from vaft.plot.models import GeometryLayer, GeometryLayers, Spectrogram
-from vaft.plot.renderers.geometry import render_geometry_layers
+from vaft.plot.models import (
+    Geometry3DLayer,
+    Geometry3DLayers,
+    GeometryLayer,
+    GeometryLayers,
+    Spectrogram,
+)
+from vaft.plot.renderers.geometry import (
+    render_geometry_3d_layers,
+    render_geometry_layers,
+)
 from vaft.plot.style import LEGEND_MAX_ENTRIES, apply_legend
 
 
@@ -85,6 +94,38 @@ class TestGeometryLegendFollowsThePolicy:
         _, axes = render_geometry_layers(_layers(3), legend=False)
         assert axes.get_legend() is None
         assert _count_note(axes) is None
+
+
+class TestTheSamePolicyOnAThreeDimensionalView:
+    """The 3-D views share the policy, and a 3-D axes places text differently.
+
+    ``Axes3D.text`` takes ``(x, y, z, s)``, so the note the policy writes in
+    axes coordinates has to go through ``text2D`` there.
+    """
+
+    @staticmethod
+    def _layers(count: int) -> Geometry3DLayers:
+        return Geometry3DLayers(
+            layers=tuple(
+                Geometry3DLayer(
+                    x=np.array([0.0, 1.0]),
+                    y=np.array([0.0, 1.0]),
+                    z=np.array([float(i), float(i) + 1.0]),
+                    label=f"coil {i}",
+                )
+                for i in range(count)
+            )
+        )
+
+    def test_a_many_layer_view_summarises_rather_than_raising(self):
+        count = LEGEND_MAX_ENTRIES + 4
+        _, axes = render_geometry_3d_layers(self._layers(count))
+        assert axes.get_legend() is None
+        assert _count_note(axes) == f"{count} traces"
+
+    def test_a_few_layer_view_still_gets_its_legend(self):
+        _, axes = render_geometry_3d_layers(self._layers(3))
+        assert axes.get_legend() is not None
 
 
 class TestTheLoneEntryDistinction:
@@ -203,3 +244,18 @@ class TestSpectrogramDefaultReachesTheModel:
     def test_an_explicit_ceiling_still_decides(self):
         model = self._model(max_frequency=123_456.0)
         assert model.max_frequency == 123_456.0
+
+    def test_an_explicit_none_still_means_the_whole_axis(self):
+        """Passing it explicitly is a decision, even when the decision is None."""
+        assert self._model(max_frequency=None).max_frequency is None
+
+    def test_a_named_analysis_band_is_not_cropped_inside(self):
+        """`frequency_range` is already a chosen band.
+
+        Zooming within it would hide part of what was asked for, and -- since
+        the ceiling sets `ylim` from zero -- would put axis below the band's
+        lower edge where nothing was analysed.
+        """
+        model = self._model(frequency_range=(1e3, 5e4))
+        assert model.max_frequency is None
+        assert model.frequency[-1] > 4.9e4
