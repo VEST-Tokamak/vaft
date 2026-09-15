@@ -326,6 +326,54 @@ tree — if the shot-first root is `/srv/vest.filedb/public`, then
 python -m vaft.cli filedb audit /srv/vest.filedb/public --target-root "$VAFT_FILEDB_DIR"
 ```
 
+### Retiring `chease-mhd-stability`
+
+The combined source is superseded: the refinement lives in `main/chease` and
+each stability product in `main/chease/{product}`. Retiring it is gated, because
+part of what it holds **cannot be copied forward**.
+
+A faithful copy of the stability half would have to say which product each
+result came from, and the combined product does not record it:
+
+- DCON's two edge treatments write the same fields at the same
+  `(time_slice, position)`. One run happened; nothing on disk says whether it
+  was `dcon-peeling` or `dcon-kink`.
+- RDCON's and STRIDE's rational surfaces are appended to one `ntms` AOS, and the
+  `<solver name=...>` fragment goes to the whole IDS rather than to each
+  surface.
+
+Copying it anyway would write provenance to HSDS that nothing can verify. So the
+stability results are **re-run**, not moved, and the deletion gate checks for
+that:
+
+```python
+from vaft.database.retirement import plan_retirement, copy_refinement, delete_retired_source
+
+report = plan_retirement(shots)          # reads only
+report.deletable                          # every shot accounted for?
+report.blocking                           # the ones that are not, and why
+```
+
+Per shot, two questions: has the refinement reached `main/chease`, and has the
+stability stage been re-run into the per-product sources.
+
+```bash
+# 1. copy each refinement forward (read back and verified before it reports success)
+python -c "from vaft.database.retirement import copy_refinement; copy_refinement(39915, apply=True)"
+
+# 2. re-run the stability stage for the shot, which populates main/chease/{product}
+
+# 3. re-plan, review, and only then delete
+python -c "..."     # plan_retirement(shots) -> review report.to_dict()
+hsdel /chease-mhd-stability/
+```
+
+Deletion is the administrator's own command. `delete_retired_source` validates
+the plan and prints it, but will not remove a namespace itself: that is not
+something a library call should be able to do as a side effect, however clean
+the plan looks. It also refuses an **empty** report — "no shots were examined"
+and "every shot is safe" are different findings.
+
 ### Checking a product's ancestry
 
 Each stage records the digest of what it consumed and of what it produced, so
