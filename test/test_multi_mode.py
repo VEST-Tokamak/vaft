@@ -17,6 +17,7 @@ import pytest
 from vaft.process.perturbation import (
     AlignedSurface,
     CompositeDrive,
+    DELTA_E_COMBINATIONS,
     SURFACE_MEMBERSHIPS,
     align_surfaces_by_q,
     composite_drive_at_q,
@@ -82,6 +83,20 @@ def test_a_reported_surface_whose_n_times_q_is_not_integral_is_refused():
     """It is not a rational surface, whatever the file calls it."""
     with pytest.raises(ValueError, match="not an integer"):
         align_surfaces_by_q({2: table([2.03])})
+
+
+def test_the_integrality_tolerance_is_inclusive_at_its_own_boundary():
+    """A q exactly `tolerance` away from a rational is accepted; one past it
+    is not. Which side the boundary falls on is invisible unless a test
+    stands on it."""
+    q = 2.0 + 1e-6
+    # The boundary is wherever this q actually lands, not where a decimal
+    # literal suggests: 3 * ((6 + 1e-6) / 3) is not 6 + 1e-6.
+    exactly = abs(3 * q - round(3 * q))
+    aligned = align_surfaces_by_q({3: table([q])}, integrality_tolerance=exactly)
+    assert aligned[0].q == pytest.approx(2.0)
+    with pytest.raises(ValueError, match="not an integer"):
+        align_surfaces_by_q({3: table([q])}, integrality_tolerance=np.nextafter(exactly, 0.0))
 
 
 def test_a_non_finite_q_is_refused_rather_than_matched():
@@ -191,6 +206,112 @@ def test_the_reported_peak_is_the_largest_value_the_sweep_finds():
     )
     assert drive.peak == pytest.approx(dense.max(), rel=1e-9)
     assert drive.peak >= dense.max() - 1e-9
+
+
+def test_a_high_mode_number_still_finds_its_peak():
+    """The sum is a trigonometric polynomial of degree n_max, so it has up to
+    2 n_max maxima. A fixed grid resolves none of them once n_max is large,
+    and a search bracketed around the highest sample then refines the wrong
+    one: before the grid was sized from n_max, 139 of 200 random four-mode
+    cases with n up to 500 came back below the true peak, the worst by 17%.
+    """
+    rng = np.random.default_rng(3)
+    for _ in range(12):
+        modes = sorted(rng.choice(np.arange(1, 501), size=4, replace=False).tolist())
+        q = float(np.lcm.reduce(modes))
+        tables = {n: table([q], [complex(rng.normal(), rng.normal())]) for n in modes}
+        drive = composite_drive_at_q(tables, q, "Phi_res")
+        dense = helical_phase_sweep(
+            tables, q, "Phi_res", angles=np.linspace(0.0, 2 * np.pi, 60 * max(modes))
+        )
+        assert drive.peak >= dense.max() - 1e-9 * abs(dense.max())
+
+
+def test_the_peak_is_never_negative():
+    """The sum has zero mean over a period, so its maximum cannot be below
+    zero. A search that refined into a minimum used to report one: three
+    modes (1, 4, 7) on a three-point grid gave -0.394 where the peak is
+    +2.100."""
+    rng = np.random.default_rng(7)
+    for _ in range(40):
+        modes = sorted(rng.choice(np.arange(1, 30), size=3, replace=False).tolist())
+        q = float(np.lcm.reduce(modes))
+        tables = {n: table([q], [complex(rng.normal(), rng.normal())]) for n in modes}
+        assert composite_drive_at_q(tables, q, "Phi_res").peak >= 0.0
+
+
+def test_a_grid_too_coarse_for_the_top_harmonic_is_refused_not_used():
+    """Silently sampling below the mode's own period is how the peak came
+    back negative."""
+    tables = {n: table([28.0], [1.0 + 0j]) for n in (1, 4, 7)}
+    with pytest.raises(ValueError, match="at least 113"):
+        composite_drive_at_q(tables, 28.0, "Phi_res", angle_points=3)
+    with pytest.raises(ValueError, match="whole number"):
+        composite_drive_at_q(tables, 28.0, "Phi_res", angle_points=200.5)
+
+
+def test_the_contribution_comes_from_the_surface_that_was_asked_for():
+    """Every other numeric fixture here has one surface per mode, so reading
+    index 0 regardless of the q requested passes them all. This one does
+    not: each mode carries three surfaces with distinct values."""
+    tables = {
+        1: table([2.0, 3.0, 4.0], [10.0, 20.0, 40.0]),
+        2: table([2.0, 3.0, 4.0], [1.0, 2.0, 4.0]),
+    }
+    for q, expected in ((2.0, 11.0), (3.0, 22.0), (4.0, 44.0)):
+        drive = composite_drive_at_q(tables, q, "Phi_res")
+        assert drive.linear_bound == pytest.approx(expected)
+        assert drive.peak == pytest.approx(expected, abs=1e-9)
+        assert drive.contributions == (
+            complex(expected * 10 / 11), complex(expected / 11)
+        )
+
+
+def test_the_table_carries_each_row_from_its_own_surface():
+    tables = {
+        1: table([2.0, 3.0], [10.0, 20.0], psi=[0.4, 0.8]),
+        2: table([2.0, 3.0], [1.0, 2.0], psi=[0.4, 0.8]),
+    }
+    got = q_composite_table(tables, "Phi_res")
+    assert got["linear_bound"].tolist() == pytest.approx([11.0, 22.0])
+    assert got["psi_norm_1"].tolist() == pytest.approx([0.4, 0.8])
+
+
+def test_a_q_taken_from_the_table_matches_the_surface_it_came_from():
+    """align_surfaces_by_q reports float(Fraction), which need not be the
+    double the caller read out of the file; matching those on equality made
+    a q from the very table being passed in fail to resolve."""
+    wobbled = 1.3333333333333335
+    assert wobbled != 4 / 3
+    tables = {3: table([wobbled], [2.0])}
+    assert composite_drive_at_q(tables, wobbled, "Phi_res").linear_bound == pytest.approx(2.0)
+    assert helical_phase_sweep(tables, wobbled, "Phi_res", angles=[0.0])[0] == pytest.approx(2.0)
+
+
+def test_a_mode_resonating_twice_at_one_q_is_refused_not_overwritten():
+    """A reversed-shear q profile really does, and one SurfaceMember per mode
+    cannot hold both -- so the second row used to silently replace the
+    first."""
+    with pytest.raises(ValueError, match="two surfaces at q"):
+        align_surfaces_by_q({1: table([2.0, 2.0], psi=[0.3, 0.9])})
+
+
+@pytest.mark.parametrize("bad", [0.0, -2.0])
+def test_a_non_positive_q_is_refused(bad):
+    """q = 0 is integral for every mode number, so it would mark every mode
+    resonant at a surface that is not one."""
+    with pytest.raises(ValueError, match="a safety factor is positive"):
+        align_surfaces_by_q({1: table([bad])})
+
+
+def test_a_column_the_wrong_length_or_the_wrong_shape_is_refused():
+    """A netCDF Phi_res is (2, N) real/imaginary; complex(values[i]) on it
+    raised TypeError where the docstring promises ValueError."""
+    with pytest.raises(ValueError, match="1 values of 'Phi_res' against 2 surfaces"):
+        composite_drive_at_q({1: {"q_rational": [2.0, 3.0], "Phi_res": [1.0]}}, 3.0, "Phi_res")
+    raw = {"q_rational": [2.0], "Phi_res": np.array([[1.0], [2.0]])}
+    with pytest.raises(ValueError, match="one value per surface"):
+        composite_drive_at_q({1: raw}, 2.0, "Phi_res")
 
 
 def test_a_weight_rescales_a_mode_and_a_unit_weight_re_phases_it():
@@ -319,6 +440,17 @@ def test_both_combinations_scale_with_a_uniform_weight():
         plain = reduce_delta_e(values, combination=how)
         scaled = reduce_delta_e(values, combination=how, weights={1: 2.0, 2: 2.0})
         assert scaled == pytest.approx(2.0 * plain)
+
+
+def test_a_negative_weight_is_refused_as_a_negative_value_would_be():
+    """It cancels one mode against another exactly as a negative value does,
+    and quadrature squares it away without noticing."""
+    with pytest.raises(ValueError, match="weight for n = 1 is negative"):
+        reduce_delta_e({1: 3.0, 2: 4.0}, weights={1: -1.0, 2: 1.0})
+
+
+def test_the_combinations_are_exactly_the_two_that_are_offered():
+    assert DELTA_E_COMBINATIONS == ("quadrature", "linear")
 
 
 def test_a_negative_delta_e_is_refused():

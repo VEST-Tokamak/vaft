@@ -80,10 +80,10 @@ __all__ = [
     "amplification_ratio",
     "chirikov",
     "COINCIDENT_POLICIES",
-    "COMPOSITE_COMBINATIONS",
     "composite_drive_at_q",
     "CompositeDrive",
     "critical_island_width",
+    "DELTA_E_COMBINATIONS",
     "edge_overlap_metric",
     "EdgeOverlap",
     "energy_norm_matrix",
@@ -1453,10 +1453,14 @@ SURFACE_MEMBERSHIPS: tuple[str, ...] = ("resonant", "non_resonant", "absent")
     ``n * q`` *is* an integer, so the surface exists, but the run does not
     report it -- it fell outside what that run resolved. GPEC truncates at
     its own ``qlim``, which differs between modes of one equilibrium: 5.2,
-    5.1 and 5.066667 for n = 1, 2 and 3 of the DIII-D reference.
+    5.1 and 5.066667 for n = 1, 2 and 3 of the DIII-D reference. Those three
+    limits happen to produce no ``absent`` row on that reference, because
+    every surface they exclude sits above the highest ``q`` any of the three
+    reaches; the case is real but the reference does not exhibit it.
 """
 
-COMPOSITE_COMBINATIONS: tuple[str, ...] = ("peak", "quadrature", "linear")
+DELTA_E_COMBINATIONS: tuple[str, ...] = ("quadrature", "linear")
+"""How :func:`reduce_delta_e` may combine one metric across mode numbers."""
 
 
 @dataclass(frozen=True)
@@ -1494,6 +1498,70 @@ class CompositeDrive:
     peak_angle: float
     quadrature: float
     linear_bound: float
+
+
+def _contributions_at_q(
+    tables: Mapping[int, Mapping[str, object]],
+    q: float,
+    column: str,
+    *,
+    weights: Mapping[int, complex] | None,
+    integrality_tolerance: float,
+) -> tuple[tuple[int, ...], np.ndarray]:
+    """The weighted contributions of every mode resonating at ``q``.
+
+    Shared by :func:`composite_drive_at_q` and :func:`helical_phase_sweep` so
+    that the alignment is done once for both.
+    """
+    if weights:
+        unknown = sorted(set(weights) - set(tables))
+        if unknown:
+            raise ValueError(f"weights name modes that are not in tables: {unknown}")
+    if not np.isfinite(q):
+        raise ValueError(f"q must be finite, not {q!r}")
+    aligned = align_surfaces_by_q(tables, integrality_tolerance=integrality_tolerance)
+    # Match on the rational the caller's q rounds to, not on float equality:
+    # a q taken straight out of one of these tables can sit an ulp away from
+    # the value align_surfaces_by_q reports back.
+    wanted = {
+        _rational_q(mode, float(q), tolerance=integrality_tolerance) for mode in tables
+    } - {None}
+    match = next((s for s in aligned if Fraction(s.q).limit_denominator(10**9) in wanted), None)
+    if match is None:
+        match = next((s for s in aligned if s.q == float(q)), None)
+    modes = () if match is None else match.resonant_modes
+    if not modes:
+        raise ValueError(
+            f"no mode in {sorted(tables)} resonates at q = {q!r}; the surfaces "
+            f"present are {[s.q for s in aligned]}"
+        )
+    contributions = []
+    for member in match.members:
+        if member.membership != "resonant":
+            continue
+        table = tables[member.n]
+        if column not in table:
+            raise ValueError(f"n = {member.n} resonates at q = {q!r} but has no {column!r} column")
+        values = np.asarray(table[column])
+        if values.ndim != 1:
+            raise ValueError(
+                f"n = {member.n} gives {column!r} with shape {values.shape}; one "
+                "value per surface is expected, so a netCDF (2, N) real/imaginary "
+                "pair has to be assembled into a complex column first"
+            )
+        if values.size != np.atleast_1d(np.asarray(table["q_rational"])).size:
+            raise ValueError(
+                f"n = {member.n} gives {values.size} values of {column!r} against "
+                f"{np.atleast_1d(np.asarray(table['q_rational'])).size} surfaces"
+            )
+        value = complex(values[member.index])
+        if not np.isfinite(value.real) or not np.isfinite(value.imag):
+            raise ValueError(f"n = {member.n} has a non-finite {column!r} at q = {q!r}: {value!r}")
+        weight = complex(1.0) if not weights else complex(weights.get(member.n, 1.0))
+        if not np.isfinite(weight.real) or not np.isfinite(weight.imag):
+            raise ValueError(f"the weight for n = {member.n} is not finite: {weight!r}")
+        contributions.append(value * weight)
+    return tuple(modes), np.asarray(contributions)
 
 
 def _rational_q(n: int, q: float, *, tolerance: float) -> Fraction | None:
@@ -1551,15 +1619,20 @@ def align_surfaces_by_q(
     the same rational give the same double -- ``4/3`` and ``8/6`` compare
     equal. The positions do not: at ``q = 2`` the three runs put
     ``psi_n_rational`` at 0.59364383816324717, 0.59364383816324717 and
-    0.59364383816403732, differing in the thirteenth digit. ``q`` is the key
-    because it is exact; ``psi`` is the root finder's answer and is not.
+    0.59364383816403732, first differing in the twelfth significant digit.
+    ``q`` is the key because it is exact; ``psi`` is the root finder's answer
+    and is not.
 
     Defaults
     --------
     ``integrality_tolerance = 1e-6`` is a numerical convenience: loose
-    enough for a ``q`` that has been through a file format, tight enough
-    that no two rationals of any mode number below a few hundred can be
-    confused. It is not a matching tolerance -- the match itself is exact.
+    enough for a ``q`` that has been through a file format. Rounding to the
+    nearest integer is what decides which rational a value belongs to, so
+    two rationals cannot be confused at any mode number whatever the
+    tolerance is; it only decides how far from *any* of them a value may sit
+    before it is refused, and being absolute on ``n * q`` it tightens as
+    ``1e-6 / n`` on ``q`` itself. The match is exact -- this is not a
+    matching tolerance.
 
     Processing steps
     ----------------
@@ -1613,11 +1686,25 @@ def align_surfaces_by_q(
         for index, q in enumerate(q_values):
             if not np.isfinite(q):
                 raise ValueError(f"n = {mode} surface {index} has q = {q}")
+            if q <= 0.0:
+                raise ValueError(
+                    f"n = {mode} surface {index} has q = {q!r}; a safety factor "
+                    "is positive, and q = 0 is integral for every mode number, "
+                    "so admitting it would mark every mode resonant there"
+                )
             fraction = _rational_q(mode, float(q), tolerance=integrality_tolerance)
             if fraction is None:
                 raise ValueError(
                     f"n = {mode} reports a surface at q = {q!r}, where n * q = "
                     f"{mode * q!r} is not an integer, so it is not a rational surface"
+                )
+            if fraction in found:
+                raise ValueError(
+                    f"n = {mode} reports two surfaces at q = {q!r}, at indices "
+                    f"{found[fraction][0]} and {index}. A reversed-shear q "
+                    "profile really does resonate twice at one q, and one "
+                    "SurfaceMember per mode cannot hold both; aligning such a "
+                    "run needs a model this does not have"
                 )
             found[fraction] = (index, None if psi_values is None else float(psi_values[index]))
         per_mode[mode] = found
@@ -1651,7 +1738,7 @@ def composite_drive_at_q(
     *,
     weights: Mapping[int, complex] | None = None,
     integrality_tolerance: float = 1e-6,
-    angle_points: int = 721,
+    angle_points: int | None = None,
 ) -> CompositeDrive:
     """Sum one resonant column over every mode that resonates at a given ``q``.
 
@@ -1672,7 +1759,9 @@ def composite_drive_at_q(
     integrality_tolerance : float, optional
         Passed to :func:`align_surfaces_by_q` [-].
     angle_points : int, optional
-        How finely the helical angle is sampled when finding the peak [-].
+        How finely the helical angle is sampled before the peak is refined.
+        Left unset it is sized from the highest resonating mode number;
+        given, it must be at least ``16 * n_max + 1`` [-].
 
     Returns
     -------
@@ -1680,8 +1769,9 @@ def composite_drive_at_q(
         ``peak`` and ``peak_angle`` are the largest real amplitude over the
         helical angle and where it occurs; ``quadrature`` is
         ``sqrt(sum |z|**2)``; ``linear_bound`` is ``sum |z|``, the value the
-        peak would reach if every mode aligned. Units follow ``column``;
-        ``peak_angle`` is in [rad] and the rest are [n/a].
+        peak would reach if every mode aligned. ``peak``, ``quadrature`` and
+        ``linear_bound`` carry ``column``'s own units and ``peak_angle`` is
+        an angle [rad].
 
     Raises
     ------
@@ -1713,12 +1803,34 @@ def composite_drive_at_q(
     ``peak_angle`` is reported relative to the input's own origin and moves
     with it. ``quadrature`` and ``linear_bound`` are invariant too.
 
+    The decomposition assumed is ``exp(i (m theta - n phi))``, which is
+    GPEC's, and its spectral ``Phi_res`` is written without the
+    ``-helicity`` flip its real-space outputs carry, so no helicity factor
+    enters the sum. **What helicity does reach is** ``peak_angle``: GPEC's
+    ``phi`` runs counter-clockwise for a left-handed plasma and clockwise
+    for a right-handed one, so on a ``helicity = +1`` run the same spectral
+    convention makes ``u = q theta + phi`` in machine coordinates and the
+    reported angle runs the other way. ``peak``, ``quadrature`` and
+    ``linear_bound`` are untouched -- conjugating every ``z_n`` mirrors
+    ``u -> -u``, and a mirrored curve has the same height.
+
+    The amplitude summed is ``Re(z exp(i n u))`` and not twice it. A real
+    field reconstructed from positive ``n`` alone carries the conjugate
+    harmonics too, so a comparison against a real-space output will differ
+    by a factor of two; this follows the convention the legacy's own
+    artefact records rather than that one.
+
     Defaults
     --------
-    ``angle_points = 721`` is a numerical convenience: half-degree sampling
-    of a full turn, refined afterwards by golden-section search. Over 300
-    random cases of two to five modes with ``n`` up to 12, the peak it
-    returns matched a two-million-point scan exactly.
+    ``angle_points`` unset is a numerical convenience: ``16 * n_max + 1``
+    points, sixteen per period of the top harmonic, but never fewer than
+    721. The size has to follow ``n_max`` because the sum is a trigonometric
+    polynomial of that degree and has up to ``2 n_max`` maxima. A fixed
+    721-point grid was measured against a two-million-point scan on 400
+    random cases per row: it already missed the peak in 2 of 400 at
+    ``n_max = 20`` -- worst deficit 1.5e-3, on the two-mode case (14, 19) --
+    and in 281 of 400 at ``n_max = 400``, worst deficit 0.20. Sized from
+    ``n_max`` and refined from every sampled local maximum it misses none.
 
     Processing steps
     ----------------
@@ -1750,60 +1862,61 @@ def composite_drive_at_q(
        ``q2p0_harmonic/gpec_multimode_summary_n12.json`` carries
        ``phase_convention = "real(B_n * exp(i * n * phi))"``.
     """
-    if int(angle_points) < 2:
-        raise ValueError(f"angle_points must be at least 2, not {angle_points!r}")
-    if weights:
-        unknown = sorted(set(weights) - set(tables))
-        if unknown:
-            raise ValueError(f"weights name modes that are not in tables: {unknown}")
-    aligned = align_surfaces_by_q(tables, integrality_tolerance=integrality_tolerance)
-    match = next((s for s in aligned if s.q == float(q)), None)
-    modes = () if match is None else match.resonant_modes
-    if not modes:
-        raise ValueError(
-            f"no mode in {sorted(tables)} resonates at q = {q!r}; the surfaces "
-            f"present are {[s.q for s in aligned]}"
-        )
-    contributions = []
-    for member in match.members:
-        if member.membership != "resonant":
-            continue
-        table = tables[member.n]
-        if column not in table:
-            raise ValueError(f"n = {member.n} resonates at q = {q!r} but has no {column!r} column")
-        value = complex(np.atleast_1d(np.asarray(table[column]))[member.index])
-        if not np.isfinite(value.real) or not np.isfinite(value.imag):
-            raise ValueError(f"n = {member.n} has a non-finite {column!r} at q = {q!r}: {value!r}")
-        weight = complex(1.0) if not weights else complex(weights.get(member.n, 1.0))
-        if not np.isfinite(weight.real) or not np.isfinite(weight.imag):
-            raise ValueError(f"the weight for n = {member.n} is not finite: {weight!r}")
-        contributions.append(value * weight)
-
-    values = np.asarray(contributions)
+    modes, values = _contributions_at_q(
+        tables, q, column, weights=weights, integrality_tolerance=integrality_tolerance
+    )
     orders = np.asarray(modes, dtype=float)
+    highest = int(max(modes))
+    # The sum is a trigonometric polynomial of degree `highest`, so it has up
+    # to 2*highest maxima and a grid that does not resolve them can bracket
+    # the search around the wrong one. Sample 16 points per period of the top
+    # harmonic.
+    required = 16 * highest + 1
+    if angle_points is None:
+        points = max(721, required)
+    else:
+        points = int(angle_points)
+        if points != angle_points or points < required:
+            raise ValueError(
+                f"angle_points must be a whole number and at least {required} "
+                f"for a top harmonic of n = {highest}, not {angle_points!r}; "
+                "leave it unset to have it sized automatically"
+            )
 
     def amplitude(u: float) -> float:
         return float(np.sum((values * np.exp(1j * orders * u)).real))
 
-    grid = np.linspace(0.0, 2.0 * np.pi, int(angle_points), endpoint=False)
+    grid = np.linspace(0.0, 2.0 * np.pi, points, endpoint=False)
     sampled = (values[None, :] * np.exp(1j * np.outer(grid, orders))).real.sum(axis=1)
-    best = int(np.argmax(sampled))
-    step = grid[1] - grid[0] if grid.size > 1 else 2.0 * np.pi
-    low, high = grid[best] - step, grid[best] + step
+    step = 2.0 * np.pi / points
+    # Refine from every sampled local maximum, not only the largest: with a
+    # resolved grid each one brackets a true maximum, and which sample happens
+    # to be highest does not decide which bracket holds the global peak.
+    interior = (sampled >= np.roll(sampled, 1)) & (sampled >= np.roll(sampled, -1))
+    candidates = np.flatnonzero(interior)
+    if candidates.size == 0:
+        candidates = np.array([int(np.argmax(sampled))])
     ratio = (np.sqrt(5.0) - 1.0) / 2.0
-    for _ in range(80):
-        left, right = high - ratio * (high - low), low + ratio * (high - low)
-        if amplitude(left) > amplitude(right):
-            high = right
-        else:
-            low = left
-    peak_angle = 0.5 * (low + high)
+    peak = float(sampled.max())
+    peak_angle = float(grid[int(np.argmax(sampled))])
+    for index in candidates:
+        low, high = grid[index] - step, grid[index] + step
+        for _ in range(60):
+            left, right = high - ratio * (high - low), low + ratio * (high - low)
+            if amplitude(left) > amplitude(right):
+                high = right
+            else:
+                low = left
+        angle = 0.5 * (low + high)
+        height = amplitude(angle)
+        if height > peak:
+            peak, peak_angle = height, angle
     magnitudes = np.abs(values)
     return CompositeDrive(
         q=float(q),
         modes=tuple(modes),
         contributions=tuple(complex(v) for v in values),
-        peak=amplitude(peak_angle),
+        peak=peak,
         peak_angle=float(np.mod(peak_angle, 2.0 * np.pi)),
         quadrature=float(np.sqrt(np.sum(magnitudes**2))),
         linear_bound=float(np.sum(magnitudes)),
@@ -1883,11 +1996,10 @@ def helical_phase_sweep(
     requested = np.atleast_1d(np.asarray(angles, dtype=float))
     if not np.all(np.isfinite(requested)):
         raise ValueError("every angle must be finite")
-    drive = composite_drive_at_q(
+    modes, values = _contributions_at_q(
         tables, q, column, weights=weights, integrality_tolerance=integrality_tolerance
     )
-    values = np.asarray(drive.contributions)
-    orders = np.asarray(drive.modes, dtype=float)
+    orders = np.asarray(modes, dtype=float)
     return (values[None, :] * np.exp(1j * np.outer(requested, orders))).real.sum(axis=1)
 
 
@@ -1928,10 +2040,14 @@ def reduce_delta_e(
 
     Convention
     ----------
-    Both combinations are homogeneous of degree one in the weights, so a
-    uniform rescaling moves either by the same factor; what differs is how
-    modes combine with each other, and quadrature is the default because
-    ``delta_e`` is a magnitude with no phase left to interfere.
+    Both combinations are homogeneous of degree one in the weights, so
+    rescaling every weight by the same non-negative factor moves either
+    result by that factor; what differs is how modes combine with each
+    other, and quadrature is the default because ``delta_e`` is a magnitude
+    with no phase left to interfere. Negative weights are refused rather
+    than given a meaning: they are homogeneous of degree one only for
+    ``linear`` -- quadrature squares them away -- and they reintroduce the
+    cancellation the negative-value check exists to forbid.
 
     Defaults
     --------
@@ -1965,9 +2081,9 @@ def reduce_delta_e(
        region returning ``None`` for every mode; assembling that mapping is
        the caller's job and needs no function.
     """
-    if combination not in ("quadrature", "linear"):
+    if combination not in DELTA_E_COMBINATIONS:
         raise ValueError(
-            f"combination must be 'quadrature' or 'linear', not {combination!r}"
+            f"combination must be one of {DELTA_E_COMBINATIONS}, not {combination!r}"
         )
     if not values:
         raise ValueError("no modes were given, so there is nothing to combine")
@@ -1995,6 +2111,13 @@ def reduce_delta_e(
         weight = 1.0 if weights is None else float(weights[mode])
         if not np.isfinite(weight):
             raise ValueError(f"the weight for n = {mode} is not finite: {weight!r}")
+        if weight < 0.0:
+            raise ValueError(
+                f"the weight for n = {mode} is negative ({weight!r}); these are "
+                "magnitudes, so a negative weight would cancel one mode against "
+                "another exactly as a negative value would, and the quadrature "
+                "combination would not even notice"
+            )
         total_square += (weight * value) ** 2
         total_linear += weight * value
     return float(np.sqrt(total_square)) if combination == "quadrature" else float(total_linear)
