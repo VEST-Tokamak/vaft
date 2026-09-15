@@ -56,7 +56,26 @@ def _add_eigenfunction(ods, base, *, n_tor, harmonics=(-3.0, -2.0, -1.0), n_psi=
     return ods
 
 
-def _mhd_linear_ods(*, energies=None, times=(0.316, 0.317, 0.318), eigenfunction=True):
+def _add_tearing_surfaces(ods, times, surfaces):
+    """`ntms` rational surfaces -- RDCON's and STRIDE's result.
+
+    A surface is an ``(m_pol, n_tor)`` pair the solver located, so several share
+    one ``n_tor``; the tearing index lives in `deltaw`, keyed by name.
+    """
+    ods["ntms.ids_properties.homogeneous_time"] = 1
+    ods["ntms.time"] = list(times)
+    for slice_index in range(len(times)):
+        for position, (n_tor, m_pol, value) in enumerate(surfaces):
+            entry = ods["ntms"]["time_slice"][slice_index]["mode"][position]
+            entry["n_tor"], entry["m_pol"] = n_tor, m_pol
+            entry["deltaw"][0]["name"] = "classical"
+            entry["deltaw"][0]["value"] = value + 0.1 * slice_index
+    return ods
+
+
+def _mhd_linear_ods(
+    *, energies=None, times=(0.316, 0.317, 0.318), eigenfunction=True, tearing=True
+):
     """``toroidal_mode`` entries whose array position is not the mode number."""
     energies = energies or {1: [-0.4, -0.5, -0.6], 2: [0.2, 0.15, 0.1]}
     ods = ODS(consistency_check=False)
@@ -73,6 +92,8 @@ def _mhd_linear_ods(*, energies=None, times=(0.316, 0.317, 0.318), eigenfunction
             ods[f"{base}.energy_perturbed"] = energies[n_tor][slice_index]
             if eigenfunction:
                 _add_eigenfunction(ods, base, n_tor=n_tor)
+    if tearing:
+        _add_tearing_surfaces(ods, times, [(1, 2, 1.23), (1, 3, -0.4)])
     return ods
 
 
@@ -331,15 +352,25 @@ def test_delta_prime_and_solver_status_reach_the_metrics_from_the_manifest(tmp_p
     )
     # Directory order is unspecified (hash order on ext4, sorted on APFS), so
     # compare the sets of names, not the order the filesystem hands them out.
-    assert sorted(path.name for path in (tmp_path / "plot").iterdir()) == sorted(
-        stage_plot_filenames("mhd_linear")
-    )
+    #
+    # Against what the manifest says it *generated*, not against every declared
+    # filename: some of the stage's plots are optional and legitimately skip --
+    # `stability_delta_prime.png` has nothing to draw for a DCON-only run -- so
+    # demanding the full declared set would make a correct skip look like a
+    # missing figure.
+    generated = {row["file"] for row in manifest["plots"] if row["status"] == "generated"}
+    assert {path.name for path in (tmp_path / "plot").iterdir()} == generated
+    assert generated <= set(stage_plot_filenames("mhd_linear"))
+    assert set(stage_plot_filenames("mhd_linear", required_only=True)) <= generated
     metrics = manifest["metrics"]
     assert metrics["time_slice_count"] == 3
     assert sorted(metrics["modes"]) == ["1", "2"]
 
     runs = metrics["solver_runs"]
-    # Delta-prime has no IDS slot, so the manifest is its only home.
+    # The manifest keeps the *full* per-surface Delta-prime detail. The index
+    # itself is no longer manifest-only -- it reaches `ntms.deltaw` and is
+    # plotted from there (#170) -- but the manifest is still where a reader
+    # finds it per solver cell, which `ntms` does not record.
     assert runs["t=316/rdcon/n=1"]["modes"]["1"]["variable"] == "Delta_prime"
     assert runs["t=316/rdcon/n=1"]["modes"]["1"]["value"] == 1.23
     # A failed solver cell is reported, not fatal.
