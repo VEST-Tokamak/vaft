@@ -183,18 +183,23 @@ def test_the_seed_centre_moves_without_moving_the_toroidal_field():
     """The defect this study found in our own configuration.
 
     `rzero` is three namelist quantities at once. `ellipse_rzero` separates
-    the seed from the rest, and defaults to following `rzero` so the routine
-    k-file is unchanged.
+    the seed from the rest, which is what let the sweep attribute anything to
+    the seed at all -- and, now that the study has concluded, what lets the
+    default seed sit inboard of the reference radius instead of on top of it.
     """
     from vaft.code.efit.config import EFITInitializationConfig
 
     routine = EFITInitializationConfig()
-    assert routine.ellipse_rzero is None
-    assert routine.seed_rzero == routine.rzero == 0.4
+    assert routine.seed_rzero == 0.32
+    assert routine.rzero == 0.4, "the reference radius and BTOR did not move with the seed"
 
     moved = EFITInitializationConfig(ellipse_rzero=0.30)
     assert moved.seed_rzero == 0.30
-    assert moved.rzero == 0.4, "the reference radius and BTOR must not move with the seed"
+    assert moved.rzero == 0.4
+
+    # `None` still means "follow `rzero`", which is how the pre-#588 k-file is
+    # reproduced exactly -- see the byte-level comparison in test_efit_config.
+    assert EFITInitializationConfig(ellipse_rzero=None).seed_rzero == 0.4
 
     with pytest.raises(ValueError):
         EFITInitializationConfig(ellipse_rzero=0.0)
@@ -217,6 +222,44 @@ def test_the_basin_is_asymmetric_about_the_routine_seed(table):
             elif row["value"] > 0.4:
                 outboard_lost += lost
     assert outboard_lost > inboard_lost, (inboard_lost, outboard_lost)
+
+
+def test_the_new_default_is_a_band_with_its_best_point_at_the_chosen_value(table):
+    """What the study concluded, and how much of it the data actually carries.
+
+    Both halves matter. The seed moved inboard because 0.4 m is where the
+    vessel is centred and not where the plasma is, and the refinement says the
+    whole 0.30-0.36 m region beats it. Inside that region the response is not
+    smooth and 77 slices from three discharges cannot resolve a point, so the
+    second digit is a choice, not a measurement. A later change that quotes
+    this default as an optimum, or that moves it outside the measured band,
+    fails here.
+    """
+    from vaft.code.efit.config import EFITInitializationConfig
+
+    chosen = table["chosen_default"]
+    routine = EFITInitializationConfig()
+    assert routine.seed_rzero == chosen["value"] == 0.32
+    assert routine.rzero == chosen["was"] == 0.4
+
+    rows = {row["value"]: row for row in table["refinement"]["values"]}
+    before = table["refinement"]["routine"]
+    assert before["slices"] == 77 and before["ellipse_rzero"] == 0.4
+
+    # The best measured point, on both counts a seed can be judged by: how
+    # many slices reach an equilibrium at all, and how many that already
+    # worked stop working.
+    assert max(rows.values(), key=lambda row: row["produced_an_equilibrium"])["value"] == 0.32
+    assert min(rows.values(), key=lambda row: row["lost"])["value"] == 0.32
+
+    # The band, which is the part that is actually established.
+    band = [row for row in rows.values() if 0.30 <= row["value"] <= 0.36]
+    assert len(band) >= 4
+    for row in band:
+        assert row["produced_an_equilibrium"] > before["produced_an_equilibrium"], row["value"]
+    # And its inboard edge: below 0.30 m the gain is gone, which is what makes
+    # this a region rather than "further inboard is better".
+    assert rows[0.28]["produced_an_equilibrium"] <= before["produced_an_equilibrium"]
 
 
 def test_the_report_renders_from_the_committed_table(module, table):
