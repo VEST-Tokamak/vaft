@@ -91,8 +91,11 @@ def test_static_product_is_not_a_reference_shot_container():
     assert "pf_passive.time" not in ods
     assert "pf_passive.loop.0.current" not in ods
     assert np.shape(ods["em_coupling.mutual_passive_passive"]) == (950, 950)
+    # PF2 left this list in #708: it has an acquisition channel (field 4) and
+    # shot 46742 uses it. The four that remain have no channel at all -- the
+    # donor gives PF3/PF4 the same code as PF5 and none of the four a gain --
+    # so "disabled" is still the honest word for them.
     assert manifest["channel_status"]["pf_active"]["disabled_channels"] == [
-        "PF2",
         "PF3",
         "PF4",
         "PF7",

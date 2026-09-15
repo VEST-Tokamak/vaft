@@ -169,11 +169,14 @@ def test_tolerance_band_defines_saturation():
 
 
 def test_every_acquired_coil_keeps_a_measured_waveform(tmp_path):
-    """No acquired coil may be zero-filled. PF2 is absent from Coil_info.mat
-    (an explicitly disabled hardware channel, hence a meaningful zero) --
-    that is a different thing from the #44 zero-fill defect, and from VFIT's
-    solver-side PF2 residual exclusion, which belongs in the inversion layer
-    and must never reach the canonical mapping (#195)."""
+    """No acquired coil may be zero-filled (#44), and an empty channel is not
+    the same defect: a discharge that left a circuit cold is entitled to a
+    zero, and the EFIT coilset reads exactly that to weight the coil out.
+
+    This is also different from VFIT's solver-side PF2 residual exclusion,
+    which belongs in the inversion layer and must never reach the canonical
+    mapping (#195).
+    """
     shot = 45965
     source = tmp_path / "raw.json.gz"
     samples = np.sin(np.linspace(0.0, 20.0, 1200)) + np.linspace(0.0, 0.2, 1200)
@@ -184,7 +187,43 @@ def test_every_acquired_coil_keeps_a_measured_waveform(tmp_path):
     acquired_indices = (PF1_INDEX, PF5_INDEX, PF6_INDEX, 8, 9)
     for coil_index in acquired_indices:
         assert np.any(currents[coil_index] != 0.0), f"coil {coil_index} was zero-filled"
+    # PF2's channel carries nothing in this dump, so PF2 carried nothing.
     assert np.all(currents[PF2_INDEX] == 0.0)
+
+
+def test_a_discharge_that_energised_pf2_keeps_its_waveform(tmp_path):
+    """PF2 was unreadable, and it was not the machine that said so (#708).
+
+    `Coil_info.mat` listed five circuits, so PF2 was zero-filled for every
+    shot and the repository recorded that as "an explicitly disabled hardware
+    channel". Shot 46742 disproves it: field 4 carries 25000 samples there
+    and is empty on 39915. The channel map is now `vest.yaml` configuration
+    read per shot, so the same code reaches both answers from the data.
+    """
+    shot = 46742
+    source = tmp_path / "raw.json.gz"
+    samples = np.sin(np.linspace(0.0, 20.0, 1200)) + np.linspace(0.0, 0.2, 1200)
+    _write_raw_dump(source, shot, {field: samples for field in (4, 5, 59, 62, 65)})
+
+    _time_axis, currents = vfit_pf(shot, raw_source=source)
+
+    assert np.any(currents[PF2_INDEX] != 0.0), "PF2's acquired waveform was dropped"
+    # And it is PF2's own gain that was applied, not a neighbour's.
+    assert _coil_gain_by_index(shot)[PF2_INDEX] == pytest.approx(1.0e3)
+
+
+def test_pf2_is_not_read_from_the_era_where_field_4_was_the_diamagnetic_loop(tmp_path):
+    """The one place the donor's channel table cannot be taken at face value.
+
+    `VEST_PFwaveform.m` gives PF2 field 4 for every shot from 19284, but this
+    repository records field 4 as the *diamagnetic loop* for 37505-38451.
+    Both cannot be right, so PF2 is declared only from 38452 -- where the loop
+    moved to 257 -- rather than risk reading one diagnostic as another.
+    """
+    from vaft.machine_mapping.pf_active import coil_field_code_by_index
+
+    assert PF2_INDEX not in coil_field_code_by_index(38451)
+    assert coil_field_code_by_index(38452)[PF2_INDEX] == 4
 
 
 def test_unclipped_pf6_waveform_is_not_altered_by_the_repair_hook(tmp_path):

@@ -761,6 +761,36 @@
           cutoff_frequency: 2500.0
           taps: 251
           smoothing_window: 10
+        # Which acquisition channel each PF circuit's current comes from,
+        # keyed by the same 0-based coil index as `coil_gains`. This used to
+        # live in the binary `Coil_info.mat`, which listed five circuits and
+        # so made "which coils exist" a property of a checked-in .mat file
+        # rather than of the machine: a discharge that energised PF2 was
+        # zero-filled with no way to say otherwise (#708).
+        #
+        # A circuit listed here is *acquirable*, not necessarily acquired: the
+        # channel is read per shot and a shot whose channel holds no waveform
+        # gets a zero, which is a statement about that discharge. A circuit
+        # absent from this map has no known channel at all.
+        #
+        # PF3, PF4, PF7 and PF8 are deliberately absent. The donor
+        # (`VEST_PFwaveform.m`) lists codes for them, but gives PF3/PF4 the
+        # same code as PF5, and no gain for any of the four -- so reading them
+        # would yield either another coil's waveform or an uncalibrated one.
+        # An absent entry is the honest answer until a calibration exists.
+        coil_field_codes:
+          0: 59   # PF1
+          4: 5    # PF5
+          5: 62   # PF6
+          8: 65   # PF9  -- one channel drives both, see efit_coilset.ties
+          9: 65   # PF10
+        # Circuits whose channel may legitimately hold no waveform: an empty
+        # channel means this discharge did not energise the coil, not that
+        # acquisition failed. Everything else in `coil_field_codes` is
+        # REQUIRED -- a missing waveform there raises rather than becoming a
+        # zero, which is the #44 zero-fill guard and must not be relaxed by
+        # adding a circuit that is only sometimes used.
+        optional_coils: [1]   # PF2
         coil_gains:
           0: 1.0e4
           1: 1.0e3
@@ -783,6 +813,11 @@
         # signal, so the policy is scoped to the negative-gain eras.
         saturation_repair: null
       revisions:
+        # PF9 had its own channel before the 19284 rewiring; afterwards it
+        # shares PF10's, which is what makes their currents bit-identical.
+        - to_shot: 19283
+          processing:
+            coil_field_codes: {8: 64}
         - from_shot: 19287
           to_shot: 20258
           processing:
@@ -804,19 +839,37 @@
             saturation_repair:
               5: {value: -5000.0, tolerance: 10.0}
         - from_shot: 38401
-          to_shot: 45964
+          to_shot: 38451
           processing:
             coil_gains: {0: -5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
             saturation_repair:
               5: {value: -5000.0, tolerance: 10.0}
+        # Same gains; the boundary is PF2's, not theirs. See the note below.
+        - from_shot: 38452
+          to_shot: 45964
+          processing:
+            coil_field_codes: {1: 4}
+            coil_gains: {0: -5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+            saturation_repair:
+              5: {value: -5000.0, tolerance: 10.0}
+        # PF2 enters here and not earlier. The donor gives it field 4 for
+        # every shot from 19284, but this file records field 4 as the
+        # *diamagnetic loop* for 37505-38451, and the two cannot both be
+        # right. Declaring PF2 only from 38452 -- where the loop moved to 257
+        # and the conflict ends -- refuses to read a channel that provably
+        # belonged to another diagnostic. Verified on 46742: field 4 carries
+        # 25000 samples there and is empty on 39915, so the channel is real
+        # and per-shot.
         - from_shot: 45965
           to_shot: 48371
           processing:
+            coil_field_codes: {1: 4}
             coil_gains: {0: -1.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
             saturation_repair:
               5: {value: -5000.0, tolerance: 10.0}
         - from_shot: 48372
           processing:
+            coil_field_codes: {1: 4}
             coil_gains: {0: -1.0e4, 4: -5.0e3, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
             saturation_repair:
               5: {value: -5000.0, tolerance: 10.0}
