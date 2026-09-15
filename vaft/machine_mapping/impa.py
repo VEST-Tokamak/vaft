@@ -26,6 +26,7 @@ from vaft.process.impa import (
 )
 
 from .magnetics import PROBE_LENGTH, vfit_plasma_current
+from .registry import port_phi
 from .tf import vfit_tf_current
 from .utils import _deep_merge, _normalize_shot_key, _resolve_info_file_path, load_yaml, path_exists, set_path
 
@@ -73,6 +74,14 @@ IMPA_TOROIDAL_PROBE_POLOIDAL_ANGLE = 0.0
 #: normal is parallel to grad(phi), which is pi/2 -- writing 0 there declares
 #: a *radial* (B_R) sensor instead.
 IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE = math.pi / 2
+
+#: The port the array is inserted through: ``11M12``, which the port-status
+#: document lists as "Triple probe + internal magnetic probe array".  The IMAS
+#: toroidal angle is derived from it rather than stored, so it cannot drift
+#: from the port table -- see issue #718.  Until then every IMPA channel was
+#: written at ``phi = 0.0``, which is not a placeholder a reader can recognise:
+#: 0.0 is 12 o'clock, a real and different place on the machine.
+IMPA_PORT = "11M12"
 
 
 def _safe_vest_load(shot: int, field: int, raw_source: raw_db.RawSource | None = None):
@@ -601,7 +610,7 @@ def impa(
         set_path(ods, f"{prefix}.identifier", f"{IMPA_IDENTIFIER_PREFIX}{name}")
         set_path(ods, f"{prefix}.position.r", float(result.geometry.r[offset]))
         set_path(ods, f"{prefix}.position.z", float(result.geometry.z[offset]))
-        set_path(ods, f"{prefix}.position.phi", 0.0)
+        set_path(ods, f"{prefix}.position.phi", port_phi(IMPA_PORT))
         set_path(ods, f"{prefix}.length", PROBE_LENGTH)
         set_path(
             ods,
@@ -694,7 +703,7 @@ def impa(
             set_path(ods, f"{prefix}.identifier", f"{IMPA_IDENTIFIER_PREFIX}{name}")
             set_path(ods, f"{prefix}.position.r", bz_r)
             set_path(ods, f"{prefix}.position.z", float(result.geometry.z[offset]))
-            set_path(ods, f"{prefix}.position.phi", 0.0)
+            set_path(ods, f"{prefix}.position.phi", port_phi(IMPA_PORT))
             set_path(ods, f"{prefix}.length", PROBE_LENGTH)
             set_path(ods, f"{prefix}.toroidal_angle", 0.0)
             set_path(ods, f"{prefix}.type.index", HALL_PROBE_TYPE_INDEX)

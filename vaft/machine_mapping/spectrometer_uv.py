@@ -7,9 +7,23 @@ import numpy as np
 from vaft.database import raw as raw_db
 from vaft.process.signal_processing import resample_to_time
 
+from .registry import port_phi
 from .utils import set_path
 
 DEFAULT_DT = 4e-5
+
+#: The port the filterscope collects through: ``6MR``, the Entrance.
+#:
+#: Two independent sources agree.  The port-status document lists 6MR as
+#: "Entrance" and puts the fast camera, the H-alpha / O I filterscope and the
+#: hard X-ray detector there together -- and "H-alpha / O I" is exactly
+#: channels 0 and 1 below.  The VEST operators state the same thing: the
+#: filterscope's toroidal position is the fast camera's.
+#:
+#: So this is the same port :data:`vaft.machine_mapping.camera_visible.CAMERA_PORT`
+#: names, and unlike the provisional placements in issue #746 it is documented
+#: rather than inferred.  Issue #718 for the clock-to-phi conversion.
+FILTERSCOPE_PORT = "6MR"
 
 CHANNEL_NAMES: dict[int, str] = {
     0: "H alpha Filterscope",
@@ -107,8 +121,16 @@ def vfit_filterscope(
     set_path(ods, "spectrometer_uv.ids_properties.comment", "VEST filterscope data")
     set_path(ods, "spectrometer_uv.ids_properties.homogeneous_time", 1)
 
+    phi = port_phi(FILTERSCOPE_PORT)
     for channel, name in CHANNEL_NAMES.items():
         set_path(ods, f"spectrometer_uv.channel.{channel}.name", name)
+        # Only the toroidal coordinate. The sightline's R and Z are a fan from
+        # the collection optics into the plasma that no source here quantifies,
+        # and the Data Dictionary gives spectrometer_uv no scalar toroidal
+        # angle, so line_of_sight.first_point.phi is where the one thing we do
+        # know belongs. Writing an invented R and Z beside it to look complete
+        # is what issue #718 exists to stop.
+        set_path(ods, f"spectrometer_uv.channel.{channel}.line_of_sight.first_point.phi", phi)
 
     for _, channel, line, label, wavelength in SIGNALS:
         set_path(ods, f"spectrometer_uv.channel.{channel}.processed_line.{line}.label", label)

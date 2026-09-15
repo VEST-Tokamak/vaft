@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 import scipy.io
 
+from .registry import port_phi
 from .utils import resolve_data_root, set_path
 
 try:
@@ -35,6 +36,30 @@ def _uarray_or_values(values: Any, errors: Any) -> Any:
     if unumpy is None:
         return values
     return unumpy.uarray(values, errors)
+
+
+#: Ion Doppler spectroscopy looks through 10MR, which the port-status document
+#: lists as "Interferometry / IDS" -- IDS being this diagnostic, not the IMAS
+#: sense of the acronym.  Issue #718.
+ION_DOPPLER_PORT = "10MR"
+
+#: The two bottom ports the port-status document lists CES at.  Nothing in the
+#: data files says which one a given channel belongs to.
+CES_CANDIDATE_PORTS = ("3B6", "9B6")
+
+#: PROVISIONAL (issue #746): which of the two CES ports the channels view
+#: through.
+#:
+#: Chosen on beam geometry, not on an installation record.  CES views the
+#: neutral beam; the beam enters at 2MR (phi = 300 deg) and runs toward
+#: 7 o'clock (phi = 150 deg), so its chord passes closest to the machine axis
+#: at phi = 225 deg.  ``3B6`` at 270 deg is 45 deg from that chord while
+#: ``9B6`` at 90 deg is 135 deg away, on the far side of the machine.
+#:
+#: This is an argument about where the beam is, not a record of where the
+#: instrument is.  If both ports carry channels at once, one constant is wrong
+#: for half of them and this needs to become a per-channel assignment.
+CES_PORT = "3B6"
 
 
 def _require_pandas():
@@ -71,6 +96,7 @@ def read_doppler_single(ods: Any, shotnumber: int, data_root: str | Path | None 
     _set_ion_metadata(ods, "charge_exchange.channel.0.ion.0", "C3+")
     _set_ion_metadata(ods, "charge_exchange.channel.0.ion.1", "O2+")
     set_path(ods, "charge_exchange.channel.0.position.r.data", 0.39)
+    set_path(ods, "charge_exchange.channel.0.position.phi.data", port_phi(ION_DOPPLER_PORT))
 
     df = pd.read_excel(filename, engine="xlrd")
     # Keep charge_exchange.time in seconds for process/plot consistency.
@@ -143,6 +169,11 @@ def read_doppler_profile(
     for channel in range(channel_count):
         channel_prefix = f"charge_exchange.channel.{channel}"
         set_path(ods, f"{channel_prefix}.position.r.data", np.array(result_stack[channel, 0, :]))
+        set_path(
+            ods,
+            f"{channel_prefix}.position.phi.data",
+            np.full(result_stack.shape[2], port_phi(ION_DOPPLER_PORT), dtype=float),
+        )
         set_path(
             ods,
             f"{channel_prefix}.ion.0.intensity.data",
@@ -239,6 +270,12 @@ def read_doppler_ids_mat(
         # IDS_47518.mat does not contain channel z-position; assume mid-plane.
         set_path(ods, f"{channel_prefix}.position.z.time", np.asarray(times_s, dtype=float))
         set_path(ods, f"{channel_prefix}.position.z.data", np.zeros(n_times, dtype=float))
+        set_path(ods, f"{channel_prefix}.position.phi.time", np.asarray(times_s, dtype=float))
+        set_path(
+            ods,
+            f"{channel_prefix}.position.phi.data",
+            np.full(n_times, port_phi(ION_DOPPLER_PORT), dtype=float),
+        )
         _set_ion_metadata(ods, f"{channel_prefix}.ion.0", line)
         set_path(
             ods,
@@ -310,6 +347,12 @@ def read_charge_exchange_ces_mat(
         )
         set_path(ods, f"{channel_prefix}.position.z.time", times_s)
         set_path(ods, f"{channel_prefix}.position.z.data", np.array([0.0], dtype=float))
+        set_path(ods, f"{channel_prefix}.position.phi.time", times_s)
+        set_path(
+            ods,
+            f"{channel_prefix}.position.phi.data",
+            np.full(1, port_phi(CES_PORT), dtype=float),
+        )
         _set_ion_metadata(ods, f"{channel_prefix}.ion.0", line)
         set_path(
             ods,

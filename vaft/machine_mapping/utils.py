@@ -1202,14 +1202,19 @@ def process_static_geometry(ods: Any, diagnostic_type: str, static_info: Dict[st
         for i, loop in enumerate(geometry.get("loops", [])):
             set_path(ods, f"flux_loop.loop.{i}.position.r", loop.get("r", 0.0))
             set_path(ods, f"flux_loop.loop.{i}.position.z", loop.get("z", 0.0))
-            set_path(ods, f"flux_loop.loop.{i}.position.phi", loop.get("phi", 0.0))
+            # No toroidal angle: a flux loop is a continuous loop encircling
+            # the machine axis, so it has no scalar phi to write (issue #718,
+            # and see FLUX_LOOP_IS_AXISYMMETRIC in .magnetics). The 0.0 that
+            # used to go here was a placeholder indistinguishable from a probe
+            # genuinely sitting at 12 o'clock.
             set_path(ods, f"flux_loop.loop.{i}.area", loop.get("area", 0.0))
 
     elif diagnostic_type == "b_field_pol_probe":
         for i, probe in enumerate(geometry.get("probes", [])):
             set_path(ods, f"b_field_pol_probe.probe.{i}.position.r", probe.get("r", 0.0))
             set_path(ods, f"b_field_pol_probe.probe.{i}.position.z", probe.get("z", 0.0))
-            set_path(ods, f"b_field_pol_probe.probe.{i}.position.phi", probe.get("phi", 0.0))
+            if probe.get("phi") is not None:
+                set_path(ods, f"b_field_pol_probe.probe.{i}.position.phi", probe["phi"])
             set_path(ods, f"b_field_pol_probe.probe.{i}.orientation.r", probe.get("orientation_r", 0.0))
             set_path(ods, f"b_field_pol_probe.probe.{i}.orientation.z", probe.get("orientation_z", 0.0))
             set_path(ods, f"b_field_pol_probe.probe.{i}.orientation.phi", probe.get("orientation_phi", 0.0))

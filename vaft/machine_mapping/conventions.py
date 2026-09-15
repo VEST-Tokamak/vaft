@@ -155,6 +155,11 @@ __all__ = [
     "BT_SIGN_VEST_TO_IMAS",
     "GPEC_DIRECTION_WORDS",
     "VEST_GPEC_COIL_DIRECTIONS",
+    "VEST_PORT_CLOCK_DEGREES",
+    "VEST_PORT_CLOCK_SENSE",
+    "VEST_PORT_CLOCK_TO_PHI_SIGN",
+    "VEST_PORT_CLOCK_ZERO",
+    "clock_angle_to_toroidal_angle",
     "gpec_coil_directions",
     "DischargeSignContract",
     "IMAS_DISCHARGE_SIGNS",
@@ -162,8 +167,10 @@ __all__ = [
     "SignTransformation",
     "equilibrium_orientation_is_resolved",
     "expected_q_sign",
+    "port_toroidal_angle",
     "sign_transformations",
     "to_imas_discharge_signs",
+    "vest_clock_angle",
 ]
 
 
@@ -389,3 +396,106 @@ def equilibrium_orientation_is_resolved() -> bool:
     certain.
     """
     return all(item.confirmed for item in sign_transformations())
+
+
+# ---------------------------------------------------------------------------
+# Port clock position and the toroidal angle it maps to
+# ---------------------------------------------------------------------------
+#
+# VEST hardware is located by a clock position, and that coordinate runs the
+# *opposite* way from IMAS ``phi``.  The two are kept apart by name here,
+# because writing one into a field that means the other is exactly the defect
+# issue #718 found across the mapping.
+#
+# 1. The port-status document (20230112_PresentPortStatus_ForUpdate_rev7.pptx,
+#    2023-01-11) defines the clock system: 12 o'clock is the large main door,
+#    and positions advance *clockwise* in 30-degree steps.  So the clock number
+#    is a clockwise-positive hardware coordinate.
+# 2. Yang's thesis (*Tearing Modes during Tokamak Plasma Current Ramp Up*,
+#    Fig. 2.4) settles which way that is in space.  It is an explicitly
+#    labelled VEST **top view**; it marks ``B_phi`` "Counter clockwise" and
+#    draws the physical Entrance at the bottom of the machine.  The 2023
+#    document independently calls 6MR the Entrance, and its naming puts
+#    6 o'clock opposite the 12 o'clock reference, so both describe one
+#    geometry.  VEST's positive toroidal direction is counter-clockwise viewed
+#    from above -- the same sense IMAS calls positive (see the module
+#    docstring).
+# 3. Therefore VEST and IMAS agree on handedness, and the clock numbering
+#    disagrees with both.  No VEST-to-IMAS toroidal sign flag is needed or
+#    wanted; what is needed is the negation below.
+#
+# The NBI is an independent check rather than a counter-example.  Issue #265
+# records the beam running from the 2 o'clock region toward 7 o'clock, i.e.
+# toward increasing clock number, and the geometry agrees: that is 150 deg,
+# and a 0.22 m tangency radius at a 0.8 m port radius sweeps
+# ``2*arccos(0.22/0.8) = 147.8 deg``, which matches 150 and not the 210 of the
+# opposite sense.  Increasing clock number is clockwise while ``+phi`` is
+# counter-clockwise, so the beam runs in the negative toroidal direction --
+# which is the NUBEAM-derived ``direction: -1`` already in ``vest.yaml``.
+
+VEST_PORT_CLOCK_ZERO = "12 o'clock (large main door)"
+"""What the clock system references, per the 2023 port-status document."""
+
+VEST_PORT_CLOCK_SENSE = "clockwise-positive viewed from above"
+"""Which way clock number advances.  Opposite to IMAS ``phi``."""
+
+VEST_PORT_CLOCK_DEGREES = 30.0
+"""Degrees per clock hour: twelve positions around the machine."""
+
+VEST_PORT_CLOCK_TO_PHI_SIGN = -1
+"""Clock number is clockwise-positive; IMAS ``phi`` is counter-clockwise.
+
+This is a coordinate negation between two conventions, not an unresolved
+machine polarity.  It is unrelated to :data:`IP_SIGN_VEST_TO_IMAS` and
+:data:`BT_SIGN_VEST_TO_IMAS`, which are *declared but not applied* precisely
+because they await hardware evidence.  This one is settled by the two documents
+above and is applied wherever a port position is turned into ``phi``.
+"""
+
+
+def vest_clock_angle(clock_hour: float) -> float:
+    """The VEST clock angle of a port, in degrees, clockwise-positive.
+
+    This is the hardware coordinate: the number that appears in port names
+    (``12MM10`` is at 12 o'clock) and inside diagnostic channel identifiers
+    (``OutMirnov_130_Bz`` sits at 1:30, ``OutMirnov_45_L1-01`` at 45 degrees,
+    which is the same place).  **It is not IMAS phi** -- it runs the other way
+    round the machine.  Use :func:`port_toroidal_angle` for anything written
+    into an IDS.
+
+    ``clock_hour`` may be fractional: the outboard magnetic probes mount on the
+    vessel wall between ports, at 1:30, 5:30, 7:30 and 9:30.
+    """
+    return float(np.mod(VEST_PORT_CLOCK_DEGREES * float(clock_hour), 360.0))
+
+
+def port_toroidal_angle(clock_hour: float) -> float:
+    """The IMAS toroidal angle of a port, in radians.
+
+    ``phi = (-30 * clock_hour) mod 360`` in degrees, so 12 o'clock is 0, and
+    clock number advancing clockwise takes ``phi`` counter-clockwise-negative::
+
+        12 -> 0      3 -> 270     6 -> 180     9 ->  90
+         1 -> 330    4 -> 240     7 -> 150    10 ->  60
+         2 -> 300    5 -> 210     8 -> 120    11 ->  30
+
+    See the section comment above for the evidence: the port-status document
+    fixes the clock system as clockwise-positive, Yang's thesis Fig. 2.4 fixes
+    VEST's physical ``+B_phi`` as counter-clockwise in a labelled top view, and
+    IMAS calls counter-clockwise positive.  VEST and IMAS agree; the clock
+    numbering is what runs backwards.
+
+    ``clock_hour`` may be fractional (1.5 is 1:30).
+    """
+    degrees = VEST_PORT_CLOCK_TO_PHI_SIGN * VEST_PORT_CLOCK_DEGREES * float(clock_hour)
+    return float(np.deg2rad(np.mod(degrees, 360.0)))
+
+
+def clock_angle_to_toroidal_angle(clock_angle_deg: float) -> float:
+    """A VEST clock *angle* in degrees to an IMAS toroidal angle in radians.
+
+    The counterpart of :func:`port_toroidal_angle` for hardware that states its
+    position as an angle rather than an hour -- the fluctuation Mirnov
+    identifiers carry ``45``, ``135`` and ``225``, which are clock angles.
+    """
+    return float(np.deg2rad(np.mod(VEST_PORT_CLOCK_TO_PHI_SIGN * float(clock_angle_deg), 360.0)))

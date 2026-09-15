@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 import re
 from typing import Any
@@ -9,6 +10,7 @@ from typing import Any
 import numpy as np
 from scipy.io import loadmat
 
+from .registry import port_phi
 from .utils import resolve_data_root, set_path
 
 try:
@@ -17,6 +19,8 @@ except ImportError:
     unumpy = None
 
 
+logger = logging.getLogger(__name__)
+
 _CHANNEL_META = (
     (0, 0.475, "Polychrometer 1R1", "poly1R1"),
     (1, 0.425, "Polychrometer 2R2", "poly2R2"),
@@ -24,6 +28,99 @@ _CHANNEL_META = (
     (3, 0.310, "Polychrometer 4R4", "poly4R4"),
     (4, 0.255, "Polychrometer 5R5", "poly5R5"),
 )
+
+
+# ---------------------------------------------------------------------------
+# Where the scattering volumes sit toroidally (issue #718)
+# ---------------------------------------------------------------------------
+#
+# The laser is not radial, so a single toroidal angle would be wrong for the
+# whole diagnostic: it enters through 8MM10, crosses the midplane as a chord
+# and is absorbed in the 1MM10 dump, and each polychromator looks at a
+# different point along that chord.  So phi is a function of the channel's own
+# major radius.
+#
+# The two ports are 150 deg apart, which puts the chord's closest approach to
+# the machine axis at ``R_port * cos(75 deg) = 0.208 m``.  Two independent
+# checks say this is the right chord.  Every polychromator radius (0.255 to
+# 0.475 m) lies outside that tangency radius, as it must -- a chord cannot be
+# sampled inside its own closest approach, and a radial laser would have no
+# such floor.  And of the two branches the chord offers at a given radius, the
+# one used here spans 80 to 109 deg, straddling the 9MM10 viewing port at
+# exactly 90 deg; the other branch sits near 12 o'clock where that port cannot
+# see it.
+#
+# The VEST Thomson slide corroborates this reading of the layout on two counts
+# that were not used to build it.  Its top view puts the laser injection system
+# and the beam dump on opposite sides with the collection optics immediately
+# beside the injection side -- which is 8MM10 and 9MM10, adjacent ports -- and
+# it draws the beam as a chord that misses the centre column rather than a
+# diameter.  And its position table, R1..R5 = 0.475 / 0.425 / 0.37 / 0.31 /
+# 0.255 m, is exactly _CHANNEL_META below.
+#
+# DERIVED, NOT AS-BUILT: the port major radius below is the vessel radius the
+# camera port geometry uses, not a surveyed Thomson value.  It shifts every
+# angle together and is the one number to replace if a survey appears.  The
+# machine has at least three candidate radii and they are different surfaces:
+# 0.803 m (the port flange, used here), 0.88 m (the vessel outboard, marked on
+# the fast-camera slide) and 0.760 m (the packaged limiter outline).  Taking
+# 0.88 instead would move the tangency radius from 0.208 m to 0.228 m; both sit
+# inside R5 = 0.255 m, so the channel radii do not decide between them.
+
+LASER_ENTRY_PORT = "8MM10"
+LASER_DUMP_PORT = "1MM10"
+VIEWING_PORT = "9MM10"
+PORT_MAJOR_RADIUS_M = 0.803
+
+
+def _chord_geometry() -> tuple[float, float]:
+    """The chord's bisector angle [rad] and its tangency radius [m]."""
+    entry = port_phi(LASER_ENTRY_PORT)
+    dump = port_phi(LASER_DUMP_PORT)
+    separation = abs(np.angle(np.exp(1j * (entry - dump))))
+    tangency = PORT_MAJOR_RADIUS_M * np.cos(0.5 * separation)
+    # The bisector lies half a separation from the entry port, on the side the
+    # short arc runs; np.angle picks that side for us.
+    bisector = dump + 0.5 * np.angle(np.exp(1j * (entry - dump)))
+    return float(bisector), float(tangency)
+
+
+def scattering_volume_phi(r_m: float) -> float:
+    """The IMAS toroidal angle of the scattering volume at major radius ``r_m``.
+
+    Raises when the radius is not a point on the laser path -- inside the
+    chord's tangency radius, or not a finite number. There is no angle to
+    return in that case and defaulting to one would invent a location.
+
+    The IDS writers use :func:`_scattering_volume_phi_or_none` instead, which
+    warns and omits rather than failing a whole shot on one bad radius.
+    """
+    bisector, tangency = _chord_geometry()
+    r = float(r_m)
+    if not np.isfinite(r) or r < tangency:
+        raise ValueError(
+            f"major radius {r:.4f} m is not on the {LASER_ENTRY_PORT}-to-{LASER_DUMP_PORT} "
+            f"laser chord, whose tangency radius is {tangency:.4f} m"
+        )
+    return float(np.mod(bisector + np.arccos(tangency / r), 2.0 * np.pi))
+
+
+def _scattering_volume_phi_or_none(r_m: float, channel: int) -> float | None:
+    """``scattering_volume_phi``, but a bad radius costs one channel, not the shot.
+
+    The dynamic mapper takes its radii from each shot's ``Rposition`` vector,
+    so a unit slip, a NaN or an off-chord value is a data defect that arrives
+    at runtime. Raising there would drop an entire Thomson mapping over one
+    channel; omitting ``phi`` leaves the rest of that channel intact and says
+    nothing false about where it was.
+    """
+    try:
+        return scattering_volume_phi(r_m)
+    except ValueError as error:
+        logger.warning(
+            "thomson_scattering channel %d: %s; leaving position.phi unwritten", channel, error
+        )
+        return None
 
 
 def _uarray_or_values(values: Any, errors: Any) -> Any:
@@ -312,6 +409,9 @@ def _set_dynamic_from_suffixed(mat_data: dict[str, Any], ods: Any, suffix: str) 
         prefix = f"thomson_scattering.channel.{channel}"
         set_path(ods, f"{prefix}.position.r", float(r_pos))
         set_path(ods, f"{prefix}.position.z", 0)
+        phi = _scattering_volume_phi_or_none(float(r_pos), channel)
+        if phi is not None:
+            set_path(ods, f"{prefix}.position.phi", phi)
         set_path(ods, f"{prefix}.name", f"Polychrometer {channel + 1}")
         set_path(
             ods,
@@ -444,6 +544,9 @@ def vfit_thomson_scattering_static(ods: Any) -> None:
         prefix = f"thomson_scattering.channel.{channel}"
         set_path(ods, f"{prefix}.position.r", r_pos)
         set_path(ods, f"{prefix}.position.z", 0)
+        phi = _scattering_volume_phi_or_none(r_pos, channel)
+        if phi is not None:
+            set_path(ods, f"{prefix}.position.phi", phi)
         set_path(ods, f"{prefix}.name", name)
 
 

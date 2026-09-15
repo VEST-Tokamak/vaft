@@ -41,6 +41,7 @@ from omas import ODS
 
 from vaft.ods_access import path_count
 
+from .registry import port_phi
 from .utils import load_yaml, package_data_path
 
 __all__ = [
@@ -112,10 +113,8 @@ def nbi(ods: ODS, shot: int = 0, options: Optional[dict] = None) -> dict[str, An
         if source.get("elevation") is not None:
             ods[f"{group}.position.z"] = float(source["elevation"])
             written.append("position.z")
-        if source.get("toroidal_angle") is not None:
-            ods[f"{group}.position.phi"] = math.radians(
-                float(source["toroidal_angle"])
-            )
+        if source.get("port") is not None:
+            ods[f"{group}.position.phi"] = port_phi(str(source["port"]))
             written.append("position.phi")
 
         if grid.get("half_width") is not None:
