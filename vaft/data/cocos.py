@@ -280,18 +280,33 @@ register_convention(CodeConvention(
     cocos=2,
     psi_unit="Wb/rad",
     reference=(
-        "GACODE f2py/expro/expro_locsim.f90 (btccw = -sign(torfluxa), "
+        "GACODE geometry convention, f2py/geo/geo.f90 (phi clockwise from above, "
+        "right-handed (r, theta, phi), poloidal flux per radian); OMFIT "
+        "omfit_classes/omfit_gapy.py:2173 (`cocosio = 2  # GACODE is COCOS 2`, in "
+        "the to_omas that reads input.gacode); "
+        "github.com/ProjectTorreyPines/GACODE.jl src/inputgacode.jl "
+        "(transform_cocos(IMAS.internal_cocos, 2)) with "
+        "github.com/ProjectTorreyPines/CoordinateConventions.jl "
+        "(cocos2 = COCOS(2, 0, 1, -1, 1, 1, -1)); GACODE "
+        "f2py/expro/expro_locsim.f90 (btccw = -sign(torfluxa), "
         "ipccw = -sign(q)*sign(torfluxa)); neo/tools/input/reg18/input.gacode"
     ),
-    confirmed=False,
+    confirmed=True,
     notes=(
-        "input.gacode (NEO, TGLF, CGYRO). Inferred, not documented upstream: expro "
-        "reads the field directions from the signs of torfluxa and q with a toroidal "
-        "angle that runs clockwise from above, and the shipped reg18 file -- a DIII-D "
-        "discharge in the normal orientation, Bt clockwise and Ip counter-clockwise -- "
-        "carries torfluxa > 0, bcentr > 0, current < 0, q < 0 and a polflux that falls "
-        "outward. cocos_transform(11, 2) reproduces every one of those signs from the "
-        "IMAS description of that orientation, and no other index does."
+        "input.gacode (NEO, TGLF, CGYRO). Confirmed on vaft issue #743 against three "
+        "sources outside this repository, after being carried as an inference through "
+        "#550 phases 1-7. Normative: the GACODE geometry convention -- phi clockwise "
+        "from above, (r, theta, phi) right-handed, poloidal flux in Wb/rad -- which is "
+        "exp_Bp = 0, sigma_Bp = +1, sigma_RpZ = -1, sigma_rhotp = +1 and q > 0 for "
+        "Ip, B0 > 0, and that combination is COCOS 2 alone. Two independent "
+        "implementations agree: OMFIT's input.gacode reader states cocosio = 2, and "
+        "FUSE's GACODE.jl transforms IMAS quantities to COCOS 2 before writing the "
+        "file. The local evidence that first motivated the index still holds: expro "
+        "reads the field directions from the signs of torfluxa and q, and the shipped "
+        "reg18 file -- a DIII-D discharge in the normal orientation, Bt clockwise and "
+        "Ip counter-clockwise -- carries torfluxa > 0, bcentr > 0, current < 0, q < 0 "
+        "and a polflux that falls outward, which cocos_transform(11, 2) reproduces "
+        "and no other index does."
     ),
 ))
 
