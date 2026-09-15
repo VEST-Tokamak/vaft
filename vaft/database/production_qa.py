@@ -174,6 +174,18 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
             plot="mhd_linear_time_energy_perturbed",
             filename="stability_energy_perturbed.png",
         ),
+        # The resistive half of the suite (#170). DCON's energy above is the
+        # ideal result; this is what RDCON and STRIDE actually compute, and it
+        # has no slot under `toroidal_mode` -- it lives in `ntms`.
+        #
+        # Optional, because a DCON-only configuration is a legitimate run: the
+        # shipped `gpec.modules` can be any subset, and a shot with no resistive
+        # solver has nothing to draw here rather than a missing figure.
+        ValidationPlot(
+            plot="ntms_time_delta_prime",
+            filename="stability_delta_prime.png",
+            required=False,
+        ),
         # Issue #173 phase 1: which (module, mode, time) cells actually ran and
         # succeeded, independent of the #170 IDS-contract work -- its data is
         # the stage manifest's `modules_modes` table, not the ODS, so it is a

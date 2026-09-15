@@ -138,6 +138,13 @@ CONVENTION_SENSITIVE = frozenset({
     "redl_bootstrap_coefficients",
     "sauter_bootstrap_current",
     "redl_bootstrap_current",
+    # startup (#783): pascal-vs-torr, kelvin-vs-eV, molecular-vs-atomic, and a
+    # field magnitude where the flux kernels disagree on sign (#354).
+    "neutral_density_from_pressure",
+    "atomic_inventory_from_molecular_gas",
+    "townsend_ionization_coefficient",
+    "lloyd_breakdown_field",
+    "breakdown_margin",
 })
 
 #: Fitted coefficients or scalings: the source dataset must be named.
@@ -164,6 +171,7 @@ EMPIRICAL = frozenset({
     "redl_bootstrap_coefficients",
     "sauter_bootstrap_current",
     "redl_bootstrap_current",
+    "lloyd_breakdown_field",
 })
 
 SPECS = catalog.list_formulas()

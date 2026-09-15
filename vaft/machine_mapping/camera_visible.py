@@ -21,6 +21,7 @@ from typing import Any, Iterator, Sequence
 
 import numpy as np
 
+from .registry import port_phi
 from .utils import resolve_data_root, set_path
 
 DEFAULT_NEAR_BLACK_THRESHOLD = 35
@@ -74,12 +75,71 @@ class CameraHeaderInfo:
 #: radius, its chord width, and the top and bottom of its opening. The two
 #: ports sit 120 degrees apart, the first centred on 30 degrees. Machine
 #: geometry, kept here rather than in the notebooks that project it.
+#:
+#: PROVISIONAL / UNRECONCILED with the port table (issue #746). The rectangular
+#: main-chamber
+#: ports are 2MR, 6MR and 10MR, which *are* 120 degrees apart, and the camera
+#: itself looks through 6MR -- but 2MR and 10MR are at 300 and 60 degrees of
+#: IMAS phi (60 and 300 of VEST clock angle), and neither pair is the 30/150
+#: below. So these two angles are in some third frame, plausibly one centred on
+#: the camera. They are left untouched because they feed a projection in
+#: vaft.process.camera_geometry that is calibrated against real images;
+#: changing them to match the port table without redoing that calibration would
+#: break a working result to satisfy a naming convention.
 PORT_MAJOR_RADIUS_M = 0.803
 PORT_CHORD_WIDTH_M = 0.24
 PORT_TOP_M = 0.57 - 0.2355
 PORT_HEIGHT_M = 0.692
 PORT_FIRST_CENTRE_RAD = np.deg2rad(30.0)
 PORT_SEPARATION_RAD = np.deg2rad(120.0)
+
+#: The port the fast camera itself looks through.  The port-status document
+#: states this outright -- ``6MR : Entrance``, with the fast camera, the
+#: H-alpha / O I filterscope and the hard X-ray detector all listed there -- so
+#: unlike the two landmark angles above this is not an inference.
+CAMERA_PORT = "6MR"
+
+# ---------------------------------------------------------------------------
+# What the camera actually sees (VEST optical-diagnostics slide, "Fast camera")
+# ---------------------------------------------------------------------------
+#
+# The view is TANGENTIAL, not a radial look through the port. The slide's top
+# view draws a fan from the camera optics that grazes the machine at an inner
+# tangency of 0.13-0.22 m and reaches the outboard side at 0.65-0.75 m, and it
+# labels the 50 kHz frame a "tangential view".
+#
+# That matters beyond documentation: it is why PORT_FIRST_CENTRE_RAD and
+# PORT_SEPARATION_RAD above sit in a frame that matches neither the VEST clock
+# angles nor IMAS phi (issue #746). A tangential camera does not see the
+# rectangular ports at their port-table angles -- it sees them projected along
+# its own sightline -- so a camera-centred frame is the expected shape of that
+# discrepancy rather than evidence of a mistake. Reconciling it means redoing
+# the projection with the tangency geometry below, not renumbering two angles.
+#
+# Recorded, not yet written into the IDS: turning these radii into
+# `viewing_angle_alpha_bounds` needs the camera's own position along its
+# sightline, which the slide does not give.
+
+TANGENTIAL_VIEW = True
+VIEWING_TANGENCY_RANGE_M = (0.13, 0.22)
+"""Inner tangency radius the viewing fan grazes (``R_in`` on the slide)."""
+
+VIEWING_OUTBOARD_RANGE_M = (0.65, 0.75)
+"""How far out the fan reaches on the far side (``R_out`` on the slide)."""
+
+VESSEL_OUTBOARD_RADIUS_M = 0.88
+"""The vessel outboard radius the slide marks (``R_outboard``).
+
+Distinct from :data:`PORT_MAJOR_RADIUS_M` (0.803, the port flange this module
+projects from) and from the packaged limiter outline, which reaches 0.760 m.
+Three different surfaces; none is a substitute for another.
+"""
+
+VIEWING_RADIUS_RANGE_M = (0.1, 0.7)
+"""``R_viewing`` on the slide: the radial span the 208x208 frame covers."""
+
+PIXEL_SCALE_AT_TANGENCY_M = (0.0025, 0.0028)
+"""What one pixel subtends at the point of tangency, in metres."""
 
 
 def vest_port_corner_points() -> np.ndarray:
@@ -319,6 +379,16 @@ def vfit_camera_visible_static(
         set_path(ods, "camera_visible.ids_properties.source", str(source))
 
     set_path(ods, "camera_visible.channel.0.name", channel_name)
+    # Where the camera views from. The two landmark angles above are a separate,
+    # still-unreconciled frame (issue #746); this one comes straight from the
+    # port document.
+    set_path(ods, "camera_visible.channel.0.aperture.0.centre.r", PORT_MAJOR_RADIUS_M)
+    set_path(ods, "camera_visible.channel.0.aperture.0.centre.phi", port_phi(CAMERA_PORT))
+    set_path(
+        ods,
+        "camera_visible.channel.0.aperture.0.centre.z",
+        PORT_TOP_M - 0.5 * PORT_HEIGHT_M,
+    )
     set_path(ods, "camera_visible.channel.0.detector.0.lines_n", int(lines_n))
     set_path(ods, "camera_visible.channel.0.detector.0.columns_n", int(columns_n))
     if exposure_time_s is not None:

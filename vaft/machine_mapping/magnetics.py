@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import os
 import re
@@ -31,6 +32,7 @@ from vaft.process.signal_processing import (
 
 from vaft.formula.statistics import median_absolute_deviation
 
+from .conventions import clock_angle_to_toroidal_angle, port_toroidal_angle
 from .utils import (
     AGREEMENT_CONSISTENT,
     onset_agreement,
@@ -50,6 +52,8 @@ from .utils import (
     resolve_vest_diagnostic,
     set_path,
 )
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_TSTART = 0.26
 DEFAULT_TEND = 0.36
@@ -94,14 +98,49 @@ OUTBOARD_PROBE_MIN_R = 0.795
 SIDE_PROBE_MIN_ABS_Z = 0.8
 INBOARD_FLUX_LOOP_MAX_R = 0.15
 OUTBOARD_FLUX_LOOP_MIN_R = 0.5
+#: Where each magnetic-probe family sits toroidally, as a VEST clock position.
+#:
+#: Read off the VEST magnetic diagnostic layout figure, whose top view places
+#: the four toroidal probes at 45.6 / 164.8 / 225.0 / 283.8 deg of clock angle
+#: -- 1:30, 5:30, 7:30 and 9:30, matching all four channel names below and
+#: confirming the clock convention.  Its toroidal/poloidal panel then gives the
+#: three poloidal families at clock angles 30, 120 and 165 deg.
+#:
+#: The 4 o'clock of the side family independently matches the port-status
+#: document's ``4ML10 : Magnetic probe 1``.
+#:
+#: These are **clock positions, not IMAS phi** -- see
+#: :func:`vaft.machine_mapping.conventions.port_toroidal_angle` for the
+#: negation between the two, and issue #718 for why the distinction matters.
+EQUILIBRIUM_PROBE_CLOCK = {
+    "inboard": 1.0,
+    "side": 4.0,
+    "outboard": 5.5,
+}
+
+#: Flux loops have no toroidal angle: they are continuous loops encircling the
+#: machine axis, which is why the layout figure draws them as lines spanning
+#: the whole 0-360 deg toroidal axis while every probe family is a point.  The
+#: DD agrees -- ``flux_loop.position`` is a contour, not a single point -- so a
+#: scalar ``phi`` is not merely unknown for a flux loop, it does not exist.
+#: Nothing here writes one.
+FLUX_LOOP_IS_AXISYMMETRIC = True
+
+#: The four phase-reference outboard Mirnov channels, by clock position.
+#:
+#: The names encode the position: ``OutMirnov_130`` is at 1:30.  Until issue
+#: #718 these carried hardcoded ``phi`` of 0, 2pi/3, pi and 4pi/3 -- a *relative*
+#: frame anchored on the first channel, a uniform -45 deg from the clock angles
+#: the names themselves state, and in the clockwise-positive sense besides.  The
+#: clock position is the source datum now and ``phi`` is derived, so neither
+#: error can recur.
 TOROIDAL_MIRNOV_REFERENCE_CHANNELS = (
     {
         "field_code": 207,
         "name": "OutMirnov_130_Bz",
         "r": 0.796,
         "z": 0.02,
-        "phi": 0.0,
-        "toroidal_angle": 0.0,
+        "clock": 1.5,
         "gain": 9.0e-4,
     },
     {
@@ -109,8 +148,7 @@ TOROIDAL_MIRNOV_REFERENCE_CHANNELS = (
         "name": "OutMirnov_530_Bz",
         "r": 0.796,
         "z": 0.02,
-        "phi": 2 * math.pi / 3,
-        "toroidal_angle": 2 * math.pi / 3,
+        "clock": 5.5,
         "gain": -9.0e-4,
     },
     {
@@ -118,8 +156,7 @@ TOROIDAL_MIRNOV_REFERENCE_CHANNELS = (
         "name": "OutMirnov_730_Bz",
         "r": 0.796,
         "z": 0.02,
-        "phi": math.pi,
-        "toroidal_angle": math.pi,
+        "clock": 7.5,
         "gain": 9.0e-4,
     },
     {
@@ -127,8 +164,7 @@ TOROIDAL_MIRNOV_REFERENCE_CHANNELS = (
         "name": "MagneticFieldProbe_C2-05_Bz",
         "r": 0.796,
         "z": 0.02,
-        "phi": 4 * math.pi / 3,
-        "toroidal_angle": 4 * math.pi / 3,
+        "clock": 9.5,
         "gain": 0.004529,
     },
 )
@@ -1296,6 +1332,35 @@ def _populate_flux_loop_static(ods: object) -> None:
         flux_loop_index += 1
 
 
+def _equilibrium_probe_phi(r: float, z: float, name: str) -> float | None:
+    """The IMAS toroidal angle of an equilibrium poloidal probe, or ``None``.
+
+    The three families the layout figure distinguishes -- inboard, side and
+    outboard -- are the same three the EFIT k-file writer already submits
+    constraints by, so the existing ``INBOARD_PROBE_MAX_R`` /
+    ``SIDE_PROBE_MIN_ABS_Z`` / ``OUTBOARD_PROBE_MIN_R`` boundaries classify a
+    probe and :data:`EQUILIBRIUM_PROBE_CLOCK` places it.
+
+    A probe matching no family gets **no** ``phi`` at all.  Writing 0.0 there,
+    as this did before issue #718, states a toroidal position the machine
+    description does not have -- and 0.0 is a real place (12 o'clock), so a
+    reader cannot tell the placeholder from a measurement.
+    """
+    if abs(z) > SIDE_PROBE_MIN_ABS_Z:
+        family = "side"
+    elif r < INBOARD_PROBE_MAX_R:
+        family = "inboard"
+    elif r > OUTBOARD_PROBE_MIN_R:
+        family = "outboard"
+    else:
+        logger.warning(
+            "b_field_pol_probe %s at (r=%.4f, z=%.4f) matches no known toroidal "
+            "family; leaving position.phi unwritten", name, r, z,
+        )
+        return None
+    return port_toroidal_angle(EQUILIBRIUM_PROBE_CLOCK[family])
+
+
 def _populate_probe_static(ods: object) -> None:
     names = _load_names_by_code()
     probe_index = 0
@@ -1306,9 +1371,13 @@ def _populate_probe_static(ods: object) -> None:
         name = names[field_code]
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.name", name)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", name)
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", float(channel["r"]))
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", float(channel["z"]))
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", 0.0)
+        r = float(channel["r"])
+        z = float(channel["z"])
+        phi = _equilibrium_probe_phi(r, z, name)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", r)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", z)
+        if phi is not None:
+            set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle", 0.0)
@@ -1321,10 +1390,16 @@ def _populate_probe_static(ods: object) -> None:
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", f"{name}:phase_reference")
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", float(channel["r"]))
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", float(channel["z"]))
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", float(channel["phi"]))
+        phi = port_toroidal_angle(float(channel["clock"]))
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle", float(channel["toroidal_angle"]))
+        # NOTE: the DD defines `toroidal_angle` as a sensor *orientation*, not a
+        # position, so this write is the wrong field -- issue #725. It is kept
+        # here because VAFT's own consumers read it as a position and #718 is
+        # about which frame the value is in, not which field it goes in;
+        # changing both at once would make neither verifiable.
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
         probe_index += 1
 
@@ -1344,18 +1419,15 @@ def _populate_fluctuation_mirnov_static(ods: object, shot: int = 0) -> None:
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", identifier)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", OUTBOARD_MIRNOV_MAJOR_RADIUS)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", float(channel["z"]))
-        set_path(
-            ods,
-            f"magnetics.b_field_pol_probe.{probe_index}.position.phi",
-            math.radians(float(channel["toroidal_angle_deg"])),
-        )
+        # ``toroidal_angle_deg`` is the VEST *clock* angle the identifier
+        # carries (``OutMirnov_45_L1-01`` is at 45 deg of clock angle, i.e.
+        # 1:30).  It is clockwise-positive, so it is negated on the way into
+        # the IDS rather than written through as if it were phi -- issue #718.
+        phi = clock_angle_to_toroidal_angle(float(channel["toroidal_angle_deg"]))
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
-        set_path(
-            ods,
-            f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle",
-            math.radians(float(channel["toroidal_angle_deg"])),
-        )
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
         probe_index += 1
 

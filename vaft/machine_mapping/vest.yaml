@@ -8,8 +8,9 @@
         loops:
           - r: 0.45   # Major radius
             z: 0.0    # Vertical position
-            phi: 0.0  # Toroidal angle
             area: 0.01
+            # No phi: a flux loop encircles the machine axis, so it has no
+            # scalar toroidal angle (issue #718).
       channels:
         - name: "FL1"
           gain: 1.0
@@ -1330,7 +1331,10 @@
     horizontal_94ghz:
       physical_channels: [5, 6, 7, 8, 9]
       z_m: [0.000, -0.075, -0.150, -0.225, -0.300]
-      phi_rad: 5.240
+      # Was `phi_rad: 5.240` (300.2 deg) -- the VEST *clock* angle of 10MR
+      # written straight into an IMAS field. The port is the datum now and phi
+      # is derived, so the two cannot disagree again (issue #718).
+      port: 10MR
       launch_r_m: 0.8
       mirror_r_m: 0.1
       path_length_m: 1.4
@@ -1340,7 +1344,9 @@
       filename_pattern: "{shot}_{tokens}_LID.mat"
     vertical_282ghz:
       r_m: 0.4
-      phi_rad: 3.665
+      # Was `phi_rad: 3.665` (210.0 deg), the clock angle of the 7 o'clock
+      # ports this system looks through -- see issue #718.
+      port: 7T6
       z_bottom_m: -1.2
       z_top_m: 1.2
       path_length_m: 2.4
@@ -1384,7 +1390,17 @@
           # current.
           direction: -1
           elevation: 0.0
-          toroidal_angle: 0.0
+          # The source fires through 2MR. NUBEAM's mdescr put the source at its
+          # own phi = 0 -- a frame origin, not a VEST location -- and issue #718
+          # replaces it with the port. The two facts agree: #265 records the
+          # beam running from 2 o'clock toward 7 o'clock, i.e. toward increasing
+          # clock number, which is clockwise, which is the negative toroidal
+          # direction -- the `direction: -1` above, derived independently from
+          # 200 NUBEAM deposition markers. The geometry closes it too: 2 to 7
+          # o'clock is 150 deg, and a 0.22 m tangency radius at this port radius
+          # sweeps 2*arccos(0.22/0.8) = 147.8 deg, matching 150 and not the 210
+          # the opposite sense would need.
+          port: 2MR
           distance_to_tangency: 2.625867
           distance_to_aperture: 1.8
         grid:
@@ -2048,6 +2064,139 @@ plasma_features:
     prefilter_samples: 5
     level_fraction: 0.5
     min_width_s: 2.0e-3
+
+# Canonical VEST port table. Like `diagnostic_registry` below, this top-level
+# namespace is machine description and is intentionally not part of the `0:` /
+# shot-override runtime configuration.
+#
+# `clock` is the VEST hardware coordinate and is CLOCKWISE-POSITIVE: it is not
+# IMAS phi, which runs the other way. No toroidal angle is stored here -- it is
+# derived by vaft.machine_mapping.conventions.port_toroidal_angle, so the two
+# can never drift apart. See that module for the evidence behind the negation.
+#
+# Port name grammar (port-status document, slide 1):
+#   <clock><location1><location2><size>   e.g. 12MM10 = 12 o'clock, main
+#                                              chamber, middle tier, 10 inch
+#   location1: M(main) U(upper) L(lower) T(top) B(bottom)
+#   location2: M(middle) U(upper) L(lower)  -- main chamber only
+#   size     : 4, 4.5, 6, 10, 12 inch, or R (rectangular)
+#
+# `use: Available` and `use: No port` are recorded rather than omitted: an empty
+# port is a fact about the machine, and dropping it loses the distinction
+# between "nothing is installed" and "we did not look".
+port_map:
+  reference:
+    documents:
+      - file: 20230112_PresentPortStatus_ForUpdate_rev7.pptx
+        author: 정원익
+        date: 2023-01-11
+        defines: port clock positions and per-port assignments
+        clock_zero: 12 o'clock (large main door)
+        clock_sense: clockwise-positive, 30 degrees per hour
+      - source: "Yang thesis, Tearing Modes during Tokamak Plasma Current Ramp Up, Fig. 2.4"
+        defines: VEST physical +B_phi is counter-clockwise in a labelled top view
+      - source: VEST magnetic diagnostic layout figure (top view and toroidal/poloidal plane)
+        defines: toroidal placement of the four magnetic probe families
+    note: >-
+      clock is a clockwise-positive hardware coordinate, NOT IMAS phi; convert
+      with vaft.machine_mapping.conventions.port_toroidal_angle
+  ports:
+    # -- Main chamber, middle/upper/lower tiers ---------------------------
+    - {name: 1MU10,  clock: 1,  chamber: main, tier: upper,  size_inch: 10, use: Cryo pump port}
+    - {name: 1MM10,  clock: 1,  chamber: main, tier: middle, size_inch: 10, use: Thomson scattering laser dump}
+    - {name: 1ML10,  clock: 1,  chamber: main, tier: lower,  size_inch: 10, use: Available,
+       note: using this port requires removing all poloidal field coils}
+    - {name: 2MR,    clock: 2,  chamber: main, size: rectangular, use: NBI port}
+    - {name: 3MU,    clock: 3,  chamber: main, tier: upper,  use: No port}
+    - {name: 3MM12,  clock: 3,  chamber: main, tier: middle, size_inch: 12, use: LHW antenna port 2}
+    - {name: 3MR,    clock: 3,  chamber: main, size: rectangular, use: No port}
+    - {name: 4MU10,  clock: 4,  chamber: main, tier: upper,  size_inch: 10, use: ECH 3.0 kW 7.9 GHz}
+    - {name: 4MM10,  clock: 4,  chamber: main, tier: middle, size_inch: 10, use: LHW antenna port 1}
+    - {name: 4ML10,  clock: 4,  chamber: main, tier: lower,  size_inch: 10, use: Magnetic probe 1}
+    - {name: 5MU10,  clock: 5,  chamber: main, tier: upper,  size_inch: 10, use: Limiter and SEE detector feed-through}
+    - {name: 5MM10,  clock: 5,  chamber: main, tier: middle, size_inch: 10, use: Carbon limiter}
+    - {name: 5ML10,  clock: 5,  chamber: main, tier: lower,  size_inch: 10, use: ECH 6 kW 2.45 GHz}
+    - {name: 6MR,    clock: 6,  chamber: main, size: rectangular, use: Entrance,
+       note: fast camera, H-alpha / O I filterscope and hard X-ray detector view through this port}
+    - {name: 7M12,   clock: 7,  chamber: main, size_inch: 12, use: Turbo pump port}
+    - {name: 8MU10,  clock: 8,  chamber: main, tier: upper,  size_inch: 10, use: RGA}
+    - {name: 8MM10,  clock: 8,  chamber: main, tier: middle, size_inch: 10, use: Thomson scattering laser port}
+    - {name: 8ML10,  clock: 8,  chamber: main, tier: lower,  size_inch: 10, use: Available,
+       note: using this port requires removing all poloidal field coils}
+    - {name: 9MU10,  clock: 9,  chamber: main, tier: upper,  size_inch: 10, use: MD feed-through}
+    - {name: 9MM10,  clock: 9,  chamber: main, tier: middle, size_inch: 10, use: Thomson scattering viewing port}
+    - {name: 9ML10,  clock: 9,  chamber: main, tier: lower,  size_inch: 10, use: Thomson scattering shutter port}
+    - {name: 10MR,   clock: 10, chamber: main, size: rectangular, use: Interferometry / ion Doppler spectroscopy}
+    - {name: 11M12,  clock: 11, chamber: main, size_inch: 12, use: Triple probe and internal magnetic probe array}
+    - {name: 12MU10, clock: 12, chamber: main, tier: upper,  size_inch: 10, use: MD feed-through}
+    - {name: 12MM10, clock: 12, chamber: main, tier: middle, size_inch: 10, use: Soft X-ray}
+    - {name: 12ML10, clock: 12, chamber: main, tier: lower,  size_inch: 10, use: Magnetic probe 2}
+    # -- Top chamber -----------------------------------------------------
+    - {name: 1T6,    clock: 1,  chamber: top, size_inch: 6, use: Soft X-ray}
+    - {name: 2T,     clock: 2,  chamber: top, use: NBI duct and halogen lamp}
+    - {name: 3T6,    clock: 3,  chamber: top, size_inch: 6, use: Gas feed (LFS)}
+    - {name: 4T6,    clock: 4,  chamber: top, size_inch: 6, use: Gas feed (HFS)}
+    - {name: 5T6,    clock: 5,  chamber: top, size_inch: 6, use: View port}
+    - {name: 6T,     clock: 6,  chamber: top, use: No port}
+    - {name: 7T6,    clock: 7,  chamber: top, size_inch: 6, use: 280 GHz interferometer}
+    - {name: 8T6,    clock: 8,  chamber: top, size_inch: 6, use: Boron oven}
+    - {name: 9T6,    clock: 9,  chamber: top, size_inch: 6, use: Available}
+    - {name: 10T,    clock: 10, chamber: top, use: No port}
+    - {name: 11T6,   clock: 11, chamber: top, size_inch: 6, use: Available}
+    - {name: 12T6,   clock: 12, chamber: top, size_inch: 6, use: Soft X-ray}
+    # -- Upper chamber ---------------------------------------------------
+    - {name: 1U6,    clock: 1,  chamber: upper, size_inch: 6, use: Available}
+    - {name: 1U4,    clock: 1,  chamber: upper, size_inch: 4, use: Available}
+    - {name: 2U,     clock: 2,  chamber: upper, use: NBI duct and halogen lamp}
+    - {name: 3UR,    clock: 3,  chamber: upper, size: rectangular, use: Window}
+    - {name: 4U6,    clock: 4,  chamber: upper, size_inch: 6, use: Available}
+    - {name: 4U4,    clock: 4,  chamber: upper, size_inch: 4, use: Available}
+    - {name: 5U6,    clock: 5,  chamber: upper, size_inch: 6, use: Available}
+    - {name: 5U4,    clock: 5,  chamber: upper, size_inch: 4, use: Available}
+    - {name: 6U,     clock: 6,  chamber: upper, use: No port}
+    - {name: 7U6,    clock: 7,  chamber: upper, size_inch: 6, use: Available}
+    - {name: 7U4,    clock: 7,  chamber: upper, size_inch: 4, use: Available}
+    - {name: 8U6,    clock: 8,  chamber: upper, size_inch: 6, use: GDC electrode}
+    - {name: 8U4,    clock: 8,  chamber: upper, size_inch: 4, use: Available}
+    - {name: 9UR,    clock: 9,  chamber: upper, size: rectangular, use: Available}
+    - {name: 10U,    clock: 10, chamber: upper, use: No port}
+    - {name: 11U6,   clock: 11, chamber: upper, size_inch: 6, use: PIG}
+    - {name: 11U4,   clock: 11, chamber: upper, size_inch: 4, use: Available}
+    - {name: 12U6,   clock: 12, chamber: upper, size_inch: 6, use: Available}
+    - {name: 12U4,   clock: 12, chamber: upper, size_inch: 4, use: Available}
+    # -- Lower chamber ---------------------------------------------------
+    - {name: 1L6,    clock: 1,  chamber: lower, size_inch: 6, use: MD feed-through}
+    - {name: 1L4,    clock: 1,  chamber: lower, size_inch: 4, use: Available}
+    - {name: 2L,     clock: 2,  chamber: lower, use: NBI duct and halogen lamp}
+    - {name: 3LR,    clock: 3,  chamber: lower, size: rectangular, use: Available}
+    - {name: 4L6,    clock: 4,  chamber: lower, size_inch: 6, use: Available}
+    - {name: 4L4,    clock: 4,  chamber: lower, size_inch: 4, use: Available}
+    - {name: 5L6,    clock: 5,  chamber: lower, size_inch: 6, use: Available}
+    - {name: 5L4,    clock: 5,  chamber: lower, size_inch: 4, use: Helicity injector}
+    - {name: 6L,     clock: 6,  chamber: lower, use: No port}
+    - {name: 7L6,    clock: 7,  chamber: lower, size_inch: 6, use: Available}
+    - {name: 7L4,    clock: 7,  chamber: lower, size_inch: 4, use: Available}
+    - {name: 8L6,    clock: 8,  chamber: lower, size_inch: 6, use: Feed-through}
+    - {name: 8L4,    clock: 8,  chamber: lower, size_inch: 4, use: Available}
+    - {name: 9LR,    clock: 9,  chamber: lower, size: rectangular, use: Available}
+    - {name: 10L,    clock: 10, chamber: lower, use: No port}
+    - {name: 11L6,   clock: 11, chamber: lower, size_inch: 6, use: Roughing / venting valve}
+    - {name: 11L4,   clock: 11, chamber: lower, size_inch: 4, use: Helicity injector}
+    - {name: 12L6,   clock: 12, chamber: lower, size_inch: 6, use: GDC}
+    - {name: 12L4,   clock: 12, chamber: lower, size_inch: 4, use: Available}
+    # -- Bottom chamber --------------------------------------------------
+    - {name: 1B6,    clock: 1,  chamber: bottom, size_inch: 6, use: Available}
+    - {name: 2B,     clock: 2,  chamber: bottom, use: NBI duct and halogen lamp}
+    - {name: 3B6,    clock: 3,  chamber: bottom, size_inch: 6, use: Charge exchange spectroscopy}
+    - {name: 4B6,    clock: 4,  chamber: bottom, size_inch: 6, use: Available}
+    - {name: 5B6,    clock: 5,  chamber: bottom, size_inch: 6, use: Available}
+    - {name: 6B,     clock: 6,  chamber: bottom, use: No port}
+    - {name: 7B6,    clock: 7,  chamber: bottom, size_inch: 6, use: 280 GHz interferometer}
+    - {name: 8B6,    clock: 8,  chamber: bottom, size_inch: 6, use: Available}
+    - {name: 9B6,    clock: 9,  chamber: bottom, size_inch: 6, use: Charge exchange spectroscopy}
+    - {name: 10B,    clock: 10, chamber: bottom, use: No port}
+    - {name: 11B6,   clock: 11, chamber: bottom, size_inch: 6, use: Boron oven}
+    - {name: 12B6,   clock: 12, chamber: bottom, size_inch: 6, use: Available}
 
 # Canonical ownership and availability registry. This top-level namespace is
 # intentionally not part of the `0:` / shot-override runtime configuration.

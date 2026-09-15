@@ -66,6 +66,8 @@ def test_the_catalog_counts_the_known_public_surface():
         "statistics": 22,
         "magnetics": 2,
         "neoclassical": 12,
+        # #783 first slice: the prefill -> Townsend -> Lloyd breakdown chain.
+        "startup": 5,
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 

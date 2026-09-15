@@ -33,6 +33,7 @@ _SUBMODULES = {
     "statistics": ".statistics",
     "magnetics": ".magnetics",
     "neoclassical": ".neoclassical",
+    "startup": ".startup",
 }
 
 #: The order these submodules were star-imported in when this package loaded
@@ -53,6 +54,7 @@ _IMPORT_ORDER = (
     "statistics",
     "magnetics",
     "neoclassical",
+    "startup",
 )
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in

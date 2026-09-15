@@ -254,6 +254,51 @@ def _interpolate(source_rho: np.ndarray, values: np.ndarray, target_rho: np.ndar
     return np.interp(target_rho, np.asarray(source_rho)[order], np.asarray(values)[order])
 
 
+#: Impurities a caller can ask to be modelled explicitly, with the charge and mass
+#: GACODE needs for each. Fully stripped: at VEST's temperatures carbon is not, but
+#: NEO takes one charge state per species, and the fully-stripped value is the
+#: convention every Z_eff-consistent impurity model in the field uses.
+IMPURITIES: Mapping[str, tuple[float, float, str]] = {
+    "C": (6.0, 12.011, "C6+"),
+    "O": (8.0, 15.999, "O8+"),
+    "N": (7.0, 14.007, "N7+"),
+    "He": (2.0, 4.0026, "He2+"),
+}
+
+
+def impurity_fractions(z_eff: float, z_impurity: float) -> tuple[float, float]:
+    r"""``(n_main/n_e, n_imp/n_e)`` for one hydrogenic ion and one impurity.
+
+    The two conditions that fix them are quasi-neutrality and the definition of the
+    effective charge, with the main ion hydrogenic (``Z = 1``):
+
+    .. math::
+
+        n_e = n_H + Z_I n_I, \qquad Z_{\mathrm{eff}} n_e = n_H + Z_I^2 n_I
+
+    which give ``n_I/n_e = (Z_eff - 1)/(Z_I(Z_I - 1))`` and
+    ``n_H/n_e = 1 - Z_I n_I/n_e``. For carbon at ``Z_eff = 2`` that is
+    ``n_C = n_e/30`` and ``n_H = 0.8 n_e`` -- the standard construction, and the
+    reason a plasma cannot be both ``Z_eff = 2`` and purely hydrogenic.
+
+    Raises
+    ------
+    ValueError
+        When ``z_eff`` is outside ``[1, Z_I]``, where no non-negative pair exists.
+    """
+    charge = float(z_impurity)
+    target = float(z_eff)
+    if charge <= 1.0:
+        raise ValueError(f"an impurity needs Z > 1; got {z_impurity!r}")
+    if not 1.0 <= target <= charge:
+        raise ValueError(
+            f"Z_eff = {target} is unreachable with a Z = {charge:g} impurity in "
+            f"hydrogen: it must lie between 1 (no impurity) and {charge:g} (no main ion)"
+        )
+    impurity = (target - 1.0) / (charge * (charge - 1.0))
+    return 1.0 - charge * impurity, impurity
+
+
 def _ion_species(ods: Any, index: int) -> list[dict[str, Any]]:
     """Read the ion species table from core_profiles."""
     prefix = f"core_profiles.profiles_1d.{index}.ion"
@@ -287,6 +332,35 @@ def _ion_species(ods: Any, index: int) -> list[dict[str, Any]]:
     return species
 
 
+def _impurity_entry(name: str) -> tuple[float, float, str]:
+    """The charge, mass and GACODE label of a named impurity."""
+    key = str(name).strip()
+    for candidate in (key, key.capitalize(), key.upper()):
+        if candidate in IMPURITIES:
+            return IMPURITIES[candidate]
+    raise ProfileConversionError(
+        f"unknown impurity {name!r}; known: {', '.join(sorted(IMPURITIES))}. The table "
+        "is vaft.code.gacode.inputs.IMPURITIES and takes a charge and a mass."
+    )
+
+
+def _resolve_target_charge(z_eff: Optional[float]) -> float:
+    """The effective charge an impurity is being asked to realize.
+
+    Deliberately the caller's number alone. A measured ``zeff`` profile cannot be
+    the target: one impurity fraction cannot follow a radially varying charge and
+    stay a single species with one density profile. Where a state carries one,
+    ``prepare_gacode_profile`` refuses the disagreement rather than resolving it
+    here, so that the refusal names both values.
+    """
+    if z_eff is not None:
+        return float(z_eff)
+    raise ProfileConversionError(
+        "impurity= needs a z_eff= to aim at; it is the target the impurity fraction "
+        "is derived from, and this layer holds no machine default"
+    )
+
+
 def _require_positive(name: str, values: np.ndarray) -> None:
     array = np.asarray(values, dtype=float)
     if not np.all(np.isfinite(array)):
@@ -309,6 +383,7 @@ def prepare_gacode_profile(
     tolerance: Optional[float] = None,
     rho_max: Optional[float] = None,
     z_eff: Optional[float] = None,
+    impurity: Optional[str] = None,
     shot: Optional[int] = None,
 ) -> GACODEProfile:
     """Project an ODS equilibrium and core_profiles onto a GACODE profile set.
@@ -332,6 +407,18 @@ def prepare_gacode_profile(
     z_eff
         A single effective charge to use when the ODS carries no Z_eff and no
         impurity species. Recorded as ``caller_supplied``.
+
+        Note what this alone does *not* do: it fills a column NEO ignores. NEO builds
+        its collision operator from the species list, so a file with ``z_eff = 2`` and
+        one hydrogenic ion describes a plasma at ``Z_eff = 1`` to every solver that
+        reads it (issue #803). Pass ``impurity`` to make the two agree.
+    impurity
+        Model the requested ``z_eff`` as a named impurity -- ``"C"``, ``"O"``, ``"N"``
+        or ``"He"`` -- rather than as a column. The impurity and the main ion are
+        given the densities that satisfy quasi-neutrality and the requested effective
+        charge together (:func:`impurity_fractions`), so the species list NEO reads
+        carries the charge the caller asked for. Requires a ``z_eff``, and the state
+        must have exactly one ion species for the pair to be determined.
     shot
         Shot number for the file header; read from ``dataset_description`` when
         omitted.
@@ -532,8 +619,80 @@ def prepare_gacode_profile(
             "reason": "an ion element mass was absent; 2Z amu assumed for it",
         }
 
+    if impurity is not None:
+        target = _resolve_target_charge(z_eff)
+        charge, mass, label = _impurity_entry(impurity)
+        if len(species) != 1:
+            raise ProfileConversionError(
+                f"impurity={impurity!r} needs exactly one ion species to pair with; "
+                f"this slice carries {len(species)} ({', '.join(labels)}). With more "
+                "than one the split that realizes a given Z_eff is not determined, so "
+                "the adapter will not choose one."
+            )
+        main_fraction, impurity_fraction = impurity_fractions(target, charge)
+        if impurity_fraction <= 0.0:
+            raise ProfileConversionError(
+                f"z_eff={target:g} needs no {label} at all, so impurity={impurity!r} "
+                "would write a species with zero density everywhere -- which GACODE "
+                "takes a logarithmic gradient of, and which this converter refuses "
+                "for a measured profile. Drop impurity= for a hydrogenic plasma."
+            )
+        electron_density = ne / DENSITY_SCALE
+        # Both ion densities come from n_e, not from the measured main-ion profile:
+        # a plasma cannot be quasi-neutral, carry this impurity, and keep n_H = n_e.
+        # Scaling the measurement is the assumption being made, and it is recorded.
+        densities = [electron_density * main_fraction, electron_density * impurity_fraction]
+        temperatures = [temperatures[0], temperatures[0]]
+        charges = [charges[0], charge]
+        masses = [masses[0], mass]
+        labels = [labels[0], label]
+        kinds = [kinds[0], "[therm]"]
+        if vtor is not None:
+            vtor = np.vstack([vtor[0], vtor[0]])
+        provenance["ni"] = {
+            "kind": "policy_assumption",
+            "source": f"{profile_prefix}.electrons.density_thermal",
+            "species": labels,
+            "reason": (
+                f"{label} added so the species list realizes Z_eff = {target:g}; both "
+                "ion densities are derived from n_e by quasi-neutrality, which "
+                f"overrides the measured main-ion profile ({main_fraction:.4g} n_e "
+                f"and {impurity_fraction:.4g} n_e)"
+            ),
+        }
+        provenance["ti"] = {
+            "kind": "policy_assumption",
+            "reason": f"{label} is given the main ion's temperature; none is measured",
+        }
+
     effective_charge = _array(ods, f"{profile_prefix}.zeff")
-    if effective_charge is not None:
+    if impurity is not None:
+        # The species list is what NEO reads, so once it realizes a charge the column
+        # must agree with it or the file contradicts itself -- which is the defect
+        # #803 is about, and it would come back here for any state carrying a zeff.
+        stacked = np.vstack(densities)
+        z_eff_profile = (
+            np.sum(stacked * np.asarray(charges)[:, None] ** 2, axis=0)
+            / (ne / DENSITY_SCALE)
+        )
+        provenance["z_eff"] = {
+            "kind": "derived",
+            "source": f"the {', '.join(labels)} species list this conversion built",
+            "value": float(np.mean(z_eff_profile)),
+        }
+        if effective_charge is not None:
+            measured = float(np.mean(_interpolate(profile_rho, effective_charge, rho)))
+            provenance["z_eff"]["overrode_measured"] = measured
+            if abs(measured - float(np.mean(z_eff_profile))) > 1e-3:
+                raise ProfileConversionError(
+                    f"{profile_prefix}.zeff measures {measured:.4g} but impurity="
+                    f"{impurity!r} with z_eff={float(z_eff):.4g} builds a species list "
+                    f"at {float(np.mean(z_eff_profile)):.4g}. Writing both would put a "
+                    "column in input.gacode that contradicts the species NEO actually "
+                    "reads. Pass z_eff= matching the measurement, or drop impurity= to "
+                    "keep the measured profile as a column."
+                )
+    elif effective_charge is not None:
         z_eff_profile = _interpolate(profile_rho, effective_charge, rho)
         provenance["z_eff"] = {"kind": "measured", "source": f"{profile_prefix}.zeff"}
     elif z_eff is not None:

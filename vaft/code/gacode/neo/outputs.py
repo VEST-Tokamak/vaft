@@ -232,6 +232,35 @@ class NeoOutputs:
         )
 
     @property
+    def ion_density_fraction(self) -> Optional[np.ndarray]:
+        """``sum(n_i)/n_e`` from this run's species list, per radius.
+
+        The companion of :attr:`effective_charge`, and the other half of what makes
+        two plasmas the same one: carbon and oxygen both reach ``Z_eff = 2`` but
+        dilute the ion channel differently (0.833 against 0.875), and an analytic
+        model evaluated with ``n_i = n_e`` matches neither however right its
+        ``Z_eff`` is.
+        """
+        charge = self.species_charge
+        densities = None if self.equilibrium is None else self.equilibrium.get("density")
+        if charge is None or densities is None:
+            return None
+        charge = np.asarray(charge, dtype=float)
+        densities = np.atleast_2d(np.asarray(densities, dtype=float))
+        if densities.shape[0] != charge.size:
+            return None
+        electrons = charge < 0.0
+        if not electrons.any() or electrons.all():
+            return None
+        electron_density = densities[electrons].sum(axis=0)
+        return np.divide(
+            densities[~electrons].sum(axis=0),
+            electron_density,
+            out=np.full(electron_density.shape, np.nan),
+            where=electron_density > 0.0,
+        )
+
+    @property
     def trapped_fraction(self) -> Optional[float]:
         """The trapped fraction NEO computed from the surface geometry.
 

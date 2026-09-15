@@ -19,6 +19,7 @@ which documents the conventions and cites every entry.
 Notation
 --------
 MU0                      : vacuum permeability                       [H/m]
+PA_PER_TORR              : one torr, by definition 101325/760           [Pa]
 EPS0                     : vacuum permittivity                       [F/m]
 QE                       : elementary charge                         [C]
 ME                       : electron mass                             [kg]
@@ -54,6 +55,7 @@ __all__ = [
     "ME",
     "MI_P",
     "MU0",
+    "PA_PER_TORR",
     "QE",
     "SIGMA_V_COEF",
     "SPITZER_RESISTIVITY_COEF",
@@ -82,6 +84,13 @@ COLLISIONALITY_COEF = 6.921e-18    # [-] - Collisionality coefficient
 C_LIGHT = 299792458.0       # [m s⁻¹] - Speed of light in vacuum
 H_PLANCK = 6.62607015e-34   # [J s] - Planck constant
 K_BOLTZMANN = 1.380649e-23  # [J K⁻¹] - Boltzmann constant
+
+# Pressure. The torr is *defined* as 1/760 of the standard atmosphere, and the
+# atmosphere is exactly 101325 Pa, so this is a definition rather than a
+# measurement and is written as the quotient. Gas-discharge coefficients are
+# published per torr; VEST's barometry is mapped to pascal, so a start-up
+# formula converts here rather than carrying a rounded SI prefactor.
+PA_PER_TORR = 101325.0 / 760.0  # [Pa Torr⁻¹] - One torr
 
 #: [MW m⁻³] - Bremsstrahlung coefficient for p in 1e5 Pa and T in keV.
 K_B_COEF = 0.052

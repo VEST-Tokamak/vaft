@@ -1007,7 +1007,12 @@ def toroidal_electric_field(r: np.ndarray, dpsi_dt: np.ndarray) -> np.ndarray:
     that turns a flux into a loop voltage, so passing a per-radian flux gives an
     answer $2\pi$ too small.  Green's-function flux
     (:func:`vaft.formula.green.green_psi_exact`) is already full weber and needs
-    no conversion.
+    no conversion.  The sign is the one this expression gives;
+    :func:`loop_voltage_from_total_flux` disagrees with it on both sign and flux
+    normalisation, which is `#354 <https://github.com/VEST-Tokamak/vaft/issues/354>`_
+    and still open.  The start-up chain in :mod:`vaft.formula.startup` takes the
+    *magnitude* of this field -- an avalanche has no preferred direction -- so it
+    does not inherit the disagreement and must not be used to settle it.
 
     Validity
     --------
@@ -1021,6 +1026,11 @@ def toroidal_electric_field(r: np.ndarray, dpsi_dt: np.ndarray) -> np.ndarray:
            electric field required for tokamak start-up).
     .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 11.1 (start-up and breakdown).
+
+    See Also
+    --------
+    vaft.formula.startup.lloyd_breakdown_field
+    vaft.formula.startup.breakdown_margin
     """
     r_arr = np.asarray(r, dtype=float)
     return -np.asarray(dpsi_dt, dtype=float) / (2.0 * np.pi * r_arr)
@@ -2276,7 +2286,10 @@ def loop_voltage_from_total_flux(time_slice: np.ndarray, psi_boundary: np.ndarra
     does; a full-weber IMAS flux gives a voltage $2\pi$ too large.  The sign is
     that of $d\psi_b/dt$ in the supplied COCOS, so a discharge with positive
     current and the usual $\sigma_{B_p}$ shows negative $V_{loop}$ during ramp-up.
-    Tracked in #354.
+    Tracked in `#354 <https://github.com/VEST-Tokamak/vaft/issues/354>`_, which is
+    the disagreement with :func:`toroidal_electric_field` over both sign and flux
+    normalisation.  The start-up chain in :mod:`vaft.formula.startup` sidesteps it
+    by taking a field magnitude; that choice is not a resolution of #354.
 
     Physical interpretation
     -----------------------
@@ -2291,6 +2304,11 @@ def loop_voltage_from_total_flux(time_slice: np.ndarray, psi_boundary: np.ndarra
     References
     ----------
     .. [1] S. Ejima et al., Nucl. Fusion 22 (1982) 1313, Sec. 2.
+
+    See Also
+    --------
+    toroidal_electric_field
+    vaft.formula.startup.breakdown_margin
     """
     return gradient(time_slice, psi_boundary) * 2 * np.pi
 
