@@ -251,6 +251,40 @@ def test_an_absent_exb_shear_is_recorded_not_zeroed(profile):
 
 
 @requires_sample
+def test_a_configuration_that_disagrees_about_the_species_is_refused(profile):
+    """The cap check was a no-op ternary until the review: both branches were
+    MAX_SPECIES, so `config` never constrained anything.
+
+    Refusing rather than truncating is the point -- dropping a species changes the
+    plasma, and #803 established that which species exist is decided when the profile
+    is built, not here.
+    """
+    with pytest.raises(LocalConversionError, match="asks for 2 species"):
+        prepare_tglf_input(profile, 0.5, config=TGLFConfig(n_species=2))
+    assert prepare_tglf_input(profile, 0.5, config=TGLFConfig(n_species=3)).n_species == 3
+
+
+@requires_sample
+def test_an_unimplemented_derivation_does_not_claim_to_have_derived_anything(profile):
+    """A profile carrying w0 must not produce provenance saying `derived` with no value.
+
+    The ExB shear derivation is increment 2. Until it exists, a `w0` on the profile has
+    to read as unavailable: `VEXB_SHEAR=0.0` reaches the file either way, and the
+    provenance is the only thing that says whether a measurement is behind it.
+    """
+    import dataclasses
+
+    rotating = dataclasses.replace(
+        profile, w0=np.zeros_like(np.asarray(profile.rmin)) + 1e4
+    )
+    local = prepare_tglf_input(rotating, 0.5)
+    assert local.vexb_shear is None
+    assert local.provenance["vexb_shear"]["kind"] == "unavailable"
+    assert "vexb_shear" in local.missing()
+    assert "not implemented" in local.provenance["vexb_shear"]["reason"]
+
+
+@requires_sample
 def test_a_profile_missing_what_the_projection_needs_says_which(profile):
     import dataclasses
 

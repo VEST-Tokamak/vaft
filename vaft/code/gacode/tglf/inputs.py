@@ -244,8 +244,9 @@ def prepare_tglf_input(
         The flux surface, as ``r/a`` -- the same coordinate ``locpargen`` takes, not
         ``rho_tor_norm``.
     config
-        Used only for the species cap; the physics settings reach the file through
-        :func:`tglf_parameters`.
+        Optional. Only ``n_species`` is read here, and only to *check* that the profile
+        carries the species the caller expects; the physics settings reach the file
+        through :func:`tglf_parameters`.
 
     Returns
     -------
@@ -300,11 +301,21 @@ def prepare_tglf_input(
     ion_mass = np.asarray(profile.mass, dtype=float)
 
     count = charge.size + 1
-    cap = MAX_SPECIES if config is None else MAX_SPECIES
-    if count > cap:
+    if count > MAX_SPECIES:
         raise LocalConversionError(
-            f"TGLF takes at most {cap} species including electrons; this profile has "
-            f"{count}. Drop an impurity or model it as part of Z_eff."
+            f"TGLF takes at most {MAX_SPECIES} species including electrons; this "
+            f"profile has {count}. Drop an impurity or model it as part of Z_eff."
+        )
+    requested = None if config is None else config.n_species
+    if requested is not None and int(requested) != count:
+        # Refused rather than silently truncated: dropping a species changes the
+        # plasma, and which one to drop is not this layer's decision. #803 is the
+        # precedent -- the impurity model belongs to whoever builds the profile.
+        raise LocalConversionError(
+            f"the configuration asks for {int(requested)} species and this profile "
+            f"carries {count} ({', '.join(('e',) + tuple(profile.name))}). Build the "
+            "profile with the species you want -- prepare_gacode_profile's impurity= "
+            "decides them -- rather than having them dropped here."
         )
 
     electron_density_at = _at(grid, electrons, target)
@@ -478,11 +489,19 @@ def _rotation(profile: GACODEProfile, provenance: dict) -> Optional[float]:
             ),
         }
         return None
+    # `w0` is present but the derivation is not written yet, and saying "derived" here
+    # would be a provenance that asserts a measurement behind a value that is not
+    # there -- the exact distinction this module relies on provenance to carry. It is
+    # recorded as unavailable, with the reason naming what is missing.
     provenance["vexb_shear"] = {
-        "kind": "derived",
-        "source": "w0 on the converted profile",
+        "kind": "unavailable",
+        "reason": (
+            "the profile carries w0, but the ExB shear derivation from it is not "
+            "implemented yet (#553 increment 2); TGLF's default of zero applies and "
+            "no rotation information reaches the run"
+        ),
     }
-    return None  # pragma: no cover - reached only once w0 is populated (#553 phase 2)
+    return None
 
 
 def tglf_parameters(
