@@ -8,8 +8,9 @@ The ``plot_*`` adapters are written out by hand in ``vaft.omas.plotting`` and
 registry, so the three surfaces cover one set of plots by construction.
 
 ``extract_*`` takes the extraction options only
-(:data:`vaft.plot.backend.options.EXTRACTION_OPTIONS`): a renderer keyword
-such as ``ax=`` or ``color=`` is refused by name, pointing at ``plot_*``.  It
+(:data:`vaft.plot.backend.options.EXTRACTION_OPTIONS`): a rendering keyword
+such as ``ax=`` or ``cmap=`` is refused by name, pointing at ``plot_*``; an
+unknown keyword is refused as ``plot_*`` refuses it.  It
 returns exactly what :func:`vaft.plot.backend.recipes.build_model` builds, so
 ``plot_*`` and ``render(extract_*(...))`` cannot diverge.
 

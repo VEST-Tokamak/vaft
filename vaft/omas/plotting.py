@@ -18,7 +18,7 @@ Every ``plot_<stem>`` has two twins (umbrella #434): ``dd_<stem>()`` lists the
 IMAS Data Dictionary paths it reads without touching data, and
 ``extract_<stem>(source, *, label="shot", **extraction_options)`` returns the
 view model the plot draws, undrawn -- ``.to_xarray()`` on it gives an
-:class:`xarray.Dataset`.  A rendering keyword (``ax=``, ``color=``) is refused
+:class:`xarray.Dataset`.  A rendering keyword (``ax=``, ``cmap=``) is refused
 by ``extract_*``.
 
 Use :func:`available_plots` to see which plots a particular object can produce,

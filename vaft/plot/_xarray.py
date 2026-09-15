@@ -4,7 +4,9 @@ Each ``ViewModel.to_xarray()`` delegates here.  The rule is *lossless and
 plain*: every array of the model comes back as a variable or coordinate,
 every scalar fact as an attribute, and the attributes are restricted to what
 netCDF can store (strings and numbers; a mapping or a list is JSON text), so a
-dataset can be written to disk and read back by anything.
+dataset can be written to disk and read back by anything.  A symmetric
+``yerr`` is stored as its two bounds with ``yerr_symmetric`` set, so the
+model's own shape is recoverable.
 
 Traces of unequal length -- the channels of one diagnostic, or the same
 quantity from two shots -- are stacked on a ``series`` dimension and padded
@@ -98,20 +100,6 @@ def dataset_attrs(model: Any, *fields: str, **extra: Any) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _nominal(array: np.ndarray) -> tuple[np.ndarray, np.ndarray | None]:
-    """A float array, and the standard deviations of an ``uncertainties`` array."""
-    if array.dtype == object:
-        try:
-            from uncertainties import unumpy
-        except ImportError:  # pragma: no cover - uncertainties is a dependency
-            return np.asarray(array, dtype=float), None
-        return (
-            np.asarray(unumpy.nominal_values(array), dtype=float),
-            np.asarray(unumpy.std_devs(array), dtype=float),
-        )
-    return np.asarray(array, dtype=float), None
-
-
 def _padded(
     arrays: Sequence[np.ndarray], *, dtype: Any = float, fill: Any = np.nan, width: int | None = None,
 ) -> np.ndarray:
@@ -133,19 +121,17 @@ def _padded(
 def _series_dataset(series: Sequence[Any]) -> "xr.Dataset":
     """The ``(series, sample)`` layout shared by :class:`LineSeries` and :class:`Profile1D`."""
     xr = _xr()
-    xs, ys, errs, masks = [], [], [], []
+    xs, ys, errs, masks, symmetric = [], [], [], [], []
     for trace in series:
-        y, std = _nominal(np.asarray(trace.y))
-        x, _ = _nominal(np.asarray(trace.x))
-        xs.append(x)
-        ys.append(y)
+        xs.append(np.asarray(trace.x, dtype=float))
+        ys.append(np.asarray(trace.y, dtype=float))
         yerr = trace.yerr
-        if yerr is None and std is not None:
-            yerr = std
         if yerr is not None:
             yerr = np.asarray(yerr, dtype=float)
+            symmetric.append(yerr.ndim == 1)
             errs.append(np.vstack([yerr, yerr]) if yerr.ndim == 1 else yerr)
         else:
+            symmetric.append(False)
             errs.append(None)
         masks.append(None if trace.valid_mask is None else np.asarray(trace.valid_mask, dtype=bool))
     lengths = np.array([y.size for y in ys], dtype=int)
@@ -172,6 +158,7 @@ def _series_dataset(series: Sequence[Any]) -> "xr.Dataset":
         "position_z": ("series", np.array([np.nan if t.position is None else t.position[1] for t in series], dtype=float)),
         "length": ("series", lengths),
         "has_yerr": ("series", np.array([e is not None for e in errs], dtype=bool)),
+        "yerr_symmetric": ("series", np.array(symmetric, dtype=bool)),
         "has_valid_mask": ("series", np.array([m is not None for m in masks], dtype=bool)),
         "series_style": ("series", np.array([_plain(dict(t.style)) for t in series], dtype=object)),
     }

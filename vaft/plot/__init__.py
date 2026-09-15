@@ -408,7 +408,8 @@ def extract(name: str, source: Any, *, label: Any = "shot", **options: Any) -> A
 
     Dispatches on the kind of ``source``: an OMAS ``ODS``/``ODC`` (or a list
     of them) goes to ``vaft.omas.extract_<name>``, a native IMAS
-    ``IDSToplevel``/``DBEntry``/handle to ``vaft.imas.extract_<name>``;
+    ``IDSToplevel``/``DBEntry``/handle (or a mapping of IDS name to toplevel)
+    to ``vaft.imas.extract_<name>``;
     anything else is refused naming both.  ``label`` and the extraction
     options are those of the matching ``plot_<name>``; a rendering keyword is
     refused (umbrella #434).

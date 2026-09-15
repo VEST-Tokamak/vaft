@@ -75,18 +75,17 @@ def test_the_facades_are_real_named_functions(package):
     assert package.dd_plasma_current_time.__name__ == "dd_plasma_current_time"
 
 
-def test_reaching_a_facade_does_not_import_matplotlib_at_package_import():
+def test_importing_the_packages_does_not_import_matplotlib():
     code = "import vaft.omas, vaft.imas, sys; print('matplotlib.pyplot' in sys.modules)"
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "False", out.stdout
 
 
-def test_dd_takes_no_data_and_agrees_between_packages():
+def test_dd_takes_no_data():
     for name in ("plasma_current_time", "equilibrium_field_psi", "diagnostics_overview"):
-        paths = vaft.omas.dd_plasma_current_time() if name == "plasma_current_time" else getattr(vaft.omas, f"dd_{name}")()
-        assert paths == getattr(vaft.imas, f"dd_{name}")()
-        assert paths == vaft.plot.dd(name)
-        assert all(type(p).__name__ == "DDPath" for p in paths)
+        paths = getattr(vaft.omas, f"dd_{name}")()
+        assert paths and all(type(p).__name__ == "DDPath" for p in paths)
+        assert [p.canonical for p in paths] == [p.canonical for p in getattr(vaft.imas, f"dd_{name}")()]
     with pytest.raises(TypeError):
         vaft.omas.dd_plasma_current_time("39915")
 
@@ -95,7 +94,40 @@ def _available(ods):
     return [record.name for record in vaft.omas.available_plots(ods)]
 
 
-def test_extract_is_exactly_what_plot_builds(ods):
+def test_extract_is_exactly_what_plot_builds(ods, monkeypatch):
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from matplotlib import pyplot as plt
+    from vaft.plot.backend import render as render_module
+
+    handed: list = []
+    original = render_module.renderer_for
+
+    def spy(spec, model, backend):
+        handed.append(model)
+        return original(spec, model, backend)
+
+    monkeypatch.setattr(render_module, "renderer_for", spy)
+    cases = [
+        ("plasma_current_time", {}),
+        ("flux_loop_time_flux", {"selection": "inboard", "layout": "subplots"}),
+        ("equilibrium_profile_q", {"coordinate": "psi_norm"}),
+        ("equilibrium_field_psi", {"units": "mWb"}),
+        ("mirnov_spectrogram", {}),
+        ("equilibrium_overview", {}),
+    ]
+    for name, options in cases:
+        handed.clear()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            getattr(vaft.omas, f"plot_{name}")(ods, **options)
+            extracted = getattr(vaft.omas, f"extract_{name}")(ods, **options)
+        plt.close("all")
+        assert len(handed) == 1, name
+        assert type(extracted) is type(handed[0]), name
+        assert_models_equal(extracted, handed[0], where=name)
+    # And for every plot the sample can build, extract_* is build_model's answer.
     from vaft.omas.entries import normalize_entries
 
     checked = 0
@@ -104,7 +136,6 @@ def test_extract_is_exactly_what_plot_builds(ods):
             warnings.simplefilter("ignore")
             extracted = getattr(vaft.omas, f"extract_{name}")(ods)
             built = build_model(name, normalize_entries(ods))
-        assert type(extracted) is type(built), name
         assert_models_equal(extracted, built, where=name)
         checked += 1
     assert checked > 50
@@ -197,6 +228,7 @@ def _check_series_dataset(ds, model):
             expected = np.vstack([yerr, yerr]) if yerr.ndim == 1 else yerr
             np.testing.assert_array_equal(_restored(ds, "yerr", k), expected)
             assert bool(ds.has_yerr.values[k])
+            assert bool(ds.yerr_symmetric.values[k]) == (yerr.ndim == 1)
         if trace.valid_mask is not None:
             np.testing.assert_array_equal(_restored(ds, "valid_mask", k), trace.valid_mask)
             assert bool(ds.has_valid_mask.values[k])

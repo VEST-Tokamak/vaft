@@ -466,17 +466,24 @@ def dd_paths(name: str) -> tuple[DDPath, ...]:
         add(recipe.weight_path, "weight")
         add(recipe.divide_by_path, "divisor")
     elif isinstance(recipe, R.ProfileRecipe):
-        coordinate_paths = dict(recipe.coordinate_paths)
-        if not coordinate_paths and recipe.y_path.startswith("equilibrium."):
-            coordinate_paths = dict(R._EQUILIBRIUM_COORDINATES)
-        default = canon(coordinate_paths.get(recipe.default_coordinate, ""))
-        others = tuple(canon(p) for k, p in coordinate_paths.items() if k != recipe.default_coordinate)
+        coordinates = list(recipe.coordinate_paths.items())
+        if not coordinates and recipe.y_path.startswith("equilibrium."):
+            # An equilibrium profile offers every PROFILE_COORDINATES: the two
+            # stored leaves, sqrt(phi_N) from phi, and the radial pair from the
+            # midplane crossings (assembled in the builder from two leaves).
+            coordinates = list(R._EQUILIBRIUM_COORDINATES.items()) + [
+                ("sqrt_phi_norm", "equilibrium.time_slice.{i}.profiles_1d.phi"),
+                ("r_major|r_minor", "equilibrium.time_slice.{i}.profiles_1d.r_inboard"),
+                ("r_major|r_minor", "equilibrium.time_slice.{i}.profiles_1d.r_outboard"),
+            ]
+        default = canon(dict(coordinates).get(recipe.default_coordinate, ""))
+        others = tuple(canon(p) for k, p in coordinates if k != recipe.default_coordinate)
         for position, template in enumerate((recipe.y_path, *recipe.fallback_y_paths)):
             add(
                 template, "data" if position == 0 else "fallback",
                 coordinate=default, fallback_coordinate=others, units=recipe.y_unit,
             )
-        for key, template in coordinate_paths.items():
+        for key, template in coordinates:
             add(template, "coordinate", attrs={"coordinate": key})
         add(recipe.slice_container, "container")
         add(recipe.label_path, "label")
@@ -497,17 +504,32 @@ def dd_paths(name: str) -> tuple[DDPath, ...]:
             add(z_template, "geometry", attrs={"layer": layer, "kind": kind, "axis": "z"})
             add(container, "container", attrs={"layer": layer})
             # A layer's label is a path template or a literal caption.
-            if "." in label_template:
+            try:
                 add(label_template, "label", attrs={"layer": layer})
+            except ValueError:
+                pass
     elif isinstance(recipe, R.FieldRecipe):
         add(
             recipe.value_path, "data", coordinate=canon(recipe.r_path),
-            fallback_coordinate=(canon(recipe.z_path),), units=_bracket_unit(recipe.value_label),
+            units=_bracket_unit(recipe.value_label),
+            attrs={"coordinates": (canon(recipe.r_path), canon(recipe.z_path))},
         )
         add(recipe.r_path, "coordinate", attrs={"axis": "r"})
         add(recipe.z_path, "coordinate", attrs={"axis": "z"})
         for template in recipe.boundary_paths:
             add(template, "boundary")
+        # The other quantities the map can draw (field=, issue #483): a stored
+        # or derived 2-D leaf beside the declared one, or a 1-D profile mapped
+        # onto the grid where it is drawn.
+        slice_prefix, _, _ = recipe.value_path.partition(".profiles_2d")
+        grid_prefix = recipe.value_path.rsplit(".", 1)[0]
+        for field_name in recipe.fields:
+            field = R.EQUILIBRIUM_FIELDS[field_name]
+            template = (
+                f"{slice_prefix}.{field.mapped_from}" if field.mapped_from else f"{grid_prefix}.{field.leaf}"
+            )
+            if template != recipe.value_path:
+                add(template, "optional", units=field.unit, attrs={"field": field_name})
     elif isinstance(recipe, (R.SpectrogramRecipe, R.PowerSpectrumRecipe)):
         coordinates = tuple(canon(p) for p in recipe.time_paths)
         for position, template in enumerate((recipe.signal_path, *recipe.fallback_signal_paths)):
@@ -534,9 +556,28 @@ def dd_paths(name: str) -> tuple[DDPath, ...]:
 
     unique: dict[str, DDPath] = {}
     for path in found:
-        unique.setdefault(path.canonical, path)
-    ordered = sorted(unique.values(), key=lambda p: _ROLE_ORDER[p.role] if p.role in ("data", "fallback", "coordinate", "abscissa") else 4)
+        kept = unique.get(path.canonical)
+        if kept is None:
+            unique[path.canonical] = path
+        elif _ROLE_ORDER[path.role] < _ROLE_ORDER[kept.role]:
+            unique[path.canonical] = _merged(path, kept)
+        else:
+            unique[path.canonical] = _merged(kept, path)
+    ordered = sorted(
+        unique.values(),
+        key=lambda p: _ROLE_ORDER[p.role] if p.role in ("data", "fallback", "coordinate", "abscissa") else 4,
+    )
     return tuple(ordered)
+
+
+def _merged(kept: DDPath, other: DDPath) -> DDPath:
+    """``kept`` with the composite members ``other`` was also declared by."""
+    members = tuple(dict.fromkeys(
+        m for path in (kept, other) for m in (path.attrs.get("members") or (path.attrs.get("member"),)) if m
+    ))
+    if len(members) <= 1:
+        return kept
+    return DDPath(**{**kept.__dict__, "attrs": {**kept.attrs, "members": members}})
 
 
 def _bracket_unit(label: str) -> str:

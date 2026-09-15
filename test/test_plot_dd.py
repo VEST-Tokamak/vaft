@@ -208,8 +208,31 @@ def test_a_field_map_declares_its_grid_and_boundary():
 def test_a_profile_declares_every_coordinate_it_can_be_drawn_against():
     paths = dd.dd_paths("equilibrium_profile_q")
     assert _by_role(paths, "data") == ["equilibrium/time_slice(:)/profiles_1d/q"]
-    assert {p.attrs["coordinate"] for p in paths if p.role == "coordinate"} == {"rho_tor_norm", "psi_norm"}
+    declared = {p.attrs["coordinate"] for p in paths if p.role == "coordinate"}
+    offered = set(R.coordinate_options_for("equilibrium_profile_q"))
+    assert offered <= {name for key in declared for name in key.split("|")}
     assert paths[0].coordinate == "equilibrium/time_slice(:)/profiles_1d/rho_tor_norm"
+    assert "equilibrium/time_slice(:)/profiles_1d/r_outboard" in _by_role(paths, "coordinate")
+
+
+def test_a_field_map_declares_every_field_it_can_draw():
+    paths = dd.dd_paths("equilibrium_field_2d")
+    fields = {p.attrs["field"]: p.canonical for p in paths if "field" in p.attrs}
+    assert set(fields) == set(R.EQUILIBRIUM_FIELD_NAMES) - {"psi"}
+    assert fields["j_tor"] == "equilibrium/time_slice(:)/profiles_2d(0)/j_tor"
+    assert fields["pressure"] == "equilibrium/time_slice(:)/profiles_1d/pressure"
+    assert dd.dd_paths("equilibrium_field_psi") and not any(
+        "field" in p.attrs for p in dd.dd_paths("equilibrium_field_psi")
+    )
+
+
+def test_a_composite_keeps_the_most_specific_role_and_every_member():
+    # tf/coil(:)/current/data is data for tf_coil_time_current and merely
+    # optional for impa_profile_field; the overview says data, and names both.
+    paths = {p.canonical: p for p in dd.dd_paths("impa_overview")}
+    path = paths["tf/coil(:)/current/data"]
+    assert path.role == "data"
+    assert set(path.attrs["members"]) >= {"tf_coil_time_current", "impa_profile_field"}
 
 
 def test_a_composite_lists_its_members_paths_and_names_the_member():
@@ -261,15 +284,15 @@ def test_an_unknown_plot_is_refused():
 #: extension leaf; the rest are legacy spellings read as fallbacks.
 MISSING_FROM_DD: dict[str, str] = {
     "equilibrium/time_slice(:)/global_quantities/energy_mag": (
-        "VAFT extension leaf written by vaft.omas.update_equilibrium_* (magnetic energy); "
+        "legacy VEST extension leaf (magnetic energy) with no producer in vaft; "
         "absent from DD 3.41.0 and 4.1.1"
     ),
     "equilibrium/time_slice(:)/global_quantities/energy_total": (
-        "VAFT extension leaf written by vaft.omas.update_equilibrium_* (total energy); "
+        "legacy VEST extension leaf (total energy) with no producer in vaft; "
         "absent from DD 3.41.0 and 4.1.1"
     ),
     "equilibrium/time_slice(:)/global_quantities/qa": (
-        "VAFT extension leaf written by vaft.omas.update_equilibrium_* (edge safety factor); "
+        "legacy VEST extension leaf (edge safety factor) with no producer in vaft; "
         "absent from DD 3.41.0 and 4.1.1"
     ),
     "magnetics/flux_loop/time": (
@@ -353,13 +376,17 @@ def test_every_declared_unit_agrees_with_the_data_dictionary():
 
 def test_the_allowlists_are_still_needed():
     stale = []
+    declared = _declared()
+    still_declared = {canonical for canonical, _ in declared}
     for canonical, reason in MISSING_FROM_DD.items():
+        if canonical not in still_declared:
+            stale.append(f"{canonical} is no longer declared by any plot; remove the entry ({reason})")
+            continue
         try:
             dd.resolve(canonical)
         except KeyError:
             continue
         stale.append(f"{canonical} is now in the DD; remove the entry ({reason})")
-    declared = _declared()
     divisors = _divisor_units()
     for (canonical, unit), reason in UNIT_DEVIATIONS.items():
         path = declared.get((canonical, unit))
