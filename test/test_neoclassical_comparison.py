@@ -268,6 +268,42 @@ def test_the_trend_verdict_does_not_change_with_the_treatment(ods, z_eff, impuri
     assert trend["points"] > 6
 
 
+def test_the_declared_minimum_is_the_one_the_binning_actually_needs():
+    """A gate that passes and then fails the next step with nothing to say is worse
+    than no gate: the caller gets a bare None and the constant that documents the
+    requirement disagrees with it."""
+    import numpy as np
+
+    from vaft.validation.neoclassical import _TREND_MIN_POINTS, _trend
+
+    for count, expected in ((_TREND_MIN_POINTS - 1, None), (_TREND_MIN_POINTS, "increasing")):
+        trapped = np.linspace(0.3, 0.9, count)
+        reference = np.full(count, 1.0)
+        result = _trend(
+            {"f_trap": trapped}, 1.0 + 0.1 * trapped, reference, np.ones(count, dtype=bool)
+        )
+        if expected is None:
+            assert result is None, count
+        else:
+            assert result is not None and result["monotonic"] == expected, count
+
+
+def test_the_two_point_keys_say_which_definition_produced_them():
+    """They meant the lowest and highest third before #808 and a fifth after, under
+    the same names, so the shape has to carry which one it is."""
+    import numpy as np
+
+    from vaft.validation.neoclassical import _trend
+
+    trapped = np.linspace(0.3, 0.9, 40)
+    result = _trend(
+        {"f_trap": trapped}, 1.0 + 0.1 * trapped, np.full(40, 1.0), np.ones(40, dtype=bool)
+    )
+    assert result["binning"] == "5 equal-count bins"
+    assert result["difference_low"] == result["bins"][0]["difference"]
+    assert result["difference_high"] == result["bins"][-1]["difference"]
+
+
 def test_a_monotonic_sequence_still_gets_an_answer():
     """The refusal must be about the data, not a metric that can no longer decide."""
     from vaft.validation.neoclassical import _monotonic_direction

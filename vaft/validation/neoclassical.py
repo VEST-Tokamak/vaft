@@ -58,11 +58,16 @@ __all__ = [
 #: zero crossing rather than by the models.
 _TREND_FLOOR = 0.1
 
-#: How many points the trend needs at all, and how many bins it splits them into.
-#: Five bins of at least two points is enough to see a reversal without inventing
-#: structure from noise.
-_TREND_MIN_POINTS = 6
+#: How many bins the trend splits its points into, and how many points each needs.
+#: Five bins of at least two is enough to see a reversal without inventing structure
+#: from noise, and three surviving bins is the fewest that can show one.
 _TREND_BINS = 5
+_TREND_MIN_BIN = 2
+_TREND_MIN_BINS = 3
+
+#: The point count that follows from those, rather than a number chosen separately:
+#: a smaller one would pass the gate and then fail the binning with nothing to say.
+_TREND_MIN_POINTS = _TREND_BINS + _TREND_MIN_BIN * _TREND_MIN_BINS - _TREND_MIN_BINS
 
 METRICS: tuple[str, ...] = (
     "integrated_relative_difference",
@@ -623,8 +628,12 @@ def _trend(
     trapped, difference = trapped[order], difference[order]
     # Equal-count bins rather than equal-width: f_trap is far denser near the edge, and
     # equal-width bins leave the innermost one holding one or two points.
-    groups = [g for g in np.array_split(np.arange(trapped.size), _TREND_BINS) if g.size >= 2]
-    if len(groups) < 3:
+    groups = [
+        g
+        for g in np.array_split(np.arange(trapped.size), _TREND_BINS)
+        if g.size >= _TREND_MIN_BIN
+    ]
+    if len(groups) < _TREND_MIN_BINS:
         return None
     bins = [
         {
@@ -644,8 +653,12 @@ def _trend(
         "evaluated_above": _TREND_FLOOR,
         "monotonic": None if direction is None else ("increasing" if direction > 0 else "decreasing"),
         "grows_with_trapping": grows,
-        # Descriptive, and only that: the first and last bin. They are what the old
-        # two-point verdict was built on, kept so a reader can see why it was unstable.
+        # Descriptive, and only that: the first and last bin. Before #808 these four
+        # names held the lowest and highest *third* and were what the verdict was
+        # built on; they are the lowest and highest *fifth* now, which is a different
+        # number under the same name (8.1 % against 15.0 % on 48224). `bins` is the
+        # one to read, and `binning` says which definition produced these.
+        "binning": f"{len(bins)} equal-count bins",
         "f_trap_low": bins[0]["f_trap"],
         "f_trap_high": bins[-1]["f_trap"],
         "difference_low": bins[0]["difference"],
