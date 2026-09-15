@@ -183,15 +183,48 @@ class PulseWindow:
 
     @property
     def duration_s(self) -> float | None:
+        """Extent of the window: ``offset - onset``, gaps included."""
         if not self.found:
             return None
         return float(self.offset.time - self.onset.time)
+
+    @property
+    def active_s(self) -> float | None:
+        """How much of the window is actually above threshold.
+
+        The window is the *envelope* of its segments, so on a record of two
+        brief flashes tens of milliseconds apart this is a small fraction of
+        :attr:`duration_s` -- and a consumer reading the extent as a duration
+        has no other way to tell (issue #752).
+        """
+        if not self.found:
+            return None
+        # Each segment's own extent, measured the way ``duration_s`` measures
+        # the envelope -- last sample minus first -- so one uninterrupted
+        # segment gives exactly ``duration_s`` rather than one sample more.
+        return float(sum(s.end_time - s.start_time for s in self.segments))
+
+    @property
+    def duty_cycle(self) -> float | None:
+        """``active_s / duration_s``: 1 for one uninterrupted run, less with gaps.
+
+        ``None`` when there is no window.  A single-sample window has a
+        duration of zero and reports ``1.0``: it is not interrupted.
+        """
+        if not self.found:
+            return None
+        extent = self.duration_s
+        if extent is None or extent <= 0.0:
+            return 1.0
+        return float(self.active_s / extent)
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "start": self.start,
             "end": self.end,
             "duration_s": self.duration_s,
+            "active_s": self.active_s,
+            "duty_cycle": self.duty_cycle,
             "flags": list(self.flags),
             "segments": [s.as_dict() for s in self.segments],
             "onset": self.onset.as_dict(),
@@ -1437,10 +1470,16 @@ def active_window(
     The end rule is the weak one.  A disruption's vessel-current tail can sit at a
     third of the peak for a hundred milliseconds, above any end threshold that
     still separates plasma from a normal termination, and is then ended by the
-    collapse fallback rather than by the threshold.  Thirteen shots of the corpus
-    reach the ``offset_threshold_above_peak`` guard, where the trailing level and
-    the peak leave no usable end threshold; they are flagged, not repaired,
-    tracked in issue #409.
+    collapse fallback rather than by the threshold.  The threshold is scaled
+    from the amplitude the detector *accepted* -- the largest segment, not the
+    largest sample in the search stretch -- because a spike the segment tests
+    refused would otherwise set the level the pulse has to fall below (#726).
+
+    And the window is the *envelope* of its segments, which for a record of two
+    brief blips tens of milliseconds apart is mostly gap: three corpus records
+    report windows that are 7 to 19 % above threshold.  ``multiple_segments``
+    says a window has gaps but not how much of it is gap, and the extent is
+    consumed as a duration -- tracked in issue #752.
 
     Provenance
     ----------
@@ -1574,6 +1613,15 @@ def _active_window(
 
     first, last = segments[0][0], segments[-1][1]
     flags: list[str] = list(ref_flags)
+    # The end rule is judged against the amplitude this detector *accepted*,
+    # not against the largest sample in the search stretch.  They differ
+    # exactly where a run the segment tests refused -- an optical spike, a
+    # coil-firing impulse -- holds the record's maximum: scaling the end
+    # threshold from it asks the pulse to fall below a level set by noise the
+    # detector had already thrown away, which on the corpus left thirteen
+    # windows unable to end at all (#726).
+    accepted_peak = max(float(y[a:b].max()) - baseline for a, b in segments)
+    evidence["accepted_peak"] = accepted_peak
     # Offset against the trailing reference, when there is a quiet one.
     n_trail = max(2, int(round(float(trailing_fraction) * y.size)))
     trail = np.zeros(y.size, dtype=bool)
@@ -1582,7 +1630,7 @@ def _active_window(
     trail_quiet = bool(
         np.isfinite(trail_baseline) and np.isfinite(trail_spread)
         and (trail_spread <= 3.0 * spread if spread > 0 else trail_spread == 0.0)
-        and (trail_baseline - baseline) < float(trailing_max_fraction) * peak
+        and (trail_baseline - baseline) < float(trailing_max_fraction) * accepted_peak
     )
     evidence["trailing_baseline"] = trail_baseline
     evidence["trailing_sigma"] = trail_spread
@@ -1594,11 +1642,11 @@ def _active_window(
     # the leading baseline judges it instead.
     end_threshold = None
     if trail_quiet:
-        trailing = trail_baseline + max(end_frac * peak, float(sigma) * trail_spread)
-        if trailing < baseline + peak:
+        trailing = trail_baseline + max(end_frac * accepted_peak, float(sigma) * trail_spread)
+        if trailing < baseline + accepted_peak:
             end_threshold = trailing
     if end_threshold is None and end_frac > float(fraction):
-        end_threshold = baseline + max(end_frac * peak, float(sigma) * spread)
+        end_threshold = baseline + max(end_frac * accepted_peak, float(sigma) * spread)
     if end_threshold is not None:
         above_end = _bridged(y > end_threshold, gap)
         # A trailing segment whose own peak never reaches the end threshold is
@@ -1612,8 +1660,11 @@ def _active_window(
         i_peak_last = seg0 + int(np.argmax(y[seg0:seg1]))
         stop = _extend_forward(above_end, i_peak_last, quiet)
         if stop <= i_peak_last:
-            # Unreachable with the threshold below the peak; the guard against a
-            # segment ending before its own peak (an empty run) stays.
+            # Defensive since #726 scaled the threshold from the accepted
+            # amplitude: the largest accepted segment is above a fraction of
+            # its own peak by construction, and the drop loop leaves that one
+            # or a later one at least as large.  Kept because "the window ends
+            # before its own peak" is not a shape to report as a window.
             flags.append("offset_threshold_above_peak")
         elif stop < y.size:
             last = stop

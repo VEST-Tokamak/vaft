@@ -71,6 +71,9 @@ DEFINITIONAL = frozenset({
     "export_electron_profile_txt",
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
+    # Deleting a sum-over-species leaf from a slice that has no ion species is
+    # what the leaf means, not a method borrowed from anywhere.
+    "strip_electron_only_pressure",
     "compute_time_match_atol",
     "find_time_match_index",
     "normalize_atomic_symbol",
@@ -106,6 +109,7 @@ PIPELINE = frozenset({
     "sxr_band_signals",
     "sxr_electron_temperature",
     # equilibrium (#419)
+    "calculate_q_profile_from_psi",
     "calculate_reconstructed_diamagnetic_flux",
     "convert_cocos",
     "derive_global_descriptors",
@@ -183,12 +187,32 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    "align_surfaces_by_q",
+    "composite_drive_at_q",
+    "helical_phase_sweep",
+    "q_composite_table",
+    "reduce_delta_e",
+    # perturbation: the resonant reductions state their radial window
+    # convention and their tesla-not-gauss unit choice.
+    "chirikov",
+    "edge_overlap_metric",
+    "energy_norm_matrix",
+    "critical_island_width",
+    "group_coincident_islands",
+    "island_overlap_width",
+    "island_pairs",
+    "penetration_ratio",
+    "reduce_resonant",
+    "resonant_metrics",
+    "resonant_windows",
+    "rms_resonant_field",
+
     # profile (V4/D-05): the position is in the declared radial coordinate
     # and is never converted
     "pedestal_top",
     # magnetics / electromagnetics / fluctuation (#418): integration sign,
-    # shot-era baselines, per-unit-current responses, and the two mode-number
-    # entry points that disagree on the sign of n (#638)
+    # shot-era baselines, per-unit-current responses, and the toroidal mode-number
+    # entry points harmonized under standard right-handed coordinates (#638)
     "analyze_fluctuation_spectrum",
     "b_field_pol_probe_field",
     "calc_grid",
@@ -262,6 +286,7 @@ CONVENTION_SENSITIVE = frozenset({
     "as_equilibrium",
     "calculate_average_boundary_poloidal_field",
     "calculate_diamagnetism",
+    "calculate_q_profile_from_psi",
     "calculate_reconstructed_diamagnetic_flux",
     "check_equilibrium_requirements",
     "computed_diamagnetism_from_phi",

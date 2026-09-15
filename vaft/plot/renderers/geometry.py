@@ -18,7 +18,9 @@ from matplotlib.figure import Figure
 
 from ..models import Geometry3DLayers, GeometryLayer, GeometryLayers
 from ..registry import renderer
-from ..style import finalize, resolve_axes
+from ..intent import active_theme
+from ..presentation import presented, resolve_style
+from ..style import apply_legend, finalize, resolve_axes
 
 __all__ = [
     "charge_exchange_geometry_poloidal",
@@ -51,7 +53,7 @@ def draw_geometry_layer(
 
     ``defaults`` are applied to every layer; the layer's own ``style`` wins.
     """
-    options = {**defaults, **layer.style}
+    options = resolve_style({**defaults, **layer.style})
     r, z = layer.r, layer.z
     if layer.kind == "text":
         # An annotation names what is drawn beside it; legend keys are for
@@ -67,6 +69,9 @@ def draw_geometry_layer(
     if layer.kind == "points":
         options.setdefault("linestyle", "none")
         options.setdefault("marker", "o")
+        if active_theme() is not None:
+            # Every point is a sensor; a theme's markevery thins traces, not these.
+            options.setdefault("markevery", 1)
         axes.plot(r, z, **options)
         return
     if layer.kind == "polygon" and r.size and (r[0] != r[-1] or z[0] != z[-1]):
@@ -90,14 +95,17 @@ def _entry_colors(model: GeometryLayers) -> dict[str, Any]:
     return {entry: colors[index % len(colors)] for index, entry in enumerate(entries)}
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_geometry_layers(
     model: GeometryLayers,
     *,
     ax: Axes | None = None,
     show: bool = False,
     figsize: tuple[float, float] | None = None,
-    legend: bool = True,
+    legend: bool | None = None,
     grid: bool = True,
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`GeometryLayers` stack into one equal-aspect axes.
@@ -136,8 +144,13 @@ def render_geometry_layers(
     low, high = axes.get_ylim()
     pad = 0.06 * (high - low)
     axes.set_ylim(low - pad, high + pad)
-    if legend and model.legend and labelled:
-        axes.legend(loc="best", fontsize="small")
+    if model.legend and labelled:
+        # Through the shared policy rather than straight to `axes.legend`: a
+        # view with more layers than `LEGEND_MAX_ENTRIES` -- 40 soft X-ray
+        # sight lines, 10 PF coils -- otherwise draws a legend that covers the
+        # drawing it is labelling (#764). `lone_entry` keeps the legend a
+        # single named layer still earns.
+        apply_legend(axes, legend=legend, lone_entry=True)
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
@@ -385,9 +398,9 @@ def machine_geometry_topview(
     return render_geometry_layers(model, ax=ax, show=show, **style)
 
 
-def _resolve_3d_axes(ax: Axes | None) -> tuple[Figure, Axes]:
+def _resolve_3d_axes(ax: Axes | None, figsize: tuple[float, float] | None = None) -> tuple[Figure, Axes]:
     if ax is None:
-        figure = plt.figure(figsize=_DEFAULT_FIGSIZE)
+        figure = plt.figure(figsize=figsize or _DEFAULT_FIGSIZE)
         return figure, figure.add_subplot(projection="3d")
     if getattr(ax, "name", "") == "3d":
         return ax.figure, ax
@@ -402,12 +415,16 @@ def _resolve_3d_axes(ax: Axes | None) -> tuple[Figure, Axes]:
     return figure, figure.add_subplot(projection="3d")
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_geometry_3d_layers(
     model: Geometry3DLayers,
     *,
     ax: Axes | None = None,
     show: bool = False,
-    legend: bool = True,
+    legend: bool | None = None,
+    figsize: tuple[float, float] | None = None,
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Geometry3DLayers` stack into one 3D machine view.
@@ -421,17 +438,19 @@ def render_geometry_3d_layers(
             f"expected a vaft.plot.models.Geometry3DLayers; got {type(model).__name__}. "
             "Adapters such as vaft.omas.plot_* build the model from data objects."
         )
-    figure, axes = _resolve_3d_axes(ax)
+    figure, axes = _resolve_3d_axes(ax, figsize)
 
     labelled = False
     for layer in model.layers:
-        options = {**style, **layer.style}
+        options = resolve_style({**style, **layer.style})
         if layer.label:
             options.setdefault("label", layer.label)
             labelled = True
         if layer.kind == "points":
             options.setdefault("linestyle", "none")
             options.setdefault("marker", "o")
+            if active_theme() is not None:
+                options.setdefault("markevery", 1)
         axes.plot(layer.x, layer.y, layer.z, **options)
 
     if model.layers:
@@ -449,8 +468,8 @@ def render_geometry_3d_layers(
     axes.set_zlabel(model.z_label)
     if model.title:
         axes.set_title(model.title)
-    if legend and labelled:
-        axes.legend(loc="best", fontsize="small")
+    if labelled:
+        apply_legend(axes, legend=legend, lone_entry=True)
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import shutil
@@ -30,6 +31,25 @@ def _write_outputs(manifest: Path, status: Path, refined: tuple[Path, ...], stat
     status.parent.mkdir(parents=True, exist_ok=True)
     manifest.write_text("\n".join(str(path) for path in refined) + ("\n" if refined else ""), encoding="utf-8")
     status.write_text(status_text.rstrip() + "\n", encoding="utf-8")
+
+
+def _sha256(path: Path | str | None) -> str:
+    """SHA-256 of a file, or "" when there is none to hash.
+
+    Provenance about a run, never a reason to fail one: an unreadable file
+    yields "" -- which a verifier can act on -- rather than an exception that
+    would lose a completed refinement over a hash.
+    """
+    if path is None:
+        return ""
+    candidate = Path(path)
+    if not candidate.is_file():
+        return ""
+    digest = hashlib.sha256()
+    with candidate.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _time_label(path: Path) -> str:
@@ -149,7 +169,7 @@ def main() -> int:
     timeout = float(args.timeout) if str(args.timeout).strip() else None
     for gfile in gfiles:
         if not gfile.exists():
-            records.append({"input": str(gfile), "status": "missing_input"})
+            records.append({"input": str(gfile), "input_sha256": "", "status": "missing_input"})
             continue
 
         run_workdir = work_root / gfile.name
@@ -171,6 +191,13 @@ def main() -> int:
             result = run_chease(inputs, config)
             record = {
                 "input": str(gfile),
+                # The EFIT end of the provenance chain. A path alone says which
+                # file was read only if that file never changed afterwards,
+                # which is exactly the assumption this records instead of
+                # trusting: the hash ties this refinement to the reconstruction
+                # that produced its input, and EFIT records the same digest at
+                # `equilibrium.code.parameters.time_slice.{i}.artifacts.gfile.sha256`.
+                "input_sha256": _sha256(gfile),
                 "workdir": str(run_workdir),
                 "returncode": result.returncode,
                 "refined_geqdsk": str(result.refined_geqdsk) if result.refined_geqdsk else "",
@@ -183,6 +210,10 @@ def main() -> int:
                 plot = _stage_plot(run_workdir, gfile, plots_dir)
                 record["status"] = "completed"
                 record["staged"] = str(staged)
+                # Hashed after staging, so it is the digest of the file the
+                # stability stage will actually open -- not of the one in the
+                # work tree, which is not what anything downstream reads.
+                record["output_sha256"] = _sha256(staged)
                 record["plot"] = str(plot) if plot else ""
             else:
                 record["status"] = "failed"
@@ -190,7 +221,13 @@ def main() -> int:
             records.append(record)
         except Exception as exc:
             LOGGER.exception("CHEASE failed for %s", gfile)
-            records.append({"input": str(gfile), "workdir": str(run_workdir), "status": "error", "error": str(exc)})
+            records.append({
+                "input": str(gfile),
+                "input_sha256": _sha256(gfile),
+                "workdir": str(run_workdir),
+                "status": "error",
+                "error": str(exc),
+            })
 
     _write_runs_summary(output_dir, args.shot, str(resolved_executable), gfiles, tuple(refined), records)
     _write_plot_manifest(plots_dir)

@@ -31,41 +31,87 @@ from .constants import (
 )
 from .utils import gradient
 
+#: What ``from vaft.formula.stability import *`` binds, and therefore what
+#: reaches ``vaft.formula.__all__``. Stability limits, operational boundaries and transport figures.
+#: Declared so the package stops re-exporting this module's own imports --
+#: ``np``, ``warnings``, ``Union``, ``curve_fit`` -- as though they were
+#: formulas (#368).
+__all__ = [
+    "ballooning_alpha_from_p_B_R",
+    "ballooning_stability_criterion",
+    "beta_N_from_beta_a_B0_Ip",
+    "beta_pol_from_beta_tor",
+    "beta_stability_boundary",
+    "beta_tor_from_beta_pol",
+    "c_s_from_Te_Ti_mi",
+    "collisionality_from_n_T_B_R",
+    "empirical_li_qa",
+    "greenwald_density",
+    "greenwald_fraction",
+    "kink_stability_criterion",
+    "li_from_qa_empirical",
+    "plasma_stability_margins",
+    "power_limit_from_beta",
+    "power_limit_from_q",
+    "rhostar_from_Te_a_Bt",
+    "sawtooth_stability_criterion",
+    "v_alfven_from_B_n_mi",
+]
+
+
 # ------------------------------------------------------------------
 # Beta Calculations
 # ------------------------------------------------------------------
 
-def beta_N_from_beta_a_B0_Ip(beta: float,
+
+def _validate_epsilon(epsilon):
+    """The cylindrical beta relations divide by epsilon; refuse a non-positive one."""
+    value = np.asarray(epsilon, dtype=float)
+    if np.any(~np.isfinite(value)) or np.any(value <= 0.0):
+        raise ValueError(
+            f"epsilon must be finite and strictly positive, got {epsilon!r}"
+        )
+    return value if value.ndim else float(value)
+
+
+def beta_N_from_beta_a_B0_Ip(beta_percent: float,
                             a: float,
                             B0: float,
-                            I_p: float) -> float:
-    r"""Normalised beta evaluated literally as $\beta\,a\,B_0/I_p$.
+                            I_p_MA: float) -> float:
+    r"""Normalised beta in the Troyon convention, %·m·T/MA.
 
-    $$\beta_N = \frac{\beta\,a\,B_0}{I_p}$$
+    $$\beta_N = \frac{\beta[\%]\;a[\mathrm{m}]\;B_0[\mathrm{T}]}{I_p[\mathrm{MA}]}$$
 
     Parameters
     ----------
-    beta : float
-        Toroidal beta as a fraction [-].
+    beta_percent : float
+        Toroidal beta **in percent**, not as a fraction [%].
     a : float
         Minor radius [m].
     B0 : float
         Toroidal field on axis [T].
-    I_p : float
-        Plasma current [A].
+    I_p_MA : float
+        Plasma current **in megaamperes** [MA].
 
     Returns
     -------
     float
-        The ratio in fraction-metre-tesla per ampere [m T/A].
+        Normalised beta, directly comparable with the Troyon limit [%·m·T/MA].
 
     Convention
     ----------
-    The community $\beta_N$ (Troyon) is quoted in %·m·T/MA, i.e. $\beta$ in
-    percent and $I_p$ in MA, and the Troyon limit is $\beta_N \lesssim 2.8$ in
-    those units.  This function does not rescale: with the SI inputs above the
-    result is $10^{-8}$ times the conventional number.  Feed $\beta$ in percent
-    and $I_p$ in MA to obtain it directly.  Tracked in #349.
+    Percent and megaamperes, which is how Troyon [1]_ and the ITER Physics
+    Basis [2]_ quote $\beta_N$ and the only convention in which the limit
+    $\beta_N \lesssim 2.8$ means anything. The parameter names carry their
+    units because this function used to take SI -- a fraction and amperes --
+    and return $10^{-8}$ times the conventional number, which no rescaling of
+    the *output* fixes for a reader comparing against 2.8 (#349).
+
+    Physical interpretation
+    -----------------------
+    The pressure a tokamak can hold scales with $I_p/(aB_0)$, so dividing it
+    out leaves a figure that is comparable across machines; exceeding ~2.8
+    means an ideal-MHD beta limit rather than a machine-specific one.
 
     References
     ----------
@@ -73,14 +119,15 @@ def beta_N_from_beta_a_B0_Ip(beta: float,
     .. [2] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 3,
            Sec. 2.1 (definition of $\beta_N$).
     """
-    return beta * a * B0 / I_p
+    return beta_percent * a * B0 / I_p_MA
 
 
 def beta_pol_from_beta_tor(beta_tor: float,
-                          q_95: float) -> float:
-    r"""Poloidal beta from toroidal beta, $\beta_p = \beta_t\,q_{95}^2$.
+                          q_95: float,
+                          epsilon: float) -> float:
+    r"""Poloidal beta from toroidal beta, cylindrical relation.
 
-    $$\beta_p = \beta_t\,q_{95}^2$$
+    $$\beta_p = \beta_t\left(\frac{q}{\varepsilon}\right)^2$$
 
     Parameters
     ----------
@@ -88,11 +135,19 @@ def beta_pol_from_beta_tor(beta_tor: float,
         Toroidal beta [-].
     q_95 : float
         Safety factor at the 95% flux surface [-].
+    epsilon : float
+        Inverse aspect ratio $a/R_0$, strictly positive [-].
 
     Returns
     -------
     float
         Poloidal beta [-].
+
+    Raises
+    ------
+    ValueError
+        When ``epsilon`` is not strictly positive, since the relation divides
+        by it [-].
 
     Assumptions
     -----------
@@ -100,24 +155,28 @@ def beta_pol_from_beta_tor(beta_tor: float,
 
     Limitations
     -----------
-    The cylindrical relation is $\beta_p = \beta_t\,(q/\varepsilon)^2$; the
-    $1/\varepsilon^2$ is missing here, so the result equals the standard value
-    only at $\varepsilon = 1$ and underestimates $\beta_p$ by $\varepsilon^2$
-    otherwise.  Tracked in #363.
+    Until #363 the $1/\varepsilon^2$ was missing, so the result was right only
+    at $\varepsilon = 1$ and low by $\varepsilon^2$ everywhere else -- a factor
+    of about 2 at the $\varepsilon \simeq 0.7$ of a spherical tokamak and more
+    than 10 at a conventional $\varepsilon \simeq 0.3$. Round-tripping through
+    :func:`beta_tor_from_beta_pol` hid it, because both directions were wrong by
+    the same factor.
 
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 3.5 (relation between $\beta$, $\beta_p$ and $q$).
     """
-    return beta_tor * q_95**2
+    epsilon = _validate_epsilon(epsilon)
+    return beta_tor * (q_95 / epsilon) ** 2
 
 
 def beta_tor_from_beta_pol(beta_pol: float,
-                          q_95: float) -> float:
-    r"""Toroidal beta from poloidal beta, $\beta_t = \beta_p/q_{95}^2$.
+                          q_95: float,
+                          epsilon: float) -> float:
+    r"""Toroidal beta from poloidal beta, cylindrical relation.
 
-    $$\beta_t = \frac{\beta_p}{q_{95}^2}$$
+    $$\beta_t = \beta_p\left(\frac{\varepsilon}{q}\right)^2$$
 
     Parameters
     ----------
@@ -125,27 +184,34 @@ def beta_tor_from_beta_pol(beta_pol: float,
         Poloidal beta [-].
     q_95 : float
         Safety factor at the 95% flux surface [-].
+    epsilon : float
+        Inverse aspect ratio $a/R_0$, strictly positive [-].
 
     Returns
     -------
     float
         Toroidal beta [-].
 
+    Raises
+    ------
+    ValueError
+        When ``epsilon`` is not strictly positive [-].
+
     Assumptions
     -----------
-    Circular, large-aspect-ratio cylinder; inverse of :func:`beta_pol_from_beta_tor`.
+    Circular, large-aspect-ratio cylinder; exact inverse of
+    :func:`beta_pol_from_beta_tor`.
 
     Limitations
     -----------
-    Missing $\varepsilon^2$ factor of the cylindrical relation $\beta_t =
-    \beta_p\,\varepsilon^2/q^2$, as for :func:`beta_pol_from_beta_tor`.
-    Tracked in #363.
+    Carried the same missing $\varepsilon^2$ as its inverse until #363.
 
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 3.5.
     """
-    return beta_pol / q_95**2
+    epsilon = _validate_epsilon(epsilon)
+    return beta_pol * (epsilon / q_95) ** 2
 
 
 # ------------------------------------------------------------------
@@ -238,10 +304,11 @@ def li_from_qa_empirical(qa: np.ndarray) -> np.ndarray:
 
 def ballooning_alpha_from_p_B_R(p: Union[float, np.ndarray],
                             B: Union[float, np.ndarray],
-                            R: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
-    r"""Normalised pressure gradient of the $s$-$\alpha$ ballooning model, without $q^2$.
+                            R: Union[float, np.ndarray],
+                            q: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    r"""Normalised pressure gradient $\alpha$ of the $s$-$\alpha$ ballooning model.
 
-    $$\alpha = -\frac{2\mu_0 R}{B^2}\,\frac{dp}{dR}$$
+    $$\alpha = -\frac{2\mu_0 R q^2}{B^2}\,\frac{dp}{dr}$$
 
     Parameters
     ----------
@@ -251,19 +318,28 @@ def ballooning_alpha_from_p_B_R(p: Union[float, np.ndarray],
         Magnetic field strength [T].
     R : float or np.ndarray
         Major radius of the samples, monotonic [m].
+    q : float or np.ndarray
+        Safety factor on the same surfaces [-].
 
     Returns
     -------
     float or np.ndarray
-        Ballooning parameter as defined above [-].
+        Ballooning parameter in the Connor-Hastie-Taylor normalisation [-].
 
     Convention
     ----------
-    Connor, Hastie and Taylor define $\alpha = -2\mu_0 R q^2\,(dp/dr)/B^2$ with
-    $r$ the minor radius.  This routine omits the $q^2$ factor and
-    differentiates against the major radius $R$, so it returns the standard
-    $\alpha$ divided by $q^2$; multiply by $q^2$ before reading it against the
-    $s$-$\alpha$ diagram.  Tracked in #364.
+    Connor, Hastie and Taylor [1]_ define $\alpha$ with the $q^2$ and with $r$
+    the minor radius. Until #364 this omitted the $q^2$ entirely, so it returned
+    $\alpha/q^2$ -- an order of magnitude at $q \simeq 3$ -- while
+    :func:`ballooning_stability_criterion` compared the result against
+    $0.6\,s$ as though it were the standard $\alpha$.
+
+    Limitations
+    -----------
+    The derivative is still taken against the **major** radius $R$, not the
+    minor radius $r$ of the definition. For a large-aspect-ratio circular
+    plasma on the outboard midplane the two coincide, which is the case this is
+    used for; anywhere else the caller must supply a minor-radius abscissa.
 
     Numerical notes
     ---------------
@@ -277,7 +353,7 @@ def ballooning_alpha_from_p_B_R(p: Union[float, np.ndarray],
     .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 6.13 (ballooning modes).
     """
-    return -2 * MU0 * R * gradient(R, p) / B**2
+    return -2 * MU0 * R * q**2 * gradient(R, p) / B**2
 
 
 def ballooning_stability_criterion(alpha: Union[float, np.ndarray],
@@ -789,11 +865,12 @@ def c_s_from_Te_Ti_mi(T_e_keV: float,
 
 def rhostar_from_Te_a_Bt(Te_eV: float,
                          a_minor: float,
-                         B_t: float,
-                         m_e: float = ME) -> float:
-    r"""Electron gyroradius figure $\sqrt{T_e}\,a/B_t$ (as implemented).
+                         B_t: float) -> float:
+    r"""Normalised electron gyroradius $\rho_e/a$.
 
-    $$\rho_*^{\mathrm{(impl)}} = \frac{\sqrt{T_e}}{B_t}\,a$$
+    $$\rho_* = \frac{\rho_e}{a}, \qquad
+      \rho_e = \frac{\sqrt{2 m_e e T_e}}{e B_t}
+              = \sqrt{\frac{2m_e}{e}}\;\frac{\sqrt{T_e}}{B_t}$$
 
     Parameters
     ----------
@@ -803,27 +880,30 @@ def rhostar_from_Te_a_Bt(Te_eV: float,
         Minor radius [m].
     B_t : float
         Toroidal field [T].
-    m_e : float, optional
-        Electron mass, accepted but unused; default ``ME`` [kg].
 
     Returns
     -------
     float
-        The expression above [eV^1/2 m/T].
+        Normalised electron gyroradius [-].
 
     Convention
     ----------
-    Intended as the normalised electron gyroradius $\rho_e/a$ with $\rho_e =
-    \sqrt{2m_eT_e}/(eB)$, which *divides* by $a$ and carries the constant
-    $\sqrt{2m_e/e} = 3.37\times10^{-6}$ m T eV$^{-1/2}$.  The implementation
-    multiplies by $a$ and omits the constant, so it is neither dimensionless
-    nor proportional to $\rho_*$ across devices.  Tracked in #348; use
-    :func:`vaft.formula.equilibrium.normalized_larmor_radius_from_M_T_a_Bt`
-    with ``M=ME``.
+    Thermal speed $\sqrt{2T/m}$ and the toroidal field, normalised by the minor
+    radius: the ITER Physics Basis definition [1]_, and the electron counterpart
+    of :func:`vaft.formula.equilibrium.normalized_larmor_radius_from_M_T_a_Bt`,
+    which this delegates to so the two cannot drift.
+
+    Until #348 this multiplied by $a$ instead of dividing, omitted the constant
+    $\sqrt{2m_e/e} = 3.37\times10^{-6}$ m T eV$^{-1/2}$, and ignored an
+    ``m_e`` argument it accepted -- so the result was neither dimensionless nor
+    proportional to $\rho_*$ across devices, and no rescaling recovered it. The
+    dead ``m_e`` parameter is gone with the defect.
 
     References
     ----------
     .. [1] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 2,
            Sec. 6 (dimensionless parameters).
     """
-    return np.sqrt(Te_eV) / B_t * a_minor
+    from .equilibrium import normalized_larmor_radius_from_M_T_a_Bt
+
+    return normalized_larmor_radius_from_M_T_a_Bt(ME, Te_eV, a_minor, B_t)

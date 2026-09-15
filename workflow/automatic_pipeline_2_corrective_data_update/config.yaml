@@ -1,0 +1,30 @@
+# Pipeline 2 -- the Thomson lineage.
+#
+# Canonical layout only: these stages have no shot-first equivalent, because the
+# legacy pipeline never produced them.
+base_dir: /srv/vest.filedb
+layout: filedb
+
+shots: [48226]
+
+external:
+  # Where the hand-uploaded .mat files are searched for. Empty lets each mapper
+  # use its own default search, which covers the layouts VEST has used.
+  data_root: /srv/vest.diagnostic
+  # Which ion layout to read: `ces` for CES_{shot}.mat, `ids` for IDS_{shot}.mat.
+  ces_options: ids
+
+kinetic:
+  # Pressure-point encoding EFIT receives: raw6 (5 Thomson points plus a
+  # synthetic edge anchor), raw5, or a 129-point spline in psi.
+  encoding: raw6
+  # Empty resolves the binary from $EFIT / $EFITHOME.
+  executable: ""
+
+hsds:
+  replicate: false
+  attempts: 3
+  retry_delay: 5.0
+  concurrency: 4
+
+conda: null

@@ -141,7 +141,7 @@ def test_toroidal_mode_analysis_recovers_phase_mode():
     phase_geometry = np.pi / 6
     expected_n = 2
     signal_a = np.sin(2.0 * np.pi * 1_000.0 * time)
-    signal_b = np.sin(2.0 * np.pi * 1_000.0 * time + expected_n * phase_geometry)
+    signal_b = np.sin(2.0 * np.pi * 1_000.0 * time - expected_n * phase_geometry)
 
     result = toroidal_mode_analysis(
         signal_a,

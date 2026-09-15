@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
-import shutil
 import sys
 from typing import Optional, Sequence
 
@@ -23,7 +22,10 @@ from _external_code_common import (  # noqa: E402
     FAIL,
     PASS,
     SKIP,
-    WARN,
+    # Imported, not used here: test_install_bootstrap.py's
+    # test_external_code_checkers_share_the_vaft_vocabulary requires every
+    # checker to expose the whole shared vocabulary.
+    WARN,  # noqa: F401
     CheckResult,
     check_build_record,
     check_executables,
@@ -54,10 +56,10 @@ BUILD_REMEDIATION = (
 #: A packaged equilibrium, so the smoke run needs no data of its own.
 SAMPLE = "efit/g039915.00319"
 
-#: `CHEASEConfig.nideal` defaults to 11, which reproduces the VEST `jsk95`
-#: workflow against the CHEASE build that group uses. Upstream CHEASE accepts
-#: 1 through 10, where 6 is the documented default that writes the EQDSK VAFT
-#: reads back. The smoke run reports that difference rather than hiding it.
+#: Upstream CHEASE accepts NIDEAL 1 through 10 and quits in `cotrol` on
+#: anything outside it. 6 is upstream's own default, and since #717 it is
+#: VAFT's too -- so the smoke run below passes no override at all and this
+#: constant only names the value in the diagnostic when a build refuses it.
 UPSTREAM_NIDEAL = 6
 
 
@@ -140,7 +142,7 @@ def check_vaft_discovery(prefix: Optional[str]) -> CheckResult:
     return CheckResult(label, PASS, str(resolved))
 
 
-def _run_refinement(prefix: Optional[str], nideal: int, workdir: Path):
+def _run_refinement(prefix: Optional[str], nideal: Optional[int], workdir: Path):
     from vaft.code.chease import CHEASEConfig, prepare_chease_inputs, run_chease
     from vaft.data.resources import data_path
 
@@ -150,12 +152,13 @@ def _run_refinement(prefix: Optional[str], nideal: int, workdir: Path):
     try:
         # No explicit executable: resolution goes through $CHEASEHOME exactly as
         # it does for a notebook, so this layer exercises the real path.
+        overrides = {} if nideal is None else {"nideal": nideal}
         config = CHEASEConfig(
             workdir=workdir,
             create_plot=False,
             cleanup=False,
             timeout=900,
-            nideal=nideal,
+            **overrides,
         )
         inputs = prepare_chease_inputs(data_path(SAMPLE), config)
         return run_chease(inputs, config)
@@ -177,7 +180,10 @@ def check_reference_run(prefix: Optional[str], *, skip: bool) -> tuple[CheckResu
 
     workdir = Path(scratch_directory("vaft-chease-check-"))
     try:
-        result = _run_refinement(prefix, 11, workdir)
+        # The VAFT default, not a value chosen here: this check exists to say
+        # whether a notebook would run, so it has to exercise what a notebook
+        # actually gets.
+        result = _run_refinement(prefix, None, workdir)
     except Exception as error:
         return CheckResult(label, FAIL, f"{type(error).__name__}: {error}", BUILD_REMEDIATION), None
 
@@ -187,28 +193,21 @@ def check_reference_run(prefix: Optional[str], *, skip: bool) -> tuple[CheckResu
     log = workdir / "chease.log"
     text = log.read_text(encoding="utf-8", errors="replace") if log.is_file() else ""
     if "WRONG VALUE FOR NIDEAL" in text:
-        # Not an installation fault: the build is fine and the two codes simply
-        # disagree about one namelist value.
-        retry = Path(scratch_directory("vaft-chease-check-"))
-        try:
-            second = _run_refinement(prefix, UPSTREAM_NIDEAL, retry)
-        except Exception as error:
-            return CheckResult(label, FAIL, f"{type(error).__name__}: {error}", BUILD_REMEDIATION), None
-        if second.returncode == 0:
-            return (
-                CheckResult(
-                    label,
-                    WARN,
-                    f"refined {SAMPLE} only with nideal={UPSTREAM_NIDEAL}; this CHEASE "
-                    "rejects the VAFT default of 11",
-                    "CHEASEConfig.nideal defaults to 11 to reproduce the VEST jsk95 "
-                    "workflow, and this CHEASE accepts 1 to 10. Pass "
-                    f"CHEASEConfig(nideal={UPSTREAM_NIDEAL}) with this build, or use the "
-                    "CHEASE revision the VEST workflow was written against.",
-                ),
-                second,
-            )
-        shutil.rmtree(retry, ignore_errors=True)
+        # The default is inside upstream's documented range since #717, so a
+        # build that still rejects it disagrees with upstream rather than with
+        # VAFT -- worth saying plainly instead of reporting a generic exit.
+        return (
+            CheckResult(
+                label,
+                FAIL,
+                f"this CHEASE rejects NIDEAL={UPSTREAM_NIDEAL}, which upstream "
+                "documents as valid",
+                "Upstream CHEASE accepts NIDEAL 1 to 10 (cotrol.f90). A build that "
+                "refuses 6 is not the revision VAFT targets; check which CHEASE "
+                f"source was compiled. The full run is in {workdir}.",
+            ),
+            None,
+        )
 
     return (
         CheckResult(

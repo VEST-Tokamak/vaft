@@ -11,8 +11,9 @@ shot-39915 sample:
 * the reconstructed-flux kernel is EFIT's definition, so its sign follows the
   F profile it is given;
 * the measured loop carries the diamagnetic sign in that same convention --
-  shown by the virial energy balance closing with the measured flux and
-  breaking with its negation.
+  shown by comparing fluxes directly. It is deliberately *not* shown by a
+  virial energy balance any more: that rested on the reconstruction being
+  right, and this one is not (#386).
 
 The sample's own reconstruction is paramagnetic (its F profile rises toward
 the axis) and so its computed flux is positive against a negative
@@ -139,10 +140,25 @@ def test_the_kernel_is_efit_cdflux_and_follows_the_f_profile(sample):
 
 # --- the measured loop and the virial closure ---------------------------------
 
-def _virial_closure(sample, flux_sign):
+def test_the_measured_loop_implies_a_beta_p_the_reconstruction_does_not(sample):
+    """The loop and the reconstruction disagree, and with mu_i on one
+    convention the size of the disagreement is finally readable.
+
+    This test used to assert that the measured flux *reproduces* the virial
+    beta_p to 5%, using that agreement to establish the stored sign. The
+    agreement was an artifact: beta_p was built on the flux-sign mu_i, its
+    negative, so the two errors cancelled. On the volume convention the
+    reconstruction's own beta_p is 0.034 while the loop implies 1.44 -- a real
+    disagreement, #385 and #386 together, not a convention error.
+
+    The sign convention itself is established by the two tests above, which
+    compare fluxes directly and need no reconstruction to be right.
+    """
     from vaft.formula.equilibrium import virial_beta_pd_from_S_mu_rt
     from vaft.omas.process_wrapper import compute_virial_equilibrium_quantities_ods
-    from vaft.process.equilibrium import as_equilibrium, computed_diamagnetism_from_phi, derive_global_descriptors
+    from vaft.process.equilibrium import (
+        as_equilibrium, computed_diamagnetism_from_phi, derive_global_descriptors,
+    )
 
     virial = compute_virial_equilibrium_quantities_ods(copy.deepcopy(sample), time_slice=SLICE)[SLICE]
     measured = float(np.interp(
@@ -152,37 +168,16 @@ def _virial_closure(sample, flux_sign):
     ))
     r_0 = float(derive_global_descriptors(as_equilibrium(sample, time_index=SLICE)).values["major_radius"].value)
     b_t0 = float(sample["equilibrium.vacuum_toroidal_field.b0"][SLICE])
-    mui = computed_diamagnetism_from_phi(flux_sign * measured, b_t0, r_0, virial["V_p"], virial["B_pa"])
-    beta_pd = virial_beta_pd_from_S_mu_rt(virial["s_1"], virial["s_2"], mui, virial["rt"] / r_0)
-    return measured, mui, beta_pd, virial["beta_p"]
+    # computed_diamagnetism_from_phi is the flux convention, which is what
+    # virial_beta_pd_from_S_mu_rt takes -- the pairing is internally consistent.
+    mui_hat = computed_diamagnetism_from_phi(measured, b_t0, r_0, virial["V_p"], virial["B_pa"])
+    beta_pd = virial_beta_pd_from_S_mu_rt(virial["s_1"], virial["s_2"], mui_hat, virial["rt"] / r_0)
 
-
-def test_the_measured_loop_closes_the_virial_balance_in_the_shared_convention(sample):
-    """Same signed convention on both sides: the measured flux, taken as it is
-    stored, reproduces the virial beta_p far better than its negation does.
-    This is what makes the #72 diamagnetic-energy check a test of the data
-    rather than of an accidental sign agreement.
-
-    The stored sign leaves ~8%, not ~0%, and that residual is real: beta_p is
-    built on the equilibrium's own mu_i (+0.75 here) and beta_pd on the measured
-    one (-0.63), quantities the next test records as disagreeing about the
-    direction of the plasma diamagnetism. Until #546 this test asserted 5%,
-    which the Lao beta_p sign error supplied by cancelling that disagreement.
-    The discriminator is the asymmetry between the two signs -- a factor of
-    eleven -- not a tight absolute agreement that was never physical.
-    """
-    measured, mui, beta_pd, beta_p = _virial_closure(sample, +1.0)
-    assert measured < 0 and mui < 0
-    _, mui_negated, beta_pd_negated, _ = _virial_closure(sample, -1.0)
-    assert mui_negated == pytest.approx(-mui, rel=1e-9)
-
-    stored_error = abs(beta_pd - beta_p) / abs(beta_p)
-    negated_error = abs(beta_pd_negated - beta_p) / abs(beta_p)
-    assert stored_error < 0.15, "the stored sign must still close the balance"
-    assert negated_error > 10.0 * stored_error, (
-        "negating the measured flux must be clearly worse, or this test cannot "
-        "establish the convention"
-    )
+    assert measured < 0, "the packaged loop measures a diamagnetic plasma"
+    assert virial["mui"] < 0, "the reconstruction is paramagnetic: they disagree"
+    # The loop implies an ordinary beta_p; the reconstruction implies almost none.
+    assert beta_pd > 1.0
+    assert abs(virial["beta_p"]) < 0.1
 
 
 def test_the_sample_reconstruction_disagrees_with_its_loop_and_that_is_a_fit_failure(sample):

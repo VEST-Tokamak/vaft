@@ -109,8 +109,8 @@ class TestBaselineAndReference:
 
     def test_reference_subtraction_removes_common_mode_and_keeps_the_tone(self):
         t = sxr_time()
-        # PF pickup is slow compared with the reference low-pass; the causal
-        # filter's group delay is negligible at 100 Hz but real at kHz scales.
+        # PF pickup is slow compared with the reference low-pass; zero-phase
+        # filtering removes group delay while preserving the plasma tone.
         pf_noise = 0.4 * np.sin(2 * np.pi * 100.0 * t)
         tone = 0.2 * np.sin(2 * np.pi * 20_000.0 * t)   # plasma-only fluctuation
         plasma = np.tile(pf_noise + tone, (2, 1))
@@ -215,7 +215,7 @@ class TestElectronTemperature:
             al_threshold=0.10, time_range=(0.295, 0.300),
         )
 
-        # Steady signals pass the causal low-pass unchanged after settle-in.
+        # Steady signals pass the low-pass unchanged after settle-in.
         assert np.nanmedian(result.te) == pytest.approx(10.0 + 50.0 * 0.5, rel=1e-3)
 
     def test_al_below_threshold_is_masked_as_nan(self):
@@ -354,3 +354,159 @@ class TestToroidalModeRanking:
                       if abs(abs(c.residual_deg) - abs(best.residual_deg)) < 1e-6}
         assert best.n == -1
         assert 2 in degenerate
+
+
+class TestFilterPhaseConsistency:
+    """Issue #626: Ensure zero-phase filtering preserves exact temporal alignment."""
+
+    def test_lowpass_zero_phase_preserves_pulse_peak_timestamp(self):
+        t = sxr_time(20000)
+        t_peak = 0.295
+        # Gaussian pulse with width ~ 0.5 ms
+        pulse = np.exp(-0.5 * ((t - t_peak) / 0.0005) ** 2)
+        raw_peak_idx = int(np.argmax(pulse))
+        assert t[raw_peak_idx] == pytest.approx(t_peak, abs=1.0 / FS)
+
+        # Zero-phase lowpass (default in SXR routines)
+        filtered_zp = butterworth_lowpass(pulse, 5_000.0, FS, order=2, zero_phase=True)
+        zp_peak_idx = int(np.argmax(filtered_zp))
+
+        # Peak timestamp is bit-exact / sample-exact preserved
+        assert zp_peak_idx == raw_peak_idx
+        assert t[zp_peak_idx] == pytest.approx(t[raw_peak_idx], abs=1e-12)
+
+        # Causal lowpass introduces physical group delay
+        filtered_causal = butterworth_lowpass(pulse, 5_000.0, FS, order=2, zero_phase=False)
+        causal_peak_idx = int(np.argmax(filtered_causal))
+
+        delay_samples = causal_peak_idx - raw_peak_idx
+        assert delay_samples > 0
+        # For 2nd order Butterworth at 5 kHz and fs ~ 976 kHz, delay is ~ 40-50 samples
+        assert delay_samples >= 30
+
+    def test_lowpass_zero_phase_step_response_symmetry(self):
+        t = sxr_time(20000)
+        t_step = 0.295
+        # Smooth step transition
+        step = 0.5 * (1.0 + np.tanh((t - t_step) / 0.0002))
+
+        filtered_zp = butterworth_lowpass(step, 5_000.0, FS, order=2, zero_phase=True)
+        filtered_causal = butterworth_lowpass(step, 5_000.0, FS, order=2, zero_phase=False)
+
+        # Half-height crossing (step value reaches 0.5)
+        zp_crossing_idx = int(np.argmin(np.abs(filtered_zp - 0.5)))
+        raw_crossing_idx = int(np.argmin(np.abs(step - 0.5)))
+        causal_crossing_idx = int(np.argmin(np.abs(filtered_causal - 0.5)))
+
+        # Zero-phase crossing aligns with raw crossing within 1 sample
+        assert abs(zp_crossing_idx - raw_crossing_idx) <= 1
+        # Causal crossing is delayed
+        assert causal_crossing_idx > raw_crossing_idx + 25
+
+    def test_vacuum_reference_zero_phase_preserves_transient_timing(self):
+        t = sxr_time(20000)
+        t_event = 0.295
+        pf_ramp = np.linspace(0.0, 1.0, t.size)
+        transient = 0.5 * np.exp(-0.5 * ((t - t_event) / 0.0005) ** 2)
+
+        vacuum = (pf_ramp + transient)[np.newaxis, :]
+        plasma = (pf_ramp + transient)[np.newaxis, :]
+
+        # Default zero_phase=True
+        subtracted_zp = sxr_subtract_vacuum_reference(
+            plasma, vacuum, cutoff=5_000.0, fs=FS, zero_phase=True
+        )
+        # Causal zero_phase=False
+        subtracted_causal = sxr_subtract_vacuum_reference(
+            plasma, vacuum, cutoff=5_000.0, fs=FS, zero_phase=False
+        )
+
+        # With zero-phase, reference subtraction around the transient is well-centered
+        # With causal, reference is shifted in time, leaving a significant bipolar artifact
+        interior = slice(int(np.argmax(transient)) - 50, int(np.argmax(transient)) + 50)
+        assert np.max(np.abs(subtracted_zp[0, interior])) < np.max(np.abs(subtracted_causal[0, interior]))
+
+    def test_electron_temperature_zero_phase_preserves_mhd_event_peak(self):
+        t = sxr_time(20000)
+        t_event = 0.295
+        # Fast heat pulse
+        pulse = 0.5 * np.exp(-0.5 * ((t - t_event) / 0.0002) ** 2)
+        al = 1.0 + pulse
+        be = 0.535 * (1.0 + pulse)  # ratio ~0.5, Te = 35 eV
+
+        calib = lambda r: 10.0 + 50.0 * np.asarray(r)
+
+        result_zp = sxr_electron_temperature(
+            t, np.vstack([be, al]), [(0, 1)],
+            calibration=calib,
+            baseline_start=None, fs=FS,
+            zero_phase=True,
+            time_range=(0.290, 0.300),
+        )
+
+        result_causal = sxr_electron_temperature(
+            t, np.vstack([be, al]), [(0, 1)],
+            calibration=calib,
+            baseline_start=None, fs=FS,
+            zero_phase=False,
+            time_range=(0.290, 0.300),
+        )
+
+        # In zero_phase, the filtered Al signal peak aligns with the pulse peak
+        zp_peak_idx = int(np.argmax(result_zp.al_signal[0]))
+        causal_peak_idx = int(np.argmax(result_causal.al_signal[0]))
+        raw_peak_idx = int(np.argmax(pulse[(t >= 0.290) & (t <= 0.300)]))
+
+        assert zp_peak_idx == raw_peak_idx
+        assert result_zp.time[zp_peak_idx] == pytest.approx(t_event, abs=1.0 / FS)
+        # Causal filter delays the peak by the group delay (several samples at 50 kHz cutoff)
+        assert causal_peak_idx > zp_peak_idx
+        assert result_causal.time[causal_peak_idx] > t_event + 2.0 / FS
+
+    def test_sxr_band_signals_zero_phase_option(self):
+        t = sxr_time(8192)
+        # Modulated wave packet: carrier in band, Gaussian envelope
+        carrier = np.cos(2 * np.pi * 3_500.0 * t)
+        t_center = 0.289
+        envelope = np.exp(-0.5 * ((t - t_center) / 0.001) ** 2)
+        packet = (envelope * carrier)[np.newaxis, :]
+
+        # Test both zero_phase=True (default) and explicit zero_phase=False
+        res_zp = sxr_band_signals(
+            t, packet, baseline_start=None, bands={"tone": (3e3, 4e3)}, fs=FS, zero_phase=True
+        )
+        res_causal = sxr_band_signals(
+            t, packet, baseline_start=None, bands={"tone": (3e3, 4e3)}, fs=FS, zero_phase=False
+        )
+
+        assert res_zp.bands["tone"].shape == (1, t.size)
+        assert res_causal.bands["tone"].shape == (1, t.size)
+
+        # In zero-phase, envelope peak aligns with the packet center
+        zp_peak_idx = int(np.argmax(np.abs(res_zp.bands["tone"][0])))
+        raw_peak_idx = int(np.argmax(np.abs(packet[0])))
+        causal_peak_idx = int(np.argmax(np.abs(res_causal.bands["tone"][0])))
+
+        assert abs(zp_peak_idx - raw_peak_idx) <= 1
+        # In causal filtering, envelope is delayed by the filter group delay
+        assert causal_peak_idx > zp_peak_idx
+
+    def test_short_record_padding_constraints(self):
+        # SciPy filtfilt padlen for order 2 lowpass is 3 * (order + 1) = 9 samples.
+        # Ensure that records shorter than padlen raise ValueError as expected from filtfilt
+        short_data = np.ones((2, 8))
+        with pytest.raises(ValueError, match="padlen"):
+            sxr_subtract_vacuum_reference(
+                short_data, short_data, cutoff=1_000.0, fs=FS, order=2, zero_phase=True
+            )
+
+        # For order 2 bandpass, filter order is 4, padlen is 3 * 5 = 15 samples.
+        # Windows shorter than padlen raise ValueError under zero_phase=True
+        short_t = np.arange(12, dtype=float) / FS + 0.285
+        short_band_data = np.ones((1, 12))
+        with pytest.raises(ValueError, match="padlen"):
+            sxr_band_signals(
+                short_t, short_band_data, baseline_start=None,
+                bands={"tone": (3e3, 4e3)}, fs=FS, order=2, zero_phase=True
+            )
+

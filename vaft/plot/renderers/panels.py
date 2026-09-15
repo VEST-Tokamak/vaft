@@ -8,7 +8,9 @@ themselves.
 
 from __future__ import annotations
 
-from typing import Any
+from dataclasses import replace
+
+from typing import Any, Sequence
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -25,6 +27,7 @@ from ..models import (
     TextPanel,
 )
 from ..registry import renderer
+from ..presentation import presented
 from ..style import finalize, resolve_axes
 
 __all__ = [
@@ -106,21 +109,30 @@ def _draw_text_panel(
     """Place a :class:`TextPanel`'s lines in an axes with no frame."""
     axis = ax if ax is not None else plt.subplots()[1]
     axis.set_axis_off()
+    # Clipped to its own cell: a text block that overran it would inflate
+    # the figure's tight bounding box and shrink every other axes to make
+    # room (issue #711); a cut last line is the lesser harm, and the grid
+    # policy asks for the height the lines need in the first place.
     axis.text(
         0.02, 0.98, "\n".join(model.lines), transform=axis.transAxes,
         ha="left", va="top", family="monospace", fontsize="small", linespacing=1.4,
+        clip_on=True,
     )
     if model.title:
         axis.set_title(model.title)
     return axis.figure, axis
 
 
+@presented(default_figsize=None)
 def render_panels(
     model: Panels,
     *,
     ax: Any = None,
     show: bool = False,
     figsize: tuple[float, float] | None = None,
+    row_heights: Sequence[float] | None = None,
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, np.ndarray]:
     """Draw each model in a :class:`Panels` grid into its own axes.
@@ -128,6 +140,9 @@ def render_panels(
     A caller-supplied ``ax=`` is the grid: exactly one axes per panel, filled
     in order.  Those axes are the caller's to configure, so ``model.share_x``
     and the tight layout apply only to a figure this renderer creates itself.
+    ``row_heights`` are relative heights for the grid's rows -- one per row
+    -- which a presentation format supplies from what the members asked
+    (issue #711); ``None`` divides the canvas equally, as always.
     """
     if not isinstance(model, Panels):
         raise TypeError(
@@ -166,11 +181,19 @@ def render_panels(
         figure = resolve_axes(None, figsize=figsize)[0]
         for axis in list(figure.axes):
             axis.remove()
-        gridspec = figure.add_gridspec(model.nrows, model.ncols)
-        flat = np.array(
-            [figure.add_subplot(gridspec[r:r + rs, c:c + cs]) for r, c, rs, cs in model.spans],
-            dtype=object,
+        gridspec = figure.add_gridspec(model.nrows, model.ncols, height_ratios=_row_ratios(row_heights, model.nrows))
+        # A field map's colorbar gets a cell of its own beside the map, the
+        # arrangement the slice navigator uses: a colorbar taken out of an
+        # equal-aspect axes shrinks the map instead, and the taller the row
+        # the smaller the map came out (issue #711).
+        field_slot = next(
+            (i for i, m in enumerate(model.models) if isinstance(m, Field2D) and m.colorbar), None,
         )
+        flat, colorbar_axes = slice_grid_axes(figure, gridspec, model, top=0, colorbar_slot=field_slot)
+        if colorbar_axes is not None:
+            styles = [dict(s) for s in (model.member_styles or ({},) * len(model.models))]
+            styles[field_slot]["colorbar_ax"] = colorbar_axes
+            model = replace(model, member_styles=tuple(styles))
         grid = flat
     else:
         if figsize is None:
@@ -178,6 +201,7 @@ def render_panels(
                 _DEFAULT_PANEL_WIDTH * model.ncols,
                 _DEFAULT_PANEL_HEIGHT * model.nrows,
             )
+        ratios = _row_ratios(row_heights, model.nrows)
         figure, axes = resolve_axes(
             None,
             nrows=model.nrows,
@@ -186,6 +210,7 @@ def render_panels(
             sharex=model.share_x,
             sharey=model.share_y,
             squeeze=False,
+            gridspec_kw={"height_ratios": ratios} if ratios is not None else None,
         )
         grid = np.asarray(axes, dtype=object).reshape(model.nrows, model.ncols)
         flat = grid.ravel()
@@ -244,6 +269,16 @@ def visual_rows(model: Panels) -> int:
         for c in range(col, col + colspan):
             columns[c] = columns.get(c, 0) + 1
     return max(columns.values()) if columns else 1
+
+
+def _row_ratios(row_heights: Sequence[float] | None, nrows: int) -> list[float] | None:
+    """``row_heights`` as gridspec ratios, or ``None`` when they do not fit the grid."""
+    if row_heights is None:
+        return None
+    ratios = [float(h) for h in row_heights]
+    if len(ratios) != nrows or any(h <= 0 for h in ratios):
+        return None
+    return ratios
 
 
 def slice_grid_axes(figure: Any, grid: Any, model: Panels, *, top: int = 0, colorbar_slot: int | None = None):
@@ -523,10 +558,10 @@ def spectrometer_uv_time_impurity(
     view="overview",
     quantity="",
     description=(
-        "Time histories of every diagnostic subject, one panel each, in a fixed "
-        "grid: a diagnostic absent from the input is a labelled empty panel, so "
-        "the figure has the same shape on every shot. Channels the source "
-        "flagged invalid are excluded by default."
+        "Time histories of every diagnostic subject, one panel each; a "
+        "diagnostic absent from the input is left out and the grid shrinks "
+        "(issue #476), and members= picks the panels by name (issue #482). "
+        "Channels the source flagged invalid are excluded by default."
     ),
     ids=("magnetics", "interferometer", "thomson_scattering", "charge_exchange",
          "spectrometer_uv", "barometry", "soft_x_rays"),
@@ -864,7 +899,9 @@ def equilibrium_overview_verification(
         model,
         ax=ax,
         show=show,
-        figsize=style.pop("figsize", (13.0, 10.0)),
+        # The format sizes it like any composite; only the legacy spelling
+        # keeps the 13 x 10 canvas this figure had before (issue #712).
+        figsize=style.pop("figsize", (13.0, 10.0) if style.get("format") == "legacy" else None),
         **style,
     )
 

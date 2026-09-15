@@ -92,6 +92,10 @@ __all__ = [
     "MIN_FLUX_SURFACE_POINTS",
     "calculate_average_boundary_poloidal_field",
     "calculate_diamagnetism",
+    "calculate_q_profile_from_psi",
+    "find_rational_surfaces",
+    "resistive_layer_at",
+    "resistive_layer_parameters",
     "calculate_reconstructed_diamagnetic_flux",
     "computed_diamagnetism_from_phi",
     "contour_shape_parameters",
@@ -1913,9 +1917,25 @@ def shafranov_integrals(
     weights = _plasma_cell_weights(R_grid, Z_grid, R_bdry, Z_bdry, cell_weights=cell_weights)
     dA = _cell_area_from_mesh(R_grid, Z_grid)
     B_p_sq = B_R_grid**2 + B_Z_grid**2
-    alpha_num = np.sum(R_grid * (B_Z_grid**2) * weights * dA)
-    alpha_den = np.sum(R_grid * B_p_sq * weights * dA)
-    alpha = 0.0 if alpha_den == 0.0 else float(2.0 * alpha_num / alpha_den)
+    # Mask on the weight, not with nansum. The psi-gradient field fallback marks
+    # the R = 0 column NaN on purpose and 0 * nan is nan, so a column *outside*
+    # the plasma used to void alpha for the whole slice. Dropping every NaN
+    # instead would also swallow one *inside* it, where the honest answer is
+    # NaN rather than a plausible-looking biased number.
+    _inside = weights > 0.0
+    alpha_num = np.sum(np.where(_inside, R_grid * (B_Z_grid**2) * weights * dA, 0.0))
+    alpha_den = np.sum(np.where(_inside, R_grid * B_p_sq * weights * dA, 0.0))
+    # NaN, not the 0.0 sentinel, when the denominator is undetermined. 0.0 is
+    # pair_23's exact singular point and a plausible-looking alpha, so it sails
+    # past the wrapper's `isfinite` abstain guard and yields finite closures
+    # from an equilibrium nothing could measure. The 0.0 above is for degenerate
+    # *geometry*, which is a different statement.
+    if not np.isfinite(alpha_den):
+        alpha = np.nan
+    elif alpha_den == 0.0:
+        alpha = 0.0
+    else:
+        alpha = float(2.0 * alpha_num / alpha_den)
 
     return S1, S2, S3, alpha
 
@@ -2007,9 +2027,15 @@ def efit_virial_volume_integrals(
     weights = _plasma_cell_weights(R_grid, Z_grid, R_bdry, Z_bdry, cell_weights=cell_weights)
 
     B_p_sq = B_R_grid**2 + B_Z_grid**2
-    alpha_num = np.sum(R_grid * (B_Z_grid**2) * weights * dA)
-    alpha_den = np.sum(R_grid * B_p_sq * weights * dA)
-    alpha = np.nan if alpha_den == 0.0 else float(2.0 * alpha_num / alpha_den)
+    # Mask on the weight, not with nansum. The psi-gradient field fallback marks
+    # the R = 0 column NaN on purpose and 0 * nan is nan, so a column *outside*
+    # the plasma used to void alpha for the whole slice. Dropping every NaN
+    # instead would also swallow one *inside* it, where the honest answer is
+    # NaN rather than a plausible-looking biased number.
+    _inside = weights > 0.0
+    alpha_num = np.sum(np.where(_inside, R_grid * (B_Z_grid**2) * weights * dA, 0.0))
+    alpha_den = np.sum(np.where(_inside, R_grid * B_p_sq * weights * dA, 0.0))
+    alpha = np.nan if not np.isfinite(alpha_den) or alpha_den == 0.0 else float(2.0 * alpha_num / alpha_den)
 
     RT = np.nan
     # |int G dA| / int |G| dA -- how much of the RT denominator survives the
@@ -2430,6 +2456,7 @@ FLUX_SURFACE_QUANTITIES = (
     "b_field_min",
     "bp_dl",
     "length_pol",
+    "q",
 )
 
 
@@ -2465,7 +2492,7 @@ def flux_surface_quantities(
         [-].
     f_profile : array_like, optional
         Poloidal current function ``F = R B_phi`` on the same levels. Required for
-        the mean square field [T m].
+        the mean square field and safety factor [T m].
     axis_rz : tuple of float, optional
         Magnetic axis position, used to pick the confined segment when a level
         traces several [m].
@@ -2482,8 +2509,8 @@ def flux_surface_quantities(
         *levels_norm*. Volume in cubic metres, areas in square metres, radii and
         ``length_pol`` in metres, ``bp_dl`` in tesla-metre, ``gm1`` in inverse
         square metres, ``gm5`` in tesla squared, ``gm8`` in metres, ``gm9`` in
-        inverse metres, the shape parameters dimensionless, and the two
-        derivatives per radian [-].
+        inverse metres, the shape parameters and safety factor ``q`` dimensionless,
+        and the two derivatives per radian [-].
 
     Convention
     ----------
@@ -2583,6 +2610,8 @@ def flux_surface_quantities(
         else {}
     )
 
+    from vaft.formula.equilibrium import q_from_flux_surface_averages
+
     for index, level in enumerate(levels):
         if level == 0.0:
             if axis_rz is not None:
@@ -2650,26 +2679,292 @@ def flux_surface_quantities(
             out["gm5"][index] = float(np.sum(weight * b_mod**2) / total)
             out["b_field_max"][index] = float(np.max(b_mod))
             out["b_field_min"][index] = float(np.min(b_mod))
+            out["q"][index] = float(
+                q_from_flux_surface_averages(
+                    out["gm1"][index], out["dvolume_dpsi"][index], f_values[index]
+                )
+            )
+
+    if f_values is not None:
+        # q is quadratic in radius r ~ sqrt(psi_N), making it smooth and linear in
+        # psi_N near the magnetic axis. Extrapolate q to axis level (psi_N = 0) in psi_N.
+        # Use a low-degree polynomial fit over innermost resolved surfaces (psi_N <= 0.25)
+        # to filter out discrete polygon vertex jitter on tiny near-axis contours.
+        axis_mask = levels == 0.0
+        if axis_mask.any() and not np.isfinite(out["q"][axis_mask]).all():
+            finite_idx = np.where(np.isfinite(out["q"]))[0]
+            if len(finite_idx) >= 2:
+                sorted_finite = finite_idx[np.argsort(levels[finite_idx])]
+                fit_idx = [i for i in sorted_finite if levels[i] <= 0.25]
+                if len(fit_idx) < 3:
+                    fit_idx = sorted_finite[: min(len(sorted_finite), 5)]
+                p_fit = levels[fit_idx]
+                q_fit = out["q"][fit_idx]
+                poly = np.polyfit(p_fit, q_fit, deg=1)
+                out["q"][axis_mask] = float(np.polyval(poly, 0.0))
+            elif len(finite_idx) == 1:
+                out["q"][axis_mask] = out["q"][finite_idx[0]]
 
     # Gaps are filled against sqrt(psi_N), not psi_N: near the axis a flux
     # surface's linear size goes as sqrt(psi_N), so every quantity that vanishes
     # there is linear in sqrt and badly curved in psi_N.  Interpolating a dropped
     # innermost level in psi_N underestimates `surface` by a third.
-    #
-    # `np.interp` requires an increasing `xp` and returns nonsense rather than
-    # raising when it does not get one, so the levels are sorted here instead of
-    # assumed: a psi profile stored boundary-first is a real input, and it
-    # corrupted only the quantities that happened to need a gap filled.
+    # q is instead smooth and linear in psi_N, so its gaps are filled against levels.
     coordinate = np.sqrt(np.clip(levels, 0.0, None))
     order = np.argsort(coordinate, kind="stable")
+    order_linear = np.argsort(levels, kind="stable")
     for name, values in out.items():
         missing = ~np.isfinite(values)
         if missing.any() and not missing.all():
-            good_sorted = order[np.isfinite(values[order])]
-            values[missing] = np.interp(
-                coordinate[missing], coordinate[good_sorted], values[good_sorted]
-            )
+            if name == "q":
+                good_sorted = order_linear[np.isfinite(values[order_linear])]
+                values[missing] = np.interp(
+                    levels[missing], levels[good_sorted], values[good_sorted]
+                )
+            else:
+                good_sorted = order[np.isfinite(values[order])]
+                values[missing] = np.interp(
+                    coordinate[missing], coordinate[good_sorted], values[good_sorted]
+                )
     return out
+
+
+def calculate_q_profile_from_psi(
+    psi_grid: np.ndarray,
+    R: np.ndarray,
+    Z: np.ndarray,
+    f_profile: Any,
+    psi_axis: float | None = None,
+    psi_boundary: float | None = None,
+    levels_norm: Any = None,
+    *,
+    axis_rz: tuple[float, float] | None = None,
+    boundary: tuple[np.ndarray, np.ndarray] | None = None,
+    cocos: int = 11,
+    sigma_ip: int = 1,
+    sigma_b0: int = 1,
+    min_points: int = MIN_FLUX_SURFACE_POINTS,
+    return_details: bool = False,
+) -> np.ndarray | dict[str, Any]:
+    """Calculate the safety factor profile q(psi) from a 2D poloidal flux map and F(psi).
+
+    Parameters
+    ----------
+    psi_grid : array_like
+        Poloidal flux on the grid, shaped ``(len(R), len(Z))``, in the convention
+        ``cocos`` specifies [Wb or Wb/rad].
+    R : array_like
+        Major-radius grid axis [m].
+    Z : array_like
+        Height grid axis [m].
+    f_profile : float, array_like, callable, or tuple of array_like
+        Poloidal current function ``F = R B_phi``, as a scalar float, 1D array,
+        callable ``f(psi)``, or tuple ``(psi_f, f_values)`` [T m].
+    psi_axis : float, optional
+        Poloidal flux at the magnetic axis, in the convention ``cocos`` specifies [Wb or Wb/rad].
+    psi_boundary : float, optional
+        Poloidal flux at the plasma boundary/LCFS, in the convention ``cocos`` specifies [Wb or Wb/rad].
+    levels_norm : sequence of float, optional
+        Normalized flux levels to evaluate on, 0 on axis and 1 at the boundary [-].
+    axis_rz : tuple of float, optional
+        Magnetic axis coordinates ``(R_axis, Z_axis)`` [m].
+    boundary : tuple of np.ndarray, optional
+        Boundary outline ``(R_bdry, Z_bdry)`` [m].
+    cocos : int, optional
+        COCOS coordinate convention index (1-8, 11-18) describing the input
+        conventions and target sign for ``q`` [-].
+    sigma_ip : int, optional
+        Sign of plasma current (+1 or -1) in the equilibrium coordinate system [-].
+    sigma_b0 : int, optional
+        Sign of toroidal field (+1 or -1) in the equilibrium coordinate system [-].
+    min_points : int, optional
+        Fewest contour vertices a level needs before it is treated as resolved [-].
+    return_details : bool, optional
+        Whether to return diagnostic parameters and the full flux-surface
+        quantities alongside the safety factor array [-].
+
+    Returns
+    -------
+    np.ndarray or dict of str to Any
+        If ``return_details`` is False, returns a 1D array of safety factor values ``q``
+        on ``levels_norm`` [-].
+        If ``return_details`` is True, returns a dict with keys ``"q"``, ``"levels_norm"``,
+        ``"psi_levels"``, ``"q_axis"``, ``"q_95"``, and ``"surfaces"`` [-].
+
+    Raises
+    ------
+    ValueError
+        The flux map is not shaped to ``(len(R), len(Z))``, ``psi_axis`` or
+        ``psi_boundary`` cannot be determined or are equal, or ``f_profile``
+        format is invalid.
+
+    Convention
+    ----------
+    In Sauter and Medvedev (2013), the safety factor is defined as:
+    $$q(\\psi) = \\frac{F(\\psi)}{2\\pi} \\oint \\frac{dl_p}{R^2 B_p}
+              = \\frac{F(\\psi)}{2\\pi} (2\\pi)^{e_{B_p}} \\oint \\frac{dl_p}{R |\\nabla\\psi|}$$
+    Expressed in terms of the geometric flux-surface averages computed by
+    :func:`flux_surface_quantities` (which operates in Wb/rad, $e_{B_p} = 0$, $dV/d\\psi$ per radian):
+    $$q(\\psi) = \\sigma \\cdot \\frac{F(\\psi)}{(2\\pi)^2} \\left\\langle \\frac{1}{R^2} \\right\\rangle \\frac{dV}{d\\psi}$$
+    where $\\langle 1/R^2 \\rangle$ is ``gm1``, $dV/d\\psi$ is ``dvolume_dpsi``, and $\\sigma$ is
+    the orientation sign from Sauter Eq. 23: $\\sigma_q = \\sigma_{Ip} \\sigma_{B0} \\sigma_{\\rho\\theta\\varphi}$.
+    When ``cocos`` indicates full Weber storage ($e_{B_p} = 1$, COCOS 11-18), the input fluxes are
+    divided by $2\\pi$ to enter the contour tracing engine, and the resulting profile carries the
+    exact COCOS-mandated sign.
+
+    Processing steps
+    ----------------
+    1. Validate grid dimensions and identify the flux conversion factor from ``cocos``.
+    2. Normalize or deduce ``psi_axis`` and ``psi_boundary``, converting to Wb/rad if necessary.
+    3. Evaluate and interpolate ``f_profile`` onto the requested ``levels_norm``.
+    4. Call :func:`flux_surface_quantities` to trace contours and compute geometric averages.
+    5. Apply on-axis quadratic extrapolation in radius (linear in normalized flux $\\psi_N$) to
+       resolve $q_0$.
+    6. Attach the COCOS sign factor $\\sigma_q$ and package the output.
+
+    Defaults
+    --------
+    ``levels_norm`` defaults to 65 points from 0 to 1 (numerical convenience).
+    ``cocos=11`` matches the IMAS standard data dictionary convention.
+
+    Applicability
+    -------------
+    Machine-independent. Works for any 2D tokamak poloidal flux map.
+
+    Provenance
+    ----------
+    .. [1] O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293,
+           Eq. (17) and Table I for COCOS relations and safety factor definitions.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 3.4.
+    """
+    from vaft.data.cocos import cocos_spec
+
+    if f_profile is None:
+        raise ValueError("f_profile must be provided and cannot be None.")
+
+    R_arr = np.asarray(R, dtype=float).reshape(-1)
+    Z_arr = np.asarray(Z, dtype=float).reshape(-1)
+    psi_arr = np.asarray(psi_grid, dtype=float)
+    if psi_arr.shape != (R_arr.size, Z_arr.size):
+        raise ValueError(
+            f"psi_grid shape {psi_arr.shape} must equal (len(R), len(Z)) = {(R_arr.size, Z_arr.size)}."
+        )
+
+    if levels_norm is None:
+        levels = np.linspace(0.0, 1.0, 65)
+    else:
+        levels = np.asarray(levels_norm, dtype=float).reshape(-1)
+
+    spline = None
+    if psi_axis is None:
+        if axis_rz is not None:
+            spline = RectBivariateSpline(R_arr, Z_arr, psi_arr)
+            psi_axis = float(spline.ev(axis_rz[0], axis_rz[1]))
+        else:
+            edge_val = float(
+                np.mean(
+                    [
+                        psi_arr[0, :],
+                        psi_arr[-1, :],
+                        psi_arr[:, 0],
+                        psi_arr[:, -1],
+                    ]
+                )
+            )
+            diff = psi_arr - edge_val
+            idx_max = np.unravel_index(np.argmax(np.abs(diff)), psi_arr.shape)
+            psi_axis = float(psi_arr[idx_max])
+            if axis_rz is None:
+                axis_rz = (float(R_arr[idx_max[0]]), float(Z_arr[idx_max[1]]))
+
+    if psi_boundary is None:
+        if boundary is not None:
+            if spline is None:
+                spline = RectBivariateSpline(R_arr, Z_arr, psi_arr)
+            r_b = np.asarray(boundary[0], dtype=float).reshape(-1)
+            z_b = np.asarray(boundary[1], dtype=float).reshape(-1)
+            psi_boundary = float(np.mean(spline.ev(r_b, z_b)))
+        else:
+            raise ValueError(
+                "psi_boundary could not be deduced; provide psi_boundary or boundary outline."
+            )
+
+    if psi_axis == psi_boundary:
+        raise ValueError("psi_axis and psi_boundary must differ to define normalized flux.")
+
+    psi_levels = psi_axis + levels * (psi_boundary - psi_axis)
+
+    if callable(f_profile):
+        f_values = np.asarray([float(f_profile(p)) for p in psi_levels], dtype=float)
+    elif isinstance(f_profile, (tuple, list)) and len(f_profile) == 2:
+        psi_f = np.asarray(f_profile[0], dtype=float).reshape(-1)
+        f_raw = np.asarray(f_profile[1], dtype=float).reshape(-1)
+        if psi_f.size != f_raw.size:
+            raise ValueError("f_profile tuple (psi, f) must have equal-length arrays.")
+        order = np.argsort(psi_f)
+        f_values = np.interp(psi_levels, psi_f[order], f_raw[order])
+    elif np.ndim(f_profile) == 0:
+        f_values = np.full(levels.size, float(f_profile))
+    else:
+        f_arr = np.asarray(f_profile, dtype=float).reshape(-1)
+        if f_arr.size != levels.size:
+            raise ValueError(
+                f"f_profile length ({f_arr.size}) must match levels_norm length ({levels.size})."
+            )
+        f_values = f_arr
+
+    spec = cocos_spec(cocos)
+    scale_to_wb_per_rad = (1.0 / (2.0 * np.pi)) if spec.exp_bp == 1 else 1.0
+
+    psi_grid_rad = psi_arr * scale_to_wb_per_rad
+    psi_axis_rad = float(psi_axis) * scale_to_wb_per_rad
+    psi_boundary_rad = float(psi_boundary) * scale_to_wb_per_rad
+
+    surfaces = flux_surface_quantities(
+        psi_grid=psi_grid_rad,
+        R=R_arr,
+        Z=Z_arr,
+        psi_axis=psi_axis_rad,
+        psi_boundary=psi_boundary_rad,
+        levels_norm=levels,
+        f_profile=f_values,
+        axis_rz=axis_rz,
+        boundary=boundary,
+        min_points=min_points,
+    )
+
+    f_mean = float(np.nanmean(f_values)) if f_values.size else 0.0
+    if sigma_b0 == 1 and f_mean < -1e-12:
+        effective_sigma_b0 = -1
+    else:
+        effective_sigma_b0 = sigma_b0
+
+    target_sign = spec.expected_sign("q", sigma_ip=sigma_ip, sigma_b0=effective_sigma_b0)
+    q_final = target_sign * np.abs(surfaces["q"])
+    surfaces["q"] = q_final
+
+    if return_details:
+        order_lvl = np.argsort(levels)
+        lvl_sorted = levels[order_lvl]
+        q_sorted = q_final[order_lvl]
+        if (levels == 0.0).any():
+            q_axis = float(q_final[levels == 0.0][0])
+        elif len(lvl_sorted) >= 2:
+            p1, p2 = lvl_sorted[0], lvl_sorted[1]
+            q1, q2 = q_sorted[0], q_sorted[1]
+            q_axis = float(q1 - (q2 - q1) / (p2 - p1) * p1) if p2 != p1 else float(q1)
+        else:
+            q_axis = float(q_sorted[0])
+        q_95 = float(np.interp(0.95, lvl_sorted, q_sorted))
+        return {
+            "q": q_final,
+            "levels_norm": levels,
+            "psi_levels": psi_levels,
+            "q_axis": q_axis,
+            "q_95": q_95,
+            "surfaces": surfaces,
+        }
+    return q_final
 
 
 def equilibrium_field_on_grid(
@@ -3098,6 +3393,7 @@ try:  # pragma: no branch - normal package import takes this path
 except ImportError:  # direct ``spec_from_file_location`` loading
     from vaft.process._equilibrium_parametric import *  # noqa: E402,F401,F403
 
+
 @dataclass(frozen=True)
 class ParallelCurrentResult:
     """Parallel current density derived from an enclosed toroidal current.
@@ -3515,3 +3811,394 @@ def grad_shafranov_residual(
         source=source,
         mask=mask,
     )
+
+
+def resistive_layer_parameters(
+    psi_norm,
+    q,
+    n,
+    *,
+    t_e,
+    n_e,
+    psi_norm_kinetic=None,
+    ion_mass_amu=1.0,
+    z_eff=2.0,
+    ln_lambda=17.0,
+    m_range=None,
+):
+    """Resistivity and mass density at each rational surface of a toroidal mode.
+
+    Asymptotic-matching codes -- RDCON's ``rmatch``, STRIDE -- ask for one
+    resistivity and one mass density *per rational surface*, because the
+    resistive layer width and the reconnection rate are set locally. This
+    composes the two things needed to answer that from an equilibrium and its
+    kinetic profiles: where the surfaces are, and what the plasma is like
+    there.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Normalized poloidal flux of the ``q`` profile, increasing [-].
+    q : array_like
+        Safety factor on ``psi_norm`` [-].
+    n : int
+        Toroidal mode number; its sign is ignored [-].
+    t_e : array_like
+        Electron temperature [eV].
+    n_e : array_like
+        Electron density [m^-3].
+    psi_norm_kinetic : array_like, optional
+        Normalized poloidal flux of ``t_e``/``n_e``; ``psi_norm`` by default,
+        which requires the kinetic profiles to already be on the q grid [-].
+    ion_mass_amu : float, optional
+        Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default,
+        which is what VEST runs [-].
+    z_eff : float, optional
+        Effective ion charge, passed to the Spitzer resistivity [-].
+    ln_lambda : float, optional
+        Coulomb logarithm, passed to the Spitzer resistivity [-].
+    m_range : tuple of int, optional
+        Forwarded to :func:`find_rational_surfaces` [-].
+
+    Returns
+    -------
+    dict of str to ndarray
+        ``m``, ``q_rational`` and ``psi_n_rational`` as
+        :func:`find_rational_surfaces` returns them, ordered outward, plus
+        ``mass_density`` [kg m^-3], the ``t_e`` [eV] and ``n_e`` [m^-3] each
+        was computed from, and the Spitzer resistivity ``eta`` [Ohm m].
+
+    Raises
+    ------
+    ValueError
+        A kinetic profile does not match its coordinate in length, or
+        ``ion_mass_amu`` is not positive. Propagates
+        :func:`find_rational_surfaces`'s own validation.
+
+    Processing steps
+    ----------------
+    1. Locate the rational surfaces with :func:`find_rational_surfaces`.
+    2. Interpolate ``t_e`` and ``n_e`` linearly onto those surfaces.
+    3. Evaluate
+       :func:`vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda`
+       at each, and take the mass density as ``n_e * ion_mass_amu * m_p``,
+       which assumes quasineutrality with a single bulk ion species.
+
+    Limitations
+    -----------
+    Spitzer resistivity carries no neoclassical trapped-particle correction,
+    so it underestimates the parallel resistivity of a spherical tokamak,
+    where the trapped fraction is large; the returned ``eta`` is a lower
+    bound in that sense.
+
+    It also diverges as ``T_e`` goes to zero. A reconstruction whose
+    ``T_e`` reaches zero at the separatrix therefore yields a non-finite
+    ``eta`` at any rational surface that sits on that point, and surfaces
+    within a few percent of it are dominated by however the profile was
+    extrapolated rather than by measurement. Both are reported rather than
+    clipped, because the right floor is a property of the discharge and not
+    of this function.
+
+    The mass density ignores impurities: with a non-unit ``z_eff`` the bulk
+    ion density is below ``n_e``, so this overestimates it by roughly the
+    dilution factor.
+
+    Applicability
+    -------------
+    Machine-independent. The ``ion_mass_amu`` default of 1 is the only VEST
+    choice, and it is a keyword.
+
+    Provenance
+    ----------
+    .. [issue] #716 -- the packaged ``rmatch.in`` supplied a single scalar
+       where the code wants one value per rational surface, so ``rmatch``
+       stopped before writing its global solution.
+    """
+    import numpy as _np
+
+    from vaft.formula.constants import MI_P
+    from vaft.formula.equilibrium import (
+        spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
+    )
+
+    if float(ion_mass_amu) <= 0.0:
+        raise ValueError(f"ion_mass_amu must be positive, got {ion_mass_amu!r}")
+
+    surfaces = find_rational_surfaces(psi_norm, q, n, m_range=m_range)
+    return {
+        **surfaces,
+        **resistive_layer_at(
+            surfaces["psi_n_rational"],
+            psi_norm=psi_norm if psi_norm_kinetic is None else psi_norm_kinetic,
+            t_e=t_e,
+            n_e=n_e,
+            ion_mass_amu=ion_mass_amu,
+            z_eff=z_eff,
+            ln_lambda=ln_lambda,
+        ),
+    }
+
+
+def resistive_layer_at(
+    psi_n_surfaces,
+    *,
+    psi_norm,
+    t_e,
+    n_e,
+    ion_mass_amu=1.0,
+    z_eff=2.0,
+    ln_lambda=17.0,
+):
+    """Resistivity and mass density at flux surfaces someone else located.
+
+    The companion to :func:`resistive_layer_parameters`, for when the surfaces
+    are already known -- read back from a solver that reported its own, which
+    is the only way to be sure the values line up with what that solver will
+    index.
+
+    Parameters
+    ----------
+    psi_n_surfaces : array_like
+        Normalized poloidal flux of each surface, ordered as the consumer
+        expects them [-].
+    psi_norm : array_like
+        Normalized poloidal flux of ``t_e``/``n_e`` [-].
+    t_e : array_like
+        Electron temperature [eV].
+    n_e : array_like
+        Electron density [m^-3].
+    ion_mass_amu : float, optional
+        Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default [-].
+    z_eff : float, optional
+        Effective ion charge [-].
+    ln_lambda : float, optional
+        Coulomb logarithm [-].
+
+    Returns
+    -------
+    dict of str to ndarray
+        ``mass_density`` [kg m^-3], the ``t_e`` [eV] and ``n_e`` [m^-3] each
+        was computed from, and the Spitzer resistivity ``eta`` [Ohm m].
+
+    Raises
+    ------
+    ValueError
+        A kinetic profile does not match its coordinate in length, or
+        ``ion_mass_amu`` is not positive.
+
+    Processing steps
+    ----------------
+    1. Interpolate ``t_e`` and ``n_e`` linearly onto ``psi_n_surfaces``.
+    2. Evaluate the Spitzer resistivity at each, and take the mass density as
+       ``n_e * ion_mass_amu * m_p``.
+
+    Limitations
+    -----------
+    As :func:`resistive_layer_parameters`: Spitzer carries no neoclassical
+    correction and diverges as ``T_e`` goes to zero, and the mass density
+    ignores impurity dilution.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [issue] #716.
+    """
+    import numpy as _np
+
+    from vaft.formula.constants import MI_P
+    from vaft.formula.equilibrium import (
+        spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
+    )
+
+    if float(ion_mass_amu) <= 0.0:
+        raise ValueError(f"ion_mass_amu must be positive, got {ion_mass_amu!r}")
+
+    coordinate = _np.asarray(psi_norm, dtype=float)
+    t_e = _np.asarray(t_e, dtype=float)
+    n_e = _np.asarray(n_e, dtype=float)
+    for name, values in (("t_e", t_e), ("n_e", n_e)):
+        if values.shape != coordinate.shape:
+            raise ValueError(
+                f"{name} has {values.size} points against {coordinate.size} "
+                "coordinate points"
+            )
+
+    where = _np.asarray(psi_n_surfaces, dtype=float)
+    t_e_at = _np.interp(where, coordinate, t_e)
+    n_e_at = _np.interp(where, coordinate, n_e)
+
+    # `_np.float64` rather than `float`: the formula divides by T_e**1.5, and
+    # a Python float raises ZeroDivisionError there while IEEE gives `inf`.
+    # The divergence at T_e = 0 is a real property of Spitzer and the caller
+    # has to see it, so it is returned as a non-finite value rather than as an
+    # exception from three frames down.
+    with _np.errstate(divide="ignore", invalid="ignore"):
+        eta = _np.array(
+            [
+                spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(
+                    _np.float64(value),
+                    Z_eff=float(z_eff),
+                    ln_Lambda=float(ln_lambda),
+                )
+                for value in t_e_at
+            ],
+            dtype=float,
+        )
+
+    return {
+        "eta": eta,
+        "mass_density": n_e_at * float(ion_mass_amu) * MI_P,
+        "t_e": t_e_at,
+        "n_e": n_e_at,
+    }
+
+
+def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
+    """Where a toroidal mode resonates: the surfaces with q = m / n.
+
+    A perturbation with toroidal mode number ``n`` resonates where the safety
+    factor equals ``m / n`` for an integer ``m``. This finds those crossings
+    by linear interpolation on the ``q`` profile, so the result is the
+    equilibrium's own answer and needs no perturbed-equilibrium code.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Normalized poloidal flux, increasing [-].
+    q : array_like
+        Safety factor on ``psi_norm`` [-].
+    n : int
+        Toroidal mode number; its sign is ignored [-].
+    m_range : tuple of int, optional
+        ``(m_min, m_max)`` to search; the range ``q`` actually spans by
+        default [-].
+
+    Returns
+    -------
+    dict of str to ndarray
+        ``m`` (poloidal mode number), ``q_rational`` (= m / n) and
+        ``psi_n_rational`` (where the crossing is), ordered outward [-].
+
+    Raises
+    ------
+    ValueError
+        ``psi_norm`` and ``q`` differ in length, ``psi_norm`` does not
+        increase, or ``n`` is zero.
+
+    Processing steps
+    ----------------
+    1. Drop non-finite samples.
+    2. For each integer ``m`` in range, find every bracket where ``q - m/n``
+       changes sign and interpolate the crossing linearly.
+    3. Sort the crossings outward.
+
+    Limitations
+    -----------
+    Accuracy is that of linear interpolation, so the error scales with the
+    square of the local grid spacing and with the curvature of ``q`` -- which
+    means it is worst exactly where ``q`` is steepest, at the edge. On the
+    grid GPEC itself writes, which is refined around the rational surfaces
+    (a spacing of 3.6e-06 at the outermost surface of the DIII-D example
+    against 7.4e-03 in the core), the surfaces come back to 1.4e-09 in
+    ``psi_norm``. On a uniform grid of the kind an equilibrium reconstruction
+    produces they do not: 6.5e-04 at 129 points and 4.0e-05 at 513, in both
+    cases dominated by the outermost surface. Interpolate ``q`` onto a finer
+    grid before asking, if the answer has to be better than that.
+
+    A reversed-shear ``q`` resonates twice on the same ``m``, and both
+    crossings are returned. A root that sits exactly on a grid point, or a
+    ``q`` that is flat at ``m / n`` over an interval, is returned once -- at
+    the node and at the start of the flat region respectively -- rather than
+    once per sign change, which would double-count it.
+
+    Applicability
+    -------------
+    Machine-independent. Any monotonic radial coordinate; the name says
+    ``psi_norm`` because that is what the perturbed-equilibrium codes report
+    their rational surfaces on.
+
+    Provenance
+    ----------
+    .. [legacy] ``gpec_multimode_metrics.rational_surface_table`` derived the
+       same surfaces from GPEC output; this takes them from the equilibrium,
+       so they can be known before a run -- at the accuracy the equilibrium's
+       own grid supports, which the Limitations quantify.
+    """
+    psi_norm = np.asarray(psi_norm, dtype=float)
+    q = np.asarray(q, dtype=float)
+    if psi_norm.ndim != 1 or q.ndim != 1:
+        raise ValueError(
+            f"psi_norm is {psi_norm.ndim}-D and q is {q.ndim}-D; a profile is one "
+            "dimensional, and flattening a (time, radius) array here would "
+            "interpolate across the time axis"
+        )
+    if psi_norm.shape != q.shape:
+        raise ValueError(
+            f"{psi_norm.size} coordinate points against {q.size} q values"
+        )
+    if n != int(n):
+        raise ValueError(f"n must be a whole toroidal mode number, not {n!r}")
+    if int(n) == 0:
+        raise ValueError("n must be non-zero; q = m / n is undefined for n = 0")
+    finite = np.isfinite(psi_norm) & np.isfinite(q)
+    psi_norm, q = psi_norm[finite], q[finite]
+    if psi_norm.size < 2:
+        raise ValueError("need at least two finite samples to find a crossing")
+    if not np.all(np.diff(psi_norm) > 0):
+        raise ValueError(
+            "psi_norm must increase; a crossing is located by interpolation and a "
+            "non-monotonic coordinate would place it ambiguously"
+        )
+
+    order = abs(int(n))
+    if m_range is None:
+        lo = int(np.ceil(np.nanmin(q) * order))
+        hi = int(np.floor(np.nanmax(q) * order))
+    else:
+        lo, hi = int(m_range[0]), int(m_range[1])
+        if lo > hi:
+            raise ValueError(
+                f"m_range is ({lo}, {hi}), which is empty; a reversed range would "
+                "return no surfaces and read as a plasma with no resonance"
+            )
+
+    modes: list[int] = []
+    q_rational: list[float] = []
+    positions: list[float] = []
+    for m in range(lo, hi + 1):
+        target = m / order
+        residual = q - target
+        # Exact zeros are roots in their own right, and are taken first: a
+        # root sitting on a node otherwise shows up as two sign changes,
+        # +1 -> 0 and 0 -> -1, that interpolate to the same point, and a q
+        # flat at m/n over an interval shows up as one at each end of it.
+        # Either way it is one surface, and counting it twice would double its
+        # weight in every reduction downstream.
+        zero = residual == 0.0
+        crossings = [
+            float(psi_norm[index])
+            for index in np.nonzero(zero)[0]
+            if index == 0 or not zero[index - 1]
+        ]
+        for index in np.nonzero(np.diff(np.sign(residual)) != 0)[0]:
+            if zero[index] or zero[index + 1]:
+                continue  # already taken, as the zero itself
+            span = residual[index + 1] - residual[index]
+            weight = -residual[index] / span
+            crossings.append(
+                float(psi_norm[index] + weight * (psi_norm[index + 1] - psi_norm[index]))
+            )
+        for crossing in crossings:
+            modes.append(m)
+            q_rational.append(target)
+            positions.append(crossing)
+
+    outward = np.argsort(positions) if positions else np.empty(0, dtype=int)
+    return {
+        "m": np.asarray(modes, dtype=int)[outward],
+        "q_rational": np.asarray(q_rational, dtype=float)[outward],
+        "psi_n_rational": np.asarray(positions, dtype=float)[outward],
+    }

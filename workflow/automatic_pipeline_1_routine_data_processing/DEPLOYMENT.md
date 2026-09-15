@@ -326,6 +326,135 @@ tree — if the shot-first root is `/srv/vest.filedb/public`, then
 python -m vaft.cli filedb audit /srv/vest.filedb/public --target-root "$VAFT_FILEDB_DIR"
 ```
 
+### Retiring `chease-mhd-stability`
+
+The combined source is superseded: the refinement lives in `main/chease` and
+each stability product in `main/chease/{product}`. Retiring it is gated, because
+part of what it holds **cannot be copied forward**.
+
+A faithful copy of the stability half would have to say which product each
+result came from, and the combined product does not record it:
+
+- DCON's two edge treatments write the same fields at the same
+  `(time_slice, position)`. One run happened; nothing on disk says whether it
+  was `dcon-peeling` or `dcon-kink`.
+- RDCON's and STRIDE's rational surfaces are appended to one `ntms` AOS, and the
+  `<solver name=...>` fragment goes to the whole IDS rather than to each
+  surface.
+
+Copying it anyway would write provenance to HSDS that nothing can verify. So the
+stability results are **re-run**, not moved, and the deletion gate checks for
+that:
+
+```python
+from vaft.database.retirement import plan_retirement, copy_refinement, delete_retired_source
+
+report = plan_retirement(shots)          # reads only
+report.deletable                          # every shot accounted for?
+report.blocking                           # the ones that are not, and why
+```
+
+Per shot, two questions: has the refinement reached `main/chease`, and has the
+stability stage been re-run into the per-product sources.
+
+```bash
+# 1. copy each refinement forward (read back and verified before it reports success)
+python -c "from vaft.database.retirement import copy_refinement; copy_refinement(39915, apply=True)"
+
+# 2. re-run the stability stage for the shot, which populates main/chease/{product}
+
+# 3. re-plan, review, and only then delete
+python -c "..."     # plan_retirement(shots) -> review report.to_dict()
+hsdel /chease-mhd-stability/
+```
+
+Deletion is the administrator's own command. `delete_retired_source` validates
+the plan and prints it, but will not remove a namespace itself: that is not
+something a library call should be able to do as a side effect, however clean
+the plan looks. It also refuses an **empty** report — "no shots were examined"
+and "every shot is safe" are different findings.
+
+### Checking a product's ancestry
+
+Each stage records the digest of what it consumed and of what it produced, so
+"which EFIT produced this stability result" is a comparison rather than an act
+of faith:
+
+```text
+EFIT       equilibrium.code.parameters...artifacts.gfile.sha256
+             |
+CHEASE     manifest["input"][i]["sha256"]          what it read
+           manifest["input"][i]["output_sha256"]   what it wrote
+             |
+stability  GPECSuiteResult.input_equilibrium_sha256
+```
+
+```python
+from vaft.database.provenance import verify_chain
+
+report = verify_chain(
+    chease_manifest=json.loads(chease_manifest_path.read_text()),
+    stability_input_sha256=run["input_equilibrium_sha256"],
+    shot=39915,
+)
+report.verified          # every link checked and agreed
+report.broken            # digests disagree -- products of different runs
+report.unrecorded        # no digest -- written before the chain existed
+```
+
+A **mismatch** means the stability cell consumed an equilibrium this CHEASE
+stage did not produce; a CHEASE rerun between the refinement and the solve is
+enough to cause it, and paths cannot see it. An **unrecorded** link is not a
+pass: products from before the chain carry `""`, and reporting those as verified
+would make the check useless exactly on the archive that most needs it.
+
+The verifier compares recorded digests and never re-hashes the tree. Re-hashing
+answers "do these files agree with each other now" — weaker, different, and
+impossible once the upstream file has been archived off the host.
+
+### Relocating a canonical root written before the lineage segments
+
+A canonical tree written before `family`/`refinement`/`product` became path
+segments (#527) resolves to nothing afterwards, and nothing warns about it: the
+resolver asks for `efit/magnetic/{shot}` and returns a path, the data is at
+`efit/{shot}`, and the path is simply empty. Deployments created before that
+change need their subtrees moved once.
+
+Dry run first — it prints the plan and changes nothing:
+
+```bash
+python -m vaft.cli filedb relocate "$VAFT_FILEDB_DIR"
+```
+
+Read the plan, then apply it:
+
+```bash
+python -m vaft.cli filedb relocate "$VAFT_FILEDB_DIR" --apply
+```
+
+What it does and does not do:
+
+- **Directories are renamed, never copied.** No file in the tree is opened,
+  read, hashed or written, so an interrupted run leaves each subtree either
+  wholly moved or wholly where it was — never half written.
+- **The whole `gpec/{code}` subtree moves at once**, so every `(shot, mode)` cell
+  under it travels in one rename rather than one per cell.
+- **A DCON cell keeps the legacy `dcon` product** rather than becoming
+  `dcon-peeling` or `dcon-kink`. The old tree recorded no edge treatment, so
+  neither branch can be asserted, and guessing would put provenance on disk that
+  the move cannot verify.
+- **Stages that belong to no family are untouched** — `raw/`, `omas/static/`,
+  `omas/diagnostics/`, `omas/eddy/`, `omas/impa/`.
+- **An occupied destination stops the whole run**, before anything moves. Two
+  subtrees claiming one path were written by different runs, and which is
+  authoritative is not a question this can answer. Resolve it by hand first.
+- **Re-running is a no-op.** A shot directory is all digits and a lineage segment
+  never is, so the two grammars cannot be confused and a second `--apply` moves
+  nothing.
+
+The dry run exits non-zero when the plan has collisions, so a script can gate on
+it rather than parsing the JSON.
+
 Keep the bootstrap config separate from production, with replication off:
 
 ```bash

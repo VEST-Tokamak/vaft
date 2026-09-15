@@ -279,13 +279,15 @@ def test_camera_overlays_belong_to_the_image_entry_point():
 def test_capability_fields_are_filled_only_where_issue_261_defined_them(catalog):
     # Sources and projection wait for their sub-phases; besides the per-plot
     # ``controls`` mode an evaluated record earns (issue #480), interaction is
-    # stated only by the plots that offer one (the static equilibrium slice summary).
+    # stated only by the plots that offer one: the static equilibrium slice
+    # summary and the diagnostics overview behind its entry point (issue #482).
     for record in catalog:
         assert record.sources == {} and record.projection == {}
-        if record.name != "equilibrium_overview":
+        if record.name not in ("equilibrium_overview", "diagnostics_overview"):
             assert set(record.interaction) <= {"controls"}, record.name
             assert ("controls" in record.interaction) == bool(record.controls), record.name
     assert catalog.find("equilibrium_overview").interaction[0] == "static"
+    assert catalog.find("diagnostics_overview").interaction[0] == "static"
     assert "sources:" not in str(catalog) and "projection:" not in str(catalog)
 
 

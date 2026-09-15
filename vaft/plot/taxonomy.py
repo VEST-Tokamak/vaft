@@ -102,8 +102,14 @@ _SUBJECTS = (
     Subject("machine", "machine"),
     # Reconstructions, models, and codes
     Subject("equilibrium", "reconstruction"),
+    # The field the coils and the vessel make with no plasma in it: a model of
+    # the machine, not a reconstruction of a discharge.
+    Subject("vacuum", "model", ("vacuum_field", "null_field")),
     Subject("core_profiles", "reconstruction"),
     Subject("mhd_linear", "model"),
+    # Neoclassical transport: the analytic models and the drift-kinetic solver
+    # that answer the same question, which is why the plot compares them.
+    Subject("neoclassical", "model", ("bootstrap_current",)),
     Subject("nbi", "machine", ("neutral_beam", "nubeam")),
     Subject("chease", "code"),
     # Purpose-driven composites

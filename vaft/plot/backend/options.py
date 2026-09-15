@@ -67,6 +67,11 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("time_slice", "int", description="stored equilibrium slice index"),
         OptionSpec("time", "float", description="a time in seconds, snapped to a stored slice"),
         OptionSpec("time_range", "range", description="(start, stop) in seconds"),
+        # A dense time base is indexed, not chosen from a list: the vacuum map
+        # runs over the PF samples, thousands of them, where time_slice= names
+        # one of a handful of stored equilibria.
+        OptionSpec("time_index", "int", description="position on a dense time base"),
+        OptionSpec("resolution", "int", description="points per axis of a computed 2-D grid"),
         OptionSpec("centre", "range", description="(r0, z0) in metres the poloidal angle is measured about"),
         OptionSpec("angle", "choice", "recipes.ANGLE_SOURCES", "where a sensor's poloidal angle comes from"),
         OptionSpec("overlay", "multi", "recipes.CAMERA_OVERLAYS", "what is drawn over a map"),
@@ -83,6 +88,9 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("x", "choice", "recipes.ABSCISSA_NAMES", "quantity on the abscissa of a line plot"),
         OptionSpec("method", "choice", "recipes.SPECTROGRAM_METHODS", "how a time-frequency map is computed"),
         OptionSpec("field", "choice", "recipes.EQUILIBRIUM_FIELD_NAMES", "quantity a 2-D equilibrium map draws"),
+        # A composite's panels, by member name (issue #482).  The vocabulary
+        # is the composite's own member list, so it is scoped per plot.
+        OptionSpec("members", "multi", description="which panels of an overview to draw"),
         OptionSpec("frequency_range", "range", description="(f0, f1) in Hz: the analysed band"),
         # The wrapped-n fit (issue #485): which bands to fit, how many to find,
         # which n to test, and whether the fitted line is drawn beside the points.
@@ -106,6 +114,11 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("basis"), OptionSpec("segment"), OptionSpec("mode"), OptionSpec("max_modes", "int"),
         OptionSpec("whole_wall", "bool"), OptionSpec("remap_em_coupling", "bool"), OptionSpec("rows"),
         OptionSpec("rules"), OptionSpec("orders"), OptionSpec("drive"), OptionSpec("metrics"),
+        # Neoclassical bootstrap comparison: the effective charge and the radial
+        # band are physics choices the provider refuses to make for the caller.
+        OptionSpec("z_eff", "float"), OptionSpec("rho_range", "range"),
+        OptionSpec("ion_index", "int"), OptionSpec("include_stored", "bool"),
+        OptionSpec("models"), OptionSpec("order"),
         OptionSpec("which"), OptionSpec("rule"), OptionSpec("M"), OptionSpec("grid_shape"),
         OptionSpec("phi0", "float"), OptionSpec("pose_path"), OptionSpec("quantity"), OptionSpec("r0", "float"),
         OptionSpec("reference_slopes"), OptionSpec("sample_rate", "float"), OptionSpec("series_label", "str"),
@@ -199,6 +212,11 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
                 f"{', '.join(sorted(EXTRACTION_OPTIONS))}; renderer style options: "
                 f"{', '.join(sorted(STYLE_OPTIONS))}"
             )
+        if key == "members" and _plot_scoped_choices(name, key) is None:
+            raise ValueError(
+                f"{name!r} is not a panel composite and takes no members=; "
+                "members= picks the panels of one such as diagnostics_overview"
+            )
         if spec.kind == "choice" and isinstance(value, str):
             choices = _plot_scoped_choices(name, key) or choices_for(spec)
             if choices is not None and value not in choices:
@@ -214,7 +232,7 @@ def _plot_scoped_choices(name: str, key: str) -> tuple[Any, ...] | None:
     ``overlay`` (issue #483) are declared per recipe, so the schema's static
     list is only the union: what a given plot accepts is asked of the plot.
     """
-    if key not in ("coordinate", "x", "field", "overlay"):
+    if key not in ("coordinate", "x", "field", "overlay", "members"):
         return None
     from . import recipes
 
@@ -223,6 +241,7 @@ def _plot_scoped_choices(name: str, key: str) -> tuple[Any, ...] | None:
         "x": recipes.abscissa_options_for,
         "field": recipes.field_options_for,
         "overlay": recipes.overlay_options_for,
+        "members": recipes.member_options_for,
     }[key]
     try:
         return resolve(name)
