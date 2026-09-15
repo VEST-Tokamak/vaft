@@ -34,6 +34,29 @@ from vaft.omas.vest_upstream import VEST_MACHINE_ERAS, build_static_ods
 DEFAULT_ERA = "vest-pre-43017-pf1906"
 
 
+#: Era-independent files EFIT reads from the table directory alongside the
+#: Green tables EFUND writes. Copied from the packaged directory so a
+#: generated table can actually be run.
+RUNTIME_COMPANIONS = ("lim.dat", "dprobe.dat")
+
+
+def _copy_runtime_companions(output: Path) -> list[str]:
+    """Place EFIT's non-EFUND inputs beside a freshly generated table."""
+    import shutil
+
+    from vaft.data.resources import data_path
+
+    source = Path(data_path("efit"))
+    copied: list[str] = []
+    for name in RUNTIME_COMPANIONS:
+        origin = source / name
+        target = output / name
+        if origin.is_file() and not target.exists():
+            shutil.copy2(origin, target)
+            copied.append(name)
+    return copied
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--output", required=True, type=Path, help="directory to generate the table into")
@@ -107,6 +130,15 @@ def main(argv: list[str] | None = None) -> int:
         label=args.label or f"{args.era}-{config.table_suffix}",
         extra={"generator": "workflow/efit_tables/regenerate_legacy_table.py", "seconds": elapsed},
     )
+    # EFUND produces the Green tables; EFIT also reads a limiter contour and a
+    # probe description from the same directory, and neither depends on the
+    # era. Without them the generated directory is not runnable: EFIT dies in
+    # `read_limiter.f90` with a Fortran runtime error naming `lim.dat`, which
+    # is a confusing way to learn that a table is incomplete (#805).
+    copied = _copy_runtime_companions(output)
+    if copied:
+        print("companions: " + ", ".join(sorted(copied)))
+
     payload = json.loads(path.read_text(encoding="utf-8"))
     print(f"manifest: {path}")
     print(f"table identity: {payload['table']['identity']}")

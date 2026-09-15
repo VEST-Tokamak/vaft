@@ -115,12 +115,28 @@ def sha256_file(path: str | Path) -> str:
     return digest.hexdigest()
 
 
-def _disabled_pf_coils() -> list[str]:
-    import scipy.io
+def _disabled_pf_coils(shot: int) -> list[str]:
+    """Circuits with no acquisition channel at all, as of this shot's era.
 
-    info = scipy.io.loadmat(resolve_geometry_asset("Coil_info.mat"))
-    active = {int(value) for value in np.asarray(info["CoilNumber"]).reshape(-1)}
-    return [f"PF{index}" for index in range(1, PF_COIL_COUNT + 1) if index not in active]
+    Read from `vest.yaml`'s `pf_active.processing.coil_field_codes`, which is
+    where the channel map lives since #708. It used to come from the
+    five-entry `Coil_info.mat`, which reported PF2 as permanently disabled --
+    when in fact PF2 is acquired on field 4, and was simply unused by the
+    shots anyone had looked at.
+
+    "Disabled" here means *no channel is known*, which is a statement about
+    the machine. It is not the same as *this discharge left the coil cold*,
+    which is a statement about the discharge and is carried by the current
+    waveform itself.
+    """
+    from vaft.machine_mapping.pf_active import coil_field_code_by_index
+
+    acquirable = coil_field_code_by_index(shot)
+    return [
+        f"PF{index}"
+        for index in range(1, PF_COIL_COUNT + 1)
+        if (index - 1) not in acquirable
+    ]
 
 
 def _read_raw_payload(path: Path) -> dict[str, Any]:
@@ -233,13 +249,13 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
         "channel_status": {
             "pf_active": {
                 "status": "success",
-                "disabled_channels": _disabled_pf_coils(),
+                "disabled_channels": _disabled_pf_coils(era.reference_shot),
             }
         },
         "quality_summary": {
             "missing": [],
             "repaired": [],
-            "disabled": _disabled_pf_coils(),
+            "disabled": _disabled_pf_coils(era.reference_shot),
             "rejected": [],
             "unavailable": [],
         },
@@ -745,7 +761,7 @@ def build_diagnostics_ods(
                 target_time=policy_grid("pf_active"),
             ),
         ),
-        disabled_channels=_disabled_pf_coils(),
+        disabled_channels=_disabled_pf_coils(shot),
     )
     grids["pf_active"] = policy_grid("pf_active")
     uv_policy = policies["spectrometer_uv"]
@@ -916,7 +932,7 @@ def build_diagnostics_ods(
         "quality_summary": {
             "missing": sorted(unavailable + missing_channels),
             "repaired": [],
-            "disabled": _disabled_pf_coils(),
+            "disabled": _disabled_pf_coils(shot),
             "rejected": [],
             "unavailable": unavailable,
         },

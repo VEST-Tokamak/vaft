@@ -42,19 +42,19 @@
   },
   "input": {
    "name": "mhdin.dat",
-   "sha256": "b213e4b9c73d8280f23c7dd5b18c8e4b963763abf504204052fd74a3a43d776a"
+   "sha256": "af703884aa06712aa0f8ee9689d54ef096f9fa90bb4556c3da449042851d9650"
   },
   "stack_size_kb": "hard"
  },
  "extra": {
-  "decision": "Issue #695: the packaged tables of unrecorded origin are replaced by these, regenerated from the canonical static geometry for the era. See workflow/efit_tables/README.md.",
+  "decision": "Issue #708: the table describes every PF circuit the machine has, not only the five energised in the reference era, so a discharge that energised a different subset needs no new table. nfsum 16 -> 26, nfcoil 302 -> 530, +4.1 MB.",
   "generator": "workflow/efit_tables/regenerate_legacy_table.py",
   "installed_as": "vaft/data/efit",
-  "installed_at": "2026-09-14",
-  "mhdin_beside_these_tables_is_not_the_input": "vaft/data/efit/mhdin.dat is the legacy namelist and is deliberately left in place: it is EFIT's runtime input, where it is inert (issue #695 measured a namelist swap as changing nothing), and it is the independent reference test_efund_geometry.py validates the canonical geometry against. The input that produced these tables is the one recorded under efund.input below, which resolves the PF set into 302 filaments where the legacy file lumps it into 16 conductors.",
-  "seconds": 89.13235583307687
+  "installed_at": "2026-09-15",
+  "legacy_mhdin_moved": "The 16-lumped-conductor namelist that used to sit here is at legacy/mhdin.dat. It is no longer loadable as a table directory -- its nfsum is 16 -- and is kept only as the independent reference test_efund_geometry.py checks the canonical geometry against.",
+  "seconds": 184.58953304204624
  },
- "generated_at": "2026-09-14T05:17:26+00:00",
+ "generated_at": "2026-09-14T23:51:26+00:00",
  "geometry_groups": [
   {
    "elements": 20,
@@ -129,6 +129,60 @@
    "z_min": -1.1924
   },
   {
+   "elements": 50,
+   "name": "PF2U",
+   "r": 0.10400000000000001,
+   "turns": 250.0,
+   "z": 0.98,
+   "z_max": 1.1624,
+   "z_min": 0.7976
+  },
+  {
+   "elements": 50,
+   "name": "PF2L",
+   "r": 0.10400000000000001,
+   "turns": 250.0,
+   "z": -0.98,
+   "z_max": -0.7976,
+   "z_min": -1.1624
+  },
+  {
+   "elements": 8,
+   "name": "PF3U",
+   "r": 0.29000000000000004,
+   "turns": 8.0,
+   "z": 1.2500499999999999,
+   "z_max": 1.2537,
+   "z_min": 1.2464
+  },
+  {
+   "elements": 8,
+   "name": "PF3L",
+   "r": 0.29000000000000004,
+   "turns": 8.0,
+   "z": -1.2500499999999999,
+   "z_max": -1.2464,
+   "z_min": -1.2537
+  },
+  {
+   "elements": 8,
+   "name": "PF4U",
+   "r": 0.57,
+   "turns": 8.0,
+   "z": 1.2500499999999999,
+   "z_max": 1.2537,
+   "z_min": 1.2464
+  },
+  {
+   "elements": 8,
+   "name": "PF4L",
+   "r": 0.57,
+   "turns": 8.0,
+   "z": -1.2500499999999999,
+   "z_max": -1.2464,
+   "z_min": -1.2537
+  },
+  {
    "elements": 12,
    "name": "PF5U",
    "r": 0.71,
@@ -163,6 +217,42 @@
    "z": -0.875025,
    "z_max": -0.8714,
    "z_min": -0.8786500000000002
+  },
+  {
+   "elements": 24,
+   "name": "PF7U",
+   "r": 0.71,
+   "turns": 24.0,
+   "z": 0.72,
+   "z_max": 0.73215,
+   "z_min": 0.70785
+  },
+  {
+   "elements": 24,
+   "name": "PF7L",
+   "r": 0.71,
+   "turns": 24.0,
+   "z": -0.72,
+   "z_max": -0.70785,
+   "z_min": -0.73215
+  },
+  {
+   "elements": 24,
+   "name": "PF8U",
+   "r": 0.71,
+   "turns": 24.0,
+   "z": 0.6799999999999999,
+   "z_max": 0.69215,
+   "z_min": 0.66785
+  },
+  {
+   "elements": 24,
+   "name": "PF8L",
+   "r": 0.71,
+   "turns": 24.0,
+   "z": -0.6799999999999999,
+   "z_max": -0.66785,
+   "z_min": -0.69215
   },
   {
    "elements": 24,
@@ -201,15 +291,15 @@
    "z_min": -0.49285
   }
  ],
- "label": "vest-pre-43017-pf1906-129129",
+ "label": "vest-pre-43017-pf1906-129129-all-circuits",
  "machine": {
   "counts": {
    "magpri": 64,
    "nacoil": 0,
    "necoil": 0,
    "nesum": 0,
-   "nfcoil": 302,
-   "nfsum": 16,
+   "nfcoil": 530,
+   "nfsum": 26,
    "nsilop": 11,
    "nvesel": 950,
    "nvsum": 950
@@ -249,14 +339,14 @@
  "table": {
   "files": {
    "brzgfc.dat": {
-    "expected_size": 4260112,
-    "sha256": "5c15b0113070f014a6d03498a1d5cf1365e78d3da1f34283e883f995aa95734c",
-    "size": 4260112
+    "expected_size": 6922672,
+    "sha256": "8653091b6a6f350ce0d6b44809e71f5beea054d5a88216b5d2bc23d4d9f6c5a7",
+    "size": 6922672
    },
    "ec129129.ddd": {
-    "expected_size": 19305664,
-    "sha256": "f7b07a58c21f86a7aed18fab24e1ceaf44df5bd6f8f436edbe1c6b91ed8002f7",
-    "size": 19305664
+    "expected_size": 20636944,
+    "sha256": "a66574729cb4d4d88acc6b066a1e679a3ebafac308b4f68d8fc6b522b5dde879",
+    "size": 20636944
    },
    "ep129129.ddd": {
     "expected_size": 9984616,
@@ -265,25 +355,25 @@
    },
    "mhdout.dat": {
     "expected_size": null,
-    "sha256": "22ac49babe6f40639217a9552d3399a3abccf54715bbb9e874d21138d5223509",
-    "size": 60885
+    "sha256": "ca8d4103ee7e8d504e33559bce9ce56d468f0de6aa3ddd1e021f90b4e77249b6",
+    "size": 69149
    },
    "rfcoil.ddd": {
-    "expected_size": 9616,
-    "sha256": "4e17f5deeedc76c96b8b655fdd659cf0a2b2ada7907a1792845d69cb1d5b6a6f",
-    "size": 9616
+    "expected_size": 15616,
+    "sha256": "d851ac43cd1bec6102bedee5ac0db8c712f60dd67e93456ea0624278d83f28d0",
+    "size": 15616
    },
    "rv129129.ddd": {
-    "expected_size": 134383248,
-    "sha256": "047b7700d45530330759738d7cf257e0a8191be054705e622d714fe065996e2a",
-    "size": 134383248
+    "expected_size": 134459248,
+    "sha256": "c0b050cb074aa627f762ab7fef3057d2ba6b37844b02b3c5d7444a10e44bc2ec",
+    "size": 134459248
    }
   },
-  "identity": "9b33304cfee3927dae029deed7e9bd5be1b6f98a5940b01e81db3c8e1224ddbf",
+  "identity": "c7cbaca22b9275ba56058851475cf9b6832e4bb207466bf4b88e16e1d6cfea1f",
   "suffix": "129129"
  },
  "vaft": {
-  "revision": "v0.6.2-447-gd1ee871e",
+  "revision": "v0.6.2-458-g842bd5a9-dirty",
   "version": "0.6.2"
  }
 }

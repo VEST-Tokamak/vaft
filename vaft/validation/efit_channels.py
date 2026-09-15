@@ -84,13 +84,9 @@ def efit_probe_count(source: Any) -> int:
     not become constraints.  This is also the offset the routine manual list
     uses for flux loops, so every consumer must take it from here.
     """
-    from vaft.machine_mapping.magnetics import vest_equilibrium_magnetics_channel_definitions
+    from vaft.machine_mapping.magnetics import equilibrium_probe_count
 
-    defined = sum(
-        1 for entry in vest_equilibrium_magnetics_channel_definitions() if entry.get("kind") == "b_field_pol_probe"
-    )
-    present = _count(source, "b_field_pol_probe")
-    return min(present, defined) if defined else present
+    return equilibrium_probe_count(source)
 
 
 def split_manual_rejections(manual: Iterable[int], *, nbprobe: int) -> dict[tuple[str, int], int]:

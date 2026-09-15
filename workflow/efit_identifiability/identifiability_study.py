@@ -441,6 +441,44 @@ def _ccoils_from_kfile(text: str, *, nrow: int, ncol: int) -> np.ndarray:
     return matrix
 
 
+def _expected_pf_parameter_count() -> int:
+    """How many PF current parameters the fit carries, from the coilset.
+
+    One per current group, so it follows how the machine is described rather
+    than a literal that has to be found and changed when the description does
+    (#708).
+    """
+    from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
+
+    return len(vest_efit_coilset_policy().group_names)
+
+
+def _resolved_coil_relations(scientific) -> tuple[np.ndarray, np.ndarray]:
+    """The &INWANT matrix and targets the writer will actually emit.
+
+    Since #708 the configuration may leave both as ``None``, meaning "derive
+    them from the coilset": splitting a circuit into groups does not split its
+    current, and series-wired circuits carry one. This gate compares a k-file
+    against what was asked for, so it has to resolve them the same way the
+    writer does rather than assume a written-down table.
+    """
+    matrix = scientific.constraints.coil_constraint_matrix
+    targets = scientific.constraints.coil_constraint_targets
+    if matrix is None:
+        from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
+
+        coilset = vest_efit_coilset_policy()
+        matrix = coilset.constraint_matrix()
+        if targets is None:
+            targets = coilset.constraint_targets()
+    elif targets is None:
+        targets = (0.0,) * len(matrix[0])
+    return (
+        np.asarray(matrix, dtype=float),
+        np.asarray(targets, dtype=float),
+    )
+
+
 def audit_frozen_kfile(
     path: Path,
     *,
@@ -561,7 +599,8 @@ def audit_frozen_kfile(
             errors.append(str(exc))
 
     relation_count = inwant.get("kccoils")
-    expected_relations = len(scientific.constraints.coil_constraint_targets)
+    expected_matrix, expected_targets = _resolved_coil_relations(scientific)
+    expected_relations = len(expected_targets)
     relation_active = relation_count == expected_relations and expected_relations > 0
     active_families["pf_relation"] = relation_active
     if not relation_active:
@@ -573,9 +612,6 @@ def audit_frozen_kfile(
         errors.append(
             f"NCCOIL={observed_nccoil!r}, expected {scientific.constraints.nccoil}"
         )
-    expected_targets = np.asarray(
-        scientific.constraints.coil_constraint_targets, dtype=float
-    )
     try:
         observed_targets = _as_finite_array(inwant.get("xcoils"), name="XCOILS")
         if observed_targets.shape != expected_targets.shape or not np.allclose(
@@ -587,9 +623,6 @@ def audit_frozen_kfile(
     except (TypeError, ValueError) as exc:
         observed_targets = np.asarray([], dtype=float)
         errors.append(str(exc))
-    expected_matrix = np.asarray(
-        scientific.constraints.coil_constraint_matrix, dtype=float
-    )
     try:
         observed_matrix = _ccoils_from_kfile(
             text,
@@ -599,7 +632,11 @@ def audit_frozen_kfile(
         if not np.allclose(
             observed_matrix, expected_matrix, rtol=0.0, atol=1.0e-14
         ):
-            errors.append("CCOILS differs from the fixed 16x12 soft-relation matrix")
+            errors.append(
+                "CCOILS differs from the "
+                f"{expected_matrix.shape[0]}x{expected_matrix.shape[1]} "
+                "soft-relation matrix the coilset derives"
+            )
     except ValueError as exc:
         observed_matrix = np.empty((0, 0), dtype=float)
         errors.append(str(exc))
@@ -694,8 +731,15 @@ def stage1_gate(
             item.pprime_parameter_count,
             item.ffprime_parameter_count,
         )
-        if counts != (20, 16, 2, 2):
-            reasons.append(f"{key}: parameter roles are {counts}, expected (20, 16, 2, 2)")
+        # The PF count is the coilset's, not a written-down 16: since #708 the
+        # table describes every circuit the machine has, and the total is the
+        # sum of the roles rather than a second independent literal.
+        expected_pf = _expected_pf_parameter_count()
+        expected_counts = (expected_pf + 2 + 2, expected_pf, 2, 2)
+        if counts != expected_counts:
+            reasons.append(
+                f"{key}: parameter roles are {counts}, expected {expected_counts}"
+            )
         if item.exact_constraint_count != 0:
             reasons.append(
                 f"{key}: baseline exact-constraint count is "
