@@ -1044,6 +1044,7 @@ __all__ = [
     "plasma_current_time",
     "mhd_linear_time_energy_perturbed",
     "mirnov_time_voltage",
+    "ntms_time_delta_prime",
     "pf_coil_time_current",
     "pf_coil_time_current_turns",
     "soft_x_rays_time_power",
@@ -1054,6 +1055,32 @@ __all__ = [
     "thomson_scattering_time_electron_density",
     "thomson_scattering_time_electron_temperature",
 ]
+
+
+@renderer(
+    domain="mhd_linear",
+    subject="ntms",
+    view="time",
+    quantity="delta_prime",
+    model=LineSeries,
+    description=(
+        "Classical tearing index Delta-prime against time, one trace per "
+        "rational surface; a positive value is a tearing-unstable surface. "
+        "This is RDCON's and STRIDE's physical result, which has no slot under "
+        "`toroidal_mode` and lives in `ntms`."
+    ),
+    ids=("ntms",),
+    required_paths=(
+        "ntms.time_slice.{i}.mode.{j}.n_tor",
+        "ntms.time_slice.{i}.mode.{j}.m_pol",
+        "ntms.time_slice.{i}.mode.{j}.deltaw.{k}.value",
+    ),
+)
+def ntms_time_delta_prime(
+    model: LineSeries, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, Any]:
+    """Classical tearing index per rational surface, against time."""
+    return render_line_series(model, ax=ax, show=show, **style)
 
 
 @renderer(

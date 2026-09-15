@@ -8059,6 +8059,84 @@ def _build_mhd_linear_energy_perturbed(ods: Any, **options: Any) -> LineSeries:
     )
 
 
+def _build_ntms_delta_prime(ods: Any, **options: Any) -> LineSeries:
+    """Classical tearing index against time, one trace per rational surface.
+
+    An `ntms.mode` entry is a rational *surface* -- an ``(m_pol, n_tor)`` pair
+    the solver located in the equilibrium -- not a requested toroidal mode. So
+    the traces are pivoted by the pair: several surfaces share one ``n_tor``,
+    and collapsing them would average together physically distinct tearing
+    layers.
+
+    How many surfaces exist is itself a result, so the set can differ between
+    time slices. A surface is drawn at the times it was found and simply absent
+    at the others, rather than padded with a value the solver never produced.
+    """
+    count = _count(ods, "ntms.time_slice")
+    if count == 0:
+        raise ValueError("ODS carries no ntms time slices")
+    times = _array(ods, "ntms.time")
+    if times is None or times.size < count:
+        times = np.arange(count, dtype=float)
+    times = np.asarray(times[:count], dtype=float)
+
+    by_surface: dict[tuple[int, int], dict[int, float]] = {}
+    for index in range(count):
+        root = f"ntms.time_slice.{index}.mode"
+        for position in range(_count(ods, root)):
+            base = f"{root}.{position}"
+            n_tor = _get(ods, f"{base}.n_tor")
+            m_pol = _get(ods, f"{base}.m_pol")
+            if n_tor is None or m_pol is None:
+                continue
+            # Selected by name, not by position: `deltaw` is an array of
+            # contributions and a future one must not be read as the classical
+            # index just because it was appended first.
+            value = None
+            for slot in range(_count(ods, f"{base}.deltaw")):
+                if _get(ods, f"{base}.deltaw.{slot}.name") == "classical":
+                    value = _get(ods, f"{base}.deltaw.{slot}.value")
+                    break
+            if value is None:
+                continue
+            scalar = _scalar(value)
+            if not np.isfinite(scalar):
+                continue
+            by_surface.setdefault((int(n_tor), int(m_pol)), {})[index] = scalar
+    if not by_surface:
+        raise ValueError(
+            "ODS carries no classical tearing index; only RDCON and STRIDE write "
+            "ntms deltaw, and none was mapped for this shot"
+        )
+
+    series = []
+    for n_tor, m_pol in sorted(by_surface):
+        samples = by_surface[(n_tor, m_pol)]
+        indexes = sorted(samples)
+        series.append(
+            Series(
+                x=times[indexes],
+                y=np.asarray([samples[index] for index in indexes], dtype=float),
+                label=f"m/n = {m_pol}/{n_tor}",
+                style={"marker": "."},
+            )
+        )
+    pulse = _get(ods, "dataset_description.data_entry.pulse", "")
+    return LineSeries(
+        series=tuple(series),
+        x_label="time",
+        x_unit="s",
+        y_label="tearing index $\\Delta'$",
+        title=f"Classical tearing stability — shot {pulse} (positive is unstable)",
+    )
+
+
+RECIPES["ntms_time_delta_prime"] = CallableRecipe(
+    builder=_build_ntms_delta_prime,
+    description="Classical tearing index against time, per rational surface.",
+)
+
+
 RECIPES["mhd_linear_time_energy_perturbed"] = CallableRecipe(
     builder=_build_mhd_linear_energy_perturbed,
     description="DCON perturbed potential energy against time, per toroidal mode.",

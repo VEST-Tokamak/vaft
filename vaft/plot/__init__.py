@@ -260,6 +260,7 @@ from .renderers.lines import (
     plasma_current_time,
     mirnov_time_voltage,
     mhd_linear_time_energy_perturbed,
+    ntms_time_delta_prime,
     passive_structure_time_current,
     pf_coil_time_current,
     pf_coil_time_current_turns,
