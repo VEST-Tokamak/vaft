@@ -1,0 +1,169 @@
+---
+title: "Fluctuations and Transient Events"
+subtitle: "VAFT Introductory Tutorial | Session 04"
+format:
+  vaftslides-revealjs: default
+  vaftslides-beamer: default
+bibliography: assets/bibliography/vaft.bib
+---
+
+# Where this session starts
+
+## What session 03 handed over
+
+An equilibrium you can interrogate rather than assume --- and a habit: a refused
+plot is often an underived quantity.
+
+This session inverts that habit.
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+Name the prerequisite, then set up the inversion, because it is the spine of the
+whole session: sessions 02 and 03 taught that a refused plot is often something
+nobody has derived yet. Session 04 teaches that **an offered plot is not
+automatically an answer worth having**.
+
+TRANSITION:
+Start with the instrument, because it is not measuring what people assume.
+:::
+
+# Reading a fluctuation
+
+## A coil measures a derivative
+
+$$S_{\mathrm{d}B/\mathrm{d}t}(f) = (2\pi f)^{2}\, S_{B}(f)$$
+
+An index fitted to raw pickup voltage is the field's **plus two**.
+VAFT never integrates behind an axis label.
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+A pickup coil measures flux change through its winding, so its output is
+proportional to $\mathrm{d}B/\mathrm{d}t$. Square that in the spectral domain and
+you get the $(2\pi f)^2$.
+
+WARN:
+Background the course assumes from here on. Supply it now:
+
+- **PSD** — power spectral density, how a signal's variance is distributed over
+  frequency. Welch's method averages several windowed periodograms to trade
+  frequency resolution for a lower-variance estimate.
+- **spectral index** — the exponent $\alpha$ of a power law $S(f) \propto
+  f^{\alpha}$ fitted over a stated band. The band is always explicit; automatic
+  range-picking is how an index becomes an artefact of the fitting code.
+- **Nyquist** — half the sampling rate, the highest frequency a record can
+  represent. The filterscope at 25 kHz cannot corroborate a 10 kHz mode.
+- **$R^2$** — how much of the variation the fit explains. It is part of the
+  result, not a footnote.
+
+`notebooks/fluctuation_diagnostics_analysis.ipynb` derives and *measures* the
+$+2$ shift. Point anyone who wants the depth there.
+
+TRANSITION:
+Then the harder question: what may you conclude from it?
+:::
+
+## An array sets the answer, not the algorithm
+
+$$\varphi_{\text{phase}} = \varphi_{0} - n\,\phi$$
+
+Two positions $120^{\circ}$ apart $\rightarrow$ $n$ modulo 3.
+Three positions $90^{\circ}$ apart $\rightarrow$ $n$ modulo 4.
+
+::: {.notes}
+[5 min]
+
+NARRATE:
+Phases are read modulo a turn. If every probe that recorded sits at angles
+spaced by $\Delta\phi$, then every $n$ differing by $360^{\circ}/\Delta\phi$
+predicts the same phase at every probe, and no fit can separate them.
+
+So the measurement returns a family, not a number. **State the modulus or you
+have not stated the result.**
+
+WARN:
+Two more pieces of background. The **poloidal** mode number $m$ is never
+measured on VEST — only $n$ is — which is why the chain from a mode to a
+rational surface cannot be closed here. And a **rational surface** is where
+$q = m/n$; a mode resonates there. Session 03 defined $q$; this is what it is
+for.
+
+Also: the sign convention in that equation depends on which way $\phi$ runs —
+exactly the kind of thing COCOS governs. Mention the link back to session 03.
+
+TRANSITION:
+And the packaged shot makes the point for us, painfully.
+:::
+
+## Read the title before the number
+
+`available_plots` says a call will not raise --- not that its answer is worth
+having.
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+This is the session's hinge and it deserves the time. On the packaged shot the
+toroidal fit runs, is advertised, and returns a number — and the number is an
+identity. The shot's two declared toroidal positions are **one physical probe
+entered twice**, with byte-identical samples and two different declared angles.
+
+So the fit compares a signal with itself, and the remaining probes all sit at one
+angle where their phase spread is poloidal structure read as though it were
+toroidal.
+
+The plot did not lie. Its title said *2 toroidal positions*, and two is the
+documented minimum, not a claim of sufficiency.
+
+WARN:
+Make sure the audience understands this is a mapping defect in the data, not a
+bug in the fit and not a property of the machine. It is tracked as issue #724.
+
+TRANSITION:
+A second shot has a real array, and the contrast is the lesson.
+:::
+
+## Session workflow
+
+timing $\rightarrow$ spectrogram $\rightarrow$ spectrum and band power
+
+$\rightarrow$ toroidal phase $\rightarrow$ rational surfaces
+
+::: {.notes}
+[1 min]
+
+NARRATE:
+Point at each step. Note that the window is cut by the timing helpers rather
+than by eye, and that the band power is measured against a floor that is itself
+measured.
+:::
+
+# Where it stops
+
+## Where the chain stops
+
+No resolver from $(m, n)$ to a surface; no rotation measurement, so no mode
+tracks; no event classifier of any kind.
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+Close on what you may write down: the frequency and its drift, the band power
+against a measured floor, $n$ modulo the array's alias step, and the normalised
+radius of each bare $q$ surface — plus the sentence that the pairing between
+them is undetermined.
+
+That last sentence is a result, not a failure. It is also the one a reviewer
+will check first.
+
+WARN:
+Do not let anyone leave thinking VAFT classifies disruptions or sawteeth. It
+does not. It has generic onset primitives and the timing wrappers built on them,
+which is why the session says *onset* and *termination* and stops.
+:::

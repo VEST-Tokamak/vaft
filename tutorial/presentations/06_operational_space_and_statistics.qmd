@@ -1,0 +1,46 @@
+---
+title: "Operational Space and Statistics"
+subtitle: "VAFT Introductory Tutorial | Session 06"
+format:
+  vaftslides-revealjs: default
+  vaftslides-beamer: default
+bibliography: assets/bibliography/vaft.bib
+---
+
+# Scaffold
+
+## Why this session exists
+
+Move from single-shot interpretation to population-level tokamak physics.
+
+::: {.notes}
+[scaffold]
+
+This deck is a scaffold, like its notebook. Session 06 closes the course by
+changing the unit of analysis from one discharge to a campaign.
+:::
+
+## Session workflow
+
+summary table $\rightarrow$ filtering and limits $\rightarrow$ regression or
+classification $\rightarrow$ physical claim
+
+::: {.notes}
+[scaffold]
+
+The open question for this session is data. Three shots are packaged; real
+operational-space work needs the database, and HSDS access is not part of the
+offline contract. Whoever writes it has to decide whether the session teaches
+the method on three shots or requires lab mode.
+:::
+
+## Practice goal
+
+Make a claim about a population of discharges that survives its own filtering.
+
+::: {.notes}
+[scaffold]
+
+The teaching risk here is selection effects: a limit found after filtering the
+population is a property of the filter as much as of the machine.
+:::

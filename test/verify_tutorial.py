@@ -7,7 +7,6 @@ import ast
 from pathlib import Path
 import re
 import sys
-import zlib
 
 import nbformat
 
@@ -36,10 +35,6 @@ SESSION_01_HEADINGS = [
 SESSIONS = {
     1: {
         "notebook": "01_getting_started_with_vaft.ipynb",
-        # Session 01 pilots the QMD presentation pipeline (issue #322): one
-        # source renders to Reveal.js and to Beamer, so it has no committed
-        # .tex and no committed .pdf. Sessions 02-06 remain hand-written Beamer
-        # until the pilot is reviewed.
         "qmd": "presentations/01_getting_started_with_vaft.qmd",
         "headings": SESSION_01_HEADINGS,
         # Session 01 runs entirely from packaged data; it has no lab branch.
@@ -47,25 +42,23 @@ SESSIONS = {
     },
     2: {
         "notebook": "02_operation_scenario_and_vacuum_fields.ipynb",
-        "tex": "02_operation_scenario_and_vacuum_fields.tex",
+        "qmd": "presentations/02_operation_scenario_and_vacuum_fields.qmd",
     },
     3: {
         "notebook": "03_equilibrium_and_kinetic_profiles.ipynb",
-        "tex": "03_equilibrium_and_kinetic_profiles.tex",
+        "qmd": "presentations/03_equilibrium_and_kinetic_profiles.qmd",
     },
     4: {
         "notebook": "04_fluctuations_and_transient_events.ipynb",
-        "tex": "04_fluctuations_and_transient_events.tex",
+        "qmd": "presentations/04_fluctuations_and_transient_events.qmd",
     },
     5: {
-        # Issue #185 intentionally gives the notebook and presentation
-        # different stems for this session.
         "notebook": "05_mhd_stability_and_3d_perturbations.ipynb",
-        "tex": "05_mhd_linear_stability_and_3d_perturbed_equilibrium.tex",
+        "qmd": "presentations/05_mhd_stability_and_3d_perturbations.qmd",
     },
     6: {
         "notebook": "06_operational_space_and_statistics.ipynb",
-        "tex": "06_operational_space_and_statistics.tex",
+        "qmd": "presentations/06_operational_space_and_statistics.qmd",
     },
 }
 
@@ -101,46 +94,6 @@ FORBIDDEN_DATA_SUFFIXES = {
     ".xlsx",
 }
 
-MINIMUM_PDF_BYTES = 1_000
-_PDF_STREAM = re.compile(rb"(?<!end)stream\r?\n")
-_PDF_PAGE = re.compile(rb"/Type\s*/Page(?![s/A-Za-z])")
-
-
-def _inflate_pdf(payload: bytes) -> bytes:
-    """Return the payload joined with every FlateDecode stream that inflates.
-
-    pdfTeX packs the page dictionaries into compressed object streams, so they
-    are invisible until the streams are inflated.
-    """
-    blobs = [payload]
-    for match in _PDF_STREAM.finditer(payload):
-        end = payload.find(b"endstream", match.end())
-        if end < 0:
-            continue
-        try:
-            blobs.append(zlib.decompressobj().decompress(payload[match.end() : end]))
-        except zlib.error:
-            continue
-    return b"".join(blobs)
-
-
-def count_pdf_pages(payload: bytes) -> int:
-    """Count page objects in a PDF without depending on a third-party parser."""
-    return len(_PDF_PAGE.findall(_inflate_pdf(payload)))
-
-
-def pdf_problems(payload: bytes) -> list[str]:
-    """Report structural defects in a compiled deck PDF."""
-    if not payload.startswith(b"%PDF-") or len(payload) < MINIMUM_PDF_BYTES:
-        return ["not a plausible compiled PDF"]
-    problems: list[str] = []
-    if not payload.rstrip().endswith(b"%%EOF"):
-        problems.append("is truncated: the %%EOF trailer is missing")
-    if count_pdf_pages(payload) < 1:
-        problems.append("declares no pages")
-    return problems
-
-
 def _source_text(cell: nbformat.NotebookNode) -> str:
     source = cell.get("source", "")
     return "".join(source) if isinstance(source, list) else str(source)
@@ -148,9 +101,7 @@ def _source_text(cell: nbformat.NotebookNode) -> str:
 
 def _validate_inventory(failures: list[str]) -> None:
     expected_notebooks = {entry["notebook"] for entry in SESSIONS.values()}
-    expected_tex = {entry["tex"] for entry in SESSIONS.values() if "tex" in entry}
-    expected_pdfs = {Path(name).with_suffix(".pdf").name for name in expected_tex}
-    expected_qmd = {entry["qmd"] for entry in SESSIONS.values() if "qmd" in entry}
+    expected_qmd = {entry["qmd"] for entry in SESSIONS.values()}
 
     def artifact_names(pattern: str) -> set[str]:
         return {
@@ -161,8 +112,10 @@ def _validate_inventory(failures: list[str]) -> None:
 
     inventories = (
         ("notebook", expected_notebooks, artifact_names("*.ipynb")),
-        ("TeX source", expected_tex, artifact_names("*.tex")),
-        ("PDF", expected_pdfs, artifact_names("*.pdf")),
+        # Slides are rendered, never committed, so tutorial/ must hold no deck
+        # artifact at all -- a stray .tex or .pdf here is a leftover.
+        ("TeX source", set(), artifact_names("*.tex")),
+        ("PDF", set(), artifact_names("*.pdf")),
         # Quarto sources are addressed relative to tutorial/, so compare the
         # declared paths against what the presentations tree actually holds.
         (
@@ -349,29 +302,6 @@ def _validate_qmd_deck(session: int, filename: str, failures: list[str]) -> None
         failures.append("presentations: the shared vaftslides theme is missing")
 
 
-def _validate_deck(session: int, filename: str, failures: list[str]) -> None:
-    path = TUTORIAL / filename
-    if not path.exists():
-        return
-    source = path.read_text(encoding="utf-8")
-    required_fragments = (
-        r"\documentclass[aspectratio=169]{beamer}",
-        rf"\graphicspath{{{{figures/common/}}{{figures/{session:02d}/}}}}",
-        r"\begin{document}",
-        r"\end{document}",
-    )
-    for fragment in required_fragments:
-        if fragment not in source:
-            failures.append(f"{filename}: missing required fragment {fragment!r}")
-    if re.search(r"\\(?:input|include)\s*\{", source):
-        failures.append(f"{filename}: decks must not depend on input/include files")
-
-    pdf = path.with_suffix(".pdf")
-    if pdf.exists():
-        for problem in pdf_problems(pdf.read_bytes()):
-            failures.append(f"{pdf.name}: {problem}")
-
-
 def validate() -> list[str]:
     failures: list[str] = []
     if not TUTORIAL.is_dir():
@@ -386,10 +316,7 @@ def validate() -> list[str]:
             entry.get("headings"),
             entry.get("modes"),
         )
-        if "tex" in entry:
-            _validate_deck(session, entry["tex"], failures)
-        if "qmd" in entry:
-            _validate_qmd_deck(session, entry["qmd"], failures)
+        _validate_qmd_deck(session, entry["qmd"], failures)
     return failures
 
 
@@ -400,11 +327,9 @@ def main() -> int:
         for failure in failures:
             print(f"- {failure}", file=sys.stderr)
         return 1
-    beamer = sum(1 for entry in SESSIONS.values() if "tex" in entry)
-    quarto = sum(1 for entry in SESSIONS.values() if "qmd" in entry)
     print(
-        f"Tutorial validation passed: {len(SESSIONS)} clean notebooks, "
-        f"{beamer} standalone Beamer decks and {quarto} Quarto deck(s)."
+        f"Tutorial validation passed: {len(SESSIONS)} clean notebooks and "
+        f"{len(SESSIONS)} Quarto decks, each rendering to both backends."
     )
     return 0
 
