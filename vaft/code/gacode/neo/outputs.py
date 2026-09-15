@@ -196,6 +196,42 @@ class NeoOutputs:
         return self.transport.get("bootstrap_current")
 
     @property
+    def effective_charge(self) -> Optional[np.ndarray]:
+        """``Z_eff`` as this run's own species list implies it, per radius.
+
+        NEO's collision operator is built from the species it was given, not from
+        the ``z_eff`` column of ``input.gacode`` -- which expro carries for other
+        consumers and NEO ignores. A file written with ``z_eff = 2`` but only
+        hydrogen and electrons is a run at ``Z_eff = 1``, and comparing it with an
+        analytic model evaluated at 2 compares two different plasmas: on VEST that
+        is a 53 percent error in the conductivity and a sign change in the
+        bootstrap-current discrepancy.
+
+        So this is the charge a like-for-like comparison must use, and it is read
+        from the run rather than from whatever the caller intended.
+        """
+        charge = self.species_charge
+        densities = None if self.equilibrium is None else self.equilibrium.get("density")
+        if charge is None or densities is None:
+            return None
+        charge = np.asarray(charge, dtype=float)
+        densities = np.atleast_2d(np.asarray(densities, dtype=float))
+        if densities.shape[0] != charge.size:
+            return None
+        electrons = charge < 0.0
+        if not electrons.any() or electrons.all():
+            return None
+        electron_density = densities[electrons].sum(axis=0)
+        ions = ~electrons
+        weighted = (densities[ions] * charge[ions, None] ** 2).sum(axis=0)
+        return np.divide(
+            weighted,
+            electron_density,
+            out=np.full(electron_density.shape, np.nan),
+            where=electron_density > 0.0,
+        )
+
+    @property
     def trapped_fraction(self) -> Optional[float]:
         """The trapped fraction NEO computed from the surface geometry.
 

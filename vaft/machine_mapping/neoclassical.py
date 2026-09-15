@@ -14,6 +14,7 @@ correspondence, not about the run.
 NEO native                  IMAS destination                              units               status
 =========================== ============================================= =================== =========
 ``transport.jparB``         ``core_profiles.../j_bootstrap``              A/m^2               derived
+``transport.jparB`` (2nd)   ``core_profiles.../conductivity_parallel``     ohm^-1.m^-1         derived
 ``transport.particle_flux`` ``core_transport.../particles.flux``          m^-2.s^-1           derived
 ``transport.energy_flux``   ``core_transport.../energy.flux``             W.m^-2              derived
 ``coordinates.rho_tor_norm````.../grid_flux.rho_tor_norm``, ``grid.``     -                   exact
@@ -45,9 +46,22 @@ convention, not the area integral of a parallel ``<J.B>/B0``. ``core_sources.py`
 records that conflation costing 53 percent on VEST; a converted value is not
 available here, so the field stays unset and the reason is reported.
 
-**Conductivity is not mapped.** NEO yields it only from a second run with
-``EPAR0=1`` and the gradient scales zeroed, which is what ``vgen`` does. Until
-the adapter offers that, ``conductivity_parallel`` stays unset.
+**Conductivity comes from a second run.** NEO does not report one from a
+transport solve: ``vgen`` obtains it by running the same case again with a unit
+parallel electric field and every gradient switched off, so that ``jpar`` is the
+response to the field alone (``vgen_compute_neo.f90:240-260``).
+:func:`~vaft.code.gacode.neo.run_neo_conductivity_case` stages that run, and
+``core_profiles_from_neo`` writes ``conductivity_parallel`` when it is passed as
+``conductivity=``. Unlike the bootstrap current it needs no ``B0`` and carries no
+sign correction -- the COCOS mirroring cancels in a current-over-field ratio.
+
+**Which Z_eff a comparison must use.** NEO builds its collision operator from the
+species list, not from the ``z_eff`` column of ``input.gacode``, which it ignores.
+A file written with ``z_eff = 2`` but carrying only hydrogen is a run at
+``Z_eff = 1``, and the conductivity is the quantity that exposes it: comparing
+NEO against an analytic model evaluated at 2 rather than 1 is a 53 percent error
+on VEST 48224. :attr:`~vaft.code.gacode.neo.outputs.NeoOutputs.effective_charge`
+reports what a run actually used, and the provenance records it.
 """
 
 from __future__ import annotations
@@ -123,6 +137,19 @@ class _Scales:
             np.asarray(normalisation.temperature_norm, dtype=float) * 1.0e3 * _ELEMENTARY_CHARGE
         )
         self.b_unit = np.asarray(normalisation.b_unit, dtype=float)
+        self.minor_radius = np.asarray(normalisation.a_meters, dtype=float)
+
+    @property
+    def electric_field(self) -> np.ndarray:
+        """``T_0[eV]/a`` [V m^-1]: what a normalised parallel field multiplies by.
+
+        GACODE's own definition, from ``vgen_compute_neo.f90:256``:
+        ``e_norm = temp_norm*1000/rmin(n_exp)``, with ``temp_norm`` in keV, so the
+        volt comes from dividing an energy in electronvolts by the elementary
+        charge -- which is why this divides ``self.temperature`` (joules) by it
+        rather than multiplying.
+        """
+        return self.temperature / _ELEMENTARY_CHARGE / self.minor_radius
 
     @property
     def current(self) -> np.ndarray:
@@ -251,8 +278,9 @@ def core_profiles_from_neo(
     time: float = 0.0,
     time_index: int = 0,
     b0: Optional[float] = None,
+    conductivity: Any = None,
 ) -> dict[str, Any]:
-    """Write NEO's bootstrap current into ``core_profiles``.
+    """Write NEO's bootstrap current, and its conductivity when given both runs.
 
     Parameters
     ----------
@@ -267,6 +295,13 @@ def core_profiles_from_neo(
         Vacuum toroidal field to normalise by. Read from the ODS when omitted;
         the mapping is refused if neither supplies one, because ``j_bootstrap``
         is defined as ``<J.B>/B0`` and a different ``B0`` is a different number.
+    conductivity
+        The companion gradient-free run from
+        :func:`~vaft.code.gacode.neo.run_neo_conductivity_case`, whose ``jpar`` is
+        the response to a unit parallel field. Given one, ``conductivity_parallel``
+        is written too. A transport run passed here would be read as a conductivity
+        and would be wrong by whatever the bootstrap drive contributes, so the run
+        is checked for the ``EPAR0=1`` signature rather than trusted.
 
     Returns
     -------
@@ -345,14 +380,158 @@ def core_profiles_from_neo(
         "current in amperes with its own sign convention, not the area integral of a "
         "parallel <J.B>/B0; NEO publishes no such conversion)"
     )
-    skipped.append(
-        "conductivity_parallel (NEO gives it only from a second run with EPAR0=1 and "
-        "the gradient scales zeroed, which this adapter does not yet drive)"
-    )
+    if conductivity is None:
+        skipped.append(
+            "conductivity_parallel (NEO gives it only from a second run with EPAR0=1 "
+            "and the gradient scales zeroed; pass one as conductivity=, staged by "
+            "vaft.code.gacode.neo.run_neo_conductivity_case)"
+        )
+    else:
+        written.extend(
+            _write_conductivity(
+                ods, conductivity, time=time, time_index=time_index, skipped=skipped
+            )
+        )
 
     if written:
-        _write_provenance(ods, native, "core_profiles")
+        _write_provenance(ods, native, "core_profiles", conductivity=conductivity)
     return {"written": written, "skipped": skipped}
+
+
+def _write_conductivity(
+    ods: ODS,
+    result: Any,
+    *,
+    time: float,
+    time_index: int,
+    skipped: list[str],
+) -> list[str]:
+    """Write ``conductivity_parallel`` from the gradient-free companion run.
+
+    ``sigma = jpar * (e n_0 v_t0) / (T_0[eV]/a)`` -- ``vgen``'s own recipe
+    (``vgen_compute_neo.f90:256-258``). Unlike the bootstrap current this needs no
+    ``B0`` and no sign correction: ``jpar`` and the field that drove it are both in
+    NEO's frame, so the COCOS mirroring cancels in the ratio and a conductivity
+    that came out negative would mean something is wrong rather than that VEST runs
+    the other way round.
+    """
+    native = _native(result)
+    if not getattr(native, "solved", False):
+        skipped.append(
+            "conductivity_parallel (the companion run did not solve: "
+            + "; ".join(getattr(native, "errors", ()) or ("no reason recorded",))
+            + ")"
+        )
+        return []
+
+    # A transport run and a conductivity run differ only in their input, so the
+    # output alone cannot tell them apart. Refusing to guess is the point.
+    parameters = _run_parameters(result)
+    if parameters is not None and not _is_conductivity_run(parameters):
+        skipped.append(
+            "conductivity_parallel (the run passed as conductivity= was not staged "
+            "with EPAR0=1 and zeroed gradient scales, so its jpar is a bootstrap "
+            "current and not a response to a parallel field)"
+        )
+        return []
+
+    scales, grid, reasons = _preconditions(native)
+    if scales is None or grid is None:
+        skipped.extend(reason.replace("everything", "conductivity_parallel", 1) for reason in reasons)
+        return []
+    current = native.bootstrap_current
+    if current is None:
+        skipped.append(
+            "conductivity_parallel (the companion run wrote no out.neo.transport)"
+        )
+        return []
+
+    values = np.asarray(current, dtype=float) * scales.current / scales.electric_field
+    base = f"core_profiles.profiles_1d.{time_index}"
+    _ensure_aos(ods, "core_profiles.profiles_1d", time_index)
+    existing = ods.get(f"{base}.grid.rho_tor_norm", None)
+    existing = None if existing is None else np.atleast_1d(np.asarray(existing, dtype=float))
+    if existing is None or existing.size == 0:
+        ods[f"{base}.grid.rho_tor_norm"] = grid
+        ods[f"{base}.conductivity_parallel"] = values
+    else:
+        placed, unevaluated = _onto(existing, grid, values)
+        if unevaluated >= existing.size:
+            skipped.append(
+                f"conductivity_parallel entirely (the companion run solved "
+                f"rho_tor_norm {grid.min():.3f}-{grid.max():.3f}, which reaches no "
+                f"point of this slice's {existing.size}-point grid)"
+            )
+            return []
+        ods[f"{base}.conductivity_parallel"] = placed
+        if unevaluated:
+            skipped.append(
+                f"conductivity_parallel at {unevaluated} of {existing.size} grid "
+                f"points (NEO solved rho_tor_norm {grid.min():.3f}-{grid.max():.3f}; "
+                "outside that span the value is left unevaluated, not extrapolated)"
+            )
+    _set_time_array(ods, "core_profiles.time", time_index, float(time))
+    ods["core_profiles.ids_properties.homogeneous_time"] = 1
+    return ["conductivity_parallel"]
+
+
+def _conductivity_fragment(result: Any) -> str:
+    """How the conductivity was obtained, or that it was not.
+
+    Two runs produced this IDS and they are not interchangeable, so the record
+    names each one's settings: a reader who finds j_bootstrap and
+    conductivity_parallel side by side would otherwise have no way to know the
+    second came from a different solve of the same plasma.
+    """
+    if result is None:
+        return (
+            "<conductivity_parallel status=\"unmapped\" reason=\"no companion run "
+            "was supplied; NEO yields a conductivity only from a second run with "
+            "EPAR0=1 and the gradient scales zeroed\"/>"
+        )
+    native = _native(result)
+    version = getattr(native, "version", None) or {}
+    revision = str(version.get("revision", "")).replace("<", "").replace(">", "")
+    charge = getattr(native, "effective_charge", None)
+    z_eff = "" if charge is None else f" z_eff=\"{float(np.nanmean(np.asarray(charge))):.4g}\""
+    return (
+        "<conductivity_parallel run=\"second, gradient-free\" "
+        "settings=\"EPAR0=1 with PROFILE_DLNNDR_*_SCALE and PROFILE_DLNTDR_*_SCALE "
+        "zeroed for every species\" "
+        "derived_by=\"jpar * e n_0 v_t0 / (T_0[eV]/a)\" "
+        "recipe=\"vgen/src/vgen_compute_neo.f90:256-258\" "
+        f"revision=\"{revision}\"{z_eff} units=\"ohm^-1.m^-1\"/>"
+    )
+
+def _run_parameters(result: Any) -> Optional[Mapping[str, Any]]:
+    """The ``input.neo`` settings a result carries, when it carries any.
+
+    A bare :class:`NeoOutputs` read back off disk has none -- the run's inputs are
+    not part of its output -- so absence means "cannot check", not "not a
+    conductivity run".
+    """
+    provenance = getattr(result, "provenance", None) or {}
+    staged = provenance.get("parameters")
+    if staged:
+        return staged
+    # A staged case, passed before it was run.
+    parameters = getattr(result, "parameters", None)
+    return parameters if parameters else None
+
+
+def _is_conductivity_run(parameters: Mapping[str, Any]) -> bool:
+    """Whether these settings are the gradient-free unit-field case."""
+    try:
+        if float(parameters.get("EPAR0", 0.0)) == 0.0:
+            return False
+    except (TypeError, ValueError):
+        return False
+    scales = [
+        value
+        for key, value in parameters.items()
+        if str(key).startswith("PROFILE_DLNNDR_") or str(key).startswith("PROFILE_DLNTDR_")
+    ]
+    return bool(scales) and all(float(value) == 0.0 for value in scales)
 
 
 def core_transport_from_neo(
@@ -467,7 +646,7 @@ def _model_position(ods: ODS) -> int:
     return count
 
 
-def _write_provenance(ods: ODS, native: Any, ids: str) -> None:
+def _write_provenance(ods: ODS, native: Any, ids: str, *, conductivity: Any = None) -> None:
     """Record the solver identity and every correspondence that is not exact.
 
     The caveats are attributes rather than prose so that a consumer can test
@@ -502,10 +681,10 @@ def _write_provenance(ods: ODS, native: Any, ids: str) -> None:
         "rotating plasma, and core_transport declares no frame.\"/>"
         "<unmapped>Flows, poloidal and toroidal velocities, the analytic theory "
         "columns and the Hirshman-Sigmar fluxes have no definitional IMAS home and "
-        "stay in the NEO result container. conductivity_parallel needs a second NEO "
-        "run. global_quantities.current_bootstrap is a toroidal current, not the "
-        "integral of this parallel one.</unmapped>"
-        "</neo>"
+        "stay in the NEO result container. global_quantities.current_bootstrap is a "
+        "toroidal current, not the integral of this parallel one.</unmapped>"
+        + _conductivity_fragment(conductivity)
+        + "</neo>"
     )
     path = f"{ids}.code.parameters"
     existing = ods.get(path, None)

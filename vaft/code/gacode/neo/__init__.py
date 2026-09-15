@@ -18,7 +18,14 @@ but different question from a drift-kinetic solve, and hiding both behind one
 from __future__ import annotations
 
 from ._types import NEO_DEFAULTS, NEOConfig, NEOResult
-from .inputs import NEOInputs, neo_parameters, prepare_neo_case, write_input_neo
+from .inputs import (
+    NEOInputs,
+    conductivity_parameters,
+    neo_parameters,
+    prepare_neo_case,
+    prepare_neo_conductivity_case,
+    write_input_neo,
+)
 from .outputs import (
     SCHEMA,
     SCHEMA_VERSION,
@@ -28,9 +35,20 @@ from .outputs import (
     NeoOutputs,
     collect_neo_outputs,
 )
-from .runner import NEOExecutionError, read_neo_case, run_neo, run_neo_case
+from .runner import (
+    NEOExecutionError,
+    read_neo_case,
+    run_neo,
+    run_neo_case,
+    run_neo_conductivity_case,
+    run_neo_pair,
+)
 
 __all__ = [
+    "run_neo_pair",
+    "run_neo_conductivity_case",
+    "prepare_neo_conductivity_case",
+    "conductivity_parameters",
     "NEOConfig",
     "NEOExecutionError",
     "NEOInputs",
