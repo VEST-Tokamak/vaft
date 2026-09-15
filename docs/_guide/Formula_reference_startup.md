@@ -1,7 +1,7 @@
 ---
 title: "Formula reference: startup"
 author: VEST team
-date: 2026-09-15 09:30
+date: 2026-09-14 10:00
 category: guide
 layout: post
 permalink: /reference/formula/startup/

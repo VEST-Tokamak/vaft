@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from vaft.machine_mapping.magnetics import SIDE_PROBE_MIN_ABS_Z
+from vaft.formula.constants import PA_PER_TORR
 
 # `ods[path]` materializes a missing path rather than raising (issue #118).
 from vaft.ods_access import path_value as _value
@@ -1449,7 +1450,7 @@ def time_barometry_pressure(odc_or_ods, label='shot', xunit='s', yunit='Pa', xli
             elif yunit == 'mbar':
                 pressure = pressure / 100
             elif yunit == 'Torr':
-                pressure = pressure / 133.322
+                pressure = pressure / PA_PER_TORR
                 
             plt.plot(time, pressure, label=lbl)
             

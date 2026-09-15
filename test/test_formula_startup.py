@@ -72,13 +72,14 @@ def test_the_torr_is_a_definition_not_a_measurement():
     assert PA_PER_TORR == pytest.approx(133.322368, rel=1e-8)
 
 
-def test_the_plot_layer_rounds_the_same_definition():
-    """``vaft/plot/display.py`` predates this constant and carries its own
-    rounded copy for axis labels.  Until it imports this one, the two agreeing
-    is worth asserting rather than assuming."""
-    from vaft.plot.display import _PA_PER_TORR
+def test_the_plot_layer_shares_this_definition_rather_than_copying_it():
+    """``vaft/plot/display.py`` and ``vaft/plot/time.py`` each carried their own
+    rounded copy, and the two disagreed (133.322368 against a bare 133.322).
+    Both now import this one, so the axis label and the physics cannot drift."""
+    from vaft.plot import display, time
 
-    assert _PA_PER_TORR == pytest.approx(PA_PER_TORR, rel=1e-8)
+    assert display.PA_PER_TORR is PA_PER_TORR
+    assert time.PA_PER_TORR is PA_PER_TORR
 
 
 # ---------------------------------------------------------------------------
