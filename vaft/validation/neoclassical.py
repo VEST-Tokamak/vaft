@@ -241,6 +241,10 @@ def model_agreement(
 #: :func:`input_readiness` reports them. Named rather than implied so a caller can
 #: act on one requirement -- supply a Z_eff, truncate the grid, choose another time
 #: -- instead of reading a sentence.
+#: Where the grid is truncated unless a caller decides otherwise. Named so the
+#: recorded assumption can say which of the two it was.
+_DEFAULT_RHO_MAX = 0.95
+
 REQUIREMENTS: tuple[str, ...] = (
     "convertible",
     "ion_temperature",
@@ -254,7 +258,7 @@ def input_readiness(
     *,
     time: Optional[float] = None,
     time_index: Optional[int] = None,
-    rho_max: Optional[float] = 0.95,
+    rho_max: Optional[float] = _DEFAULT_RHO_MAX,
     z_eff: Optional[float] = None,
     ion_index: int = 0,
     minimum_points: int = 8,
@@ -305,6 +309,11 @@ def input_readiness(
         ``requirements`` is one entry per name in :data:`REQUIREMENTS`, each with
         ``satisfied`` and a ``detail`` saying why -- present for the satisfied ones
         too, so a passing state records what it passed on.
+
+        A refusal from the converter stops the rest of the rule, and the reply then
+        carries ``not_evaluated`` naming what was never reached. ``unmet`` lists
+        only checks that actually ran and failed, so every name in it can be looked
+        up in ``requirements``.
     """
     from vaft.code.gacode.inputs import ProfileConversionError, prepare_gacode_profile
 
@@ -321,10 +330,14 @@ def input_readiness(
         checks.append(
             {"name": "convertible", "satisfied": False, "detail": str(refusal)}
         )
+        # Only what was actually evaluated. Padding this with the requirements the
+        # refusal stopped us reaching would report a missing ion temperature for a
+        # state that has one, and name entries `requirements` does not carry.
         return {
             "qualified": False,
             "requirements": tuple(checks),
-            "unmet": ("convertible",) + REQUIREMENTS[1:],
+            "unmet": ("convertible",),
+            "not_evaluated": REQUIREMENTS[1:],
             "assumptions": (),
             "provenance": provenance,
         }
@@ -389,8 +402,16 @@ def input_readiness(
     if kind in {"caller_supplied", "policy_assumption"}:
         assumptions.append({"quantity": "z_eff", **record})
     if rho_max is not None:
+        # A default is not a decision. The converter's vocabulary distinguishes them
+        # so an assumption can be audited, and this one travels into the published
+        # manifest -- a reader has to be able to tell 0.95 chosen for this shot from
+        # 0.95 inherited from the signature.
         assumptions.append(
-            {"quantity": "rho_max", "kind": "caller_supplied", "value": float(rho_max)}
+            {
+                "quantity": "rho_max",
+                "kind": "caller_supplied" if rho_max != _DEFAULT_RHO_MAX else "default",
+                "value": float(rho_max),
+            }
         )
 
     enough = profile.n_exp >= int(minimum_points)

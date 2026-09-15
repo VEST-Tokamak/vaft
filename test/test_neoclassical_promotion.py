@@ -378,3 +378,133 @@ def test_the_rule_does_not_claim_the_ion_temperature_was_measured(state):
         if check["name"] == "ion_temperature"
     )
     assert "not the same as measured" in detail
+
+
+# --------------------------------------------------------------------------
+# cold review (#800): what each fix must keep true
+# --------------------------------------------------------------------------
+
+
+@requires_sample
+def test_the_area_comes_from_the_equilibrium_at_the_same_time_not_the_same_index():
+    """The product carries one slice; a shot's equilibrium carries dozens.
+
+    Matching by position integrates the bootstrap current over whatever
+    cross-section happens to sit at that index. Reproduced before the fix as a
+    factor of four: an equilibrium holding 0.1 s and 0.3 s reported the 0.1 s area
+    for a product describing 0.3 s.
+    """
+    import copy
+
+    from omas import load_omas_json
+    from vaft.database._summary import extract_neoclassical
+    from vaft.omas.vest_upstream import build_neoclassical_ods
+
+    product, _ = build_neoclassical_ods(
+        shot=48224, state=SAMPLE, run_directory=PROFILE_RUN, z_eff=2.0
+    )
+    composed = load_omas_json(str(SAMPLE), consistency_check=False)
+    first = copy.deepcopy(composed["equilibrium.time_slice.0"])
+    composed["equilibrium.time_slice.1"] = copy.deepcopy(first)
+    composed["equilibrium.time_slice.1.profiles_1d.area"] = (
+        np.asarray(first["profiles_1d.area"]) * 4.0
+    )
+    composed["equilibrium.time"] = np.array([0.1, 0.3])
+    composed["equilibrium.time_slice.0.time"] = 0.1
+    composed["equilibrium.time_slice.1.time"] = 0.3
+    for leaf in ("j_bootstrap", "grid.rho_tor_norm"):
+        composed[f"core_profiles.profiles_1d.0.{leaf}"] = np.asarray(
+            product[f"core_profiles.profiles_1d.0.{leaf}"]
+        )
+    composed["core_profiles.time"] = np.array([0.3])
+
+    row = extract_neoclassical(composed, 48224)[0]
+    # The 0.3 s slice carries four times the area, so the current must too.
+    assert row["i_bootstrap_kA"] == pytest.approx(4 * 2.18, rel=0.05)
+
+
+def test_a_vacuum_field_shorter_than_the_slice_list_is_not_stretched_over_it():
+    """One value applies to every slice; two do not apply to a third.
+
+    Clamping to the last entry is how slice 0's b0 came to answer for every slice
+    in PR #696 -- a factor of two there, silent in both cases.
+    """
+    from omas import ODS
+    from vaft.database._summary import extract_neoclassical
+
+    ods = ODS(consistency_check=False)
+    for index in range(3):
+        ods[f"core_profiles.profiles_1d.{index}.j_bootstrap"] = np.array([1.0, 2.0, 3.0])
+        ods[f"core_profiles.profiles_1d.{index}.grid.rho_tor_norm"] = np.array(
+            [0.2, 0.5, 0.8]
+        )
+    ods["core_profiles.vacuum_toroidal_field.b0"] = np.array([0.15, 0.16])
+
+    rows = extract_neoclassical(ods, 48224)
+    assert [row["b0_T"] for row in rows[:2]] == [0.15, 0.16]
+    assert np.isnan(rows[2]["b0_T"])
+
+    ods["core_profiles.vacuum_toroidal_field.b0"] = np.array([0.15])
+    single = extract_neoclassical(ods, 48224)
+    assert [row["b0_T"] for row in single] == [0.15, 0.15, 0.15]
+
+
+@requires_sample
+def test_a_run_that_mapped_no_bootstrap_current_is_partial_not_successful(tmp_path):
+    """Otherwise the manifest says success and the summary produces no row at all."""
+    from omas import load_omas_json, save_omas_json
+    from vaft.database._summary import extract_neoclassical
+    from vaft.omas.vest_upstream import build_neoclassical_ods
+
+    state = load_omas_json(str(SAMPLE), consistency_check=False)
+    del state["equilibrium.vacuum_toroidal_field.b0"]
+    without_field = tmp_path / "no_b0.json"
+    save_omas_json(state, str(without_field))
+
+    ods, manifest = build_neoclassical_ods(
+        shot=48224, state=without_field, run_directory=PROFILE_RUN, z_eff=2.0
+    )
+    assert manifest["status"] == "partial"
+    assert "j_bootstrap" not in manifest["written"]
+    assert extract_neoclassical(ods, 48224) == []
+
+
+@requires_sample
+def test_the_manifest_records_no_path_from_the_machine_that_ran_it():
+    """It is published; a /var/folders run directory means nothing anywhere else."""
+    from vaft.omas.vest_upstream import build_neoclassical_ods
+
+    _, manifest = build_neoclassical_ods(
+        shot=48224, state=SAMPLE, run_directory=PROFILE_RUN, z_eff=2.0
+    )
+    assert manifest["input"]["run_name"] == PROFILE_RUN.name
+    rendered = json.dumps(manifest)
+    assert str(PROFILE_RUN.parent) not in rendered
+    assert str(SAMPLE.parent) not in rendered
+
+
+@requires_sample
+def test_a_refusal_reports_only_what_it_actually_checked(state):
+    """`unmet` must be lookup-able in `requirements`, or it is just noise."""
+    readiness = input_readiness(state, rho_max=None, z_eff=2.0)
+    evaluated = {check["name"] for check in readiness["requirements"]}
+    assert set(readiness["unmet"]) <= evaluated
+    assert readiness["unmet"] == ("convertible",)
+    assert readiness["not_evaluated"] == REQUIREMENTS[1:]
+
+
+@requires_sample
+def test_a_default_truncation_is_recorded_as_a_default_not_as_a_decision(state):
+    """The manifest has to distinguish 0.95 chosen for this shot from 0.95 inherited."""
+    inherited = {
+        entry["quantity"]: entry
+        for entry in input_readiness(state, z_eff=2.0)["assumptions"]
+    }
+    assert inherited["rho_max"]["kind"] == "default"
+
+    chosen = {
+        entry["quantity"]: entry
+        for entry in input_readiness(state, rho_max=0.9, z_eff=2.0)["assumptions"]
+    }
+    assert chosen["rho_max"]["kind"] == "caller_supplied"
+    assert chosen["rho_max"]["value"] == 0.9

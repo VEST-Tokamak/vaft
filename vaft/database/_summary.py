@@ -653,8 +653,13 @@ def extract_neoclassical(ods, shot: int) -> list[dict]:
         b0 = np.nan
         if field is not None:
             values = np.asarray(field, dtype=float).reshape(-1)
-            if values.size:
-                b0 = float(values[min(cp_index, values.size - 1)])
+            # One stored value genuinely applies to every slice; anything shorter
+            # than the slice list does not, and clamping to its last entry is how
+            # slice 0's field came to answer for every slice in PR #696.
+            if values.size == 1:
+                b0 = float(values[0])
+            elif cp_index < values.size:
+                b0 = float(values[cp_index])
 
         time_s = np.nan
         if times is not None:
@@ -688,9 +693,18 @@ def _bootstrap_current_kA(ods, cp_index: int, current, rho, solved) -> float:
     honest integral and the column is NaN rather than a number computed from an
     assumed geometry.
     """
+    from vaft.omas.general import find_matching_time_indices
+
     area = None
     if "equilibrium.time_slice" in ods and len(ods["equilibrium.time_slice"]):
-        index = min(cp_index, len(ods["equilibrium.time_slice"]) - 1)
+        # By time, never by position. This product carries one core_profiles slice
+        # while a shot's equilibrium carries dozens, so `min(cp_index, last)` would
+        # integrate over the cross-section of whatever instant happened to sit at
+        # that index -- a factor of several when the plasma is still growing.
+        try:
+            _, index, _ = find_matching_time_indices(ods, time_slice=cp_index)
+        except Exception:
+            return float("nan")
         prefix = f"equilibrium.time_slice.{index}.profiles_1d"
         grid = _safe_get(ods, f"{prefix}.rho_tor_norm", None)
         values = _safe_get(ods, f"{prefix}.area", None)

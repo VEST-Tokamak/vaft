@@ -2196,16 +2196,28 @@ def build_neoclassical_ods(
     transport = core_transport_from_neo(ods, native, time=slice_time, time_index=0)
 
     written = tuple(profiles["written"]) + tuple(transport["written"])
+    # The bootstrap current is what this product is for. A run that mapped only the
+    # fluxes -- because no vacuum field was available to normalise by, say -- is a
+    # partial result, and calling it "success" would publish a product the summary
+    # then produces no row for, indistinguishable from a shot never run.
+    if "j_bootstrap" in written:
+        status = "success"
+    elif written:
+        status = "partial"
+    else:
+        status = "empty"
     manifest = {
         "schema_version": 1,
         "stage": "neoclassical",
         "shot": shot,
         "machine_version": machine_era_for_shot(shot).name,
-        "status": "success" if written else "empty",
+        "status": status,
         "input": {
             "state": state_path.name,
             "state_sha256": sha256_file(state_path),
-            "run_directory": str(run_directory),
+            # The run directory's *name* only: an absolute path is meaningless on
+            # every machine but the one that ran it, and this manifest is published.
+            "run_name": Path(run_directory).name,
         },
         "solver": {
             "code": "neo",
