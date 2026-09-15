@@ -102,6 +102,15 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("n_frequencies", "int", description="wavelet scales across the band (method='cwt')"),
         OptionSpec("target_df", "float", description="frequency resolution a window is sized for"),
         OptionSpec("highpass_cutoff", "float", description="trend filter cut-off in Hz"),
+        # camera fluctuation views (issue #161): the background and transform
+        # windows in frames, the pixel box summed, and the filtered band.
+        OptionSpec("background_frames", "int", description="local temporal mean width, in frames"),
+        OptionSpec("window_frames", "int", description="short-time transform window, in frames"),
+        OptionSpec("normalisation_frames", "int", description="local emission average width, in frames"),
+        OptionSpec("region", "range", description="(row_start, row_stop, column_start, column_stop) pixel box"),
+        OptionSpec("centre_frequency", "float", description="MHD band centre in Hz; the magnetics' dominant mode"),
+        OptionSpec("half_width", "float", description="half the filtered bandwidth in Hz"),
+        OptionSpec("overlap", "float", description="fractional overlap between short-time windows"),
         OptionSpec("contour_levels"), OptionSpec("detector"),
         OptionSpec("detrend"), OptionSpec("direction"), OptionSpec("dphi_deg"),
         OptionSpec("field_line_start"), OptionSpec("fit_ranges"), OptionSpec("flux_surface_levels"),

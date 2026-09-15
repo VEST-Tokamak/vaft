@@ -4091,6 +4091,231 @@ def _build_camera_visible_animation_frames(ods: Any, **options: Any) -> ImageSeq
     )
 
 
+# ---------------------------------------------------------------------------
+# Camera fluctuation views (issue #161)
+# ---------------------------------------------------------------------------
+
+
+def _camera_visible_frame_times(ods: Any, *, channel: int, detector: int) -> np.ndarray:
+    prefix = _camera_visible_frame_prefix(channel, detector)
+    count = _count(ods, prefix)
+    if not count:
+        raise ValueError(f"{prefix} holds no frames")
+    return np.asarray(
+        [float(_get(ods, f"{prefix}.{i}.time", np.nan)) for i in range(count)], dtype=float
+    )
+
+
+def _camera_visible_frame_window(
+    ods: Any, *, channel: int, detector: int, first: int, last: int
+) -> np.ndarray:
+    """Frames ``first..last`` inclusive, as one cube."""
+    return np.stack(
+        [
+            _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=i)
+            for i in range(first, last + 1)
+        ]
+    )
+
+
+def _camera_visible_region(options: Mapping[str, Any]):
+    region = options.get("region")
+    return None if region is None else tuple(int(v) for v in region)
+
+
+def _build_camera_visible_image_fluctuation(ods: Any, **options: Any) -> Image2D:
+    """One frame with its local temporal background removed (#161 section 1).
+
+    Only the frames the local mean needs are read, and the answer is the one
+    subtracting over the whole record would give.  That takes a span of a full
+    window either side of the target rather than half: with only half, the
+    sub-cube's own edge would shrink the window again -- for the first frame of
+    a 15-frame window, over four frames instead of eight -- and the frames at
+    the ends of a record would come out wrong.
+    """
+    from vaft.process.camera_fluctuation import (
+        BACKGROUND_FRAMES_50KFPS,
+        subtract_temporal_background,
+    )
+
+    channel = int(options.get("channel", 0))
+    detector = int(options.get("detector", 0))
+    idx, resolved_time, _shape = _resolve_camera_visible_frame(
+        ods, channel=channel, detector=detector, options=options
+    )
+    count = _count(ods, _camera_visible_frame_prefix(channel, detector))
+    window = int(options.get("background_frames", BACKGROUND_FRAMES_50KFPS))
+    first = max(0, idx - window)
+    last = min(count - 1, idx + window)
+    cube = _camera_visible_frame_window(
+        ods, channel=channel, detector=detector, first=first, last=last
+    )
+    fluctuation = subtract_temporal_background(cube, window_frames=min(window, cube.shape[0]))
+    channel_name = _camera_visible_channel_name(ods, channel)
+    title = options.get(
+        "title",
+        f"{channel_name} frame {idx} @ t={resolved_time:.4f}s "
+        f"-- {window}-frame background removed",
+    )
+    return Image2D(
+        values=fluctuation[idx - first],
+        value_label="Digital levels, background removed",
+        title=title,
+        cmap=options.get("cmap", "RdBu_r"),
+    )
+
+
+def _camera_visible_region_signal(ods: Any, **options: Any):
+    """``(time, signal)`` of the summed region, with its temporal background removed.
+
+    Summation and the local-mean subtraction are both linear, so summing the
+    region first and detrending the resulting series is identical to detrending
+    every pixel and then summing -- and never materialises the cube.
+    """
+    from vaft.process.camera_fluctuation import (
+        BACKGROUND_FRAMES_50KFPS,
+        subtract_temporal_background,
+        summed_region_signal,
+    )
+
+    channel = int(options.get("channel", 0))
+    detector = int(options.get("detector", 0))
+    times = _camera_visible_frame_times(ods, channel=channel, detector=detector)
+    window = options.get("time_range")
+    keep = slice(None)
+    if window is not None:
+        inside = np.nonzero((times >= float(window[0])) & (times <= float(window[1])))[0]
+        if inside.size < 2:
+            raise ValueError(
+                f"time_range {tuple(window)} holds {inside.size} camera frame(s); "
+                f"the record spans {times[0]:.4f}-{times[-1]:.4f} s"
+            )
+        keep = slice(int(inside[0]), int(inside[-1]) + 1)
+    region = _camera_visible_region(options)
+    frames = [
+        _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=i)
+        for i in range(*keep.indices(times.size))
+    ]
+    summed = summed_region_signal(np.stack(frames), region=region)
+    background = int(options.get("background_frames", BACKGROUND_FRAMES_50KFPS))
+    fluctuation = subtract_temporal_background(
+        summed[:, None], window_frames=min(background, summed.size)
+    )[:, 0]
+    return times[keep], fluctuation, region
+
+
+def _build_camera_visible_spectrogram(ods: Any, **options: Any) -> Spectrogram:
+    """Time-frequency map of the camera intensity summed over one region (#161 section 5).
+
+    The published comparison puts this beside the magnetic probe's own
+    spectrogram to show that the camera carries the same MHD component; the
+    region is stated by the caller because which part of the image views the
+    low-field side depends on the camera pose.
+    """
+    from vaft.process.fluctuation import compute_spectrogram
+
+    time, signal, region = _camera_visible_region_signal(ods, **options)
+    result = compute_spectrogram(
+        time,
+        signal,
+        nperseg=int(options.get("nperseg", 50)),
+        overlap=float(options.get("overlap", 0.5)),
+        window=options.get("window", "hann"),
+    )
+    channel_name = _camera_visible_channel_name(ods, int(options.get("channel", 0)))
+    where = "whole frame" if region is None else f"rows {region[0]}-{region[1]}, columns {region[2]}-{region[3]}"
+    return Spectrogram.from_result(
+        result,
+        max_frequency=options.get("max_frequency"),
+        cmap=options.get("cmap", "hot_r"),
+        title=options.get("title", f"{channel_name} summed intensity -- {where}"),
+        value_label="Intensity fluctuation",
+    )
+
+
+def _build_camera_visible_image_mhd_power(ods: Any, **options: Any) -> Image2D:
+    """Normalised MHD-band power of every pixel, at one time (#161 section 6).
+
+    ``centre_frequency`` is the band centre; the published method takes it from
+    a magnetic probe, which a camera-only product cannot supply, so when it is
+    not given the camera's own dominant component in the search range stands in
+    and the title says so.
+    """
+    from vaft.process.camera_fluctuation import (
+        BACKGROUND_FRAMES_50KFPS,
+        MHD_BAND_HALF_WIDTH_HZ,
+        REFERENCE_SEARCH_RANGE_HZ,
+        SPECTRAL_WINDOW_FRAMES_50KFPS,
+        EMISSION_NORMALISATION_FRAMES_50KFPS,
+        mhd_band_power,
+        normalize_by_local_emission,
+        pixelwise_spectrogram,
+        subtract_temporal_background,
+    )
+
+    channel = int(options.get("channel", 0))
+    detector = int(options.get("detector", 0))
+    idx, resolved_time, _shape = _resolve_camera_visible_frame(
+        ods, channel=channel, detector=detector, options=options
+    )
+    times = _camera_visible_frame_times(ods, channel=channel, detector=detector)
+    background = int(options.get("background_frames", BACKGROUND_FRAMES_50KFPS))
+    transform = int(options.get("window_frames", SPECTRAL_WINDOW_FRAMES_50KFPS))
+    span = transform // 2 + background // 2 + 1
+    first = max(0, idx - span)
+    last = min(times.size - 1, idx + span)
+    if last - first + 1 < transform:
+        raise ValueError(
+            f"a {transform}-frame transform needs {transform} frames around frame {idx}; "
+            f"only {last - first + 1} are available"
+        )
+    cube = _camera_visible_frame_window(
+        ods, channel=channel, detector=detector, first=first, last=last
+    )
+    window_times = times[first : last + 1]
+    fluctuation = subtract_temporal_background(
+        cube, window_frames=min(background, cube.shape[0])
+    )
+    spectrogram = pixelwise_spectrogram(
+        fluctuation, window_times, window_frames=transform,
+        overlap=float(options.get("overlap", 0.5)),
+    )
+    centre = options.get("centre_frequency")
+    note = ""
+    if centre is None:
+        low, high = REFERENCE_SEARCH_RANGE_HZ
+        band = (spectrogram.frequency >= low) & (spectrogram.frequency <= high)
+        if not np.any(band):
+            raise ValueError(
+                "no frequency bin falls in the reference search range; pass centre_frequency="
+            )
+        summed = spectrogram.magnitude[band].reshape(int(np.count_nonzero(band)), -1).sum(axis=1)
+        centre = float(spectrogram.frequency[band][int(np.argmax(summed))])
+        note = " (camera's own dominant component; the published method takes it from a magnetic probe)"
+    power = mhd_band_power(
+        spectrogram,
+        centre_frequency=float(centre),
+        half_width=float(options.get("half_width", MHD_BAND_HALF_WIDTH_HZ)),
+    )
+    normalised = normalize_by_local_emission(
+        power, cube, frame_time=window_times, power_time=spectrogram.time,
+        window_frames=int(options.get("normalisation_frames", EMISSION_NORMALISATION_FRAMES_50KFPS)),
+    )
+    step = int(np.argmin(np.abs(spectrogram.time - resolved_time)))
+    channel_name = _camera_visible_channel_name(ods, channel)
+    title = options.get(
+        "title",
+        f"{channel_name} @ t={spectrogram.time[step]:.4f}s -- "
+        f"{float(centre) / 1e3:.1f} kHz band power / local emission{note}",
+    )
+    return Image2D(
+        values=normalised[step],
+        value_label="Band power / local emission",
+        title=title,
+        cmap=options.get("cmap", "turbo"),
+    )
+
+
 RECIPES["camera_visible_image"] = CallableRecipe(
     builder=_build_camera_visible_image,
     description="One camera frame with optional overlays through one projection.",
@@ -4110,6 +4335,18 @@ RECIPES["camera_visible_image_field_line"] = CallableRecipe(
 RECIPES["camera_visible_animation_frames"] = CallableRecipe(
     builder=_build_camera_visible_animation_frames,
     description="Animate a sequence of FAST-camera frames on a shared color scale.",
+)
+RECIPES["camera_visible_image_fluctuation"] = CallableRecipe(
+    builder=_build_camera_visible_image_fluctuation,
+    description="One FAST-camera frame with its local temporal background removed.",
+)
+RECIPES["camera_visible_image_mhd_power"] = CallableRecipe(
+    builder=_build_camera_visible_image_mhd_power,
+    description="Per-pixel MHD-band power normalised by local emission, at one time.",
+)
+RECIPES["camera_visible_spectrogram"] = CallableRecipe(
+    builder=_build_camera_visible_spectrogram,
+    description="Time-frequency map of the camera intensity summed over one image region.",
 )
 
 

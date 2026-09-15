@@ -321,6 +321,84 @@ def plot_camera_visible_image_frame(
     )
 
 
+def plot_neoclassical_profile_bootstrap_current(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Bootstrap current density, one series per neoclassical model.
+
+    Renders with :func:`vaft.plot.neoclassical_profile_bootstrap_current`.
+    """
+    return render(
+        "neoclassical_profile_bootstrap_current", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_camera_visible_image_fluctuation(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """One FAST-camera frame with its local temporal background removed.
+
+    The published step that brings fast filamentary structure out of the slowly
+    varying line emission (issue #161).  ``background_frames=`` sets the window.
+
+    Renders with :func:`vaft.plot.camera_visible_image_fluctuation`.
+    """
+    return render(
+        "camera_visible_image_fluctuation", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_camera_visible_image_mhd_power(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Per-pixel MHD-band power normalised by the local average emission.
+
+    The published spectrally filtered image: a band magnitude, not an
+    inverse-transform reconstruction (issue #161).  ``centre_frequency=`` names the
+    band the magnetics report; without it the camera's own dominant component stands in.
+
+    Renders with :func:`vaft.plot.camera_visible_image_mhd_power`.
+    """
+    return render(
+        "camera_visible_image_mhd_power", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_camera_visible_spectrogram(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Time-frequency map of the camera intensity summed over one image region.
+
+    The camera side of the published camera/magnetics comparison (issue #161).
+    ``region=(row_start, row_stop, column_start, column_stop)`` chooses what is summed.
+
+    Renders with :func:`vaft.plot.camera_visible_spectrogram`.
+    """
+    return render(
+        "camera_visible_spectrogram", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_camera_visible_image_efit_overlay(
     source: Any,
     *,
@@ -2806,6 +2884,10 @@ __all__ = [
     "plot_barometry_time_pressure",
     "plot_camera_visible_animation_frames",
     "plot_camera_visible_image",
+    "plot_camera_visible_image_fluctuation",
+    "plot_neoclassical_profile_bootstrap_current",
+    "plot_camera_visible_image_mhd_power",
+    "plot_camera_visible_spectrogram",
     "plot_camera_visible_image_efit_overlay",
     "plot_camera_visible_image_field_line",
     "plot_camera_visible_image_frame",
