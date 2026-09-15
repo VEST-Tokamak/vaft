@@ -447,12 +447,22 @@ def _directions(profile: GACODEProfile) -> tuple[int, int]:
     return -signb, -signq * signb
 
 
-def test_the_gacode_convention_is_registered_and_marked_as_inferred():
+def test_the_gacode_convention_is_registered_and_confirmed():
+    """COCOS 2, and no longer this repository's own inference (issue #743).
+
+    The index was carried as an assumption through #550 phases 1-7 because
+    nothing upstream stated it. It is now confirmed against the GACODE geometry
+    convention itself and against two independent implementations that write the
+    format -- OMFIT's reader and FUSE's GACODE.jl -- so the entry must name a
+    source outside VAFT rather than pointing only at expro and reg18.
+    """
     from vaft.data.cocos import convention_for
 
     convention = convention_for("gacode")
     assert convention.cocos == 2
-    assert convention.confirmed is False
+    assert convention.confirmed is True
+    external = ("OMFIT", "GACODE.jl")
+    assert all(source in convention.reference for source in external), convention.reference
 
 
 def test_reg18_is_self_consistent_with_that_convention(reg18_profile):

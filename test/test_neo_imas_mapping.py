@@ -166,6 +166,48 @@ def test_current_bootstrap_is_left_unset(mapped, native, ods):
     assert any("current_bootstrap" in reason for reason in report["skipped"])
 
 
+def test_only_the_parallel_bootstrap_current_is_mapped_never_a_toroidal_one(
+    mapped, native, ods
+):
+    """GACODE publishes two bootstrap currents; exactly one has an IMAS home here.
+
+    NEO's `jbs` is the parallel current density and `jbstor` the toroidal one --
+    different quantities related by a flux-surface geometry factor, not by a sign
+    (issue #743). `core_profiles.j_bootstrap` is defined as average(J.B)/B0, so
+    only the parallel form maps onto it, and the toroidal spellings must stay
+    absent rather than being filled from the same number.
+
+    Asserted separately from the sign tests above because a convention error that
+    mirrored the device would move both together, while writing a parallel value
+    into a toroidal field is wrong by a geometry factor at every radius even when
+    every sign is right.
+    """
+    profiles_1d = "core_profiles.profiles_1d.0"
+    for toroidal in ("j_tor", "j_phi", "current_bootstrap"):
+        assert f"{profiles_1d}.{toroidal}" not in mapped
+        assert f"core_profiles.global_quantities.{toroidal}" not in mapped
+
+    # The parallel one is present, and is the parallel one: it reproduces
+    # average(J.B)/B0 from NEO's own normalisation and nothing else.
+    written = np.asarray(mapped[f"{profiles_1d}.j_bootstrap"])
+    parallel = (
+        np.asarray(native.bootstrap_current)
+        * ELEMENTARY_CHARGE
+        * np.asarray(native.normalisation.density_norm) * 1e19
+        * np.asarray(native.normalisation.velocity_norm_times_a)
+        * np.asarray(native.normalisation.b_unit)
+        / _b0(mapped)
+    )
+    np.testing.assert_allclose(written, parallel, rtol=1e-12)
+
+    report = core_profiles_from_neo(ods, native, time=0.3, time_index=0)
+    assert report["written"] == ["j_bootstrap"]
+    assert any(
+        "toroidal current" in reason and "parallel" in reason
+        for reason in report["skipped"]
+    ), report["skipped"]
+
+
 def test_conductivity_is_left_unset(mapped, native, ods):
     assert "core_profiles.profiles_1d.0.conductivity_parallel" not in mapped
     report = core_profiles_from_neo(ods, native, time=0.3, time_index=0)
