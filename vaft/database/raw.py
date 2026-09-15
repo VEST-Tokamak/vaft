@@ -506,6 +506,25 @@ def upgrade_archive_timebase(payload: dict) -> dict:
     ``dt``, making the result byte-equivalent in meaning to a fresh dump from
     the live database.  Entries already carrying ``t0``/``dt``, or too short
     or unlabeled to infer, are left untouched, so the upgrade is idempotent.
+
+    **A label does not pin down a rate, and nothing here can (#770).** On this
+    machine ``fast`` covers 250 kHz, 500 kHz and 2 MHz -- the classifier splits
+    on 5 us, so all three land in it -- and the v2 branch below assigns the
+    nominal 250 kHz regardless.  The sample count cannot rescue it: a 250 kHz
+    channel recorded for 0.2 s and a 500 kHz channel recorded for 0.1 s both
+    hold 50000 samples, and both really occur.  A guard on implied span was
+    tried and refuses the first as if it were the second.
+
+    What makes this safe in practice is measured rather than argued: 500 kHz
+    and 2 MHz channels appear only from shot ~42647, and this branch runs only
+    at 42190 and below, so the populations do not overlap.  The v3 branch above
+    needs no assumption about rate at all -- it reads the cadence off the
+    sample count -- but it does assume a full-span record, which holds for
+    every v3-era entry measured.
+
+    The real protection is upstream: a dump written by the current code carries
+    ``t0``/``dt`` per field, so this inference never runs on it.  Across 300
+    shots and 40905 entries, exactly one lacked them.
     """
     shot = int(payload["shot"])
     report = {"upgraded": 0, "already": 0, "skipped": 0, "non_nominal": []}

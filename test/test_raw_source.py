@@ -250,6 +250,34 @@ class TestArchiveTimebaseUpgrade:
         assert payload["fields"]["275"]["dt"] == 5e-7          # untouched
         assert "dt" not in payload["fields"]["9"]
 
+    def test_a_long_record_at_the_nominal_rate_still_upgrades(self):
+        """#770: an implied-span guard would refuse this, and it is correct data.
+
+        Field 138 in the low-30000s is 250 kHz -- the nominal rate -- recorded
+        for 0.2 s, so it holds 50000 samples and spans twice the 0.1 s class
+        window. Measured in 16 of 200 sampled shots, all in the v2 branch.
+        """
+        payload = {
+            "shot": 32878,
+            "fields": {"138": {"type": "fast", "data": [0.0] * 50000}},
+        }
+        report = raw.upgrade_archive_timebase(payload)
+
+        assert report["upgraded"] == 1
+        assert payload["fields"]["138"]["dt"] == raw.FAST_DT
+
+    def test_the_sample_count_cannot_tell_a_long_record_from_a_fast_one(self):
+        """Why #770 has no code fix: the two cases are the same number.
+
+        250 kHz for 0.2 s and 500 kHz for 0.1 s both hold 50000 samples and both
+        carry the `fast` label, so no rule over (n, label) separates them. What
+        keeps the v2 branch correct is that its shot range has no channel above
+        250 kHz -- measured, not assumed.
+        """
+        long_at_nominal = round(0.2 / raw.FAST_DT)          # 250 kHz, 0.2 s
+        normal_at_double = round(0.1 / (raw.FAST_DT / 2))   # 500 kHz, 0.1 s
+        assert long_at_nominal == normal_at_double == 50000
+
     def test_upgraded_entry_loads_like_a_fresh_dump(self, tmp_path):
         # End to end: legacy archive -> upgrade -> loader reproduces the
         # timebase a new-schema dump of the same data would produce.
