@@ -5,8 +5,8 @@
             --table test/data/efit_seed_basin.json
 
 Every VEST slice is seeded from the same fixed ellipse -- when this study ran,
-``RELIP 0.4``, ``ZELIP 0.0``, ``AELIP 0.3``, ``EELIP 1.6`` -- and 29 of the 77 plasma slices
-in the reference set collapse to a null solution and fail in ``bound``,
+``RELIP 0.4``, ``ZELIP 0.0``, ``AELIP 0.3``, ``EELIP 1.6`` -- and 29 of the 77
+plasma slices in the reference set collapse to a null solution and fail in ``bound``,
 producing nothing at all. A 0.3 m minor radius is most of the machine, seeded
 into a discharge that is 7 kA and small when the collapse block begins.
 
@@ -49,6 +49,7 @@ BASELINE = REPOSITORY / "workflow" / "efit_numerics" / "baseline_termination.py"
 REFERENCE_SET = REPOSITORY / "test" / "data" / "efit_reference_set.json"
 DEFAULT_TABLE = REPOSITORY / "test" / "data" / "efit_seed_basin.json"
 
+
 def routine_seed() -> dict[str, float]:
     """The routine seed, and the point every sweep is centred on.
 
@@ -66,6 +67,7 @@ def routine_seed() -> dict[str, float]:
         "minor_radius": routine.minor_radius,
         "elongation": routine.elongation,
     }
+
 
 #: One axis at a time. Five crossed axes would be hundreds of runs for less
 #: information than the marginals give first.
@@ -385,6 +387,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args.values
             else AXES[args.axis]
         )
+        # The sweep skips whichever value is already the routine seed, which
+        # means every axis must name one of the seed's own parameters. Say so
+        # here rather than raising a KeyError several EFIT runs later.
+        parameter = args.axis.split(".")[-1]
+        if parameter not in routine_seed():
+            known = ", ".join(sorted(routine_seed()))
+            print(
+                f"--axis {args.axis} is not a seed parameter; expected one of {known}",
+                file=sys.stderr,
+            )
+            return 2
         axes = {args.axis: chosen}
 
     output = args.output.expanduser()
