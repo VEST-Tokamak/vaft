@@ -20,7 +20,7 @@ from ..models import Geometry3DLayers, GeometryLayer, GeometryLayers
 from ..registry import renderer
 from ..intent import active_theme
 from ..presentation import presented, resolve_style
-from ..style import finalize, resolve_axes
+from ..style import apply_legend, finalize, resolve_axes
 
 __all__ = [
     "charge_exchange_geometry_poloidal",
@@ -102,7 +102,7 @@ def render_geometry_layers(
     ax: Axes | None = None,
     show: bool = False,
     figsize: tuple[float, float] | None = None,
-    legend: bool = True,
+    legend: bool | None = None,
     grid: bool = True,
     format: str | None = None,
     theme: str | None = None,
@@ -144,8 +144,13 @@ def render_geometry_layers(
     low, high = axes.get_ylim()
     pad = 0.06 * (high - low)
     axes.set_ylim(low - pad, high + pad)
-    if legend and model.legend and labelled:
-        axes.legend(loc="best", fontsize="small")
+    if model.legend and labelled:
+        # Through the shared policy rather than straight to `axes.legend`: a
+        # view with more layers than `LEGEND_MAX_ENTRIES` -- 40 soft X-ray
+        # sight lines, 10 PF coils -- otherwise draws a legend that covers the
+        # drawing it is labelling (#764). `lone_entry` keeps the legend a
+        # single named layer still earns.
+        apply_legend(axes, legend=legend, lone_entry=True)
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
@@ -416,7 +421,7 @@ def render_geometry_3d_layers(
     *,
     ax: Axes | None = None,
     show: bool = False,
-    legend: bool = True,
+    legend: bool | None = None,
     figsize: tuple[float, float] | None = None,
     format: str | None = None,
     theme: str | None = None,
@@ -463,8 +468,8 @@ def render_geometry_3d_layers(
     axes.set_zlabel(model.z_label)
     if model.title:
         axes.set_title(model.title)
-    if legend and labelled:
-        axes.legend(loc="best", fontsize="small")
+    if labelled:
+        apply_legend(axes, legend=legend, lone_entry=True)
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
