@@ -125,3 +125,69 @@ def test_the_projection_landmarks_are_still_in_their_own_frame():
     rectangular = sorted(np.rad2deg(port_phi(name)) for name in ("2MR", "6MR", "10MR"))
     assert rectangular == pytest.approx([60.0, 180.0, 300.0])
     assert not np.isclose(np.rad2deg(PORT_FIRST_CENTRE_RAD), rectangular).any()
+
+
+# ---------------------------------------------------------------------------
+# The Entrance port: fast camera, filterscope and HXR share it
+# ---------------------------------------------------------------------------
+
+
+def test_the_filterscope_shares_the_cameras_port():
+    """Documented, not inferred, so it does not belong in issue #746.
+
+    The port document lists 6MR as "Entrance" with the fast camera, the
+    H-alpha / O I filterscope and the hard X-ray detector on it together, and
+    the operators state the filterscope's toroidal position is the camera's.
+    """
+    from vaft.machine_mapping.camera_visible import CAMERA_PORT
+    from vaft.machine_mapping.spectrometer_uv import CHANNEL_NAMES, FILTERSCOPE_PORT
+
+    assert FILTERSCOPE_PORT == CAMERA_PORT == "6MR"
+    assert np.rad2deg(port_phi(FILTERSCOPE_PORT)) == pytest.approx(180.0)
+    # "H-alpha / O I" in the port document is these two channels.
+    assert CHANNEL_NAMES[0].startswith("H alpha")
+    assert CHANNEL_NAMES[1].startswith("O-I")
+
+
+def test_the_filterscope_writes_only_the_coordinate_it_knows():
+    """phi, and deliberately not an invented R and Z beside it."""
+    from unittest.mock import patch
+
+    import numpy as _np
+
+    from vaft.machine_mapping.spectrometer_uv import (
+        CHANNEL_NAMES,
+        FILTERSCOPE_PORT,
+        SIGNALS,
+        vfit_filterscope,
+    )
+
+    time = _np.linspace(0.0, 0.1, 16)
+    with patch(
+        "vaft.machine_mapping.spectrometer_uv._safe_vest_load",
+        side_effect=lambda shot, field, raw_source=None: (time, _np.zeros_like(time)),
+    ):
+        ods = {}
+        vfit_filterscope(ods, 12345, 0.0, 0.1, 1e-3, target_time=time)
+
+    expected = port_phi(FILTERSCOPE_PORT)
+    for channel in CHANNEL_NAMES:
+        base = ods["spectrometer_uv"]["channel"][channel]["line_of_sight"]["first_point"]
+        assert base["phi"] == pytest.approx(expected)
+        assert "r" not in base and "z" not in base
+
+
+def test_the_camera_view_is_recorded_as_tangential():
+    """Why the projection frame is neither clock angle nor phi (issue #746)."""
+    from vaft.machine_mapping.camera_visible import (
+        PORT_MAJOR_RADIUS_M,
+        TANGENTIAL_VIEW,
+        VESSEL_OUTBOARD_RADIUS_M,
+        VIEWING_TANGENCY_RANGE_M,
+    )
+
+    assert TANGENTIAL_VIEW is True
+    inner, outer = VIEWING_TANGENCY_RANGE_M
+    assert 0.0 < inner < outer < PORT_MAJOR_RADIUS_M
+    # Three different surfaces; the vessel is outside the port flange.
+    assert VESSEL_OUTBOARD_RADIUS_M > PORT_MAJOR_RADIUS_M

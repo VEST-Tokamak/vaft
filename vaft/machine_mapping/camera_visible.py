@@ -99,6 +99,48 @@ PORT_SEPARATION_RAD = np.deg2rad(120.0)
 #: unlike the two landmark angles above this is not an inference.
 CAMERA_PORT = "6MR"
 
+# ---------------------------------------------------------------------------
+# What the camera actually sees (VEST optical-diagnostics slide, "Fast camera")
+# ---------------------------------------------------------------------------
+#
+# The view is TANGENTIAL, not a radial look through the port. The slide's top
+# view draws a fan from the camera optics that grazes the machine at an inner
+# tangency of 0.13-0.22 m and reaches the outboard side at 0.65-0.75 m, and it
+# labels the 50 kHz frame a "tangential view".
+#
+# That matters beyond documentation: it is why PORT_FIRST_CENTRE_RAD and
+# PORT_SEPARATION_RAD above sit in a frame that matches neither the VEST clock
+# angles nor IMAS phi (issue #746). A tangential camera does not see the
+# rectangular ports at their port-table angles -- it sees them projected along
+# its own sightline -- so a camera-centred frame is the expected shape of that
+# discrepancy rather than evidence of a mistake. Reconciling it means redoing
+# the projection with the tangency geometry below, not renumbering two angles.
+#
+# Recorded, not yet written into the IDS: turning these radii into
+# `viewing_angle_alpha_bounds` needs the camera's own position along its
+# sightline, which the slide does not give.
+
+TANGENTIAL_VIEW = True
+VIEWING_TANGENCY_RANGE_M = (0.13, 0.22)
+"""Inner tangency radius the viewing fan grazes (``R_in`` on the slide)."""
+
+VIEWING_OUTBOARD_RANGE_M = (0.65, 0.75)
+"""How far out the fan reaches on the far side (``R_out`` on the slide)."""
+
+VESSEL_OUTBOARD_RADIUS_M = 0.88
+"""The vessel outboard radius the slide marks (``R_outboard``).
+
+Distinct from :data:`PORT_MAJOR_RADIUS_M` (0.803, the port flange this module
+projects from) and from the packaged limiter outline, which reaches 0.760 m.
+Three different surfaces; none is a substitute for another.
+"""
+
+VIEWING_RADIUS_RANGE_M = (0.1, 0.7)
+"""``R_viewing`` on the slide: the radial span the 208x208 frame covers."""
+
+PIXEL_SCALE_AT_TANGENCY_M = (0.0025, 0.0028)
+"""What one pixel subtends at the point of tangency, in metres."""
+
 
 def vest_port_corner_points() -> np.ndarray:
     """The camera ports' corner and edge-midpoint markers, in world centimeters.

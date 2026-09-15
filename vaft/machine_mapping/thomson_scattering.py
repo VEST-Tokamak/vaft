@@ -50,9 +50,22 @@ _CHANNEL_META = (
 # exactly 90 deg; the other branch sits near 12 o'clock where that port cannot
 # see it.
 #
+# The VEST Thomson slide corroborates this reading of the layout on two counts
+# that were not used to build it.  Its top view puts the laser injection system
+# and the beam dump on opposite sides with the collection optics immediately
+# beside the injection side -- which is 8MM10 and 9MM10, adjacent ports -- and
+# it draws the beam as a chord that misses the centre column rather than a
+# diameter.  And its position table, R1..R5 = 0.475 / 0.425 / 0.37 / 0.31 /
+# 0.255 m, is exactly _CHANNEL_META below.
+#
 # DERIVED, NOT AS-BUILT: the port major radius below is the vessel radius the
 # camera port geometry uses, not a surveyed Thomson value.  It shifts every
-# angle together and is the one number to replace if a survey appears.
+# angle together and is the one number to replace if a survey appears.  The
+# machine has at least three candidate radii and they are different surfaces:
+# 0.803 m (the port flange, used here), 0.88 m (the vessel outboard, marked on
+# the fast-camera slide) and 0.760 m (the packaged limiter outline).  Taking
+# 0.88 instead would move the tangency radius from 0.208 m to 0.228 m; both sit
+# inside R5 = 0.255 m, so the channel radii do not decide between them.
 
 LASER_ENTRY_PORT = "8MM10"
 LASER_DUMP_PORT = "1MM10"
