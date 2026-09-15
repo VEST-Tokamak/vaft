@@ -202,9 +202,13 @@ _EQ_COORDS = (
     ),
     ids=("core_profiles", "equilibrium"),
     required_paths=(
+        "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
+        "equilibrium.time_slice.{i}.profiles_1d.psi",
         "equilibrium.time_slice.{i}.profiles_1d.q",
         "equilibrium.time_slice.{i}.profiles_1d.f",
         "core_profiles.profiles_1d.{i}.electrons.temperature",
+        # The electron density is required too, in either of its two spellings,
+        # which the recipe's own `available` predicate checks.
     ),
     optional_paths=(
         "equilibrium.time_slice.{i}.profiles_1d.trapped_fraction",
