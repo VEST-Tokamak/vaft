@@ -39,7 +39,7 @@ def _phase_ods():
         data = np.sin(2.0 * np.pi * 8_000.0 * time + (0.2 - 2 * angle))
         probe = f"magnetics.b_field_pol_probe.{index}"
         ods[f"{probe}.name"] = f"TOR{index}"
-        ods[f"{probe}.toroidal_angle"] = float(angle)
+        ods[f"{probe}.position.phi"] = float(angle)
         ods[f"{probe}.voltage.time"] = time
         ods[f"{probe}.voltage.data"] = data
     ods["dataset_description.data_entry.pulse"] = 99999
@@ -131,7 +131,7 @@ def test_one_toroidal_position_cannot_support_a_fit():
     """A requirement no path expresses: the probes must be spread around phi."""
     stacked = _phase_ods()
     for index in range(4):
-        stacked[f"magnetics.b_field_pol_probe.{index}.toroidal_angle"] = 0.0
+        stacked[f"magnetics.b_field_pol_probe.{index}.position.phi"] = 0.0
     reason = missing_required_path(stacked, NAME)
     assert reason and "distinct toroidal angles" in reason, reason
     assert NAME not in {record.name for record in vaft.omas.available_plots(stacked)}
@@ -250,7 +250,7 @@ def test_probes_a_hair_apart_are_one_position():
 
     noisy = _phase_ods()
     for index in range(4):
-        noisy[f"magnetics.b_field_pol_probe.{index}.toroidal_angle"] = 1e-9 * index
+        noisy[f"magnetics.b_field_pol_probe.{index}.position.phi"] = 1e-9 * index
     _, angles = __import__("vaft").plot.backend.recipes._toroidal_phase_channels(noisy)
     assert _distinct_toroidal_angles(angles).size == 1
     assert missing_required_path(noisy, NAME) is not None

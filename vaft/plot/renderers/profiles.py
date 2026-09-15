@@ -132,7 +132,6 @@ _SENSOR_POSITIONS = {
     ids=("magnetics",),
     required_paths=("magnetics.b_field_pol_probe.{i}.voltage.data",),
     optional_paths=(
-        "magnetics.b_field_pol_probe.{i}.toroidal_angle",
         "magnetics.b_field_pol_probe.{i}.position.phi",
         "magnetics.b_field_pol_probe.{i}.voltage.time",
         "magnetics.time",
