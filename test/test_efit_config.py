@@ -322,15 +322,19 @@ def test_the_plasma_current_floor_is_the_vacuum_switch():
     `ierchk = 0`, `iconvr = 3` (`data_input.F90:2454`). Raised from 5 kA to
     15 kA in #708.
 
-    It is not `IP_FIT_FLOOR`, which is the probe-recovery backend's floor and
-    a different quantity entirely; the two were being read as one because both
-    are "a plasma current below which something stops".
+    `IP_FIT_FLOOR` remains a different quantity -- the probe-recovery
+    backend's floor, deciding whether there is enough signal to fit a family
+    Gaussian, not whether there is a plasma. The two now carry the same value
+    on purpose: the backend has no reason to withhold a recovered reading from
+    a slice EFIT will go on to reconstruct, which is what the inherited 45 kA
+    did between them. Equal values, still two decisions, so this pins the
+    number rather than tying one to the other.
     """
     from vaft.code.efit.config import EFITInitializationConfig
     from vaft.code.efit.recovery import IP_FIT_FLOOR
 
     assert EFITInitializationConfig().current_threshold == 15_000.0
-    assert IP_FIT_FLOOR != EFITInitializationConfig().current_threshold
+    assert IP_FIT_FLOOR == 15_000.0
 
     # A floor is a floor: negative is refused, zero means "always reconstruct".
     with pytest.raises(ValueError, match="non-negative"):
