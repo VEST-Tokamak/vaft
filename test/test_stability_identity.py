@@ -92,17 +92,6 @@ def test_the_reconstruction_and_refinement_domains_carry_the_family_too(db):
     assert len({db.chease(SHOT, family=family) for family in FAMILIES}) == len(FAMILIES)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Per-product stage assembly is not built yet (#137). The resolver already "
-        "carries the dimensions; what is missing is a builder that emits one "
-        "`mhd_linear` per product instead of folding DCON, RDCON and STRIDE into "
-        "one file per shot, and the per-product HSDS sources to receive them. "
-        "strict=True so this turns red -- not quietly green -- the day "
-        "`_PRODUCT_STAGES` is populated."
-    ),
-)
 def test_the_stage_product_is_per_family_and_per_product(db):
     """One logical product owns one `mhd_linear`, so its path must say which."""
     kink = db.omas_product(
@@ -118,19 +107,12 @@ def test_the_stage_product_is_per_family_and_per_product(db):
     assert len({kink, peeling, electron}) == 3
 
 
-def test_the_deferred_product_branch_resolves_when_it_is_switched_on(db, monkeypatch):
-    """Exercise the branch #137 will enable, before #137 enables it.
+def test_only_the_product_stages_take_a_refinement_and_a_product(db):
+    """The dimensions are required where they apply and refused where they do not.
 
-    `_PRODUCT_STAGES` is empty today, so the code that appends a refinement and
-    a product to a stage path never runs -- and would execute for the first time
-    in production path resolution the day that set is populated. Populating it
-    here runs it now: segment order, the shot that follows, and the refusal of a
-    product for a stage that still does not take one.
+    Enabling them for `mhd_linear` must not quietly loosen `chease`, which
+    belongs to a family and nothing finer.
     """
-    monkeypatch.setattr(
-        filedb, "_PRODUCT_STAGES", frozenset({"mhd_linear"}), raising=True
-    )
-
     assert db.omas(
         "mhd_linear", shot=SHOT, family="magnetic", refinement="chease",
         product="dcon-kink", artifact="output",
@@ -224,17 +206,6 @@ def test_magnetic_efit_is_a_read_only_projection_of_main():
         _sources.resolve("magnetic-efit", writable=True)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "`chease-mhd-stability` is still the live destination for mhd_linear, "
-        "so it must stay writable until the per-product assembly (#137) moves "
-        "that stage onto the hierarchy. Retiring it before then would leave the "
-        "stability stage with nowhere to write. It becomes read-only in the "
-        "same change that moves the destinations, and is deleted by the gated "
-        "migration in #94."
-    ),
-)
 def test_the_legacy_combined_source_stays_readable_and_unwritable():
     """`chease-mhd-stability` is migrated and retired, not silently redirected.
 

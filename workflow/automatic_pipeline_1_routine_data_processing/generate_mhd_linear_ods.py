@@ -58,6 +58,16 @@ def main() -> int:
     )
     parser.add_argument("--modules", default="dcon,rdcon,stride", help="Comma-separated suite modules to fold in.")
     parser.add_argument("--modes", default="1,2", help="Comma-separated toroidal mode numbers to fold in.")
+    parser.add_argument(
+        "--product",
+        default="",
+        help=(
+            "Which stability product this assembly is. Recorded in the manifest "
+            "so the file says which solve it describes: one product owns one "
+            "mhd_linear, and the two DCON edge treatments are the same module "
+            "run two ways, so the module name alone does not identify it."
+        ),
+    )
     parser.add_argument("--output", required=True, type=Path, help="Output mhd_linear ODS JSON.")
     parser.add_argument("--metadata", required=True, type=Path, help="Output stage manifest JSON.")
     args = parser.parse_args()
@@ -82,6 +92,11 @@ def main() -> int:
         modules=_parse_csv(args.modules, str),
         modes=_parse_csv(args.modes, int),
     )
+    if args.product:
+        # The manifest identifies itself rather than repeating the product in
+        # every coverage key: one manifest is one product, so a key of
+        # `t={time}/{module}/n={mode}` is already unambiguous within it.
+        manifest["product"] = args.product
     write_stage_product(ods, manifest, output=args.output, metadata=args.metadata)
     LOGGER.info("mhd_linear ODS saved to %s (status=%s)", args.output, manifest["status"])
     return 0

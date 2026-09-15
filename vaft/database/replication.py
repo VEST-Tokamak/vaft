@@ -34,7 +34,13 @@ from collections.abc import Callable
 from typing import Any
 
 from . import sources as _sources
-from .filedb import LEGACY_FAMILY, FileDB, OMASStage, stage_lineage
+from .filedb import (
+    LEGACY_FAMILY,
+    LEGACY_REFINEMENT,
+    FileDB,
+    OMASStage,
+    stage_lineage,
+)
 from .sources import MissingSourceError
 
 
@@ -447,6 +453,8 @@ def replicate_stage(
     *,
     filedb: FileDB,
     family: str = LEGACY_FAMILY,
+    refinement: str = LEGACY_REFINEMENT,
+    product: str | None = None,
     attempts: int = 3,
     retry_delay: float = 5.0,
     validate: bool = True,
@@ -471,14 +479,16 @@ def replicate_stage(
     replaced, so this stage's data may be missing until a retry. Nothing here
     rolls a partial payload back.
     """
-    entry = _sources.replication_for_stage(stage)
     name = OMASStage(stage).value
 
-    # Which lineage this product belongs to. The default describes the only
-    # route pipeline 1 runs today -- magnetic EFIT -- and is a default rather
-    # than a literal so the electron-EFIT and kinetic-EFIT routes need a caller
-    # change, not a resolver change.
-    lineage = stage_lineage(name, family=family)
+    # One statement of the lineage, used twice: it names the local product's
+    # path and computes the remote destination. Deriving the destination from
+    # the same values is what stops the two from disagreeing -- a stage product
+    # read from `magnetic/chease/rdcon` cannot be sent to another product's
+    # source without changing this one call.
+    entry = _sources.replication_for_stage(
+        stage, family=family, refinement=refinement, product=product
+    )
     if entry.source is None:
         raise StageNotReplicableError(
             f"The {name} stage is not replicated to HSDS"
@@ -489,6 +499,12 @@ def replicate_stage(
             f"Replication of the {name} stage is not wired yet; it belongs to "
             f"issue {entry.deferred_to}."
         )
+    # After the two "there is nowhere to send this" guards, so a stage that is
+    # not replicated at all says that rather than complaining about a lineage
+    # argument it would never have used.
+    lineage = stage_lineage(
+        name, family=family, refinement=refinement, product=product
+    )
     # writable=True is what makes it impossible to replicate into `public`.
     source = _sources.resolve(entry.source, writable=True)
 

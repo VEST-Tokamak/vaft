@@ -409,11 +409,18 @@ def test_derived_images_are_not_mistaken_for_stage_ids():
 #: to vary rather than a literal to hunt for.
 FAMILY = "magnetic"
 
+#: Which stability product these fixtures stand for. Any one would do -- the
+#: point is that a stage product now belongs to exactly one.
+PRODUCT = "dcon-peeling"
+
+
 def _lineage(stage):
     """The lineage arguments a stage's FileDB path takes."""
     from vaft.database.filedb import stage_lineage
 
-    return stage_lineage(stage, family=FAMILY)
+    return stage_lineage(
+        stage, family=FAMILY, refinement="chease", product=PRODUCT
+    )
 
 
 def _stage_product(db, stage, shot, ods, status="success", manifest_extra=None):
@@ -490,7 +497,10 @@ def test_the_refinement_and_the_baseline_land_in_different_sources(tmp_path, mon
     refined = replicate_stage("chease", 39915, filedb=db)
 
     assert baseline.source == "main"
-    assert refined.source == "chease-mhd-stability"
+    # The refinement hangs beneath the baseline it refines rather than sitting
+    # in a namespace of its own, and is still a separate source: `main` does not
+    # acquire it, because nothing is unioned on read.
+    assert refined.source == "main/chease"
     assert baseline.ids == refined.ids == ("equilibrium",)
 
 
@@ -546,13 +556,13 @@ def test_a_failed_stability_replication_leaves_the_baseline_alone(tmp_path, monk
     baseline = replicate_stage("efit", 39915, filedb=db)
 
     def only_stability_fails(ods, shot, *, source=None, **kwargs):
-        if source == "chease-mhd-stability":
+        if source.startswith("main/chease"):
             raise RuntimeError("stability replication failed")
         return f"hdf5://{source}/{shot}/"
 
     monkeypatch.setattr("vaft.database.save", only_stability_fails)
     with pytest.raises(replication.ReplicationError):
-        replicate_stage("mhd_linear", 39915, filedb=db, attempts=1)
+        replicate_stage("mhd_linear", 39915, filedb=db, product=PRODUCT, attempts=1)
 
     # The EFIT record is untouched: separate stages, separate records.
     assert replication.read_record(
@@ -560,7 +570,7 @@ def test_a_failed_stability_replication_leaves_the_baseline_alone(tmp_path, monk
     ) == baseline
     assert (
         replication.read_record(
-            db.omas_replication_record("mhd_linear", family="magnetic", shot=39915)
+            db.omas_replication_record("mhd_linear", family="magnetic", refinement="chease", product=PRODUCT, shot=39915)
         ).state
         == "failed"
     )
@@ -633,9 +643,9 @@ def test_per_code_and_mode_stability_detail_travels_in_the_shapes_that_exist(
     _patch_remote(monkeypatch, sent=[])
     monkeypatch.setattr("vaft.database.save", capture)
 
-    record = replicate_stage("mhd_linear", 39915, filedb=db)
+    record = replicate_stage("mhd_linear", 39915, filedb=db, product=PRODUCT)
 
-    assert record.source == "chease-mhd-stability"
+    assert record.source == f"main/chease/{PRODUCT}"
     replicated = captured["ods"]
 
     # The local product leg keeps the field a string: only the Access Layer
@@ -657,7 +667,7 @@ def test_per_code_and_mode_stability_detail_travels_in_the_shapes_that_exist(
     # Per-(code, mode) status lives in the manifest, and the manifest is not
     # replicated: `replicate_stage` reads it to decide eligibility and sends
     # only the IDS the stage owns, so nothing carries that status onward.
-    manifest = json.loads(db.omas_manifest("mhd_linear", family="magnetic", shot=39915).read_text(encoding="utf-8"))
+    manifest = json.loads(db.omas_manifest("mhd_linear", family="magnetic", refinement="chease", product=PRODUCT, shot=39915).read_text(encoding="utf-8"))
     assert manifest["modules_modes"]["t=316/stride/n=1"]["status"] == "failed"
     assert set(replicated.keys()) <= {"mhd_linear", "ntms", "dataset_description"}
     assert "failed" not in json.dumps(replicated["mhd_linear.code.parameters"])

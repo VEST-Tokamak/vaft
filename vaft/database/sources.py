@@ -41,7 +41,7 @@ legacy ``public`` namespace are stated once.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import os
 import re
 from typing import Any
@@ -270,8 +270,12 @@ _CATALOG: dict[str, HSDSSource] = {
             "chease-mhd-stability",
             "CHEASE-refined equilibrium plus DCON/RDCON/GPEC linear-MHD stability "
             "results, in one combined namespace. Superseded by the per-product "
-            "sources below; still the live destination until the per-product "
-            "mhd_linear assembly lands, and migrated and deleted under #94.",
+            "sources below and no longer written to: it stays readable so an "
+            "existing deployment keeps resolving, and is migrated and deleted by "
+            "the gated step in #94. Not an alias -- redirecting it onto the "
+            "hierarchy would be implicit composition of several products behind "
+            "one name.",
+            writable=False,
         ),
         # `main` holds the magnetic reconstruction, so `magnetic-efit` is a name
         # for what is already there rather than a second copy of it. Read-only
@@ -499,10 +503,14 @@ def resolve(
             )
         return _lookup(entry.projects_to, environment).name
     if writable and not entry.writable:
+        # The source's own purpose text, not one blanket reason: `public` is a
+        # legacy reference nothing may rewrite, while `chease-mhd-stability` is
+        # superseded and awaiting migration. Telling an operator the wrong one
+        # sends them looking in the wrong place.
         raise ReadOnlySourceError(
-            f"HSDS source {name!r} is a read-only legacy reference and is never "
-            "written, migrated or deleted by VAFT. Publish to "
-            f"{DEFAULT_SOURCE!r} or another writable source instead."
+            f"HSDS source {name!r} is read-only and is never written to by "
+            f"VAFT. {entry.purpose} Publish to {DEFAULT_SOURCE!r} or another "
+            "writable source instead."
         )
     return name
 
@@ -708,11 +716,42 @@ def _stage_key(stage: Any) -> str:
         ) from exc
 
 
-def replication_for_stage(stage: Any) -> StageReplication:
-    """Return the replication contract for one canonical FileDB OMAS stage."""
+#: Which stages publish beneath a family root rather than into it.
+#:
+#: Keyed on the stage, valued by the path beneath the family's root source. The
+#: refinement and the stability product are substituted in, so the destination
+#: is derived from the same lineage that named the local product -- one
+#: statement of where a thing goes, not two that can disagree.
+_LINEAGE_DESTINATIONS = {
+    "chease": "{refinement}",
+    "mhd_linear": "{refinement}/{product}",
+    "gpec_ideal": "{refinement}/{product}",
+}
+
+
+def replication_for_stage(
+    stage: Any,
+    *,
+    family: str = "magnetic",
+    refinement: str = "chease",
+    product: str | None = None,
+) -> StageReplication:
+    """Return the replication contract for one canonical FileDB OMAS stage.
+
+    For a stage whose destination depends on the analysis lineage, the source is
+    computed rather than looked up: `mhd_linear` for `magnetic/chease/rdcon`
+    goes to `main/chease/rdcon`. A table would have to carry one row per
+    combination and would drift from the FileDB grammar that produced the local
+    product.
+
+    `family` and `refinement` default to the only lineage pipeline 1 runs today,
+    so existing callers keep working. `product` does not: there are five of them
+    and guessing would send one solver's result to another's source, which is
+    the collision the per-product sources exist to prevent.
+    """
     key = _stage_key(stage)
     try:
-        return STAGE_REPLICATION[key]
+        entry = STAGE_REPLICATION[key]
     except KeyError as exc:  # pragma: no cover - guarded by test_database_sources
         raise HSDSSourceError(
             f"OMAS stage {key!r} has no replication mapping; add one to "
@@ -720,11 +759,45 @@ def replication_for_stage(stage: Any) -> StageReplication:
             "destination at the call site."
         ) from exc
 
+    template = _LINEAGE_DESTINATIONS.get(key)
+    if template is None or entry.source is None or entry.deferred_to is not None:
+        # A deferred stage has no live destination to compute, and demanding the
+        # lineage for one would bury the message that says why it is deferred
+        # under a complaint about a missing argument.
+        return entry
 
-def source_for_stage(stage: Any) -> str:
-    """Return the HSDS source a canonical FileDB OMAS stage is replicated into."""
+    root = FAMILY_SOURCES.get(family)
+    if root is None:
+        raise HSDSSourceError(
+            f"Unknown equilibrium family {family!r}; expected one of: "
+            + ", ".join(sorted(FAMILY_SOURCES))
+        )
+    if "{product}" in template and product is None:
+        raise HSDSSourceError(
+            f"The {key!r} stage is one solve's result, so replicating it needs "
+            "product= (for example 'dcon-peeling'); a combined destination is "
+            "what the per-product sources replaced."
+        )
+    suffix = template.format(refinement=refinement, product=product)
+    return replace(entry, source=f"{root}/{suffix}")
+
+
+def source_for_stage(
+    stage: Any,
+    *,
+    family: str = "magnetic",
+    refinement: str = "chease",
+    product: str | None = None,
+) -> str:
+    """Return the HSDS source a canonical FileDB OMAS stage is replicated into.
+
+    Takes the same lineage as :func:`replication_for_stage`, because for the
+    stages that are one solve's result the destination *is* a function of it.
+    """
     key = _stage_key(stage)
-    entry = replication_for_stage(key)
+    entry = replication_for_stage(
+        key, family=family, refinement=refinement, product=product
+    )
     if entry.source is None:
         raise HSDSSourceError(
             f"OMAS stage {key!r} is not replicated to HSDS"

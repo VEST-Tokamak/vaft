@@ -117,16 +117,19 @@ def test_a_shot_inside_a_source_name_is_still_refused():
         sources.resolve("public/39915")
 
 
-def test_the_read_only_sources_are_the_legacy_one_and_the_projecting_alias():
-    """Read-only for two different reasons, both deliberate.
+def test_the_read_only_sources_are_each_read_only_for_their_own_reason():
+    """Read-only for three different reasons, each deliberate.
 
     `public` is a legacy reference nothing may rewrite. `magnetic-efit` is a
     *name* for what `main` already holds, so making it writable would give one
     dataset two writable destinations -- the collision named sources exist to
-    prevent.
+    prevent. `chease-mhd-stability` is superseded: it stays readable so an
+    existing deployment keeps resolving, and is deleted by the gated migration
+    in #94 rather than being redirected onto the hierarchy, which would be
+    implicit composition of several products behind one name.
     """
     unwritable = sorted(s.name for s in sources.known_sources() if not s.writable)
-    assert unwritable == ["magnetic-efit", LEGACY_SOURCE]
+    assert unwritable == ["chease-mhd-stability", "magnetic-efit", LEGACY_SOURCE]
 
     projecting = [s for s in sources.known_sources() if s.projects_to]
     assert [(s.name, s.projects_to) for s in projecting] == [("magnetic-efit", "main")]
@@ -141,7 +144,7 @@ def test_legacy_source_still_resolves_for_reads():
 
 
 def test_writing_to_the_legacy_source_is_refused():
-    with pytest.raises(ReadOnlySourceError, match="read-only legacy reference"):
+    with pytest.raises(ReadOnlySourceError, match="is read-only"):
         sources.resolve(LEGACY_SOURCE, writable=True)
 
 
@@ -201,10 +204,25 @@ def test_hyphenated_catalog_names_are_accepted():
     assert sources.resolve("chease-mhd-stability") == "chease-mhd-stability"
 
 
+#: What a stage that is one solve's result needs before it has a destination.
+#: Supplied by the test rather than defaulted in the code, because guessing it
+#: there would send one solver's result to another's source.
+_PRODUCT_LINEAGE = {"product": "dcon-peeling"}
+
+
+def _contract(stage):
+    """The replication contract for `stage`, with the lineage it requires."""
+    key = stage.value if hasattr(stage, "value") else str(stage)
+    needs_product = key in {"mhd_linear", "gpec_ideal"}
+    return sources.replication_for_stage(
+        stage, **(_PRODUCT_LINEAGE if needs_product else {})
+    )
+
+
 def test_every_filedb_omas_stage_has_an_explicit_replication_contract():
     """A new stage must fail loudly rather than silently replicate nowhere."""
     for stage in OMASStage:
-        entry = sources.replication_for_stage(stage)
+        entry = _contract(stage)
         if entry.source is None:
             # Opting out is allowed, but only with a stated reason.
             assert entry.note, stage
@@ -244,13 +262,26 @@ def test_the_two_equilibrium_owners_are_kept_apart_by_source():
     assert efit.source != chease.source
 
 
-def test_the_two_mhd_linear_owners_are_kept_apart_by_occurrence():
-    stability = sources.replication_for_stage("mhd_linear")
-    ideal = sources.replication_for_stage("gpec_ideal")
+def test_the_two_mhd_linear_owners_no_longer_need_the_occurrence_to_stay_apart():
+    """Per-product sources separate them; the occurrence is now redundant.
+
+    Both write the `mhd_linear` IDS, and they used to share one namespace, so an
+    occurrence was the only thing keeping them from overwriting each other. Now
+    they resolve to different sources, and would even if the occurrences were
+    equal.
+
+    The occurrence is left in place regardless. Removing it is a change to how a
+    consumer reads ideal-GPEC's product, and that read contract is #95's open
+    question -- this notes that the mechanism became redundant without deciding
+    what should replace it.
+    """
+    stability = _contract("mhd_linear")
+    ideal = _contract("gpec_ideal")
 
     assert "mhd_linear" in stability.ids and "mhd_linear" in ideal.ids
-    assert stability.source == ideal.source
+    assert stability.source != ideal.source
     assert stability.occurrence != ideal.occurrence
+    assert ideal.deferred_to == "#95"
 
 
 def test_ideal_gpec_replication_is_still_deferred_to_its_own_issue():
@@ -261,18 +292,64 @@ def test_ideal_gpec_replication_is_still_deferred_to_its_own_issue():
     assert "gpec_ideal" not in sources.replicable_stages()
 
 
-def test_no_stage_is_replicated_into_the_read_only_legacy_source():
+def test_no_replicable_stage_writes_into_a_read_only_source():
+    """Three sources are read-only now, and none may be a destination.
+
+    `chease-mhd-stability` joining them is the point of the per-product split:
+    a stage still pointing at it would fail here rather than on a deployment.
+    """
     for stage in sources.replicable_stages():
-        assert sources.replication_for_stage(stage).source != LEGACY_SOURCE
+        entry = _contract(stage)
+        assert entry.source not in {
+            s.name for s in sources.known_sources() if not s.writable
+        }, stage
         # Every destination must survive a writability check.
-        sources.resolve(sources.source_for_stage(stage), writable=True)
+        sources.resolve(entry.source, writable=True)
 
 
 def test_stage_mapping_keeps_the_baseline_and_the_refinement_apart():
+    """Each product hangs beneath what it derives from, and none share a source.
+
+    The refinement no longer sits in a namespace of its own beside the
+    baseline -- it hangs under it, which is what makes the lineage readable from
+    the path. Separate sources still: nothing is unioned on read.
+    """
     assert sources.source_for_stage(OMASStage.EFIT) == "main"
-    assert sources.source_for_stage("chease") == "chease-mhd-stability"
-    assert sources.source_for_stage("mhd_linear") == "chease-mhd-stability"
-    assert sources.source_for_stage("gpec_ideal") == "chease-mhd-stability"
+    assert sources.source_for_stage("chease") == "main/chease"
+    assert (
+        sources.source_for_stage("mhd_linear", product="dcon-peeling")
+        == "main/chease/dcon-peeling"
+    )
+    # The two DCON edge treatments are the same module run two ways, so a shared
+    # destination would have them overwrite each other.
+    assert (
+        sources.source_for_stage("mhd_linear", product="dcon-kink")
+        == "main/chease/dcon-kink"
+    )
+    assert len({
+        sources.source_for_stage("mhd_linear", product=name)
+        for name in ("dcon-peeling", "dcon-kink", "rdcon", "stride")
+    }) == 4
+
+
+def test_a_stability_stage_will_not_guess_which_product_it_is():
+    """Five products, and sending one solver's result to another's source is
+    exactly the collision the per-product sources exist to prevent."""
+    with pytest.raises(sources.HSDSSourceError, match="needs product="):
+        sources.source_for_stage("mhd_linear")
+
+
+def test_another_family_publishes_beneath_its_own_root():
+    """The destination is derived from the lineage that named the local product.
+
+    An electron-EFIT campaign gets its own sources by naming its family, not by
+    a second table that could disagree with the FileDB grammar.
+    """
+    assert (
+        sources.source_for_stage("mhd_linear", family="electron", product="rdcon")
+        == "electron-efit/chease/rdcon"
+    )
+    assert sources.source_for_stage("chease", family="kinetic") == "kinetic-efit/chease"
 
 
 def test_unknown_stage_is_reported_with_the_valid_choices():
@@ -411,3 +488,21 @@ def test_a_slash_bearing_source_round_trips_through_the_recorded_namespace():
         with sources_recorded(ods, name):
             assert ods["dataset_description.data_entry.user"] == name
     assert "dataset_description.data_entry.user" not in ods
+
+
+def test_a_read_only_refusal_says_why_this_source_is_read_only():
+    """Three sources, three reasons; one blanket message sends an operator astray.
+
+    `public` is a legacy reference nothing may rewrite. `chease-mhd-stability`
+    is superseded and awaiting migration -- an operator told it is a "legacy
+    reference" would look for the wrong thing.
+    """
+    with pytest.raises(sources.ReadOnlySourceError, match="Legacy source"):
+        sources.resolve("public", writable=True)
+
+    with pytest.raises(sources.ReadOnlySourceError, match="Superseded"):
+        sources.resolve("chease-mhd-stability", writable=True)
+
+    # The projecting alias has its own refusal, which names the target.
+    with pytest.raises(sources.ReadOnlySourceError, match="read-only projection"):
+        sources.resolve("magnetic-efit", writable=True)

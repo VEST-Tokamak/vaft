@@ -275,13 +275,26 @@ class PipelinePaths:
     def _shot_dir(self, shot, area: str) -> PurePosixPath:
         return PurePosixPath(self.base_dir) / str(shot) / area
 
-    def _lineage(self, stage: str) -> dict:
-        """This run's lineage arguments for `stage`, and only those."""
-        return stage_lineage(stage, family=self.family)
+    def _lineage(self, stage: str, product: str | None = None) -> dict:
+        """This run's lineage arguments for `stage`, and only those.
 
-    def _omas(self, stage: str, shot, artifact: str) -> PurePosixPath:
+        `product` applies to the stage products that are one solve's result --
+        `mhd_linear` and `gpec_ideal` -- and is refused for every other stage by
+        `stage_lineage`, so passing it where it does not belong is an error
+        rather than something silently dropped.
+        """
+        return stage_lineage(
+            stage,
+            family=self.family,
+            refinement=self.refinement if product is not None else None,
+            product=stability_product(product) if product is not None else None,
+        )
+
+    def _omas(
+        self, stage: str, shot, artifact: str, product: str | None = None
+    ) -> PurePosixPath:
         return self._filedb.omas(
-            stage, shot=shot, artifact=artifact, **self._lineage(stage)
+            stage, shot=shot, artifact=artifact, **self._lineage(stage, product)
         )
 
     # -- raw --------------------------------------------------------------
@@ -552,29 +565,37 @@ class PipelinePaths:
                 artifact="work")
         )
 
-    def mhd_linear_ods(self, shot) -> str:
+    def mhd_linear_ods(self, shot, product: str | None = None) -> str:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "linear_stability") / "mhd_linear.json")
-        return str(self._filedb.omas_product("mhd_linear", shot=shot, **self._lineage("mhd_linear")))
+        return str(
+            self._filedb.omas_product("mhd_linear", shot=shot, **self._lineage("mhd_linear", product))
+        )
 
-    def mhd_linear_manifest(self, shot) -> str:
+    def mhd_linear_manifest(self, shot, product: str | None = None) -> str:
         if self.layout == SHOT_FIRST:
             return str(
                 self._shot_dir(shot, "linear_stability") / "mhd_linear_manifest.json"
             )
-        return str(self._filedb.omas_manifest("mhd_linear", shot=shot, **self._lineage("mhd_linear")))
+        return str(
+            self._filedb.omas_manifest("mhd_linear", shot=shot, **self._lineage("mhd_linear", product))
+        )
 
-    def gpec_ideal_ods(self, shot) -> str:
+    def gpec_ideal_ods(self, shot, product: str | None = None) -> str:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "linear_stability") / "gpec_ideal.json")
-        return str(self._filedb.omas_product("gpec_ideal", shot=shot, **self._lineage("gpec_ideal")))
+        return str(
+            self._filedb.omas_product("gpec_ideal", shot=shot, **self._lineage("gpec_ideal", product))
+        )
 
-    def gpec_ideal_manifest(self, shot) -> str:
+    def gpec_ideal_manifest(self, shot, product: str | None = None) -> str:
         if self.layout == SHOT_FIRST:
             return str(
                 self._shot_dir(shot, "linear_stability") / "gpec_ideal_manifest.json"
             )
-        return str(self._filedb.omas_manifest("gpec_ideal", shot=shot, **self._lineage("gpec_ideal")))
+        return str(
+            self._filedb.omas_manifest("gpec_ideal", shot=shot, **self._lineage("gpec_ideal", product))
+        )
 
     # -- validation plots ---------------------------------------------------
     # Validation plots are a canonical FileDB artifact class (issue #139) and
@@ -588,14 +609,23 @@ class PipelinePaths:
                 f"{SHOT_FIRST!r} equivalent; set layout: {FILEDB} in config.yaml"
             )
 
-    def stage_plot(self, shot, stage: str, filename: str) -> str:
-        """One validation plot under ``omas/{stage}/{shot}/plot/``."""
-        self._require_filedb("stage_plot")
-        return str(self._omas(stage, shot, "plot") / filename)
+    def stage_plot(
+        self, shot, stage: str, filename: str, product: str | None = None
+    ) -> str:
+        """One validation plot, beside the stage output it validates.
 
-    def stage_plot_manifest(self, shot, stage: str) -> str:
+        `product` is required for a stage that is one solve's result: its
+        figures describe that product's `mhd_linear`, so they belong beside it
+        rather than in a shot-wide directory several products would share.
+        """
+        self._require_filedb("stage_plot")
+        return str(self._omas(stage, shot, "plot", product) / filename)
+
+    def stage_plot_manifest(self, shot, stage: str, product: str | None = None) -> str:
         self._require_filedb("stage_plot_manifest")
-        return str(self._omas(stage, shot, "metadata") / "plot_manifest.json")
+        return str(
+            self._omas(stage, shot, "metadata", product) / "plot_manifest.json"
+        )
 
     def static_plot(self, machine_version, filename: str) -> str:
         """One validation plot for a machine era's static ODS."""
@@ -649,11 +679,13 @@ class PipelinePaths:
         )
 
     # -- batch-level and per-shot ancillary ---------------------------------
-    def log(self, shot, name: str) -> str:
+    def log(self, shot, name: str, product: str | None = None) -> str:
         """Per-shot stage log.
 
         Under ``filedb`` the log lands in the ``log`` artifact of the domain that
-        owns the stage, so a rule's log sits beside its own products.
+        owns the stage, so a rule's log sits beside its own products -- which for
+        a stage that is one solve's result means beside *that product's*, so
+        `product` is required there.
         """
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "logs") / f"{name}.log")
@@ -664,9 +696,14 @@ class PipelinePaths:
         if domain == "raw":
             directory = self._filedb.raw(shot)
         elif domain == "omas":
-            directory = self._omas(stage, shot, "log")
+            directory = self._omas(stage, shot, "log", product)
         else:
-            directory = self._filedb.resolve(domain, shot=shot, artifact="log")
+            # `efit` and `chease` are reconstruction domains and carry the
+            # family; `_lineage` is keyed on stage names, which are the same
+            # strings.
+            directory = self._filedb.resolve(
+                domain, shot=shot, artifact="log", **self._lineage(domain)
+            )
         return str(directory / f"{name}.log")
 
     def static_log(self, machine_version, name: str) -> str:
@@ -696,7 +733,7 @@ class PipelinePaths:
         return str(self._filedb.pipeline("preflight", artifact="metadata") / "excluded_shots.json")
 
     # -- Snakemake wildcard patterns ----------------------------------------
-    def replication_record(self, shot, stage: str) -> str:
+    def replication_record(self, shot, stage: str, product: str | None = None) -> str:
         """Where a stage records whether its product reached HSDS.
 
         Only the canonical layout has a home for it: the record describes a
@@ -707,7 +744,11 @@ class PipelinePaths:
                 "HSDS replication requires layout: filedb. The shot-first tree is a "
                 "read-only legacy reference and is not replicated."
             )
-        return str(self._filedb.omas_replication_record(stage, shot=shot, **self._lineage(stage)))
+        return str(
+            self._filedb.omas_replication_record(
+                stage, shot=shot, **self._lineage(stage, product)
+            )
+        )
 
     def shot_pattern(self, product: str, *args) -> str:
         """Return ``product`` with the shot replaced by a ``{shot}`` wildcard."""
@@ -719,33 +760,72 @@ class PipelinePaths:
         resolved = getattr(self, product)(_VERSION_SENTINEL, *args)
         return resolved.replace(_VERSION_SENTINEL, "{machine_version}")
 
-    def gpec_module_pattern(self, product: str) -> str:
-        """Return a ``gpec_module_*`` product with ``{shot}``/``{code}``/``{mode}`` wildcards."""
-        resolve = getattr(self, product)
-        resolved = resolve(_SHOT_SENTINEL, _CODE_SENTINEL, _MODE_SENTINEL)
-        alternate = resolve(_SHOT_SENTINEL, _ALT_CODE_SENTINEL, _MODE_SENTINEL)
+    @staticmethod
+    def _substitute_differing_segment(
+        resolved: str, alternate: str, token: str, what: str
+    ) -> str:
+        """Replace the one path segment that moved between two resolutions.
 
-        # The code segment is the one that moved when only the code changed.
-        # Found this way rather than by matching the sentinel back, because a
-        # layout may transform the argument on the way in -- shot_first files a
-        # product under its solver module -- and a sentinel that no longer
-        # appears in the path would silently yield a pattern with no wildcard in
-        # it at all.
+        Located by diffing rather than by matching a sentinel back, because a
+        layout may transform the argument on the way in -- ``shot_first`` files a
+        stability product under its solver module -- and a sentinel that no
+        longer appears in the path would silently yield a pattern with no
+        wildcard in it at all, which Snakemake would read as one concrete path.
+
+        A base directory that happens to contain a solver or family name is
+        identical in both resolutions and so is never touched.
+        """
         parts = PurePosixPath(resolved).parts
         other = PurePosixPath(alternate).parts
         differing = [i for i, (a, b) in enumerate(zip(parts, other)) if a != b]
         if len(parts) != len(other) or len(differing) != 1:
             raise AssertionError(
-                f"{product} must place the stability code in exactly one path "
-                f"segment; resolving it twice differed in {len(differing)} "
-                f"segments ({resolved!r} vs {alternate!r})"
+                f"{what} must occupy exactly one path segment; resolving it "
+                f"twice differed in {len(differing)} segments "
+                f"({resolved!r} vs {alternate!r})"
             )
-
         segments = list(parts)
-        segments[differing[0]] = "{code}"
-        pattern = str(PurePosixPath(*segments))
+        segments[differing[0]] = token
+        return str(PurePosixPath(*segments))
+
+    def gpec_module_pattern(self, name: str) -> str:
+        """Return a ``gpec_module_*`` path with ``{shot}``/``{product}``/``{mode}`` wildcards.
+
+        The wildcard is the *product*, not the solver module. They are not the
+        same axis: `dcon` produces `dcon-peeling` or `dcon-kink` depending on
+        its edge configuration, and a wildcard keyed on the module could never
+        tell one cell from the other.
+        """
+        resolve = getattr(self, name)
+        pattern = self._substitute_differing_segment(
+            resolve(_SHOT_SENTINEL, _CODE_SENTINEL, _MODE_SENTINEL),
+            resolve(_SHOT_SENTINEL, _ALT_CODE_SENTINEL, _MODE_SENTINEL),
+            "{product}",
+            f"the stability product in {name}",
+        )
         pattern = pattern.replace(str(_SHOT_SENTINEL), "{shot}")
         return pattern.replace(str(_MODE_SENTINEL), "{mode}")
+
+    def product_pattern(self, name: str, *args) -> str:
+        """Return a per-product stage product with ``{shot}``/``{product}`` wildcards.
+
+        `mhd_linear` and `gpec_ideal` are one solve's result each, so their stage
+        products fan out per product rather than one per shot -- and a rule that
+        covers all of them needs the product as a wildcard, not baked in.
+
+        ``args`` are whatever the method takes between the shot and the product
+        (a stage name, say). The product is always the **last** argument, which
+        is what lets one helper serve every per-product path rather than each
+        needing a two-argument shim of its own.
+        """
+        resolve = getattr(self, name)
+        pattern = self._substitute_differing_segment(
+            resolve(_SHOT_SENTINEL, *args, _CODE_SENTINEL),
+            resolve(_SHOT_SENTINEL, *args, _ALT_CODE_SENTINEL),
+            "{product}",
+            f"the stability product in {name}",
+        )
+        return pattern.replace(str(_SHOT_SENTINEL), "{shot}")
 
 
 __all__ = [

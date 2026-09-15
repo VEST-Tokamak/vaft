@@ -427,15 +427,29 @@ def mhd_linear_run_coverage_model(manifest: Mapping[str, Any]):
 
     cells = manifest.get("modules_modes") or {}
     rows: list[tuple[str, int, float, str]] = []
+    unparsed: list[str] = []
     for key, cell in cells.items():
         match = _COVERAGE_KEY_RE.match(key)
         if not match:
+            unparsed.append(key)
             continue
         try:
             time_value = float(match.group("time"))
         except ValueError:
+            unparsed.append(key)
             continue
         rows.append((match.group("module"), int(match.group("mode")), time_value, str(cell.get("status", "unknown"))))
+    if unparsed:
+        # The regex is anchored at both ends, so a key whose shape changed used
+        # to vanish from the coverage plot silently -- the panel simply drew
+        # fewer cells, which looks exactly like a run that produced fewer. A
+        # coverage plot that quietly omits coverage is worse than no plot.
+        raise ValueError(
+            f"stage manifest has {len(unparsed)} coverage cell(s) this reader "
+            f"cannot parse, e.g. {sorted(unparsed)[:3]}; expected "
+            "'t={time}/{module}/n={mode}'. The key shape changed, or the "
+            "manifest was written by a different version."
+        )
     if not rows:
         raise ValueError("stage manifest carries no modules_modes coverage cells")
 
