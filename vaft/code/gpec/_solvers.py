@@ -16,8 +16,6 @@ import re
 import shutil
 from typing import TYPE_CHECKING, Protocol
 
-import numpy as np
-
 from . import _runtime as rt
 
 if TYPE_CHECKING:
@@ -357,7 +355,11 @@ def enable_rdcon_matching_output(path: Path) -> bool:
     """
     text = path.read_text(encoding="utf-8")
     updated, count = re.subn(
-        r"^([ \t]*bin_delmatch[ \t]*=[ \t]*)[fF]\b", r"\1t", text, count=1, flags=re.MULTILINE
+        r"^([ \t]*bin_delmatch[ \t]*=[ \t]*)(?:\.false\.|\.f\.|f)(?![A-Za-z0-9_.])",
+        r"\1t",
+        text,
+        count=1,
+        flags=re.MULTILINE | re.IGNORECASE,
     )
     if count:
         path.write_text(updated, encoding="utf-8")
@@ -371,6 +373,8 @@ def write_rmatch_resistive_layers(run_dir: Path, mode: int, options) -> dict:
     written, evaluates the supplied kinetic profiles there, and rewrites
     `rmatch.in` in place. Returns what was written, so a caller can report it.
     """
+    import numpy as np
+
     from vaft.process.equilibrium import resistive_layer_at
 
     from ._matching_output import read_pest3_matching_output

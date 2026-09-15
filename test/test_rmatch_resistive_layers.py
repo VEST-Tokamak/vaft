@@ -188,3 +188,20 @@ def test_a_template_without_the_flag_is_left_alone(tmp_path):
     path = tmp_path / "rdcon.in"
     path.write_text("&GAL_OUTPUT\n/\n", encoding="utf-8")
     assert enable_rdcon_matching_output(path) is False
+
+
+@pytest.mark.parametrize("spelling", ["f", "F", ".false.", ".FALSE.", ".f."])
+def test_every_fortran_spelling_of_false_is_recognised(tmp_path, spelling):
+    """A template saying `.FALSE.` must not leave the feature silently off."""
+    path = tmp_path / "rdcon.in"
+    path.write_text(f"&GAL_OUTPUT\n    bin_delmatch={spelling}   ! note\n/\n", encoding="utf-8")
+    assert enable_rdcon_matching_output(path) is True
+    assert "bin_delmatch=t" in path.read_text(encoding="utf-8")
+
+
+def test_a_value_that_is_not_false_is_left_alone(tmp_path):
+    """The match is anchored, so it cannot chew through an unrelated value."""
+    path = tmp_path / "rdcon.in"
+    path.write_text("&GAL_OUTPUT\n    bin_delmatch=foo\n/\n", encoding="utf-8")
+    assert enable_rdcon_matching_output(path) is False
+    assert "bin_delmatch=foo" in path.read_text(encoding="utf-8")
