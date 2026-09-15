@@ -344,12 +344,14 @@ def _impurity_entry(name: str) -> tuple[float, float, str]:
     )
 
 
-def _resolve_target_charge(ods: Any, profile_prefix: str, z_eff: Optional[float]) -> float:
+def _resolve_target_charge(z_eff: Optional[float]) -> float:
     """The effective charge an impurity is being asked to realize.
 
-    A measured ``zeff`` profile is not usable here: one impurity fraction cannot
-    follow a radially varying charge and stay a single species with one density
-    profile, so the caller has to say which single value to model.
+    Deliberately the caller's number alone. A measured ``zeff`` profile cannot be
+    the target: one impurity fraction cannot follow a radially varying charge and
+    stay a single species with one density profile. Where a state carries one,
+    ``prepare_gacode_profile`` refuses the disagreement rather than resolving it
+    here, so that the refusal names both values.
     """
     if z_eff is not None:
         return float(z_eff)
@@ -618,7 +620,7 @@ def prepare_gacode_profile(
         }
 
     if impurity is not None:
-        target = _resolve_target_charge(ods, profile_prefix, z_eff)
+        target = _resolve_target_charge(z_eff)
         charge, mass, label = _impurity_entry(impurity)
         if len(species) != 1:
             raise ProfileConversionError(
@@ -628,6 +630,13 @@ def prepare_gacode_profile(
                 "the adapter will not choose one."
             )
         main_fraction, impurity_fraction = impurity_fractions(target, charge)
+        if impurity_fraction <= 0.0:
+            raise ProfileConversionError(
+                f"z_eff={target:g} needs no {label} at all, so impurity={impurity!r} "
+                "would write a species with zero density everywhere -- which GACODE "
+                "takes a logarithmic gradient of, and which this converter refuses "
+                "for a measured profile. Drop impurity= for a hydrogenic plasma."
+            )
         electron_density = ne / DENSITY_SCALE
         # Both ion densities come from n_e, not from the measured main-ion profile:
         # a plasma cannot be quasi-neutral, carry this impurity, and keep n_H = n_e.
@@ -657,7 +666,33 @@ def prepare_gacode_profile(
         }
 
     effective_charge = _array(ods, f"{profile_prefix}.zeff")
-    if effective_charge is not None:
+    if impurity is not None:
+        # The species list is what NEO reads, so once it realizes a charge the column
+        # must agree with it or the file contradicts itself -- which is the defect
+        # #803 is about, and it would come back here for any state carrying a zeff.
+        stacked = np.vstack(densities)
+        z_eff_profile = (
+            np.sum(stacked * np.asarray(charges)[:, None] ** 2, axis=0)
+            / (ne / DENSITY_SCALE)
+        )
+        provenance["z_eff"] = {
+            "kind": "derived",
+            "source": f"the {', '.join(labels)} species list this conversion built",
+            "value": float(np.mean(z_eff_profile)),
+        }
+        if effective_charge is not None:
+            measured = float(np.mean(_interpolate(profile_rho, effective_charge, rho)))
+            provenance["z_eff"]["overrode_measured"] = measured
+            if abs(measured - float(np.mean(z_eff_profile))) > 1e-3:
+                raise ProfileConversionError(
+                    f"{profile_prefix}.zeff measures {measured:.4g} but impurity="
+                    f"{impurity!r} with z_eff={float(z_eff):.4g} builds a species list "
+                    f"at {float(np.mean(z_eff_profile)):.4g}. Writing both would put a "
+                    "column in input.gacode that contradicts the species NEO actually "
+                    "reads. Pass z_eff= matching the measurement, or drop impurity= to "
+                    "keep the measured profile as a column."
+                )
+    elif effective_charge is not None:
         z_eff_profile = _interpolate(profile_rho, effective_charge, rho)
         provenance["z_eff"] = {"kind": "measured", "source": f"{profile_prefix}.zeff"}
     elif z_eff is not None:

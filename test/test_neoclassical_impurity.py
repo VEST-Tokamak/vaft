@@ -229,6 +229,93 @@ def test_the_guard_passes_when_both_sides_agree(state):
 
 
 @requires_sample
+def test_a_measured_zeff_that_contradicts_the_impurity_is_refused(state):
+    """The defect the fix itself reintroduced: the column must not fight the species.
+
+    A state carrying a measured zeff and a caller naming an impurity at a different
+    charge would write a column NEO ignores beside a species list it obeys -- the
+    original #803 failure, in the other direction. The packaged sample has no zeff,
+    which is exactly why this needs a synthesized one.
+    """
+    from vaft.code.gacode.inputs import prepare_gacode_profile
+
+    grid = np.asarray(state["core_profiles.profiles_1d.0.grid.rho_tor_norm"])
+    state["core_profiles.profiles_1d.0.zeff"] = np.full(grid.size, 3.5)
+    with pytest.raises(ProfileConversionError, match="contradicts the species"):
+        prepare_gacode_profile(state, rho_max=0.95, z_eff=2.0, impurity="C")
+
+
+@requires_sample
+def test_a_measured_zeff_that_agrees_is_kept_and_the_override_recorded(state):
+    from vaft.code.gacode.inputs import prepare_gacode_profile
+
+    grid = np.asarray(state["core_profiles.profiles_1d.0.grid.rho_tor_norm"])
+    state["core_profiles.profiles_1d.0.zeff"] = np.full(grid.size, 2.0)
+    profile = prepare_gacode_profile(state, rho_max=0.95, z_eff=2.0, impurity="C")
+    assert profile.provenance["z_eff"]["kind"] == "derived"
+    assert profile.provenance["z_eff"]["overrode_measured"] == pytest.approx(2.0)
+    np.testing.assert_allclose(np.asarray(profile.z_eff), 2.0, rtol=1e-9)
+
+
+@requires_sample
+def test_an_impurity_that_would_have_zero_density_is_refused(state):
+    """z_eff = 1 needs no impurity; writing one with zero density is what
+    `_require_positive` refuses for every measured profile."""
+    from vaft.code.gacode.inputs import prepare_gacode_profile
+
+    with pytest.raises(ProfileConversionError, match="zero density"):
+        prepare_gacode_profile(state, rho_max=0.95, z_eff=1.0, impurity="C")
+
+
+def test_a_run_reports_the_ion_fraction_its_species_list_implies():
+    """Z_eff alone does not identify a plasma; the ion fraction is the other half."""
+    carbon = collect_neo_outputs(CARBON_RUN)
+    hydrogen = collect_neo_outputs(HYDROGEN_RUN)
+    assert float(np.nanmean(carbon.ion_density_fraction)) == pytest.approx(1 - 1 / 6)
+    assert float(np.nanmean(hydrogen.ion_density_fraction)) == pytest.approx(1.0)
+
+
+@requires_sample
+def test_the_guard_catches_a_forgotten_impurity_not_only_a_wrong_charge(state):
+    """Same Z_eff, different plasma: a charge-only check passes this one.
+
+    The analytic side with no impurity has n_i = n_e whatever its Z_eff says, so
+    comparing it against a carbon run is the other half of the #803 mismatch.
+    """
+    from vaft.validation.neoclassical import bootstrap_models
+
+    carbon = collect_neo_outputs(CARBON_RUN)
+    with pytest.raises(ValueError, match="different species|n_i/n_e"):
+        bootstrap_models(
+            state,
+            z_eff=2.0,
+            solver_charge=2.0,
+            solver_ion_fraction=float(np.nanmean(carbon.ion_density_fraction)),
+        )
+
+
+@requires_sample
+def test_an_unchecked_ion_fraction_says_so_rather_than_looking_checked(state):
+    from vaft.validation.neoclassical import bootstrap_models
+
+    rows = bootstrap_models(state, z_eff=2.0, solver_charge=2.0)
+    assert "ion_fraction_unchecked" in rows["provenance"]
+
+
+@requires_sample
+def test_the_conductivity_records_that_the_impurity_did_not_enter_it(state):
+    """sigma depends on the ion species only through Z_eff, so the argument is
+    accepted for symmetry and must say that it changed nothing."""
+    from vaft.omas.neoclassical import compute_conductivity
+
+    result = compute_conductivity(state, model="sauter", z_eff=2.0, impurity="C")
+    assert result.provenance["impurity"] == "C"
+    assert result.provenance["impurity_affects_result"] is False
+    plain = compute_conductivity(state, model="sauter", z_eff=2.0)
+    np.testing.assert_array_equal(result.conductivity_parallel, plain.conductivity_parallel)
+
+
+@requires_sample
 def test_which_model_looks_closer_is_decided_by_the_impurity_assumption(state):
     """The finding of #803, pinned as a number rather than left as prose.
 

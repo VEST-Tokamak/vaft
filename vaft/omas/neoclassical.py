@@ -606,6 +606,11 @@ def compute_conductivity(
         needs_flux_map=False,
         needs_ion_temperature=False,
     )
+    # `impurity` is validated and recorded but changes nothing here, and that is the
+    # physics rather than an oversight: sigma depends on the ion species only through
+    # Z_eff, which is already an argument. It is accepted so a caller can pass one
+    # model to both providers, and recorded so the result says it was considered.
+    _ion_density_fractions(impurity, state.charge)
     grid = state.grid
 
     physical = np.isfinite(state.density) & np.isfinite(state.temperature)
@@ -655,6 +660,8 @@ def compute_conductivity(
             "time": state.time,
             "trapped_fraction": state.trapped_source,
             "z_eff": state.z_source,
+            "impurity": impurity,
+            "impurity_affects_result": False,
             "rho_range": None if rho_range is None else tuple(float(v) for v in rho_range),
             "evaluated_points": int(np.count_nonzero(usable)),
             "grid_points": int(grid.size),

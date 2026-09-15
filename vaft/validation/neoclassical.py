@@ -72,6 +72,7 @@ def bootstrap_models(
     include_stored: bool = True,
     time_slice: Optional[int] = None,
     solver_charge: Optional[float] = None,
+    solver_ion_fraction: Optional[float] = None,
     **options: Any,
 ) -> dict[str, Any]:
     """Evaluate each analytic model on *ods*, alongside whatever it already stores.
@@ -143,13 +144,36 @@ def bootstrap_models(
         # NeoOutputs.effective_charge. Comparing against a run that used a different
         # one compares two plasmas: on VEST that inverted which model looked closer
         # (#803), so it is refused rather than recorded and hoped for.
-        analytic = provenance.get("provider", {}).get("z_eff_value")
+        provider = provenance.get("provider", {})
+        analytic = provider.get("z_eff_value")
         if analytic is not None and abs(float(analytic) - float(solver_charge)) > 1e-6:
             raise ValueError(
                 f"the analytic models were evaluated at Z_eff = {float(analytic):g} and "
                 f"the solver ran at {float(solver_charge):g}; those are different "
                 "plasmas. Pass z_eff= (and impurity=) matching the run, or omit "
                 "solver_charge= to compare anyway and own the mismatch."
+            )
+        # Agreeing on Z_eff is not agreeing on the plasma: the same charge can be
+        # carried by carbon or by oxygen, and n_i/n_e differs (0.833 against 0.875).
+        # Above all, an analytic side with no impurity at all reaches this point with
+        # n_i = n_e and would pass a charge-only check -- which is the other half of
+        # the mismatch #803 is about.
+        fraction = provider.get("ion_density_over_electron")
+        if solver_ion_fraction is not None and fraction is not None:
+            if abs(float(fraction) - float(solver_ion_fraction)) > 1e-6:
+                raise ValueError(
+                    f"the analytic models used n_i/n_e = {float(fraction):.4g} and the "
+                    f"solver's species list gives {float(solver_ion_fraction):.4g}; the "
+                    "two carry the same Z_eff in different species. Pass the impurity= "
+                    "the run was built with."
+                )
+            provenance["solver_ion_fraction"] = float(solver_ion_fraction)
+        elif solver_ion_fraction is None and fraction is not None and fraction == 1.0:
+            # Nothing to compare against, so say what was assumed rather than let a
+            # hydrogenic analytic side look like it was checked.
+            provenance["ion_fraction_unchecked"] = (
+                "the analytic models assumed n_i = n_e; pass solver_ion_fraction= "
+                "(NeoOutputs.ion_density_fraction) to have that checked against the run"
             )
         provenance["solver_charge"] = float(solver_charge)
 
