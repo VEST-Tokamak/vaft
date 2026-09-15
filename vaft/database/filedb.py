@@ -86,6 +86,10 @@ class OMASStage(str, Enum):
     CHEASE = "chease"
     MHD_LINEAR = "mhd_linear"
     GPEC_IDEAL = "gpec_ideal"
+    # NEO's neoclassical transport on a qualified kinetic state (#550 phase 8).
+    # Owns core_transport outright and re-owns core_profiles, which is why it has
+    # its own source rather than a place in the baseline.
+    NEOCLASSICAL = "neoclassical"
     SOFT_X_RAYS = "soft_x_rays"
     CAMERA_VISIBLE = "camera_visible"
     # The >= 50 kfps acquisitions are the same instrument and the same IDS as

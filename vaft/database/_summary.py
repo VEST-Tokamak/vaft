@@ -145,6 +145,30 @@ CORE_PROFILES_PATHS = (
     "tf",
 )
 
+#: The neoclassical product's queryable face (#550 phase 8). Deliberately small:
+#: what a campaign question asks of a bootstrap-current profile is how much current
+#: there is, where it sits, and over how much of the radius the solver was asked --
+#: and the last of those is what stops a partial run reading as a small current.
+NEOCLASSICAL_COLUMNS = (
+    "shot",
+    "cp_index",
+    "time_s",
+    "i_bootstrap_kA",
+    "j_bootstrap_peak_A_m2",
+    "rho_at_peak",
+    "rho_solved_min",
+    "rho_solved_max",
+    "points_solved",
+    "b0_T",
+    "has_core_transport",
+)
+
+NEOCLASSICAL_PATHS = (
+    "core_profiles",
+    "core_transport",
+    "equilibrium",
+)
+
 VOLUME_AVERAGED_COLUMNS = (
     "shot",
     "cp_index",
@@ -587,6 +611,117 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
         row["virial_li"] = row["virial_li_lao"]
         rows.append(row)
     return rows
+
+
+def extract_neoclassical(ods, shot: int) -> list[dict]:
+    """Summarize a mapped neoclassical result, one row per core_profiles slice.
+
+    Reads the canonical product -- `core_profiles.j_bootstrap` as the NEO mapping
+    wrote it -- and never a native `out.neo.*` file: #550 phase 8 is explicit that
+    the standardized product is the long-term query contract, and a summary that
+    parsed solver output would be a second, divergent one.
+
+    The profile is NaN outside the surfaces NEO solved. That is carried into the
+    row as `points_solved` and the solved span rather than being filled or averaged
+    over, so a seven-surface run and a full-profile one cannot be compared as if
+    they were the same measurement.
+    """
+    if "core_profiles.profiles_1d" not in ods or not len(
+        ods["core_profiles.profiles_1d"]
+    ):
+        return []
+
+    rows: list[dict] = []
+    field = _safe_get(ods, "core_profiles.vacuum_toroidal_field.b0", None)
+    times = _safe_get(ods, "core_profiles.time", None)
+    has_transport = bool(
+        "core_transport.model" in ods and len(ods["core_transport.model"])
+    )
+
+    for cp_index in range(len(ods["core_profiles.profiles_1d"])):
+        cp_slice = ods["core_profiles.profiles_1d"][cp_index]
+        if "j_bootstrap" not in cp_slice or "grid.rho_tor_norm" not in cp_slice:
+            continue
+        current = np.asarray(_safe_get(cp_slice, "j_bootstrap"), dtype=float)
+        rho = np.asarray(_safe_get(cp_slice, "grid.rho_tor_norm"), dtype=float)
+        if current.size != rho.size or current.size == 0:
+            continue
+        solved = np.isfinite(current)
+        if not solved.any():
+            continue
+
+        b0 = np.nan
+        if field is not None:
+            values = np.asarray(field, dtype=float).reshape(-1)
+            # One stored value genuinely applies to every slice; anything shorter
+            # than the slice list does not, and clamping to its last entry is how
+            # slice 0's field came to answer for every slice in PR #696.
+            if values.size == 1:
+                b0 = float(values[0])
+            elif cp_index < values.size:
+                b0 = float(values[cp_index])
+
+        time_s = np.nan
+        if times is not None:
+            stamps = np.asarray(times, dtype=float).reshape(-1)
+            if cp_index < stamps.size:
+                time_s = float(stamps[cp_index])
+
+        peak = int(np.nanargmax(np.abs(np.where(solved, current, np.nan))))
+        rows.append(
+            {
+                "shot": int(shot),
+                "cp_index": int(cp_index),
+                "time_s": time_s,
+                "i_bootstrap_kA": _bootstrap_current_kA(ods, cp_index, current, rho, solved),
+                "j_bootstrap_peak_A_m2": float(current[peak]),
+                "rho_at_peak": float(rho[peak]),
+                "rho_solved_min": float(np.min(rho[solved])),
+                "rho_solved_max": float(np.max(rho[solved])),
+                "points_solved": int(np.count_nonzero(solved)),
+                "b0_T": b0,
+                "has_core_transport": has_transport,
+            }
+        )
+    return rows
+
+
+def _bootstrap_current_kA(ods, cp_index: int, current, rho, solved) -> float:
+    """Integrate j_bootstrap over the cross-section, in kA, where an area exists.
+
+    The equilibrium's own `area(rho)` is the weight; without one there is no
+    honest integral and the column is NaN rather than a number computed from an
+    assumed geometry.
+    """
+    from vaft.omas.general import find_matching_time_indices
+
+    area = None
+    if "equilibrium.time_slice" in ods and len(ods["equilibrium.time_slice"]):
+        # By time, never by position. This product carries one core_profiles slice
+        # while a shot's equilibrium carries dozens, so `min(cp_index, last)` would
+        # integrate over the cross-section of whatever instant happened to sit at
+        # that index -- a factor of several when the plasma is still growing.
+        try:
+            _, index, _ = find_matching_time_indices(ods, time_slice=cp_index)
+        except Exception:
+            return float("nan")
+        prefix = f"equilibrium.time_slice.{index}.profiles_1d"
+        grid = _safe_get(ods, f"{prefix}.rho_tor_norm", None)
+        values = _safe_get(ods, f"{prefix}.area", None)
+        if grid is not None and values is not None:
+            grid = np.asarray(grid, dtype=float)
+            values = np.asarray(values, dtype=float)
+            if grid.size == values.size and grid.size > 1:
+                # anti-alias: spatial -- the equilibrium's area onto NEO's radii.
+                area = np.interp(np.asarray(rho, dtype=float), grid, values)
+    if area is None:
+        return float("nan")
+    usable = np.asarray(solved, dtype=bool)
+    if int(np.count_nonzero(usable)) < 2:
+        return float("nan")
+    return float(
+        np.trapezoid(np.asarray(current)[usable], area[usable]) / 1e3
+    )
 
 
 def extract_core_profiles(ods, shot: int) -> list[dict]:
@@ -1202,6 +1337,14 @@ PRESETS = {
             "measurement_index",
         ),
         extractor=extract_efit_magnetic_reliability,
+    ),
+    "neoclassical": SummaryPreset(
+        columns=NEOCLASSICAL_COLUMNS,
+        paths=NEOCLASSICAL_PATHS,
+        key_columns=("shot", "cp_index"),
+        replace_groups=("shot",),
+        sort_columns=("shot", "time_s", "cp_index"),
+        extractor=extract_neoclassical,
     ),
     "shot_overview": SummaryPreset(
         columns=SHOT_OVERVIEW_COLUMNS,
