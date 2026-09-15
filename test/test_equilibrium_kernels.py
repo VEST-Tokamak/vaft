@@ -101,25 +101,41 @@ def test_elongation_is_one_for_a_circle():
     assert elongation_from_RZ_boundary(R, Z) == pytest.approx(1.0, rel=1e-6)
 
 
-def test_triangularity_of_an_up_down_symmetric_miller_boundary():
-    # The midplane sample (smallest |Z|) of a Miller boundary sits at
-    # R0 + a*cos(theta + delta*sin(theta)) with theta = 0, i.e. at R0 + a,
-    # so delta measured off that point is -1 by construction; the useful
-    # check is that the helper reports (R0 - R_mid)/a for a shifted contour.
+@pytest.mark.xfail(
+    reason="#798: the helper measures at the midplane sample instead of the "
+    "vertically extremal point, so it returns -1.0 for every boundary",
+    strict=True,
+)
+@pytest.mark.parametrize("delta", [0.0, 0.3, 0.6, -0.4])
+def test_triangularity_of_a_miller_boundary_is_its_delta(delta):
+    # Written against the analytic definition, not against what the function
+    # currently does: delta = (R0 - R_at_max_Z) / a.  The repair for #798 will
+    # turn this green; pinning -1.0 instead would make the repair look like a
+    # regression.
     theta = np.linspace(0.0, 2 * np.pi, 2001)
-    a, R0 = 0.4, 1.5
-    R = R0 + a * np.cos(theta)
-    Z = a * np.sin(theta)
+    a, R0, kappa = 0.4, 1.5, 1.8
+    R = R0 + a * np.cos(theta + delta * np.sin(theta))
+    Z = kappa * a * np.sin(theta)
     assert triangularity_from_RZ_boundary(R, Z, R0) == pytest.approx(
-        -1.0, rel=1e-6
+        delta, abs=2e-3
     )
 
 
-def test_triangularity_is_zero_when_the_midplane_point_sits_on_the_axis():
-    R = np.array([1.1, 1.5, 1.9, 1.5])
-    Z = np.array([0.3, 0.0, -0.3, 0.6])
-    # a = (1.9 - 1.1)/2 = 0.4 and R_mid = 1.5 = R0.
-    assert triangularity_from_RZ_boundary(R, Z, 1.5) == 0.0
+def test_triangularity_currently_collapses_to_minus_one():
+    # The present behaviour, recorded so the extent of #798 is visible in the
+    # suite rather than only in the issue: the reported value does not depend
+    # on the shape at all.
+    theta = np.linspace(0.0, 2 * np.pi, 2001)
+    a, R0, kappa = 0.4, 1.5, 1.8
+    reported = {
+        triangularity_from_RZ_boundary(
+            R0 + a * np.cos(theta + d * np.sin(theta)),
+            kappa * a * np.sin(theta),
+            R0,
+        )
+        for d in (0.0, 0.3, 0.6, -0.4)
+    }
+    assert reported == {-1.0}
 
 
 # --------------------------------------------------------------------------
@@ -283,7 +299,10 @@ def test_toroidal_flux_and_q_from_phi_round_trip():
     q = 1.0 + 4.0 * psi
     phi = toroidal_flux_from_q_psi(q, psi)
     recovered = q_from_phi(psi, phi)
-    assert recovered[1:-1] == pytest.approx(q[1:-1], rel=1e-6, abs=0.0)
+    # Both steps are exact on these profiles (trapezoid on a linear q,
+    # central difference on the resulting quadratic over a uniform grid),
+    # so the interior must agree to near machine precision.
+    assert recovered[1:-1] == pytest.approx(q[1:-1], rel=1e-12, abs=0.0)
 
 
 def test_toroidal_flux_starts_at_zero_and_integrates_a_constant_q():
@@ -340,7 +359,7 @@ def test_shear_of_a_power_law_q_profile_is_its_exponent():
     # only recovered on the interior.
     r = np.linspace(0.05, 0.4, 801)
     assert shear_from_r_q(r, r**2)[1:-1] == pytest.approx(
-        np.full(r.size - 2, 2.0), rel=1e-5, abs=0.0
+        np.full(r.size - 2, 2.0), rel=1e-12, abs=0.0
     )
 
 
@@ -520,7 +539,10 @@ def test_auxiliary_power_split_conserves_the_input_and_matches_its_ratio():
     P_heat, P_CD = auxiliary_heating_power(P_aux, eta)
     assert P_heat + P_CD == pytest.approx(P_aux, rel=1e-12, abs=0.0)
     assert P_CD == pytest.approx(P_aux / (1 + eta), rel=1e-12, abs=0.0)
-    # A zero current-drive efficiency puts all of the power into drive.
+    # Recorded, not endorsed: the split runs the wrong way.  P_CD grows as
+    # eta_CD falls, so a plasma with no current-drive efficiency at all is
+    # told every watt went to current drive and none to heating.  Pinned so
+    # a correction is a deliberate change rather than a silent one.
     assert auxiliary_heating_power(P_aux, 0.0) == (0.0, P_aux)
 
 

@@ -189,13 +189,23 @@ def test_lao_bundle_propagates_the_singular_alpha_guard():
 def test_li_from_volume_is_exactly_one_for_a_field_at_the_reference_value():
     # l_i is B_p^2 volume-averaged and normalised to B_pa^2, so a uniform
     # field equal to B_pa must give exactly 1 whatever the cell layout.
-    B_pa, Omega = 0.21, 3.4
+    B_pa = 0.21
     dV = np.array([0.4, 1.0, 2.0])
     B_p = np.full(dV.shape, B_pa)
     assert virial_li_from_volume(B_p, dV, B_pa, dV.sum()) == pytest.approx(
         1.0, rel=1e-13, abs=0.0
     )
-    assert Omega  # the reference volume is the caller's, not the cell sum
+
+
+def test_li_from_volume_normalises_by_the_caller_supplied_volume():
+    # Omega is the caller's reference volume, not the sum of the cells: a
+    # caller passing twice the cell sum must get half the inductance.
+    B_pa = 0.21
+    dV = np.array([0.4, 1.0, 2.0])
+    B_p = np.full(dV.shape, B_pa)
+    at_cell_sum = virial_li_from_volume(B_p, dV, B_pa, dV.sum())
+    at_double = virial_li_from_volume(B_p, dV, B_pa, 2.0 * dV.sum())
+    assert at_double == pytest.approx(0.5 * at_cell_sum, rel=1e-13, abs=0.0)
 
 
 def test_li_from_volume_scales_quadratically_with_the_field():
