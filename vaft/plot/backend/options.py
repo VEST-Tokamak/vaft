@@ -116,7 +116,8 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("rules"), OptionSpec("orders"), OptionSpec("drive"), OptionSpec("metrics"),
         # Neoclassical bootstrap comparison: the effective charge and the radial
         # band are physics choices the provider refuses to make for the caller.
-        OptionSpec("z_eff", "float"), OptionSpec("rho_range", "range"),
+        OptionSpec("z_eff", "float"), OptionSpec("impurity", "str"),
+        OptionSpec("rho_range", "range"),
         OptionSpec("ion_index", "int"), OptionSpec("include_stored", "bool"),
         OptionSpec("models"), OptionSpec("order"),
         OptionSpec("which"), OptionSpec("rule"), OptionSpec("M"), OptionSpec("grid_shape"),
