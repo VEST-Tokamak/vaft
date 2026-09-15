@@ -190,6 +190,8 @@ CONVENTION_SENSITIVE = frozenset({
     # perturbation: the resonant reductions state their radial window
     # convention and their tesla-not-gauss unit choice.
     "chirikov",
+    "edge_overlap_metric",
+    "energy_norm_matrix",
     "critical_island_width",
     "group_coincident_islands",
     "island_overlap_width",

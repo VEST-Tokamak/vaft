@@ -54,6 +54,8 @@ import numpy as np
 
 __all__ = [
     "COINCIDENT_POLICIES",
+    "COUPLING_FAMILIES",
+    "EdgeOverlap",
     "IslandOverlap",
     "IslandPairs",
     "LEGACY_WINDOWS",
@@ -61,8 +63,11 @@ __all__ = [
     "RESONANT_STATISTICS",
     "ResonantWindow",
     "amplification_ratio",
+    "NEGATIVE_EIGENVALUE_POLICIES",
     "chirikov",
     "critical_island_width",
+    "edge_overlap_metric",
+    "energy_norm_matrix",
     "group_coincident_islands",
     "island_overlap_width",
     "island_pairs",
@@ -1122,4 +1127,240 @@ def island_overlap_width(
     return result(
         float(np.clip(separatrix - boundary, 0.0, abs(separatrix))),
         gap_psi, inner, outer, True, onset,
+    )
+
+
+# --- singular coupling and the edge overlap -----------------------------------
+
+#: The five coupling matrices a GPEC run reports, by what each couples the
+#: external field to. They are distinct quantities on one index basis, and
+#: the reader this builds on keeps them apart -- the code it replaces
+#: flattened all five into one list of surfaces, so a caller could not tell an
+#: effective-resonant-field coupling from an island-width one.
+COUPLING_FAMILIES: Mapping[str, str] = {
+    "flux": "C_f",
+    "current": "C_i",
+    "island": "C_w",
+    "penetrated": "C_p",
+    "delta": "C_d",
+}
+
+#: What to do with a negative eigenvalue when building an energy norm. The
+#: code this replaces had three constructions with three different answers
+#: and no way to tell which had been used.
+NEGATIVE_EIGENVALUE_POLICIES: tuple[str, ...] = ("raise", "abs", "drop")
+
+
+@dataclass(frozen=True, eq=False)
+class EdgeOverlap:
+    """How much of an external field drives the dominant coupling mode."""
+
+    #: The metric: the dominant mode's share of the field, per unit field [-].
+    delta_e: float
+    #: How much field each singular mode carries, as a magnitude [T].
+    #: Magnitudes, not complex amplitudes: the phase of a projection onto a
+    #: singular vector is a gauge, and returning it invites a caller to use
+    #: a number that changes with the decomposition rather than the plasma.
+    projection: np.ndarray
+    #: The coupling matrix's singular values, strongest first [-].
+    singular_values: np.ndarray
+    #: Index of the mode carrying the most field, into ``projection`` [-].
+    dominant_mode: int
+    #: What the projection was divided by [T].
+    b_t0: float
+
+
+def energy_norm_matrix(
+    eigenvalues,
+    eigenvectors,
+    *,
+    negative_eigenvalues: str,
+) -> np.ndarray:
+    """The inverse square root of an energy matrix, from its eigendecomposition.
+
+    Parameters
+    ----------
+    eigenvalues : array_like
+        Eigenvalues of the energy matrix [-].
+    eigenvectors : array_like
+        Its eigenvectors, one per row, matching ``eigenvalues`` [-].
+    negative_eigenvalues : str
+        What to do with an eigenvalue at or below zero, one of
+        :data:`NEGATIVE_EIGENVALUE_POLICIES`. Required: the three
+        constructions this replaces answered it three ways, and the answer
+        changes the metric [n/a].
+
+    Returns
+    -------
+    ndarray
+        ``W^{-1/2}``, square and Hermitian [-].
+
+    Raises
+    ------
+    ValueError
+        ``negative_eigenvalues`` is not one of the three, the shapes
+        disagree, ``"raise"`` was chosen and an eigenvalue is not positive,
+        or ``"drop"`` left nothing.
+
+    Processing steps
+    ----------------
+    1. Apply the policy to the eigenvalues.
+    2. Form ``V^H diag(lambda^{-1/2}) V`` over what survives.
+
+    Convention
+    ----------
+    Rows of ``eigenvectors`` are the eigenvectors, which is how GPEC writes
+    them.
+
+    Limitations
+    -----------
+    A run may not fill its energy matrix at all -- the ideal examples looked
+    at carry ``W_xe`` as identically zero, and every policy then either
+    raises or divides by zero. Check the matrix before norming with it.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [C-11] Conventions register C-11: three different ``W^{-1/2}``
+       constructions, with different negative-eigenvalue policies, fed the
+       same metric.
+    """
+    if negative_eigenvalues not in NEGATIVE_EIGENVALUE_POLICIES:
+        raise ValueError(
+            f"negative_eigenvalues must be one of "
+            f"{list(NEGATIVE_EIGENVALUE_POLICIES)}, not {negative_eigenvalues!r}"
+        )
+    values = np.asarray(eigenvalues, dtype=float)
+    vectors = np.asarray(eigenvectors)
+    if vectors.ndim != 2 or vectors.shape[0] != values.size:
+        raise ValueError(
+            f"{vectors.shape} eigenvectors against {values.size} eigenvalues; one "
+            "row per eigenvalue"
+        )
+    keep = np.ones(values.size, dtype=bool)
+    if np.any(values <= 0.0):
+        if negative_eigenvalues == "raise":
+            raise ValueError(
+                f"{int(np.count_nonzero(values <= 0.0))} of {values.size} eigenvalues "
+                "are not positive, so the matrix has no real inverse square root"
+            )
+        if negative_eigenvalues == "abs":
+            values = np.abs(values)
+            keep = values > 0.0
+        else:
+            keep = values > 0.0
+    if not np.any(keep):
+        raise ValueError("no positive eigenvalue survives; there is nothing to norm with")
+    vectors, values = vectors[keep], values[keep]
+    return vectors.conj().T @ np.diag(values ** -0.5) @ vectors
+
+
+def edge_overlap_metric(
+    coupling,
+    external_field,
+    *,
+    b_t0: float,
+    norm=None,
+) -> EdgeOverlap:
+    """How much of an external field lands on the dominant coupling mode.
+
+    The coupling matrix is decomposed, the field is projected onto its
+    singular modes, and the dominant mode's share is reported per unit field.
+
+    Parameters
+    ----------
+    coupling : array_like
+        Coupling matrix, modes by harmonics, complex [-].
+    external_field : array_like
+        The external field on the same harmonic basis, complex [T].
+    b_t0 : float
+        Vacuum toroidal field on axis, which the projection is divided by.
+        Required: the code this replaces defaulted it to one, which silently
+        reports a field in tesla as a dimensionless metric. A GPEC run
+        carries it as a global attribute [T].
+    norm : array_like, optional
+        An energy norm to apply to ``coupling`` first, from
+        :func:`energy_norm_matrix`. Omit it when the matrix is already
+        normed -- GPEC's own ``C_xe`` is [-].
+
+    Returns
+    -------
+    EdgeOverlap
+        The metric, the per-mode projection and the singular values [-].
+
+    Raises
+    ------
+    ValueError
+        The shapes disagree, or ``b_t0`` is not positive and finite.
+
+    Processing steps
+    ----------------
+    1. Apply ``norm`` to the coupling matrix when one is given.
+    2. Take its singular value decomposition.
+    3. Project the field onto the conjugated right singular vectors.
+    4. Divide the largest projection by ``b_t0``.
+
+    Convention
+    ----------
+    The projection is reported as a magnitude. A right singular vector is
+    fixed only up to a phase, so the complex overlap is a gauge: GPEC's own
+    vectors and a fresh decomposition of the same matrix differ by exactly
+    that phase, and a caller handed the complex number would be reading the
+    decomposition rather than the plasma. The dominant mode is the one
+    carrying the most field, which need not be the one with the largest
+    singular value.
+
+    Limitations
+    -----------
+    Only the dominant mode is reproducible in practice. Against GPEC's own
+    decomposition of the same matrix the singular values agree to 2e-16 and
+    the dominant projection to under half a percent, but the subdominant
+    modes disagree by tens of percent: their singular values are small, the
+    vectors are correspondingly ill-conditioned, and two correct
+    decompositions need not agree there. Read ``delta_e``; treat the tail of
+    ``projection`` as indicative.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [C-25] Conventions register C-25: the dominant singular vector needs
+       explicit gauge fixing or the complex overlap phase is arbitrary.
+    .. [gpec] Reproduces GPEC's own ``O_CPhi_xe`` to 3e-16 and its
+       ``Phi_overlap_norm`` to 4e-5 on the DIII-D n=1, n=2 and n=3 ideal runs.
+    """
+    matrix = np.asarray(coupling)
+    field = np.asarray(external_field)
+    if matrix.ndim != 2:
+        raise ValueError(f"the coupling matrix is {matrix.ndim}-dimensional")
+    if norm is not None:
+        norm = np.asarray(norm)
+        if norm.shape != (matrix.shape[1], matrix.shape[1]):
+            raise ValueError(
+                f"the norm is {norm.shape} against a coupling matrix with "
+                f"{matrix.shape[1]} harmonics"
+            )
+        matrix = matrix @ norm
+    if field.shape != (matrix.shape[1],):
+        raise ValueError(
+            f"the field has {field.shape} entries against the coupling matrix's "
+            f"{matrix.shape[1]} harmonics; they must be on one basis"
+        )
+    if not np.isfinite(b_t0) or b_t0 <= 0.0:
+        raise ValueError(f"b_t0 must be positive and finite, not {b_t0!r}")
+
+    _, singular_values, right = np.linalg.svd(matrix, full_matrices=False)
+    projection = np.abs(right.conj() @ field)
+    dominant = int(np.argmax(projection))
+    return EdgeOverlap(
+        delta_e=float(projection[dominant] / b_t0),
+        projection=projection,
+        singular_values=singular_values,
+        dominant_mode=dominant,
+        b_t0=float(b_t0),
     )
