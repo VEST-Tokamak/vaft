@@ -247,12 +247,20 @@ def townsend_ionization_coefficient(E_parallel, p_Pa, A, B):
 
     Validity
     --------
-    Holds where an electron gains its ionisation energy in much less than a
-    mean free path and loses nothing to attachment, roughly
-    $100 \lesssim E/p \lesssim 10^{4}\ \mathrm{V\,m^{-1}Pa^{-1}}$ for hydrogen.
-    The coefficients are the caller's: this function fixes the functional form,
-    not the gas.  Supplying values fitted outside the $E/p$ range they were
-    fitted in is the usual way to get a confident wrong answer.
+    Holds while an electron gains its ionisation energy in much less than a
+    mean free path and loses nothing to attachment.  The exponential is a
+    two-parameter *fit* over a limited band of $E/p$, and it has no upper
+    saturation: the ionisation cross-section peaks and falls, so at high $E/p$
+    the fit over-predicts $\alpha$, while at low $E/p$ it underestimates the
+    contribution of the tail of the electron distribution.  Convert an
+    operating point with :data:`vaft.formula.constants.PA_PER_TORR` before
+    comparing it against a published band -- a tokamak prefill start-up sits
+    near $10^{3}\ \mathrm{V\,cm^{-1}Torr^{-1}}$, at the top of where hydrogen
+    coefficients are normally quoted, so the threshold it feeds is an
+    extrapolation rather than an interpolation.  The coefficients are the
+    caller's: this function fixes the functional form, not the gas.  Supplying
+    values fitted outside the range they were fitted in is the usual way to get
+    a confident wrong answer.
 
     References
     ----------

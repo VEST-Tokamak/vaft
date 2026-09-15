@@ -32,8 +32,8 @@ _SUBMODULES = {
     "atomic": ".atomic",
     "statistics": ".statistics",
     "magnetics": ".magnetics",
-    "startup": ".startup",
     "neoclassical": ".neoclassical",
+    "startup": ".startup",
 }
 
 #: The order these submodules were star-imported in when this package loaded
