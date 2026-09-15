@@ -1,0 +1,9 @@
+# GA standard case with Miller geometry and spectral shift ExB shear model
+
+GEOMETRY_FLAG=1
+ALPHA_E=1.0
+VEXB_SHEAR=0.1
+ALPHA_QUENCH=0.0
+
+
+
