@@ -1144,6 +1144,29 @@ def plot_equilibrium_overview_residuals(
     )
 
 
+def plot_ntms_time_delta_prime(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Classical tearing index per rational surface against time.
+
+    RDCON's and STRIDE's physical result. A trace is one rational surface --
+    an ``(m_pol, n_tor)`` pair the solver located in the equilibrium -- not one
+    of the toroidal modes the caller requested, so several traces can share an
+    ``n_tor``. A positive index is a tearing-unstable surface, which is the
+    opposite convention to DCON's perturbed energy.
+
+    Renders with :func:`vaft.plot.ntms_time_delta_prime`.
+    """
+    return render(
+        "ntms_time_delta_prime", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_mhd_linear_time_energy_perturbed(
     source: Any,
     *,
@@ -2962,10 +2985,10 @@ __all__ = [
     "plot_mhd_linear_profile_b_field_perturbed",
     "plot_mhd_linear_profile_displacement",
     "plot_nbi_profile_current_drive",
-    "plot_neoclassical_profile_bootstrap_current",
     "plot_nbi_profile_electron_heating",
     "plot_nbi_profile_ion_heating",
     "plot_mhd_linear_time_energy_perturbed",
+    "plot_ntms_time_delta_prime",
     "plot_impa_profile_field",
     "plot_impa_time_field",
     "plot_impa_time_voltage",
