@@ -3492,7 +3492,10 @@ def _build_neoclassical_bootstrap(ods: Any, **options: Any) -> Profile1D:
     if models is None:
         from vaft.validation.neoclassical import bootstrap_models
 
-        keys = ("models", "z_eff", "rho_range", "ion_index", "time_slice", "include_stored")
+        keys = (
+            "models", "z_eff", "impurity", "rho_range", "ion_index", "time_slice",
+            "include_stored",
+        )
         passed = {key: options[key] for key in keys if key in options}
         try:
             models = bootstrap_models(ods, **passed)

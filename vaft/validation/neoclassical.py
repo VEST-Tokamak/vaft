@@ -71,6 +71,7 @@ def bootstrap_models(
     models: Sequence[str] = ("sauter", "redl"),
     include_stored: bool = True,
     time_slice: Optional[int] = None,
+    solver_charge: Optional[float] = None,
     **options: Any,
 ) -> dict[str, Any]:
     """Evaluate each analytic model on *ods*, alongside whatever it already stores.
@@ -136,6 +137,21 @@ def bootstrap_models(
 
     if grid is None:
         raise ValueError("no model was evaluated; `models` was empty")
+
+    if solver_charge is not None:
+        # The charge the solver's own species list implies, from
+        # NeoOutputs.effective_charge. Comparing against a run that used a different
+        # one compares two plasmas: on VEST that inverted which model looked closer
+        # (#803), so it is refused rather than recorded and hoped for.
+        analytic = provenance.get("provider", {}).get("z_eff_value")
+        if analytic is not None and abs(float(analytic) - float(solver_charge)) > 1e-6:
+            raise ValueError(
+                f"the analytic models were evaluated at Z_eff = {float(analytic):g} and "
+                f"the solver ran at {float(solver_charge):g}; those are different "
+                "plasmas. Pass z_eff= (and impurity=) matching the run, or omit "
+                "solver_charge= to compare anyway and own the mismatch."
+            )
+        provenance["solver_charge"] = float(solver_charge)
 
     index = provenance.get("provider", {}).get("equilibrium_index", 0)
     area = _array(ods, f"equilibrium.time_slice.{index}.profiles_1d.area")

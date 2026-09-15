@@ -322,6 +322,7 @@ def compute_bootstrap_current(
     model: str = "sauter",
     time_slice: Optional[int] = None,
     z_eff: Optional[float] = None,
+    impurity: Optional[str] = None,
     ion_index: int = 0,
     rho_range: Optional[Sequence[float]] = None,
     b0: Optional[float] = None,
@@ -424,8 +425,13 @@ def compute_bootstrap_current(
             "the requested rho_range; the collisionalities are undefined there"
         )
 
+    # Which ion densities the impurity model implies. Without one, the historical
+    # n_i = n_e: exact for a hydrogenic plasma, and wrong by (Z_eff-1)/Z_impurity
+    # once there is an impurity -- so a comparison against a solver whose species
+    # list carries one has to be told the same model (issue #803).
+    ion_total, main_fraction = _ion_density_fractions(impurity, charge)
     pressure_e = density * temperature * _ELEMENTARY_CHARGE
-    pressure_i = density * ion_temperature * _ELEMENTARY_CHARGE
+    pressure_i = density * ion_total * ion_temperature * _ELEMENTARY_CHARGE
 
     def gradient(values: np.ndarray) -> np.ndarray:
         """d/dpsi over the physical points, placed back on the full grid."""
@@ -444,12 +450,15 @@ def compute_bootstrap_current(
             major[usable], epsilon[usable], charge[usable],
         )
     )
+    # Sauter Eq. 18c is single-species; NEO's 2013 reading evaluates it for the main
+    # ion and scales by the summed ion density, which the kernel's own Convention
+    # note requires a caller reproducing NEO to apply (issue #353).
     nu_i = np.asarray(
         ion_collisionality_sauter(
-            density[usable], ion_temperature[usable], q_profile[usable],
+            density[usable] * main_fraction, ion_temperature[usable], q_profile[usable],
             major[usable], epsilon[usable], 1.0,
         )
-    )
+    ) * (ion_total / main_fraction)
 
     current_fn = sauter_bootstrap_current if name == "sauter" else redl_bootstrap_current
     coefficient_fn = (
@@ -492,6 +501,9 @@ def compute_bootstrap_current(
             "time": float(time),
             "trapped_fraction": trapped_source,
             "z_eff": z_source,
+            "impurity": impurity,
+            "z_eff_value": float(np.nanmean(np.asarray(charge, dtype=float))),
+            "ion_density_over_electron": float(ion_total),
             "wb_per_radian_factor": float(factor),
             "rho_range": None if rho_range is None else tuple(float(v) for v in rho_range),
             "evaluated_points": int(np.count_nonzero(usable)),
@@ -533,6 +545,7 @@ def compute_conductivity(
     model: str = "sauter",
     time_slice: Optional[int] = None,
     z_eff: Optional[float] = None,
+    impurity: Optional[str] = None,
     ion_index: int = 0,
     rho_range: Optional[Sequence[float]] = None,
 ) -> ConductivityResult:
@@ -647,6 +660,42 @@ def compute_conductivity(
             "grid_points": int(grid.size),
         },
     )
+
+
+def _ion_density_fractions(
+    impurity: Optional[str], charge: np.ndarray
+) -> tuple[float, float]:
+    """``(sum(n_i)/n_e, n_main/n_e)`` for the requested impurity model.
+
+    Without an impurity the historical ``n_i = n_e`` stands, which is exact for a
+    hydrogenic plasma and is what every VAFT comparison assumed before #803. With
+    one, both fractions follow from quasi-neutrality and the effective charge, and
+    they are the same numbers ``vaft.code.gacode.inputs`` gives the solver -- shared
+    rather than restated, because the whole point is that the two sides model one
+    plasma.
+
+    A single scalar is returned for a profile that is in principle radial: the
+    impurity model is one assumption about the discharge, not a fitted profile, and
+    a radially varying Z_eff cannot be carried by one species with one density
+    anyway. The mean is used and the spread is the caller's to justify.
+    """
+    if impurity is None:
+        return 1.0, 1.0
+    from vaft.code.gacode.inputs import IMPURITIES, impurity_fractions
+
+    key = str(impurity).strip()
+    entry = None
+    for candidate in (key, key.capitalize(), key.upper()):
+        if candidate in IMPURITIES:
+            entry = IMPURITIES[candidate]
+            break
+    if entry is None:
+        raise ValueError(
+            f"unknown impurity {impurity!r}; known: {', '.join(sorted(IMPURITIES))}"
+        )
+    target = float(np.nanmean(np.asarray(charge, dtype=float)))
+    main, impure = impurity_fractions(target, entry[0])
+    return main + impure, main
 
 
 def _vacuum_field(ods: Any, eq_index: int, cp_index: int) -> Optional[float]:
