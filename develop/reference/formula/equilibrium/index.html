@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>102e705</code>. What is described
+  <code>8913989</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -2389,7 +2389,10 @@ H-mode-like profiles and is not a measurement.</p>
 does; a full-weber IMAS flux gives a voltage $2\pi$ too large.  The sign is
 that of $d\psi_b/dt$ in the supplied COCOS, so a discharge with positive
 current and the usual $\sigma_{B_p}$ shows negative $V_{loop}$ during ramp-up.
-Tracked in #354.</p>
+Tracked in <code class="language-plaintext highlighter-rouge">#354 &lt;https://github.com/VEST-Tokamak/vaft/issues/354&gt;</code>_, which is
+the disagreement with <code class="language-plaintext highlighter-rouge">toroidal_electric_field</code> over both sign and flux
+normalisation.  The start-up chain in <code class="language-plaintext highlighter-rouge">vaft.formula.startup</code> sidesteps it
+by taking a field magnitude; that choice is not a resolution of #354.</p>
 
 <p><strong>Physical interpretation.</strong></p>
 
@@ -2400,6 +2403,11 @@ quantity a flux loop on the boundary would read.</p>
 
 <p><code class="language-plaintext highlighter-rouge">numpy.gradient</code> in time (second-order interior, first-order ends); noisy
 $\psi_b$ reconstructions need smoothing first.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>toroidal_electric_field
+vaft.formula.startup.breakdown_margin</p>
 
 <p><strong>References.</strong></p>
 
@@ -4009,13 +4017,23 @@ $-\partial\psi/\partial t$ spread around the torus at each major radius.</p>
 that turns a flux into a loop voltage, so passing a per-radian flux gives an
 answer $2\pi$ too small.  Green’s-function flux
 (<code class="language-plaintext highlighter-rouge">vaft.formula.green.green_psi_exact</code>) is already full weber and needs
-no conversion.</p>
+no conversion.  The sign is the one this expression gives;
+<code class="language-plaintext highlighter-rouge">loop_voltage_from_total_flux</code> disagrees with it on both sign and flux
+normalisation, which is <code class="language-plaintext highlighter-rouge">#354 &lt;https://github.com/VEST-Tokamak/vaft/issues/354&gt;</code>_
+and still open.  The start-up chain in <code class="language-plaintext highlighter-rouge">vaft.formula.startup</code> takes the
+<em>magnitude</em> of this field – an avalanche has no preferred direction – so it
+does not inherit the disagreement and must not be used to settle it.</p>
 
 <p><strong>Validity.</strong></p>
 
 <p>Machine-independent.  Faraday’s law in axisymmetry, so it holds wherever the
 flux does; it says nothing on its own about whether that field will break
 the gas down, which also needs the connection length and the fill pressure.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>vaft.formula.startup.lloyd_breakdown_field
+vaft.formula.startup.breakdown_margin</p>
 
 <p><strong>References.</strong></p>
 
@@ -4520,7 +4538,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-15 09:53:29 +0000"
+        "time": "2026-09-15 11:05:22 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

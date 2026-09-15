@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: atomic · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: startup · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/formula/green/" />
+            <link rel="prev" href="/vaft/develop/reference/kinetic-profile-files/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/formula/statistics/" />
+            <link rel="next" href="/vaft/develop/reference/process/perturbation/" />
         
     </head>
     <body>
@@ -226,7 +226,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Formula reference: atomic</a>
+                            <a href="." >Formula reference: startup</a>
                         
                     </h1>
                 </div>
@@ -252,12 +252,12 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/formula/Formula_reference_atomic">Formula reference: atomic</h1>
+                        <h1 id="/reference/formula/Formula_reference_startup">Formula reference: startup</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.atomic, read from the standardized docstrings (issue 248).</dd>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.startup, read from the standardized docstrings (issue 248).</dd>
     <dt>Prerequisites / inputs</dt><dd>None.</dd>
     <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
@@ -266,56 +266,89 @@
 
 
 <p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/atomic.py"><code class="language-plaintext highlighter-rouge">vaft/formula/atomic.py</code></a>:
-3 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("atomic.&lt;name&gt;")</code> prints.
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/startup.py"><code class="language-plaintext highlighter-rouge">vaft/formula/startup.py</code></a>:
+5 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("startup.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
 
 <h2 id="overview">Overview</h2>
 
-<p>The equilibrium construction follows MIT-licensed work, Copyright (c) 2021
-Francesco Sciortino. See the third-party notices in the project README.</p>
+<p>Prefill, the Townsend coefficient and the Lloyd breakdown threshold: the
+reduced kernels that decide whether a gas fill will break down under a given
+toroidal electric field.  This is the pre-equilibrium phase of a discharge,
+before any closed flux surface exists, so nothing here reads a flux map, knows
+a COCOS, or substitutes for a field-line trace.</p>
 
-<p>This module is the numerical layer of VAFT’s atomic package.  It accepts SI
-electron densities, evaluates native ADF11 tables in log10 space, and returns
-charge-state fractions or cooling coefficients without depending on OMAS.</p>
+<p>The module stops at the avalanche on purpose.  Burn-through and the
+radiation-ionisation barrier are a later slice of the same work; plasma
+inductance and the current ramp belong with the transformer dynamics.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>p</td><td>neutral fill pressure</td><td>Pa</td></tr>
+  <tr><td>T_gas</td><td>fill-gas kinetic temperature, at the wall</td><td>K</td></tr>
+  <tr><td>n</td><td>neutral number density</td><td>m^-3</td></tr>
+  <tr><td>E_parallel</td><td>electric field along the open field line, magnitude</td><td>V/m</td></tr>
+  <tr><td>L</td><td>connection length of an open field line</td><td>m</td></tr>
+  <tr><td>alpha</td><td>Townsend first ionisation coefficient</td><td>m^-1</td></tr>
+  <tr><td>A, B</td><td>Townsend similarity coefficients</td><td>[m^-1 Pa^-1], [V m^-1 Pa^-1]</td></tr>
+  <tr><td>E_BD</td><td>Lloyd breakdown threshold field</td><td>V/m</td></tr>
+  <tr><td>M_BD</td><td>breakdown margin, E_parallel / E_BD</td><td>-</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Pressure is pascal.</strong>  The Townsend and Lloyd coefficients are published per
+torr; they are pinned here in that published form and a pascal input is
+converted with <code class="language-plaintext highlighter-rouge">vaft.formula.constants.PA_PER_TORR</code>.  Near the domain
+edge the logarithm is small, so a rounded SI prefactor costs half a percent
+exactly where a spherical tokamak’s prefill sits.  VEST’s barometry is stored
+in pascal; the torr on a plot axis is a display choice.</p>
+
+<p><strong>Gas temperature is kelvin, not electronvolts.</strong>  This is the one place in
+<code class="language-plaintext highlighter-rouge">vaft.formula</code> where that is so: a fill gas sits at wall temperature,
+where $k_B$ is the natural constant, and it is not a plasma species.</p>
+
+<p><strong>Electric fields here are magnitudes.</strong>  The two flux-to-voltage kernels in
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium</code> disagree on both flux normalisation and sign –
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.loop_voltage_from_total_flux</code> is
+$+2\pi\,\mathrm{d}\psi_b/\mathrm{d}t$ on a per-radian flux, while
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.toroidal_electric_field</code> is
+$-\dot\psi/2\pi R$ on a full-weber flux, tracked in #354.  An avalanche does
+not care which way the field points, so nothing here propagates that
+disagreement: every function below takes $|E_\parallel|$.</p>
 
 <h2 id="functions">Functions</h2>
 
 <ul class="formula-index">
-  <li><a href="#fractional_abundances"><code>fractional_abundances</code></a> &mdash; Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.
+  <li><a href="#atomic_inventory_from_molecular_gas"><code>atomic_inventory_from_molecular_gas</code></a> &mdash; Atom inventory of a molecular gas fill.
 </li>
-  <li><a href="#interpolate_adf11"><code>interpolate_adf11</code></a> &mdash; Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.
+  <li><a href="#breakdown_margin"><code>breakdown_margin</code></a> &mdash; Available drive relative to the Lloyd breakdown threshold.
 </li>
-  <li><a href="#line_cooling_coefficient"><code>line_cooling_coefficient</code></a> &mdash; Equilibrium line-radiation cooling coefficient $L_{line}(n_e, T_e)$ of a species.
+  <li><a href="#lloyd_breakdown_field"><code>lloyd_breakdown_field</code></a> &mdash; Lloyd threshold toroidal field for hydrogenic tokamak breakdown.
+</li>
+  <li><a href="#neutral_density_from_pressure"><code>neutral_density_from_pressure</code></a> &mdash; Number density of a fill gas at a measured pressure and temperature.
+</li>
+  <li><a href="#townsend_ionization_coefficient"><code>townsend_ionization_coefficient</code></a> &mdash; Townsend first ionisation coefficient of a gas in a field.
 </li>
 </ul>
 
-<h3 id="fractional_abundances"><code class="language-plaintext highlighter-rouge">fractional_abundances</code></h3>
+<h3 id="atomic_inventory_from_molecular_gas"><code class="language-plaintext highlighter-rouge">atomic_inventory_from_molecular_gas</code></h3>
 
-<p class="formula-signature"><code>fractional_abundances(ne_m3, te_eV, acd, scd)</code></p>
+<p class="formula-signature"><code>atomic_inventory_from_molecular_gas(n_molecular_m3, atoms_per_molecule=2)</code></p>
 
 <p><strong>Convention-sensitive.</strong> </p>
 
-<p>Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.</p>
+<p>Atom inventory of a molecular gas fill.</p>
 
-\[\frac{f_{z+1}}{f_z} = \frac{S_z(n_e, T_e)}{\alpha_{z+1}(n_e, T_e)}, \qquad
-  \tilde f_0 = 1, \quad \tilde f_z = \prod_{j=0}^{z-1}\frac{S_j}{\alpha_{j+1}}, \quad
-  f_z = \frac{\tilde f_z}{\sum_k\tilde f_k}\]
-
-<p>with $S_z$ the SCD effective ionisation and $\alpha_{z+1}$ the ACD effective
-recombination coefficients.</p>
+\[n^{0} = a\,n_{\mathrm{mol}}\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>ne_m3</code></td><td>array-like</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
+  <tr><td><code>n_molecular_m3</code></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Molecular number density, finite and positive.</p>
 </td></tr>
-  <tr><td><code>te_eV</code></td><td>array-like</td><td>eV</td><td><p>Electron temperature, finite and positive.</p>
-</td></tr>
-  <tr><td><code>acd</code></td><td>ADF11Data or path-like</td><td>n/a</td><td><p>Effective recombination table.</p>
-</td></tr>
-  <tr><td><code>scd</code></td><td>ADF11Data or path-like</td><td>n/a</td><td><p>Effective ionisation table.</p>
+  <tr><td><code>atoms_per_molecule</code></td><td>float or np.ndarray, optional</td><td>-</td><td><p>Atoms each molecule contains; default 2 for a diatomic fill.</p>
 </td></tr>
   </tbody>
 </table>
@@ -323,7 +356,7 @@ recombination coefficients.</p>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>Fractional abundances, summing to one over the last axis. That axis has <code class="language-plaintext highlighter-rouge">n_rate_blocks + 1</code> charge states, neutral to fully stripped.</p>
+  <tr><td></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Atom number density of the same fill.</p>
 </td></tr>
   </tbody>
 </table>
@@ -331,57 +364,54 @@ recombination coefficients.</p>
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    Mismatched charge-state counts, wrong table class, or non-finite rates.</p>
+    Non-finite, zero or negative density or atom count.</p>
 
 <p><strong>Convention.</strong></p>
 
-<p>Effective (collisional-radiative, density-dependent) coefficients in the
-ADAS sense, evaluated in cm^-3 internally; the density cancels in the
-ratio, so the result is dimensionless.</p>
+<p><code class="language-plaintext highlighter-rouge">atoms_per_molecule</code> is an explicit input and is never inferred: 2 for
+$H_2$, $D_2$ and $T_2$, 1 for a noble gas, 5 for $CH_4$.  The default is 2
+because a tokamak prefill is a diatomic hydrogen isotope, but a caller
+filling with helium must say 1.  Written together with
+<code class="language-plaintext highlighter-rouge">neutral_density_from_pressure</code> this is DYON’s
+$n_D^0(0) = 2p_0 / (k_B T_n)$.</p>
 
-<p><strong>Assumptions.</strong></p>
+<p><strong>Physical interpretation.</strong></p>
 
-<p>Steady state, no transport: the local balance of ionisation and
-recombination alone sets the charge-state distribution.</p>
+<p>How many atoms the fill contains, which is what an ionisation balance
+counts, as against how many particles the pressure gauge weighs.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>Transport in a real edge or start-up plasma shifts the distribution toward
-lower charge states than coronal equilibrium predicts (the effect Aurora
-models with an impurity transport solve).</p>
+<p>Bookkeeping, not chemistry: it says how many atoms the molecules contain,
+not how many are dissociated.  A cold prefill is fully molecular, and the
+energy cost of dissociating it belongs to the burn-through balance rather
+than to this count.  Getting the factor wrong is a factor of four in the
+analytic radiation-ionisation barrier, which goes as the square of this
+density.</p>
 
 <p><strong>References.</strong></p>
 
 <ol class="formula-references">
-  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), Sec. on ADF11 (ionisation balance).
-</li>
-  <li>F. Sciortino et al., Plasma Phys. Control. Fusion 63 (2021) 112001, Sec. 2 (equilibrium construction; MIT-licensed, see the module docstring).
+  <li>H.-T. Kim, W. Fundamenski and A. C. C. Sips, Nucl. Fusion 52 (2012) 103016, Sec. 2.
 </li>
 </ol>
 
-<h3 id="interpolate_adf11"><code class="language-plaintext highlighter-rouge">interpolate_adf11</code></h3>
+<h3 id="breakdown_margin"><code class="language-plaintext highlighter-rouge">breakdown_margin</code></h3>
 
-<p class="formula-signature"><code>interpolate_adf11(table, ne_m3, te_eV, *, multiply_density=False)</code></p>
+<p class="formula-signature"><code>breakdown_margin(E_parallel, E_breakdown)</code></p>
 
 <p><strong>Convention-sensitive.</strong> </p>
 
-<p>Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.</p>
+<p>Available drive relative to the Lloyd breakdown threshold.</p>
 
-\[C_z(n_e, T_e) = 10^{\,\mathcal{I}_2[\log_{10}C_z]}\]
-
-<p>where $\mathcal{I}<em>2$ is bilinear interpolation on the table’s rectangular
-grid of $\log</em>{10}n_e\,[\mathrm{cm^{-3}}]$ and $\log_{10}T_e\,[\mathrm{eV}]$.</p>
+\[M_{BD} = \frac{|E_\parallel|}{E_{BD}}\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>table</code></td><td>ADF11Data</td><td>n/a</td><td><p>Parsed ADF11 table (<code class="language-plaintext highlighter-rouge">acd</code>, <code class="language-plaintext highlighter-rouge">scd</code>, <code class="language-plaintext highlighter-rouge">plt</code>, …).</p>
+  <tr><td><code>E_parallel</code></td><td>float or np.ndarray</td><td>V/m</td><td><p>Electric field along the field line; used as a magnitude.</p>
 </td></tr>
-  <tr><td><code>ne_m3</code></td><td>array-like</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
-</td></tr>
-  <tr><td><code>te_eV</code></td><td>array-like</td><td>eV</td><td><p>Electron temperature, finite and positive.</p>
-</td></tr>
-  <tr><td><code>multiply_density</code></td><td>bool, optional</td><td>bool</td><td><p>Multiply by $n_e$ in cm^-3 to turn coefficients into rates; default <code class="language-plaintext highlighter-rouge">False</code>.</p>
+  <tr><td><code>E_breakdown</code></td><td>float or np.ndarray</td><td>V/m</td><td><p>Threshold field, typically from <code class="language-plaintext highlighter-rouge">lloyd_breakdown_field</code>; <code class="language-plaintext highlighter-rouge">nan</code> propagates.</p>
 </td></tr>
   </tbody>
 </table>
@@ -389,7 +419,80 @@ grid of $\log</em>{10}n_e\,[\mathrm{cm^{-3}}]$ and $\log_{10}T_e\,[\mathrm{eV}]$
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>Coefficients in the table’s own unit, or rates with <code class="language-plaintext highlighter-rouge">multiply_density</code>. Shape <code class="language-plaintext highlighter-rouge">broadcast(ne_m3, te_eV).shape + (n_blocks,)</code>; cm^3/s for ACD/SCD and W cm^3 for PLT, s^-1 when multiplied by density.</p>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Ratio of available drive to threshold.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>$E_\parallel$ is used as a <strong>magnitude</strong>.  The two flux-to-voltage kernels
+in <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium</code> disagree on sign as well as on flux
+normalisation, tracked in #354, so a signed field arriving here cannot be
+trusted to carry the meaning its sign implies.  An avalanche runs in
+whichever direction the field points, so the absolute value is the physics
+rather than a patch over the disagreement.  It does mean this function
+cannot tell a caller that their flux convention is wrong.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>How much inductive drive is available relative to the least that could
+start an avalanche, under the reduced Lloyd model.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Not a success classifier.  $M_{BD} &gt; 1$ is necessary within this model and
+is not sufficient in a machine: it says nothing about pre-ionisation, about
+impurity or wall conditioning, about whether the null persists long enough,
+or about burn-through, which is a second barrier past this one.  Discharges
+with $M_{BD} &gt; 1$ fail routinely, and discharges below it break down with
+ECRH assist.  Read it as an ordering of operating points, not as a
+prediction.  <code class="language-plaintext highlighter-rouge">nan</code> wherever the threshold is <code class="language-plaintext highlighter-rouge">nan</code>, which is how the
+no-threshold region of <code class="language-plaintext highlighter-rouge">lloyd_breakdown_field</code> propagates.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>lloyd_breakdown_field</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
+</li>
+  <li>D. Mueller, Phys. Plasmas 20 (2013) 058101, Sec. II.
+</li>
+</ol>
+
+<h3 id="lloyd_breakdown_field"><code class="language-plaintext highlighter-rouge">lloyd_breakdown_field</code></h3>
+
+<p class="formula-signature"><code>lloyd_breakdown_field(p_Pa, connection_length_m)</code></p>
+
+<p><strong>Empirical fit.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Lloyd threshold toroidal field for hydrogenic tokamak breakdown.</p>
+
+\[E_{BD} = \frac{B\,p}{\ln\!\left(A\,p\,L\right)},\qquad
+  A = 510\ \mathrm{m^{-1}Torr^{-1}},\quad
+  B = 1.25\times10^{4}\ \mathrm{V\,m^{-1}Torr^{-1}}\]
+
+<p>the field at which one avalanche length fits inside the connection length:
+<code class="language-plaintext highlighter-rouge">townsend_ionization_coefficient</code> evaluated here returns exactly
+$\alpha = 1/L$.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>p_Pa</code></td><td>float or np.ndarray</td><td>Pa</td><td><p>Neutral fill pressure, finite and positive.</p>
+</td></tr>
+  <tr><td><code>connection_length_m</code></td><td>float or np.ndarray</td><td>m</td><td><p>Connection length of an open field line, finite and positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>V/m</td><td><p>Threshold toroidal electric field, <code class="language-plaintext highlighter-rouge">nan</code> where $A\,p\,L \le 1$.</p>
 </td></tr>
   </tbody>
 </table>
@@ -397,71 +500,84 @@ grid of $\log</em>{10}n_e\,[\mathrm{cm^{-3}}]$ and $\log_{10}T_e\,[\mathrm{eV}]$
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    Empty, non-finite or non-positive profiles.</p>
+    Non-finite, zero or negative pressure or connection length.</p>
 
 <p><strong>Convention.</strong></p>
 
-<p>ADF11 stores densities in cm^-3 and rate coefficients in cm^3 s^-1; the SI
-input is converted to cm^-3 internally and the output is <em>not</em> converted
-back, so callers multiply by $10^{-6}$ for m^3 s^-1 (as
-<code class="language-plaintext highlighter-rouge">line_cooling_coefficient</code> does for W m^3).</p>
+<p>Pressure in <strong>pascal</strong>.  The coefficients are pinned in the torr units
+Lloyd publishes them in and the input is converted with
+<code class="language-plaintext highlighter-rouge">vaft.formula.constants.PA_PER_TORR</code>, rather than hard-coding the
+rounded SI values 93.76 and 3.825: near the domain edge the logarithm is
+small and that rounding is worth half a percent, which is exactly where a
+spherical tokamak’s prefill sits.  <code class="language-plaintext highlighter-rouge">connection_length_m</code> is the <em>actual</em>
+connection length, from a field-line trace against the wall; a scaling
+such as $a B_T / B_\perp$ is a teaching estimate of it, not a computation
+of it.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The Paschen curve of a tokamak, with the electrode gap replaced by the
+connection length of an open field line.  At fixed $L$ it has a minimum in
+pressure at $A\,p\,L = e$: below that the gas is too thin to multiply,
+above it the electrons collide before they reach ionising energy.</p>
 
 <p><strong>Validity.</strong></p>
 
-<p>Inside the tabulated grid (typically $10^{8}$-$10^{15}$ cm^-3 and
-1 eV-10 keV for iso-nuclear ADF11 files).</p>
+<p>Empirical fit.  Hydrogen and deuterium, with the secondary-emission
+closure absorbed into $\alpha L = 1$; Lloyd’s own data are $10^{-5}$ to
+$10^{-3}$ torr over connection lengths of tens to hundreds of metres.
+Outside a hydrogen isotope the coefficients are simply wrong, and no
+argument of this function says so.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>Linear extrapolation in log space is retained outside the grid to match the
-established ADF11 calculation path; extrapolated coefficients are not
-physical and are not flagged.</p>
+<p>Returns <code class="language-plaintext highlighter-rouge">nan</code> below $A\,p\,L = 1$ rather than a number: there the
+avalanche cannot close at any field, so no threshold exists.  Says nothing
+about pre-ionisation – ECRH assist lowers the effective threshold by
+seeding electrons, which this expression has no term for – and nothing
+about burn-through, which is a separate barrier a plasma that has broken
+down can still fail to cross.</p>
 
 <p><strong>Numerical notes.</strong></p>
 
-<p><code class="language-plaintext highlighter-rouge">scipy.interpolate.RegularGridInterpolator</code> with <code class="language-plaintext highlighter-rouge">bounds_error=False</code>,
-<code class="language-plaintext highlighter-rouge">fill_value=None</code>, one interpolator per charge-state block.</p>
+<p>$A\,p\,L \le 1$ warns and returns <code class="language-plaintext highlighter-rouge">nan</code> elementwise rather than raising:
+the degenerate case is real rather than hypothetical and sits under a
+plotting path, so it blanks a point instead of taking down a figure.
+Exactly at $A\,p\,L = 1$ the expression has a pole, and <code class="language-plaintext highlighter-rouge">nan</code> is returned
+there too, because an infinite threshold is a feature of the fit and not a
+physical field.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>townsend_ionization_coefficient
+breakdown_margin
+vaft.formula.equilibrium.toroidal_electric_field</p>
 
 <p><strong>References.</strong></p>
 
 <ol class="formula-references">
-  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), https://www.adas.ac.uk/manual.php, ADF11 format.
+  <li>B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
 </li>
-  <li>F. Sciortino et al., Plasma Phys. Control. Fusion 63 (2021) 112001 (Aurora; the calculation path this follows).
+  <li>D. Mueller, Phys. Plasmas 20 (2013) 058101, Sec. II.
 </li>
 </ol>
 
-<h3 id="line_cooling_coefficient"><code class="language-plaintext highlighter-rouge">line_cooling_coefficient</code></h3>
+<h3 id="neutral_density_from_pressure"><code class="language-plaintext highlighter-rouge">neutral_density_from_pressure</code></h3>
 
-<p class="formula-signature"><code>line_cooling_coefficient(species, ne_m3, te_eV, *, acd=None, scd=None, plt=None, cache_dir=None)</code></p>
+<p class="formula-signature"><code>neutral_density_from_pressure(p_Pa, T_gas_K=300.0)</code></p>
 
 <p><strong>Convention-sensitive.</strong> </p>
 
-<p>Equilibrium line-radiation cooling coefficient $L_{line}(n_e, T_e)$ of a species.</p>
+<p>Number density of a fill gas at a measured pressure and temperature.</p>
 
-\[L_{\mathrm{line}}(n_e, T_e) = 10^{-6}\sum_{q=0}^{Z-1} f_q(n_e, T_e)\,
-  P^{\mathrm{PLT}}_q(n_e, T_e)\]
-
-<p>the PLT coefficients weighted by the coronal abundances of
-<code class="language-plaintext highlighter-rouge">fractional_abundances</code>; the fully stripped state has no line
-radiation and is omitted.</p>
+\[n = \frac{p}{k_B T_{\mathrm{gas}}}\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>species</code></td><td>str</td><td>str</td><td><p>Atomic symbol with configured default ADF11 files, e.g. <code class="language-plaintext highlighter-rouge">"C"</code>.</p>
+  <tr><td><code>p_Pa</code></td><td>float or np.ndarray</td><td>Pa</td><td><p>Neutral fill pressure, finite and positive.</p>
 </td></tr>
-  <tr><td><code>ne_m3</code></td><td>array-like</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
-</td></tr>
-  <tr><td><code>te_eV</code></td><td>array-like</td><td>eV</td><td><p>Electron temperature, finite and positive.</p>
-</td></tr>
-  <tr><td><code>acd</code></td><td>ADF11Data or path-like or None, optional</td><td>n/a</td><td><p>Recombination table; <code class="language-plaintext highlighter-rouge">None</code> resolves the configured file.</p>
-</td></tr>
-  <tr><td><code>scd</code></td><td>ADF11Data or path-like or None, optional</td><td>n/a</td><td><p>Ionisation table; <code class="language-plaintext highlighter-rouge">None</code> resolves the configured file.</p>
-</td></tr>
-  <tr><td><code>plt</code></td><td>ADF11Data or path-like or None, optional</td><td>n/a</td><td><p>Line-power table; <code class="language-plaintext highlighter-rouge">None</code> resolves the configured file.</p>
-</td></tr>
-  <tr><td><code>cache_dir</code></td><td>str or path-like or None, optional</td><td>n/a</td><td><p>OPEN-ADAS cache directory; downloads on a miss.</p>
+  <tr><td><code>T_gas_K</code></td><td>float or np.ndarray, optional</td><td>K</td><td><p>Fill-gas kinetic temperature; default 300 K, room temperature.</p>
 </td></tr>
   </tbody>
 </table>
@@ -469,32 +585,134 @@ radiation and is omitted.</p>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>np.ndarray</td><td>W m^3</td><td><p>Cooling coefficient with the broadcast input shape. Multiply by $n_e n_Z$ for a power density.</p>
+  <tr><td></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Number density of the gas the gauge weighs.</p>
 </td></tr>
   </tbody>
 </table>
 
 <p><strong>Raises.</strong></p>
 
-<p>KeyError
-    Unconfigured species.
-ADASDataError
-    Lookup, download or parsing failure.
-ValueError
-    Invalid inputs or mismatched charge-state dimensions.</p>
+<p>ValueError
+    Non-finite, zero or negative pressure or temperature.</p>
 
 <p><strong>Convention.</strong></p>
 
-<p>ADF11 PLT is stored in W cm^3; the factor $10^{-6}$ converts to W m^3.
-Coronal equilibrium, no transport, no recombination/bremsstrahlung
-continuum (that is the separate PRB class).</p>
+<p>Pressure in pascal and temperature in <strong>kelvin</strong> – the one place in
+<code class="language-plaintext highlighter-rouge">vaft.formula</code> where a temperature is not in electronvolts, because
+this is a wall-temperature fill gas rather than a plasma species.  The
+300 K default is 0.02585 eV.  The result is the density of the particles
+the gauge weighs: for a $D_2$ fill that is $n_{D_2}$, the <em>molecular</em>
+density, and the deuteron inventory is twice it – see
+<code class="language-plaintext highlighter-rouge">atomic_inventory_from_molecular_gas</code>.  Nothing here reads a species
+label, so nothing here can infer that factor for you.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Ideal gas in thermal equilibrium with the wall, uniform over the vessel,
+at the moment the gauge is read.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Machine-independent.  A tokamak prefill is $10^{-3}$ to $10^{-1}$ Pa at a
+few hundred kelvin, far inside the ideal-gas regime.  Nothing here survives
+ionisation: once the plasma starts consuming the fill, the neutral
+inventory is set by a particle balance rather than by a gauge reading.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>atomic_inventory_from_molecular_gas</p>
 
 <p><strong>References.</strong></p>
 
 <ol class="formula-references">
-  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), ADF11 PLT class.
+  <li>H.-T. Kim, W. Fundamenski and A. C. C. Sips, Nucl. Fusion 52 (2012) 103016, Sec. 2 (the DYON prefill inventory).
 </li>
-  <li>D. E. Post et al., At. Data Nucl. Data Tables 20 (1977) 397 (coronal cooling curves).
+</ol>
+
+<h3 id="townsend_ionization_coefficient"><code class="language-plaintext highlighter-rouge">townsend_ionization_coefficient</code></h3>
+
+<p class="formula-signature"><code>townsend_ionization_coefficient(E_parallel, p_Pa, A, B)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Townsend first ionisation coefficient of a gas in a field.</p>
+
+\[\alpha = A\,p\,\exp\!\left(-\frac{B\,p}{|E_\parallel|}\right)\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>E_parallel</code></td><td>float or np.ndarray</td><td>V/m</td><td><p>Electric field along the field line; used as a magnitude.</p>
+</td></tr>
+  <tr><td><code>p_Pa</code></td><td>float or np.ndarray</td><td>Pa</td><td><p>Neutral fill pressure, finite and positive.</p>
+</td></tr>
+  <tr><td><code>A</code></td><td>float or np.ndarray</td><td>m^-1 Pa^-1</td><td><p>Townsend similarity coefficient of the gas.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td>float or np.ndarray</td><td>V m^-1 Pa^-1</td><td><p>Townsend similarity coefficient of the gas.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>m^-1</td><td><p>Ionisations per metre of electron drift.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Non-finite or zero field, or non-finite or non-positive pressure.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>$A$ and $B$ are in SI-pressure units.  The literature almost always
+publishes them per centimetre and per torr: divide a published
+$A\,[\mathrm{cm^{-1}Torr^{-1}}]$ by $10^{-2}\times$
+<code class="language-plaintext highlighter-rouge">vaft.formula.constants.PA_PER_TORR</code>, and a published
+$B\,[\mathrm{V\,cm^{-1}Torr^{-1}}]$ by the same factor.  The hydrogen
+values <code class="language-plaintext highlighter-rouge">lloyd_breakdown_field</code> pins are
+$A = 510\ \mathrm{m^{-1}Torr^{-1}}$ and
+$B = 1.25\times10^{4}\ \mathrm{V\,m^{-1}Torr^{-1}}$, which are
+$3.8253\ \mathrm{m^{-1}Pa^{-1}}$ and $93.758\ \mathrm{V\,m^{-1}Pa^{-1}}$.
+$E_\parallel$ is used as a magnitude: an avalanche runs in whichever
+direction the field points.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The similarity law: at fixed $E/p$ an electron sees the same number of
+ionising collisions per mean free path, so $\alpha/p$ is a function of
+$E/p$ alone.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Holds while an electron gains its ionisation energy in much less than a
+mean free path and loses nothing to attachment.  The exponential is a
+two-parameter <em>fit</em> over a limited band of $E/p$, and it has no upper
+saturation: the ionisation cross-section peaks and falls, so at high $E/p$
+the fit over-predicts $\alpha$, while at low $E/p$ it underestimates the
+contribution of the tail of the electron distribution.  Convert an
+operating point with <code class="language-plaintext highlighter-rouge">vaft.formula.constants.PA_PER_TORR</code> before
+comparing it against a published band – a tokamak prefill start-up sits
+near $10^{3}\ \mathrm{V\,cm^{-1}Torr^{-1}}$, at the top of where hydrogen
+coefficients are normally quoted, so the threshold it feeds is an
+extrapolation rather than an interpolation.  The coefficients are the
+caller’s: this function fixes the functional form, not the gas.  Supplying
+values fitted outside the range they were fitted in is the usual way to get
+a confident wrong answer.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>lloyd_breakdown_field</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>Yu. P. Raizer, <em>Gas Discharge Physics</em>, Springer (1991), Sec. 4.2.
+</li>
+  <li>B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
 </li>
 </ol>
 
@@ -587,13 +805,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/formula/green/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: green">
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Kinetic profile file formats">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/formula/statistics/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: statistics">
+                        <a href="/vaft/develop/reference/process/perturbation/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: perturbation">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -609,7 +827,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fractional_abundances" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_abundances</a></li><li class="page-toc-item page-toc-level-3"><a href="#interpolate_adf11" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">interpolate_adf11</a></li><li class="page-toc-item page-toc-level-3"><a href="#line_cooling_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">line_cooling_coefficient</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#atomic_inventory_from_molecular_gas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">atomic_inventory_from_molecular_gas</a></li><li class="page-toc-item page-toc-level-3"><a href="#breakdown_margin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">breakdown_margin</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#neutral_density_from_pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">neutral_density_from_pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_ionization_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_ionization_coefficient</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -625,11 +843,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Formula reference: statistics",
+            "title": "Process reference: perturbation",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Formula_reference_statistics.md",
-            "ref": "_guide/Formula_reference_statistics.md",
+            "path": "_guide/Process_reference_perturbation.md",
+            "ref": "_guide/Process_reference_perturbation.md",
             "articles": []
         },
         
@@ -721,8 +939,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Formula_reference_atomic.md",
-        "mtime": "2026-09-02 10:14:00 +0000",
+        "path": "_guide/Formula_reference_startup.md",
+        "mtime": "2026-09-14 10:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
