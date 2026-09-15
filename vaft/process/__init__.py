@@ -34,6 +34,7 @@ from importlib import import_module
 
 _SUBMODULES = {
     "atomic": ".atomic",
+    "camera_fluctuation": ".camera_fluctuation",
     "camera_geometry": ".camera_geometry",
     "cocos": ".cocos",
     "electromagnetics": ".electromagnetics",
@@ -83,6 +84,7 @@ _IMPORT_ORDER = (
     "onset",
     "wall_modes",
     "coils_non_axisymmetric",
+    "camera_fluctuation",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a

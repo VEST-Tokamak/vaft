@@ -269,6 +269,66 @@ def plot_camera_visible_image_frame(
     return render("camera_visible_image_frame", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_neoclassical_profile_bootstrap_current(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Bootstrap current density, one series per neoclassical model.
+
+    Renders with :func:`vaft.plot.neoclassical_profile_bootstrap_current` from native IMAS input.
+    """
+    return render("neoclassical_profile_bootstrap_current", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_camera_visible_image_fluctuation(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """One FAST-camera frame with its local temporal background removed.
+
+    Renders with :func:`vaft.plot.camera_visible_image_fluctuation` from native IMAS input.
+    """
+    return render("camera_visible_image_fluctuation", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_camera_visible_image_mhd_power(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Per-pixel MHD-band power normalised by the local average emission.
+
+    Renders with :func:`vaft.plot.camera_visible_image_mhd_power` from native IMAS input.
+    """
+    return render("camera_visible_image_mhd_power", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_camera_visible_spectrogram(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Time-frequency map of the camera intensity summed over one image region.
+
+    Renders with :func:`vaft.plot.camera_visible_spectrogram` from native IMAS input.
+    """
+    return render("camera_visible_spectrogram", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_charge_exchange_geometry_poloidal(
     source: Any,
     *,
@@ -2025,6 +2085,10 @@ __all__ += [
     "plot_camera_visible_image_efit_overlay",
     "plot_camera_visible_image_field_line",
     "plot_camera_visible_image_frame",
+    "plot_camera_visible_image_fluctuation",
+    "plot_neoclassical_profile_bootstrap_current",
+    "plot_camera_visible_image_mhd_power",
+    "plot_camera_visible_spectrogram",
     "plot_charge_exchange_geometry_poloidal",
     "plot_charge_exchange_profile_ion_temperature",
     "plot_charge_exchange_profile_velocity_tor",
