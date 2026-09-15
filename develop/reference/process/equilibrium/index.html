@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>90d02ef</code>. What is described
+  <code>c0d236d</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -267,7 +267,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/equilibrium.py"><code class="language-plaintext highlighter-rouge">vaft/process/equilibrium.py</code></a>:
-43 public functions.  The category overview and notation come from the module
+45 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("equilibrium.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -386,6 +386,10 @@ outward normal is only outward then.</p>
   <li><a href="#r_at_z_extremum"><code>r_at_z_extremum</code></a> &mdash; Major radius where a contour reaches its highest or lowest point.
 </li>
   <li><a href="#radial_to_psi"><code>radial_to_psi</code></a> &mdash; Poloidal flux at a major radius on the midplane row of the flux map.
+</li>
+  <li><a href="#resistive_layer_at"><code>resistive_layer_at</code></a> &mdash; Resistivity and mass density at flux surfaces someone else located.
+</li>
+  <li><a href="#resistive_layer_parameters"><code>resistive_layer_parameters</code></a> &mdash; Resistivity and mass density at each rational surface of a toroidal mode.
 </li>
   <li><a href="#rho_to_psi"><code>rho_to_psi</code></a> &mdash; Poloidal flux at one normalized toroidal-flux radius, by root finding.
 </li>
@@ -2825,6 +2829,176 @@ not at zero height needs the row selected before calling.</p>
 </li>
 </ol>
 
+<h3 id="resistive_layer_at"><code class="language-plaintext highlighter-rouge">resistive_layer_at</code></h3>
+
+<p class="formula-signature"><code>resistive_layer_at(psi_n_surfaces, *, psi_norm, t_e, n_e, ion_mass_amu=1.0, z_eff=2.0, ln_lambda=17.0)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Resistivity and mass density at flux surfaces someone else located.</p>
+
+<p>The companion to <code class="language-plaintext highlighter-rouge">resistive_layer_parameters</code>, for when the surfaces
+are already known – read back from a solver that reported its own, which
+is the only way to be sure the values line up with what that solver will
+index.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_n_surfaces</code></td><td>array_like</td><td>-</td><td><p>Normalized poloidal flux of each surface, ordered as the consumer expects them.</p>
+</td></tr>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Normalized poloidal flux of <code class="language-plaintext highlighter-rouge">t_e</code>/<code class="language-plaintext highlighter-rouge">n_e</code>.</p>
+</td></tr>
+  <tr><td><code>t_e</code></td><td>array_like</td><td>eV</td><td><p>Electron temperature.</p>
+</td></tr>
+  <tr><td><code>n_e</code></td><td>array_like</td><td>m^-3</td><td><p>Electron density.</p>
+</td></tr>
+  <tr><td><code>ion_mass_amu</code></td><td>float, optional</td><td>-</td><td><p>Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default.</p>
+</td></tr>
+  <tr><td><code>z_eff</code></td><td>float, optional</td><td>-</td><td><p>Effective ion charge.</p>
+</td></tr>
+  <tr><td><code>ln_lambda</code></td><td>float, optional</td><td>-</td><td><p>Coulomb logarithm.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to ndarray</td><td>Ohm m</td><td><p><code class="language-plaintext highlighter-rouge">mass_density</code> [kg m^-3], the <code class="language-plaintext highlighter-rouge">t_e</code> [eV] and <code class="language-plaintext highlighter-rouge">n_e</code> [m^-3] each was computed from, and the Spitzer resistivity <code class="language-plaintext highlighter-rouge">eta</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A kinetic profile does not match its coordinate in length, or
+    <code class="language-plaintext highlighter-rouge">ion_mass_amu</code> is not positive.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Interpolate <code class="language-plaintext highlighter-rouge">t_e</code> and <code class="language-plaintext highlighter-rouge">n_e</code> linearly onto <code class="language-plaintext highlighter-rouge">psi_n_surfaces</code>.</li>
+  <li>Evaluate the Spitzer resistivity at each, and take the mass density as
+<code class="language-plaintext highlighter-rouge">n_e * ion_mass_amu * m_p</code>.</li>
+</ol>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>As <code class="language-plaintext highlighter-rouge">resistive_layer_parameters</code>: Spitzer carries no neoclassical
+correction and diverges as <code class="language-plaintext highlighter-rouge">T_e</code> goes to zero, and the mass density
+ignores impurity dilution.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>#716.
+</li>
+</ol>
+
+<h3 id="resistive_layer_parameters"><code class="language-plaintext highlighter-rouge">resistive_layer_parameters</code></h3>
+
+<p class="formula-signature"><code>resistive_layer_parameters(psi_norm, q, n, *, t_e, n_e, psi_norm_kinetic=None, ion_mass_amu=1.0, z_eff=2.0, ln_lambda=17.0, m_range=None)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Resistivity and mass density at each rational surface of a toroidal mode.</p>
+
+<p>Asymptotic-matching codes – RDCON’s <code class="language-plaintext highlighter-rouge">rmatch</code>, STRIDE – ask for one
+resistivity and one mass density <em>per rational surface</em>, because the
+resistive layer width and the reconnection rate are set locally. This
+composes the two things needed to answer that from an equilibrium and its
+kinetic profiles: where the surfaces are, and what the plasma is like
+there.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Normalized poloidal flux of the <code class="language-plaintext highlighter-rouge">q</code> profile, increasing.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td>array_like</td><td>-</td><td><p>Safety factor on <code class="language-plaintext highlighter-rouge">psi_norm</code>.</p>
+</td></tr>
+  <tr><td><code>n</code></td><td>int</td><td>-</td><td><p>Toroidal mode number; its sign is ignored.</p>
+</td></tr>
+  <tr><td><code>t_e</code></td><td>array_like</td><td>eV</td><td><p>Electron temperature.</p>
+</td></tr>
+  <tr><td><code>n_e</code></td><td>array_like</td><td>m^-3</td><td><p>Electron density.</p>
+</td></tr>
+  <tr><td><code>psi_norm_kinetic</code></td><td>array_like, optional</td><td>-</td><td><p>Normalized poloidal flux of <code class="language-plaintext highlighter-rouge">t_e</code>/<code class="language-plaintext highlighter-rouge">n_e</code>; <code class="language-plaintext highlighter-rouge">psi_norm</code> by default, which requires the kinetic profiles to already be on the q grid.</p>
+</td></tr>
+  <tr><td><code>ion_mass_amu</code></td><td>float, optional</td><td>-</td><td><p>Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default, which is what VEST runs.</p>
+</td></tr>
+  <tr><td><code>z_eff</code></td><td>float, optional</td><td>-</td><td><p>Effective ion charge, passed to the Spitzer resistivity.</p>
+</td></tr>
+  <tr><td><code>ln_lambda</code></td><td>float, optional</td><td>-</td><td><p>Coulomb logarithm, passed to the Spitzer resistivity.</p>
+</td></tr>
+  <tr><td><code>m_range</code></td><td>tuple of int, optional</td><td>-</td><td><p>Forwarded to <code class="language-plaintext highlighter-rouge">find_rational_surfaces</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to ndarray</td><td>Ohm m</td><td><p><code class="language-plaintext highlighter-rouge">m</code>, <code class="language-plaintext highlighter-rouge">q_rational</code> and <code class="language-plaintext highlighter-rouge">psi_n_rational</code> as <code class="language-plaintext highlighter-rouge">find_rational_surfaces</code> returns them, ordered outward, plus <code class="language-plaintext highlighter-rouge">mass_density</code> [kg m^-3], the <code class="language-plaintext highlighter-rouge">t_e</code> [eV] and <code class="language-plaintext highlighter-rouge">n_e</code> [m^-3] each was computed from, and the Spitzer resistivity <code class="language-plaintext highlighter-rouge">eta</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A kinetic profile does not match its coordinate in length, or
+    <code class="language-plaintext highlighter-rouge">ion_mass_amu</code> is not positive. Propagates
+    <code class="language-plaintext highlighter-rouge">find_rational_surfaces</code>’s own validation.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Locate the rational surfaces with <code class="language-plaintext highlighter-rouge">find_rational_surfaces</code>.</li>
+  <li>Interpolate <code class="language-plaintext highlighter-rouge">t_e</code> and <code class="language-plaintext highlighter-rouge">n_e</code> linearly onto those surfaces.</li>
+  <li>Evaluate
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</code>
+at each, and take the mass density as <code class="language-plaintext highlighter-rouge">n_e * ion_mass_amu * m_p</code>,
+which assumes quasineutrality with a single bulk ion species.</li>
+</ol>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent. The <code class="language-plaintext highlighter-rouge">ion_mass_amu</code> default of 1 is the only VEST
+choice, and it is a keyword.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Spitzer resistivity carries no neoclassical trapped-particle correction,
+so it underestimates the parallel resistivity of a spherical tokamak,
+where the trapped fraction is large; the returned <code class="language-plaintext highlighter-rouge">eta</code> is a lower
+bound in that sense.</p>
+
+<p>It also diverges as <code class="language-plaintext highlighter-rouge">T_e</code> goes to zero. A reconstruction whose
+<code class="language-plaintext highlighter-rouge">T_e</code> reaches zero at the separatrix therefore yields a non-finite
+<code class="language-plaintext highlighter-rouge">eta</code> at any rational surface that sits on that point, and surfaces
+within a few percent of it are dominated by however the profile was
+extrapolated rather than by measurement. Both are reported rather than
+clipped, because the right floor is a property of the discharge and not
+of this function.</p>
+
+<p>The mass density ignores impurities: with a non-unit <code class="language-plaintext highlighter-rouge">z_eff</code> the bulk
+ion density is below <code class="language-plaintext highlighter-rouge">n_e</code>, so this overestimates it by roughly the
+dilution factor.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>#716 – the packaged <code class="language-plaintext highlighter-rouge">rmatch.in</code> supplied a single scalar where the code wants one value per rational surface, so <code class="language-plaintext highlighter-rouge">rmatch</code> stopped before writing its global solution.
+</li>
+</ol>
+
 <h3 id="rho_to_psi"><code class="language-plaintext highlighter-rouge">rho_to_psi</code></h3>
 
 <p class="formula-signature"><code>rho_to_psi(rho, q_profile, psi_axis, psi_boundary, tol=1e-06)</code></p>
@@ -3660,7 +3834,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#as_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">as_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_average_boundary_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_average_boundary_poloidal_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_diamagnetism" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_diamagnetism</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_q_profile_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_q_profile_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_reconstructed_diamagnetic_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_reconstructed_diamagnetic_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_equilibrium_requirements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_equilibrium_requirements</a></li><li class="page-toc-item page-toc-level-3"><a href="#computed_diamagnetism_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">computed_diamagnetism_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#contour_shape_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">contour_shape_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#convert_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">convert_cocos</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_boundary_representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_boundary_representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_global_descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_global_descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_radial_coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_radial_coordinates</a></li><li class="page-toc-item page-toc-level-3"><a href="#efit_virial_volume_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">efit_virial_volume_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_field_on_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_field_on_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_miller" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_miller</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_solovev" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_solovev</a></li><li class="page-toc-item page-toc-level-3"><a href="#extract_flux_surface_contours" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">extract_flux_surface_contours</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_rational_surfaces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_rational_surfaces</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_sequence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_sequence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_surface" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_surface</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_surface_quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_surface_quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#fractional_cell_weights_from_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_cell_weights_from_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_equilibrium_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_equilibrium_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#parallel_current_from_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">parallel_current_from_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_at_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_at_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#prepare_boundary_for_shafranov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">prepare_boundary_for_shafranov</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_radial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_radial</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rho" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rho</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rz" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rz</a></li><li class="page-toc-item page-toc-level-3"><a href="#r_at_z_extremum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">r_at_z_extremum</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#scale_boundary_conformal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">scale_boundary_conformal</a></li><li class="page-toc-item page-toc-level-3"><a href="#shafranov_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shafranov_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_to_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_to_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_solovev_constraints" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_solovev_constraints</a></li><li class="page-toc-item page-toc-level-3"><a href="#trace_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trace_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_conformal_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_conformal_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_thin_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_thin_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_average</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#as_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">as_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_average_boundary_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_average_boundary_poloidal_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_diamagnetism" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_diamagnetism</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_q_profile_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_q_profile_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_reconstructed_diamagnetic_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_reconstructed_diamagnetic_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_equilibrium_requirements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_equilibrium_requirements</a></li><li class="page-toc-item page-toc-level-3"><a href="#computed_diamagnetism_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">computed_diamagnetism_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#contour_shape_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">contour_shape_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#convert_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">convert_cocos</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_boundary_representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_boundary_representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_global_descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_global_descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_radial_coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_radial_coordinates</a></li><li class="page-toc-item page-toc-level-3"><a href="#efit_virial_volume_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">efit_virial_volume_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_field_on_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_field_on_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_miller" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_miller</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_solovev" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_solovev</a></li><li class="page-toc-item page-toc-level-3"><a href="#extract_flux_surface_contours" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">extract_flux_surface_contours</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_rational_surfaces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_rational_surfaces</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_sequence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_sequence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_surface" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_surface</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_surface_quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_surface_quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#fractional_cell_weights_from_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_cell_weights_from_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_equilibrium_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_equilibrium_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#parallel_current_from_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">parallel_current_from_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_at_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_at_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#prepare_boundary_for_shafranov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">prepare_boundary_for_shafranov</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_radial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_radial</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rho" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rho</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rz" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rz</a></li><li class="page-toc-item page-toc-level-3"><a href="#r_at_z_extremum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">r_at_z_extremum</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_layer_at" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_layer_at</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_layer_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_layer_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#scale_boundary_conformal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">scale_boundary_conformal</a></li><li class="page-toc-item page-toc-level-3"><a href="#shafranov_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shafranov_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_to_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_to_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_solovev_constraints" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_solovev_constraints</a></li><li class="page-toc-item page-toc-level-3"><a href="#trace_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trace_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_conformal_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_conformal_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_thin_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_thin_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_average</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -3778,7 +3952,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-15 06:46:23 +0000"
+        "time": "2026-09-15 08:12:36 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
