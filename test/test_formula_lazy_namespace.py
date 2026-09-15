@@ -35,6 +35,7 @@ _IMPORT_ORDER = (
     "statistics",
     "magnetics",
     "neoclassical",
+    "startup",
 )
 
 

@@ -27,13 +27,16 @@ from __future__ import annotations
 
 import math
 import warnings
-
 from dataclasses import dataclass
 from types import MappingProxyType
 import re
 from typing import Any, Mapping
 
 import numpy as np
+
+# One definition of the torr, shared with the physics layer rather than rounded
+# again here; `vaft.formula.constants` imports nothing, so this costs ~0.2 ms.
+from vaft.formula.constants import PA_PER_TORR
 
 __all__ = [
     "PSI_STYLES",
@@ -85,9 +88,6 @@ COORDINATE_LABELS = {
 
 
 NOTATIONS = ("auto", "plain", "scientific", "scaled_axis", "percent")
-
-#: Torr in pascal.
-_PA_PER_TORR = 133.322368
 
 _TWO_PI = 2.0 * math.pi
 
@@ -182,8 +182,8 @@ _QUANTITIES = (
             "Pa": 1.0,
             "mPa": 1e3,
             "kPa": 1e-3,
-            "Torr": 1.0 / _PA_PER_TORR,
-            "mTorr": 1e3 / _PA_PER_TORR,
+            "Torr": 1.0 / PA_PER_TORR,
+            "mTorr": 1e3 / PA_PER_TORR,
         },
         "Pa",
     ),
