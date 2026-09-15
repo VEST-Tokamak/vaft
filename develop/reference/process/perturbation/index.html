@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>1142fc7</code>. What is described
+  <code>90d02ef</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -267,7 +267,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/perturbation.py"><code class="language-plaintext highlighter-rouge">vaft/process/perturbation.py</code></a>:
-12 public functions.  The category overview and notation come from the module
+14 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("perturbation.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -306,6 +306,17 @@ exactly: <code class="language-plaintext highlighter-rouge">w_isl / d_nn</code> 
 every surface of every run checked, which is what makes the derived
 quantities trustworthy rather than merely plausible.</p>
 
+<p><strong>A coupling matrix and a field have to be on one basis.</strong> A GPEC run
+reports five couplings – flux, current, island width, penetrated flux and
+Delta – and writes them as <code class="language-plaintext highlighter-rouge">C_f_x_out</code> and its four siblings on the
+<em>output</em> harmonic basis <code class="language-plaintext highlighter-rouge">m_out</code>, which in the DIII-D example has 129
+entries. The external field <code class="language-plaintext highlighter-rouge">Phi_xe</code> is on <code class="language-plaintext highlighter-rouge">m</code>, which has 34. The one
+array that pairs with it is <code class="language-plaintext highlighter-rouge">C_xe</code>, the flux coupling on the field’s own
+basis – its singular values agree with <code class="language-plaintext highlighter-rouge">C_f_xe_out_singval</code> to 1.4e-5.
+<code class="language-plaintext highlighter-rouge">edge_overlap_metric</code> refuses a mismatch rather than broadcasting one,
+and nothing here maps a family name to a variable, because four of the five
+have no counterpart on the basis the field lives on.</p>
+
 <p><strong>A reduction is not a verdict.</strong> <code class="language-plaintext highlighter-rouge">vaft.process</code> computes; it does not
 decide. The thresholds the legacy compared against – a Chirikov parameter of
 1, a penetration ratio of 1, an edge overlap of 7.4e-4 – are arguments here
@@ -325,6 +336,10 @@ which unit it is showing.</p>
   <li><a href="#chirikov"><code>chirikov</code></a> &mdash; The island-overlap parameter, by either of the two definitions in use.
 </li>
   <li><a href="#critical_island_width"><code>critical_island_width</code></a> &mdash; The island width at which a surface’s islands reach its neighbour’s.
+</li>
+  <li><a href="#edge_overlap_metric"><code>edge_overlap_metric</code></a> &mdash; How much of an external field lands on the dominant coupling mode.
+</li>
+  <li><a href="#energy_norm_matrix"><code>energy_norm_matrix</code></a> &mdash; The inverse square root of an energy matrix, from its eigendecomposition.
 </li>
   <li><a href="#group_coincident_islands"><code>group_coincident_islands</code></a> &mdash; Collapse islands that sit on the same surface into one.
 </li>
@@ -511,6 +526,162 @@ parameter from a half width over a half distance, and the halves cancel.</p>
   <li>Reproduces GPEC’s own <code class="language-plaintext highlighter-rouge">K_isl</code> exactly when divided into <code class="language-plaintext highlighter-rouge">w_isl</code>: zero relative difference on every surface of the DIII-D n=1, n=2 and n=3 ideal runs.
 </li>
   <li>GPEC leaves its own <code class="language-plaintext highlighter-rouge">w_isl_v_crit</code> at zero on an ideal run, which is why this is computed rather than read.
+</li>
+</ol>
+
+<h3 id="edge_overlap_metric"><code class="language-plaintext highlighter-rouge">edge_overlap_metric</code></h3>
+
+<p class="formula-signature"><code>edge_overlap_metric(coupling, external_field, *, b_t0, norm=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>How much of an external field lands on the dominant coupling mode.</p>
+
+<p>The coupling matrix is decomposed, the field is projected onto its
+singular modes, and the dominant mode’s share is reported per unit field.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>coupling</code></td><td>array_like</td><td>-</td><td><p>Coupling matrix, modes by harmonics, complex.</p>
+</td></tr>
+  <tr><td><code>external_field</code></td><td>array_like</td><td>T</td><td><p>The external field on the same harmonic basis, complex.</p>
+</td></tr>
+  <tr><td><code>b_t0</code></td><td>float</td><td>T</td><td><p>Vacuum toroidal field on axis, which the projection is divided by. Required: the code this replaces defaulted it to one, which silently reports a field in tesla as a dimensionless metric. A GPEC run carries it as a global attribute.</p>
+</td></tr>
+  <tr><td><code>norm</code></td><td>array_like, optional</td><td>-</td><td><p>An energy norm to apply to <code class="language-plaintext highlighter-rouge">coupling</code> first, from <code class="language-plaintext highlighter-rouge">energy_norm_matrix</code>. Omit it when the matrix is already normed – GPEC’s own <code class="language-plaintext highlighter-rouge">C_xe</code> is.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>EdgeOverlap</td><td>-</td><td><p>The metric, the per-mode projection and the singular values.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The shapes disagree, the coupling matrix or the field holds a
+    non-finite entry, the coupling matrix is empty or identically zero,
+    or <code class="language-plaintext highlighter-rouge">b_t0</code> is not a positive finite real number.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Apply <code class="language-plaintext highlighter-rouge">norm</code> to the coupling matrix when one is given.</li>
+  <li>Take its singular value decomposition.</li>
+  <li>Project the field onto the conjugated right singular vectors.</li>
+  <li>Divide the largest projection by <code class="language-plaintext highlighter-rouge">b_t0</code>.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>The projection is reported as a magnitude. A right singular vector is
+fixed only up to a phase, so the complex overlap is a gauge – GPEC’s own
+vectors and a fresh decomposition of the same matrix differ by exactly
+that phase – and a caller handed the complex number would be reading the
+decomposition rather than the plasma. The magnitude is not affected. The
+dominant mode is the one carrying the most field, which need not be the
+one with the largest singular value.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A coupling matrix that a run never filled decomposes to zero singular
+values and a projection that is just the field’s own components, which
+would report a confident metric for a run that computed nothing. An
+all-zero matrix is refused for that reason; a merely tiny one is not,
+and a run whose external field is at the level of floating-point residue
+– the n=2 ideal example has a field norm of 1e-19 – gives a ratio of
+two residues.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Conventions register C-25: the dominant singular vector needs explicit gauge fixing or the complex overlap phase is arbitrary.
+</li>
+  <li>Reproduces GPEC’s own <code class="language-plaintext highlighter-rouge">O_CPhi_xe</code> to 3e-16 and its <code class="language-plaintext highlighter-rouge">Phi_overlap_norm</code> to 4e-5 on the DIII-D n=1, n=2 and n=3 ideal runs.
+</li>
+</ol>
+
+<h3 id="energy_norm_matrix"><code class="language-plaintext highlighter-rouge">energy_norm_matrix</code></h3>
+
+<p class="formula-signature"><code>energy_norm_matrix(eigenvalues, eigenvectors, *, negative_eigenvalues)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The inverse square root of an energy matrix, from its eigendecomposition.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>eigenvalues</code></td><td>array_like</td><td>-</td><td><p>Eigenvalues of the energy matrix.</p>
+</td></tr>
+  <tr><td><code>eigenvectors</code></td><td>array_like</td><td>-</td><td><p>Its eigenvectors, one per row, matching <code class="language-plaintext highlighter-rouge">eigenvalues</code>.</p>
+</td></tr>
+  <tr><td><code>negative_eigenvalues</code></td><td>str</td><td>n/a</td><td><p>What to do with an eigenvalue at or below zero, one of <code class="language-plaintext highlighter-rouge">NEGATIVE_EIGENVALUE_POLICIES</code>. Required: the three constructions this replaces answered it three ways, and the answer changes the metric.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">W^{-1/2}</code>, square and Hermitian.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">negative_eigenvalues</code> is not one of the three; the shapes disagree
+    or <code class="language-plaintext highlighter-rouge">eigenvectors</code> is not square; an eigenvalue is complex or not
+    finite; <code class="language-plaintext highlighter-rouge">"raise"</code> was chosen and an eigenvalue is not positive; or
+    the policy left nothing.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Apply the policy to the eigenvalues.</li>
+  <li>Form <code class="language-plaintext highlighter-rouge">V^H diag(lambda^{-1/2}) V</code> over what survives.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>Rows of <code class="language-plaintext highlighter-rouge">eigenvectors</code> are the eigenvectors, so the reconstruction is
+<code class="language-plaintext highlighter-rouge">V^H diag(lambda) V</code>. That is this function’s contract, not a claim
+about any file: see the Limitations.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p><strong>No run in reach satisfies this contract</strong>, so it is unvalidated against
+real data. The ideal examples carry <code class="language-plaintext highlighter-rouge">W_xe</code> as identically zero, and
+every policy then refuses. The kinetic example carries a non-zero one,
+but that matrix is not Hermitian at all – <code class="language-plaintext highlighter-rouge">max|W - W^H|</code> is 1.8 times
+<code class="language-plaintext highlighter-rouge">max|W|</code> – and its own eigenvector array reconstructs it under none of
+the four orientations, the closest being <code class="language-plaintext highlighter-rouge">V^T diag V*</code> against the
+Hermitian part at a relative error of 1.0. Feeding GPEC’s own pair in
+gives a matrix <code class="language-plaintext highlighter-rouge">N</code> with <code class="language-plaintext highlighter-rouge">max|N W N - I|</code> of order ten. Whatever
+<code class="language-plaintext highlighter-rouge">W_xe</code> and <code class="language-plaintext highlighter-rouge">W_xe_eigenvector</code> are to each other, it is not an
+eigendecomposition in the sense used here. Establish that before norming
+a coupling matrix with a file’s own arrays.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Conventions register C-11: three different <code class="language-plaintext highlighter-rouge">W^{-1/2}</code> constructions, with different negative-eigenvalue policies, fed the same metric.
 </li>
 </ol>
 
@@ -1188,7 +1359,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#amplification_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">amplification_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#chirikov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">chirikov</a></li><li class="page-toc-item page-toc-level-3"><a href="#critical_island_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">critical_island_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#group_coincident_islands" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">group_coincident_islands</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_overlap_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_overlap_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_pairs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_pairs</a></li><li class="page-toc-item page-toc-level-3"><a href="#nearest_surface_spacing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">nearest_surface_spacing</a></li><li class="page-toc-item page-toc-level-3"><a href="#penetration_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">penetration_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_resonant" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_resonant</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_metrics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_metrics</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_windows" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_windows</a></li><li class="page-toc-item page-toc-level-3"><a href="#rms_resonant_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rms_resonant_field</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#amplification_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">amplification_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#chirikov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">chirikov</a></li><li class="page-toc-item page-toc-level-3"><a href="#critical_island_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">critical_island_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#edge_overlap_metric" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">edge_overlap_metric</a></li><li class="page-toc-item page-toc-level-3"><a href="#energy_norm_matrix" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">energy_norm_matrix</a></li><li class="page-toc-item page-toc-level-3"><a href="#group_coincident_islands" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">group_coincident_islands</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_overlap_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_overlap_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_pairs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_pairs</a></li><li class="page-toc-item page-toc-level-3"><a href="#nearest_surface_spacing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">nearest_surface_spacing</a></li><li class="page-toc-item page-toc-level-3"><a href="#penetration_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">penetration_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_resonant" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_resonant</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_metrics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_metrics</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_windows" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_windows</a></li><li class="page-toc-item page-toc-level-3"><a href="#rms_resonant_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rms_resonant_field</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1306,7 +1477,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-15 05:41:17 +0000"
+        "time": "2026-09-15 06:46:23 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
