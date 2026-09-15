@@ -61,7 +61,8 @@ own text.
 
 One promise is session-scoped and worth knowing about: session 01 tells you that
 you need no NumPy and no VAFT submodule imported by hand. That holds for session
-01. From session 02 on, the notebooks import both.
+01 alone. Session 02 imports NumPy; sessions 03 and 04 also reach into VAFT
+submodules directly.
 
 The intended learning path is:
 

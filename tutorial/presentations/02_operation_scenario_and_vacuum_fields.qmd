@@ -28,10 +28,10 @@ The audience should leave this slide knowing the shift: session 01 asked *what
 was measured*, session 02 asks *what was done to the machine*.
 
 WARN:
-From this session on, the notebooks import NumPy and reach into VAFT
-submodules. Session 01 promised you would not need to; that promise was
-session-scoped and it stops here. Say so, or someone will think the course
-contradicted itself.
+From this session on the notebooks import NumPy, and from session 03 they also
+reach into VAFT submodules directly. Session 01 promised you would need neither;
+that promise was session-scoped and it stops here. Say so, or someone will think
+the course contradicted itself.
 
 TRANSITION:
 From what a discharge is, to how one is started.

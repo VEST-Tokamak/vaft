@@ -54,12 +54,18 @@ and also what makes it under-determined.
 WARN:
 Background the course never defines and this session then uses. Supply it here:
 
-- **separatrix** — the last closed flux surface; outside it, field lines strike
-  a wall. Session 01 called it "the boundary of the confined plasma" without
-  ever linking the two words.
+- **last closed flux surface** — the outermost surface whose field lines close
+  on themselves; outside it they strike a wall. Session 01 called it "the
+  boundary of the confined plasma" without ever naming it. On a *diverted*
+  plasma that surface passes through an X-point and is called a **separatrix**;
+  VEST discharges are limited on the centre stack, so the boundary is set by the
+  limiter instead. Session 03's notebook uses the word "separatrix" for it
+  loosely, as the field does.
 - **$q$** and **$q_{95}$** — $q$ is the field-line pitch, toroidal turns per
-  poloidal turn; $q_{95}$ is its value on the surface enclosing 95% of the flux,
-  used because $q$ diverges at a separatrix.
+  poloidal turn; $q_{95}$ is its value at 95% of the normalised poloidal flux.
+  The convention exists because $q$ diverges at an X-point, so an edge value
+  quoted *at* the boundary is unusable on a diverted plasma; it is quoted the
+  same way on limited ones so the number stays comparable between machines.
 - **$\beta$** — plasma pressure over magnetic pressure, the efficiency of the
   confinement. Toroidal, poloidal and normalised betas are different numbers;
   VAFT displays $\beta_t$ as a percent and the others plain.

@@ -6,6 +6,13 @@ QUARTO ?= quarto
 DECKS := $(sort $(notdir $(wildcard $(PRESENTATIONS_DIR)/[0-9][0-9]_*.qmd)))
 SHOW_NOTES := _extensions/vaft/vaftslides/show-notes.tex
 
+# CI's only proof that the decks still build is that these targets ran. A
+# wildcard that stopped matching -- a rename, a moved directory -- would
+# otherwise loop zero times and report success having rendered nothing.
+ifeq ($(strip $(DECKS)),)
+$(error no decks found in $(PRESENTATIONS_DIR)/: expected NN_<session>.qmd)
+endif
+
 .PHONY: presentations presentations-html presentations-pdf \
         presentations-presenter check clean
 
@@ -43,7 +50,9 @@ presentations-presenter:
 			--output "$${deck%.qmd}-presenter.pdf") || exit 1; \
 	done
 
-check:
+# Rendering is the check: nothing about a deck is committed, so a source that
+# no longer builds is the only failure mode there is.
+check: presentations
 	python ../test/verify_tutorial.py
 
 clean:

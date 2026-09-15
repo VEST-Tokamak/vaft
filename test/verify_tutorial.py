@@ -101,7 +101,7 @@ def _source_text(cell: nbformat.NotebookNode) -> str:
 
 def _validate_inventory(failures: list[str]) -> None:
     expected_notebooks = {entry["notebook"] for entry in SESSIONS.values()}
-    expected_qmd = {entry["qmd"] for entry in SESSIONS.values() if "qmd" in entry}
+    expected_qmd = {entry["qmd"] for entry in SESSIONS.values()}
 
     def artifact_names(pattern: str) -> set[str]:
         return {
