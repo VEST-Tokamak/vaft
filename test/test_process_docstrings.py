@@ -159,6 +159,12 @@ PIPELINE = frozenset({
     "core_profiles_from_eq_ratio",
     "integrate_emissivity_profile",
     "compute_line_radiation_power_series",
+
+    # camera_fluctuation (#161)
+    "mhd_band_power",
+    "normalize_by_local_emission",
+    "pixelwise_spectrogram",
+    "subtract_temporal_background",
 })
 
 #: Routines whose output sits at a different place in the processing chain
@@ -183,6 +189,9 @@ STATEFUL = frozenset({
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
     "compute_line_radiation_power_series",
+
+    # camera_fluctuation (#161): power and frames arrive on different time bases
+    "normalize_by_local_emission",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
@@ -384,6 +393,17 @@ CONVENTION_SENSITIVE = frozenset({
     "export_electron_profile_txt",
     "toroidal_mode_decomposition",
     "biot_savart_filaments",
+
+    # camera_fluctuation (#161): the frame axis comes first, band edges are
+    # closed, pixel bounds are row-then-column while projected pixels are
+    # column-then-row, and the reference frequency is tracked rather than fixed.
+    "mhd_band_power",
+    "normalize_by_local_emission",
+    "pixelwise_spectrogram",
+    "poisson_window",
+    "subtract_temporal_background",
+    "summed_region_signal",
+    "track_reference_frequency",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]
