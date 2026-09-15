@@ -297,11 +297,24 @@ def test_snakefile_declares_required_plots_as_real_outputs():
 
 def test_stage_plot_paths_cover_every_required_plot():
     paths = PipelinePaths(BASE_DIR, FILEDB)
-    for stage in ("diagnostics", "eddy", "efit", "mhd_linear", "chease"):
+    for stage in ("diagnostics", "eddy", "efit", "chease"):
         required = stage_plot_filenames(stage, required_only=True)
         patterns = [paths.shot_pattern("stage_plot", stage, name) for name in required]
         assert len(patterns) == len(required)
         assert all("{shot}" in pattern and "/plot/" in pattern for pattern in patterns)
+
+    # `mhd_linear` is one solve's result, so its figures describe one product's
+    # ODS and live beside it rather than in a shot-wide directory several
+    # products would share. The pattern therefore carries a product wildcard too.
+    required = stage_plot_filenames("mhd_linear", required_only=True)
+    patterns = [
+        paths.product_pattern("stage_plot", "mhd_linear", name) for name in required
+    ]
+    assert len(patterns) == len(required)
+    assert all(
+        "{shot}" in pattern and "{product}" in pattern and "/plot/" in pattern
+        for pattern in patterns
+    )
 
     source = (WORKFLOW_DIR / "Snakefile").read_text(encoding="utf-8")
     assert 'EMPTY_VALIDATION_STAGES = {"chease", "eddy", "efit", "mhd_linear"}' in source

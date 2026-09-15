@@ -144,12 +144,22 @@ def test_filedb_layout_matches_the_canonical_resolver():
         filedb.omas("static", machine_version=VERSION, artifact="metadata")
         / "manifest.json"
     )
-    assert paths.mhd_linear_ods(SHOT) == str(
-        filedb.omas("mhd_linear", shot=SHOT, family=FAMILY, artifact="output") / "mhd_linear.json"
+    # One mhd_linear per stability product, not one per shot: the toroidal_mode
+    # AOS is a dense (time, n_tor) grid, so two products sharing a stage product
+    # would overwrite each other at the same (time_slice, position).
+    assert paths.mhd_linear_ods(SHOT, "dcon") == str(
+        filedb.omas(
+            "mhd_linear", shot=SHOT, family=FAMILY, refinement=REFINEMENT,
+            product="dcon-peeling", artifact="output",
+        ) / "mhd_linear.json"
     )
-    assert paths.mhd_linear_manifest(SHOT) == str(
-        filedb.omas("mhd_linear", shot=SHOT, family=FAMILY, artifact="metadata") / "manifest.json"
+    assert paths.mhd_linear_manifest(SHOT, "rdcon") == str(
+        filedb.omas(
+            "mhd_linear", shot=SHOT, family=FAMILY, refinement=REFINEMENT,
+            product="rdcon", artifact="metadata",
+        ) / "manifest.json"
     )
+    assert paths.mhd_linear_ods(SHOT, "dcon") != paths.mhd_linear_ods(SHOT, "rdcon")
     assert paths.preflight_eligible() == str(
         filedb.pipeline("preflight", artifact="metadata") / "eligible_shots.json"
     )
@@ -199,9 +209,11 @@ def test_filedb_paths_never_leak_into_the_historical_shot_first_tree():
         paths.efit_ods(SHOT),
         paths.chease_ods(SHOT),
         paths.gpec_workdir(SHOT, "dcon", 1),
-        paths.mhd_linear_ods(SHOT),
-        paths.log(SHOT, "run_gpec_suite"),
-        paths.log(SHOT, "build_mhd_linear"),
+        paths.mhd_linear_ods(SHOT, "dcon"),
+        # A stability log is the record of one product's run, so it lands
+        # beside that product rather than in a shot-wide directory.
+        paths.log(SHOT, "run_gpec_suite", "dcon"),
+        paths.log(SHOT, "build_mhd_linear", "rdcon"),
         paths.preflight_eligible(),
     ]
     banned = (
@@ -332,7 +344,7 @@ def test_gpec_module_path_translates_the_ideal_gpec_alias():
 
 
 @pytest.mark.parametrize("layout", [MODULE.SHOT_FIRST, MODULE.FILEDB])
-def test_gpec_module_pattern_produces_shot_code_and_mode_wildcards(layout):
+def test_gpec_module_pattern_produces_shot_product_and_mode_wildcards(layout):
     paths = MODULE.PipelinePaths(BASE_DIR, layout)
 
     status_pattern = paths.gpec_module_pattern("gpec_module_status")
@@ -340,7 +352,7 @@ def test_gpec_module_pattern_produces_shot_code_and_mode_wildcards(layout):
 
     for pattern in (status_pattern, manifest_pattern):
         assert "{shot}" in pattern
-        assert "{code}" in pattern
+        assert "{product}" in pattern
         assert "{mode}" in pattern
         assert str(MODULE._SHOT_SENTINEL) not in pattern
         assert str(MODULE._MODE_SENTINEL) not in pattern
@@ -350,7 +362,7 @@ def test_gpec_module_pattern_produces_shot_code_and_mode_wildcards(layout):
 
 
 def test_gpec_module_pattern_does_not_corrupt_an_unrelated_dcon_substring():
-    """The `{code}` substitution used to be a blind `str.replace("dcon", ...)`,
+    """The `{product}` substitution used to be a blind `str.replace("dcon", ...)`,
     which would also rewrite any unrelated "dcon" substring elsewhere in the
     resolved path (e.g. inside the base dir itself). It must only ever swap
     the whole path segment produced for the `code` argument."""
@@ -360,23 +372,23 @@ def test_gpec_module_pattern_does_not_corrupt_an_unrelated_dcon_substring():
     status_pattern = paths.gpec_module_pattern("gpec_module_status")
 
     assert status_pattern.startswith("/srv/vest.filedb/mrdcon-archive/")
-    assert "{code}" in status_pattern
-    assert status_pattern.count("{code}") == 1
+    assert "{product}" in status_pattern
+    assert status_pattern.count("{product}") == 1
 
 
-def test_the_code_wildcard_survives_a_layout_that_rewrites_the_code():
+def test_the_product_wildcard_survives_a_layout_that_rewrites_it():
     """The segment is located by diffing two resolutions, not by matching back.
 
     `shot_first` files a product under its solver module, so the sentinel that
     went in is not the segment that comes out. Matching the sentinel back
-    produced a pattern with no `{code}` in it at all, which Snakemake would then
-    treat as a single concrete path -- one rule for every shot and mode.
+    produced a pattern with no `{product}` in it at all, which Snakemake would
+    then treat as a single concrete path -- one rule for every shot and mode.
     """
     for layout in (MODULE.SHOT_FIRST, MODULE.FILEDB):
         paths = MODULE.PipelinePaths(BASE_DIR, layout)
         for product in ("gpec_module_status", "gpec_module_manifest"):
             pattern = paths.gpec_module_pattern(product)
-            assert pattern.count("{code}") == 1, (layout, product, pattern)
+            assert pattern.count("{product}") == 1, (layout, product, pattern)
             assert "{shot}" in pattern and "{mode}" in pattern
             assert "dcon" not in pattern, (layout, product, pattern)
 

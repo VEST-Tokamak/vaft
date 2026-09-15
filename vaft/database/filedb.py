@@ -171,34 +171,48 @@ _FAMILY_STAGES = frozenset({
 
 #: OMAS stages that additionally belong to one refinement and one product.
 #:
-#: Empty on purpose, and not yet ``{mhd_linear, gpec_ideal}``. Those stages are
-#: where the product dimension *belongs* -- the ``toroidal_mode`` AOS is a dense
-#: ``(time, n_tor)`` grid, so two products writing one stage product overwrite
-#: each other -- but today ``generate_mhd_linear_ods.py`` folds DCON, RDCON and
-#: STRIDE into a single file per shot, and there is no one product to name it
-#: after.
-#:
-#: Splitting it is #137's per-product assembly, and it has to land together with
-#: the per-product HSDS sources that receive the result: three stage products
-#: with one combined destination to replicate into would be a half-migration on
-#: real data. Until then a stage product carries its family and no more, which
-#: is a true statement about what the pipeline produces rather than a placeholder.
-#: ``test_the_stage_product_is_per_family_and_per_product`` is an ``xfail`` that
-#: turns red the moment this set is populated.
-_PRODUCT_STAGES: frozenset[str] = frozenset()
+#: This is where the product dimension has to live: the ``toroidal_mode`` AOS is
+#: a dense ``(time, n_tor)`` grid, so two products writing one stage product
+#: overwrite each other at the same ``(time_slice, position)``. One product owns
+#: one internally coherent ``mhd_linear``; inside it, ``time`` and ``n_tor``
+#: remain the only physical axes.
+_PRODUCT_STAGES: frozenset[str] = frozenset(
+    {OMASStage.MHD_LINEAR.value, OMASStage.GPEC_IDEAL.value}
+)
 
 
-def stage_lineage(stage: str, *, family: str) -> dict[str, str]:
+def stage_lineage(
+    stage: str,
+    *,
+    family: str,
+    refinement: str | None = None,
+    product: str | None = None,
+) -> dict[str, str]:
     """The lineage arguments an OMAS `stage`'s path takes, and only those.
 
     :meth:`FileDB.resolve` refuses a dimension its domain does not carry, which
     is what stops a caller from believing a product is filed under a lineage it
     is not. That guard only works if callers pass exactly the dimensions that
     apply, so the selection is made here once rather than being restated at
-    every call site -- and stays correct for all of them when
-    :data:`_PRODUCT_STAGES` is populated.
+    every call site.
+
+    ``refinement`` and ``product`` are required for a stage in
+    :data:`_PRODUCT_STAGES` and refused for any other. They have no default
+    there: a stage product that is one solve's result has no sensible fallback,
+    and guessing would file one solver's result under another's identity.
     """
-    return {"family": family} if stage in _FAMILY_STAGES else {}
+    if stage not in _FAMILY_STAGES:
+        return {}
+    if stage not in _PRODUCT_STAGES:
+        return {"family": family}
+    if refinement is None or product is None:
+        raise FileDBPathError(
+            f"The {stage!r} stage product belongs to one refinement and one "
+            "stability product, so it cannot be resolved without naming them: "
+            "pass refinement= (for example 'chease') and product= (for example "
+            "'dcon-peeling')."
+        )
+    return {"family": family, "refinement": refinement, "product": product}
 
 
 class ArtifactClass(str, Enum):

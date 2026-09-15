@@ -202,7 +202,7 @@ def test_database_save_refuses_the_read_only_legacy_source_before_any_io():
     save_ods = Mock()
     fake_ods = _fake_module("vaft.database.ods", save_ods=save_ods)
     with patch.dict("sys.modules", {"vaft.database.ods": fake_ods}):
-        with pytest.raises(ReadOnlySourceError, match="read-only legacy reference"):
+        with pytest.raises(ReadOnlySourceError, match="is read-only"):
             database.save(object(), 39915, source="public")
 
     save_ods.assert_not_called()
@@ -214,11 +214,11 @@ def test_database_save_keeps_named_sources_isolated():
     data = object()
     with patch.dict("sys.modules", {"vaft.database.ods": fake_ods}):
         database.save(data, 39915)
-        database.save(data, 39915, source="chease-mhd-stability")
+        database.save(data, 39915, source="main/chease/rdcon")
 
     assert [call.kwargs["source"] for call in save_ods.call_args_list] == [
         "main",
-        "chease-mhd-stability",
+        "main/chease/rdcon",
     ]
 
 

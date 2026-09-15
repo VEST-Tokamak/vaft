@@ -415,8 +415,11 @@ def test_stage_product_names_come_from_the_resolver_not_the_caller():
     assert db.omas_product("efit", shot=39915, family="magnetic") == Path(
         "/srv/vest.filedb/omas/efit/magnetic/39915/output/efit.json"
     )
-    assert db.omas_product("mhd_linear", shot=39915, family="magnetic") == Path(
-        "/srv/vest.filedb/omas/mhd_linear/magnetic/39915/output/mhd_linear.json"
+    assert db.omas_product(
+        "mhd_linear", shot=39915, family="magnetic",
+        refinement="chease", product="dcon-kink",
+    ) == Path(
+        "/srv/vest.filedb/omas/mhd_linear/magnetic/chease/dcon-kink/39915/output/mhd_linear.json"
     )
     # static is versioned by machine era rather than by shot.
     assert db.omas_product("static", machine_version="v3") == Path(
