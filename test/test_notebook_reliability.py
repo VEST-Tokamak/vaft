@@ -123,6 +123,30 @@ def _offline_notebooks():
 OFFLINE_NOTEBOOKS = _offline_notebooks()
 
 
+@pytest.fixture
+def headless_matplotlib():
+    """Force the Agg backend for tests that execute notebook cells in-process.
+
+    `MPLBACKEND` is read when matplotlib is first imported and ignored after, so
+    setting it in a test does nothing once any earlier test in the same session has
+    imported matplotlib. On a machine with a display the backend is then the
+    interactive one, and the `plt.show()` in a notebook cell blocks in the GUI event
+    loop -- forever, with the run sitting at 0 % CPU.
+
+    CI never sees it because a headless runner falls back to Agg on its own, which is
+    exactly why it has to be forced here rather than left to the environment: the
+    failure only reaches a developer, and only when files are run in the right order.
+    """
+    import matplotlib
+
+    previous = matplotlib.get_backend()
+    matplotlib.use("Agg", force=True)
+    try:
+        yield
+    finally:
+        matplotlib.use(previous, force=True)
+
+
 @pytest.mark.parametrize(
     "name, environment", OFFLINE_NOTEBOOKS, ids=[name for name, _ in OFFLINE_NOTEBOOKS]
 )
@@ -169,7 +193,7 @@ def test_parametric_equilibrium_notebooks_execute_offline(name, monkeypatch):
     ).execute()
 
 
-def test_nubeam_notebook_explains_itself_without_a_run(monkeypatch, capsys):
+def test_nubeam_notebook_explains_itself_without_a_run(headless_matplotlib, monkeypatch, capsys):
     """The NUBEAM notebook cannot execute in CI, so cover the path that can.
 
     It runs NUBEAM itself, and CI has no NUBEAM installation. What must hold
@@ -212,7 +236,7 @@ def test_nubeam_notebook_explains_itself_without_a_run(monkeypatch, capsys):
     assert not guardless, guardless
 
 
-def test_neo_notebook_explains_itself_without_a_run(monkeypatch, capsys):
+def test_neo_notebook_explains_itself_without_a_run(headless_matplotlib, monkeypatch, capsys):
     """The NEO notebook cannot execute in CI, so cover the path that can.
 
     It runs NEO, and CI has no GACODE installation. What must hold regardless is

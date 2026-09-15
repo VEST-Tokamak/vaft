@@ -222,15 +222,86 @@ def test_the_measured_metrics_stay_where_they_were(mapped):
     assert sauter_vs_redl["integrated_relative_difference"] == pytest.approx(0.049, abs=0.02)
 
 
-def test_the_disagreement_grows_with_the_trapped_fraction(ods):
-    """The claim the phase exists to support, and why Redl was implemented at all."""
+def test_the_disagreement_has_no_single_direction_against_trapping(ods):
+    """The claim Redl was implemented for, and which this state cannot support.
+
+    It was asserted as True here until #808. The gap is U-shaped in f_trap: large and
+    badly scattered in the innermost bin, a minimum near 0.75-0.8, then a clean rise to
+    the edge. The old lowest-third/highest-third verdict read that as "grows" and a
+    straight-line fit reads it as "shrinks"; neither is a property of the models.
+    """
     comparison = model_comparison(
         bootstrap_models(ods, z_eff=2.0, rho_range=BAND), reference="sauter"
     )
     trend = comparison["models"]["redl"]["trend"]
     assert trend["f_trap_high"] > trend["f_trap_low"]
-    assert trend["grows_with_trapping"] is True
-    assert trend["difference_high"] > trend["difference_low"]
+    assert trend["grows_with_trapping"] is None
+    assert trend["monotonic"] is None
+    assert "falls and rises" in trend["reason"]
+
+    # The shape that makes it so, visible to a reader rather than only to this test.
+    differences = [entry["difference"] for entry in trend["bins"]]
+    assert differences[0] > differences[1], "the innermost bin is the contaminated one"
+    assert differences[1:] == sorted(differences[1:]), "and outside it the gap rises"
+
+
+@pytest.mark.parametrize(
+    "z_eff, impurity",
+    [(2.0, None), (2.0, "C"), (1.0, None)],
+    ids=["published", "carbon", "hydrogen"],
+)
+def test_the_trend_verdict_does_not_change_with_the_treatment(ods, z_eff, impurity):
+    """#808's acceptance criterion: whatever it reports, it must not silently reverse.
+
+    These three treatments differ by under a percentage point in the integrated
+    comparison and by the effective charge, and the old two-point verdict gave True,
+    False and False for them. All three must now give the same answer, and it must be
+    the one that says the question is not answerable here.
+    """
+    comparison = model_comparison(
+        bootstrap_models(ods, z_eff=z_eff, impurity=impurity, rho_range=BAND),
+        reference="sauter",
+    )
+    trend = comparison["models"]["redl"]["trend"]
+    assert trend["grows_with_trapping"] is None
+    assert trend["monotonic"] is None
+    assert trend["points"] > 6
+
+
+def test_a_monotonic_sequence_still_gets_an_answer():
+    """The refusal must be about the data, not a metric that can no longer decide."""
+    from vaft.validation.neoclassical import _monotonic_direction
+
+    rising = [
+        {"difference": 0.01, "stderr": 0.0005},
+        {"difference": 0.02, "stderr": 0.0005},
+        {"difference": 0.04, "stderr": 0.0005},
+    ]
+    assert _monotonic_direction(rising) == (1, None)
+    falling = [dict(entry) for entry in reversed(rising)]
+    assert _monotonic_direction(falling) == (-1, None)
+
+
+def test_a_step_inside_its_own_scatter_is_flat_rather_than_a_reversal():
+    """Otherwise noise on one bin would veto an otherwise clean direction."""
+    from vaft.validation.neoclassical import _monotonic_direction
+
+    noisy = [
+        {"difference": 0.010, "stderr": 0.002},
+        {"difference": 0.009, "stderr": 0.002},  # down, but well inside the scatter
+        {"difference": 0.030, "stderr": 0.002},
+    ]
+    direction, reason = _monotonic_direction(noisy)
+    assert direction == 1 and reason is None
+
+
+def test_a_sequence_with_no_resolved_step_reports_why():
+    from vaft.validation.neoclassical import _monotonic_direction
+
+    flat = [{"difference": 0.01, "stderr": 0.01} for _ in range(4)]
+    direction, reason = _monotonic_direction(flat)
+    assert direction is None
+    assert "within its own scatter" in reason
 
 
 def test_the_trend_is_measured_only_where_the_current_is_significant(ods):

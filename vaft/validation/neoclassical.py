@@ -58,6 +58,12 @@ __all__ = [
 #: zero crossing rather than by the models.
 _TREND_FLOOR = 0.1
 
+#: How many points the trend needs at all, and how many bins it splits them into.
+#: Five bins of at least two points is enough to see a reversal without inventing
+#: structure from noise.
+_TREND_MIN_POINTS = 6
+_TREND_BINS = 5
+
 METRICS: tuple[str, ...] = (
     "integrated_relative_difference",
     "rms_over_peak",
@@ -573,47 +579,108 @@ def _metrics(
 def _trend(
     entry: Mapping[str, Any], values: np.ndarray, baseline: np.ndarray, overlap: np.ndarray
 ) -> Optional[dict[str, Any]]:
-    """How the disagreement varies with the trapped fraction.
+    """How the disagreement varies with the trapped fraction, as a shape and not a verdict.
 
-    The comparison's physical content: a fit built at conventional aspect ratio should
-    part company with a drift-kinetic solve as the trapped fraction rises.
+    The claim this exists to test is the one that justifies Redl: a fit built at
+    conventional aspect ratio should part company with a drift-kinetic solve as the
+    trapped fraction rises. On VEST 48224 the relationship is **not monotonic**, so
+    that question has no single answer here, and the two ways of forcing one both give
+    wrong answers (issue #808):
 
-    This one metric is *relative*, because that is the claim -- a fractional disagreement
-    that grows -- and an absolute difference cannot express it: towards the edge both
-    profiles fall away, so the absolute gap shrinks even as the fractional one widens. To
-    keep the relative form usable it is evaluated only where the reference is a
-    meaningful fraction of its own peak, which is what excludes the sign change that
-    makes a pointwise ratio explode.
+    * comparing the mean of the lowest third of ``f_trap`` with the highest third --
+      what this function used to do -- reported "grows" for the treatment published in
+      #776 and "shrinks" for two others that differ from it by less than a percentage
+      point in the integrated comparison;
+    * a straight-line fit reports a *negative* slope in all three, because it is
+      dominated by a handful of near-axis points where the bootstrap current crosses
+      zero and a relative metric is meaningless however the floor is set.
+
+    Binned, the shape is the same in every treatment: a large, badly scattered value in
+    the innermost bin, a minimum around ``f_trap`` 0.75-0.8, and a clean monotonic rise
+    to the edge. So the metric reports the bins with their scatter, states whether the
+    sequence is monotonic within that scatter, and answers ``grows_with_trapping`` only
+    when it is. ``None`` means this state cannot say -- which is the honest answer, and
+    the one a reader can act on.
     """
     trapped = entry.get("f_trap")
     if trapped is None:
         return None
     trapped = np.asarray(trapped, dtype=float)[overlap]
     reference = baseline[overlap]
-    if trapped.size < 6 or not np.all(np.isfinite(trapped)):
+    if trapped.size < _TREND_MIN_POINTS or not np.all(np.isfinite(trapped)):
         return None
     scale = float(np.max(np.abs(reference))) if reference.size else 0.0
     if scale <= 0.0:
         return None
 
     significant = np.abs(reference) >= _TREND_FLOOR * scale
-    if int(np.count_nonzero(significant)) < 6:
+    if int(np.count_nonzero(significant)) < _TREND_MIN_POINTS:
         return None
     trapped = trapped[significant]
-    difference = np.abs(
-        values[overlap][significant] / reference[significant] - 1.0
-    )
+    difference = np.abs(values[overlap][significant] / reference[significant] - 1.0)
+
     order = np.argsort(trapped)
-    third = max(1, trapped.size // 3)
-    low, high = order[:third], order[-third:]
-    return {
-        "f_trap_low": float(np.mean(trapped[low])),
-        "f_trap_high": float(np.mean(trapped[high])),
-        "difference_low": float(np.mean(difference[low])),
-        "difference_high": float(np.mean(difference[high])),
-        "grows_with_trapping": bool(np.mean(difference[high]) > np.mean(difference[low])),
+    trapped, difference = trapped[order], difference[order]
+    # Equal-count bins rather than equal-width: f_trap is far denser near the edge, and
+    # equal-width bins leave the innermost one holding one or two points.
+    groups = [g for g in np.array_split(np.arange(trapped.size), _TREND_BINS) if g.size >= 2]
+    if len(groups) < 3:
+        return None
+    bins = [
+        {
+            "f_trap": float(np.mean(trapped[g])),
+            "difference": float(np.mean(difference[g])),
+            "stderr": float(np.std(difference[g], ddof=1) / np.sqrt(g.size)),
+            "points": int(g.size),
+        }
+        for g in groups
+    ]
+
+    direction, reason = _monotonic_direction(bins)
+    grows = None if direction is None else direction > 0
+    summary = {
+        "bins": bins,
+        "points": int(trapped.size),
         "evaluated_above": _TREND_FLOOR,
+        "monotonic": None if direction is None else ("increasing" if direction > 0 else "decreasing"),
+        "grows_with_trapping": grows,
+        # Descriptive, and only that: the first and last bin. They are what the old
+        # two-point verdict was built on, kept so a reader can see why it was unstable.
+        "f_trap_low": bins[0]["f_trap"],
+        "f_trap_high": bins[-1]["f_trap"],
+        "difference_low": bins[0]["difference"],
+        "difference_high": bins[-1]["difference"],
     }
+    if reason is not None:
+        summary["reason"] = reason
+    return summary
+
+
+def _monotonic_direction(bins: Sequence[Mapping[str, Any]]) -> tuple[Optional[int], Optional[str]]:
+    """``(+1, None)``, ``(-1, None)`` or ``(None, why not)`` for a binned sequence.
+
+    A step smaller than the two bins' combined standard error is flat, not a reversal:
+    the question is whether the sequence moves one way, not whether every adjacent pair
+    is strictly ordered. A step that reverses by *more* than that error is a real
+    reversal and the sequence has no direction.
+    """
+    ups: list[int] = []
+    downs: list[int] = []
+    for before, after in zip(bins[:-1], bins[1:]):
+        step = after["difference"] - before["difference"]
+        noise = float(np.hypot(before["stderr"], after["stderr"]))
+        if abs(step) <= noise:
+            continue
+        (ups if step > 0 else downs).append(1)
+    if ups and downs:
+        return None, (
+            f"the gap falls and rises again across the band ({len(downs)} falling and "
+            f"{len(ups)} rising steps beyond their own scatter), so it has no single "
+            "direction against the trapped fraction on this state"
+        )
+    if not ups and not downs:
+        return None, "every step is within its own scatter, so no direction is resolved"
+    return (1 if ups else -1), None
 
 
 def _effect_size(
