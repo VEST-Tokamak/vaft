@@ -1797,11 +1797,10 @@ def _toroidal_phase_channels(ods: Any) -> tuple[list[int], np.ndarray]:
     indices: list[int] = []
     angles: list[float] = []
     for index in range(_count(ods, _MIRNOV_PROBES)):
-        angle = None
-        for suffix in ("toroidal_angle", "position.phi"):
-            angle = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.{suffix}"))
-            if angle is not None:
-                break
+        # position.phi only: `toroidal_angle` is an orientation field in the DD
+        # and preferring it here is what hid a position being written into it
+        # (issue #725).
+        angle = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.position.phi"))
         if angle is None:
             continue
         signal = _array(ods, f"{_MIRNOV_PROBES}.{index}.voltage.data")
