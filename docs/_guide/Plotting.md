@@ -623,6 +623,41 @@ vaft.plot.plot_bremsstrahlung_power_scaling_vs_fundamental_method(ods, Z_eff=2.0
 vaft.plot.plot_ohmic_power_flux_vs_dissipation_method(ods)
 ```
 
+## Reading without drawing: `dd_*`, `extract_*`, `to_xarray()`
+
+Every canonical plot answers three questions from one recipe (umbrella #434).
+`dd_<stem>()` lists the IMAS Data Dictionary paths the plot reads, without any data;
+`extract_<stem>(source, ...)` returns the view model the plot draws, undrawn; `plot_<stem>`
+is the figure. Both `vaft.omas` and `vaft.imas` carry all three, generated from the same
+registry, so the three surfaces cover one set of plots.
+
+```python
+vaft.omas.dd_plasma_current_time()
+# (DDPath('magnetics/ip(0)/data', role='data', coordinate='magnetics/ip(0)/time', ...), ...)
+
+model = vaft.omas.extract_plasma_current_time(ods, yunit="MA")   # a LineSeries, nothing drawn
+ds = model.to_xarray()                                            # an xarray.Dataset
+ds.y[0, :int(ds.length[0])]                                       # the trace, exactly
+
+vaft.imas.extract_plasma_current_time(entry)                      # the same model from IMAS
+vaft.plot.dd("plasma_current_time"); vaft.plot.extract("plasma_current_time", ods)
+```
+
+`extract_*` takes `label=` and the extraction options of the matching `plot_*`; a rendering
+keyword (`ax=`, `backend=`, `format=`, `theme=`) is refused by name. The paths come in one
+canonical spelling, `magnetics/ip(:)/data` (`vaft.plot.backend.dd` translates to the OMAS
+`magnetics.ip.0.data` and IMAS `ip/data` forms, and `resolve()` reads the Data Dictionary's
+units and coordinates for one). A test asserts every declared path exists in the Data
+Dictionary and carries the units the recipe claims.
+
+`to_xarray()` is lossless and plain: traces of unequal length are stacked on a `series`
+dimension and NaN-padded along `sample`, with a `length` coordinate holding each trace's true
+sample count; channel, entry, validity and position are coordinates on `series`; units, scale
+and title are attributes (JSON text where a value is a list or mapping), so the dataset writes
+to netCDF as it is. A composite (`Panels`) becomes an `xarray.DataTree` with one child per
+panel. `vaft.database` has no `extract_*` yet: its `plot_*` opens IDS selectively and belongs
+with selective loading.
+
 ## Utilities
 
 ```python

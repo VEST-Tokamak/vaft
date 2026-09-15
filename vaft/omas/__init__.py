@@ -43,7 +43,7 @@ _PLOTTING_EXPORTS: frozenset | None = None
 def _is_plotting_export(name: str) -> bool:
     global _PLOTTING_EXPORTS
     if name != "plotting" and not (
-        name.startswith("plot_")
+        name.startswith(("plot_", "dd_", "extract_"))
         or name in {
             "available_plots",
             "disable_overlay_methods",
