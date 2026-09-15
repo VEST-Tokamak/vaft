@@ -300,6 +300,18 @@ _CATALOG: dict[str, HSDSSource] = {
             "kinetic-efit",
             "Kinetic EFIT for shots with Thomson scattering and CES/ion-Doppler spectroscopy.",
         ),
+        # NEO needs a measured ion temperature, which is exactly what separates the
+        # kinetic lineage from the electron-only one, so the product hangs beneath
+        # the reconstruction that can feed it rather than sitting at the root.
+        HSDSSource(
+            "kinetic-efit/neoclassical",
+            "Neoclassical transport from NEO on the kinetic-EFIT lineage: the "
+            "bootstrap current and the particle and energy fluxes, plus the "
+            "identity of the state they were computed from -- not a copy of that "
+            "state's profiles, which stay in the source that owns them.",
+            parent="kinetic-efit",
+            sparse=True,
+        ),
         HSDSSource(
             "impa",
             "Insertable magnetic probe array. Sparse: only shots whose IMPA "
@@ -665,6 +677,23 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
     # claims, so they can live in the baseline source without a collision, and
     # a shot that never had a soft X-ray or camera acquisition is simply a shot
     # without one (issue #599).
+    # Re-owns `core_profiles`, which the corrective profile stage already
+    # publishes into the baseline, so it is kept apart by source exactly as the
+    # two kinetic EFIT lineages are kept apart from the magnetic baseline. It is
+    # corrective rather than routine on purpose: #550 phase 8 requires promotion
+    # to stay opt-in, so there is no pipeline-1 rule demanding it for every shot,
+    # and on a cold ohmic VEST discharge the bootstrap fraction a campaign-wide
+    # sweep would compute is a percent or two of Ip.
+    "neoclassical": StageReplication(
+        source="kinetic-efit/neoclassical",
+        ids=("core_profiles", "core_transport"),
+        optional=True,
+        produced_by="corrective",
+        note=(
+            "opt-in solver product; requires a state that passes "
+            "vaft.validation.neoclassical.input_readiness"
+        ),
+    ),
     "soft_x_rays": StageReplication(
         source=DEFAULT_SOURCE,
         ids=("soft_x_rays",),

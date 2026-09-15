@@ -44,7 +44,9 @@ import numpy as np
 
 __all__ = [
     "METRICS",
+    "REQUIREMENTS",
     "bootstrap_models",
+    "input_readiness",
     "model_agreement",
     "model_comparison",
 ]
@@ -232,6 +234,186 @@ def model_agreement(
         "reference": comparison["reference"],
         "tolerances": dict(tolerances),
         "models": within,
+    }
+
+
+#: What a state must carry before NEO can be run on it, in the order
+#: :func:`input_readiness` reports them. Named rather than implied so a caller can
+#: act on one requirement -- supply a Z_eff, truncate the grid, choose another time
+#: -- instead of reading a sentence.
+REQUIREMENTS: tuple[str, ...] = (
+    "convertible",
+    "ion_temperature",
+    "effective_charge",
+    "radial_extent",
+)
+
+
+def input_readiness(
+    ods: Any,
+    *,
+    time: Optional[float] = None,
+    time_index: Optional[int] = None,
+    rho_max: Optional[float] = 0.95,
+    z_eff: Optional[float] = None,
+    ion_index: int = 0,
+    minimum_points: int = 8,
+) -> dict[str, Any]:
+    """Whether this ODS is a kinetic state NEO can be run on, and what is missing.
+
+    #550 defers routine production to a *qualified* kinetic state rather than to a
+    shot: a usable equilibrium, electron density and temperature, an ion temperature
+    and species, a Z_eff or an explicit assumption in its place, and a time alignment
+    that pairs the equilibrium with the profiles. This function is that rule, written
+    as something a pipeline can evaluate from an ODS -- never from a list of shot
+    numbers, which would go stale the moment a reprocessing changed what a shot holds.
+
+    It reports a status, unlike the rest of this module, and the distinction matters:
+    a model difference is a property of the models and must not be graded, but whether
+    an input carries the quantities a solver needs is a fact about the data. Nothing
+    here judges a *result*.
+
+    The rule is evaluated by asking the converter, not by restating its rules:
+    :func:`vaft.code.gacode.inputs.prepare_gacode_profile` already refuses a
+    non-positive density or temperature, a ``sqrt(psi_N)`` proxy standing in for
+    ``rho_tor_norm``, and slices that cannot be paired. A reimplementation here would
+    drift from it, and the drift would show up as a shot that qualifies and then fails
+    to convert.
+
+    Parameters
+    ----------
+    ods
+        A state carrying ``equilibrium`` and ``core_profiles``.
+    time, time_index
+        Which slice to qualify; the same arguments the converter takes.
+    rho_max
+        Where the caller intends to truncate. Part of the rule because a state that
+        qualifies only to 0.8 is a different answer from one that qualifies to 0.95.
+    z_eff
+        An effective charge to use if the state carries none. Supplying it makes the
+        state qualify *with a recorded assumption*, not silently.
+    ion_index
+        Which ion species carries the temperature the models will use.
+    minimum_points
+        How many radial points must survive the truncation. A three-point profile
+        converts and is useless.
+
+    Returns
+    -------
+    dict
+        ``{"qualified", "requirements", "unmet", "assumptions", "provenance"}``.
+        ``requirements`` is one entry per name in :data:`REQUIREMENTS`, each with
+        ``satisfied`` and a ``detail`` saying why -- present for the satisfied ones
+        too, so a passing state records what it passed on.
+    """
+    from vaft.code.gacode.inputs import ProfileConversionError, prepare_gacode_profile
+
+    checks: list[dict[str, Any]] = []
+    assumptions: list[dict[str, Any]] = []
+    provenance: dict[str, Any] = {"rho_max": rho_max, "ion_index": int(ion_index)}
+
+    try:
+        profile = prepare_gacode_profile(
+            ods, time=time, time_index=time_index, rho_max=rho_max, z_eff=z_eff
+        )
+    except ProfileConversionError as refusal:
+        # The converter's refusal is the answer, quoted rather than paraphrased.
+        checks.append(
+            {"name": "convertible", "satisfied": False, "detail": str(refusal)}
+        )
+        return {
+            "qualified": False,
+            "requirements": tuple(checks),
+            "unmet": ("convertible",) + REQUIREMENTS[1:],
+            "assumptions": (),
+            "provenance": provenance,
+        }
+
+    checks.append(
+        {
+            "name": "convertible",
+            "satisfied": True,
+            "detail": (
+                f"the equilibrium and core_profiles slices pair and project onto "
+                f"{profile.n_exp} GACODE radial points"
+            ),
+        }
+    )
+    provenance["n_exp"] = profile.n_exp
+    for key in ("time", "equilibrium_index", "core_profiles_index"):
+        if key in profile.provenance:
+            provenance[key] = profile.provenance[key]
+
+    # An ion temperature, which is what separates a state NEO can be run on from an
+    # electron-only fit: the ion collisionality is half the physics.
+    ion_temperature = None if profile.ti is None else np.asarray(profile.ti, dtype=float)
+    index = int(ion_index)
+    has_ion = (
+        ion_temperature is not None
+        and ion_temperature.ndim == 2
+        and index < ion_temperature.shape[0]
+        and np.all(np.isfinite(ion_temperature[index]))
+        and np.all(ion_temperature[index] > 0.0)
+    )
+    checks.append(
+        {
+            "name": "ion_temperature",
+            "satisfied": bool(has_ion),
+            "detail": (
+                f"ion {index} ({profile.name[index] if index < len(profile.name) else '?'}) "
+                f"carries a positive temperature on every retained point -- present, "
+                f"which is not the same as measured: an electron-only fit with an "
+                f"assumed Ti/Te ratio satisfies this too, and the ODS does not record "
+                f"which it is"
+                if has_ion
+                else f"no positive temperature for ion {index}; NEO needs the ion "
+                "collisionality, so an electron-only fit does not qualify"
+            ),
+        }
+    )
+
+    # Z_eff may be measured, derived from the species mix, or supplied -- all three
+    # qualify, but only the first is a measurement, and the state must say which.
+    record = dict(profile.provenance.get("z_eff", {}))
+    kind = str(record.get("kind", "")) or "absent"
+    checks.append(
+        {
+            "name": "effective_charge",
+            "satisfied": kind != "absent",
+            "detail": f"z_eff is {kind}" if kind != "absent" else (
+                "no zeff profile, no impurity species to derive one from, and none "
+                "supplied; pass z_eff= to qualify the state with a recorded assumption"
+            ),
+        }
+    )
+    if kind in {"caller_supplied", "policy_assumption"}:
+        assumptions.append({"quantity": "z_eff", **record})
+    if rho_max is not None:
+        assumptions.append(
+            {"quantity": "rho_max", "kind": "caller_supplied", "value": float(rho_max)}
+        )
+
+    enough = profile.n_exp >= int(minimum_points)
+    checks.append(
+        {
+            "name": "radial_extent",
+            "satisfied": bool(enough),
+            "detail": (
+                f"{profile.n_exp} points survive the truncation at rho_max={rho_max}"
+                if enough
+                else f"only {profile.n_exp} points survive the truncation at "
+                f"rho_max={rho_max}; fewer than {minimum_points} is a profile in name only"
+            ),
+        }
+    )
+
+    unmet = tuple(check["name"] for check in checks if not check["satisfied"])
+    return {
+        "qualified": not unmet,
+        "requirements": tuple(checks),
+        "unmet": unmet,
+        "assumptions": tuple(assumptions),
+        "provenance": provenance,
     }
 
 

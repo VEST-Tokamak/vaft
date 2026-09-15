@@ -2085,6 +2085,203 @@ def read_geqdsk_file(path: str | Path):
     return read_geqdsk(path)
 
 
+def build_neoclassical_ods(
+    *,
+    shot: int,
+    state: str | Path,
+    run_directory: str | Path,
+    time: float | None = None,
+    time_index: int = 0,
+    z_eff: float | None = None,
+    ion_index: int = 0,
+    rho_max: float | None = 0.95,
+    lineage: str = "kinetic",
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Build the ``neoclassical`` stage product from one NEO run (#550 phase 8).
+
+    ``state`` is the qualified kinetic state the run was made from and
+    ``run_directory`` the directory NEO wrote into. The product holds what NEO
+    produced -- ``core_profiles.j_bootstrap`` and the ``core_transport`` fluxes --
+    plus the identity of the state it came from, not a copy of that state: the
+    arrangement the per-product stability sources use, and what keeps this product
+    from re-publishing profiles the kinetic stage already owns.
+
+    The state is qualified before anything is mapped. A state that does not qualify
+    raises, because a product built from an input the rule rejects would be exactly
+    the unqualified promotion #550 defers: the rule has to gate the write, not merely
+    describe it afterwards.
+
+    ``lineage`` is the caller's statement of which reconstruction the state came from,
+    and it is an argument rather than something read back because no ODS records it:
+    an electron-only fit with an assumed Ti/Te ratio carries an ion temperature that
+    looks exactly like a measured one. Only the kinetic lineage has a destination
+    today -- ``kinetic-efit/neoclassical`` in
+    :data:`vaft.database.sources.STAGE_REPLICATION` -- so anything else is refused
+    here rather than published into a source that would misdescribe it.
+
+    Returns the product and its manifest. The manifest records the readiness result
+    in full, so the assumptions a number rests on -- an assumed Z_eff above all --
+    travel with the number rather than living in whoever ran it.
+    """
+    from vaft.code.gacode.neo.outputs import collect_neo_outputs
+    from vaft.machine_mapping.neoclassical import (
+        core_profiles_from_neo,
+        core_transport_from_neo,
+    )
+    from vaft.validation.neoclassical import input_readiness
+
+    shot = int(shot)
+    if lineage != "kinetic":
+        raise ValueError(
+            f"lineage {lineage!r} has no neoclassical destination; only 'kinetic' is "
+            "wired, because the ion temperature NEO needs is measured only on that "
+            "lineage. Add a source to vaft.database.sources.STAGE_REPLICATION before "
+            "promoting another."
+        )
+    state_path = Path(state)
+    source_state, _ = load_ods(state_path)
+
+    readiness = input_readiness(
+        source_state,
+        time=time,
+        time_index=time_index if time is None else None,
+        rho_max=rho_max,
+        z_eff=z_eff,
+        ion_index=ion_index,
+    )
+    if not readiness["qualified"]:
+        reasons = "; ".join(
+            f"{check['name']}: {check['detail']}"
+            for check in readiness["requirements"]
+            if not check["satisfied"]
+        )
+        raise ValueError(
+            f"shot {shot} does not qualify for neoclassical promotion ({reasons}). "
+            "vaft.validation.neoclassical.input_readiness is the rule; a state that "
+            "fails it is not promoted with a caveat, it is not promoted."
+        )
+
+    native = collect_neo_outputs(run_directory)
+    if native is None or not native.solved:
+        missing = "no NEO output in that directory" if native is None else (
+            "the run did not solve: " + ", ".join(native.errors or native.missing())
+        )
+        raise ValueError(f"shot {shot} has no usable NEO result ({missing})")
+
+    resolved = readiness["provenance"].get("time", {})
+    slice_time = float(
+        resolved.get("equilibrium_time", time if time is not None else 0.0)
+    )
+    b0 = _vacuum_field_at(source_state, resolved.get("equilibrium_index", 0))
+
+    ods = ODS(consistency_check=False)
+    dataset_description(
+        ods,
+        shot,
+        {
+            "source_type": "shot",
+            "run": run,
+            "machine": "VEST",
+            "user": "vaft",
+            "description": (
+                f"VEST neoclassical transport from NEO; machine era "
+                f"{machine_era_for_shot(shot).name}"
+            ),
+        },
+    )
+    profiles = core_profiles_from_neo(
+        ods, native, time=slice_time, time_index=0, b0=b0
+    )
+    transport = core_transport_from_neo(ods, native, time=slice_time, time_index=0)
+
+    written = tuple(profiles["written"]) + tuple(transport["written"])
+    manifest = {
+        "schema_version": 1,
+        "stage": "neoclassical",
+        "shot": shot,
+        "machine_version": machine_era_for_shot(shot).name,
+        "status": "success" if written else "empty",
+        "input": {
+            "state": state_path.name,
+            "state_sha256": sha256_file(state_path),
+            "run_directory": str(run_directory),
+        },
+        "solver": {
+            "code": "neo",
+            **{key: str(value) for key, value in (native.version or {}).items()},
+            "surfaces": int(native.grid.n_radial) if native.grid is not None else 0,
+        },
+        "lineage": lineage,
+        "time_s": slice_time,
+        "vacuum_b0_t": None if b0 is None else float(b0),
+        "written": list(written),
+        "skipped": list(profiles["skipped"]) + list(transport["skipped"]),
+        "readiness": _jsonable(readiness),
+    }
+    return ods, manifest
+
+
+def _vacuum_field_at(ods: ODS, index: Any) -> float | None:
+    """The vacuum field of one equilibrium slice, by index rather than by position."""
+    try:
+        field = np.ravel(np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], dtype=float))
+    except Exception:
+        return None
+    if field.size == 0:
+        return None
+    # A single stored value applies to every slice; otherwise index it. Never
+    # position 0 for a later slice -- that error has been made twice already
+    # in this chain (PR #696).
+    if field.size == 1:
+        return float(field[0])
+    position = int(index or 0)
+    return float(field[position]) if position < field.size else None
+
+
+def _jsonable(value: Any) -> Any:
+    """Plain types only: a manifest is written as JSON and read back by a pipeline."""
+    if isinstance(value, Mapping):
+        return {str(key): _jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, (np.integer,)):
+        return int(value)
+    if isinstance(value, (np.floating,)):
+        return float(value)
+    if isinstance(value, np.ndarray):
+        return [_jsonable(item) for item in value.tolist()]
+    return value
+
+
+def write_neoclassical_product(
+    ods: ODS,
+    manifest: Mapping[str, Any],
+    native: Any,
+    *,
+    output: str | Path,
+    metadata: str | Path,
+    compression: str | None = None,
+) -> Path:
+    """Write the stage product, its manifest, and NEO's own result beside them.
+
+    #527's principle: the solver-native result is preserved alongside the queryable
+    one. The standardized product is what the database and every query read; the
+    native JSON is there for the question the mapping did not anticipate -- NEO's own
+    normalisation, its Sauter and Redl columns, the surfaces it actually solved --
+    and is never the query contract, which is why it sits beside the product rather
+    than inside it.
+
+    Returns the path the native result was written to.
+    """
+    write_stage_product(
+        ods, dict(manifest), output=output, metadata=metadata, compression=compression
+    )
+    native_path = Path(output).with_suffix("")
+    native_path = native_path.with_name(native_path.name + ".neo.json")
+    return native.write_json(native_path)
+
+
 def write_stage_product(
     ods: ODS,
     manifest: dict[str, Any],
