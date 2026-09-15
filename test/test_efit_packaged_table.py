@@ -129,3 +129,91 @@ def test_the_acceptance_envelope_was_not_changed_by_the_switch():
     envelope = EFITAcceptanceEnvelope()
     for field in ("aminor_min", "aminor_max", "rcntr_min", "rcntr_max"):
         assert bundled[field] == pytest.approx(getattr(envelope, field)), field
+
+
+# --- machine era (#805) -----------------------------------------------------
+
+
+def test_the_table_says_which_machine_era_it_was_built_for(manifest):
+    """A Green table is only valid for the geometry it was projected from."""
+    from vaft.code.efit.efund import table_identity, table_machine_era
+
+    assert table_machine_era(TABLE_DIRECTORY) == manifest["machine"]["era"]
+    assert table_identity(TABLE_DIRECTORY)["era"] == manifest["machine"]["era"]
+
+
+def test_a_directory_with_no_manifest_makes_no_era_claim(tmp_path):
+    """Unknown is not the same as matching, and must not read as a pass."""
+    from vaft.code.efit.efund import table_machine_era
+
+    (tmp_path / "mhdin.dat").write_text(" &machinein\n nfsum = 26\n /\n", encoding="utf-8")
+    assert table_machine_era(tmp_path) is None
+
+
+def test_a_table_from_another_era_is_refused(tmp_path):
+    """#805: the mismatch that reconstructed shot 46742 against wrong coils.
+
+    The packaged table is `vest-pre-43017-pf1906`. Shot 46742 is
+    `vest-45967-plus-pf2507`, where twenty-four filaments belong to PF6
+    instead of PF7 and sit 16 cm further out in z. Running it against the
+    packaged table produced two g-files from twenty-five slices, both of them
+    vacuum -- no plasma equilibrium at all -- where the era-matched table
+    produced eight. Nothing reported a problem; that is what this refuses.
+
+    The era is compared as an opaque string the caller supplies, so the
+    writer stays free of any particular machine's era list.
+    """
+    from vaft.code.efit import generate_constraints_ods
+
+    with pytest.raises(ValueError, match="was built for machine era"):
+        generate_constraints_ods(
+            None, 46742, str(tmp_path), str(TABLE_DIRECTORY) + "/", [], [], [],
+            expected_table_era="vest-45967-plus-pf2507",
+        )
+
+
+def test_the_matching_era_is_not_refused(tmp_path, manifest):
+    """The other half: the guard must not block the routine case.
+
+    It has to fail somewhere further on -- the ODS here is `None` -- but it
+    must not fail on the era.
+    """
+    from vaft.code.efit import generate_constraints_ods
+
+    with pytest.raises(Exception) as caught:
+        generate_constraints_ods(
+            None, 39915, str(tmp_path), str(TABLE_DIRECTORY) + "/", [], [], [],
+            expected_table_era=manifest["machine"]["era"],
+        )
+    assert "was built for machine era" not in str(caught.value)
+
+
+def test_a_generated_table_directory_is_runnable(tmp_path):
+    """#805: EFUND's output alone is not a table EFIT can read.
+
+    EFIT also reads a limiter contour and a probe description from the table
+    directory, and EFUND writes neither. A generated directory without them
+    fails in `read_limiter.f90` with a Fortran runtime error naming
+    `lim.dat` -- a long way from "the table is incomplete". Both files are
+    era-independent, so the generator copies them from the packaged
+    directory.
+    """
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[1] / "workflow" / "efit_tables" / "regenerate_legacy_table.py"
+    spec = importlib.util.spec_from_file_location("regenerate_legacy_table", script)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["regenerate_legacy_table"] = module
+    spec.loader.exec_module(module)
+
+    assert module._copy_runtime_companions(tmp_path) == list(module.RUNTIME_COMPANIONS)
+    for name in module.RUNTIME_COMPANIONS:
+        assert (tmp_path / name).is_file(), name
+        assert (tmp_path / name).read_bytes() == (TABLE_DIRECTORY / name).read_bytes()
+
+    # Idempotent, and it never overwrites a file the generator itself wrote.
+    (tmp_path / "lim.dat").write_text("mine", encoding="utf-8")
+    assert module._copy_runtime_companions(tmp_path) == []
+    assert (tmp_path / "lim.dat").read_text(encoding="utf-8") == "mine"

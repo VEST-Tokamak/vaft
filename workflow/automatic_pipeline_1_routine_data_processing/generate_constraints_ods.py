@@ -16,6 +16,7 @@ from omas import load_omas_json
 from vaft.code.efit import correct_flux_loop, generate_constraints_ods as build_constraints
 from vaft.machine_mapping.utils import PlasmaTimingPolicy, resolve_plasma_timing_policy
 from vaft.omas.plasma_timing import plasma_timing
+from vaft.omas.vest_upstream import machine_era_for_shot
 from vaft.validation.imas import resolve_signal_time
 
 
@@ -310,6 +311,10 @@ def main() -> int:
         decisions=decisions,
         recovery=recovery,
         average_window=args.average_window,
+        # Which era this shot belongs to is a VEST fact, resolved here and
+        # handed in; the writer only compares it with what the table claims
+        # for itself (#805).
+        expected_table_era=machine_era_for_shot(args.shot).name,
     )
 
     produced = args.output.parent / f"{args.shot}_constraints.json"

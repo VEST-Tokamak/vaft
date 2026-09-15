@@ -35,6 +35,7 @@ from vaft.validation.channel_decision import MISSING, RECOVERED, ChannelDecision
 from vaft.validation.efit_channels import condemned_channels, decide_efit_channels
 from vaft.validation.magnetics import unusable_channels_at
 
+from .efund import table_machine_era
 from .magnetic import EFITConfig
 from .config import EFITScientificConfig, EFITProfileConfig
 
@@ -363,6 +364,7 @@ def generate_constraints_ods(
     recovery=None,
     average_window: float = DEFAULT_AVERAGE_WINDOW,
     coil_current_window: tuple[float, float, float] | None = None,
+    expected_table_era: str | None = None,
     coilset=None,
 ) -> ChannelDecisions:
     """Generate the constraints ODS, ``save_dir/{shotnumber}_constraints.json``.
@@ -387,6 +389,23 @@ def generate_constraints_ods(
     equivalent policy and backend, with a warning.  Returns the decisions the
     product was built from.
     """
+
+    # A Green table is a projection of one machine's conductors and is only
+    # valid for the era it was built from. The caller resolves which era this
+    # discharge belongs to -- that is a fact about the machine, not about EFIT
+    # -- and the table states its own; disagreement is refused here rather
+    # than reconstructed against the wrong coils (#805).
+    if expected_table_era is not None:
+        declared = table_machine_era(efit_table_dir)
+        if declared is not None and declared != expected_table_era:
+            raise ValueError(
+                f"the Green table in {efit_table_dir} was built for machine era "
+                f"{declared!r}, but shot {shotnumber} belongs to {expected_table_era!r}. "
+                "Coil geometry differs between eras, so this would reconstruct "
+                "against conductors that are in the wrong place. Regenerate the "
+                "table for this era (workflow/efit_tables/regenerate_legacy_table.py "
+                f"--era {expected_table_era}) or analyse a shot from {declared!r}."
+            )
 
     # coilset_opt
     # "16_coils" : PF1 - 8 segments + PF5, 6, 9, 10 Upper and Lower Segments

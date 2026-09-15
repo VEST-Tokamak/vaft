@@ -58,6 +58,7 @@ __all__ = [
     "read_table_manifest",
     "run_efund",
     "table_identity",
+    "table_machine_era",
     "write_mhdin",
     "write_table_manifest",
 ]
@@ -756,6 +757,25 @@ def read_table_manifest(directory: str | os.PathLike[str]) -> dict[str, Any] | N
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def table_machine_era(directory: str | os.PathLike[str]) -> str | None:
+    """The machine era a table directory was built for, if it records one.
+
+    A Green table is a projection of one machine's conductors, so it is only
+    valid for the era whose geometry it was built from. The name is read back
+    verbatim and compared as an opaque string: which eras a machine has, and
+    which one a shot belongs to, are facts about that machine and are resolved
+    by the caller (issue #805).
+
+    ``None`` means the directory makes no claim -- a legacy table with no
+    manifest -- and cannot be checked rather than being known to match.
+    """
+    manifest = read_table_manifest(directory)
+    if manifest is None:
+        return None
+    era = (manifest.get("machine") or {}).get("era")
+    return str(era) if era else None
+
+
 def table_identity(directory: str | os.PathLike[str]) -> dict[str, Any]:
     """What an EFIT run records about the table directory it consumed.
 
@@ -777,5 +797,6 @@ def table_identity(directory: str | os.PathLike[str]) -> dict[str, Any]:
         record["manifest"] = str(root / TABLE_MANIFEST_NAME)
         record["identity"] = (manifest.get("table") or {}).get("identity")
         record["label"] = manifest.get("label")
+        record["era"] = (manifest.get("machine") or {}).get("era")
         record["provenance"] = "manifest"
     return record
