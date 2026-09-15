@@ -1781,6 +1781,38 @@ efit_coilset:
       status: inferred
       provenance: "as PF5"
 
+  # Which circuits an experiment energised. `declared` is the answer for a
+  # product with no PF record; when there is one, the measured currents decide
+  # and a disagreement is reported with both answers rather than resolved
+  # quietly. Detection runs over the reconstruction window, not the whole
+  # record: a circuit ramped down before the first constraint time contributes
+  # nothing to the fit.
+  energisation:
+    declared: [PF1, PF5, PF6, PF9, PF10]
+    threshold_amperes: 100.0
+    status: measured
+    provenance: >-
+      Issue #695: peak |I| is exactly 0.0 A for PF2, PF3, PF4, PF7 and PF8 in
+      shots 39915, 41524 and 41672, and 6.7e2 to 1.9e4 A for the other five.
+      Exactly zero, not merely small: those circuits have no acquisition
+      channel, so the mapping writes a literal zero array. The absence of a
+      channel is evidence about the machine, not missing data. The 100 A
+      threshold sits two orders below the smallest energised peak and two
+      above integrator drift; no circuit in any reference shot falls between.
+
+  # Floor on the k-file's BITFC entry, in amperes. A circuit at exactly 0.0 A
+  # would otherwise take a zero error bar from the relative uncertainty, which
+  # is either a division by zero or an infinitely stiff constraint by
+  # accident. The floor makes the pin at zero deliberate and says how stiff.
+  coil_current_error_floor_amperes:
+    value: 1.0e-6
+    status: assumed
+    provenance: >-
+      The smallest error bar any energised circuit produces across the
+      reference set is 2.7e-5 A, so a 1 uA floor sits twenty-seven times below
+      it and cannot bind on a real measurement -- it only replaces an exact
+      zero.
+
   # Circuits driven by one current. Each entry is one equality row of the
   # k-file's &INWANT matrix, on top of the rows tying a circuit's own groups
   # together.

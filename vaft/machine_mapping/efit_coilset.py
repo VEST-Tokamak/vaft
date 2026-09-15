@@ -32,6 +32,8 @@ from .utils import VestConfigurationError, _policy_document, _resolve_info_file_
 
 __all__ = [
     "EFITCoilsetPolicy",
+    "EnergisationDecision",
+    "detect_energised_circuits",
     "vest_efit_coilset_policy",
 ]
 
@@ -52,6 +54,9 @@ class EFITCoilsetPolicy:
     source_circuit: Mapping[str, str]
     segment_edges: Mapping[str, tuple[float, ...]]
     ties: tuple[tuple[str, ...], ...]
+    declared_energised: tuple[str, ...]
+    energisation_threshold: float
+    coil_current_error_floor: float
     status: Mapping[str, str]
     provenance: Mapping[str, str]
     source: str = "vest.yaml:efit_coilset"
@@ -148,6 +153,113 @@ class EFITCoilsetPolicy:
         raise AssertionError("unreachable")
 
 
+@dataclass(frozen=True)
+class EnergisationDecision:
+    """Which circuits an experiment actually energised, and how that was known.
+
+    Not part of the policy: the policy is what the machine is, this is what one
+    discharge did. It reads data, so it is computed per shot and recorded with
+    the product rather than cached.
+    """
+
+    energised: tuple[str, ...]
+    peak_abs_current: Mapping[str, float]
+    declared: tuple[str, ...]
+    threshold: float
+    window: tuple[float, float]
+    measured: bool
+
+    @property
+    def agrees_with_declaration(self) -> bool:
+        return set(self.energised) == set(self.declared)
+
+    @property
+    def disagreement(self) -> str | None:
+        """What the declaration and the measurement disagree about, if anything."""
+        if self.agrees_with_declaration:
+            return None
+        unexpected = sorted(set(self.energised) - set(self.declared))
+        absent = sorted(set(self.declared) - set(self.energised))
+        parts = []
+        if unexpected:
+            parts.append("energised but not declared: " + ", ".join(unexpected))
+        if absent:
+            parts.append("declared but not energised: " + ", ".join(absent))
+        return "; ".join(parts)
+
+    def as_dict(self) -> dict[str, Any]:
+        """A record for ``equilibrium.code.parameters``."""
+        return {
+            "energised": list(self.energised),
+            "declared": list(self.declared),
+            "threshold_amperes": self.threshold,
+            "window": list(self.window),
+            "from_measurement": self.measured,
+            "peak_abs_current": {k: float(v) for k, v in sorted(self.peak_abs_current.items())},
+            "disagreement": self.disagreement,
+        }
+
+
+def detect_energised_circuits(
+    pf_active: Any, policy: EFITCoilsetPolicy, *, window: tuple[float, float]
+) -> EnergisationDecision:
+    """Decide which circuits carried current, from the record when there is one.
+
+    Peak ``|I|`` over the reconstruction window, against the configured
+    threshold. The window matters: a circuit ramped down before the first
+    constraint time contributes nothing to the fit and is not energised as far
+    as this reconstruction is concerned.
+
+    Falls back to the declaration when the product carries no PF currents, and
+    says which it did. A disagreement between the two is reported, never
+    resolved silently -- the declaration is a machine-era statement and the
+    measurement is this discharge.
+    """
+    import numpy as np
+
+    circuits = sorted(set(policy.source_circuit.values()))
+    peaks: dict[str, float] = {}
+    times = None
+    if "time" in pf_active:
+        times = np.asarray(pf_active["time"], dtype=float)
+
+    for index in range(len(pf_active["coil"]) if "coil" in pf_active else 0):
+        name = str(pf_active[f"coil.{index}.name"])
+        if name not in circuits:
+            continue
+        path = f"coil.{index}.current.data"
+        if path not in pf_active or times is None:
+            continue
+        data = np.asarray(pf_active[path], dtype=float)
+        if data.size != times.size:
+            continue
+        inside = (times >= window[0]) & (times <= window[1])
+        selected = data[inside] if inside.any() else data
+        peaks[name] = float(np.max(np.abs(selected))) if selected.size else 0.0
+
+    if not peaks:
+        return EnergisationDecision(
+            energised=policy.declared_energised,
+            peak_abs_current={},
+            declared=policy.declared_energised,
+            threshold=policy.energisation_threshold,
+            window=(float(window[0]), float(window[1])),
+            measured=False,
+        )
+
+    energised = tuple(
+        name for name in circuits if peaks.get(name, 0.0) > policy.energisation_threshold
+    )
+    return EnergisationDecision(
+        energised=energised,
+        peak_abs_current=peaks,
+        declared=policy.declared_energised,
+        threshold=policy.energisation_threshold,
+        window=(float(window[0]), float(window[1])),
+        measured=True,
+    )
+
+
 def _require(block: Mapping[str, Any], key: str, where: str) -> Any:
     if key not in block:
         raise VestConfigurationError(f"{where} has no '{key}'")
@@ -227,11 +339,47 @@ def _build(document: Mapping[str, Any]) -> EFITCoilsetPolicy:
         provenance[f"tie:{'='.join(tied)}"] = str(_require(entry, "provenance", where))
         ties.append(tied)
 
+    energisation = block.get("energisation") or {}
+    declared = tuple(str(name) for name in energisation.get("declared", ()) or ())
+    unknown = [name for name in declared if name not in set(circuits.values())]
+    if unknown:
+        raise VestConfigurationError(
+            f"efit_coilset.energisation.declared names {', '.join(unknown)}, "
+            "which the table describes no group for"
+        )
+    threshold = float(energisation.get("threshold_amperes", 0.0))
+    if threshold < 0.0:
+        raise VestConfigurationError(
+            f"efit_coilset.energisation.threshold_amperes must be non-negative, got {threshold}"
+        )
+    if energisation:
+        status["energisation"] = _status(energisation, "efit_coilset.energisation")
+        provenance["energisation"] = str(
+            _require(energisation, "provenance", "efit_coilset.energisation")
+        )
+
+    floor_block = block.get("coil_current_error_floor_amperes") or {}
+    floor = float(floor_block.get("value", 0.0))
+    if floor < 0.0:
+        raise VestConfigurationError(
+            f"efit_coilset.coil_current_error_floor_amperes must be non-negative, got {floor}"
+        )
+    if floor_block:
+        status["coil_current_error_floor"] = _status(
+            floor_block, "efit_coilset.coil_current_error_floor_amperes"
+        )
+        provenance["coil_current_error_floor"] = str(
+            _require(floor_block, "provenance", "efit_coilset.coil_current_error_floor_amperes")
+        )
+
     return EFITCoilsetPolicy(
         group_names=tuple(names),
         source_circuit=dict(circuits),
         segment_edges=dict(edges_by_coil),
         ties=tuple(ties),
+        declared_energised=declared,
+        energisation_threshold=threshold,
+        coil_current_error_floor=floor,
         status=dict(status),
         provenance=dict(provenance),
     )

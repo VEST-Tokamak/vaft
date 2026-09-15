@@ -411,8 +411,26 @@ def generate_constraints_ods(
     PF = ods_tmp["pf_active"]
     PF_orig = ods["pf_active"]
 
-    ## (1) The EFIT current groups, from the ten measured PF circuits.
+    ## (1) The EFIT current groups, from the measured PF circuits.
+    if coilset is None:
+        from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
+
+        coilset = vest_efit_coilset_policy()
     build_efit_coil_currents(PF, PF_orig, coilset=coilset, window=coil_current_window)
+
+    # Which circuits this discharge energised. Recorded on the product so it
+    # says why a coil carries the weight it does, and read back by the writer.
+    from vaft.machine_mapping.efit_coilset import detect_energised_circuits
+
+    energisation = detect_energised_circuits(
+        PF_orig, coilset, window=(float(time[0]), float(time[-1]))
+    )
+    if energisation.disagreement:
+        warnings.warn(
+            "the energised circuits measured for this discharge differ from the "
+            f"configured declaration -- {energisation.disagreement}; the measurement is used",
+            stacklevel=2,
+        )
 
     for i, _ in enumerate(PF["coil"]):
         PF[f"coil.{i}.current.time"] = PF["time"]
@@ -632,6 +650,12 @@ def generate_constraints_ods(
         # silently overrode these values. It is gone rather than left to be
         # rediscovered.
 
+    # Which circuits this discharge energised, recorded so the product says why
+    # a coil carries the weight it does, and read back by the writer. Written
+    # here and not earlier: a leaf placed in `code.parameters` before its
+    # `time_slice` sub-tree exists takes the sub-tree's place on the way out.
+    EQ["code.parameters.energisation"] = json.dumps(energisation.as_dict(), default=float)
+
     # Save the constraints ODS
     ods_eq = ODS()
     ods_eq["equilibrium"] = EQ
@@ -793,21 +817,50 @@ def generate_kfile(
                 f"PF coil count ({len(matrix)} != {nbcoil})"
             )
         column_count = len(matrix[0])
+        # Which circuits this discharge energised; an unenergised group is
+        # pinned at zero rather than fitted, and its error bar is floored so a
+        # zero current does not become a zero uncertainty.
+        stored = path_value(EQ, "code.parameters.energisation", None)
+        energised = None
+        if stored:
+            try:
+                energised = set(json.loads(stored)["energised"])
+            except (ValueError, KeyError, TypeError):
+                energised = None
+        floor = 0.0 if coilset is None else float(coilset.coil_current_error_floor)
+
         COILCURRENT = np.zeros(nbcoil)
         BITCURRENT = np.zeros(nbcoil)
+        COILWEIGHT = np.zeros(nbcoil)
         for i, source_index in enumerate(pf_indices):
             COILCURRENT[i] = CSTR[
                 f"pf_current.{source_index}.measured"
             ]  # Coil current in A
-            BITCURRENT[i] = _measurement_error(
-                CSTR,
-                f"pf_current.{source_index}",
-                CSTR[f"pf_current.{source_index}.measured_error_upper"],
+            BITCURRENT[i] = max(
+                _measurement_error(
+                    CSTR,
+                    f"pf_current.{source_index}",
+                    CSTR[f"pf_current.{source_index}.measured_error_upper"],
+                ),
+                floor,
             )
+            if energised is None or coilset is None:
+                COILWEIGHT[i] = 1.0
+            else:
+                circuit = coilset.source_circuit[coilset.group_names[i]]
+                COILWEIGHT[i] = 1.0 if circuit in energised else 0.0
         BRSP = _namelist_array("BRSP", COILCURRENT, per_line=3)
         BITFC = _namelist_array("BITFC", BITCURRENT, per_line=3)
         pf_weight = _weight(CSTR, "pf_current.0", "pf_current")
-        FWTFC = f"FWTFC= {nbcoil}*{pf_weight}\n"
+        # Fortran's repeat count while every coil is weighted alike, which is
+        # the routine case and keeps the k-file as it was; the array form only
+        # when a circuit is switched off.
+        if np.all(COILWEIGHT == 1.0):
+            FWTFC = f"FWTFC= {nbcoil}*{pf_weight}\n"
+        else:
+            FWTFC = _namelist_array(
+                "FWTFC", [pf_weight * factor for factor in COILWEIGHT], per_line=8
+            )
 
         ## (2) Wall eddy current
         WALLCURRENT = PM[f"time_slice.{time_idx}.IN1.VCURRT"]
