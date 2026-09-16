@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>7cc70b4</code>. What is described
+  <code>71b530b</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -438,7 +438,12 @@ authors used. Every unit trap on this page is collected again in
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">B_r</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">radial_magnetic_field_from_psi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span>      <span class="c1"># B_r = -(1/R) dpsi/dZ
 </span><span class="n">B_z</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">vertical_magnetic_field_from_psi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span>    <span class="c1"># B_z = +(1/R) dpsi/dR
-</span><span class="n">j</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">current_density_from_psi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>               <span class="c1"># j = -(1/(mu0 R)) dpsi/dR
+# current_density_from_psi is deprecated (#355): it returns -B_Z/mu0 [A/m],
+# not a current density.  For that quantity, note the minus sign:
+</span><span class="n">j</span>   <span class="o">=</span> <span class="o">-</span><span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">vertical_magnetic_field_from_psi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span> <span class="o">/</span> <span class="n">MU0</span>   <span class="c1"># [A/m]
+# For a real toroidal current density use the Grad-Shafranov operator:
+#   vaft.process.equilibrium.grad_shafranov_operator(psi, R, Z), or the
+#   ODS's own profiles_2d.j_tor.
 </span></code></pre></div></div>
 
 <p>All of these differentiate with <code class="language-plaintext highlighter-rouge">np.gradient</code> along a single axis, so they expect <strong>1-D slices</strong>, not
@@ -710,7 +715,7 @@ is the symptom.</p>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">radial_magnetic_field_from_psi</code>, <code class="language-plaintext highlighter-rouge">vertical_magnetic_field_from_psi</code>, <code class="language-plaintext highlighter-rouge">current_density_from_psi</code></td>
+      <td><code class="language-plaintext highlighter-rouge">radial_magnetic_field_from_psi</code>, <code class="language-plaintext highlighter-rouge">vertical_magnetic_field_from_psi</code></td>
       <td>Differentiate along a single axis with <code class="language-plaintext highlighter-rouge">np.gradient</code> — pass <strong>1-D slices</strong>, not a 2-D $(R,Z)$ map.</td>
     </tr>
     <tr>
@@ -1096,7 +1101,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 03:31:46 +0000"
+        "time": "2026-09-16 04:02:27 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

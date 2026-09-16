@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>7cc70b4</code>. What is described
+  <code>71b530b</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -339,7 +339,7 @@ including poloidal flux, toroidal flux, safety factor, current, energy, and geom
 </li>
   <li><a href="#current_density_from_B"><code>current_density_from_B</code></a> &mdash; Toroidal current density from the radial derivative of a poloidal field.
 </li>
-  <li><a href="#current_density_from_psi"><code>current_density_from_psi</code></a> &mdash; Radial-derivative current-density estimate from a poloidal flux cut.
+  <li><a href="#current_density_from_psi"><code>current_density_from_psi</code></a> &mdash; Deprecated: this is $-B_Z/\mu_0$, not a current density.
 </li>
   <li><a href="#current_drive_efficiency"><code>current_drive_efficiency</code></a> &mdash; Heuristic lower-hybrid current-drive efficiency $\eta_{CD}$.
 </li>
@@ -1446,11 +1446,15 @@ first-order ends); pass a 1-D slice, not a 2-D map.</p>
 
 <p class="formula-signature"><code>current_density_from_psi(psi, R)</code></p>
 
-<p><strong>Convention-sensitive.</strong> </p>
+<p><strong>Convention-sensitive.</strong> <strong>Deprecated.</strong> </p>
 
-<p>Radial-derivative current-density estimate from a poloidal flux cut.</p>
+<p>Deprecated: this is $-B_Z/\mu_0$, not a current density.</p>
 
-\[j = -\frac{1}{\mu_0 R}\,\frac{d\psi}{dR}\]
+\[j = -\frac{1}{\mu_0 R}\,\frac{d\psi}{dR} = -\frac{B_Z}{\mu_0}
+  \ \ [\mathrm{A/m}]\]
+
+<p>The value is unchanged; only the name and the guidance are.  Emits a
+<code class="language-plaintext highlighter-rouge">DeprecationWarning</code>.  The old spelling is removed in 0.8.0.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
@@ -1472,21 +1476,37 @@ first-order ends); pass a 1-D slice, not a 2-D map.</p>
 
 <p><strong>Convention.</strong></p>
 
-<p>Hard-codes the historical $k=-1$ (weber-per-radian, COCOS 2/3/6/7) prefactor
-inline instead of going through <code class="language-plaintext highlighter-rouge">poloidal_field_factor</code>, so unlike the
-$B_R$/$B_Z$ helpers it cannot be told the COCOS.  Tracked in #355.</p>
+<p><strong>Mind the sign when migrating.</strong>  This module’s default convention is
+$k = -1$ (weber-per-radian, COCOS 2/3/6/7), where
+<code class="language-plaintext highlighter-rouge">vertical_magnetic_field_from_psi</code> returns
+$B_Z = -k/R\;d\psi/dR = +(1/R)\,d\psi/dR$.  This function is therefore
+$-B_Z/\mu_0$, not $+B_Z/\mu_0$ as its <code class="language-plaintext highlighter-rouge">Limitations</code> section claimed until
+#355; the replacement expression needs the minus sign or the result flips.</p>
+
+<p>The $k$ was written inline rather than taken from
+<code class="language-plaintext highlighter-rouge">poloidal_field_factor</code>, so this function cannot be told its COCOS.
+That is the second reason not to keep it: the replacement can.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>$-(1/R)\,d\psi/dR$ is $B_Z$, so this expression is $B_Z/\mu_0$: a current per
-unit length [A/m], not the toroidal current density $j_\varphi = -\Delta^*\psi
-/(\mu_0 R)$ [A/m^2], which needs second derivatives.  Kept unchanged for
-compatibility; use <code class="language-plaintext highlighter-rouge">profiles_2d.j_tor</code> or <code class="language-plaintext highlighter-rouge">current_density_from_B</code>
-with $B_Z$ for a density.  Tracked in #355.</p>
+<p>A current per unit length [A/m], not the toroidal current density
+$j_\varphi = -\Delta^*\psi/(\mu_0 R)$ [A/m^2].  A single first derivative
+along one radial cut cannot produce $j_\varphi$, which needs second
+derivatives in both $R$ and $Z$.</p>
 
 <p><strong>Numerical notes.</strong></p>
 
 <p><code class="language-plaintext highlighter-rouge">numpy.gradient</code> along the single supplied axis; pass a 1-D slice.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>vertical_magnetic_field_from_psi : for the quantity this actually returns,
+    as <code class="language-plaintext highlighter-rouge">-vertical_magnetic_field_from_psi(psi, R, Z, cocos=...) / MU0</code>,
+    which unlike this function can be told its COCOS.
+vaft.process.equilibrium.grad_shafranov_operator : $\Delta^<em>\psi$ on a 2-D
+    map, for a real $j_\varphi = -\Delta^</em>\psi/(\mu_0 R)$.
+vaft.omas.update.update_equilibrium_profiles_2d_j_tor : writes
+    <code class="language-plaintext highlighter-rouge">profiles_2d.j_tor</code>, which is where an ODS already carries it.</p>
 
 <p><strong>References.</strong></p>
 
@@ -4773,7 +4793,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 03:31:46 +0000"
+        "time": "2026-09-16 04:02:27 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
