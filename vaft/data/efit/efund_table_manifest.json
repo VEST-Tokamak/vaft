@@ -49,6 +49,7 @@
  "extra": {
   "decision": "Issue #708: the table describes every PF circuit the machine has, not only the five energised in the reference era, so a discharge that energised a different subset needs no new table. nfsum 16 -> 26, nfcoil 302 -> 530, +4.1 MB.",
   "generator": "workflow/efit_tables/regenerate_legacy_table.py",
+  "identity_excludes_mhdout": "Issue #793: mhdout.dat is EFUND's echo of its own namelist, carries at least one uninitialised Fortran value (KUBICS came back 83664424 from one run and 4890152 from the next, against an input of 4), and is read by nothing. Its hash stays under table.files; it no longer decides table.identity, so the same inputs now produce the same identity.",
   "installed_as": "vaft/data/efit",
   "installed_at": "2026-09-15",
   "legacy_mhdin_moved": "The 16-lumped-conductor namelist that used to sit here is at legacy/mhdin.dat. It is no longer loadable as a table directory -- its nfsum is 16 -- and is kept only as the independent reference test_efund_geometry.py checks the canonical geometry against.",
@@ -369,7 +370,7 @@
     "size": 134459248
    }
   },
-  "identity": "c7cbaca22b9275ba56058851475cf9b6832e4bb207466bf4b88e16e1d6cfea1f",
+  "identity": "e28142c72453c49c161839ea1d9be7f9e08f0aab8f8ece1d6da70c2fd4f80772",
   "suffix": "129129"
  },
  "vaft": {
