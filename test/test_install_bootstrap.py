@@ -2281,14 +2281,23 @@ def test_gacode_recipes_reject_an_empty_codes_list(name):
 def test_gacode_verification_says_which_members_it_covered():
     """`reg18` exercises NEO alone, whichever members were built.
 
-    The macOS entry was written when the default was `neo`; recording the
-    members keeps "Verified" from reading as though it covered TGLF there.
+    The rule this pins has outlived the fact it was first written against.
+    The macOS entry once said TGLF had not been built there at all, because
+    it predated the `neo,tglf` default; TGLF has since been compiled from
+    scratch on macOS, so that sentence would now be false. What still has to
+    be said plainly is the narrower gap that remains: GACODE ships no TGLF
+    regression the way it ships `reg18` for NEO, so for TGLF "Verified" means
+    it builds and VAFT resolves it -- not that a number was reproduced.
     """
     text = (GACODE_DIR / "README.md").read_text(encoding="utf-8")
     verified = text[text.index("## Verified"):]
-    assert "`--codes neo`" in verified, "the macOS entry must name what it built"
-    assert "not been built on macOS" in verified, (
-        "and say plainly what it does not cover"
+    macos = verified[verified.index("**macOS/arm64.**"):verified.index("**Linux/x86_64.**")]
+    assert "`--codes neo,tglf`" in macos, "the macOS entry must name what it built"
+    assert "exercises NEO alone" in macos, (
+        "and say plainly that the one regression covers NEO, not TGLF"
+    )
+    assert "not a number" in macos, (
+        "and that for TGLF nothing numerical was reproduced"
     )
 
 

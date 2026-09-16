@@ -43,10 +43,14 @@ TITLE = "CHEASE environment check"
 RERUN = "python install/check_chease.py"
 PROJECT = "CHEASE"
 EXECUTABLES = ("chease",)
+#: ``chease_prog.f90`` rather than ``chease_prog_effxml.f90``: the latter is
+#: generated, not committed. ``src-f90/Makefile`` deletes it at parse time and
+#: the build writes it again, so a checkout that has never been built does not
+#: have it -- and a freshly cloned tree is exactly what this has to accept.
 SOURCE_MARKERS = (
     "src-f90/Makefile",
     "src-f90/Makefile.define_FLAGS",
-    "src-f90/chease_prog_effxml.f90",
+    "src-f90/chease_prog.f90",
 )
 #: The installer that works on this platform. Naming the other one sends the
 #: reader to a script they cannot run: a Linux operator told to launch

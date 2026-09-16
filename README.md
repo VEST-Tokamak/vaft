@@ -240,11 +240,19 @@ back to `GACODE_ROOT` when `GACODEHOME` is unset. Build it through
 `NUBEAMHOME` also supplies the PREACT and ADAS reaction databases NUBEAM cannot
 run without, at `share/preact` and `share/adas`. VAFT builds NUBEAM through
 [`install/nubeam/`](install/nubeam/) rather than vendoring it: NTCC requires each
-user to accept its licence before downloading the source. That path is macOS/Apple
-Silicon only for now; Linux and Windows are tracked in
-[issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). The adapter runs
-NUBEAM and parses its native output; mapping those results into IMAS is not
-implemented yet.
+user to accept its licence before downloading the source. That path covers all
+three platforms — `linux.sh`, `macos.sh` and `windows.ps1`. The adapter runs
+NUBEAM and parses its native output, and `vaft.machine_mapping.core_sources` and
+`vaft.machine_mapping.distributions` map those results into IMAS; the Monte
+Carlo marker records stay in the native container, which is the one thing IMAS
+has no slot for.
+
+`TESHOME` is different in kind from the others: **TES is not open source**, so
+VAFT can write its inputs, launch `$TESHOME/bin/rtes` and parse its outputs, but
+cannot help you obtain it. TRANSP is not open source either and VAFT never
+launches it — `vaft.code.transp` only reads a `<runid>.CDF` some facility already
+produced, which is why no `TRANSPHOME` appears above. Neither has an installer in
+`install/`, for those reasons rather than by oversight.
 
 Each executable belongs under its root's `bin/` directory. On Windows, set
 the same roots with `[Environment]::SetEnvironmentVariable(name, value, 'User')`
@@ -252,7 +260,7 @@ so a new terminal and a Jupyter kernel both inherit them; VAFT resolves the
 documented POSIX name to a native `.exe` beside it. See
 [Initialize external fusion codes](notebooks/initialize_external_fusion_codes.ipynb)
 for layouts, compatibility variables, FileDB configuration, and validation, and
-[install/README.md](install/README.md) for building the codes on Windows.
+[install/README.md](install/README.md) for building the codes on any platform.
 
 
 ### Connect to the VEST Database

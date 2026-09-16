@@ -224,6 +224,35 @@ cmake --build "$BUILD_DIR" -j "$JOBS" >>"$LOG" 2>&1 || die "build failed; see $L
 [[ -x "$BUILD_DIR/efit/efit" ]] || die "efit was not produced at $BUILD_DIR/efit/efit"
 [[ -x "$BUILD_DIR/green/efund" ]] || die "efund was not produced at $BUILD_DIR/green/efund"
 
+# --- did NetCDF actually get in? ----------------------------------------------
+# Asking for it is not the same as getting it. io/efitIO.cmake is
+#
+#   option(ENABLE_NETCDF "Enable NetCDF" off)
+#   if(${ENABLE_NETCDF})
+#     find_package (NetCDF)
+#     if(${NetCDF_FOUND})
+#       set(USE_NETCDF ...)
+#     endif()
+#   endif()
+#
+# with no else on the inner if. A find_package that comes up empty is silent:
+# the build finishes, ENABLE_NETCDF:BOOL=ON stays in CMakeCache and in this
+# script's own manifest, and the first sign of trouble is a reconstruction that
+# quietly writes no m-file hours later. The binary is the only honest witness --
+# EFIT compiles that message in exactly when write_m was compiled out.
+if ((WITH_NETCDF)); then
+  if grep -qa 'netcdf needs to be linked to write m-files' "$BUILD_DIR/efit/efit"; then
+    printf '[FAIL] NetCDF was requested but the build did not get it, so this efit writes no m-files.\n' >&2
+    printf '       find_package(NetCDF) found nothing under:\n' >&2
+    printf '         NetCDF_C_DIR       %s\n' "$NETCDF_C_DIR" >&2
+    printf '         NetCDF_FORTRAN_DIR %s\n' "$NETCDF_F_DIR" >&2
+    printf '       Check that each holds the library and the .mod, or pass --without-netcdf\n' >&2
+    printf '       to accept a build with no m-files.\n' >&2
+    die "see the configure output in $LOG for what find_package looked at"
+  fi
+  note "NetCDF is compiled in; this build writes m-files"
+fi
+
 CTEST_STATUS="skipped"
 if ((!SKIP_TESTS)); then
   note "running EFIT's own ctest suite as the build's acceptance"

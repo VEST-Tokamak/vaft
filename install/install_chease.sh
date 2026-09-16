@@ -99,7 +99,12 @@ done
 SOURCE="$(cd "$SOURCE" 2>/dev/null && pwd -P)" || die "CHEASE source tree does not exist: $SOURCE"
 # The same markers install/check_chease.py validates, so the two agree on what a
 # CHEASE checkout is.
-for marker in src-f90/Makefile src-f90/Makefile.define_FLAGS src-f90/chease_prog_effxml.f90; do
+# chease_prog.f90 rather than chease_prog_effxml.f90: the latter is generated,
+# not committed. src-f90/Makefile deletes it at parse time
+# (`$(shell rm -f ... chease_prog_effxml.f90 ...)`) and the build writes it
+# again, so a checkout that has never been built does not have it -- and a
+# freshly cloned tree is exactly the case this marker has to accept.
+for marker in src-f90/Makefile src-f90/Makefile.define_FLAGS src-f90/chease_prog.f90; do
   [[ -e "$SOURCE/$marker" ]] || die "not a CHEASE source tree (missing $marker): $SOURCE"
 done
 
