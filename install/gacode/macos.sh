@@ -50,7 +50,9 @@ EOF
 while [ $# -gt 0 ]; do
   case "$1" in
     --gacode-root) GACODE_SOURCE="${2:-}" ; shift 2 ;;
-    --codes)       CODES="${2:-}"         ; shift 2 ;;
+    --codes)       [ $# -ge 2 ] && [ -n "${2:-}" ] ||
+                     { echo "error: --codes needs a non-empty list" >&2; exit 2; }
+                   CODES="$2"            ; shift 2 ;;
     --check)       RUN_CHECK=1            ; shift ;;
     -h|--help)     usage ; exit 0 ;;
     *) echo "unknown argument: $1" >&2 ; usage >&2 ; exit 2 ;;

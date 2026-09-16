@@ -145,8 +145,16 @@ spherical-tokamak; the rest are Julia `.bson` and cannot be read from Python.
 ## Verified
 
 **macOS/arm64.** Built against `gafusion/gacode` `6357db30` (2026-07-22) with
-Homebrew gfortran 15.2 and Open MPI. The NEO `reg18` regression case reproduces
-its shipped `out.neo.prec` value `0.12268957E+02` exactly.
+Homebrew gfortran 15.2 and Open MPI, **`--codes neo`** — the default at the
+time. The NEO `reg18` regression case reproduces its shipped `out.neo.prec`
+value `0.12268957E+02` exactly.
+
+TGLF has not been built on macOS. The default is now `neo,tglf` on both
+platforms, so the documented command compiles a member this record does not
+cover, and `reg18` exercises NEO alone either way. Nothing suggests it will
+fail — it is the same suite and the same compiler family — but it is unverified
+there, and this says so rather than letting the entry read as though it were
+not.
 
 **Linux/x86_64.** Built against `gafusion/gacode` `b49339750` with
 gfortran 11.4.0 and Open MPI 4.1.2 on Ubuntu 22.04.4, `GACODE_PLATFORM=TUMBLEWEED`,

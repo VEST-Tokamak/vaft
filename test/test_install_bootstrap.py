@@ -2255,3 +2255,33 @@ def test_every_shell_entry_point_is_linted():
         encoding="utf-8"
     )
     assert "shellcheck --severity=warning install/*.sh install/*/*.sh" in workflow
+
+
+@pytest.mark.parametrize("name", GACODE_RECIPES)
+def test_gacode_recipes_reject_an_empty_codes_list(name):
+    """An empty --codes builds the suite root, not a suite member.
+
+    `IFS=',' read -r -a CODE_LIST <<< ""` yields one empty element, and
+    `[[ -d "$GACODE_ROOT/" ]]` is true for it, so the loop runs
+    `make -C "$GACODE_ROOT/"` against the top-level Makefile.
+    """
+    # Raw text: _executable_source cuts at the first `#`, and the Linux guard
+    # is written `(($# >= 2))`. Same trap as the ${var##*/} assertion elsewhere.
+    text = (GACODE_DIR / name).read_text(encoding="utf-8")
+    codes = text[text.index("--codes)"):]
+    codes = codes[: codes.index(";;")]
+    assert "needs a" in codes, f"install/gacode/{name} must refuse an empty --codes"
+
+
+def test_gacode_verification_says_which_members_it_covered():
+    """`reg18` exercises NEO alone, whichever members were built.
+
+    The macOS entry was written when the default was `neo`; recording the
+    members keeps "Verified" from reading as though it covered TGLF there.
+    """
+    text = (GACODE_DIR / "README.md").read_text(encoding="utf-8")
+    verified = text[text.index("## Verified"):]
+    assert "`--codes neo`" in verified, "the macOS entry must name what it built"
+    assert "not been built on macOS" in verified, (
+        "and say plainly what it does not cover"
+    )
