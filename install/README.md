@@ -14,7 +14,7 @@ per code: [`install/nubeam/`](nubeam/) and [`install/gacode/`](gacode/). Both
 operate on a source tree you supply rather than one VAFT vendors, and neither
 is run by CI. NUBEAM builds on macOS/Apple Silicon (`macos.sh`) and native
 Windows (`windows.ps1`); GACODE is macOS/Apple Silicon only so far. CHEASE and
-GPEC have installers here for native Windows and for macOS; Linux remains #226.
+GPEC have installers here for native Windows and for macOS; Linux is #855.
 
 Budget about 15–20 minutes from a nearly clean machine.
 
@@ -582,7 +582,7 @@ updated rather than worked around.
 ### Linux
 
 Still by hand, tracked in
-[issue #226](https://github.com/VEST-Tokamak/vaft/issues/226): use the recipe in
+[issue #855](https://github.com/VEST-Tokamak/vaft/issues/855): use the recipe in
 `workflow/automatic_pipeline_1_routine_data_processing/DEPLOYMENT.md`, then set
 `CHEASEHOME` / `GPECHOME` the same way. `install/check_chease.py` and
 `install/check_gpec.py` run on every platform, so the verification half is
@@ -934,4 +934,4 @@ into your question.
 | DCON/GPEC, macOS | Verified **manually** on Apple Silicon against a pristine checkout of `develop` (`e68d7ac2`): all six executables, VAFT discovery, the DCON to GPEC handoff on upstream's Solov'ev regression, and its energies -- plasma 14.28, vacuum 2.355, total 16.63, stable. 1m43s with 6 jobs. The same script also builds all six from v1.5.5 (`f06e6abd`), which then fails the checker's own source test because `install/TARGETS.inc` postdates it. |
 | NUBEAM, macOS and Windows native | Recipes for both platforms; each records what it verified. See [`install/nubeam/README.md`](nubeam/README.md). |
 | GACODE, macOS | Verified **manually** on macOS/arm64 against `gafusion/gacode` `6357db30`: NEO's shipped `reg18` regression reproduces `out.neo.prec` `0.12268957E+02` exactly. See [`install/gacode/README.md`](gacode/README.md). |
-| CHEASE and DCON/GPEC, Linux | Installers not yet written -- tracked in [issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). The checkers run on every platform today. |
+| CHEASE and DCON/GPEC, Linux | Installers not yet written -- tracked in [issue #855](https://github.com/VEST-Tokamak/vaft/issues/855). The checkers run on every platform today. |

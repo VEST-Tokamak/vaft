@@ -54,7 +54,7 @@
 # changes the revision of the tree it is given: provenance is something you
 # state, not something a script infers (#226).
 #
-# Apple Silicon macOS. Linux is a separate recipe and still belongs to #226.
+# Apple Silicon macOS. Linux is a separate recipe, tracked in #855.
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -118,7 +118,7 @@ while (($#)); do
   esac
 done
 
-[[ "$(uname -s)" == "Darwin" ]] || die "this recipe is macOS only; Linux belongs to issue #226"
+[[ "$(uname -s)" == "Darwin" ]] || die "this recipe is macOS only; Linux is tracked in issue #855"
 PLATFORM="darwin-$(uname -m)"
 
 [[ -n "$SOURCE" ]] || die "--source is required: VAFT does not vendor GPEC. Pass the path of a checkout you already hold, or set GPEC_SOURCE_DIR."

@@ -149,7 +149,7 @@ Each ends by running its own checker, so a run that finishes has already solved
 a reference case and compared the numbers. Neither installer clones, fetches or
 switches revision, and neither patches its source tree. On Linux these two are
 still a manual build, tracked in
-[issue #226](https://github.com/VEST-Tokamak/vaft/issues/226).
+[issue #855](https://github.com/VEST-Tokamak/vaft/issues/855).
 
 
 ## Expected outputs
