@@ -237,6 +237,25 @@ register_convention(CodeConvention(
 ))
 
 register_convention(CodeConvention(
+    name="flare",
+    cocos=3,
+    psi_unit="Wb/rad",
+    reference="FLARE src/fortran/bfield/equi2d.f90:286-311, 852, 885",
+    notes=(
+        "FLARE declares no COCOS anywhere in its source. The index is read off "
+        "what the code does: load_geqdsk_equi2d applies its scale_Bt to Bcentr "
+        "and fpol and its scale_Ip to Simag, Sibry and psirz, and derives the "
+        "field directions as Bt_sign from the toroidal component and Bp_sign = "
+        "-1 when psi increases outward. Confirmed against two conversions "
+        "measured on real runs: a COCOS 5 g-file needs scale_Ip = -1 with "
+        "scale_Bt = +1, and a COCOS 2 CHEASE file needs +1 with -1, which is "
+        "what the sign relations give for a target of 3. Note FLARE only warns "
+        "when the current metadata disagrees with the flux sign (equi2d.f90:893) "
+        "rather than refusing the file."
+    ),
+))
+
+register_convention(CodeConvention(
     name="geqdsk",
     cocos=None,
     psi_unit="Wb/rad",
