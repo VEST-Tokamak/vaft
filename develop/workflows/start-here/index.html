@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>601e90d</code>. What is described
+  <code>446a338</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -412,8 +412,21 @@ terminal and a Jupyter kernel both inherit them:</p>
 </span></code></pre></div></div>
 
 <p>The executable under <code class="language-plaintext highlighter-rouge">bin/</code> may be the native <code class="language-plaintext highlighter-rouge">chease.exe</code> or <code class="language-plaintext highlighter-rouge">dcon.exe</code>; VAFT
-resolves the documented POSIX name to it. <code class="language-plaintext highlighter-rouge">install/README.md</code> covers building
-CHEASE and the DCON/GPEC suite natively on Windows.</p>
+resolves the documented POSIX name to it.</p>
+
+<p>CHEASE and the DCON/GPEC suite build on every platform from <code class="language-plaintext highlighter-rouge">install/</code>. On Linux
+and macOS, against a checkout you obtained yourself:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>bash <span class="nb">install</span>/install_chease.sh <span class="nt">--source</span> ~/git/CHEASE
+bash <span class="nb">install</span>/install_gpec.sh   <span class="nt">--source</span> ~/git/GPEC
+</code></pre></div></div>
+
+<p>Each installs into <code class="language-plaintext highlighter-rouge">&lt;source&gt;/vaft-install</code> — the path to point <code class="language-plaintext highlighter-rouge">CHEASEHOME</code> or
+<code class="language-plaintext highlighter-rouge">GPECHOME</code> at, which the script prints when it finishes — and then runs the
+matching checker, which refines a packaged equilibrium for CHEASE and drives the
+real DCON-to-GPEC handoff for GPEC. <code class="language-plaintext highlighter-rouge">install/README.md</code> carries the per-platform
+detail, including the Debian package list and the three Linux build settings that
+otherwise fail quietly.</p>
 
 <h2 id="expected-outputs">Expected outputs</h2>
 
@@ -699,7 +712,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 05:41:35 +0000"
+        "time": "2026-09-16 06:53:55 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
