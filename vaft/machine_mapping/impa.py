@@ -617,11 +617,13 @@ def impa(
             f"{prefix}.poloidal_angle",
             IMPA_TOROIDAL_PROBE_POLOIDAL_ANGLE if orientation == "toroidal" else IMPA_POLOIDAL_ANGLE,
         )
-        set_path(
-            ods,
-            f"{prefix}.toroidal_angle",
-            IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE if orientation == "toroidal" else 0.0,
-        )
+        if orientation == "toroidal":
+            # Only a toroidal-facing sensor has a horizontal normal to measure
+            # this angle from. A poloidal one's normal is vertical, so its
+            # horizontal projection is the zero vector and the angle does not
+            # exist -- writing 0.0 there declared a radial (B_R) sensor, which
+            # is the error this constant's own docstring warns about (#725).
+            set_path(ods, f"{prefix}.toroidal_angle", IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE)
         set_path(ods, f"{prefix}.type.index", HALL_PROBE_TYPE_INDEX)
         set_path(ods, f"{prefix}.type.name", "hall")
         set_path(ods, f"{prefix}.type.description", "VEST internal magnetic probe array (Hall probe)")
@@ -705,7 +707,6 @@ def impa(
             set_path(ods, f"{prefix}.position.z", float(result.geometry.z[offset]))
             set_path(ods, f"{prefix}.position.phi", port_phi(IMPA_PORT))
             set_path(ods, f"{prefix}.length", PROBE_LENGTH)
-            set_path(ods, f"{prefix}.toroidal_angle", 0.0)
             set_path(ods, f"{prefix}.type.index", HALL_PROBE_TYPE_INDEX)
             set_path(ods, f"{prefix}.type.name", "hall")
             set_path(

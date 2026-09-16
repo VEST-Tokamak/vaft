@@ -30,6 +30,13 @@ _EXTERNAL_ENVIRONMENT = (
     "GACODEHOME",
     "GACODE_ROOT",
     "GACODE_PLATFORM",
+    # The TGLF surrogate resolves model *artifacts*, not an executable, so it has
+    # no entry in the layout tests below -- but it is an external-code root by the
+    # same $XHOME convention and the autouse fixture must clear it, or a
+    # developer's TurbulentTransport.jl checkout leaks into every test that
+    # asserts nothing is configured.
+    "TURBULENTTRANSPORTHOME",
+    "TURBULENTTRANSPORT_ROOT",
     # TokaMaker (Open FUSION Toolkit) is imported in-process rather than run
     # as a $XHOME/bin binary; these steer library discovery and sys.path.
     "OFT_ROOTPATH",

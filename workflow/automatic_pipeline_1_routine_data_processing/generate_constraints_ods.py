@@ -15,7 +15,7 @@ import json
 import logging
 import shutil
 from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, Sequence
 
 import numpy as np
 
@@ -217,16 +217,91 @@ def _select_times(
     return np.arange(start, end + 0.5 * tstep, tstep, dtype=float), window
 
 
-def _window_comment(window: ConstraintWindow | None, times: np.ndarray) -> str:
-    """The one-line provenance written to ``equilibrium.ids_properties.comment``."""
+def _drop_vacuum_times(
+    ods, times: np.ndarray, *, average_window: float
+) -> tuple[np.ndarray, list[tuple[float, float]]]:
+    """Remove the instants EFIT would answer with a vacuum solution (#76).
+
+    The constraint window comes from the plasma timing -- H-alpha and the Ip
+    pulse -- which says when there *was* a discharge, not when there was
+    enough current to reconstruct. Slices below EFIT's `CUTIP` were therefore
+    still being submitted, and EFIT answered them the way it is supposed to:
+    `ivacum = 1`, and an a-file whose `limloc` is `VAC`.
+
+    That is not a failure, but it is not an equilibrium either, and counting
+    it as one inflates every yield figure. Measured over the reference set,
+    11 of 89 selected slices are below the cut -- and three of 39915's
+    seventeen produced g-files were vacuum, so its plasma yield is 14 of 23
+    rather than 17 of 26.
+
+    The current is box-averaged with `box_average`, the same function and the
+    same half-window the constraint builder uses, so a slice is judged on the
+    number EFIT will actually be given as `PLASMA` rather than on an
+    instantaneous value that can differ at the boundary.
+    """
+    from vaft.code.efit.legacy import box_average
+    from vaft.machine_mapping.equilibrium_regime import vest_equilibrium_regime_policy
+
+    threshold = float(vest_equilibrium_regime_policy().vacuum_current_amperes)
+    if threshold <= 0.0:
+        return times, []
+
+    try:
+        clock = np.asarray(ods["magnetics.ip.0.time"], dtype=float)
+        data = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
+    except Exception:
+        LOGGER.warning(
+            "no magnetics.ip.0 to judge the vacuum cut by; every selected time is kept"
+        )
+        return times, []
+
+    keep, dropped = [], []
+    for value in times:
+        try:
+            current = box_average(clock, data, float(value), float(average_window), what="ip")
+        except Exception:
+            keep.append(float(value))
+            continue
+        if abs(float(current)) < threshold:
+            dropped.append((float(value), float(current)))
+        else:
+            keep.append(float(value))
+
+    if not keep:
+        raise ValueError(
+            f"every one of the {times.size} selected instants carries less than "
+            f"{threshold} A of plasma current, so EFIT would return a vacuum solution "
+            "for all of them. The plasma timing found a discharge the current does not "
+            "support; check the window before reconstructing."
+        )
+    return np.asarray(keep, dtype=float), dropped
+
+
+def _window_comment(
+    window: ConstraintWindow | None,
+    times: np.ndarray,
+    vacuum: Sequence[tuple[float, float]] = (),
+) -> str:
+    """The one-line provenance written to ``equilibrium.ids_properties.comment``.
+
+    The vacuum cut is named here because it changes the denominator of every
+    yield figure computed from the product: without it a reader cannot tell
+    whether a missing instant was dropped before EFIT or failed inside it.
+    """
     span = f"EFIT constraint times {float(times[0]):.4f}-{float(times[-1]):.4f} s"
     if window is None:
-        return f"{span}: manual"
-    text = f"{span}: plasma window from {window.source}"
-    if window.agreement:
-        text += f", agreement {window.agreement}"
-    if window.fallback:
-        text += f"; analysis-range fallback: {window.fallback_reason}"
+        text = f"{span}: manual"
+    else:
+        text = f"{span}: plasma window from {window.source}"
+        if window.agreement:
+            text += f", agreement {window.agreement}"
+        if window.fallback:
+            text += f"; analysis-range fallback: {window.fallback_reason}"
+    if vacuum:
+        text += (
+            f"; {len(vacuum)} instant(s) below CUTIP dropped before EFIT "
+            f"({', '.join(f'{t:.4f}s' for t, _ in vacuum)})"
+        )
     return text
 
 
@@ -294,8 +369,16 @@ def main() -> int:
     times, window = _select_times(ods, args.timeset, args.tstep, args.tstart, args.tend)
     if times.size == 0:
         raise ValueError("No EFIT constraint times selected")
+    times, vacuum = _drop_vacuum_times(ods, times, average_window=args.average_window)
+    if vacuum:
+        LOGGER.info(
+            "vacuum cut: dropped %d of %d instants below CUTIP (%s)",
+            len(vacuum),
+            len(vacuum) + times.size,
+            ", ".join(f"{t:.3f}s at {c / 1e3:.1f} kA" for t, c in vacuum),
+        )
     ods["equilibrium.time"] = times
-    ods["equilibrium.ids_properties.comment"] = _window_comment(window, times)
+    ods["equilibrium.ids_properties.comment"] = _window_comment(window, times, vacuum)
     if window is not None:
         LOGGER.info("plasma timing: %s", json.dumps(window.record, default=str))
         if window.fallback:

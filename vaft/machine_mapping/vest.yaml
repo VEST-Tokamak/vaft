@@ -1815,6 +1815,74 @@ diagnostics_time_policies:
 # that circuit's current, which is what `ties` says in the k-file's &INWANT
 # matrix. VEST energises ten circuits; sixteen groups is how EFIT counts them.
 #
+# --------------------------------------------------------------------------
+# Which operating regime a reconstructed slice belongs to (issue #76).
+#
+# A reconstruction outcome only means something against the state the plasma
+# was in. Resolved by
+# `vaft.machine_mapping.equilibrium_regime.vest_equilibrium_regime_policy`
+# and applied by `vaft.validation.classify_equilibrium_regime`.
+#
+# Pipeline policy, outside the `0:` / shot overrides: a cohort definition that
+# changed between discharges could not group them.
+equilibrium_regime:
+
+  phase:
+    # `level`: flat where |Ip| >= flat_fraction_of_peak * peak|Ip|, and
+    # ramp_up / ramp_down by which side of the peak the slice falls on.
+    # `slope` is the other rule two studies were written against and is kept
+    # so an A/B can ask for it by name; it is not the default.
+    rule: level
+    flat_fraction_of_peak: 0.9
+    slope_fraction_of_peak_rate: 0.15
+    # Below this there is no plasma to classify. The same number as EFIT's
+    # CUTIP (`EFITInitializationConfig.current_threshold`), because a slice
+    # EFIT declares vacuum is not a slice with a phase.
+    vacuum_current_amperes: 15000.0
+    status: measured
+    provenance: >-
+      Measured over 39915, 41524 and 41672 (300 slices on the 1 ms
+      reconstruction grid). The level and slope rules agree on 295 of 300;
+      every disagreement is at the ramp/flat boundary, where an arbitrary
+      threshold has to choose. The choice was therefore made on what sets the
+      threshold's scale. The slope rule scales by that shot's max|dIp/dt|,
+      which is dominated by the termination and measured 2.73, 9.38 and
+      2.34 MA/s -- a 3.4x spread that says how violent the disruption was,
+      not how flat the flat top is. The level rule scales by peak |Ip|, a
+      property of the plasma being classified.
+      An absolute MA/s threshold and a peak-normalised rate were both tried,
+      on the expectation that a fixed scale would transfer across shots
+      better for cohort work. Both measured WORSE: median |Ip|/peak inside
+      the flat cohort spread 0.12 and 0.10 across the three shots against
+      0.02 for either shot-normalised rule, and the absolute rule's cohort
+      size swung from 4 to 24 slices. Flatness is intrinsically relative.
+      Known cost: the peak is needed, so this rule is not causal and cannot
+      label a discharge while it is running. It is post-hoc only.
+
+  topology:
+    # EFIT's `limloc`, mapped rather than interpreted. An unlisted value is
+    # `unknown`, which is deliberately NOT the same answer as `limited`:
+    # issue #76 requires unknown and ambiguous states to stay distinct from
+    # negative classifications.
+    limloc:
+      IN:   inboard_limited
+      OUT:  outboard_limited
+      TOP:  top_limited
+      BOT:  bottom_limited
+      SNT:  single_null_top
+      SNB:  single_null_bottom
+      DN:   double_null
+      VAC:  vacuum
+      LIM:  limited
+      MAG:  magnetic_axis_only
+    status: inferred
+    provenance: >-
+      The names EFIT writes in write_a.f90's limloc field. VEST's reference
+      reconstructions come back IN (inboard limited) and VAC; the diverted
+      values are listed because EFIT can write them, not because VEST has
+      been observed to produce one -- shot 46742 was checked and its eight
+      converged slices are all IN. Nothing here claims VEST diverts.
+
 # Like `diagnostics_time_policies` and `plasma_timing` this is pipeline policy,
 # outside the `0:` / shot overrides.
 efit_coilset:

@@ -218,7 +218,12 @@ def check_regression(prefix: Optional[str], *, skip: bool) -> CheckResult:
         from vaft.code.gacode._input_gacode import read_input_gacode
         from vaft.code.gacode.neo import NEOConfig, run_neo_case
     except Exception as error:  # pragma: no cover
-        return CheckResult(label, FAIL, f"the VAFT adapter could not be imported: {error}")
+        return CheckResult(
+            label,
+            FAIL,
+            f"the VAFT adapter could not be imported: {error}",
+            "Run install/check_vaft_environment.py first.",
+        )
 
     expected = float((case / "out.neo.prec").read_text().split()[0])
     scratch = tempfile.mkdtemp(prefix="vaft-gacode-reg18-")

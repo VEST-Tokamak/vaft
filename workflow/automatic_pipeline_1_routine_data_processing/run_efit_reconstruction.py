@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import time
 import logging
 import shutil
 from pathlib import Path
@@ -35,7 +36,7 @@ def _case(path: Path) -> str:
     return name
 
 
-def _artifact_payload(workdir: Path, shot: int, status: str, parse_errors=()) -> dict:
+def _artifact_payload(workdir: Path, shot: int, status: str, parse_errors=(), seconds: float | None = None) -> dict:
     cases: dict[str, dict] = {}
     for kind, subdir in (("kfile", "kfile"), ("gfile", "gfile"), ("mfile", "mfile"), ("afile", "afile")):
         directory = workdir / subdir
@@ -59,19 +60,32 @@ def _artifact_payload(workdir: Path, shot: int, status: str, parse_errors=()) ->
             artifacts["disposition"] = "collected"
         else:
             artifacts["disposition"] = "missing_gfile"
-    return {
+    payload = {
         "schema_version": 1, "shot": shot, "status": status, "cases": cases,
         "logs": logs, "parse_errors": list(parse_errors),
     }
+    if seconds is not None:
+        # Wall time for the whole invocation, and per slice over the k-files
+        # submitted. The termination study's central comparison is equilibrium
+        # change against runtime cost (#171), and until now nothing recorded
+        # the cost: the writer's own note that a tighter ERRMIN moves a fit
+        # "from under a minute to about three" was never measured against an
+        # artifact.
+        payload["runtime"] = {
+            "seconds": round(float(seconds), 3),
+            "cases": len(cases),
+            "seconds_per_case": round(float(seconds) / len(cases), 3) if cases else None,
+        }
+    return payload
 
 
-def _write_outputs(gfile_manifest: Path, status_file: Path, artifact_manifest: Path, workdir: Path, shot: int, status: str, gfiles: tuple[Path, ...] = (), parse_errors=()) -> None:
+def _write_outputs(gfile_manifest: Path, status_file: Path, artifact_manifest: Path, workdir: Path, shot: int, status: str, gfiles: tuple[Path, ...] = (), parse_errors=(), seconds: float | None = None) -> None:
     gfile_manifest.parent.mkdir(parents=True, exist_ok=True)
     status_file.parent.mkdir(parents=True, exist_ok=True)
     artifact_manifest.parent.mkdir(parents=True, exist_ok=True)
     gfile_manifest.write_text("\n".join(str(path) for path in gfiles) + ("\n" if gfiles else ""), encoding="utf-8")
     status_file.write_text(status.rstrip() + "\n", encoding="utf-8")
-    artifact_manifest.write_text(json.dumps(_artifact_payload(workdir, shot, status, parse_errors), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    artifact_manifest.write_text(json.dumps(_artifact_payload(workdir, shot, status, parse_errors, seconds), indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _stage_outputs(workdir: Path, paths: tuple[Path, ...], subdir: str) -> tuple[Path, ...]:
@@ -130,7 +144,9 @@ def main() -> int:
         args=tuple(efit_args),
         timeout=timeout,
     )
+    started = time.perf_counter()
     result = run_efit(EFITInputs(workdir=workdir, kfiles=kfiles), config)
+    seconds = time.perf_counter() - started
     output_text = result.stdout + "\n" + result.stderr
     failure_markers = ("Invalid line in namelist", "Fortran runtime error", "Error termination")
     marker = next((text for text in failure_markers if text in output_text), None)
@@ -138,11 +154,12 @@ def main() -> int:
         _write_outputs(
             args.gfile_manifest, args.status, args.artifact_manifest, workdir, args.shot,
             f"failed: returncode={result.returncode}; marker={marker or 'none'}\n{result.stderr or result.stdout}",
+            seconds=seconds,
         )
         return int(result.returncode or 1)
 
     if not result.gfiles:
-        _write_outputs(args.gfile_manifest, args.status, args.artifact_manifest, workdir, args.shot, "completed_no_gfiles: returncode=0; gfiles=0")
+        _write_outputs(args.gfile_manifest, args.status, args.artifact_manifest, workdir, args.shot, "completed_no_gfiles: returncode=0; gfiles=0", seconds=seconds)
         return 0
     gfiles = _stage_outputs(workdir, result.gfiles, "gfile")
     _stage_outputs(workdir, result.afiles, "afile")
@@ -152,6 +169,7 @@ def main() -> int:
         args.gfile_manifest, args.status, args.artifact_manifest, workdir, args.shot,
         f"completed: returncode=0; gfiles={len(gfiles)}{parse_status}", gfiles,
         result.parse_errors,
+        seconds=seconds,
     )
     return 0
 

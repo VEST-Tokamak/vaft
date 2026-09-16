@@ -412,3 +412,30 @@ def make_camera_fluctuation(_sample: ODS) -> ODS:
 
 for _name in ("camera_visible_image_fluctuation", "camera_visible_image_mhd_power", "camera_visible_spectrogram"):
     SYNTHETIC[_name] = make_camera_fluctuation
+
+
+# ---------------------------------------------------------------------------
+# mhd_linear_profile_resonant_flux / _island_width -- adapted from
+# test/test_gpec_resonant_plots.py (fixture `mapped`): an ODS built the way a
+# real ideal-GPEC run reaches one, from the packaged netCDF fixtures.
+# ---------------------------------------------------------------------------
+
+
+def make_gpec_resonant(_sample: ODS) -> ODS:
+    import tempfile
+
+    from gpec_nc_fixtures import write_control_nc, write_cylindrical_nc, write_profile_nc
+    from vaft.machine_mapping.gpec_ideal import gpec_ideal
+
+    out = ODS(consistency_check=False)
+    with tempfile.TemporaryDirectory() as workdir:
+        path = Path(workdir)
+        write_control_nc(path, n=1)
+        write_cylindrical_nc(path, n=1)
+        write_profile_nc(path, n=1, rational_q=(2.0, 3.0))
+        gpec_ideal(out, str(path), {"modes": [1]})
+    return out
+
+
+for _name in ("mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width"):
+    SYNTHETIC[_name] = make_gpec_resonant

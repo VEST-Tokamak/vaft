@@ -328,6 +328,8 @@ from .renderers.profiles import (
     neoclassical_profile_bootstrap_current,
     mhd_linear_profile_b_field_perturbed,
     mhd_linear_profile_displacement,
+    mhd_linear_profile_island_width,
+    mhd_linear_profile_resonant_flux,
     impa_profile_field,
     thomson_scattering_profile_electron_density,
     thomson_scattering_profile_electron_temperature,

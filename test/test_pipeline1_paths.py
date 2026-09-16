@@ -102,18 +102,18 @@ def test_filedb_layout_matches_the_canonical_resolver():
     assert paths.raw_manifest(SHOT) == str(
         filedb.raw(SHOT) / f"vest_{SHOT}_daq_manifest.json"
     )
-    assert paths.diagnostics_ods(SHOT) == str(
-        filedb.omas("diagnostics", shot=SHOT, artifact="output") / "diagnostics.json"
-    )
-    assert paths.eddy_ods(SHOT) == str(
-        filedb.omas("eddy", shot=SHOT, artifact="output") / "eddy.json"
-    )
+    # Asked of the resolver rather than spelled out: the container is declared
+    # in one place (`OMAS_PRODUCT_SUFFIX` / `OMAS_PRODUCT_SUFFIXES`), and a
+    # literal here would have to be edited every time it moves -- which is how
+    # a fourth spelling of a product name gets into circulation.
+    assert paths.diagnostics_ods(SHOT) == str(filedb.omas_product("diagnostics", shot=SHOT))
+    assert paths.eddy_ods(SHOT) == str(filedb.omas_product("eddy", shot=SHOT))
     # Issue #77: EFIT constraints live under omas/efit/{shot}/work.
     assert paths.constraints_ods(SHOT) == str(
         filedb.omas("efit", shot=SHOT, family=FAMILY, artifact="work") / "constraints.json"
     )
     assert paths.efit_ods(SHOT) == str(
-        filedb.omas("efit", shot=SHOT, family=FAMILY, artifact="output") / "efit.json"
+        filedb.omas_product("efit", shot=SHOT, family=FAMILY)
     )
     # Issue #139: validation plots are a canonical `plot/` artifact, resolved
     # beside the stage output they validate.
@@ -122,7 +122,7 @@ def test_filedb_layout_matches_the_canonical_resolver():
         / "equilibrium_overview_verification.png"
     )
     assert paths.chease_ods(SHOT) == str(
-        filedb.omas("chease", shot=SHOT, family=FAMILY, artifact="output") / "chease.json"
+        filedb.omas_product("chease", shot=SHOT, family=FAMILY)
     )
     assert paths.kfile_manifest(SHOT) == str(
         filedb.efit(SHOT, family=FAMILY, artifact="input") / "kfiles_generated.txt"
@@ -137,8 +137,7 @@ def test_filedb_layout_matches_the_canonical_resolver():
         filedb.chease(SHOT, family=FAMILY, artifact="output") / "refined_gfiles_generated.txt"
     )
     assert paths.static_ods(VERSION) == str(
-        filedb.omas("static", machine_version=VERSION, artifact="output")
-        / "static.json"
+        filedb.omas_product("static", machine_version=VERSION)
     )
     assert paths.static_manifest(VERSION) == str(
         filedb.omas("static", machine_version=VERSION, artifact="metadata")
@@ -148,10 +147,10 @@ def test_filedb_layout_matches_the_canonical_resolver():
     # AOS is a dense (time, n_tor) grid, so two products sharing a stage product
     # would overwrite each other at the same (time_slice, position).
     assert paths.mhd_linear_ods(SHOT, "dcon") == str(
-        filedb.omas(
+        filedb.omas_product(
             "mhd_linear", shot=SHOT, family=FAMILY, refinement=REFINEMENT,
-            product="dcon-peeling", artifact="output",
-        ) / "mhd_linear.json"
+            product="dcon-peeling",
+        )
     )
     assert paths.mhd_linear_manifest(SHOT, "rdcon") == str(
         filedb.omas(

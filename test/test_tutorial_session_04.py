@@ -171,7 +171,9 @@ def test_the_array_sets_the_resolution_and_the_session_says_so(executed):
     printed = _printed(executed)
     assert "toroidal angles that recorded: [0.0, 240.0]" in printed
     assert "n is resolved modulo 3" in printed
-    assert "toroidal angles that recorded: [45.0, 135.0, 225.0]" in printed
+    # The identifiers carry the VEST clock angles 45/135/225; their IMAS
+    # toroidal angles are the reflection of those (issue #718).
+    assert "toroidal angles that recorded: [135.0, 225.0, 315.0]" in printed
     assert "n is resolved modulo 4" in printed
 
 

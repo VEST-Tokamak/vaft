@@ -16,6 +16,7 @@ import json
 import pytest
 
 from vaft.database.filedb import (
+    OMAS_PRODUCT_SUFFIX as PRODUCT_SUFFIX,
     FileDB,
     FileDBPathError,
     audit_filedb_grammar,
@@ -39,12 +40,18 @@ def _old_grammar_tree(root):
         f"gpec/dcon/{SHOT}/n=2/work/dcon.out": "dcon n=2",
         f"gpec/rdcon/{SHOT}/n=1/metadata/status.txt": "completed",
         f"gpec/ideal-gpec/{SHOT}/n=1/work/gpec.out": "gpec",
-        f"omas/efit/{SHOT}/output/efit.json": "{}",
-        f"omas/chease/{SHOT}/output/chease.json": "{}",
+        # The product file names come from the container declaration, because
+        # one assertion below asks the resolver for them. Relocation itself
+        # renames directories and never looks inside, so their contents are
+        # placeholders and their suffix is irrelevant to what it does -- but a
+        # literal here would silently stop matching the resolver the next time
+        # the container moves, and the test would then prove nothing.
+        f"omas/efit/{SHOT}/output/efit{PRODUCT_SUFFIX}": "{}",
+        f"omas/chease/{SHOT}/output/chease{PRODUCT_SUFFIX}": "{}",
         # Stages that belong to no family must be left exactly where they are.
-        f"omas/diagnostics/{SHOT}/output/diagnostics.json": "{}",
+        f"omas/diagnostics/{SHOT}/output/diagnostics{PRODUCT_SUFFIX}": "{}",
         f"raw/{SHOT}/vest_{SHOT}_daq_raw.json.gz": "raw",
-        "omas/static/vest-2019/output/static.json": "{}",
+        f"omas/static/vest-2019/output/static{PRODUCT_SUFFIX}": "{}",
     }
     for relative, text in payload.items():
         path = root / relative
@@ -138,9 +145,9 @@ def test_stages_that_belong_to_no_family_are_left_alone(tmp_path):
 
     relocate_filedb_grammar(root, apply=True)
 
-    assert (root / f"omas/diagnostics/{SHOT}/output/diagnostics.json").exists()
+    assert (root / f"omas/diagnostics/{SHOT}/output/diagnostics{PRODUCT_SUFFIX}").exists()
     assert (root / f"raw/{SHOT}/vest_{SHOT}_daq_raw.json.gz").exists()
-    assert (root / "omas/static/vest-2019/output/static.json").exists()
+    assert (root / f"omas/static/vest-2019/output/static{PRODUCT_SUFFIX}").exists()
     assert not (root / "omas/diagnostics/magnetic").exists()
 
 

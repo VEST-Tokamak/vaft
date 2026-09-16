@@ -16,9 +16,11 @@ The mechanism, which is not what either issue assumed:
   that to XML on the way to an entry.  A freshly built ODS survives whatever
   its shape -- which is exactly why the defect is invisible to the code that
   writes it.
-* **The stage product is where the shape is lost.**  A local product is JSON or
-  HDF5 (`vaft.database.filedb.OMAS_PRODUCT_SUFFIX`), and a reload restores the
-  block as a plain ODS branch, not a `CodeParameters`.  The Access Layer
+* **The stage product is where the shape is lost.**  A local product is gzipped
+  JSON or HDF5 (`vaft.database.filedb.OMAS_PRODUCT_SUFFIX`), and a reload
+  restores the block as a plain ODS branch, not a `CodeParameters`.  The
+  container is irrelevant to this: the shape is lost at serialization, not at
+  encoding.  The Access Layer
   discards a plain branch: no exception, no returned path, one `WARNING: ... is
   not part of IMAS` line on stderr that a pipeline log buries.
 * **The loader rescues one shape only.**  `vaft.omas.load` promotes a *flat,

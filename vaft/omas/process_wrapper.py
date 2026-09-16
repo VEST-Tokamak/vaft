@@ -2234,12 +2234,6 @@ def compute_virial_equilibrium_quantities_ods(
                 eq_idx, alpha_method,
             )
 
-        B_t0 = np.nan
-        if "equilibrium.vacuum_toroidal_field.b0" in ods:
-            B_t0 = float(np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float).flat[0])
-        elif "global_quantities.magnetic_axis.b_field_tor" in eq_ts:
-            B_t0 = float(eq_ts["global_quantities.magnetic_axis.b_field_tor"])
-
         # mu_i as the three virial relations define it, and as
         # docs/_guide/Equilibrium.md states it: the volume integral of
         # B_tv^2 - B_t^2, positive for a diamagnetic plasma.
@@ -2254,11 +2248,28 @@ def compute_virial_equilibrium_quantities_ods(
         # The flux quantity is kept beside it under a name that says so.
         mui = np.nan
         mui_from_flux = np.nan
-        if np.isfinite(phi_dia_comp) and np.isfinite(B_t0) and np.isfinite(V_p) and np.isfinite(B_pa):
-            if V_p > 0.0 and B_pa > 0.0:
-                mui_from_flux = computed_diamagnetism_from_phi(
-                    phi_dia_comp, B_t0, R_0, V_p, B_pa
-                )
+        # The conversion needs B_t * R_0, which is F at the boundary -- not b0
+        # times this slice's radius. b0 is defined at vacuum_toroidal_field.r0,
+        # a fixed 0.4 m, while R_0 here is the geometric axis, which moves from
+        # 0.3989 to 0.2426 within the packaged shot. Pairing the two made this
+        # quantity drift away from the volume mu_i it is the negative of: the
+        # ratio ran -0.974 to -0.594 across those eight slices instead of
+        # holding near -1, a 41% error by the last one. With F at the boundary
+        # the spread is -0.977 to -0.982, which is the genuine first-order
+        # (F - F_b)/F_b term and all that a single flux can resolve.
+        #
+        # No fallback to b0: a slice without F at the boundary cannot have this
+        # converted correctly, and the old pairing is what it would fall back to.
+        if (
+            np.isfinite(phi_dia_comp)
+            and np.isfinite(F_boundary)
+            and np.isfinite(R_0) and R_0
+            and np.isfinite(V_p) and V_p > 0.0
+            and np.isfinite(B_pa) and B_pa > 0.0
+        ):
+            mui_from_flux = computed_diamagnetism_from_phi(
+                phi_dia_comp, F_boundary / R_0, R_0, V_p, B_pa
+            )
         if (
             np.isfinite(B_pa) and B_pa > 0.0
             and np.isfinite(V_p) and V_p > 0.0

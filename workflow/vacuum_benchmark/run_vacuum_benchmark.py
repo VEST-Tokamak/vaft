@@ -45,9 +45,12 @@ from vaft.validation.vacuum_benchmark import (
 
 
 def _load(path: Path) -> Any:
-    from omas import load_omas_json
+    # `vaft.omas.load`, not `load_omas_json`: canonical stage products are
+    # gzipped, which this script's own usage example above has always spelled
+    # and `load_omas_json` has never been able to read.
+    from vaft.omas import load
 
-    return load_omas_json(str(path), consistency_check=False)
+    return load(path)
 
 
 def _machine_era(shot: int | None) -> str | None:

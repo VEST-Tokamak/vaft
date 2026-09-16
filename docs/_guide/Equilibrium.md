@@ -429,7 +429,17 @@ era and asset hashes, the executable identity, the input hash and every
 output file's sha256 and size.  An EFIT run's `efit_configuration.json`
 records the table its k-files point at through `table_identity()`: by
 manifest when the directory has one, by the hash of `mhdin.dat` otherwise.
-The bundled `vaft/data/efit/` table is of the second kind.
+The bundled `vaft/data/efit/` table has carried a manifest since #695, so it
+is of the first kind.
+
+`table.identity` is a digest over the produced files, and it deliberately
+does **not** cover all of them.  `mhdout.dat` is excluded: it is EFUND's echo
+of its own namelist, nothing reads it, and it carries at least one
+uninitialised Fortran value -- `KUBICS` is 4 in the input and came back
+83664424 from one run and 4890152 from the next.  Hashing it made the
+identity answer "which invocation produced this" rather than "which table is
+this", so a regenerate-and-compare check could never pass (#793).  Its hash
+is still recorded under `table.files`.
 
 `workflow/efit_tables/` regenerates a table, compares two table directories
 layer by layer, and runs a controlled EFIT A/B in which only the table

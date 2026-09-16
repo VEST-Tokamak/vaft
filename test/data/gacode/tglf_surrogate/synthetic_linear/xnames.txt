@@ -1,0 +1,3 @@
+Q_LOC
+RMIN_LOC
+BETAE_log10
