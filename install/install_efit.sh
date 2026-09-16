@@ -104,6 +104,16 @@ esac
 [[ -n "$BUILD_DIR" ]] || BUILD_DIR="$SOURCE/build-vaft-$PLATFORM"
 MANIFEST="$PREFIX/$MANIFEST_NAME"
 
+# The prefix is removed wholesale by --uninstall, so it must never be inside the
+# VAFT checkout. The PowerShell installers enforce this through
+# Resolve-InstallPrefix; the POSIX ones did not. Made absolute first, or a
+# relative --prefix would slip past the comparison and past the manifest.
+[[ "$PREFIX" == /* ]] || PREFIX="$PWD/$PREFIX"
+VAFT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+case "$PREFIX/" in
+  "$VAFT_ROOT"/*) die "the install prefix must be outside the VAFT checkout, because --uninstall removes it: $PREFIX is inside $VAFT_ROOT" ;;
+esac
+
 PYTHON="$(command -v python3 || command -v python || true)"
 [[ -n "$PYTHON" ]] || die "python3 is required (the VAFT environment provides it)"
 
@@ -174,8 +184,25 @@ else
   FC_PATH="$(command -v gfortran || true)"
   [[ -n "$FC_PATH" ]] || die "gfortran is required (e.g. apt install gfortran)"
   if ((WITH_NETCDF)); then
-    command -v nf-config >/dev/null || die "NetCDF-Fortran is required for m-files (e.g. apt install libnetcdff-dev), or pass --without-netcdf"
-    NETCDF_C_DIR="$(nc-config --prefix 2>/dev/null || echo /usr)"; NETCDF_F_DIR="$(nf-config --prefix 2>/dev/null || echo /usr)"
+    # Pick the netCDF-Fortran by the compiler it was built with, not by PATH
+    # order. nf-config reports its own --fc, and a library built with ifort
+    # ships ifort .mod files: linking those into a gfortran build fails with
+    # errors that never mention a compiler. On a machine carrying a hand-built
+    # netCDF ahead of the distribution one -- which is ordinary on a cluster --
+    # taking the first nf-config silently configures the wrong one.
+    NETCDF_F_DIR=""
+    for candidate in "$(command -v nf-config || true)" /usr/bin/nf-config /usr/local/bin/nf-config; do
+      [[ -n "$candidate" && -x "$candidate" ]] || continue
+      candidate_fc="$("$candidate" --fc 2>/dev/null || true)"
+      if [[ "$(basename "${candidate_fc%% *}")" == gfortran* ]]; then
+        NETCDF_F_DIR="$("$candidate" --prefix)"
+        note "using netCDF-Fortran from $candidate"
+        break
+      fi
+      note "skipping $candidate: built with ${candidate_fc:-an unknown compiler}, not gfortran"
+    done
+    [[ -n "$NETCDF_F_DIR" ]] || die "NetCDF-Fortran built with gfortran is required for m-files (e.g. apt install libnetcdff-dev), or pass --without-netcdf"
+    NETCDF_C_DIR="$(nc-config --prefix 2>/dev/null || echo /usr)"
   fi
 fi
 CMAKE_ARGS+=("-DCMAKE_Fortran_COMPILER=$FC_PATH")

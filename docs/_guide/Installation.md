@@ -174,8 +174,22 @@ terminal and a Jupyter kernel both inherit them:
 ```
 
 The executable under `bin/` may be the native `chease.exe` or `dcon.exe`; VAFT
-resolves the documented POSIX name to it. `install/README.md` covers building
-CHEASE and the DCON/GPEC suite natively on Windows.
+resolves the documented POSIX name to it.
+
+CHEASE and the DCON/GPEC suite build on every platform from `install/`. On Linux
+and macOS, against a checkout you obtained yourself:
+
+```bash
+bash install/install_chease.sh --source ~/git/CHEASE
+bash install/install_gpec.sh   --source ~/git/GPEC
+```
+
+Each installs into `<source>/vaft-install` — the path to point `CHEASEHOME` or
+`GPECHOME` at, which the script prints when it finishes — and then runs the
+matching checker, which refines a packaged equilibrium for CHEASE and drives the
+real DCON-to-GPEC handoff for GPEC. `install/README.md` carries the per-platform
+detail, including the Debian package list and the three Linux build settings that
+otherwise fail quietly.
 
 
 ## Expected outputs

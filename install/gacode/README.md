@@ -18,20 +18,53 @@ executables land inside the source tree (`neo/src/neo`, launched through
 `neo/bin/neo`). `$GACODEHOME` therefore points at the checkout itself, which is
 why this code has no `<root>/local` the way NUBEAM does.
 
-**macOS / Apple Silicon.** Linux and Windows are not covered here. None of this
+**macOS / Apple Silicon and Linux.** Windows is not covered here. None of this
 runs in CI; the VAFT test suite passes with GACODE absent.
 
 | File | Purpose |
 | --- | --- |
 | `macos.sh` | Installs the Homebrew dependencies, builds the shared and `f2py` libraries and the requested suite members, and optionally runs the NEO `reg18` regression case. **`--codes` defaults to `neo` alone**, so pass `--codes neo,tglf` unless you want a tree that cannot run half of what VAFT drives. |
+| `linux.sh` | The same build, against distribution packages. Names what is missing rather than installing it, and **defaults to `--codes neo,tglf`** — the set `install/check_gacode.py` requires — so the flag is not needed here. |
 
 ## Usage
 
 ```bash
+# Linux -- neo,tglf is the default here
+bash install/gacode/linux.sh --gacode-root ~/git/gacode --check
+# macOS / Apple Silicon -- --codes is needed, it defaults to neo alone
 bash install/gacode/macos.sh --gacode-root ~/git/gacode --codes neo,tglf --check
+
+
 export GACODEHOME=~/git/gacode
+export GACODE_PLATFORM=TUMBLEWEED        # Linux; GFORTRAN_OSX_BREW on macOS
 python install/check_gacode.py --source ~/git/gacode
 ```
+
+On Linux, install the toolchain yourself first — `linux.sh` names what is
+missing and stops, because a package install needs root and a compiler is your
+decision:
+
+```bash
+apt install gfortran make openmpi-bin libopenmpi-dev \
+            liblapack-dev libblas-dev libfftw3-dev libnetcdff-dev
+```
+
+### Why `TUMBLEWEED` on Linux
+
+Upstream ships about ninety platform tags and every one is named for a site or
+a distribution; there is no generic "Linux + gfortran" entry to select.
+`TUMBLEWEED` is the default because its settings are the ones a stock Linux box
+already satisfies: `mpifort`, `-fallow-argument-mismatch` (which gfortran 10 and
+newer require), and system `lapack`/`blas`/`fftw` rather than a hand-built
+OpenBLAS under somebody's home directory — which is what rules out the
+otherwise-similar `MINT`. `--platform` overrides it if your site has its own.
+
+Two consequences worth knowing. `TUMBLEWEED` compiles with `-march=native`, so
+the binaries are tuned to the machine that built them; that is right for a local
+build and wrong for one you mean to copy to a different CPU. And the tag selects
+`platform/exec/exec.$GACODE_PLATFORM` as well as the build file, so `linux.sh`
+refuses a tag that has only one of the two — a tag that builds but cannot launch
+fails later, inside a shell script, without naming itself.
 
 ## The environment contract, and why VAFT does not replace it
 
@@ -109,6 +142,15 @@ spherical-tokamak; the rest are Julia `.bson` and cannot be read from Python.
 
 ## Verified
 
-Built against `gafusion/gacode` `6357db30` (2026-07-22) with Homebrew
-gfortran 15.2 and Open MPI on macOS/arm64. The NEO `reg18` regression case
-reproduces its shipped `out.neo.prec` value `0.12268957E+02` exactly.
+**macOS/arm64.** Built against `gafusion/gacode` `6357db30` (2026-07-22) with
+Homebrew gfortran 15.2 and Open MPI. The NEO `reg18` regression case reproduces
+its shipped `out.neo.prec` value `0.12268957E+02` exactly.
+
+**Linux/x86_64.** Built against `gafusion/gacode` `b49339750` with
+gfortran 11.4.0 and Open MPI 4.1.2 on Ubuntu 22.04.4, `GACODE_PLATFORM=TUMBLEWEED`,
+`--codes neo,tglf`. `reg18` reproduces `0.12268957E+02` — **the same value, to
+every digit, as the macOS build above** — and `install/check_gacode.py` reports
+every layer green.
+
+The two platforms agreeing bit-for-bit on `reg18` is the point of recording the
+number here rather than only "it passed".

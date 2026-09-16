@@ -12,9 +12,12 @@ and has its own entry points: see
 Build recipes for the external codes live beside the bootstrap, one directory
 per code: [`install/nubeam/`](nubeam/) and [`install/gacode/`](gacode/). Both
 operate on a source tree you supply rather than one VAFT vendors, and neither
-is run by CI. NUBEAM builds on macOS/Apple Silicon (`macos.sh`) and native
-Windows (`windows.ps1`); GACODE is macOS/Apple Silicon only so far. CHEASE and
-GPEC have native-Windows installers here and belong to #226 elsewhere.
+is run by CI. NUBEAM builds on Linux (`linux.sh`), macOS/Apple Silicon
+(`macos.sh`) and native Windows (`windows.ps1`); GACODE builds on Linux
+(`linux.sh`) and macOS/Apple Silicon (`macos.sh`). CHEASE and GPEC are installed
+from this directory on every platform: `install_chease.sh` and `install_gpec.sh`
+on Linux and macOS, `install_chease_windows.ps1` and `install_gpec_windows.ps1`
+on native Windows.
 
 Budget about 15–20 minutes from a nearly clean machine.
 
@@ -294,9 +297,12 @@ to *run* CHEASE or the DCON/GPEC suite rather than only prepare their inputs.
 
 ```text
 Need VAFT only?            -> the platform script above; you are done
-Need CHEASE?               -> obtain CHEASE, then install\install_chease_windows.ps1
-Need DCON/GPEC?            -> obtain GPEC, then install_gpec_windows.ps1 -BuildDependencies
-Need EFIT/EFUND?           -> obtain EFIT, then install_efit_windows.ps1 -AcceptEfitUsersAgreement
+Need CHEASE?    Linux/macOS -> bash install/install_chease.sh --source PATH
+                Windows     -> install\install_chease_windows.ps1
+Need DCON/GPEC? Linux/macOS -> bash install/install_gpec.sh --source PATH
+                Windows     -> install_gpec_windows.ps1 -BuildDependencies
+Need EFIT/EFUND? Linux/macOS -> bash install/install_efit.sh --source PATH --accept-efit-users-agreement
+                Windows     -> install_efit_windows.ps1 -AcceptEfitUsersAgreement
 ```
 
 **You obtain the source yourself.** The installers take the path to a checkout
@@ -511,17 +517,29 @@ generates stays inside your NUBEAM source tree. See
 
 ### GACODE
 
-GACODE has its own entry point, [`install/gacode/macos.sh`](gacode/macos.sh),
-which installs the Homebrew dependencies, builds the shared and `f2py` libraries and the
-requested suite members, and can run NEO's shipped `reg18` regression case in the same
-invocation:
+GACODE has one entry point per platform — [`install/gacode/linux.sh`](gacode/linux.sh)
+and [`install/gacode/macos.sh`](gacode/macos.sh) — each of which builds the shared and
+`f2py` libraries and the requested suite members, and can run NEO's shipped `reg18`
+regression case in the same invocation:
 
 ```bash
-bash install/gacode/macos.sh --gacode-root ~/git/gacode --check
-export GACODEHOME=~/git/gacode
+# Linux: install gfortran, make, openmpi, lapack, blas, fftw and netcdff first;
+# the script names what is missing rather than installing it.
+bash install/gacode/linux.sh --gacode-root ~/git/gacode --check
+export GACODE_PLATFORM=TUMBLEWEED
+
+# macOS / Apple Silicon: Homebrew dependencies are installed for you, but
+# --codes is not optional there -- macos.sh builds neo alone by default.
+bash install/gacode/macos.sh --gacode-root ~/git/gacode --codes neo,tglf --check
 export GACODE_PLATFORM=GFORTRAN_OSX_BREW
+
+export GACODEHOME=~/git/gacode
 python install/check_gacode.py --source ~/git/gacode
 ```
+
+`linux.sh` defaults to `neo,tglf` rather than `neo` alone, because
+`install/check_gacode.py` requires both; `macos.sh` still defaults to `neo`, so
+pass the flag there.
 
 Two things about it differ from every other code here. It **builds in place**, so
 `GACODEHOME` is the checkout rather than a separate prefix; and each suite member carries
@@ -529,10 +547,11 @@ its own `bin`, so the executables are `neo/bin/neo` and `tglf/bin/tglf`, not
 `bin/neo`. It also needs
 `GACODE_PLATFORM`, which selects `platform/exec/exec.$GACODE_PLATFORM` at run time --
 `vaft.code.gacode` resolves it up front and lists the available tags, because a wrong
-value otherwise fails inside a shell script without naming itself. Pass
-`--codes neo,tglf`: the script builds `neo` alone by default, and VAFT drives both.
-See [`install/gacode/README.md`](gacode/README.md). macOS/Apple Silicon only for
-now.
+value otherwise fails inside a shell script without naming itself. On macOS pass
+`--codes neo,tglf`: `macos.sh` builds `neo` alone by default and VAFT drives both.
+`linux.sh` already defaults to both. See
+[`install/gacode/README.md`](gacode/README.md), which also explains why the Linux
+recipe defaults to the `TUMBLEWEED` tag out of upstream's ninety.
 
 The TGLF-NN surrogate needs no build and no compiler at all -- only pretrained
 networks, which VAFT neither vendors nor downloads. Point
@@ -544,27 +563,73 @@ to one model name.
 
 ### Linux and macOS
 
-CHEASE and GPEC are not yet automated — tracked in
-[issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). Build by hand
-with the recipe in
-`workflow/automatic_pipeline_1_routine_data_processing/DEPLOYMENT.md`, then set
-`CHEASEHOME` / `GPECHOME` the same way. `install/check_chease.py` and
-`install/check_gpec.py` run on every platform, so the verification half is
-available today.
+```bash
+bash install/install_chease.sh --source ~/git/CHEASE
+bash install/install_gpec.sh   --source ~/git/GPEC
+```
+
+Each builds the code, installs into `<source>/vaft-install`, writes
+`vaft-external-install.json` recording the revision and the exact build command,
+and finishes by running the matching checker. Both accept `--check-only`,
+`--uninstall`, `--jobs N` and `--allow-dirty`, and both refuse a source tree
+with uncommitted changes unless you pass that last one, because a build from a
+dirty tree has no revision you can state.
+
+Install the compiler and libraries yourself first — these scripts name what is
+missing, they never run a package manager:
+
+| Code | Debian/Ubuntu packages |
+| --- | --- |
+| CHEASE | `gfortran make git` |
+| GPEC | `gfortran gcc make git libnetcdff-dev liblapack-dev libblas-dev` |
+
+Three things about the Linux build worth knowing before they bite:
+
+**The first `nf-config` on `PATH` may be the wrong netCDF-Fortran.** A library
+built with `ifort` ships `ifort` `.mod` files, and linking those into a gfortran
+build fails with errors that never mention a compiler. `install_gpec.sh` asks
+each candidate what it was built with (`nf-config --fc`) and takes the first
+that answers `gfortran`, reporting the ones it skipped. On a machine with a
+hand-built netCDF ahead of the distro one, expect to see it skip.
+
+**`-fallow-argument-mismatch` is mandatory on gfortran 10 and newer.** Without
+it `dcon_interface.mod` is never produced, and every dependent package then
+fails on the missing module rather than on the real cause. The script sets it.
+
+**`CHEASE_MACHINE` is not cosmetic.** `src-f90/Makefile.define_FLAGS` matches
+`linux_nohdf5` in exactly one branch, and that branch is the only one setting
+`-fdefault-real-8 -fdefault-double-8`. Upstream's default machine compiles
+cleanly in single precision and gives you a numerically different code, with no
+warning anywhere. The script pins it; `--machine` overrides it if you must.
+
+Clone CHEASE with symlink support — it commits several sources as symlinks, and
+a tree without them holds one-line placeholders that gfortran reports as a
+syntax error naming nothing useful:
+
+```bash
+git -c core.symlinks=true clone https://gitlab.epfl.ch/spc/chease.git ~/git/CHEASE
+git clone https://github.com/PrincetonUniversity/GPEC.git ~/git/GPEC
+```
+
+`install_chease.sh` detects the placeholder case and says so rather than letting
+the compiler fail obscurely.
 
 ### Tested toolchain
 
-| Component | Version used for the Windows verification |
-| --- | --- |
-| MSYS2 | 20260611 (UCRT64 environment) |
-| gcc / gfortran | 16.2.0 |
-| GNU make | 4.4.1 |
-| OpenBLAS | 0.3.34 |
-| HDF5 | 1.14.6, built with `--disable-ros3-vfd` |
-| netCDF-C / netCDF-Fortran | 4.9.3 / 4.6.1, built with `--disable-s3 --disable-nczarr` |
-| CHEASE | `fb46366` |
-| GPEC | `e68d7ac2` (v1.5.7-611) |
-| NUBEAM | 2021 serial distribution, with NTCC PSPLINE / PREACT / XPLASMA |
+| Component | Windows verification | Linux verification |
+| --- | --- | --- |
+| OS | Windows 11, MSYS2 20260611 (UCRT64) | Ubuntu 22.04.4 LTS, x86_64 |
+| gcc / gfortran | 16.2.0 | 11.4.0 |
+| GNU make | 4.4.1 | 4.3 |
+| BLAS / LAPACK | OpenBLAS 0.3.34 | reference netlib (`libblas`, `liblapack`) |
+| HDF5 | 1.14.6, built with `--disable-ros3-vfd` | 1.10.7 (distro, serial) |
+| netCDF-C / netCDF-Fortran | 4.9.3 / 4.6.1, built with `--disable-s3 --disable-nczarr` | 4.8.1 / distro `libnetcdff-dev` |
+| CHEASE | `fb46366` | `fb46366` |
+| GPEC | `e68d7ac2` (v1.5.7-611) | `e68d7ac2` (v1.5.7-611) |
+| NUBEAM | 2021 serial distribution, with NTCC PSPLINE / PREACT / XPLASMA | not yet |
+
+Both platforms were verified at the same CHEASE and GPEC revisions, so the two
+columns are comparable rather than merely adjacent.
 
 ## EFIT and EFUND (licensed software; obtain it yourself)
 
@@ -889,4 +954,6 @@ into your question.
 | CHEASE, Windows native | Verified **manually** on a clean Windows 11 machine: build, VAFT discovery, a refinement of a packaged equilibrium, and its comparison metrics. Not automated -- hosted runners have no Fortran toolchain, and a full build takes tens of minutes. |
 | DCON/GPEC, Windows native | Verified **manually** on a clean Windows 11 machine with `-BuildDependencies`: build, VAFT discovery, the DCON to GPEC handoff on upstream's Solov'ev regression, and its energies. Not automated -- hosted runners have no Fortran toolchain and the dependency chain alone takes half an hour. The script-level guarantees are pinned by `test/test_install_bootstrap.py`, which runs in CI on every platform. |
 | EFIT/EFUND, Windows native | Verified **manually** on Windows 11, end to end: build, runtime-library colocation, EFUND's seven Green tables byte-exact, and a full DIII-D reconstruction of shot 186610 at 2400 ms driven through `vaft.code.efit` with no MSYS2 on `PATH` -- chi^2 2.081E+01, q95 2.956, g-file, a-file and m-file written, process exits 0. Requires one upstream defect fixed in your own tree; see below. |
-| CHEASE and DCON/GPEC, Linux and macOS | Installers not yet written -- tracked in [issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). The checkers run on every platform today. |
+| CHEASE, Linux | Verified **manually** on Ubuntu 22.04.4 (gfortran 11.4.0) at `fb46366`: `install_chease.sh` build, install, `--check-only`, a second run for idempotency, and `--uninstall`. `check_chease.py` reports every layer green, including the refinement of the packaged `g039915.00319` -- `q_rms_rel=0.0144`, `pressure_rms_rel=0.0655`, `current_rel_diff=0.0429`. Not automated: hosted runners have no Fortran toolchain. |
+| DCON/GPEC, Linux | Verified **manually** on the same machine at `e68d7ac2`: `install_gpec.sh` build with OpenMP, install of all six executables, and the same lifecycle. `check_gpec.py` reports every layer green through the DCON to GPEC handoff (`euler.bin` 4114900 bytes), with `DCON numerical agreement` reporting plasma **14.28**, vacuum **2.355**, total **16.63**, stable. The Windows section above says that build computes "the same energies it computes on Linux"; these are those energies, written down so the claim can be re-checked rather than taken. Not automated, for the same reason. |
+| CHEASE and DCON/GPEC, macOS | The POSIX installers carry a `darwin` arm but it is **untested**; only their Linux arm has been run. The checkers run on every platform today. |

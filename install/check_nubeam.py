@@ -47,9 +47,18 @@ EXECUTABLES = ("plasma_state_test", "nubeam_comp_exec", "update_state")
 #: A NUBEAM source tree, as install/nubeam/macos.sh identifies one.
 SOURCE_MARKERS = ("Makefile", "nubeam_comp_exec")
 
+#: The recipe that works on this platform. NUBEAM has one per platform and
+#: they are not interchangeable; the path also moved from external/ to
+#: install/ when the build recipes were consolidated.
 BUILD_REMEDIATION = (
     "Build NUBEAM with:\n"
-    "         powershell -ExecutionPolicy Bypass -File external\\nubeam\\windows.ps1 <source> -AcceptNtccTerms"
+    + (
+        "         powershell -ExecutionPolicy Bypass -File install\\nubeam\\windows.ps1 <source> -AcceptNtccTerms"
+        if os.name == "nt"
+        else "         bash install/nubeam/"
+        + ("macos.sh" if sys.platform == "darwin" else "linux.sh")
+        + " --nubeam-root <source> --accept-ntcc-terms"
+    )
 )
 
 
@@ -217,7 +226,7 @@ def run_checks(
     if prefix is None:
         prefix = os.environ.get("NUBEAMHOME")
     if prefix is None:
-        candidate = default_prefix("nubeam")
+        candidate = default_prefix("nubeam", source)
         if candidate is not None and (candidate / "bin").is_dir():
             prefix = str(candidate)
 
