@@ -106,9 +106,13 @@ def test_a_name_outside_the_suite_is_refused():
 
 
 def test_the_canonical_layout_resolves(monkeypatch, installation):
+    # Compare with the launcher the stub helper actually wrote, not with the
+    # POSIX name: on Windows it is `neo.cmd`, the resolver correctly finds that,
+    # and a spelled-out `.../bin/neo` fails there while meaning nothing extra here.
+    expected = write_launchable_stub(installation / "neo" / "bin" / "neo")
     monkeypatch.setenv(GACODE_HOME_ENV, str(installation))
     resolved = find_gacode_executable(GACODEConfig(), "neo")
-    assert resolved == installation / "neo" / "bin" / "neo"
+    assert resolved == expected
 
 
 def test_gacode_root_is_accepted_as_a_compatibility_fallback(monkeypatch, installation):
