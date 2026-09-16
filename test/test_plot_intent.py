@@ -39,12 +39,14 @@ from vaft.plot.intent import (
 from vaft.plot.presentation import THEMES, Presentation
 from vaft.plot.registry import canonical_names
 
+from _sample_fixtures import sample_ods
+
 SNAPSHOT = Path(__file__).parent / "data" / "plot_colour_snapshot.json"
 
 
 @pytest.fixture(scope="module")
 def sample():
-    return vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    return sample_ods(39915)
 
 
 @pytest.fixture(autouse=True)

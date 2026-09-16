@@ -31,12 +31,14 @@ from vaft.plot.backend.recipes import (
 from vaft.plot.display import PSI_STYLES
 from vaft.plot.models import Field2D
 
+from _sample_fixtures import sample_ods
+
 SLICE = 4
 
 
 @pytest.fixture(scope="module")
 def sample():
-    return vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    return sample_ods(39915)
 
 
 @pytest.fixture(scope="module")
