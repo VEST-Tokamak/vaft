@@ -54,6 +54,7 @@ SOURCE="${GPEC_SOURCE_DIR:-}"
 PREFIX=""
 LAPACK_HOME=""
 NETCDF_F_HOME=""
+NETCDF_C_HOME=""
 NETCDF_INC=""
 ALLOW_DIRTY=0
 JOBS=""
@@ -70,6 +71,9 @@ Usage: bash install/install_gpec.sh --source PATH [options]
   --lapack-home PATH           LAPACKHOME for upstream's makefile (default: /usr)
   --netcdf-fortran-home PATH   directory holding libnetcdff (default: derived from
                                an nf-config whose --fc matches the Fortran compiler)
+  --netcdf-c-home PATH         prefix holding libnetcdf, when netCDF-C is packaged
+                               apart from netCDF-Fortran (default: derived from
+                               nc-config, and only when they are in fact apart)
   --netcdf-include PATH        netCDF include directory (default: derived likewise)
   --allow-dirty                build a tree with uncommitted tracked changes; the diff
                                digest and file list are then recorded in the manifest
@@ -97,6 +101,7 @@ while (($#)); do
     --prefix) (($# >= 2)) || die '--prefix needs a path'; PREFIX="$2"; shift 2 ;;
     --lapack-home) (($# >= 2)) || die '--lapack-home needs a path'; LAPACK_HOME="$2"; shift 2 ;;
     --netcdf-fortran-home) (($# >= 2)) || die '--netcdf-fortran-home needs a path'; NETCDF_F_HOME="$2"; shift 2 ;;
+    --netcdf-c-home) (($# >= 2)) || die '--netcdf-c-home needs a path'; NETCDF_C_HOME="$2"; shift 2 ;;
     --netcdf-include) (($# >= 2)) || die '--netcdf-include needs a path'; NETCDF_INC="$2"; shift 2 ;;
     --allow-dirty) ALLOW_DIRTY=1; shift ;;
     --jobs) (($# >= 2)) || die '--jobs needs a number'; JOBS="$2"; shift 2 ;;
@@ -189,6 +194,31 @@ if [[ -z "$NETCDF_F_HOME" || -z "$NETCDF_INC" ]]; then
   fi
   [[ -n "$NETCDF_INC" ]] || NETCDF_INC="$("$nf_config" --includedir 2>/dev/null || echo /usr/include)"
 fi
+# --- netCDF-C, but only when it is packaged apart from netCDF-Fortran --------
+# upstream's DEFAULTS.inc, given NETCDF_FORTRAN_HOME and nothing else, links
+# -lnetcdf out of netCDF-Fortran's own library directory. On a distro that is
+# right, because the two ship together. Homebrew puts them in separate kegs, so
+# the link line asks for -lnetcdf in a directory that holds only libnetcdff:
+#
+#     ld: library 'netcdf' not found
+#     make: *** [rmatch] Error 1
+#
+# NETCDF_C_HOME is the branch upstream provides for exactly this, so it is set
+# only when the split is real. Setting it unconditionally would break Debian
+# multiarch, where nc-config reports /usr but libnetcdf is under
+# /usr/lib/<triplet> rather than the /usr/lib that DEFAULTS.inc would derive.
+if [[ -z "$NETCDF_C_HOME" ]] && ! compgen -G "$NETCDF_F_HOME/libnetcdf.*" >/dev/null; then
+  nc_config="$(command -v nc-config || true)"
+  if [[ -n "$nc_config" ]]; then
+    candidate="$("$nc_config" --prefix 2>/dev/null || true)"
+    if [[ -n "$candidate" ]] && compgen -G "$candidate/lib/libnetcdf.*" >/dev/null; then
+      NETCDF_C_HOME="$candidate"
+      note "netCDF-C is packaged apart from netCDF-Fortran; taking it from $NETCDF_C_HOME"
+    fi
+  fi
+  [[ -n "$NETCDF_C_HOME" ]] || die "netCDF-Fortran is in $NETCDF_F_HOME but libnetcdf is not, and nc-config did not name a prefix that holds it. Pass --netcdf-c-home."
+fi
+
 [[ -n "$LAPACK_HOME" ]] || LAPACK_HOME=/usr
 [[ -n "$JOBS" ]] || JOBS="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)"
 
@@ -214,6 +244,7 @@ fi
 export FC=gfortran CC=gcc
 export LAPACKHOME="$LAPACK_HOME"
 export NETCDF_FORTRAN_HOME="$NETCDF_F_HOME"
+[[ -z "$NETCDF_C_HOME" ]] || export NETCDF_C_HOME="$NETCDF_C_HOME"
 export NETCDFINC="$NETCDF_INC"
 export FFLAGS="-fallow-argument-mismatch -O2"
 export OMPFLAG=-fopenmp RECURSFLAG=-frecursive LDFLAGS=-fopenmp
@@ -295,6 +326,7 @@ record = {
     "dependency_providers": {
         "lapack_home": "$LAPACK_HOME",
         "netcdf_fortran_home": "$NETCDF_F_HOME",
+        "netcdf_c_home": "$NETCDF_C_HOME" or None,
         "netcdf_include": "$NETCDF_INC",
     },
     "platform": "$PLATFORM",
