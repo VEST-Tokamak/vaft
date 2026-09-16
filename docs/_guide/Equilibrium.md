@@ -115,7 +115,8 @@ arrays and floats, so they are usable outside an ODS.
 from vaft.formula.equilibrium import (
     psi_normalised, q_from_phi, q_from_rhoN,
     volume_from_RZ_boundary, elongation_from_RZ_boundary,
-    triangularity_from_RZ_boundary, bootstrap_current_fraction,
+    triangularity_from_RZ_boundary, triangularity_upper_from_RZ_boundary,
+    triangularity_lower_from_RZ_boundary, bootstrap_current_fraction,
 )
 
 psiN = psi_normalised(psi, psi_axis, psi_boundary)  # (psi - psi_a)/(psi_b - psi_a)
@@ -124,7 +125,14 @@ q = q_from_rhoN(psiN, rhoN, C=1.0)                  # q = C * rho_N * drho_N/dps
 
 V = volume_from_RZ_boundary(R_bdry, Z_bdry)         # 2*pi * A_poly * R_bar
 kappa = elongation_from_RZ_boundary(R_bdry, Z_bdry)
-delta = triangularity_from_RZ_boundary(R_bdry, Z_bdry)
+
+# Triangularity is measured against a reference major radius; pass the
+# geometric centre for the IMAS definition.  An up-down asymmetric boundary
+# needs the two extremity values, not their mean.
+R0_geo = 0.5 * (R_bdry.max() + R_bdry.min())
+delta = triangularity_from_RZ_boundary(R_bdry, Z_bdry, R0_geo)
+delta_u = triangularity_upper_from_RZ_boundary(R_bdry, Z_bdry, R0_geo)
+delta_l = triangularity_lower_from_RZ_boundary(R_bdry, Z_bdry, R0_geo)
 
 f_bs = bootstrap_current_fraction(n_e, T_e_keV, R0, a, q_95)
 ```

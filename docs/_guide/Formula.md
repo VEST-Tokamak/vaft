@@ -143,7 +143,9 @@ s   = vaft.omas.compute_magnetic_shear(ods, 0)     # equilibrium.time_slice[0].p
 ```python
 V     = vaft.formula.volume_from_RZ_boundary(R_bdry, Z_bdry)              # 2 pi A_poly R_bar
 kappa = vaft.formula.elongation_from_RZ_boundary(R_bdry, Z_bdry)          # kappa = (Zmax-Zmin)/(2a)
-delta = vaft.formula.triangularity_from_RZ_boundary(R_bdry, Z_bdry, R0)   # delta = (R0 - R_sep)/a
+delta = vaft.formula.triangularity_from_RZ_boundary(R_bdry, Z_bdry, R0)   # mean of the two below
+d_u   = vaft.formula.triangularity_upper_from_RZ_boundary(R_bdry, Z_bdry, R0)  # (R0 - R at Zmax)/a
+d_l   = vaft.formula.triangularity_lower_from_RZ_boundary(R_bdry, Z_bdry, R0)  # (R0 - R at Zmin)/a
 eK    = vaft.formula.eK_from_K(kappa)                                     # eK = (k^2-1)/(k^2+1)
 eps   = vaft.formula.inverse_aspect_ratio_from_a_R(a, R)                  # epsilon = a/R
 A     = vaft.formula.aspect_ratio_from_a_R(a, R)                          # A = R/a

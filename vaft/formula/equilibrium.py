@@ -1675,13 +1675,95 @@ def elongation_from_RZ_boundary(R: np.ndarray,
     return (Z.max() - Z.min()) / (2 * a)
 
 
-def triangularity_from_RZ_boundary(R: np.ndarray,
-                                  Z: np.ndarray,
-                                  R0: float) -> float:
-    r"""Boundary triangularity $\delta$ from the midplane intersection.
+def r_at_z_extremum_from_RZ_contour(R: np.ndarray,
+                                   Z: np.ndarray,
+                                   *,
+                                   upper: bool) -> float:
+    r"""Major radius where a closed contour reaches its highest or lowest point.
 
-    $$\delta = \frac{R_0 - R_{\mathrm{sep}}|_{Z=0}}{a}, \qquad
-      a = \frac{R_{\max} - R_{\min}}{2}$$
+    $$R_{Z_{\mathrm{ext}}} = R_i + |s|\,(R_{i\pm1} - R_i), \qquad
+      s = \frac{1}{2}\,\frac{Z_{i-1} - Z_{i+1}}{Z_{i-1} - 2Z_i + Z_{i+1}}$$
+
+    with $i$ the index of the extreme sample and $s$ the vertex of the parabola
+    through its two neighbours.
+
+    Parameters
+    ----------
+    R : np.ndarray
+        Major radius of the contour points [m].
+    Z : np.ndarray
+        Height of the contour points, same length as ``R`` [m].
+    upper : bool
+        ``True`` for the highest point, ``False`` for the lowest [-].
+
+    Returns
+    -------
+    float
+        Major radius at that extremum [m].
+
+    Convention
+    ----------
+    Sub-vertex, not nearest-vertex.  Reading the major radius off the sampled
+    vertex of extreme height is wrong by several percent in triangularity
+    because the true extremum falls between vertices, so a parabola is fitted to
+    height over the three points around the extreme sample and the major radius
+    is interpolated there.  Indices wrap, so the contour is treated as closed.
+    A repeated final point is dropped first: without that, an extremum landing on
+    the seam takes its own duplicate as a neighbour, the parabola degenerates and
+    the fit silently falls back to the vertex.
+
+    Limitations
+    -----------
+    Falls back to the extreme vertex for a contour of fewer than three distinct
+    points, and for a flat neighbourhood where the parabola is degenerate.  The
+    parabola is local, so a contour too coarsely sampled to resolve its own
+    curvature near the extremum is still limited by that sampling.
+
+    See Also
+    --------
+    triangularity_upper_from_RZ_boundary
+    vaft.process.equilibrium.r_at_z_extremum
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.1.
+    """
+    R = np.asarray(R, dtype=float).reshape(-1)
+    Z = np.asarray(Z, dtype=float).reshape(-1)
+    # Marching-squares contours and g-file boundaries usually repeat the first
+    # point to close the loop.  Left in place it becomes the wrap-around
+    # neighbour of an extremum at index 0, which makes z_prev == z_here and
+    # collapses the parabola to the vertex it was meant to improve on.
+    if Z.size > 1 and R[0] == R[-1] and Z[0] == Z[-1]:
+        R, Z = R[:-1], Z[:-1]
+    index = int(np.argmax(Z) if upper else np.argmin(Z))
+    size = Z.size
+    if size < 3:
+        return float(R[index])
+    prev, nxt = (index - 1) % size, (index + 1) % size
+    z_prev, z_here, z_next = float(Z[prev]), float(Z[index]), float(Z[nxt])
+    denominator = z_prev - 2.0 * z_here + z_next
+    if denominator == 0.0:
+        return float(R[index])
+    # Vertex of the parabola through (-1, z_prev), (0, z_here), (1, z_next).
+    shift = 0.5 * (z_prev - z_next) / denominator
+    # |shift| <= 1/2 whenever the middle sample really is the extremum, so the
+    # magnitude test only guards against a non-finite Z; it is not a case the
+    # geometry can reach.
+    if not np.isfinite(shift) or abs(shift) > 1.0:
+        return float(R[index])
+    r_here = float(R[index])
+    neighbour = float(R[nxt] if shift > 0 else R[prev])
+    return r_here + abs(shift) * (neighbour - r_here)
+
+
+def triangularity_upper_from_RZ_boundary(R: np.ndarray,
+                                        Z: np.ndarray,
+                                        R0: float) -> float:
+    r"""Upper boundary triangularity $\delta_u$ from the contour's highest point.
+
+    $$\delta_u = \frac{R_0 - R_{Z_{\max}}}{a}, \qquad a = \frac{R_{\max} - R_{\min}}{2}$$
 
     Parameters
     ----------
@@ -1690,35 +1772,159 @@ def triangularity_from_RZ_boundary(R: np.ndarray,
     Z : np.ndarray
         Height of the boundary points [m].
     R0 : float
-        Reference major radius, normally the geometric centre [m].
+        Reference major radius; pass the geometric centre
+        $(R_{\max} + R_{\min})/2$ for the IMAS definition [m].
 
     Returns
     -------
     float
-        Triangularity [-].
+        Upper triangularity [-].
 
     Convention
     ----------
-    Uses the *single* boundary point closest to $Z=0$, so the result is a
-    property of the midplane crossing chosen by ``argmin``, not the standard
-    $\delta = (R_0 - R_{Z_{\max}})/a$ evaluated at the top and bottom
-    extremities (IMAS ``triangularity_upper``/``lower``).  Positive means the
-    crossing lies inboard of ``R0``.
+    The IMAS ``boundary.triangularity_upper`` definition, measured at the
+    vertically extremal point rather than at a midplane crossing.  Positive
+    means the top of the plasma sits inboard of ``R0``.  ``R0`` is the caller's
+    to choose because a boundary offset from its own bounding box has no single
+    right centre; the IMAS value is the geometric centre, which is what
+    :func:`vaft.process.equilibrium.contour_shape_parameters` uses.
 
     Limitations
     -----------
-    Whether the inboard or outboard midplane point is picked depends on which is
-    nearer $Z=0$ in the sampling, so the sign is not stable; prefer the
-    IMAS-style extremity definition for reported values.  Tracked in #365.
+    A degenerate contour of zero width divides by zero; no validation.  The
+    extremum is located to sub-vertex accuracy, so the result is only as good as
+    the contour's sampling near the top.
+
+    See Also
+    --------
+    triangularity_lower_from_RZ_boundary
+    triangularity_from_RZ_boundary
+    r_at_z_extremum_from_RZ_contour
 
     References
     ----------
-    .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].boundary.triangularity``.
-    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 3.1.
+    .. [1] IMAS Data Dictionary,
+           ``equilibrium.time_slice[:].boundary.triangularity_upper``.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.1.
     """
-    R_mid = R[np.argmin(np.abs(Z))]  # Boundary intersection at mid-plane
+    R = np.asarray(R, dtype=float).reshape(-1)
+    Z = np.asarray(Z, dtype=float).reshape(-1)
     a = (R.max() - R.min()) / 2
-    return (R0 - R_mid) / a
+    return (R0 - r_at_z_extremum_from_RZ_contour(R, Z, upper=True)) / a
+
+
+def triangularity_lower_from_RZ_boundary(R: np.ndarray,
+                                        Z: np.ndarray,
+                                        R0: float) -> float:
+    r"""Lower boundary triangularity $\delta_l$ from the contour's lowest point.
+
+    $$\delta_l = \frac{R_0 - R_{Z_{\min}}}{a}, \qquad a = \frac{R_{\max} - R_{\min}}{2}$$
+
+    Parameters
+    ----------
+    R : np.ndarray
+        Major radius of the boundary points [m].
+    Z : np.ndarray
+        Height of the boundary points [m].
+    R0 : float
+        Reference major radius; pass the geometric centre
+        $(R_{\max} + R_{\min})/2$ for the IMAS definition [m].
+
+    Returns
+    -------
+    float
+        Lower triangularity [-].
+
+    Convention
+    ----------
+    The IMAS ``boundary.triangularity_lower`` definition, measured at the
+    vertically extremal point rather than at a midplane crossing.  Positive
+    means the bottom of the plasma sits inboard of ``R0``.  An up-down symmetric
+    boundary has $\delta_l = \delta_u$; the two differ only for an asymmetric
+    one, which is why IMAS stores both.
+
+    Limitations
+    -----------
+    A degenerate contour of zero width divides by zero; no validation.  The
+    extremum is located to sub-vertex accuracy, so the result is only as good as
+    the contour's sampling near the bottom.
+
+    See Also
+    --------
+    triangularity_upper_from_RZ_boundary
+    triangularity_from_RZ_boundary
+
+    References
+    ----------
+    .. [1] IMAS Data Dictionary,
+           ``equilibrium.time_slice[:].boundary.triangularity_lower``.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.1.
+    """
+    R = np.asarray(R, dtype=float).reshape(-1)
+    Z = np.asarray(Z, dtype=float).reshape(-1)
+    a = (R.max() - R.min()) / 2
+    return (R0 - r_at_z_extremum_from_RZ_contour(R, Z, upper=False)) / a
+
+
+def triangularity_from_RZ_boundary(R: np.ndarray,
+                                  Z: np.ndarray,
+                                  R0: float) -> float:
+    r"""Boundary triangularity $\delta$, the mean of the upper and lower values.
+
+    $$\delta = \tfrac{1}{2}(\delta_u + \delta_l), \qquad
+      \delta_{u,l} = \frac{R_0 - R_{Z_{\max,\min}}}{a}$$
+
+    Parameters
+    ----------
+    R : np.ndarray
+        Major radius of the boundary points [m].
+    Z : np.ndarray
+        Height of the boundary points [m].
+    R0 : float
+        Reference major radius; pass the geometric centre
+        $(R_{\max} + R_{\min})/2$ for the IMAS definition [m].
+
+    Returns
+    -------
+    float
+        Mean triangularity [-].
+
+    Convention
+    ----------
+    The IMAS ``boundary.triangularity``, which is defined as the mean of the two
+    extremity values and not as a separate measurement.  Measured at the two
+    vertically extremal points.  Until #365 this function
+    read the boundary sample nearest $Z=0$ instead, which returned exactly
+    $-1$ for every boundary whose parameterisation starts at the outboard
+    midplane -- that is, for every standard one -- so no caller can have
+    depended on the old number.  Positive means the extremities sit inboard of
+    ``R0``.
+
+    Limitations
+    -----------
+    The mean is the right summary only for a boundary that is close to up-down
+    symmetric; report $\delta_u$ and $\delta_l$ separately for a strongly
+    asymmetric one.
+
+    See Also
+    --------
+    triangularity_upper_from_RZ_boundary
+    triangularity_lower_from_RZ_boundary
+    vaft.process.equilibrium.contour_shape_parameters
+
+    References
+    ----------
+    .. [1] IMAS Data Dictionary,
+           ``equilibrium.time_slice[:].boundary.triangularity``.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.1.
+    """
+    return 0.5 * (
+        triangularity_upper_from_RZ_boundary(R, Z, R0)
+        + triangularity_lower_from_RZ_boundary(R, Z, R0)
+    )
 
 
 def eK_from_K(K: float) -> float:
@@ -2174,9 +2380,10 @@ def bremsstrahlung_power_density_from_T_e_p_Z_eff(
 
 
 
-def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
+def bremsstrahlung_power_density_from_n_e_T_e_Z_eff(
     n_e_m3: float,
     T_e_eV: float,
+    *,
     Z_eff: float = 2.0
 ) -> float:
     r"""Maxwellian free-free (bremsstrahlung) power density from first principles.
@@ -2191,7 +2398,7 @@ def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
     T_e_eV : float
         Electron temperature, converted to joules internally [eV].
     Z_eff : float, optional
-        Effective charge; default 2 [-].
+        Effective charge, keyword-only; default 2 [-].
 
     Returns
     -------
@@ -2203,7 +2410,13 @@ def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
     The prefactor evaluates to $4.2\times10^{-29}$ W m^3 J^-1/2, equal to the NRL
     $1.69\times10^{-38}\,n_e^2\sqrt{T_{\mathrm{eV}}}$ used by
     :func:`bremsstrahlung_radiation_power_from_z_eff_n_e_t_e`; the two agree to
-    1 %.
+    0.2 %, which is the rounding in NRL's published coefficient.
+
+    ``Z_eff`` is keyword-only, unlike its two siblings.  The NRL form takes
+    $(Z_{\mathrm{eff}}, n_e, T_e)$ and this one takes $(n_e, T_e)$, so a caller
+    moving between them by name used to swap the arguments silently and get a
+    number wrong by 27 orders of magnitude; there is no argument order that can
+    now do that without raising.  Tracked in #760.
 
     Assumptions
     -----------
@@ -2213,6 +2426,11 @@ def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
     Validity
     --------
     $T_e \ll m_ec^2$; relativistic corrections exceed 10 % above ~50 keV.
+
+    See Also
+    --------
+    bremsstrahlung_radiation_power_from_z_eff_n_e_t_e
+    bremsstrahlung_power_density_from_T_e_p_Z_eff
 
     References
     ----------
@@ -2224,6 +2442,44 @@ def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
 
     T_J = T_e_eV * QE
     return C_B * Z_eff * n_e_m3**2 * np.sqrt(T_J)
+
+
+def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
+    n_e_m3: float,
+    T_e_eV: float,
+    Z_eff: float = 2.0
+) -> float:
+    r"""Deprecated: use :func:`bremsstrahlung_power_density_from_n_e_T_e_Z_eff`.
+
+    The name states the argument order everywhere else in this module, and this
+    one stated it wrongly: it promised $(Z_{\mathrm{eff}}, n_e, T_e)$ while the
+    signature was $(n_e, T_e, Z_{\mathrm{eff}})$.  Every argument is a float and
+    $Z_{\mathrm{eff}}$ carried a default, so a call in the documented order was
+    accepted and returned a value 27 orders of magnitude wrong.
+
+    The shim keeps the old signature exactly and forwards unchanged, so a caller
+    written against the *signature* keeps its answer and a caller written
+    against the *name* keeps its wrong one -- a compatibility shim cannot tell
+    the two apart.  What it adds is the warning naming the replacement, whose
+    keyword-only ``Z_eff`` makes the mistake impossible to repeat.  Tracked in
+    #760.
+
+    See Also
+    --------
+    bremsstrahlung_power_density_from_n_e_T_e_Z_eff
+    """
+    warnings.warn(
+        "`bremsstrahlung_power_density_from_Z_eff_n_e_T_e` is deprecated -- its "
+        "name contradicts its argument order; use "
+        "`bremsstrahlung_power_density_from_n_e_T_e_Z_eff(n_e, T_e, Z_eff=...)`. "
+        "The old spelling is removed in 0.8.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return bremsstrahlung_power_density_from_n_e_T_e_Z_eff(
+        n_e_m3, T_e_eV, Z_eff=Z_eff
+    )
+
 
 # ------------------------------------------------------------------
 # Flux Consumption

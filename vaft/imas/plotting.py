@@ -269,21 +269,6 @@ def plot_camera_visible_image_frame(
     return render("camera_visible_image_frame", source, ax=ax, show=show, label=label, **options)
 
 
-def plot_neoclassical_profile_bootstrap_current(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Bootstrap current density, one series per neoclassical model.
-
-    Renders with :func:`vaft.plot.neoclassical_profile_bootstrap_current` from native IMAS input.
-    """
-    return render("neoclassical_profile_bootstrap_current", source, ax=ax, show=show, label=label, **options)
-
-
 def plot_camera_visible_image_fluctuation(
     source: Any,
     *,
