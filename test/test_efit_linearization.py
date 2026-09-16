@@ -387,6 +387,25 @@ def test_true_equalities_are_projected_before_svd(tmp_path):
     assert report.families["diamagnetic_flux"].rank_gain == (0, 0, 0)
 
 
+def _assert_exact_constraint_holds(c, x, d):
+    """`C x = d`, to within the roundoff the product itself can carry.
+
+    `d` is exactly zero here, and `assert_allclose` defaults to `atol=0`, so
+    comparing against it bare demands a bit-exact zero from a matrix-vector
+    product. Whether it gets one depends on the BLAS: the same fixture gives
+    0.0 on macOS Accelerate and 5.55e-17 on a Linux CI runner, which made this
+    fail on some develop runs and pass on others. The tolerance scales with
+    the product's own magnitude, so it stays thirteen orders below a real
+    violation of the constraint.
+    """
+    c = np.asarray(c, dtype=float)
+    x = np.asarray(x, dtype=float)
+    scale = max(float(np.linalg.norm(c) * np.linalg.norm(x)), 1.0)
+    np.testing.assert_allclose(
+        c @ x, d, rtol=1e-7, atol=64 * np.finfo(float).eps * scale
+    )
+
+
 def test_native_dgglse_constraint_is_converted_to_physical_coordinates(tmp_path):
     problem = read_efit_linearization(
         _write_constrained_sidecar(tmp_path / "constrained.nc")
@@ -401,10 +420,12 @@ def test_native_dgglse_constraint_is_converted_to_physical_coordinates(tmp_path)
         block.exact_c,
         block.solver_exact_c / block.column_scale,
     )
-    np.testing.assert_allclose(
-        block.solver_exact_c @ block.solver_solution, block.solver_exact_d
+    _assert_exact_constraint_holds(
+        block.solver_exact_c, block.solver_solution, block.solver_exact_d
     )
-    np.testing.assert_allclose(block.exact_c @ block.physical_solution, block.exact_d)
+    _assert_exact_constraint_holds(
+        block.exact_c, block.physical_solution, block.exact_d
+    )
     assert block.validation.exact_constraint_residual_norm == pytest.approx(0.0)
     assert block.validation.singular_value_relative_error < 1.0e-10
     assert block.validation.solver_reproduction_relative_error < 1.0e-8
