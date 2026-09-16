@@ -10,6 +10,20 @@ anything on the server is in step 2.
 
 ## Corrections worth reading first
 
+**A deployment written before #813 must be migrated before its next pipeline
+run.** Stage products are now resolved as `{stage}.json.gz`, and a tree written
+earlier holds `{stage}.json`. The resolver asks for a name that is not there, so
+Snakemake sees no output for any stage of any shot and rebuilds every one of
+them from raw -- `run_efit_reconstruction` and `run_chease` included, which is
+days of solver time and exactly what the change set exists to avoid. Nothing
+warns you: a missing target is indistinguishable from work not yet done.
+
+So do not point the pipeline at such a tree. The migration is a rewrite of the
+files already on disk and re-runs no physics; the tool that performs it, and the
+procedure for it, arrive with the third part of #813 (`vaft.cli filedb
+migrate-products`). Until that is on the deployment, leave the pipeline stopped
+rather than letting it discover the products are gone.
+
 **The trailing slash decides folder versus domain.** `hstouch /main` creates a
 *domain* — a single HDF5 file called `main`. `hstouch /main/` creates a *folder*.
 Replication needs a folder, and a domain at that path fails every later write in
@@ -476,8 +490,14 @@ Ask for one product by path; Snakemake works backwards to it through
 raw → static → diagnostics → eddy. Nothing downstream runs, so no EFIT or CHEASE
 binary is needed. Shot 39915 resolves to machine era `vest-pre-43017-pf1906`.
 
+Ask the resolver for the path rather than spelling it: the container is declared
+in `OMAS_PRODUCT_SUFFIX`/`OMAS_PRODUCT_SUFFIXES`, and a literal here goes stale
+the next time it moves — silently, because Snakemake reports a path it has no
+rule for as a missing target rather than as a wrong name.
+
 ```bash
-EDDY="$VAFT_FILEDB_DIR/omas/eddy/39915/output/eddy.json"
+EDDY=$(python -c 'import os; from vaft.database.filedb import FileDB; \
+print(FileDB(os.environ["VAFT_FILEDB_DIR"]).omas_product("eddy", shot=39915))')
 
 snakemake --snakefile Snakefile --configfile bootstrap-39915.yaml --dry-run "$EDDY"
 snakemake --snakefile Snakefile --configfile bootstrap-39915.yaml --cores 4 "$EDDY"

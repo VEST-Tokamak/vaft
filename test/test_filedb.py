@@ -409,21 +409,26 @@ def test_stage_product_names_come_from_the_resolver_not_the_caller():
     `{shot}_efit.json.gz`, pipeline 1's `efit.json`, and the retired
     workflow/main's `{stage}.json.gz`. A caller that appends its own file name
     is how a fourth appears.
+
+    The container has since moved to `.json.gz` (#813), which makes the name
+    coincide with the retired workflow/main spelling. That is a coincidence of
+    encoding, not a return to that grammar: the path around it is the canonical
+    lineage one, and it is still the resolver that produces it.
     """
     db = FileDB("/srv/vest.filedb")
 
     assert db.omas_product("efit", shot=39915, family="magnetic") == Path(
-        "/srv/vest.filedb/omas/efit/magnetic/39915/output/efit.json"
+        "/srv/vest.filedb/omas/efit/magnetic/39915/output/efit.json.gz"
     )
     assert db.omas_product(
         "mhd_linear", shot=39915, family="magnetic",
         refinement="chease", product="dcon-kink",
     ) == Path(
-        "/srv/vest.filedb/omas/mhd_linear/magnetic/chease/dcon-kink/39915/output/mhd_linear.json"
+        "/srv/vest.filedb/omas/mhd_linear/magnetic/chease/dcon-kink/39915/output/mhd_linear.json.gz"
     )
     # static is versioned by machine era rather than by shot.
     assert db.omas_product("static", machine_version="v3") == Path(
-        "/srv/vest.filedb/omas/static/v3/output/static.json"
+        "/srv/vest.filedb/omas/static/v3/output/static.json.gz"
     )
 
 
@@ -447,7 +452,15 @@ def test_stage_product_rejects_a_stage_outside_the_canonical_grammar():
 
 
 def test_pipeline_paths_do_not_rebuild_stage_product_names():
-    """PipelinePaths must ask the resolver rather than append a file name."""
+    """PipelinePaths must ask the resolver rather than append a file name.
+
+    Every container in circulation is checked, not just the current default: a
+    guard spelled against one suffix stops guarding the moment the default
+    moves, which is silent and is the worst thing a guard can do. The set is
+    derived from the declarations so a new container is covered on arrival.
+    """
+    from vaft.database.filedb import OMAS_PRODUCT_SUFFIX, OMAS_PRODUCT_SUFFIXES
+
     workflow = (
         Path(__file__).parents[1]
         / "workflow"
@@ -456,5 +469,66 @@ def test_pipeline_paths_do_not_rebuild_stage_product_names():
     )
     text = workflow.read_text(encoding="utf-8")
 
+    suffixes = {OMAS_PRODUCT_SUFFIX, ".json"} | set(OMAS_PRODUCT_SUFFIXES.values())
     for stage in ("diagnostics", "eddy", "efit", "chease", "mhd_linear", "gpec_ideal"):
-        assert f'"output") / "{stage}.json"' not in text, stage
+        for suffix in suffixes:
+            assert f'"output") / "{stage}{suffix}"' not in text, (stage, suffix)
+
+
+def test_the_legacy_audit_still_expects_uncompressed_shot_first_products():
+    """The legacy tree's containers must not follow the canonical one (#813).
+
+    `_DEFAULT_EXPECTED_PRODUCTS` describes the *pre-canonical* shot-first tree,
+    whose products were written as plain JSON and are never rewritten -- that
+    tree is a read-only record. Moving these to `.json.gz` alongside
+    `OMAS_PRODUCT_SUFFIX` would make the audit look for files that have never
+    existed and report every shot as missing its products.
+    """
+    from vaft.database.filedb import _DEFAULT_EXPECTED_PRODUCTS
+
+    assert _DEFAULT_EXPECTED_PRODUCTS["diagnostics_ods"].endswith(".json")
+    assert not _DEFAULT_EXPECTED_PRODUCTS["diagnostics_ods"].endswith(".json.gz")
+    for key in ("eddy_ods", "efit_ods", "chease_ods"):
+        assert _DEFAULT_EXPECTED_PRODUCTS[key].endswith(".json")
+        assert not _DEFAULT_EXPECTED_PRODUCTS[key].endswith(".json.gz")
+    # The raw dump is the one that legitimately is gzipped, and always was.
+    assert _DEFAULT_EXPECTED_PRODUCTS["raw_dump"].endswith(".json.gz")
+
+
+def test_only_hdf5_stages_can_be_written_with_a_compression_filter():
+    """`vaft.omas.save` raises on `compression=` with a JSON target (#813).
+
+    The filter is an HDF5 dataset property; gzipped JSON is already compressed
+    and has nowhere to put one. The single caller that passes `compression=` is
+    pipeline 2's external-diagnostic ingest, which reads it from the stage
+    manifest -- so if one of its trees ever stopped being HDF5, that call would
+    start raising for every shot of it. Checked here rather than discovered on
+    a server.
+    """
+    import sys
+
+    from vaft.database.filedb import OMAS_PRODUCT_SUFFIX, OMAS_PRODUCT_SUFFIXES
+
+    ingest = (
+        Path(__file__).parents[1]
+        / "workflow"
+        / "automatic_pipeline_2_corrective_data_update"
+    )
+    sys.path.insert(0, str(ingest))
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "_ingest_external_diagnostics", ingest / "ingest_external_diagnostics.py"
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(ingest))
+
+    for tree in module.DIAGNOSTIC_TREES:
+        suffix = OMAS_PRODUCT_SUFFIXES.get(tree, OMAS_PRODUCT_SUFFIX)
+        assert suffix in {".h5", ".hdf5"}, (
+            f"{tree!r} is ingested with a compression filter but declares "
+            f"{suffix!r}; vaft.omas.save would raise for every shot of it."
+        )

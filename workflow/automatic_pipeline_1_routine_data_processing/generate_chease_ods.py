@@ -9,9 +9,10 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from omas import ODS, save_omas_json
+from omas import ODS
 
 from vaft.data.eqdsk import read_geqdsk
+from vaft.omas import save as save_ods
 from vaft.omas.vest_upstream import write_manifest
 
 
@@ -165,7 +166,10 @@ def main() -> int:
         )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    save_omas_json(ods, str(args.output))
+    # `vaft.omas.save`, not `save_omas_json`: the container is the product
+    # name's suffix, which `FileDB.omas_product` chose. A writer that picks
+    # the encoding itself can only produce a file the resolver misreads.
+    save_ods(ods, args.output)
 
     # A refinement that parsed no g-file leaves a placeholder ODS on disk for
     # inspection. The manifest is where that is said, so nothing downstream

@@ -8,10 +8,11 @@ import json
 import logging
 from pathlib import Path
 
-from omas import ODS, load_omas_json, save_omas_json
+from omas import ODS, load_omas_json
 
 from vaft.code.efit import EFITConfig, collect_efit_outputs
 from vaft.data.meqdsk import EFIT_MAPPING_SOURCE_REVISION
+from vaft.omas import save as save_ods
 from vaft.omas.vest_upstream import write_manifest
 
 
@@ -117,7 +118,10 @@ def main() -> int:
         )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    save_omas_json(ods, str(args.output))
+    # `vaft.omas.save`, not `save_omas_json`: the container is the product
+    # name's suffix, which `FileDB.omas_product` chose. A writer that picks
+    # the encoding itself can only produce a file the resolver misreads.
+    save_ods(ods, args.output)
 
     # The stage manifest is what tells a consumer whether this product is a
     # result or a placeholder. A run that collected nothing still leaves its
