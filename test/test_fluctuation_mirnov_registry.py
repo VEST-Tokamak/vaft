@@ -224,7 +224,7 @@ def test_toroidal_mode_recovered_end_to_end_through_the_mapper():
         assert get_path(payload, f"{base}.voltage.validity") == 0
         time = np.asarray(get_path(payload, f"{base}.voltage.time"))
         signals.append(np.asarray(get_path(payload, f"{base}.voltage.data")))
-        angles.append(float(get_path(payload, f"{base}.toroidal_angle")))
+        angles.append(float(get_path(payload, f"{base}.position.phi")))
 
     # Cropped to the analysis window, but never resampled onto the 25 kHz
     # equilibrium grid (issue #136).
@@ -493,7 +493,7 @@ def test_reversing_the_angular_handedness_reverses_the_fitted_mode_number():
         base = f"magnetics.b_field_pol_probe.{indices[channel['identifier']]}"
         time = np.asarray(get_path(payload, f"{base}.voltage.time"))
         signals.append(np.asarray(get_path(payload, f"{base}.voltage.data")))
-        phi.append(float(get_path(payload, f"{base}.toroidal_angle")))
+        phi.append(float(get_path(payload, f"{base}.position.phi")))
         clock.append(np.radians(float(channel["toroidal_angle_deg"])))
 
     def _fit(angles, candidates):

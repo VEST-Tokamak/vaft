@@ -28,6 +28,7 @@ from .config import (
     EFITScientificConfig,
     efit_parameter_grid,
 )
+from .termination import EFIT_LOG_PATTERNS, parse_slices
 from .status import (
     EFIT_FAILURE_CODES,
     EFITSliceStatus,
@@ -161,6 +162,8 @@ __all__ = [
     "write_table_manifest",
     "read_table_manifest",
     "table_identity",
+    "EFIT_LOG_PATTERNS",
+    "parse_slices",
     "resolve_toolchain",
     "executable_identity",
     "EQE",

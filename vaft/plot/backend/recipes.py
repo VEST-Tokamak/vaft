@@ -2069,11 +2069,10 @@ def _toroidal_phase_channels(ods: Any) -> tuple[list[int], np.ndarray]:
     indices: list[int] = []
     angles: list[float] = []
     for index in range(_count(ods, _MIRNOV_PROBES)):
-        angle = None
-        for suffix in ("toroidal_angle", "position.phi"):
-            angle = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.{suffix}"))
-            if angle is not None:
-                break
+        # position.phi only: `toroidal_angle` is an orientation field in the DD
+        # and preferring it here is what hid a position being written into it
+        # (issue #725).
+        angle = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.position.phi"))
         if angle is None:
             continue
         signal = _array(ods, f"{_MIRNOV_PROBES}.{index}.voltage.data")
@@ -2082,6 +2081,70 @@ def _toroidal_phase_channels(ods: Any) -> tuple[list[int], np.ndarray]:
         indices.append(index)
         angles.append(float(angle))
     return indices, np.asarray(angles, dtype=float)
+
+
+#: Two probes count as one poloidal position within this distance, in metres.
+#: Positions come from a machine description in metres on a sub-metre machine,
+#: so this separates genuinely different mounting rows without splitting one
+#: row over a rounding difference.
+_PHASE_POSITION_TOLERANCE_M = 0.005
+
+
+def _poloidal_position_key(ods: Any, index: int) -> tuple[int, int] | None:
+    """Which poloidal mounting position a probe sits at, or ``None``.
+
+    ``None`` when the input does not say.  Those probes are kept together as
+    one group rather than dropped: an ODS that omits ``position.r``/``.z``
+    cannot be separated by poloidal position, and refusing to fit it would
+    reject synthetic and reduced inputs that are a single toroidal array by
+    construction.
+    """
+    r = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.position.r"))
+    z = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.position.z"))
+    if r is None or z is None:
+        return None
+    return (
+        int(round(r / _PHASE_POSITION_TOLERANCE_M)),
+        int(round(z / _PHASE_POSITION_TOLERANCE_M)),
+    )
+
+
+def _toroidal_phase_group(ods: Any) -> tuple[list[int], np.ndarray]:
+    """One poloidal position's probes: the set a toroidal mode fit may use.
+
+    A toroidal mode fit compares the phase of one mode at several toroidal
+    angles.  The model it minimises, ``phi = phi_0 - n * theta``, carries no
+    poloidal term, so probes at different poloidal positions bring a phase
+    difference it will absorb into ``n`` (issue #816).
+
+    Of the groups that span more than one toroidal angle, this takes the one
+    spanning the **most** angles, since that is what limits how well ``n`` can
+    be separated from its aliases; ties go to the group nearest the midplane,
+    then to the lowest probe index so the choice is deterministic.
+
+    On VEST that lands on the outboard array at ``r = 0.796``: the inboard,
+    side and outboard *equilibrium* arrays each sit at a single toroidal angle
+    and cannot support a fit at all, while the four phase-reference Mirnov
+    channels at ``z = +0.02`` span four angles and each row of the outboard
+    fluctuation array spans three.
+    """
+    indices, angles = _toroidal_phase_channels(ods)
+    groups: dict[tuple[int, int] | None, list[int]] = {}
+    for position, index in zip((_poloidal_position_key(ods, i) for i in indices), indices):
+        groups.setdefault(position, []).append(index)
+
+    def rank(item: tuple[tuple[int, int] | None, list[int]]) -> tuple[int, float, int]:
+        position, members = item
+        spanned = _distinct_toroidal_angles(
+            angles[[indices.index(index) for index in members]]
+        ).size
+        height = 0.0 if position is None else abs(position[1] * _PHASE_POSITION_TOLERANCE_M)
+        return (spanned, -height, -members[0])
+
+    if not groups:
+        return [], np.asarray([], dtype=float)
+    _, chosen = max(groups.items(), key=rank)
+    return chosen, angles[[indices.index(index) for index in chosen]]
 
 
 #: Two probes count as separated only beyond this angle, in degrees.  Stored
@@ -2127,10 +2190,11 @@ def _mirnov_phase_available(ods: Any) -> str | None:
     a fit that discovered this only while building would have been advertised
     already.
     """
-    indices, angles = _toroidal_phase_channels(ods)
+    indices, angles = _toroidal_phase_group(ods)
     if len(indices) < 2 or _distinct_toroidal_angles(angles).size < 2:
         return (
-            "two or more Mirnov probes at distinct toroidal angles, each carrying a waveform"
+            "two or more Mirnov probes at one poloidal position and distinct toroidal "
+            "angles, each carrying a waveform"
         )
     kept, _ = _shared_timebase_probes(ods, indices)
     if len(kept) < 2 or _distinct_toroidal_angles(
@@ -2198,16 +2262,22 @@ def _build_mirnov_spatial_phase(
     """
     from vaft.process.magnetics import mirnov_preprocess_signal, toroidal_phase_fit_at_time
 
-    indices, angles = _toroidal_phase_channels(ods)
-    if channels is not None:
+    if channels is None:
+        # One poloidal position, chosen from the geometry (issue #816).
+        indices, angles = _toroidal_phase_group(ods)
+    else:
+        # An explicit choice is honoured across poloidal positions: the caller
+        # has named the probes and may be comparing rows deliberately. It is
+        # still checked against what the input actually offers.
+        candidates, candidate_angles = _toroidal_phase_channels(ods)
         wanted = [int(channel) for channel in np.atleast_1d(channels)]
-        unknown = [channel for channel in wanted if channel not in indices]
+        unknown = [channel for channel in wanted if channel not in candidates]
         if unknown:
             raise ValueError(
                 f"channels {unknown} carry no toroidal angle and waveform; this input "
-                f"offers {indices}"
+                f"offers {candidates}"
             )
-        angles = angles[[indices.index(channel) for channel in wanted]]
+        angles = candidate_angles[[candidates.index(channel) for channel in wanted]]
         indices = wanted
     reason = _mirnov_phase_available(ods) if channels is None else None
     if reason:
@@ -8957,6 +9027,196 @@ def _build_mhd_linear_profile_b_field_perturbed(ods: Any, **options: Any) -> Pro
         description="Normal perturbed field",
         **options,
     )
+
+
+#: Attributes the mapper writes on each ``<surface>`` of a GPEC run's
+#: ``code.parameters``. Ordered as the derivation consumes them.
+_SURFACE_FIELDS = ("psi_n", "q", "dq_dpsi_n", "area", "geometric_factor")
+
+
+def _gpec_rational_surfaces(ods: Any, n_tor: int) -> tuple[float, list[dict[str, float]]]:
+    """``chi1`` and the per-surface geometry one GPEC mode recorded.
+
+    Read shape-agnostically for the reason ``_mhd_linear_radial_stride``
+    documents: ``code.parameters`` reaches a reader either as the string the
+    mapper wrote or as a tree OMAS decoded, and which one depends on the
+    document rather than on anything the caller controls. The string path
+    takes the ``<solver>`` whose ``n_tor`` matches, because a multi-mode run
+    holds one block per mode and their surfaces differ.
+    """
+    parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
+    if isinstance(parameters, str):
+        blocks = re.findall(
+            r'<solver\b[^>]*\bn_tor="(\d+)"[^>]*>(.*?)</solver>', parameters, re.S
+        )
+        body = next((b for mode, b in blocks if int(mode) == int(n_tor)), None)
+        if body is None:
+            return float("nan"), []
+        chi1 = re.search(r'<rational_surfaces\b[^>]*\bchi1="([^"]+)"', body)
+        surfaces = [
+            {name: float(value) for name, value in re.findall(r'(\w+)="([^"]+)"', row)}
+            for row in re.findall(r"<surface\b([^/]*)/>", body)
+        ]
+        return (float(chi1.group(1)) if chi1 else float("nan")), surfaces
+
+    # Decoded tree. `codeparams2dict` turns each element into a mapping whose
+    # attribute keys carry a leading '@' and whose repeated children collapse
+    # into a list -- and it only gets that far for documents it can decode at
+    # all: a run with more than one rational surface, or more than one mode,
+    # makes it raise internally and leave the string above. Both shapes are
+    # real, so both are handled.
+    def _children(node: Any, tag: str) -> list[Any]:
+        if not isinstance(node, Mapping) or tag not in node:
+            return []
+        value = node[tag]
+        return list(value) if isinstance(value, (list, tuple)) else [value]
+
+    for solver in _children(parameters, "solver"):
+        if int(_scalar(solver.get("@n_tor", -1))) != int(n_tor):
+            continue
+        for block in _children(solver, "rational_surfaces"):
+            surfaces = [
+                {name: float(_scalar(row[f"@{name}"])) for name in _SURFACE_FIELDS}
+                for row in _children(block, "surface")
+                if all(f"@{name}" in row for name in _SURFACE_FIELDS)
+            ]
+            chi1 = block.get("@chi1")
+            return (float(_scalar(chi1)) if chi1 is not None else float("nan")), surfaces
+    return float("nan"), []
+
+
+def _gpec_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
+    """Derive one GPEC mode's resonant table from the mapped spectral field.
+
+    The derivation runs **once**, here, and every renderer built on it reads
+    the result: each surface costs a pair of one-sided cubic fits, and a
+    figure should not pay for them again per trace.
+
+    What the IDS carries is the perturbed flux on a ``(psi_n, m)`` grid plus
+    the equilibrium geometry; :func:`vaft.process.perturbation.resonant_delta`
+    turns the jump across each rational surface into the resonance parameter,
+    and the closed forms in :mod:`vaft.formula.stability` take it from there.
+    Reproduces GPEC's own ``w_isl`` to about a per cent on the DIII-D
+    reference.
+    """
+    from vaft.formula.stability import (
+        island_width_from_resonant_flux,
+        resonant_flux_from_delta,
+    )
+    from vaft.process.perturbation import resonant_delta
+
+    cell = _mhd_linear_eigenfunction_cell(ods, **options)
+    n_tor = int(cell["n_tor"])
+    chi1, surfaces = _gpec_rational_surfaces(ods, n_tor)
+    if not surfaces:
+        raise ValueError(
+            f"mhd_linear ODS carries no rational-surface geometry for n={n_tor}. "
+            "Only an ideal-GPEC mapping writes it, and only when the run's chi1 "
+            "was available; a DCON-only product has none"
+        )
+    if not np.isfinite(chi1) or chi1 == 0.0:
+        raise ValueError(
+            f"the recorded chi1 for n={n_tor} is {chi1!r}; the jump is scaled by "
+            "it, so the table cannot be derived"
+        )
+    base = cell["base"]
+    real = _array(ods, f"{base}.plasma.b_field_perturbed.coordinate1.real")
+    imaginary = _array(ods, f"{base}.plasma.b_field_perturbed.coordinate1.imaginary")
+    if real is None or imaginary is None:
+        raise ValueError(f"mhd_linear ODS carries a grid but no perturbed flux for n={n_tor}")
+    field = np.asarray(real, dtype=float) + 1j * np.asarray(imaginary, dtype=float)
+    psi_n, harmonics = cell["psi_n"], cell["m"]
+    if field.shape != (psi_n.size, harmonics.size):
+        raise ValueError(
+            f"the perturbed flux has shape {field.shape}, but the declared (psi, m) "
+            f"grid is {(psi_n.size, harmonics.size)}"
+        )
+
+    rows: list[dict[str, Any]] = []
+    for surface in surfaces:
+        m_pol = int(round(n_tor * surface["q"]))
+        column = int(np.argmin(np.abs(harmonics - m_pol)))
+        if int(harmonics[column]) != m_pol:
+            # The resonant harmonic is outside the mapped band, so this
+            # surface has no column to take a jump in.
+            continue
+        jump = resonant_delta(
+            psi_n, field[:, column],
+            psi_rational=surface["psi_n"], area=surface["area"],
+            dq_dpsi_norm=surface["dq_dpsi_n"], chi1=chi1,
+            m_pol=m_pol, n_tor=n_tor,
+        )
+        flux = resonant_flux_from_delta(jump.delta, surface["geometric_factor"], n_tor)
+        rows.append({
+            "psi_n": surface["psi_n"],
+            "q": surface["q"],
+            "m_pol": m_pol,
+            "delta": jump.delta,
+            "Phi_res": complex(flux),
+            "w_isl": float(island_width_from_resonant_flux(
+                flux, surface["area"], surface["q"], surface["dq_dpsi_n"], m_pol, chi1,
+            )),
+        })
+    if not rows:
+        raise ValueError(
+            f"none of the {len(surfaces)} rational surfaces recorded for n={n_tor} "
+            "resonates at a harmonic the mapped band covers"
+        )
+    return {"cell": cell, "n_tor": n_tor, "chi1": chi1, "rows": rows}
+
+
+def _build_gpec_resonant_profile(
+    ods: Any, *, key: str, y_label: str, description: str, **options: Any
+) -> Profile1D:
+    """One marker per rational surface, against normalized poloidal flux."""
+    table = _gpec_resonant_table(ods, **options)
+    rows = table["rows"]
+    psi = np.asarray([row["psi_n"] for row in rows], dtype=float)
+    raw = [row[key] for row in rows]
+    y = np.asarray([abs(value) for value in raw], dtype=float)
+    series = (
+        Series(
+            x=psi, y=y,
+            label=", ".join(f"m={row['m_pol']}" for row in rows[:4])
+            + (" ..." if len(rows) > 4 else ""),
+        ),
+    )
+    return Profile1D(
+        series=series,
+        coordinate_label=r"$\psi_N$",
+        y_label=y_label,
+        title=(
+            f"{description} — n={table['n_tor']}, {len(rows)} rational surfaces"
+            " (derived from the mapped flux, not read from the IDS)"
+        ),
+    )
+
+
+def _build_mhd_linear_profile_resonant_flux(ods: Any, **options: Any) -> Profile1D:
+    return _build_gpec_resonant_profile(
+        ods, key="Phi_res", y_label=r"$|\Phi_{res}|$ [T]",
+        description="Pitch-resonant flux", **options,
+    )
+
+
+def _build_mhd_linear_profile_island_width(ods: Any, **options: Any) -> Profile1D:
+    return _build_gpec_resonant_profile(
+        ods, key="w_isl", y_label=r"$w_{isl}$ [$\psi_N$]",
+        description="Saturated island width", **options,
+    )
+
+
+RECIPES["mhd_linear_profile_resonant_flux"] = CallableRecipe(
+    builder=_build_mhd_linear_profile_resonant_flux,
+    description="Pitch-resonant flux per rational surface, derived from the mapped "
+                "spectral field.",
+)
+
+RECIPES["mhd_linear_profile_island_width"] = CallableRecipe(
+    builder=_build_mhd_linear_profile_island_width,
+    description="Saturated island width per rational surface, derived from the mapped "
+                "spectral field.",
+)
 
 
 RECIPES["mhd_linear_profile_displacement"] = CallableRecipe(

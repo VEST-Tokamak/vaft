@@ -10,9 +10,11 @@ quantities at one flux surface. The projection that produces them lives in
 rather than trusted, which is how the three convention traps in its docstring were
 found.
 
-The surrogate backend of issue #553 is deliberately not here yet: it is an accelerated
-implementation of *this* contract, and it is easier to get right once the contract has
-been run against the real solver.
+The surrogate backend lives in :mod:`~vaft.code.gacode.tglf.surrogate` and is an
+accelerated implementation of *this* contract rather than a second one: its feature
+vector is built from the same :func:`tglf_parameters` keys the native run is written
+from. It is imported lazily, so neither ``onnxruntime`` nor any model artifact is
+needed to use the native backend.
 """
 
 from __future__ import annotations
@@ -42,6 +44,23 @@ from .outputs import (
     collect_tglf_outputs,
 )
 from .runner import TGLFExecutionError, read_tglf_case, run_tglf, run_tglf_case
+
+_SUBPACKAGES = ("surrogate",)
+
+
+def __getattr__(name: str):
+    if name in _SUBPACKAGES:
+        from importlib import import_module
+
+        module = import_module(f".{name}", __name__)
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted([*__all__, *_SUBPACKAGES])
+
 
 __all__ = [
     "GBFLUX_QUANTITIES",

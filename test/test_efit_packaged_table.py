@@ -267,3 +267,51 @@ def test_a_generated_table_directory_is_runnable(tmp_path):
     (tmp_path / "lim.dat").write_text("mine", encoding="utf-8")
     assert module._copy_runtime_companions(tmp_path) == []
     assert (tmp_path / "lim.dat").read_text(encoding="utf-8") == "mine"
+
+
+# --- identity reproducibility (#793) ----------------------------------------
+
+
+def test_the_identity_is_decided_by_the_table_and_not_by_the_run():
+    """#793: the same inputs must produce the same identity.
+
+    `table.identity` exists so two runs can be compared. It could not be:
+    `mhdout.dat` was in the digest, and it carries an uninitialised Fortran
+    value. `KUBICS` is 4 in the input and came back 83664424 from the run that
+    built the #695 table and 4890152 from the run that built the #708 one --
+    an order of magnitude apart, from the same input.
+
+    So any check of the form "regenerate and confirm the identity is
+    unchanged" failed for a reason with nothing to do with the table. #708 had
+    to fall back to comparing `ep129129.ddd` byte for byte, which worked only
+    because that one file happens to have no `nfsum` term.
+    """
+    from vaft.code.efit.efund import IDENTITY_EXCLUDED_FILES, _table_digest
+
+    assert "mhdout.dat" in IDENTITY_EXCLUDED_FILES
+
+    table = {"rfcoil.ddd": "aaa", "ec129129.ddd": "bbb", "mhdout.dat": "run-one"}
+    rerun = {"rfcoil.ddd": "aaa", "ec129129.ddd": "bbb", "mhdout.dat": "run-two"}
+    assert _table_digest(table) == _table_digest(rerun)
+
+    # And it is still an identity: a table file that moves changes it.
+    moved = dict(table, **{"ec129129.ddd": "ccc"})
+    assert _table_digest(moved) != _table_digest(table)
+
+
+def test_the_excluded_file_is_still_recorded(manifest):
+    """Excluded from the identity is not excluded from the record.
+
+    `mhdout.dat` is what EFUND echoed back, which is worth keeping even though
+    it cannot be compared across runs. It stays under `table.files` with its
+    hash and size; it simply does not decide identity.
+    """
+    assert "mhdout.dat" in manifest["table"]["files"]
+    assert manifest["table"]["files"]["mhdout.dat"]["sha256"]
+
+    from vaft.code.efit.efund import _table_digest
+
+    hashes = {name: record["sha256"] for name, record in manifest["table"]["files"].items()}
+    assert manifest["table"]["identity"] == _table_digest(hashes)
+    # The shipped manifest says why, so a reader does not have to find #793.
+    assert "KUBICS" in manifest["extra"]["identity_excludes_mhdout"]

@@ -48,6 +48,8 @@ from typing import Any, Sequence
 
 import numpy as np
 
+from vaft.code.efit.termination import parse_slices as _library_parse_slices
+
 REPOSITORY = Path(__file__).resolve().parents[2]
 REFERENCE_SET = REPOSITORY / "test" / "data" / "efit_reference_set.json"
 CONSTRAINTS_WRAPPER = (
@@ -60,13 +62,6 @@ DEFAULT_WEIGHTING = [1, 1, 1, 0.1, 0.1, 0.1, 0.01, 0.01]
 DEFAULT_TSTEP = 0.001
 DEFAULT_WINDOW = 0.0005
 
-_ITERATION = re.compile(r"\bt=\s*(\d+)\s+it=\s*(\d+)\s+chi2=\s*([0-9.E+-]+).*?err=\s*([0-9.E+-]+)")
-_ICONVR = re.compile(r"iconvr=(\d+) satisfied")
-_FAILED = re.compile(r"Failed to reach fit/convergence criteria, shot\s+(\d+)\s+([0-9.]+)")
-_FAILURE = re.compile(r"Failure #(\d+),\s*([^=]*?)(?:=\s*([0-9.E+-]+))?\s*$")
-_SOLVER_ERROR = re.compile(r"ERROR in (\w+) at r=\s*\d+, t=\s*(\d+): (.*)")
-
-
 def _module(path: Path, name: str):
     """Load a path-run script, registered so its dataclasses resolve."""
     spec = importlib.util.spec_from_file_location(name, path)
@@ -77,109 +72,11 @@ def _module(path: Path, name: str):
     return module
 
 
-def parse_slices(text: str) -> list[dict[str, Any]]:
-    """Per-slice termination evidence, in the order EFIT processed them.
-
-    EFIT prints the time in whole milliseconds only, so slices are delimited
-    by the iteration counter restarting at 1, not by the time. Everything
-    printed after a slice's last iteration and before the next slice's first
-    belongs to that slice: its exit path, its solver errors and the acceptance
-    failures ``chkerr`` reports.
-
-    With one exception, and it is not a small one. A slice that fails in
-    ``bound`` before the first Picard iteration prints no iteration line at
-    all, only ``ERROR in bound at r=..., t=...``. Delimiting on the iteration
-    counter alone hands that error to the *previous* slice and loses the slice
-    itself, so a run ending in a run of pre-iteration collapses reports both a
-    short universe and a slice carrying failures that are not its own. Solver
-    errors therefore also open a slice when they name a time the current slice
-    does not have.
-    """
-    slices: list[dict[str, Any]] = []
-    current: dict[str, Any] | None = None
-
-    def start(time_ms: int) -> dict[str, Any]:
-        return {
-            "time_ms": time_ms,
-            "iterations": [],
-            "exit_path": None,
-            "iconvr": None,
-            "accepted": None,
-            "failures": [],
-            "solver_errors": [],
-        }
-
-    for line in text.splitlines():
-        found = _ITERATION.search(line)
-        if found:
-            time_ms, iteration = int(found.group(1)), int(found.group(2))
-            if iteration == 1:
-                if current is not None:
-                    slices.append(current)
-                current = start(time_ms)
-            if current is None:
-                current = start(time_ms)
-            current["iterations"].append(
-                {"n": iteration, "chi2": float(found.group(3)), "gs_error": float(found.group(4))}
-            )
-            continue
-        found = _SOLVER_ERROR.search(line)
-        if found:
-            named = int(found.group(2))
-            if current is None or current["time_ms"] != named:
-                if current is not None:
-                    slices.append(current)
-                current = start(named)
-            current["solver_errors"].append({"routine": found.group(1), "detail": found.group(3).strip()})
-            continue
-        if current is None:
-            continue
-        found = _ICONVR.search(line)
-        if found:
-            current["iconvr"] = int(found.group(1))
-            current["exit_path"] = f"iconvr={found.group(1)}"
-            continue
-        if _FAILED.search(line):
-            current["accepted"] = False
-            continue
-        found = _FAILURE.search(line.strip())
-        if found:
-            current["failures"].append(
-                {
-                    "code": int(found.group(1)),
-                    "criterion": found.group(2).strip().rstrip(",").strip(),
-                    "value": float(found.group(3)) if found.group(3) else None,
-                }
-            )
-    if current is not None:
-        slices.append(current)
-
-    for record in slices:
-        iterations = record["iterations"]
-        record["iterations_n"] = max((item["n"] for item in iterations), default=0)
-        # The log's chi2 is not the fit's chi-square after the first step: on a
-        # slice that collapses to a null solution it falls to ~1e-7 while the
-        # a-file reports 200. So both ends are kept and neither is called
-        # "the" chi-square -- EFIT's own answer is the a-file's, joined below.
-        record["chi2_initial"] = iterations[0]["chi2"] if iterations else None
-        record["chi2_final"] = iterations[-1]["chi2"] if iterations else None
-        record["gs_error"] = iterations[-1]["gs_error"] if iterations else None
-        # A null solution: the residual vanishes while the Grad-Shafranov
-        # error does not, and the axis never leaves zero. It is not a fit.
-        record["collapsed"] = bool(
-            iterations
-            and record["chi2_final"] is not None
-            and record["chi2_final"] < 1.0e-5
-            and record["gs_error"] is not None
-            and record["gs_error"] > 0.1
-        )
-        if record["accepted"] is None:
-            record["accepted"] = not record["failures"] and not record["solver_errors"]
-        if record["exit_path"] is None:
-            record["exit_path"] = "solver_error" if record["solver_errors"] else "iterations_exhausted"
-        del record["iterations"]
-    return slices
-
+#: EFIT's stdout reader moved to `vaft.code.efit.termination` (#76): parsing
+#: EFIT's log is a fact about EFIT, not about this study, and three studies
+#: were importing it from each other by loading this file by path. Re-exported
+#: under its old name so those callers and the stored tables do not move.
+parse_slices = _library_parse_slices
 
 def run_shot(
     shot: int,

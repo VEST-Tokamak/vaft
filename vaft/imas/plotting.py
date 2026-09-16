@@ -1531,6 +1531,36 @@ def plot_mhd_linear_profile_b_field_perturbed(
     return render("mhd_linear_profile_b_field_perturbed", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_mhd_linear_profile_resonant_flux(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Pitch-resonant flux per rational surface against normalized poloidal flux, derived from the mapped perturbed flux by the jump across each singular surface rather than read from the IDS.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_resonant_flux` from native IMAS input.
+    """
+    return render("mhd_linear_profile_resonant_flux", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_mhd_linear_profile_island_width(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Saturated island width per rational surface against normalized poloidal flux, in psi_N as GPEC reports it, derived from the resonant flux.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_island_width` from native IMAS input.
+    """
+    return render("mhd_linear_profile_island_width", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_mhd_linear_overview_eigenfunction(
     source: Any,
     *,
@@ -2168,6 +2198,8 @@ __all__ += [
     "plot_mhd_linear_overview_eigenfunction",
     "plot_mhd_linear_profile_b_field_perturbed",
     "plot_mhd_linear_profile_displacement",
+    "plot_mhd_linear_profile_island_width",
+    "plot_mhd_linear_profile_resonant_flux",
     "plot_nbi_profile_current_drive",
     "plot_nbi_profile_electron_heating",
     "plot_nbi_profile_ion_heating",
