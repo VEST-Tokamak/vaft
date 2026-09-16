@@ -1068,6 +1068,38 @@
           tip_length_mm: 2.0
           tip_radius_mm: 0.15
 
+    # VEST toroidal phase-reference Mirnov channels. Three outboard probes on
+    # the vessel wall between ports, at clock 1:30, 5:30 and 7:30, whose names
+    # carry those positions. They are the only toroidal array VEST had before
+    # the fluctuation array below was installed.
+    #
+    # last_operational_shot is what bounds them. The 2023-04 magnetics log
+    # (2304_Magnetics_VEST.xlsx, History sheet) records "207 - exists until
+    # 35520", and three archived shots above that boundary corroborate it:
+    # 39915 maps all three with zero samples, and the raw dumps for 44740 and
+    # 45531 contain no field 207, 209 or 241 at all. Like the fluctuation
+    # array's first_operational_shot, this is a gate the caller applies, not a
+    # per-channel field.
+    #
+    # Field 171 is DISPUTED and is left in place pending issue #825. The same
+    # machine logs classify it as `Bz C2 05` / group `OutBz` -- an outboard
+    # *equilibrium* probe at z = +0.02, filling that array's uniform 0.04 m
+    # ladder -- so it is very likely not a toroidal reference at all, and VAFT
+    # currently publishes it twice at two different toroidal angles. Its clock
+    # position here was inferred in issue #718 from a layout figure and is the
+    # inference #825 disputes; resolving it needs the VEST channel list.
+    toroidal_mirnov_reference:
+      source: {raw_unit: V, daq_type: slow}
+      role: phase_reference
+      last_operational_shot: 35520
+      geometry: {major_radius: 0.796, z: 0.02}
+      channels:
+        - {field: 207, identifier: OutMirnov_130_Bz, clock: 1.5, gain: 9.0e-4}
+        - {field: 241, identifier: OutMirnov_530_Bz, clock: 5.5, gain: -9.0e-4}
+        - {field: 209, identifier: OutMirnov_730_Bz, clock: 7.5, gain: 9.0e-4}
+        - {field: 171, identifier: MagneticFieldProbe_C2-05_Bz, clock: 9.5, gain: 0.004529,
+           disputed: "issue #825: the magnetics logs class field 171 as outboard equilibrium probe Bz C2 05"}
+
     # VEST outboard Mirnov fluctuation array (issue #155). 30 raw-voltage
     # channels at three toroidal locations (45/135/225 deg), two vertical
     # sub-arrays each (L1, L2) of five probes. These probes became physically

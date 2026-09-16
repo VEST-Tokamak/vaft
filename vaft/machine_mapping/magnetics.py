@@ -32,7 +32,11 @@ from vaft.process.signal_processing import (
 
 from vaft.formula.statistics import median_absolute_deviation
 
-from .conventions import clock_angle_to_toroidal_angle, port_toroidal_angle
+from .conventions import (
+    VEST_PORT_CLOCK_DEGREES,
+    clock_angle_to_toroidal_angle,
+    port_toroidal_angle,
+)
 from .utils import (
     AGREEMENT_CONSISTENT,
     onset_agreement,
@@ -144,49 +148,6 @@ EQUILIBRIUM_PROBE_CLOCK = {
 #: Nothing here writes one.
 FLUX_LOOP_IS_AXISYMMETRIC = True
 
-#: The four phase-reference outboard Mirnov channels, by clock position.
-#:
-#: The names encode the position: ``OutMirnov_130`` is at 1:30.  Until issue
-#: #718 these carried hardcoded ``phi`` of 0, 2pi/3, pi and 4pi/3 -- a *relative*
-#: frame anchored on the first channel, a uniform -45 deg from the clock angles
-#: the names themselves state, and in the clockwise-positive sense besides.  The
-#: clock position is the source datum now and ``phi`` is derived, so neither
-#: error can recur.
-TOROIDAL_MIRNOV_REFERENCE_CHANNELS = (
-    {
-        "field_code": 207,
-        "name": "OutMirnov_130_Bz",
-        "r": 0.796,
-        "z": 0.02,
-        "clock": 1.5,
-        "gain": 9.0e-4,
-    },
-    {
-        "field_code": 241,
-        "name": "OutMirnov_530_Bz",
-        "r": 0.796,
-        "z": 0.02,
-        "clock": 5.5,
-        "gain": -9.0e-4,
-    },
-    {
-        "field_code": 209,
-        "name": "OutMirnov_730_Bz",
-        "r": 0.796,
-        "z": 0.02,
-        "clock": 7.5,
-        "gain": 9.0e-4,
-    },
-    {
-        "field_code": 171,
-        "name": "MagneticFieldProbe_C2-05_Bz",
-        "r": 0.796,
-        "z": 0.02,
-        "clock": 9.5,
-        "gain": 0.004529,
-    },
-)
-
 # Database identifiers, rather than older UI labels, define the physical
 # limiter segment. The 0.1 ohm-equivalent resistance stores the Pearson Model
 # 411 transfer sensitivity (0.1 V/A), not a limiter-ground resistor. Fig. 5
@@ -255,6 +216,18 @@ _FLUCTUATION_IDENTIFIER = re.compile(
     r"^OutMirnov_(?P<angle>45|135|225)_(?P<sub_array>L[12])-(?P<position>0[1-5])$"
 )
 _FLUCTUATION_ARRAY_DEFAULTS = ("role", "preserve_native_voltage")
+
+
+@lru_cache(maxsize=1)
+def _toroidal_mirnov_reference_config() -> dict[str, Any]:
+    """The ``toroidal_mirnov_reference`` block of ``vest.yaml``.
+
+    Shot-independent: the one shot-dependent value is
+    ``last_operational_shot``, and that is a gate the caller applies rather
+    than a per-channel field -- the same split
+    :func:`_fluctuation_mirnov_config` documents for its own boundary.
+    """
+    return resolve_vest_diagnostic(0, "toroidal_mirnov_reference")
 
 
 @lru_cache(maxsize=8)
@@ -486,6 +459,97 @@ def fluctuation_mirnov_gain_by_identifier() -> dict[str, float]:
 #: duplicated here, so the configuration stays the single source of truth.
 FLUCTUATION_MIRNOV_FIRST_SHOT = int(_fluctuation_mirnov_config()["first_operational_shot"])
 OUTBOARD_MIRNOV_MAJOR_RADIUS = float(_fluctuation_mirnov_config()["geometry"]["major_radius"])
+
+#: The phase-reference outboard Mirnov channels, derived from ``vest.yaml``.
+#:
+#: Their names encode their positions: ``OutMirnov_130`` is at 1:30.  Until
+#: issue #718 they carried hardcoded ``phi`` of 0, 2pi/3, pi and 4pi/3 -- a
+#: *relative* frame anchored on the first channel, a uniform -45 deg from the
+#: clock angles the names themselves state, and clockwise-positive besides.
+#: The clock position is the source datum now and ``phi`` is derived.
+#:
+#: This is the **inventory**, un-gated.  These probes stop existing after
+#: :data:`TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT`; use
+#: :func:`toroidal_mirnov_reference_channels` to get the set a given shot
+#: actually has.  Field 171 is disputed -- see the ``toroidal_mirnov_reference``
+#: block in ``vest.yaml`` and issue #825.
+TOROIDAL_MIRNOV_REFERENCE_CHANNELS = tuple(
+    {
+        "field_code": int(channel["field"]),
+        "name": str(channel["identifier"]),
+        "r": float(_toroidal_mirnov_reference_config()["geometry"]["major_radius"]),
+        "z": float(_toroidal_mirnov_reference_config()["geometry"]["z"]),
+        "clock": float(channel["clock"]),
+        "gain": float(channel["gain"]),
+        **({"disputed": str(channel["disputed"])} if "disputed" in channel else {}),
+    }
+    for channel in _toroidal_mirnov_reference_config()["channels"]
+)
+
+#: The last shot whose archive carries the phase-reference channels.
+#:
+#: A gate the caller applies, the way ``first_operational_shot`` is for the
+#: fluctuation array -- see ``vest.yaml`` for the evidence behind the number.
+TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT = int(
+    _toroidal_mirnov_reference_config()["last_operational_shot"]
+)
+
+
+def toroidal_array_for_shot(shot: int) -> dict[str, Any]:
+    """Which toroidal Mirnov array ``shot`` has, and what it can resolve.
+
+    VEST has had two, and a gap between them.  Before shot 35520 the three
+    phase-reference channels at clock 1:30, 5:30 and 7:30; from shot 44156 the
+    30-channel outboard fluctuation array at clock 45, 135 and 225 degrees.
+    Between those boundaries no array recorded at more than one toroidal
+    position, so no toroidal mode number can be measured at all -- which is a
+    fact about the machine, not about the analysis, and is why this is
+    answerable without opening a shot.
+
+    Returns ``name``, the ``clock`` positions, the distinct IMAS ``angles_deg``
+    and the ``alias_step`` those angles impose -- ``n`` is resolved only modulo
+    that step.  ``name`` is ``None`` when the shot has no array.
+    """
+    import numpy as _np
+
+    from .conventions import port_toroidal_angle
+
+    shot = int(shot)
+    if shot <= TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT:
+        name = "phase_reference"
+        clocks = [float(c["clock"]) for c in TOROIDAL_MIRNOV_REFERENCE_CHANNELS]
+    elif shot >= FLUCTUATION_MIRNOV_FIRST_SHOT:
+        name = "fluctuation"
+        clocks = sorted(
+            {float(c["toroidal_angle_deg"]) / VEST_PORT_CLOCK_DEGREES
+             for c in _load_fluctuation_mirnov_channels(shot)}
+        )
+    else:
+        return {"name": None, "clocks": (), "angles_deg": (), "alias_step": None}
+
+    angles = sorted({round(float(_np.rad2deg(port_toroidal_angle(c))), 6) for c in clocks})
+    spacing = _np.diff(_np.asarray(angles + [angles[0] + 360.0]))
+    step = int(round(360.0 / spacing.min())) if len(angles) > 1 else None
+    return {
+        "name": name,
+        "clocks": tuple(sorted(clocks)),
+        "angles_deg": tuple(angles),
+        "alias_step": step,
+    }
+
+
+def toroidal_mirnov_reference_channels(shot: int = 0) -> tuple[dict[str, Any], ...]:
+    """The phase-reference channels ``shot`` actually has.
+
+    Empty for any shot after :data:`TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT`.
+    ``shot=0`` means the inventory, un-gated, matching
+    :func:`_fluctuation_mirnov_config`'s reading of the same argument.
+
+    Copies are returned so a caller cannot corrupt the table.
+    """
+    if shot and int(shot) > TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT:
+        return ()
+    return tuple(dict(channel) for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS)
 
 
 class UnsupportedMagneticsGeometryError(NotImplementedError):
@@ -1351,7 +1415,7 @@ def _equilibrium_probe_phi(r: float, z: float, name: str) -> float | None:
     return port_toroidal_angle(EQUILIBRIUM_PROBE_CLOCK[family])
 
 
-def _populate_probe_static(ods: object) -> None:
+def _populate_probe_static(ods: object, shot: int = 0) -> None:
     names = _load_names_by_code()
     probe_index = 0
     for channel in _load_static_channels():
@@ -1373,7 +1437,7 @@ def _populate_probe_static(ods: object) -> None:
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
         probe_index += 1
 
-    for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
+    for channel in toroidal_mirnov_reference_channels(shot):
         name = str(channel["name"])
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.name", name)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", f"{name}:phase_reference")
@@ -1448,11 +1512,18 @@ def _populate_limiter_shunt_static(ods: object) -> None:
         set_path(ods, f"{base_path}.resistance", LIMITER_SHUNT_RESISTANCE)
 
 
-def vfit_magnetics_static(ods: object) -> None:
-    """Populate static magnetics metadata from YAML geometry assets."""
+def vfit_magnetics_static(ods: object, shot: int = 0) -> None:
+    """Populate static magnetics metadata from YAML geometry assets.
+
+    ``shot`` gates the hardware that did not exist for the whole campaign: the
+    phase-reference Mirnov channels stop after
+    :data:`TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT`.  ``shot=0`` means the
+    inventory, un-gated, which is what a caller describing the machine rather
+    than a discharge wants.
+    """
     _set_magnetics_properties(ods)
     _populate_flux_loop_static(ods)
-    _populate_probe_static(ods)
+    _populate_probe_static(ods, shot)
     _populate_limiter_shunt_static(ods)
 
 
@@ -1479,7 +1550,7 @@ def vfit_mirnov_raw_dynamic(
         _set_voltage_signal(ods, f"magnetics.b_field_pol_probe.{probe_index}", time, data, validity)
         probe_index += 1
 
-    for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
+    for channel in toroidal_mirnov_reference_channels(shot):
         time, data, validity = _raw_time_data_with_validity(shot, int(channel["field_code"]), raw_source)
         if validity == 0:
             time, data = _crop_native_window(time, data, tstart=tstart, tend=tend)
@@ -2105,7 +2176,10 @@ def vfit_magnetics_for_shot(
     """Populate canonical static and dynamic magnetics nodes for one shot."""
     # Create the full ordered channel structures first so a missing early
     # channel can remain empty without shifting or invalidating later channels.
-    vfit_magnetics_static(ods)
+    # The shot is passed because it selects which hardware existed, not which
+    # of it recorded: a channel the machine had but that stayed silent is an
+    # empty entry, while one it did not have yet is no entry at all.
+    vfit_magnetics_static(ods, shot)
     vfit_magnetics_dynamic(
         ods,
         shot,
@@ -2169,7 +2243,7 @@ def b_field_pol_probe_from_raw_database(
     """Map calibrated and raw poloidal-field probe signals and metadata."""
     context = _prepare_magnetics_context(shot, tstart, tend, dt, processing_config, raw_source)
     _set_magnetics_properties(ods)
-    _populate_probe_static(ods)
+    _populate_probe_static(ods, shot)
     _map_probes(ods, shot, context, raw_source)
 
 
@@ -2269,6 +2343,8 @@ __all__ = [
     "vfit_equilibrium_magnetics_detailed",
     "vfit_magnetics_dynamic",
     "vfit_magnetics_for_shot",
+    "toroidal_array_for_shot",
+    "toroidal_mirnov_reference_channels",
     "vfit_magnetics_static",
     "vfit_limiter_shunts_dynamic",
     "vfit_mirnov_raw_dynamic",

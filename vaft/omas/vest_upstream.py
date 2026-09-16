@@ -167,6 +167,11 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
     vfit_pf_active_static(ods, shot=era.reference_shot)
     pf_passive(ods)
     em_coupling(ods, shot=era.reference_shot)
+    # Deliberately un-gated (shot=0, the inventory). A static product describes
+    # a machine *era*, and the phase-reference Mirnov boundary (shot 35520)
+    # falls inside the first era, whose reference_shot is 43016 -- so no single
+    # shot represents that era's magnetics truthfully. Per-shot availability is
+    # applied where a real shot exists, in vfit_vest_magnetics.
     vfit_magnetics_static(ods)
     vfit_tf_static(ods)
     ods["wall.ids_properties.comment"] = (
