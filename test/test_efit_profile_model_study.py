@@ -401,3 +401,30 @@ def test_a_single_model_run_reports_no_spread_rather_than_failing(study):
 
     assert "no across-model spread to report" in text
     assert "relative sigma median" not in text
+
+
+def test_dropping_the_samples_keeps_everything_derived_from_them(study):
+    """The report is a table of conclusions; the samples stay with the g-files."""
+    run = _run([_produced_slice(100, "ramp_up", magnetic_chisq=10.0)])
+    models = {
+        "p22_zero": {
+            "specification": {"kppcur": 2, "kffcur": 2},
+            "summary": study.summarize_run(run),
+            "run": run,
+        }
+    }
+    payload = _payload(models, {}, study.summarize_ensemble(models))
+    gfile = payload["shots"]["41672"]["models"]["p22_zero"]["run"]["slices"][0]["gfile"]
+    gfile["boundary"].update({"r_min": 0.3, "r_max": 0.5, "z_min": 0.0, "z_max": 0.1})
+
+    study.drop_sampled_arrays(payload)
+
+    assert "profiles" not in gfile
+    assert "r" not in gfile["boundary"] and "z" not in gfile["boundary"]
+    # What the arrays were read for survives them.
+    assert gfile["profile_diagnostics"]["jphi_edge"] == 1.0
+    assert gfile["boundary"]["r_min"] == 0.3 and gfile["boundary"]["z_max"] == 0.1
+    assert gfile["axis"] == [0.4, 0.0]
+
+    # Idempotent: the per-shot checkpoint calls it once per discharge.
+    study.drop_sampled_arrays(payload)

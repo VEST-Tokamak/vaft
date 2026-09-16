@@ -1256,6 +1256,36 @@ def _ensemble_section(lines: list[str], payload: Mapping[str, Any], cell) -> Non
     )
 
 
+def drop_sampled_arrays(payload: Mapping[str, Any]) -> None:
+    """Release the 1-D profiles and LCFS points once everything is derived.
+
+    Every quantity this table supports has already been computed by the time
+    this runs: the paired profile RMS and the LCFS distances live in
+    `comparisons[...].pairs[]`, the edge-current and oscillation diagnostics in
+    each slice's `profile_diagnostics`, and the boundary extent in
+    `boundary.r_min`/`r_max`/`z_min`/`z_max`.  What is dropped is the samples
+    those were taken from -- six 129-point profiles and the boundary polygon
+    per produced slice per model, which is roughly twenty times the rest of
+    the report and an order of magnitude past any other study's stored table.
+
+    They are not lost.  The g-files remain under `shot_<shot>/<model>/` and
+    the per-model cache beside them keeps the arrays, so a new comparison can
+    be derived without re-solving anything.  `--keep-arrays` writes them into
+    the report for a reader who wants to plot a profile straight from it.
+    """
+    for block in payload["shots"].values():
+        for model in block["models"].values():
+            for item in model["run"]["slices"]:
+                gfile = item.get("gfile")
+                if not gfile:
+                    continue
+                gfile.pop("profiles", None)
+                boundary = gfile.get("boundary")
+                if boundary:
+                    boundary.pop("r", None)
+                    boundary.pop("z", None)
+
+
 def markdown(payload: Mapping[str, Any]) -> str:
     def cell(value: Any) -> str:
         return "–" if value is None else f"{float(value):.6g}"
@@ -1444,6 +1474,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--tstep", type=float, default=0.001)
     parser.add_argument("--average-window", type=float, default=0.0005)
     parser.add_argument("--table", type=Path, default=None)
+    parser.add_argument(
+        "--keep-arrays",
+        action="store_true",
+        help=(
+            "keep the 1-D profiles and LCFS points in the report. They are "
+            "dropped by default once every derived quantity is computed; the "
+            "g-files and the per-model cache still hold them."
+        ),
+    )
     parser.add_argument("--markdown", type=Path, default=None)
     args = parser.parse_args(argv)
 
@@ -1557,6 +1596,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         # Checkpoint after each discharge; the raw model outputs and per-model
         # caches already make each individual run resumable.
+        if not args.keep_arrays:
+            drop_sampled_arrays(payload)
         target = args.table or output / "profile_model_study.json"
         target.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
 
