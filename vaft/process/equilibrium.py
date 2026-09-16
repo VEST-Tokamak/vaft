@@ -2371,25 +2371,13 @@ def r_at_z_extremum(r_seg: np.ndarray, z_seg: np.ndarray, *, upper: bool) -> flo
     ----------
     .. [1] Consumed by :func:`contour_shape_parameters` for both triangularities,
        which is where the several-percent error would otherwise land.
+    .. [2] The arithmetic is
+       :func:`vaft.formula.equilibrium.r_at_z_extremum_from_RZ_contour`; this is
+       the process-layer name for it, so the two layers cannot drift apart.
     """
-    r_seg = np.asarray(r_seg, dtype=float).reshape(-1)
-    z_seg = np.asarray(z_seg, dtype=float).reshape(-1)
-    index = int(np.argmax(z_seg) if upper else np.argmin(z_seg))
-    size = z_seg.size
-    if size < 3:
-        return float(r_seg[index])
-    prev, nxt = (index - 1) % size, (index + 1) % size
-    z_prev, z_here, z_next = float(z_seg[prev]), float(z_seg[index]), float(z_seg[nxt])
-    denominator = z_prev - 2.0 * z_here + z_next
-    if denominator == 0.0:
-        return float(r_seg[index])
-    # Vertex of the parabola through (-1, z_prev), (0, z_here), (1, z_next).
-    shift = 0.5 * (z_prev - z_next) / denominator
-    if not np.isfinite(shift) or abs(shift) > 1.0:
-        return float(r_seg[index])
-    r_here = float(r_seg[index])
-    neighbour = float(r_seg[nxt] if shift > 0 else r_seg[prev])
-    return r_here + abs(shift) * (neighbour - r_here)
+    from vaft.formula.equilibrium import r_at_z_extremum_from_RZ_contour
+
+    return r_at_z_extremum_from_RZ_contour(r_seg, z_seg, upper=upper)
 
 
 def _closed_contour(r_seg: np.ndarray, z_seg: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
