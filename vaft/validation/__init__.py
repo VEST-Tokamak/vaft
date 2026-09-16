@@ -83,11 +83,23 @@ _REGIME_EXPORTS = (
     "classify_equilibrium_regimes",
 )
 
+#: The join (#76): a regime label beside how EFIT ended that slice. Separate
+#: from the classifier because it needs an EFIT run's log, which the
+#: classifier deliberately does not.
+_COHORT_EXPORTS = (
+    "FAILURE_MODES",
+    "CohortJoin",
+    "SliceOutcome",
+    "join_regime_and_termination",
+    "summarize_by_cohort",
+)
+
 __all__ = [
     "CATEGORIES",
     "ValidationStatus",
     *_EQUILIBRIUM_EXPORTS,
     *_REGIME_EXPORTS,
+    *_COHORT_EXPORTS,
     *_EVIDENCE_EXPORTS,
     *_ARTIFACT_EXPORTS,
 ]
@@ -121,6 +133,13 @@ def __getattr__(name: str):
         from . import equilibrium_regime
 
         value = getattr(equilibrium_regime, name)
+        globals()[name] = value
+        return value
+
+    if name in _COHORT_EXPORTS:
+        from . import equilibrium_cohorts
+
+        value = getattr(equilibrium_cohorts, name)
         globals()[name] = value
         return value
 
