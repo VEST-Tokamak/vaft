@@ -2082,13 +2082,21 @@ def test_posix_installers_pick_netcdf_by_compiler_not_by_path_order():
         )
 
 
-def test_default_prefix_answers_on_posix_too():
+def test_default_prefix_answers_on_posix_too(monkeypatch):
     """Returning None off Windows is what recommended PowerShell to Linux users.
 
     The POSIX installers put the prefix inside the source tree, which is
     unguessable without --source and derivable with it.
+
+    `default_prefix` chooses by whether `LOCALAPPDATA` is set, not by the
+    operating system, so this controls that variable rather than asking which
+    platform it runs on. Both branches are then checked on every runner. It
+    used to read the real environment, which on Windows took the per-user
+    branch and failed every assertion written for the other one.
     """
     module = _load_external_checker("_external_code_common.py")
+
+    monkeypatch.delenv("LOCALAPPDATA", raising=False)
     assert module.default_prefix("chease", "/tmp/chease").as_posix().endswith(
         "/chease/vaft-install"
     )
@@ -2096,7 +2104,13 @@ def test_default_prefix_answers_on_posix_too():
     assert module.default_prefix("nubeam", "/tmp/nubeam").as_posix().endswith("/nubeam/local")
     assert module.default_prefix("gacode", "/tmp/gacode").as_posix().endswith("/gacode")
     # Without a source there is still nothing to derive from.
-    assert module.default_prefix("chease") is None or os.environ.get("LOCALAPPDATA")
+    assert module.default_prefix("chease") is None
+
+    # And the per-user branch answers from the code name alone, source or not.
+    monkeypatch.setenv("LOCALAPPDATA", str(Path("/per-user")))
+    expected = (Path("/per-user") / "vaft" / "external" / "chease").as_posix()
+    assert module.default_prefix("chease").as_posix() == expected
+    assert module.default_prefix("chease", "/tmp/chease").as_posix() == expected
 
 
 @pytest.mark.parametrize("name", EXTERNAL_CODE_CHECKERS)
