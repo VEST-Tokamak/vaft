@@ -142,8 +142,8 @@ above:
 export GACODE_PLATFORM=GFORTRAN_OSX_BREW
 ```
 
-Build it with
-`install/gacode/macos.sh --gacode-root <source> --codes neo,tglf` — **the default is `neo` alone** — and
+Build it with `install/gacode/linux.sh` or `install/gacode/macos.sh --gacode-root <source>`
+— both build `neo,tglf` by default, the set VAFT drives — and
 verify with `install/check_gacode.py`. VAFT drives NEO for neoclassical transport and the bootstrap
 current, and TGLF for turbulent transport; see
 [`install/gacode/`](https://github.com/VEST-Tokamak/vaft/tree/develop/install/gacode).

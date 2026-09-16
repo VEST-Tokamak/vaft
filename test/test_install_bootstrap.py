@@ -2203,3 +2203,55 @@ def test_check_only_reports_what_the_install_reports(name, variable):
     """
     text = _executable_source(INSTALL / name)
     assert f'exec env {variable}="$PREFIX"' in text
+
+
+def test_both_gacode_recipes_build_what_vaft_drives():
+    """A neo-only tree fails its own verification.
+
+    `install/check_gacode.py` requires neo and tglf, and `vaft.code.gacode`
+    resolves both, so `--codes` defaulting to `neo` alone on one platform and
+    `neo,tglf` on the other made the same command produce a tree that passed on
+    Linux and failed on macOS.
+    """
+    checker = (INSTALL / "check_gacode.py").read_text(encoding="utf-8")
+    assert 'CODES = ("neo", "tglf")' in checker
+    for name in GACODE_RECIPES:
+        text = _executable_source(GACODE_DIR / name)
+        assert 'CODES="neo,tglf"' in text, (
+            f"install/gacode/{name} must default to the set the checker requires"
+        )
+
+
+def test_windows_nubeam_link_restores_a_space_separated_ifs():
+    """`link_libraries` has to reach gfortran as separate arguments.
+
+    The script runs under IFS=$'\\n\\t', where an unquoted command substitution
+    does not split on spaces at all -- gfortran would be handed the whole
+    `-L... -l... -l...` list as one malformed option. The three other call
+    sites embed it in a quoted "VAR=..." string, where no splitting is wanted;
+    only the bare one needs the IFS restored.
+    """
+    text = (NUBEAM_DIR / "windows.sh").read_text(encoding="utf-8")
+    # The bare expansion is the plasma_state_test link; the three earlier ones
+    # sit inside quoted "VAR=..." strings, so index() would find those first.
+    bare = text.index("gfortran -o plasma_state_test.exe")
+    preceding = text[:bare]
+    assert "IFS=' '" in preceding[-600:], (
+        "the bare $(link_libraries) expansion needs a space-separated IFS set "
+        "just before it, inside the same subshell"
+    )
+    # The other call sites are inside quoted "VAR=..." strings and must not be
+    # touched; if one of them ever goes bare it needs the same treatment.
+    assert text.count("$(link_libraries)") == 4
+
+
+def test_every_shell_entry_point_is_linted():
+    """The CI glob covers the per-code recipes, not just install/*.sh.
+
+    Naming files one at a time meant a new recipe was unlinted until somebody
+    remembered to add it.
+    """
+    workflow = (ROOT / ".github" / "workflows" / "bootstrap-ci.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "shellcheck --severity=warning install/*.sh install/*/*.sh" in workflow
