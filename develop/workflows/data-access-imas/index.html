@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>1e740ad</code>. What is described
+  <code>4c25545</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -522,8 +522,9 @@ every consumer (issue #409). Its <code class="language-plaintext highlighter-rou
 0.28–0.36 s, which no diagnostic maps onto and the stage’s <code class="language-plaintext highlighter-rouge">tstart</code>/<code class="language-plaintext highlighter-rouge">tend</code> never retune — and <code class="language-plaintext highlighter-rouge">baseline_lead_s</code>
 the stretch before it, <code class="language-plaintext highlighter-rouge">[tstart − lead, tstart)</code>, whose samples are the <strong>baseline</strong> the detectors measure
 their noise on. The block then carries the detector recipes, keyed by the signal they were tuned on: <code class="language-plaintext highlighter-rouge">h_alpha</code>
-(median filter, threshold <code class="language-plaintext highlighter-rouge">max(2 % peak, 5 σ)</code>, 0.5 ms persistence, width, prominence and integral floors),
-<code class="language-plaintext highlighter-rouge">ip</code> (zero-phase low-pass, principal pulse, pickup floor, 10 % end threshold, collapse fallback), per-line
+(median filter, threshold <code class="language-plaintext highlighter-rouge">max(2 % peak, 5 σ)</code>, 0.5 ms persistence, width, prominence and integral floors,
+<strong>principal pulse</strong>), <code class="language-plaintext highlighter-rouge">ip</code> (zero-phase low-pass, principal pulse, pickup floor, 10 % end threshold, collapse
+fallback), per-line
 <code class="language-plaintext highlighter-rouge">lines</code> for impurity lines with their own morphology, the H-alpha <code class="language-plaintext highlighter-rouge">usability</code> floors (rail level, quantized
 baseline, validity) and the <code class="language-plaintext highlighter-rouge">agreement</code> tolerances between light and current. Every rule is validated against
 <code class="language-plaintext highlighter-rouge">vaft.process.onset.active_window</code>’s signature when the policy is loaded:</p>
@@ -534,6 +535,12 @@ baseline, validity) and the <code class="language-plaintext highlighter-rouge">a
 <span class="n">policy</span><span class="p">.</span><span class="n">window</span><span class="p">.</span><span class="n">tstart</span><span class="p">,</span> <span class="n">policy</span><span class="p">.</span><span class="n">window</span><span class="p">.</span><span class="n">tend</span><span class="p">,</span> <span class="n">policy</span><span class="p">.</span><span class="n">baseline_start</span>   <span class="c1"># 0.28, 0.36, 0.26
 </span><span class="n">policy</span><span class="p">.</span><span class="n">h_alpha</span><span class="p">,</span> <span class="n">policy</span><span class="p">.</span><span class="n">ip</span>                                          <span class="c1"># keyword arguments of active_window
 </span></code></pre></div></div>
+
+<p>Both detector rules are <strong>principal-pulse</strong> rules: each keeps only the segment holding its own maximum, so a
+window is one run and the two sources answer the same question — <em>where is the one main discharge</em>. The light
+rule was an envelope rule until <a href="https://github.com/VEST-Tokamak/vaft/issues/842">#842</a>, which meant a record
+of scattered flashes reported a window spanning all of them and opened it at the first, and a record whose
+brightest feature is a refused spike now yields no light window rather than one built from lesser bursts.</p>
 
 <p>The rules were tuned on a scan of the raw database, and that scan is reproducible:
 <code class="language-plaintext highlighter-rouge">workflow/plasma_onset/scan_corpus.py --shots 39900-41700</code> runs the raw-side detector over every shot in the
@@ -1255,7 +1262,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 07:08:02 +0000"
+        "time": "2026-09-16 07:17:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

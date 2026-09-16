@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>1e740ad</code>. What is described
+  <code>4c25545</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1089,14 +1089,18 @@ why the conversion derives them once:</p>
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_bt</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>                 <span class="c1"># mean toroidal field over the plasma window
 </span></code></pre></div></div>
 
-<p>A window is the <strong>envelope</strong> of the segments its detector accepted, so its extent is not the same
-question as how long the plasma was there. On a record of two brief flashes tens of milliseconds
-apart the window spans both and the quiet between them: three corpus records report windows that are
-7–19 % above threshold. <code class="language-plaintext highlighter-rouge">plasma_timing(ods).duty_cycle</code> is that fraction, the shot overview carries
-it as <code class="language-plaintext highlighter-rouge">pulse_duty_cycle</code> beside <code class="language-plaintext highlighter-rouge">pulse_duration_s</code>, and the onset corpus keeps it per detector.
-<code class="language-plaintext highlighter-rouge">find_pulse_duration</code> is unchanged and still returns the extent — a duration and a duty cycle are two
-answers, and folding one into the other would move a published column under its readers
-(<a href="https://github.com/VEST-Tokamak/vaft/issues/752">#752</a>).</p>
+<p><strong>The unit is the one main discharge.</strong> Both detectors keep only the segment holding their own
+maximum (<code class="language-plaintext highlighter-rouge">principal_only</code> in the <code class="language-plaintext highlighter-rouge">plasma_timing</code> policy), so a window is one run and its extent is a
+duration. Before <a href="https://github.com/VEST-Tokamak/vaft/issues/842">#842</a> the light rule returned the
+<em>envelope</em> of every accepted segment, so a record of scattered flashes reported one long window that
+was mostly gap — and opened it at the first flash, which the plasma current said was the discharge in
+only 11 of 35 shots. A record whose brightest feature is a spike the segment tests refused now yields
+no light window at all rather than a window built from lesser bursts.</p>
+
+<p><code class="language-plaintext highlighter-rouge">plasma_timing(ods).duty_cycle</code> is how much of a window is above threshold; the shot overview carries
+it as <code class="language-plaintext highlighter-rouge">pulse_duty_cycle</code> beside <code class="language-plaintext highlighter-rouge">pulse_duration_s</code>, and the onset corpus keeps it per detector. It is
+1 everywhere in the corpus today, which is the point: it is the check that the unit has not slipped
+back (<a href="https://github.com/VEST-Tokamak/vaft/issues/752">#752</a>).</p>
 
 <p>The records behind them carry the evidence: <code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing.plasma_timing(ods)</code> (the window, its
 source, the light/current agreement) and <code class="language-plaintext highlighter-rouge">vaft.omas.discharge_timing.discharge_timing(ods)</code> (every coil’s
@@ -1582,7 +1586,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 07:08:02 +0000"
+        "time": "2026-09-16 07:17:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
