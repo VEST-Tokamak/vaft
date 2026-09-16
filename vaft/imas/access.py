@@ -10,11 +10,13 @@ indexed, and an empty leaf holds a sentinel that only ``has_value`` exposes.
 the same recipe reads an ODS and an IDS and the two view models can be
 compared before anything is drawn.
 
-The one exception is the set of code-backed recipes (``CallableRecipe``)
-whose builders call functions written for an ODS: for those, and only those,
+The one exception is the set of OMAS-bound computed views
+(``CallableRecipe.backend == "omas"``, issue #439) whose builders hand the
+object to functions written for an ODS: for those, and only those,
 :meth:`IDSEntry.as_ods_for` converts the IDS the plot declares, through the
 same fast walker :func:`vaft.imas.omas_imas.ods_from_toplevels` uses, and
-the equivalence suite covers that path too.
+the equivalence suite covers that path too.  A neutral computed view reads
+through the accessor like a path-driven one.
 
 Nothing here sets attributes on an imas-python class.
 """
@@ -149,7 +151,7 @@ class IDSEntry:
     def as_ods_for(self, ids_names: Iterable[str]) -> Any:
         """An OMAS ODS holding only ``ids_names``, converted from the native toplevels.
 
-        Used solely for the code-backed recipes whose builders take an ODS.
+        Used solely for the OMAS-bound computed views whose builders take an ODS.
         Cached per name set; IDS the source lacks are simply left out.
         """
         wanted = frozenset(str(n) for n in ids_names)

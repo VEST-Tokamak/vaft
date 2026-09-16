@@ -229,7 +229,9 @@ from .renderers.images import (
     camera_visible_image,
     camera_visible_image_efit_overlay,
     camera_visible_image_field_line,
+    camera_visible_image_fluctuation,
     camera_visible_image_frame,
+    camera_visible_image_mhd_power,
 )
 from .renderers.lines import (
     barometry_time_pressure,
@@ -326,6 +328,8 @@ from .renderers.profiles import (
     neoclassical_profile_bootstrap_current,
     mhd_linear_profile_b_field_perturbed,
     mhd_linear_profile_displacement,
+    mhd_linear_profile_island_width,
+    mhd_linear_profile_resonant_flux,
     impa_profile_field,
     thomson_scattering_profile_electron_density,
     thomson_scattering_profile_electron_temperature,
@@ -336,6 +340,7 @@ from .renderers.spectra import (
     soft_x_rays_spectrum,
 )
 from .renderers.spectrograms import (
+    camera_visible_spectrogram,
     interferometer_spectrogram,
     mirnov_spectrogram,
     soft_x_rays_spectrogram,

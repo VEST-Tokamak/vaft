@@ -203,6 +203,34 @@ def _load_equilibrium_magnetics_channels() -> list[dict[str, Any]]:
         return yaml.safe_load(handle)["channels"]
 
 
+def equilibrium_probe_count(source: Any) -> int:
+    """How many B-pol probes EFIT's geometry represents.
+
+    ``min(present, defined)``. The magnetics IDS also carries trailing
+    toroidal-Mirnov phase-reference channels: useful diagnostics, absent from
+    EFIT's ``dprobe.dat``/``mhdin.dat`` geometry, and not constraints. This is
+    also the offset the flux-loop indices are counted from, so the k-file
+    writer, the channel-decision layer and the EFUND projection must all take
+    it from one place -- they each had their own copy, and they did not agree
+    in the degenerate case.
+
+    Accepts either a whole ODS or a ``magnetics`` sub-tree, because its callers
+    hold one or the other.
+    """
+    defined = sum(
+        1
+        for entry in vest_equilibrium_magnetics_channel_definitions()
+        if entry.get("kind") == "b_field_pol_probe"
+    )
+    for path in ("magnetics.b_field_pol_probe", "b_field_pol_probe"):
+        if path in source:
+            present = len(source[path])
+            break
+    else:
+        present = 0
+    return min(present, defined) if defined else present
+
+
 def vest_equilibrium_magnetics_channel_definitions() -> tuple[dict[str, Any], ...]:
     """Return ordered VEST equilibrium-magnetics channel metadata for provenance/preflight."""
     return tuple(dict(channel) for channel in _load_equilibrium_magnetics_channels())

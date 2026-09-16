@@ -334,6 +334,36 @@
           cutoff_frequency: 2500.0
           taps: 251
           smoothing_window: 10
+        # Which acquisition channel each PF circuit's current comes from,
+        # keyed by the same 0-based coil index as `coil_gains`. This used to
+        # live in the binary `Coil_info.mat`, which listed five circuits and
+        # so made "which coils exist" a property of a checked-in .mat file
+        # rather than of the machine: a discharge that energised PF2 was
+        # zero-filled with no way to say otherwise (#708).
+        #
+        # A circuit listed here is *acquirable*, not necessarily acquired: the
+        # channel is read per shot and a shot whose channel holds no waveform
+        # gets a zero, which is a statement about that discharge. A circuit
+        # absent from this map has no known channel at all.
+        #
+        # PF3, PF4, PF7 and PF8 are deliberately absent. The donor
+        # (`VEST_PFwaveform.m`) lists codes for them, but gives PF3/PF4 the
+        # same code as PF5, and no gain for any of the four -- so reading them
+        # would yield either another coil's waveform or an uncalibrated one.
+        # An absent entry is the honest answer until a calibration exists.
+        coil_field_codes:
+          0: 59   # PF1
+          4: 5    # PF5
+          5: 62   # PF6
+          8: 65   # PF9  -- one channel drives both, see efit_coilset.ties
+          9: 65   # PF10
+        # Circuits whose channel may legitimately hold no waveform: an empty
+        # channel means this discharge did not energise the coil, not that
+        # acquisition failed. Everything else in `coil_field_codes` is
+        # REQUIRED -- a missing waveform there raises rather than becoming a
+        # zero, which is the #44 zero-fill guard and must not be relaxed by
+        # adding a circuit that is only sometimes used.
+        optional_coils: [1]   # PF2
         coil_gains:
           0: 1.0e4
           1: 1.0e3
@@ -356,6 +386,11 @@
         # signal, so the policy is scoped to the negative-gain eras.
         saturation_repair: null
       revisions:
+        # PF9 had its own channel before the 19284 rewiring; afterwards it
+        # shares PF10's, which is what makes their currents bit-identical.
+        - to_shot: 19283
+          processing:
+            coil_field_codes: {8: 64}
         - from_shot: 19287
           to_shot: 20258
           processing:
@@ -377,19 +412,37 @@
             saturation_repair:
               5: {value: -5000.0, tolerance: 10.0}
         - from_shot: 38401
-          to_shot: 45964
+          to_shot: 38451
           processing:
             coil_gains: {0: -5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
             saturation_repair:
               5: {value: -5000.0, tolerance: 10.0}
+        # Same gains; the boundary is PF2's, not theirs. See the note below.
+        - from_shot: 38452
+          to_shot: 45964
+          processing:
+            coil_field_codes: {1: 4}
+            coil_gains: {0: -5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+            saturation_repair:
+              5: {value: -5000.0, tolerance: 10.0}
+        # PF2 enters here and not earlier. The donor gives it field 4 for
+        # every shot from 19284, but this file records field 4 as the
+        # *diamagnetic loop* for 37505-38451, and the two cannot both be
+        # right. Declaring PF2 only from 38452 -- where the loop moved to 257
+        # and the conflict ends -- refuses to read a channel that provably
+        # belonged to another diagnostic. Verified on 46742: field 4 carries
+        # 25000 samples there and is empty on 39915, so the channel is real
+        # and per-shot.
         - from_shot: 45965
           to_shot: 48371
           processing:
+            coil_field_codes: {1: 4}
             coil_gains: {0: -1.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
             saturation_repair:
               5: {value: -5000.0, tolerance: 10.0}
         - from_shot: 48372
           processing:
+            coil_field_codes: {1: 4}
             coil_gains: {0: -1.0e4, 4: -5.0e3, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
             saturation_repair:
               5: {value: -5000.0, tolerance: 10.0}
@@ -1356,6 +1409,188 @@ diagnostics_time_policies:
     ec_power: full_discharge
 
 # Plasma-timing policy (issue #409): where the plasma window is searched for
+# EFIT coilset policy (issue #708): what EFIT is told VEST's PF circuits are.
+# Which of the ten circuits its Green table describes, how each is split into
+# current groups, and which groups are wired in series.
+#
+# Resolved by `vaft.machine_mapping.efit_coilset.vest_efit_coilset_policy` and
+# handed to the EFUND projection and the k-file writer. Splitting a circuit is
+# EFIT's bookkeeping, not a different machine: every group of a circuit carries
+# that circuit's current, which is what `ties` says in the k-file's &INWANT
+# matrix. VEST energises ten circuits; sixteen groups is how EFIT counts them.
+#
+# --------------------------------------------------------------------------
+# Which operating regime a reconstructed slice belongs to (issue #76).
+#
+# A reconstruction outcome only means something against the state the plasma
+# was in. Resolved by
+# `vaft.machine_mapping.equilibrium_regime.vest_equilibrium_regime_policy`
+# and applied by `vaft.validation.classify_equilibrium_regime`.
+#
+# Pipeline policy, outside the `0:` / shot overrides: a cohort definition that
+# changed between discharges could not group them.
+equilibrium_regime:
+
+  phase:
+    # `level`: flat where |Ip| >= flat_fraction_of_peak * peak|Ip|, and
+    # ramp_up / ramp_down by which side of the peak the slice falls on.
+    # `slope` is the other rule two studies were written against and is kept
+    # so an A/B can ask for it by name; it is not the default.
+    rule: level
+    flat_fraction_of_peak: 0.9
+    slope_fraction_of_peak_rate: 0.15
+    # Below this there is no plasma to classify. The same number as EFIT's
+    # CUTIP (`EFITInitializationConfig.current_threshold`), because a slice
+    # EFIT declares vacuum is not a slice with a phase.
+    vacuum_current_amperes: 15000.0
+    status: measured
+    provenance: >-
+      Measured over 39915, 41524 and 41672 (300 slices on the 1 ms
+      reconstruction grid). The level and slope rules agree on 295 of 300;
+      every disagreement is at the ramp/flat boundary, where an arbitrary
+      threshold has to choose. The choice was therefore made on what sets the
+      threshold's scale. The slope rule scales by that shot's max|dIp/dt|,
+      which is dominated by the termination and measured 2.73, 9.38 and
+      2.34 MA/s -- a 3.4x spread that says how violent the disruption was,
+      not how flat the flat top is. The level rule scales by peak |Ip|, a
+      property of the plasma being classified.
+      An absolute MA/s threshold and a peak-normalised rate were both tried,
+      on the expectation that a fixed scale would transfer across shots
+      better for cohort work. Both measured WORSE: median |Ip|/peak inside
+      the flat cohort spread 0.12 and 0.10 across the three shots against
+      0.02 for either shot-normalised rule, and the absolute rule's cohort
+      size swung from 4 to 24 slices. Flatness is intrinsically relative.
+      Known cost: the peak is needed, so this rule is not causal and cannot
+      label a discharge while it is running. It is post-hoc only.
+
+  topology:
+    # EFIT's `limloc`, mapped rather than interpreted. An unlisted value is
+    # `unknown`, which is deliberately NOT the same answer as `limited`:
+    # issue #76 requires unknown and ambiguous states to stay distinct from
+    # negative classifications.
+    limloc:
+      IN:   inboard_limited
+      OUT:  outboard_limited
+      TOP:  top_limited
+      BOT:  bottom_limited
+      SNT:  single_null_top
+      SNB:  single_null_bottom
+      DN:   double_null
+      VAC:  vacuum
+      LIM:  limited
+      MAG:  magnetic_axis_only
+    status: inferred
+    provenance: >-
+      The names EFIT writes in write_a.f90's limloc field. VEST's reference
+      reconstructions come back IN (inboard limited) and VAC; the diverted
+      values are listed because EFIT can write them, not because VEST has
+      been observed to produce one -- shot 46742 was checked and its eight
+      converged slices are all IN. Nothing here claims VEST diverts.
+
+# Like `diagnostics_time_policies` and `plasma_timing` this is pipeline policy,
+# outside the `0:` / shot overrides.
+efit_coilset:
+
+  # Every circuit the machine has, energised or not. A circuit with no current
+  # becomes a group carrying zero, weighted out of the fit and pinned there --
+  # which costs 0.39 MiB of Green table per group and means a discharge that
+  # energised a different subset needs no new table. Sizing the table to the
+  # energised set instead would make a 170 MB cached artifact a function of the
+  # shot, which is why it is not done.
+  #
+  # This list and the table's `nfsum` must agree; changing one means
+  # regenerating the other.
+  groups:
+    PF1:
+      split: axial
+      edges: [0.0, 0.3, 0.6, 0.9, 1.2]   # |z| boundaries, mirrored below z=0
+      status: inferred
+      provenance: >-
+        The legacy mhdin.dat described the solenoid as eight axial conductors
+        and these are its boundaries. Turn-conserving: the eight segments hold
+        632 turns in total, PF1's full winding.
+    PF2:
+      split: midplane
+      status: inferred
+      provenance: "as PF5; unenergised in every reference discharge."
+    PF3:
+      split: midplane
+      status: inferred
+      provenance: "as PF5; unenergised in every reference discharge."
+    PF4:
+      split: midplane
+      status: inferred
+      provenance: "as PF5; unenergised in every reference discharge."
+    PF5:
+      split: midplane
+      status: inferred
+      provenance: "Legacy convention: a non-solenoid circuit is split at z = 0."
+    PF6:
+      split: midplane
+      status: inferred
+      provenance: "as PF5"
+    PF7:
+      split: midplane
+      status: inferred
+      provenance: "as PF5; unenergised in every reference discharge."
+    PF8:
+      split: midplane
+      status: inferred
+      provenance: "as PF5; unenergised in every reference discharge."
+    PF9:
+      split: midplane
+      status: inferred
+      provenance: "as PF5"
+    PF10:
+      split: midplane
+      status: inferred
+      provenance: "as PF5"
+
+  # Which circuits an experiment energised. `declared` is the answer for a
+  # product with no PF record; when there is one, the measured currents decide
+  # and a disagreement is reported with both answers rather than resolved
+  # quietly. Detection runs over the reconstruction window, not the whole
+  # record: a circuit ramped down before the first constraint time contributes
+  # nothing to the fit.
+  energisation:
+    declared: [PF1, PF5, PF6, PF9, PF10]
+    threshold_amperes: 100.0
+    status: measured
+    provenance: >-
+      Issue #695: peak |I| is exactly 0.0 A for PF2, PF3, PF4, PF7 and PF8 in
+      shots 39915, 41524 and 41672, and 6.7e2 to 1.9e4 A for the other five.
+      Exactly zero, not merely small: those circuits have no acquisition
+      channel, so the mapping writes a literal zero array. The absence of a
+      channel is evidence about the machine, not missing data. The 100 A
+      threshold sits two orders below the smallest energised peak and two
+      above integrator drift; no circuit in any reference shot falls between.
+
+  # Floor on the k-file's BITFC entry, in amperes. A circuit at exactly 0.0 A
+  # would otherwise take a zero error bar from the relative uncertainty, which
+  # is either a division by zero or an infinitely stiff constraint by
+  # accident. The floor makes the pin at zero deliberate and says how stiff.
+  coil_current_error_floor_amperes:
+    value: 1.0e-6
+    status: assumed
+    provenance: >-
+      The smallest error bar any energised circuit produces across the
+      reference set is 2.7e-5 A, so a 1 uA floor sits twenty-seven times below
+      it and cannot bind on a real measurement -- it only replaces an exact
+      zero.
+
+  # Circuits driven by one current. Each entry is one equality row of the
+  # k-file's &INWANT matrix, on top of the rows tying a circuit's own groups
+  # together.
+  ties:
+    - groups: [PF9L, PF10U]
+      status: measured
+      provenance: >-
+        Issue #695: PF9 and PF10 currents are bit-identical -- the same
+        samples, not equal within noise -- over the whole record in shots
+        39915, 41524 and 41672. The legacy &INWANT matrix asserted the same
+        equality in its twelfth column, where it was written down without
+        being said.
+
 # and the VEST-tuned rules the generic detectors in `vaft.process.onset` run
 # with. `vaft.omas.plasma_timing` composes them into the plasma window with its
 # provenance; the raw-field diamagnetic mapper reads the same rules. Like

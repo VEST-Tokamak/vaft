@@ -13,8 +13,8 @@ import numpy as np
 import pytest
 
 from vaft.data.resources import data_path
+from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
 from vaft.machine_mapping.efund_geometry import (
-    EFIT16_GROUP_NAMES,
     efund_geometry_from_static,
     efund_probe_angle_deg,
     equilibrium_probe_count,
@@ -22,6 +22,7 @@ from vaft.machine_mapping.efund_geometry import (
 )
 
 LEGACY_ERA = "vest-pre-43017-pf1906"
+COILSET = vest_efit_coilset_policy()
 
 
 @pytest.fixture(scope="module")
@@ -39,13 +40,18 @@ def geometry(static):
 
 @pytest.fixture(scope="module")
 def packaged_mhdin():
-    return f90nml.read(str(data_path("efit/mhdin.dat")))
+    # The legacy namelist, moved aside by #708 when the shipped one grew to
+    # describe every circuit. It is kept precisely for the comparison below:
+    # the same machine, written by other hands.
+    return f90nml.read(str(data_path("efit/legacy/mhdin.dat")))
 
 
 def test_counts_are_the_legacy_table_counts_with_the_canonical_pf1(geometry):
     assert geometry.counts() == {
-        "nfcoil": 302,
-        "nfsum": 16,
+        # #708: every circuit the machine has, not only the five the reference
+        # era energised. All 530 filaments of the asset, in 26 current groups.
+        "nfcoil": 530,
+        "nfsum": 26,
         "nsilop": 11,
         "magpri": 64,
         "necoil": 0,
@@ -64,16 +70,17 @@ def test_fcoil_groups_are_the_k_file_groups(geometry):
     A second list written down anywhere else is how the table and the k-file
     would come to disagree about which coils exist.
     """
-    from vaft.machine_mapping.efund_geometry import EFIT16_SOURCE_CIRCUIT
 
-    assert geometry.group_names == EFIT16_GROUP_NAMES
-    assert len(EFIT16_GROUP_NAMES) == 16
-    # Eight solenoid segments on one circuit, then four pairs split at the
-    # midplane: sixteen groups over five of the machine's ten circuits.
-    assert [EFIT16_SOURCE_CIRCUIT[name] for name in EFIT16_GROUP_NAMES] == (
-        ["PF1"] * 8 + ["PF5", "PF5", "PF6", "PF6", "PF9", "PF9", "PF10", "PF10"]
+    assert geometry.group_names == COILSET.group_names
+    assert len(COILSET.group_names) == 26
+    # Eight solenoid segments on one circuit, then nine pairs split at the
+    # midplane: twenty-six groups over all ten of the machine's circuits.
+    assert [COILSET.source_circuit[name] for name in COILSET.group_names] == (
+        ["PF1"] * 8
+        + [c for c in ("PF2", "PF3", "PF4", "PF5", "PF6", "PF7", "PF8", "PF9", "PF10")
+           for _ in range(2)]
     )
-    assert set(np.unique(geometry.fcoil_group)) == set(range(1, 17))
+    assert set(np.unique(geometry.fcoil_group)) == set(range(1, 27))
     # Elements are grouped contiguously in group order.
     assert np.all(np.diff(geometry.fcoil_group) >= 0)
     assert np.all(geometry.group_turns == 1.0)
@@ -222,18 +229,31 @@ def test_packaged_vessel_loops_and_probes_match_the_projection(geometry, package
 def test_packaged_pf_groups_agree_on_centroids_and_turns_but_not_discretization(geometry, packaged_mhdin):
     """The legacy namelist as an independent check on the canonical geometry.
 
-    `vaft/data/efit/mhdin.dat` is kept precisely for this: it describes the
-    same machine, written by other hands, so agreeing with it on centroids and
-    turns is evidence the projection is right rather than merely
+    `vaft/data/efit/legacy/mhdin.dat` is kept precisely for this: it describes
+    the same machine, written by other hands, so agreeing with it on centroids
+    and turns is evidence the projection is right rather than merely
     self-consistent. It lumps each coil where the projection resolves
     filaments, which is the one thing it must disagree about.
+
+    Matched by name and not by position: since #708 the projection describes
+    every circuit the machine has, so its rows are a superset of the legacy
+    file's sixteen and in a different order. Comparing them by index would
+    hold PF2 against PF5.
     """
     in3 = packaged_mhdin["in3"]
     assert packaged_mhdin["machinein"]["nfcoil"] == 16 != geometry.nfcoil
-    rows = geometry.group_summary()
-    for index, row in enumerate(rows):
-        assert row["r"] == pytest.approx(in3["rf"][index], abs=0.02), row["name"]
-        assert row["z"] == pytest.approx(in3["zf"][index], abs=0.02), row["name"]
-        assert row["turns"] == pytest.approx(in3["fcturn"][index], abs=4.0), row["name"]
-    assert list(in3["fcid"]) == list(range(1, 17))
+
+    # The order the legacy file's sixteen entries are in.
+    legacy_order = [f"PF1-{i}" for i in range(1, 9)] + [
+        f"{coil}{half}" for coil in ("PF5", "PF6", "PF9", "PF10") for half in ("U", "L")
+    ]
+    by_name = {row["name"]: row for row in geometry.group_summary()}
+    assert set(legacy_order) <= set(by_name), "the projection lost a legacy group"
+
+    for index, name in enumerate(legacy_order):
+        row = by_name[name]
+        assert row["r"] == pytest.approx(in3["rf"][index], abs=0.02), name
+        assert row["z"] == pytest.approx(in3["zf"][index], abs=0.02), name
+        assert row["turns"] == pytest.approx(in3["fcturn"][index], abs=4.0), name
+    assert list(in3["fcid"]) == list(range(1, 17))  # the legacy file's own 16
     assert list(in3["turnfc"]) == [1.0] * 16

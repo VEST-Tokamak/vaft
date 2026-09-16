@@ -8,7 +8,7 @@ remainder of issue #490 section 6.
 
 The installation is external -- NTCC requires each user to accept its licence
 before downloading the source -- so VAFT owns the build recipe
-(``external/nubeam/``) and this adapter contract, not the source itself. Point
+(``install/nubeam/``) and this adapter contract, not the source itself. Point
 ``$NUBEAMHOME`` at the installation root.
 """
 

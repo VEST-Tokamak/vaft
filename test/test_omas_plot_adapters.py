@@ -34,6 +34,33 @@ def test_every_canonical_plot_has_an_adapter():
         assert adapter.__doc__ and name in adapter.__doc__
 
 
+def test_no_adapter_is_defined_twice():
+    """Two merges can each add the same adapter and neither will conflict.
+
+    That is how `plot_neoclassical_profile_bootstrap_current` came to be defined
+    twice in this module and in its IMAS twin: #810 registered a renderer without
+    adapters, two branches fixed it independently at different insertion points,
+    and both merged green. The later definition silently shadowed the earlier,
+    and the two modules ended up exposing different docstrings for one name.
+    Nothing reported it, because every other check only asks whether an adapter
+    exists.
+    """
+    import ast
+    from pathlib import Path
+
+    from vaft.imas import plotting as imas_plotting
+    from vaft.omas import plotting as omas_plotting
+
+    for module in (omas_plotting, imas_plotting):
+        names = [
+            node.name
+            for node in ast.parse(Path(module.__file__).read_text()).body
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("plot_")
+        ]
+        repeated = sorted({name for name in names if names.count(name) > 1})
+        assert not repeated, f"{module.__file__} defines {repeated} more than once"
+
+
 def test_available_plots_filters_by_what_the_object_actually_holds(sample_ods):
     everything = {row["name"] for row in vomas.available_plots()}
     for_shot = {row["name"] for row in vomas.available_plots(sample_ods)}

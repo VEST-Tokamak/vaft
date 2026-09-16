@@ -27,24 +27,31 @@ def _study():
 
 
 def _frozen_kfile_text(reference, table_dir: Path) -> str:
-    matrix = [[0.0 for _ in range(12)] for _ in range(16)]
-    for column in range(7):
-        matrix[0][column] = 1.0
-        matrix[column + 1][column] = -1.0
-    for column, upper in enumerate((8, 10, 12, 14), start=7):
-        matrix[upper][column] = 1.0
-        matrix[upper + 1][column] = -1.0
-    matrix[13][11] = 1.0
-    matrix[14][11] = -1.0
+    """A k-file matching what the fixed configuration actually asks for.
+
+    The relations used to be written out here as a 16x12 table. Since #708
+    they are derived from the coilset -- one column per equality, built from
+    how each circuit is split and which circuits are wired in series -- so
+    this fixture derives them the same way rather than restating a shape that
+    the configuration no longer has. Likewise `CUTIP`, which the same issue
+    moved to 15 kA.
+    """
+    from vaft.code.efit.config import EFITInitializationConfig
+    from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
+
+    coilset = vest_efit_coilset_policy()
+    matrix = coilset.constraint_matrix()
+    nrow, ncol = len(matrix), len(matrix[0])
     relations = "\n".join(
         f" CCOILS(1,{column + 1})="
-        + ",".join(str(matrix[row][column]) for row in range(16))
-        for column in range(12)
+        + ",".join(str(matrix[row][column]) for row in range(nrow))
+        for column in range(ncol)
     )
+    cutip = EFITInitializationConfig().current_threshold
     return f""" &IN1
  IOUT=4
  AELIP=0.3
- CUTIP=5000
+ CUTIP={cutip}
  EELIP=1.6
  FCURBD=1
  FWTBP=0
@@ -66,7 +73,7 @@ def _frozen_kfile_text(reference, table_dir: Path) -> str:
  TABLE_DIR='{table_dir}/'
  ISHOT={reference.shot}
  ITIME={reference.time_ms}
- FWTFC=16*1.0
+ FWTFC={nrow}*1.0
  FWTSI=1.0
  FWTMP2=1.0
  FWTCUR=1.0
@@ -77,22 +84,26 @@ def _frozen_kfile_text(reference, table_dir: Path) -> str:
  /
  &INWANT
 {relations}
- KCCOILS=12
+ KCCOILS={ncol}
  NCCOIL=0
- XCOILS=12*0.0
+ XCOILS={ncol}*0.0
  /
 """
 
 
 def _validation(study, reference, **updates):
+    from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
+
     values = {
         "reference": reference,
         "outcome": "accepted",
         "writer_complete": True,
         "main_export_present": True,
         "external_current_export_present": True,
-        "parameter_count": 20,
-        "pf_parameter_count": 16,
+        # Roles, and their sum: one PF parameter per current group, so both
+        # follow the coilset rather than a literal that #708 would strand.
+        "parameter_count": len(vest_efit_coilset_policy().group_names) + 2 + 2,
+        "pf_parameter_count": len(vest_efit_coilset_policy().group_names),
         "pprime_parameter_count": 2,
         "ffprime_parameter_count": 2,
         "exact_constraint_count": 0,

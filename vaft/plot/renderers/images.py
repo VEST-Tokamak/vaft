@@ -22,7 +22,9 @@ __all__ = [
     "camera_visible_image",
     "camera_visible_image_efit_overlay",
     "camera_visible_image_field_line",
+    "camera_visible_image_fluctuation",
     "camera_visible_image_frame",
+    "camera_visible_image_mhd_power",
     "render_image_2d",
     "render_image_sequence",
 ]
@@ -184,6 +186,48 @@ def camera_visible_image(
     model: Image2D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Camera frame with optional overlays; the ``_frame``/``_efit_overlay``/``_field_line`` renderers are its presets."""
+    return render_image_2d(model, ax=ax, show=show, **style)
+
+
+@_image_renderer(
+    domain="camera_visible", quantity="fluctuation",
+    subject="camera_visible",
+    description=(
+        "One FAST-camera frame with its local temporal background removed, the "
+        "published step that brings fast filamentary structure out of the slowly "
+        "varying line emission (issue #161)."
+    ),
+    ids=("camera_visible",),
+    required_paths=(
+        "camera_visible.channel.{i}.detector.{j}.frame.{k}.image_raw",
+        "camera_visible.channel.{i}.detector.{j}.frame.{k}.time",
+    ),
+)
+def camera_visible_image_fluctuation(
+    model: Image2D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """FAST-camera frame with its local temporal background subtracted."""
+    return render_image_2d(model, ax=ax, show=show, **style)
+
+
+@_image_renderer(
+    domain="camera_visible", quantity="mhd_power",
+    subject="camera_visible",
+    description=(
+        "Per-pixel MHD-band power divided by the local average emission: the "
+        "published spectrally filtered image, which is a band magnitude and not "
+        "an inverse-transform reconstruction (issue #161)."
+    ),
+    ids=("camera_visible",),
+    required_paths=(
+        "camera_visible.channel.{i}.detector.{j}.frame.{k}.image_raw",
+        "camera_visible.channel.{i}.detector.{j}.frame.{k}.time",
+    ),
+)
+def camera_visible_image_mhd_power(
+    model: Image2D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Normalised MHD-band power of every pixel at one time."""
     return render_image_2d(model, ax=ax, show=show, **style)
 
 

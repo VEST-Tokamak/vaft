@@ -15,7 +15,7 @@ NUBEAM_HOME_ENV = "NUBEAMHOME"
 NUBEAM_HOME_EXECUTABLE = Path("bin/nubeam_comp_exec")
 
 #: The Plasma State generator. The NTCC archive ships no main program for it;
-#: this is built from ``plasma_state_test.f90`` by ``external/nubeam/macos.sh``.
+#: this is built from ``plasma_state_test.f90`` by ``install/nubeam/macos.sh``.
 NUBEAM_GENERATOR_EXECUTABLE = Path("bin/plasma_state_test")
 
 #: Merges NUBEAM's own state-change output into a full Plasma State.

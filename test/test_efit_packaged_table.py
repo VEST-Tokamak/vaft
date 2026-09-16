@@ -69,31 +69,49 @@ def test_the_manifest_describes_the_files_that_are_there(manifest):
         assert hashlib.sha256(path.read_bytes()).hexdigest() == record["sha256"], name
 
 
-def test_the_legacy_namelist_is_kept_and_is_not_what_built_the_tables(manifest):
-    """The one deliberate inconsistency in the shipped directory.
+def test_the_shipped_namelist_now_matches_the_tables(manifest):
+    """Reversed by #708, and it had to be.
 
-    `mhdin.dat` is still the legacy file: EFIT reads it at runtime, where #695
-    measured a swap as changing nothing, and `test_efund_geometry.py` checks
-    the canonical geometry against it as an independent reference. Overwriting
-    it would make that check compare the geometry against itself. So it
-    describes 16 lumped PF conductors while the tables beside it were built
-    from 302 filaments, and the manifest says so rather than leaving it to be
-    discovered.
+    Until #708 the shipped `mhdin.dat` was the legacy 16-lumped-conductor file
+    while the tables beside it were built from 302 filaments -- inert, because
+    EFIT takes the coil response from the tables and only `nfsum` from the
+    namelist, and the two agreed on that one number.
+
+    They no longer do. The table describes 26 current groups, so a namelist
+    saying 16 would have EFIT reading a different coilset from the one the
+    k-file writes, which `generate_kfile` now refuses outright. The shipped
+    namelist is therefore the one that built the tables.
     """
     import f90nml
 
     packaged = f90nml.read(str(TABLE_DIRECTORY / "mhdin.dat"))
-    assert packaged["machinein"]["nfcoil"] == 16
-    assert manifest["machine"]["counts"]["nfcoil"] == 302
-    assert manifest["machine"]["counts"]["nfsum"] == packaged["machinein"]["nfsum"] == 16
+    assert packaged["machinein"]["nfcoil"] == 530
+    assert manifest["machine"]["counts"]["nfcoil"] == 530
+    assert manifest["machine"]["counts"]["nfsum"] == packaged["machinein"]["nfsum"] == 26
 
-    explanation = manifest["extra"]["mhdin_beside_these_tables_is_not_the_input"]
-    assert "legacy" in explanation and "inert" in explanation
-    # The input that built the tables is recorded by hash, and it is not the
-    # file sitting beside them.
-    built_from = manifest["efund"]["input"]["sha256"]
-    beside = hashlib.sha256((TABLE_DIRECTORY / "mhdin.dat").read_bytes()).hexdigest()
-    assert built_from != beside
+
+def test_the_legacy_namelist_is_preserved_as_an_independent_reference():
+    """The one thing the switch could have quietly cost, kept on purpose.
+
+    The legacy namelist describes the same machine written by other hands, so
+    `test_efund_geometry.py` uses it to check that the canonical projection is
+    right rather than merely self-consistent. It could not stay in the table
+    directory -- its `nfsum` is 16 and would be read by EFIT -- so it moved to
+    `legacy/`, with a README saying why it is there and that it is no longer
+    loadable as a table.
+    """
+    import f90nml
+
+    legacy = TABLE_DIRECTORY / "legacy" / "mhdin.dat"
+    assert legacy.is_file(), "the independent geometry reference must not be dropped"
+    assert (TABLE_DIRECTORY / "legacy" / "README.md").is_file()
+
+    parsed = f90nml.read(str(legacy))
+    assert parsed["machinein"]["nfcoil"] == 16
+    assert parsed["machinein"]["nfsum"] == 16
+    # And it is genuinely a different description, not a copy of the new one.
+    shipped = f90nml.read(str(TABLE_DIRECTORY / "mhdin.dat"))
+    assert parsed["machinein"]["nfcoil"] != shipped["machinein"]["nfcoil"]
 
 
 def test_the_acceptance_envelope_was_not_changed_by_the_switch():
@@ -111,3 +129,139 @@ def test_the_acceptance_envelope_was_not_changed_by_the_switch():
     envelope = EFITAcceptanceEnvelope()
     for field in ("aminor_min", "aminor_max", "rcntr_min", "rcntr_max"):
         assert bundled[field] == pytest.approx(getattr(envelope, field)), field
+
+
+# --- machine era (#805) -----------------------------------------------------
+
+
+def test_the_table_says_which_machine_era_it_was_built_for(manifest):
+    """A Green table is only valid for the geometry it was projected from."""
+    from vaft.code.efit.efund import table_identity, table_machine_era
+
+    assert table_machine_era(TABLE_DIRECTORY) == manifest["machine"]["era"]
+    assert table_identity(TABLE_DIRECTORY)["era"] == manifest["machine"]["era"]
+
+
+def test_a_directory_with_no_manifest_makes_no_era_claim(tmp_path):
+    """Unknown is not the same as matching, and must not read as a pass."""
+    from vaft.code.efit.efund import table_machine_era
+
+    (tmp_path / "mhdin.dat").write_text(" &machinein\n nfsum = 26\n /\n", encoding="utf-8")
+    assert table_machine_era(tmp_path) is None
+
+
+def test_a_table_from_another_era_is_refused(tmp_path):
+    """#805: the mismatch that reconstructed shot 46742 against wrong coils.
+
+    The packaged table is `vest-pre-43017-pf1906`. Shot 46742 is
+    `vest-45967-plus-pf2507`, where twenty-four filaments belong to PF6
+    instead of PF7 and sit 16 cm further out in z. Running it against the
+    packaged table produced two g-files from twenty-five slices, both of them
+    vacuum -- no plasma equilibrium at all -- where the era-matched table
+    produced eight. Nothing reported a problem; that is what this refuses.
+
+    The era is compared as an opaque string the caller supplies, so the
+    writer stays free of any particular machine's era list.
+    """
+    from vaft.code.efit import generate_constraints_ods
+
+    with pytest.raises(ValueError, match="was built for machine era"):
+        generate_constraints_ods(
+            None, 46742, str(tmp_path), str(TABLE_DIRECTORY) + "/", [], [], [],
+            expected_table_era="vest-45967-plus-pf2507",
+        )
+
+
+def test_the_matching_era_is_not_refused(tmp_path, manifest):
+    """The other half: the guard must not block the routine case.
+
+    It has to fail somewhere further on -- the ODS here is `None` -- but it
+    must not fail on the era.
+    """
+    from vaft.code.efit import generate_constraints_ods
+
+    with pytest.raises(Exception) as caught:
+        generate_constraints_ods(
+            None, 39915, str(tmp_path), str(TABLE_DIRECTORY) + "/", [], [], [],
+            expected_table_era=manifest["machine"]["era"],
+        )
+    assert "was built for machine era" not in str(caught.value)
+
+
+def test_a_generated_table_directory_is_runnable(tmp_path):
+    """#805: EFUND's output alone is not a table EFIT can read.
+
+    EFIT also reads a limiter contour and a probe description from the table
+    directory, and EFUND writes neither. A generated directory without them
+    fails in `read_limiter.f90` with a Fortran runtime error naming
+    `lim.dat` -- a long way from "the table is incomplete". Both files are
+    era-independent, so the generator copies them from the packaged
+    directory.
+    """
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[1] / "workflow" / "efit_tables" / "regenerate_legacy_table.py"
+    spec = importlib.util.spec_from_file_location("regenerate_legacy_table", script)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["regenerate_legacy_table"] = module
+    spec.loader.exec_module(module)
+
+    assert module._copy_runtime_companions(tmp_path) == list(module.RUNTIME_COMPANIONS)
+    for name in module.RUNTIME_COMPANIONS:
+        assert (tmp_path / name).is_file(), name
+        assert (tmp_path / name).read_bytes() == (TABLE_DIRECTORY / name).read_bytes()
+
+    # Idempotent, and it never overwrites a file the generator itself wrote.
+    (tmp_path / "lim.dat").write_text("mine", encoding="utf-8")
+    assert module._copy_runtime_companions(tmp_path) == []
+    assert (tmp_path / "lim.dat").read_text(encoding="utf-8") == "mine"
+
+
+# --- identity reproducibility (#793) ----------------------------------------
+
+
+def test_the_identity_is_decided_by_the_table_and_not_by_the_run():
+    """#793: the same inputs must produce the same identity.
+
+    `table.identity` exists so two runs can be compared. It could not be:
+    `mhdout.dat` was in the digest, and it carries an uninitialised Fortran
+    value. `KUBICS` is 4 in the input and came back 83664424 from the run that
+    built the #695 table and 4890152 from the run that built the #708 one --
+    an order of magnitude apart, from the same input.
+
+    So any check of the form "regenerate and confirm the identity is
+    unchanged" failed for a reason with nothing to do with the table. #708 had
+    to fall back to comparing `ep129129.ddd` byte for byte, which worked only
+    because that one file happens to have no `nfsum` term.
+    """
+    from vaft.code.efit.efund import IDENTITY_EXCLUDED_FILES, _table_digest
+
+    assert "mhdout.dat" in IDENTITY_EXCLUDED_FILES
+
+    table = {"rfcoil.ddd": "aaa", "ec129129.ddd": "bbb", "mhdout.dat": "run-one"}
+    rerun = {"rfcoil.ddd": "aaa", "ec129129.ddd": "bbb", "mhdout.dat": "run-two"}
+    assert _table_digest(table) == _table_digest(rerun)
+
+    # And it is still an identity: a table file that moves changes it.
+    moved = dict(table, **{"ec129129.ddd": "ccc"})
+    assert _table_digest(moved) != _table_digest(table)
+
+
+def test_the_excluded_file_is_still_recorded(manifest):
+    """Excluded from the identity is not excluded from the record.
+
+    `mhdout.dat` is what EFUND echoed back, which is worth keeping even though
+    it cannot be compared across runs. It stays under `table.files` with its
+    hash and size; it simply does not decide identity.
+    """
+    assert "mhdout.dat" in manifest["table"]["files"]
+    assert manifest["table"]["files"]["mhdout.dat"]["sha256"]
+
+    from vaft.code.efit.efund import _table_digest
+
+    hashes = {name: record["sha256"] for name, record in manifest["table"]["files"].items()}
+    assert manifest["table"]["identity"] == _table_digest(hashes)
+    # The shipped manifest says why, so a reader does not have to find #793.
+    assert "KUBICS" in manifest["extra"]["identity_excludes_mhdout"]

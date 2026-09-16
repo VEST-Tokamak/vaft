@@ -468,10 +468,19 @@ def test_a_vacuum_shot_reaches_main_without_an_equilibrium(tmp_path, monkeypatch
     assert {call["source"] for call in sent} == {"main"}
 
 
-def test_eddy_does_not_overwrite_what_diagnostics_wrote(tmp_path, monkeypatch):
+def test_replication_refuses_an_eddy_product_that_carries_more_than_it_owns(
+    tmp_path, monkeypatch
+):
+    """`_project` stays defensive even though the builder no longer over-carries.
+
+    The eddy product is now built as its own projection, so a product shaped
+    like the one below should not exist. This asserts replication would still
+    refuse to publish its extra IDS if one did -- a stale product on disk, a
+    hand-assembled one, or a regression in the builder.
+    """
     db = FileDB(tmp_path)
     eddy = ODS(consistency_check=False)
-    eddy["magnetics.ids_properties.comment"] = "carried through from diagnostics"
+    eddy["magnetics.ids_properties.comment"] = "an IDS eddy does not own"
     eddy["pf_passive.ids_properties.comment"] = "computed here"
     _stage_product(db, "eddy", 45000, eddy)
 

@@ -18,6 +18,7 @@ import numpy as np
 from omas import ODS
 
 from vaft.database import raw as raw_db
+from vaft.database.sources import STAGE_REPLICATION
 from vaft.process.signal_processing import SignalRepairError
 from vaft.database._local import load_ods
 from vaft.data.resources import data_path
@@ -115,12 +116,28 @@ def sha256_file(path: str | Path) -> str:
     return digest.hexdigest()
 
 
-def _disabled_pf_coils() -> list[str]:
-    import scipy.io
+def _disabled_pf_coils(shot: int) -> list[str]:
+    """Circuits with no acquisition channel at all, as of this shot's era.
 
-    info = scipy.io.loadmat(resolve_geometry_asset("Coil_info.mat"))
-    active = {int(value) for value in np.asarray(info["CoilNumber"]).reshape(-1)}
-    return [f"PF{index}" for index in range(1, PF_COIL_COUNT + 1) if index not in active]
+    Read from `vest.yaml`'s `pf_active.processing.coil_field_codes`, which is
+    where the channel map lives since #708. It used to come from the
+    five-entry `Coil_info.mat`, which reported PF2 as permanently disabled --
+    when in fact PF2 is acquired on field 4, and was simply unused by the
+    shots anyone had looked at.
+
+    "Disabled" here means *no channel is known*, which is a statement about
+    the machine. It is not the same as *this discharge left the coil cold*,
+    which is a statement about the discharge and is carried by the current
+    waveform itself.
+    """
+    from vaft.machine_mapping.pf_active import coil_field_code_by_index
+
+    acquirable = coil_field_code_by_index(shot)
+    return [
+        f"PF{index}"
+        for index in range(1, PF_COIL_COUNT + 1)
+        if (index - 1) not in acquirable
+    ]
 
 
 def _read_raw_payload(path: Path) -> dict[str, Any]:
@@ -238,13 +255,13 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
         "channel_status": {
             "pf_active": {
                 "status": "success",
-                "disabled_channels": _disabled_pf_coils(),
+                "disabled_channels": _disabled_pf_coils(era.reference_shot),
             }
         },
         "quality_summary": {
             "missing": [],
             "repaired": [],
-            "disabled": _disabled_pf_coils(),
+            "disabled": _disabled_pf_coils(era.reference_shot),
             "rejected": [],
             "unavailable": [],
         },
@@ -750,7 +767,7 @@ def build_diagnostics_ods(
                 target_time=policy_grid("pf_active"),
             ),
         ),
-        disabled_channels=_disabled_pf_coils(),
+        disabled_channels=_disabled_pf_coils(shot),
     )
     grids["pf_active"] = policy_grid("pf_active")
     uv_policy = policies["spectrometer_uv"]
@@ -921,7 +938,7 @@ def build_diagnostics_ods(
         "quality_summary": {
             "missing": sorted(unavailable + missing_channels),
             "repaired": [],
-            "disabled": _disabled_pf_coils(),
+            "disabled": _disabled_pf_coils(shot),
             "rejected": [],
             "unavailable": unavailable,
         },
@@ -983,7 +1000,9 @@ def build_impa_ods(
     the Hall channels land at ``b_field_tor_probe.0..n`` and the vertical-field
     sensors at ``b_field_pol_probe.0..n``, and nothing here reads the
     diagnostics product.  Composing the two for analysis is explicit and lives
-    in :mod:`vaft.database.composition`.
+    in :mod:`vaft.database.composition`.  :func:`build_eddy_ods` follows the same
+    rule: it solves against the diagnostics product but stores only the
+    ``pf_passive`` it owns.
     """
     raw_path = Path(raw_source)
     if not raw_path.exists():
@@ -1131,7 +1150,35 @@ def build_eddy_ods(
     filament_fraction: list[float],
     dt_sub: float = 5e-5,
 ) -> tuple[ODS, dict[str, Any]]:
-    """Compute target-shot passive currents from finalized input ODSs."""
+    """Compute target-shot passive currents from finalized input ODSs.
+
+    The returned product holds only what this stage owns --
+    ``STAGE_REPLICATION["eddy"].ids`` plus ``dataset_description`` -- so the
+    local product and the projection :func:`vaft.database.replication._project`
+    publishes are the same set rather than two that can drift.  The solve itself
+    runs on the full diagnostics ODS, because
+    :func:`~vaft.omas.process_wrapper.compute_eddy_currents` needs
+    ``pf_active``, ``pf_passive`` and ``em_coupling`` together; the projection
+    happens after it.
+
+    Two things survive that look like the thing being removed:
+
+    ``dataset_description`` is copied from the diagnostics ODS rather than
+    rebuilt.  It identifies the data entry, and the two products are the same
+    entry -- minting a second one here would need a ``run`` this builder is
+    never given, and a ``run`` that disagreed with the diagnostics replica of
+    the same shot would be a silent pairing error.
+
+    ``pf_passive.loop.*`` geometry still comes from the static product and still
+    travels.  The rule is that a product carries no top-level IDS it does not
+    own, not that it carries no static-derived bytes: ``static`` has no per-shot
+    destination, so geometry stripped from inside an owned IDS would reach no
+    reader at all.
+
+    Analysis that needs ``magnetics`` or ``pf_active`` alongside these currents
+    composes the two products explicitly, in
+    :func:`vaft.database.composition.compose_stage_products`.
+    """
     if not (len(filament_r) == len(filament_z) == len(filament_fraction)):
         raise ValueError("Filament r, z, and fraction lists must have the same length")
     diagnostics_path = Path(diagnostics_ods)
@@ -1164,6 +1211,12 @@ def build_eddy_ods(
     # compute_eddy_currents() just added one, so this must become 1 to match.
     if "pf_passive.time" in ods:
         ods["pf_passive.ids_properties.homogeneous_time"] = 1
+
+    # `ods` is the diagnostics ODS the solve ran on; the product is not.  The
+    # owned set is read from the replication registry rather than restated, so
+    # the two cannot disagree about what this stage publishes.
+    product = ODS(consistency_check=False)
+    _copy_ids(product, ods, ("dataset_description",) + STAGE_REPLICATION["eddy"].ids)
     manifest = {
         "schema_version": 1,
         "stage": "eddy",
@@ -1180,7 +1233,7 @@ def build_eddy_ods(
         ],
         "dt_sub": float(dt_sub),
     }
-    return ods, manifest
+    return product, manifest
 
 
 def build_mhd_linear_ods(

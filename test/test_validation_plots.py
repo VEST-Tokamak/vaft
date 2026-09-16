@@ -454,3 +454,47 @@ def test_a_skipped_or_failed_chease_run_is_an_empty_product(tmp_path):
     assert manifest["metrics"]["records_summary"] == [
         {"input": "g041234.00300", "status": "missing_input"}
     ]
+
+
+def _stage_plots_module():
+    """Load the driver as a module so its helpers can be exercised directly."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "_generate_stage_plots", WORKFLOW_DIR / "generate_stage_plots.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_a_companion_the_composer_cannot_express_is_refused_by_name(monkeypatch):
+    """The registry is generic; the composition behind it is not (#813).
+
+    `compose_stage_products` composes a diagnostics product with an eddy one
+    specifically, because that pairing is the one with a physical invariant to
+    check. A registry entry naming any other companion has to be refused where
+    a reader can act on it -- not reach the composer as the wrong argument, and
+    not raise `KeyError: 'diagnostics'` from a line that mentions neither the
+    stage nor the registry.
+    """
+    module = _stage_plots_module()
+    monkeypatch.setitem(module.STAGE_PLOT_COMPANIONS, "chease", ("efit",))
+
+    # The argument itself is accepted: the registry does declare it.
+    assert module._companions("chease", ["efit=/tmp/efit.json"]) == {
+        "efit": Path("/tmp/efit.json")
+    }
+
+    argv = [
+        "generate_stage_plots.py",
+        "--stage", "chease",
+        "--input", "/tmp/chease.json",
+        "--output-dir", "/tmp/plots",
+        "--metadata", "/tmp/manifest.json",
+        "--compose-with", "efit=/tmp/efit.json",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(SystemExit) as caught:
+        module.main()
+    assert "diagnostics + eddy" in str(caught.value)

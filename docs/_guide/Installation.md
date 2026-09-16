@@ -120,7 +120,7 @@ NUBEAM differs from the others in two ways. Its root must also hold the PREACT a
 databases at `share/preact` and `share/adas`, because `nubeam_comp_exec` aborts when either is
 unset, and both must stay writable — the table code caches newly computed reaction tables into them.
 And VAFT ships the build recipe rather than the source, since NTCC requires each user to accept its
-licence first; see [`external/nubeam/`](https://github.com/VEST-Tokamak/vaft/tree/develop/external/nubeam).
+licence first; see [`install/nubeam/`](https://github.com/VEST-Tokamak/vaft/tree/develop/install/nubeam).
 That build runs on macOS/Apple Silicon and on native Windows. The adapter runs NUBEAM and parses
 its native output; `vaft.machine_mapping.core_sources` and `vaft.machine_mapping.distributions` map
 the profiles into IMAS, while the Monte Carlo marker records stay in the native container.

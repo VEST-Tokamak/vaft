@@ -115,7 +115,8 @@ arrays and floats, so they are usable outside an ODS.
 from vaft.formula.equilibrium import (
     psi_normalised, q_from_phi, q_from_rhoN,
     volume_from_RZ_boundary, elongation_from_RZ_boundary,
-    triangularity_from_RZ_boundary, bootstrap_current_fraction,
+    triangularity_from_RZ_boundary, triangularity_upper_from_RZ_boundary,
+    triangularity_lower_from_RZ_boundary, bootstrap_current_fraction,
 )
 
 psiN = psi_normalised(psi, psi_axis, psi_boundary)  # (psi - psi_a)/(psi_b - psi_a)
@@ -124,7 +125,14 @@ q = q_from_rhoN(psiN, rhoN, C=1.0)                  # q = C * rho_N * drho_N/dps
 
 V = volume_from_RZ_boundary(R_bdry, Z_bdry)         # 2*pi * A_poly * R_bar
 kappa = elongation_from_RZ_boundary(R_bdry, Z_bdry)
-delta = triangularity_from_RZ_boundary(R_bdry, Z_bdry)
+
+# Triangularity is measured against a reference major radius; pass the
+# geometric centre for the IMAS definition.  An up-down asymmetric boundary
+# needs the two extremity values, not their mean.
+R0_geo = 0.5 * (R_bdry.max() + R_bdry.min())
+delta = triangularity_from_RZ_boundary(R_bdry, Z_bdry, R0_geo)
+delta_u = triangularity_upper_from_RZ_boundary(R_bdry, Z_bdry, R0_geo)
+delta_l = triangularity_lower_from_RZ_boundary(R_bdry, Z_bdry, R0_geo)
 
 f_bs = bootstrap_current_fraction(n_e, T_e_keV, R0, a, q_95)
 ```
@@ -421,7 +429,17 @@ era and asset hashes, the executable identity, the input hash and every
 output file's sha256 and size.  An EFIT run's `efit_configuration.json`
 records the table its k-files point at through `table_identity()`: by
 manifest when the directory has one, by the hash of `mhdin.dat` otherwise.
-The bundled `vaft/data/efit/` table is of the second kind.
+The bundled `vaft/data/efit/` table has carried a manifest since #695, so it
+is of the first kind.
+
+`table.identity` is a digest over the produced files, and it deliberately
+does **not** cover all of them.  `mhdout.dat` is excluded: it is EFUND's echo
+of its own namelist, nothing reads it, and it carries at least one
+uninitialised Fortran value -- `KUBICS` is 4 in the input and came back
+83664424 from one run and 4890152 from the next.  Hashing it made the
+identity answer "which invocation produced this" rather than "which table is
+this", so a regenerate-and-compare check could never pass (#793).  Its hash
+is still recorded under `table.files`.
 
 `workflow/efit_tables/` regenerates a table, compares two table directories
 layer by layer, and runs a controlled EFIT A/B in which only the table

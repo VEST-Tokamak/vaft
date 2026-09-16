@@ -41,15 +41,17 @@ TITLE = "GACODE environment check"
 RERUN = "python install/check_gacode.py"
 PROJECT = "GACODE"
 
-#: Suite members VAFT can drive today. TGLF and CGYRO are issue #553.
-CODES = ("neo",)
+#: Suite members VAFT can drive today. CGYRO is still issue #553.
+CODES = ("neo", "tglf")
 
 #: What a GACODE checkout looks like.
-SOURCE_MARKERS = ("Makefile", "shared/bin/gacode_setup", "platform/build", "neo/src")
+SOURCE_MARKERS = (
+    "Makefile", "shared/bin/gacode_setup", "platform/build", "neo/src", "tglf/src",
+)
 
 BUILD_REMEDIATION = (
     "Build GACODE with:\n"
-    "         bash external/gacode/macos.sh --gacode-root <source> --check"
+    "         bash install/gacode/macos.sh --gacode-root <source> --check"
 )
 
 
@@ -161,8 +163,18 @@ def check_vaft_discovery(prefix: Optional[str]) -> CheckResult:
     previous = os.environ.get("GACODEHOME")
     if prefix:
         os.environ["GACODEHOME"] = str(prefix)
+    resolved: dict[str, str] = {}
     try:
-        resolved = gacode.find_gacode_executable(gacode.GACODEConfig(), "neo")
+        for code in CODES:
+            found = gacode.find_gacode_executable(gacode.GACODEConfig(), code)
+            if found is None:
+                return CheckResult(
+                    label,
+                    FAIL,
+                    "GACODEHOME is not configured, so VAFT has nothing to run",
+                    "Set GACODEHOME to the GACODE checkout you built.",
+                )
+            resolved[code] = str(found)
     except Exception as error:
         return CheckResult(label, FAIL, str(error), BUILD_REMEDIATION)
     finally:
@@ -172,14 +184,9 @@ def check_vaft_discovery(prefix: Optional[str]) -> CheckResult:
             else:
                 os.environ["GACODEHOME"] = previous
 
-    if resolved is None:
-        return CheckResult(
-            label,
-            FAIL,
-            "GACODEHOME is not configured, so VAFT has nothing to run",
-            "Set GACODEHOME to the GACODE checkout you built.",
-        )
-    return CheckResult(label, PASS, str(resolved))
+    return CheckResult(
+        label, PASS, "; ".join(f"{code}: {path}" for code, path in resolved.items())
+    )
 
 
 def check_regression(prefix: Optional[str], *, skip: bool) -> CheckResult:

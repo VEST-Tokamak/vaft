@@ -321,6 +321,67 @@ def plot_camera_visible_image_frame(
     )
 
 
+def plot_camera_visible_image_fluctuation(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """One FAST-camera frame with its local temporal background removed.
+
+    The published step that brings fast filamentary structure out of the slowly
+    varying line emission (issue #161).  ``background_frames=`` sets the window.
+
+    Renders with :func:`vaft.plot.camera_visible_image_fluctuation`.
+    """
+    return render(
+        "camera_visible_image_fluctuation", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_camera_visible_image_mhd_power(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Per-pixel MHD-band power normalised by the local average emission.
+
+    The published spectrally filtered image: a band magnitude, not an
+    inverse-transform reconstruction (issue #161).  ``centre_frequency=`` names the
+    band the magnetics report; without it the camera's own dominant component stands in.
+
+    Renders with :func:`vaft.plot.camera_visible_image_mhd_power`.
+    """
+    return render(
+        "camera_visible_image_mhd_power", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_camera_visible_spectrogram(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Time-frequency map of the camera intensity summed over one image region.
+
+    The camera side of the published camera/magnetics comparison (issue #161).
+    ``region=(row_start, row_stop, column_start, column_stop)`` chooses what is summed.
+
+    Renders with :func:`vaft.plot.camera_visible_spectrogram`.
+    """
+    return render(
+        "camera_visible_spectrogram", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_camera_visible_image_efit_overlay(
     source: Any,
     *,
@@ -1066,6 +1127,29 @@ def plot_equilibrium_overview_residuals(
     )
 
 
+def plot_ntms_time_delta_prime(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Classical tearing index per rational surface against time.
+
+    RDCON's and STRIDE's physical result. A trace is one rational surface --
+    an ``(m_pol, n_tor)`` pair the solver located in the equilibrium -- not one
+    of the toroidal modes the caller requested, so several traces can share an
+    ``n_tor``. A positive index is a tearing-unstable surface, which is the
+    opposite convention to DCON's perturbed energy.
+
+    Renders with :func:`vaft.plot.ntms_time_delta_prime`.
+    """
+    return render(
+        "ntms_time_delta_prime", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_mhd_linear_time_energy_perturbed(
     source: Any,
     *,
@@ -1127,6 +1211,49 @@ def plot_mhd_linear_profile_b_field_perturbed(
     """
     return render(
         "mhd_linear_profile_b_field_perturbed", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_mhd_linear_profile_resonant_flux(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Linear MHD stability: pitch-resonant flux per rational surface.
+
+    Not read from the IDS -- there is no IMAS slot for it -- but derived from
+    the mapped perturbed flux by the jump across each singular surface, with
+    the surface geometry the ideal-GPEC mapper recorded in ``code.parameters``.
+    The derivation runs once per figure, not once per trace.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_resonant_flux`.
+    """
+    return render(
+        "mhd_linear_profile_resonant_flux", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_mhd_linear_profile_island_width(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Linear MHD stability: saturated island width per rational surface.
+
+    In normalized poloidal flux, as GPEC reports it -- converting to metres
+    needs the equilibrium's ``dr/dpsi_N`` and is not done here. Derived from
+    the resonant flux above.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_island_width`.
+    """
+    return render(
+        "mhd_linear_profile_island_width", source, ax=ax, show=show, label=label, **options
     )
 
 
@@ -2806,6 +2933,10 @@ __all__ = [
     "plot_barometry_time_pressure",
     "plot_camera_visible_animation_frames",
     "plot_camera_visible_image",
+    "plot_camera_visible_image_fluctuation",
+    "plot_neoclassical_profile_bootstrap_current",
+    "plot_camera_visible_image_mhd_power",
+    "plot_camera_visible_spectrogram",
     "plot_camera_visible_image_efit_overlay",
     "plot_camera_visible_image_field_line",
     "plot_camera_visible_image_frame",
@@ -2878,12 +3009,14 @@ __all__ = [
     "plot_magnetics_overview_vacuum",
     "plot_mhd_linear_overview_eigenfunction",
     "plot_mhd_linear_profile_b_field_perturbed",
+    "plot_mhd_linear_profile_island_width",
+    "plot_mhd_linear_profile_resonant_flux",
     "plot_mhd_linear_profile_displacement",
     "plot_nbi_profile_current_drive",
-    "plot_neoclassical_profile_bootstrap_current",
     "plot_nbi_profile_electron_heating",
     "plot_nbi_profile_ion_heating",
     "plot_mhd_linear_time_energy_perturbed",
+    "plot_ntms_time_delta_prime",
     "plot_impa_profile_field",
     "plot_impa_time_field",
     "plot_impa_time_voltage",

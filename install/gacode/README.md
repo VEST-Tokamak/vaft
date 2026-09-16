@@ -27,7 +27,7 @@ runs in CI; the VAFT test suite passes with GACODE absent.
 ## Usage
 
 ```bash
-bash external/gacode/macos.sh --gacode-root ~/git/gacode --check
+bash install/gacode/macos.sh --gacode-root ~/git/gacode --check
 export GACODEHOME=~/git/gacode
 python install/check_gacode.py --source ~/git/gacode
 ```
@@ -62,6 +62,33 @@ for this reason.
 `platform/exec/exec.$GACODE_PLATFORM`; an unset or wrong value fails deep inside
 a shell script without naming the variable. `vaft.code.gacode` resolves it
 explicitly and lists the available platforms when it cannot.
+
+## TGLF-NN models are a separate external artifact
+
+The surrogate backend (`vaft.code.gacode.tglf.surrogate`) needs no GACODE build and
+no compiler. It needs pretrained networks, which VAFT does not ship: they are large,
+they are upstream's, and vendoring them would put model weights in a physics
+repository. Nothing here downloads them either -- `import vaft` stays offline.
+
+Point VAFT at a checkout you already have:
+
+```bash
+export TURBULENTTRANSPORTHOME=/path/to/TurbulentTransport.jl
+```
+
+(`TURBULENTTRANSPORT_ROOT` is accepted too, the way `GACODE_ROOT` is.) A Julia depot
+that already has the package is found without any variable set. Resolution order is
+explicit path, then `model_dir=`, then the variable, then the depot; when two roots
+hold the same family name with different bytes VAFT refuses rather than choosing,
+because upstream versions the networks behind a stable name.
+
+Only *running* a network needs `onnxruntime` (`pip install 'vaft[surrogate]'`).
+Deciding whether a model applies to a given plasma does not -- that is a question
+about the input and the training moments, and `audit_training_domain` answers it
+with neither the runtime nor a prediction.
+
+Upstream publishes ONNX for only 14 of its ~100 families, all of them
+spherical-tokamak; the rest are Julia `.bson` and cannot be read from Python.
 
 ## Verified
 

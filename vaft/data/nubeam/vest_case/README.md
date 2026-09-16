@@ -29,7 +29,7 @@ was validated.
 ## Provenance and caveats
 
 Received as a working NUBEAM case for VEST and used unchanged to validate the
-macOS build and the VAFT adapter (`external/nubeam/VALIDATION.md`). Two
+macOS build and the VAFT adapter (`install/nubeam/VALIDATION.md`). Two
 server-specific launcher scripts that came with it, `run.sh` and
 `run_slurm.sh`, are deliberately not included: they hard-code a `qsub` queue
 that exists on one cluster, and `vaft.code.nubeam.runner` is what launches the
@@ -46,5 +46,5 @@ result rather than from the static machine description.
 
 NUBEAM itself is not in this repository. NTCC requires each user to accept its
 licence before downloading the source, so VAFT carries the build recipe
-(`external/nubeam/`) and this adapter contract only. Point `$NUBEAMHOME` at
+(`install/nubeam/`) and this adapter contract only. Point `$NUBEAMHOME` at
 your installation.
