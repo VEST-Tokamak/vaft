@@ -62,7 +62,10 @@ from vaft.formula import (
     surface_poloidal_flux_from_psi_boundary,
     toroidal_electric_field,
     toroidal_flux_from_q_psi,
+    r_at_z_extremum_from_RZ_contour,
     triangularity_from_RZ_boundary,
+    triangularity_lower_from_RZ_boundary,
+    triangularity_upper_from_RZ_boundary,
     verify_kadomtsev_constraint,
     vertical_magnetic_field_from_psi,
 )
@@ -101,41 +104,122 @@ def test_elongation_is_one_for_a_circle():
     assert elongation_from_RZ_boundary(R, Z) == pytest.approx(1.0, rel=1e-6)
 
 
-@pytest.mark.xfail(
-    reason="#798: the helper measures at the midplane sample instead of the "
-    "vertically extremal point, so it returns -1.0 for every boundary",
-    strict=True,
-)
 @pytest.mark.parametrize("delta", [0.0, 0.3, 0.6, -0.4])
-def test_triangularity_of_a_miller_boundary_is_its_delta(delta):
-    # Written against the analytic definition, not against what the function
-    # currently does: delta = (R0 - R_at_max_Z) / a.  The repair for #798 will
-    # turn this green; pinning -1.0 instead would make the repair look like a
-    # regression.
+def test_triangularity_of_a_miller_boundary_is_the_sine_of_its_delta(delta):
+    # A Miller boundary R = R0 + a*cos(theta + delta*sin(theta)) reaches its
+    # highest point at theta = pi/2, where R = R0 - a*sin(delta).  The
+    # geometric triangularity (R0 - R_at_max_Z)/a is therefore sin(delta)
+    # exactly, not delta -- the parameter is defined through an arcsine.  That
+    # makes this an exact identity rather than a tolerance on a shape fit.
     theta = np.linspace(0.0, 2 * np.pi, 2001)
     a, R0, kappa = 0.4, 1.5, 1.8
     R = R0 + a * np.cos(theta + delta * np.sin(theta))
     Z = kappa * a * np.sin(theta)
     assert triangularity_from_RZ_boundary(R, Z, R0) == pytest.approx(
-        delta, abs=2e-3
+        np.sin(delta), abs=1e-6
     )
 
 
-def test_triangularity_currently_collapses_to_minus_one():
-    # The present behaviour, recorded so the extent of #798 is visible in the
-    # suite rather than only in the issue: the reported value does not depend
-    # on the shape at all.
+def test_a_symmetric_boundary_has_equal_upper_and_lower_triangularity():
     theta = np.linspace(0.0, 2 * np.pi, 2001)
+    a, R0, kappa, delta = 0.4, 1.5, 1.8, 0.4
+    R = R0 + a * np.cos(theta + delta * np.sin(theta))
+    Z = kappa * a * np.sin(theta)
+    upper = triangularity_upper_from_RZ_boundary(R, Z, R0)
+    lower = triangularity_lower_from_RZ_boundary(R, Z, R0)
+    assert upper == pytest.approx(lower, abs=1e-9)
+    assert upper == pytest.approx(np.sin(delta), abs=1e-6)
+    # The mean is exactly the mean, not an independent measurement.
+    assert triangularity_from_RZ_boundary(R, Z, R0) == pytest.approx(
+        0.5 * (upper + lower), rel=1e-13, abs=0.0
+    )
+
+
+def test_upper_and_lower_triangularity_separate_on_an_asymmetric_boundary():
+    # Different delta above and below the midplane, which is the only case
+    # where IMAS's two values carry more than their mean does.
+    theta = np.linspace(0.0, 2 * np.pi, 4001)
     a, R0, kappa = 0.4, 1.5, 1.8
-    reported = {
-        triangularity_from_RZ_boundary(
-            R0 + a * np.cos(theta + d * np.sin(theta)),
-            kappa * a * np.sin(theta),
-            R0,
+    delta_up, delta_low = 0.5, -0.2
+    delta = np.where(np.sin(theta) >= 0.0, delta_up, delta_low)
+    R = R0 + a * np.cos(theta + delta * np.sin(theta))
+    Z = kappa * a * np.sin(theta)
+    assert triangularity_upper_from_RZ_boundary(R, Z, R0) == pytest.approx(
+        np.sin(delta_up), abs=1e-5
+    )
+    assert triangularity_lower_from_RZ_boundary(R, Z, R0) == pytest.approx(
+        np.sin(delta_low), abs=1e-5
+    )
+    assert triangularity_from_RZ_boundary(R, Z, R0) == pytest.approx(
+        0.5 * (np.sin(delta_up) + np.sin(delta_low)), abs=1e-5
+    )
+
+
+def test_triangularity_is_zero_for_a_circle_at_its_own_centre():
+    theta = np.linspace(0.0, 2 * np.pi, 2001)
+    R = 1.5 + 0.4 * np.cos(theta)
+    Z = 0.4 * np.sin(theta)
+    assert triangularity_from_RZ_boundary(R, Z, 1.5) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_r_at_z_extremum_beats_the_nearest_vertex_and_wraps():
+    # Three points around a parabolic top whose true maximum sits between the
+    # samples; the nearest vertex would report 1.4, the parabola 1.5.
+    R = np.array([1.4, 1.6, 2.0, 1.0])
+    Z = np.array([0.99, 0.99, 0.0, 0.0])
+    assert r_at_z_extremum_from_RZ_contour(R, Z, upper=True) == pytest.approx(1.5)
+    # A flat neighbourhood makes the parabola degenerate; fall back to the vertex.
+    flat = np.array([0.5, 0.5, 0.5, 0.5])
+    assert r_at_z_extremum_from_RZ_contour(R, flat, upper=True) == pytest.approx(
+        R[int(np.argmax(flat))]
+    )
+    # Fewer than three points cannot carry a parabola.
+    assert r_at_z_extremum_from_RZ_contour(
+        np.array([1.0, 2.0]), np.array([0.0, 1.0]), upper=True
+    ) == pytest.approx(2.0)
+    # Exactly three can: the threshold is < 3, not <= 3, and at three points
+    # the parabola still moves the answer off the vertex.
+    assert r_at_z_extremum_from_RZ_contour(
+        np.array([1.4, 1.6, 2.0]), np.array([0.99, 0.99, 0.0]), upper=True
+    ) == pytest.approx(1.5)
+    # The |shift| > 1 arm of the same guard is unreachable: when the middle
+    # sample is the extremum, |shift| <= 1/2 for every pair of neighbours.
+    # Sampled over 2e6 random neighbour pairs, the largest was 0.4999998.
+
+
+def test_the_formula_and_process_extremum_helpers_are_one_implementation():
+    from vaft.process.equilibrium import r_at_z_extremum
+
+    theta = np.linspace(0.0, 2 * np.pi, 501)
+    R = 1.5 + 0.4 * np.cos(theta + 0.3 * np.sin(theta))
+    Z = 0.7 * np.sin(theta)
+    for upper in (True, False):
+        assert r_at_z_extremum(R, Z, upper=upper) == (
+            r_at_z_extremum_from_RZ_contour(R, Z, upper=upper)
         )
-        for d in (0.0, 0.3, 0.6, -0.4)
-    }
-    assert reported == {-1.0}
+
+
+def test_triangularity_agrees_with_the_process_contour_shape_parameters():
+    # vaft.process computes the same two numbers against the geometric centre;
+    # passing that centre as R0 must reproduce them exactly, or the package
+    # holds two definitions of one quantity again (#365).
+    from vaft.process.equilibrium import contour_shape_parameters
+
+    theta = np.linspace(0.0, 2 * np.pi, 1001)
+    a, R0, kappa, delta = 0.4, 1.5, 1.8, 0.35
+    R = R0 + a * np.cos(theta + delta * np.sin(theta))
+    Z = kappa * a * np.sin(theta)
+    shape = contour_shape_parameters(R, Z)
+    r_geo = 0.5 * (R.max() + R.min())
+    assert triangularity_upper_from_RZ_boundary(R, Z, r_geo) == pytest.approx(
+        shape["triangularity_upper"], rel=1e-13, abs=0.0
+    )
+    assert triangularity_lower_from_RZ_boundary(R, Z, r_geo) == pytest.approx(
+        shape["triangularity_lower"], rel=1e-13, abs=0.0
+    )
+    assert elongation_from_RZ_boundary(R, Z) == pytest.approx(
+        shape["elongation"], rel=1e-13, abs=0.0
+    )
 
 
 # --------------------------------------------------------------------------

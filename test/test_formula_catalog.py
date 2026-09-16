@@ -58,7 +58,9 @@ def test_the_catalog_counts_the_known_public_surface():
         "constants": 0,
         "utils": 11,   # +gp_fit, the scipy Gaussian process (#426)
         # #711 split the virial closures out of equilibrium: 110 = 77 + 33.
-        "equilibrium": 77,
+        # #365 added the two IMAS extremity triangularities and the sub-vertex
+        # extremum helper they share with vaft.process: 77 + 3 = 80.
+        "equilibrium": 80,
         "virial": 33,
         "stability": 21,
         "green": 16,
