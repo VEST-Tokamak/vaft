@@ -290,16 +290,34 @@ def test_an_explicit_cocos_index_rescales_the_field_by_the_factor_ratio():
     assert cocos11 == pytest.approx(default * ratio, rel=1e-12, abs=0.0)
 
 
-def test_current_density_from_psi_is_the_documented_B_z_over_mu0():
-    # Documented in #355: this expression is B_Z / mu0, a current per unit
-    # length, not a current density.  Pin the relation so the defect cannot
-    # be "fixed" silently in one place and not the other.
+def test_current_density_from_psi_is_minus_b_z_over_mu0_and_warns():
+    # #355: the value is -B_Z/mu0 [A/m], a current per unit length, not a
+    # current density.  The docstring used to say +B_Z/mu0, which is the sign
+    # this module's own default convention (k = -1) does not give -- anyone
+    # migrating on that advice would have flipped sign.  Pin the sign, not the
+    # prose.
     R = np.linspace(1.0, 2.0, 41)
     psi = 0.3 + 0.07 * R
     b_z = vertical_magnetic_field_from_psi(psi, R, np.zeros_like(R))
-    assert current_density_from_psi(psi, R) == pytest.approx(
+    with pytest.warns(DeprecationWarning, match="not a current density"):
+        value = current_density_from_psi(psi, R)
+    assert value == pytest.approx(-b_z / MU0, rel=1e-10, abs=0.0)
+    # ... which is the same thing the inline k = -1 spelled out.
+    assert value == pytest.approx(
         b_z / (MU0 * poloidal_field_factor(None)), rel=1e-10, abs=0.0
     )
+
+
+def test_the_documented_replacement_for_current_density_from_psi_agrees():
+    # The migration path the docstring names must reproduce the old number
+    # exactly, or the deprecation sends callers somewhere wrong.
+    R = np.linspace(1.0, 2.0, 41)
+    Z = np.zeros_like(R)
+    psi = 0.3 + 0.07 * R
+    with pytest.warns(DeprecationWarning):
+        legacy = current_density_from_psi(psi, R)
+    replacement = -vertical_magnetic_field_from_psi(psi, R, Z) / MU0
+    assert replacement == pytest.approx(legacy, rel=1e-13, abs=0.0)
 
 
 def test_current_density_from_B_is_the_radial_derivative_over_mu0():

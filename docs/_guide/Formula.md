@@ -120,7 +120,12 @@ Fields and current density from the flux map:
 ```python
 B_r = vaft.formula.radial_magnetic_field_from_psi(psi, R, Z)      # B_r = -(1/R) dpsi/dZ
 B_z = vaft.formula.vertical_magnetic_field_from_psi(psi, R, Z)    # B_z = +(1/R) dpsi/dR
-j   = vaft.formula.current_density_from_psi(psi, R)               # j = -(1/(mu0 R)) dpsi/dR
+# current_density_from_psi is deprecated (#355): it returns -B_Z/mu0 [A/m],
+# not a current density.  For that quantity, note the minus sign:
+j   = -vaft.formula.vertical_magnetic_field_from_psi(psi, R, Z) / MU0   # [A/m]
+# For a real toroidal current density use the Grad-Shafranov operator:
+#   vaft.process.equilibrium.grad_shafranov_operator(psi, R, Z), or the
+#   ODS's own profiles_2d.j_tor.
 ```
 
 All of these differentiate with `np.gradient` along a single axis, so they expect **1-D slices**, not
@@ -359,7 +364,7 @@ Everything on this page that will silently give you a wrong number if you feed i
 
 | Symbol | Trap |
 | --- | --- |
-| `radial_magnetic_field_from_psi`, `vertical_magnetic_field_from_psi`, `current_density_from_psi` | Differentiate along a single axis with `np.gradient` — pass **1-D slices**, not a 2-D $(R,Z)$ map. |
+| `radial_magnetic_field_from_psi`, `vertical_magnetic_field_from_psi` | Differentiate along a single axis with `np.gradient` — pass **1-D slices**, not a 2-D $(R,Z)$ map. |
 | `volume_from_RZ_boundary` | Shoelace area $\times\ 2\pi\bar{R}$ with $\bar{R}$ the arithmetic mean of the boundary points — an approximation, not the exact Pappus centroid. |
 | `spitzer_resistivity_from_T_e_Z_eff_ln_Lambda` | $T_e$ in **eV**, not keV; $\ln\Lambda$ defaults to 17.0. Use `coulomb_logarithm_from_n_T` for a self-consistent value. |
 | `beta_N_from_beta_a_B0_Ip` | Evaluates $\beta a B_0 / I_p$ literally with `I_p` documented in [A]; the community $\beta_N$ is quoted in %·m·T/MA. Pick a convention and stay in it. |
