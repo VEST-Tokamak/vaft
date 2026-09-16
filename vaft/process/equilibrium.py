@@ -3519,7 +3519,9 @@ def connection_length_map(
     -------
     dict of str to np.ndarray
         ``length_m`` the two directions summed, with ``nan`` at points outside
-        the wall; ``forward_m`` and ``backward_m`` the branches; ``saturated``
+        the wall and wherever a step left the field model -- a callable that
+        returned a non-finite field -- since nothing is then known about where
+        that line ends; ``forward_m`` and ``backward_m`` the branches; ``saturated``
         true where either branch stopped on ``max_length_m`` rather than on the
         wall; ``outside`` true where the point itself is not inside the wall.
         Every array has the shape of ``seed_r`` [m].
@@ -3653,7 +3655,9 @@ def _trace_branch_lengths(flat_r, flat_z, inside, b_field, polygon, step, max_le
             + ((position_r + next_r) / 2.0 * step) ** 2
         )
 
-        # A step that produced no finite point has left the model, not the wall.
+        # A step that produced no finite point has left the field model, not the
+        # wall: nothing is known about where that line ends, so it has no length
+        # rather than the length it had reached when the field gave out.
         finite = np.isfinite(next_r) & np.isfinite(next_z)
         within = np.zeros(next_r.size, dtype=bool)
         within[finite] = polygon.contains_points(
@@ -3661,8 +3665,10 @@ def _trace_branch_lengths(flat_r, flat_z, inside, b_field, polygon, step, max_le
         )
         over = next_travelled > max_length_m
 
-        stopped_at_wall = ~within
+        left_model = ~finite
+        stopped_at_wall = finite & ~within
         stopped_on_length = within & over
+        length[live[left_model]] = np.nan
         length[live[stopped_at_wall]] = travelled[stopped_at_wall]
         length[live[stopped_on_length]] = max_length_m
         hit_limit[live[stopped_on_length]] = True

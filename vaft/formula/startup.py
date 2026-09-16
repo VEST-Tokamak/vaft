@@ -76,14 +76,25 @@ def _maybe_scalar(value, *inputs):
 
 
 def _require_positive(name, value):
-    """Reject an infinite or non-positive physical input by name.
+    """Reject a non-finite or non-positive physical input by name."""
+    array = np.asarray(value, dtype=float)
+    if not np.all(np.isfinite(array)) or np.any(array <= 0.0):
+        raise ValueError(
+            f"{name} must be finite and positive; got {value!r}"
+        )
+    return array
 
-    ``nan`` passes and propagates.  A masked map is how this layer carries "no
-    answer here" -- :func:`lloyd_breakdown_field` returns ``nan`` below its own
-    domain edge, a connection-length map is ``nan`` outside the wall, a decay
-    index is ``nan`` where $B_Z$ vanishes -- so a caller feeding one of those
-    into the next kernel is doing the ordinary thing, not making a mistake.  A
-    negative pressure or an infinity still is a mistake, and still raises.
+
+def _require_positive_or_blank(name, value):
+    """Like :func:`_require_positive`, but a ``nan`` passes through and propagates.
+
+    Only for a quantity that arrives as a *masked map*.  A connection-length map
+    is ``nan`` outside the wall, and a caller feeding that map to a threshold is
+    doing the ordinary thing rather than making a mistake -- so the blank carries
+    through to the threshold instead of raising.  An infinity or a non-positive
+    value still is a mistake and still raises.  Every other input in this module
+    keeps the strict guard: it is scalar or physically total, and a ``nan`` there
+    is far more likely to be an uninitialised array than a deliberate blank.
     """
     array = np.asarray(value, dtype=float)
     if np.any(np.isinf(array)) or np.any(array <= 0.0):
@@ -101,7 +112,7 @@ def _breakdown_field(p, connection_length_m, A, B):
     line inside this module.
     """
     pressure = _require_positive("p", p)
-    length = _require_positive("connection_length_m", connection_length_m)
+    length = _require_positive_or_blank("connection_length_m", connection_length_m)
     coeff_a = _require_positive("A", A)
     coeff_b = _require_positive("B", B)
     argument = coeff_a * pressure * length
@@ -258,8 +269,7 @@ def townsend_ionization_coefficient(E_parallel, p_Pa, A, B):
     Raises
     ------
     ValueError
-        Infinite or zero field, or an infinite or non-positive pressure;
-        ``nan`` passes through as a missing value.
+        Non-finite or zero field, or non-finite or non-positive pressure.
 
     Convention
     ----------
@@ -350,8 +360,10 @@ def townsend_breakdown_field(p, connection_length_m, A, B):
     Raises
     ------
     ValueError
-        Non-finite, zero or negative pressure, connection length or
-        coefficient.
+        Non-finite, zero or negative pressure or coefficient; an infinite, zero
+        or negative connection length.  A ``nan`` connection length passes
+        through as a missing value, which is how a connection-length map carries
+        the points outside the wall.
 
     Convention
     ----------
@@ -432,9 +444,10 @@ def lloyd_breakdown_field(p_Pa, connection_length_m):
     Raises
     ------
     ValueError
-        Infinite, zero or negative pressure or connection length; ``nan``
-        passes through as a missing value, which is how a connection-length map
-        carries the points outside the wall.
+        Non-finite, zero or negative pressure; an infinite, zero or negative
+        connection length.  A ``nan`` connection length passes through as a
+        missing value, which is how a connection-length map carries the points
+        outside the wall.
 
     Convention
     ----------

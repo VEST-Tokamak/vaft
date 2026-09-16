@@ -358,3 +358,23 @@ def test_discovery_offers_the_lloyd_margin_only_to_an_input_that_can_draw_it(sol
     del no_gauge["barometry"]
     assert "lloyd_margin" not in offered(no_gauge)
     assert "e_toroidal" in offered(no_gauge)
+
+
+def test_two_programmes_on_one_machine_never_share_a_connection_length(solved):
+    """The cache used to key on machine geometry, grid and sample index. Every VEST
+    shot shares the geometry, so the second shot to ask at the same index was handed
+    the first shot's lengths -- found in review, reproduced here."""
+    import copy
+
+    other = copy.deepcopy(solved)
+    for index in range(len(other["pf_active.coil"])):
+        path = f"pf_active.coil.{index}.current.data"
+        other[path] = np.asarray(other[path]) * 1.5
+
+    first = pw.compute_connection_length_map_ods(solved, time=BREAKDOWN_S, resolution=9)
+    second = pw.compute_connection_length_map_ods(other, time=BREAKDOWN_S, resolution=9)
+    pw.clear_vacuum_field_cache()
+    second_fresh = pw.compute_connection_length_map_ods(other, time=BREAKDOWN_S, resolution=9)
+
+    np.testing.assert_array_equal(second["length_m"], second_fresh["length_m"])
+    assert not np.array_equal(first["length_m"], second["length_m"], equal_nan=True)

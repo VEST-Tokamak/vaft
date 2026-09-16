@@ -1161,7 +1161,8 @@ def compute_vacuum_field_map(
         "time_index": index,
     }
 
-#: Connection-length maps, keyed by machine, grid, instant and tracing settings.
+#: Connection-length maps, keyed by the field they were traced through, the
+#: toroidal product, the wall and the tracing settings.
 #: One map is a few thousand traced lines and costs seconds; a reader comparing
 #: two instants, or a recipe drawing the Lloyd margin beside the field it comes
 #: from, would otherwise pay for the same trace twice.
@@ -1232,8 +1233,10 @@ def compute_connection_length_map_ods(
         A map is much more expensive than the field it is traced through: the
         field is one contraction of a cached response, milliseconds, while this
         steps thousands of lines and costs seconds.  The default grid is
-        therefore coarser than the field map's, and the result is cached by
-        machine, grid, instant and tracing settings.  Measured on VEST's
+        therefore coarser than the field map's, and the result is cached by the
+        field it was traced through, the toroidal product, the wall and the
+        tracing settings -- never by machine geometry alone, which every shot on
+        one machine shares.  Measured on VEST's
         packaged shot at the breakdown onset: 6.5 s at 33x33, 22 s at 65x65.
     """
     grid = compute_vacuum_field_map(ods, time=time, resolution=resolution)
@@ -1248,11 +1251,18 @@ def compute_connection_length_map_ods(
             "nothing terminates a field line"
         ) from error
 
+    # Keyed on what the length is a function of -- the field on this grid, the
+    # toroidal product and the wall -- and not on the machine's geometry: every
+    # VEST shot shares that geometry, so a geometry key hands one shot's lengths
+    # to the next shot that asks at the same sample index.
     key = (
-        _machine_fingerprint(ods),
         grid["r"].tobytes(),
         grid["z"].tobytes(),
-        grid["time_index"],
+        np.ascontiguousarray(grid["b_r"]).tobytes(),
+        np.ascontiguousarray(grid["b_z"]).tobytes(),
+        product,
+        wall_r.tobytes(),
+        wall_z.tobytes(),
         float(dphi_deg),
         float(max_length_m),
     )

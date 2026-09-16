@@ -459,3 +459,26 @@ def test_the_map_rejects_seed_arrays_that_do_not_line_up():
         connection_length_map(
             np.array([0.4, 0.5]), np.array([0.0]), field, wall_r=BOX_R, wall_z=BOX_Z,
         )
+
+
+def test_a_line_whose_field_gives_out_has_no_length_rather_than_a_partial_one():
+    """Found in review: a step that produced a non-finite point was counted as a
+    wall hit and reported the length it had reached. Nothing is known about where
+    such a line ends, so it has no length."""
+
+    def field_that_fails_above(z_limit):
+        def b_field(R, Z):
+            R = np.asarray(R, dtype=float)
+            Z = np.asarray(Z, dtype=float)
+            b_z = np.where(Z > z_limit, np.nan, 6e-4)
+            return np.zeros_like(R), b_z * np.ones_like(R), R0_B0 / R
+        return b_field
+
+    result = connection_length_map(
+        np.array([0.4, 0.4]), np.array([0.0, -0.45]), field_that_fails_above(0.2),
+        wall_r=BOX_R, wall_z=BOX_Z, dphi=np.deg2rad(1.0), max_length_m=1e4,
+    )
+    # the first seed drifts up into the region where the field gives out
+    assert np.isnan(result["forward_m"][0])
+    assert np.isnan(result["length_m"][0])
+    assert not bool(result["outside"][0])

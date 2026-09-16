@@ -167,6 +167,7 @@ def test_just_above_the_edge_the_threshold_is_large_and_falling():
         {"p_Pa": 0.0, "connection_length_m": 200.0},
         {"p_Pa": -1e-3, "connection_length_m": 200.0},
         {"p_Pa": np.inf, "connection_length_m": 200.0},
+        {"p_Pa": np.nan, "connection_length_m": 200.0},
         {"p_Pa": 1e-3, "connection_length_m": 0.0},
         {"p_Pa": 1e-3, "connection_length_m": -5.0},
     ],
@@ -178,10 +179,10 @@ def test_an_unphysical_input_raises_rather_than_blanking(kwargs):
         lloyd_breakdown_field(**kwargs)
 
 
-def test_a_missing_value_propagates_rather_than_raising():
-    """`nan` is how this layer says "no answer here" -- a connection-length map
-    is `nan` outside the wall -- so feeding one kernel's blanks to the next is
-    the ordinary thing to do, not a mistake."""
+def test_a_blank_connection_length_propagates_rather_than_raising():
+    """A connection-length map is `nan` outside the wall, so feeding it to a
+    threshold is the ordinary thing to do. Only the length is tolerant: a `nan`
+    pressure is still refused, above, because nothing hands one over deliberately."""
     length = np.array([np.nan, 200.0, np.nan])
     field = lloyd_breakdown_field(VEST_PREFILL_PA, length)
     assert np.isnan(field[0]) and np.isnan(field[2])
