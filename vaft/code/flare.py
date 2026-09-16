@@ -26,8 +26,11 @@ refuses to proceed when the identification is ambiguous.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
+import os
+import subprocess
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Mapping, Optional, Sequence
 
 from vaft.data.cocos import convention_for
 from vaft.process.cocos import (
@@ -36,7 +39,30 @@ from vaft.process.cocos import (
     identify_flux_exponent,
 )
 
-__all__ = ["FlareEquilibriumScales", "flare_equilibrium_scales"]
+from ._executables import executable_from_home, missing_home_message
+
+__all__ = [
+    "FLARE_TASKS",
+    "FlareConfig",
+    "FlareEquilibriumScales",
+    "FlareResult",
+    "flare_equilibrium_scales",
+    "flare_executable",
+    "run_flare",
+]
+
+#: The subcommands ``flare`` dispatches, from its own usage text. ``run``
+#: executes whatever the control file defines; the rest are shortcuts.
+FLARE_TASKS: tuple[str, ...] = (
+    "run",
+    "equi2d_autoconf",
+    "equi3d_autoconf",
+    "find_resonances",
+    "footprint_parameters",
+    "geqdsk",
+    "mgen",
+    "poincare_plot",
+)
 
 
 @dataclass(frozen=True)
@@ -182,4 +208,173 @@ def flare_equilibrium_scales(
         source_cocos=source,
         target_cocos=int(target),
         psi_per_radian=source <= 10,
+    )
+
+
+@dataclass(frozen=True)
+class FlareConfig:
+    """Where FLARE is and how to invoke it."""
+
+    executable: Optional[str] = None
+    workdir: Path | str = Path(".")
+    #: ``flare -n <procs>``. FLARE's own flag; left unset it does not appear.
+    processes: Optional[int] = None
+    env: Mapping[str, str] = field(default_factory=dict)
+    args: Sequence[str] = ()
+    timeout: Optional[float] = None
+
+
+@dataclass
+class FlareResult:
+    """One FLARE invocation: what it was asked, and what came back."""
+
+    returncode: Optional[int]
+    workdir: Path
+    task: str
+    command: tuple[str, ...] = ()
+    stdout: str = ""
+    stderr: str = ""
+
+    @property
+    def ok(self) -> bool:
+        return self.returncode == 0
+
+
+def flare_executable(home: str | os.PathLike[str] | None = None) -> Path:
+    """Locate the ``flare`` driver beneath its installation root.
+
+    Parameters
+    ----------
+    home : str or path-like, optional
+        FLARE's installation root. Falls back to ``$FLAREHOME`` [n/a].
+
+    Returns
+    -------
+    Path
+        The resolved driver.
+
+    Raises
+    ------
+    RuntimeError
+        Neither argument nor ``$FLAREHOME`` names a root.
+    FileNotFoundError, PermissionError
+        The root exists but the driver is missing or not executable.
+
+    Notes
+    -----
+    ``bin/flare`` is a shell dispatcher, not the Fortran binary -- it selects a
+    subcommand and execs the library's driver. **A build tree is not an
+    installation**: CMake leaves ``build/flare`` without its executable bit,
+    and only ``cmake --install`` produces the ``bin/flare`` this resolves.
+    Pointing ``$FLAREHOME`` at a build tree therefore raises rather than
+    silently running something else.
+    """
+    root = home if home is not None else os.environ.get("FLAREHOME")
+    if root is None or not str(root).strip():
+        raise RuntimeError(
+            missing_home_message(
+                home_variable="FLAREHOME",
+                relative_path="bin/flare",
+                code_name="FLARE",
+            )
+        )
+    executable = executable_from_home(
+        root,
+        home_variable="FLAREHOME",
+        relative_path="bin/flare",
+        code_name="FLARE",
+    )
+    if executable is None:  # pragma: no cover - guarded by the check above
+        raise RuntimeError(
+            missing_home_message(
+                home_variable="FLAREHOME",
+                relative_path="bin/flare",
+                code_name="FLARE",
+            )
+        )
+    return executable
+
+
+def run_flare(
+    task: str,
+    config: FlareConfig | None = None,
+    *,
+    home: str | os.PathLike[str] | None = None,
+    extra_args: Sequence[str] = (),
+) -> FlareResult:
+    """Run one FLARE subcommand in a working directory.
+
+    Parameters
+    ----------
+    task : str
+        One of :data:`FLARE_TASKS` [n/a].
+    config : FlareConfig, optional
+        Working directory, process count, environment and timeout [n/a].
+    home : str or path-like, optional
+        FLARE's installation root, when ``config.executable`` is unset [n/a].
+    extra_args : sequence of str, optional
+        Arguments appended after the task, for the subcommands that take a
+        file name [n/a].
+
+    Returns
+    -------
+    FlareResult
+        The return code, the command as run, and the captured streams.
+
+    Raises
+    ------
+    ValueError
+        ``task`` is not one of FLARE's subcommands, or ``processes`` is not
+        positive.
+    RuntimeError, FileNotFoundError, PermissionError
+        As :func:`flare_executable`.
+
+    Notes
+    -----
+    FLARE reads its control file from the working directory rather than from
+    an argument, so ``workdir`` is what selects a case.
+
+    The task name is checked against FLARE's own list so the refusal names the
+    eight subcommands rather than surfacing ``error: invalid command``. Note
+    what the dispatcher actually does, since the two cases differ: **no
+    arguments at all prints usage and exits 0**, while an unknown task exits
+    1. A caller that built its command line from a variable that came out
+    empty would therefore see a successful run that did nothing.
+    """
+    if task not in FLARE_TASKS:
+        raise ValueError(
+            f"{task!r} is not a FLARE subcommand; expected one of "
+            f"{FLARE_TASKS}"
+        )
+    config = config or FlareConfig()
+    if config.processes is not None and int(config.processes) < 1:
+        raise ValueError(f"processes must be at least 1, not {config.processes!r}")
+
+    executable = (
+        Path(config.executable) if config.executable else flare_executable(home)
+    )
+    command: list[str] = [str(executable)]
+    if config.processes is not None:
+        command += ["-n", str(int(config.processes))]
+    command.append(task)
+    command += [str(argument) for argument in (*config.args, *extra_args)]
+
+    workdir = Path(config.workdir)
+    environment = {**os.environ, **{k: str(v) for k, v in config.env.items()}}
+    completed = subprocess.run(
+        command,
+        cwd=str(workdir),
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=config.timeout,
+        check=False,
+    )
+    return FlareResult(
+        returncode=completed.returncode,
+        workdir=workdir,
+        task=task,
+        command=tuple(command),
+        stdout=completed.stdout,
+        stderr=completed.stderr,
     )
