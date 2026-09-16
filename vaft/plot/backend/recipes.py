@@ -9299,12 +9299,30 @@ def _vacuum_suptitle(ods: Any, metrics: Mapping[str, Any], headline: str) -> str
     )
 
 
+def _channel_position(channel: Any) -> str:
+    """Where a magnetic channel sits, short enough to head a narrow panel.
+
+    The instrument prefix is the same on every channel of a family and the
+    family name repeats the word "flux loop" the channel name already carries,
+    so a panel title that keeps both spends its width saying nothing and
+    collides with its neighbour's.  What a reader needs from it is which side
+    of the machine the channel is on.
+    """
+    name = str(channel.name)
+    for prefix in ("MagneticFieldProbe_", "Flux Loop - "):
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+            break
+    family = str(channel.family).replace("_flux_loop", "").replace("_", " ")
+    return f"{name} · {family}" if family else name
+
+
 def _build_magnetics_vacuum(ods: Any, **options: Any) -> Panels:
     channels, metrics = _vacuum_channels(ods, options)
-    rows = {(row["kind"], row["index"]): row for row in metrics["channels"]}
+    # The per-channel improvement used to head each panel; the summary in the
+    # suptitle carries the distribution, and the panel titles carry position.
     panels = []
     for channel in channels:
-        row = rows[(channel.kind, channel.index)]
         panels.append(
             LineSeries(
                 series=(
@@ -9318,16 +9336,14 @@ def _build_magnetics_vacuum(ods: Any, **options: Any) -> Panels:
                 x_label="time",
                 x_unit="s",
                 y_label=channel.unit,
-                title=(
-                    f"{channel.name} [{channel.family}]\n"
-                    f"pre-plasma improvement {row['improvement']:.2f}"
-                ),
+                title=_channel_position(channel),
             )
         )
     return Panels(
         models=tuple(panels),
         ncols=3,
         share_x=True,
+        share_legend=True,
         suptitle=_vacuum_suptitle(ods, metrics, "Synthetic vacuum magnetics"),
     )
 
@@ -9414,7 +9430,7 @@ def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
             LineSeries(
                 series=tuple(series),
                 x_label="time", x_unit="s", y_label=channel.unit,
-                title=f"{channel.name} [{channel.family}]\n{timing}",
+                title=f"{_channel_position(channel)}\n{timing}",
             )
         )
 
@@ -9422,6 +9438,7 @@ def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
         models=tuple(panels),
         ncols=3,
         share_x=True,
+        share_legend=True,
         suptitle=_vacuum_suptitle(ods, metrics, "Plasma residual after coil+eddy"),
     )
 
