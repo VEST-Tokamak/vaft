@@ -16,7 +16,7 @@ from nbclient import NotebookClient
 pytestmark = pytest.mark.slow
 
 ROOT = Path(__file__).resolve().parents[1]
-NOTEBOOK = ROOT / "tutorial" / "02_operation_scenario_and_vacuum_fields.ipynb"
+NOTEBOOK = ROOT / "tutorial" / "02_startup_scenario_and_vacuum_fields.ipynb"
 
 MAX_OUTPUT_BYTES = 200_000
 MAX_IMAGE_BYTES = 2_000_000
