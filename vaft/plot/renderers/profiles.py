@@ -516,6 +516,52 @@ def mhd_linear_profile_b_field_perturbed(
     """Normal perturbed field per poloidal harmonic."""
     return render_profile_1d(model, ax=ax, show=show, **style)
 
+_GPEC_RESONANT_PATHS = (
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.n_tor",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim1",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim2",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.real",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.imaginary",
+    # The per-surface geometry and chi1 the derivation needs. They have no
+    # IMAS slot -- `mhd_linear` has no per-surface numeric field and `ntms`'s
+    # deltaw is m^-1 where GPEC's Delta is unitless -- so the mapper records
+    # them here, and the adapter reads them back.
+    "mhd_linear.code.parameters",
+)
+
+
+@_profile_renderer(
+    domain="mhd_linear", quantity="resonant_flux",
+    subject="mhd_linear",
+    description="Pitch-resonant flux per rational surface against normalized poloidal "
+                "flux, derived from the mapped perturbed flux by the jump across each "
+                "singular surface rather than read from the IDS.",
+    ids=("mhd_linear",),
+    required_paths=_GPEC_RESONANT_PATHS,
+)
+def mhd_linear_profile_resonant_flux(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Pitch-resonant flux per rational surface."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="mhd_linear", quantity="island_width",
+    subject="mhd_linear",
+    description="Saturated island width per rational surface against normalized "
+                "poloidal flux, in psi_N as GPEC reports it, derived from the "
+                "resonant flux.",
+    ids=("mhd_linear",),
+    required_paths=_GPEC_RESONANT_PATHS,
+)
+def mhd_linear_profile_island_width(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Saturated island width per rational surface."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
 _NBI_PROFILE_PATHS = (
     "core_sources.source.{i}.identifier.index",
     "core_sources.source.{i}.profiles_1d.{j}.grid.rho_tor_norm",

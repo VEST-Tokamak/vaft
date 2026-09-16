@@ -1214,6 +1214,49 @@ def plot_mhd_linear_profile_b_field_perturbed(
     )
 
 
+def plot_mhd_linear_profile_resonant_flux(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Linear MHD stability: pitch-resonant flux per rational surface.
+
+    Not read from the IDS -- there is no IMAS slot for it -- but derived from
+    the mapped perturbed flux by the jump across each singular surface, with
+    the surface geometry the ideal-GPEC mapper recorded in ``code.parameters``.
+    The derivation runs once per figure, not once per trace.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_resonant_flux`.
+    """
+    return render(
+        "mhd_linear_profile_resonant_flux", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_mhd_linear_profile_island_width(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Linear MHD stability: saturated island width per rational surface.
+
+    In normalized poloidal flux, as GPEC reports it -- converting to metres
+    needs the equilibrium's ``dr/dpsi_N`` and is not done here. Derived from
+    the resonant flux above.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_island_width`.
+    """
+    return render(
+        "mhd_linear_profile_island_width", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_mhd_linear_overview_eigenfunction(
     source: Any,
     *,
@@ -2966,6 +3009,8 @@ __all__ = [
     "plot_magnetics_overview_vacuum",
     "plot_mhd_linear_overview_eigenfunction",
     "plot_mhd_linear_profile_b_field_perturbed",
+    "plot_mhd_linear_profile_island_width",
+    "plot_mhd_linear_profile_resonant_flux",
     "plot_mhd_linear_profile_displacement",
     "plot_nbi_profile_current_drive",
     "plot_nbi_profile_electron_heating",

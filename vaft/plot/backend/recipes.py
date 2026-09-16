@@ -8580,6 +8580,193 @@ def _build_mhd_linear_profile_b_field_perturbed(ods: Any, **options: Any) -> Pro
     )
 
 
+#: Attributes the mapper writes on each ``<surface>`` of a GPEC run's
+#: ``code.parameters``. Ordered as the derivation consumes them.
+_SURFACE_FIELDS = ("psi_n", "q", "dq_dpsi_n", "area", "geometric_factor")
+
+
+def _gpec_rational_surfaces(ods: Any, n_tor: int) -> tuple[float, list[dict[str, float]]]:
+    """``chi1`` and the per-surface geometry one GPEC mode recorded.
+
+    Read shape-agnostically for the reason ``_mhd_linear_radial_stride``
+    documents: ``code.parameters`` reaches a reader either as the string the
+    mapper wrote or as a tree OMAS decoded, and which one depends on the
+    document rather than on anything the caller controls. The string path
+    takes the ``<solver>`` whose ``n_tor`` matches, because a multi-mode run
+    holds one block per mode and their surfaces differ.
+    """
+    parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
+    if isinstance(parameters, str):
+        blocks = re.findall(
+            r'<solver\b[^>]*\bn_tor="(\d+)"[^>]*>(.*?)</solver>', parameters, re.S
+        )
+        body = next((b for mode, b in blocks if int(mode) == int(n_tor)), None)
+        if body is None:
+            return float("nan"), []
+        chi1 = re.search(r'<rational_surfaces\b[^>]*\bchi1="([^"]+)"', body)
+        surfaces = [
+            {name: float(value) for name, value in re.findall(r'(\w+)="([^"]+)"', row)}
+            for row in re.findall(r"<surface\b([^/]*)/>", body)
+        ]
+        return (float(chi1.group(1)) if chi1 else float("nan")), surfaces
+
+    # Decoded tree. Attribute keys carry a leading '@'; the per-mode blocks are
+    # walked the same way `_code_parameter_values` walks the string-free case.
+    solvers = _code_parameter_values(parameters, "solver")
+    for solver in solvers if isinstance(solvers, list) else [solvers]:
+        for candidate in solver if isinstance(solver, list) else [solver]:
+            modes = _code_parameter_values(candidate, "n_tor")
+            if not modes or int(_scalar(modes[0])) != int(n_tor):
+                continue
+            chi1_values = _code_parameter_values(candidate, "chi1")
+            columns = {
+                name: [float(_scalar(v)) for v in _code_parameter_values(candidate, name)]
+                for name in _SURFACE_FIELDS
+            }
+            length = min((len(v) for v in columns.values()), default=0)
+            surfaces = [
+                {name: columns[name][index] for name in _SURFACE_FIELDS}
+                for index in range(length)
+            ]
+            chi1 = float(_scalar(chi1_values[0])) if chi1_values else float("nan")
+            return chi1, surfaces
+    return float("nan"), []
+
+
+def _gpec_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
+    """Derive one GPEC mode's resonant table from the mapped spectral field.
+
+    The derivation runs **once**, here, and every renderer built on it reads
+    the result: each surface costs a pair of one-sided cubic fits, and a
+    figure should not pay for them again per trace.
+
+    What the IDS carries is the perturbed flux on a ``(psi_n, m)`` grid plus
+    the equilibrium geometry; :func:`vaft.process.perturbation.resonant_delta`
+    turns the jump across each rational surface into the resonance parameter,
+    and the closed forms in :mod:`vaft.formula.stability` take it from there.
+    Reproduces GPEC's own ``w_isl`` to about a per cent on the DIII-D
+    reference.
+    """
+    from vaft.formula.stability import (
+        island_width_from_resonant_flux,
+        resonant_flux_from_delta,
+    )
+    from vaft.process.perturbation import resonant_delta
+
+    cell = _mhd_linear_eigenfunction_cell(ods, **options)
+    n_tor = int(cell["n_tor"])
+    chi1, surfaces = _gpec_rational_surfaces(ods, n_tor)
+    if not surfaces:
+        raise ValueError(
+            f"mhd_linear ODS carries no rational-surface geometry for n={n_tor}. "
+            "Only an ideal-GPEC mapping writes it, and only when the run's chi1 "
+            "was available; a DCON-only product has none"
+        )
+    if not np.isfinite(chi1) or chi1 == 0.0:
+        raise ValueError(
+            f"the recorded chi1 for n={n_tor} is {chi1!r}; the jump is scaled by "
+            "it, so the table cannot be derived"
+        )
+    base = cell["base"]
+    real = _array(ods, f"{base}.plasma.b_field_perturbed.coordinate1.real")
+    imaginary = _array(ods, f"{base}.plasma.b_field_perturbed.coordinate1.imaginary")
+    if real is None or imaginary is None:
+        raise ValueError(f"mhd_linear ODS carries a grid but no perturbed flux for n={n_tor}")
+    field = np.asarray(real, dtype=float) + 1j * np.asarray(imaginary, dtype=float)
+    psi_n, harmonics = cell["psi_n"], cell["m"]
+    if field.shape != (psi_n.size, harmonics.size):
+        raise ValueError(
+            f"the perturbed flux has shape {field.shape}, but the declared (psi, m) "
+            f"grid is {(psi_n.size, harmonics.size)}"
+        )
+
+    rows: list[dict[str, Any]] = []
+    for surface in surfaces:
+        m_pol = int(round(n_tor * surface["q"]))
+        column = int(np.argmin(np.abs(harmonics - m_pol)))
+        if int(harmonics[column]) != m_pol:
+            # The resonant harmonic is outside the mapped band, so this
+            # surface has no column to take a jump in.
+            continue
+        jump = resonant_delta(
+            psi_n, field[:, column],
+            psi_rational=surface["psi_n"], area=surface["area"],
+            dq_dpsi_norm=surface["dq_dpsi_n"], chi1=chi1,
+            m_pol=m_pol, n_tor=n_tor,
+        )
+        flux = resonant_flux_from_delta(jump.delta, surface["geometric_factor"], n_tor)
+        rows.append({
+            "psi_n": surface["psi_n"],
+            "q": surface["q"],
+            "m_pol": m_pol,
+            "delta": jump.delta,
+            "Phi_res": complex(flux),
+            "w_isl": float(island_width_from_resonant_flux(
+                flux, surface["area"], surface["q"], surface["dq_dpsi_n"], m_pol, chi1,
+            )),
+        })
+    if not rows:
+        raise ValueError(
+            f"none of the {len(surfaces)} rational surfaces recorded for n={n_tor} "
+            "resonates at a harmonic the mapped band covers"
+        )
+    return {"cell": cell, "n_tor": n_tor, "chi1": chi1, "rows": rows}
+
+
+def _build_gpec_resonant_profile(
+    ods: Any, *, key: str, y_label: str, description: str, **options: Any
+) -> Profile1D:
+    """One marker per rational surface, against normalized poloidal flux."""
+    table = _gpec_resonant_table(ods, **options)
+    rows = table["rows"]
+    psi = np.asarray([row["psi_n"] for row in rows], dtype=float)
+    raw = [row[key] for row in rows]
+    y = np.asarray([abs(value) for value in raw], dtype=float)
+    series = (
+        Series(
+            x=psi, y=y,
+            label=", ".join(f"m={row['m_pol']}" for row in rows[:4])
+            + (" ..." if len(rows) > 4 else ""),
+        ),
+    )
+    return Profile1D(
+        series=series,
+        coordinate_label=r"$\psi_N$",
+        y_label=y_label,
+        title=(
+            f"{description} — n={table['n_tor']}, {len(rows)} rational surfaces"
+            " (derived from the mapped flux, not read from the IDS)"
+        ),
+    )
+
+
+def _build_mhd_linear_profile_resonant_flux(ods: Any, **options: Any) -> Profile1D:
+    return _build_gpec_resonant_profile(
+        ods, key="Phi_res", y_label=r"$|\Phi_{res}|$ [T]",
+        description="Pitch-resonant flux", **options,
+    )
+
+
+def _build_mhd_linear_profile_island_width(ods: Any, **options: Any) -> Profile1D:
+    return _build_gpec_resonant_profile(
+        ods, key="w_isl", y_label=r"$w_{isl}$ [$\psi_N$]",
+        description="Saturated island width", **options,
+    )
+
+
+RECIPES["mhd_linear_profile_resonant_flux"] = CallableRecipe(
+    builder=_build_mhd_linear_profile_resonant_flux,
+    description="Pitch-resonant flux per rational surface, derived from the mapped "
+                "spectral field.",
+)
+
+RECIPES["mhd_linear_profile_island_width"] = CallableRecipe(
+    builder=_build_mhd_linear_profile_island_width,
+    description="Saturated island width per rational surface, derived from the mapped "
+                "spectral field.",
+)
+
+
 RECIPES["mhd_linear_profile_displacement"] = CallableRecipe(
     builder=_build_mhd_linear_profile_displacement,
     description="DCON displacement eigenfunction per poloidal harmonic against psi_n.",
