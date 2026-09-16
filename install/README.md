@@ -673,6 +673,33 @@ holder and is deliberately not offered.
 bash install/install_efit.sh --source ~/git/efit --accept-efit-users-agreement
 ```
 
+**NetCDF is on, and the installer proves it rather than assuming it.** Without
+NetCDF, `write_m` is compiled out and EFIT writes no m-file — no iteration
+counts, no per-slice residuals. VAFT therefore passes `-DENABLE_NETCDF=ON`
+(upstream's own default is `off`) and points CMake at netCDF-C and
+netCDF-Fortran.
+
+Asking is not the same as getting. `io/efitIO.cmake` reads:
+
+```cmake
+option(ENABLE_NETCDF "Enable NetCDF" off)
+if(${ENABLE_NETCDF})
+  find_package (NetCDF)
+  if(${NetCDF_FOUND})
+    set(USE_NETCDF ...)
+  endif()
+endif()
+```
+
+There is no `else` on the inner `if`. A `find_package` that comes up empty is
+silent: the build finishes, `ENABLE_NETCDF:BOOL=ON` stays in `CMakeCache.txt`
+and in the install manifest, and the first symptom is a reconstruction that
+writes no m-file much later. So the installer checks the binary it just built,
+and refuses to install one that cannot write m-files unless you asked for that
+with `--without-netcdf`. `check_efit.py` reads the same signal, which is why
+its capability line says *(read from the executable)* — a build whose record
+claims NetCDF while the binary lacks it is reported as a failure, not a pass.
+
 On native Windows, with the same acceptance:
 
 ```powershell
