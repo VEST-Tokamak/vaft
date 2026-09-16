@@ -60,7 +60,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # #711 split the virial closures out of equilibrium: 110 = 77 + 33.
         "equilibrium": 77,
         "virial": 33,
-        "stability": 19,
+        "stability": 21,
         "green": 16,
         "atomic": 3,
         "statistics": 22,
