@@ -23,6 +23,7 @@ from vaft.formula import (
     bootstrap_current_fraction,
     bremsstrahlung_power_density_from_T_e_p_Z_eff,
     bremsstrahlung_power_density_from_Z_eff_n_e_T_e,
+    bremsstrahlung_power_density_from_n_e_T_e_Z_eff,
     bremsstrahlung_radiation_power_from_z_eff_n_e_t_e,
     confinement_time_from_P_loss_W_th,
     current_density_from_B,
@@ -665,7 +666,7 @@ def test_the_three_bremsstrahlung_variants_agree_on_the_same_plasma():
     # 0.3 % spread.  This is the strongest available check on all three.
     for n_e, T_eV in [(1e19, 1000.0), (5e19, 300.0), (2e20, 3000.0)]:
         p = 2 * n_e * T_eV * BOLTZMANN_J_PER_EV  # p = 2 n_e k T, T_i = T_e
-        first = bremsstrahlung_power_density_from_Z_eff_n_e_T_e(n_e, T_eV, 2.0)
+        first = bremsstrahlung_power_density_from_n_e_T_e_Z_eff(n_e, T_eV, Z_eff=2.0)
         nrl = bremsstrahlung_radiation_power_from_z_eff_n_e_t_e(2.0, n_e, T_eV)
         press = bremsstrahlung_power_density_from_T_e_p_Z_eff(T_eV, p, 2.0)
         assert first == pytest.approx(nrl, rel=3e-3)
@@ -673,20 +674,46 @@ def test_the_three_bremsstrahlung_variants_agree_on_the_same_plasma():
 
 
 def test_both_bremsstrahlung_forms_default_to_a_Z_eff_of_two():
-    assert bremsstrahlung_power_density_from_Z_eff_n_e_T_e(1e19, 1000.0) == (
-        bremsstrahlung_power_density_from_Z_eff_n_e_T_e(1e19, 1000.0, 2.0)
+    assert bremsstrahlung_power_density_from_n_e_T_e_Z_eff(1e19, 1000.0) == (
+        bremsstrahlung_power_density_from_n_e_T_e_Z_eff(1e19, 1000.0, Z_eff=2.0)
     )
     assert bremsstrahlung_power_density_from_T_e_p_Z_eff(1000.0, 3204.0) == (
         bremsstrahlung_power_density_from_T_e_p_Z_eff(1000.0, 3204.0, 2.0)
     )
     # ... and are linear in it, so the default is a factor, not an offset.
-    assert bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
-        1e19, 1000.0, 4.0
+    assert bremsstrahlung_power_density_from_n_e_T_e_Z_eff(
+        1e19, 1000.0, Z_eff=4.0
     ) == pytest.approx(
-        2.0 * bremsstrahlung_power_density_from_Z_eff_n_e_T_e(1e19, 1000.0),
+        2.0 * bremsstrahlung_power_density_from_n_e_T_e_Z_eff(1e19, 1000.0),
         rel=1e-12,
         abs=0.0,
     )
+
+
+def test_the_canonical_bremsstrahlung_form_refuses_a_positional_Z_eff():
+    # The whole point of #760: with three positional floats, a call written in
+    # the order the old name advertised was accepted and returned a number 27
+    # orders of magnitude wrong.  Keyword-only Z_eff makes that unrepresentable.
+    with pytest.raises(TypeError):
+        bremsstrahlung_power_density_from_n_e_T_e_Z_eff(2.0, 1e19, 1000.0)
+    with pytest.raises(TypeError):
+        bremsstrahlung_power_density_from_n_e_T_e_Z_eff(1e19, 1000.0, 2.0)
+
+
+def test_the_deprecated_bremsstrahlung_name_warns_and_forwards_unchanged():
+    # A caller written against the old *signature* must keep its answer; the
+    # shim only adds the warning.  One written against the old *name* keeps its
+    # wrong answer, which a compatibility shim cannot detect -- the warning is
+    # what points at the fix.
+    with pytest.warns(DeprecationWarning, match="from_n_e_T_e_Z_eff"):
+        legacy = bremsstrahlung_power_density_from_Z_eff_n_e_T_e(1e19, 1000.0, 2.0)
+    assert legacy == bremsstrahlung_power_density_from_n_e_T_e_Z_eff(
+        1e19, 1000.0, Z_eff=2.0
+    )
+    with pytest.warns(DeprecationWarning):
+        assert bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
+            1e19, 1000.0
+        ) == bremsstrahlung_power_density_from_n_e_T_e_Z_eff(1e19, 1000.0)
 
 
 def test_nrl_bremsstrahlung_matches_its_published_coefficient():

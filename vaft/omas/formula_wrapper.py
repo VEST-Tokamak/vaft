@@ -25,7 +25,7 @@ from vaft.formula.equilibrium import (
     ohmic_heating_power_from_I_p_V_res,
     loop_voltage_from_total_flux,
     inductive_voltage_from_dW_magdt_I_p,
-    bremsstrahlung_power_density_from_Z_eff_n_e_T_e,
+    bremsstrahlung_power_density_from_n_e_T_e_Z_eff,
     bremsstrahlung_power_density_from_T_e_p_Z_eff,
     stored_energy_from_p_V,
     confinement_time_from_engineering_parameters,
@@ -815,7 +815,7 @@ def compute_bremsstrahlung_power(
     valid_mask_e = ~np.isnan(T_e_RZ_safe) & ~np.isnan(n_e_RZ_safe)
     
     S_B_electron_RZ = np.zeros_like(T_e_RZ)
-    S_B_electron_RZ[valid_mask_e] = bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
+    S_B_electron_RZ[valid_mask_e] = bremsstrahlung_power_density_from_n_e_T_e_Z_eff(
         n_e_RZ_safe[valid_mask_e],
         T_e_RZ_safe[valid_mask_e],
         Z_eff=Z_eff
