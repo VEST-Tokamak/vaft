@@ -700,10 +700,19 @@ def vertical_field_from_I_p_R0_a_beta_p_li(I_p_A, R0_m, a_m, beta_p, li, kappa=1
 
     Convention
     ----------
-    A magnitude.  The direction that balances the hoop force depends on the
-    sign of $I_p$ and on the COCOS in force, neither of which this reduced
-    expression carries; a caller applying it to a coil current has to supply
-    the orientation from the machine description.
+    **A magnitude, and the orientation is settled rather than open.**  Mitarai
+    writes Eq. (1.3) signed, $B_{VE} = -(\mu_0 I_p/4\pi R)[\cdots]$: the
+    equilibrium field opposes $I_p$, because it has to push the ring back
+    against its own outward hoop force.  So the field this returns points
+    *anti-parallel* to the field a positive $I_p$ would make on the axis, and a
+    caller turning it into a coil current takes the sign from that statement
+    plus the machine description, not from a COCOS -- there is no flux map here
+    for a COCOS to describe.
+
+    The magnitude is returned rather than the signed value because the
+    comparison this feeds during start-up is against a stray field whose
+    orientation belongs to the coil set, and carrying a sign through would
+    imply a shared frame that does not exist before an equilibrium does.
 
     ``li`` is whichever normalisation the caller's equilibrium reports.  The
     bracket is $O(1)$ and the $l_i/2$ term is a fraction of it, so the choice
@@ -1123,11 +1132,11 @@ def _hirshman_a(eps):
 def _hirshman_da(eps):
     r"""$\\mathrm{d}a/\\mathrm{d}\\epsilon$, in closed form.
 
-    The $1/\\sqrt\\epsilon$ coefficient is $a_1 + a_3/2 = 6.435$.  Mitarai's
-    paper prints that value; a circulating derivation note calls it a typo for
-    5.935, which numerical differentiation of $a(\\epsilon)$ refutes to eight
-    significant figures.  The constant term is $a_2 - a_4 = 0.84$, not
-    $a_2 + a_4$.
+    Two coefficients here are worth stating because they are easy to get
+    wrong and the error is invisible: the $1/\\sqrt\\epsilon$ term is
+    $a_1 + a_3/2 = 6.435$, and the constant is $a_2 - a_4 = 0.84$.  Both are
+    checked against a finite difference of $a(\\epsilon)$ in the tests, which
+    is the only way to be sure of them -- reading the algebra is not.
     """
     a1, a2, a3, a4 = _HIRSHMAN_A
     root = np.sqrt(eps)

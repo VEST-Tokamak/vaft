@@ -632,10 +632,11 @@ def test_the_fixed_convention_is_the_one_that_reproduces_mitarai():
     )
 
 
-def test_the_derivative_coefficient_is_6_435_not_5_935():
-    # A circulating derivation note calls Mitarai's 6.435 a typo for 5.935.
-    # da/deps is differentiated in closed form here; a finite difference of
-    # a(eps) decides between them, and it picks 6.435 to eight figures.
+def test_the_closed_form_derivative_matches_a_finite_difference():
+    # da/deps is differentiated by hand, so the finite difference is the only
+    # independent check there is.  It also settles the one coefficient that is
+    # easy to get wrong: a1 + a3/2 = 6.435, where 5.935 is off by 16 % at
+    # eps = 0.1 and by nothing at all that inspection would catch.
     from vaft.formula.startup import _hirshman_a, _hirshman_da
 
     step = 1e-7
@@ -648,9 +649,10 @@ def test_the_derivative_coefficient_is_6_435_not_5_935():
 
 
 def test_the_derivative_constant_is_a2_minus_a4():
-    a1, a2, a3, a4 = HIRSHMAN_A
+    # The other easy slip: a2 + a4 = 3.26 rather than 0.84, and the
+    # finite-difference test above is what rejects it.
+    _, a2, _, a4 = HIRSHMAN_A
     assert a2 - a4 == pytest.approx(0.84, rel=1e-12, abs=0.0)
-    # a2 + a4 would be 3.26, which the finite-difference test above rejects.
     assert a2 + a4 != pytest.approx(0.84, rel=1e-3)
 
 
