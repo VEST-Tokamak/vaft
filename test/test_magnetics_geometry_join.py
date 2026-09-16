@@ -51,31 +51,27 @@ def test_every_probe_appears_once_in_each_live_table():
         assert len(set(codes)) == len(codes)
 
 
-def test_the_unread_vest_yaml_block_is_not_treated_as_a_source():
-    """Pins #843: the duplicate disagrees, and that must stay harmless.
+def test_vest_yaml_carries_no_third_probe_description():
+    """The duplicate that caused #843 is gone and must not come back.
 
-    If a future change starts reading this block, it will read an ordering that
-    differs from the live one at 11 of 64 positions. This test does not assert
-    the two agree -- they do not -- but that the live tables are the ones the
-    mapper walks, so a reader of the duplicate is knowingly on their own.
+    It held the same 64 probes in a different order, so it disagreed with the
+    live pair at 11 of 64 positions while looking as authoritative as either.
+    Nothing read it. Anyone reintroducing probe geometry here would recreate a
+    source that can disagree with the one the mapper actually walks.
     """
+    import yaml
+
     from vaft.machine_mapping.utils import package_data_path
 
-    duplicate = yaml.safe_load(
+    magnetics = yaml.safe_load(
         open(package_data_path("vest.yaml"), encoding="utf-8")
-    )[0]["magnetics"][KIND]["channels"]
-    ordered = [duplicate[key] for key in sorted(duplicate, key=lambda k: int(k))]
-    geometry = _probes(_load_static_channels())
+    )[0]["magnetics"]
+    assert KIND not in magnetics
 
-    assert len(ordered) == len(geometry)
-    differing = [
-        index
-        for index, (dup, geo) in enumerate(zip(ordered, geometry))
-        if int(dup["field"]) != int(geo["field_code"])
-    ]
-    # Recorded, not accepted: this is the state #843 describes. If someone
-    # reconciles the duplicate, this list shrinks and the test says so.
-    assert len(differing) == 11, (
-        f"the unread vest.yaml probe block now differs at {len(differing)} positions "
-        "rather than 11; if it was reconciled, update this test and #843"
-    )
+
+def test_the_geometry_files_are_the_only_probe_geometry():
+    """Both live tables describe the same 64 probes, by field code."""
+    calibration = {int(c["field_code"]) for c in _probes(_load_equilibrium_magnetics_channels())}
+    geometry = {int(c["field_code"]) for c in _probes(_load_static_channels())}
+    assert calibration == geometry
+    assert len(geometry) == 64
