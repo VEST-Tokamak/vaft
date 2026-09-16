@@ -1017,7 +1017,7 @@ if PLOTS_ENABLED:
             plots=stage_plot_outputs("mhd_linear"),
             manifest=PATHS.product_pattern("stage_plot_manifest", "mhd_linear")
         log:
-            PATHS.shot_pattern("log", "plot_mhd_linear") + ".{product}"
+            PATHS.product_pattern("log", "plot_mhd_linear")
         params:
             directory=lambda wildcards: str(
                 Path(
@@ -1267,10 +1267,10 @@ rule build_gpec_ideal:
             for mode in GPEC_MODES
         ]
     output:
-        ods=PATHS.shot_pattern("gpec_ideal_ods"),
-        manifest=PATHS.shot_pattern("gpec_ideal_manifest")
+        ods=PATHS.shot_pattern("gpec_ideal_ods", "gpec"),
+        manifest=PATHS.shot_pattern("gpec_ideal_manifest", "gpec")
     log:
-        PATHS.shot_pattern("log", "build_gpec_ideal")
+        PATHS.shot_pattern("log", "build_gpec_ideal", "gpec")
     params:
         modes=csv(GPEC_MODES),
         mode_workdirs=lambda wildcards: ",".join(
