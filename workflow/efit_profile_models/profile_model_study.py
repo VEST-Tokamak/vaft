@@ -86,6 +86,12 @@ ORDER_MODELS = (
     Model("p23_zero", 2, 3, 1, 1, 0, "asymmetric FF-prime order"),
     Model("p32_zero", 3, 2, 1, 1, 0, "asymmetric P-prime order"),
     Model("p33_zero", 3, 3, 1, 1, 0, "higher-order zero-edge comparison"),
+    # The first pass separated the two orders: `p32_zero` moves the boundary
+    # by a millimetre and `p23_zero` by two centimetres, and `p33_zero` adds
+    # nothing to `p23_zero`.  At VEST's poloidal beta the P-prime term barely
+    # reaches `j_phi`, so FF-prime order is the whole axis -- and whether it
+    # has converged by three is a question only a fourth point can answer.
+    Model("p24_zero", 2, 4, 1, 1, 0, "whether the FF-prime order has converged"),
 )
 
 BASELINE_MODEL = "p22_zero"

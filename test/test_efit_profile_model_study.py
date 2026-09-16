@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -8,6 +9,14 @@ import pytest
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "workflow" / "efit_profile_models" / "profile_model_study.py"
+TABLE = Path(__file__).resolve().parent / "data" / "efit_profile_model_study.json"
+
+
+@pytest.fixture(scope="module")
+def table():
+    import json
+
+    return json.loads(TABLE.read_text(encoding="utf-8"))
 
 
 @pytest.fixture(scope="module")
@@ -496,3 +505,165 @@ def test_equilibria_without_an_mfile_are_counted_rather_than_summarized_as_none(
     summary = study.summarize_run(_run([with_fit, without_fit]))
     assert summary["plasma_produced"] == 2
     assert summary["magnetics_chisq"]["n"] == 1
+
+
+# --- the committed table, and the claims the README makes from it ----------
+#
+# These are written so that a change which invalidates a stated conclusion
+# fails here, which is what they are for.
+
+
+def test_every_model_was_measured_against_the_same_thing(study, table):
+    """Nine configurations of one experiment, or there is nothing to compare."""
+    assert table["schema_version"] == study.SCHEMA
+    assert table["issue"] == 579
+    identity = table["fixed_scientific_sha256"]
+    names = {model["name"] for model in table["models"]}
+    assert names == {model.name for model in study.PILOT_MODELS + study.ORDER_MODELS}
+    assert study.BASELINE_MODEL in names
+
+    for shot, block in table["shots"].items():
+        requested = block["window"]["requested"]
+        assert set(block["models"]) == names, shot
+        digests = set()
+        for name, model in block["models"].items():
+            run = model["run"]
+            assert run["requested_slices"] == requested, (shot, name)
+            digests.add(run["scientific_sha256"])
+            # Only the profile block may differ from the frozen baseline.
+            scientific = run["scientific"]
+            for section in ("initialization", "numerics", "constraints"):
+                assert scientific[section] == json.loads(
+                    json.dumps(table["fixed_scientific"][section])
+                ), (shot, name, section)
+        assert len(digests) == len(names), f"{shot}: two models share a configuration"
+        assert identity == table["fixed_scientific_sha256"]
+
+
+def test_the_chi_square_does_not_respond_to_the_profile_model(table):
+    """#579's first question, answered in the negative and in the mechanism.
+
+    EFIT's objective for VEST is the plasma-current term -- the magnetics are
+    handed uncertainties four orders above their signal and contribute ~1e-9
+    -- so no profile model can move the number `SAICON` tests. If a future
+    change to the weighting makes the magnetics matter, this fails, and the
+    README's first section has to be rewritten. That is the point.
+    """
+    shares, identical, compared = [], 0, 0
+    for block in table["shots"].values():
+        for model in block["models"].values():
+            for item in model["run"]["slices"]:
+                fit = (item.get("mfile") or {}).get("scalars")
+                if not fit or not fit["total_chisq"]:
+                    continue
+                shares.append(fit["magnetics_chisq"] / fit["total_chisq"])
+        for comparison in block["comparisons"].values():
+            term = comparison["fit_signed_relative_change"]["plasma_current_chisq"]
+            identical += term["identical"]
+            compared += term["n"]
+
+    assert len(shares) > 400
+    shares.sort()
+    assert shares[len(shares) // 2] < 1e-6, "the magnetics have started to matter"
+    assert identical / compared > 0.95, (identical, compared)
+
+
+def test_more_profile_freedom_fits_the_magnetics_worse_on_every_slice(table):
+    """Unanimous, and the opposite of what added parameters should do.
+
+    A least-squares fit cannot have a larger residual at its optimum for
+    having more of them, so this is the solver trading the unweighted term
+    away. `p11_zero` is the control: less freedom, better on every slice.
+    """
+    freer = ("p22_free", "p22_free_fwtbp", "p23_zero", "p24_zero", "p33_zero")
+    for shot, block in table["shots"].items():
+        for name in freer:
+            term = block["comparisons"][name]["fit_signed_relative_change"]["magnetics_chisq"]
+            assert term["n"] > 0 and term["decreased"] == 0, (shot, name, term)
+            assert term["median"] > 0, (shot, name)
+        control = block["comparisons"]["p11_zero"]["fit_signed_relative_change"]["magnetics_chisq"]
+        assert control["increased"] == 0 and control["median"] < 0, (shot, control)
+
+
+def test_the_order_that_moves_the_reconstruction_is_kffcur_alone(table):
+    """P-prime order is inert at VEST's beta; FF-prime order is the whole axis.
+
+    `(3,2)` adds a p' coefficient and moves the boundary by a millimetre;
+    `(2,3)` adds an FF' coefficient and moves it by two centimetres; `(3,3)`
+    adds both and is `(2,3)`. And `(2,4)` moves further still, so the FF'
+    basis has not converged in the range VEST supports.
+    """
+    for shot, block in table["shots"].items():
+        lcfs = {
+            name: block["comparisons"][name]["lcfs_rms_mm"]["median"]
+            for name in ("p32_zero", "p23_zero", "p24_zero", "p33_zero")
+        }
+        assert lcfs["p32_zero"] < 2.0, (shot, lcfs)
+        assert lcfs["p23_zero"] > 10 * lcfs["p32_zero"], (shot, lcfs)
+        # Adding the p' coefficient on top of the FF' one changes nothing.
+        assert abs(lcfs["p33_zero"] - lcfs["p23_zero"]) < 0.1 * lcfs["p23_zero"], (shot, lcfs)
+        # No plateau: the fourth FF' coefficient moves it further again.
+        assert lcfs["p24_zero"] > 1.4 * lcfs["p23_zero"], (shot, lcfs)
+
+
+def test_area_and_volume_carry_the_model_uncertainty_the_issue_asked_for(table):
+    """The headline: ~17% on area and ~25% on volume, on three discharges.
+
+    Taken over the times every model produced an equilibrium, so it is a
+    spread across one ensemble rather than a different one at every slice.
+    """
+    for shot, block in table["shots"].items():
+        ensemble = block["ensemble"]
+        assert ensemble["models_total"] == 9
+        complete = ensemble["complete"]["relative_sigma"]
+        assert complete["area"]["n"] >= 7, shot
+        assert 0.14 < complete["area"]["median"] < 0.20, (shot, complete["area"])
+        assert 0.22 < complete["volume"]["median"] < 0.29, (shot, complete["volume"])
+        assert 0.27 < complete["li"]["median"] < 0.34, (shot, complete["li"])
+        # q95 is the one quantity the magnetics pin, and it is pinned far better.
+        assert complete["q95"]["median"] < 0.5 * complete["area"]["median"], shot
+        # The all-available population is reported beside it and is close here,
+        # so the strict cut is a check rather than a correction.
+        available = ensemble["relative_sigma"]["area"]["median"]
+        assert abs(available - complete["area"]["median"]) < 0.02, shot
+
+
+def test_the_free_edge_is_the_only_lever_that_moves_the_collapse_block(table):
+    """Twelve null solutions become equilibria; the seed and grid moved none.
+
+    It is not free: acceptance falls and the boundary lands 68 mm away. The
+    assertion is that the block moves at all, which is what #459 needs.
+    """
+    recovered = collapsed_before = collapsed_after = 0
+    for block in table["shots"].values():
+        transitions = block["comparisons"]["p22_free"]["outcome_transitions"]
+        recovered += sum(
+            count for label, count in transitions.items()
+            if label.startswith("collapsed->") and not label.endswith("->collapsed")
+        )
+        collapsed_before += block["models"]["p22_zero"]["summary"]["plasma_outcomes"].get("collapsed", 0)
+        collapsed_after += block["models"]["p22_free"]["summary"]["plasma_outcomes"].get("collapsed", 0)
+
+    assert collapsed_before == 22 and collapsed_after == 10
+    assert recovered >= 12
+
+    # And the cost, so the row is never read as a free win.
+    accepted = {
+        name: sum(
+            block["models"][name]["summary"]["plasma_outcomes"].get("accepted", 0)
+            for block in table["shots"].values()
+        )
+        for name in ("p22_zero", "p22_free")
+    }
+    assert accepted["p22_free"] < accepted["p22_zero"]
+    for shot, block in table["shots"].items():
+        assert block["comparisons"]["p22_free"]["lcfs_rms_mm"]["median"] > 50, shot
+
+
+def test_the_report_renders_from_the_committed_table(study, table):
+    text = study.markdown(table)
+    assert text.startswith("# EFIT profile-model uncertainty")
+    assert "## Model-induced uncertainty" in text
+    assert "## Which way the fit moved" in text
+    for shot in table["shots"]:
+        assert f"| {shot} |" in text
