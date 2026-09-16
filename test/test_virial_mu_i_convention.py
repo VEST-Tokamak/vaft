@@ -45,6 +45,7 @@ pure algebra. The physics is carried by
 from __future__ import annotations
 
 import copy
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -116,11 +117,18 @@ def test_the_wrapper_reports_both_conventions_under_names_that_say_which():
     """`mui` is the volume integral the relations need; `mui_hat` keeps the flux
     quantity it has always carried.
 
-    They are opposite in sign on every slice -- that is exact. Their magnitudes
-    are *not* reliably close: the flux form is the volume one only to first
-    order in (F-F_b)/F_b, and on this sample the ratio runs from -0.97 at
-    slice 0 to -0.59 at slice 7. An earlier version of this test asserted
-    `flux/volume ~ -1` at 5% and passed only because it looked at slice 0.
+    They are opposite in sign on every slice -- that is exact -- and their
+    magnitudes agree to about 2%, which is the genuine first-order error in
+    (F-F_b)/F_b.
+
+    This assertion has been wrong in both directions. It first read
+    `flux/volume ~ -1` at 5% and passed only because it looked at slice 0. It
+    was then loosened to *require* a spread running out to -0.59, which pinned
+    a bug as though it were physics: the conversion was pairing b0 with this
+    slice's geometric axis instead of taking F at the boundary, and that axis
+    moves 0.3989 -> 0.2426 across the shot. b0 is read once per shot
+    (`.flat[0]`), so it cannot be the source of a per-slice drift. With F at
+    the boundary the ratio holds at -0.977 .. -0.982 on every slice.
     """
     rows = vaft.omas.compute_virial_equilibrium_quantities_ods(sample_ods())
     ratios = []
@@ -133,9 +141,9 @@ def test_the_wrapper_reports_both_conventions_under_names_that_say_which():
         ratios.append(flux / volume)
     assert len(ratios) >= 8
     assert max(ratios) < 0, "every ratio is negative"
-    # The spread is the point: a test pinning one number here would be pinning
-    # the slice it happened to choose.
-    assert min(ratios) < -0.9 and max(ratios) > -0.7
+    # Tight, and on every slice -- not a property of the one that was looked at.
+    # A regression to the b0 * geometric-axis pairing reopens this to -0.59.
+    assert min(ratios) > -1.05 and max(ratios) < -0.95
 
 
 def test_the_closures_agree_with_the_volume_integrals_on_the_sample():
@@ -417,3 +425,87 @@ def test_the_measured_mu_i_does_not_move_when_the_stored_F_sign_flips():
         base["mu_i_sources"]["measured"], rel=1e-9
     ), "a COCOS-dependent stored sign must not reach the measured mu_i"
     assert flipped["mu_i_sources"]["measured"] > 0
+
+
+def _geometric_axis_r(eq):
+    """R_0 as the wrapper resolved it, or NaN.
+
+    The packaged sample ships no ``boundary.geometric_axis``; the wrapper falls
+    back to the boundary centre and writes that back, so this is readable only
+    after a computation has run over the slice.
+    """
+    try:
+        value = eq["boundary.geometric_axis.r"]
+    except Exception:
+        return float("nan")
+    return float(value) if value is not None else float("nan")
+
+
+def test_the_flux_conversion_uses_F_at_the_boundary_not_b0_times_the_geometric_axis():
+    """The structural form of the fix, not just its numeric consequence.
+
+    ``mui_hat`` is ``4*pi*B_t*R_0*dphi / (B_pa^2 * V)``, so the field-times-radius
+    it was built with can be read straight back out of the published row:
+    ``B_t*R_0 = mui_hat * B_pa^2 * V / (4*pi*dphi)``. That has to be F at the
+    boundary.
+
+    b0 is defined at ``vacuum_toroidal_field.r0`` -- a fixed 0.4 m here -- so
+    pairing it with ``boundary.geometric_axis.r`` is not F at the boundary once
+    the axis has moved, and on the last slice of this sample the two differ by
+    41%.
+    """
+    ods = sample_ods()
+    rows = vaft.omas.compute_virial_equilibrium_quantities_ods(ods)
+    b0 = float(np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float).flat[0])
+    checked = 0
+    diverged = 0
+    for index, row in rows.items():
+        eq = ods["equilibrium.time_slice"][index]
+        if "profiles_1d.f" not in eq:
+            continue
+        if not (np.isfinite(row["mui_hat"]) and np.isfinite(row["phi_dia_comp"])):
+            continue
+        f_edge = float(np.asarray(eq["profiles_1d.f"], float)[-1])
+        implied = row["mui_hat"] * row["B_pa"] ** 2 * row["V_p"] / (
+            4 * np.pi * row["phi_dia_comp"]
+        )
+        assert implied == pytest.approx(f_edge, rel=1e-9), (
+            "the quantity actually used must be F at the boundary"
+        )
+        r_geo = _geometric_axis_r(eq)
+        if np.isfinite(r_geo) and abs(b0 * r_geo - f_edge) / abs(f_edge) > 0.05:
+            # Where the old pairing would have differed, it must not be what
+            # was used -- otherwise this test passes on agreement, not on form.
+            assert implied != pytest.approx(b0 * r_geo, rel=0.02)
+            diverged += 1
+        checked += 1
+    assert checked >= 8
+    assert diverged >= 1, "no slice separated the two pairings; the test proved nothing"
+
+
+def test_a_slice_whose_flux_the_wrapper_could_not_convert_is_indeterminate():
+    """There is no second conversion any more, so this branch has to be real.
+
+    The fallback that used to stand here recomputed mu_i from b0 * major_radius
+    -- the same pairing the wrapper was just fixed not to use -- and published it
+    under the same field name. Nothing reached it: replacing its body with a
+    raise left the validation suite green. Refusing to answer is the correct
+    behaviour, and this pins that it is what happens rather than a crash or an
+    invented number.
+    """
+    from vaft.validation.equilibrium import _diamagnetic_energy
+
+    ods = sample_ods()
+    virial = dict(
+        s_1=0.5, s_2=0.5, B_pa=0.1, V_p=0.05, rt=0.3, W_kin=100.0,
+        mu_i_sources={"measured": float("nan")},
+    )
+    # R_0 comes from the descriptors rather than from `virial`; every other
+    # input is finite, so the only thing left undecided is the conversion.
+    descriptors = {"major_radius": SimpleNamespace(value=0.3)}
+    out = _diamagnetic_energy(
+        ods, 0, virial, {"measured": _measured_flux(ods, 0)}, descriptors
+    )
+    assert out["status"] == "indeterminate"
+    assert "could not convert" in out["reason"]
+    assert "mui_measured" not in out, "it must not publish a mu_i it does not have"
