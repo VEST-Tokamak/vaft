@@ -143,6 +143,8 @@ def write_profile_nc(
     theta_count=7,
     m_count=5,
     rational_q=(2.0, 3.0),
+    cluster_rational=True,
+    cover_rational_harmonics=True,
     helicity=-1.0,
     shot=48226,
     time=300,
@@ -161,9 +163,35 @@ def write_profile_nc(
     everything dimensioned on ``psi_n_rational``, ``psi_n`` or ``i``, which is
     the rule ``gpec_reference_147131/extract_profile_subset.py`` applies.
     """
+    # A real GPEC run clusters its radial grid hard around the singular
+    # surfaces -- spacings of 2.7e-8 next to 6.4e-5 on the DIII-D reference --
+    # because that is where the solution varies fastest. A uniform fixture
+    # cannot support the one-sided fits the resonant derivation takes, so this
+    # reproduces the clustering rather than the point count.
     psi_n = np.linspace(0.05, 0.99, psi_count)
+    if cluster_rational:
+        psi_rational_targets = np.linspace(0.4, 0.95, len(rational_q))
+        span = 5e-4 / max(np.min(np.abs(np.asarray(rational_q, dtype=float) * 1.5)), 1e-12)
+        clustered = [psi_n]
+        for centre in psi_rational_targets:
+            offsets = np.concatenate([
+                -np.geomspace(0.4 * span, 5.0 * span, 12),
+                np.geomspace(0.4 * span, 5.0 * span, 12),
+            ])
+            clustered.append(centre + offsets)
+        psi_n = np.unique(np.concatenate(clustered))
+        psi_n = psi_n[(psi_n > 0.0) & (psi_n < 1.0)]
     theta = np.linspace(0.0, 1.0, theta_count)
-    m_out = np.arange(-2, -2 + m_count, dtype=np.int32)
+    # The real file's m_out spans -64..64, wide enough that every rational
+    # surface it reports has its own resonant harmonic m = nq in the band. A
+    # fixture whose band is narrower silently drops surfaces, so the band is
+    # widened to cover this run's own q values rather than left at a fixed
+    # width that happens to fit some of them.
+    m_low = -2
+    if cover_rational_harmonics and len(rational_q):
+        m_needed = int(np.ceil(n * max(rational_q)))
+        m_count = max(m_count, m_needed - m_low + 1)
+    m_out = np.arange(m_low, m_low + m_count, dtype=np.int32)
     q_rational = np.asarray(rational_q, dtype=float)
     psi_rational = np.linspace(0.4, 0.95, q_rational.size)
     phi_res = (q_rational * 1e-4) - 1j * (q_rational * 0.5e-4)
