@@ -291,6 +291,143 @@ def test_neo_notebook_explains_itself_without_a_run(headless_matplotlib, monkeyp
     assert not guardless, guardless
 
 
+def _tglf_notebook():
+    return nbformat.read(NOTEBOOKS / "turbulent_transport_with_tglf.ipynb", as_version=4)
+
+
+def _run_every_cell(book, label):
+    """Execute a notebook's code cells in order in one namespace.
+
+    The whole notebook is the subject: running a chosen subset would let a cell
+    that raises go unseen, which is exactly the failure these tests exist for.
+    """
+    namespace: dict = {}
+    for number, cell in enumerate(book.cells):
+        if cell.cell_type == "code":
+            exec(compile(cell.source, f"{label}:cell{number}", "exec"), namespace)
+    return namespace
+
+
+def test_tglf_notebook_explains_itself_without_a_run(
+    headless_matplotlib, monkeypatch, tmp_path, capsys
+):
+    """With nothing installed at all, the notebook still computes its finding.
+
+    Unlike the NEO notebook this one has two independent capabilities -- a built
+    GACODE and a set of model artifacts -- so "offline" means neutralising both.
+    The model half needs care: VAFT finds a TurbulentTransport.jl checkout in a
+    Julia depot *with no variable set*, so `JULIA_DEPOT_PATH` is pointed at an
+    empty directory rather than deleted. Deleting it would fall back to the
+    developer's real home and this test would silently stop testing the path a
+    reader with nothing installed takes.
+
+    What must survive both absences is the number the notebook's whole argument
+    rests on: T_i/T_e at the reference surface is computed from a file in this
+    repository and needs neither the solver nor a network.
+    """
+    import vaft
+
+    sample = Path(vaft.data.data_path("kineticEfit/ods_48224_300ms.json"))
+    if not sample.exists():  # pragma: no cover - repository-only asset
+        pytest.skip("the packaged 48224 kinetic sample is a repository-only asset")
+
+    for name in ("GACODEHOME", "GACODE_ROOT", "GACODE_PLATFORM",
+                 "TURBULENTTRANSPORTHOME", "TURBULENTTRANSPORT_ROOT"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("JULIA_DEPOT_PATH", str(tmp_path / "empty-depot"))
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+
+    book = _tglf_notebook()
+    namespace = _run_every_cell(book, "tglf")
+
+    assert namespace["HAVE_GACODE"] is False
+    assert namespace["HAVE_MODELS"] is False
+    assert namespace["HAVE_RUN"] is False
+    assert namespace["HAVE_AUDIT"] is False
+    assert namespace["HAVE_PREDICTION"] is False
+    assert namespace["RUN_DIR"] is None
+    assert namespace["SAMPLE"].is_file()
+
+    # The half that needs neither capability, and is the reason the notebook is
+    # worth opening on a machine with nothing installed.
+    assert namespace["profile"].n_exp > 2
+    assert set(namespace["LOCALS"]) == set(namespace["RADII"])
+    assert len(namespace["parameters"]) > 100
+    assert namespace["TI_TE_AT_HALF_RADIUS"] == pytest.approx(0.0866, abs=5e-4)
+
+    printed = capsys.readouterr().out
+    assert "GACODEHOME" in printed
+    assert "TURBULENTTRANSPORTHOME" in printed
+    assert "Would run TGLF" in printed
+    assert "Would audit" in printed
+    # The finding itself, computed offline from packaged data. This is the
+    # assertion that fails loudly if the converter, the sample or the reference
+    # radius ever changes under the notebook's claim.
+    assert "0.087" in printed
+
+    # Each marker is paired with the flag that actually makes it safe, not
+    # merely with a plausible one: `run_surrogate` raises without onnxruntime,
+    # so `HAVE_RUNTIME` is the guard -- and CI installs the extra, so a cell
+    # guarded on anything else would pass here and fail for a reader who did
+    # not install it.
+    for marker, flag in (("outputs_native", "HAVE_RUN"),
+                         ("run_surrogate(", "HAVE_RUNTIME"),
+                         ("ensemble_predict(", "HAVE_RUNTIME"),
+                         ("REFERENCE_FAMILY", "HAVE_AUDIT")):
+        guardless = [
+            cell.source
+            for cell in book.cells
+            if cell.cell_type == "code" and marker in cell.source
+            and flag not in cell.source
+        ]
+        assert not guardless, (marker, guardless)
+
+
+def test_tglf_notebook_audits_every_public_family_without_gacode(
+    headless_matplotlib, monkeypatch, capsys
+):
+    """The audit half needs the artifacts but not the solver, and says no.
+
+    This is the claim the notebook exists to make, held where it can actually be
+    checked: on a machine carrying TurbulentTransport.jl, with GACODE deleted.
+    """
+    import vaft
+    from vaft.code.gacode.tglf import surrogate
+
+    if not surrogate.available_models():
+        pytest.skip(
+            "needs a TurbulentTransport.jl checkout; VAFT vendors no model weights"
+        )
+    sample = Path(vaft.data.data_path("kineticEfit/ods_48224_300ms.json"))
+    if not sample.exists():  # pragma: no cover - repository-only asset
+        pytest.skip("the packaged 48224 kinetic sample is a repository-only asset")
+
+    for name in ("GACODEHOME", "GACODE_ROOT", "GACODE_PLATFORM"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+
+    namespace = _run_every_cell(_tglf_notebook(), "tglf-audit")
+
+    assert namespace["HAVE_GACODE"] is False
+    assert namespace["HAVE_RUN"] is False
+    assert namespace["HAVE_MODELS"] is True
+    assert namespace["HAVE_AUDIT"] is True
+
+    audits = namespace["AUDITS"]
+    assert len(audits) >= 3, audits
+    assert all(not audit.in_domain for audit in audits.values())
+    assert all(
+        any(name.startswith("TAUS") for name in audit.violations)
+        for audit in audits.values()
+    ), {name: audit.violations for name, audit in audits.items()}
+
+    # The refusal is shown rather than swallowed: this is run_surrogate's own text.
+    if namespace["HAVE_PREDICTION"]:
+        assert "refusing to predict outside the training distribution" in (
+            capsys.readouterr().out
+        )
+
+
 def test_fluctuation_notebook_configured_ods_branch(monkeypatch, tmp_path):
     notebook_path = NOTEBOOKS / "fluctuation_diagnostics_analysis.ipynb"
     book = nbformat.read(notebook_path, as_version=4)
