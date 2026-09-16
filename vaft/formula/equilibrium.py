@@ -2380,9 +2380,10 @@ def bremsstrahlung_power_density_from_T_e_p_Z_eff(
 
 
 
-def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
+def bremsstrahlung_power_density_from_n_e_T_e_Z_eff(
     n_e_m3: float,
     T_e_eV: float,
+    *,
     Z_eff: float = 2.0
 ) -> float:
     r"""Maxwellian free-free (bremsstrahlung) power density from first principles.
@@ -2397,7 +2398,7 @@ def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
     T_e_eV : float
         Electron temperature, converted to joules internally [eV].
     Z_eff : float, optional
-        Effective charge; default 2 [-].
+        Effective charge, keyword-only; default 2 [-].
 
     Returns
     -------
@@ -2409,7 +2410,13 @@ def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
     The prefactor evaluates to $4.2\times10^{-29}$ W m^3 J^-1/2, equal to the NRL
     $1.69\times10^{-38}\,n_e^2\sqrt{T_{\mathrm{eV}}}$ used by
     :func:`bremsstrahlung_radiation_power_from_z_eff_n_e_t_e`; the two agree to
-    1 %.
+    0.2 %, which is the rounding in NRL's published coefficient.
+
+    ``Z_eff`` is keyword-only, unlike its two siblings.  The NRL form takes
+    $(Z_{\mathrm{eff}}, n_e, T_e)$ and this one takes $(n_e, T_e)$, so a caller
+    moving between them by name used to swap the arguments silently and get a
+    number wrong by 27 orders of magnitude; there is no argument order that can
+    now do that without raising.  Tracked in #760.
 
     Assumptions
     -----------
@@ -2419,6 +2426,11 @@ def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
     Validity
     --------
     $T_e \ll m_ec^2$; relativistic corrections exceed 10 % above ~50 keV.
+
+    See Also
+    --------
+    bremsstrahlung_radiation_power_from_z_eff_n_e_t_e
+    bremsstrahlung_power_density_from_T_e_p_Z_eff
 
     References
     ----------
@@ -2430,6 +2442,44 @@ def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
 
     T_J = T_e_eV * QE
     return C_B * Z_eff * n_e_m3**2 * np.sqrt(T_J)
+
+
+def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
+    n_e_m3: float,
+    T_e_eV: float,
+    Z_eff: float = 2.0
+) -> float:
+    r"""Deprecated: use :func:`bremsstrahlung_power_density_from_n_e_T_e_Z_eff`.
+
+    The name states the argument order everywhere else in this module, and this
+    one stated it wrongly: it promised $(Z_{\mathrm{eff}}, n_e, T_e)$ while the
+    signature was $(n_e, T_e, Z_{\mathrm{eff}})$.  Every argument is a float and
+    $Z_{\mathrm{eff}}$ carried a default, so a call in the documented order was
+    accepted and returned a value 27 orders of magnitude wrong.
+
+    The shim keeps the old signature exactly and forwards unchanged, so a caller
+    written against the *signature* keeps its answer and a caller written
+    against the *name* keeps its wrong one -- a compatibility shim cannot tell
+    the two apart.  What it adds is the warning naming the replacement, whose
+    keyword-only ``Z_eff`` makes the mistake impossible to repeat.  Tracked in
+    #760.
+
+    See Also
+    --------
+    bremsstrahlung_power_density_from_n_e_T_e_Z_eff
+    """
+    warnings.warn(
+        "`bremsstrahlung_power_density_from_Z_eff_n_e_T_e` is deprecated -- its "
+        "name contradicts its argument order; use "
+        "`bremsstrahlung_power_density_from_n_e_T_e_Z_eff(n_e, T_e, Z_eff=...)`. "
+        "The old spelling is removed in 0.8.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return bremsstrahlung_power_density_from_n_e_T_e_Z_eff(
+        n_e_m3, T_e_eV, Z_eff=Z_eff
+    )
+
 
 # ------------------------------------------------------------------
 # Flux Consumption

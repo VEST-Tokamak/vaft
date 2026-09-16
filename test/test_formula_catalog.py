@@ -60,7 +60,10 @@ def test_the_catalog_counts_the_known_public_surface():
         # #711 split the virial closures out of equilibrium: 110 = 77 + 33.
         # #365 added the two IMAS extremity triangularities and the sub-vertex
         # extremum helper they share with vaft.process: 77 + 3 = 80.
-        "equilibrium": 80,
+        # #760 renamed the first-principles bremsstrahlung form to state its
+        # real argument order; the deprecated spelling is a distinct function
+        # object, so it counts: 80 + 1 = 81.
+        "equilibrium": 81,
         "virial": 33,
         "stability": 21,
         "green": 16,
