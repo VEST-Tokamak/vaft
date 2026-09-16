@@ -62,14 +62,7 @@ OMAS_BOUND = frozenset({
 IGNORED_READS: dict[str, dict[str, str]] = {}
 
 #: Neutral views whose synthetic input cannot be written to IMAS and read back.
-SYNTHETIC_ROUND_TRIP_UNSUPPORTED: dict[str, str] = {
-    name: (
-        "the ideal-GPEC mapper writes mhd_linear.time_slice without a homogeneous time "
-        "mode, which imas-python refuses to write (ValidationError: time mode "
-        "IDS_TIME_MODE_INDEPENDENT); the recorder still proves the reads"
-    )
-    for name in ("mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width")
-}
+SYNTHETIC_ROUND_TRIP_UNSUPPORTED: dict[str, str] = {}
 
 
 def _callables() -> list[str]:

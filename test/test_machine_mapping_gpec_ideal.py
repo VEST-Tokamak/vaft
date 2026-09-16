@@ -9,7 +9,10 @@ toroidal-mode grid, shot/time injection, provenance, and the
 
 from __future__ import annotations
 
+import contextlib
+import io
 import re
+import warnings
 
 import numpy as np
 import pytest
@@ -204,6 +207,59 @@ def test_time_injection_overrides_zero_attrs(run_dir):
     assert ods["mhd_linear.ids_properties.homogeneous_time"] == 1
     np.testing.assert_allclose(ods["mhd_linear.time"], [0.3])
     assert ods["mhd_linear.time_slice.0.time"] == pytest.approx(0.3)
+
+
+def test_a_call_without_time_s_still_leaves_the_ids_homogeneous_in_time(run_dir):
+    """``time_slice`` is a dynamic AOS: without a time mode and a ``time`` as
+    long as the AOS, imas-python refuses to write the IDS at all. A slice
+    nobody timed reads NaN rather than a fabricated instant."""
+    ods = ODS(consistency_check=False)
+    gpec_ideal(ods, str(run_dir), {"modes": [1]})
+    assert ods["mhd_linear.ids_properties.homogeneous_time"] == 1
+    times = np.asarray(ods["mhd_linear.time"], dtype=float)
+    assert times.shape == (len(ods["mhd_linear.time_slice"]),)
+    assert np.all(np.isnan(times))
+    assert "time" not in ods["mhd_linear.time_slice.0"]
+
+
+def test_a_time_base_laid_out_by_the_pipeline_is_kept(run_dir):
+    """The pipeline writes the whole time base before any solver runs; a
+    mapper call for one slice must neither shorten nor overwrite it."""
+    ods = ODS(consistency_check=False)
+    ods["mhd_linear.ids_properties.homogeneous_time"] = 1
+    ods["mhd_linear.time"] = [0.30, 0.31]
+    gpec_ideal(ods, str(run_dir), {"time_slice": 1, "modes": [1]})
+    np.testing.assert_allclose(ods["mhd_linear.time"], [0.30, 0.31])
+    assert ods["mhd_linear.time_slice.1.time"] == pytest.approx(0.31)
+    assert len(ods["mhd_linear.time_slice"]) == 2
+
+
+def test_the_mapped_ods_round_trips_through_imas(run_dir, tmp_path):
+    """The reason the time base matters: ``vaft.imas.save`` validates the IDS,
+    and the native (IMAS-entry) plot path reads the file back."""
+    imas = pytest.importorskip("imas")
+    import vaft.imas
+
+    ods = ODS(consistency_check=False)
+    profile = write_profile_nc(run_dir, rational_q=(2.0, 3.0))
+    gpec_ideal(ods, str(run_dir), {"modes": [1]})
+    target = tmp_path / "round_trip.nc"
+    with warnings.catch_warnings(), contextlib.redirect_stderr(io.StringIO()):
+        warnings.simplefilter("ignore")
+        vaft.imas.save(ods, str(target))
+
+    with imas.DBEntry(str(target), "r", dd_version="3.41.0") as entry:
+        ids = entry.get("mhd_linear")
+        assert int(ids.ids_properties.homogeneous_time) == 1
+        assert len(ids.time) == len(ids.time_slice) == 1
+        mode = ids.time_slice[0].toroidal_mode[0]
+        assert int(mode.n_tor) == 1
+        np.testing.assert_allclose(mode.plasma.grid.dim1, profile["psi_n"])
+        np.testing.assert_allclose(mode.plasma.grid.dim2, profile["m_out"])
+        np.testing.assert_allclose(
+            mode.plasma.b_field_perturbed.coordinate1.imaginary,
+            ods["mhd_linear.time_slice.0.toroidal_mode.0.plasma.b_field_perturbed.coordinate1.imaginary"],
+        )
 
 
 def test_dense_mode_grid_positions(run_dir):

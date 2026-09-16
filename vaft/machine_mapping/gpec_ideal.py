@@ -65,6 +65,7 @@ import numpy as np
 from omas import ODS
 
 from vaft.code.gpec import GpecIdealResult, read_gpec_netcdf
+from vaft.ods_access import path_count
 
 from .mhd_linear import (
     _HAMADA_FOURIER_GRID_INDEX,
@@ -275,6 +276,32 @@ def _rational_surface_geometry(profile, n_tor: int, chi1: Optional[float]) -> Op
     )
 
 
+def _ensure_time_base(ods: ODS, time_slice: int, time_s: Optional[float]) -> None:
+    """Keep ``mhd_linear`` writable as a homogeneous-time IDS.
+
+    ``time_slice`` is a dynamic AOS, so imas-python refuses to write the IDS
+    unless ``ids_properties.homogeneous_time`` names a time mode and ``time``
+    is as long as the AOS. The pipeline lays the time base out before any
+    solver runs (:func:`vaft.omas.vest_upstream.build_gpec_ideal_ods`); a
+    standalone call has nothing to lay it out from, because GPEC's own
+    ``time`` attribute is 0 whenever the equilibrium header carries no
+    identity. So: an existing time base is kept, ``time_s`` overrides the
+    entry for this slice, and a slice whose time nobody supplied reads NaN --
+    an honest "unknown", never a fabricated instant.
+    """
+    if ods.get("mhd_linear.ids_properties.homogeneous_time", None) is None:
+        ods["mhd_linear.ids_properties.homogeneous_time"] = 1
+    times = np.atleast_1d(np.asarray(ods.get("mhd_linear.time", []), dtype=float))
+    count = max(path_count(ods, "mhd_linear.time_slice"), time_slice + 1)
+    if times.size < count:
+        times = np.concatenate([times, np.full(count - times.size, np.nan)])
+    if time_s is not None:
+        times[time_slice] = float(time_s)
+    ods["mhd_linear.time"] = times
+    if np.isfinite(times[time_slice]):
+        ods["mhd_linear.time_slice"][time_slice]["time"] = float(times[time_slice])
+
+
 def gpec_ideal(ods: ODS, source: str, options: Optional[dict] = None) -> dict[int, dict[str, Any]]:
     """Map one ideal-GPEC run directory into ``mhd_linear``.
 
@@ -286,10 +313,13 @@ def gpec_ideal(ods: ODS, source: str, options: Optional[dict] = None) -> dict[in
       :func:`vaft.machine_mapping.mhd_linear.mhd_linear` does.
     - ``mode`` selects which ``gpec_*_output_n<mode>.nc`` set to read when
       the directory holds several.
-    - ``time_s`` writes the time base.  GPEC's own ``shot``/``time``
-      attributes are 0 when the equilibrium header carries no identity (true
-      for the VEST reference run), so the caller supplies them; the native
-      attributes are never trusted for this.
+    - ``time_s`` writes this slice's entry in the time base.  GPEC's own
+      ``shot``/``time`` attributes are 0 when the equilibrium header carries
+      no identity (true for the VEST reference run), so the caller supplies
+      them; the native attributes are never trusted for this.  The IDS is
+      always left homogeneous in time with ``time`` as long as
+      ``time_slice``; a slice nobody timed reads NaN, so the ODS round-trips
+      through :func:`vaft.imas.save` either way.
     - ``include_spectral`` (default True) writes the perturbed resonant flux
       on its ``(psi_n, m)`` grid, which is what makes the resonant response
       derivable from the IDS. It opens the profile file -- 144 MB on the
@@ -317,15 +347,7 @@ def gpec_ideal(ods: ODS, source: str, options: Optional[dict] = None) -> dict[in
         grid.append(n_tor)
     ensure_toroidal_mode_grid(ods, time_slice, grid)
 
-    time_s = options.get("time_s")
-    if time_s is not None:
-        ods["mhd_linear.ids_properties.homogeneous_time"] = 1
-        times = np.atleast_1d(np.asarray(ods.get("mhd_linear.time", []), dtype=float))
-        if time_slice >= times.size:
-            times = np.concatenate([times, np.full(time_slice + 1 - times.size, np.nan)])
-        times[time_slice] = float(time_s)
-        ods["mhd_linear.time"] = times
-        ods["mhd_linear.time_slice"][time_slice]["time"] = float(time_s)
+    _ensure_time_base(ods, time_slice, options.get("time_s"))
 
     position = grid.index(n_tor)
     _write_mode_entry(ods, time_slice, position, result,
