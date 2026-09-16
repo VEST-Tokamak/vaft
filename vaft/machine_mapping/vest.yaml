@@ -1939,6 +1939,13 @@ plasma_timing:
   # table test/data/onset_corpus.json (shots 39900-41700; the summary holds
   # the counts, a retune means a re-scan).
   h_alpha:
+    # The unit is the one main discharge, not every burst of light (#842).
+    # Without this the rule returned the envelope of every accepted segment,
+    # so a record with an earlier flash opened its window at the flash: on the
+    # shots where the plasma current names which burst was the discharge, the
+    # first segment was the right one only 11 times in 35.  The current rule
+    # has always asked the principal-pulse question; now both sources ask it.
+    principal_only: true
     prefilter_samples: 5
     fraction: 0.02
     sigma: 5.0
