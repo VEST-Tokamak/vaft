@@ -304,15 +304,22 @@ def _common_timebase_many(
 
 
 def _channel_toroidal_angle(ods: Any, probe_group: str, channel: int) -> float:
-    for suffix in ("toroidal_angle", "position.phi"):
-        stored = path_value(ods, f"magnetics.{probe_group}.{channel}.{suffix}")
-        if stored is None:
-            continue
+    """Where a probe sits toroidally, from ``position.phi``.
+
+    ``toroidal_angle`` is not consulted.  It is a sensor *orientation* in the
+    DD, not a position, and reading it first is what let the mapper's old habit
+    of writing a position there go unnoticed (issue #725).  Keeping it as a
+    fallback would be worse than dropping it: an ODS written before that fix
+    carries a position in it, in the pre-#718 frame, so the same code path
+    would silently mean different things depending on the file's age.
+    """
+    stored = path_value(ods, f"magnetics.{probe_group}.{channel}.position.phi")
+    if stored is not None:
         try:
             return float(stored)
         except (TypeError, ValueError):
-            continue
-    raise KeyError(f"{probe_group} channel {channel} does not define toroidal_angle or position.phi.")
+            pass
+    raise KeyError(f"{probe_group} channel {channel} does not define position.phi.")
 
 
 def _with_phase_jumps(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

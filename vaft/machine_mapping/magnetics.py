@@ -88,6 +88,24 @@ PROBE_LENGTH = 0.01
 #: into the IDS, which told any DD-conformant reader that the probes measure
 #: ``-Bz``.  The stored angle and the projection must move together.
 POLOIDAL_ANGLE = 3 * math.pi / 2
+#: ``toroidal_angle`` is deliberately **not** written for these probes.
+#:
+#: The DD defines it as the angle of the sensor normal's *horizontal
+#: projection* from grad(R), "modulo pi with values within (-pi/2, pi/2]".  A
+#: VEST Mirnov is a Bz coil, which :data:`POLOIDAL_ANGLE` already states by
+#: putting the normal vertical -- and a vertical vector has **no** horizontal
+#: projection, so there is no angle to write.  ``poloidal_angle`` alone fully
+#: specifies the orientation.
+#:
+#: Until issue #725 this field carried the probe's toroidal *position*: 0.0 for
+#: the equilibrium probes and the position angle for the reference and
+#: fluctuation arrays.  Both are wrong, and not only by convention.  0.0 says
+#: the normal is parallel to grad(R), which declares a *radial* (B_R) sensor,
+#: and the position angles fall outside the range the DD allows at all.  It
+#: also reached the analysis: `vaft.plot` prefers this field over
+#: ``position.phi`` when deciding where a probe sits, so the toroidal
+#: mode-number fit was reading 0 for all 64 equilibrium probes while they
+#: physically sit at three distinct angles.
 MIRNOV_TYPE_INDEX = 2
 # Poloidal-probe and flux-loop families, by position. These are the boundaries
 # the EFIT k-file writer submits constraints by (vaft.code.efit.kfile), kept
@@ -1380,7 +1398,6 @@ def _populate_probe_static(ods: object) -> None:
             set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle", 0.0)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
         probe_index += 1
 
@@ -1394,12 +1411,6 @@ def _populate_probe_static(ods: object) -> None:
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
-        # NOTE: the DD defines `toroidal_angle` as a sensor *orientation*, not a
-        # position, so this write is the wrong field -- issue #725. It is kept
-        # here because VAFT's own consumers read it as a position and #718 is
-        # about which frame the value is in, not which field it goes in;
-        # changing both at once would make neither verifiable.
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
         probe_index += 1
 
@@ -1427,7 +1438,6 @@ def _populate_fluctuation_mirnov_static(ods: object, shot: int = 0) -> None:
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
         probe_index += 1
 

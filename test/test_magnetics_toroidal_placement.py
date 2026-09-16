@@ -217,3 +217,58 @@ def test_thomson_static_writes_a_distinct_angle_per_channel():
     ]
     assert written == sorted(written, reverse=True)
     assert len(set(written)) == 5
+
+
+# ---------------------------------------------------------------------------
+# toroidal_angle is an orientation, and these probes do not have one (#725)
+# ---------------------------------------------------------------------------
+
+
+def test_no_poloidal_probe_declares_a_toroidal_angle(static_ods):
+    """A Bz coil's normal is vertical, so it has no horizontal projection.
+
+    The DD defines ``toroidal_angle`` as the angle of that projection from
+    grad(R), within (-pi/2, pi/2]. ``poloidal_angle`` already states the normal
+    is vertical, which leaves nothing for this field to describe. Writing 0.0
+    would say the normal is parallel to grad(R) -- a radial, B_R sensor.
+    """
+    count = len(get_path(static_ods, "magnetics.b_field_pol_probe"))
+    assert count > 0
+    for index in range(count):
+        assert not path_exists(static_ods, f"magnetics.b_field_pol_probe.{index}.toroidal_angle")
+
+
+def test_poloidal_angle_still_states_the_orientation(static_ods):
+    """Removing the wrong field must not leave the probes undescribed."""
+    from vaft.machine_mapping.magnetics import POLOIDAL_ANGLE
+
+    for index in range(len(get_path(static_ods, "magnetics.b_field_pol_probe"))):
+        assert get_path(
+            static_ods, f"magnetics.b_field_pol_probe.{index}.poloidal_angle"
+        ) == pytest.approx(POLOIDAL_ANGLE)
+
+
+def test_the_toroidal_phase_fit_reads_real_angles(static_ods):
+    """The consumer-visible point of #725.
+
+    `_toroidal_phase_channels` used to prefer ``toroidal_angle``, so it read 0
+    for all 64 equilibrium probes while they physically sit at three distinct
+    toroidal locations. It reads ``position.phi`` now.
+    """
+    import numpy as _np
+
+    from vaft.machine_mapping.utils import set_path as _set
+    from vaft.plot.backend.recipes import _toroidal_phase_channels
+
+    payload = dict(static_ods)
+    count = len(get_path(payload, "magnetics.b_field_pol_probe"))
+    time = _np.linspace(0.0, 0.1, 64)
+    for index in range(count):
+        _set(payload, f"magnetics.b_field_pol_probe.{index}.voltage.time", time)
+        _set(payload, f"magnetics.b_field_pol_probe.{index}.voltage.data", _np.zeros_like(time))
+
+    _, angles = _toroidal_phase_channels(payload)
+    seen = {round(float(value), 6) for value in _np.rad2deg(angles)}
+    assert 0.0 not in seen
+    for family_clock in EQUILIBRIUM_PROBE_CLOCK.values():
+        assert round(float(np.rad2deg(port_toroidal_angle(family_clock))), 6) in seen
