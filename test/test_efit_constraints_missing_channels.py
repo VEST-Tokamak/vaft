@@ -33,6 +33,7 @@ from vaft.code.efit.config import EFITConstraintConfig, EFITProfileConfig, EFITS
 from vaft.machine_mapping.magnetics import (
     LIMITER_SHUNT_CHANNELS,
     TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
+    toroidal_mirnov_reference_channels,
     vest_equilibrium_magnetics_channel_definitions,
 )
 from vaft.database.composition import compose_stage_products
@@ -278,18 +279,31 @@ def test_constraints_and_kfile_survive_missing_channels(
 def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_constraints_input_ods, tmp_path):
     """Constraint generation and EXPMP2/FWTMP2 use EFIT's real probe count.
 
-    VAFT's magnetics IDS carries 68 b_field_pol_probe entries: 64 real,
-    EFIT-fitted probes (vest_equilibrium_magnetics_channel_definitions()) followed by 4
-    toroidal-mirnov phase-reference channels that are not part of EFIT's
-    B-pol fitting set (`magpri` in dprobe.dat/mhdin.dat is 64, not 68).
-    Trailing phase-reference channels are not constraints and must not be
-    materialized into the equilibrium constraint IDS.
+    VAFT's magnetics IDS carries the 64 EFIT-fitted probes
+    (vest_equilibrium_magnetics_channel_definitions()) followed by the
+    toroidal-mirnov phase-reference channels this shot actually has. Those are
+    not part of EFIT's B-pol fitting set (`magpri` in dprobe.dat/mhdin.dat is
+    64), so they must not be materialized into the equilibrium constraint IDS.
+
+    How many trail the 64 is a fact about the shot, not a constant. #857 gates
+    each reference channel at its `last_operational_shot`: fields 207, 209 and
+    241 end at 35520, and field 171 carries no bound while #825 is open. So
+    43016 has one trailing channel where the un-gated inventory has four. The
+    count is derived from that table, and the test refuses to pass once no
+    trailing channel is left, because then there is nothing for the clamp to
+    remove and this would no longer be testing it.
     """
     from vaft.data.resources import data_path
 
     ods = copy.deepcopy(full_constraints_input_ods)
+    efit_probes = _efit_bpol_probe_count()
+    trailing = len(toroidal_mirnov_reference_channels(SHOT))
     n_probes = len(ods["magnetics.b_field_pol_probe"])
-    assert n_probes == 68
+    assert n_probes == efit_probes + trailing
+    assert n_probes > efit_probes, (
+        f"shot {SHOT} has no probe beyond EFIT's {efit_probes}; "
+        "the clamp is no longer exercised -- pick a shot that still has one"
+    )
 
     # A missing channel inside the real 64-probe range must still show up
     # as a zero-weight placeholder within the clamped array.
@@ -304,7 +318,7 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_constraint
         broken=[], fit=0, FFCUR=2, PPCUR=2,
     )
 
-    assert len(ods["equilibrium.time_slice.0.constraints.bpol_probe"]) == 64
+    assert len(ods["equilibrium.time_slice.0.constraints.bpol_probe"]) == efit_probes
 
     config = _build_kfile_config(
         nbcoil=len(ods["equilibrium.time_slice.0.constraints.pf_current"])
@@ -318,8 +332,8 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_constraint
     expmp2 = _extract_array(text, "EXPMP2", "BITMPI")
     fwtmp2 = _extract_array(text, "FWTMP2", "PLASMA")
 
-    assert len(expmp2) == 64
-    assert len(fwtmp2) == 64
+    assert len(expmp2) == efit_probes
+    assert len(fwtmp2) == efit_probes
     assert all(np.isfinite(value) for value in expmp2)
     assert fwtmp2[10] == 0
     assert all(value == 1 for i, value in enumerate(fwtmp2) if i != 10)
