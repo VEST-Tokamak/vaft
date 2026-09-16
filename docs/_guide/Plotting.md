@@ -655,9 +655,13 @@ helpers read (`reads`, role `input`, `attrs["declared_by"] == "recipe"`) beside 
 spec gates availability on, and it is classified: a `backend="neutral"` builder reads only
 through the accessor and runs on an OMAS ODS, a native IMAS entry or a lazy remote handle
 alike; a `backend="omas"` builder hands the object to a `vaft.omas`/`vaft.process` helper that
-writes, deep-copies or subscripts an ODS (nine of them only by the helper's reading style, marked
-as reclassification candidates in their `reason`), so a native entry is converted first — `available_plots(...,
+writes, deep-copies or subscripts an ODS, so a native entry is converted first — `available_plots(...,
 detail=True)` says which, and why (`computed: native reads` / `needs an OMAS ODS — <reason>`).
+The accessor the recipes read through is the one `vaft.ods_access` dispatches on, so a helper
+written against its non-mutating readers (`path_value`, `path_count`, `path_exists`) reads a
+native IMAS entry as it reads an ODS — the EFIT quality tables and the pf_plasma elements do,
+which is why the equilibrium verification views and `pf_plasma_geometry_poloidal` are neutral —
+and a path that descends into `code.parameters` is answered from the decoded tree on both models.
 A test records every path each builder touches and fails on one it did not declare. That
 declaration is also what serves an OMAS-bound view from an input that cannot hand over a whole
 ODS: on a lazy database store, or a lazily loaded IMAS handle, exactly the declared paths are read

@@ -859,8 +859,10 @@ class PowerSpectrumRecipe:
 
 
 #: How a computed view reads its input (issue #439).  ``NEUTRAL``: every read
-#: goes through :mod:`vaft.plot.backend.access`, so an OMAS ODS, a native IMAS
-#: entry and a lazy remote handle are all handed to the builder as they are.
+#: goes through :mod:`vaft.plot.backend.access` or a ``vaft.omas`` helper that
+#: reads through :mod:`vaft.ods_access` (both dispatch on the object), so an
+#: OMAS ODS, a native IMAS entry and a lazy remote handle are all handed to the
+#: builder as they are.
 #: ``OMAS_BOUND``: the builder passes the object to a helper that writes,
 #: deep-copies or subscripts an OMAS ODS, so a convertible input is converted
 #: first (:func:`_ods_for_callable`).
@@ -3795,8 +3797,7 @@ RECIPES["pf_plasma_geometry_poloidal"] = CallableRecipe(
     builder=_build_pf_plasma_geometry,
     description="The plasma-current elements of pf_plasma, coloured by current.",
     reads=("pf_plasma.time", "pf_plasma.element.{i}.current", "pf_plasma.element.{i}.area", "pf_plasma.element.{i}.geometry.geometry_type", *_element_reads("pf_plasma"), *_WALL_LIMITER_READS),
-    backend=OMAS_BOUND,
-    reason='vaft.omas.pf_plasma.plasma_elements subscripts the ODS (plain reads only; convertible to the accessor)',
+    backend=NEUTRAL,
 )
 
 
@@ -8022,8 +8023,7 @@ RECIPES["equilibrium_overview_verification"] = CallableRecipe(
     builder=_build_equilibrium_verification,
     description="EFIT measured/reconstructed constraints and poloidal-flux map.",
     reads=(*_EFIT_CONSTRAINT_READS, "equilibrium.ids_properties.cocos", "equilibrium.time_slice.{i}.boundary.outline.r", "equilibrium.time_slice.{i}.boundary.outline.z", "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r", "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.z", "equilibrium.time_slice.{i}.global_quantities.psi_axis", "equilibrium.time_slice.{i}.global_quantities.psi_boundary", "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1", "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2", "equilibrium.time_slice.{i}.profiles_2d.0.psi", *_WALL_LIMITER_READS),
-    backend=OMAS_BOUND,
-    reason='vaft.omas.efit_quality.constraint_table reads the constraint tables through vaft.ods_access on an OMAS ODS (non-mutating; a reclassification candidate)',
+    backend=NEUTRAL,
 )
 
 
@@ -8661,15 +8661,13 @@ RECIPES["equilibrium_overview_fit_quality"] = CallableRecipe(
     builder=_build_equilibrium_fit_quality,
     description="Reduced chi-square, per-family chi-square share and normalized residuals.",
     reads=_EFIT_QUALITY_READS,
-    backend=OMAS_BOUND,
-    reason='vaft.omas.efit_quality.efit_quality_metrics reads through vaft.ods_access on an OMAS ODS (non-mutating; a reclassification candidate)',
+    backend=NEUTRAL,
 )
 RECIPES["equilibrium_overview_convergence"] = CallableRecipe(
     builder=_build_equilibrium_convergence,
     description="Grad-Shafranov error against tolerance, iterations, and self-consistency.",
     reads=_EFIT_QUALITY_READS,
-    backend=OMAS_BOUND,
-    reason='vaft.omas.efit_quality.efit_quality_metrics reads through vaft.ods_access on an OMAS ODS (non-mutating; a reclassification candidate)',
+    backend=NEUTRAL,
 )
 
 
@@ -8677,22 +8675,19 @@ RECIPES["equilibrium_overview_constraints"] = CallableRecipe(
     builder=_build_equilibrium_constraints,
     description="Magnetic constraints submitted to EFIT, by family and channel state.",
     reads=_EFIT_CONSTRAINT_READS,
-    backend=OMAS_BOUND,
-    reason='vaft.omas.efit_quality.constraint_table reads through vaft.ods_access on an OMAS ODS (non-mutating; a reclassification candidate)',
+    backend=NEUTRAL,
 )
 RECIPES["equilibrium_overview_constraint_coverage"] = CallableRecipe(
     builder=_build_equilibrium_constraint_coverage,
     description="Enabled, disabled and missing constraint channels across slices.",
     reads=_EFIT_CONSTRAINT_READS,
-    backend=OMAS_BOUND,
-    reason='vaft.omas.efit_quality.constraint_table reads through vaft.ods_access on an OMAS ODS (non-mutating; a reclassification candidate)',
+    backend=NEUTRAL,
 )
 RECIPES["equilibrium_overview_residuals"] = CallableRecipe(
     builder=_build_equilibrium_residuals,
     description="Measured-minus-reconstructed residuals by family, beside convergence.",
     reads=_EFIT_CONSTRAINT_READS,
-    backend=OMAS_BOUND,
-    reason='vaft.omas.efit_quality.constraint_table and classify_fit_role read through vaft.ods_access on an OMAS ODS (non-mutating; a reclassification candidate)',
+    backend=NEUTRAL,
 )
 
 
@@ -9640,15 +9635,13 @@ RECIPES["chease_overview_refinement_summary"] = CallableRecipe(
     builder=_build_chease_refinement_summary,
     description="Profile and boundary RMS change from refinement, slice by slice.",
     reads=("equilibrium.code.parameters", "equilibrium.code.library.{i}.name", "equilibrium.time", "equilibrium.time_slice.{i}.time"),
-    backend=OMAS_BOUND,
-    reason='vaft.omas.efit_quality.slice_times reads through vaft.ods_access on an OMAS ODS (non-mutating; a reclassification candidate)',
+    backend=NEUTRAL,
 )
 RECIPES["chease_overview_profile_validity"] = CallableRecipe(
     builder=_build_chease_profile_validity,
     description="q0/q95, q-monotonicity and pressure positivity of the refined equilibrium.",
     reads=("equilibrium.code.library.{i}.name", "equilibrium.time", "equilibrium.time_slice.{i}.time", "equilibrium.time_slice.{i}.global_quantities.q_axis", "equilibrium.time_slice.{i}.global_quantities.q_95", "equilibrium.time_slice.{i}.profiles_1d.q", "equilibrium.time_slice.{i}.profiles_1d.pressure"),
-    backend=OMAS_BOUND,
-    reason='vaft.omas.efit_quality.slice_times reads through vaft.ods_access on an OMAS ODS (non-mutating; a reclassification candidate)',
+    backend=NEUTRAL,
 )
 
 

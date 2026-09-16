@@ -8,7 +8,17 @@ indexed, and an empty leaf holds a sentinel that only ``has_value`` exposes.
 :class:`IDSEntry` bundles one shot's toplevels under their IDS names and
 :data:`IDS_ACCESSOR` walks the path natively -- no conversion, no copy -- so
 the same recipe reads an ODS and an IDS and the two view models can be
-compared before anything is drawn.
+compared before anything is drawn.  The accessor is registered with
+:mod:`vaft.ods_access`, so the ``vaft.omas`` helpers written against that
+module's readers (the EFIT quality tables, the pf_plasma elements) read an
+:class:`IDSEntry` the same way, and the computed views built on them run
+natively too.
+
+An IDS stores ``code.parameters`` as one string leaf; OMAS decodes it into
+a tree on load.  The walk does the same on demand: a path that descends
+into ``<ids>.code.parameters`` is answered from the decoded tree (cached
+per entry), so ``equilibrium.code.parameters.cocos`` reads alike on both
+models while the leaf itself stays the stored text.
 
 The one exception is the set of OMAS-bound computed views
 (``CallableRecipe.backend == "omas"``, issue #439) whose builders hand the
@@ -27,7 +37,7 @@ from typing import Any, Iterable, Mapping
 
 import numpy as np
 
-from vaft.plot.backend.access import register_accessor
+from vaft.ods_access import register_accessor
 
 __all__ = ["IDSEntry", "IDS_ACCESSOR", "is_native_ids", "is_native_entry"]
 
@@ -76,6 +86,7 @@ class IDSEntry:
         self._toplevels: dict[str, Any] = {}
         self._absent: set[str] = set()
         self._ods_cache: dict[frozenset, Any] = {}
+        self._parameters: dict[str, Any] = {}
         self._getter = None
         self._full_getter = None
         self._full: dict[str, Any] = {}
@@ -226,11 +237,21 @@ def resolve(entry: IDSEntry, path: str) -> Any:
     node = entry.toplevel(segments[0])
     if node is None:
         return _MISSING
-    return _walk(node, segments[1:])
+    return _walk(node, segments[1:], entry=entry, prefix=segments[0])
 
 
-def _walk(node: Any, segments: list[str]) -> Any:
+def _walk(node: Any, segments: list[str], *, entry: IDSEntry | None = None, prefix: str = "") -> Any:
     for position, segment in enumerate(segments):
+        if _is_primitive(node) and _is_code_parameters(node) and entry is not None:
+            # Descending into the code-parameters string: OMAS decodes it into
+            # a tree on load, so the walk decodes it here, once per entry.
+            decoded = _decoded_parameters(entry, prefix, node)
+            if decoded is None:
+                return _MISSING
+            try:
+                return decoded[".".join(segments[position:])]
+            except (KeyError, TypeError, ValueError, IndexError):
+                return _MISSING
         if segment == ":":
             # OMAS's slice over an array of structures: the remainder of the
             # path gathered from every element, as an array when the leaves
@@ -253,6 +274,7 @@ def _walk(node: Any, segments: list[str]) -> Any:
             if index >= len(node):
                 return _MISSING
             node = node[index]
+            prefix = f"{prefix}.{segment}"
             continue
         if not (_is_structure(node) or _is_struct_array(node)):
             return _MISSING
@@ -260,7 +282,44 @@ def _walk(node: Any, segments: list[str]) -> Any:
             node = getattr(node, segment)
         except AttributeError:
             return _MISSING
+        prefix = f"{prefix}.{segment}"
     return _leaf(node)
+
+
+def _is_code_parameters(node: Any) -> bool:
+    """Whether ``node`` is an IDS's ``code.parameters`` leaf (the DD's one string tree).
+
+    A library's ``code.library[].parameters`` is not decoded, as OMAS does not.
+    """
+    metadata = getattr(node, "metadata", None)
+    return metadata is not None and str(getattr(metadata, "path_string", "")) == "code/parameters"
+
+
+def _decoded_parameters(entry: IDSEntry, prefix: str, node: Any) -> Any:
+    """The ``CodeParameters`` tree for the string at ``prefix``, or ``None``.
+
+    Only XML text decodes (a JSON stage blob stays a string and answers no
+    sub-path, as on an ODS); the result is cached on the entry.  The leaf
+    itself is still the text: ``count`` of ``<ids>.code.parameters`` is 0
+    here where an ODS counts the decoded keys, and a nested subtree an entry
+    was written without (``vaft.imas.save`` keeps the flat leaves only, see
+    ``vaft.imas.code_parameters``) is absent on both models.
+    """
+    if prefix in entry._parameters:
+        return entry._parameters[prefix]
+    decoded = None
+    if node.has_value:
+        text = str(node.value)
+        if text.lstrip().startswith("<"):
+            from omas.omas_core import CodeParameters
+
+            decoded = CodeParameters()
+            try:
+                decoded.from_string(text)
+            except Exception:
+                decoded = None
+    entry._parameters[prefix] = decoded
+    return decoded
 
 
 def _leaf(node: Any) -> Any:
