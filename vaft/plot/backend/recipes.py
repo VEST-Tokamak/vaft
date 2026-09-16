@@ -4691,14 +4691,22 @@ RECIPES["camera_visible_animation_frames"] = CallableRecipe(
 RECIPES["camera_visible_image_fluctuation"] = CallableRecipe(
     builder=_build_camera_visible_image_fluctuation,
     description="One FAST-camera frame with its local temporal background removed.",
+    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name"),
+    backend=OMAS_BOUND,
+    reason="vaft.omas.process_wrapper._resolve_camera_frame subscripts the ODS",
 )
 RECIPES["camera_visible_image_mhd_power"] = CallableRecipe(
     builder=_build_camera_visible_image_mhd_power,
     description="Per-pixel MHD-band power normalised by local emission, at one time.",
+    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name"),
+    backend=OMAS_BOUND,
+    reason="vaft.omas.process_wrapper._resolve_camera_frame subscripts the ODS",
 )
 RECIPES["camera_visible_spectrogram"] = CallableRecipe(
     builder=_build_camera_visible_spectrogram,
     description="Time-frequency map of the camera intensity summed over one image region.",
+    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name"),
+    backend=NEUTRAL,
 )
 
 

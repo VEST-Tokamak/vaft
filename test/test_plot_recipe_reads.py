@@ -37,7 +37,8 @@ NEUTRAL = frozenset({
     "pf_coil_geometry_poloidal", "passive_structure_geometry_poloidal", "machine_geometry_poloidal",
     "equilibrium_geometry_topview", "machine_geometry_topview",
     "electron_temperature_field", "electron_density_field",
-    "camera_visible_animation_frames", "limiter_current_time", "mirnov_spatial_phase",
+    "camera_visible_animation_frames", "camera_visible_spectrogram",
+    "limiter_current_time", "mirnov_spatial_phase",
     "ntms_time_delta_prime", "mhd_linear_time_energy_perturbed",
     "mhd_linear_profile_displacement", "mhd_linear_profile_b_field_perturbed",
 })
@@ -47,7 +48,8 @@ OMAS_BOUND = frozenset({
     "passive_structure_field_wall_reduction", "neoclassical_profile_bootstrap_current",
     "equilibrium_field_psi_vacuum", "vacuum_field", "summary_time_power_balance",
     "camera_visible_image", "camera_visible_image_frame", "camera_visible_image_efit_overlay",
-    "camera_visible_image_field_line", "equilibrium_overview",
+    "camera_visible_image_field_line", "camera_visible_image_fluctuation",
+    "camera_visible_image_mhd_power", "equilibrium_overview",
     "equilibrium_overview_verification", "equilibrium_overview_fit_quality",
     "equilibrium_overview_convergence", "equilibrium_overview_constraints",
     "equilibrium_overview_constraint_coverage", "equilibrium_overview_residuals",
@@ -213,9 +215,10 @@ def test_the_ignored_reads_are_still_needed(sample, monkeypatch):
                 pass
         for path in via_accessor.paths:
             via_ods.add(path)
-        still = set(undeclared(via_ods, recipe.reads))
+        with_all = undeclared(via_ods, recipe.reads, ignored)
         for template, reason in ignored.items():
-            if not any(undeclared(via_ods, recipe.reads, {template: reason})) and not still:
+            without = {t: r for t, r in ignored.items() if t != template}
+            if undeclared(via_ods, recipe.reads, without) == with_all:
                 stale.append(f"{name}: {template} no longer needs ignoring ({reason})")
     assert not stale, stale
 

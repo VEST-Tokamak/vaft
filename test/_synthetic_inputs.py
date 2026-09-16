@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import copy
 import json
-import tempfile
 from pathlib import Path
 from typing import Callable
 
@@ -31,7 +30,7 @@ def make_nbi(_sample: ODS) -> ODS:
     from vaft.machine_mapping.core_sources import core_sources_from_nubeam
 
     outputs = NUBEAMOutputs(
-        workdir=Path(tempfile.mkdtemp()),
+        workdir=Path("/nonexistent/nubeam-run"),  # only stored, never opened
         runid="TESTRUN",
         profiles={
             "pbe": np.array([100.0, 200.0, 300.0, 400.0]),
@@ -384,3 +383,32 @@ OPTIONS: dict[str, dict] = {
 
 #: Names no factory could make build, with the exact error.
 UNSUPPORTED: dict[str, str] = {}
+
+
+# ---------------------------------------------------------------------------
+# camera_visible_image_fluctuation / _mhd_power / camera_visible_spectrogram --
+# adapted from test/test_camera_fluctuation_plots.py (fixture `camera_ods`):
+# 200 frames at 50 kfps with a 6 kHz oscillation on the right half.
+# ---------------------------------------------------------------------------
+
+
+def make_camera_fluctuation(_sample: ODS) -> ODS:
+    from vaft.machine_mapping.camera_visible import (
+        vfit_camera_visible_dynamic,
+        vfit_camera_visible_static,
+    )
+
+    rows, cols, n_frames, frame_rate = 8, 12, 200, 50_000.0
+    time = np.arange(n_frames) / frame_rate + 0.3
+    background = 80.0 + 20.0 * np.sin(2 * np.pi * 300.0 * time)
+    frames = np.broadcast_to(background[:, None, None], (n_frames, rows, cols)).copy()
+    frames[:, :, cols // 2:] += (15.0 * np.sin(2 * np.pi * 6_000.0 * time))[:, None, None]
+    out = ODS()
+    out["dataset_description.data_entry.pulse"] = 39915
+    vfit_camera_visible_static(out, lines_n=rows, columns_n=cols, exposure_time_s=1.91e-5)
+    vfit_camera_visible_dynamic(out, images=list(frames.astype(int)), times_s=list(time))
+    return out
+
+
+for _name in ("camera_visible_image_fluctuation", "camera_visible_image_mhd_power", "camera_visible_spectrogram"):
+    SYNTHETIC[_name] = make_camera_fluctuation
