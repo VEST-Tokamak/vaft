@@ -2310,6 +2310,12 @@ def test_gpec_binaries_pin_the_netcdf_they_were_built_against():
     assert "--disable-new-dtags" in text, (
         "without it the rpath is emitted as RUNPATH, which LD_LIBRARY_PATH overrides"
     )
+    # And only on Linux: ld64 rejects --disable-new-dtags, Mach-O has no
+    # DT_RUNPATH, and this script does not refuse Darwin -- so an unguarded
+    # flag would fail the first link on a platform it claims to support.
+    assert 'PLATFORM" == linux-*' in text, (
+        "the ELF-only linker flags must be guarded by platform"
+    )
 
 
 def test_tokamaker_is_an_optional_extra_not_a_dependency():
