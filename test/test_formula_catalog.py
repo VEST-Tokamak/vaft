@@ -72,7 +72,11 @@ def test_the_catalog_counts_the_known_public_surface():
         "magnetics": 2,
         "neoclassical": 12,
         # #783 first slice: the prefill -> Townsend -> Lloyd breakdown chain.
-        "startup": 5,
+        # #783 comment 1 added the post-avalanche equilibrium-field and
+        # flux-closure kernels and the limiter-aperture geometry, comment 2
+        # the generic Townsend inversion, and #676 the Ejiri mirror proxy:
+        # 5 + 7 = 12.
+        "startup": 12,
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 

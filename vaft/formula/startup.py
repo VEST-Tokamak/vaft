@@ -58,7 +58,7 @@ import warnings
 import numpy as np
 
 from ._exports import public_names
-from .constants import K_BOLTZMANN, PA_PER_TORR
+from .constants import K_BOLTZMANN, MU0, PA_PER_TORR
 
 #: Lloyd's hydrogen/deuterium coefficients, in the torr units they are
 #: published in.  These are the Townsend $A$ and $B$ for hydrogen: setting
@@ -283,6 +283,105 @@ def townsend_ionization_coefficient(E_parallel, p_Pa, A, B):
     return _maybe_scalar(alpha, E_parallel, p_Pa, A, B)
 
 
+def townsend_breakdown_field(p, connection_length_m, A, B):
+    r"""Breakdown threshold field of a gas, by inverting the Townsend closure.
+
+    $$E_{BD} = \frac{B\,p}{\ln\!\left(A\,p\,L\right)}$$
+
+    which is :func:`townsend_ionization_coefficient` solved for the field at
+    which exactly one avalanche length fits inside the connection length,
+    $\alpha L = 1$.
+
+    Parameters
+    ----------
+    p : float or np.ndarray
+        Neutral fill pressure, finite and positive, **in whatever unit ``A``
+        and ``B`` are published per** [Pa or Torr].
+    connection_length_m : float or np.ndarray
+        Connection length of an open field line, finite and positive [m].
+    A : float
+        Townsend similarity coefficient, finite and positive
+        [m^-1 per unit of ``p``].
+    B : float
+        Townsend similarity coefficient, finite and positive
+        [V m^-1 per unit of ``p``].
+
+    Returns
+    -------
+    float or np.ndarray
+        Threshold field, ``nan`` where $A\,p\,L \le 1$ [V/m].
+
+    Raises
+    ------
+    ValueError
+        Non-finite, zero or negative pressure, connection length or
+        coefficient.
+
+    Convention
+    ----------
+    **This function does not know what unit the pressure is in.**  ``A`` and
+    ``B`` carry it, so the caller must pass ``p`` in the unit the coefficients
+    were published per, and the returned field is in volts per metre either
+    way because ``B`` supplies that.  The hydrogenic wrapper
+    :func:`lloyd_breakdown_field` takes pascal and converts, which is the
+    behaviour to copy for any other gas rather than re-deriving it here.
+
+    The secondary-emission closure is absorbed into $\alpha L = 1$, as Lloyd
+    does; a full Townsend/Paschen treatment keeping $\gamma_{se}$ explicit
+    solves $\gamma_{se}(e^{\alpha L} - 1) = 1$ instead and is a different
+    function, not a keyword on this one.
+
+    Validity
+    --------
+    Empirical similarity fit.  ``A`` and ``B`` hold over the $E/p$ range the
+    source measured them across, and nothing in this signature records that
+    range -- the gas model that supplies them must.
+
+    Limitations
+    -----------
+    Says nothing about pre-ionisation: ECRH assist lowers the effective
+    threshold by seeding electrons, and this expression has no term for it.
+    Says nothing about burn-through, which is a separate barrier a plasma that
+    has broken down can still fail to cross.
+
+    Numerical notes
+    ---------------
+    $A\,p\,L \le 1$ warns and returns ``nan`` elementwise rather than raising:
+    the degenerate case is real rather than hypothetical and sits under a
+    plotting path, so it blanks a point instead of taking down a figure.
+    Exactly at $A\,p\,L = 1$ the expression has a pole, and ``nan`` is returned
+    there too, because an infinite threshold is a feature of the fit and not a
+    physical field.
+
+    References
+    ----------
+    .. [1] Yu. P. Raizer, *Gas Discharge Physics*, Springer (1991), Sec. 4.2.
+    .. [2] B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
+
+    See Also
+    --------
+    lloyd_breakdown_field
+    townsend_ionization_coefficient
+    """
+    pressure = _require_positive("p", p)
+    length = _require_positive("connection_length_m", connection_length_m)
+    coeff_a = _require_positive("A", A)
+    coeff_b = _require_positive("B", B)
+    argument = coeff_a * pressure * length
+    degenerate = argument <= 1.0
+    if np.any(degenerate):
+        warnings.warn(
+            "the Townsend avalanche cannot close over this connection length "
+            "(A p L <= 1), so no breakdown threshold exists; returning nan",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        field = coeff_b * pressure / np.log(argument)
+    field = np.where(degenerate, np.nan, field)
+    return _maybe_scalar(field, p, connection_length_m)
+
+
 def lloyd_breakdown_field(p_Pa, connection_length_m):
     r"""Lloyd threshold toroidal field for hydrogenic tokamak breakdown.
 
@@ -367,21 +466,13 @@ def lloyd_breakdown_field(p_Pa, connection_length_m):
     breakdown_margin
     vaft.formula.equilibrium.toroidal_electric_field
     """
-    pressure = _require_positive("p_Pa", p_Pa)
-    length = _require_positive("connection_length_m", connection_length_m)
-    p_torr = pressure / PA_PER_TORR
-    argument = _LLOYD_A_PER_M_TORR * p_torr * length
-    degenerate = argument <= 1.0
-    if np.any(degenerate):
-        warnings.warn(
-            "the Townsend avalanche cannot close over this connection length "
-            "(A p L <= 1), so no breakdown threshold exists; returning nan",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-    with np.errstate(divide="ignore", invalid="ignore"):
-        field = _LLOYD_B_V_PER_M_TORR * p_torr / np.log(argument)
-    field = np.where(degenerate, np.nan, field)
+    p_torr = _require_positive("p_Pa", p_Pa) / PA_PER_TORR
+    field = townsend_breakdown_field(
+        p_torr,
+        connection_length_m,
+        _LLOYD_A_PER_M_TORR,
+        _LLOYD_B_V_PER_M_TORR,
+    )
     return _maybe_scalar(field, p_Pa, connection_length_m)
 
 
@@ -443,6 +534,453 @@ def breakdown_margin(E_parallel, E_breakdown):
     with np.errstate(divide="ignore", invalid="ignore"):
         margin = field / threshold
     return _maybe_scalar(margin, E_parallel, E_breakdown)
+
+
+
+# ------------------------------------------------------------------
+# After the avalanche: a current channel, and whether it can close
+# ------------------------------------------------------------------
+
+def startup_geometry_from_limiter_radii(R_inboard_m, R_outboard_m):
+    r"""Geometric centre and minor radius of the limiter aperture.
+
+    $$R_0 = \frac{R_{\mathrm{in}} + R_{\mathrm{out}}}{2},\qquad
+      a = \frac{R_{\mathrm{out}} - R_{\mathrm{in}}}{2}$$
+
+    Parameters
+    ----------
+    R_inboard_m : float or np.ndarray
+        Inboard limiter radius at the midplane, finite and positive [m].
+    R_outboard_m : float or np.ndarray
+        Outboard limiter radius at the midplane, finite and positive and
+        greater than ``R_inboard_m`` [m].
+
+    Returns
+    -------
+    tuple of (float or np.ndarray, float or np.ndarray)
+        Geometric major radius and minor radius of the aperture [m].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive radii, or an outboard radius that does not
+        exceed the inboard one.
+
+    Convention
+    ----------
+    **A machine aperture, not a plasma.**  The other reduced start-up kernels
+    need an $R_0$ and an $a$ before a magnetic axis or an LCFS exists, and this
+    supplies them from the vessel alone: the midplane limiter intersections.
+    The moment a qualified equilibrium exists, its own boundary supersedes
+    this -- use :func:`vaft.formula.equilibrium.elongation_from_RZ_boundary`
+    and the triangularity helpers on the real contour instead.
+
+    Limitations
+    -----------
+    Ignores elongation entirely: it is a midplane chord, so a tall vessel and
+    a round one with the same midplane give the same answer.  It also assumes
+    the plasma fills the aperture, which during start-up is exactly what is
+    not yet true.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 1.4.
+
+    See Also
+    --------
+    plasma_self_field_from_I_p_a
+    vertical_field_from_I_p_R0_a_beta_p_li
+    """
+    inboard = _require_positive("R_inboard_m", R_inboard_m)
+    outboard = _require_positive("R_outboard_m", R_outboard_m)
+    if np.any(outboard <= inboard):
+        raise ValueError(
+            "R_outboard_m must exceed R_inboard_m; got "
+            f"{R_outboard_m!r} and {R_inboard_m!r}"
+        )
+    major = 0.5 * (inboard + outboard)
+    minor = 0.5 * (outboard - inboard)
+    return (
+        _maybe_scalar(major, R_inboard_m, R_outboard_m),
+        _maybe_scalar(minor, R_inboard_m, R_outboard_m),
+    )
+
+
+def plasma_self_field_from_I_p_a(I_p_A, a_m):
+    r"""Poloidal field a circular current channel makes at its own edge.
+
+    $$B_{p,\mathrm{self}}(a) = \frac{\mu_0 I_p}{2\pi a}$$
+
+    Parameters
+    ----------
+    I_p_A : float or np.ndarray
+        Plasma current, magnitude, finite and positive [A].
+    a_m : float or np.ndarray
+        Minor radius of the current channel, finite and positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        Poloidal field magnitude at the channel edge [T].
+
+    Raises
+    ------
+    ValueError
+        Non-finite, zero or negative current or minor radius.
+
+    Convention
+    ----------
+    A magnitude, like everything else in this module: Ampere's law around a
+    straight wire, with no sign and no COCOS.  During start-up the quantity it
+    is compared against is a *stray* field whose orientation is a property of
+    the coil set, so propagating a sign through this would imply a shared
+    convention that does not exist yet.
+
+    Assumptions
+    -----------
+    Straight, circular, uniform current channel; the toroidal correction is
+    $O(a/R)$ and is deliberately absent, because the comparison this feeds is
+    an order-of-magnitude one.
+
+    Limitations
+    -----------
+    Says nothing about where the field points, so it cannot by itself say
+    whether the plasma field *cancels* or *reinforces* a stray field.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.1.
+
+    See Also
+    --------
+    flux_closure_margin_from_E_t_a_B_stray_eta
+    """
+    current = _require_positive("I_p_A", I_p_A)
+    minor = _require_positive("a_m", a_m)
+    field = MU0 * current / (2.0 * np.pi * minor)
+    return _maybe_scalar(field, I_p_A, a_m)
+
+
+def vertical_field_from_I_p_R0_a_beta_p_li(I_p_A, R0_m, a_m, beta_p, li):
+    r"""Vertical field that holds a circular plasma in radial equilibrium.
+
+    $$B_v = \frac{\mu_0 I_p}{4\pi R_0}
+      \left[\ln\!\left(\frac{8R_0}{a}\right)
+      + \beta_p + \frac{l_i}{2} - \frac{3}{2}\right]$$
+
+    Parameters
+    ----------
+    I_p_A : float or np.ndarray
+        Plasma current, magnitude, finite and positive [A].
+    R0_m : float or np.ndarray
+        Major radius of the current channel, finite and positive [m].
+    a_m : float or np.ndarray
+        Minor radius, finite and positive and smaller than ``R0_m`` [m].
+    beta_p : float or np.ndarray
+        Poloidal beta [-].
+    li : float or np.ndarray
+        Normalised internal inductance, the same normalisation the
+        equilibrium layer reports [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Required vertical field magnitude [T].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive current, major or minor radius, or a minor
+        radius that is not smaller than the major one.
+
+    Convention
+    ----------
+    A magnitude.  The direction that balances the hoop force depends on the
+    sign of $I_p$ and on the COCOS in force, neither of which this reduced
+    expression carries; a caller applying it to a coil current has to supply
+    the orientation from the machine description.
+
+    ``li`` is whichever normalisation the caller's equilibrium reports.  The
+    bracket is $O(1)$ and the $l_i/2$ term is a fraction of it, so the choice
+    between $l_i$ and $l_{i3}$ moves $B_v$ by a few percent -- small enough to
+    ignore in a start-up estimate, large enough that a reported number should
+    say which was used.
+
+    Assumptions
+    -----------
+    High aspect ratio and a circular cross-section: the Shafranov result, with
+    elongation absent.  A spherical tokamak violates both, which is why the
+    low-aspect-ratio treatment is tracked separately in #783.
+
+    Validity
+    --------
+    $a/R_0 \ll 1$.  At the $\varepsilon \approx 0.7$ of a spherical tokamak the
+    expression is being used far outside the expansion it came from, and its
+    value there is indicative rather than quantitative.
+
+    Limitations
+    -----------
+    Reduced-order.  Once a qualified free-boundary equilibrium exists, it
+    supersedes this entirely; this expression exists for the window in which a
+    current channel has formed but an equilibrium reconstruction has not.
+
+    References
+    ----------
+    .. [1] V. D. Shafranov, in *Reviews of Plasma Physics*, Vol. 2,
+           Consultants Bureau (1966), p. 103.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 6.2.
+
+    See Also
+    --------
+    startup_geometry_from_limiter_radii
+    plasma_self_field_from_I_p_a
+    """
+    current = _require_positive("I_p_A", I_p_A)
+    major = _require_positive("R0_m", R0_m)
+    minor = _require_positive("a_m", a_m)
+    if np.any(minor >= major):
+        raise ValueError(
+            f"a_m must be smaller than R0_m; got {a_m!r} and {R0_m!r}"
+        )
+    beta = np.asarray(beta_p, dtype=float)
+    inductance = np.asarray(li, dtype=float)
+    bracket = np.log(8.0 * major / minor) + beta + 0.5 * inductance - 1.5
+    field = MU0 * current * bracket / (4.0 * np.pi * major)
+    return _maybe_scalar(field, I_p_A, R0_m, a_m, beta_p, li)
+
+
+def flux_closure_margin_from_E_t_a_B_stray_eta(E_t, a_m, B_stray_T, eta_ohm_m):
+    r"""Order-of-magnitude margin for a current channel to overcome stray field.
+
+    $$M_{\mathrm{FC}}
+      = \frac{\mu_0}{2}\,\frac{E_t\,a}{B_{\mathrm{stray}}\,\eta}$$
+
+    the ratio $B_{p,\mathrm{self}}/B_{\mathrm{stray}}$ after substituting the
+    reduced Ohmic current $I_p \simeq \pi a^2 E_t/\eta$, so that $M_{FC} > 1$
+    is the same statement as $E_t a/(B_{\mathrm{stray}}\eta) > 2/\mu_0$.
+
+    Parameters
+    ----------
+    E_t : float or np.ndarray
+        Toroidal electric field driving the channel, magnitude, finite and
+        positive [V/m].
+    a_m : float or np.ndarray
+        Minor radius of the channel, finite and positive [m].
+    B_stray_T : float or np.ndarray
+        Residual stray **poloidal-field magnitude**, finite and positive [T].
+    eta_ohm_m : float or np.ndarray
+        Plasma resistivity, finite and positive [Ohm m].
+
+    Returns
+    -------
+    float or np.ndarray
+        Ratio of the channel's own edge field to the stray field [-].
+
+    Raises
+    ------
+    ValueError
+        Non-finite, zero or negative field, radius, stray field or resistivity.
+
+    Convention
+    ----------
+    ``B_stray_T`` is the **magnitude of the residual poloidal field**, not its
+    vertical component alone: during start-up the radial component is of the
+    same order, and taking only $B_z$ flatters the margin.  Compose it with
+    :func:`vaft.formula.equilibrium.poloidal_field_magnitude`.
+
+    The legacy gauss form of this criterion,
+    $E_t a/(B_{\mathrm{stray}}[\mathrm{G}]\,\eta) > 1.6\times10^2$, is the same
+    inequality with $2/\mu_0 = 1.59\times10^6$ carrying the $10^{-4}$ of the
+    unit change; it is quoted here only so a reader meeting it in the
+    literature can recognise it, and this function takes tesla.
+
+    Assumptions
+    -----------
+    Uniform current density over a circular channel, a purely Ohmic current
+    with no inductive or bootstrap contribution, and a resistivity that is a
+    single number rather than a profile.  Each of those is wrong in detail
+    during start-up; together they make this a scaling, not a prediction.
+
+    Limitations
+    -----------
+    **Not a closed-flux-surface detector.**  Flux closure is a statement about
+    the topology of the 2-D poloidal flux map, and no scalar ratio decides it.
+    A margin above one means the plasma's own field has become comparable to
+    what is trying to prevent closure, which is a necessary condition and not
+    a sufficient one.
+
+    References
+    ----------
+    .. [1] D. Mueller, Phys. Plasmas 20 (2013) 058101, Sec. II.
+    .. [2] B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 4.
+
+    See Also
+    --------
+    plasma_self_field_from_I_p_a
+    vaft.formula.equilibrium.poloidal_field_magnitude
+    """
+    field = _require_positive("E_t", E_t)
+    minor = _require_positive("a_m", a_m)
+    stray = _require_positive("B_stray_T", B_stray_T)
+    resistivity = _require_positive("eta_ohm_m", eta_ohm_m)
+    margin = 0.5 * MU0 * field * minor / (stray * resistivity)
+    return _maybe_scalar(margin, E_t, a_m, B_stray_T, eta_ohm_m)
+
+
+
+# ------------------------------------------------------------------
+# Before the avalanche: can an EC-born electron stay?
+# ------------------------------------------------------------------
+
+def ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max(R_S_m, R_LIN_m, R_C_m, Z_max_m):
+    r"""Slope of the Ejiri confined-orbit boundary in velocity space.
+
+    $$\alpha = \max\!\left[
+      \sqrt{\frac{R_{\mathrm{LIN}}}{R_S - R_{\mathrm{LIN}}}},\;
+      \sqrt{\frac{2R_CR_S - Z_{\max}^2}{Z_{\max}^2}}\right]$$
+
+    the boundary being $v_\perp = \alpha|v_\parallel|$: an electron born above
+    that line is mirror-trapped, one below it is lost.
+
+    Parameters
+    ----------
+    R_S_m : float or np.ndarray
+        Major radius the particle starts at, finite and positive [m].
+    R_LIN_m : float or np.ndarray
+        Inboard limiter radius at the midplane, finite and positive and
+        smaller than ``R_S_m`` [m].
+    R_C_m : float or np.ndarray
+        Radius of curvature of the poloidal field line on the midplane, finite
+        and positive [m].
+    Z_max_m : float or np.ndarray
+        Effective vertical extent available for mirror confinement, finite and
+        positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        Slope of the confined-orbit boundary [-].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive input, or a starting radius that does not
+        exceed the inboard limiter radius.
+
+    Convention
+    ----------
+    The two branches are two distinct loss channels and the *larger* wins,
+    because a particle must survive both: the first is loss to the inboard
+    limiter, the second loss along a field line whose curvature carries it past
+    the vertical extent.  Taking the maximum therefore makes $\alpha$ the
+    stricter of the two conditions, not an average of them.
+
+    Assumptions
+    -----------
+    Low-energy, low-temperature single particles; the field line is
+    approximated near the midplane by $R(Z) \simeq R_S - Z^2/(2R_C)$, which is
+    what makes $R_C$ the only curvature input.
+
+    Validity
+    --------
+    Ejiri's derivation is for the pre-breakdown or very early start-up
+    configuration, where the field is essentially the vacuum field.  It says
+    nothing once a plasma current shapes the field it is quoting.
+
+    Limitations
+    -----------
+    Geometry only: no EC resonance, no power deposition, no collisions, so
+    this cannot predict breakdown success.  It answers the narrower question of
+    whether the configuration *could* hold an electron that an EC wave
+    produced.  The effective $Z_{\max}$ that reproduces the paper's numerical
+    orbit boundary can differ from the literal limiter coordinate, because the
+    analytic model uses the parabolic approximation above -- so this is an
+    Ejiri-inspired geometric proxy rather than a reproduction of the full
+    orbit calculation.
+
+    References
+    ----------
+    .. [1] A. Ejiri and Y. Takase, Nucl. Fusion 47 (2007) 403, Sec. 3.
+
+    See Also
+    --------
+    ejiri_f3_from_alpha
+    """
+    start = _require_positive("R_S_m", R_S_m)
+    limiter = _require_positive("R_LIN_m", R_LIN_m)
+    curvature = _require_positive("R_C_m", R_C_m)
+    extent = _require_positive("Z_max_m", Z_max_m)
+    if np.any(limiter >= start):
+        raise ValueError(
+            "R_LIN_m must be smaller than R_S_m; got "
+            f"{R_LIN_m!r} and {R_S_m!r}"
+        )
+    inboard_branch = np.sqrt(limiter / (start - limiter))
+    curvature_branch = np.sqrt(
+        np.maximum(2.0 * curvature * start - extent**2, 0.0) / extent**2
+    )
+    alpha = np.maximum(inboard_branch, curvature_branch)
+    return _maybe_scalar(alpha, R_S_m, R_LIN_m, R_C_m, Z_max_m)
+
+
+def ejiri_f3_from_alpha(alpha):
+    r"""Low-temperature geometry factor of the Ejiri mirror proxy.
+
+    $$F_3(\alpha) = \frac{2 + 3\alpha^2}{2\left(1 + \alpha^2\right)^{3/2}}$$
+
+    the confined fraction of an isotropic low-temperature population under the
+    boundary $v_\perp = \alpha|v_\parallel|$.
+
+    Parameters
+    ----------
+    alpha : float or np.ndarray
+        Slope of the confined-orbit boundary, finite and non-negative [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Geometry factor [-].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or negative slope.
+
+    Convention
+    ----------
+    $F_3(0) = 1$: a zero slope confines everything, because the boundary has
+    collapsed onto the parallel axis.  $F_3$ falls monotonically from there and
+    tends to $3/(2\alpha)$ for large $\alpha$, so a steeper boundary confines
+    less -- a larger $\alpha$ is a *worse* configuration, which is the opposite
+    of what the symbol suggests at a glance.
+
+    Assumptions
+    -----------
+    Isotropic, low-temperature velocity distribution; the same single-particle
+    picture the slope came from.
+
+    Limitations
+    -----------
+    A relative figure of merit for comparing configurations, not an absolute
+    confined fraction of a real EC-heated population, whose distribution is
+    neither isotropic nor low-temperature.
+
+    References
+    ----------
+    .. [1] A. Ejiri and Y. Takase, Nucl. Fusion 47 (2007) 403, Sec. 3.
+
+    See Also
+    --------
+    ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max
+    """
+    slope = np.asarray(alpha, dtype=float)
+    if not np.all(np.isfinite(slope)) or np.any(slope < 0.0):
+        raise ValueError(f"alpha must be finite and non-negative; got {alpha!r}")
+    factor = (2.0 + 3.0 * slope**2) / (2.0 * (1.0 + slope**2) ** 1.5)
+    return _maybe_scalar(factor, alpha)
 
 
 __all__ = public_names(globals())

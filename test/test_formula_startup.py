@@ -13,13 +13,20 @@ import warnings
 import numpy as np
 import pytest
 
-from vaft.formula.constants import K_BOLTZMANN, PA_PER_TORR
+from vaft.formula.constants import K_BOLTZMANN, MU0, PA_PER_TORR
 from vaft.formula.startup import (
     atomic_inventory_from_molecular_gas,
     breakdown_margin,
+    ejiri_f3_from_alpha,
+    ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max,
+    flux_closure_margin_from_E_t_a_B_stray_eta,
     lloyd_breakdown_field,
     neutral_density_from_pressure,
+    plasma_self_field_from_I_p_a,
+    startup_geometry_from_limiter_radii,
+    townsend_breakdown_field,
     townsend_ionization_coefficient,
+    vertical_field_from_I_p_R0_a_beta_p_li,
 )
 
 #: Lloyd's published hydrogen coefficients, per torr.
@@ -291,3 +298,208 @@ def test_a_scalar_call_returns_a_float_and_an_array_call_broadcasts():
     field = lloyd_breakdown_field(np.array([1e-2, 2e-2])[:, None],
                                   np.array([400.0, 800.0, 1600.0])[None, :])
     assert isinstance(field, np.ndarray) and field.shape == (2, 3)
+
+
+# ==========================================================================
+# After the avalanche: a current channel, and whether it can close (#783)
+# ==========================================================================
+
+def test_the_generic_inversion_reproduces_the_lloyd_wrapper_exactly():
+    # lloyd_breakdown_field is now this function with the hydrogen
+    # coefficients and a pascal-to-torr conversion in front.  Equality, not
+    # approximate equality: the wrapper must not re-derive the arithmetic.
+    for p_torr, length in [(1e-4, 200.0), (1e-3, 100.0), (5e-3, 40.0)]:
+        assert lloyd_breakdown_field(p_torr * PA_PER_TORR, length) == (
+            townsend_breakdown_field(p_torr, length, A_TORR, B_TORR)
+        )
+
+
+def test_the_generic_inversion_is_the_field_where_one_avalanche_length_fits():
+    # E_BD is defined by alpha(E_BD) * L == 1; that identity is the whole
+    # content of the inversion, so pin it rather than the algebra.
+    p_pa, length = 1.3e-1, 100.0
+    field = townsend_breakdown_field(p_pa, length, A_PA, B_PA)
+    assert townsend_ionization_coefficient(field, p_pa, A_PA, B_PA) == (
+        pytest.approx(1.0 / length, rel=1e-12, abs=0.0)
+    )
+
+
+def test_the_generic_inversion_carries_the_pressure_unit_in_its_coefficients():
+    # The function does not know the unit: the same physical point expressed
+    # in torr and in pascal must agree once A and B are converted with it.
+    p_torr, length = 1e-3, 100.0
+    assert townsend_breakdown_field(p_torr, length, A_TORR, B_TORR) == (
+        pytest.approx(
+            townsend_breakdown_field(p_torr * PA_PER_TORR, length, A_PA, B_PA),
+            rel=1e-12,
+            abs=0.0,
+        )
+    )
+
+
+def test_the_generic_inversion_blanks_below_its_domain():
+    with pytest.warns(RuntimeWarning, match="avalanche cannot close"):
+        assert np.isnan(townsend_breakdown_field(1e-9, 1.0, A_PA, B_PA))
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"p": 0.0}, {"p": -1.0}, {"connection_length_m": 0.0},
+        {"A": 0.0}, {"B": -1.0},
+    ],
+)
+def test_the_generic_inversion_rejects_a_non_physical_input(kwargs):
+    call = {"p": 1e-1, "connection_length_m": 100.0, "A": A_PA, "B": B_PA}
+    call.update(kwargs)
+    with pytest.raises(ValueError):
+        townsend_breakdown_field(**call)
+
+
+def test_limiter_aperture_geometry_is_the_midplane_chord():
+    R0, a = startup_geometry_from_limiter_radii(0.15, 0.85)
+    assert R0 == pytest.approx(0.5, rel=1e-13, abs=0.0)
+    assert a == pytest.approx(0.35, rel=1e-13, abs=0.0)
+    # The two are the sum and difference halves, so they reconstruct the input.
+    assert R0 - a == pytest.approx(0.15, rel=1e-13, abs=0.0)
+    assert R0 + a == pytest.approx(0.85, rel=1e-13, abs=0.0)
+
+
+def test_limiter_aperture_geometry_rejects_an_inverted_aperture():
+    with pytest.raises(ValueError, match="R_outboard_m must exceed"):
+        startup_geometry_from_limiter_radii(0.85, 0.15)
+    with pytest.raises(ValueError, match="R_outboard_m must exceed"):
+        startup_geometry_from_limiter_radii(0.5, 0.5)
+
+
+def test_self_field_is_amperes_law_around_the_channel():
+    assert plasma_self_field_from_I_p_a(1.0e4, 0.35) == pytest.approx(
+        MU0 * 1.0e4 / (2.0 * np.pi * 0.35), rel=1e-13, abs=0.0
+    )
+    # Linear in current, inverse in radius -- the two scalings that make the
+    # flux-closure comparison behave the way the criterion assumes.
+    base = plasma_self_field_from_I_p_a(1.0e4, 0.35)
+    assert plasma_self_field_from_I_p_a(2.0e4, 0.35) == pytest.approx(2.0 * base)
+    assert plasma_self_field_from_I_p_a(1.0e4, 0.70) == pytest.approx(0.5 * base)
+
+
+def test_vertical_field_matches_the_shafranov_bracket():
+    I_p, R0, a, beta_p, li = 1.0e5, 1.8, 0.4, 0.3, 0.9
+    bracket = np.log(8.0 * R0 / a) + beta_p + 0.5 * li - 1.5
+    assert vertical_field_from_I_p_R0_a_beta_p_li(
+        I_p, R0, a, beta_p, li
+    ) == pytest.approx(MU0 * I_p * bracket / (4.0 * np.pi * R0), rel=1e-13, abs=0.0)
+
+
+def test_vertical_field_moves_the_documented_way_with_beta_p_and_li():
+    args = (1.0e5, 1.8, 0.4)
+    base = vertical_field_from_I_p_R0_a_beta_p_li(*args, 0.3, 0.9)
+    # Both enter the bracket with a positive coefficient, li at half weight.
+    assert vertical_field_from_I_p_R0_a_beta_p_li(*args, 1.3, 0.9) > base
+    assert vertical_field_from_I_p_R0_a_beta_p_li(*args, 0.3, 1.9) > base
+    delta_beta = vertical_field_from_I_p_R0_a_beta_p_li(*args, 1.3, 0.9) - base
+    delta_li = vertical_field_from_I_p_R0_a_beta_p_li(*args, 0.3, 1.9) - base
+    assert delta_li == pytest.approx(0.5 * delta_beta, rel=1e-12, abs=0.0)
+
+
+def test_vertical_field_rejects_a_minor_radius_that_is_not_smaller():
+    with pytest.raises(ValueError, match="a_m must be smaller"):
+        vertical_field_from_I_p_R0_a_beta_p_li(1.0e5, 0.4, 0.4, 0.3, 0.9)
+
+
+def test_flux_closure_margin_is_the_self_field_over_the_stray_field():
+    # The margin is defined as B_p,self / B_stray after substituting the
+    # reduced Ohmic current, so composing the two kernels must reproduce it.
+    E_t, a, B_stray, eta = 5.0, 0.35, 1.0e-3, 1.0e-5
+    I_p = np.pi * a**2 * E_t / eta
+    assert flux_closure_margin_from_E_t_a_B_stray_eta(
+        E_t, a, B_stray, eta
+    ) == pytest.approx(
+        plasma_self_field_from_I_p_a(I_p, a) / B_stray, rel=1e-12, abs=0.0
+    )
+
+
+def test_flux_closure_margin_crosses_one_at_the_documented_threshold():
+    # M_FC > 1 is the same statement as E_t a / (B_stray eta) > 2/mu0.
+    E_t, a, eta = 5.0, 0.35, 1.0e-5
+    B_at_unity = 0.5 * MU0 * E_t * a / eta
+    assert flux_closure_margin_from_E_t_a_B_stray_eta(
+        E_t, a, B_at_unity, eta
+    ) == pytest.approx(1.0, rel=1e-12, abs=0.0)
+    assert flux_closure_margin_from_E_t_a_B_stray_eta(
+        E_t, a, 2.0 * B_at_unity, eta
+    ) < 1.0
+
+
+def test_flux_closure_margin_matches_the_legacy_gauss_constant():
+    # The gauss form quotes 1.6e2 V/(G Ohm m); that is 2/mu0 = 1.59e6 with the
+    # 1e-4 of the unit change absorbed.  Pin the number a reader will meet.
+    assert 2.0 / MU0 * 1e-4 == pytest.approx(1.59e2, rel=1e-2)
+
+
+# ==========================================================================
+# Before the avalanche: the Ejiri mirror proxy (#676)
+# ==========================================================================
+
+def test_ejiri_alpha_takes_the_stricter_of_its_two_loss_channels():
+    # Geometry chosen so the inboard branch dominates, then so the curvature
+    # branch does; alpha must follow whichever is larger, not average them.
+    # Both R_C values keep the curvature argument positive, so this exercises
+    # the max() and not the clip: at R_C = 0.2 the curvature branch is 0.500
+    # against an inboard 0.655, and at R_C = 0.6 it is 1.658.
+    R_S, R_LIN = 0.5, 0.15
+    inboard = np.sqrt(R_LIN / (R_S - R_LIN))
+    for R_C, Z_max in [(0.2, 0.4), (0.6, 0.4)]:
+        curvature = np.sqrt((2.0 * R_C * R_S - Z_max**2) / Z_max**2)
+        assert curvature > 0.0
+        assert ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max(
+            R_S, R_LIN, R_C, Z_max
+        ) == pytest.approx(max(inboard, curvature), rel=1e-12, abs=0.0)
+    # ... and the two cases really did land on opposite branches.
+    assert np.sqrt((2 * 0.2 * R_S - 0.4**2) / 0.4**2) < inboard
+    assert np.sqrt((2 * 0.6 * R_S - 0.4**2) / 0.4**2) > inboard
+
+
+def test_ejiri_alpha_floors_the_curvature_branch_at_zero():
+    # 2 R_C R_S < Z_max^2 would take the square root of a negative number; the
+    # branch is clipped so the inboard channel still decides.
+    R_S, R_LIN = 0.5, 0.15
+    alpha = ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max(R_S, R_LIN, 0.01, 2.0)
+    assert np.isfinite(alpha)
+    assert alpha == pytest.approx(
+        np.sqrt(R_LIN / (R_S - R_LIN)), rel=1e-12, abs=0.0
+    )
+
+
+def test_ejiri_alpha_rejects_a_start_inside_the_inboard_limiter():
+    with pytest.raises(ValueError, match="R_LIN_m must be smaller"):
+        ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max(0.15, 0.5, 0.6, 0.4)
+
+
+def test_ejiri_f3_matches_its_closed_form():
+    for alpha in (0.0, 0.5, 1.0, 3.7):
+        assert ejiri_f3_from_alpha(alpha) == pytest.approx(
+            (2.0 + 3.0 * alpha**2) / (2.0 * (1.0 + alpha**2) ** 1.5),
+            rel=1e-13,
+            abs=0.0,
+        )
+
+
+def test_ejiri_f3_confines_everything_at_zero_slope_and_decays_monotonically():
+    assert ejiri_f3_from_alpha(0.0) == pytest.approx(1.0, rel=1e-13, abs=0.0)
+    values = ejiri_f3_from_alpha(np.linspace(0.0, 20.0, 400))
+    assert np.all(np.diff(values) < 0.0)
+
+
+def test_ejiri_f3_approaches_its_large_slope_asymptote():
+    # F3 -> 3/(2 alpha), which is what makes a larger alpha the worse
+    # configuration rather than the better one.
+    for alpha in (50.0, 500.0):
+        assert ejiri_f3_from_alpha(alpha) == pytest.approx(
+            3.0 / (2.0 * alpha), rel=1e-3
+        )
+
+
+def test_ejiri_f3_rejects_a_negative_slope():
+    with pytest.raises(ValueError, match="alpha must be finite and non-negative"):
+        ejiri_f3_from_alpha(-0.1)
