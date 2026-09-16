@@ -133,7 +133,10 @@ GCC_PREFIX="$(brew --prefix gcc)"
 NETCDF_C_HOME="$(brew --prefix netcdf)"
 NETCDF_FORTRAN_HOME="$(brew --prefix netcdf-fortran)"
 OPENBLAS_HOME="$(brew --prefix openblas)"
-FFTW_HOME="$(brew --prefix fftw)"
+# No FFTW_HOME: the generated Make.local deliberately leaves FFTW unset,
+# because NUBEAM documents FFTW 2.1.5 and Homebrew ships FFTW 3, which is
+# not ABI-compatible. The package is still installed above so the tree is
+# complete; nothing here consumes its prefix.
 FC="$GCC_PREFIX/bin/gfortran"
 CC="$GCC_PREFIX/bin/gcc-15"
 CXX="$GCC_PREFIX/bin/g++-15"
@@ -335,6 +338,7 @@ build_pspline_archive() {
     stem="${spec%%:*}"
     if compgen -G "$srcdir/$stem.[fF]90" >/dev/null || compgen -G "$srcdir/$stem.[fF]" >/dev/null; then
       objs+=("$stem.o")
+      # shellcheck disable=SC2206  # deliberate word split: a space-separated list
       mods+=(${spec#*:})
     else
       note "skipping pspline module $stem.o; no source in $srcdir"

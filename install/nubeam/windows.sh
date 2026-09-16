@@ -131,7 +131,11 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 # fpp.py, NUBEAM's Fortran preprocessor driver, runs its subcommands through
 # os.popen, which on a MinGW Python goes by way of cmd.exe. MSYS2 leaves
 # COMSPEC empty, and the preprocessor then fails on every .F90 in the tree.
-export COMSPEC="$(cygpath -w "${SYSTEMROOT:-C:/Windows}/System32/cmd.exe")"
+# Assigned before export: `export VAR="$(cmd)"` reports export's status, not
+# cygpath's, so a failure here would set COMSPEC to the empty string and the
+# preprocessor would fail on every .F90 with the symptom this line prevents.
+COMSPEC="$(cygpath -w "${SYSTEMROOT:-C:/Windows}/System32/cmd.exe")"
+export COMSPEC
 export PATH="$PATH:${SYSTEMROOT:-/c/Windows}/System32"
 
 note "NUBEAM source:   $ROOT_DIR"
@@ -861,6 +865,15 @@ build_aux_executables() {
         -o "${source_file%.*}.o" "$src/$source_file"
     done
     # The same group and the same static netCDF as every other link here.
+    #
+    # IFS is restored to a space for this one command. link_libraries emits a
+    # space-separated list of -L and -l flags that has to reach gfortran as
+    # separate arguments, and this script runs under IFS=$'\n\t' -- under which
+    # the expansion does not split on spaces at all and gfortran receives the
+    # whole list as a single malformed option. The other three call sites embed
+    # it inside a quoted "VAR=..." string, where no splitting is wanted.
+    IFS=' '
+    # shellcheck disable=SC2046  # deliberate word split, per the note above
     gfortran -o plasma_state_test.exe plasma_state_test.o ps_momtest.o \
       $(link_libraries) -L/ucrt64/lib -lopenblas )
   [[ -f "$generator_build/plasma_state_test.exe" ]] ||

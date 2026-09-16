@@ -23,16 +23,18 @@ runs in CI; the VAFT test suite passes with GACODE absent.
 
 | File | Purpose |
 | --- | --- |
-| `macos.sh` | Installs the Homebrew dependencies, builds the shared and `f2py` libraries and the requested suite members, and optionally runs the NEO `reg18` regression case. **`--codes` defaults to `neo` alone**, so pass `--codes neo,tglf` unless you want a tree that cannot run half of what VAFT drives. |
-| `linux.sh` | The same build, against distribution packages. Names what is missing rather than installing it, and **defaults to `--codes neo,tglf`** — the set `install/check_gacode.py` requires — so the flag is not needed here. |
+| `macos.sh` | Installs the Homebrew dependencies, builds the shared and `f2py` libraries and the requested suite members, and optionally runs the NEO `reg18` regression case. |
+| `linux.sh` | The same build, against distribution packages. Names what is missing rather than installing it. |
+
+Both default to `--codes neo,tglf`, which is the set `install/check_gacode.py` requires and `vaft.code.gacode` resolves; a `neo`-only tree fails its own verification.
 
 ## Usage
 
 ```bash
-# Linux -- neo,tglf is the default here
+# Linux
 bash install/gacode/linux.sh --gacode-root ~/git/gacode --check
-# macOS / Apple Silicon -- --codes is needed, it defaults to neo alone
-bash install/gacode/macos.sh --gacode-root ~/git/gacode --codes neo,tglf --check
+# macOS / Apple Silicon
+bash install/gacode/macos.sh --gacode-root ~/git/gacode --check
 
 
 export GACODEHOME=~/git/gacode
@@ -143,8 +145,16 @@ spherical-tokamak; the rest are Julia `.bson` and cannot be read from Python.
 ## Verified
 
 **macOS/arm64.** Built against `gafusion/gacode` `6357db30` (2026-07-22) with
-Homebrew gfortran 15.2 and Open MPI. The NEO `reg18` regression case reproduces
-its shipped `out.neo.prec` value `0.12268957E+02` exactly.
+Homebrew gfortran 15.2 and Open MPI, **`--codes neo`** — the default at the
+time. The NEO `reg18` regression case reproduces its shipped `out.neo.prec`
+value `0.12268957E+02` exactly.
+
+TGLF has not been built on macOS. The default is now `neo,tglf` on both
+platforms, so the documented command compiles a member this record does not
+cover, and `reg18` exercises NEO alone either way. Nothing suggests it will
+fail — it is the same suite and the same compiler family — but it is unverified
+there, and this says so rather than letting the entry read as though it were
+not.
 
 **Linux/x86_64.** Built against `gafusion/gacode` `b49339750` with
 gfortran 11.4.0 and Open MPI 4.1.2 on Ubuntu 22.04.4, `GACODE_PLATFORM=TUMBLEWEED`,

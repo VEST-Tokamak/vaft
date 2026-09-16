@@ -528,18 +528,16 @@ regression case in the same invocation:
 bash install/gacode/linux.sh --gacode-root ~/git/gacode --check
 export GACODE_PLATFORM=TUMBLEWEED
 
-# macOS / Apple Silicon: Homebrew dependencies are installed for you, but
-# --codes is not optional there -- macos.sh builds neo alone by default.
-bash install/gacode/macos.sh --gacode-root ~/git/gacode --codes neo,tglf --check
+# macOS / Apple Silicon: Homebrew dependencies are installed for you.
+bash install/gacode/macos.sh --gacode-root ~/git/gacode --check
 export GACODE_PLATFORM=GFORTRAN_OSX_BREW
 
 export GACODEHOME=~/git/gacode
 python install/check_gacode.py --source ~/git/gacode
 ```
 
-`linux.sh` defaults to `neo,tglf` rather than `neo` alone, because
-`install/check_gacode.py` requires both; `macos.sh` still defaults to `neo`, so
-pass the flag there.
+Both recipes default to `neo,tglf` rather than `neo` alone, because
+`install/check_gacode.py` requires both.
 
 Two things about it differ from every other code here. It **builds in place**, so
 `GACODEHOME` is the checkout rather than a separate prefix; and each suite member carries
@@ -547,9 +545,8 @@ its own `bin`, so the executables are `neo/bin/neo` and `tglf/bin/tglf`, not
 `bin/neo`. It also needs
 `GACODE_PLATFORM`, which selects `platform/exec/exec.$GACODE_PLATFORM` at run time --
 `vaft.code.gacode` resolves it up front and lists the available tags, because a wrong
-value otherwise fails inside a shell script without naming itself. On macOS pass
-`--codes neo,tglf`: `macos.sh` builds `neo` alone by default and VAFT drives both.
-`linux.sh` already defaults to both. See
+value otherwise fails inside a shell script without naming itself. Both recipes
+build `neo,tglf` by default, which is what VAFT drives. See
 [`install/gacode/README.md`](gacode/README.md), which also explains why the Linux
 recipe defaults to the `TUMBLEWEED` tag out of upstream's ninety.
 

@@ -108,15 +108,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
-          # Named rather than globbed as install/*/*.sh, because the recipes
-          # that predate this step -- gacode/macos.sh, nubeam/macos.sh and
-          # nubeam/windows.sh -- carry six findings between them, and bringing
-          # scripts for platforms this runner cannot exercise up to clean is
-          # its own change. Add each new recipe here as it lands.
-          shellcheck --severity=warning install/*.sh \
-            install/gacode/linux.sh \
-            install/nubeam/linux.sh install/nubeam/uninstall.sh \
-            install/nubeam/run-local-validation.sh install/nubeam/run-local-vest.sh
+          # Every shell entry point, the per-code recipes included. The three
+          # that predated this step are clean now, so the glob no longer has to
+          # name files one at a time -- and a new recipe is covered the moment
+          # it lands rather than when somebody remembers to add it here.
+          shellcheck --severity=warning install/*.sh install/*/*.sh
 
   # The real thing: install and uninstall on a clean runner, twice round.
   # These are not required checks, so on an unrelated change they are simply
