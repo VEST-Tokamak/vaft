@@ -112,3 +112,24 @@ def test_installing_without_a_render_says_so_rather_than_binding_something_broke
 
     with pytest.raises(TypeError, match="must define `render`"):
         _install({"render": "not callable"})
+
+
+def test_a_generated_adapter_reads_render_at_call_time():
+    """Hand-written adapters read `render` as a module global.
+
+    A generated one that closed over it instead would make the two halves of
+    one `__all__` disagree the moment anything rebinds the name -- a test
+    monkeypatching `render` would see the hand-written adapters diverted and
+    the generated ones still calling the real renderer, which draws.
+    """
+    calls = []
+    namespace = {"render": lambda *a, **k: ("first", a, k)}
+    _install(namespace)
+
+    stem = next(iter(canonical_names()))
+    plot = namespace[f"plot_{stem}"]
+    assert plot("ods")[0] == "first"
+
+    namespace["render"] = lambda *a, **k: calls.append((a, k)) or ("second", a, k)
+    assert plot("ods")[0] == "second"
+    assert calls and calls[0][0][0] == stem

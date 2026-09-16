@@ -98,7 +98,7 @@ def _extract_function(
 
 
 def _plot_function(
-    name: str, *, render: Callable[..., Any], namespace: str, description: str,
+    name: str, *, module_globals: dict[str, Any], namespace: str, description: str,
 ) -> Callable[..., Any]:
     def plot_function(
         source: Any,
@@ -108,7 +108,12 @@ def _plot_function(
         label: str | Sequence[str] = "shot",
         **options: Any,
     ) -> Any:
-        return render(name, source, ax=ax, show=show, label=label, **options)
+        # Looked up at call time, not closed over: an adapter written out by
+        # hand reads `render` as a module global, so capturing it here would
+        # make the two halves of one `__all__` disagree under monkeypatch.
+        return module_globals["render"](
+            name, source, ax=ax, show=show, label=label, **options
+        )
 
     plot_function.__name__ = plot_function.__qualname__ = f"plot_{name}"
     plot_function.__module__ = f"{namespace}.plotting"
@@ -144,8 +149,7 @@ def install_facades(
     ``namespace``/``subject`` shape the refusal messages exactly as the
     ``plot_*`` adapters do.  Returns the names bound, for ``__all__``.
     """
-    render = module_globals.get("render")
-    if not callable(render):
+    if not callable(module_globals.get("render")):
         raise TypeError(
             f"{namespace}.plotting must define `render` before installing facades; "
             "the generated plot_* adapters are thin wrappers around it."
@@ -166,7 +170,7 @@ def install_facades(
         plot_name = f"plot_{spec.name}"
         if plot_name not in module_globals:
             module_globals[plot_name] = _plot_function(
-                spec.name, render=render, namespace=namespace,
+                spec.name, module_globals=module_globals, namespace=namespace,
                 description=spec.description,
             )
             names.append(plot_name)
