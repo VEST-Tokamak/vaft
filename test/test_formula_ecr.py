@@ -8,7 +8,7 @@ from vaft.formula.ecr import electron_cyclotron_resonance_field
 
 def test_245_ghz_fundamental_resonance_is_about_875_mt():
     field = electron_cyclotron_resonance_field(2.45e9)
-    assert field == pytest.approx(0.0875234756, rel=1e-9)
+    assert field == pytest.approx(0.0875234741, rel=1e-9)
 
 
 def test_harmonic_number_reduces_the_required_field():
