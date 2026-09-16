@@ -658,7 +658,11 @@ alike; a `backend="omas"` builder hands the object to a `vaft.omas`/`vaft.proces
 writes, deep-copies or subscripts an ODS (nine of them only by the helper's reading style, marked
 as reclassification candidates in their `reason`), so a native entry is converted first — `available_plots(...,
 detail=True)` says which, and why (`computed: native reads` / `needs an OMAS ODS — <reason>`).
-A test records every path each builder touches and fails on one it did not declare.
+A test records every path each builder touches and fails on one it did not declare. That
+declaration is also what serves an OMAS-bound view from an input that cannot hand over a whole
+ODS: on a lazy database store, or a lazily loaded IMAS handle, exactly the declared paths are read
+through the accessor into a private ODS and the builder runs on that; the few views that deep-copy
+a whole IDS fetch it whole from a lazy store and are refused, naming the IDS, on a lazy IMAS handle.
 
 `to_xarray()` is lossless and plain: traces of unequal length are stacked on a `series`
 dimension and NaN-padded along `sample`, with a `length` coordinate holding each trace's true
