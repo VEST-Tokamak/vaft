@@ -1111,7 +1111,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "end": float(window.end),
                 "requested": int(times.size),
             },
-            "phase_dcurrent_dt_threshold": threshold,
+            # An absolute current, not a rate: the level rule's flat/ramp
+            # boundary for this discharge (see `profile_study._phase_map`).
+            "phase_flat_current_threshold": threshold,
             "variants": {},
             "comparisons": {},
         }
