@@ -738,3 +738,23 @@ def test_miller_refuses_a_squareness_that_doubles_the_curve_back():
     theta = np.linspace(0, 2 * np.pi, 16, endpoint=False)
     with pytest.raises(ValueError, match="zeta"):
         evaluate_miller(MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32, 0.5), theta)
+
+
+def test_the_squared_fit_still_reports_a_distance_to_the_curve():
+    # The residual is meant to be an orthogonal distance, which is a claim
+    # about the Newton refinement rather than about the optimiser: with the
+    # derivatives left unsquared the step still converges and the residual
+    # still shrinks, just to something that is not the distance. Measured
+    # against a brute-force nearest point on a densely sampled fitted curve,
+    # on a noisy contour so the residual is not zero to begin with.
+    from scipy.spatial import cKDTree
+
+    rng = np.random.default_rng(3)
+    theta = np.linspace(0, 2 * np.pi, 500, endpoint=False)
+    r, z = evaluate_miller(MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32, 0.25), theta)
+    noisy = Contour(r + rng.normal(0, 3e-4, r.size), z + rng.normal(0, 3e-4, z.size))
+
+    fit = fit_miller_surface(noisy, squareness=True)
+    dense = np.column_stack(evaluate_miller(fit.surface, np.linspace(0, 2 * np.pi, 100_000, endpoint=False)))
+    brute = cKDTree(dense).query(fit.contour.points)[0]
+    assert fit.rms_error == pytest.approx(float(np.sqrt(np.mean(brute**2))), rel=1e-3)
