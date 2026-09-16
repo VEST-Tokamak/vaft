@@ -8,6 +8,7 @@ import subprocess
 
 import numpy as np
 import pytest
+from external_code_stubs import write_launchable_stub
 import xarray as xr
 
 from vaft.code.efit import (
@@ -387,6 +388,25 @@ def test_true_equalities_are_projected_before_svd(tmp_path):
     assert report.families["diamagnetic_flux"].rank_gain == (0, 0, 0)
 
 
+def _assert_exact_constraint_holds(c, x, d):
+    """`C x = d`, to within the roundoff the product itself can carry.
+
+    `d` is exactly zero here, and `assert_allclose` defaults to `atol=0`, so
+    comparing against it bare demands a bit-exact zero from a matrix-vector
+    product. Whether it gets one depends on the BLAS: the same fixture gives
+    0.0 on macOS Accelerate and 5.55e-17 on a Linux CI runner, which made this
+    fail on some develop runs and pass on others. The tolerance scales with
+    the product's own magnitude, so it stays thirteen orders below a real
+    violation of the constraint.
+    """
+    c = np.asarray(c, dtype=float)
+    x = np.asarray(x, dtype=float)
+    scale = max(float(np.linalg.norm(c) * np.linalg.norm(x)), 1.0)
+    np.testing.assert_allclose(
+        c @ x, d, rtol=1e-7, atol=64 * np.finfo(float).eps * scale
+    )
+
+
 def test_native_dgglse_constraint_is_converted_to_physical_coordinates(tmp_path):
     problem = read_efit_linearization(
         _write_constrained_sidecar(tmp_path / "constrained.nc")
@@ -401,10 +421,12 @@ def test_native_dgglse_constraint_is_converted_to_physical_coordinates(tmp_path)
         block.exact_c,
         block.solver_exact_c / block.column_scale,
     )
-    np.testing.assert_allclose(
-        block.solver_exact_c @ block.solver_solution, block.solver_exact_d
+    _assert_exact_constraint_holds(
+        block.solver_exact_c, block.solver_solution, block.solver_exact_d
     )
-    np.testing.assert_allclose(block.exact_c @ block.physical_solution, block.exact_d)
+    _assert_exact_constraint_holds(
+        block.exact_c, block.physical_solution, block.exact_d
+    )
     assert block.validation.exact_constraint_residual_norm == pytest.approx(0.0)
     assert block.validation.singular_value_relative_error < 1.0e-10
     assert block.validation.solver_reproduction_relative_error < 1.0e-8
@@ -677,9 +699,7 @@ def test_run_stages_restart_and_patches_only_execution_kfile(tmp_path, monkeypat
             "parameter_order_sha256": "c" * 64,
         }
     ).to_netcdf(direction, engine="scipy")
-    executable = source_dir / "efit"
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(source_dir / "efit")
     captured: dict[str, object] = {}
 
     def fake_run(command, **kwargs):
@@ -735,9 +755,7 @@ def test_run_refuses_an_unwritten_stale_restart_output(tmp_path, monkeypatch):
     kfile.write_text(" &IN1\n IOUT=4\n ICINIT=2\n /\n", encoding="utf-8")
     restart = tmp_path / "input-esave.dat"
     restart.write_bytes(b"restart-input")
-    executable = tmp_path / "efit"
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "efit")
 
     monkeypatch.setattr(
         subprocess,
@@ -766,9 +784,7 @@ def test_run_ignores_unmodified_stale_equilibrium_outputs(tmp_path, monkeypatch)
     kfile.write_text(" &IN1\n IOUT=4\n ICINIT=2\n /\n", encoding="utf-8")
     for prefix in ("g", "a", "m"):
         (workdir / f"{prefix}041672.00331").write_bytes(b"stale")
-    executable = tmp_path / "efit"
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "efit")
     monkeypatch.setattr(
         subprocess,
         "run",
@@ -828,9 +844,7 @@ def test_export_only_stages_long_external_kfile_path(tmp_path, monkeypatch):
     kfile = source_dir / "k041672.00331"
     original = " &IN1\n IOUT=4\n ICINIT=2\n /\n MAG\n"
     kfile.write_text(original, encoding="utf-8")
-    executable = tmp_path / "efit"
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "efit")
     captured: dict[str, object] = {}
 
     def fake_run(command, **kwargs):
@@ -856,9 +870,7 @@ def test_export_only_stages_long_external_kfile_path(tmp_path, monkeypatch):
 
 
 def test_direction_and_restart_controls_require_one_kfile(tmp_path):
-    executable = tmp_path / "efit"
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "efit")
     first = tmp_path / "k01.00001"
     second = tmp_path / "k01.00002"
     first.write_text(" &IN1\n /\n", encoding="utf-8")
@@ -877,9 +889,7 @@ def test_direction_and_restart_controls_require_one_kfile(tmp_path):
 
 
 def test_missing_direction_is_never_silently_ignored(tmp_path):
-    executable = tmp_path / "efit"
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "efit")
     kfile = tmp_path / "k01.00001"
     kfile.write_text(" &IN1\n /\n", encoding="utf-8")
 
@@ -896,9 +906,7 @@ def test_missing_direction_is_never_silently_ignored(tmp_path):
 
 
 def test_invalid_direction_schema_is_never_passed_to_efit(tmp_path):
-    executable = tmp_path / "efit"
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "efit")
     kfile = tmp_path / "k01.00001"
     kfile.write_text(" &IN1\n /\n", encoding="utf-8")
     direction = tmp_path / "direction.nc"

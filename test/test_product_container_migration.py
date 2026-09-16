@@ -17,6 +17,7 @@ import numpy as np
 import pytest
 from omas import ODS, save_omas_json
 
+import vaft.database.product_migration as product_migration
 import vaft.omas as vomas
 from vaft.cli.filedb import main as filedb_main
 from vaft.database.filedb import FileDB
@@ -104,6 +105,17 @@ def test_a_dry_run_changes_nothing(tree):
         path: path.read_bytes() for path in sorted(tree.rglob("*")) if path.is_file()
     }
     assert after == before
+
+
+def test_directory_sync_is_skipped_on_windows(monkeypatch, tmp_path):
+    """Windows cannot open a directory descriptor for ``fsync``."""
+    monkeypatch.setattr(product_migration, "IS_WINDOWS", True)
+
+    def must_not_open(*_args, **_kwargs):
+        pytest.fail("Windows must not try to open a directory for fsync")
+
+    monkeypatch.setattr(product_migration.os, "open", must_not_open)
+    product_migration._fsync_directory(tmp_path)
 
 
 def test_a_migrated_container_decompresses_to_the_original_bytes(tree):
