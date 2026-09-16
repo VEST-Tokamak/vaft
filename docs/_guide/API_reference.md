@@ -29,10 +29,9 @@ vaft.__version__          # '0.5.0' on the inspected develop baseline
 
 Importing `vaft` is cheap. The top-level package exposes its subpackages **lazily** (`__getattr__`),
 so `import vaft` does not drag in `omas`, `imas` or `matplotlib` until you actually touch
-`vaft.omas`, `vaft.imas` or `vaft.plot`. Two compatibility shims are applied at import time —
-`vaft.apply_runtime_compat_patches()` and `vaft.apply_omfit_compat_patches()` — which restore
-NumPy/SciPy APIs that recent releases removed (`trapz`, `cumtrapz`, `interp2d`) so that OMFIT-derived
-code keeps working. You never need to call them yourself.
+`vaft.omas`, `vaft.imas` or `vaft.plot`. A compatibility shim is applied at import time —
+`vaft.apply_runtime_compat_patches()` — which restores NumPy/SciPy APIs that recent releases removed
+(`trapz`, `cumtrapz`, `interp2d`) so that OMFIT-derived code keeps working. You never need to call them yourself.
 
 # Package map
 
@@ -146,8 +145,10 @@ This is the layer you actually call to do physics on a shot. Everything here tak
 
 ```python
 ods = vaft.omas.sample_ods()    # packaged shot 39915
-odc = vaft.omas.sample_odc()    # 39915, 41524, 41672
 geq = vaft.omas.sample_gfile()  # packaged g-file as a GEQDSK object
+
+vaft.data.available_samples()   # (39915, 41524, 41672)
+vaft.data.sample(41524)         # path to one registered sample
 ```
 
 ## Shot introspection — `general`
@@ -306,9 +307,8 @@ vaft.machine_mapping.mhd_linear(ods, source)    # source = a linear-MHD output f
 vaft.machine_mapping.summary(ods, source, options)
 ```
 
-Two names in this namespace are reserved but not wired up yet:
-`vaft.machine_mapping.equilibrium` and `vaft.machine_mapping.pf_plasma` raise
-`NotImplementedError`. Equilibria enter the ODS through `vaft.code` (EFIT/CHEASE) instead.
+There is no `equilibrium` or `pf_plasma` mapper in this namespace: equilibria enter the ODS through
+`vaft.code` (EFIT/CHEASE) instead.
 
 Kinetic and imaging diagnostics take a shot number plus an optional data root:
 
@@ -353,36 +353,39 @@ with `vaft.machine_mapping.raw_database_info(file, shot, key)` and
 
 # `vaft.plot`
 
-Every plotting function takes an ODS or an ODC (a multi-shot container) — pass an ODC and the shots
-are overlaid. The common keywords are `label` (`'shot'`, `'pulse'`, `'run'`, `'key'`, or an explicit
-list), `xunit` (`'s'` or `'ms'`), `yunit`, and `xlim` (`'plasma'`, `'coil'`, `'none'`, or
-`[t0, t1]`).
+`vaft.plot` owns the renderers, which take typed view models. From an ODS you reach them through the
+`vaft.omas.plot_*` adapters, named `plot_{subject}_{view}[_{quantity}]`. Every adapter takes an ODS, an
+ODC (a multi-shot container) or a list of ODSs — pass several and the shots are overlaid — and returns
+`(Figure, Axes)`. The common keywords are `selection` (a preset, an index or a list of indices), `label`
+(`'shot'`, `'pulse'`, `'run'`, `'key'`, or an explicit list), `layout`, `xunit` (`'s'` or `'ms'`),
+`yunit`, and `x_limits` (`(t0, t1)`). `vaft.omas.available_plots(ods, detail=True)` lists what a given
+input can draw and which options each plot takes.
 
 ```python
 import vaft
 
 ods = vaft.omas.sample_ods()
 
-vaft.plot.time_magnetics_ip(ods, yunit="kA")
-vaft.plot.time_pf_active_current(ods, indices="used", yunit="kA")
-vaft.plot.time_magnetics_flux_loop_flux(ods, indices="all")
-vaft.plot.time_magnetics_b_field_pol_probe_field(ods)
-vaft.plot.time_tf_b_field_tor(ods)
-vaft.plot.time_barometry_pressure(ods)
+vaft.omas.plot_plasma_current_time(ods, yunit="kA")
+vaft.omas.plot_pf_coil_time_current(ods, selection="active", yunit="kA")
+vaft.omas.plot_flux_loop_time_flux(ods, selection="all")
+vaft.omas.plot_b_field_probe_time_field(ods)
+vaft.omas.plot_tf_coil_time_b_t(ods)
+vaft.omas.plot_barometry_time_pressure(ods)
 vaft.omas.plot_spectrometer_uv_time_intensity(ods, emission='CIII')
 ```
 
 | Group | Functions |
 | --- | --- |
-| Time traces | `time_magnetics_ip`, `time_magnetics_diamagnetic_flux`, `time_magnetics_flux_loop_flux`, `time_magnetics_flux_loop_voltage`, `time_magnetics_b_field_pol_probe_field`, `time_pf_active_current`, `time_pf_active_current_turns`, `time_tf_coil_current`, `time_tf_b_field_tor`, `time_tf_b_field_tor_vacuum_r`, `time_barometry_pressure`, `time_spectrometer_uv_intensity`, `time_impurity_effect`, `time_electromagnetics_current` |
-| Equilibrium scalars vs. time | `time_equilibrium_plasma_current`, `time_equilibrium_li`, `time_equilibrium_beta_pol`, `time_equilibrium_beta_tor`, `time_equilibrium_beta_n`, `time_equilibrium_w_mhd`, `time_equilibrium_w_mag`, `time_equilibrium_w_tot`, `time_equilibrium_q0`, `time_equilibrium_q95`, `time_equilibrium_qa`, `time_equilibrium_major_radius` |
-| Energy and power | `time_energy`, `time_beta`, `time_power_balance`, `time_voltage_consumption`, `time_virial_equilibrium_quantities` |
-| Profiles (1-D) | `equilibrium_1d_radial`, `plot_onedim_profile`, `plot_onedim_profile_interactive` |
-| Geometry and 2-D | `twodim_geometry_all`, `overlay_all`, `pf_passive_overlay`, `vacuum_psi_contour`, `overlay_all_with_vacuum_psi_contour`, `equilibrium_2d_profiles` |
-| Kinetic diagnostics | `thomson_scattering_radial`, `thomson_scattering_time`, `thomson_scattering_radial_profiles`, `charge_exchange_radial`, `charge_exchange_time`, `charge_exchange_rho_profiles`, `plot_electron_psi_profile`, `plot_electron_2d_profile` |
-| Fluctuations | `mirnov_signal`, `mirnov_spectrogram`, `toroidal_mode_spectrum`, `toroidal_phase_mode_fit` |
-| Soft X-rays | `plot_soft_x_ray_los`, `plot_soft_x_ray_signal`, `plot_soft_x_ray_spectrogram`, `plot_soft_x_ray_pattern`, `plot_soft_x_ray_overview` |
-| Overviews | `analysis_diagnostics`, `analysis_electromagnetics`, `time_equilibrium_analysis` |
+| Time traces | `plasma_current_time`, `diamagnetic_flux_time`, `flux_loop_time_flux`, `flux_loop_time_voltage`, `b_field_probe_time_field`, `pf_coil_time_current`, `pf_coil_time_current_turns`, `tf_coil_time_current`, `tf_coil_time_b_t`, `tf_coil_time_b_t_vacuum_r`, `barometry_time_pressure`, `spectrometer_uv_time_intensity`, `spectrometer_uv_time_impurity`, `current_overview` |
+| Equilibrium scalars vs. time | `equilibrium_time_plasma_current`, `equilibrium_time_li`, `equilibrium_time_beta_p`, `equilibrium_time_beta_t`, `equilibrium_time_beta_n`, `equilibrium_time_w_mhd`, `equilibrium_time_w_mag`, `equilibrium_time_w_tot`, `equilibrium_time_q0`, `equilibrium_time_q95`, `equilibrium_time_qa`, `equilibrium_time_major_radius` |
+| Energy and power | `summary_time_energy`, `equilibrium_time_beta`, `summary_time_power_balance`, `summary_time_voltage_consumption`, `equilibrium_time_virial` |
+| Profiles (1-D) | `equilibrium_profile_pressure` |
+| Geometry and 2-D | `machine_geometry_poloidal`, `passive_structure_geometry_poloidal`, `equilibrium_field_psi_vacuum`, `equilibrium_field_2d` |
+| Kinetic diagnostics | `thomson_scattering_profile_electron_temperature`, `thomson_scattering_time_electron_temperature`, `charge_exchange_profile_ion_temperature`, `charge_exchange_time_ion_temperature`, `electron_temperature_profile`, `electron_temperature_field` |
+| Fluctuations | `mirnov_time_voltage`, `mirnov_spectrogram`, `mirnov_spatial_phase` |
+| Soft X-rays | `soft_x_rays_geometry_lines_of_sight`, `soft_x_rays_time_power`, `soft_x_rays_spectrogram`, `soft_x_rays_overview` |
+| Overviews | `magnetics_overview`, `current_overview`, `equilibrium_overview_histories` |
 | Multi-shot history | `plot_scaling_fit`, `plot_correlation_heatmap`, `plot_regression_summary`, `plot_tauE_exp_vs_scaling_loglog`, `plot_H_factor_distribution`, `plot_H_factor_vs_greenwald_fraction`, `confinement_time_exp_vs_scaling` |
 
 The [Magnetics]({{ site.baseurl }}/guide/Magnetics/) page shows several of these traces rendered from
@@ -495,9 +498,11 @@ root = data_path()                          # the packaged vaft/data directory
 
 # `vaft.imas`
 
-The OMAS to IMAS Access Layer bridge: `load_omas_imas`, `save_omas_imas`, `imas_open`,
-`imas_open_uri`, `imas_get`, `imas_set`, plus `IMAS_DD_VERSION_CONVERSION` (the Data Dictionary
-version used for conversion, overridable through the environment variable of the same name).
+Local IMAS artifacts: `vaft.imas.save` writes an ODS, a native IDS or an `IMASHandle` to an IMAS HDF5
+directory or `.nc` file, and `vaft.imas.load` opens one as a native `DBEntry` context manager.
+`IMAS_DD_VERSION_CONVERSION` is the Data Dictionary version used for conversion, overridable through the
+environment variable of the same name. The OMAS-derived Access Layer bridge underneath — `load_omas_imas`,
+`save_omas_imas`, `imas_open`, `imas_open_uri`, `imas_get`, `imas_set` — lives in `vaft.imas.omas_imas`.
 `vaft.database` uses this under the hood; call it directly only when you need to talk to an Access
 Layer entry that is not a VEST shot. See
 [Data structures]({{ site.baseurl }}/guide/Data_structures/) for worked examples.

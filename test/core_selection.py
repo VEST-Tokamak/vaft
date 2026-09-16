@@ -112,6 +112,13 @@ CORE_MODULES: tuple[str, ...] = (
     "test_notebook_outputs.py",
     "test_packaging_issue45.py",
     "test_process_docstrings.py",
+    # Documentation drift. File reads and getattr only: what the READMEs claim
+    # VAFT is, the site's navigation contract, and whether a documented snippet
+    # names an API that exists -- a library rename breaks the last without its
+    # author ever opening docs/, which is exactly what develop should catch.
+    "test_docs_content.py",
+    "test_docs_snippets.py",
+    "test_readme_consistency.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
