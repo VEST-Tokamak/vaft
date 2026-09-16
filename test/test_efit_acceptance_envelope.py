@@ -53,14 +53,38 @@ def table():
     return json.loads(TABLE.read_text(encoding="utf-8"))
 
 
-def test_the_defaults_are_the_packaged_bounds_not_something_new():
-    """The type must describe what EFIT reads today before it proposes anything."""
-    bundled = f90nml.read(str(data_path("efit/mhdin.dat")))["incheck"]
+def test_the_defaults_are_the_legacy_bounds_not_something_new():
+    """The type describes what EFIT read before VEST had an envelope of its own.
+
+    This used to compare the class defaults with the shipped `mhdin.dat`, and
+    that was right until #649: the packaged `&incheck` *was* these defaults.
+    #649 replaced the shipped block with the envelope derived from the limiter
+    and deliberately left the class alone, so `--no-acceptance-envelope` still
+    means EFIT's legacy bounds. The claim worth keeping is that the defaults
+    were not invented, so they are checked against the legacy namelist the
+    table directory preserves for exactly this kind of reference. That the
+    shipped block is the derived envelope is
+    `test_efit_packaged_table.py::test_the_shipped_acceptance_envelope_is_the_machine_s_own`.
+    """
+    legacy = f90nml.read(str(data_path("efit/legacy/mhdin.dat")))["incheck"]
     envelope = EFITAcceptanceEnvelope()
     for field in fields(EFITAcceptanceEnvelope):
-        if field.name in bundled:
-            assert getattr(envelope, field.name) == pytest.approx(float(bundled[field.name])), field.name
-    assert set(envelope.to_namelist()) >= set(bundled)
+        if field.name in legacy:
+            assert getattr(envelope, field.name) == pytest.approx(float(legacy[field.name])), field.name
+    assert set(envelope.to_namelist()) >= set(legacy)
+
+
+def test_the_legacy_defaults_are_no_longer_what_ships():
+    """#649's split, stated so nothing quietly couples the two again.
+
+    If the class defaults and the shipped block ever agree on the minor radius
+    again, either the defaults were changed to VEST's -- and the legacy path
+    silently lost its meaning -- or the shipped table regressed to DIII-D's.
+    """
+    shipped = f90nml.read(str(data_path("efit/mhdin.dat")))["incheck"]
+    envelope = EFITAcceptanceEnvelope()
+    for name in ("aminor_min", "aminor_max", "rcntr_min", "rcntr_max"):
+        assert getattr(envelope, name) != pytest.approx(float(shipped[name])), name
 
 
 def test_the_envelope_refuses_bounds_that_cannot_hold_a_plasma():
