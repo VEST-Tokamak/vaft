@@ -119,13 +119,13 @@ needs no formula call:
 ```python
 ods = vaft.database.load_ods(39915, directory="public")
 
-vaft.plot.time_equilibrium_beta_n(ods)
-vaft.plot.time_equilibrium_q95(ods)
-vaft.plot.time_equilibrium_beta_pol(ods)
-vaft.plot.time_equilibrium_beta_tor(ods)
+vaft.omas.plot_equilibrium_time_beta_n(ods)
+vaft.omas.plot_equilibrium_time_q95(ods)
+vaft.omas.plot_equilibrium_time_beta_p(ods)
+vaft.omas.plot_equilibrium_time_beta_t(ods)
 ```
 
-`vaft.plot.time_equilibrium_analysis(ods)` packs $I_p$, $V_{\rm loop}$ and $\beta_N$ against
+`vaft.omas.plot_equilibrium_overview_histories(ods)` packs $I_p$, $V_{\rm loop}$ and $\beta_N$ against
 $H_\alpha$, $B_z$ and $R_{\rm major}$ into one 3×2 figure — the fastest way to see whether a beta
 excursion coincides with a disruption.
 

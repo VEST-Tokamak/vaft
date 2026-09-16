@@ -26,13 +26,16 @@ no server and no `vaft.database` call:
 
 ```python
 import vaft
+from omas import ODC
 
 ods = vaft.omas.sample_ods()   # one shot  (#39915)
-odc = vaft.omas.sample_odc()   # three shots, as an ODS collection
+odc = ODC()                    # no packaged ODC helper; build one from the samples
+for key, shot in enumerate(vaft.data.available_samples()):
+    odc[key] = vaft.omas.load(vaft.data.sample(shot))
 ```
 
-`sample_ods()` returns a single ODS; `sample_odc()` returns an ODC of three shots. Pass the
-ODC wherever an ODS is accepted and the shots are overlaid on shared axes. Internally, a
+`sample_ods()` returns a single ODS. There is no packaged ODC helper — build one from the
+registered samples, as above. Pass the ODC wherever an ODS is accepted and the shots are overlaid on shared axes. Internally, a
 bare ODS is wrapped into a one-entry ODC by `vaft.omas.odc_or_ods_check`, so the time-trace
 functions accept either. See
 [Data structures]({{ site.baseurl }}/guide/Data_structures/) for the ODS/ODC model.
@@ -44,9 +47,12 @@ import matplotlib
 matplotlib.use("Agg")        # drop this line in a notebook
 
 import vaft
+from omas import ODC
 
 ods = vaft.omas.sample_ods()
-odc = vaft.omas.sample_odc()
+odc = ODC()                    # no packaged ODC helper; build one from the samples
+for key, shot in enumerate(vaft.data.available_samples()):
+    odc[key] = vaft.omas.load(vaft.data.sample(shot))
 
 # time traces: single shot, then three shots overlaid
 vaft.plot.time_magnetics_ip(ods, yunit='kA')

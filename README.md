@@ -7,26 +7,33 @@ English | [한국어](README.ko.md)
 [Python](https://pypi.org/project/vaft/)
 [License](LICENSE)
 
-**VAFT is a standardized, verifiable, and interoperable scientific infrastructure
-for machine-agnostic tokamak research.** Its full end-to-end implementation on the
-[VEST tokamak](https://eng.snu.ac.kr/) at Seoul National University supports
-routine experimental data processing, validation, modeling, physics analysis, and
-shared scientific use across collaborating researchers and institutions, while
-serving as the reference implementation for modern, reproducible, and data-driven
-fusion research.
+> **Integrate fusion science knowledge so it can be discovered, verified, compared, and studied.**
+
+**VAFT is a standardized, verifiable, and interoperable scientific framework for
+machine-agnostic tokamak research.** It integrates experimental data, reconstructed
+and simulated plasma states, and analysis workflows so that fusion science knowledge
+can be discovered, verified, compared, and studied.
+
+Its full end-to-end implementation on the [VEST tokamak](https://eng.snu.ac.kr/) at
+Seoul National University supports routine experimental data processing,
+validation, modeling, physics analysis, and shared scientific use across
+collaborating researchers and institutions, while serving as the reference
+implementation for modern, reproducible, and data-driven fusion research.
 
 > Hong-Sik Yun, Sunjae Lee *et al* 2025 *Plasma Phys. Control. Fusion* **67** 115021
 > ([doi:10.1088/1361-6587/ae1b6a](https://doi.org/10.1088/1361-6587/ae1b6a))
 
 ## What VAFT is
 
-Four things, which together are what "infrastructure" means here.
+Four things, which together are what "framework" means here.
 
 ### Integrated Standardized Interface
 
-Connect standardized data representations, scientific data processing,
-validation, visualization, and physics codes through one consistent interface.
-Machine-specific VEST signals, [IMAS](https://imas.iter.org/)/[OMAS](https://gafusion.github.io/omas/)
+Integrate standardized data representations, scientific data processing,
+validation, visualization, and physics codes into one consistent scientific
+workflow, rather than leaving them as separate tools behind a shared API.
+Machine-specific VEST signals,
+[IMAS](https://imas.iter.org/)/[OMAS](https://gafusion.github.io/omas/)
 representations, VAFT processing and plotting, verification and validation, and
 community physics codes — EFIT, CHEASE, GPEC, TokaMaker, VFIT — interoperate
 rather than being reimplemented here.
@@ -34,26 +41,31 @@ rather than being reimplemented here.
 ### Version-Controlled Data Pipeline
 
 Produce traceable and reproducible data products across the whole workflow, from
-machine design and data acquisition to reconstructed and simulated physics
-states. Versioning covers more than source code: machine descriptions and
-geometry, diagnostic mappings, calibration, conventions, processing logic,
-validation criteria, model configuration, and schema versions.
+machine design and data acquisition to reconstructed and simulated physics states.
+Traceability records where a result came from and reproducibility lets it be
+regenerated; together they are what make a result *verifiable* against its
+provenance, processing history, and assumptions. Versioning covers more than
+source code: machine descriptions and geometry, diagnostic mappings, calibration,
+conventions, processing logic, validation criteria, model configuration, and
+schema versions.
 
 ### IMAS-FAIR Database
 
-Preserve, access, and share validated data through both native and standardized
-representations, following the FAIR principles — Findability, Accessibility,
-Interoperability, Reusability. IMAS/OMAS, FileDB and native artifacts,
-[HSDS](https://github.com/HDFGroup/hsds)-backed storage, lazy and partial access,
-and programmatic APIs. Standardized access **complements** native scientific
-artifacts rather than replacing them.
+Preserve, discover, access, and share validated data through both native and
+standardized representations, following the FAIR principles — Findability,
+Accessibility, Interoperability, Reusability. IMAS/OMAS, FileDB and native
+artifacts, [HSDS](https://github.com/HDFGroup/hsds)-backed storage, lazy and
+partial access, and programmatic APIs are the foundation for finding which
+experimental and modelling information exists for a shot. Standardized access
+**complements** native scientific artifacts rather than replacing them.
 
 ### Machine & Research Archive
 
 A living archive of the VEST tokamak and its research ecosystem since operation
 began in 2012 — machine history, technical documentation, experimental practices,
-tutorials, example notebooks, and reproducible research knowledge, kept usable
-across generations of researchers and collaborating institutions.
+tutorials, example notebooks, and reproducible research knowledge, kept usable for
+long-term verification, comparison, and study across generations of researchers
+and collaborating institutions.
 
 ## What can I do with VAFT?
 
@@ -91,7 +103,7 @@ machine-specific experimental knowledge and analysis practice.
 
 ### What VAFT enables next
 
-VAFT extends that ecosystem into shareable, interoperable infrastructure.
+VAFT extends that ecosystem into a shareable, interoperable scientific framework.
 
 1. **Collaborative and open research** — shared access to validated data and
    reproducible workflows across institutions

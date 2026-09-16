@@ -22,7 +22,9 @@ how VAFT builds it from raw DAQ signals, how the signals are conditioned, and ho
 quantity with the real `vaft.plot` API.
 
 All figures below are shot **#39915**, which is also the ODS shipped inside the package
-(`vaft/data/omas/39915.json`), so every snippet on this page runs offline.
+(reached with `vaft.omas.sample_ods()`, or `vaft.data.sample(39915)` for the artifact itself). Most
+snippets on this page therefore run offline; the two that need data the packaged shot does not carry —
+flux-loop voltage and the toroidal phase fit — are marked where they appear.
 
 ---
 
@@ -30,8 +32,8 @@ All figures below are shot **#39915**, which is also the ODS shipped inside the 
 
 | Node | VEST content |
 |---|---|
-| `magnetics.b_field_pol_probe.<i>.field.data` | 64 $B_z$ pickup coils (integrated, calibrated, baseline-corrected) |
-| `magnetics.b_field_pol_probe.<i>.voltage.data` | The same coils, **raw un-integrated voltage** at the native 250 kHz DAQ rate — this is the Mirnov signal |
+| `magnetics.b_field_pol_probe.<i>.field.data` | $B_z$ pickup coils (integrated, calibrated, baseline-corrected) — 76 entries on shot 39915, 63 of them carrying `field` |
+| `magnetics.b_field_pol_probe.<i>.voltage.data` | The same coils, **raw un-integrated voltage** at the native 250 kHz DAQ rate — this is the Mirnov signal; 70 of the 76 carry it |
 | `magnetics.flux_loop.<i>.flux.data` | 11 flux loops, in Wb |
 | `magnetics.ip.0.data` | Plasma current from the Rogowski coil, flux-loop compensated |
 | `magnetics.diamagnetic_flux.0.data` | Diamagnetic flux |
@@ -48,9 +50,11 @@ runtime**, from `position.r` / `position.z`:
 | Inboard flux loops | $r < 0.15$ m | 7 |
 | Outboard flux loops | $r > 0.5$ m | 4 |
 
-The same thresholds drive the `indices=` keyword of the plotting functions and the uncertainty
-grouping in `vaft.machine_mapping.apply_magnetics_uncertainties`, so "inboard" means exactly the same
-set of channels everywhere.
+These thresholds drive the uncertainty grouping in `vaft.machine_mapping.apply_magnetics_uncertainties`.
+The plot `selection=` presets are coarser and do **not** use them: `selection='inboard'` is the whole
+high-field side, the 27 inboard probes *and* the 16 side probes at the inboard corners, so it draws 42
+traces on shot 39915 rather than 27. To plot exactly one of the groups above, select it by position —
+the Inboard $B_z$ section below shows how.
 
 When a shot is mapped from raw signals, **four extra toroidal Mirnov reference probes** are appended
 after the 64 geometry probes (indices 64–67, at $\phi = 0, 2\pi/3, \pi, 4\pi/3$). They exist only to
@@ -212,42 +216,58 @@ uncertainty written at all.
 
 # Plotting
 
-Every magnetics plotter takes an **ODS or an ODC**, calls `plt.show()`, and returns `None`. The shared
-keywords are:
+Magnetics plots are reached through the `vaft.omas.plot_*` adapters. Each takes an **ODS, an ODC, or a
+list of ODSs**, returns `(Figure, Axes)`, and does **not** call `plt.show()` unless you pass
+`show=True`. The shared keywords are:
 
 | Keyword | Values |
 |---|---|
-| `indices` | `'all'`, a group name, an `int`, or a list of `int` |
+| `selection` | `'all'`, a region or representative name, an `int`, or a list of `int` |
 | `label` | `'shot'` (default), `'run'`, `'key'`, or a list of one label per ODC entry |
+| `layout` | `'overlay'`, `'subplots'`, `'grouped'` |
 | `xunit` | `'s'` (default) or `'ms'` |
 | `yunit` | per function — see each section |
-| `xlim` | `'plasma'` (default, the $I_p$ on/off window), `'coil'`, `'none'`, or `[t0, t1]` |
+| `x_limits` | `(t0, t1)`, or `None` for the full record |
 
-An invalid `xlim` or `label` prints a notice and falls back to the default; an invalid `xunit`/`yunit`
-is **silently ignored** while the axis label still shows the unit you asked for. Don't rely on
-validation.
+An unknown option is refused and the message names the ones the plot does take, so
+`vaft.omas.available_plots(ods, detail=True)` is the fastest way to see what a given input supports —
+including how many channels are usable and which regions and representatives it offers.
 
-There is no `time_slices` argument on any magnetics plotter — a magnetics trace is a full time series.
-To compare several shots, pass an **ODC**; that is the path that renders:
+There is no `time_slices` argument on any magnetics plot — a magnetics trace is a full time series.
+To compare several shots, pass an **ODC**:
 
 ```python
-odc = vaft.omas.sample_odc()                       # shots 39915, 41524, 41672
-vaft.plot.magnetics_time_ip(odc, yunit='kA', label='shot')
+from omas import ODC
+
+odc = ODC()
+for key, shot in enumerate(vaft.data.available_samples()):   # 39915, 41524, 41672
+    odc[key] = vaft.omas.load(vaft.data.sample(shot))
+
+vaft.omas.plot_plasma_current_time(odc, yunit='kA', label='shot')
 ```
 
-Both spellings of every name are live and equivalent: `time_magnetics_ip` (canonical) and
-`magnetics_time_ip` (alias). The notebooks use the alias form.
+Plot names are built from the physical **subject**, not the IDS that stores it. The older IDS-shaped
+spellings (`magnetics_time_ip`, `time_magnetics_ip`) still resolve but emit a `DeprecationWarning`
+naming their replacement, and they are removed in 0.7.0 and 0.8.0 respectively.
+`vaft.plot.migration_table()` renders the current mapping from the code.
 
 ## Inboard $B_z$
 
-27 pickup coils at $r < 0.09$ m, laid out on a 4 × 7 grid of subplots. Each panel title is the probe
-index and its $(r, z)$ position.
+27 pickup coils at $r < 0.09$ m. The `selection='inboard'` preset would also take the 16 side probes, so
+pick these by position:
 
 ```python
 import vaft
 
 ods = vaft.omas.sample_ods()          # shot 39915
-vaft.plot.magnetics_time_b_field_pol_probe_field(ods, indices='inboard')
+probes = ods['magnetics.b_field_pol_probe']
+inboard = [i for i in range(len(probes))
+           if probes[i]['position.r'] < 0.09 and abs(probes[i]['position.z']) <= 0.8]
+
+vaft.omas.plot_b_field_probe_time_field(ods, selection=inboard, layout='subplots')
+
+# The whole high-field side -- inboard and side probes together:
+vaft.omas.plot_b_field_probe_time_field(ods, selection='inboard')
 ```
 
 ![Inboard $B_z$ of shot #39915]({{ site.baseurl }}/assets/images/magnetics/Inboard_B_z.png)
@@ -257,8 +277,8 @@ vaft.plot.magnetics_time_b_field_pol_probe_field(ods, indices='inboard')
 21 coils at $r > 0.795$ m, on a 3 × 7 grid.
 
 ```python
-vaft.plot.magnetics_time_b_field_pol_probe_field(
-    ods, indices='outboard', xunit='ms', yunit='T', xlim='plasma'
+vaft.omas.plot_b_field_probe_time_field(
+    ods, selection='outboard', xunit='ms', yunit='T'
 )
 ```
 
@@ -269,10 +289,15 @@ vaft.plot.magnetics_time_b_field_pol_probe_field(
 16 coils at the upper and lower inboard corners, $|z| > 0.8$ m, on a 4 × 4 grid.
 
 ```python
-vaft.plot.magnetics_time_b_field_pol_probe_field(ods, indices='side')
+# There is no `side` preset -- `selection='inboard'` already includes these -- so select
+# the side coils on their own by position:
+probes = ods['magnetics.b_field_pol_probe']
+side = [i for i in range(len(probes)) if abs(probes[i]['position.z']) > 0.8]   # 48..63 on 39915
+
+vaft.omas.plot_b_field_probe_time_field(ods, selection=side)
 
 # A single probe, or an explicit subset:
-vaft.plot.magnetics_time_b_field_pol_probe_field(ods, indices=[4, 39])
+vaft.omas.plot_b_field_probe_time_field(ods, selection=[4, 39])
 ```
 
 ![Side $B_z$ of shot #39915]({{ site.baseurl }}/assets/images/magnetics/Side_B_z.png)
@@ -282,7 +307,7 @@ vaft.plot.magnetics_time_b_field_pol_probe_field(ods, indices=[4, 39])
 7 loops at $r < 0.15$ m, on a 2 × 4 grid. `yunit='Wb'`.
 
 ```python
-vaft.plot.magnetics_time_flux_loop_flux(ods, indices='inboard')
+vaft.omas.plot_flux_loop_time_flux(ods, selection='inboard')
 ```
 
 ![Inboard flux loop of shot #39915]({{ site.baseurl }}/assets/images/magnetics/Inboard_flux_loop.png)
@@ -292,16 +317,17 @@ vaft.plot.magnetics_time_flux_loop_flux(ods, indices='inboard')
 4 loops at $r > 0.5$ m, on a 2 × 2 grid.
 
 ```python
-vaft.plot.magnetics_time_flux_loop_flux(ods, indices='outboard', xunit='ms')
+vaft.omas.plot_flux_loop_time_flux(ods, selection='outboard', xunit='ms')
 ```
 
 ![Outboard flux loop of shot #39915]({{ site.baseurl }}/assets/images/magnetics/Outboard_flux_loop.png)
 
 The loop voltage $V_{loop} = -\,d\Psi/dt$ is derived from the same flux data — the
-`inboard_midplane` group ($r = 0.091$ m) is the one you want for the breakdown loop voltage:
+`inboard_midplane` group ($r = 0.091$ m) is the one you want for the breakdown loop voltage. The
+packaged shot carries no `flux_loop.<i>.voltage.data`, so this one needs a database shot:
 
 ```python
-vaft.plot.magnetics_time_flux_loop_voltage(ods, indices='inboard_midplane', yunit='V')
+vaft.omas.plot_flux_loop_time_voltage(ods, selection='inboard_midplane', yunit='V')
 ```
 
 ## Plasma current
@@ -309,28 +335,28 @@ vaft.plot.magnetics_time_flux_loop_voltage(ods, indices='inboard_midplane', yuni
 `yunit` accepts `'A'`, `'kA'` and `'MA'` (default `'MA'`).
 
 ```python
-vaft.plot.magnetics_time_ip(ods, yunit='kA', xunit='ms')
+vaft.omas.plot_plasma_current_time(ods, yunit='kA', xunit='ms')
 ```
 
 ![Plasma current of shot #39915]({{ site.baseurl }}/assets/images/magnetics/plasma_current.png)
 
-The default `xlim='plasma'` derives the window from the $I_p$ on/off times, so the discharge fills the
-axes. Pass `xlim='none'` to see the full DAQ record, or `xlim=[0.28, 0.34]` for an explicit window.
+The default window is derived from the $I_p$ on/off times, so the discharge fills the axes. Pass
+`x_limits=None` to see the full DAQ record, or `x_limits=(0.28, 0.34)` for an explicit window.
 
 ## Diamagnetic flux
 
 ```python
-vaft.plot.magnetics_time_diamagnetic_flux(ods, yunit='Wb')
+vaft.omas.plot_diamagnetic_flux_time(ods, yunit='Wb')
 ```
 
 ![Diamagnetic Flux of shot #39915]({{ site.baseurl }}/assets/images/magnetics/diamagnetic_flux.png)
 
-`time_diamagnetic_flux` is a **different function**: it overlays the raw magnetics flux with the
+`plot_equilibrium_time_diamagnetic_flux` is a **different plot**: it overlays the raw magnetics flux with the
 `equilibrium`-measured and `equilibrium`-reconstructed values, which is the check you want after an
 equilibrium reconstruction:
 
 ```python
-vaft.plot.time_diamagnetic_flux(ods)      # magnetics + equilibrium measured + reconstructed
+vaft.omas.plot_equilibrium_time_diamagnetic_flux(ods)   # magnetics + measured + reconstructed
 ```
 
 See [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/) for how the reconstructed value is computed.
@@ -340,8 +366,16 @@ See [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/) for how the reconstruct
 # Mirnov and fluctuation diagnostics
 
 The Mirnov analysis works on `magnetics.b_field_pol_probe.<i>.voltage` — the **raw, un-integrated**
-coil voltage at the native 250 kHz DAQ rate. The packaged 39915 ODS carries only the integrated
-`field` data, so build the ODS from a raw dump first (shot 44740 ships with the package):
+coil voltage at the native 250 kHz DAQ rate. The packaged 39915 ODS carries this: 70 of its 76 probes
+have `voltage.data`, so the plots below run offline from `vaft.omas.sample_ods()`.
+
+```python
+import vaft
+
+ods = vaft.omas.sample_ods()          # shot 39915
+```
+
+To build the same IDS from a raw DAQ dump instead — shot 44740 ships with the package — map it first:
 
 ```python
 import os
@@ -355,89 +389,70 @@ ods = ODS()
 vfit_magnetics_for_shot(ods, shot=44740, tstart=0.26, tend=0.34, dt=4e-5)
 ```
 
-Unlike the older plotters, the Mirnov functions **return `(fig, ax)`** and accept `ax=` and
-`show=False`, so they compose into your own subplot grid.
+Every plot below returns `(fig, ax)` and accepts `ax=` and `show=`, so they compose into your own
+subplot grid.
 
 ```python
-import vaft.plot as vplot
-
 inboard_channel = 14
 outboard_channel = 37
 time_range = (0.304, 0.330)
 
-fig, ax = vplot.mirnov_signal(
+fig, ax = vaft.omas.plot_mirnov_time_voltage(
     ods,
-    channels=[inboard_channel, outboard_channel],
+    selection=[inboard_channel, outboard_channel],
     time_range=time_range,
     preprocess=True,          # False = raw volts; True = high-pass 2 kHz / low-pass 90 kHz, gain-corrected
-    show=False,
 )
 ax.set_title("Mirnov voltage")
 ```
 
-A spectrogram of one channel — `max_frequency` crops the frequency axis, `window_size` sets the FFT
-window (must be even):
+A spectrogram of one channel. `method=` selects the transform, and each method carries its own
+parameters — `stft` takes `nperseg` / `noverlap` / `window` / `detrend`, `hann_fft` takes
+`window_size` / `time_resolution`, and `cwt` takes `frequency_range` / `n_frequencies`:
 
 ```python
-fig, ax = vplot.mirnov_spectrogram(
+fig, ax = vaft.omas.plot_mirnov_spectrogram(
     ods,
-    channel=inboard_channel,
+    selection=[inboard_channel],
     time_range=time_range,
-    max_frequency=80e3,
+    method="hann_fft",
     window_size=500,
-    show=False,
 )
-
-# Ask for the numbers instead of just the picture:
-fig, ax, result = vplot.mirnov_spectrogram(
-    ods, channel=inboard_channel, time_range=time_range, show=False, return_result=True
-)
-result.time, result.frequency, result.magnitude    # a MirnovSpectrogramResult
 ```
+
+For the power spectral density of one channel rather than its time-frequency map:
+
+```python
+fig, ax = vaft.omas.plot_mirnov_spectrum(ods, selection=[inboard_channel], time_range=time_range)
+```
+
+`vaft.omas.available_plots(ods, query="mirnov", detail=True)` prints the methods, their parameters and
+the channels *this* input can actually use.
 
 ## Toroidal mode numbers
 
-Two toroidally separated probes give the mode number $n$ from the cross-spectral phase,
-$n = \arg\,S_{ab}(f) / \Delta\phi$. `toroidal_mode_spectrum` returns `(fig, axes, result)` with three
-stacked panels (cross power, $n$, coherence):
+Probes separated in toroidal angle give the mode number $n$ from the wrapped phase of each
+fluctuation band, fitted against toroidal angle at one instant. That is
+`plot_mirnov_spatial_phase`, whose `wrapped n fit` method takes `frequencies`, `num_modes`,
+`candidate_n`, `channels`, `window_size`, `show_fit` and `preprocess`:
 
 ```python
-import numpy as np
-
-fig, axes, result = vplot.toroidal_mode_spectrum(
+fig, ax = vaft.omas.plot_mirnov_spatial_phase(
     ods,
-    channel_pair=(65, 67),            # two of the four toroidal reference probes
-    time_range=(0.304, 0.330),
-    phase_geometry=np.pi / 6,         # toroidal separation of the pair, in radians
-    show=False,
-    return_result=True,
-)
-result.frequency, result.n, result.coherence       # a ToroidalModeResult
-```
-
-With all four probes you can fit the wrapped phase against toroidal angle at one instant and separate
-several simultaneous modes. `toroidal_phase_mode_fit` returns `(fig, ax, result)`:
-
-```python
-fig, ax, fit = vplot.toroidal_phase_mode_fit(
-    ods,
-    center_time=0.310,
-    channels=(64, 65, 66, 67),
-    time_range=(0.304, 0.330),
+    time=0.310,
     frequencies=[26e3, 52e3],         # None -> dominant peaks are picked automatically
     num_modes=2,
     candidate_n=range(0, 5),
     window_size=500,
     preprocess=True,
-    show=False,
-    return_result=True,
 )
-for mode in fit.modes:                 # sorted by amplitude, descending
-    print(mode.frequency, mode.n, mode.rms_error)
 ```
 
-Everything after `*` in these signatures is keyword-only, and the default channels (64–67) and pair
-(65, 67) are the VEST toroidal reference probes — pass your own if you are analysing a different set.
+The fit needs probes that carry a toroidal angle as well as a waveform. Restricting `channels=` to a
+set that has no `position.phi` is refused, and the message lists the channels this input does offer —
+so start from the default selection and narrow it only once you know the shot's toroidal array. Which
+array a shot has is recorded in the machine description; see
+[Machine mapping]({{ site.baseurl }}/workflows/data-access-imas/).
 
 The same kernels are callable without an ODS, on bare arrays:
 
@@ -473,10 +488,10 @@ afterwards:
 import vaft
 
 ods = vaft.omas.sample_ods()
-vaft.plot.magnetics_time_ip(ods)
+vaft.omas.plot_plasma_current_time(ods)
 
 vaft.omas.change_time_convention(ods, convention='breakdown')   # 'daq' | 'vloop' | 'ip' | 'breakdown'
-vaft.plot.magnetics_time_ip(ods)
+vaft.omas.plot_plasma_current_time(ods)
 ```
 
 ---

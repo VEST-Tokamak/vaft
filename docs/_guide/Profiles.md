@@ -288,35 +288,40 @@ input, not a measurement.
 
 ## Plotting
 
-`vaft.plot` has dedicated views for each stage:
+Each stage has a canonical plot, reached through the `vaft.omas.plot_*` adapters. They draw what the ODS
+already holds — fitting is a `vaft.process` step, not a plotting option:
 
 ```python
-vaft.plot.plot_thomson_radial_position(ods, contour_quantity="psi_norm")  # channels on flux surfaces
-vaft.plot.plot_thomson_time_series(ods)                                   # raw Te/ne vs time
-vaft.plot.plot_thomson_profiles(ods, save_opt=0, file_name=None)          # fitted profiles
-vaft.plot.plot_electron_profile_with_thomson(ods)                         # fit vs measurement
-vaft.plot.plot_electron_psi_profile(ods)
-vaft.plot.plot_electron_time_volume_averaged(ods)
-vaft.plot.plot_equilibrium_and_core_profiles_pressure(ods)                # consistency check
+vaft.omas.plot_thomson_scattering_geometry_poloidal(ods)            # channel positions in the poloidal plane
+vaft.omas.plot_thomson_scattering_time_electron_temperature(ods)    # per-channel Te history
+vaft.omas.plot_thomson_scattering_time_electron_density(ods)        # per-channel ne history
+vaft.omas.plot_thomson_scattering_profile_electron_temperature(ods) # measured Te versus position
+vaft.omas.plot_electron_temperature_profile(ods)                    # the fitted core_profiles Te
+vaft.omas.plot_core_profiles_time_volume_averaged(ods)
+vaft.omas.plot_equilibrium_profile_pressure(ods)                    # consistency check
 ```
 
-`plot_equilibrium_and_core_profiles_pressure` is the useful sanity check after a fit: if the pressure
-implied by the kinetic profiles disagrees badly with the equilibrium pressure, the fit or the mapping
-is wrong.
+`plot_equilibrium_profile_pressure` is the useful sanity check after a fit: if the pressure implied by the
+kinetic profiles disagrees badly with the equilibrium pressure, the fit or the mapping is wrong.
 
-For CES, `vaft.plot.charge_exchange_rho_profiles` runs the mapping and fit internally and plots the
-result in one call:
+Measurement and fit are separate plots now. `plot_thomson_scattering_profile_electron_temperature` shows
+the channels; `plot_electron_temperature_profile` shows whatever `core_profiles` holds — a fit from
+`vaft.process.profile_fitting_thomson_scattering`, or the synthetic profiles written by the
+`core_profiles_from_eq*` helpers above. It takes `coordinate=` — `rho_tor_norm` by default, or `psi_norm`. (The
+equilibrium profiles accept more, including `r_major`; a core-profile plot does not.)
+
+For CES, map the channels onto the equilibrium and fit in `vaft.process`, then plot:
 
 ```python
-vaft.plot.charge_exchange_rho_profiles(
-    ods, eq=geq, time_ms=300.0, ion_index=0,
+mapped = vaft.process.equilibrium_mapping_charge_exchange(ods, geq)
+fit = vaft.process.profile_fitting_charge_exchange(
+    ods, time_ms=300.0, mapped_positions=mapped, ion_index=0,
     fitting_function_ti="polynomial", Ti_order=3,
 )
-vaft.plot.charge_exchange_time(ods, ion_index=0)
-```
 
-`vaft.plot.plot_TeNe_from_eq(ods, ...)` plots the synthetic profiles produced by the
-`core_profiles_from_eq*` helpers.
+vaft.omas.plot_charge_exchange_profile_ion_temperature(ods)   # measured Ti versus position
+vaft.omas.plot_charge_exchange_time_ion_temperature(ods)      # per-channel Ti history
+```
 
 ## Kinetic-profile files
 
@@ -510,7 +515,7 @@ for t_s in np.asarray(ods["thomson_scattering.time"], dtype=float):
     )
     ods = vaft.process.core_profiles(ods, time_ms, mapped, n_e_fn, T_e_fn)
 
-vaft.plot.plot_thomson_profiles(ods)
+vaft.omas.plot_thomson_scattering_profile_electron_temperature(ods)
 ```
 
 Note that `thomson_scattering.time` is in **seconds** while the fitting and `core_profiles` functions
