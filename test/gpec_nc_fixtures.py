@@ -162,6 +162,10 @@ def write_profile_nc(
     psi_rational = np.linspace(0.4, 0.95, q_rational.size)
     phi_res = (q_rational * 1e-4) - 1j * (q_rational * 0.5e-4)
     i_res = (q_rational * 1e3) + 1j * (q_rational * 1e2)
+    # Phi_res / Delta must be real and negative: the geometric factor the
+    # mapping measures is -n*Phi_res/Delta, and a pair off the real axis is
+    # refused rather than recorded.
+    delta = phi_res / (-0.05 / n)
     b_n = np.outer(m_out + 1.0, psi_n) * 1e-4 + 1j * np.outer(m_out, psi_n) * 1e-5
     b_n_fun = np.outer(np.cos(2 * np.pi * theta), psi_n) * 1e-4 + 1j * np.outer(
         np.sin(2 * np.pi * theta), psi_n
@@ -170,6 +174,11 @@ def write_profile_nc(
     # Rational-surface block: units only where GPEC writes them.
     data_vars = {
         "q_rational": (("psi_n_rational",), q_rational),
+        # The real file ships `q1_rational` as zeros; `dqdpsi_n_rational` is
+        # the usable one, so the fixture makes them differ.
+        "dqdpsi_n_rational": (("psi_n_rational",), q_rational * 1.5),
+        "q1_rational": (("psi_n_rational",), np.zeros_like(q_rational)),
+        "Delta": (("i", "psi_n_rational"), _complex_pair(delta)),
         "area_rational": (("psi_n_rational",), q_rational * 2.0, {"units": "m^2"}),
         "Phi_res": (("i", "psi_n_rational"), _complex_pair(phi_res), {"units": "T"}),
         "Phi_res_v": (("i", "psi_n_rational"), _complex_pair(phi_res * 0.5), {"units": "T"}),
@@ -204,8 +213,11 @@ def write_profile_nc(
                 "b_n_fun": (("i", "theta_dcon", "psi_n"), _complex_pair(b_n_fun), {"units": "Tesla"}),
                 "xi_n": (("i", "m_out", "psi_n"), _complex_pair(b_n * 10.0), {"units": "m"}),
                 "xi_n_fun": (("i", "theta_dcon", "psi_n"), _complex_pair(b_n_fun * 10.0), {"units": "m"}),
-                # An "extra": present in real files, not a named field.
+                # Extras: present in real files, not named fields. Jbgradpsi
+                # is the one the resonant derivation reads.
                 "b_eul": (("i", "m_out", "psi_n"), _complex_pair(b_n * 2.0), {"units": "Tesla"}),
+                "Jbgradpsi": (("i", "m_out", "psi_n"), _complex_pair(b_n * 3.0),
+                              {"units": "Tesla"}),
                 # A character matrix, and an index that has as many entries as
                 # there are rational surfaces when the two happen to coincide.
                 "coil_name": (("coil_index", "coil_strlen"), name_chars),
@@ -241,6 +253,10 @@ def write_profile_nc(
         "theta": theta,
         "Phi_res": phi_res,
         "I_res": i_res,
+        "Delta": delta,
+        "Jbgradpsi": b_n * 3.0,
+        "dqdpsi_n_rational": q_rational * 1.5,
+        "area_rational": q_rational * 2.0,
         "b_n": b_n,
         "b_n_fun": b_n_fun,
         "helicity": helicity,
