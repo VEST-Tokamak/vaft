@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>6ce6b29</code>. What is described
+  <code>85736a3</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -267,7 +267,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/equilibrium.py"><code class="language-plaintext highlighter-rouge">vaft/process/equilibrium.py</code></a>:
-47 public functions.  The category overview and notation come from the module
+49 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("equilibrium.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -335,6 +335,8 @@ outward normal is only outward then.</p>
 </li>
   <li><a href="#computed_diamagnetism_from_phi"><code>computed_diamagnetism_from_phi</code></a> &mdash; EFIT-style diamagnetism from an already-computed diamagnetic flux.
 </li>
+  <li><a href="#connection_length_map"><code>connection_length_map</code></a> &mdash; Connection length of the field line through each of many starting points.
+</li>
   <li><a href="#contour_shape_parameters"><code>contour_shape_parameters</code></a> &mdash; Shape parameters of one closed flux-surface contour.
 </li>
   <li><a href="#convert_cocos"><code>convert_cocos</code></a> &mdash; Convert an equilibrium between two explicitly known COCOS conventions.
@@ -372,6 +374,8 @@ outward normal is only outward then.</p>
   <li><a href="#lab_to_straight_field_line"><code>lab_to_straight_field_line</code></a> &mdash; Relabel a geometric poloidal angle into the straight-field-line one.
 </li>
   <li><a href="#make_equilibrium_field_interpolator"><code>make_equilibrium_field_interpolator</code></a> &mdash; Build a callable giving the full magnetic field anywhere on one time slice.
+</li>
+  <li><a href="#make_vacuum_field_interpolator"><code>make_vacuum_field_interpolator</code></a> &mdash; Build a callable giving the vacuum magnetic field anywhere on one grid.
 </li>
   <li><a href="#parallel_current_from_toroidal"><code>parallel_current_from_toroidal</code></a> &mdash; Convert a shell toroidal driven current to the IMAS parallel current.
 </li>
@@ -898,6 +902,109 @@ same reference radius and field used here.</p>
 
 <ol class="formula-references">
   <li>The EFIT <code class="language-plaintext highlighter-rouge">xmui</code> definition, evaluated through <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.virial_muihat_from_Bt_R0_dphi</code>.
+</li>
+</ol>
+
+<h3 id="connection_length_map"><code class="language-plaintext highlighter-rouge">connection_length_map</code></h3>
+
+<p class="formula-signature"><code>connection_length_map(seed_r, seed_z, b_field, *, wall_r, wall_z, phi0=0.0, dphi=np.float64(0.03490658503988659), max_length_m=150.0)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Connection length of the field line through each of many starting points.</p>
+
+<p>How far a field line runs in both directions before it strikes the wall,
+which is what decides whether an electron accelerating along it avalanches
+or is lost.  Every line is stepped together rather than one at a time, so a
+whole grid costs one pass instead of one pass per point.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>seed_r</code></td><td>np.ndarray</td><td>m</td><td><p>Major radius of each starting point.</p>
+</td></tr>
+  <tr><td><code>seed_z</code></td><td>np.ndarray</td><td>m</td><td><p>Height of each starting point, broadcastable against <code class="language-plaintext highlighter-rouge">seed_r</code>.</p>
+</td></tr>
+  <tr><td><code>b_field</code></td><td>callable</td><td>T</td><td><p>A function of <code class="language-plaintext highlighter-rouge">(R, Z)</code> returning <code class="language-plaintext highlighter-rouge">(B_R, B_Z, B_phi)</code> for arrays, normally from <code class="language-plaintext highlighter-rouge">make_vacuum_field_interpolator</code>.</p>
+</td></tr>
+  <tr><td><code>wall_r</code></td><td>np.ndarray</td><td>m</td><td><p>Major radius of the limiting polygon.</p>
+</td></tr>
+  <tr><td><code>wall_z</code></td><td>np.ndarray</td><td>m</td><td><p>Height of the limiting polygon.</p>
+</td></tr>
+  <tr><td><code>phi0</code></td><td>float, optional</td><td>rad</td><td><p>Starting toroidal angle, the same for every line.</p>
+</td></tr>
+  <tr><td><code>dphi</code></td><td>float, optional</td><td>rad</td><td><p>Fixed step in toroidal angle.</p>
+</td></tr>
+  <tr><td><code>max_length_m</code></td><td>float, optional</td><td>m</td><td><p>Path length at which to stop each direction.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to np.ndarray</td><td>m</td><td><p><code class="language-plaintext highlighter-rouge">length_m</code> the two directions summed, with <code class="language-plaintext highlighter-rouge">nan</code> at points outside the wall and wherever a step left the field model – a callable that returned a non-finite field – since nothing is then known about where that line ends; <code class="language-plaintext highlighter-rouge">forward_m</code> and <code class="language-plaintext highlighter-rouge">backward_m</code> the branches; <code class="language-plaintext highlighter-rouge">saturated</code> true where either branch stopped on <code class="language-plaintext highlighter-rouge">max_length_m</code> rather than on the wall; <code class="language-plaintext highlighter-rouge">outside</code> true where the point itself is not inside the wall. Every array has the shape of <code class="language-plaintext highlighter-rouge">seed_r</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A non-positive <code class="language-plaintext highlighter-rouge">dphi</code> or <code class="language-plaintext highlighter-rouge">max_length_m</code>, or seed arrays whose shapes
+    do not match [-].</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Drop the seeds that are already outside the limiting polygon; they have
+no connection length and are reported as <code class="language-plaintext highlighter-rouge">nan</code>.</li>
+  <li>Step every surviving line together by fourth-order Runge-Kutta in the
+toroidal angle, once forward and once backward, retiring a line as it
+leaves the polygon or reaches <code class="language-plaintext highlighter-rouge">max_length_m</code>.</li>
+  <li>Add the two branches. A line retired on length contributes
+<code class="language-plaintext highlighter-rouge">max_length_m</code> and is flagged rather than being read as a wall hit.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The two-degree step is a numerical convenience, chosen by convergence
+against a half-degree trace on VEST’s vacuum field: the median length moves
+by 7e-5 and the 95th percentile by 4e-3 of itself.  The 150 m limit is an
+assumed value, long enough that a Lloyd threshold evaluated on it has
+already saturated and short enough that a line circulating near a null
+terminates.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The toroidal angle is the integration variable, as in
+<code class="language-plaintext highlighter-rouge">trace_field_line</code>, so a vanishing toroidal field ends a line rather
+than slowing it.  The length is the <strong>sum of both directions</strong> from the
+seed, which is the quantity a Townsend avalanche sees; a caller wanting one
+branch should read <code class="language-plaintext highlighter-rouge">forward_m</code> or <code class="language-plaintext highlighter-rouge">backward_m</code>.  A saturated line
+reports <code class="language-plaintext highlighter-rouge">max_length_m</code>, not infinity, and <code class="language-plaintext highlighter-rouge">saturated</code> is how a consumer
+tells the difference.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The wall polygon and the field are both the caller’s.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The wall test is applied once per step, so a line ends at the last point
+inside the polygon rather than at the true crossing – of order
+$R\,\mathrm{d}\varphi$, millimetres against the tens of metres the length
+itself runs to.  Fixed step, so accuracy is set by the step alone and there
+is no error control.  A field line that closes on itself never strikes the
+wall, and this returns <code class="language-plaintext highlighter-rouge">max_length_m</code> for it, flagged; distinguishing a
+closed line from a merely long one is not attempted.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The field-line equations in toroidal-angle form, as in <code class="language-plaintext highlighter-rouge">trace_field_line</code>, stepped over many seeds at once.
+</li>
+  <li>B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2, for the role the connection length plays in the breakdown threshold this feeds.
 </li>
 </ol>
 
@@ -2353,6 +2460,81 @@ evaluation is cheap but the map must not change.</p>
   <li>Sauter and Medvedev (2013), Eq. 20, for the prefactor.
 </li>
   <li>The clip-and-interpolate convention of <code class="language-plaintext highlighter-rouge">psi_to_rz</code>, kept deliberately the same.
+</li>
+</ol>
+
+<h3 id="make_vacuum_field_interpolator"><code class="language-plaintext highlighter-rouge">make_vacuum_field_interpolator</code></h3>
+
+<p class="formula-signature"><code>make_vacuum_field_interpolator(R_grid_1d, Z_grid_1d, b_r, b_z, r0_b0)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Build a callable giving the vacuum magnetic field anywhere on one grid.</p>
+
+<p>The twin of <code class="language-plaintext highlighter-rouge">make_equilibrium_field_interpolator</code> for a machine with no
+plasma in it.  That one reads the poloidal field off a flux map and the
+toroidal field off <code class="language-plaintext highlighter-rouge">profiles_1d.f</code>, both of which a reconstruction
+supplies; before breakdown there is no reconstruction, and the field the
+coils and the vessel make is all there is.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>R_grid_1d</code></td><td>np.ndarray</td><td>m</td><td><p>Major radius of the grid columns, increasing.</p>
+</td></tr>
+  <tr><td><code>Z_grid_1d</code></td><td>np.ndarray</td><td>m</td><td><p>Height of the grid rows, increasing.</p>
+</td></tr>
+  <tr><td><code>b_r</code></td><td>np.ndarray</td><td>T</td><td><p>Radial field on the <code class="language-plaintext highlighter-rouge">(len(R), len(Z))</code> grid.</p>
+</td></tr>
+  <tr><td><code>b_z</code></td><td>np.ndarray</td><td>T</td><td><p>Vertical field on the same grid.</p>
+</td></tr>
+  <tr><td><code>r0_b0</code></td><td>float</td><td>T m</td><td><p>The vacuum toroidal field product $R_0 B_0$, as <code class="language-plaintext highlighter-rouge">tf.b_field_tor_vacuum_r</code> stores it.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>callable</td><td>T</td><td><p>A function of <code class="language-plaintext highlighter-rouge">(R, Z)</code> returning <code class="language-plaintext highlighter-rouge">(B_R, B_Z, B_phi)</code>, accepting scalars or arrays of matching shape.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Grids and field arrays whose shapes disagree [-].</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The toroidal field is $B_\varphi = R_0 B_0 / R$ exactly, not interpolated:
+in a vacuum it is a pure $1/R$ and the grid would only add error to it.  The
+poloidal components are interpolated, so they carry the grid’s resolution –
+which is the caller’s choice, not this function’s.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>The grid is the one <code class="language-plaintext highlighter-rouge">vaft.omas.compute_vacuum_field_map</code> builds, whose
+axes are monotonic and whose fields already include the vessel’s eddy
+currents.  Nothing here checks that the field is curl-free.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The grid and the toroidal product are the caller’s.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Bicubic over the supplied grid, so the field between nodes is as good as the
+grid is fine: poor within a coil’s near field, where the true field varies on
+the scale of the conductor, and good near a null, where it varies on the
+scale of the machine.  Outside the grid the spline extrapolates rather than
+raising, so a caller that can leave the grid must terminate on its own bound.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The vacuum field decomposition: the poloidal part from the Green’s function response of the coils and the passive structure, the toroidal part from the TF product.
 </li>
 </ol>
 
@@ -3998,7 +4180,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#as_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">as_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_average_boundary_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_average_boundary_poloidal_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_diamagnetism" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_diamagnetism</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_q_profile_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_q_profile_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_reconstructed_diamagnetic_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_reconstructed_diamagnetic_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_equilibrium_requirements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_equilibrium_requirements</a></li><li class="page-toc-item page-toc-level-3"><a href="#computed_diamagnetism_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">computed_diamagnetism_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#contour_shape_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">contour_shape_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#convert_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">convert_cocos</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_boundary_representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_boundary_representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_global_descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_global_descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_radial_coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_radial_coordinates</a></li><li class="page-toc-item page-toc-level-3"><a href="#efit_virial_volume_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">efit_virial_volume_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_field_on_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_field_on_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_miller" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_miller</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_solovev" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_solovev</a></li><li class="page-toc-item page-toc-level-3"><a href="#extract_flux_surface_contours" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">extract_flux_surface_contours</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_rational_surfaces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_rational_surfaces</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_sequence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_sequence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_surface" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_surface</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_surface_quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_surface_quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#fractional_cell_weights_from_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_cell_weights_from_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#lab_to_straight_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lab_to_straight_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_equilibrium_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_equilibrium_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#parallel_current_from_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">parallel_current_from_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_at_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_at_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#prepare_boundary_for_shafranov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">prepare_boundary_for_shafranov</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_radial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_radial</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rho" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rho</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rz" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rz</a></li><li class="page-toc-item page-toc-level-3"><a href="#r_at_z_extremum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">r_at_z_extremum</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_layer_at" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_layer_at</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_layer_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_layer_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#scale_boundary_conformal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">scale_boundary_conformal</a></li><li class="page-toc-item page-toc-level-3"><a href="#shafranov_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shafranov_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_to_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_to_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_solovev_constraints" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_solovev_constraints</a></li><li class="page-toc-item page-toc-level-3"><a href="#straight_field_line_tables" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">straight_field_line_tables</a></li><li class="page-toc-item page-toc-level-3"><a href="#trace_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trace_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_conformal_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_conformal_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_thin_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_thin_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_average</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#as_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">as_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_average_boundary_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_average_boundary_poloidal_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_diamagnetism" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_diamagnetism</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_q_profile_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_q_profile_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_reconstructed_diamagnetic_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_reconstructed_diamagnetic_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_equilibrium_requirements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_equilibrium_requirements</a></li><li class="page-toc-item page-toc-level-3"><a href="#computed_diamagnetism_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">computed_diamagnetism_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#connection_length_map" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">connection_length_map</a></li><li class="page-toc-item page-toc-level-3"><a href="#contour_shape_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">contour_shape_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#convert_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">convert_cocos</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_boundary_representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_boundary_representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_global_descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_global_descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_radial_coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_radial_coordinates</a></li><li class="page-toc-item page-toc-level-3"><a href="#efit_virial_volume_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">efit_virial_volume_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_field_on_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_field_on_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_miller" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_miller</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_solovev" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_solovev</a></li><li class="page-toc-item page-toc-level-3"><a href="#extract_flux_surface_contours" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">extract_flux_surface_contours</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_rational_surfaces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_rational_surfaces</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_sequence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_sequence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_surface" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_surface</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_surface_quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_surface_quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#fractional_cell_weights_from_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_cell_weights_from_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#lab_to_straight_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lab_to_straight_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_equilibrium_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_equilibrium_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_vacuum_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_vacuum_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#parallel_current_from_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">parallel_current_from_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_at_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_at_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#prepare_boundary_for_shafranov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">prepare_boundary_for_shafranov</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_radial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_radial</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rho" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rho</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rz" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rz</a></li><li class="page-toc-item page-toc-level-3"><a href="#r_at_z_extremum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">r_at_z_extremum</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_layer_at" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_layer_at</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_layer_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_layer_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#scale_boundary_conformal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">scale_boundary_conformal</a></li><li class="page-toc-item page-toc-level-3"><a href="#shafranov_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shafranov_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_to_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_to_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_solovev_constraints" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_solovev_constraints</a></li><li class="page-toc-item page-toc-level-3"><a href="#straight_field_line_tables" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">straight_field_line_tables</a></li><li class="page-toc-item page-toc-level-3"><a href="#trace_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trace_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_conformal_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_conformal_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_thin_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_thin_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_average</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -4116,7 +4298,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 09:00:32 +0000"
+        "time": "2026-09-16 09:54:54 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
