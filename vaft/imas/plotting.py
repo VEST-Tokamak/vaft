@@ -112,6 +112,24 @@ def plot_neoclassical_profile_bootstrap_current(
     """
     return render("neoclassical_profile_bootstrap_current", source, ax=ax, show=show, label=label, **options)
 
+
+def plot_ntms_time_delta_prime(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Classical tearing index against time, per rational surface.
+
+    Reads the ``ntms`` IDS the tearing-stability stage wrote: one trace per
+    ``(n_tor, m_pol)`` surface, drawn at the times it was found.
+
+    Renders with :func:`vaft.plot.ntms_time_delta_prime` from native IMAS input.
+    """
+    return render("ntms_time_delta_prime", source, ax=ax, show=show, label=label, **options)
+
 __all__ = ["available_plots", "normalize_entries", "render"]
 
 
@@ -1484,21 +1502,6 @@ def plot_magnetics_overview_vacuum(
     Renders with :func:`vaft.plot.magnetics_overview_vacuum` from native IMAS input.
     """
     return render("magnetics_overview_vacuum", source, ax=ax, show=show, label=label, **options)
-
-
-def plot_ntms_time_delta_prime(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Classical tearing index Delta-prime against time, one trace per rational surface; a positive value is a tearing-unstable surface.
-
-    Renders with :func:`vaft.plot.ntms_time_delta_prime` from native IMAS input.
-    """
-    return render("ntms_time_delta_prime", source, ax=ax, show=show, label=label, **options)
 
 
 def plot_mhd_linear_time_energy_perturbed(

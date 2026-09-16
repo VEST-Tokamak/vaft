@@ -79,6 +79,8 @@ from .recipes import (
     _resolve_preset,
     _uncertainty_of,
     _validity_of,
+    CallableRecipe,
+    conversion_reason,
     converts_for_builder,
     diagnoses_itself,
     has_synthetic_values,
@@ -279,6 +281,10 @@ _FIELD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
 def _declare(record: PlotCapability) -> PlotCapability:
     recipe = RECIPES.get(record.name)
     updates: dict[str, Any] = {}
+    if isinstance(recipe, CallableRecipe):
+        updates["computation"] = {
+            "backend": recipe.backend, "reason": recipe.reason, "reads": tuple(recipe.reads),
+        }
     unit = getattr(recipe, "y_unit", None)
     if isinstance(recipe, (LineRecipe, ProfileRecipe)):
         updates["display"] = _display_block(record, unit or "")
@@ -422,7 +428,10 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
     elif diagnoses_itself(record.name):
         reason = "checked at render time"
         if any(converts_for_builder(obj, record.name) for _, obj in entries):
-            reason = "checked at render time; converted per IDS for this input"
+            reason = (
+                "checked at render time; converted per IDS for this input "
+                f"({conversion_reason(record.name)})"
+            )
     updates: dict[str, Any] = {
         "available": available,
         "reason": reason,
