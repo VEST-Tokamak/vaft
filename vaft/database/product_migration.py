@@ -43,6 +43,7 @@ import shutil
 import tempfile
 from typing import Any, Sequence
 
+from ..compat import IS_WINDOWS
 from .filedb import (
     OMAS_MANIFEST_NAME,
     OMAS_PRODUCT_SUFFIX,
@@ -377,8 +378,13 @@ def _fsync_directory(directory: Path) -> None:
     """Make the rename durable, not just visible.
 
     Without this the `os.replace` survives a killed process but not a power
-    loss, and this runs unattended for hours.
+    loss, and this runs unattended for hours. Windows cannot open a directory
+    as a file descriptor for ``fsync``; its atomic replacement has already
+    made the name visible there, so retain the file flush and skip only this
+    POSIX-specific durability step.
     """
+    if IS_WINDOWS:
+        return
     handle = os.open(directory, os.O_RDONLY)
     try:
         os.fsync(handle)
@@ -441,7 +447,7 @@ def _write_projection(
     )
 
     save_product(expected, temporary)
-    with temporary.open("rb") as handle:
+    with temporary.open("r+b") as handle:
         os.fsync(handle.fileno())
     return load_product(temporary), expected, dropped
 

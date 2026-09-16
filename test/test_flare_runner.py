@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import os
 import stat
-from pathlib import Path
 
 import pytest
 
+from vaft.compat import IS_WINDOWS
 from vaft.code.flare import (
     FLARE_TASKS,
     FlareConfig,
@@ -24,21 +24,38 @@ from vaft.code.flare import (
 
 
 @pytest.fixture
-def flare_home(tmp_path):
-    """An installation root holding a driver that echoes how it was called."""
+def flare_driver(tmp_path):
+    """A platform-native driver that echoes how it was called."""
     binary = tmp_path / "bin"
     binary.mkdir()
     driver = binary / "flare"
-    driver.write_text(
-        "#!/usr/bin/env bash\n"
-        'echo "args: $@"\n'
-        'echo "cwd: $PWD"\n'
-        'echo "marker: ${FLARE_TEST_MARKER:-unset}"\n'
-        'for a in "$@"; do [ "$a" == "boom" ] && { echo "failed" >&2; exit 3; }; done\n'
-        "exit 0\n"
-    )
-    driver.chmod(driver.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
-    return tmp_path
+    if IS_WINDOWS:
+        driver = driver.with_name(driver.name + ".cmd")
+        driver.write_text(
+            "@echo off\r\n"
+            "echo args: %*\r\n"
+            "echo cwd: %CD%\r\n"
+            "if defined FLARE_TEST_MARKER (echo marker: %FLARE_TEST_MARKER%) else (echo marker: unset)\r\n"
+            "for %%a in (%*) do if \"%%~a\"==\"boom\" (echo failed 1>&2 & exit /b 3)\r\n"
+            "exit /b 0\r\n",
+            encoding="ascii",
+        )
+    else:
+        driver.write_text(
+            "#!/usr/bin/env bash\n"
+            'echo "args: $@"\n'
+            'echo "cwd: $PWD"\n'
+            'echo "marker: ${FLARE_TEST_MARKER:-unset}"\n'
+            'for a in "$@"; do [ "$a" == "boom" ] && { echo "failed" >&2; exit 3; }; done\n'
+            "exit 0\n"
+        )
+        driver.chmod(driver.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    return driver
+
+
+@pytest.fixture
+def flare_home(flare_driver):
+    return flare_driver.parent.parent
 
 
 # --------------------------------------------------------------------------
@@ -46,8 +63,8 @@ def flare_home(tmp_path):
 # --------------------------------------------------------------------------
 
 
-def test_the_driver_is_found_under_the_installation_root(flare_home):
-    assert flare_executable(flare_home) == flare_home / "bin" / "flare"
+def test_the_driver_is_found_under_the_installation_root(flare_home, flare_driver):
+    assert flare_executable(flare_home) == flare_driver
 
 
 def test_an_unconfigured_home_says_which_variable_to_set(monkeypatch):
@@ -56,9 +73,11 @@ def test_an_unconfigured_home_says_which_variable_to_set(monkeypatch):
         flare_executable()
 
 
-def test_the_environment_supplies_the_root_when_the_argument_does_not(flare_home, monkeypatch):
+def test_the_environment_supplies_the_root_when_the_argument_does_not(
+    flare_home, flare_driver, monkeypatch
+):
     monkeypatch.setenv("FLAREHOME", str(flare_home))
-    assert flare_executable() == flare_home / "bin" / "flare"
+    assert flare_executable() == flare_driver
 
 
 def test_a_build_tree_is_refused_rather_than_run(tmp_path):
@@ -83,7 +102,9 @@ def test_a_driver_without_its_executable_bit_is_refused(tmp_path):
 # --------------------------------------------------------------------------
 
 
-def test_the_task_reaches_the_driver_and_the_result_records_the_command(flare_home, tmp_path):
+def test_the_task_reaches_the_driver_and_the_result_records_the_command(
+    flare_home, flare_driver, tmp_path
+):
     workdir = tmp_path / "case"
     workdir.mkdir()
     result = run_flare("poincare_plot", FlareConfig(workdir=workdir), home=flare_home)
@@ -91,7 +112,7 @@ def test_the_task_reaches_the_driver_and_the_result_records_the_command(flare_ho
     assert result.ok and result.returncode == 0
     assert result.task == "poincare_plot"
     assert "args: poincare_plot" in result.stdout
-    assert result.command[0] == str(flare_home / "bin" / "flare")
+    assert result.command[0] == str(flare_driver)
     assert result.command[-1] == "poincare_plot"
 
 
