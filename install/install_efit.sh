@@ -242,18 +242,12 @@ cmake --build "$BUILD_DIR" -j "$JOBS" >>"$LOG" 2>&1 || die "build failed; see $L
 # EFIT compiles that message in exactly when write_m was compiled out.
 if ((WITH_NETCDF)); then
   if grep -qa 'netcdf needs to be linked to write m-files' "$BUILD_DIR/efit/efit"; then
-    printf '[FAIL] NetCDF was requested but the build did not get it, so this efit writes no m-files.
-' >&2
-    printf '       find_package(NetCDF) found nothing under:
-' >&2
-    printf '         NetCDF_C_DIR       %s
-' "$NETCDF_C_DIR" >&2
-    printf '         NetCDF_FORTRAN_DIR %s
-' "$NETCDF_F_DIR" >&2
-    printf '       Check that each holds the library and the .mod, or pass --without-netcdf
-' >&2
-    printf '       to accept a build with no m-files.
-' >&2
+    printf '[FAIL] NetCDF was requested but the build did not get it, so this efit writes no m-files.\n' >&2
+    printf '       find_package(NetCDF) found nothing under:\n' >&2
+    printf '         NetCDF_C_DIR       %s\n' "$NETCDF_C_DIR" >&2
+    printf '         NetCDF_FORTRAN_DIR %s\n' "$NETCDF_F_DIR" >&2
+    printf '       Check that each holds the library and the .mod, or pass --without-netcdf\n' >&2
+    printf '       to accept a build with no m-files.\n' >&2
     die "see the configure output in $LOG for what find_package looked at"
   fi
   note "NetCDF is compiled in; this build writes m-files"
