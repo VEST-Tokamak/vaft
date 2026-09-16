@@ -2,7 +2,7 @@
 <html lang="en" >
     <head><meta charset="UTF-8">
 <meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Experimental interpretation · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>e049ffa</code>. What is described
+  <code>6e544ba</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,7 +270,9 @@ how VAFT builds it from raw DAQ signals, how the signals are conditioned, and ho
 quantity with the real <code class="language-plaintext highlighter-rouge">vaft.plot</code> API.</p>
 
 <p>All figures below are shot <strong>#39915</strong>, which is also the ODS shipped inside the package
-(<code class="language-plaintext highlighter-rouge">vaft/data/omas/39915.json</code>), so every snippet on this page runs offline.</p>
+(reached with <code class="language-plaintext highlighter-rouge">vaft.omas.sample_ods()</code>, or <code class="language-plaintext highlighter-rouge">vaft.data.sample(39915)</code> for the artifact itself). Most
+snippets on this page therefore run offline; the two that need data the packaged shot does not carry —
+flux-loop voltage and the toroidal phase fit — are marked where they appear.</p>
 
 <hr />
 
@@ -286,11 +288,11 @@ quantity with the real <code class="language-plaintext highlighter-rouge">vaft.p
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">magnetics.b_field_pol_probe.&lt;i&gt;.field.data</code></td>
-      <td>64 $B_z$ pickup coils (integrated, calibrated, baseline-corrected)</td>
+      <td>$B_z$ pickup coils (integrated, calibrated, baseline-corrected) — 76 entries on shot 39915, 63 of them carrying <code class="language-plaintext highlighter-rouge">field</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">magnetics.b_field_pol_probe.&lt;i&gt;.voltage.data</code></td>
-      <td>The same coils, <strong>raw un-integrated voltage</strong> at the native 250 kHz DAQ rate — this is the Mirnov signal</td>
+      <td>The same coils, <strong>raw un-integrated voltage</strong> at the native 250 kHz DAQ rate — this is the Mirnov signal; 70 of the 76 carry it</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">magnetics.flux_loop.&lt;i&gt;.flux.data</code></td>
@@ -351,9 +353,11 @@ runtime</strong>, from <code class="language-plaintext highlighter-rouge">positi
   </tbody>
 </table>
 
-<p>The same thresholds drive the <code class="language-plaintext highlighter-rouge">indices=</code> keyword of the plotting functions and the uncertainty
-grouping in <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.apply_magnetics_uncertainties</code>, so “inboard” means exactly the same
-set of channels everywhere.</p>
+<p>These thresholds drive the uncertainty grouping in <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.apply_magnetics_uncertainties</code>.
+The plot <code class="language-plaintext highlighter-rouge">selection=</code> presets are coarser and do <strong>not</strong> use them: <code class="language-plaintext highlighter-rouge">selection='inboard'</code> is the whole
+high-field side, the 27 inboard probes <em>and</em> the 16 side probes at the inboard corners, so it draws 42
+traces on shot 39915 rather than 27. To plot exactly one of the groups above, select it by position —
+the Inboard $B_z$ section below shows how.</p>
 
 <p>When a shot is mapped from raw signals, <strong>four extra toroidal Mirnov reference probes</strong> are appended
 after the 64 geometry probes (indices 64–67, at $\phi = 0, 2\pi/3, \pi, 4\pi/3$). They exist only to
@@ -546,8 +550,9 @@ uncertainty written at all.</p>
 
 <h1 id="plotting">Plotting</h1>
 
-<p>Every magnetics plotter takes an <strong>ODS or an ODC</strong>, calls <code class="language-plaintext highlighter-rouge">plt.show()</code>, and returns <code class="language-plaintext highlighter-rouge">None</code>. The shared
-keywords are:</p>
+<p>Magnetics plots are reached through the <code class="language-plaintext highlighter-rouge">vaft.omas.plot_*</code> adapters. Each takes an <strong>ODS, an ODC, or a
+list of ODSs</strong>, returns <code class="language-plaintext highlighter-rouge">(Figure, Axes)</code>, and does <strong>not</strong> call <code class="language-plaintext highlighter-rouge">plt.show()</code> unless you pass
+<code class="language-plaintext highlighter-rouge">show=True</code>. The shared keywords are:</p>
 
 <table>
   <thead>
@@ -558,12 +563,16 @@ keywords are:</p>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">indices</code></td>
-      <td><code class="language-plaintext highlighter-rouge">'all'</code>, a group name, an <code class="language-plaintext highlighter-rouge">int</code>, or a list of <code class="language-plaintext highlighter-rouge">int</code></td>
+      <td><code class="language-plaintext highlighter-rouge">selection</code></td>
+      <td><code class="language-plaintext highlighter-rouge">'all'</code>, a region or representative name, an <code class="language-plaintext highlighter-rouge">int</code>, or a list of <code class="language-plaintext highlighter-rouge">int</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">label</code></td>
       <td><code class="language-plaintext highlighter-rouge">'shot'</code> (default), <code class="language-plaintext highlighter-rouge">'run'</code>, <code class="language-plaintext highlighter-rouge">'key'</code>, or a list of one label per ODC entry</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">layout</code></td>
+      <td><code class="language-plaintext highlighter-rouge">'overlay'</code>, <code class="language-plaintext highlighter-rouge">'subplots'</code>, <code class="language-plaintext highlighter-rouge">'grouped'</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">xunit</code></td>
@@ -574,35 +583,49 @@ keywords are:</p>
       <td>per function — see each section</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">xlim</code></td>
-      <td><code class="language-plaintext highlighter-rouge">'plasma'</code> (default, the $I_p$ on/off window), <code class="language-plaintext highlighter-rouge">'coil'</code>, <code class="language-plaintext highlighter-rouge">'none'</code>, or <code class="language-plaintext highlighter-rouge">[t0, t1]</code></td>
+      <td><code class="language-plaintext highlighter-rouge">x_limits</code></td>
+      <td><code class="language-plaintext highlighter-rouge">(t0, t1)</code>, or <code class="language-plaintext highlighter-rouge">None</code> for the full record</td>
     </tr>
   </tbody>
 </table>
 
-<p>An invalid <code class="language-plaintext highlighter-rouge">xlim</code> or <code class="language-plaintext highlighter-rouge">label</code> prints a notice and falls back to the default; an invalid <code class="language-plaintext highlighter-rouge">xunit</code>/<code class="language-plaintext highlighter-rouge">yunit</code>
-is <strong>silently ignored</strong> while the axis label still shows the unit you asked for. Don’t rely on
-validation.</p>
+<p>An unknown option is refused and the message names the ones the plot does take, so
+<code class="language-plaintext highlighter-rouge">vaft.omas.available_plots(ods, detail=True)</code> is the fastest way to see what a given input supports —
+including how many channels are usable and which regions and representatives it offers.</p>
 
-<p>There is no <code class="language-plaintext highlighter-rouge">time_slices</code> argument on any magnetics plotter — a magnetics trace is a full time series.
-To compare several shots, pass an <strong>ODC</strong>; that is the path that renders:</p>
+<p>There is no <code class="language-plaintext highlighter-rouge">time_slices</code> argument on any magnetics plot — a magnetics trace is a full time series.
+To compare several shots, pass an <strong>ODC</strong>:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">odc</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_odc</span><span class="p">()</span>                       <span class="c1"># shots 39915, 41524, 41672
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">magnetics_time_ip</span><span class="p">(</span><span class="n">odc</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">'</span><span class="s">kA</span><span class="sh">'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">shot</span><span class="sh">'</span><span class="p">)</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODC</span>
+
+<span class="n">odc</span> <span class="o">=</span> <span class="nc">ODC</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">shot</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">available_samples</span><span class="p">()):</span>   <span class="c1"># 39915, 41524, 41672
+</span>    <span class="n">odc</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">sample</span><span class="p">(</span><span class="n">shot</span><span class="p">))</span>
+
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_plasma_current_time</span><span class="p">(</span><span class="n">odc</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">'</span><span class="s">kA</span><span class="sh">'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">shot</span><span class="sh">'</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p>Both spellings of every name are live and equivalent: <code class="language-plaintext highlighter-rouge">time_magnetics_ip</code> (canonical) and
-<code class="language-plaintext highlighter-rouge">magnetics_time_ip</code> (alias). The notebooks use the alias form.</p>
+<p>Plot names are built from the physical <strong>subject</strong>, not the IDS that stores it. The older IDS-shaped
+spellings (<code class="language-plaintext highlighter-rouge">magnetics_time_ip</code>, <code class="language-plaintext highlighter-rouge">time_magnetics_ip</code>) still resolve but emit a <code class="language-plaintext highlighter-rouge">DeprecationWarning</code>
+naming their replacement, and they are removed in 0.7.0 and 0.8.0 respectively.
+<code class="language-plaintext highlighter-rouge">vaft.plot.migration_table()</code> renders the current mapping from the code.</p>
 
 <h2 id="inboard-b_z">Inboard $B_z$</h2>
 
-<p>27 pickup coils at $r &lt; 0.09$ m, laid out on a 4 × 7 grid of subplots. Each panel title is the probe
-index and its $(r, z)$ position.</p>
+<p>27 pickup coils at $r &lt; 0.09$ m. The <code class="language-plaintext highlighter-rouge">selection='inboard'</code> preset would also take the 16 side probes, so
+pick these by position:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
 <span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>          <span class="c1"># shot 39915
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">magnetics_time_b_field_pol_probe_field</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">indices</span><span class="o">=</span><span class="sh">'</span><span class="s">inboard</span><span class="sh">'</span><span class="p">)</span>
+</span><span class="n">probes</span> <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.b_field_pol_probe</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">inboard</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">probes</span><span class="p">))</span>
+           <span class="k">if</span> <span class="n">probes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="sh">'</span><span class="s">position.r</span><span class="sh">'</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">0.09</span> <span class="ow">and</span> <span class="nf">abs</span><span class="p">(</span><span class="n">probes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="sh">'</span><span class="s">position.z</span><span class="sh">'</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mf">0.8</span><span class="p">]</span>
+
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_b_field_probe_time_field</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="n">inboard</span><span class="p">,</span> <span class="n">layout</span><span class="o">=</span><span class="sh">'</span><span class="s">subplots</span><span class="sh">'</span><span class="p">)</span>
+
+<span class="c1"># The whole high-field side -- inboard and side probes together:
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_b_field_probe_time_field</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="sh">'</span><span class="s">inboard</span><span class="sh">'</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p><img src="/vaft/develop/assets/images/magnetics/Inboard_B_z.png" alt="Inboard $B_z$ of shot #39915" /></p>
@@ -611,8 +634,8 @@ index and its $(r, z)$ position.</p>
 
 <p>21 coils at $r &gt; 0.795$ m, on a 3 × 7 grid.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">magnetics_time_b_field_pol_probe_field</span><span class="p">(</span>
-    <span class="n">ods</span><span class="p">,</span> <span class="n">indices</span><span class="o">=</span><span class="sh">'</span><span class="s">outboard</span><span class="sh">'</span><span class="p">,</span> <span class="n">xunit</span><span class="o">=</span><span class="sh">'</span><span class="s">ms</span><span class="sh">'</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">'</span><span class="s">T</span><span class="sh">'</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="sh">'</span><span class="s">plasma</span><span class="sh">'</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_b_field_probe_time_field</span><span class="p">(</span>
+    <span class="n">ods</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="sh">'</span><span class="s">outboard</span><span class="sh">'</span><span class="p">,</span> <span class="n">xunit</span><span class="o">=</span><span class="sh">'</span><span class="s">ms</span><span class="sh">'</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">'</span><span class="s">T</span><span class="sh">'</span>
 <span class="p">)</span>
 </code></pre></div></div>
 
@@ -630,10 +653,15 @@ index and its $(r, z)$ position.</p>
   </tbody>
 </table>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">magnetics_time_b_field_pol_probe_field</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">indices</span><span class="o">=</span><span class="sh">'</span><span class="s">side</span><span class="sh">'</span><span class="p">)</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># There is no `side` preset -- `selection='inboard'` already includes these -- so select
+# the side coils on their own by position:
+</span><span class="n">probes</span> <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.b_field_pol_probe</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">side</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">probes</span><span class="p">))</span> <span class="k">if</span> <span class="nf">abs</span><span class="p">(</span><span class="n">probes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="sh">'</span><span class="s">position.z</span><span class="sh">'</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mf">0.8</span><span class="p">]</span>   <span class="c1"># 48..63 on 39915
+</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_b_field_probe_time_field</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="n">side</span><span class="p">)</span>
 
 <span class="c1"># A single probe, or an explicit subset:
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">magnetics_time_b_field_pol_probe_field</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">indices</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">39</span><span class="p">])</span>
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_b_field_probe_time_field</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">39</span><span class="p">])</span>
 </code></pre></div></div>
 
 <p><img src="/vaft/develop/assets/images/magnetics/Side_B_z.png" alt="Side $B_z$ of shot #39915" /></p>
@@ -642,7 +670,7 @@ index and its $(r, z)$ position.</p>
 
 <p>7 loops at $r &lt; 0.15$ m, on a 2 × 4 grid. <code class="language-plaintext highlighter-rouge">yunit='Wb'</code>.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">magnetics_time_flux_loop_flux</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">indices</span><span class="o">=</span><span class="sh">'</span><span class="s">inboard</span><span class="sh">'</span><span class="p">)</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_flux_loop_time_flux</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="sh">'</span><span class="s">inboard</span><span class="sh">'</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p><img src="/vaft/develop/assets/images/magnetics/Inboard_flux_loop.png" alt="Inboard flux loop of shot #39915" /></p>
@@ -651,41 +679,42 @@ index and its $(r, z)$ position.</p>
 
 <p>4 loops at $r &gt; 0.5$ m, on a 2 × 2 grid.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">magnetics_time_flux_loop_flux</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">indices</span><span class="o">=</span><span class="sh">'</span><span class="s">outboard</span><span class="sh">'</span><span class="p">,</span> <span class="n">xunit</span><span class="o">=</span><span class="sh">'</span><span class="s">ms</span><span class="sh">'</span><span class="p">)</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_flux_loop_time_flux</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="sh">'</span><span class="s">outboard</span><span class="sh">'</span><span class="p">,</span> <span class="n">xunit</span><span class="o">=</span><span class="sh">'</span><span class="s">ms</span><span class="sh">'</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p><img src="/vaft/develop/assets/images/magnetics/Outboard_flux_loop.png" alt="Outboard flux loop of shot #39915" /></p>
 
 <p>The loop voltage $V_{loop} = -\,d\Psi/dt$ is derived from the same flux data — the
-<code class="language-plaintext highlighter-rouge">inboard_midplane</code> group ($r = 0.091$ m) is the one you want for the breakdown loop voltage:</p>
+<code class="language-plaintext highlighter-rouge">inboard_midplane</code> group ($r = 0.091$ m) is the one you want for the breakdown loop voltage. The
+packaged shot carries no <code class="language-plaintext highlighter-rouge">flux_loop.&lt;i&gt;.voltage.data</code>, so this one needs a database shot:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">magnetics_time_flux_loop_voltage</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">indices</span><span class="o">=</span><span class="sh">'</span><span class="s">inboard_midplane</span><span class="sh">'</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">'</span><span class="s">V</span><span class="sh">'</span><span class="p">)</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_flux_loop_time_voltage</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="sh">'</span><span class="s">inboard_midplane</span><span class="sh">'</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">'</span><span class="s">V</span><span class="sh">'</span><span class="p">)</span>
 </code></pre></div></div>
 
 <h2 id="plasma-current">Plasma current</h2>
 
 <p><code class="language-plaintext highlighter-rouge">yunit</code> accepts <code class="language-plaintext highlighter-rouge">'A'</code>, <code class="language-plaintext highlighter-rouge">'kA'</code> and <code class="language-plaintext highlighter-rouge">'MA'</code> (default <code class="language-plaintext highlighter-rouge">'MA'</code>).</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">magnetics_time_ip</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">'</span><span class="s">kA</span><span class="sh">'</span><span class="p">,</span> <span class="n">xunit</span><span class="o">=</span><span class="sh">'</span><span class="s">ms</span><span class="sh">'</span><span class="p">)</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_plasma_current_time</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">'</span><span class="s">kA</span><span class="sh">'</span><span class="p">,</span> <span class="n">xunit</span><span class="o">=</span><span class="sh">'</span><span class="s">ms</span><span class="sh">'</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p><img src="/vaft/develop/assets/images/magnetics/plasma_current.png" alt="Plasma current of shot #39915" /></p>
 
-<p>The default <code class="language-plaintext highlighter-rouge">xlim='plasma'</code> derives the window from the $I_p$ on/off times, so the discharge fills the
-axes. Pass <code class="language-plaintext highlighter-rouge">xlim='none'</code> to see the full DAQ record, or <code class="language-plaintext highlighter-rouge">xlim=[0.28, 0.34]</code> for an explicit window.</p>
+<p>The default window is derived from the $I_p$ on/off times, so the discharge fills the axes. Pass
+<code class="language-plaintext highlighter-rouge">x_limits=None</code> to see the full DAQ record, or <code class="language-plaintext highlighter-rouge">x_limits=(0.28, 0.34)</code> for an explicit window.</p>
 
 <h2 id="diamagnetic-flux">Diamagnetic flux</h2>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">magnetics_time_diamagnetic_flux</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">'</span><span class="s">Wb</span><span class="sh">'</span><span class="p">)</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_diamagnetic_flux_time</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">'</span><span class="s">Wb</span><span class="sh">'</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p><img src="/vaft/develop/assets/images/magnetics/diamagnetic_flux.png" alt="Diamagnetic Flux of shot #39915" /></p>
 
-<p><code class="language-plaintext highlighter-rouge">time_diamagnetic_flux</code> is a <strong>different function</strong>: it overlays the raw magnetics flux with the
+<p><code class="language-plaintext highlighter-rouge">plot_equilibrium_time_diamagnetic_flux</code> is a <strong>different plot</strong>: it overlays the raw magnetics flux with the
 <code class="language-plaintext highlighter-rouge">equilibrium</code>-measured and <code class="language-plaintext highlighter-rouge">equilibrium</code>-reconstructed values, which is the check you want after an
 equilibrium reconstruction:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_diamagnetic_flux</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>      <span class="c1"># magnetics + equilibrium measured + reconstructed
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_equilibrium_time_diamagnetic_flux</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>   <span class="c1"># magnetics + measured + reconstructed
 </span></code></pre></div></div>
 
 <p>See <a href="/vaft/develop/guide/Equilibrium/">Equilibrium</a> for how the reconstructed value is computed.</p>
@@ -695,8 +724,15 @@ equilibrium reconstruction:</p>
 <h1 id="mirnov-and-fluctuation-diagnostics">Mirnov and fluctuation diagnostics</h1>
 
 <p>The Mirnov analysis works on <code class="language-plaintext highlighter-rouge">magnetics.b_field_pol_probe.&lt;i&gt;.voltage</code> — the <strong>raw, un-integrated</strong>
-coil voltage at the native 250 kHz DAQ rate. The packaged 39915 ODS carries only the integrated
-<code class="language-plaintext highlighter-rouge">field</code> data, so build the ODS from a raw dump first (shot 44740 ships with the package):</p>
+coil voltage at the native 250 kHz DAQ rate. The packaged 39915 ODS carries this: 70 of its 76 probes
+have <code class="language-plaintext highlighter-rouge">voltage.data</code>, so the plots below run offline from <code class="language-plaintext highlighter-rouge">vaft.omas.sample_ods()</code>.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>          <span class="c1"># shot 39915
+</span></code></pre></div></div>
+
+<p>To build the same IDS from a raw DAQ dump instead — shot 44740 ships with the package — map it first:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">os</span>
 <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="sh">"</span><span class="s">VAFT_RAW_SAMPLE_PATH</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">vaft/data/legacy/shot_{shot}.json.gz</span><span class="sh">"</span>
@@ -709,85 +745,66 @@ coil voltage at the native 250 kHz DAQ rate. The packaged 39915 ODS carries only
 <span class="nf">vfit_magnetics_for_shot</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">44740</span><span class="p">,</span> <span class="n">tstart</span><span class="o">=</span><span class="mf">0.26</span><span class="p">,</span> <span class="n">tend</span><span class="o">=</span><span class="mf">0.34</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">4e-5</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p>Unlike the older plotters, the Mirnov functions <strong>return <code class="language-plaintext highlighter-rouge">(fig, ax)</code></strong> and accept <code class="language-plaintext highlighter-rouge">ax=</code> and
-<code class="language-plaintext highlighter-rouge">show=False</code>, so they compose into your own subplot grid.</p>
+<p>Every plot below returns <code class="language-plaintext highlighter-rouge">(fig, ax)</code> and accepts <code class="language-plaintext highlighter-rouge">ax=</code> and <code class="language-plaintext highlighter-rouge">show=</code>, so they compose into your own
+subplot grid.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft.plot</span> <span class="k">as</span> <span class="n">vplot</span>
-
-<span class="n">inboard_channel</span> <span class="o">=</span> <span class="mi">14</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">inboard_channel</span> <span class="o">=</span> <span class="mi">14</span>
 <span class="n">outboard_channel</span> <span class="o">=</span> <span class="mi">37</span>
 <span class="n">time_range</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.304</span><span class="p">,</span> <span class="mf">0.330</span><span class="p">)</span>
 
-<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">vplot</span><span class="p">.</span><span class="nf">mirnov_signal</span><span class="p">(</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_mirnov_time_voltage</span><span class="p">(</span>
     <span class="n">ods</span><span class="p">,</span>
-    <span class="n">channels</span><span class="o">=</span><span class="p">[</span><span class="n">inboard_channel</span><span class="p">,</span> <span class="n">outboard_channel</span><span class="p">],</span>
+    <span class="n">selection</span><span class="o">=</span><span class="p">[</span><span class="n">inboard_channel</span><span class="p">,</span> <span class="n">outboard_channel</span><span class="p">],</span>
     <span class="n">time_range</span><span class="o">=</span><span class="n">time_range</span><span class="p">,</span>
     <span class="n">preprocess</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>          <span class="c1"># False = raw volts; True = high-pass 2 kHz / low-pass 90 kHz, gain-corrected
-</span>    <span class="n">show</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
-<span class="p">)</span>
+</span><span class="p">)</span>
 <span class="n">ax</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">"</span><span class="s">Mirnov voltage</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p>A spectrogram of one channel — <code class="language-plaintext highlighter-rouge">max_frequency</code> crops the frequency axis, <code class="language-plaintext highlighter-rouge">window_size</code> sets the FFT
-window (must be even):</p>
+<p>A spectrogram of one channel. <code class="language-plaintext highlighter-rouge">method=</code> selects the transform, and each method carries its own
+parameters — <code class="language-plaintext highlighter-rouge">stft</code> takes <code class="language-plaintext highlighter-rouge">nperseg</code> / <code class="language-plaintext highlighter-rouge">noverlap</code> / <code class="language-plaintext highlighter-rouge">window</code> / <code class="language-plaintext highlighter-rouge">detrend</code>, <code class="language-plaintext highlighter-rouge">hann_fft</code> takes
+<code class="language-plaintext highlighter-rouge">window_size</code> / <code class="language-plaintext highlighter-rouge">time_resolution</code>, and <code class="language-plaintext highlighter-rouge">cwt</code> takes <code class="language-plaintext highlighter-rouge">frequency_range</code> / <code class="language-plaintext highlighter-rouge">n_frequencies</code>:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">vplot</span><span class="p">.</span><span class="nf">mirnov_spectrogram</span><span class="p">(</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_mirnov_spectrogram</span><span class="p">(</span>
     <span class="n">ods</span><span class="p">,</span>
-    <span class="n">channel</span><span class="o">=</span><span class="n">inboard_channel</span><span class="p">,</span>
+    <span class="n">selection</span><span class="o">=</span><span class="p">[</span><span class="n">inboard_channel</span><span class="p">],</span>
     <span class="n">time_range</span><span class="o">=</span><span class="n">time_range</span><span class="p">,</span>
-    <span class="n">max_frequency</span><span class="o">=</span><span class="mf">80e3</span><span class="p">,</span>
+    <span class="n">method</span><span class="o">=</span><span class="sh">"</span><span class="s">hann_fft</span><span class="sh">"</span><span class="p">,</span>
     <span class="n">window_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
-    <span class="n">show</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
 <span class="p">)</span>
+</code></pre></div></div>
 
-<span class="c1"># Ask for the numbers instead of just the picture:
-</span><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="n">vplot</span><span class="p">.</span><span class="nf">mirnov_spectrogram</span><span class="p">(</span>
-    <span class="n">ods</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="n">inboard_channel</span><span class="p">,</span> <span class="n">time_range</span><span class="o">=</span><span class="n">time_range</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">return_result</span><span class="o">=</span><span class="bp">True</span>
-<span class="p">)</span>
-<span class="n">result</span><span class="p">.</span><span class="n">time</span><span class="p">,</span> <span class="n">result</span><span class="p">.</span><span class="n">frequency</span><span class="p">,</span> <span class="n">result</span><span class="p">.</span><span class="n">magnitude</span>    <span class="c1"># a MirnovSpectrogramResult
-</span></code></pre></div></div>
+<p>For the power spectral density of one channel rather than its time-frequency map:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_mirnov_spectrum</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="p">[</span><span class="n">inboard_channel</span><span class="p">],</span> <span class="n">time_range</span><span class="o">=</span><span class="n">time_range</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.omas.available_plots(ods, query="mirnov", detail=True)</code> prints the methods, their parameters and
+the channels <em>this</em> input can actually use.</p>
 
 <h2 id="toroidal-mode-numbers">Toroidal mode numbers</h2>
 
-<p>Two toroidally separated probes give the mode number $n$ from the cross-spectral phase,
-$n = \arg\,S_{ab}(f) / \Delta\phi$. <code class="language-plaintext highlighter-rouge">toroidal_mode_spectrum</code> returns <code class="language-plaintext highlighter-rouge">(fig, axes, result)</code> with three
-stacked panels (cross power, $n$, coherence):</p>
+<p>Probes separated in toroidal angle give the mode number $n$ from the wrapped phase of each
+fluctuation band, fitted against toroidal angle at one instant. That is
+<code class="language-plaintext highlighter-rouge">plot_mirnov_spatial_phase</code>, whose <code class="language-plaintext highlighter-rouge">wrapped n fit</code> method takes <code class="language-plaintext highlighter-rouge">frequencies</code>, <code class="language-plaintext highlighter-rouge">num_modes</code>,
+<code class="language-plaintext highlighter-rouge">candidate_n</code>, <code class="language-plaintext highlighter-rouge">channels</code>, <code class="language-plaintext highlighter-rouge">window_size</code>, <code class="language-plaintext highlighter-rouge">show_fit</code> and <code class="language-plaintext highlighter-rouge">preprocess</code>:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
-
-<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="n">vplot</span><span class="p">.</span><span class="nf">toroidal_mode_spectrum</span><span class="p">(</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_mirnov_spatial_phase</span><span class="p">(</span>
     <span class="n">ods</span><span class="p">,</span>
-    <span class="n">channel_pair</span><span class="o">=</span><span class="p">(</span><span class="mi">65</span><span class="p">,</span> <span class="mi">67</span><span class="p">),</span>            <span class="c1"># two of the four toroidal reference probes
-</span>    <span class="n">time_range</span><span class="o">=</span><span class="p">(</span><span class="mf">0.304</span><span class="p">,</span> <span class="mf">0.330</span><span class="p">),</span>
-    <span class="n">phase_geometry</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">6</span><span class="p">,</span>         <span class="c1"># toroidal separation of the pair, in radians
-</span>    <span class="n">show</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
-    <span class="n">return_result</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="n">result</span><span class="p">.</span><span class="n">frequency</span><span class="p">,</span> <span class="n">result</span><span class="p">.</span><span class="n">n</span><span class="p">,</span> <span class="n">result</span><span class="p">.</span><span class="n">coherence</span>       <span class="c1"># a ToroidalModeResult
-</span></code></pre></div></div>
-
-<p>With all four probes you can fit the wrapped phase against toroidal angle at one instant and separate
-several simultaneous modes. <code class="language-plaintext highlighter-rouge">toroidal_phase_mode_fit</code> returns <code class="language-plaintext highlighter-rouge">(fig, ax, result)</code>:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span><span class="p">,</span> <span class="n">fit</span> <span class="o">=</span> <span class="n">vplot</span><span class="p">.</span><span class="nf">toroidal_phase_mode_fit</span><span class="p">(</span>
-    <span class="n">ods</span><span class="p">,</span>
-    <span class="n">center_time</span><span class="o">=</span><span class="mf">0.310</span><span class="p">,</span>
-    <span class="n">channels</span><span class="o">=</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">65</span><span class="p">,</span> <span class="mi">66</span><span class="p">,</span> <span class="mi">67</span><span class="p">),</span>
-    <span class="n">time_range</span><span class="o">=</span><span class="p">(</span><span class="mf">0.304</span><span class="p">,</span> <span class="mf">0.330</span><span class="p">),</span>
+    <span class="n">time</span><span class="o">=</span><span class="mf">0.310</span><span class="p">,</span>
     <span class="n">frequencies</span><span class="o">=</span><span class="p">[</span><span class="mf">26e3</span><span class="p">,</span> <span class="mf">52e3</span><span class="p">],</span>         <span class="c1"># None -&gt; dominant peaks are picked automatically
 </span>    <span class="n">num_modes</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
     <span class="n">candidate_n</span><span class="o">=</span><span class="nf">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
     <span class="n">window_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
     <span class="n">preprocess</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
-    <span class="n">show</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
-    <span class="n">return_result</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="k">for</span> <span class="n">mode</span> <span class="ow">in</span> <span class="n">fit</span><span class="p">.</span><span class="n">modes</span><span class="p">:</span>                 <span class="c1"># sorted by amplitude, descending
-</span>    <span class="nf">print</span><span class="p">(</span><span class="n">mode</span><span class="p">.</span><span class="n">frequency</span><span class="p">,</span> <span class="n">mode</span><span class="p">.</span><span class="n">n</span><span class="p">,</span> <span class="n">mode</span><span class="p">.</span><span class="n">rms_error</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p>Everything after <code class="language-plaintext highlighter-rouge">*</code> in these signatures is keyword-only, and the default channels (64–67) and pair
-(65, 67) are the VEST toroidal reference probes — pass your own if you are analysing a different set.</p>
+<p>The fit needs probes that carry a toroidal angle as well as a waveform. Restricting <code class="language-plaintext highlighter-rouge">channels=</code> to a
+set that has no <code class="language-plaintext highlighter-rouge">position.phi</code> is refused, and the message lists the channels this input does offer —
+so start from the default selection and narrow it only once you know the shot’s toroidal array. Which
+array a shot has is recorded in the machine description; see
+<a href="/vaft/develop/workflows/data-access-imas/">Machine mapping</a>.</p>
 
 <p>The same kernels are callable without an ODS, on bare arrays:</p>
 
@@ -821,10 +838,10 @@ afterwards:</p>
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
 <span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">magnetics_time_ip</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_plasma_current_time</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
 
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">change_time_convention</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="sh">'</span><span class="s">breakdown</span><span class="sh">'</span><span class="p">)</span>   <span class="c1"># 'daq' | 'vloop' | 'ip' | 'breakdown'
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">magnetics_time_ip</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_plasma_current_time</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
 </code></pre></div></div>
 
 <hr />
@@ -1123,7 +1140,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 08:22:11 +0000"
+        "time": "2026-09-16 08:44:52 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

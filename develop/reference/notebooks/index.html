@@ -2,7 +2,7 @@
 <html lang="en" >
     <head><meta charset="UTF-8">
 <meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Notebooks · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>e049ffa</code>. What is described
+  <code>6e544ba</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -653,26 +653,28 @@
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
 <span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>   <span class="c1"># one shot
-</span><span class="n">odc</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_odc</span><span class="p">()</span>   <span class="c1"># a collection of three shots
 </span>
 <span class="nf">list</span><span class="p">(</span><span class="n">ods</span><span class="p">.</span><span class="nf">keys</span><span class="p">())</span>
 <span class="nf">print</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">"</span><span class="s">equilibrium.time</span><span class="sh">"</span><span class="p">])</span>
 <span class="nf">print</span><span class="p">(</span><span class="nf">list</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">"</span><span class="s">equilibrium.time_slice.0</span><span class="sh">"</span><span class="p">].</span><span class="nf">keys</span><span class="p">()))</span>
 </code></pre></div></div>
 
-<p>To reach a packaged file by name rather than through the sample helpers, use the resource accessor — it resolves paths inside the installed package:</p>
+<p>To reach another registered shot, or the same shot in a different representation, ask the sample registry:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.data.resources</span> <span class="kn">import</span> <span class="n">data_path</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
-<span class="n">sample_path</span> <span class="o">=</span> <span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">omas/39915.json</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">available_samples</span><span class="p">()</span>                          <span class="c1"># (39915, 41524, 41672)
+</span><span class="n">sample_path</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">sample</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>                  <span class="c1"># packaged OMAS artifact
+</span><span class="n">imas_path</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">sample</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="sh">"</span><span class="s">imas</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p>For the IMAS round trip:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.imas</span> <span class="kn">import</span> <span class="n">save_omas_imas</span><span class="p">,</span> <span class="n">load_omas_imas</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">tempfile</span>
 
-<span class="nf">save_omas_imas</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">user</span><span class="o">=</span><span class="sh">"</span><span class="s">test_user</span><span class="sh">"</span><span class="p">,</span> <span class="n">machine</span><span class="o">=</span><span class="sh">"</span><span class="s">VEST</span><span class="sh">"</span><span class="p">,</span> <span class="n">pulse</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span> <span class="n">run</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="n">ods_back</span> <span class="o">=</span> <span class="nf">load_omas_imas</span><span class="p">(</span><span class="n">user</span><span class="o">=</span><span class="sh">"</span><span class="s">test_user</span><span class="sh">"</span><span class="p">,</span> <span class="n">machine</span><span class="o">=</span><span class="sh">"</span><span class="s">VEST</span><span class="sh">"</span><span class="p">,</span> <span class="n">pulse</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span> <span class="n">run</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">entry_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="p">.</span><span class="nf">mkdtemp</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="sh">"</span><span class="s">vest_imas_</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">imas</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">entry_dir</span><span class="p">)</span>
+<span class="n">ods_back</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">entry_dir</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p>Related reading: <a href="/vaft/develop/guide/Data_structures/">Data structures</a> and <a href="/vaft/develop/guide/Machine_mapping/">Machine mapping</a>.</p>
@@ -710,14 +712,14 @@
 
 <p>The soft X-ray notebook is a good template for “raw file to ODS to plot” in one pass:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.soft_x_rays</span> <span class="kn">import</span> <span class="n">soft_x_rays_from_digitizer_csv</span>
-<span class="kn">from</span> <span class="n">vaft.plot</span> <span class="kn">import</span> <span class="n">plot_soft_x_ray_los</span><span class="p">,</span> <span class="n">plot_soft_x_ray_signal</span><span class="p">,</span> <span class="n">plot_soft_x_ray_spectrogram</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.soft_x_rays</span> <span class="kn">import</span> <span class="n">soft_x_rays_from_digitizer_csv</span>
 
 <span class="n">ods</span> <span class="o">=</span> <span class="nf">soft_x_rays_from_digitizer_csv</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">daq_label</span><span class="p">,</span> <span class="n">digitizer_file</span><span class="o">=</span><span class="n">plasma_file</span><span class="p">)</span>
 
-<span class="nf">plot_soft_x_ray_los</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">arrays</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">lowermid</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">bottom</span><span class="sh">"</span><span class="p">])</span>
-<span class="nf">plot_soft_x_ray_signal</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
-<span class="nf">plot_soft_x_ray_spectrogram</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_soft_x_rays_geometry_lines_of_sight</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">lowermid</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">bottom</span><span class="sh">"</span><span class="p">])</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_soft_x_rays_time_power</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_soft_x_rays_spectrogram</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p>See <a href="/vaft/develop/guide/Magnetics/">Magnetics</a> and <a href="/vaft/develop/guide/Processing/">Processing</a>.</p>
@@ -885,9 +887,9 @@
 
 <span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">40330</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>
 
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">plot_thomson_radial_position</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">plot_thomson_time_series</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">plot_electron_profile_with_thomson</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_thomson_scattering_geometry_poloidal</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_thomson_scattering_time_electron_temperature</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_electron_temperature_profile</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p>See <a href="/vaft/develop/guide/Profiles/">Profiles</a> and <a href="/vaft/develop/guide/Formula/">Formula</a>.</p>
@@ -921,32 +923,39 @@
   </tbody>
 </table>
 
-<p>The plot module names functions as <code class="language-plaintext highlighter-rouge">{ids}_{coordinate}_{quantity}</code> — for example <code class="language-plaintext highlighter-rouge">time_magnetics_ip</code>. Any plot function accepts a single ODS, an ODC, or a list of ODS objects, which is what makes shot overlays trivial:</p>
+<p>Canonical plots are named <code class="language-plaintext highlighter-rouge">vaft.omas.plot_{subject}_{view}[_{quantity}]</code> — the subject is the physical
+thing, not the IDS that stores it, so the plasma current is <code class="language-plaintext highlighter-rouge">plot_plasma_current_time</code>. Any adapter accepts a
+single ODS, an ODC, or a list of ODS objects, which is what makes shot overlays trivial:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+<span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODC</span>
 
 <span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
-<span class="n">odc</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_odc</span><span class="p">()</span>
 
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_magnetics_ip</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_magnetics_ip</span><span class="p">(</span><span class="n">odc</span><span class="p">)</span>          <span class="c1"># overlays every shot in the collection
+<span class="n">odc</span> <span class="o">=</span> <span class="nc">ODC</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">shot</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">available_samples</span><span class="p">()):</span>
+    <span class="n">odc</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">sample</span><span class="p">(</span><span class="n">shot</span><span class="p">))</span>
+
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_plasma_current_time</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_plasma_current_time</span><span class="p">(</span><span class="n">odc</span><span class="p">)</span>   <span class="c1"># overlays every shot in the collection
 </span>
 <span class="c1"># Re-zero the time axis on breakdown, then replot
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">change_time_convention</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="sh">"</span><span class="s">breakdown</span><span class="sh">"</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_magnetics_ip</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_plasma_current_time</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p><img src="/vaft/develop/assets/images/magnetics/plasma_current.png" alt="Magnetics example" /></p>
 
-<p>Composite figures are single calls:</p>
+<p>Composite figures are single calls — here the vacuum flux map drawn over the machine geometry:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
 <span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">overlay_all_with_vacuum_psi_contour</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_equilibrium_field_psi_vacuum</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">overlay</span><span class="o">=</span><span class="p">(</span><span class="sh">"</span><span class="s">coils</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">wall</span><span class="sh">"</span><span class="p">))</span>
 </code></pre></div></div>
 
-<p>See <a href="/vaft/develop/guide/Plotting/">Plotting</a> for the full catalogue.</p>
+<p><code class="language-plaintext highlighter-rouge">vaft.omas.available_plots()</code> prints the full catalogue, and <code class="language-plaintext highlighter-rouge">available_plots(ods)</code> narrows it to what one
+input can actually draw.</p>
 
 <h2 id="operations-and-monitoring">Operations and monitoring</h2>
 
@@ -987,16 +996,17 @@
 <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nc">DataFrame</span><span class="p">({</span><span class="sh">"</span><span class="s">Shot Number</span><span class="sh">"</span><span class="p">:</span> <span class="n">core_profile_shots</span><span class="p">,</span> <span class="sh">"</span><span class="s">Status</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">core_profile</span><span class="sh">"</span><span class="p">]})</span>
 </code></pre></div></div>
 
-<p><strong>2. <code class="language-plaintext highlighter-rouge">vaft.omas.load_omas_json()</code> does not exist, and the packaged data moved.</strong> Sample JSON files are no longer flat under <code class="language-plaintext highlighter-rouge">vaft/data/</code>; they live under <code class="language-plaintext highlighter-rouge">vaft/data/omas/</code>. Notebooks that still build a path like <code class="language-plaintext highlighter-rouge">os.path.join(os.path.dirname(vaft.__file__), "data", "39915.json")</code> — including <code class="language-plaintext highlighter-rouge">vest_daily_monitoring.ipynb</code> and parts of <code class="language-plaintext highlighter-rouge">read_and_convert_data_structure.ipynb</code> — will fail. Use the sample helpers or the resource accessor instead:</p>
+<p><strong>2. The packaged data moved.</strong> Sample files are no longer flat under <code class="language-plaintext highlighter-rouge">vaft/data/</code>, and the interim
+<code class="language-plaintext highlighter-rouge">vaft/data/omas/</code> layout is gone too: each registered shot now lives in <code class="language-plaintext highlighter-rouge">vaft/data/samples/{shot}/</code> behind
+<code class="language-plaintext highlighter-rouge">vaft.data.sample()</code>. Notebooks that still build a path like
+<code class="language-plaintext highlighter-rouge">os.path.join(os.path.dirname(vaft.__file__), "data", "39915.json")</code> will fail. Use the sample helpers or the
+registry instead:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
-<span class="kn">from</span> <span class="n">vaft.data.resources</span> <span class="kn">import</span> <span class="n">data_path</span>
 
-<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>            <span class="c1"># preferred
-</span><span class="n">sample_path</span> <span class="o">=</span> <span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">omas/39915.json</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># or resolve the file explicitly
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>          <span class="c1"># preferred
+</span><span class="n">sample_path</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">sample</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span> <span class="c1"># or resolve the artifact explicitly
 </span></code></pre></div></div>
-
-<p>Note that <code class="language-plaintext highlighter-rouge">load_omas_json</code> <em>does</em> exist in the upstream <code class="language-plaintext highlighter-rouge">omas</code> package (<code class="language-plaintext highlighter-rouge">from omas import load_omas_json</code>); only the <code class="language-plaintext highlighter-rouge">vaft.omas</code> alias was removed.</p>
 
 <h2 id="recommended-order">Recommended order</h2>
 
@@ -1360,7 +1370,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 08:22:11 +0000"
+        "time": "2026-09-16 08:44:52 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

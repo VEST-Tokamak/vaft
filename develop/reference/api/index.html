@@ -2,7 +2,7 @@
 <html lang="en" >
     <head><meta charset="UTF-8">
 <meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>VAFT API · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>e049ffa</code>. What is described
+  <code>6e544ba</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -275,10 +275,9 @@ real ones — copy them.</p>
 
 <p>Importing <code class="language-plaintext highlighter-rouge">vaft</code> is cheap. The top-level package exposes its subpackages <strong>lazily</strong> (<code class="language-plaintext highlighter-rouge">__getattr__</code>),
 so <code class="language-plaintext highlighter-rouge">import vaft</code> does not drag in <code class="language-plaintext highlighter-rouge">omas</code>, <code class="language-plaintext highlighter-rouge">imas</code> or <code class="language-plaintext highlighter-rouge">matplotlib</code> until you actually touch
-<code class="language-plaintext highlighter-rouge">vaft.omas</code>, <code class="language-plaintext highlighter-rouge">vaft.imas</code> or <code class="language-plaintext highlighter-rouge">vaft.plot</code>. Two compatibility shims are applied at import time —
-<code class="language-plaintext highlighter-rouge">vaft.apply_runtime_compat_patches()</code> and <code class="language-plaintext highlighter-rouge">vaft.apply_omfit_compat_patches()</code> — which restore
-NumPy/SciPy APIs that recent releases removed (<code class="language-plaintext highlighter-rouge">trapz</code>, <code class="language-plaintext highlighter-rouge">cumtrapz</code>, <code class="language-plaintext highlighter-rouge">interp2d</code>) so that OMFIT-derived
-code keeps working. You never need to call them yourself.</p>
+<code class="language-plaintext highlighter-rouge">vaft.omas</code>, <code class="language-plaintext highlighter-rouge">vaft.imas</code> or <code class="language-plaintext highlighter-rouge">vaft.plot</code>. A compatibility shim is applied at import time —
+<code class="language-plaintext highlighter-rouge">vaft.apply_runtime_compat_patches()</code> — which restores NumPy/SciPy APIs that recent releases removed
+(<code class="language-plaintext highlighter-rouge">trapz</code>, <code class="language-plaintext highlighter-rouge">cumtrapz</code>, <code class="language-plaintext highlighter-rouge">interp2d</code>) so that OMFIT-derived code keeps working. You never need to call them yourself.</p>
 
 <h1 id="package-map">Package map</h1>
 
@@ -430,8 +429,10 @@ how the test suite decides to skip online tests. Credentials are managed by <cod
 <h2 id="sample-data-works-offline">Sample data (works offline)</h2>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>    <span class="c1"># packaged shot 39915
-</span><span class="n">odc</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_odc</span><span class="p">()</span>    <span class="c1"># 39915, 41524, 41672
 </span><span class="n">geq</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_gfile</span><span class="p">()</span>  <span class="c1"># packaged g-file as a GEQDSK object
+</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">available_samples</span><span class="p">()</span>   <span class="c1"># (39915, 41524, 41672)
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">sample</span><span class="p">(</span><span class="mi">41524</span><span class="p">)</span>         <span class="c1"># path to one registered sample
 </span></code></pre></div></div>
 
 <h2 id="shot-introspection--general">Shot introspection — <code class="language-plaintext highlighter-rouge">general</code></h2>
@@ -632,9 +633,8 @@ place:</p>
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">summary</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p>Two names in this namespace are reserved but not wired up yet:
-<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.equilibrium</code> and <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.pf_plasma</code> raise
-<code class="language-plaintext highlighter-rouge">NotImplementedError</code>. Equilibria enter the ODS through <code class="language-plaintext highlighter-rouge">vaft.code</code> (EFIT/CHEASE) instead.</p>
+<p>There is no <code class="language-plaintext highlighter-rouge">equilibrium</code> or <code class="language-plaintext highlighter-rouge">pf_plasma</code> mapper in this namespace: equilibria enter the ODS through
+<code class="language-plaintext highlighter-rouge">vaft.code</code> (EFIT/CHEASE) instead.</p>
 
 <p>Kinetic and imaging diagnostics take a shot number plus an optional data root:</p>
 
@@ -677,21 +677,24 @@ with <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.raw
 
 <h1 id="vaftplot"><code class="language-plaintext highlighter-rouge">vaft.plot</code></h1>
 
-<p>Every plotting function takes an ODS or an ODC (a multi-shot container) — pass an ODC and the shots
-are overlaid. The common keywords are <code class="language-plaintext highlighter-rouge">label</code> (<code class="language-plaintext highlighter-rouge">'shot'</code>, <code class="language-plaintext highlighter-rouge">'pulse'</code>, <code class="language-plaintext highlighter-rouge">'run'</code>, <code class="language-plaintext highlighter-rouge">'key'</code>, or an explicit
-list), <code class="language-plaintext highlighter-rouge">xunit</code> (<code class="language-plaintext highlighter-rouge">'s'</code> or <code class="language-plaintext highlighter-rouge">'ms'</code>), <code class="language-plaintext highlighter-rouge">yunit</code>, and <code class="language-plaintext highlighter-rouge">xlim</code> (<code class="language-plaintext highlighter-rouge">'plasma'</code>, <code class="language-plaintext highlighter-rouge">'coil'</code>, <code class="language-plaintext highlighter-rouge">'none'</code>, or
-<code class="language-plaintext highlighter-rouge">[t0, t1]</code>).</p>
+<p><code class="language-plaintext highlighter-rouge">vaft.plot</code> owns the renderers, which take typed view models. From an ODS you reach them through the
+<code class="language-plaintext highlighter-rouge">vaft.omas.plot_*</code> adapters, named <code class="language-plaintext highlighter-rouge">plot_{subject}_{view}[_{quantity}]</code>. Every adapter takes an ODS, an
+ODC (a multi-shot container) or a list of ODSs — pass several and the shots are overlaid — and returns
+<code class="language-plaintext highlighter-rouge">(Figure, Axes)</code>. The common keywords are <code class="language-plaintext highlighter-rouge">selection</code> (a preset, an index or a list of indices), <code class="language-plaintext highlighter-rouge">label</code>
+(<code class="language-plaintext highlighter-rouge">'shot'</code>, <code class="language-plaintext highlighter-rouge">'pulse'</code>, <code class="language-plaintext highlighter-rouge">'run'</code>, <code class="language-plaintext highlighter-rouge">'key'</code>, or an explicit list), <code class="language-plaintext highlighter-rouge">layout</code>, <code class="language-plaintext highlighter-rouge">xunit</code> (<code class="language-plaintext highlighter-rouge">'s'</code> or <code class="language-plaintext highlighter-rouge">'ms'</code>),
+<code class="language-plaintext highlighter-rouge">yunit</code>, and <code class="language-plaintext highlighter-rouge">x_limits</code> (<code class="language-plaintext highlighter-rouge">(t0, t1)</code>). <code class="language-plaintext highlighter-rouge">vaft.omas.available_plots(ods, detail=True)</code> lists what a given
+input can draw and which options each plot takes.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
 <span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
 
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_magnetics_ip</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">"</span><span class="s">kA</span><span class="sh">"</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_pf_active_current</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">indices</span><span class="o">=</span><span class="sh">"</span><span class="s">used</span><span class="sh">"</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">"</span><span class="s">kA</span><span class="sh">"</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_magnetics_flux_loop_flux</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">indices</span><span class="o">=</span><span class="sh">"</span><span class="s">all</span><span class="sh">"</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_magnetics_b_field_pol_probe_field</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_tf_b_field_tor</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_barometry_pressure</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_plasma_current_time</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">"</span><span class="s">kA</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_pf_coil_time_current</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="sh">"</span><span class="s">active</span><span class="sh">"</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">"</span><span class="s">kA</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_flux_loop_time_flux</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="sh">"</span><span class="s">all</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_b_field_probe_time_field</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_tf_coil_time_b_t</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_barometry_time_pressure</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_spectrometer_uv_time_intensity</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">emission</span><span class="o">=</span><span class="sh">'</span><span class="s">CIII</span><span class="sh">'</span><span class="p">)</span>
 </code></pre></div></div>
 
@@ -705,39 +708,39 @@ list), <code class="language-plaintext highlighter-rouge">xunit</code> (<code cl
   <tbody>
     <tr>
       <td>Time traces</td>
-      <td><code class="language-plaintext highlighter-rouge">time_magnetics_ip</code>, <code class="language-plaintext highlighter-rouge">time_magnetics_diamagnetic_flux</code>, <code class="language-plaintext highlighter-rouge">time_magnetics_flux_loop_flux</code>, <code class="language-plaintext highlighter-rouge">time_magnetics_flux_loop_voltage</code>, <code class="language-plaintext highlighter-rouge">time_magnetics_b_field_pol_probe_field</code>, <code class="language-plaintext highlighter-rouge">time_pf_active_current</code>, <code class="language-plaintext highlighter-rouge">time_pf_active_current_turns</code>, <code class="language-plaintext highlighter-rouge">time_tf_coil_current</code>, <code class="language-plaintext highlighter-rouge">time_tf_b_field_tor</code>, <code class="language-plaintext highlighter-rouge">time_tf_b_field_tor_vacuum_r</code>, <code class="language-plaintext highlighter-rouge">time_barometry_pressure</code>, <code class="language-plaintext highlighter-rouge">time_spectrometer_uv_intensity</code>, <code class="language-plaintext highlighter-rouge">time_impurity_effect</code>, <code class="language-plaintext highlighter-rouge">time_electromagnetics_current</code></td>
+      <td><code class="language-plaintext highlighter-rouge">plasma_current_time</code>, <code class="language-plaintext highlighter-rouge">diamagnetic_flux_time</code>, <code class="language-plaintext highlighter-rouge">flux_loop_time_flux</code>, <code class="language-plaintext highlighter-rouge">flux_loop_time_voltage</code>, <code class="language-plaintext highlighter-rouge">b_field_probe_time_field</code>, <code class="language-plaintext highlighter-rouge">pf_coil_time_current</code>, <code class="language-plaintext highlighter-rouge">pf_coil_time_current_turns</code>, <code class="language-plaintext highlighter-rouge">tf_coil_time_current</code>, <code class="language-plaintext highlighter-rouge">tf_coil_time_b_t</code>, <code class="language-plaintext highlighter-rouge">tf_coil_time_b_t_vacuum_r</code>, <code class="language-plaintext highlighter-rouge">barometry_time_pressure</code>, <code class="language-plaintext highlighter-rouge">spectrometer_uv_time_intensity</code>, <code class="language-plaintext highlighter-rouge">spectrometer_uv_time_impurity</code>, <code class="language-plaintext highlighter-rouge">current_overview</code></td>
     </tr>
     <tr>
       <td>Equilibrium scalars vs. time</td>
-      <td><code class="language-plaintext highlighter-rouge">time_equilibrium_plasma_current</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_li</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_beta_pol</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_beta_tor</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_beta_n</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_w_mhd</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_w_mag</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_w_tot</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_q0</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_q95</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_qa</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_major_radius</code></td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium_time_plasma_current</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_li</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_beta_p</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_beta_t</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_beta_n</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_w_mhd</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_w_mag</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_w_tot</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_q0</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_q95</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_qa</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_major_radius</code></td>
     </tr>
     <tr>
       <td>Energy and power</td>
-      <td><code class="language-plaintext highlighter-rouge">time_energy</code>, <code class="language-plaintext highlighter-rouge">time_beta</code>, <code class="language-plaintext highlighter-rouge">time_power_balance</code>, <code class="language-plaintext highlighter-rouge">time_voltage_consumption</code>, <code class="language-plaintext highlighter-rouge">time_virial_equilibrium_quantities</code></td>
+      <td><code class="language-plaintext highlighter-rouge">summary_time_energy</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_beta</code>, <code class="language-plaintext highlighter-rouge">summary_time_power_balance</code>, <code class="language-plaintext highlighter-rouge">summary_time_voltage_consumption</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_virial</code></td>
     </tr>
     <tr>
       <td>Profiles (1-D)</td>
-      <td><code class="language-plaintext highlighter-rouge">equilibrium_1d_radial</code>, <code class="language-plaintext highlighter-rouge">plot_onedim_profile</code>, <code class="language-plaintext highlighter-rouge">plot_onedim_profile_interactive</code></td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium_profile_pressure</code></td>
     </tr>
     <tr>
       <td>Geometry and 2-D</td>
-      <td><code class="language-plaintext highlighter-rouge">twodim_geometry_all</code>, <code class="language-plaintext highlighter-rouge">overlay_all</code>, <code class="language-plaintext highlighter-rouge">pf_passive_overlay</code>, <code class="language-plaintext highlighter-rouge">vacuum_psi_contour</code>, <code class="language-plaintext highlighter-rouge">overlay_all_with_vacuum_psi_contour</code>, <code class="language-plaintext highlighter-rouge">equilibrium_2d_profiles</code></td>
+      <td><code class="language-plaintext highlighter-rouge">machine_geometry_poloidal</code>, <code class="language-plaintext highlighter-rouge">passive_structure_geometry_poloidal</code>, <code class="language-plaintext highlighter-rouge">equilibrium_field_psi_vacuum</code>, <code class="language-plaintext highlighter-rouge">equilibrium_field_2d</code></td>
     </tr>
     <tr>
       <td>Kinetic diagnostics</td>
-      <td><code class="language-plaintext highlighter-rouge">thomson_scattering_radial</code>, <code class="language-plaintext highlighter-rouge">thomson_scattering_time</code>, <code class="language-plaintext highlighter-rouge">thomson_scattering_radial_profiles</code>, <code class="language-plaintext highlighter-rouge">charge_exchange_radial</code>, <code class="language-plaintext highlighter-rouge">charge_exchange_time</code>, <code class="language-plaintext highlighter-rouge">charge_exchange_rho_profiles</code>, <code class="language-plaintext highlighter-rouge">plot_electron_psi_profile</code>, <code class="language-plaintext highlighter-rouge">plot_electron_2d_profile</code></td>
+      <td><code class="language-plaintext highlighter-rouge">thomson_scattering_profile_electron_temperature</code>, <code class="language-plaintext highlighter-rouge">thomson_scattering_time_electron_temperature</code>, <code class="language-plaintext highlighter-rouge">charge_exchange_profile_ion_temperature</code>, <code class="language-plaintext highlighter-rouge">charge_exchange_time_ion_temperature</code>, <code class="language-plaintext highlighter-rouge">electron_temperature_profile</code>, <code class="language-plaintext highlighter-rouge">electron_temperature_field</code></td>
     </tr>
     <tr>
       <td>Fluctuations</td>
-      <td><code class="language-plaintext highlighter-rouge">mirnov_signal</code>, <code class="language-plaintext highlighter-rouge">mirnov_spectrogram</code>, <code class="language-plaintext highlighter-rouge">toroidal_mode_spectrum</code>, <code class="language-plaintext highlighter-rouge">toroidal_phase_mode_fit</code></td>
+      <td><code class="language-plaintext highlighter-rouge">mirnov_time_voltage</code>, <code class="language-plaintext highlighter-rouge">mirnov_spectrogram</code>, <code class="language-plaintext highlighter-rouge">mirnov_spatial_phase</code></td>
     </tr>
     <tr>
       <td>Soft X-rays</td>
-      <td><code class="language-plaintext highlighter-rouge">plot_soft_x_ray_los</code>, <code class="language-plaintext highlighter-rouge">plot_soft_x_ray_signal</code>, <code class="language-plaintext highlighter-rouge">plot_soft_x_ray_spectrogram</code>, <code class="language-plaintext highlighter-rouge">plot_soft_x_ray_pattern</code>, <code class="language-plaintext highlighter-rouge">plot_soft_x_ray_overview</code></td>
+      <td><code class="language-plaintext highlighter-rouge">soft_x_rays_geometry_lines_of_sight</code>, <code class="language-plaintext highlighter-rouge">soft_x_rays_time_power</code>, <code class="language-plaintext highlighter-rouge">soft_x_rays_spectrogram</code>, <code class="language-plaintext highlighter-rouge">soft_x_rays_overview</code></td>
     </tr>
     <tr>
       <td>Overviews</td>
-      <td><code class="language-plaintext highlighter-rouge">analysis_diagnostics</code>, <code class="language-plaintext highlighter-rouge">analysis_electromagnetics</code>, <code class="language-plaintext highlighter-rouge">time_equilibrium_analysis</code></td>
+      <td><code class="language-plaintext highlighter-rouge">magnetics_overview</code>, <code class="language-plaintext highlighter-rouge">current_overview</code>, <code class="language-plaintext highlighter-rouge">equilibrium_overview_histories</code></td>
     </tr>
     <tr>
       <td>Multi-shot history</td>
@@ -883,9 +886,11 @@ parameter and collects every result. Snakemake rules should start with
 
 <h1 id="vaftimas"><code class="language-plaintext highlighter-rouge">vaft.imas</code></h1>
 
-<p>The OMAS to IMAS Access Layer bridge: <code class="language-plaintext highlighter-rouge">load_omas_imas</code>, <code class="language-plaintext highlighter-rouge">save_omas_imas</code>, <code class="language-plaintext highlighter-rouge">imas_open</code>,
-<code class="language-plaintext highlighter-rouge">imas_open_uri</code>, <code class="language-plaintext highlighter-rouge">imas_get</code>, <code class="language-plaintext highlighter-rouge">imas_set</code>, plus <code class="language-plaintext highlighter-rouge">IMAS_DD_VERSION_CONVERSION</code> (the Data Dictionary
-version used for conversion, overridable through the environment variable of the same name).
+<p>Local IMAS artifacts: <code class="language-plaintext highlighter-rouge">vaft.imas.save</code> writes an ODS, a native IDS or an <code class="language-plaintext highlighter-rouge">IMASHandle</code> to an IMAS HDF5
+directory or <code class="language-plaintext highlighter-rouge">.nc</code> file, and <code class="language-plaintext highlighter-rouge">vaft.imas.load</code> opens one as a native <code class="language-plaintext highlighter-rouge">DBEntry</code> context manager.
+<code class="language-plaintext highlighter-rouge">IMAS_DD_VERSION_CONVERSION</code> is the Data Dictionary version used for conversion, overridable through the
+environment variable of the same name. The OMAS-derived Access Layer bridge underneath — <code class="language-plaintext highlighter-rouge">load_omas_imas</code>,
+<code class="language-plaintext highlighter-rouge">save_omas_imas</code>, <code class="language-plaintext highlighter-rouge">imas_open</code>, <code class="language-plaintext highlighter-rouge">imas_open_uri</code>, <code class="language-plaintext highlighter-rouge">imas_get</code>, <code class="language-plaintext highlighter-rouge">imas_set</code> — lives in <code class="language-plaintext highlighter-rouge">vaft.imas.omas_imas</code>.
 <code class="language-plaintext highlighter-rouge">vaft.database</code> uses this under the hood; call it directly only when you need to talk to an Access
 Layer entry that is not a VEST shot. See
 <a href="/vaft/develop/guide/Data_structures/">Data structures</a> for worked examples.</p>
@@ -1326,7 +1331,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 08:22:11 +0000"
+        "time": "2026-09-16 08:44:52 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
