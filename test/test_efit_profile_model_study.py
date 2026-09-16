@@ -428,3 +428,45 @@ def test_dropping_the_samples_keeps_everything_derived_from_them(study):
 
     # Idempotent: the per-shot checkpoint calls it once per discharge.
     study.drop_sampled_arrays(payload)
+
+
+def test_every_caller_of_run_model_passes_everything_it_requires(study):
+    """`run_model` is shared, so a missed argument must fail here, not mid-scan.
+
+    `constraint_information_study` drives the same solver entry point. When
+    `seed_module` was added, that call site kept working until the study was
+    next run -- nothing exercises `main` without EFIT, so a scan would have
+    been the first thing to find out.
+    """
+    import ast
+    import inspect
+
+    required = {
+        name
+        for name, parameter in inspect.signature(study.run_model).parameters.items()
+        if parameter.kind is parameter.KEYWORD_ONLY and parameter.default is parameter.empty
+    }
+    assert "seed_module" in required
+
+    workflow = Path(__file__).resolve().parents[1] / "workflow"
+    call_sites = 0
+    for path in sorted(workflow.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            function = node.func
+            name = (
+                function.attr
+                if isinstance(function, ast.Attribute)
+                else getattr(function, "id", None)
+            )
+            if name != "run_model":
+                continue
+            call_sites += 1
+            passed = {keyword.arg for keyword in node.keywords}
+            assert required <= passed, (
+                f"{path.relative_to(workflow.parent)}:{node.lineno} is missing "
+                f"{sorted(required - passed)}"
+            )
+    assert call_sites >= 2, "expected the profile study and its sibling caller"
