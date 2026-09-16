@@ -8,10 +8,6 @@ from the helper the adapters run, so the listing and rendering agree by
 construction.  Policy: ``notebooks/plotting_sample_using_vaft_plot_module.ipynb``.
 """
 
-import contextlib
-import io
-import warnings
-
 import matplotlib
 
 matplotlib.use("Agg")
@@ -26,16 +22,12 @@ from vaft.plot import discovery
 from vaft.plot.discovery import PlotCapability, PlotCatalog, match_query
 from vaft.plot.selection import radial_divider
 
-
-def _load(rel):
-    with contextlib.redirect_stderr(io.StringIO()), warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        return vaft.omas.load(str(vaft.data.data_path(rel)))
+from _sample_fixtures import packaged_ods
 
 
 @pytest.fixture(scope="module")
 def shot():
-    return _load("samples/39915/omas.json.gz")
+    return packaged_ods("samples/39915/omas.json.gz")
 
 
 @pytest.fixture(scope="module")
@@ -161,7 +153,7 @@ def test_unavailable_plots_carry_a_machine_readable_reason(shot):
 
 
 def test_multi_shot_input_reports_availability_per_entry(shot):
-    other = _load("samples/41524/imas.nc")
+    other = packaged_ods("samples/41524/imas.nc")
     odc = omas.ODC()
     odc["39915"] = shot
     odc["41524"] = other

@@ -20,6 +20,8 @@ import vaft
 from vaft.omas.entries import normalize_entries
 from vaft.plot.backend.recipes import build_model, missing_required_path
 
+from _sample_fixtures import sample_ods
+
 NAME = "mirnov_spatial_phase"
 FIT_KWARGS = dict(
     frequencies=[8_000.0], candidate_n=range(0, 5), window_size=512,
@@ -53,7 +55,7 @@ def phase_ods():
 
 @pytest.fixture(scope="module")
 def sample():
-    return vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    return sample_ods(39915)
 
 
 def _model(ods, **options):

@@ -18,6 +18,8 @@ import pytest
 import vaft.omas
 from vaft.plot import display
 
+from _sample_fixtures import packaged_ods, sample_ods
+
 
 # ---------------------------------------------------------------------------
 # Table-level contract
@@ -220,7 +222,7 @@ def test_panel_members_keep_the_short_recipe_title(ip_ods):
 def test_a_grid_suptitle_clears_the_panels_it_names():
     """tight_layout reserves no room for a suptitle: on a tall grid it landed
     on the first row's own titles, which is what a reader sees first."""
-    sample = vaft.omas.load(str(vaft.data.data_path("samples/39915/omas.json.gz")))
+    sample = packaged_ods("samples/39915/omas.json.gz")
     figure, axes = vaft.omas.plot_b_field_probe_time_field(
         sample, selection=list(range(24)), layout="subplots"
     )
@@ -258,9 +260,7 @@ def test_an_ods_without_a_pulse_names_no_shot():
 # ---------------------------------------------------------------------------
 
 def _loops():
-    from vaft.data import sample
-
-    return vaft.omas.load(sample(39915, "omas"))
+    return sample_ods(39915)
 
 
 def test_a_lone_trace_draws_no_legend(ip_ods):

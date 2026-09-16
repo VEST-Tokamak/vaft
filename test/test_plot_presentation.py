@@ -39,6 +39,8 @@ from vaft.plot.presentation import (
     rz_extent,
 )
 
+from _sample_fixtures import sample_ods
+
 BASE_RENDERERS = (
     "render_line_series", "render_profile_1d", "render_field_2d", "render_geometry_layers",
     "render_geometry_3d_layers", "render_image_2d", "render_power_spectrum",
@@ -48,7 +50,7 @@ BASE_RENDERERS = (
 
 @pytest.fixture(scope="module")
 def sample():
-    return vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    return sample_ods(39915)
 
 
 @pytest.fixture(autouse=True)
