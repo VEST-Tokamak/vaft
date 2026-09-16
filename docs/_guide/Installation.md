@@ -94,8 +94,8 @@ a staged eager object. Remote saving is restricted to authorized operators; this
 
 ## 4. Optional external fusion codes
 
-VAFT can prepare and collect inputs for EFIT, CHEASE, GPEC/DCON/RDCON, TES and NUBEAM. Configure only the
-codes you have installed:
+VAFT can prepare and collect inputs for EFIT, CHEASE, GPEC/DCON/RDCON, TES, NUBEAM and the GACODE suite
+(NEO and TGLF). Configure only the codes you have installed:
 
 ```bash
 export EFITHOME=/path/to/efit
@@ -103,6 +103,7 @@ export CHEASEHOME=/path/to/chease
 export GPECHOME=/path/to/gpec
 export TESHOME=/path/to/tes
 export NUBEAMHOME=/path/to/nubeam
+export GACODEHOME=/path/to/gacode
 ```
 
 Each executable belongs under its root’s `bin/` directory. The workflow guides degrade to deterministic
@@ -125,6 +126,43 @@ That build runs on macOS/Apple Silicon and on native Windows. The adapter runs N
 its native output; `vaft.machine_mapping.core_sources` and `vaft.machine_mapping.distributions` map
 the profiles into IMAS, while the Monte Carlo marker records stay in the native container.
 
+GACODE differs from every other code here in three ways, and each one breaks an assumption stated
+above. It **builds in place**, so `$GACODEHOME` is the source checkout rather than a separate prefix.
+Each suite member carries its own `bin`, so the executables are `neo/bin/neo` and `tglf/bin/tglf`, not
+`bin/neo`. And it needs `$GACODE_PLATFORM`, the tag the tree was built with, which selects
+`platform/exec/exec.$GACODE_PLATFORM` at run time — an unset or wrong value otherwise fails deep inside
+a shell script without naming itself. VAFT derives GACODE's own `GACODE_ROOT` and `GACODE_PLATFORM`
+from `$GACODEHOME` rather than redefining them, and accepts a pre-set `GACODE_ROOT` as a fallback, so a
+tree built this way stays usable from a plain shell:
+
+`$GACODE_PLATFORM` is a build tag rather than a directory, so it does not belong in the roots block
+above:
+
+```bash
+export GACODE_PLATFORM=GFORTRAN_OSX_BREW
+```
+
+Build it with
+`install/gacode/macos.sh --gacode-root <source> --codes neo,tglf` — **the default is `neo` alone** — and
+verify with `install/check_gacode.py`. VAFT drives NEO for neoclassical transport and the bootstrap
+current, and TGLF for turbulent transport; see
+[`install/gacode/`](https://github.com/VEST-Tokamak/vaft/tree/develop/install/gacode).
+
+The TGLF-NN surrogate is a different kind of dependency and is worth separating from the rest of this
+section: it needs **no GACODE build and no compiler**. What it needs is pretrained networks, which VAFT
+neither ships nor downloads:
+
+```bash
+export TURBULENTTRANSPORTHOME=/path/to/TurbulentTransport.jl    # model files, no bin/
+```
+
+That root holds no executables at all — it is a
+[TurbulentTransport.jl](https://github.com/ProjectTorreyPines/TurbulentTransport.jl) checkout whose
+`models/` directory carries the pretrained ensembles. VAFT also finds one in an existing Julia depot
+with no variable set. `onnxruntime` is optional
+(`pip install 'vaft[surrogate]'`) and is needed only to *run* a network; deciding whether a model
+applies to a given plasma needs neither the runtime nor a prediction, and is the question to ask first.
+
 On Windows, set the same roots as user environment variables so that a new
 terminal and a Jupyter kernel both inherit them:
 
@@ -132,6 +170,7 @@ terminal and a Jupyter kernel both inherit them:
 [Environment]::SetEnvironmentVariable('CHEASEHOME', "$env:LOCALAPPDATA\vaft\external\chease", 'User')
 [Environment]::SetEnvironmentVariable('GPECHOME',   "$env:LOCALAPPDATA\vaft\external\gpec",   'User')
 [Environment]::SetEnvironmentVariable('EFITHOME',   "$env:LOCALAPPDATA\vaft\external\efit",   'User')
+[Environment]::SetEnvironmentVariable('GACODEHOME', "$env:LOCALAPPDATA\vaft\external\gacode", 'User')
 ```
 
 The executable under `bin/` may be the native `chease.exe` or `dcon.exe`; VAFT

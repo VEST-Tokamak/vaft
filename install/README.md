@@ -525,12 +525,22 @@ python install/check_gacode.py --source ~/git/gacode
 
 Two things about it differ from every other code here. It **builds in place**, so
 `GACODEHOME` is the checkout rather than a separate prefix; and each suite member carries
-its own `bin`, so the executable is `neo/bin/neo`, not `bin/neo`. It also needs
+its own `bin`, so the executables are `neo/bin/neo` and `tglf/bin/tglf`, not
+`bin/neo`. It also needs
 `GACODE_PLATFORM`, which selects `platform/exec/exec.$GACODE_PLATFORM` at run time --
 `vaft.code.gacode` resolves it up front and lists the available tags, because a wrong
-value otherwise fails inside a shell script without naming itself. See
-[`install/gacode/README.md`](gacode/README.md). macOS/Apple Silicon only for
+value otherwise fails inside a shell script without naming itself. Pass
+`--codes neo,tglf`: the script builds `neo` alone by default, and VAFT drives both.
+See [`install/gacode/README.md`](gacode/README.md). macOS/Apple Silicon only for
 now.
+
+The TGLF-NN surrogate needs no build and no compiler at all -- only pretrained
+networks, which VAFT neither vendors nor downloads. Point
+`TURBULENTTRANSPORTHOME` at a TurbulentTransport.jl checkout you already hold, or
+let VAFT find one in an existing Julia depot; `onnxruntime` is an optional extra
+(`pip install 'vaft[surrogate]'`) needed only to run a network. The same README
+covers the resolution order and what happens when two installed versions answer
+to one model name.
 
 ### macOS
 

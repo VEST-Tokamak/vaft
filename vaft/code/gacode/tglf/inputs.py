@@ -455,19 +455,26 @@ def _shaping(
     zeros = np.zeros_like(rmin)
     triangularity = zeros if profile.delta is None else np.asarray(profile.delta, float)
     if profile.delta is None:
-        provenance["delta_loc"] = {
+        absent_delta = {
             "kind": "unavailable",
             "reason": "no triangularity on the profile; the surface is taken as elliptic",
         }
+        # The shear is a radial derivative of the same absent quantity, so it is no
+        # better known than the value; recording only the value would let a consumer
+        # read S_DELTA_LOC as measured.
+        provenance["delta_loc"] = absent_delta
+        provenance["s_delta_loc"] = absent_delta
     squareness = zeros if profile.zeta is None else np.asarray(profile.zeta, float)
     if profile.zeta is None:
-        provenance["zeta_loc"] = {
+        absent_zeta = {
             "kind": "unavailable",
             "reason": (
                 "no squareness on the profile; TGLF's own default of zero is used, "
                 "which is a claim about the surface rather than a missing value"
             ),
         }
+        provenance["zeta_loc"] = absent_zeta
+        provenance["s_zeta_loc"] = absent_zeta
     return triangularity, squareness
 
 

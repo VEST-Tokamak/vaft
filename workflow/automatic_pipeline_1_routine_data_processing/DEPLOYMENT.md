@@ -10,6 +10,21 @@ anything on the server is in step 2.
 
 ## Corrections worth reading first
 
+**A deployment written before #813 must be migrated before its next pipeline
+run.** Stage products are now resolved as `{stage}.json.gz`, and a tree written
+earlier holds `{stage}.json`. The resolver asks for a name that is not there, so
+Snakemake sees no output for any stage of any shot and rebuilds every one of
+them from raw -- `run_efit_reconstruction` and `run_chease` included, which is
+days of solver time and exactly what the change set exists to avoid. Nothing
+warns you: a missing target is indistinguishable from work not yet done.
+
+So migrate first, with the pipeline stopped: `python -m vaft.cli filedb
+migrate-products "$VAFT_FILEDB_DIR"` prints the plan, and `--apply` performs it
+one stage at a time. It rewrites the files already on disk and re-runs no
+physics. The procedure, including the separately gated deletion of what it
+supersedes, is under "Migrating stored products onto their declared container"
+below.
+
 **The trailing slash decides folder versus domain.** `hstouch /main` creates a
 *domain* — a single HDF5 file called `main`. `hstouch /main/` creates a *folder*.
 Replication needs a folder, and a domain at that path fails every later write in
@@ -455,6 +470,70 @@ What it does and does not do:
 The dry run exits non-zero when the plan has collisions, so a script can gate on
 it rather than parsing the JSON.
 
+### Migrating stored products onto their declared container
+
+A deployment written before #813 holds products the resolver no longer asks for
+(`eddy.json` where it now wants `eddy.json.gz`) and eddy products carrying the
+whole diagnostics product they were solved against. **Do this before the
+deployment's next pipeline run.** On the new code every shot's Snakemake target
+is the gzipped name, which does not exist in such a tree, so a single
+`snakemake` invocation rebuilds every eddy product from scratch — the physics
+re-run this migration exists to avoid.
+
+```bash
+python -m vaft.cli filedb migrate-products "$VAFT_FILEDB_DIR"
+python -m vaft.cli filedb migrate-products "$VAFT_FILEDB_DIR" --stage diagnostics --apply
+```
+
+Then, once that stage's report is clean, delete what it superseded and move to
+the next stage:
+
+```bash
+python -m vaft.cli filedb sweep-products "$VAFT_FILEDB_DIR" --stage diagnostics
+python -m vaft.cli filedb sweep-products "$VAFT_FILEDB_DIR" --stage diagnostics --apply
+python -m vaft.cli filedb migrate-products "$VAFT_FILEDB_DIR" --stage eddy --apply
+```
+
+What it does and does not do:
+
+- **Neither half re-runs any physics.** A container change re-encodes bytes that
+  are already correct; the eddy change is the same projection
+  `replication._project` has always applied on the way to HSDS.
+- **HSDS is unaffected and needs no re-upload.** `_project` has always stripped
+  the non-owned IDS before publishing, so no replica changes. The replication
+  *records* do change hash, so the next replication run re-sends unless you
+  accept that cost knowingly — one full re-send, otherwise harmless.
+- **Files are read, decoded and rewritten** — unlike `relocate`, which only
+  renames. Atomicity is bought per product: a temporary in the same `output/`
+  directory, fsync, verify by re-reading, `os.replace`, then fsync the
+  directory. An interrupted run leaves every product wholly old or wholly new,
+  and its temporary named in `orphan_temporaries` on the next pass.
+- **The originals are not deleted by the migration.** `sweep-products` is a
+  separate step, and it is what makes everything before it reversible: until it
+  runs, undoing the migration is deleting the new product.
+- **Migrate and sweep one stage at a time when disk is tight.** Writing every
+  new product before deleting any original peaks at about 1107 G against the
+  1126 G free on this deployment; alternating per stage never exceeds 1058 G.
+- **An eddy original whose shot has no diagnostics product is refused.** The
+  dropped IDS are recoverable from that shot's diagnostics product and the era's
+  static product — but that recoverability is a precondition of the deletion,
+  not a property of it, and without it the original is the only local copy of
+  that shot's magnetics.
+- **The manifest is rewritten, and says so.** `output` describes the file and is
+  updated; `input` describes the run and is never touched. A `migration` block
+  carries `previous_output.sha256`, which is how a downstream manifest's now
+  dangling `input.diagnostics_sha256` stays joinable.
+- **Re-running is a no-op**, and `--verify-shape` proves it by opening each
+  migrated product rather than inferring it from the file name.
+- **The pipeline must be idle.** Check with
+  `pgrep -af 'snakemake|replicate_to_hsds|generate_(eddy|diagnostics)_ods'`, the
+  workflow's `.snakemake/locks`, and
+  `find "$VAFT_FILEDB_DIR/omas" -name '*.json' -newermt '-10 minutes'`. Setting
+  `hsds: replicate: false` for the window is belt and braces.
+
+The dry run exits non-zero when the plan cannot be applied, and `sweep-products`
+exits non-zero when anything was refused, so both can be scripted on.
+
 Keep the bootstrap config separate from production, with replication off:
 
 ```bash
@@ -476,8 +555,14 @@ Ask for one product by path; Snakemake works backwards to it through
 raw → static → diagnostics → eddy. Nothing downstream runs, so no EFIT or CHEASE
 binary is needed. Shot 39915 resolves to machine era `vest-pre-43017-pf1906`.
 
+Ask the resolver for the path rather than spelling it: the container is declared
+in `OMAS_PRODUCT_SUFFIX`/`OMAS_PRODUCT_SUFFIXES`, and a literal here goes stale
+the next time it moves — silently, because Snakemake reports a path it has no
+rule for as a missing target rather than as a wrong name.
+
 ```bash
-EDDY="$VAFT_FILEDB_DIR/omas/eddy/39915/output/eddy.json"
+EDDY=$(python -c 'import os; from vaft.database.filedb import FileDB; \
+print(FileDB(os.environ["VAFT_FILEDB_DIR"]).omas_product("eddy", shot=39915))')
 
 snakemake --snakefile Snakefile --configfile bootstrap-39915.yaml --dry-run "$EDDY"
 snakemake --snakefile Snakefile --configfile bootstrap-39915.yaml --cores 4 "$EDDY"
@@ -537,7 +622,7 @@ PY
 | Check | Expected |
 | --- | --- |
 | Remote folder | `/main/39915/` lists `pf_passive.h5`, `dataset_description.h5`, `master.h5` |
-| Owned IDS only | **No** `magnetics.h5` — the eddy product carries it, but eddy does not own it |
+| Owned IDS only | **No** `magnetics.h5` — the eddy stage solves against it but does not own it, and its product no longer carries it |
 | Record state | `"state": "validated"`, `round_trip.passed = true` |
 | Provenance | `"source": "main"`, `"remote_uri": "hdf5://main/39915/"`, a `product_sha256` |
 | Manifest | unchanged — it describes production, not replication |
@@ -695,7 +780,8 @@ the corrective updaters' one-time bootstrap of their shot registry, which opens
 - [ ] `shot_first` refused before the DAG is built — `WorkflowError`
 - [ ] A canonical product exists for the fixture shot — `omas/eddy/39915/…`, replicable
 - [ ] One stage replicated and validated — `state == "validated"`
-- [ ] Only owned IDS travelled — no `magnetics.h5` from the eddy stage
+- [ ] Only owned IDS travelled — no `magnetics.h5` from the eddy stage (the eddy product is its own projection, so replication is an identity on it)
+- [ ] Every canonical product is under its declared container — `migrate-products` reports `pending: 0` and `--verify-shape` reports no failures
 - [ ] A second stage did not hide the first — `external_h5_links` lists both
 - [ ] A rerun reused the record — no upload
 - [ ] Per-shot folder behaviour recorded — auto-created, or `hstouch` needed

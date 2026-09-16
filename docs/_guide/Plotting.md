@@ -650,13 +650,29 @@ canonical spelling, `magnetics/ip(:)/data` (`vaft.plot.backend.dd` translates to
 units and coordinates for one). A test asserts every declared path exists in the Data
 Dictionary and carries the units the recipe claims.
 
+A computed view (a `CallableRecipe`, 52 of the 129 plots) declares the paths its builder and
+helpers read (`reads`, role `input`, `attrs["declared_by"] == "recipe"`) beside what its registry
+spec gates availability on, and it is classified: a `backend="neutral"` builder reads only
+through the accessor and runs on an OMAS ODS, a native IMAS entry or a lazy remote handle
+alike; a `backend="omas"` builder hands the object to a `vaft.omas`/`vaft.process` helper that
+writes, deep-copies or subscripts an ODS (nine of them only by the helper's reading style, marked
+as reclassification candidates in their `reason`), so a native entry is converted first — `available_plots(...,
+detail=True)` says which, and why (`computed: native reads` / `needs an OMAS ODS — <reason>`).
+A test records every path each builder touches and fails on one it did not declare. That
+declaration is also what serves an OMAS-bound view from an input that cannot hand over a whole
+ODS: on a lazy database store, or a lazily loaded IMAS handle, exactly the declared paths are read
+through the accessor into a private ODS and the builder runs on that; the few views that deep-copy
+a whole IDS fetch it whole from a lazy store and are refused, naming the IDS, on a lazy IMAS handle.
+
 `to_xarray()` is lossless and plain: traces of unequal length are stacked on a `series`
 dimension and NaN-padded along `sample`, with a `length` coordinate holding each trace's true
 sample count; channel, entry, validity and position are coordinates on `series`; units, scale
 and title are attributes (JSON text where a value is a list or mapping), so the dataset writes
 to netCDF as it is. A composite (`Panels`) becomes an `xarray.DataTree` with one child per
-panel. `vaft.database` has no `extract_*` yet: its `plot_*` opens IDS selectively and belongs
-with selective loading.
+panel. `vaft.database` carries the same twins over a shot: `dd_<stem>()` touches nothing, and
+`extract_<stem>(shot, source=..., lazy=True)` opens exactly the IDS the plot declares (lazily by
+default, like `plot_*`) and returns the model undrawn. `plot_*(..., interactive=True)` loads those
+IDS eagerly whatever `lazy` says, because the controls redraw after the call returns.
 
 ## Utilities
 

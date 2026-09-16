@@ -57,6 +57,7 @@ __all__ = [
     "read_fortran_records",
     "read_table_manifest",
     "run_efund",
+    "IDENTITY_EXCLUDED_FILES",
     "table_identity",
     "table_machine_era",
     "write_mhdin",
@@ -693,8 +694,32 @@ def _vaft_identity() -> dict[str, Any]:
     return {"version": __version__, "revision": revision}
 
 
+#: Files EFUND writes into the table directory that are **not** part of the
+#: table's identity.
+#:
+#: ``mhdout.dat`` is EFUND's echo of the namelist it was given, not a Green
+#: table -- nothing in the pipeline reads it, which is why it is the one entry
+#: in ``expected`` with no predicted size. It also carries at least one
+#: uninitialised Fortran value: ``KUBICS`` is 4 in the input and came back as
+#: 83664424 from one run and 4890152 from the next, differing by an order of
+#: magnitude between two runs of the *same* input.
+#:
+#: Hashing it therefore made ``table.identity`` answer "which invocation
+#: produced this" instead of "which table is this", and any check of the form
+#: "regenerate and confirm the identity is unchanged" would fail for a reason
+#: with nothing to do with the table (#793). Its hash is still recorded under
+#: ``table.files``; it just does not decide identity.
+IDENTITY_EXCLUDED_FILES = frozenset({"mhdout.dat"})
+
+
 def _table_digest(files: Mapping[str, str]) -> str:
-    payload = json.dumps(dict(sorted(files.items())), sort_keys=True, separators=(",", ":"))
+    """The identity of a set of produced files, over the ones that are the table."""
+    considered = {
+        name: digest
+        for name, digest in files.items()
+        if name not in IDENTITY_EXCLUDED_FILES
+    }
+    payload = json.dumps(dict(sorted(considered.items())), sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

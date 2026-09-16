@@ -26,10 +26,11 @@ so it is kept).  The IDS is the first segment and carries no index.
 Nothing here imports ``omas`` or ``imas`` at module level: the grammar is
 pure string work, and only :func:`resolve` reaches the Data Dictionary.
 
-Computed views (``CallableRecipe``) declare only what their registry spec
-lists under ``required_paths``/``optional_paths``; the full input declaration
-of the 47 computed views is sub-issue #439's work, and their ``DDPath`` tuples
-carry ``attrs["declared_by"] == "spec"`` to say so.
+A computed view (``CallableRecipe``) declares what its builder and helpers
+read (``reads``, role ``input``, ``attrs["declared_by"] == "recipe"``) beside
+what its registry spec gates availability on (``required_paths`` /
+``optional_paths``, ``attrs["declared_by"] == "spec"``); ``attrs["backend"]``
+says whether the builder reads natively or needs an OMAS ODS (issue #439).
 """
 
 from __future__ import annotations
@@ -75,6 +76,7 @@ ROLES = (
     "boundary",      # the boundary outline drawn over a field
     "required",      # declared by the registry spec, without a finer role
     "optional",      # declared optional by the registry spec
+    "input",         # read by a computed view's builder or its helpers (issue #439)
 )
 
 _NAME = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -430,9 +432,11 @@ def dd_paths(name: str) -> tuple[DDPath, ...]:
 
     Data paths first, then coordinates, then the rest, in declaration order;
     one entry per canonical spelling, keeping the most specific role.  A
-    composite lists its members' paths (``attrs["member"]`` names the member)
-    and a computed view what its registry spec declares
-    (``attrs["declared_by"] == "spec"``).  Touches no data.
+    composite lists its members' paths (``attrs["member"]`` names the member);
+    a computed view lists what its builder reads (role ``input``,
+    ``attrs["declared_by"] == "recipe"``, ``attrs["backend"]``) and what its
+    registry spec gates on (``attrs["declared_by"] == "spec"``).  Touches no
+    data.
     """
     from vaft.plot.registry import get_spec
 
@@ -546,8 +550,11 @@ def dd_paths(name: str) -> tuple[DDPath, ...]:
         for member in recipe.members:
             for path in dd_paths(member):
                 found.append(DDPath(**{**path.__dict__, "attrs": {**path.attrs, "member": member}}))
-    # Every plot also declares paths on its registry spec; a computed view
-    # declares nothing else (sub-issue #439 owns its full input declaration).
+    elif isinstance(recipe, R.CallableRecipe):
+        for template in recipe.reads:
+            add(template, "input", attrs={"declared_by": "recipe", "backend": recipe.backend})
+    # Every plot also declares paths on its registry spec; for a computed view
+    # those are the availability gate, distinct from what the builder reads.
     declared_by = {"declared_by": "spec"} if isinstance(recipe, R.CallableRecipe) else {}
     for template in spec.required_paths:
         add(template, "required", attrs=declared_by)
@@ -571,13 +578,24 @@ def dd_paths(name: str) -> tuple[DDPath, ...]:
 
 
 def _merged(kept: DDPath, other: DDPath) -> DDPath:
-    """``kept`` with the composite members ``other`` was also declared by."""
+    """``kept`` with what ``other`` adds: composite members, and who declared it.
+
+    A path a computed view's spec gates on *and* its builder reads keeps the
+    spec's role and says ``declared_by == "spec+recipe"``.
+    """
+    attrs = dict(kept.attrs)
     members = tuple(dict.fromkeys(
         m for path in (kept, other) for m in (path.attrs.get("members") or (path.attrs.get("member"),)) if m
     ))
-    if len(members) <= 1:
+    if len(members) > 1:
+        attrs["members"] = members
+    declared = [d for d in (kept.attrs.get("declared_by"), other.attrs.get("declared_by")) if d]
+    if len(set(declared)) > 1:
+        attrs["declared_by"] = "spec+recipe"
+        attrs.setdefault("backend", other.attrs.get("backend") or kept.attrs.get("backend"))
+    if attrs == dict(kept.attrs):
         return kept
-    return DDPath(**{**kept.__dict__, "attrs": {**kept.attrs, "members": members}})
+    return DDPath(**{**kept.__dict__, "attrs": attrs})
 
 
 def _bracket_unit(label: str) -> str:

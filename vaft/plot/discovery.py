@@ -133,6 +133,12 @@ class PlotCapability:
     #: How a time-frequency map is computed (issue #484): ``default`` and
     #: ``methods``, each naming the options that method reads.
     analysis: Mapping[str, Any] = field(default_factory=dict)
+    #: How a computed view reads its input (issue #439): ``backend`` is
+    #: ``"neutral"`` (native reads through the accessor, any data model) or
+    #: ``"omas"`` (an OMAS ODS is required; ``reason`` names the helper), and
+    #: ``reads`` the declared input templates.  Empty for a path-driven or
+    #: composite plot.
+    computation: Mapping[str, Any] = field(default_factory=dict)
     #: What a line plot can be drawn against (issue #481): ``default``,
     #: ``options`` (what this input can supply) and ``declared``.
     abscissa: Mapping[str, Any] = field(default_factory=dict)
@@ -644,6 +650,13 @@ def _detail_lines(record: PlotCapability) -> list[str]:
             lines.append(
                 f"{what}: {block.get('default')} by default; " + " | ".join(block["options"])
             )
+    if record.computation:
+        backend = record.computation.get("backend")
+        lines.append(
+            "computed: native reads" if backend == "neutral"
+            else f"computed: needs an OMAS ODS — {record.computation.get('reason', '')}"
+        )
+        lines.append(f"reads: {len(record.computation.get('reads') or ())} declared paths (dd_{record.name}())")
     if record.analysis_methods:
         lines.append("methods: " + " | ".join(record.analysis_methods))
     for name, parameters in (record.analysis.get("methods") or {}).items():

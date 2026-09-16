@@ -395,9 +395,10 @@ def __getattr__(name: str):
         module = import_module(f".{name}", __name__)
         globals()[name] = module
         return module
-    # Plot adapters (issue #63): resolved lazily so importing vaft.database
-    # pulls in neither the plotting stack nor Matplotlib.
-    if name.startswith("plot_") or name == "available_plots":
+    # Plot adapters (issue #63) and their dd_*/extract_* twins (umbrella #434):
+    # resolved lazily so importing vaft.database pulls in neither the
+    # plotting stack nor Matplotlib.
+    if name.startswith(("plot_", "extract_", "dd_")) or name == "available_plots":
         plotting = import_module(".plotting", __name__)
         try:
             value = getattr(plotting, name)
@@ -425,7 +426,12 @@ def __dir__():
     # stack in; a plain import never does -- only dir() pays for completion.
     names = set(globals()) | set(__all__)
     try:
-        names |= set(dir(import_module(".plotting", __name__)))
+        # Only what __getattr__ above resolves: the adapters and discovery,
+        # not the plotting module's own helpers (render, extract, dd).
+        names |= {
+            name for name in dir(import_module(".plotting", __name__))
+            if name.startswith(("plot_", "extract_", "dd_")) or name == "available_plots"
+        }
     except Exception:  # pragma: no cover - the plotting stack is optional at dir() time
         pass
     return sorted(n for n in names if not n.startswith("_"))

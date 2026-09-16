@@ -536,11 +536,14 @@ def resolve(
 class StageReplication:
     """How one canonical FileDB OMAS stage reaches a remote backend.
 
-    ``ids`` is the stage's *owned* subtree, which is not the same as everything
-    its product happens to contain.  The eddy product, for instance, is built by
-    starting from the finalized diagnostics ODS, so it carries ``magnetics`` and
-    ``pf_active`` through -- but it computes only ``pf_passive``, and replicating
-    the rest would have eddy overwrite what diagnostics wrote.
+    ``ids`` is the stage's *owned* subtree: the IDS it computes, and therefore
+    both what it publishes and what its local product holds.  A stage that
+    solves against IDS another stage owns -- eddy needs ``magnetics`` and
+    ``pf_active`` to compute ``pf_passive`` -- reads them, but does not store or
+    republish them, because two stages writing the same IDS makes which one is
+    authoritative a question the registry cannot answer.  Readers that need more
+    than one stage's subtree union them explicitly, in
+    :func:`vaft.database.composition.compose_stage_products`.
 
     ``optional`` marks a stage the baseline does not depend on: a product that
     is not eligible to publish is *recorded* as skipped rather than raised, so
@@ -592,7 +595,10 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
     "eddy": StageReplication(
         source=DEFAULT_SOURCE,
         ids=("pf_passive",),
-        note="carries the diagnostics IDS through but computes only pf_passive",
+        note=(
+            "solves against the diagnostics IDS but owns only pf_passive; the "
+            "product is exactly this projection"
+        ),
     ),
     "efit": StageReplication(source=DEFAULT_SOURCE, ids=("equilibrium",)),
     # Owns `magnetics` too, but in its own source: the split is what keeps an

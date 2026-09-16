@@ -53,6 +53,7 @@ UNINSTALL_SCRIPTS = ("uninstall.sh", "uninstall_windows_native.ps1")
 EXTERNAL_CODE_CHECKERS = (
     "check_chease.py",
     "check_efit.py",
+    "check_gacode.py",
     "check_gpec.py",
     "check_nubeam.py",
 )
@@ -1458,6 +1459,15 @@ def test_external_code_checkers_report_every_layer():
         "check_efit.py": (
             "toolchain", "source", "build record", "executables", "discovery",
             "capabilities", "starts", "smoke",
+        ),
+        # GACODE has no build-record layer: it builds in place and leaves no
+        # manifest to read. It has three the others do not -- the platform tag
+        # that selects the run-time exec script, the input parser the launcher
+        # shells out to, and a deliberate WARN saying which NEO results reach an
+        # IDS and which stay native.
+        "check_gacode.py": (
+            "toolchain", "source", "executables", "platform",
+            "input parser", "discovery", "regression", "imas mapping",
         ),
         "check_gpec.py": ("toolchain", "source", "build record", "executables", "discovery", "handoff"),
         # NUBEAM has no smoke run without a case, and two layers the others do

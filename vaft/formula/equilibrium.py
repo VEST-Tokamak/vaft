@@ -739,9 +739,13 @@ def current_density_from_B(B: Union[float, np.ndarray],
 
 def current_density_from_psi(psi: Union[float, np.ndarray],
                            R: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
-    r"""Radial-derivative current-density estimate from a poloidal flux cut.
+    r"""Deprecated: this is $-B_Z/\mu_0$, not a current density.
 
-    $$j = -\frac{1}{\mu_0 R}\,\frac{d\psi}{dR}$$
+    $$j = -\frac{1}{\mu_0 R}\,\frac{d\psi}{dR} = -\frac{B_Z}{\mu_0}
+      \ \ [\mathrm{A/m}]$$
+
+    The value is unchanged; only the name and the guidance are.  Emits a
+    ``DeprecationWarning``.  The old spelling is removed in 0.8.0.
 
     Parameters
     ----------
@@ -757,17 +761,33 @@ def current_density_from_psi(psi: Union[float, np.ndarray],
 
     Convention
     ----------
-    Hard-codes the historical $k=-1$ (weber-per-radian, COCOS 2/3/6/7) prefactor
-    inline instead of going through :func:`poloidal_field_factor`, so unlike the
-    $B_R$/$B_Z$ helpers it cannot be told the COCOS.  Tracked in #355.
+    **Mind the sign when migrating.**  This module's default convention is
+    $k = -1$ (weber-per-radian, COCOS 2/3/6/7), where
+    :func:`vertical_magnetic_field_from_psi` returns
+    $B_Z = -k/R\;d\psi/dR = +(1/R)\,d\psi/dR$.  This function is therefore
+    $-B_Z/\mu_0$, not $+B_Z/\mu_0$ as its ``Limitations`` section claimed until
+    #355; the replacement expression needs the minus sign or the result flips.
+
+    The $k$ was written inline rather than taken from
+    :func:`poloidal_field_factor`, so this function cannot be told its COCOS.
+    That is the second reason not to keep it: the replacement can.
 
     Limitations
     -----------
-    $-(1/R)\,d\psi/dR$ is $B_Z$, so this expression is $B_Z/\mu_0$: a current per
-    unit length [A/m], not the toroidal current density $j_\varphi = -\Delta^*\psi
-    /(\mu_0 R)$ [A/m^2], which needs second derivatives.  Kept unchanged for
-    compatibility; use ``profiles_2d.j_tor`` or :func:`current_density_from_B`
-    with $B_Z$ for a density.  Tracked in #355.
+    A current per unit length [A/m], not the toroidal current density
+    $j_\varphi = -\Delta^*\psi/(\mu_0 R)$ [A/m^2].  A single first derivative
+    along one radial cut cannot produce $j_\varphi$, which needs second
+    derivatives in both $R$ and $Z$.
+
+    See Also
+    --------
+    vertical_magnetic_field_from_psi : for the quantity this actually returns,
+        as ``-vertical_magnetic_field_from_psi(psi, R, Z, cocos=...) / MU0``,
+        which unlike this function can be told its COCOS.
+    vaft.process.equilibrium.grad_shafranov_operator : $\Delta^*\psi$ on a 2-D
+        map, for a real $j_\varphi = -\Delta^*\psi/(\mu_0 R)$.
+    vaft.omas.update.update_equilibrium_profiles_2d_j_tor : writes
+        ``profiles_2d.j_tor``, which is where an ODS already carries it.
 
     Numerical notes
     ---------------
@@ -778,6 +798,16 @@ def current_density_from_psi(psi: Union[float, np.ndarray],
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 3.3 (Grad-Shafranov equation, $\mu_0 R j_\varphi = -\Delta^*\psi$).
     """
+    warnings.warn(
+        "`current_density_from_psi` is deprecated -- it returns -B_Z/mu0 [A/m], "
+        "not a current density. For that quantity use "
+        "`-vertical_magnetic_field_from_psi(psi, R, Z, cocos=...) / MU0` (mind "
+        "the sign); for a real toroidal current density use "
+        "`vaft.process.equilibrium.grad_shafranov_operator` or the ODS's own "
+        "`profiles_2d.j_tor`. Removed in 0.8.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return -gradient(R, psi) / (MU0 * R)
 
 

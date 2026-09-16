@@ -287,23 +287,6 @@ def _make_method(plot_name: str):
     return method
 
 
-def plot_barometry_time_pressure(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Neutral pressure history from the barometry gauges.
-
-    Renders with :func:`vaft.plot.barometry_time_pressure`.
-    """
-    return render(
-        "barometry_time_pressure", source, ax=ax, show=show, label=label, **options
-    )
-
-
 def plot_camera_visible_image_frame(
     source: Any,
     *,
@@ -451,397 +434,6 @@ def plot_camera_visible_animation_frames(
     )
 
 
-def plot_charge_exchange_geometry_poloidal(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Charge-exchange measurement positions in the poloidal plane.
-
-    Renders with :func:`vaft.plot.charge_exchange_geometry_poloidal`.
-    """
-    return render(
-        "charge_exchange_geometry_poloidal",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_coil_3d_geometry3d(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Non-axisymmetric 3D coil filaments in machine Cartesian coordinates.
-
-    Renders with :func:`vaft.plot.coil_3d_geometry3d`.
-    """
-    return render(
-        "coil_3d_geometry3d",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_coil_3d_geometry_topview(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Non-axisymmetric 3D coil filaments projected into the machine top view.
-
-    Renders with :func:`vaft.plot.coil_3d_geometry_topview`.
-    """
-    return render(
-        "coil_3d_geometry_topview",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_charge_exchange_profile_ion_temperature(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Charge-exchange ion temperature versus position.
-
-    Renders with :func:`vaft.plot.charge_exchange_profile_ion_temperature`.
-    """
-    return render(
-        "charge_exchange_profile_ion_temperature",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_charge_exchange_profile_velocity_tor(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Charge-exchange toroidal rotation versus position.
-
-    Renders with :func:`vaft.plot.charge_exchange_profile_velocity_tor`.
-    """
-    return render(
-        "charge_exchange_profile_velocity_tor",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_charge_exchange_time_ion_temperature(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Per-channel ion temperature history from charge-exchange spectroscopy.
-
-    Renders with :func:`vaft.plot.charge_exchange_time_ion_temperature`.
-    """
-    return render(
-        "charge_exchange_time_ion_temperature",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_charge_exchange_time_velocity_tor(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Per-channel toroidal rotation history from charge-exchange spectroscopy.
-
-    Renders with :func:`vaft.plot.charge_exchange_time_velocity_tor`.
-    """
-    return render(
-        "charge_exchange_time_velocity_tor",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_electron_density_field(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Electron density mapped onto the poloidal plane.
-
-    Renders with :func:`vaft.plot.electron_density_field`.
-    """
-    return render(
-        "electron_density_field",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_electron_temperature_field(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Electron temperature mapped onto the poloidal plane.
-
-    Renders with :func:`vaft.plot.electron_temperature_field`.
-    """
-    return render(
-        "electron_temperature_field",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_electron_density_profile(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Core electron density profile.
-
-    Renders with :func:`vaft.plot.electron_density_profile`.
-    """
-    return render(
-        "electron_density_profile",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_electron_temperature_profile(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Core electron temperature profile.
-
-    Renders with :func:`vaft.plot.electron_temperature_profile`.
-    """
-    return render(
-        "electron_temperature_profile",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_ion_temperature_profile(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Core ion temperature profile.
-
-    Renders with :func:`vaft.plot.ion_temperature_profile`.
-    """
-    return render(
-        "ion_temperature_profile",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_thermal_pressure_profile(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Core total pressure profile.
-
-    Renders with :func:`vaft.plot.thermal_pressure_profile`.
-    """
-    return render(
-        "thermal_pressure_profile",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_electron_density_time(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Volume-averaged electron density history.
-
-    Renders with :func:`vaft.plot.electron_density_time`.
-    """
-    return render(
-        "electron_density_time",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_electron_temperature_time(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Volume-averaged electron temperature history.
-
-    Renders with :func:`vaft.plot.electron_temperature_time`.
-    """
-    return render(
-        "electron_temperature_time",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_core_profiles_time_volume_averaged(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Volume-averaged core quantity panels on a shared time axis.
-
-    Renders with :func:`vaft.plot.core_profiles_time_volume_averaged`.
-    """
-    return render(
-        "core_profiles_time_volume_averaged",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_current_overview(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Plasma, PF coil and eddy current panels on a shared time axis.
-
-    Renders with :func:`vaft.plot.current_overview`.
-    """
-    return render(
-        "current_overview",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_equilibrium_field_psi(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Reconstructed poloidal flux map on the equilibrium (R, Z) grid.
-
-    Renders with :func:`vaft.plot.equilibrium_field_psi`.
-    """
-    return render(
-        "equilibrium_field_psi", source, ax=ax, show=show, label=label, **options
-    )
-
-
 def plot_equilibrium_field_2d(
     source: Any,
     *,
@@ -861,23 +453,6 @@ def plot_equilibrium_field_2d(
     return render("equilibrium_field_2d", source, ax=ax, show=show, label=label, **options)
 
 
-def plot_equilibrium_field_psi_vacuum(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Vacuum poloidal flux from the PF coils alone, without plasma.
-
-    Renders with :func:`vaft.plot.equilibrium_field_psi_vacuum`.
-    """
-    return render(
-        "equilibrium_field_psi_vacuum", source, ax=ax, show=show, label=label, **options
-    )
-
-
 def plot_vacuum_field(
     source: Any,
     *,
@@ -895,45 +470,6 @@ def plot_vacuum_field(
     """
     return render(
         "vacuum_field", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_geometry_boundary(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Last-closed-flux-surface outline in the poloidal plane.
-
-    Renders with :func:`vaft.plot.equilibrium_geometry_boundary`.
-    """
-    return render(
-        "equilibrium_geometry_boundary",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_equilibrium_geometry_topview(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Equilibrium boundary projected into the machine top view.
-
-    Renders with :func:`vaft.plot.equilibrium_geometry_topview`.
-    """
-    return render(
-        "equilibrium_geometry_topview", source, ax=ax, show=show, label=label, **options
     )
 
 
@@ -1214,6 +750,49 @@ def plot_mhd_linear_profile_b_field_perturbed(
     )
 
 
+def plot_mhd_linear_profile_resonant_flux(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Linear MHD stability: pitch-resonant flux per rational surface.
+
+    Not read from the IDS -- there is no IMAS slot for it -- but derived from
+    the mapped perturbed flux by the jump across each singular surface, with
+    the surface geometry the ideal-GPEC mapper recorded in ``code.parameters``.
+    The derivation runs once per figure, not once per trace.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_resonant_flux`.
+    """
+    return render(
+        "mhd_linear_profile_resonant_flux", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_mhd_linear_profile_island_width(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Linear MHD stability: saturated island width per rational surface.
+
+    In normalized poloidal flux, as GPEC reports it -- converting to metres
+    needs the equilibrium's ``dr/dpsi_N`` and is not done here. Derived from
+    the resonant flux above.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_island_width`.
+    """
+    return render(
+        "mhd_linear_profile_island_width", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_mhd_linear_overview_eigenfunction(
     source: Any,
     *,
@@ -1255,376 +834,6 @@ def plot_equilibrium_overview_verification(
     )
 
 
-def plot_equilibrium_profile_f(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Equilibrium poloidal current function F = R*B_t.
-
-    Renders with :func:`vaft.plot.equilibrium_profile_f`.
-    """
-    return render(
-        "equilibrium_profile_f", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_profile_ffprime(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Equilibrium F dF/dpsi profile.
-
-    Renders with :func:`vaft.plot.equilibrium_profile_ffprime`.
-    """
-    return render(
-        "equilibrium_profile_ffprime", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_profile_j_tor(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Equilibrium toroidal current-density profile.
-
-    Renders with :func:`vaft.plot.equilibrium_profile_j_tor`.
-    """
-    return render(
-        "equilibrium_profile_j_tor", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_profile_pprime(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Equilibrium dp/dpsi profile.
-
-    Renders with :func:`vaft.plot.equilibrium_profile_pprime`.
-    """
-    return render(
-        "equilibrium_profile_pprime", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_profile_pressure(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Equilibrium 1D pressure profile.
-
-    Renders with :func:`vaft.plot.equilibrium_profile_pressure`.
-    """
-    return render(
-        "equilibrium_profile_pressure", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_profile_q(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Equilibrium safety-factor profile.
-
-    Renders with :func:`vaft.plot.equilibrium_profile_q`.
-    """
-    return render(
-        "equilibrium_profile_q", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_time_beta_n(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Normalized beta history.
-
-    Renders with :func:`vaft.plot.equilibrium_time_beta_n`.
-    """
-    return render(
-        "equilibrium_time_beta_n", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_time_beta_p(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Poloidal beta history.
-
-    Renders with :func:`vaft.plot.equilibrium_time_beta_p`.
-    """
-    return render(
-        "equilibrium_time_beta_p", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_time_beta_t(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Toroidal beta history.
-
-    Renders with :func:`vaft.plot.equilibrium_time_beta_t`.
-    """
-    return render(
-        "equilibrium_time_beta_t", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_time_diamagnetic_flux(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Measured versus reconstructed diamagnetic-flux constraint.
-
-    Renders with :func:`vaft.plot.equilibrium_time_diamagnetic_flux`.
-    """
-    return render(
-        "equilibrium_time_diamagnetic_flux",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_equilibrium_time_li(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Internal inductance li_3 history.
-
-    Renders with :func:`vaft.plot.equilibrium_time_li`.
-    """
-    return render(
-        "equilibrium_time_li", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_time_major_radius(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Geometric-axis major radius history.
-
-    Renders with :func:`vaft.plot.equilibrium_time_major_radius`.
-    """
-    return render(
-        "equilibrium_time_major_radius",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_equilibrium_time_plasma_current(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Reconstructed plasma current history.
-
-    Renders with :func:`vaft.plot.equilibrium_time_plasma_current`.
-    """
-    return render(
-        "equilibrium_time_plasma_current",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_equilibrium_time_q0(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Safety factor on axis.
-
-    Renders with :func:`vaft.plot.equilibrium_time_q0`.
-    """
-    return render(
-        "equilibrium_time_q0", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_time_q95(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Safety factor at the 95% flux surface.
-
-    Renders with :func:`vaft.plot.equilibrium_time_q95`.
-    """
-    return render(
-        "equilibrium_time_q95", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_time_qa(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Safety factor at the plasma edge.
-
-    Renders with :func:`vaft.plot.equilibrium_time_qa`.
-    """
-    return render(
-        "equilibrium_time_qa", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_time_virial(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Virial-estimate equilibrium quantities against the reconstruction.
-
-    Renders with :func:`vaft.plot.equilibrium_time_virial`.
-    """
-    return render(
-        "equilibrium_time_virial", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_time_w_mag(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Magnetic stored energy history.
-
-    Renders with :func:`vaft.plot.equilibrium_time_w_mag`.
-    """
-    return render(
-        "equilibrium_time_w_mag", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_time_w_mhd(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """MHD stored energy history.
-
-    Renders with :func:`vaft.plot.equilibrium_time_w_mhd`.
-    """
-    return render(
-        "equilibrium_time_w_mhd", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_equilibrium_time_w_tot(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Total stored energy history.
-
-    Renders with :func:`vaft.plot.equilibrium_time_w_tot`.
-    """
-    return render(
-        "equilibrium_time_w_tot", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_interferometer_time_n_e_line(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Interferometer line-integrated electron density history.
-
-    Renders with :func:`vaft.plot.interferometer_time_n_e_line`.
-    """
-    return render("interferometer_time_n_e_line", source, ax=ax, show=show, label=label, **options)
-
-
 def plot_interferometer_spectrum(
     source: Any,
     *,
@@ -1644,36 +853,6 @@ def plot_interferometer_spectrum(
     return render(
         "interferometer_spectrum", source, ax=ax, show=show, label=label, **options
     )
-
-
-def plot_interferometer_spectrogram(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Time-frequency map of one interferometer channel's line density.
-
-    Renders with :func:`vaft.plot.interferometer_spectrogram`.
-    """
-    return render("interferometer_spectrogram", source, ax=ax, show=show, label=label, **options)
-
-
-def plot_interferometer_overview(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Interferometer overview: line density history and spectrogram.
-
-    Renders with :func:`vaft.plot.interferometer_overview`.
-    """
-    return render("interferometer_overview", source, ax=ax, show=show, label=label, **options)
 
 
 def plot_machine_geometry_poloidal(
@@ -1707,23 +886,6 @@ def plot_machine_geometry_topview(
     """
     return render(
         "machine_geometry_topview", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_magnetics_geometry_poloidal(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Flux-loop and B-field-probe positions in the poloidal plane.
-
-    Renders with :func:`vaft.plot.magnetics_geometry_poloidal`.
-    """
-    return render(
-        "magnetics_geometry_poloidal", source, ax=ax, show=show, label=label, **options
     )
 
 
@@ -1789,38 +951,6 @@ def plot_diagnostics_overview(
     )
 
 
-def plot_magnetics_overview(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Shot diagnostic overview: current, field, flux and geometry panels.
-
-    Renders with :func:`vaft.plot.magnetics_overview`.
-    """
-    return render(
-        "magnetics_overview", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_impa_overview(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """IMPA validation overview: raw voltages, compensated Bz and the 1/R position check.
-
-    Renders with :func:`vaft.plot.impa_overview`.
-    """
-    return render("impa_overview", source, ax=ax, show=show, label=label, **options)
-
-
 def plot_magnetics_overview_vacuum(
     source: Any,
     *,
@@ -1868,21 +998,6 @@ def plot_magnetics_overview_plasma_residual(
     )
 
 
-def plot_impa_profile_field(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """IMPA measured field against probe radius with the 1/R toroidal-field model.
-
-    Renders with :func:`vaft.plot.impa_profile_field`.
-    """
-    return render("impa_profile_field", source, ax=ax, show=show, label=label, **options)
-
-
 def plot_impa_time_field(
     source: Any,
     *,
@@ -1896,21 +1011,6 @@ def plot_impa_time_field(
     Renders with :func:`vaft.plot.impa_time_field`.
     """
     return render("impa_time_field", source, ax=ax, show=show, label=label, **options)
-
-
-def plot_impa_time_voltage(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Raw IMPA Hall-probe voltages, one trace per channel.
-
-    Renders with :func:`vaft.plot.impa_time_voltage`.
-    """
-    return render("impa_time_voltage", source, ax=ax, show=show, label=label, **options)
 
 
 def plot_mirnov_spectrum(
@@ -1937,89 +1037,6 @@ def plot_mirnov_spectrum(
     """
     return render(
         "mirnov_spectrum", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_mirnov_spectrogram(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Time-frequency map of one Mirnov coil signal.
-
-    Renders with :func:`vaft.plot.mirnov_spectrogram`.
-    """
-    return render(
-        "mirnov_spectrogram", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_b_field_probe_time_field(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Poloidal field measured by each selected B-field probe.
-
-    Renders with :func:`vaft.plot.b_field_probe_time_field`.
-    """
-    return render(
-        "b_field_probe_time_field",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_diamagnetic_flux_time(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Measured diamagnetic flux history.
-
-    Renders with :func:`vaft.plot.diamagnetic_flux_time`.
-    """
-    return render(
-        "diamagnetic_flux_time",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_flux_loop_time_flux(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Poloidal flux measured by each selected flux loop.
-
-    Renders with :func:`vaft.plot.flux_loop_time_flux`.
-    """
-    return render(
-        "flux_loop_time_flux",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
     )
 
 
@@ -2078,43 +1095,6 @@ def plot_b_field_probe_spatial_field(
     return render("b_field_probe_spatial_field", source, ax=ax, show=show, label=label, **options)
 
 
-def plot_flux_loop_time_voltage(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Loop voltage measured by each selected flux loop.
-
-    Renders with :func:`vaft.plot.flux_loop_time_voltage`.
-    """
-    return render(
-        "flux_loop_time_voltage",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_plasma_current_time(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Measured plasma current history from the Rogowski coil.
-
-    Renders with :func:`vaft.plot.plasma_current_time`.
-    """
-    return render("plasma_current_time", source, ax=ax, show=show, label=label, **options)
-
-
 def plot_limiter_current_time(
     source: Any,
     *,
@@ -2131,28 +1111,6 @@ def plot_limiter_current_time(
     """
     return render(
         "limiter_current_time",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_mirnov_time_voltage(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Raw or preprocessed Mirnov coil voltage traces.
-
-    Renders with :func:`vaft.plot.mirnov_time_voltage`.
-    """
-    return render(
-        "mirnov_time_voltage",
         source,
         ax=ax,
         show=show,
@@ -2199,40 +1157,6 @@ def plot_passive_structure_time_current(
     """
     return render(
         "passive_structure_time_current", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_pf_coil_time_current(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Per-coil PF current history.
-
-    Renders with :func:`vaft.plot.pf_coil_time_current`.
-    """
-    return render(
-        "pf_coil_time_current", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_pf_coil_time_current_turns(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Per-coil PF current multiplied by the signed turn count (ampere-turns).
-
-    Renders with :func:`vaft.plot.pf_coil_time_current_turns`.
-    """
-    return render(
-        "pf_coil_time_current_turns", source, ax=ax, show=show, label=label, **options
     )
 
 
@@ -2346,45 +1270,6 @@ def plot_passive_structure_overview_wall_time(
     )
 
 
-def plot_soft_x_rays_geometry_lines_of_sight(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Soft X-ray detector lines of sight over the poloidal cross-section.
-
-    Renders with :func:`vaft.plot.soft_x_rays_geometry_lines_of_sight`.
-    """
-    return render(
-        "soft_x_rays_geometry_lines_of_sight",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_soft_x_rays_overview(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Soft X-ray overview: lines of sight, signals and channel pattern.
-
-    Renders with :func:`vaft.plot.soft_x_rays_overview`.
-    """
-    return render(
-        "soft_x_rays_overview", source, ax=ax, show=show, label=label, **options
-    )
-
-
 def plot_soft_x_rays_spectrum(
     source: Any,
     *,
@@ -2405,341 +1290,6 @@ def plot_soft_x_rays_spectrum(
         "soft_x_rays_spectrum", source, ax=ax, show=show, label=label, **options
     )
 
-
-def plot_soft_x_rays_spectrogram(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Time-frequency map of one soft X-ray channel.
-
-    Renders with :func:`vaft.plot.soft_x_rays_spectrogram`.
-    """
-    return render(
-        "soft_x_rays_spectrogram", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_soft_x_rays_time_power(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Soft X-ray channel signal history.
-
-    Renders with :func:`vaft.plot.soft_x_rays_time_power`.
-    """
-    return render(
-        "soft_x_rays_time_power", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_spectrometer_uv_time_impurity(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Impurity line-intensity panels against plasma current.
-
-    Renders with :func:`vaft.plot.spectrometer_uv_time_impurity`.
-    """
-    return render(
-        "spectrometer_uv_time_impurity",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_spectrometer_uv_time_intensity(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Processed spectral line intensity history.
-
-    Renders with :func:`vaft.plot.spectrometer_uv_time_intensity`.
-    """
-    return render(
-        "spectrometer_uv_time_intensity",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_equilibrium_time_beta(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Poloidal, toroidal and normalized beta panels.
-
-    Renders with :func:`vaft.plot.equilibrium_time_beta`.
-    """
-    return render("equilibrium_time_beta", source, ax=ax, show=show, label=label, **options)
-
-
-def plot_summary_time_energy(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Stored-energy comparison panels across available estimates.
-
-    Renders with :func:`vaft.plot.summary_time_energy`.
-    """
-    return render(
-        "summary_time_energy", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_summary_time_power_balance(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Ohmic input, radiated and conducted power balance panels.
-
-    Renders with :func:`vaft.plot.summary_time_power_balance`.
-    """
-    return render(
-        "summary_time_power_balance", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_summary_time_voltage_consumption(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Loop-voltage and flux-consumption panels.
-
-    Renders with :func:`vaft.plot.summary_time_voltage_consumption`.
-    """
-    return render(
-        "summary_time_voltage_consumption",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_tf_coil_time_b_t(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Toroidal field history at the reference radius.
-
-    Renders with :func:`vaft.plot.tf_coil_time_b_t`.
-    """
-    return render(
-        "tf_coil_time_b_t", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_tf_coil_time_b_t_vacuum_r(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Vacuum toroidal field times major radius (B_t * R).
-
-    Renders with :func:`vaft.plot.tf_coil_time_b_t_vacuum_r`.
-    """
-    return render(
-        "tf_coil_time_b_t_vacuum_r", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_tf_coil_time_current(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """TF coil current history.
-
-    Renders with :func:`vaft.plot.tf_coil_time_current`.
-    """
-    return render(
-        "tf_coil_time_current", source, ax=ax, show=show, label=label, **options
-    )
-
-
-def plot_thomson_scattering_geometry_poloidal(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Thomson-scattering measurement positions in the poloidal plane.
-
-    Renders with :func:`vaft.plot.thomson_scattering_geometry_poloidal`.
-    """
-    return render(
-        "thomson_scattering_geometry_poloidal",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_thomson_scattering_profile_electron_density(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Thomson-scattering electron density versus position.
-
-    Renders with :func:`vaft.plot.thomson_scattering_profile_electron_density`.
-    """
-    return render(
-        "thomson_scattering_profile_electron_density",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_thomson_scattering_profile_electron_temperature(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Thomson-scattering electron temperature versus position.
-
-    Renders with :func:`vaft.plot.thomson_scattering_profile_electron_temperature`.
-    """
-    return render(
-        "thomson_scattering_profile_electron_temperature",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_thomson_scattering_time_electron_density(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Per-channel Thomson electron density history.
-
-    Renders with :func:`vaft.plot.thomson_scattering_time_electron_density`.
-    """
-    return render(
-        "thomson_scattering_time_electron_density",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_thomson_scattering_time_electron_temperature(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """Per-channel Thomson electron temperature history.
-
-    Renders with :func:`vaft.plot.thomson_scattering_time_electron_temperature`.
-    """
-    return render(
-        "thomson_scattering_time_electron_temperature",
-        source,
-        ax=ax,
-        show=show,
-        label=label,
-        **options,
-    )
-
-
-def plot_wall_geometry_poloidal(
-    source: Any,
-    *,
-    ax: Any = None,
-    show: bool = False,
-    label: str | Sequence[str] = "shot",
-    **options: Any,
-) -> tuple[Any, Any]:
-    """First-wall and limiter outline in the poloidal plane.
-
-    Renders with :func:`vaft.plot.wall_geometry_poloidal`.
-    """
-    return render(
-        "wall_geometry_poloidal", source, ax=ax, show=show, label=label, **options
-    )
-
-
-
-# --- Deprecated adapters for stems renamed by the issue #251 taxonomy --------
-#
-# The subject-taxonomy redesign renamed 34 canonical stems (see
-# ``vaft.plot._migration.RENAMED``, and the plotting policy notebook).
-# The old ``plot_<stem>`` adapters keep working with a ``DeprecationWarning``
-# until ``RENAMED_REMOVAL_RELEASE``.
 
 def _renamed_adapter(old_stem: str, new_stem: str):
     def adapter(
@@ -2887,7 +1437,6 @@ __all__ = [
     "enable_plot_methods",
     "extract_labels_from_odc",
     "normalize_entries",
-    "plot_barometry_time_pressure",
     "plot_camera_visible_animation_frames",
     "plot_camera_visible_image",
     "plot_camera_visible_image_fluctuation",
@@ -2897,31 +1446,10 @@ __all__ = [
     "plot_camera_visible_image_efit_overlay",
     "plot_camera_visible_image_field_line",
     "plot_camera_visible_image_frame",
-    "plot_charge_exchange_geometry_poloidal",
-    "plot_charge_exchange_profile_ion_temperature",
-    "plot_coil_3d_geometry3d",
-    "plot_coil_3d_geometry_topview",
-    "plot_charge_exchange_profile_velocity_tor",
-    "plot_charge_exchange_time_ion_temperature",
-    "plot_charge_exchange_time_velocity_tor",
     "plot_chease_overview_profile_validity",
     "plot_chease_overview_refinement_summary",
-    "plot_electron_density_field",
-    "plot_electron_temperature_field",
-    "plot_electron_density_profile",
-    "plot_electron_temperature_profile",
-    "plot_ion_temperature_profile",
-    "plot_thermal_pressure_profile",
-    "plot_electron_density_time",
-    "plot_electron_temperature_time",
-    "plot_core_profiles_time_volume_averaged",
-    "plot_current_overview",
     "plot_equilibrium_field_2d",
-    "plot_equilibrium_field_psi",
-    "plot_equilibrium_field_psi_vacuum",
     "plot_vacuum_field",
-    "plot_equilibrium_geometry_boundary",
-    "plot_equilibrium_geometry_topview",
     "plot_equilibrium_overview",
     "plot_equilibrium_overview_constraint_coverage",
     "plot_equilibrium_overview_constraints",
@@ -2933,91 +1461,37 @@ __all__ = [
     "plot_equilibrium_overview_profiles",
     "plot_equilibrium_overview_residuals",
     "plot_equilibrium_overview_verification",
-    "plot_equilibrium_profile_f",
-    "plot_equilibrium_profile_ffprime",
-    "plot_equilibrium_profile_j_tor",
-    "plot_equilibrium_profile_pprime",
-    "plot_equilibrium_profile_pressure",
-    "plot_equilibrium_profile_q",
-    "plot_equilibrium_time_beta_n",
-    "plot_equilibrium_time_beta_p",
-    "plot_equilibrium_time_beta_t",
-    "plot_equilibrium_time_diamagnetic_flux",
-    "plot_equilibrium_time_li",
-    "plot_equilibrium_time_major_radius",
-    "plot_equilibrium_time_plasma_current",
-    "plot_equilibrium_time_q0",
-    "plot_equilibrium_time_q95",
-    "plot_equilibrium_time_qa",
-    "plot_equilibrium_time_virial",
-    "plot_equilibrium_time_w_mag",
-    "plot_equilibrium_time_w_mhd",
-    "plot_equilibrium_time_w_tot",
-    "plot_interferometer_overview",
-    "plot_interferometer_spectrogram",
     "plot_interferometer_spectrum",
-    "plot_interferometer_time_n_e_line",
     "plot_machine_geometry_poloidal",
     "plot_machine_geometry_topview",
-    "plot_magnetics_geometry_poloidal",
-    "plot_magnetics_overview",
-    "plot_impa_overview",
     "plot_magnetics_overview_plasma_residual",
     "plot_magnetics_overview_vacuum",
     "plot_mhd_linear_overview_eigenfunction",
     "plot_mhd_linear_profile_b_field_perturbed",
+    "plot_mhd_linear_profile_island_width",
+    "plot_mhd_linear_profile_resonant_flux",
     "plot_mhd_linear_profile_displacement",
     "plot_nbi_profile_current_drive",
     "plot_nbi_profile_electron_heating",
     "plot_nbi_profile_ion_heating",
     "plot_mhd_linear_time_energy_perturbed",
     "plot_ntms_time_delta_prime",
-    "plot_impa_profile_field",
     "plot_impa_time_field",
-    "plot_impa_time_voltage",
-    "plot_mirnov_spectrogram",
     "plot_mirnov_spectrum",
-    "plot_b_field_probe_time_field",
     "plot_diagnostics_overview",
-    "plot_diamagnetic_flux_time",
-    "plot_flux_loop_time_flux",
     "plot_flux_loop_spatial_flux",
     "plot_mirnov_spatial_phase",
     "plot_b_field_probe_spatial_field",
-    "plot_flux_loop_time_voltage",
-    "plot_plasma_current_time",
     "plot_limiter_current_time",
-    "plot_mirnov_time_voltage",
     "plot_passive_structure_time_current",
     "plot_pf_coil_geometry_poloidal",
-    "plot_pf_coil_time_current",
-    "plot_pf_coil_time_current_turns",
     "plot_passive_structure_geometry_poloidal",
     "plot_passive_structure_field_wall_reduction",
     "plot_passive_structure_geometry_wall_mode",
     "plot_passive_structure_overview_wall_reduction",
     "plot_passive_structure_overview_wall_time",
     "plot_pf_plasma_geometry_poloidal",
-    "plot_soft_x_rays_geometry_lines_of_sight",
-    "plot_soft_x_rays_overview",
-    "plot_soft_x_rays_spectrogram",
     "plot_soft_x_rays_spectrum",
-    "plot_soft_x_rays_time_power",
-    "plot_spectrometer_uv_time_impurity",
-    "plot_spectrometer_uv_time_intensity",
-    "plot_equilibrium_time_beta",
-    "plot_summary_time_energy",
-    "plot_summary_time_power_balance",
-    "plot_summary_time_voltage_consumption",
-    "plot_tf_coil_time_b_t",
-    "plot_tf_coil_time_b_t_vacuum_r",
-    "plot_tf_coil_time_current",
-    "plot_thomson_scattering_geometry_poloidal",
-    "plot_thomson_scattering_profile_electron_density",
-    "plot_thomson_scattering_profile_electron_temperature",
-    "plot_thomson_scattering_time_electron_density",
-    "plot_thomson_scattering_time_electron_temperature",
-    "plot_wall_geometry_poloidal",
     "render",
     # deprecated renamed adapters (issue #251):
     "plot_coils_non_axisymmetric_geometry3d",

@@ -74,8 +74,17 @@ vaft = "vaft.cli._main:main"
 # The default 'gp' mode is implemented against scipy, so the package no longer
 # pays a heavy import for one optional fitting backend (#426).
 sklearn = ["scikit-learn"]
+# onnxruntime is needed only by `vaft.code.gacode.tglf.surrogate` when it actually
+# runs a network. Resolving a model and auditing an input against its training
+# distribution need neither the runtime nor a prediction, so the decision "does this
+# model apply to this plasma" stays answerable without a heavy ML dependency (#553).
+surrogate = ["onnxruntime"]
 dev = [
   "pytest",
+  # so the surrogate's arithmetic check actually runs on the gate. CI installs
+  # [dev], and without the runtime every inference test skips -- an inverted
+  # denormalisation would then pass CI green.
+  "onnxruntime",
   # for test_fit_profile_gp_backends.py, which compares the two GP backends
   "scikit-learn",
   # The suite is 4800+ largely independent tests; running them on one core is

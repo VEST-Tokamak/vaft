@@ -36,6 +36,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+import warnings
+
 import numpy as np
 
 SCHEMA = 3
@@ -189,38 +191,52 @@ def _output_time_ms(path: Path) -> float | None:
 
 
 def _phase_map(constraints: Any, times: np.ndarray, current_cut: float) -> tuple[dict[int, dict[str, Any]], float]:
-    currents = []
-    for index in range(times.size):
-        path = f"equilibrium.time_slice.{index}.constraints.ip.measured"
-        try:
-            currents.append(float(constraints[path]))
-        except Exception:
-            currents.append(float("nan"))
-    values = np.asarray(currents, dtype=float)
-    finite = np.isfinite(values)
-    derivative = np.full_like(values, np.nan)
-    if finite.sum() >= 2:
-        derivative[finite] = np.gradient(values[finite], times[finite])
-    scale = float(np.nanmax(np.abs(derivative))) if np.isfinite(derivative).any() else 0.0
-    threshold = 0.15 * scale
+    """Per-slice phase, keyed by integer millisecond, with its inputs kept.
+
+    The rule moved to `vaft.validation.classify_equilibrium_regimes` (#76).
+    It used to be a slope test local to this study -- flat where
+    |dIp/dt| <= 0.15 * max|dIp/dt| -- and the study in
+    `workflow/efit_numerics/` used a level test instead, so the same slice
+    could land in different cohorts depending on which study asked.
+
+    The library rule is the level one. Measured over the three reference
+    discharges the two agree on 295 of 300 slices, and the level rule's
+    threshold is scaled by peak current rather than by max|dIp/dt|, which is
+    set by the termination and varies 3.4x across those discharges.
+
+    `current_cut` is still accepted so the caller's signature does not change,
+    but the vacuum cut is the policy's now; a value that disagrees is
+    reported rather than silently applied. The returned threshold is the
+    absolute current the flat/ramp boundary sits at for this discharge.
+    """
+    from vaft.validation import classify_equilibrium_regimes
+    from vaft.machine_mapping.equilibrium_regime import vest_equilibrium_regime_policy
+
+    policy = vest_equilibrium_regime_policy()
+    if float(current_cut) != float(policy.vacuum_current_amperes):
+        warnings.warn(
+            f"_phase_map was given current_cut={current_cut} but the regime policy "
+            f"cuts vacuum at {policy.vacuum_current_amperes} A; the policy is used. "
+            "Change vest.yaml's equilibrium_regime.phase.vacuum_current_amperes to move it.",
+            stacklevel=2,
+        )
+
+    labels = classify_equilibrium_regimes(constraints, policy=policy)
     result: dict[int, dict[str, Any]] = {}
-    for time_s, current, slope in zip(times, values, derivative):
-        if not np.isfinite(current):
-            phase = "unknown"
-        elif abs(current) < current_cut:
-            phase = "vacuum"
-        elif not np.isfinite(slope) or abs(slope) <= threshold:
-            phase = "quasi_stationary"
-        elif slope > 0:
-            phase = "ramp_up"
-        else:
-            phase = "ramp_down"
-        result[int(round(float(time_s) * 1000.0))] = {
-            "current": None if not np.isfinite(current) else float(current),
-            "dcurrent_dt": None if not np.isfinite(slope) else float(slope),
-            "phase": phase,
+    peak = 0.0
+    for index, item in enumerate(labels):
+        if index >= times.size:
+            break
+        if item.current is not None:
+            peak = max(peak, abs(item.current))
+        result[int(round(float(times[index]) * 1000.0))] = {
+            "current": item.current,
+            "dcurrent_dt": item.current_rate,
+            # This study's stored tables name the flat cohort
+            # `quasi_stationary`; the library calls it `flat`.
+            "phase": "quasi_stationary" if item.phase == "flat" else item.phase,
         }
-    return result, threshold
+    return result, peak * policy.flat_fraction
 
 
 def _afile_record(path: Path) -> dict[str, Any]:

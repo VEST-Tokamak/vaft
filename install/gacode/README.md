@@ -1,9 +1,10 @@
 # GACODE: build and verify
 
 GACODE is the General Atomics code suite for kinetic and transport modelling.
-This directory builds it; `vaft.code.gacode` then runs it. NEO, the
-drift-kinetic neoclassical solver, is the first backend VAFT drives; TGLF and
-CGYRO share the same profile and runtime layer and are tracked in
+This directory builds it; `vaft.code.gacode` then runs it. VAFT drives two suite
+members today: **NEO**, the drift-kinetic neoclassical solver, and **TGLF**, the
+quasilinear turbulent-transport model. CGYRO shares the same profile and runtime
+layer and is still tracked in
 [issue #553](https://github.com/VEST-Tokamak/vaft/issues/553).
 
 **The source is not here, deliberately.** VAFT owns the build recipe and the
@@ -22,12 +23,12 @@ runs in CI; the VAFT test suite passes with GACODE absent.
 
 | File | Purpose |
 | --- | --- |
-| `macos.sh` | Installs the Homebrew dependencies, builds the shared and `f2py` libraries and the requested suite members, and optionally runs the NEO `reg18` regression case. |
+| `macos.sh` | Installs the Homebrew dependencies, builds the shared and `f2py` libraries and the requested suite members, and optionally runs the NEO `reg18` regression case. **`--codes` defaults to `neo` alone**, so pass `--codes neo,tglf` unless you want a tree that cannot run half of what VAFT drives. |
 
 ## Usage
 
 ```bash
-bash install/gacode/macos.sh --gacode-root ~/git/gacode --check
+bash install/gacode/macos.sh --gacode-root ~/git/gacode --codes neo,tglf --check
 export GACODEHOME=~/git/gacode
 python install/check_gacode.py --source ~/git/gacode
 ```
@@ -49,7 +50,7 @@ usable from a plain shell that sources `shared/bin/gacode_setup`, and
 `vaft.code.gacode` accepts a pre-set `GACODE_ROOT` as a compatibility fallback
 when `GACODEHOME` is unset.
 
-## Two failure modes worth knowing before you hit them
+## Three failure modes worth knowing before you hit them
 
 **The launcher needs `pygacode` on `PYTHONPATH`.** `neo/bin/neo` shells out to
 `neo_parse.py`, which imports `gacodeinput` from `f2py/pygacode`. When that
@@ -62,6 +63,49 @@ for this reason.
 `platform/exec/exec.$GACODE_PLATFORM`; an unset or wrong value fails deep inside
 a shell script without naming the variable. `vaft.code.gacode` resolves it
 explicitly and lists the available platforms when it cannot.
+
+**Two installed TurbulentTransport versions can answer to one model name.** A
+Julia depot routinely carries several releases of a package side by side, and
+upstream's own `models/SEMVER` says a minor bump means the TGLF settings behind
+an unchanged family name changed. VAFT hashes every ensemble member *and* every
+normalisation file and **refuses** when two roots disagree, rather than picking
+the first -- naming both locations and their versions so you can choose with
+`model_dir=` or an explicit path. Copies that agree resolve normally and the
+extra location is recorded.
+
+## TGLF-NN models are a separate external artifact
+
+The surrogate backend (`vaft.code.gacode.tglf.surrogate`) needs no GACODE build and
+no compiler. It needs pretrained networks, which VAFT does not ship: they are large,
+they are upstream's, and vendoring them would put model weights in a physics
+repository. Nothing here downloads them either -- `import vaft` stays offline.
+
+Point VAFT at a checkout you already have:
+
+```bash
+export TURBULENTTRANSPORTHOME=/path/to/TurbulentTransport.jl
+```
+
+(`TURBULENTTRANSPORT_ROOT` is accepted too, the way `GACODE_ROOT` is.) A Julia depot
+that already has the package is found without any variable set. Resolution order is
+explicit path, then `model_dir=`, then the variable, then the depot; when two roots
+hold the same family name with different bytes VAFT refuses rather than choosing,
+because upstream versions the networks behind a stable name.
+
+Only *running* a network needs `onnxruntime` (`pip install 'vaft[surrogate]'`).
+Deciding whether a model applies to a given plasma does not -- that is a question
+about the input and the training moments, and `audit_training_domain` answers it
+with neither the runtime nor a prediction.
+
+What that answer can and cannot be: the ONNX distribution ships the normalisation
+moments (`xm`/`xsigma`) but **not** the per-input training bounds, which exist only
+inside the upstream Julia `.bson`. So the measure is a standard-deviation distance,
+not a containment test, and every audit reports `bounds_available = False` to say
+so. Read `in_domain` as "nothing is far from what this model was trained on", never
+as a guarantee.
+
+Upstream publishes ONNX for only 14 of its ~100 families, all of them
+spherical-tokamak; the rest are Julia `.bson` and cannot be read from Python.
 
 ## Verified
 

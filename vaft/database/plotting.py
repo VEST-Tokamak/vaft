@@ -1,5 +1,13 @@
 """Plot adapters for database shots: ``plot_<canonical-stem>(shot, source=...)``.
 
+Every ``plot_<stem>`` has two twins (umbrella #434): ``dd_<stem>()`` lists the
+Data Dictionary paths the plot reads without touching the database, and
+``extract_<stem>(shot, source=..., *, lazy=True, occurrence=None, label="shot",
+**extraction_options)`` opens the same IDS the plot would and returns the view
+model undrawn -- the one ``vaft.omas.extract_<stem>`` builds from a loaded
+ODS, so ``.to_xarray()`` works on it.  A rendering keyword is refused by
+``extract_*``.
+
 A database adapter names *which shot in which source* to draw; it does not
 interpret data.  Each adapter asks the registry which IDS the plot needs
 (:func:`vaft.plot.backend.recipes.required_ids`), opens exactly those over
@@ -19,6 +27,9 @@ stages the declared IDS with :func:`vaft.database.load` and is the only way
 to ask for an ``occurrence`` -- every source stores one occurrence per IDS,
 so the lazy path reads occurrence 0 by construction.  ``label="shot"`` names
 each entry by the shot the caller asked for, which needs no remote read.
+``interactive=True`` loads the declared IDS eagerly whatever ``lazy`` says:
+the controls redraw after the call returns, when a lazy store would already
+be closed.
 
 :func:`available_plots` answers for a shot without downloading it: the
 shot's IDS domains are listed and a plot is available when the IDS it needs
@@ -33,6 +44,8 @@ from typing import Any, Sequence
 
 __all__ = [
     "available_plots",
+    "dd",
+    "extract",
     "plot_diagnostics_time_interactive",
     "plot_equilibrium_interactive",
     "render",
@@ -117,11 +130,12 @@ def render(
     ``backend="plotly"`` among the options returns a Plotly figure instead of
     ``(Figure, Axes)`` (see :mod:`vaft.plot.backends`).
     """
-    if lazy and _asks_for_another_occurrence(occurrence):
-        raise ValueError(
-            "occurrence is available with lazy=False only: every source stores one "
-            "occurrence per IDS, so the lazy path reads occurrence 0 by construction"
-        )
+    if options.get("interactive") and lazy:
+        # The controls rebuild the model on every widget event, long after
+        # this call returns and its lazy store has closed: load once instead,
+        # with the eager path's whole contract (an occurrence is honoured).
+        lazy = False
+    _refuse_lazy_occurrence(lazy, occurrence)
     resolved = _resolve_source(source)
     shots = _shots(shot)
     ids = _declared_ids(name)
@@ -133,6 +147,65 @@ def render(
         # Models copy what they read into their own arrays and renderers never
         # keep the data object, so the lazy stores may close on the way out.
         return render_ods(name, source_object, ax=ax, show=show, label=_labels(shots, label), **options)
+
+
+def _refuse_lazy_occurrence(lazy: bool, occurrence: Any) -> None:
+    if lazy and _asks_for_another_occurrence(occurrence):
+        raise ValueError(
+            "occurrence is available with lazy=False only: every source stores one "
+            "occurrence per IDS, so the lazy path reads occurrence 0 by construction"
+        )
+
+
+def extract(
+    name: str,
+    shot: Any,
+    source: str | None = None,
+    *,
+    lazy: bool = True,
+    occurrence: Any = None,
+    label: Any = "shot",
+    **options: Any,
+) -> Any:
+    """Open what plot ``name`` needs of ``shot`` and return its view model, undrawn.
+
+    The same IDS :func:`render` opens, lazily by default; the model is what
+    ``vaft.omas.extract_<name>`` builds from the loaded ODS, so
+    ``.to_xarray()`` works on it.  A computed view whose builder needs an
+    OMAS ODS (``CallableRecipe.backend == "omas"``) is served from the lazy
+    store by reading exactly the paths its recipe declares
+    (:func:`vaft.plot.backend.recipes.materialise_reads`); one that
+    deep-copies a whole IDS fetches that IDS whole.  Only the extraction options are taken
+    (:data:`vaft.plot.backend.options.EXTRACTION_OPTIONS`); a rendering
+    keyword such as ``ax=`` is refused by name.
+    """
+    from vaft.omas.entries import normalize_entries
+    from vaft.plot.backend.facade import refuse_render_options
+    from vaft.plot.backend.recipes import build_model
+    from vaft.plot.backend.render import refuse_when_unsupported
+
+    _refuse_lazy_occurrence(lazy, occurrence)
+    refuse_render_options(name, options)
+    resolved = _resolve_source(source)
+    shots = _shots(shot)
+    ids = _declared_ids(name)
+    with contextlib.ExitStack() as stack:
+        objects = _open_all(stack, shots, resolved, ids, lazy=lazy, occurrence=occurrence)
+        source_object = objects[0] if len(objects) == 1 else objects
+        entries = normalize_entries(source_object, label=_labels(shots, label))
+        # The pointer names a discovery that sees the leaves: available_plots(shot)
+        # judges by IDS domains only, a loaded ODS by what it holds.
+        refuse_when_unsupported(
+            name, entries, namespace="vaft.database", subject="vaft.database.load(shot)",
+        )
+        return build_model(name, entries, **options)
+
+
+def dd(name: str) -> tuple:
+    """The Data Dictionary paths plot ``name`` reads; nothing is opened."""
+    from vaft.plot.backend.dd import dd_paths
+
+    return dd_paths(name)
 
 
 def _load_for_interaction(
@@ -296,6 +369,45 @@ def _adapter(name: str, description: str):
     return adapter
 
 
+def _extract_adapter(name: str, description: str):
+    def adapter(
+        shot: Any,
+        source: str | None = None,
+        *,
+        lazy: bool = True,
+        occurrence: Any = None,
+        label: Any = "shot",
+        **options: Any,
+    ) -> Any:
+        return extract(name, shot, source, lazy=lazy, occurrence=occurrence, label=label, **options)
+
+    adapter.__name__ = adapter.__qualname__ = f"extract_{name}"
+    adapter.__doc__ = (
+        f"The data behind :func:`plot_{name}` for a database shot, as its view model, undrawn.\n\n"
+        f"{description.rstrip('.')}.  Opens the IDS ``{name}`` declares for the shot in "
+        f"``source`` (lazily by default) and builds the model :func:`vaft.omas.extract_{name}` "
+        f"builds; a rendering keyword is refused.  ``.to_xarray()`` on the result gives an "
+        f":class:`xarray.Dataset`; :func:`dd_{name}` lists the Data Dictionary paths it reads."
+    )
+    return adapter
+
+
+def _dd_adapter(name: str, description: str):
+    def adapter() -> tuple:
+        return dd(name)
+
+    adapter.__name__ = adapter.__qualname__ = f"dd_{name}"
+    adapter.__doc__ = (
+        f"The Data Dictionary paths :func:`plot_{name}` reads, without touching the database.\n\n"
+        f"{description.rstrip('.')}.  The same tuple of :class:`vaft.plot.backend.dd.DDPath` "
+        f"as :func:`vaft.omas.dd_{name}`."
+    )
+    return adapter
+
+
+_FACTORIES = {"plot_": _adapter, "extract_": _extract_adapter, "dd_": _dd_adapter}
+
+
 def _canonical(name: str):
     """The registered spec behind ``plot_<name>``, or ``None``.
 
@@ -312,16 +424,18 @@ def _canonical(name: str):
 
 
 def __getattr__(name: str):
-    if name.startswith("plot_"):
-        spec = _canonical(name[len("plot_"):])
-        if spec is not None:
-            adapter = _adapter(spec.name, spec.description)
-            globals()[name] = adapter
-            return adapter
+    for prefix, factory in _FACTORIES.items():
+        if name.startswith(prefix):
+            spec = _canonical(name[len(prefix):])
+            if spec is not None:
+                adapter = factory(spec.name, spec.description)
+                globals()[name] = adapter
+                return adapter
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def __dir__():
     from vaft.plot.registry import canonical_names
 
-    return sorted(set(globals()) | set(__all__) | {f"plot_{n}" for n in canonical_names()})
+    generated = {f"{prefix}{n}" for prefix in _FACTORIES for n in canonical_names()}
+    return sorted(set(globals()) | set(__all__) | generated)

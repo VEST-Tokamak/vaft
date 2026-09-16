@@ -1888,12 +1888,12 @@
 /
 
 &incheck
-    aminor_max = 75.0
-    aminor_min = 25.0
+    aminor_max = 32.8
+    aminor_min = 4.492187499999999
     betap_max = 6.0
     betat_max = 25.0
-    dbpli_diff = 0.05
-    delbp_diff = 0.08
+    dbpli_diff = 1000000.0
+    delbp_diff = 1000000.0
     elong_max = 4.0
     elong_min = 0.8
     gapin_min = -0.2
@@ -1906,13 +1906,13 @@
     qout_min = 1.0
     qstar_max = 200.0
     qstar_min = 1.0
-    rcntr_max = 160.0
-    rcntr_min = 30.0
-    rcurrt_max = 160.0
-    rcurrt_min = 30.0
+    rcntr_max = 71.5078125
+    rcntr_min = 14.892187499999999
+    rcurrt_max = 71.5078125
+    rcurrt_min = 14.892187499999999
     sepin_check = -90.0
-    zcntr_max = 165.0
-    zcntr_min = -165.0
-    zcurrt_max = 165.0
-    zcurrt_min = -165.0
+    zcntr_max = 114.0078125
+    zcntr_min = -114.0078125
+    zcurrt_max = 114.0078125
+    zcurrt_min = -114.0078125
 /

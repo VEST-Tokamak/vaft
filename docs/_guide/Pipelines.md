@@ -38,7 +38,9 @@ All four share one on-disk root, `base_dir` (`/srv/vest.filedb/public` in every 
 pipeline 1 writes under it in one of two layouts selected by the `layout:` config key.
 
 `layout: shot_first` (the default) is the legacy server hierarchy, kept so this pipeline stays
-directly diffable against the reference output:
+directly diffable against the reference output. Its product names are plain `.json` and stay that
+way: the tree is a read-only record of what the legacy pipeline wrote, so it does not follow the
+canonical layout's container (`OMAS_PRODUCT_SUFFIX`, `.json.gz` since #813).
 
 ```text
 {base_dir}/{shot}/
@@ -103,6 +105,7 @@ flowchart TD
     A["generate_raw_db_dump<br/>vest_SHOT_daq_raw.json.gz"] --> B["generate_diagnostics_ods<br/>SHOT_diagnostics.json"]
     B --> C["generate_eddy_ods<br/>SHOT_eddy.json"]
     C --> D["generate_constraints_ods<br/>SHOT_constraints.json"]
+    B --> D
     D --> E["generate_kfile<br/>efit/kfile/kfiles_generated.txt"]
     E --> F["run_efit_reconstruction<br/>gfiles_generated.txt + efit_status.txt"]
     F --> G["generate_efit_ods<br/>SHOT_efit.json"]
@@ -110,6 +113,14 @@ flowchart TD
     H --> I["generate_chease_ods<br/>SHOT_chease.json"]
     H --> J["run_gpec_suite<br/>gpec_suite_runs.json + gpec_suite_status.txt"]
 ```
+
+`generate_constraints_ods` takes **two** products, not one. Each stage stores only the IDS it owns,
+so the constraint builder reads `magnetics`, `pf_active` and `tf` from the diagnostics product and
+`pf_passive` from the eddy product, unioning them through
+`vaft.database.composition.compose_stage_products`. That composer also refuses a pairing whose time
+grids show the two came from different runs — the EFIT constraint builder interpolates each slice
+onto `pf_passive.time`, so a mismatched pairing produces wall currents for the wrong instants
+rather than an error.
 
 Stages do **not** hand individual g-/k-files to each other as Snakemake outputs. Each stage writes a
 **manifest** — a text file with one absolute path per line — and the next stage reads it. `run_gpec_suite`

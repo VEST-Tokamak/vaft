@@ -475,11 +475,15 @@ role it plays and the reason that data may stop at the FileDB.
 
 ### Budgeting a large payload
 
-Stage products are written uncompressed (`vaft.database.filedb.OMAS_PRODUCT_SUFFIX` is `.json`) and
-nothing anywhere guards their size, so a payload's budget is **raw bytes of the finished field
-string** — measured after XML escaping, which can inflate quote-heavy content several times over,
-not bytes of the payload before it. For scale, the packaged whole-shot sample
-`vaft/data/samples/39915/omas.json.gz` is about 10 MB gzipped and carries no `mhd_linear` at all.
+Stage products are gzipped (`vaft.database.filedb.OMAS_PRODUCT_SUFFIX` is `.json.gz` since #813),
+and nothing anywhere guards their size. **Do not budget against the file on disk.** A
+`code.parameters` payload is quote-heavy XML-escaped text, which is exactly what gzip is best at, so
+a payload that inflates several-fold on escaping can leave the product barely larger — the file size
+stops tracking the cost entirely. The budget is **raw bytes of the finished field string**, measured
+after XML escaping, because that is what the Access Layer serializes and what HSDS stores: neither
+sees the local container. For scale, the packaged whole-shot sample
+`vaft/data/samples/39915/omas.json.gz` is about 10 MB gzipped and carries no `mhd_linear` at all —
+now directly comparable to a stage product, which is stored the same way.
 
 ## Converting a real VEST shot
 
