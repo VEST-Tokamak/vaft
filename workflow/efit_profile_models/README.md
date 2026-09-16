@@ -59,6 +59,11 @@ consistent decomposition diagnostic, not a flux-surface average.
 
 Interpretation limits are explicit:
 
+- the study needs an EFIT built against netCDF. `write_m` is behind
+  `#ifdef USE_NETCDF`, and a build without it writes a-files and g-files
+  normally while silently omitting every m-file — so every chi-square in the
+  report comes out empty and nothing else looks wrong. The run refuses at the
+  first model rather than reporting a scan that answers nothing;
 - absolute pressure and `beta_p` are not qualified while #386/#659 remain open;
 - q comparisons exclude approximately `psi_N < 0.05` because of #317;
 - a model that produces fewer equilibria is not compared on its easier subset

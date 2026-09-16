@@ -534,6 +534,27 @@ def run_model(
     return payload
 
 
+def missing_fit_measures(run: Mapping[str, Any]) -> int:
+    """Equilibria that came without the m-file this study ranks models on.
+
+    EFIT writes the m-file only when it was built against netCDF.  A build
+    without it says so once, on a unit that does not reach the run log, and
+    then omits the file: `efit.F90` guards `write_m` with `#ifdef USE_NETCDF`
+    and the `#else` branch only prints "netcdf needs to be linked to write
+    m-files".
+
+    Nothing else notices.  The a-files and g-files arrive, every slice is
+    classified, geometry and profiles compare normally -- and every
+    chi-square in the report is `None`, because the quantity this study uses
+    is `sum(saimpi) + sum(saisil)` from the m-file rather than the a-file
+    total, which is dominated by the model-invariant plasma-current term.  A
+    full scan on such a build looks like a successful run that answers none of
+    the questions, which is how one was spent.
+    """
+    produced = [item for item in run["slices"] if item["afile"] and item["gfile"]]
+    return sum(1 for item in produced if not item.get("mfile"))
+
+
 def _numbers(values: Iterable[Any]) -> np.ndarray:
     array = np.asarray([value for value in values if value is not None], dtype=float)
     return array[np.isfinite(array)]
@@ -1574,6 +1595,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 seed_module=seed_study,
                 phase_by_time=phase_by_time,
             )
+            unmeasured = missing_fit_measures(run)
+            if unmeasured and unmeasured == sum(
+                1 for item in run["slices"] if item["afile"] and item["gfile"]
+            ):
+                raise SystemExit(
+                    f"{shot}/{model.name}: {unmeasured} equilibria and not one "
+                    f"m-file. {resolved['efit']} was built without netCDF, so "
+                    "EFIT never writes them and every chi-square in this report "
+                    "would be empty. Rebuild against netCDF, or point --efit-home "
+                    "at a build that has it."
+                )
             shot_block["models"][model.name] = {
                 "specification": model.__dict__,
                 "summary": summarize_run(run),

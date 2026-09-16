@@ -470,3 +470,29 @@ def test_every_caller_of_run_model_passes_everything_it_requires(study):
                 f"{sorted(required - passed)}"
             )
     assert call_sites >= 2, "expected the profile study and its sibling caller"
+
+
+def test_equilibria_without_an_mfile_are_counted_rather_than_summarized_as_none(study):
+    """An EFIT built without netCDF answers none of #579's questions, quietly.
+
+    It writes a-files and g-files, every slice classifies, geometry and
+    profiles compare -- and every chi-square is `None`, because this study
+    ranks models on the m-file's probe and flux-loop sums rather than on the
+    a-file total. A whole scan was spent finding that out.
+    """
+    with_fit = _produced_slice(100, "ramp_up", magnetic_chisq=10.0)
+    without_fit = _produced_slice(101, "ramp_up", magnetic_chisq=None)
+    no_equilibrium = {
+        "time_ms": 102, "phase": "ramp_up", "outcome": "collapsed",
+        "afile": None, "gfile": None, "mfile": None,
+    }
+
+    assert study.missing_fit_measures(_run([with_fit])) == 0
+    assert study.missing_fit_measures(_run([with_fit, without_fit])) == 1
+    # A slice that produced nothing is not a missing measurement.
+    assert study.missing_fit_measures(_run([with_fit, no_equilibrium])) == 0
+
+    # And the summary must not present the survivors as the whole population.
+    summary = study.summarize_run(_run([with_fit, without_fit]))
+    assert summary["plasma_produced"] == 2
+    assert summary["magnetics_chisq"]["n"] == 1
