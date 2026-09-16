@@ -673,3 +673,71 @@ def test_an_unknown_minor_radius_convention_is_rejected():
         d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li(
             1.0, 0.3, 1.6, 0.8, minor_radius="limiter"
         )
+
+
+# ==========================================================================
+# Cold review of #851
+# ==========================================================================
+
+def test_the_generic_inversion_accepts_array_coefficients():
+    # The point of a generic kernel is sweeping a gas catalogue, so array A and
+    # B must survive.  _maybe_scalar has to be told about them or it calls
+    # float() on an ndarray and NumPy 2 raises.
+    A = np.array([A_TORR, 600.0])
+    field = townsend_breakdown_field(1e-3, 100.0, A, B_TORR)
+    assert isinstance(field, np.ndarray)
+    assert field.shape == (2,)
+    assert field[0] == pytest.approx(
+        townsend_breakdown_field(1e-3, 100.0, A_TORR, B_TORR), rel=1e-13, abs=0.0
+    )
+    # ... and so must an array B, on its own.
+    assert townsend_breakdown_field(
+        1e-3, 100.0, A_TORR, np.array([B_TORR, 2 * B_TORR])
+    ) == pytest.approx(
+        np.array([1.0, 2.0])
+        * townsend_breakdown_field(1e-3, 100.0, A_TORR, B_TORR),
+        rel=1e-13,
+        abs=0.0,
+    )
+
+
+def test_the_degenerate_warning_blames_the_caller_not_the_module():
+    # The Lloyd wrapper delegates now; without the stacklevel passed through,
+    # every blanked point in a pressure sweep would be attributed to a line
+    # inside startup.py and the user could not tell which call produced it.
+    for call in (
+        lambda: lloyd_breakdown_field(1e-9, 1.0),
+        lambda: townsend_breakdown_field(1e-30, 1.0, A_PA, B_PA),
+    ):
+        with pytest.warns(RuntimeWarning, match="avalanche cannot close") as record:
+            call()
+        assert record[0].filename == __file__
+
+
+def test_the_vertical_field_keeps_the_sign_of_its_bracket():
+    # The bracket goes negative for a strongly elongated, low-beta, low-aspect
+    # case: l_kappa shrinks the logarithm below 3/2.  That is a real reversal
+    # of the required field, so it is returned signed rather than clipped --
+    # and the Returns section says so.
+    value = vertical_field_from_I_p_R0_a_beta_p_li(
+        1.0e4, 0.5, 0.35, 0.0, 0.0, kappa=4.0
+    )
+    assert value < 0.0
+    l_kappa = np.sqrt(0.5 * (1.0 + 4.0**2))
+    bracket = np.log(8.0 * 0.5 / (0.35 * l_kappa)) - 1.5
+    assert bracket < 0.0
+    assert value == pytest.approx(
+        MU0 * 1.0e4 * bracket / (4.0 * np.pi * 0.5), rel=1e-13, abs=0.0
+    )
+
+
+def test_the_inductance_derivative_does_not_depend_on_the_major_radius():
+    # Expressed in epsilon the derivative is mu0 times a dimensionless
+    # function, so R_m is carried for symmetry and scalar detection only.
+    # Pinned so that a shaping term added later has to change this on purpose.
+    for convention in ("fixed", "inboard", "outboard"):
+        assert d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li(
+            1.0, 0.3, 1.6, 0.8, minor_radius=convention
+        ) == d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li(
+            99.0, 0.3, 1.6, 0.8, minor_radius=convention
+        )

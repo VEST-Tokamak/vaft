@@ -283,7 +283,7 @@ def townsend_ionization_coefficient(E_parallel, p_Pa, A, B):
     return _maybe_scalar(alpha, E_parallel, p_Pa, A, B)
 
 
-def townsend_breakdown_field(p, connection_length_m, A, B):
+def townsend_breakdown_field(p, connection_length_m, A, B, *, _stacklevel=2):
     r"""Breakdown threshold field of a gas, by inverting the Townsend closure.
 
     $$E_{BD} = \frac{B\,p}{\ln\!\left(A\,p\,L\right)}$$
@@ -351,7 +351,9 @@ def townsend_breakdown_field(p, connection_length_m, A, B):
     plotting path, so it blanks a point instead of taking down a figure.
     Exactly at $A\,p\,L = 1$ the expression has a pole, and ``nan`` is returned
     there too, because an infinite threshold is a feature of the fit and not a
-    physical field.
+    physical field.  The private ``_stacklevel`` lets a wrapper such as
+    :func:`lloyd_breakdown_field` make that warning point at *its* caller
+    rather than at the delegating line inside this module.
 
     References
     ----------
@@ -374,12 +376,12 @@ def townsend_breakdown_field(p, connection_length_m, A, B):
             "the Townsend avalanche cannot close over this connection length "
             "(A p L <= 1), so no breakdown threshold exists; returning nan",
             RuntimeWarning,
-            stacklevel=2,
+            stacklevel=_stacklevel,
         )
     with np.errstate(divide="ignore", invalid="ignore"):
         field = coeff_b * pressure / np.log(argument)
     field = np.where(degenerate, np.nan, field)
-    return _maybe_scalar(field, p, connection_length_m)
+    return _maybe_scalar(field, p, connection_length_m, A, B)
 
 
 def lloyd_breakdown_field(p_Pa, connection_length_m):
@@ -472,6 +474,7 @@ def lloyd_breakdown_field(p_Pa, connection_length_m):
         connection_length_m,
         _LLOYD_A_PER_M_TORR,
         _LLOYD_B_V_PER_M_TORR,
+        _stacklevel=3,
     )
     return _maybe_scalar(field, p_Pa, connection_length_m)
 
@@ -690,7 +693,8 @@ def vertical_field_from_I_p_R0_a_beta_p_li(I_p_A, R0_m, a_m, beta_p, li, kappa=1
     Returns
     -------
     float or np.ndarray
-        Required vertical field magnitude [T].
+        Required vertical field, carrying the sign of the Shafranov bracket
+        [T].
 
     Raises
     ------
@@ -700,19 +704,22 @@ def vertical_field_from_I_p_R0_a_beta_p_li(I_p_A, R0_m, a_m, beta_p, li, kappa=1
 
     Convention
     ----------
-    **A magnitude, and the orientation is settled rather than open.**  Mitarai
+    **The orientation is settled, and the bracket's sign is kept.**  Mitarai
     writes Eq. (1.3) signed, $B_{VE} = -(\mu_0 I_p/4\pi R)[\cdots]$: the
     equilibrium field opposes $I_p$, because it has to push the ring back
-    against its own outward hoop force.  So the field this returns points
-    *anti-parallel* to the field a positive $I_p$ would make on the axis, and a
-    caller turning it into a coil current takes the sign from that statement
-    plus the machine description, not from a COCOS -- there is no flux map here
-    for a COCOS to describe.
+    against its own outward hoop force.  What is returned here is the bracket
+    without that leading minus, so for the usual positive bracket it is the
+    size of a field pointing *anti-parallel* to the one a positive $I_p$ makes
+    on the axis.  A caller turning it into a coil current takes the sense from
+    that statement plus the machine description, not from a COCOS -- there is
+    no flux map here for a COCOS to describe.
 
-    The magnitude is returned rather than the signed value because the
-    comparison this feeds during start-up is against a stray field whose
-    orientation belongs to the coil set, and carrying a sign through would
-    imply a shared frame that does not exist before an equilibrium does.
+    **The bracket can go negative, and then so does the result.**  At
+    $\kappa = 4$, $\beta_p = 0$, $l_i = 0$, $R_0 = 0.5$, $a = 0.35$ it is,
+    because $l_\kappa$ has shrunk the logarithm below $3/2$.  That is a real
+    reversal of the required field rather than a domain error, so no absolute
+    value is taken; a caller comparing this against a stray-field magnitude
+    must take ``abs`` itself.
 
     ``li`` is whichever normalisation the caller's equilibrium reports.  The
     bracket is $O(1)$ and the $l_i/2$ term is a fraction of it, so the choice
@@ -1056,6 +1063,12 @@ def d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li(
 
     Convention
     ----------
+    **``R_m`` does not enter the value.**  Expressed in $\epsilon$ the
+    derivative is $\mu_0$ times a dimensionless function, so it is the same at
+    every major radius; the argument is kept for symmetry with the two sibling
+    functions and to decide whether a scalar or an array comes back.  Pass the
+    radius you mean anyway -- a future shaping term would use it.
+
     **The minor-radius convention changes the sign, not just the size.**  It
     enters only through $R\,\mathrm{d}\epsilon/\mathrm{d}R$, which is
     $-\epsilon$ for a fixed minor radius, $1-\epsilon$ for an inboard-limited
