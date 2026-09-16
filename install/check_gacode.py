@@ -251,9 +251,9 @@ def check_regression(prefix: Optional[str], *, skip: bool) -> CheckResult:
 
 
 def check_imas_mapping() -> CheckResult:
-    """State plainly which NEO results reach an IDS and which do not.
+    """State plainly which suite results reach an IDS and which do not.
 
-    A checker reporting only green would suggest every NEO output is available
+    A checker reporting only green would suggest every GACODE output is available
     through IMAS. Most are not, and deliberately so: the mapping is audited by
     physical definition, and a quantity without a defensible home stays in the
     native container rather than being written to a field that merely sounds
@@ -265,24 +265,30 @@ def check_imas_mapping() -> CheckResult:
             core_profiles_from_neo,
             core_transport_from_neo,
         )
+        from vaft.machine_mapping.turbulence import (  # noqa: F401
+            core_transport_from_tglf,
+        )
     except Exception as error:  # pragma: no cover - import environment problem
         return CheckResult(
             "IMAS mapping",
             FAIL,
-            f"the NEO IDS mappings could not be imported: {error}",
+            f"the GACODE IDS mappings could not be imported: {error}",
             "Run install/check_vaft_environment.py first.",
         )
     return CheckResult(
         "IMAS mapping",
         WARN,
-        "bootstrap current and conductivity map to core_profiles and the "
-        "particle/energy fluxes to core_transport; flows and the analytic theory "
-        "columns stay native",
+        "NEO: bootstrap current and conductivity to core_profiles, particle/energy "
+        "fluxes to core_transport (neoclassical); TGLF: particle/energy fluxes to "
+        "core_transport (anomalous). Flows, the analytic theory columns, the turbulent "
+        "exchange power and the toroidal stress stay native",
         "Expected. conductivity_parallel comes from a second, gradient-free run -- "
         "run_neo_conductivity_case stages it, and core_profiles_from_neo takes it as "
         "conductivity=. global_quantities.current_bootstrap is a toroidal current, not "
-        "the integral of the parallel one this writes. Read everything else through "
-        "vaft.code.gacode.neo.collect_neo_outputs.",
+        "the integral of the parallel one NEO writes. TGLF's exchange channel is a "
+        "power density and belongs in core_sources, and its toroidal stress is written "
+        "only when the run was given a rotation to predict one from. Read everything "
+        "else through collect_neo_outputs / collect_tglf_outputs.",
     )
 
 
