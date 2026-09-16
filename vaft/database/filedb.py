@@ -230,8 +230,24 @@ class ArtifactClass(str, Enum):
 
 
 #: Extension every finalized OMAS stage product carries. One constant so a
-#: future move to compressed products is a single edit rather than a search.
-OMAS_PRODUCT_SUFFIX = ".json"
+#: move to compressed products is a single edit rather than a search (#813).
+#:
+#: Gzipped JSON rather than the HDF5 the bulk-numeric stages use below. The
+#: two were measured against each other on real products: a 58.0 MB diagnostics
+#: product is 10.5 MB as `.json.gz` against 38.3 MB as uncompressed `.h5` and
+#: 22.2 MB as gzipped `.h5`, and a 48.4 MB eddy product is 22.4 MB against
+#: 26.7 MB and 32.0 MB. Gzipped HDF5 comes out *larger* than plain HDF5 there,
+#: because `pf_passive` is many small per-loop datasets and the per-chunk filter
+#: overhead exceeds what it saves. These stages are repetitive JSON text, which
+#: is what gzip is good at, and they have neither the dtype loss nor the bulk
+#: arrays that made HDF5 the right answer for the ingested diagnostics.
+#:
+#: Uniform rather than a per-stage exception list: an exception justified by
+#: "these are the big ones today" has to be re-argued the moment another stage
+#: grows, and both code paths already exist -- `vaft.omas.save` selects on this
+#: suffix and writes gzip deterministically (`mtime=0`), so a product's sha256
+#: stays reproducible across runs.
+OMAS_PRODUCT_SUFFIX = ".json.gz"
 
 #: Container a stage's finalized product is written in, where it is not the
 #: default. The externally ingested diagnostics are bulk numeric IDS -- one
@@ -638,11 +654,12 @@ class FileDB:
     ) -> Path:
         """Return the finalized ODS file one OMAS stage writes.
 
-        The stage name is the file name, so a caller never has to know whether
-        this stage spells its product ``efit.json`` or ``{shot}_efit.json.gz``.
-        The container comes from :data:`OMAS_PRODUCT_SUFFIXES`, so a stage that
-        stores bulk numeric data as HDF5 resolves here like any other rather
-        than being addressed by a hand-built path.
+        The stage name is the file name, so a caller never has to know which of
+        the spellings once in circulation -- ``efit.json``,
+        ``{shot}_efit.json.gz``, ``{stage}.json.gz`` -- this stage uses. The
+        container comes from :data:`OMAS_PRODUCT_SUFFIXES`, falling back to
+        :data:`OMAS_PRODUCT_SUFFIX`, so a stage storing bulk numeric data as
+        HDF5 resolves here like any other rather than through a hand-built path.
         """
         name = _enum_value(stage, OMASStage, "OMAS subdomain")
         directory = self.omas(
