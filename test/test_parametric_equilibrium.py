@@ -681,3 +681,80 @@ def test_unavailable_beta_n_has_dimensionless_unit():
     descriptors = derive_global_descriptors(eq_no_p)
     assert not descriptors["beta_n"].available
     assert descriptors["beta_n"].unit == "1"
+
+
+def test_miller_squareness_is_off_by_default_and_moves_nothing():
+    # A caller that never mentions squareness must get the surface it always
+    # got: zero zeta, evaluated identically, and fitted with the same five
+    # parameters rather than six pinned near zero.
+    five = MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32)
+    assert five.zeta == 0.0
+    theta = np.linspace(0, 2 * np.pi, 64, endpoint=False)
+    plain = evaluate_miller(five, theta)
+    explicit = evaluate_miller(MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32, 0.0), theta)
+    np.testing.assert_array_equal(plain[0], explicit[0])
+    np.testing.assert_array_equal(plain[1], explicit[1])
+    fit = fit_miller_surface(Contour(*evaluate_miller(five, np.linspace(0, 2 * np.pi, 500, endpoint=False))))
+    assert fit.surface.zeta == 0.0
+
+
+@pytest.mark.parametrize("zeta", [-0.25, -0.1, 0.1, 0.3])
+def test_miller_squareness_round_trip_keeps_the_projection_orthogonal(zeta):
+    truth = MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32, zeta)
+    theta = np.linspace(0, 2 * np.pi, 500, endpoint=False)
+    contour = Contour(*evaluate_miller(truth, theta))
+    fit = fit_miller_surface(contour, squareness=True)
+    assert fit.accepted
+    assert fit.surface.zeta == pytest.approx(zeta, abs=2e-3)
+    assert fit.surface.kappa == pytest.approx(truth.kappa, rel=2e-3)
+    assert fit.surface.delta == pytest.approx(truth.delta, abs=2e-3)
+    # The residual has to reach the same floor an unsquared exact fit reaches.
+    # If the Newton refinement had kept differentiating Z as if zeta were zero,
+    # the projection would stop being orthogonal and this floor would rise --
+    # quietly, because the residual still shrinks, just to the wrong thing.
+    unsquared = fit_miller_surface(
+        Contour(*evaluate_miller(MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32), theta))
+    )
+    assert fit.normalized_rms_error < 10.0 * unsquared.normalized_rms_error
+
+
+def test_a_squared_off_surface_is_rejected_without_squareness_and_described_with_it():
+    # The case the parameter exists for: the five-parameter form has nowhere to
+    # put the shape, so it lands in the residual and the fit is reported as not
+    # Miller-like -- when what is true is that it is not FIVE-parameter Miller.
+    truth = MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32, 0.25)
+    contour = Contour(*evaluate_miller(truth, np.linspace(0, 2 * np.pi, 500, endpoint=False)))
+    without = fit_miller_surface(contour)
+    assert not without.accepted and "normalized RMS" in without.reason
+    with_squareness = fit_miller_surface(contour, squareness=True)
+    assert with_squareness.accepted
+    assert with_squareness.normalized_rms_error < 0.1 * without.normalized_rms_error
+
+
+def test_miller_refuses_a_squareness_that_doubles_the_curve_back():
+    # 1 + 2 zeta cos(2 theta) changes sign at |zeta| = 0.5: past it the
+    # parameterization reverses and the "surface" crosses itself, so this is a
+    # curve that is not one rather than a squarer plasma.
+    theta = np.linspace(0, 2 * np.pi, 16, endpoint=False)
+    with pytest.raises(ValueError, match="zeta"):
+        evaluate_miller(MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32, 0.5), theta)
+
+
+def test_the_squared_fit_still_reports_a_distance_to_the_curve():
+    # The residual is meant to be an orthogonal distance, which is a claim
+    # about the Newton refinement rather than about the optimiser: with the
+    # derivatives left unsquared the step still converges and the residual
+    # still shrinks, just to something that is not the distance. Measured
+    # against a brute-force nearest point on a densely sampled fitted curve,
+    # on a noisy contour so the residual is not zero to begin with.
+    from scipy.spatial import cKDTree
+
+    rng = np.random.default_rng(3)
+    theta = np.linspace(0, 2 * np.pi, 500, endpoint=False)
+    r, z = evaluate_miller(MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32, 0.25), theta)
+    noisy = Contour(r + rng.normal(0, 3e-4, r.size), z + rng.normal(0, 3e-4, z.size))
+
+    fit = fit_miller_surface(noisy, squareness=True)
+    dense = np.column_stack(evaluate_miller(fit.surface, np.linspace(0, 2 * np.pi, 100_000, endpoint=False)))
+    brute = cKDTree(dense).query(fit.contour.points)[0]
+    assert fit.rms_error == pytest.approx(float(np.sqrt(np.mean(brute**2))), rel=1e-3)

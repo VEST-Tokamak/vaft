@@ -216,6 +216,7 @@ class ControlState:
             for control in self._controls
             if control.group == "style"
             and self._values.get(control.name) is not None
+            and self._values.get(control.name) != getattr(control, "absent", None)
             and self._applies(control)
         }
 

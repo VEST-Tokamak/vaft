@@ -44,7 +44,41 @@ class DCONOptions:
 
 @dataclass(frozen=True)
 class RDCONOptions:
-    """RDCON-specific namelist overrides (none exposed yet -- packaged defaults only)."""
+    """RDCON-specific namelist overrides.
+
+    ``rmatch`` wants one resistivity and one mass density *per rational
+    surface*, and the packaged ``rmatch.in`` supplies a single scalar, so it
+    stops with ``eta requires N non-zero elements`` before writing
+    ``globalsol.bin`` (#716). Delta-prime is unaffected -- RDCON computes it
+    and ``rmatch`` does not -- so this is opt-in rather than required.
+
+    Supplying ``t_e``/``n_e`` fills both arrays from the plasma: after RDCON
+    reports where its rational surfaces are, the profiles are evaluated there
+    and written into ``rmatch.in``. Reading RDCON's own surfaces rather than
+    re-deriving them is what makes the arrays line up with the ``msing`` the
+    code will clamp to.
+
+    ``None`` throughout preserves the packaged template verbatim.
+    """
+
+    #: Electron temperature [eV] and density [m^-3] of the bulk plasma, with
+    #: the normalized poloidal flux they are given on. All three or none.
+    t_e: Optional[Sequence[float]] = None
+    n_e: Optional[Sequence[float]] = None
+    psi_norm: Optional[Sequence[float]] = None
+
+    #: Passed through to :func:`vaft.process.equilibrium.resistive_layer_parameters`.
+    ion_mass_amu: float = 1.0
+    z_eff: float = 2.0
+    ln_lambda: float = 17.0
+
+    @property
+    def has_kinetic_profiles(self) -> bool:
+        return (
+            self.t_e is not None
+            and self.n_e is not None
+            and self.psi_norm is not None
+        )
 
 
 @dataclass(frozen=True)
@@ -207,6 +241,15 @@ class GPECSuiteResult:
     stdout: str = ""
     stderr: str = ""
     parsed: Any = None
+    #: SHA-256 of the equilibrium this suite consumed.
+    #:
+    #: The stability end of the provenance chain. Without it, "which CHEASE
+    #: equilibrium produced this stability result" is answerable only by
+    #: trusting that the file at a recorded path never changed -- which is the
+    #: assumption `replication.is_reusable` exists to stop relying on. Empty
+    #: when the equilibrium could not be read, which is a fact about this run
+    #: rather than a reason to fail it.
+    input_equilibrium_sha256: str = ""
 
     @property
     def ok(self) -> bool:

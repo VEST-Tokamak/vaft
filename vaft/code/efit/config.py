@@ -40,19 +40,6 @@ def _require_finite(name: str, value: float, *, positive: bool = False) -> None:
         raise ValueError(f"{name} must be greater than zero")
 
 
-def _legacy_coil_constraint_matrix() -> tuple[tuple[float, ...], ...]:
-    """Return the routine 16-coil by 12-constraint matrix."""
-    matrix = [[0.0 for _ in range(12)] for _ in range(16)]
-    for column in range(7):
-        matrix[0][column] = 1.0
-        matrix[column + 1][column] = -1.0
-    for column, upper in enumerate((8, 10, 12, 14), start=7):
-        matrix[upper][column] = 1.0
-        matrix[upper + 1][column] = -1.0
-    matrix[13][11] = 1.0
-    matrix[14][11] = -1.0
-    return tuple(tuple(row) for row in matrix)
-
 
 @dataclass(frozen=True)
 class EFITProfileConfig:
@@ -112,23 +99,53 @@ class EFITInitializationConfig:
     attribute a change to the seed alone (issue #588 requires exactly that
     attribution).
 
-    ``ellipse_rzero`` separates them: when set it drives ``RELIP`` alone and
-    leaves ``RZERO``, ``RCENTR`` and ``BTOR`` at ``rzero``.  It defaults to
-    ``None``, meaning "follow ``rzero``", so the routine k-file is unchanged.
+    ``ellipse_rzero`` separates them: it drives ``RELIP`` alone and leaves
+    ``RZERO``, ``RCENTR`` and ``BTOR`` at ``rzero``.  Setting it to ``None``
+    restores the old coupling, meaning "follow ``rzero``".
+
+    It defaults to 0.32 m rather than to the 0.4 m reference radius.  0.4 m is
+    where the *vessel* is centred; 0.32 m is roughly where the plasma is, and
+    the reconstructions say so themselves -- over the #588 reference set their
+    current centroid has a median of 31.8 cm and their boundary centre
+    33.5 cm.  Seeding an ellipse at the vessel centre asks the solver to walk
+    the axis inboard on every slice before it can begin converging.
+
+    The sweep supports the region, not the digits.  Over 77 plasma slices from
+    three discharges, seeds at 0.30-0.36 m all produce more equilibria than
+    0.4 m; 0.32 m produces the most (39 against 31) and loses the fewest that
+    0.4 m reconstructs (2).  But the run is deterministic and the response is
+    not smooth -- 0.34 m falls back to 33 while 0.36 m recovers to 34 -- and
+    below 0.30 m the gain disappears entirely.  So what is established is a
+    band roughly 0.30-0.36 m wide with its best measured point at 0.32 m,
+    where the physical argument independently points.  Read no more precision
+    into the second digit than 77 slices can carry.
     """
 
     rzero: float = 0.4
     zzero: float = 0.0
     minor_radius: float = 0.3
     elongation: float = 1.6
-    current_threshold: float = 5_000.0
+    #: ``CUTIP``. Below this plasma current EFIT stops trying to reconstruct
+    #: and returns the vacuum solution instead (``data_input.F90:2454`` sets
+    #: ``ivacum = 1``, ``ierchk = 0``, ``iconvr = 3``). It is therefore a
+    #: statement about when there is a plasma worth fitting, not a numerical
+    #: tolerance.
+    #:
+    #: 15 kA, raised from 5 kA in #708. Over the reference set the twelve
+    #: lowest-current slices run 0.3 to 14.9 kA and the next one up is
+    #: 17.5 kA, so the cut has 2.6 kA of margin either side; three discharges
+    #: cannot fix the digit more tightly than that. What it buys is the
+    #: leading slice of each discharge's collapse block -- 7.1, 12.3 and
+    #: 9.9 kA -- which EFIT was being asked to reconstruct and failed on,
+    #: reported as vacuum instead of as a collapse.
+    current_threshold: float = 15_000.0
     #: EFIT initialization policy. ``None`` preserves the executable default
     #: (2); studies set it explicitly so independent-slice and continuation
     #: experiments cannot be confused (#196, #579).
     icinit: int | None = None
-    #: ``RELIP`` alone. ``None`` follows :attr:`rzero`, which is the routine
-    #: behaviour and keeps the emitted k-file byte-identical.
-    ellipse_rzero: float | None = None
+    #: ``RELIP`` alone, in metres. ``None`` restores the coupling to
+    #: :attr:`rzero`. See the class docstring for where 0.32 comes from.
+    ellipse_rzero: float | None = 0.32
 
     @property
     def seed_rzero(self) -> float:
@@ -364,11 +381,21 @@ class EFITConstraintConfig:
     diamagnetic_flux_input_units: str = "Wb"
     wall_current_mode: str = "measured"
     passive_structure_mode: str = "fixed_currents"
+    #: Whether the ``&INWANT`` equalities are submitted at all. A study that
+    #: wants to know what they contribute turns them off; the routine path
+    #: leaves them on.
     use_coil_relation_constraints: bool = True
-    coil_constraint_matrix: tuple[tuple[float, ...], ...] = field(
-        default_factory=_legacy_coil_constraint_matrix
-    )
-    coil_constraint_targets: tuple[float, ...] = (0.0,) * 12
+    #: The ``&INWANT`` coil-constraint matrix, one row per current group and
+    #: one column per equality. ``None`` means "derive it from the coilset the
+    #: writer is given": splitting a circuit into groups does not split its
+    #: current, and circuits wired in series carry one, so the equalities
+    #: follow from the machine description rather than from a table written
+    #: out by index. It was such a table -- sixteen rows by twelve columns,
+    #: its last two lines the PF9/PF10 tie with no explanation attached.
+    coil_constraint_matrix: tuple[tuple[float, ...], ...] | None = None
+    #: One target per column; ``None`` derives zeros, since every constraint
+    #: the coilset produces is an equality.
+    coil_constraint_targets: tuple[float, ...] | None = None
     nccoil: int = 0
 
     def __post_init__(self) -> None:
@@ -411,24 +438,29 @@ class EFITConstraintConfig:
                 "passive_structure_mode must be 'fixed_currents', "
                 "'fit_currents', or 'disabled'"
             )
-        rows = tuple(
-            tuple(float(value) for value in row) for row in self.coil_constraint_matrix
-        )
-        if not rows or not rows[0]:
-            raise ValueError("coil_constraint_matrix must not be empty")
-        columns = len(rows[0])
-        if any(len(row) != columns for row in rows):
-            raise ValueError("coil_constraint_matrix must be rectangular")
-        if any(not math.isfinite(value) for row in rows for value in row):
-            raise ValueError("coil_constraint_matrix values must be finite")
-        if len(self.coil_constraint_targets) != columns:
-            raise ValueError(
-                "coil_constraint_targets length must equal the matrix column count"
+        if self.coil_constraint_matrix is not None:
+            rows = tuple(
+                tuple(float(value) for value in row) for row in self.coil_constraint_matrix
             )
-        if any(
-            not math.isfinite(float(value)) for value in self.coil_constraint_targets
-        ):
-            raise ValueError("coil_constraint_targets values must be finite")
+            if not rows or not rows[0]:
+                raise ValueError("coil_constraint_matrix must not be empty")
+            columns = len(rows[0])
+            if any(len(row) != columns for row in rows):
+                raise ValueError("coil_constraint_matrix must be rectangular")
+            if any(not math.isfinite(value) for row in rows for value in row):
+                raise ValueError("coil_constraint_matrix values must be finite")
+            targets = self.coil_constraint_targets
+            if targets is not None:
+                if len(targets) != columns:
+                    raise ValueError(
+                        "coil_constraint_targets length must equal the matrix column count"
+                    )
+                if any(not math.isfinite(float(value)) for value in targets):
+                    raise ValueError("coil_constraint_targets values must be finite")
+        elif self.coil_constraint_targets is not None:
+            raise ValueError(
+                "coil_constraint_targets needs a coil_constraint_matrix to be targets of"
+            )
         if (
             isinstance(self.nccoil, bool)
             or not isinstance(self.nccoil, Integral)
@@ -442,12 +474,14 @@ class EFITConstraintConfig:
         resolved_scales = _unit_objective_scales()
         resolved_scales.update(self.objective_scales)
         object.__setattr__(self, "objective_scales", MappingProxyType(resolved_scales))
-        object.__setattr__(self, "coil_constraint_matrix", rows)
-        object.__setattr__(
-            self,
-            "coil_constraint_targets",
-            tuple(float(value) for value in self.coil_constraint_targets),
-        )
+        if self.coil_constraint_matrix is not None:
+            object.__setattr__(self, "coil_constraint_matrix", rows)
+            if self.coil_constraint_targets is not None:
+                object.__setattr__(
+                    self,
+                    "coil_constraint_targets",
+                    tuple(float(value) for value in self.coil_constraint_targets),
+                )
 
 
 @dataclass(frozen=True)
@@ -469,11 +503,13 @@ class EFITScientificConfig:
     def from_dict(cls, payload: Mapping[str, Any]) -> "EFITScientificConfig":
         """Rebuild a validated configuration from :meth:`to_dict` output."""
         constraints = dict(payload.get("constraints", {}))
-        if "coil_constraint_matrix" in constraints:
+        # `None` survives the round trip: it means "derive from the coilset",
+        # which is a choice worth preserving rather than materialising.
+        if constraints.get("coil_constraint_matrix") is not None:
             constraints["coil_constraint_matrix"] = tuple(
                 tuple(row) for row in constraints["coil_constraint_matrix"]
             )
-        if "coil_constraint_targets" in constraints:
+        if constraints.get("coil_constraint_targets") is not None:
             constraints["coil_constraint_targets"] = tuple(
                 constraints["coil_constraint_targets"]
             )

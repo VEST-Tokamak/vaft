@@ -66,18 +66,36 @@ def run_tes(inputs: TESInputs, config: TESConfig) -> TESResult:
     env = os.environ.copy()
     env.update(dict(config.env))
 
-    completed = subprocess.run(
-        cmd,
-        cwd=str(inputs.workdir),
-        env=env,
-        text=True,
-        capture_output=True,
-        # A foreign program's bytes; see the note in vaft.code.chease.
-        encoding="utf-8",
-        errors="replace",
-        timeout=config.timeout,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            cmd,
+            cwd=str(inputs.workdir),
+            env=env,
+            text=True,
+            capture_output=True,
+            # A foreign program's bytes; see the note in vaft.code.chease.
+            encoding="utf-8",
+            errors="replace",
+            timeout=config.timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        result = collect_tes_outputs(inputs.workdir, config)
+        result.returncode = 124
+        stdout_str = (
+            exc.stdout.decode("utf-8", "replace")
+            if isinstance(exc.stdout, bytes)
+            else (exc.stdout or "")
+        )
+        stderr_str = (
+            exc.stderr.decode("utf-8", "replace")
+            if isinstance(exc.stderr, bytes)
+            else (exc.stderr or "")
+        )
+        timeout_msg = f"rtes timed out after {config.timeout} seconds"
+        result.stdout = stdout_str
+        result.stderr = f"{stderr_str}\n{timeout_msg}" if stderr_str else timeout_msg
+        return result
 
     result = collect_tes_outputs(inputs.workdir, config)
     result.returncode = completed.returncode

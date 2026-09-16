@@ -203,6 +203,34 @@ MAX_RADIAL_POINTS = 256
 _HAMADA_FOURIER_GRID_INDEX = -1
 
 
+#: ``code.name`` each writer stamps on the IDS it owns. `mhd_linear`'s
+#: ``plasma`` region carries one grid per mode, and the GPEC-suite solvers and
+#: ideal GPEC fill it with different quantities on different grids -- DCON's
+#: eigenfunction against ``(psi, m)`` in Hamada coordinates, ideal GPEC's
+#: Jacobian-weighted resonant flux against its own ``(psi, m_out)``. Writing
+#: both into one ODS leaves the second writer's grid describing the first
+#: writer's array, so each owns an IDS outright.
+_IDS_OWNERS = {"GPEC-suite", "GPEC"}
+
+
+def claim_ids(ods: ODS, ids: str, owner: str) -> None:
+    """Refuse to write ``ids`` when a different mapper already owns it.
+
+    ``build_mhd_linear_ods`` and ``build_gpec_ideal_ods`` already build
+    separate ODSs, so this is a guard on the invariant rather than a change
+    of behaviour: it turns a silent, structurally invalid merge into an
+    error at the point of the second write.
+    """
+    existing = ods.get(f"{ids}.code.name", None)
+    if existing and existing != owner and existing in _IDS_OWNERS:
+        raise ValueError(
+            f"{ids} was written by {existing!r} and this is {owner!r}. Their "
+            f"plasma regions declare different grids for the same field, so "
+            f"one ODS cannot hold both -- build them separately and keep the "
+            f"two products apart."
+        )
+
+
 def _shared_radial_grid(result: DconOutput) -> Optional[np.ndarray]:
     """The one ``psi`` grid every harmonic block shares, or ``None`` if they differ.
 
@@ -296,6 +324,7 @@ def _write_eigenfunction(
 
 
 def _write_dcon_entry(ods: ODS, time_slice: int, position: int, result: DconOutput) -> None:
+    claim_ids(ods, "mhd_linear", "GPEC-suite")
     # `position` is this mode's slot in the dense n_tor grid, not an append
     # cursor; `n_tor` is (re)written here so the entry is self-describing even
     # if the grid was laid out by a different caller.
@@ -372,6 +401,7 @@ def _write_resistive_entry(
     # `position` is this mode's slot in the dense n_tor grid, not an append
     # cursor; `n_tor` is (re)written here so the entry is self-describing even
     # if the grid was laid out by a different caller.
+    claim_ids(ods, "mhd_linear", "GPEC-suite")
     mode_entry = ods["mhd_linear"]["time_slice"][time_slice]["toroidal_mode"][position]
     mode_entry["n_tor"] = result.n_tor
     mode_entry["ballooning_type"]["name"] = "Tearing"

@@ -2,14 +2,21 @@
 # Feel free to add content and custom Front Matter to this file.
 # To modify the layout, see https://jekyllrb.com/docs/themes/#overriding-theme-defaults
 layout: home
-title: VAFT — Versatile Analytical Framework for Tokamak
+title: VAFT — Versatile Analysis Framework for Tokamak
 ---
 
 ![VAFT]({{ site.baseurl }}/assets/images/IMG_3873.jpg)
 
-**VAFT** is an open-source Python library that functions both as a dedicated data platform for the
+> **Integrate fusion science knowledge so it can be discovered, verified, compared, and studied.**
+
+**VAFT** is a standardized, verifiable, and interoperable scientific framework for machine-agnostic
+tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and
+analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied.
+Its full end-to-end implementation on the
 [VEST (Versatile Experiment Spherical Torus)](https://eng.snu.ac.kr/) tokamak at Seoul National
-University and as a machine- and code-generic data analysis framework built upon the IMAS data model.
+University serves as the reference implementation for modern, reproducible, and data-driven fusion
+research.
+
 It provides an [IMAS](https://imas.iter.org/)-compliant data interface built on the
 [OMAS](https://gafusion.github.io/omas/) interface library and an
 [HSDS](https://github.com/HDFGroup/hsds) remote HDF5 database. Read access to the VEST database is
@@ -19,6 +26,24 @@ open to all users; writing to the database is restricted to authorized accounts.
 > "Developing an IMAS-compatible platform for the university-scale tokamak VEST and its application
 > to operating characteristics analysis"
 > ([doi:10.1088/1361-6587/ae1b6a](https://doi.org/10.1088/1361-6587/ae1b6a))
+
+## What VAFT is
+
+Four things, which together are what "framework" means here.
+
+- **Integrated Standardized Interface** — standardized data representations, data processing,
+  validation, visualization and community physics codes (EFIT, CHEASE, GPEC, TokaMaker, VFIT)
+  integrated into one scientific workflow, interoperating rather than reimplemented.
+- **Version-Controlled Data Pipeline** — traceable and reproducible data products from machine design
+  to reconstructed and simulated states, which is what makes a result verifiable against its
+  provenance and assumptions. Versioning covers geometry, diagnostic mappings, calibration,
+  conventions, processing logic and schema versions, not only source code.
+- **IMAS-FAIR Database** — validated data preserved and shared in both native and standardized
+  representations, following the FAIR principles, as the foundation for finding which experimental
+  and modelling information exists for a shot.
+- **Machine & Research Archive** — the VEST tokamak and its research ecosystem since 2012: machine
+  history, experimental practice, tutorials and notebooks, kept usable for long-term verification,
+  comparison and study.
 
 ## Choose a path
 

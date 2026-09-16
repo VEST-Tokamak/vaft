@@ -16,7 +16,7 @@ from .._runtime import gacode_platform, require_gacode_executable
 from .._runtime import run_gacode
 from .._profiles import GACODEProfile
 from ._types import NEOConfig, NEOResult
-from .inputs import NEOInputs, prepare_neo_case
+from .inputs import NEOInputs, prepare_neo_case, prepare_neo_conductivity_case
 from .outputs import NeoOutputs, collect_neo_outputs
 
 
@@ -145,3 +145,46 @@ def run_neo_case(
 def read_neo_case(workdir: str | Path) -> Optional[NeoOutputs]:
     """Read a finished run directory without re-running it."""
     return collect_neo_outputs(workdir)
+
+
+def run_neo_conductivity_case(
+    profile: GACODEProfile,
+    workdir: str | Path,
+    config: Optional[NEOConfig] = None,
+    *,
+    check: bool = True,
+) -> NEOResult:
+    """Stage and run the gradient-free companion case that yields a conductivity.
+
+    :func:`run_neo_case` for the transport problem; this for the conductivity one.
+    Kept a separate call rather than a flag on the first, because the two are two
+    runs of NEO and a caller who does not know that will mis-read the provenance of
+    whichever result they end up with.
+    """
+    staged = prepare_neo_conductivity_case(profile, workdir, config)
+    return run_neo(staged, config, check=check)
+
+
+def run_neo_pair(
+    profile: GACODEProfile,
+    workdir: str | Path,
+    config: Optional[NEOConfig] = None,
+    *,
+    check: bool = True,
+) -> tuple[NEOResult, NEOResult]:
+    """Both runs of one case: transport, then conductivity.
+
+    They go into ``<workdir>/transport`` and ``<workdir>/conductivity`` so each
+    keeps its own ``input.neo`` and outputs -- the same directory would leave the
+    second overwriting the first, and the surviving files would describe a
+    conductivity run while a caller read them as a transport one.
+
+    Returns ``(transport, conductivity)``. Either may be unsolved; the caller
+    checks, as with any single run.
+    """
+    directory = Path(workdir)
+    transport = run_neo_case(profile, directory / "transport", config, check=check)
+    conductivity = run_neo_conductivity_case(
+        profile, directory / "conductivity", config, check=check
+    )
+    return transport, conductivity

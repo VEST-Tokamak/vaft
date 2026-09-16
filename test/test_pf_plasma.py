@@ -71,6 +71,20 @@ def test_the_reader_returns_the_instant_of_largest_current_by_default():
     np.testing.assert_allclose(at_end["current"], currents[:, 2])
 
 
+def test_the_reader_probes_optional_leaves_without_creating_them():
+    """area and geometry_type are optional; reading them must not plant placeholders."""
+    ods, r, z, currents, time = _four_filaments()
+    for i in range(4):
+        del ods[f"pf_plasma.element.{i}.area"]
+        del ods[f"pf_plasma.element.{i}.geometry.geometry_type"]
+    before = sorted(ods.flat())
+    elements = plasma_elements(ods)
+    assert sorted(ods.flat()) == before
+    assert np.allclose(elements["area"], 0.01 * 0.01)
+    assert all(kind == GEOMETRY_TYPE_RECTANGLE for kind in elements["geometry_type"])
+    assert "pf_plasma.element.0.area" not in ods and "pf_plasma.element.0.geometry.geometry_type" not in ods
+
+
 def test_the_reader_refuses_an_empty_ids():
     with pytest.raises(ValueError, match="no elements"):
         plasma_elements(ODS())

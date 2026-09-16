@@ -105,6 +105,30 @@ def _coil_gain_by_index(shot: int) -> dict[int, float]:
     return {int(coil_index): float(gain) for coil_index, gain in gains.items()}
 
 
+def coil_field_code_by_index(shot: int) -> dict[int, int]:
+    """Which acquisition channel each PF circuit's current comes from.
+
+    Configuration, not a checked-in asset: this used to be `Coil_info.mat`,
+    whose five entries made "which coils can be read" a property of a binary
+    file, so a discharge that energised PF2 was zero-filled with nothing able
+    to say otherwise (#708).
+    """
+    codes = resolve_vest_diagnostic(shot, "pf_active")["processing"].get("coil_field_codes") or {}
+    return {int(coil_index): int(code) for coil_index, code in codes.items()}
+
+
+def _optional_coils(shot: int) -> frozenset[int]:
+    """Circuits whose acquisition channel may legitimately carry no waveform.
+
+    For these an empty channel is a statement about the discharge -- the coil
+    was not energised -- rather than a data defect. For every other declared
+    circuit a missing waveform is an error, which is what keeps #44's
+    zero-fill guarantee intact.
+    """
+    processing = resolve_vest_diagnostic(shot, "pf_active")["processing"]
+    return frozenset(int(index) for index in (processing.get("optional_coils") or ()))
+
+
 def _legacy_pf_filter(values: np.ndarray, processing: dict) -> np.ndarray:
     filter_config = processing["filter"]
     taps = signal.firwin(
@@ -129,25 +153,47 @@ def vfit_pf(
     raw_source: raw_db.RawSource | None = None,
 ) -> tuple[np.ndarray, list[np.ndarray]]:
     processing = resolve_vest_diagnostic(shot, "pf_active")["processing"]
-    coil_info = scipy.io.loadmat(resolve_geometry_asset("Coil_info.mat", geometry_root=geometry_root))
-    coil_numbers = np.asarray(coil_info["CoilNumber"][0], dtype=int) - 1
-    coil_codes = np.asarray(coil_info["CoilCode"][0], dtype=int)
+    coil_codes = coil_field_code_by_index(shot)
     coil_gains = _coil_gain_by_index(shot)
-    active_coils = set(int(index) for index in coil_numbers.tolist())
 
-    if coil_codes.size == 0:
-        raise ValueError("Coil_info.mat defines no active PF coil signals")
-
-    required_signals = {
-        int(field_code): raw_db.require_signal(
-            _safe_vest_load(shot, int(field_code), raw_source),
-            shot=shot,
-            field=int(field_code),
-            signal_name="PF active coil current",
+    if not coil_codes:
+        raise ValueError(
+            f"shot {shot}: vest.yaml declares no pf_active.processing.coil_field_codes, "
+            "so no PF circuit has a channel to read"
         )
-        for field_code in np.unique(coil_codes)
+
+    # Read each declared channel once. A channel belonging to a circuit listed
+    # in `optional_coils` may legitimately be empty -- that says the discharge
+    # did not energise the coil. Every other declared channel is required, and
+    # a missing waveform there still raises: zero-filling an acquired coil is
+    # the #44 defect, and adding a sometimes-used circuit must not weaken the
+    # guarantee for the ones that are always driven.
+    optional_codes = {
+        coil_codes[index] for index in _optional_coils(shot) if index in coil_codes
     }
-    reference_time = required_signals[int(coil_codes[0])][0]
+    required_signals: dict[int, tuple[np.ndarray, np.ndarray]] = {}
+    unacquired: set[int] = set()
+    for field_code in sorted(set(coil_codes.values())):
+        try:
+            required_signals[field_code] = raw_db.require_signal(
+                _safe_vest_load(shot, field_code, raw_source),
+                shot=shot,
+                field=field_code,
+                signal_name="PF active coil current",
+            )
+        except raw_db.RawSignalUnavailableError:
+            if field_code not in optional_codes:
+                raise
+            unacquired.add(field_code)
+    # The time base is the first *coil's* channel, not the lowest field code:
+    # PF2's code (4) sorts below PF1's (59), and the reference must not move
+    # depending on which circuits a discharge happened to energise.
+    reference_code = next(
+        coil_codes[index]
+        for index in sorted(coil_codes)
+        if coil_codes[index] in required_signals
+    )
+    reference_time = required_signals[reference_code][0]
 
     saturation_repair = {
         int(coil_index): repair
@@ -155,30 +201,30 @@ def vfit_pf(
     }
 
     pf_data: list[np.ndarray] = []
-    code_index = 0
     for coil_index in range(PF_COIL_COUNT):
-        if coil_index in active_coils:
-            field_code = int(coil_codes[code_index])
-            waveform_time, raw_values = required_signals[field_code]
-            current = raw_values - _baseline_mean(raw_values, int(processing["baseline_samples"]))
-            current = _legacy_pf_filter(current, processing) * coil_gains.get(coil_index, 0.0)
-            current = _coerce_signal_to_reference(reference_time, waveform_time, current)
-            repair = saturation_repair.get(coil_index)
-            if repair is not None:
-                # Acquisition clipping (VEST PF6 near -5000 A). A
-                # SignalRepairError propagates deliberately: fabricating a
-                # waveform would be worse than reporting it is unrecoverable.
-                current = repair_clipped_interval(
-                    reference_time,
-                    current,
-                    clip_value=float(repair["value"]),
-                    tolerance=float(repair["tolerance"]),
-                )
-            code_index += 1
-        else:
-            # Coil_info.mat intentionally marks this hardware channel disabled;
-            # unlike a missing acquired signal, an explicit zero is meaningful.
-            current = np.zeros(reference_time.size, dtype=float)
+        field_code = coil_codes.get(coil_index)
+        if field_code is None or field_code in unacquired:
+            # No channel at all, or a channel this discharge left empty.
+            # Unlike a missing *acquired* signal, this zero is meaningful: it
+            # says the circuit carried no current, which is what the EFIT
+            # coilset reads to weight the coil out of the fit.
+            pf_data.append(np.zeros(reference_time.size, dtype=float))
+            continue
+        waveform_time, raw_values = required_signals[field_code]
+        current = raw_values - _baseline_mean(raw_values, int(processing["baseline_samples"]))
+        current = _legacy_pf_filter(current, processing) * coil_gains.get(coil_index, 0.0)
+        current = _coerce_signal_to_reference(reference_time, waveform_time, current)
+        repair = saturation_repair.get(coil_index)
+        if repair is not None:
+            # Acquisition clipping (VEST PF6 near -5000 A). A
+            # SignalRepairError propagates deliberately: fabricating a
+            # waveform would be worse than reporting it is unrecoverable.
+            current = repair_clipped_interval(
+                reference_time,
+                current,
+                clip_value=float(repair["value"]),
+                tolerance=float(repair["tolerance"]),
+            )
         pf_data.append(current)
 
     return reference_time, pf_data
@@ -315,6 +361,7 @@ def pf_active_from_raw_database(
 
 __all__ = [
     "PF_GEOMETRY_2507_FIRST_SHOT",
+    "coil_field_code_by_index",
     "pf_active",
     "pf_active_from_raw_database",
     "pf_geometry_version_for_shot",

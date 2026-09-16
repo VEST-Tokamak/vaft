@@ -11,7 +11,7 @@ from matplotlib.figure import Figure
 
 from ..models import Field2D
 from ..registry import renderer
-from ..presentation import presented
+from ..presentation import presented, resolve_color
 from ..style import finalize, resolve_axes
 from .geometry import draw_geometry_layer
 
@@ -75,7 +75,7 @@ def render_field_2d(
     if model.secondary_levels:
         axes.contour(
             model.r, model.z, model.values, levels=list(model.secondary_levels),
-            colors="0.6", linewidths=0.5, linestyles="--",
+            colors=resolve_color("emphasis:lower"), linewidths=0.5, linestyles="--",
         )
     draw = axes.contourf if model.filled else axes.contour
     values = model.values

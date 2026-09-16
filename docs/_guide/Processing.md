@@ -492,8 +492,8 @@ Two ready-made figures follow exactly this path — a bare contour, and a contou
 geometry:
 
 ```python
-vaft.plot.vacuum_psi_contour(ods)                    # defaults to the breakdown onset time
-vaft.plot.overlay_all_with_vacuum_psi_contour(ods)   # + coils, vessel, limiter, Thomson
+vaft.omas.plot_equilibrium_field_psi_vacuum(ods)                       # defaults to the breakdown onset time
+vaft.omas.plot_equilibrium_field_psi_vacuum(ods, overlay=("coils", "wall"))   # over the machine geometry
 ```
 
 Both mask $\psi$ to the chamber interior using `vaft.omas.find_chamber_boundary(ods)`.
@@ -622,19 +622,19 @@ best = fit.modes[0]                                              # sorted by amp
 print(best.frequency, best.n, best.rms_error)
 ```
 
-$n$ is recovered as $-\arg \mathrm{CSD}(a,b) / \Delta\phi$, peak-picked on $\lvert \mathrm{CSD} \rvert$
-and filtered by a coherence threshold. The plot module wraps all of this against an ODS — this is the
-path the fluctuation notebook takes on shot 44740:
+In the two-probe analysis $n$ is recovered as $-\arg \mathrm{CSD}(a,b) / \Delta\phi$, peak-picked on
+$\lvert \mathrm{CSD} \rvert$ and filtered by a coherence threshold. The canonical plots draw the signal,
+its spectrogram and the multi-probe wrapped-phase fit straight from an ODS. There is no canonical plot of
+the two-probe cross-spectrum: call `toroidal_mode_analysis` directly, as above, when you want $n$ versus
+frequency.
 
 ```python
-import vaft.plot as vplot
+import vaft
 
-vplot.mirnov_signal(ods, channels=[14, 37], time_range=(0.304, 0.330), preprocess=False)
-vplot.mirnov_spectrogram(ods, channel=14, time_range=(0.304, 0.330), max_frequency=80e3)
-vplot.toroidal_mode_spectrum(ods, channel_pair=(14, 37), time_range=(0.304, 0.330))
+vaft.omas.plot_mirnov_time_voltage(ods, selection=[14, 37], time_range=(0.304, 0.330), preprocess=False)
+vaft.omas.plot_mirnov_spectrogram(ods, selection=[14], time_range=(0.304, 0.330))
 
-fig, ax, phase_fit = vplot.toroidal_phase_mode_fit(
-    ods, center_time=0.3215, channels=[64, 65, 66, 67], return_result=True)
+fig, ax = vaft.omas.plot_mirnov_spatial_phase(ods, time=0.3215)
 ```
 
 ---

@@ -164,3 +164,93 @@ def test_the_provenance_comment_survives_the_constraint_builder():
     bare = ODS(consistency_check=False)
     annotate_constraint_equilibrium(bare, times)
     assert bare["ids_properties.comment"] == "constraint equilibrium"
+
+
+# --- the vacuum cut (#76) ---------------------------------------------------
+
+
+def _ip_ods(values, dt: float = DT):
+    """A product carrying only the plasma current the cut is judged on."""
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    clock = np.arange(len(values), dtype=float) * dt + 0.300
+    ods["magnetics.ip.0.time"] = clock
+    ods["magnetics.ip.0.data"] = np.asarray(values, dtype=float)
+    return ods, clock
+
+
+def test_instants_below_cutip_are_dropped_before_efit_sees_them():
+    """EFIT answers a sub-CUTIP slice with a vacuum solution, not a failure.
+
+    It writes an a-file whose `limloc` is `VAC` and a g-file to go with it, so
+    a yield counted from produced files counts vacuum as success. Measured on
+    39915: four of the seventeen instants that produced g-files were below the
+    cut, so its plasma yield is thirteen of twenty-two, not seventeen of
+    twenty-six.
+    """
+    ods, clock = _ip_ods([1_000.0] * 5 + [80_000.0] * 5 + [500.0] * 5)
+    times = clock[::5] + 2 * DT  # one instant inside each plateau
+
+    kept, dropped = MODULE._drop_vacuum_times(ods, times, average_window=DT)
+
+    assert kept.size == 1
+    assert [round(current / 1e3) for _, current in dropped] == [1, 0]
+
+
+def test_the_cut_uses_the_same_box_average_the_constraint_builder_uses():
+    """Judging on an instantaneous value would disagree at the boundary.
+
+    Measured on 39915's 330 ms instant: 15.4 kA instantaneous, 14.9 kA
+    box-averaged. The k-file carries the averaged number as `PLASMA`, so that
+    is the one `CUTIP` will be compared against and the one this must use.
+    """
+    from vaft.code.efit.legacy import box_average
+
+    # A spike above the cut for one sample and below it either side, plus a
+    # plateau that is genuinely above it so something survives to keep.
+    values = [8_000.0, 8_000.0, 40_000.0, 8_000.0, 8_000.0] + [80_000.0] * 5
+    ods, clock = _ip_ods(values)
+    spike, plateau = float(clock[2]), float(clock[7])
+
+    instantaneous = values[2]
+    averaged = box_average(clock, np.asarray(values), spike, 2 * DT, what="ip")
+    assert instantaneous > 15_000.0 > averaged, "the fixture must straddle the cut"
+
+    kept, dropped = MODULE._drop_vacuum_times(
+        ods, np.asarray([spike, plateau]), average_window=2 * DT
+    )
+    # The spike goes, on the averaged value; the plateau stays.
+    assert [round(value, 6) for value in kept] == [round(plateau, 6)]
+    assert len(dropped) == 1 and dropped[0][1] == pytest.approx(averaged)
+
+
+def test_a_window_where_nothing_reaches_cutip_is_reported_not_emptied():
+    """Silently producing no slices would look like a clean run with no data."""
+    ods, clock = _ip_ods([1_000.0] * 10)
+
+    with pytest.raises(ValueError, match="would return a vacuum solution for all"):
+        MODULE._drop_vacuum_times(ods, clock[::3], average_window=DT)
+
+
+def test_a_product_without_a_plasma_current_keeps_every_instant():
+    """Unknown is not a reason to drop: nothing was measured to drop it by."""
+    from omas import ODS
+
+    times = np.asarray([0.300, 0.301, 0.302])
+    kept, dropped = MODULE._drop_vacuum_times(
+        ODS(consistency_check=False), times, average_window=DT
+    )
+    np.testing.assert_allclose(kept, times)
+    assert dropped == []
+
+
+def test_the_product_says_how_many_instants_the_cut_removed():
+    """A reader cannot otherwise tell a dropped instant from a failed one."""
+    comment = MODULE._window_comment(
+        None, np.asarray([0.306, 0.331]), [(0.306, 1_300.0), (0.330, 14_900.0)]
+    )
+    assert "2 instant(s) below CUTIP dropped before EFIT" in comment
+    assert "0.3060s" in comment and "0.3300s" in comment
+
+    assert "CUTIP" not in MODULE._window_comment(None, np.asarray([0.306, 0.331]))

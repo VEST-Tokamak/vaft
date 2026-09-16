@@ -1,0 +1,3643 @@
+{
+ "acceptance_envelope": {
+  "aminor_min": 4.492187499999999,
+  "sha256": "2fb1270bd4a50370f0471b3b31a065c10ff2d262760ad3abf6b95aa65be19f66"
+ },
+ "cases": {
+  "FF": {
+   "namelist": "regenerated",
+   "role": "the #459 control's configuration",
+   "staged": "/private/tmp/claude-501/ab/FF",
+   "tables": "regenerated"
+  },
+  "FP": {
+   "namelist": "packaged",
+   "role": "the tables alone",
+   "staged": "/private/tmp/claude-501/ab/FP",
+   "tables": "regenerated"
+  },
+  "PF": {
+   "namelist": "regenerated",
+   "role": "the namelist alone",
+   "staged": "/private/tmp/claude-501/ab/PF",
+   "tables": "packaged"
+  },
+  "PP": {
+   "namelist": "packaged",
+   "role": "the #171 baseline's configuration",
+   "staged": "/private/tmp/claude-501/ab/PP",
+   "tables": "packaged"
+  }
+ },
+ "era": "vest-pre-43017-pf1906",
+ "namelist_difference": {
+  "fields": {
+   "af": {
+    "group": "in3",
+    "kind": "length",
+    "packaged_size": 16,
+    "regenerated_size": 302
+   },
+   "af2": {
+    "group": "in3",
+    "kind": "length",
+    "packaged_size": 16,
+    "regenerated_size": 302
+   },
+   "amp2": {
+    "group": "in3",
+    "kind": "whole_turns",
+    "max_abs": 360.0,
+    "size": 64
+   },
+   "fcid": {
+    "group": "in3",
+    "kind": "length",
+    "packaged_size": 16,
+    "regenerated_size": 302
+   },
+   "fcname": {
+    "group": "in3",
+    "kind": "value",
+    "packaged": null,
+    "regenerated": [
+     "PF1-1",
+     "PF1-2",
+     "PF1-3",
+     "PF1-4",
+     "PF1-5",
+     "PF1-6",
+     "PF1-7",
+     "PF1-8",
+     "PF5U",
+     "PF5L",
+     "PF6U",
+     "PF6L",
+     "PF9U",
+     "PF9L",
+     "PF10U",
+     "PF10L"
+    ]
+   },
+   "fcturn": {
+    "group": "in3",
+    "kind": "length",
+    "packaged_size": 16,
+    "regenerated_size": 302
+   },
+   "hf": {
+    "group": "in3",
+    "kind": "length",
+    "packaged_size": 16,
+    "regenerated_size": 302
+   },
+   "lpname": {
+    "group": "in3",
+    "kind": "value",
+    "packaged": [
+     "Flux Loop",
+     "Flux Loop",
+     "Flux Loop",
+     "Flux Loop",
+     "Flux Loop",
+     "Flux Loop",
+     "Flux Loop",
+     "Flux Loop",
+     "Flux Loop",
+     "Flux Loop",
+     "Flux Loop"
+    ],
+    "regenerated": [
+     "Flux Loop ",
+     "Flux Loop ",
+     "Flux Loop ",
+     "Flux Loop ",
+     "Flux Loop ",
+     "Flux Loop ",
+     "Flux Loop ",
+     "Flux Loop ",
+     "Flux Loop ",
+     "Flux Loop ",
+     "Flux Loop "
+    ]
+   },
+   "nfcoil": {
+    "group": "machinein",
+    "kind": "value",
+    "max_abs": 286.0,
+    "size": 1
+   },
+   "rf": {
+    "group": "in3",
+    "kind": "length",
+    "packaged_size": 16,
+    "regenerated_size": 302
+   },
+   "rsisvs": {
+    "group": "in3",
+    "kind": "value",
+    "max_abs": 0.648229284613762,
+    "size": 950
+   },
+   "rvs": {
+    "group": "in3",
+    "kind": "formatting",
+    "max_abs": 1.1102230246251565e-16,
+    "size": 950
+   },
+   "wf": {
+    "group": "in3",
+    "kind": "length",
+    "packaged_size": 16,
+    "regenerated_size": 302
+   },
+   "zf": {
+    "group": "in3",
+    "kind": "length",
+    "packaged_size": 16,
+    "regenerated_size": 302
+   },
+   "zvs": {
+    "group": "in3",
+    "kind": "formatting",
+    "max_abs": 1.1102230246251565e-16,
+    "size": 950
+   }
+  },
+  "groups": [
+   "in3",
+   "in5",
+   "incheck",
+   "machinein"
+  ],
+  "substantive": [
+   "af",
+   "af2",
+   "fcid",
+   "fcname",
+   "fcturn",
+   "hf",
+   "lpname",
+   "nfcoil",
+   "rf",
+   "rsisvs",
+   "wf",
+   "zf"
+  ]
+ },
+ "packaged_table": {
+  "files": {
+   "brzgfc.dat": "34ec35458bc270af10e30f9e7246bd8122a1c86ab587a19e6e6eff6ed8270948",
+   "ec129129.ddd": "b2570c761691bebca47df641ad47f3010edded06d00ac089453717aeed002c8d",
+   "ep129129.ddd": "03fe274694893f0328eb64aa441546030b3f9dea9ad44c026f238a826d67f934",
+   "lim.dat": "647f5c21edbe9979381f0a44396ac22588b5d1ed0d6da485f32f5243ded767ec",
+   "mhdin.dat": "20fb27feaead393a21f635b1f551a1efaace0e90a606517b53b1cf38dbdddbc3",
+   "mhdout.dat": "420a1f45c339107503817c7155dddf3b15fe6a0ed4dccd7a89cba2e002b1fdfc",
+   "rfcoil.ddd": "9f9a42b6bbe7dc57322613a0d77f0f670d9e8031407eec7dc4f156cf16e571f3",
+   "rv129129.ddd": "6884c517cfbefc4f2c2948a67621d832e2544aa15941865470ca726b147a870f"
+  },
+  "note": "The pre-switch vaft/data/efit, of unrecorded origin. #695 replaced it with the regenerated table, so this study's PP arm can only be reproduced against a copy recovered from git history; pass it with --packaged."
+ },
+ "reference_case": "PP",
+ "regenerated_table": {
+  "directory": "/private/tmp/claude-501/-Users-yun-git-vaft--claude-worktrees-workflow-chain-enhancement-c328b7/39ea1cb1-126a-47f5-be02-a50f633690a4/scratchpad/tables/fresh_129x129",
+  "efund_config_sha256": "b98479ce0d52076be9652d5f43f4a507a37ab8858c5205dd149928a95ea25159",
+  "identity": "9b33304cfee3927dae029deed7e9bd5be1b6f98a5940b01e81db3c8e1224ddbf"
+ },
+ "run_at": "2026-09-14T05:18:21+00:00",
+ "schema_version": 1,
+ "shots": {
+  "39915": {
+   "cases": {
+    "FF": {
+     "returncode": 0,
+     "seconds": 6.680619499995373,
+     "summary": {
+      "accepted": 10,
+      "bound_failures": 14,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 2,
+        "collapsed": 4,
+        "flagged": 3
+       },
+       "ramp_down": {
+        "accepted": 8,
+        "no_output": 2
+       },
+       "ramp_up": {
+        "collapsed": 5
+       }
+      },
+      "collapsed": 9,
+      "findax_failures": 0,
+      "outcomes": {
+       "accepted": 10,
+       "collapsed": 9,
+       "flagged": 3,
+       "no_output": 2
+      },
+      "produced_an_equilibrium": 13,
+      "slices": 24
+     },
+     "vs_reference": {
+      "changed_vs_reference": {
+       "320": [
+        "no_output",
+        "accepted"
+       ],
+       "321": [
+        "no_output",
+        "accepted"
+       ],
+       "322": [
+        "no_output",
+        "accepted"
+       ],
+       "323": [
+        "no_output",
+        "accepted"
+       ],
+       "324": [
+        "no_output",
+        "accepted"
+       ],
+       "328": [
+        "no_output",
+        "accepted"
+       ]
+      },
+      "compared_on": 7,
+      "lost": [],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.113712900000003,
+        "median_abs": 0.07419029999999793,
+        "median_relative": 0.0030440929229999347,
+        "reference_median": 24.3718907,
+        "slices": 7
+       },
+       "area": {
+        "max_abs": 16.437959999999975,
+        "median_abs": 3.7024500000002263,
+        "median_relative": 0.001309044831376335,
+        "reference_median": 2828.35997,
+        "slices": 7
+       },
+       "betap": {
+        "max_abs": 0.00021040060000000055,
+        "median_abs": 0.00017067850000000023,
+        "median_relative": 0.016983879829894244,
+        "reference_median": 0.0100494411,
+        "slices": 7
+       },
+       "chisq": {
+        "max_abs": 9.999999717180685e-10,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 74.4342174,
+        "slices": 7
+       },
+       "elong": {
+        "max_abs": 0.027057439999999877,
+        "median_abs": 0.013076629999999811,
+        "median_relative": 0.008561978298407923,
+        "reference_median": 1.52729072,
+        "slices": 7
+       },
+       "li": {
+        "max_abs": 0.008684842999999942,
+        "median_abs": 0.0008887859999999748,
+        "median_relative": 0.0013535330056836012,
+        "reference_median": 0.656641542,
+        "slices": 7
+       },
+       "q95": {
+        "max_abs": 0.20412478999999983,
+        "median_abs": 0.14034698000000034,
+        "median_relative": 0.021138801964437227,
+        "reference_median": 6.63930625,
+        "slices": 7
+       },
+       "qstar": {
+        "max_abs": 0.13524782999999996,
+        "median_abs": 0.07993497000000005,
+        "median_relative": 0.014478130732304318,
+        "reference_median": 5.52108359,
+        "slices": 7
+       },
+       "rm": {
+        "max_abs": 1.749999999844931e-05,
+        "median_abs": 1.2999999999152578e-05,
+        "median_relative": 3.4811728716098563e-07,
+        "reference_median": 37.3437358,
+        "slices": 7
+       },
+       "terror": {
+        "max_abs": 0.002841626130000001,
+        "median_abs": 0.0002532614199999995,
+        "median_relative": 0.029713818719094398,
+        "reference_median": 0.00852335482,
+        "slices": 7
+       },
+       "volume": {
+        "max_abs": 2611.600000000093,
+        "median_abs": 2423.58899999992,
+        "median_relative": 0.004116354418439866,
+        "reference_median": 588770.731,
+        "slices": 7
+       },
+       "zm": {
+        "max_abs": 1.2716698000000014e-06,
+        "median_abs": 3.747947999999983e-07,
+        "median_relative": null,
+        "reference_median": 5.10343147e-05,
+        "slices": 7
+       }
+      },
+      "recovered": [
+       320,
+       321,
+       322,
+       323,
+       324,
+       328
+      ]
+     }
+    },
+    "FP": {
+     "returncode": 0,
+     "seconds": 6.805931791081093,
+     "summary": {
+      "accepted": 10,
+      "bound_failures": 14,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 2,
+        "collapsed": 4,
+        "flagged": 3
+       },
+       "ramp_down": {
+        "accepted": 8,
+        "no_output": 2
+       },
+       "ramp_up": {
+        "collapsed": 5
+       }
+      },
+      "collapsed": 9,
+      "findax_failures": 0,
+      "outcomes": {
+       "accepted": 10,
+       "collapsed": 9,
+       "flagged": 3,
+       "no_output": 2
+      },
+      "produced_an_equilibrium": 13,
+      "slices": 24
+     },
+     "vs_reference": {
+      "changed_vs_reference": {
+       "320": [
+        "no_output",
+        "accepted"
+       ],
+       "321": [
+        "no_output",
+        "accepted"
+       ],
+       "322": [
+        "no_output",
+        "accepted"
+       ],
+       "323": [
+        "no_output",
+        "accepted"
+       ],
+       "324": [
+        "no_output",
+        "accepted"
+       ],
+       "328": [
+        "no_output",
+        "accepted"
+       ]
+      },
+      "compared_on": 7,
+      "lost": [],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.113712900000003,
+        "median_abs": 0.07419029999999793,
+        "median_relative": 0.0030440929229999347,
+        "reference_median": 24.3718907,
+        "slices": 7
+       },
+       "area": {
+        "max_abs": 16.437959999999975,
+        "median_abs": 3.7024500000002263,
+        "median_relative": 0.001309044831376335,
+        "reference_median": 2828.35997,
+        "slices": 7
+       },
+       "betap": {
+        "max_abs": 0.00021040060000000055,
+        "median_abs": 0.00017067850000000023,
+        "median_relative": 0.016983879829894244,
+        "reference_median": 0.0100494411,
+        "slices": 7
+       },
+       "chisq": {
+        "max_abs": 9.999999717180685e-10,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 74.4342174,
+        "slices": 7
+       },
+       "elong": {
+        "max_abs": 0.027057439999999877,
+        "median_abs": 0.013076629999999811,
+        "median_relative": 0.008561978298407923,
+        "reference_median": 1.52729072,
+        "slices": 7
+       },
+       "li": {
+        "max_abs": 0.008684842999999942,
+        "median_abs": 0.0008887859999999748,
+        "median_relative": 0.0013535330056836012,
+        "reference_median": 0.656641542,
+        "slices": 7
+       },
+       "q95": {
+        "max_abs": 0.20412478999999983,
+        "median_abs": 0.14034698000000034,
+        "median_relative": 0.021138801964437227,
+        "reference_median": 6.63930625,
+        "slices": 7
+       },
+       "qstar": {
+        "max_abs": 0.13524782999999996,
+        "median_abs": 0.07993497000000005,
+        "median_relative": 0.014478130732304318,
+        "reference_median": 5.52108359,
+        "slices": 7
+       },
+       "rm": {
+        "max_abs": 1.749999999844931e-05,
+        "median_abs": 1.2999999999152578e-05,
+        "median_relative": 3.4811728716098563e-07,
+        "reference_median": 37.3437358,
+        "slices": 7
+       },
+       "terror": {
+        "max_abs": 0.002841626130000001,
+        "median_abs": 0.0002532614199999995,
+        "median_relative": 0.029713818719094398,
+        "reference_median": 0.00852335482,
+        "slices": 7
+       },
+       "volume": {
+        "max_abs": 2611.600000000093,
+        "median_abs": 2423.58899999992,
+        "median_relative": 0.004116354418439866,
+        "reference_median": 588770.731,
+        "slices": 7
+       },
+       "zm": {
+        "max_abs": 1.2716698000000014e-06,
+        "median_abs": 3.747947999999983e-07,
+        "median_relative": null,
+        "reference_median": 5.10343147e-05,
+        "slices": 7
+       }
+      },
+      "recovered": [
+       320,
+       321,
+       322,
+       323,
+       324,
+       328
+      ]
+     }
+    },
+    "PF": {
+     "returncode": 0,
+     "seconds": 5.459035457926802,
+     "summary": {
+      "accepted": 4,
+      "bound_failures": 14,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 1,
+        "collapsed": 4,
+        "flagged": 3,
+        "no_output": 1
+       },
+       "ramp_down": {
+        "accepted": 3,
+        "no_output": 7
+       },
+       "ramp_up": {
+        "collapsed": 5
+       }
+      },
+      "collapsed": 9,
+      "findax_failures": 6,
+      "outcomes": {
+       "accepted": 4,
+       "collapsed": 9,
+       "flagged": 3,
+       "no_output": 8
+      },
+      "produced_an_equilibrium": 7,
+      "slices": 24
+     },
+     "vs_reference": {
+      "changed_vs_reference": {},
+      "compared_on": 7,
+      "lost": [],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 24.3718907,
+        "slices": 7
+       },
+       "area": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 2828.35997,
+        "slices": 7
+       },
+       "betap": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 0.0100494411,
+        "slices": 7
+       },
+       "chisq": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 74.4342174,
+        "slices": 7
+       },
+       "elong": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 1.52729072,
+        "slices": 7
+       },
+       "li": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 0.656641542,
+        "slices": 7
+       },
+       "q95": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 6.63930625,
+        "slices": 7
+       },
+       "qstar": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 5.52108359,
+        "slices": 7
+       },
+       "rm": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 37.3437358,
+        "slices": 7
+       },
+       "terror": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 0.00852335482,
+        "slices": 7
+       },
+       "volume": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 588770.731,
+        "slices": 7
+       },
+       "zm": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": null,
+        "reference_median": 5.10343147e-05,
+        "slices": 7
+       }
+      },
+      "recovered": []
+     }
+    },
+    "PP": {
+     "returncode": 0,
+     "seconds": 5.792669292073697,
+     "slices": [
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 9.24e-10,
+       "chi2_initial": 94.5,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3083,
+       "iconvr": null,
+       "iterations_n": 12,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        },
+        {
+         "detail": "Less than 3 contour points found",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 307
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 4.77e-09,
+       "chi2_initial": 141.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3263,
+       "iconvr": null,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 308
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 1.35e-08,
+       "chi2_initial": 172.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.325,
+       "iconvr": null,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        },
+        {
+         "detail": "Less than 3 contour points found",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 309
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 1.97e-08,
+       "chi2_initial": 186.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3556,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 310
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.82e-08,
+       "chi2_initial": 207.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3567,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 311
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 3.91e-08,
+       "chi2_initial": 211.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3331,
+       "iconvr": null,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        },
+        {
+         "detail": "Less than 3 contour points found",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 312
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 3.97e-08,
+       "chi2_initial": 203.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3358,
+       "iconvr": null,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 313
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 4.03e-08,
+       "chi2_initial": 190.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.323,
+       "iconvr": null,
+       "iterations_n": 12,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 314
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 4.24e-08,
+       "chi2_initial": 173.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.2895,
+       "iconvr": null,
+       "iterations_n": 15,
+       "solver_errors": [
+        {
+         "detail": "Number of contour points greater than max allowed",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 315
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 29.410082,
+        "area": 4080.3784,
+        "betap": 0.0158504108,
+        "chisq": 202.15022,
+        "elong": 1.53617149,
+        "jflag": 0,
+        "li": 0.646065434,
+        "q95": 8.64913222,
+        "qstar": 6.4578764,
+        "rm": 42.7343678,
+        "terror": 0.00870529108,
+        "volume": 950116.457,
+        "zm": 2.343714
+       },
+       "chi2_final": 2.23e-09,
+       "chi2_initial": 202.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008705,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 316
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 26.8751926,
+        "area": 3444.25691,
+        "betap": 0.0127521943,
+        "chisq": 161.747301,
+        "elong": 1.53805908,
+        "jflag": 0,
+        "li": 0.647679312,
+        "q95": 7.59226137,
+        "qstar": 5.99669565,
+        "rm": 40.0390552,
+        "terror": 0.00864730453,
+        "volume": 760547.36,
+        "zm": 2.343701
+       },
+       "chi2_final": 3.09e-09,
+       "chi2_initial": 162.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008647,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 317
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 25.4502441,
+        "area": 3089.50734,
+        "betap": 0.0111631986,
+        "chisq": 90.0124497,
+        "elong": 1.53290487,
+        "jflag": 0,
+        "li": 0.651077273,
+        "q95": 7.06551725,
+        "qstar": 5.71798822,
+        "rm": 38.2422062,
+        "terror": 0.00862609656,
+        "volume": 660194.867,
+        "zm": 5.44157772e-05
+       },
+       "chi2_final": 3.6e-09,
+       "chi2_initial": 90.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008626,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 318
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 24.3718907,
+        "area": 2828.35997,
+        "betap": 0.0100494411,
+        "chisq": 74.4342174,
+        "elong": 1.52729072,
+        "jflag": 1,
+        "li": 0.656641542,
+        "q95": 6.63930625,
+        "qstar": 5.52108359,
+        "rm": 37.3437358,
+        "terror": 0.00852335482,
+        "volume": 588770.731,
+        "zm": 5.10343147e-05
+       },
+       "chi2_final": 4.19e-09,
+       "chi2_initial": 74.4,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.008523,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 319
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 4.55e-09,
+       "chi2_initial": 43.8,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.00866,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 320
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 4.51e-09,
+       "chi2_initial": 41.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.008852,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 321
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 5.17e-09,
+       "chi2_initial": 23.9,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.009002,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 322
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 5.94e-09,
+       "chi2_initial": 10.6,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.009333,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 323
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 6.98e-09,
+       "chi2_initial": 5.01,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.006718,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 324
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 15.3603362,
+        "area": 1039.52669,
+        "betap": 0.00348619529,
+        "chisq": 0.0558560194,
+        "elong": 1.39805112,
+        "jflag": 1,
+        "li": 0.696141061,
+        "q95": 4.80083258,
+        "qstar": 4.64644276,
+        "rm": 27.4608839,
+        "terror": 0.00708113305,
+        "volume": 164891.641,
+        "zm": 2.09417243e-05
+       },
+       "chi2_final": 8.19e-09,
+       "chi2_initial": 0.0559,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007081,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [],
+       "time_ms": 325
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 13.9199385,
+        "area": 836.827647,
+        "betap": 0.00283299244,
+        "chisq": 0.294439903,
+        "elong": 1.36992199,
+        "jflag": 1,
+        "li": 0.698320968,
+        "q95": 4.50384415,
+        "qstar": 4.44696488,
+        "rm": 25.6640348,
+        "terror": 0.00779752424,
+        "volume": 125752.492,
+        "zm": 1.56515427e-05
+       },
+       "chi2_final": 8.26e-09,
+       "chi2_initial": 0.294,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007798,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [],
+       "time_ms": 326
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 12.6553294,
+        "area": 677.317035,
+        "betap": 0.00233529147,
+        "chisq": 1.85392668,
+        "elong": 1.34481787,
+        "jflag": 1,
+        "li": 0.716488274,
+        "q95": 4.22899973,
+        "qstar": 4.26747025,
+        "rm": 23.8672206,
+        "terror": 0.0080360379,
+        "volume": 96766.6718,
+        "zm": 1.01111264e-05
+       },
+       "chi2_final": 8.01e-09,
+       "chi2_initial": 1.85,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.008036,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [],
+       "time_ms": 327
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 5e-09,
+       "chi2_initial": 4.9,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.008016,
+       "iconvr": 2,
+       "iterations_n": 13,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 328
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": null,
+       "chi2_initial": null,
+       "collapsed": false,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": null,
+       "iconvr": null,
+       "iterations_n": 0,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 329
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": null,
+       "chi2_initial": null,
+       "collapsed": false,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": null,
+       "iconvr": null,
+       "iterations_n": 0,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 330
+      }
+     ],
+     "summary": {
+      "accepted": 4,
+      "bound_failures": 14,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 1,
+        "collapsed": 4,
+        "flagged": 3,
+        "no_output": 1
+       },
+       "ramp_down": {
+        "accepted": 3,
+        "no_output": 7
+       },
+       "ramp_up": {
+        "collapsed": 5
+       }
+      },
+      "collapsed": 9,
+      "findax_failures": 6,
+      "outcomes": {
+       "accepted": 4,
+       "collapsed": 9,
+       "flagged": 3,
+       "no_output": 8
+      },
+      "produced_an_equilibrium": 7,
+      "slices": 24
+     }
+    }
+   },
+   "phases": {
+    "flat_top": 9,
+    "ramp_down": 11,
+    "ramp_up": 6
+   },
+   "window": {
+    "end": 0.33079999999997256,
+    "slices": 26,
+    "start": 0.30631999999998205
+   }
+  },
+  "41524": {
+   "cases": {
+    "FF": {
+     "returncode": 0,
+     "seconds": 5.354325458989479,
+     "summary": {
+      "accepted": 4,
+      "bound_failures": 16,
+      "by_phase": {
+       "flat_top": {
+        "collapsed": 6
+       },
+       "ramp_down": {
+        "accepted": 4,
+        "flagged": 4
+       },
+       "ramp_up": {
+        "collapsed": 7
+       }
+      },
+      "collapsed": 13,
+      "findax_failures": 0,
+      "outcomes": {
+       "accepted": 4,
+       "collapsed": 13,
+       "flagged": 4
+      },
+      "produced_an_equilibrium": 8,
+      "slices": 21
+     },
+     "vs_reference": {
+      "changed_vs_reference": {
+       "331": [
+        "no_output",
+        "flagged"
+       ],
+       "332": [
+        "no_output",
+        "accepted"
+       ],
+       "335": [
+        "no_output",
+        "accepted"
+       ]
+      },
+      "compared_on": 5,
+      "lost": [],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.14481909999999942,
+        "median_abs": 0.1338828999999997,
+        "median_relative": 0.00547357716681083,
+        "reference_median": 24.4598543,
+        "slices": 5
+       },
+       "area": {
+        "max_abs": 8.67518999999993,
+        "median_abs": 4.977719999999863,
+        "median_relative": 0.001702178007635222,
+        "reference_median": 2924.324,
+        "slices": 5
+       },
+       "betap": {
+        "max_abs": 0.0003190863999999998,
+        "median_abs": 0.00025144824999999947,
+        "median_relative": 0.024822624357129484,
+        "reference_median": 0.0101298012,
+        "slices": 5
+       },
+       "chisq": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 131.204416,
+        "slices": 5
+       },
+       "elong": {
+        "max_abs": 0.018143699999999985,
+        "median_abs": 0.015462619999999871,
+        "median_relative": 0.00984341669411282,
+        "reference_median": 1.57085903,
+        "slices": 5
+       },
+       "li": {
+        "max_abs": 0.0026826260000000213,
+        "median_abs": 0.0008248299999999986,
+        "median_relative": 0.001269485425026644,
+        "reference_median": 0.649735699,
+        "slices": 5
+       },
+       "q95": {
+        "max_abs": 0.09515333999999998,
+        "median_abs": 0.09345384000000001,
+        "median_relative": 0.025195878107539194,
+        "reference_median": 3.7090924,
+        "slices": 5
+       },
+       "qstar": {
+        "max_abs": 0.07074281000000004,
+        "median_abs": 0.06784856000000028,
+        "median_relative": 0.021864171970025256,
+        "reference_median": 3.10318452,
+        "slices": 5
+       },
+       "rm": {
+        "max_abs": 0.4569882000000014,
+        "median_abs": 0.17874040000000235,
+        "median_relative": 0.004786353384570006,
+        "reference_median": 37.3437533,
+        "slices": 5
+       },
+       "terror": {
+        "max_abs": 0.0006775177200000005,
+        "median_abs": 0.00018666894999999975,
+        "median_relative": 0.023641723003570172,
+        "reference_median": 0.0078957422,
+        "slices": 5
+       },
+       "volume": {
+        "max_abs": 4957.930999999982,
+        "median_abs": 2846.4809999999125,
+        "median_relative": 0.004663549463755016,
+        "reference_median": 610367.923,
+        "slices": 5
+       },
+       "zm": {
+        "max_abs": 0.32805001208240003,
+        "median_abs": 0.021626140000000182,
+        "median_relative": null,
+        "reference_median": 9.03894086e-05,
+        "slices": 5
+       }
+      },
+      "recovered": [
+       331,
+       332,
+       335
+      ]
+     }
+    },
+    "FP": {
+     "returncode": 0,
+     "seconds": 5.3959306250326335,
+     "summary": {
+      "accepted": 4,
+      "bound_failures": 16,
+      "by_phase": {
+       "flat_top": {
+        "collapsed": 6
+       },
+       "ramp_down": {
+        "accepted": 4,
+        "flagged": 4
+       },
+       "ramp_up": {
+        "collapsed": 7
+       }
+      },
+      "collapsed": 13,
+      "findax_failures": 0,
+      "outcomes": {
+       "accepted": 4,
+       "collapsed": 13,
+       "flagged": 4
+      },
+      "produced_an_equilibrium": 8,
+      "slices": 21
+     },
+     "vs_reference": {
+      "changed_vs_reference": {
+       "331": [
+        "no_output",
+        "flagged"
+       ],
+       "332": [
+        "no_output",
+        "accepted"
+       ],
+       "335": [
+        "no_output",
+        "accepted"
+       ]
+      },
+      "compared_on": 5,
+      "lost": [],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.14481909999999942,
+        "median_abs": 0.1338828999999997,
+        "median_relative": 0.00547357716681083,
+        "reference_median": 24.4598543,
+        "slices": 5
+       },
+       "area": {
+        "max_abs": 8.67518999999993,
+        "median_abs": 4.977719999999863,
+        "median_relative": 0.001702178007635222,
+        "reference_median": 2924.324,
+        "slices": 5
+       },
+       "betap": {
+        "max_abs": 0.0003190863999999998,
+        "median_abs": 0.00025144824999999947,
+        "median_relative": 0.024822624357129484,
+        "reference_median": 0.0101298012,
+        "slices": 5
+       },
+       "chisq": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 131.204416,
+        "slices": 5
+       },
+       "elong": {
+        "max_abs": 0.018143699999999985,
+        "median_abs": 0.015462619999999871,
+        "median_relative": 0.00984341669411282,
+        "reference_median": 1.57085903,
+        "slices": 5
+       },
+       "li": {
+        "max_abs": 0.0026826260000000213,
+        "median_abs": 0.0008248299999999986,
+        "median_relative": 0.001269485425026644,
+        "reference_median": 0.649735699,
+        "slices": 5
+       },
+       "q95": {
+        "max_abs": 0.09515333999999998,
+        "median_abs": 0.09345384000000001,
+        "median_relative": 0.025195878107539194,
+        "reference_median": 3.7090924,
+        "slices": 5
+       },
+       "qstar": {
+        "max_abs": 0.07074281000000004,
+        "median_abs": 0.06784856000000028,
+        "median_relative": 0.021864171970025256,
+        "reference_median": 3.10318452,
+        "slices": 5
+       },
+       "rm": {
+        "max_abs": 0.4569882000000014,
+        "median_abs": 0.17874040000000235,
+        "median_relative": 0.004786353384570006,
+        "reference_median": 37.3437533,
+        "slices": 5
+       },
+       "terror": {
+        "max_abs": 0.0006775177200000005,
+        "median_abs": 0.00018666894999999975,
+        "median_relative": 0.023641723003570172,
+        "reference_median": 0.0078957422,
+        "slices": 5
+       },
+       "volume": {
+        "max_abs": 4957.930999999982,
+        "median_abs": 2846.4809999999125,
+        "median_relative": 0.004663549463755016,
+        "reference_median": 610367.923,
+        "slices": 5
+       },
+       "zm": {
+        "max_abs": 0.32805001208240003,
+        "median_abs": 0.021626140000000182,
+        "median_relative": null,
+        "reference_median": 9.03894086e-05,
+        "slices": 5
+       }
+      },
+      "recovered": [
+       331,
+       332,
+       335
+      ]
+     }
+    },
+    "PF": {
+     "returncode": 0,
+     "seconds": 4.709792791982181,
+     "summary": {
+      "accepted": 2,
+      "bound_failures": 16,
+      "by_phase": {
+       "flat_top": {
+        "collapsed": 6
+       },
+       "ramp_down": {
+        "accepted": 2,
+        "flagged": 3,
+        "no_output": 3
+       },
+       "ramp_up": {
+        "collapsed": 7
+       }
+      },
+      "collapsed": 13,
+      "findax_failures": 3,
+      "outcomes": {
+       "accepted": 2,
+       "collapsed": 13,
+       "flagged": 3,
+       "no_output": 3
+      },
+      "produced_an_equilibrium": 5,
+      "slices": 21
+     },
+     "vs_reference": {
+      "changed_vs_reference": {},
+      "compared_on": 5,
+      "lost": [],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 24.4598543,
+        "slices": 5
+       },
+       "area": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 2924.324,
+        "slices": 5
+       },
+       "betap": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 0.0101298012,
+        "slices": 5
+       },
+       "chisq": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 131.204416,
+        "slices": 5
+       },
+       "elong": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 1.57085903,
+        "slices": 5
+       },
+       "li": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 0.649735699,
+        "slices": 5
+       },
+       "q95": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 3.7090924,
+        "slices": 5
+       },
+       "qstar": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 3.10318452,
+        "slices": 5
+       },
+       "rm": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 37.3437533,
+        "slices": 5
+       },
+       "terror": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 0.0078957422,
+        "slices": 5
+       },
+       "volume": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 610367.923,
+        "slices": 5
+       },
+       "zm": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": null,
+        "reference_median": 9.03894086e-05,
+        "slices": 5
+       }
+      },
+      "recovered": []
+     }
+    },
+    "PP": {
+     "returncode": 0,
+     "seconds": 4.704887375002727,
+     "slices": [
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 5.63e-08,
+       "chi2_initial": 129.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.4117,
+       "iconvr": null,
+       "iterations_n": 8,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 315
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 6.46e-08,
+       "chi2_initial": 333.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.384,
+       "iconvr": null,
+       "iterations_n": 9,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        },
+        {
+         "detail": "Less than 3 contour points found",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 316
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 7.35e-08,
+       "chi2_initial": 438.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3569,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        },
+        {
+         "detail": "Less than 3 contour points found",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 317
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 9.32e-08,
+       "chi2_initial": 616.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3552,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 318
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 1.29e-07,
+       "chi2_initial": 667.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3535,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 319
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 1.75e-07,
+       "chi2_initial": 709.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3517,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 320
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.18e-07,
+       "chi2_initial": 713.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3528,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 321
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.52e-07,
+       "chi2_initial": 774.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3544,
+       "iconvr": null,
+       "iterations_n": 10,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 322
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.81e-07,
+       "chi2_initial": 694.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3329,
+       "iconvr": null,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        },
+        {
+         "detail": "Less than 3 contour points found",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 323
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.87e-07,
+       "chi2_initial": 611.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3327,
+       "iconvr": null,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "Number of contour points greater than max allowed",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 324
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.87e-07,
+       "chi2_initial": 542.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3171,
+       "iconvr": null,
+       "iterations_n": 12,
+       "solver_errors": [
+        {
+         "detail": "Number of contour points greater than max allowed",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 325
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.86e-07,
+       "chi2_initial": 428.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3065,
+       "iconvr": null,
+       "iterations_n": 13,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 326
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.97e-07,
+       "chi2_initial": 374.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.2837,
+       "iconvr": null,
+       "iterations_n": 16,
+       "solver_errors": [
+        {
+         "detail": "Number of contour points greater than max allowed",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 327
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 28.51443,
+        "area": 4030.20152,
+        "betap": 0.0146949913,
+        "chisq": 278.52921,
+        "elong": 1.61913424,
+        "jflag": 0,
+        "li": 0.64461423,
+        "q95": 4.24467827,
+        "qstar": 3.31684344,
+        "rm": 41.8045306,
+        "terror": 0.00812532723,
+        "volume": 921999.606,
+        "zm": 1.26655172
+       },
+       "chi2_final": 1.91e-07,
+       "chi2_initial": 279.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008125,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 328
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 26.4832951,
+        "area": 3459.1586,
+        "betap": 0.0122914686,
+        "chisq": 179.382998,
+        "elong": 1.59745937,
+        "jflag": 0,
+        "li": 0.647329173,
+        "q95": 3.9381471,
+        "qstar": 3.19288187,
+        "rm": 39.6021902,
+        "terror": 0.00788247668,
+        "volume": 757527.217,
+        "zm": 1.05481042
+       },
+       "chi2_final": 2.02e-07,
+       "chi2_initial": 179.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.007882,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 329
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 24.4598543,
+        "area": 2924.324,
+        "betap": 0.0101298012,
+        "chisq": 131.204416,
+        "elong": 1.57085903,
+        "jflag": 0,
+        "li": 0.649735699,
+        "q95": 3.7090924,
+        "qstar": 3.10318452,
+        "rm": 37.3437533,
+        "terror": 0.00788874019,
+        "volume": 610367.923,
+        "zm": 9.03894086e-05
+       },
+       "chi2_final": 2.12e-07,
+       "chi2_initial": 131.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.007889,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 330
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.22e-07,
+       "chi2_initial": 81.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007719,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 331
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.32e-07,
+       "chi2_initial": 28.7,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007968,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 332
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 19.8937924,
+        "area": 1857.73884,
+        "betap": 0.006202685,
+        "chisq": 15.1778127,
+        "elong": 1.49450513,
+        "jflag": 1,
+        "li": 0.665730429,
+        "q95": 3.20350172,
+        "qstar": 2.89801514,
+        "rm": 31.9532002,
+        "terror": 0.0078957422,
+        "volume": 342434.81,
+        "zm": 4.92957231e-05
+       },
+       "chi2_final": 2.35e-07,
+       "chi2_initial": 15.2,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007896,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 333
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 18.5823246,
+        "area": 1598.51377,
+        "betap": 0.00529416181,
+        "chisq": 1.14164561,
+        "elong": 1.47209127,
+        "jflag": 1,
+        "li": 0.674597573,
+        "q95": 3.14872597,
+        "qstar": 2.91239532,
+        "rm": 31.0546034,
+        "terror": 0.00818702204,
+        "volume": 282911.861,
+        "zm": 3.96889176e-05
+       },
+       "chi2_final": 2.38e-07,
+       "chi2_initial": 1.14,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.008187,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 334
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.59e-07,
+       "chi2_initial": 2.69,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.00993,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 335
+      }
+     ],
+     "summary": {
+      "accepted": 2,
+      "bound_failures": 16,
+      "by_phase": {
+       "flat_top": {
+        "collapsed": 6
+       },
+       "ramp_down": {
+        "accepted": 2,
+        "flagged": 3,
+        "no_output": 3
+       },
+       "ramp_up": {
+        "collapsed": 7
+       }
+      },
+      "collapsed": 13,
+      "findax_failures": 3,
+      "outcomes": {
+       "accepted": 2,
+       "collapsed": 13,
+       "flagged": 3,
+       "no_output": 3
+      },
+      "produced_an_equilibrium": 5,
+      "slices": 21
+     }
+    }
+   },
+   "phases": {
+    "flat_top": 6,
+    "ramp_down": 9,
+    "ramp_up": 7
+   },
+   "window": {
+    "end": 0.3364399999999704,
+    "slices": 22,
+    "start": 0.31455999999997886
+   }
+  },
+  "41672": {
+   "cases": {
+    "FF": {
+     "returncode": 0,
+     "seconds": 11.79795712500345,
+     "summary": {
+      "accepted": 16,
+      "bound_failures": 11,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 4,
+        "flagged": 3
+       },
+       "ramp_down": {
+        "accepted": 12,
+        "no_output": 5
+       },
+       "ramp_up": {
+        "collapsed": 7,
+        "flagged": 6
+       }
+      },
+      "collapsed": 7,
+      "findax_failures": 2,
+      "outcomes": {
+       "accepted": 16,
+       "collapsed": 7,
+       "flagged": 9,
+       "no_output": 5
+      },
+      "produced_an_equilibrium": 25,
+      "slices": 37
+     },
+     "vs_reference": {
+      "changed_vs_reference": {
+       "327": [
+        "no_output",
+        "flagged"
+       ],
+       "329": [
+        "no_output",
+        "flagged"
+       ],
+       "332": [
+        "no_output",
+        "accepted"
+       ],
+       "336": [
+        "no_output",
+        "accepted"
+       ],
+       "340": [
+        "no_output",
+        "accepted"
+       ],
+       "342": [
+        "no_output",
+        "accepted"
+       ],
+       "343": [
+        "no_output",
+        "accepted"
+       ],
+       "344": [
+        "no_output",
+        "accepted"
+       ],
+       "345": [
+        "accepted",
+        "no_output"
+       ],
+       "347": [
+        "accepted",
+        "no_output"
+       ]
+      },
+      "compared_on": 17,
+      "lost": [
+       345,
+       347
+      ],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.22373759999999976,
+        "median_abs": 0.1773857999999997,
+        "median_relative": 0.007668233954655387,
+        "reference_median": 23.1325493,
+        "slices": 17
+       },
+       "area": {
+        "max_abs": 23.533086000000026,
+        "median_abs": 11.390310000000227,
+        "median_relative": 0.004468903937093822,
+        "reference_median": 2548.79276,
+        "slices": 17
+       },
+       "betap": {
+        "max_abs": 0.0003634561600000001,
+        "median_abs": 0.000322649500000001,
+        "median_relative": 0.03642397787733426,
+        "reference_median": 0.00885816209,
+        "slices": 17
+       },
+       "chisq": {
+        "max_abs": 1.0000000272292198e-09,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 25.7801562,
+        "slices": 17
+       },
+       "elong": {
+        "max_abs": 0.06154375000000001,
+        "median_abs": 0.026007319999999945,
+        "median_relative": 0.01704873658367565,
+        "reference_median": 1.52546905,
+        "slices": 17
+       },
+       "li": {
+        "max_abs": 0.02949533900000001,
+        "median_abs": 0.002467069000000044,
+        "median_relative": 0.003759346732497601,
+        "reference_median": 0.65624939,
+        "slices": 17
+       },
+       "q95": {
+        "max_abs": 0.3911286399999998,
+        "median_abs": 0.2041255099999999,
+        "median_relative": 0.04115089412257917,
+        "reference_median": 4.96041494,
+        "slices": 17
+       },
+       "qstar": {
+        "max_abs": 0.32833895999999996,
+        "median_abs": 0.11252313000000047,
+        "median_relative": 0.025768104661487063,
+        "reference_median": 4.36676005,
+        "slices": 17
+       },
+       "rm": {
+        "max_abs": 0.8983320999999975,
+        "median_abs": 5.419999999389802e-05,
+        "median_relative": 1.524744751860156e-06,
+        "reference_median": 35.5469333,
+        "slices": 17
+       },
+       "terror": {
+        "max_abs": 0.0010513954300000001,
+        "median_abs": 0.00017014547000000074,
+        "median_relative": 0.021486308836052334,
+        "reference_median": 0.00791878546,
+        "slices": 17
+       },
+       "volume": {
+        "max_abs": 3693.173999999999,
+        "median_abs": 2686.918000000005,
+        "median_relative": 0.005225704470819974,
+        "reference_median": 514173.355,
+        "slices": 17
+       },
+       "zm": {
+        "max_abs": 1.19090405,
+        "median_abs": 1.1358789999999996e-06,
+        "median_relative": null,
+        "reference_median": 4.85543209e-05,
+        "slices": 17
+       }
+      },
+      "recovered": [
+       327,
+       329,
+       332,
+       336,
+       340,
+       342,
+       343,
+       344
+      ]
+     }
+    },
+    "FP": {
+     "returncode": 0,
+     "seconds": 11.593131582951173,
+     "summary": {
+      "accepted": 16,
+      "bound_failures": 11,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 4,
+        "flagged": 3
+       },
+       "ramp_down": {
+        "accepted": 12,
+        "no_output": 5
+       },
+       "ramp_up": {
+        "collapsed": 7,
+        "flagged": 6
+       }
+      },
+      "collapsed": 7,
+      "findax_failures": 2,
+      "outcomes": {
+       "accepted": 16,
+       "collapsed": 7,
+       "flagged": 9,
+       "no_output": 5
+      },
+      "produced_an_equilibrium": 25,
+      "slices": 37
+     },
+     "vs_reference": {
+      "changed_vs_reference": {
+       "327": [
+        "no_output",
+        "flagged"
+       ],
+       "329": [
+        "no_output",
+        "flagged"
+       ],
+       "332": [
+        "no_output",
+        "accepted"
+       ],
+       "336": [
+        "no_output",
+        "accepted"
+       ],
+       "340": [
+        "no_output",
+        "accepted"
+       ],
+       "342": [
+        "no_output",
+        "accepted"
+       ],
+       "343": [
+        "no_output",
+        "accepted"
+       ],
+       "344": [
+        "no_output",
+        "accepted"
+       ],
+       "345": [
+        "accepted",
+        "no_output"
+       ],
+       "347": [
+        "accepted",
+        "no_output"
+       ]
+      },
+      "compared_on": 17,
+      "lost": [
+       345,
+       347
+      ],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.22373759999999976,
+        "median_abs": 0.1773857999999997,
+        "median_relative": 0.007668233954655387,
+        "reference_median": 23.1325493,
+        "slices": 17
+       },
+       "area": {
+        "max_abs": 23.533086000000026,
+        "median_abs": 11.390310000000227,
+        "median_relative": 0.004468903937093822,
+        "reference_median": 2548.79276,
+        "slices": 17
+       },
+       "betap": {
+        "max_abs": 0.0003634561600000001,
+        "median_abs": 0.000322649500000001,
+        "median_relative": 0.03642397787733426,
+        "reference_median": 0.00885816209,
+        "slices": 17
+       },
+       "chisq": {
+        "max_abs": 1.0000000272292198e-09,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 25.7801562,
+        "slices": 17
+       },
+       "elong": {
+        "max_abs": 0.06154375000000001,
+        "median_abs": 0.026007319999999945,
+        "median_relative": 0.01704873658367565,
+        "reference_median": 1.52546905,
+        "slices": 17
+       },
+       "li": {
+        "max_abs": 0.02949533900000001,
+        "median_abs": 0.002467069000000044,
+        "median_relative": 0.003759346732497601,
+        "reference_median": 0.65624939,
+        "slices": 17
+       },
+       "q95": {
+        "max_abs": 0.3911286399999998,
+        "median_abs": 0.2041255099999999,
+        "median_relative": 0.04115089412257917,
+        "reference_median": 4.96041494,
+        "slices": 17
+       },
+       "qstar": {
+        "max_abs": 0.32833895999999996,
+        "median_abs": 0.11252313000000047,
+        "median_relative": 0.025768104661487063,
+        "reference_median": 4.36676005,
+        "slices": 17
+       },
+       "rm": {
+        "max_abs": 0.8983320999999975,
+        "median_abs": 5.419999999389802e-05,
+        "median_relative": 1.524744751860156e-06,
+        "reference_median": 35.5469333,
+        "slices": 17
+       },
+       "terror": {
+        "max_abs": 0.0010513954300000001,
+        "median_abs": 0.00017014547000000074,
+        "median_relative": 0.021486308836052334,
+        "reference_median": 0.00791878546,
+        "slices": 17
+       },
+       "volume": {
+        "max_abs": 3693.173999999999,
+        "median_abs": 2686.918000000005,
+        "median_relative": 0.005225704470819974,
+        "reference_median": 514173.355,
+        "slices": 17
+       },
+       "zm": {
+        "max_abs": 1.19090405,
+        "median_abs": 1.1358789999999996e-06,
+        "median_relative": null,
+        "reference_median": 4.85543209e-05,
+        "slices": 17
+       }
+      },
+      "recovered": [
+       327,
+       329,
+       332,
+       336,
+       340,
+       342,
+       343,
+       344
+      ]
+     }
+    },
+    "PF": {
+     "returncode": 0,
+     "seconds": 10.333375334041193,
+     "summary": {
+      "accepted": 12,
+      "bound_failures": 11,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 3,
+        "flagged": 2,
+        "no_output": 2
+       },
+       "ramp_down": {
+        "accepted": 9,
+        "no_output": 8
+       },
+       "ramp_up": {
+        "collapsed": 7,
+        "flagged": 5,
+        "no_output": 1
+       }
+      },
+      "collapsed": 7,
+      "findax_failures": 8,
+      "outcomes": {
+       "accepted": 12,
+       "collapsed": 7,
+       "flagged": 7,
+       "no_output": 11
+      },
+      "produced_an_equilibrium": 19,
+      "slices": 37
+     },
+     "vs_reference": {
+      "changed_vs_reference": {},
+      "compared_on": 19,
+      "lost": [],
+      "metrics": {
+       "aminor": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 22.8654286,
+        "slices": 19
+       },
+       "area": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 2484.53422,
+        "slices": 19
+       },
+       "betap": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 0.00861336619,
+        "slices": 19
+       },
+       "chisq": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 22.7598683,
+        "slices": 19
+       },
+       "elong": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 1.52087596,
+        "slices": 19
+       },
+       "li": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 0.657419837,
+        "slices": 19
+       },
+       "q95": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 4.9047211,
+        "slices": 19
+       },
+       "qstar": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 4.36676005,
+        "slices": 19
+       },
+       "rm": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 35.5468759,
+        "slices": 19
+       },
+       "terror": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 0.00808617478,
+        "slices": 19
+       },
+       "volume": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": 0.0,
+        "reference_median": 497644.34,
+        "slices": 19
+       },
+       "zm": {
+        "max_abs": 0.0,
+        "median_abs": 0.0,
+        "median_relative": null,
+        "reference_median": 4.15699656e-05,
+        "slices": 19
+       }
+      },
+      "recovered": []
+     }
+    },
+    "PP": {
+     "returncode": 0,
+     "seconds": 10.580219291965477,
+     "slices": [
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 1.75e-08,
+       "chi2_initial": 136.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.4222,
+       "iconvr": null,
+       "iterations_n": 8,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 315
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.09e-08,
+       "chi2_initial": 359.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3826,
+       "iconvr": null,
+       "iterations_n": 9,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        },
+        {
+         "detail": "Less than 3 contour points found",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 316
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.19e-08,
+       "chi2_initial": 437.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3935,
+       "iconvr": null,
+       "iterations_n": 9,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 317
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 2.53e-08,
+       "chi2_initial": 619.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.3355,
+       "iconvr": null,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 318
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 3.09e-08,
+       "chi2_initial": 643.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.314,
+       "iconvr": null,
+       "iterations_n": 13,
+       "solver_errors": [
+        {
+         "detail": "Number of contour points greater than max allowed",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 319
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 3.85e-08,
+       "chi2_initial": 702.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.2915,
+       "iconvr": null,
+       "iterations_n": 15,
+       "solver_errors": [
+        {
+         "detail": "Number of contour points greater than max allowed",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 320
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 5.02e-08,
+       "chi2_initial": 692.0,
+       "collapsed": true,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": 0.2638,
+       "iconvr": null,
+       "iterations_n": 19,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 321
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 28.3319742,
+        "area": 4092.69032,
+        "betap": 0.0142778546,
+        "chisq": 682.355809,
+        "elong": 1.64970765,
+        "jflag": 0,
+        "li": 0.64187859,
+        "q95": 9.75733789,
+        "qstar": 7.50598387,
+        "rm": 41.8359107,
+        "terror": 0.00978066612,
+        "volume": 927472.394,
+        "zm": 2.34378181
+       },
+       "chi2_final": 3.79e-08,
+       "chi2_initial": 682.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.009781,
+       "iconvr": 2,
+       "iterations_n": 13,
+       "solver_errors": [],
+       "time_ms": 322
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 27.8461818,
+        "area": 3950.44117,
+        "betap": 0.0137572692,
+        "chisq": 585.397262,
+        "elong": 1.64684395,
+        "jflag": 0,
+        "li": 0.64225038,
+        "q95": 8.2888534,
+        "qstar": 6.48138266,
+        "rm": 40.9375176,
+        "terror": 0.00889523005,
+        "volume": 887484.262,
+        "zm": 2.34377194
+       },
+       "chi2_final": 4.36e-08,
+       "chi2_initial": 585.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008895,
+       "iconvr": 2,
+       "iterations_n": 13,
+       "solver_errors": [],
+       "time_ms": 323
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 27.6375391,
+        "area": 3840.23057,
+        "betap": 0.0135327418,
+        "chisq": 568.344113,
+        "elong": 1.62764702,
+        "jflag": 0,
+        "li": 0.646561462,
+        "q95": 7.41501927,
+        "qstar": 5.83386268,
+        "rm": 40.9374874,
+        "terror": 0.0090842303,
+        "volume": 859603.816,
+        "zm": 2.34374918
+       },
+       "chi2_final": 4.72e-08,
+       "chi2_initial": 568.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.009084,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [],
+       "time_ms": 324
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 26.3150019,
+        "area": 3445.10279,
+        "betap": 0.0120455619,
+        "chisq": 441.199129,
+        "elong": 1.60452471,
+        "jflag": 0,
+        "li": 0.648429583,
+        "q95": 6.554072,
+        "qstar": 5.29753205,
+        "rm": 39.1406621,
+        "terror": 0.00814902954,
+        "volume": 749693.459,
+        "zm": 2.34372981
+       },
+       "chi2_final": 5.28e-08,
+       "chi2_initial": 441.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008149,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [],
+       "time_ms": 325
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 25.0053739,
+        "area": 3083.20293,
+        "betap": 0.0106383402,
+        "chisq": 361.007195,
+        "elong": 1.5860715,
+        "jflag": 0,
+        "li": 0.650475959,
+        "q95": 5.98273225,
+        "qstar": 4.95760489,
+        "rm": 38.2421419,
+        "terror": 0.00988468256,
+        "volume": 650934.327,
+        "zm": 2.34370335
+       },
+       "chi2_final": 5.87e-08,
+       "chi2_initial": 361.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.009885,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 326
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 6.62e-08,
+       "chi2_initial": 270.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.009546,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 327
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 23.9647119,
+        "area": 2810.85924,
+        "betap": 0.00963760338,
+        "chisq": 170.444656,
+        "elong": 1.56892678,
+        "jflag": 0,
+        "li": 0.655476353,
+        "q95": 5.02600305,
+        "qstar": 4.26098229,
+        "rm": 36.8237409,
+        "terror": 0.00859524908,
+        "volume": 579403.353,
+        "zm": 1.15276079
+       },
+       "chi2_final": 7.44e-08,
+       "chi2_initial": 170.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008595,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 328
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 7.16e-08,
+       "chi2_initial": 115.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.008299,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 329
+      },
+      {
+       "accepted": false,
+       "afile": {
+        "aminor": 23.5408006,
+        "area": 2669.97886,
+        "betap": 0.00923920263,
+        "chisq": 109.626835,
+        "elong": 1.54261403,
+        "jflag": 0,
+        "li": 0.654768835,
+        "q95": 4.34523519,
+        "qstar": 3.6820726,
+        "rm": 36.4452887,
+        "terror": 0.00808617478,
+        "volume": 544389.701,
+        "zm": 7.25743149e-05
+       },
+       "chi2_final": 7.47e-08,
+       "chi2_initial": 110.0,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [
+        {
+         "code": 1,
+         "criterion": "Chisq >    80.",
+         "value": null
+        }
+       ],
+       "gs_error": 0.008086,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 330
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 23.5947012,
+        "area": 2673.64459,
+        "betap": 0.00929091849,
+        "chisq": 57.774592,
+        "elong": 1.53854879,
+        "jflag": 1,
+        "li": 0.653772008,
+        "q95": 4.59849663,
+        "qstar": 3.89200071,
+        "rm": 36.4452992,
+        "terror": 0.00791878546,
+        "volume": 545877.618,
+        "zm": 6.57687653e-05
+       },
+       "chi2_final": 7.57e-08,
+       "chi2_initial": 57.8,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007919,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 331
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 7.64e-08,
+       "chi2_initial": 66.3,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.00776,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 332
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 23.1325493,
+        "area": 2548.79276,
+        "betap": 0.00885816209,
+        "chisq": 22.7598683,
+        "elong": 1.52546905,
+        "jflag": 1,
+        "li": 0.657419837,
+        "q95": 4.63140797,
+        "qstar": 3.94067714,
+        "rm": 35.5469333,
+        "terror": 0.00759604553,
+        "volume": 514173.355,
+        "zm": 4.85543209e-05
+       },
+       "chi2_final": 7.81e-08,
+       "chi2_initial": 22.8,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007596,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 333
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 22.8654286,
+        "area": 2484.53422,
+        "betap": 0.00861336619,
+        "chisq": 19.1547644,
+        "elong": 1.52087596,
+        "jflag": 1,
+        "li": 0.65624939,
+        "q95": 4.70334523,
+        "qstar": 4.0118049,
+        "rm": 35.5468759,
+        "terror": 0.00750028416,
+        "volume": 497644.34,
+        "zm": 4.15699656e-05
+       },
+       "chi2_final": 7.86e-08,
+       "chi2_initial": 19.2,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.0075,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 334
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 22.4316342,
+        "area": 2384.60746,
+        "betap": 0.0082245464,
+        "chisq": 9.3074348,
+        "elong": 1.51596643,
+        "jflag": 1,
+        "li": 0.660284663,
+        "q95": 4.74834901,
+        "qstar": 4.11198164,
+        "rm": 34.6485145,
+        "terror": 0.00756062458,
+        "volume": 472092.047,
+        "zm": 3.41893531e-05
+       },
+       "chi2_final": 8.01e-08,
+       "chi2_initial": 9.31,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007561,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 335
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 8.14e-08,
+       "chi2_initial": 7.49,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007509,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 336
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 21.6805862,
+        "area": 2219.23347,
+        "betap": 0.00758079709,
+        "chisq": 1.5577773,
+        "elong": 1.50771866,
+        "jflag": 1,
+        "li": 0.660269769,
+        "q95": 4.9047211,
+        "qstar": 4.28505951,
+        "rm": 34.6483607,
+        "terror": 0.00731032094,
+        "volume": 430368.105,
+        "zm": 2.34922895e-05
+       },
+       "chi2_final": 8.21e-08,
+       "chi2_initial": 1.56,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.00731,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 337
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 21.2354124,
+        "area": 2124.6839,
+        "betap": 0.00721671057,
+        "chisq": 0.445936142,
+        "elong": 1.50471219,
+        "jflag": 1,
+        "li": 0.662970528,
+        "q95": 4.96041494,
+        "qstar": 4.36676005,
+        "rm": 33.7499953,
+        "terror": 0.00731707602,
+        "volume": 406952.47,
+        "zm": 1.71533673e-05
+       },
+       "chi2_final": 8.35e-08,
+       "chi2_initial": 0.446,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007317,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 338
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 20.723644,
+        "area": 2020.72107,
+        "betap": 0.00681216273,
+        "chisq": 1.55960904,
+        "elong": 1.50111633,
+        "jflag": 1,
+        "li": 0.665264606,
+        "q95": 5.02992865,
+        "qstar": 4.45678478,
+        "rm": 32.8516143,
+        "terror": 0.007015776,
+        "volume": 381434.566,
+        "zm": 1.28405274e-05
+       },
+       "chi2_final": 8.46e-08,
+       "chi2_initial": 1.56,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007016,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 339
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 8.62e-08,
+       "chi2_initial": 2.55,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007224,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 340
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 19.5857922,
+        "area": 1796.41152,
+        "betap": 0.00596608198,
+        "chisq": 0.0257444918,
+        "elong": 1.49264792,
+        "jflag": 1,
+        "li": 0.669453747,
+        "q95": 5.16263037,
+        "qstar": 4.68959183,
+        "rm": 31.9531117,
+        "terror": 0.0072043653,
+        "volume": 327813.656,
+        "zm": 5.74474543e-06
+       },
+       "chi2_final": 8.67e-08,
+       "chi2_initial": 0.0257,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007204,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 341
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 8.89e-08,
+       "chi2_initial": 4.95,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007192,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 342
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 8.93e-08,
+       "chi2_initial": 4.37,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.00752,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 343
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": 8.77e-08,
+       "chi2_initial": 4.04,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007435,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [
+        {
+         "detail": "1st separatrix point is off grid",
+         "routine": "findax"
+        }
+       ],
+       "time_ms": 344
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 14.6333696,
+        "area": 946.429563,
+        "betap": 0.0031289233,
+        "chisq": 8.4325719,
+        "elong": 1.40332477,
+        "jflag": 1,
+        "li": 0.695854608,
+        "q95": 4.89769076,
+        "qstar": 4.83529521,
+        "rm": 26.5624554,
+        "terror": 0.00953754844,
+        "volume": 146150.826,
+        "zm": -6.81253245e-06
+       },
+       "chi2_final": 9.26e-08,
+       "chi2_initial": 8.43,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.009538,
+       "iconvr": 2,
+       "iterations_n": 11,
+       "solver_errors": [],
+       "time_ms": 345
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 12.1606199,
+        "area": 625.832956,
+        "betap": 0.00216492219,
+        "chisq": 10.7100829,
+        "elong": 1.34066279,
+        "jflag": 1,
+        "li": 0.703510585,
+        "q95": 4.33626179,
+        "qstar": 4.42450854,
+        "rm": 23.8671236,
+        "terror": 0.00718768649,
+        "volume": 87611.9704,
+        "zm": -1.1084438e-05
+       },
+       "chi2_final": 9.25e-08,
+       "chi2_initial": 10.7,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.007188,
+       "iconvr": 2,
+       "iterations_n": 12,
+       "solver_errors": [],
+       "time_ms": 346
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 9.52298386,
+        "area": 360.638525,
+        "betap": 0.00138193707,
+        "chisq": 6.0161492,
+        "elong": 1.26602649,
+        "jflag": 1,
+        "li": 0.749094954,
+        "q95": 3.74005777,
+        "qstar": 3.94325818,
+        "rm": 20.2735019,
+        "terror": 0.00848007835,
+        "volume": 44788.9265,
+        "zm": -1.44420013e-05
+       },
+       "chi2_final": 9.38e-08,
+       "chi2_initial": 6.02,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.00848,
+       "iconvr": 2,
+       "iterations_n": 13,
+       "solver_errors": [],
+       "time_ms": 347
+      },
+      {
+       "accepted": true,
+       "afile": {
+        "aminor": 7.58048909,
+        "area": 217.307696,
+        "betap": 0.000959051343,
+        "chisq": 25.7801562,
+        "elong": 1.202742,
+        "jflag": 1,
+        "li": 0.725552364,
+        "q95": 3.10631316,
+        "qstar": 3.34294408,
+        "rm": 18.4765551,
+        "terror": 0.00850950828,
+        "volume": 24440.909,
+        "zm": -1.68696416e-05
+       },
+       "chi2_final": 9.56e-08,
+       "chi2_initial": 25.8,
+       "collapsed": false,
+       "exit_path": "iconvr=2",
+       "failures": [],
+       "gs_error": 0.00851,
+       "iconvr": 2,
+       "iterations_n": 14,
+       "solver_errors": [],
+       "time_ms": 348
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": null,
+       "chi2_initial": null,
+       "collapsed": false,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": null,
+       "iconvr": null,
+       "iterations_n": 0,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 349
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": null,
+       "chi2_initial": null,
+       "collapsed": false,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": null,
+       "iconvr": null,
+       "iterations_n": 0,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 350
+      },
+      {
+       "accepted": false,
+       "afile": null,
+       "chi2_final": null,
+       "chi2_initial": null,
+       "collapsed": false,
+       "exit_path": "solver_error",
+       "failures": [],
+       "gs_error": null,
+       "iconvr": null,
+       "iterations_n": 0,
+       "solver_errors": [
+        {
+         "detail": "First and last contour points are too far apart",
+         "routine": "bound"
+        }
+       ],
+       "time_ms": 351
+      }
+     ],
+     "summary": {
+      "accepted": 12,
+      "bound_failures": 11,
+      "by_phase": {
+       "flat_top": {
+        "accepted": 3,
+        "flagged": 2,
+        "no_output": 2
+       },
+       "ramp_down": {
+        "accepted": 9,
+        "no_output": 8
+       },
+       "ramp_up": {
+        "collapsed": 7,
+        "flagged": 5,
+        "no_output": 1
+       }
+      },
+      "collapsed": 7,
+      "findax_failures": 8,
+      "outcomes": {
+       "accepted": 12,
+       "collapsed": 7,
+       "flagged": 7,
+       "no_output": 11
+      },
+      "produced_an_equilibrium": 19,
+      "slices": 37
+     }
+    }
+   },
+   "phases": {
+    "flat_top": 7,
+    "ramp_down": 18,
+    "ramp_up": 16
+   },
+   "window": {
+    "end": 0.35171999999996445,
+    "slices": 41,
+    "start": 0.31219999999997977
+   }
+  }
+ },
+ "toolchain": {
+  "efit": {
+   "build_revision": "4d10ed5-dirty",
+   "build_root": "/Users/yun/git/efit",
+   "mtime": "2026-09-06T13:43:02+00:00",
+   "path": "/Users/yun/git/efit/vaft-install/bin/efit",
+   "role": "efit",
+   "sha256": "b1d0bb21c9496503233e8b5ee7ede0c217b497e65a7f59f20f8f6e1f662f0c4d",
+   "size": 1144248
+  },
+  "efund": {
+   "build_revision": "4d10ed5-dirty",
+   "build_root": "/Users/yun/git/efit",
+   "mtime": "2026-09-06T13:43:02+00:00",
+   "path": "/Users/yun/git/efit/vaft-install/bin/efund",
+   "role": "efund",
+   "sha256": "2d9ff9d7ed5bebc71ada3c40e301f05685974d78363336ced21889b0eb67dcbb",
+   "size": 109048
+  }
+ },
+ "verdict": [
+  "Yield over 82 plasma slices: FF 46/30, FP 46/30, PF 31/18, PP 31/18 produced/accepted.",
+  "**The namelist is inert**: swapping `mhdin.dat` alone changes nothing, which is what the field comparison predicted -- everything EFIT reads from it is identical, and the probe angles differ by a whole turn.",
+  "**The tables carry the effect**: regenerating them alone moves the yield by +15 equilibria, all of it. The packaged and regenerated tables are not interchangeable, and #194's negative A/B -- four slices, all of which converge under either -- was measured on a population that could not show this.",
+  "**What it changes is where the boundary goes, not how well the fit works.** `findax`, which rejects a separatrix point that lands off grid, fails 17 times under the packaged table and 2 under the regenerated one; `bound` fails 41 times under both. The collapse block is untouched by the table, as it was by the seed (#588) and by the domain and grid (#459).",
+  "**And it does not fit the magnetics any better.** On every slice both tables reconstruct, the chi-square is unchanged to the digits EFIT prints, while the boundary moves -- q95 by a few percent, the minor radius by under one. The two tables agree about the measurements and disagree about the plasma, so the extra yield is not evidence that the regenerated table is the correct one. That case rests on its provenance instead."
+ ]
+}

@@ -29,7 +29,10 @@ PYTHONPATH=$PWD python workflow/efit_tables/ab_efit_table.py --eddy-ods 39915_ed
 ```
 
 The eddy ODS is the shot's `pipeline-until-efit` product (the `equilibrium`
-IDS is stripped by the tool). `reference/` keeps the manifest of the table
+IDS is stripped by the tool). That product is self-contained, so it is also its
+own diagnostics half and `--diagnostics-ods` can be left off; a canonical
+per-stage eddy product carries only `pf_passive`, and then the diagnostics
+product it was computed from has to be named as well. `reference/` keeps the manifest of the table
 generated for this study and the full comparison record, with local paths
 scrubbed.
 
@@ -145,3 +148,148 @@ result, and the result was negative. What it does leave behind is the
 provenance chain: a table can now be generated from the canonical geometry
 for a named era with a manifest, compared with any other, and every EFIT run
 records the table it consumed (`efit_configuration.json` → `table`).
+
+> **Superseded by the section below (#695).** The decision rule above is about
+> χ², the axis and `jflag`, and every one of those readings still holds. The
+> effect the table does have is the one dismissed here as "a boundary-finder
+> edge case": arm A losing the separatrix off grid at 0.323 s. That was 1 of
+> 4 slices in this sample and it is 15 of 82 across the reference set. The
+> rule did not test for it.
+
+## The table against the namelist, over the whole reference set (#695)
+
+`table_geometry_ab.py` runs the 2×2 that the four-slice A/B above could not:
+the packaged `.ddd` tables against regenerated ones, crossed with the
+packaged `mhdin.dat` against a regenerated one, over all 82 plasma slices of
+the three reference discharges. Everything else is held fixed, including one
+acceptance envelope for all four cases.
+
+| case | tables | `mhdin.dat` | equilibria | accepted | `bound` | `findax` |
+| --- | --- | --- | --- | --- | --- | --- |
+| PP | packaged | packaged | 31 | 18 | 41 | 17 |
+| PF | packaged | regenerated | 31 | 18 | 41 | 17 |
+| FP | regenerated | packaged | **46** | **30** | 41 | **2** |
+| FF | regenerated | regenerated | 46 | 30 | 41 | 2 |
+
+**The namelist is inert and the tables carry all of it.** PP and PF agree on
+every count on every shot; so do FP and FF. That is what the file comparison
+predicted: everything EFIT reads from `mhdin.dat` is identical between the
+two — `turnfc`, which scales the coil currents it fits
+(`data_input.F90:2575`), `rsi`, which normalises the flux loops (`:2601`),
+and the probe positions — except that all 64 probe angles read −270° in one
+file and +90° in the other, which is the same angle. What genuinely differs
+is the F-coil description: 16 lumped conductors against 302 discrete
+filaments, with `fcturn` following. Those are EFUND inputs and reach EFIT
+only through the tables.
+
+**What the table changes is where the boundary goes, not how well the fit
+works.** `findax`, which rejects a separatrix point landing within two cells
+of the grid edge, fails 17 times under the packaged table and twice under the
+regenerated one. `bound` fails 41 times under both, so the 29-slice collapse
+block is untouched — as it was by the seed (#588) and by the domain and grid
+(#459). The packaged table accounts for the entire `findax` population that
+#171 recorded and none of the collapse block.
+
+**The extra yield is not evidence that the regenerated table is correct.** On
+every slice both tables reconstruct, EFIT reports the same χ² to the digits
+it prints, while the boundary moves: q95 by 2–4 %, the minor radius by under
+1 %. The two tables agree about the measurements and disagree about the
+plasma. Magnetics alone cannot separate them, which is what the kinetic arm
+of the reference set exists for.
+
+So the case for the regenerated table rests on provenance, not on yield: it
+is generated from named, hashed era assets by a recorded EFUND build, and it
+resolves each PF coil into 302 filaments rather than 16 boxes — a finer
+representation of the same geometry. The packaged table has no recoverable
+origin, and the `mhdin.dat` shipped beside it cannot be consumed by this
+EFUND revision at all (`islpfc` sits in the wrong namelist group), so it is
+not even the input that produced it.
+
+**What this means for the studies already run.** The #171 baseline, the #588
+seed study and the #459 domain/grid study all ran against the packaged table,
+which is case PP. Their comparisons are internally consistent. Their absolute
+yields are the packaged table's.
+
+## The switch
+
+`vaft/data/efit` now holds the regenerated table. The pipeline reads it
+through `config.yaml`'s `table_dir: ${VAFT_DATA_DIR}/efit/`, so replacing the
+files is the switch; nothing else had to change.
+
+What moved, and what deliberately did not:
+
+| file | | why |
+| --- | --- | --- |
+| `ec129129.ddd`, `ep129129.ddd`, `rv129129.ddd`, `rfcoil.ddd` | replaced | the tables EFIT consumes |
+| `brzgfc.dat`, `mhdout.dat` | replaced | products of the same EFUND run; leaving them stale would make the manifest describe files that are not there |
+| `efund_table_manifest.json` | **added** | the point of the exercise. Every EFIT run now records the table it consumed by identity instead of `provenance: unrecorded` |
+| `mhdin.dat` | **kept** | see below |
+| `lim.dat`, `dprobe.dat`, `rfcoil.txt`, the sample g/a-files | untouched | not EFUND products of this run |
+
+`mhdin.dat` is kept as the legacy file on purpose, and it is the one
+inconsistency in the shipped directory: it describes 16 lumped PF conductors
+while the tables beside it were built from 302 filaments. Two reasons, and
+the manifest states both rather than leaving them to be discovered.
+
+- **EFIT does not care.** That is measured, not assumed: case FP above —
+  regenerated tables with the legacy namelist — is identical to case FF on
+  every count on every shot. EFIT takes the per-group coil response from the
+  tables and only `nfsum` and `turnfc` from the namelist, and those agree.
+- **It is an independent reference.** `test_efund_geometry.py` validates the
+  canonical geometry against this file: centroids, turns, probe positions and
+  angles. Overwriting it with a file generated from that same geometry would
+  turn those checks into a comparison of the geometry with itself.
+
+The acceptance envelope did not move. `&incheck` still carries its packaged
+values; what those should be is #649's question, and changing them alongside
+the table would confound the two.
+
+**Verification of the switch**: the #171 baseline rerun against the switched
+directory reproduces case FF exactly — `bound` 41, `findax` 2, 29 collapsed,
+against the pre-switch 41/17/29.
+
+**Reproducing the A/B after the switch.** `table_geometry_ab.py` defaulted its
+"packaged" arm to `vaft/data/efit`, which is now the regenerated table; it
+refuses to run when both arms are the same table and takes `--packaged` for a
+copy recovered from git history. The pre-switch file hashes are recorded in
+`test/data/efit_table_geometry_ab.json` under `packaged_table`.
+
+## What actually differs between the two tables
+
+`compare_tables.py vaft/data/efit <regenerated>`, reading every record of
+every file. Relative differences, worst element:
+
+| record | what it is | read by EFIT | max relative difference |
+| --- | --- | --- | --- |
+| `rfcoil/gmp2fc` | probe response to the PF coils | yes | **0.836** |
+| `ec/gridfc` | grid flux from the PF coils | yes | **0.230** |
+| `rfcoil/gsilfc` | flux-loop response to the PF coils | yes | **0.088** |
+| `ec/gridpc`, `ep/rsilpc`, `ep/rmp2pc` | plasma-to-grid and plasma-to-diagnostic | yes | ≤ 1.6e-4 |
+| `rv/gsilvs`, `rv/gmp2vs`, `rv/ggridvs` | vessel response | yes | ≤ 2e-11 |
+| `ec/rgrid_zgrid` | the grid itself | yes | 2e-16 |
+| `brzgfc/brgrfc`, `brzgfc/bzgrfc` | Br, Bz from the PF coils | **no** | ~2 |
+| `rv/gfcvs`, `rv/gvsvs` | coil-to-vessel, vessel-to-vessel | **no** | 0.96, 1.9 |
+
+**Everything EFIT reads and that matters is the PF-coil response, and within
+that, the central solenoid.** Per F-coil group, `gmp2fc` differs by 35–84 %
+for groups 1–8 and by 5e-5 for groups 9–16. Groups 1–8 are the solenoid stack
+at R = 0.053 m; 9–16 are the outer shaping coils at R = 0.71 and 0.93 m.
+
+The reason is the near field. The legacy file models each solenoid section as
+a single conductor 0.30 m tall; the regenerated one resolves it into ~20
+filaments over the same extent. VEST's inner magnetic probe array sits at
+R = 0.089 m — 27 mm outside the solenoid's outer face — so what those probes
+are told to expect from a solenoid current depends strongly on how the
+solenoid is discretised:
+
+| probes | count | median change in solenoid response | worst |
+| --- | --- | --- | --- |
+| inner array, R = 0.089 m | 27 | 4.5 % | **83.6 %** |
+| outer, R > 0.1 m | 37 | 0.0 % | small |
+
+That is the whole mechanism. The two tables tell EFIT nearly the same thing
+about the plasma, the vessel and the outer coils, and materially different
+things about what the innermost probes should read from the solenoid. It is
+consistent with what the runs show: the fit to the measurements is unchanged
+(χ² identical on shared slices) while the implied field — and so where the
+separatrix lands — moves enough to take `findax` from 17 failures to 2.

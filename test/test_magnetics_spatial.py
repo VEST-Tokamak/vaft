@@ -24,10 +24,12 @@ from vaft.omas.entries import normalize_entries
 from vaft.plot.backend.recipes import build_model, resolve_time_sample
 from vaft.plot.models import Panels, Profile1D
 
+from _sample_fixtures import sample_ods
+
 
 @pytest.fixture(scope="module")
 def sample():
-    return vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    return sample_ods(39915)
 
 
 @pytest.fixture(scope="module")
@@ -182,7 +184,7 @@ def test_discovery_states_coordinates_channels_times_and_controls(sample):
     assert record.channels["total"] == 11 and record.channels["regions"] == {"inboard": 7, "outboard": 4}
     assert record.times["count"] == 2500 and record.times["start"] == pytest.approx(0.26)
     assert record.layouts == ()
-    assert record.controls == ("selection", "channels", "yunit", "coordinate", "validity")
+    assert record.controls == ("selection", "channels", "yunit", "coordinate", "validity", "theme")
     text = str(vaft.omas.available_plots(sample, query="flux loop"))
     assert "coordinates: z (default) | theta" in text and "2500 samples" in text
     result = vaft.omas.plot_flux_loop_spatial_flux(sample, interactive=True, interaction_backend="none")

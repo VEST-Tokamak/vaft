@@ -25,12 +25,14 @@ from vaft.plot.backend.recipes import RECIPES, build_model, member_options_for
 from vaft.plot.controls import controls_for
 from vaft.plot.navigation import ControlState
 
+from _sample_fixtures import sample_ods
+
 NAME = "diagnostics_overview"
 
 
 @pytest.fixture(scope="module")
 def sample():
-    return vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    return sample_ods(39915)
 
 
 @pytest.fixture(scope="module")
@@ -66,7 +68,7 @@ def test_a_member_the_input_loses_leaves_the_available_set(sample):
 
 def test_the_controls_are_folded_from_the_members_not_listed_by_hand(record):
     names = [c.name for c in controls_for(record)]
-    assert names == ["members", "selection", "x", "orientation", "validity"]
+    assert names == ["members", "selection", "x", "orientation", "validity", "theme"]
     by_name = {c.name: c for c in controls_for(record)}
     # Presets only: individual channel indices mean nothing across panels.
     assert "channels" not in names
@@ -169,7 +171,7 @@ def test_a_preset_reaches_every_panel(sample):
 
 def test_the_omas_entry_point_is_the_interactive_overview(sample):
     result = vaft.omas.plot_diagnostics_time_interactive(sample, backend="none")
-    assert [c.name for c in result.controls] == ["members", "selection", "x", "orientation", "validity"]
+    assert [c.name for c in result.controls] == ["members", "selection", "x", "orientation", "validity", "theme"]
     assert result.state["validity"] == "mask"
     with pytest.raises(ValueError, match="backend must be one of"):
         vaft.omas.plot_diagnostics_time_interactive(sample, backend="tk")
@@ -180,7 +182,7 @@ def test_the_imas_twins_offer_what_omas_offers(sample):
     imas = pytest.importorskip("imas")
     entry = imas.DBEntry(str(vaft.data.data_path("samples/39915/imas.nc")), "r", dd_version="3.41.0")
     result = vaft.imas.plot_diagnostics_time_interactive(entry, backend="none")
-    assert [c.name for c in result.controls] == ["members", "selection", "x", "orientation", "validity"]
+    assert [c.name for c in result.controls] == ["members", "selection", "x", "orientation", "validity", "theme"]
     assert result.axes.shape == (5,)
     plt.close(result.figure)
     explorer = vaft.imas.plot_equilibrium_interactive(entry, backend="none")
@@ -216,7 +218,7 @@ def test_the_database_twins_exist_and_explore_one_shot(monkeypatch):
 
     def fake_load(shot, source=None, paths=None, occurrence=None):
         seen.update(shot=shot, source=source, paths=paths)
-        return vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+        return sample_ods(39915)
 
     monkeypatch.setattr("vaft.database.load", fake_load)
     monkeypatch.setattr(db, "_resolve_source", lambda source: source or "resolved")

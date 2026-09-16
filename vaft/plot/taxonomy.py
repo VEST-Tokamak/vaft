@@ -107,6 +107,15 @@ _SUBJECTS = (
     Subject("vacuum", "model", ("vacuum_field", "null_field")),
     Subject("core_profiles", "reconstruction"),
     Subject("mhd_linear", "model"),
+    # The resistive half of the linear-MHD suite. Its own subject rather than a
+    # view of `mhd_linear`, because an `ntms.mode` entry is a rational *surface*
+    # the solver located -- not one of the toroidal modes the caller asked for --
+    # so the two IDS are indexed by different things and a plot of one is not a
+    # plot of the other.
+    Subject("ntms", "model", ("tearing", "delta_prime")),
+    # Neoclassical transport: the analytic models and the drift-kinetic solver
+    # that answer the same question, which is why the plot compares them.
+    Subject("neoclassical", "model", ("bootstrap_current",)),
     Subject("nbi", "machine", ("neutral_beam", "nubeam")),
     Subject("chease", "code"),
     # Purpose-driven composites

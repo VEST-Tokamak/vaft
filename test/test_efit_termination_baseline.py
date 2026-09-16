@@ -53,6 +53,42 @@ ERROR in findax at r=  0, t=   323: 1st separatrix point is off grid
 """
 
 
+PRE_ITERATION_COLLAPSE = """
+ r=  0 t=   328 it=  1 chi2=4.90E+00 zm= 3.99E-09 err=5.364E+01 dz=-7.174E-08 chigam= 0.00E+00
+ r=  0 t=   328 it=  2 chi2=1.61E-09 zm= 9.25E-09 err=1.512E+00 dz= 5.262E-09 chigam= 0.00E+00
+WARNING in fit at r=  0, t=   328: iconvr=2 satisfied, exiting
+ERROR in bound at r=  0, t=   329: First and last contour points are too far apart
+ERROR in bound at r=  0, t=   330: First and last contour points are too far apart
+INFO in efit at r=  0, t=   331: Done processing
+"""
+
+
+def test_a_slice_that_fails_before_its_first_iteration_is_not_the_previous_one(module):
+    """A real run's tail, and a reading that got it wrong twice over.
+
+    `bound` can reject a slice before the first Picard iteration, so nothing
+    is printed for it but the error. Delimiting on the iteration counter alone
+    handed both errors to slice 328 -- which had converged -- and dropped 329
+    and 330 from the universe entirely, shortening the denominator and giving
+    a good slice two failures that were not its own.
+    """
+    slices = module.parse_slices(PRE_ITERATION_COLLAPSE)
+    assert [item["time_ms"] for item in slices] == [328, 329, 330]
+
+    converged = slices[0]
+    assert converged["solver_errors"] == []
+    assert converged["iconvr"] == 2
+
+    for item in slices[1:]:
+        assert [error["routine"] for error in item["solver_errors"]] == ["bound"]
+        assert item["iterations_n"] == 0
+        # No iterations means no null-solution signature to read, so these are
+        # not "collapsed" in the chi-square sense; they produce nothing, which
+        # is what the yield count is about.
+        assert item["collapsed"] is False
+        assert item["exit_path"] == "solver_error"
+
+
 def test_slices_are_delimited_by_the_iteration_counter_not_the_time(module):
     """EFIT prints whole milliseconds, so two slices can share a printed time."""
     text = CONVERGED + COLLAPSED + BOUNDARY_ERROR

@@ -5,11 +5,16 @@ every VAFT data model shares -- and the builders that turn what those paths
 hold into the typed view models of :mod:`vaft.plot`.  They belong to no data
 model: each namespace (``vaft.omas``, ``vaft.imas``, ``vaft.database``)
 normalises its own inputs into ``(label, object)`` entries and supplies the
-path accessor for its objects through :mod:`vaft.plot.backend.access`, and
+path accessor for its objects with :func:`vaft.ods_access.register_accessor`, and
 the same recipes read them all.  That is what lets equivalent inputs from
 different models be checked for equal view models before anything is drawn
 (issue #63).
 
 :mod:`vaft.plot` itself never imports this package, and nothing here imports
 ``omas`` or ``imas`` at module level.
+
+:mod:`vaft.plot.backend.dd` spells the paths the recipes read in one canonical
+grammar and asks the Data Dictionary about them; :mod:`vaft.plot.backend.facade`
+generates the ``dd_*``/``extract_*`` twins of every ``plot_*`` adapter
+(umbrella #434).
 """

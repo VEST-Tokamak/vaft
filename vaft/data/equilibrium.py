@@ -242,6 +242,9 @@ class MillerSurface:
     z0: float
     kappa: float
     delta: float
+    #: Squareness.  Zero is the five-parameter Miller surface, so a caller
+    #: that never sets it gets exactly the surface it got before (#867).
+    zeta: float = 0.0
     radial_value: float | None = None
     radial_coordinate: str = "psi_n"
     d_r0_dr: float | None = None

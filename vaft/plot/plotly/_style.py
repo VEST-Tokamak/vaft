@@ -13,6 +13,7 @@ import re
 from typing import Any
 
 from ..display import unit_markup
+from ..intent import resolve_color
 
 __all__ = ["INVALID_COLOR", "cell_refs", "plain_axis_label", "plain_text", "translate_style"]
 
@@ -74,6 +75,9 @@ def color(value: Any) -> Any:
     """A Matplotlib colour spelling as a Plotly one."""
     if value is None:
         return None
+    # A colour intent resolves to what it means without a theme: Plotly
+    # draws the default look (issue #709).
+    value = resolve_color(value, theme=None)
     text = str(value)
     if re.fullmatch(r"C\d+", text):
         return _TAB10[int(text[1:]) % 10]

@@ -15,13 +15,11 @@ the era through :func:`vaft.omas.vest_upstream.machine_era_for_shot` and builds
 the static ODS for it; this module only projects what it is handed (issue #191
 forbids duplicating shot-boundary logic in EFUND code).
 
-The F-coil grouping is the existing EFIT convention, not a new one: the k-file
-writer selects sixteen of the twenty-six legacy coil channels
-(:func:`vaft.code.efit.kfile.efit16_group_indices`) -- PF1 as eight axial
-segments plus the upper/lower halves of PF5, PF6, PF9 and PF10 -- and the
-routine constraint matrix ties every PF1 segment to the same current.  PF2,
-PF3, PF4, PF7 and PF8 are not in that set; they are absent from the table
-exactly as they are absent from the k-file.
+The F-coil grouping is not defined here.  It is machine configuration --
+``efit_coilset`` in ``vest.yaml``, resolved by
+:mod:`vaft.machine_mapping.efit_coilset` -- and this module is handed the
+resolved policy.  A circuit with no group in that policy carries no F-coil in
+the table, exactly as it carries none in the k-file.
 """
 
 from __future__ import annotations
@@ -33,8 +31,6 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 
 __all__ = [
-    "EFIT16_GROUP_NAMES",
-    "PF1_SEGMENT_EDGES",
     "EFUNDGeometry",
     "efund_geometry_from_static",
     "efund_probe_angle_deg",
@@ -42,37 +38,6 @@ __all__ = [
     "rectangle_from_outline",
     "vest_acceptance_envelope",
 ]
-
-#: The sixteen EFIT current groups, in k-file order.  Same names and order as
-#: ``vaft.code.efit.legacy.vfit_pf_active_efit26`` restricted by
-#: ``vaft.code.efit.kfile.efit16_group_indices``.
-EFIT16_GROUP_NAMES: tuple[str, ...] = (
-    "PF1-1",
-    "PF1-2",
-    "PF1-3",
-    "PF1-4",
-    "PF1-5",
-    "PF1-6",
-    "PF1-7",
-    "PF1-8",
-    "PF5U",
-    "PF5L",
-    "PF6U",
-    "PF6L",
-    "PF9U",
-    "PF9L",
-    "PF10U",
-    "PF10L",
-)
-
-#: |z| boundaries (m) of the eight legacy PF1 segments: PF1-1..PF1-4 cover
-#: z in [0, 0.3), [0.3, 0.6), [0.6, 0.9), [0.9, 1.2] and PF1-5..PF1-8 mirror
-#: them below the midplane.  Every segment carries the same current in the
-#: routine k-file, so this split changes the bookkeeping, not the field.
-PF1_SEGMENT_EDGES: tuple[float, ...] = (0.0, 0.3, 0.6, 0.9, 1.2)
-
-_PF1_SEGMENT_TOLERANCE = 1.0e-9
-
 
 def rectangle_from_outline(
     r: Sequence[float], z: Sequence[float]
@@ -136,40 +101,9 @@ def equilibrium_probe_count(ods: Any) -> int:
     ``vaft.validation.efit_channels.efit_probe_count`` where that module exists:
     ``min(present, defined)`` against the canonical channel definition.
     """
-    from vaft.machine_mapping.magnetics import (
-        vest_equilibrium_magnetics_channel_definitions,
-    )
+    from vaft.machine_mapping.magnetics import equilibrium_probe_count as _count
 
-    defined = sum(
-        1
-        for entry in vest_equilibrium_magnetics_channel_definitions()
-        if entry.get("kind") == "b_field_pol_probe"
-    )
-    present = len(ods["magnetics.b_field_pol_probe"])
-    return min(present, defined) if defined else present
-
-
-def _pf1_segment(z: float) -> int:
-    """0-based PF1 segment index (PF1-1..PF1-8) for an element centre."""
-    magnitude = abs(float(z))
-    edges = PF1_SEGMENT_EDGES
-    if magnitude > edges[-1] + _PF1_SEGMENT_TOLERANCE:
-        raise ValueError(f"PF1 element at |z|={magnitude} lies outside the segment span")
-    for index in range(len(edges) - 1):
-        if magnitude < edges[index + 1] or index == len(edges) - 2:
-            return index if float(z) >= 0.0 else index + 4
-    raise AssertionError("unreachable")
-
-
-def _group_of(coil_name: str, z: float) -> str | None:
-    """EFIT group for a canonical coil element, or ``None`` outside the set."""
-    if coil_name == "PF1":
-        return EFIT16_GROUP_NAMES[_pf1_segment(z)]
-    if coil_name in ("PF5", "PF6", "PF9", "PF10"):
-        if float(z) == 0.0:
-            raise ValueError(f"{coil_name} element on the midplane cannot be assigned U or L")
-        return f"{coil_name}{'U' if float(z) > 0.0 else 'L'}"
-    return None
+    return _count(ods)
 
 
 @dataclass(frozen=True)
@@ -268,9 +202,9 @@ class EFUNDGeometry:
         return rows
 
 
-def _fcoils(ods: Any) -> dict[str, Any]:
+def _fcoils(ods: Any, coilset: Any) -> dict[str, Any]:
     by_group: dict[str, list[tuple[float, float, float, float, float]]] = {
-        name: [] for name in EFIT16_GROUP_NAMES
+        name: [] for name in coilset.group_names
     }
     for coil_index in range(len(ods["pf_active.coil"])):
         coil = ods[f"pf_active.coil.{coil_index}"]
@@ -284,7 +218,7 @@ def _fcoils(ods: Any) -> dict[str, Any]:
                     f"(geometry_type {int(geometry['geometry_type'])})"
                 )
             z = float(geometry["rectangle.z"])
-            group = _group_of(coil_name, z)
+            group = coilset.group_for_element(coil_name, z)
             if group is None:
                 continue
             by_group[group].append(
@@ -301,7 +235,7 @@ def _fcoils(ods: Any) -> dict[str, Any]:
         raise ValueError(f"no canonical element maps onto EFIT group(s) {', '.join(empty)}")
     rows = [
         (*values, group_index)
-        for group_index, name in enumerate(EFIT16_GROUP_NAMES, start=1)
+        for group_index, name in enumerate(coilset.group_names, start=1)
         for values in by_group[name]
     ]
     table = np.asarray(rows, dtype=float)
@@ -314,8 +248,8 @@ def _fcoils(ods: Any) -> dict[str, Any]:
         "fcoil_a2": np.zeros(table.shape[0]),
         "fcoil_turns": table[:, 4],
         "fcoil_group": table[:, 5].astype(int),
-        "group_names": EFIT16_GROUP_NAMES,
-        "group_turns": np.ones(len(EFIT16_GROUP_NAMES)),
+        "group_names": coilset.group_names,
+        "group_turns": np.ones(len(coilset.group_names)),
     }
 
 
@@ -497,7 +431,7 @@ def vest_acceptance_envelope(
 
 
 def efund_geometry_from_static(
-    ods: Any, *, manifest: Mapping[str, Any] | None = None
+    ods: Any, *, manifest: Mapping[str, Any] | None = None, coilset: Any | None = None
 ) -> EFUNDGeometry:
     """Project a static VEST ODS onto EFUND's description.
 
@@ -505,9 +439,18 @@ def efund_geometry_from_static(
     returns beside the ODS; when given, the era and input-asset hashes it
     carries are copied into :attr:`EFUNDGeometry.machine` so a table can say
     what it was generated from.
+
+    ``coilset`` is the resolved :class:`~vaft.machine_mapping.efit_coilset.
+    EFITCoilsetPolicy` saying which circuits the table describes and how each
+    is split into current groups.  It defaults to the configured one, which is
+    what the routine table is generated from.
     """
+    from .efit_coilset import vest_efit_coilset_policy
+
+    if coilset is None:
+        coilset = vest_efit_coilset_policy()
     parts: dict[str, Any] = {}
-    parts.update(_fcoils(ods))
+    parts.update(_fcoils(ods, coilset))
     parts.update(_vessel(ods))
     parts.update(_flux_loops(ods))
     parts.update(_probes(ods))

@@ -57,7 +57,9 @@ __all__ = [
     "read_fortran_records",
     "read_table_manifest",
     "run_efund",
+    "IDENTITY_EXCLUDED_FILES",
     "table_identity",
+    "table_machine_era",
     "write_mhdin",
     "write_table_manifest",
 ]
@@ -692,8 +694,32 @@ def _vaft_identity() -> dict[str, Any]:
     return {"version": __version__, "revision": revision}
 
 
+#: Files EFUND writes into the table directory that are **not** part of the
+#: table's identity.
+#:
+#: ``mhdout.dat`` is EFUND's echo of the namelist it was given, not a Green
+#: table -- nothing in the pipeline reads it, which is why it is the one entry
+#: in ``expected`` with no predicted size. It also carries at least one
+#: uninitialised Fortran value: ``KUBICS`` is 4 in the input and came back as
+#: 83664424 from one run and 4890152 from the next, differing by an order of
+#: magnitude between two runs of the *same* input.
+#:
+#: Hashing it therefore made ``table.identity`` answer "which invocation
+#: produced this" instead of "which table is this", and any check of the form
+#: "regenerate and confirm the identity is unchanged" would fail for a reason
+#: with nothing to do with the table (#793). Its hash is still recorded under
+#: ``table.files``; it just does not decide identity.
+IDENTITY_EXCLUDED_FILES = frozenset({"mhdout.dat"})
+
+
 def _table_digest(files: Mapping[str, str]) -> str:
-    payload = json.dumps(dict(sorted(files.items())), sort_keys=True, separators=(",", ":"))
+    """The identity of a set of produced files, over the ones that are the table."""
+    considered = {
+        name: digest
+        for name, digest in files.items()
+        if name not in IDENTITY_EXCLUDED_FILES
+    }
+    payload = json.dumps(dict(sorted(considered.items())), sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -756,6 +782,25 @@ def read_table_manifest(directory: str | os.PathLike[str]) -> dict[str, Any] | N
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def table_machine_era(directory: str | os.PathLike[str]) -> str | None:
+    """The machine era a table directory was built for, if it records one.
+
+    A Green table is a projection of one machine's conductors, so it is only
+    valid for the era whose geometry it was built from. The name is read back
+    verbatim and compared as an opaque string: which eras a machine has, and
+    which one a shot belongs to, are facts about that machine and are resolved
+    by the caller (issue #805).
+
+    ``None`` means the directory makes no claim -- a legacy table with no
+    manifest -- and cannot be checked rather than being known to match.
+    """
+    manifest = read_table_manifest(directory)
+    if manifest is None:
+        return None
+    era = (manifest.get("machine") or {}).get("era")
+    return str(era) if era else None
+
+
 def table_identity(directory: str | os.PathLike[str]) -> dict[str, Any]:
     """What an EFIT run records about the table directory it consumed.
 
@@ -777,5 +822,6 @@ def table_identity(directory: str | os.PathLike[str]) -> dict[str, Any]:
         record["manifest"] = str(root / TABLE_MANIFEST_NAME)
         record["identity"] = (manifest.get("table") or {}).get("identity")
         record["label"] = manifest.get("label")
+        record["era"] = (manifest.get("machine") or {}).get("era")
         record["provenance"] = "manifest"
     return record

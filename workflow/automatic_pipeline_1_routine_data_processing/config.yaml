@@ -3,6 +3,14 @@ base_dir: ${VAFT_FILEDB_DIR} # Base path for all output
 # hierarchy this pipeline is validated against; `filedb` resolves the canonical
 # OMAS-first grammar through vaft.database.filedb.FileDB.
 layout: filedb
+# Which analysis lineage this run produces, under `layout: filedb`. Every
+# product is filed under it, so an electron-EFIT or kinetic-EFIT campaign gets
+# its own identity by changing these rather than the resolver -- and can never
+# collide with the magnetic baseline by omission.
+#   equilibrium_family: magnetic | electron | kinetic
+#   refinement:         chease | none   (the equilibrium handed to the solvers)
+equilibrium_family: magnetic
+refinement: chease
 conda: vaft # Conda environment to activate
 shots: # List of shot numbers to process
 - 39915

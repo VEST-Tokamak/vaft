@@ -28,6 +28,7 @@ from .config import (
     EFITScientificConfig,
     efit_parameter_grid,
 )
+from .termination import EFIT_LOG_PATTERNS, parse_slices
 from .status import (
     EFIT_FAILURE_CODES,
     EFITSliceStatus,
@@ -39,13 +40,11 @@ from .legacy import (
     gauss_fit4,
     min_gauss_fit4,
     vfit_equilibrium_form_constraints,
-    vfit_pf_active_efit26,
     correct_flux_loop,
     vfit_signal_startend,
     smooth,
     vest_rspv1,
     calculate_md_by_ods,
-    brokenFinder,
     vest_signal_onoffsetpeak,
     vest_Halpha_tstart_tend,
     set_discharge_index,
@@ -163,6 +162,8 @@ __all__ = [
     "write_table_manifest",
     "read_table_manifest",
     "table_identity",
+    "EFIT_LOG_PATTERNS",
+    "parse_slices",
     "resolve_toolchain",
     "executable_identity",
     "EQE",

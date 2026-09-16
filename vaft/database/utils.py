@@ -39,7 +39,12 @@ def require_source_exists(source: str) -> None:
         # defaults to "r", and only w/w-/x reach its create branch. Note that a
         # missing folder logs "folder put status_code: 404" on the way to
         # raising -- h5pyd's message is misnamed, no PUT is issued.
-        list(h5pyd.Folder("/" + source + "/", mode="r"))
+        # Opening the folder performs the one domain-metadata request needed to
+        # distinguish an existing namespace from a missing one.  Do not
+        # iterate it: on a production source such as ``main`` that paginates
+        # every shot subdomain, turning a cheap preflight probe into thousands
+        # of requests per publication.
+        h5pyd.Folder("/" + source + "/", mode="r")
     except OSError as exc:
         status = exc.args[0] if exc.args else None
         if status in (404, 410):

@@ -34,7 +34,13 @@ production counterpart of the interactive notebooks: the same `vaft` library cal
 | `automatic_pipeline_3_data_summary` | partial Snakefile (2 rules) + manual scripts | Mines the file database into cross-shot `.xlsx` history sheets and plots |
 | `running_linear_stability` | Snakemake DAG (1 rule, fanned out) | Runs DCON / RDCON / STRIDE per (shot, time, n-mode) on refined equilibria |
 
-All four share one on-disk convention, rooted at `base_dir` (`/srv/vest.filedb/public` in every shipped config):
+All four share one on-disk root, `base_dir` (`/srv/vest.filedb/public` in every shipped config), and
+pipeline 1 writes under it in one of two layouts selected by the `layout:` config key.
+
+`layout: shot_first` (the default) is the legacy server hierarchy, kept so this pipeline stays
+directly diffable against the reference output. Its product names are plain `.json` and stay that
+way: the tree is a read-only record of what the legacy pipeline wrote, so it does not follow the
+canonical layout's container (`OMAS_PRODUCT_SUFFIX`, `.json.gz` since #813).
 
 ```text
 {base_dir}/{shot}/
@@ -46,6 +52,27 @@ All four share one on-disk convention, rooted at `base_dir` (`/srv/vest.filedb/p
 ├── linear_stability/     {time}/{dcon,rdcon,stride}/nn={n}/
 └── logs/
 ```
+
+`layout: filedb` is the canonical grammar (#77), resolved through
+`vaft.database.filedb.FileDB` so no path is reconstructed by hand:
+
+```text
+{base_dir}/
+├── raw/{shot}/
+├── omas/static/{machine_version}/
+├── omas/{stage}/{shot}/                          diagnostics, eddy, impa, ...
+├── omas/{stage}/{family}/{shot}/                 efit, chease, mhd_linear, gpec_ideal
+├── efit/{family}/{shot}/
+├── chease/{family}/{shot}/
+└── gpec/{family}/{refinement}/{product}/{shot}/n={n}/
+```
+
+with an artifact class (`input`, `output`, `log`, `plot`, `config`, `work`, `metadata`) as the leaf.
+`{family}` is the reconstruction lineage a product descends from — `magnetic`, `electron` or
+`kinetic`; `{refinement}` is the equilibrium actually handed to the solver (`chease`, or `none`); and
+`{product}` is the stability calculation that ran: `dcon-peeling`, `dcon-kink`, `rdcon`, `stride` or
+`ideal-gpec`. DCON's two edge treatments are separate products rather than two views of one run,
+because a run yields one of them and can never yield both.
 
 ---
 
@@ -78,6 +105,7 @@ flowchart TD
     A["generate_raw_db_dump<br/>vest_SHOT_daq_raw.json.gz"] --> B["generate_diagnostics_ods<br/>SHOT_diagnostics.json"]
     B --> C["generate_eddy_ods<br/>SHOT_eddy.json"]
     C --> D["generate_constraints_ods<br/>SHOT_constraints.json"]
+    B --> D
     D --> E["generate_kfile<br/>efit/kfile/kfiles_generated.txt"]
     E --> F["run_efit_reconstruction<br/>gfiles_generated.txt + efit_status.txt"]
     F --> G["generate_efit_ods<br/>SHOT_efit.json"]
@@ -85,6 +113,14 @@ flowchart TD
     H --> I["generate_chease_ods<br/>SHOT_chease.json"]
     H --> J["run_gpec_suite<br/>gpec_suite_runs.json + gpec_suite_status.txt"]
 ```
+
+`generate_constraints_ods` takes **two** products, not one. Each stage stores only the IDS it owns,
+so the constraint builder reads `magnetics`, `pf_active` and `tf` from the diagnostics product and
+`pf_passive` from the eddy product, unioning them through
+`vaft.database.composition.compose_stage_products`. That composer also refuses a pairing whose time
+grids show the two came from different runs — the EFIT constraint builder interpolates each slice
+onto `pf_passive.time`, so a mismatched pairing produces wall currents for the wrong instants
+rather than an error.
 
 Stages do **not** hand individual g-/k-files to each other as Snakemake outputs. Each stage writes a
 **manifest** — a text file with one absolute path per line — and the next stage reads it. `run_gpec_suite`

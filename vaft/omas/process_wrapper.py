@@ -1642,6 +1642,30 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     return W_B
 
 
+def _vest_toroidal_field_sign() -> float:
+    """The direction of VEST's vacuum toroidal field, from the machine layer.
+
+    Converting a *measured* diamagnetic flux into mu_i is linear in the toroidal
+    field, so it needs that field's direction -- and the stored quantities cannot
+    supply it. ``profiles_1d.f`` has a reliable magnitude and an unreliable sign
+    (shot 39915 stores +0.0598 in the packaged sample and -0.0598 in the
+    database, with an identical measurement, and the database declares no
+    COCOS); ``vacuum_toroidal_field.b0`` is the reverse, uniformly positive
+    across the history but drifting up to 39% in magnitude within one shot
+    (#325). So the magnitude comes from ``|F_boundary|`` and the direction from
+    here.
+
+    Read from :data:`vaft.machine_mapping.BT_SIGN_VEST_TO_IMAS` rather than
+    restated: that record is the one place this machine fact lives, it carries
+    the evidence behind it, and it is marked ``confirmed=False`` pending #298.
+    A second copy here would be a second thing to change if #298 comes back
+    reversed -- and the copy would not know it was provisional.
+    """
+    from vaft.machine_mapping import BT_SIGN_VEST_TO_IMAS
+
+    return float(BT_SIGN_VEST_TO_IMAS.sign)
+
+
 def _virial_measured_diamagnetic_flux(ods, eq_idx: int) -> float:
     """The measured diamagnetic flux at one equilibrium slice time, or NaN.
 
@@ -1843,7 +1867,7 @@ def _virial_empty_row(alpha_method: str = "volume"):
         "kappa": nan,
         "B_pa": nan, "beta_p": nan, "li": nan,
         "W_mag": nan, "W_kin": nan, "V_p": nan,
-        "mui_hat": nan, "mui": nan, "rt": nan, "phi_dia_comp": nan,
+        "mui_hat": nan, "mui_from_flux": nan, "mui": nan, "rt": nan, "phi_dia_comp": nan,
         "beta_p_vir": nan, "li_vir": nan, "beta_pd_vir": nan,
         "virial_lao": {"beta_p": nan, "li": nan},
         "virial_bongard": {"beta_p": nan, "li": nan},
@@ -2210,16 +2234,52 @@ def compute_virial_equilibrium_quantities_ods(
                 eq_idx, alpha_method,
             )
 
-        B_t0 = np.nan
-        if "equilibrium.vacuum_toroidal_field.b0" in ods:
-            B_t0 = float(np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float).flat[0])
-        elif "global_quantities.magnetic_axis.b_field_tor" in eq_ts:
-            B_t0 = float(eq_ts["global_quantities.magnetic_axis.b_field_tor"])
-
+        # mu_i as the three virial relations define it, and as
+        # docs/_guide/Equilibrium.md states it: the volume integral of
+        # B_tv^2 - B_t^2, positive for a diamagnetic plasma.
+        #
+        # This is NOT computed_diamagnetism_from_phi, the EFIT xmui port, which
+        # is its negative: B_tv^2 - B_t^2 ~ -2*F_b*(F - F_b)/R^2 while
+        # Phi = int (B_t - B_tv) dA. Feeding the flux sign to the closures puts
+        # a systematic 2*mu_i into every identity residual -- on an exact
+        # Solov'ev equilibrium the residuals are (-0.675, +0.675, -0.675)
+        # that way against (+0.0005, +0.0003, +0.0001) with this definition,
+        # and on the packaged sample it turned every closure's l_i negative.
+        # The flux quantity is kept beside it under a name that says so.
         mui = np.nan
-        if np.isfinite(phi_dia_comp) and np.isfinite(B_t0) and np.isfinite(V_p) and np.isfinite(B_pa):
-            if V_p > 0.0 and B_pa > 0.0:
-                mui = computed_diamagnetism_from_phi(phi_dia_comp, B_t0, R_0, V_p, B_pa)
+        mui_from_flux = np.nan
+        # The conversion needs B_t * R_0, which is F at the boundary -- not b0
+        # times this slice's radius. b0 is defined at vacuum_toroidal_field.r0,
+        # a fixed 0.4 m, while R_0 here is the geometric axis, which moves from
+        # 0.3989 to 0.2426 within the packaged shot. Pairing the two made this
+        # quantity drift away from the volume mu_i it is the negative of: the
+        # ratio ran -0.974 to -0.594 across those eight slices instead of
+        # holding near -1, a 41% error by the last one. With F at the boundary
+        # the spread is -0.977 to -0.982, which is the genuine first-order
+        # (F - F_b)/F_b term and all that a single flux can resolve.
+        #
+        # No fallback to b0: a slice without F at the boundary cannot have this
+        # converted correctly, and the old pairing is what it would fall back to.
+        if (
+            np.isfinite(phi_dia_comp)
+            and np.isfinite(F_boundary)
+            and np.isfinite(R_0) and R_0
+            and np.isfinite(V_p) and V_p > 0.0
+            and np.isfinite(B_pa) and B_pa > 0.0
+        ):
+            mui_from_flux = computed_diamagnetism_from_phi(
+                phi_dia_comp, F_boundary / R_0, R_0, V_p, B_pa
+            )
+        if (
+            np.isfinite(B_pa) and B_pa > 0.0
+            and np.isfinite(V_p) and V_p > 0.0
+            and np.isfinite(F_boundary)
+        ):
+            _dV = np.nan_to_num(np.asarray(vol_terms["dV"], float), nan=0.0)
+            # nan_to_num on the *difference*, so a cell whose F is NaN
+            # contributes nothing rather than contributing its vacuum term alone.
+            _diff = (F_boundary / R_safe) ** 2 - (F_2d / R_safe) ** 2
+            mui = float(np.sum(np.nan_to_num(_diff, nan=0.0) * _dV) / (B_pa**2 * V_p))
 
         RT_over_R0 = np.nan
         if np.isfinite(RT) and R_0 != 0.0:
@@ -2244,7 +2304,10 @@ def compute_virial_equilibrium_quantities_ods(
                 beta_p_lao, li_lao = virial_lao_from_S_alpha_mu_rt(
                     S1, S2, S3, alpha, mui, RT_over_R0
                 )
-                beta_pd_vir = virial_beta_pd_from_S_mu_rt(S1, S2, mui, RT_over_R0)
+                # The flux-sign quantity: virial_beta_pd_from_S_mu_rt is written
+                # for mu_i_hat, so feeding it the volume mu_i would return
+                # beta_p - 2*mu_i. This keeps the number develop computed.
+                beta_pd_vir = virial_beta_pd_from_S_mu_rt(S1, S2, mui_from_flux, RT_over_R0)
             except ValueError:
                 beta_p_lao, li_lao, beta_pd_vir = np.nan, np.nan, np.nan
         if np.isfinite(alpha) and np.isfinite(mui):
@@ -2318,17 +2381,38 @@ def compute_virial_equilibrium_quantities_ods(
         # diamagnetic loop.
         mui_measured = np.nan
         delta_phi_measured = _virial_measured_diamagnetic_flux(ods, eq_idx)
+        # |F_boundary|, not b0*R_0: b0's magnitude drifts within a shot (#325)
+        # and F's sign is not trustworthy across sources, so each contributes
+        # only what it is good for. See _vest_toroidal_field_sign.
+        _b_t_for_flux = (
+            _vest_toroidal_field_sign() * abs(F_boundary) / R_0
+            if np.isfinite(F_boundary) and R_0
+            else np.nan
+        )
         if (
             np.isfinite(delta_phi_measured)
-            and np.isfinite(B_t0)
+            and np.isfinite(_b_t_for_flux)
             and np.isfinite(R_0)
             and np.isfinite(B_pa)
             and B_pa > 0.0
             and np.isfinite(V_p)
             and V_p > 0.0
         ):
-            mui_measured = float(
-                virial_muihat_from_Bt_R0_dphi(B_t0, R_0, delta_phi_measured, B_pa, V_p)
+            # Negated: virial_muihat_from_Bt_R0_dphi is the flux convention (the
+            # `hat`), and the closures below now take the volume one, the same
+            # as the equilibrium's own mu_i above. Leaving it on the flux sign
+            # made the measured-vs-reconstructed comparison mixed-convention --
+            # self-consistently wrong before this became a comparison of two
+            # different things.
+            #
+            # The remaining approximation is first order in (F - F_b)/F_b,
+            # which no single flux measurement can improve on -- not a sign
+            # ambiguity. The sign is settled: the measurement carries it, in
+            # the convention test/test_diamagnetic_flux_sign.py pins.
+            mui_measured = -float(
+                virial_muihat_from_Bt_R0_dphi(
+                    _b_t_for_flux, R_0, delta_phi_measured, B_pa, V_p
+                )
             )
         # The same three closures again, on the measured mu_i, so the comparison
         # against the reconstruction is like for like.
@@ -2373,7 +2457,11 @@ def compute_virial_equilibrium_quantities_ods(
             "kappa": float(kappa) if np.isfinite(kappa) else np.nan,
             "B_pa": B_pa, "beta_p": beta_p, "li": li,
             "W_mag": W_mag, "W_kin": W_kin, "V_p": V_p,
-            "mui_hat": float(mui) if np.isfinite(mui) else np.nan,  # backward-compatible key
+            # `hat` names the flux convention throughout this codebase, so this
+            # key keeps the flux quantity it has always carried; `mui` is the
+            # volume one the relations use. They are negatives of each other.
+            "mui_hat": float(mui_from_flux) if np.isfinite(mui_from_flux) else np.nan,
+            "mui_from_flux": float(mui_from_flux) if np.isfinite(mui_from_flux) else np.nan,
             "mui": float(mui) if np.isfinite(mui) else np.nan,
             "rt": RT,
             "phi_dia_comp": phi_dia_comp,

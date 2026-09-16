@@ -1,0 +1,51 @@
+---
+title: "MHD Stability and 3D Perturbed Equilibrium"
+subtitle: "VAFT Introductory Tutorial | Session 05"
+format:
+  vaftslides-revealjs: default
+  vaftslides-beamer: default
+bibliography: assets/bibliography/vaft.bib
+---
+
+# Scaffold
+
+## Why this session exists
+
+Connect equilibria to ideal and resistive linear-stability analysis.
+
+::: {.notes}
+[scaffold]
+
+This deck is a scaffold, like its notebook. Session 05's content is developed
+after session 04.
+
+What it has to inherit when it is written: session 03's equilibrium and its
+conventions, and session 04's distinction between a mode that was *measured* and
+a mode that is *possible*. Session 04 closes by promising exactly that shift.
+:::
+
+## Session workflow
+
+equilibrium $\rightarrow$ DCON/RDCON/GPEC $\rightarrow$ metric or mode
+$\rightarrow$ physical interpretation
+
+::: {.notes}
+[scaffold]
+
+No packaged VEST shot carries an `mhd_linear` IDS, so this session will have to
+generate one by running a code in the notebook — as session 03 already does with
+CHEASE. That feasibility question is the first thing to settle when the session
+is written.
+:::
+
+## Practice goal
+
+State which stability limit an equilibrium is near, and what would move it.
+
+::: {.notes}
+[scaffold]
+
+Caution for whoever writes this: two functions in `vaft.formula.stability` look
+like thresholds and carry docstring warnings that their coefficients are
+unsourced heuristics. They must not be presented as validated limits.
+:::

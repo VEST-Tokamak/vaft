@@ -174,6 +174,7 @@ class NeoOutputs:
     theory: Optional[Mapping[str, np.ndarray]] = None
     rotation: Optional[Mapping[str, np.ndarray]] = None
     geometry: Optional[Mapping[str, float]] = None
+    spitzer: Optional[Mapping[str, np.ndarray]] = None
     precision: Optional[float] = None
     version: Optional[Mapping[str, str]] = None
     errors: tuple[str, ...] = ()
@@ -195,6 +196,71 @@ class NeoOutputs:
         return self.transport.get("bootstrap_current")
 
     @property
+    def effective_charge(self) -> Optional[np.ndarray]:
+        """``Z_eff`` as this run's own species list implies it, per radius.
+
+        NEO's collision operator is built from the species it was given, not from
+        the ``z_eff`` column of ``input.gacode`` -- which expro carries for other
+        consumers and NEO ignores. A file written with ``z_eff = 2`` but only
+        hydrogen and electrons is a run at ``Z_eff = 1``, and comparing it with an
+        analytic model evaluated at 2 compares two different plasmas: on VEST that
+        is a 53 percent error in the conductivity and a sign change in the
+        bootstrap-current discrepancy.
+
+        So this is the charge a like-for-like comparison must use, and it is read
+        from the run rather than from whatever the caller intended.
+        """
+        charge = self.species_charge
+        densities = None if self.equilibrium is None else self.equilibrium.get("density")
+        if charge is None or densities is None:
+            return None
+        charge = np.asarray(charge, dtype=float)
+        densities = np.atleast_2d(np.asarray(densities, dtype=float))
+        if densities.shape[0] != charge.size:
+            return None
+        electrons = charge < 0.0
+        if not electrons.any() or electrons.all():
+            return None
+        electron_density = densities[electrons].sum(axis=0)
+        ions = ~electrons
+        weighted = (densities[ions] * charge[ions, None] ** 2).sum(axis=0)
+        return np.divide(
+            weighted,
+            electron_density,
+            out=np.full(electron_density.shape, np.nan),
+            where=electron_density > 0.0,
+        )
+
+    @property
+    def ion_density_fraction(self) -> Optional[np.ndarray]:
+        """``sum(n_i)/n_e`` from this run's species list, per radius.
+
+        The companion of :attr:`effective_charge`, and the other half of what makes
+        two plasmas the same one: carbon and oxygen both reach ``Z_eff = 2`` but
+        dilute the ion channel differently (0.833 against 0.875), and an analytic
+        model evaluated with ``n_i = n_e`` matches neither however right its
+        ``Z_eff`` is.
+        """
+        charge = self.species_charge
+        densities = None if self.equilibrium is None else self.equilibrium.get("density")
+        if charge is None or densities is None:
+            return None
+        charge = np.asarray(charge, dtype=float)
+        densities = np.atleast_2d(np.asarray(densities, dtype=float))
+        if densities.shape[0] != charge.size:
+            return None
+        electrons = charge < 0.0
+        if not electrons.any() or electrons.all():
+            return None
+        electron_density = densities[electrons].sum(axis=0)
+        return np.divide(
+            densities[~electrons].sum(axis=0),
+            electron_density,
+            out=np.full(electron_density.shape, np.nan),
+            where=electron_density > 0.0,
+        )
+
+    @property
     def trapped_fraction(self) -> Optional[float]:
         """The trapped fraction NEO computed from the surface geometry.
 
@@ -207,14 +273,25 @@ class NeoOutputs:
 
     @property
     def solved(self) -> bool:
-        """Whether NEO completed a solve, as opposed to merely leaving files.
+        """Whether NEO completed the problem it was asked to solve.
 
-        True only when NEO logged no error, wrote its transport product, and the
-        drift-kinetic current it wrote is finite. The last clause is not
-        pedantry: a degenerate geometry -- ``kappa`` absent from input.gacode,
-        which expro reads as zero -- produces NaN with no error logged.
+        True only when NEO logged no error and wrote a finite answer. Which
+        answer depends on the problem: ``SPITZER_MODEL=1`` solves the Spitzer
+        problem and returns before the transport solve (``neo_do.f90:60``), so
+        it writes ``out.neo.spitzer`` and never ``out.neo.transport``. Judging
+        it by the transport product would call a good run a failure.
+
+        The finiteness clause is not pedantry: a degenerate geometry -- ``kappa``
+        absent from input.gacode, which expro reads as zero -- produces NaN with
+        no error logged.
         """
-        if self.errors or self.transport is None:
+        if self.errors:
+            return False
+        if self.spitzer is not None and self.transport is None:
+            return bool(
+                np.all(np.isfinite(np.asarray(self.spitzer["transport_coefficients"])))
+            )
+        if self.transport is None:
             return False
         current = self.bootstrap_current
         return current is not None and bool(np.all(np.isfinite(current)))
@@ -446,6 +523,31 @@ def _parse_version(directory: Path) -> Optional[Mapping[str, str]]:
     return {key: value for key, value in zip(keys, lines)}
 
 
+def _parse_spitzer(directory: Path) -> Optional[Mapping[str, np.ndarray]]:
+    """`out.neo.spitzer`: the Spitzer-problem transport coefficients.
+
+    Written only by a ``SPITZER_MODEL=1`` run. The layout is
+    ``neo_spitzer.f90:170-178``: L11, L12, L21, L22, then the particle and
+    energy flux for the third source and their reconstructions from those
+    coefficients.
+    """
+    values = _load(directory / "out.neo.spitzer")
+    if values is None:
+        return None
+    flat = np.atleast_1d(values).ravel()
+    if flat.size < 4:
+        return None
+    parsed: dict[str, np.ndarray] = {
+        "transport_coefficients": flat[:4].reshape(2, 2),
+    }
+    if flat.size >= 8:
+        parsed["particle_flux"] = flat[4]
+        parsed["particle_flux_reconstructed"] = flat[5]
+        parsed["energy_flux"] = flat[6]
+        parsed["energy_flux_reconstructed"] = flat[7]
+    return parsed
+
+
 def _parse_errors(directory: Path) -> tuple[str, ...]:
     """The error lines NEO wrote to out.neo.run, in order.
 
@@ -542,6 +644,7 @@ def collect_neo_outputs(workdir: str | Path) -> Optional[NeoOutputs]:
         rotation=rotation,
         geometry=_parse_geometry(directory),
         precision=None if precision is None else float(np.atleast_1d(precision).ravel()[0]),
+        spitzer=_parse_spitzer(directory),
         version=_parse_version(directory),
         errors=_parse_errors(directory),
         files=tuple(produced),

@@ -42,7 +42,7 @@ config.update(_expand_config_environment(config))
 # --------------------------------------------------------------------------- #
 SCRIPT_DIR = Path(workflow.basedir)
 sys.path.insert(0, str(SCRIPT_DIR))
-from paths import FILEDB, PipelinePaths
+from paths import FILEDB, PipelinePaths, solver_module, stability_product
 
 from vaft.database.sources import STAGE_REPLICATION, replicable_stages
 from vaft.omas.vest_upstream import machine_era_for_shot
@@ -64,10 +64,19 @@ CONSTRAINTS_CONFIG = config.get("constraints", {})
 EFIT_CONFIG = config.get("efit", {})
 VEST_CONFIG = config.get("vest", {})
 CHEASE_CONFIG = config.get("chease", {})
+# The lineage this run produces. `PipelinePaths` resolves every product under
+# it, so anything that reads a product back -- replication above all -- has to
+# be told the same thing, or it reads another lineage's path.
+EQUILIBRIUM_FAMILY = config.get("equilibrium_family", "magnetic")
 GPEC_CONFIG = config.get("gpec", {})
 GPEC_MODULES = GPEC_CONFIG.get("modules", ["dcon", "rdcon", "stride", "gpec"])
 GPEC_MODES = GPEC_CONFIG.get("modes", [1, 2])
-GPEC_PATH_CODES = ["ideal-gpec" if module == "gpec" else module for module in GPEC_MODULES]
+# The stability *product* each configured module files its output as. The
+# Snakemake wildcard carries the product, not the module, because they are not
+# the same axis: `dcon` produces `dcon-peeling` or `dcon-kink` depending on its
+# edge configuration, and a wildcard keyed on the module could never tell one
+# cell from the other. `run_gpec_suite.py` maps it back to the executable.
+GPEC_PATH_CODES = [stability_product(module) for module in GPEC_MODULES]
 # The `mhd_linear` builder maps DCON/RDCON/STRIDE output; ideal-GPEC's `.nc`
 # output is folded into its own `gpec_ideal` stage by `rule build_gpec_ideal`
 # (see vaft/machine_mapping/gpec_ideal.py).
@@ -145,12 +154,24 @@ OPTIONAL_REPLICATED_STAGES = tuple(
 )
 
 
+# `mhd_linear` is one stage product per stability product (#787), so it is
+# replicated -- and records that it was -- once per product, which is what
+# `replicate_mhd_linear_to_hsds` writes. Every other stage has one per shot.
+PER_PRODUCT_REPLICATED_STAGES = {"mhd_linear": GPEC_STABILITY_MODULES}
+
+
 def replication_records(shots, stages=None):
-    return [
-        PATHS.replication_record(shot, stage)
-        for shot in shots
-        for stage in (REPLICATED_STAGES if stages is None else stages)
-    ]
+    records = []
+    for shot in shots:
+        for stage in (REPLICATED_STAGES if stages is None else stages):
+            products = PER_PRODUCT_REPLICATED_STAGES.get(stage)
+            if products is None:
+                records.append(PATHS.replication_record(shot, stage))
+            else:
+                records.extend(
+                    PATHS.replication_record(shot, stage, product) for product in products
+                )
+    return records
 
 
 PLOTS_ENABLED = PATHS.layout == FILEDB
@@ -189,11 +210,15 @@ def validation_plot_products(shots):
         for name in stage_plot_filenames("raw", required_only=True):
             outputs.append(PATHS.raw_plot(shot, name))
         outputs.append(PATHS.raw_plot_manifest(shot))
-        for stage in ("diagnostics", "eddy", "efit", "mhd_linear", "chease"):
+        for stage in ("diagnostics", "eddy", "efit", "chease"):
             if stage not in EMPTY_VALIDATION_STAGES:
                 for name in stage_plot_filenames(stage, required_only=True):
                     outputs.append(PATHS.stage_plot(shot, stage, name))
             outputs.append(PATHS.stage_plot_manifest(shot, stage))
+        # `mhd_linear` is one stage product per stability product (#787), so its
+        # plot manifest is one per product too -- the one `plot_mhd_linear` writes.
+        for module in GPEC_STABILITY_MODULES:
+            outputs.append(PATHS.stage_plot_manifest(shot, "mhd_linear", module))
         outputs.append(PATHS.chease_plot_manifest(shot))
     return outputs
 
@@ -276,16 +301,27 @@ def eligible_pipeline_outputs(wildcards):
         "chease_status",
         "chease_ods",
         "chease_manifest",
-        "mhd_linear_ods",
-        "mhd_linear_manifest",
+    ]
+    outputs = [getattr(PATHS, product)(shot) for product in products for shot in shots]
+    # One mhd_linear per stability product, not one per shot: the toroidal_mode
+    # AOS is a dense (time, n_tor) grid, so two products sharing one stage
+    # product would overwrite each other.
+    outputs += [
+        getattr(PATHS, name)(shot, module)
+        for name in ("mhd_linear_ods", "mhd_linear_manifest")
+        for shot in shots
+        for module in GPEC_STABILITY_MODULES
     ]
     if "gpec" in GPEC_MODULES:
-        products += ["gpec_ideal_ods", "gpec_ideal_manifest"]
-    outputs = [getattr(PATHS, product)(shot) for product in products for shot in shots]
+        outputs += [
+            getattr(PATHS, name)(shot, "gpec")
+            for name in ("gpec_ideal_ods", "gpec_ideal_manifest")
+            for shot in shots
+        ]
     outputs += [
         PATHS.gpec_module_status(shot, code, mode)
         for shot in shots
-        for code in GPEC_MODULES
+        for code in GPEC_PATH_CODES
         for mode in GPEC_MODES
     ]
     outputs += validation_plot_products(shots)
@@ -512,9 +548,15 @@ rule generate_eddy_ods:
 ############################################################
 # Constraints Transformation
 ############################################################
+# The diagnostics product is an input, not just a path: the constraint builder
+# reads `magnetics`, `pf_active` and `tf` out of it, and the eddy stage stores
+# only the `pf_passive` it owns. Declaring it also makes constraints re-run when
+# diagnostics changes, which it did not do while eddy carried a copy.
 rule generate_constraints_ods:
     input:
-        eddy=PATHS.shot_pattern("eddy_ods")
+        eddy=PATHS.shot_pattern("eddy_ods"),
+        diagnostics=PATHS.shot_pattern("diagnostics_ods"),
+        eddy_manifest=PATHS.shot_pattern("eddy_manifest")
     output:
         ods=PATHS.shot_pattern("constraints_ods")
     log:
@@ -539,6 +581,8 @@ rule generate_constraints_ods:
         python {SCRIPT_DIR}/generate_constraints_ods.py \
             --shot {wildcards.shot} \
             --eddy-ods {input.eddy} \
+            --diagnostics-ods {input.diagnostics} \
+            --eddy-manifest {input.eddy_manifest} \
             --output {output.ods} \
             --efit-table-dir "{params.efit_table_dir}" \
             --timeset {params.timeset} \
@@ -731,9 +775,14 @@ if PLOTS_ENABLED:
             """
 
 
+    # The eddy figures forward-model the magnetic response of the vacuum
+    # current system, so they need the diagnostics product's `magnetics` and
+    # `pf_active` beside the `pf_passive` the eddy stage owns.
     rule plot_eddy:
         input:
-            ods=PATHS.shot_pattern("eddy_ods")
+            ods=PATHS.shot_pattern("eddy_ods"),
+            diagnostics=PATHS.shot_pattern("diagnostics_ods"),
+            manifest=PATHS.shot_pattern("eddy_manifest")
         output:
             plots=stage_plot_outputs("eddy"),
             manifest=PATHS.shot_pattern("stage_plot_manifest", "eddy")
@@ -752,6 +801,8 @@ if PLOTS_ENABLED:
                 --stage eddy \
                 --shot {wildcards.shot} \
                 --input {input.ods} \
+                --compose-with diagnostics={input.diagnostics} \
+                --stage-manifest {input.manifest} \
                 --output-dir "{params.directory}" \
                 --metadata {output.manifest} \
                 > {log} 2>&1
@@ -837,6 +888,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage diagnostics \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -861,6 +913,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage eddy \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -885,6 +938,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage efit \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -909,6 +963,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage chease \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -936,6 +991,7 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage impa \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -943,12 +999,12 @@ if REPLICATION_ENABLED:
 
     rule replicate_mhd_linear_to_hsds:
         input:
-            ods=PATHS.shot_pattern("mhd_linear_ods"),
-            manifest=PATHS.shot_pattern("mhd_linear_manifest")
+            ods=PATHS.product_pattern("mhd_linear_ods"),
+            manifest=PATHS.product_pattern("mhd_linear_manifest")
         output:
-            record=PATHS.shot_pattern("replication_record", "mhd_linear")
+            record=PATHS.product_pattern("replication_record", "mhd_linear")
         log:
-            PATHS.shot_pattern("log", "replicate_mhd_linear_to_hsds")
+            PATHS.product_pattern("log", "replicate_mhd_linear_to_hsds")
         resources:
             hsds=1
         conda:
@@ -960,6 +1016,8 @@ if REPLICATION_ENABLED:
                 --shot {wildcards.shot} \
                 --stage mhd_linear \
                 --filedb-root {BASE_DIR} \
+                --equilibrium-family {EQUILIBRIUM_FAMILY} \
+                --product {wildcards.product} \
                 --attempts {REPLICATION_ATTEMPTS} \
                 --retry-delay {REPLICATION_RETRY_DELAY} \
                 > {log} 2>&1
@@ -969,16 +1027,20 @@ if REPLICATION_ENABLED:
 if PLOTS_ENABLED:
     rule plot_mhd_linear:
         input:
-            ods=PATHS.shot_pattern("mhd_linear_ods"),
-            manifest=PATHS.shot_pattern("mhd_linear_manifest")
+            ods=PATHS.product_pattern("mhd_linear_ods"),
+            manifest=PATHS.product_pattern("mhd_linear_manifest")
         output:
             plots=stage_plot_outputs("mhd_linear"),
-            manifest=PATHS.shot_pattern("stage_plot_manifest", "mhd_linear")
+            manifest=PATHS.product_pattern("stage_plot_manifest", "mhd_linear")
         log:
-            PATHS.shot_pattern("log", "plot_mhd_linear")
+            PATHS.product_pattern("log", "plot_mhd_linear")
         params:
             directory=lambda wildcards: str(
-                Path(PATHS.stage_plot(wildcards.shot, "mhd_linear", "x.png")).parent
+                Path(
+                    PATHS.stage_plot(
+                        wildcards.shot, "mhd_linear", "x.png", wildcards.product
+                    )
+                ).parent
             )
         conda:
             CONDA if CONDA else None
@@ -1081,27 +1143,33 @@ rule generate_chease_ods:
 # GPEC Suite: DCON/RDCON/STRIDE/GPEC
 ############################################################
 wildcard_constraints:
-    code="|".join(re.escape(module) for module in GPEC_PATH_CODES),
+    # The stability *product*, not the solver module: `dcon` produces
+    # `dcon-peeling` or `dcon-kink` depending on its edge configuration, so a
+    # wildcard keyed on the module could never tell one cell from the other.
+    # Constrained to the configured products, so Snakemake's greedy matching
+    # cannot read a neighbouring segment as the product.
+    product="|".join(re.escape(name) for name in GPEC_PATH_CODES),
     mode=r"\d+"
 
-# One job per (shot, code, mode): a failed RDCON n=2 case can be retried on
+# One job per (shot, product, mode): a failed RDCON n=2 case can be retried on
 # its own instead of forcing the whole shot's GPEC suite to re-run, and
-# FileDB's own grammar (`gpec/{code}/{shot}/n={n}/`) is per-(code, mode) --
-# see workflow/automatic_pipeline_1_routine_data_processing/paths.py.
+# FileDB's own grammar (`gpec/{family}/{refinement}/{product}/{shot}/n={n}/`)
+# is per-(product, mode) -- see
+# workflow/automatic_pipeline_1_routine_data_processing/paths.py.
 rule run_gpec_module:
     input:
         refined=PATHS.shot_pattern("chease_refined"),
         status=PATHS.shot_pattern("chease_status"),
         dcon_status=lambda wildcards: (
-            PATHS.gpec_module_status(wildcards.shot, "dcon", int(wildcards.mode))
-            if wildcards.code == "ideal-gpec"
+            PATHS.gpec_module_status(wildcards.shot, stability_product("dcon"), int(wildcards.mode))
+            if wildcards.product == "ideal-gpec"
             else []
         )
     output:
         manifest=PATHS.gpec_module_pattern("gpec_module_manifest"),
         status=PATHS.gpec_module_pattern("gpec_module_status")
     log:
-        PATHS.shot_pattern("log", "run_gpec_suite") + ".{code}.n{mode}"
+        PATHS.product_pattern("log", "run_gpec_suite") + ".n{mode}"
     params:
         gpec_home=GPEC_CONFIG.get("home", ""),
         run_mode=GPEC_CONFIG.get("run", "auto"),
@@ -1109,15 +1177,15 @@ rule run_gpec_module:
         psihigh=GPEC_CONFIG.get("psihigh", 0.994),
         timeout=GPEC_CONFIG.get("timeout", 1200),
         workdir=lambda wildcards: PATHS.gpec_workdir(
-            wildcards.shot, wildcards.code, int(wildcards.mode)
+            wildcards.shot, wildcards.product, int(wildcards.mode)
         ),
         dcon_option=lambda wildcards: (
-            f'--dcon-workdir "{PATHS.gpec_workdir(wildcards.shot, "dcon", int(wildcards.mode))}"'
-            if wildcards.code == "ideal-gpec"
+            f'--dcon-workdir "{PATHS.gpec_workdir(wildcards.shot, stability_product("dcon"), int(wildcards.mode))}"'
+            if wildcards.product == "ideal-gpec"
             else ""
         ),
         coil_option=lambda wildcards: (
-            GPEC_COIL_SET_FLAGS if wildcards.code == "ideal-gpec" else ""
+            GPEC_COIL_SET_FLAGS if wildcards.product == "ideal-gpec" else ""
         )
     conda:
         CONDA if CONDA else None
@@ -1134,7 +1202,7 @@ rule run_gpec_module:
             {params.coil_option} \
             --gpec-home "{params.gpec_home}" \
             --run-mode "{params.run_mode}" \
-            --code {wildcards.code} \
+            --code {wildcards.product} \
             --mode {wildcards.mode} \
             --psilow {params.psilow} \
             --psihigh {params.psihigh} \
@@ -1147,26 +1215,47 @@ def gpec_module_status_for_shot(wildcards):
     """Every configured (code, mode) status file for one shot."""
     return [
         PATHS.gpec_module_status(wildcards.shot, code, mode)
-        for code in GPEC_MODULES
+        for code in GPEC_PATH_CODES
         for mode in GPEC_MODES
     ]
 
 
+def gpec_module_status_for_product(wildcards):
+    """Every mode of one product for one shot.
+
+    A product's assembly waits on its own cells and no others, so a failed
+    RDCON n=2 no longer holds up the DCON product -- which is what the
+    per-product split buys beyond the collision it fixes.
+    """
+    return [
+        PATHS.gpec_module_status(wildcards.shot, wildcards.product, mode)
+        for mode in GPEC_MODES
+    ]
+
+
+# One job per (shot, product). A product is one solve's result, so folding
+# several into one stage product would make them overwrite each other on the
+# dense (time, n_tor) grid -- and would leave `dcon-peeling` and `dcon-kink`,
+# which are the same module run two ways, with nowhere to be told apart.
 rule build_mhd_linear:
     input:
         refined=PATHS.shot_pattern("chease_refined"),
-        gpec_status=gpec_module_status_for_shot
+        gpec_status=gpec_module_status_for_product
     output:
-        ods=PATHS.shot_pattern("mhd_linear_ods"),
-        manifest=PATHS.shot_pattern("mhd_linear_manifest")
+        ods=PATHS.product_pattern("mhd_linear_ods"),
+        manifest=PATHS.product_pattern("mhd_linear_manifest")
     log:
-        PATHS.shot_pattern("log", "build_mhd_linear")
+        PATHS.product_pattern("log", "build_mhd_linear")
     params:
-        modules=csv(GPEC_STABILITY_MODULES),
+        modules=lambda wildcards: solver_module(wildcards.product),
         modes=csv(GPEC_MODES),
+        # The key stays the *module* -- that is what the builder folds by and
+        # what `DconOutput` is read through -- while the directory it points at
+        # is the *product*'s cell. Conflating the two is what this grammar
+        # separates.
         module_workdirs=lambda wildcards: ",".join(
-            f"{code}:{mode}:{PATHS.gpec_workdir(wildcards.shot, code, mode)}"
-            for code in GPEC_STABILITY_MODULES
+            f"{solver_module(wildcards.product)}:{mode}:"
+            f"{PATHS.gpec_workdir(wildcards.shot, wildcards.product, mode)}"
             for mode in GPEC_MODES
         )
     conda:
@@ -1180,6 +1269,7 @@ rule build_mhd_linear:
             --module-workdir "{params.module_workdirs}" \
             --modules "{params.modules}" \
             --modes "{params.modes}" \
+            --product {wildcards.product} \
             --output {output.ods} \
             --metadata {output.manifest} \
             > {log} 2>&1
@@ -1189,14 +1279,14 @@ rule build_gpec_ideal:
     input:
         refined=PATHS.shot_pattern("chease_refined"),
         gpec_status=lambda wildcards: [
-            PATHS.gpec_module_status(wildcards.shot, "ideal-gpec", mode)
+            PATHS.gpec_module_status(wildcards.shot, stability_product("gpec"), mode)
             for mode in GPEC_MODES
         ]
     output:
-        ods=PATHS.shot_pattern("gpec_ideal_ods"),
-        manifest=PATHS.shot_pattern("gpec_ideal_manifest")
+        ods=PATHS.shot_pattern("gpec_ideal_ods", "gpec"),
+        manifest=PATHS.shot_pattern("gpec_ideal_manifest", "gpec")
     log:
-        PATHS.shot_pattern("log", "build_gpec_ideal")
+        PATHS.shot_pattern("log", "build_gpec_ideal", "gpec")
     params:
         modes=csv(GPEC_MODES),
         mode_workdirs=lambda wildcards: ",".join(

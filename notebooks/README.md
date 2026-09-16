@@ -67,6 +67,8 @@ Pipeline notebooks are expanded as the reusable VAFT functions behind them becom
 - `linear_resistive_stability_analysis_with_rdcon.ipynb`: Resistive stability with RDCON -- the classical tearing index Delta-prime per rational surface, mapped into `ntms.deltaw`, with DCON alongside for the ideal context. Needs the same `$GPECHOME`.
 - `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`: Blocked on GPEC itself; the notebook notes that its output readers work on results produced elsewhere, so a run from another machine can still be analysed here.
 - `vest_nbi_analysis_with_nubeam.ipynb`: Neutral-beam deposition, heating, current drive and loss accounting for VEST with NUBEAM. Runs the case stored in `vaft/data/nubeam/vest_case` into a temporary directory; needs `$NUBEAMHOME`, and without it each section reports what it would show and skips.
+- `neoclassical_transport_with_neo.ipynb`: Neoclassical transport and bootstrap current for VEST with NEO (GACODE). Converts the packaged 48224 kinetic state to `input.gacode`, runs NEO into a temporary directory, maps the result into IMAS, and compares it with the Sauter and Redl analytic models; needs `$GACODEHOME` and `$GACODE_PLATFORM`, and without them each section reports what it would show and the analytic comparison still runs.
+- `turbulent_transport_with_tglf.ipynb`: Turbulent transport for VEST with TGLF (GACODE) and the TGLF-NN surrogate. Builds the local TGLF input at five surfaces from the packaged 48224 kinetic state, runs TGLF, and audits every public TGLF-NN family against the same input -- none is in domain, because VEST's ion-to-electron temperature ratio is an order of magnitude below every training set. Needs `$GACODEHOME` and `$GACODE_PLATFORM` for the native run and `$TURBULENTTRANSPORTHOME` for the models; the audit needs neither, and without any of them the temperature-ratio finding still runs.
 
 ### Analysis, Visualization, Reporting, and Comparison
 
@@ -100,13 +102,15 @@ Use the following order as the main technical path through the notebooks. Existi
 15. `linear_resistive_stability_analysis_with_rdcon.ipynb`
 16. `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`
 17. `vest_nbi_analysis_with_nubeam.ipynb`
-18. `plotting_sample_using_vaft_plot_module.ipynb`
-19. `shot_characteristics_classification.ipynb`
-20. `vest_daily_monitoring.ipynb`
-21. `fast_camera_video_analysis.ipynb`
-22. `confinement_time_scaling.ipynb`
-23. `multiple_tokamak_comparison.ipynb`
-24. `publication_figures.ipynb`
+18. `neoclassical_transport_with_neo.ipynb`
+19. `turbulent_transport_with_tglf.ipynb`
+20. `plotting_sample_using_vaft_plot_module.ipynb`
+21. `shot_characteristics_classification.ipynb`
+22. `vest_daily_monitoring.ipynb`
+23. `fast_camera_video_analysis.ipynb`
+24. `confinement_time_scaling.ipynb`
+25. `multiple_tokamak_comparison.ipynb`
+26. `publication_figures.ipynb`
 
 For a shorter review focused only on the notebooks still waiting on an external
 Fortran code, read their **Requirements to run this page** sections:

@@ -30,6 +30,7 @@ def write_control_nc(
     energy_vacuum=0.25,
     energy_surface=0.5,
     energy_plasma=0.75,
+    chi1=1.65,
     filename_mode=None,
 ):
     """Write a miniature ``gpec_control_output_n<mode>.nc``; returns its data."""
@@ -85,12 +86,17 @@ def write_control_nc(
             "energy_vacuum": energy_vacuum,
             "energy_surface": energy_surface,
             "energy_plasma": energy_plasma,
+            # d(chi)/d(psi_N). The resonant derivation scales its jump by it,
+            # so a control file without it makes the mapping withhold the
+            # geometry block rather than write an incomplete one.
+            "chi1": chi1,
         },
     )
     mode_label = filename_mode if filename_mode is not None else n
     target = path / f"gpec_control_output_n{mode_label}.nc"
     ds.to_netcdf(target)
-    return {"b_n": b_n, "xi_n": xi_n, "b_n_fun": b_n_fun, "phi_coil": phi_coil}
+    return {"b_n": b_n, "xi_n": xi_n, "b_n_fun": b_n_fun, "phi_coil": phi_coil,
+            "chi1": chi1}
 
 
 def write_cylindrical_nc(path, *, n=1, nr=7, nz=5):
@@ -137,6 +143,8 @@ def write_profile_nc(
     theta_count=7,
     m_count=5,
     rational_q=(2.0, 3.0),
+    cluster_rational=True,
+    cover_rational_harmonics=True,
     helicity=-1.0,
     shot=48226,
     time=300,
@@ -155,13 +163,43 @@ def write_profile_nc(
     everything dimensioned on ``psi_n_rational``, ``psi_n`` or ``i``, which is
     the rule ``gpec_reference_147131/extract_profile_subset.py`` applies.
     """
+    # A real GPEC run clusters its radial grid hard around the singular
+    # surfaces -- spacings of 2.7e-8 next to 6.4e-5 on the DIII-D reference --
+    # because that is where the solution varies fastest. A uniform fixture
+    # cannot support the one-sided fits the resonant derivation takes, so this
+    # reproduces the clustering rather than the point count.
     psi_n = np.linspace(0.05, 0.99, psi_count)
+    if cluster_rational:
+        psi_rational_targets = np.linspace(0.4, 0.95, len(rational_q))
+        span = 5e-4 / max(np.min(np.abs(np.asarray(rational_q, dtype=float) * 1.5)), 1e-12)
+        clustered = [psi_n]
+        for centre in psi_rational_targets:
+            offsets = np.concatenate([
+                -np.geomspace(0.4 * span, 5.0 * span, 12),
+                np.geomspace(0.4 * span, 5.0 * span, 12),
+            ])
+            clustered.append(centre + offsets)
+        psi_n = np.unique(np.concatenate(clustered))
+        psi_n = psi_n[(psi_n > 0.0) & (psi_n < 1.0)]
     theta = np.linspace(0.0, 1.0, theta_count)
-    m_out = np.arange(-2, -2 + m_count, dtype=np.int32)
+    # The real file's m_out spans -64..64, wide enough that every rational
+    # surface it reports has its own resonant harmonic m = nq in the band. A
+    # fixture whose band is narrower silently drops surfaces, so the band is
+    # widened to cover this run's own q values rather than left at a fixed
+    # width that happens to fit some of them.
+    m_low = -2
+    if cover_rational_harmonics and len(rational_q):
+        m_needed = int(np.ceil(n * max(rational_q)))
+        m_count = max(m_count, m_needed - m_low + 1)
+    m_out = np.arange(m_low, m_low + m_count, dtype=np.int32)
     q_rational = np.asarray(rational_q, dtype=float)
     psi_rational = np.linspace(0.4, 0.95, q_rational.size)
     phi_res = (q_rational * 1e-4) - 1j * (q_rational * 0.5e-4)
     i_res = (q_rational * 1e3) + 1j * (q_rational * 1e2)
+    # Phi_res / Delta must be real and negative: the geometric factor the
+    # mapping measures is -n*Phi_res/Delta, and a pair off the real axis is
+    # refused rather than recorded.
+    delta = phi_res / (-0.05 / n)
     b_n = np.outer(m_out + 1.0, psi_n) * 1e-4 + 1j * np.outer(m_out, psi_n) * 1e-5
     b_n_fun = np.outer(np.cos(2 * np.pi * theta), psi_n) * 1e-4 + 1j * np.outer(
         np.sin(2 * np.pi * theta), psi_n
@@ -170,6 +208,11 @@ def write_profile_nc(
     # Rational-surface block: units only where GPEC writes them.
     data_vars = {
         "q_rational": (("psi_n_rational",), q_rational),
+        # The real file ships `q1_rational` as zeros; `dqdpsi_n_rational` is
+        # the usable one, so the fixture makes them differ.
+        "dqdpsi_n_rational": (("psi_n_rational",), q_rational * 1.5),
+        "q1_rational": (("psi_n_rational",), np.zeros_like(q_rational)),
+        "Delta": (("i", "psi_n_rational"), _complex_pair(delta)),
         "area_rational": (("psi_n_rational",), q_rational * 2.0, {"units": "m^2"}),
         "Phi_res": (("i", "psi_n_rational"), _complex_pair(phi_res), {"units": "T"}),
         "Phi_res_v": (("i", "psi_n_rational"), _complex_pair(phi_res * 0.5), {"units": "T"}),
@@ -204,8 +247,11 @@ def write_profile_nc(
                 "b_n_fun": (("i", "theta_dcon", "psi_n"), _complex_pair(b_n_fun), {"units": "Tesla"}),
                 "xi_n": (("i", "m_out", "psi_n"), _complex_pair(b_n * 10.0), {"units": "m"}),
                 "xi_n_fun": (("i", "theta_dcon", "psi_n"), _complex_pair(b_n_fun * 10.0), {"units": "m"}),
-                # An "extra": present in real files, not a named field.
+                # Extras: present in real files, not named fields. Jbgradpsi
+                # is the one the resonant derivation reads.
                 "b_eul": (("i", "m_out", "psi_n"), _complex_pair(b_n * 2.0), {"units": "Tesla"}),
+                "Jbgradpsi": (("i", "m_out", "psi_n"), _complex_pair(b_n * 3.0),
+                              {"units": "Tesla"}),
                 # A character matrix, and an index that has as many entries as
                 # there are rational surfaces when the two happen to coincide.
                 "coil_name": (("coil_index", "coil_strlen"), name_chars),
@@ -241,6 +287,10 @@ def write_profile_nc(
         "theta": theta,
         "Phi_res": phi_res,
         "I_res": i_res,
+        "Delta": delta,
+        "Jbgradpsi": b_n * 3.0,
+        "dqdpsi_n_rational": q_rational * 1.5,
+        "area_rational": q_rational * 2.0,
         "b_n": b_n,
         "b_n_fun": b_n_fun,
         "helicity": helicity,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import os
 import re
@@ -31,6 +32,11 @@ from vaft.process.signal_processing import (
 
 from vaft.formula.statistics import median_absolute_deviation
 
+from .conventions import (
+    VEST_PORT_CLOCK_DEGREES,
+    clock_angle_to_toroidal_angle,
+    port_toroidal_angle,
+)
 from .utils import (
     AGREEMENT_CONSISTENT,
     onset_agreement,
@@ -50,6 +56,8 @@ from .utils import (
     resolve_vest_diagnostic,
     set_path,
 )
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_TSTART = 0.26
 DEFAULT_TEND = 0.36
@@ -84,6 +92,24 @@ PROBE_LENGTH = 0.01
 #: into the IDS, which told any DD-conformant reader that the probes measure
 #: ``-Bz``.  The stored angle and the projection must move together.
 POLOIDAL_ANGLE = 3 * math.pi / 2
+#: ``toroidal_angle`` is deliberately **not** written for these probes.
+#:
+#: The DD defines it as the angle of the sensor normal's *horizontal
+#: projection* from grad(R), "modulo pi with values within (-pi/2, pi/2]".  A
+#: VEST Mirnov is a Bz coil, which :data:`POLOIDAL_ANGLE` already states by
+#: putting the normal vertical -- and a vertical vector has **no** horizontal
+#: projection, so there is no angle to write.  ``poloidal_angle`` alone fully
+#: specifies the orientation.
+#:
+#: Until issue #725 this field carried the probe's toroidal *position*: 0.0 for
+#: the equilibrium probes and the position angle for the reference and
+#: fluctuation arrays.  Both are wrong, and not only by convention.  0.0 says
+#: the normal is parallel to grad(R), which declares a *radial* (B_R) sensor,
+#: and the position angles fall outside the range the DD allows at all.  It
+#: also reached the analysis: `vaft.plot` prefers this field over
+#: ``position.phi`` when deciding where a probe sits, so the toroidal
+#: mode-number fit was reading 0 for all 64 equilibrium probes while they
+#: physically sit at three distinct angles.
 MIRNOV_TYPE_INDEX = 2
 # Poloidal-probe and flux-loop families, by position. These are the boundaries
 # the EFIT k-file writer submits constraints by (vaft.code.efit.kfile), kept
@@ -94,44 +120,33 @@ OUTBOARD_PROBE_MIN_R = 0.795
 SIDE_PROBE_MIN_ABS_Z = 0.8
 INBOARD_FLUX_LOOP_MAX_R = 0.15
 OUTBOARD_FLUX_LOOP_MIN_R = 0.5
-TOROIDAL_MIRNOV_REFERENCE_CHANNELS = (
-    {
-        "field_code": 207,
-        "name": "OutMirnov_130_Bz",
-        "r": 0.796,
-        "z": 0.02,
-        "phi": 0.0,
-        "toroidal_angle": 0.0,
-        "gain": 9.0e-4,
-    },
-    {
-        "field_code": 241,
-        "name": "OutMirnov_530_Bz",
-        "r": 0.796,
-        "z": 0.02,
-        "phi": 2 * math.pi / 3,
-        "toroidal_angle": 2 * math.pi / 3,
-        "gain": -9.0e-4,
-    },
-    {
-        "field_code": 209,
-        "name": "OutMirnov_730_Bz",
-        "r": 0.796,
-        "z": 0.02,
-        "phi": math.pi,
-        "toroidal_angle": math.pi,
-        "gain": 9.0e-4,
-    },
-    {
-        "field_code": 171,
-        "name": "MagneticFieldProbe_C2-05_Bz",
-        "r": 0.796,
-        "z": 0.02,
-        "phi": 4 * math.pi / 3,
-        "toroidal_angle": 4 * math.pi / 3,
-        "gain": 0.004529,
-    },
-)
+#: Where each magnetic-probe family sits toroidally, as a VEST clock position.
+#:
+#: Read off the VEST magnetic diagnostic layout figure, whose top view places
+#: the four toroidal probes at 45.6 / 164.8 / 225.0 / 283.8 deg of clock angle
+#: -- 1:30, 5:30, 7:30 and 9:30, matching all four channel names below and
+#: confirming the clock convention.  Its toroidal/poloidal panel then gives the
+#: three poloidal families at clock angles 30, 120 and 165 deg.
+#:
+#: The 4 o'clock of the side family independently matches the port-status
+#: document's ``4ML10 : Magnetic probe 1``.
+#:
+#: These are **clock positions, not IMAS phi** -- see
+#: :func:`vaft.machine_mapping.conventions.port_toroidal_angle` for the
+#: negation between the two, and issue #718 for why the distinction matters.
+EQUILIBRIUM_PROBE_CLOCK = {
+    "inboard": 1.0,
+    "side": 4.0,
+    "outboard": 5.5,
+}
+
+#: Flux loops have no toroidal angle: they are continuous loops encircling the
+#: machine axis, which is why the layout figure draws them as lines spanning
+#: the whole 0-360 deg toroidal axis while every probe family is a point.  The
+#: DD agrees -- ``flux_loop.position`` is a contour, not a single point -- so a
+#: scalar ``phi`` is not merely unknown for a flux loop, it does not exist.
+#: Nothing here writes one.
+FLUX_LOOP_IS_AXISYMMETRIC = True
 
 # Database identifiers, rather than older UI labels, define the physical
 # limiter segment. The 0.1 ohm-equivalent resistance stores the Pearson Model
@@ -188,6 +203,34 @@ def _load_equilibrium_magnetics_channels() -> list[dict[str, Any]]:
         return yaml.safe_load(handle)["channels"]
 
 
+def equilibrium_probe_count(source: Any) -> int:
+    """How many B-pol probes EFIT's geometry represents.
+
+    ``min(present, defined)``. The magnetics IDS also carries trailing
+    toroidal-Mirnov phase-reference channels: useful diagnostics, absent from
+    EFIT's ``dprobe.dat``/``mhdin.dat`` geometry, and not constraints. This is
+    also the offset the flux-loop indices are counted from, so the k-file
+    writer, the channel-decision layer and the EFUND projection must all take
+    it from one place -- they each had their own copy, and they did not agree
+    in the degenerate case.
+
+    Accepts either a whole ODS or a ``magnetics`` sub-tree, because its callers
+    hold one or the other.
+    """
+    defined = sum(
+        1
+        for entry in vest_equilibrium_magnetics_channel_definitions()
+        if entry.get("kind") == "b_field_pol_probe"
+    )
+    for path in ("magnetics.b_field_pol_probe", "b_field_pol_probe"):
+        if path in source:
+            present = len(source[path])
+            break
+    else:
+        present = 0
+    return min(present, defined) if defined else present
+
+
 def vest_equilibrium_magnetics_channel_definitions() -> tuple[dict[str, Any], ...]:
     """Return ordered VEST equilibrium-magnetics channel metadata for provenance/preflight."""
     return tuple(dict(channel) for channel in _load_equilibrium_magnetics_channels())
@@ -201,6 +244,29 @@ _FLUCTUATION_IDENTIFIER = re.compile(
     r"^OutMirnov_(?P<angle>45|135|225)_(?P<sub_array>L[12])-(?P<position>0[1-5])$"
 )
 _FLUCTUATION_ARRAY_DEFAULTS = ("role", "preserve_native_voltage")
+
+
+@lru_cache(maxsize=1)
+def _toroidal_mirnov_reference_config() -> dict[str, Any]:
+    """The ``toroidal_mirnov_reference`` block of ``vest.yaml``.
+
+    Shot-independent: the one shot-dependent value is
+    ``last_operational_shot``, and that is a gate the caller applies rather
+    than a per-channel field -- the same split
+    :func:`_fluctuation_mirnov_config` documents for its own boundary.
+    """
+    config = resolve_vest_diagnostic(0, "toroidal_mirnov_reference")
+    # The same guard :func:`_fluctuation_mirnov_config` documents: a revision
+    # without an explicit ``from_shot`` is unbounded below, so it would match
+    # shot 0 and quietly redefine the inventory that the module-level constants
+    # are built from at import.
+    for revision in config.get("revisions", ()) or ():
+        if "from_shot" not in revision:
+            raise VestConfigurationError(
+                "toroidal_mirnov_reference: a revision must state from_shot, or it "
+                "also matches shot 0 and changes what the inventory means"
+            )
+    return config
 
 
 @lru_cache(maxsize=8)
@@ -432,6 +498,150 @@ def fluctuation_mirnov_gain_by_identifier() -> dict[str, float]:
 #: duplicated here, so the configuration stays the single source of truth.
 FLUCTUATION_MIRNOV_FIRST_SHOT = int(_fluctuation_mirnov_config()["first_operational_shot"])
 OUTBOARD_MIRNOV_MAJOR_RADIUS = float(_fluctuation_mirnov_config()["geometry"]["major_radius"])
+
+#: The phase-reference outboard Mirnov channels, derived from ``vest.yaml``.
+#:
+#: Their names encode their positions: ``OutMirnov_130`` is at 1:30.  Until
+#: issue #718 they carried hardcoded ``phi`` of 0, 2pi/3, pi and 4pi/3 -- a
+#: *relative* frame anchored on the first channel, a uniform -45 deg from the
+#: clock angles the names themselves state, and clockwise-positive besides.
+#: The clock position is the source datum now and ``phi`` is derived.
+#:
+#: This is the **inventory**, un-gated.  These probes stop existing after
+#: :data:`TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT`; use
+#: :func:`toroidal_mirnov_reference_channels` to get the set a given shot
+#: actually has.  Field 171 is disputed -- see the ``toroidal_mirnov_reference``
+#: block in ``vest.yaml`` and issue #825.
+TOROIDAL_MIRNOV_REFERENCE_CHANNELS = tuple(
+    {
+        "field_code": int(channel["field"]),
+        "name": str(channel["identifier"]),
+        "r": float(_toroidal_mirnov_reference_config()["geometry"]["major_radius"]),
+        "z": float(_toroidal_mirnov_reference_config()["geometry"]["z"]),
+        "clock": float(channel["clock"]),
+        "gain": float(channel["gain"]),
+        **({"disputed": str(channel["disputed"])} if "disputed" in channel else {}),
+    }
+    for channel in _toroidal_mirnov_reference_config()["channels"]
+)
+
+#: The last shot each phase-reference channel's archive carries it, by field
+#: code.  A field absent from this map is never dropped.
+#:
+#: Per channel, not per array, because the evidence is per channel: the
+#: magnetics log bounds 207 at 35520 and the archives for 44740 and 45531 carry
+#: none of 207/209/241 -- but they *do* carry 171, which the same logs class as
+#: outboard equilibrium probe ``Bz C2 05``.  Bounding 171 with the others would
+#: drop a channel whose data exists, and would settle issue #825 by side effect.
+TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT: dict[int, int] = {
+    int(channel["field"]): int(channel["last_operational_shot"])
+    for channel in _toroidal_mirnov_reference_config()["channels"]
+    if "last_operational_shot" in channel
+}
+
+
+#: Only the toroidal arrays are gated by shot, and only because their history
+#: is recorded.  The 64 equilibrium probes and the 11 flux loops are mapped for
+#: every shot, which is not a claim that every one of them existed throughout.
+#:
+#: No source states when they did.  `MD.yaml` and the geometry file carry no
+#: shot field; ``vest.yaml`` carries shot ``revisions`` for *processing* eras
+#: (baseline windows, FL10 compensation) but none for channel existence; and
+#: the VEST magnetics logs give per-channel DAQ wiring and positions without
+#: dates, their only shot note being the one behind
+#: :data:`TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT`.
+#:
+#: So a channel that did not record is published as an empty entry with
+#: ``validity = -2`` -- "no datum here" -- rather than omitted.  That is the
+#: honest statement when the alternative is a boundary nobody wrote down:
+#: inventing one would silently drop real channels, and issue #843 is what
+#: acting on an unverified probe table costs.
+EQUILIBRIUM_PROBE_SHOT_HISTORY_IS_UNRECORDED = True
+
+
+def toroidal_array_for_shot(shot: int) -> dict[str, Any]:
+    """Which toroidal Mirnov array ``shot`` has, and what it can resolve.
+
+    VEST has had two, and a gap between them.  Up to shot 35520 the
+    phase-reference channels -- three at clock 1:30, 5:30 and 7:30, plus the
+    disputed 9:30 entry issue #825 is about; from shot 44156 the 30-channel
+    outboard fluctuation array at clock 45, 135 and 225 degrees.  Between those
+    boundaries nothing recorded at more than one toroidal position, so no
+    toroidal mode number can be measured at all -- a fact about the machine
+    rather than about the analysis, which is why this is answerable without
+    opening a shot.
+
+    ``shot`` must be a real shot number.  Unlike the inventory accessors, 0 is
+    not a sentinel here: there is no "the machine in general" answer to which
+    array a discharge had.
+
+    Returns ``name``, the ``clock`` positions, the distinct IMAS ``angles_deg``
+    and the ``alias_step`` those angles impose -- ``n`` is resolved only modulo
+    that step.  ``name`` is ``None`` when the shot has no array.
+    """
+    import numpy as _np
+
+    from .conventions import port_toroidal_angle
+
+    shot = int(shot)
+    if shot <= 0:
+        raise ValueError(
+            f"shot must be a real shot number, not {shot}: which toroidal array a "
+            "discharge had is a per-shot fact with no un-gated reading"
+        )
+    # A set spanning one toroidal position resolves nothing, so it does not
+    # count as "the array this shot has": past 35520 only the disputed field 171
+    # survives the reference gate, and a modern shot's array is the fluctuation
+    # one regardless.
+    reference = toroidal_mirnov_reference_channels(shot)
+    if len({float(c["clock"]) for c in reference}) > 1:
+        name = "phase_reference"
+        clocks = [float(c["clock"]) for c in reference]
+    elif shot >= FLUCTUATION_MIRNOV_FIRST_SHOT:
+        name = "fluctuation"
+        clocks = sorted(
+            {float(c["toroidal_angle_deg"]) / VEST_PORT_CLOCK_DEGREES
+             for c in _load_fluctuation_mirnov_channels(shot)}
+        )
+    else:
+        return {"name": None, "clocks": (), "angles_deg": (), "alias_step": None}
+
+    angles = sorted({round(float(_np.rad2deg(port_toroidal_angle(c))), 6) for c in clocks})
+    # The modulus is 360/gcd(spacings), not 360/min(spacing): a set spaced
+    # 0/100/200 aliases modulo 18, not modulo 4.  They coincide only when the
+    # array is uniform, which both VEST arrays happen to be.
+    spacing = _np.diff(_np.asarray(angles + [angles[0] + 360.0]))
+    if len(angles) > 1:
+        scaled = _np.rint(spacing * 1000.0).astype(int)
+        step = int(round(360.0 / (_np.gcd.reduce(scaled) / 1000.0)))
+    else:
+        step = None
+    return {
+        "name": name,
+        "clocks": tuple(sorted(clocks)),
+        "angles_deg": tuple(angles),
+        "alias_step": step,
+    }
+
+
+def toroidal_mirnov_reference_channels(shot: int = 0) -> tuple[dict[str, Any], ...]:
+    """The phase-reference channels ``shot`` actually has.
+
+    Each channel is dropped past its own ``last_operational_shot``; a channel
+    without one is never dropped.  ``shot=0`` means the inventory, un-gated,
+    matching :func:`_fluctuation_mirnov_config`'s reading of the same argument.
+
+    Copies are returned so a caller cannot corrupt the table.
+    """
+    if not shot:
+        return tuple(dict(channel) for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS)
+    return tuple(
+        dict(channel)
+        for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS
+        if int(shot) <= TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT.get(
+            int(channel["field_code"]), int(shot)
+        )
+    )
 
 
 class UnsupportedMagneticsGeometryError(NotImplementedError):
@@ -1268,7 +1478,36 @@ def _populate_flux_loop_static(ods: object) -> None:
         flux_loop_index += 1
 
 
-def _populate_probe_static(ods: object) -> None:
+def _equilibrium_probe_phi(r: float, z: float, name: str) -> float | None:
+    """The IMAS toroidal angle of an equilibrium poloidal probe, or ``None``.
+
+    The three families the layout figure distinguishes -- inboard, side and
+    outboard -- are the same three the EFIT k-file writer already submits
+    constraints by, so the existing ``INBOARD_PROBE_MAX_R`` /
+    ``SIDE_PROBE_MIN_ABS_Z`` / ``OUTBOARD_PROBE_MIN_R`` boundaries classify a
+    probe and :data:`EQUILIBRIUM_PROBE_CLOCK` places it.
+
+    A probe matching no family gets **no** ``phi`` at all.  Writing 0.0 there,
+    as this did before issue #718, states a toroidal position the machine
+    description does not have -- and 0.0 is a real place (12 o'clock), so a
+    reader cannot tell the placeholder from a measurement.
+    """
+    if abs(z) > SIDE_PROBE_MIN_ABS_Z:
+        family = "side"
+    elif r < INBOARD_PROBE_MAX_R:
+        family = "inboard"
+    elif r > OUTBOARD_PROBE_MIN_R:
+        family = "outboard"
+    else:
+        logger.warning(
+            "b_field_pol_probe %s at (r=%.4f, z=%.4f) matches no known toroidal "
+            "family; leaving position.phi unwritten", name, r, z,
+        )
+        return None
+    return port_toroidal_angle(EQUILIBRIUM_PROBE_CLOCK[family])
+
+
+def _populate_probe_static(ods: object, shot: int = 0) -> None:
     names = _load_names_by_code()
     probe_index = 0
     for channel in _load_static_channels():
@@ -1278,25 +1517,28 @@ def _populate_probe_static(ods: object) -> None:
         name = names[field_code]
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.name", name)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", name)
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", float(channel["r"]))
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", float(channel["z"]))
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", 0.0)
+        r = float(channel["r"])
+        z = float(channel["z"])
+        phi = _equilibrium_probe_phi(r, z, name)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", r)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", z)
+        if phi is not None:
+            set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle", 0.0)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
         probe_index += 1
 
-    for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
+    for channel in toroidal_mirnov_reference_channels(shot):
         name = str(channel["name"])
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.name", name)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", f"{name}:phase_reference")
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", float(channel["r"]))
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", float(channel["z"]))
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", float(channel["phi"]))
+        phi = port_toroidal_angle(float(channel["clock"]))
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle", float(channel["toroidal_angle"]))
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
         probe_index += 1
 
@@ -1316,18 +1558,14 @@ def _populate_fluctuation_mirnov_static(ods: object, shot: int = 0) -> None:
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", identifier)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", OUTBOARD_MIRNOV_MAJOR_RADIUS)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", float(channel["z"]))
-        set_path(
-            ods,
-            f"magnetics.b_field_pol_probe.{probe_index}.position.phi",
-            math.radians(float(channel["toroidal_angle_deg"])),
-        )
+        # ``toroidal_angle_deg`` is the VEST *clock* angle the identifier
+        # carries (``OutMirnov_45_L1-01`` is at 45 deg of clock angle, i.e.
+        # 1:30).  It is clockwise-positive, so it is negated on the way into
+        # the IDS rather than written through as if it were phi -- issue #718.
+        phi = clock_angle_to_toroidal_angle(float(channel["toroidal_angle_deg"]))
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
-        set_path(
-            ods,
-            f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle",
-            math.radians(float(channel["toroidal_angle_deg"])),
-        )
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
         probe_index += 1
 
@@ -1366,11 +1604,18 @@ def _populate_limiter_shunt_static(ods: object) -> None:
         set_path(ods, f"{base_path}.resistance", LIMITER_SHUNT_RESISTANCE)
 
 
-def vfit_magnetics_static(ods: object) -> None:
-    """Populate static magnetics metadata from YAML geometry assets."""
+def vfit_magnetics_static(ods: object, shot: int = 0) -> None:
+    """Populate static magnetics metadata from YAML geometry assets.
+
+    ``shot`` gates the hardware that did not exist for the whole campaign: the
+    phase-reference Mirnov channels stop after
+    :data:`TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT`.  ``shot=0`` means the
+    inventory, un-gated, which is what a caller describing the machine rather
+    than a discharge wants.
+    """
     _set_magnetics_properties(ods)
     _populate_flux_loop_static(ods)
-    _populate_probe_static(ods)
+    _populate_probe_static(ods, shot)
     _populate_limiter_shunt_static(ods)
 
 
@@ -1397,7 +1642,7 @@ def vfit_mirnov_raw_dynamic(
         _set_voltage_signal(ods, f"magnetics.b_field_pol_probe.{probe_index}", time, data, validity)
         probe_index += 1
 
-    for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
+    for channel in toroidal_mirnov_reference_channels(shot):
         time, data, validity = _raw_time_data_with_validity(shot, int(channel["field_code"]), raw_source)
         if validity == 0:
             time, data = _crop_native_window(time, data, tstart=tstart, tend=tend)
@@ -2023,7 +2268,10 @@ def vfit_magnetics_for_shot(
     """Populate canonical static and dynamic magnetics nodes for one shot."""
     # Create the full ordered channel structures first so a missing early
     # channel can remain empty without shifting or invalidating later channels.
-    vfit_magnetics_static(ods)
+    # The shot is passed because it selects which hardware existed, not which
+    # of it recorded: a channel the machine had but that stayed silent is an
+    # empty entry, while one it did not have yet is no entry at all.
+    vfit_magnetics_static(ods, shot)
     vfit_magnetics_dynamic(
         ods,
         shot,
@@ -2087,7 +2335,7 @@ def b_field_pol_probe_from_raw_database(
     """Map calibrated and raw poloidal-field probe signals and metadata."""
     context = _prepare_magnetics_context(shot, tstart, tend, dt, processing_config, raw_source)
     _set_magnetics_properties(ods)
-    _populate_probe_static(ods)
+    _populate_probe_static(ods, shot)
     _map_probes(ods, shot, context, raw_source)
 
 
@@ -2187,6 +2435,8 @@ __all__ = [
     "vfit_equilibrium_magnetics_detailed",
     "vfit_magnetics_dynamic",
     "vfit_magnetics_for_shot",
+    "toroidal_array_for_shot",
+    "toroidal_mirnov_reference_channels",
     "vfit_magnetics_static",
     "vfit_limiter_shunts_dynamic",
     "vfit_mirnov_raw_dynamic",

@@ -218,3 +218,91 @@ def test_an_all_zero_occurrence_is_the_lazy_default(sample_ods):
 def test_an_unknown_adapter_names_the_package():
     with pytest.raises(AttributeError, match="module 'vaft.database' has no attribute 'plot_nonexistent'"):
         database.plot_nonexistent
+
+
+# ---------------------------------------------------------------------------
+# dd_* / extract_* (umbrella #434) and interactive over the lazy path
+# ---------------------------------------------------------------------------
+
+def test_the_three_verbs_cover_the_same_plots_as_vaft_omas():
+    canonical = set(canonical_names())
+    for prefix in ("plot_", "extract_", "dd_"):
+        assert {n[len(prefix):] for n in dir(database) if n.startswith(prefix)} >= canonical
+    function = database.extract_plasma_current_time
+    assert function.__name__ == "extract_plasma_current_time"
+    assert "plot_plasma_current_time" in function.__doc__ and "rendering keyword" in function.__doc__
+
+
+def test_dd_touches_nothing_and_agrees_with_vaft_omas():
+    # Imported before the sys.modules patch: patch.dict drops modules first
+    # imported inside it, which would give the two sides different DDPath classes.
+    expected = vaft.omas.dd_flux_loop_time_flux()
+    open_ods = Mock()
+    with patch.dict("sys.modules", {"vaft.database.lazy_ods": _fake_module("vaft.database.lazy_ods", open_ods=open_ods, h5pyd=None)}):
+        paths = database.dd_flux_loop_time_flux()
+    assert not open_ods.called
+    assert paths == expected
+    assert paths and paths[0].canonical == "magnetics/flux_loop(:)/flux/data"
+
+
+def test_extract_opens_the_declared_ids_and_returns_the_undrawn_model(sample_ods):
+    from vaft.omas.entries import normalize_entries
+    from vaft.plot.backend.recipes import build_model
+    from vaft.plot.models import LineSeries
+
+    open_ods = Mock(return_value=sample_ods)
+    with patch.dict("sys.modules", {"vaft.database.lazy_ods": _fake_module("vaft.database.lazy_ods", open_ods=open_ods, h5pyd=None)}):
+        model = database.extract_flux_loop_time_flux(39915, selection="inboard")
+    args, kwargs = open_ods.call_args
+    assert args[0] == 39915 and kwargs["source"] == "main"
+    assert kwargs["ids"] == ["dataset_description", "magnetics"]
+    assert isinstance(model, LineSeries)
+    expected = build_model("flux_loop_time_flux", normalize_entries(sample_ods, label=["39915"]), selection="inboard")
+    assert [s.label for s in model.series] == [s.label for s in expected.series]
+    assert [s.entry for s in model.series] == ["39915"] * len(model.series)
+    np.testing.assert_array_equal(model.series[0].y, expected.series[0].y)
+    assert model.to_xarray().sizes["series"] == len(expected.series)
+
+
+def test_extract_refuses_a_rendering_keyword_and_the_lazy_occurrence(sample_ods):
+    open_ods = Mock(return_value=sample_ods)
+    with patch.dict("sys.modules", {"vaft.database.lazy_ods": _fake_module("vaft.database.lazy_ods", open_ods=open_ods, h5pyd=None)}):
+        with pytest.raises(TypeError, match="draws nothing; ax=.*plot_plasma_current_time"):
+            database.extract_plasma_current_time(39915, ax=None)
+        with pytest.raises(ValueError, match="occurrence is available with lazy=False only"):
+            database.extract_plasma_current_time(39915, occurrence=1)
+    assert not open_ods.called
+
+
+def test_extract_end_to_end_closes_the_lazy_store(monkeypatch):
+    fx = _fake_store_module()
+    module = fx.FakeH5pyd(_shot_files(fx))
+    from vaft.database import lazy_ods
+    monkeypatch.setattr(lazy_ods, "h5pyd", module)
+    model = database.extract_plasma_current_time(39915)
+    assert [s.entry for s in model.series] == ["39915"]
+    np.testing.assert_allclose(model.series[0].y, [100.0, 200.0, 300.0])  # kA
+    assert all(file.closed for uri, file in module.files.items() if uri in module.opened)
+    assert model.to_xarray().attrs["display_unit"] == "kA"
+
+
+def test_interactive_loads_eagerly_over_the_lazy_path(sample_ods):
+    """The controls redraw after the call returns, when a lazy store would be closed."""
+    open_ods = Mock(return_value=sample_ods)
+    load_ods = Mock(return_value=sample_ods)
+    modules = {
+        "vaft.database.lazy_ods": _fake_module("vaft.database.lazy_ods", open_ods=open_ods, h5pyd=None),
+        "vaft.database.ods": _fake_module("vaft.database.ods", load_ods=load_ods),
+    }
+    with patch.dict("sys.modules", modules):
+        result = database.plot_plasma_current_time(
+            39915, interactive=True, interaction_backend="none", occurrence=1,
+        )
+    plt.close(result.figure)
+    assert not open_ods.called
+    assert load_ods.call_args.kwargs["paths"] == ["dataset_description", "magnetics"]
+    # interactive=True takes the eager path's whole contract: the occurrence is honoured.
+    assert load_ods.call_args.kwargs["occurrence"] == {"dataset_description": 1, "magnetics": 1}
+    assert "dd" not in dir(database) and "render" not in dir(database) and "dd_plasma_current_time" in dir(database)
+    result.state.set("yunit", "MA")  # rebuilds from the loaded ODS, long after the call returned
+    assert result.axes.get_ylabel().endswith("[MA]")

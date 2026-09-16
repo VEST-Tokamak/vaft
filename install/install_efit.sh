@@ -104,6 +104,16 @@ esac
 [[ -n "$BUILD_DIR" ]] || BUILD_DIR="$SOURCE/build-vaft-$PLATFORM"
 MANIFEST="$PREFIX/$MANIFEST_NAME"
 
+# The prefix is removed wholesale by --uninstall, so it must never be inside the
+# VAFT checkout. The PowerShell installers enforce this through
+# Resolve-InstallPrefix; the POSIX ones did not. Made absolute first, or a
+# relative --prefix would slip past the comparison and past the manifest.
+[[ "$PREFIX" == /* ]] || PREFIX="$PWD/$PREFIX"
+VAFT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+case "$PREFIX/" in
+  "$VAFT_ROOT"/*) die "the install prefix must be outside the VAFT checkout, because --uninstall removes it: $PREFIX is inside $VAFT_ROOT" ;;
+esac
+
 PYTHON="$(command -v python3 || command -v python || true)"
 [[ -n "$PYTHON" ]] || die "python3 is required (the VAFT environment provides it)"
 
@@ -174,8 +184,25 @@ else
   FC_PATH="$(command -v gfortran || true)"
   [[ -n "$FC_PATH" ]] || die "gfortran is required (e.g. apt install gfortran)"
   if ((WITH_NETCDF)); then
-    command -v nf-config >/dev/null || die "NetCDF-Fortran is required for m-files (e.g. apt install libnetcdff-dev), or pass --without-netcdf"
-    NETCDF_C_DIR="$(nc-config --prefix 2>/dev/null || echo /usr)"; NETCDF_F_DIR="$(nf-config --prefix 2>/dev/null || echo /usr)"
+    # Pick the netCDF-Fortran by the compiler it was built with, not by PATH
+    # order. nf-config reports its own --fc, and a library built with ifort
+    # ships ifort .mod files: linking those into a gfortran build fails with
+    # errors that never mention a compiler. On a machine carrying a hand-built
+    # netCDF ahead of the distribution one -- which is ordinary on a cluster --
+    # taking the first nf-config silently configures the wrong one.
+    NETCDF_F_DIR=""
+    for candidate in "$(command -v nf-config || true)" /usr/bin/nf-config /usr/local/bin/nf-config; do
+      [[ -n "$candidate" && -x "$candidate" ]] || continue
+      candidate_fc="$("$candidate" --fc 2>/dev/null || true)"
+      if [[ "$(basename "${candidate_fc%% *}")" == gfortran* ]]; then
+        NETCDF_F_DIR="$("$candidate" --prefix)"
+        note "using netCDF-Fortran from $candidate"
+        break
+      fi
+      note "skipping $candidate: built with ${candidate_fc:-an unknown compiler}, not gfortran"
+    done
+    [[ -n "$NETCDF_F_DIR" ]] || die "NetCDF-Fortran built with gfortran is required for m-files (e.g. apt install libnetcdff-dev), or pass --without-netcdf"
+    NETCDF_C_DIR="$(nc-config --prefix 2>/dev/null || echo /usr)"
   fi
 fi
 CMAKE_ARGS+=("-DCMAKE_Fortran_COMPILER=$FC_PATH")
@@ -196,6 +223,35 @@ note "building with $JOBS jobs"
 cmake --build "$BUILD_DIR" -j "$JOBS" >>"$LOG" 2>&1 || die "build failed; see $LOG"
 [[ -x "$BUILD_DIR/efit/efit" ]] || die "efit was not produced at $BUILD_DIR/efit/efit"
 [[ -x "$BUILD_DIR/green/efund" ]] || die "efund was not produced at $BUILD_DIR/green/efund"
+
+# --- did NetCDF actually get in? ----------------------------------------------
+# Asking for it is not the same as getting it. io/efitIO.cmake is
+#
+#   option(ENABLE_NETCDF "Enable NetCDF" off)
+#   if(${ENABLE_NETCDF})
+#     find_package (NetCDF)
+#     if(${NetCDF_FOUND})
+#       set(USE_NETCDF ...)
+#     endif()
+#   endif()
+#
+# with no else on the inner if. A find_package that comes up empty is silent:
+# the build finishes, ENABLE_NETCDF:BOOL=ON stays in CMakeCache and in this
+# script's own manifest, and the first sign of trouble is a reconstruction that
+# quietly writes no m-file hours later. The binary is the only honest witness --
+# EFIT compiles that message in exactly when write_m was compiled out.
+if ((WITH_NETCDF)); then
+  if grep -qa 'netcdf needs to be linked to write m-files' "$BUILD_DIR/efit/efit"; then
+    printf '[FAIL] NetCDF was requested but the build did not get it, so this efit writes no m-files.\n' >&2
+    printf '       find_package(NetCDF) found nothing under:\n' >&2
+    printf '         NetCDF_C_DIR       %s\n' "$NETCDF_C_DIR" >&2
+    printf '         NetCDF_FORTRAN_DIR %s\n' "$NETCDF_F_DIR" >&2
+    printf '       Check that each holds the library and the .mod, or pass --without-netcdf\n' >&2
+    printf '       to accept a build with no m-files.\n' >&2
+    die "see the configure output in $LOG for what find_package looked at"
+  fi
+  note "NetCDF is compiled in; this build writes m-files"
+fi
 
 CTEST_STATUS="skipped"
 if ((!SKIP_TESTS)); then

@@ -223,14 +223,13 @@ library it documents, so a fix wanted on both tracks travels from `develop` to
 The section above covers how the site is built.
 This one covers what belongs where. Each surface has one job, and adding
 material to the wrong one is how the README became a manual, a history, and an
-architecture document at once. Adding material to the wrong one is how
-the README became a manual, a history, and an architecture document at once.
+architecture document at once.
 
 | Surface | Job | Not this |
 | --- | --- | --- |
 | `README.md` / `README.ko.md` | Landing page: what VAFT is, what you can do with it, how to start, where to go next | Reference material, extended history, API detail |
 | `tutorial/` | Taught course, offline-first, one session at a time | Research procedures, narrow techniques |
-| `notebooks/` + `notebooks/README.md` | Research workflows indexed by scientific question | Teaching scaffolding |
+| `notebooks/` + `notebooks/README.md` | Research workflows — to be indexed by scientific question (#330; grouped by pipeline stage until then) | Teaching scaffolding |
 | `docs/` -> [the site](https://vest-tokamak.github.io/vaft/) | Long-form workflows, API reference, machine and research archive | Anything that must ship with the source |
 | `THIRD_PARTY_NOTICES.md` | Licence reproduction — a distribution obligation, so it ships with the source | Prose about dependencies |
 
@@ -238,13 +237,16 @@ Three rules:
 
 1. **Keep the two READMEs semantically synchronized.** `README.ko.md` is not
    optional and not a lagging translation. `test/test_readme_consistency.py`
-   pins the identity narrative, the four infrastructure concepts and their
-   order, and every relative link.
+   pins the core message, the identity narrative, the four framework concepts
+   and their order, and every relative link. `test/test_docs_snippets.py` holds
+   the site to the same standard for code: every `vaft.*` name a python fence
+   mentions must resolve, and none may be a superseded plot name.
 2. **Do not present planned capability as shipped.** Semantic knowledge graphs,
    machine-actionable provenance, digital-twin integration and autonomous
    research agents are long-term direction. Label them, or the test fails.
-3. **Use the shared vocabulary** (issue #330): *scientific infrastructure* rather
-   than only "Python library"; *VEST reference implementation* without implying
+3. **Use the shared vocabulary** (issues #330, #529): *scientific framework*
+   rather than only "Python library" — the word the READMEs, the site and the
+   repository's About text all use; *VEST reference implementation* without implying
    VAFT is VEST-only; *validated / analysis-ready data*; *traceable and
    reproducible*; *machine-agnostic tokamak research*. VAFT **interoperates
    with** community physics codes — it does not own or embed them.
@@ -264,6 +266,16 @@ python notebooks/_clean_outputs.py notebooks/*.ipynb
 ```bash
 python -m pip install -e ".[dev]"
 ```
+
+Before pushing a pull request into `develop`, run what gates it:
+
+```bash
+python -m pytest -q -m "core and not perf"
+```
+
+The whole suite is release qualification rather than a pre-push step — it is what
+the `main` gate runs, on Linux and on Windows, and what runs on the push to
+`develop` after a PR lands. Run it when you want that answer:
 
 ```bash
 python -m pytest -q
@@ -285,14 +297,9 @@ suite.
 | `perf` | performance budgets, calibrated against the Linux runner class | the full Linux suite only — deselected on Windows and in the `develop` gate |
 | `integration` | opt-in read-only HSDS or IMAS access | wherever the resource is reachable; self-skips otherwise |
 
-To run what gates a PR into `develop`, before pushing:
-
-```bash
-python -m pytest -q -m "core and not perf"
-```
-
-`perf` is deselected there for the same reason the Windows leg drops it: a
-wall-clock ratio is the last thing to trust in a job built to be quick.
+The develop gate is `-m "core and not perf"`, the command at the top of this
+section. `perf` is deselected there for the same reason the Windows leg drops it:
+a wall-clock ratio is the last thing to trust in a job built to be quick.
 
 `core` is not written into test modules by hand. It is one declared list in
 [`test/core_selection.py`](test/core_selection.py), applied during collection by

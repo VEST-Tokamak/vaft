@@ -621,6 +621,33 @@ class PlasmaTiming:
             return None
         return (float(self.onset), float(self.offset))
 
+    @property
+    def chosen(self) -> PulseWindow | None:
+        """The detector window ``source`` names, or ``None`` when none was used.
+
+        Named explicitly rather than "the current when it says ip, otherwise
+        the light": a source this class has not heard of must resolve to
+        nothing, not to whichever window happens to be the fallback.
+        """
+        if self.source == SOURCE_IP:
+            return self.ip
+        if self.source in (SOURCE_H_PRIMARY, SOURCE_H_FAST, SOURCE_H_SECONDARY):
+            return self.optical
+        return None
+
+    @property
+    def duty_cycle(self) -> float | None:
+        """How much of the window the chosen detector was actually above threshold.
+
+        The window is the envelope of that detector's segments: on a record of
+        two brief flashes tens of milliseconds apart it spans both and the
+        quiet between them.  ``onset`` and ``offset`` alone cannot say which
+        of the two a window is, and consumers read their difference as a
+        duration (issue #752).
+        """
+        window = self.chosen
+        return None if window is None else window.duty_cycle
+
     def summary(self) -> dict[str, Any]:
         """What a metrics record or a manifest carries: the verdict and its provenance."""
         return {
@@ -631,6 +658,7 @@ class PlasmaTiming:
             "onset_delta_s": self.onset_delta_s,
             "offset_delta_s": self.offset_delta_s,
             "fallback_reason": self.fallback_reason,
+            "duty_cycle": self.duty_cycle,
             "flags": list(self.flags),
             "ip_window": None if self.ip is None or not self.ip.found else [self.ip.start, self.ip.end],
         }

@@ -4,9 +4,9 @@ Low-level OMAS--IMAS conversion machinery intentionally stays private in
 ``omas_imas``.  The public API detects local source formats automatically.
 
 Plotting adapters (``plot_<canonical-stem>``, ``available_plots``,
-``normalize_entries``, ``IDSEntry``) live in ``.plotting`` / ``.access`` and
-are resolved lazily, so importing ``vaft.imas`` does not pull in Matplotlib
-(issue #63).
+``normalize_entries``, ``IDSEntry``) and their ``dd_<stem>``/``extract_<stem>``
+twins (umbrella #434) live in ``.plotting`` / ``.access`` and are resolved
+lazily, so importing ``vaft.imas`` does not pull in Matplotlib (issue #63).
 """
 
 from pathlib import Path
@@ -37,7 +37,7 @@ def __getattr__(name):
 
     if name in _ACCESS_NAMES:
         value = getattr(import_module(".access", __name__), name)
-    elif name in _PLOTTING_NAMES or name.startswith("plot_"):
+    elif name in _PLOTTING_NAMES or name.startswith(("plot_", "dd_", "extract_")):
         plotting = import_module(".plotting", __name__)
         if name == "plotting":
             value = plotting

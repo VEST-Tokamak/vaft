@@ -41,15 +41,23 @@ TITLE = "GACODE environment check"
 RERUN = "python install/check_gacode.py"
 PROJECT = "GACODE"
 
-#: Suite members VAFT can drive today. TGLF and CGYRO are issue #553.
-CODES = ("neo",)
+#: Suite members VAFT can drive today. CGYRO is still issue #553.
+CODES = ("neo", "tglf")
 
 #: What a GACODE checkout looks like.
-SOURCE_MARKERS = ("Makefile", "shared/bin/gacode_setup", "platform/build", "neo/src")
+SOURCE_MARKERS = (
+    "Makefile", "shared/bin/gacode_setup", "platform/build", "neo/src", "tglf/src",
+)
+
+#: The recipe that works on this platform. GACODE has one per platform and they
+#: are not interchangeable -- macos.sh resolves its dependencies through
+#: Homebrew, linux.sh through the distribution -- so naming the wrong one sends
+#: the reader to a script that cannot run where they are.
+RECIPE = "install/gacode/macos.sh" if sys.platform == "darwin" else "install/gacode/linux.sh"
 
 BUILD_REMEDIATION = (
     "Build GACODE with:\n"
-    "         bash external/gacode/macos.sh --gacode-root <source> --check"
+    f"         bash {RECIPE} --gacode-root <source> --check"
 )
 
 
@@ -161,8 +169,18 @@ def check_vaft_discovery(prefix: Optional[str]) -> CheckResult:
     previous = os.environ.get("GACODEHOME")
     if prefix:
         os.environ["GACODEHOME"] = str(prefix)
+    resolved: dict[str, str] = {}
     try:
-        resolved = gacode.find_gacode_executable(gacode.GACODEConfig(), "neo")
+        for code in CODES:
+            found = gacode.find_gacode_executable(gacode.GACODEConfig(), code)
+            if found is None:
+                return CheckResult(
+                    label,
+                    FAIL,
+                    "GACODEHOME is not configured, so VAFT has nothing to run",
+                    "Set GACODEHOME to the GACODE checkout you built.",
+                )
+            resolved[code] = str(found)
     except Exception as error:
         return CheckResult(label, FAIL, str(error), BUILD_REMEDIATION)
     finally:
@@ -172,14 +190,9 @@ def check_vaft_discovery(prefix: Optional[str]) -> CheckResult:
             else:
                 os.environ["GACODEHOME"] = previous
 
-    if resolved is None:
-        return CheckResult(
-            label,
-            FAIL,
-            "GACODEHOME is not configured, so VAFT has nothing to run",
-            "Set GACODEHOME to the GACODE checkout you built.",
-        )
-    return CheckResult(label, PASS, str(resolved))
+    return CheckResult(
+        label, PASS, "; ".join(f"{code}: {path}" for code, path in resolved.items())
+    )
 
 
 def check_regression(prefix: Optional[str], *, skip: bool) -> CheckResult:
@@ -205,7 +218,12 @@ def check_regression(prefix: Optional[str], *, skip: bool) -> CheckResult:
         from vaft.code.gacode._input_gacode import read_input_gacode
         from vaft.code.gacode.neo import NEOConfig, run_neo_case
     except Exception as error:  # pragma: no cover
-        return CheckResult(label, FAIL, f"the VAFT adapter could not be imported: {error}")
+        return CheckResult(
+            label,
+            FAIL,
+            f"the VAFT adapter could not be imported: {error}",
+            "Run install/check_vaft_environment.py first.",
+        )
 
     expected = float((case / "out.neo.prec").read_text().split()[0])
     scratch = tempfile.mkdtemp(prefix="vaft-gacode-reg18-")
@@ -239,19 +257,44 @@ def check_regression(prefix: Optional[str], *, skip: bool) -> CheckResult:
 
 
 def check_imas_mapping() -> CheckResult:
-    """State plainly which half of the picture exists.
+    """State plainly which suite results reach an IDS and which do not.
 
-    A checker reporting only green would suggest NEO results reach IMAS. They do
-    not yet: the native container is complete, and the audit that decides which
-    quantities have a defensible IDS home is deliberately still open.
+    A checker reporting only green would suggest every GACODE output is available
+    through IMAS. Most are not, and deliberately so: the mapping is audited by
+    physical definition, and a quantity without a defensible home stays in the
+    native container rather than being written to a field that merely sounds
+    right.
     """
+    try:
+        from vaft.code.gacode.neo import run_neo_conductivity_case  # noqa: F401
+        from vaft.machine_mapping.neoclassical import (  # noqa: F401
+            core_profiles_from_neo,
+            core_transport_from_neo,
+        )
+        from vaft.machine_mapping.turbulence import (  # noqa: F401
+            core_transport_from_tglf,
+        )
+    except Exception as error:  # pragma: no cover - import environment problem
+        return CheckResult(
+            "IMAS mapping",
+            FAIL,
+            f"the GACODE IDS mappings could not be imported: {error}",
+            "Run install/check_vaft_environment.py first.",
+        )
     return CheckResult(
         "IMAS mapping",
         WARN,
-        "NEO results stop at the native NeoOutputs container; nothing is written to an IDS",
-        "Expected. The core_profiles/core_transport mapping is phase 5 of issue #550 "
-        "and is audited by physical definition, not by field name. Read results through "
-        "vaft.code.gacode.neo.collect_neo_outputs.",
+        "NEO: bootstrap current and conductivity to core_profiles, particle/energy "
+        "fluxes to core_transport (neoclassical); TGLF: particle/energy fluxes to "
+        "core_transport (anomalous). Flows, the analytic theory columns, the turbulent "
+        "exchange power and the toroidal stress stay native",
+        "Expected. conductivity_parallel comes from a second, gradient-free run -- "
+        "run_neo_conductivity_case stages it, and core_profiles_from_neo takes it as "
+        "conductivity=. global_quantities.current_bootstrap is a toroidal current, not "
+        "the integral of the parallel one NEO writes. TGLF's exchange channel is a "
+        "power density and belongs in core_sources, and its toroidal stress is written "
+        "only when the run was given a rotation to predict one from. Read everything "
+        "else through collect_neo_outputs / collect_tglf_outputs.",
     )
 
 

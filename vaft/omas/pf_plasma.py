@@ -21,6 +21,8 @@ from typing import Any
 
 import numpy as np
 
+from vaft.ods_access import get_path, path_count, path_value
+
 __all__ = [
     "GEOMETRY_TYPE_RECTANGLE",
     "plasma_current_total",
@@ -91,22 +93,15 @@ def set_plasma_elements(
         ods[f"{base}.current"] = currents[i]
 
 
-def _count(ods: Any, path: str) -> int:
-    try:
-        return len(ods[path]) if path in ods else 0
-    except (KeyError, TypeError, ValueError):
-        return 0
-
-
 def plasma_current_total(ods: Any) -> tuple[np.ndarray, np.ndarray]:
     """``(time, sum of element currents)`` -- the plasma current the elements carry."""
-    n = _count(ods, "pf_plasma.element")
+    n = path_count(ods, "pf_plasma.element")
     if n == 0:
         raise ValueError("pf_plasma carries no elements")
-    time = np.asarray(ods["pf_plasma.time"], dtype=float)
+    time = np.asarray(get_path(ods, "pf_plasma.time"), dtype=float)
     total = np.zeros(time.size)
     for i in range(n):
-        total = total + np.asarray(ods[f"pf_plasma.element.{i}.current"], dtype=float)
+        total = total + np.asarray(get_path(ods, f"pf_plasma.element.{i}.current"), dtype=float)
     return time, total
 
 
@@ -120,7 +115,7 @@ def plasma_elements(ods: Any, time: float | None = None) -> dict[str, Any]:
     current, geometry_type``) plus ``time`` (the sample used), ``index``
     (its position) and ``total`` (the summed current there).
     """
-    n = _count(ods, "pf_plasma.element")
+    n = path_count(ods, "pf_plasma.element")
     if n == 0:
         raise ValueError("pf_plasma carries no elements")
     axis, total = plasma_current_total(ods)
@@ -130,22 +125,25 @@ def plasma_elements(ods: Any, time: float | None = None) -> dict[str, Any]:
     for i in range(n):
         base = f"pf_plasma.element.{i}"
         geometry = f"{base}.geometry"
-        kind = int(ods[f"{geometry}.geometry_type"]) if f"{geometry}.geometry_type" in ods else GEOMETRY_TYPE_RECTANGLE
-        if f"{geometry}.rectangle.r" in ods:
-            out["r"][i] = float(ods[f"{geometry}.rectangle.r"])
-            out["z"][i] = float(ods[f"{geometry}.rectangle.z"])
-            out["width"][i] = float(ods[f"{geometry}.rectangle.width"])
-            out["height"][i] = float(ods[f"{geometry}.rectangle.height"])
-        elif f"{geometry}.outline.r" in ods:
-            r = np.asarray(ods[f"{geometry}.outline.r"], dtype=float)
-            z = np.asarray(ods[f"{geometry}.outline.z"], dtype=float)
+        kind = int(path_value(ods, f"{geometry}.geometry_type", GEOMETRY_TYPE_RECTANGLE))
+        rectangle_r = path_value(ods, f"{geometry}.rectangle.r")
+        outline_r = None if rectangle_r is not None else path_value(ods, f"{geometry}.outline.r")
+        if rectangle_r is not None:
+            out["r"][i] = float(rectangle_r)
+            out["z"][i] = float(get_path(ods, f"{geometry}.rectangle.z"))
+            out["width"][i] = float(get_path(ods, f"{geometry}.rectangle.width"))
+            out["height"][i] = float(get_path(ods, f"{geometry}.rectangle.height"))
+        elif outline_r is not None:
+            r = np.asarray(outline_r, dtype=float)
+            z = np.asarray(get_path(ods, f"{geometry}.outline.z"), dtype=float)
             out["r"][i], out["z"][i] = float(r.mean()), float(z.mean())
             out["width"][i], out["height"][i] = float(np.ptp(r)), float(np.ptp(z))
         else:
             raise ValueError(f"{base} has neither a rectangle nor an outline geometry")
         out["geometry_type"][i] = kind
-        out["area"][i] = float(ods[f"{base}.area"]) if f"{base}.area" in ods else out["width"][i] * out["height"][i]
-        current = np.asarray(ods[f"{base}.current"], dtype=float)
+        area = path_value(ods, f"{base}.area")
+        out["area"][i] = float(area) if area is not None else out["width"][i] * out["height"][i]
+        current = np.asarray(get_path(ods, f"{base}.current"), dtype=float)
         out["current"][i] = float(current[index]) if current.size > index else float(current[-1])
     out["time"] = float(axis[index])
     out["index"] = index

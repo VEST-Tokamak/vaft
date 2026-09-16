@@ -123,6 +123,30 @@ def _offline_notebooks():
 OFFLINE_NOTEBOOKS = _offline_notebooks()
 
 
+@pytest.fixture
+def headless_matplotlib():
+    """Force the Agg backend for tests that execute notebook cells in-process.
+
+    `MPLBACKEND` is read when matplotlib is first imported and ignored after, so
+    setting it in a test does nothing once any earlier test in the same session has
+    imported matplotlib. On a machine with a display the backend is then the
+    interactive one, and the `plt.show()` in a notebook cell blocks in the GUI event
+    loop -- forever, with the run sitting at 0 % CPU.
+
+    CI never sees it because a headless runner falls back to Agg on its own, which is
+    exactly why it has to be forced here rather than left to the environment: the
+    failure only reaches a developer, and only when files are run in the right order.
+    """
+    import matplotlib
+
+    previous = matplotlib.get_backend()
+    matplotlib.use("Agg", force=True)
+    try:
+        yield
+    finally:
+        matplotlib.use(previous, force=True)
+
+
 @pytest.mark.parametrize(
     "name, environment", OFFLINE_NOTEBOOKS, ids=[name for name, _ in OFFLINE_NOTEBOOKS]
 )
@@ -169,7 +193,7 @@ def test_parametric_equilibrium_notebooks_execute_offline(name, monkeypatch):
     ).execute()
 
 
-def test_nubeam_notebook_explains_itself_without_a_run(monkeypatch, capsys):
+def test_nubeam_notebook_explains_itself_without_a_run(headless_matplotlib, monkeypatch, capsys):
     """The NUBEAM notebook cannot execute in CI, so cover the path that can.
 
     It runs NUBEAM itself, and CI has no NUBEAM installation. What must hold
@@ -210,6 +234,198 @@ def test_nubeam_notebook_explains_itself_without_a_run(monkeypatch, capsys):
         and "HAVE_RUN" not in cell.source
     ]
     assert not guardless, guardless
+
+
+def test_neo_notebook_explains_itself_without_a_run(headless_matplotlib, monkeypatch, capsys):
+    """The NEO notebook cannot execute in CI, so cover the path that can.
+
+    It runs NEO, and CI has no GACODE installation. What must hold regardless is
+    that the notebook says so and carries on rather than raising -- and, unlike
+    the NUBEAM case, that it still produces something: the analytic models are
+    pure VAFT and do not need the solver, so the comparison degrades to
+    Sauter-against-Redl instead of going blank.
+
+    The packaged kinetic state is resolved on this path too, so a sample that
+    went missing fails here rather than only on a machine that has GACODE.
+    """
+    import vaft
+
+    sample = Path(vaft.data.data_path("kineticEfit/ods_48224_300ms.json"))
+    if not sample.exists():  # pragma: no cover - repository-only asset
+        pytest.skip("the packaged 48224 kinetic sample is a repository-only asset")
+
+    book = nbformat.read(NOTEBOOKS / "neoclassical_transport_with_neo.ipynb", as_version=4)
+    for name in ("GACODEHOME", "GACODE_ROOT", "GACODE_PLATFORM"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+
+    # Every code cell, in order: the offline path is the whole notebook, so
+    # running a chosen subset would let a cell that raises here go unseen.
+    namespace: dict = {}
+    for number, cell in enumerate(book.cells):
+        if cell.cell_type != "code":
+            continue
+        exec(compile(cell.source, f"neo:cell{number}", "exec"), namespace)
+
+    assert namespace["HAVE_GACODE"] is False
+    assert namespace["HAVE_RUN"] is False
+    assert namespace["RUN_DIR"] is None
+    assert namespace["SAMPLE"].is_file()
+    # The conversion is pure VAFT, so it runs here and the notebook is not empty.
+    assert namespace["profile"].n_exp > 2
+    assert set(namespace["models"]["series"]) == {"sauter", "redl"}
+
+    printed = capsys.readouterr().out
+    assert "GACODEHOME" in printed
+    assert "Would run NEO" in printed
+
+    # Anything reading the solver's native container must be guarded, or it
+    # would raise on that False.
+    guardless = [
+        cell.source
+        for cell in book.cells
+        if cell.cell_type == "code"
+        and "native." in cell.source
+        and "HAVE_RUN" not in cell.source
+    ]
+    assert not guardless, guardless
+
+
+def _tglf_notebook():
+    return nbformat.read(NOTEBOOKS / "turbulent_transport_with_tglf.ipynb", as_version=4)
+
+
+def _run_every_cell(book, label):
+    """Execute a notebook's code cells in order in one namespace.
+
+    The whole notebook is the subject: running a chosen subset would let a cell
+    that raises go unseen, which is exactly the failure these tests exist for.
+    """
+    namespace: dict = {}
+    for number, cell in enumerate(book.cells):
+        if cell.cell_type == "code":
+            exec(compile(cell.source, f"{label}:cell{number}", "exec"), namespace)
+    return namespace
+
+
+def test_tglf_notebook_explains_itself_without_a_run(
+    headless_matplotlib, monkeypatch, tmp_path, capsys
+):
+    """With nothing installed at all, the notebook still computes its finding.
+
+    Unlike the NEO notebook this one has two independent capabilities -- a built
+    GACODE and a set of model artifacts -- so "offline" means neutralising both.
+    The model half needs care: VAFT finds a TurbulentTransport.jl checkout in a
+    Julia depot *with no variable set*, so `JULIA_DEPOT_PATH` is pointed at an
+    empty directory rather than deleted. Deleting it would fall back to the
+    developer's real home and this test would silently stop testing the path a
+    reader with nothing installed takes.
+
+    What must survive both absences is the number the notebook's whole argument
+    rests on: T_i/T_e at the reference surface is computed from a file in this
+    repository and needs neither the solver nor a network.
+    """
+    import vaft
+
+    sample = Path(vaft.data.data_path("kineticEfit/ods_48224_300ms.json"))
+    if not sample.exists():  # pragma: no cover - repository-only asset
+        pytest.skip("the packaged 48224 kinetic sample is a repository-only asset")
+
+    for name in ("GACODEHOME", "GACODE_ROOT", "GACODE_PLATFORM",
+                 "TURBULENTTRANSPORTHOME", "TURBULENTTRANSPORT_ROOT"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("JULIA_DEPOT_PATH", str(tmp_path / "empty-depot"))
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+
+    book = _tglf_notebook()
+    namespace = _run_every_cell(book, "tglf")
+
+    assert namespace["HAVE_GACODE"] is False
+    assert namespace["HAVE_MODELS"] is False
+    assert namespace["HAVE_RUN"] is False
+    assert namespace["HAVE_AUDIT"] is False
+    assert namespace["HAVE_PREDICTION"] is False
+    assert namespace["RUN_DIR"] is None
+    assert namespace["SAMPLE"].is_file()
+
+    # The half that needs neither capability, and is the reason the notebook is
+    # worth opening on a machine with nothing installed.
+    assert namespace["profile"].n_exp > 2
+    assert set(namespace["LOCALS"]) == set(namespace["RADII"])
+    assert len(namespace["parameters"]) > 100
+    assert namespace["TI_TE_AT_HALF_RADIUS"] == pytest.approx(0.0866, abs=5e-4)
+
+    printed = capsys.readouterr().out
+    assert "GACODEHOME" in printed
+    assert "TURBULENTTRANSPORTHOME" in printed
+    assert "Would run TGLF" in printed
+    assert "Would audit" in printed
+    # The finding itself, computed offline from packaged data. This is the
+    # assertion that fails loudly if the converter, the sample or the reference
+    # radius ever changes under the notebook's claim.
+    assert "0.087" in printed
+
+    # Each marker is paired with the flag that actually makes it safe, not
+    # merely with a plausible one: `run_surrogate` raises without onnxruntime,
+    # so `HAVE_RUNTIME` is the guard -- and CI installs the extra, so a cell
+    # guarded on anything else would pass here and fail for a reader who did
+    # not install it.
+    for marker, flag in (("outputs_native", "HAVE_RUN"),
+                         ("run_surrogate(", "HAVE_RUNTIME"),
+                         ("ensemble_predict(", "HAVE_RUNTIME"),
+                         ("REFERENCE_FAMILY", "HAVE_AUDIT")):
+        guardless = [
+            cell.source
+            for cell in book.cells
+            if cell.cell_type == "code" and marker in cell.source
+            and flag not in cell.source
+        ]
+        assert not guardless, (marker, guardless)
+
+
+def test_tglf_notebook_audits_every_public_family_without_gacode(
+    headless_matplotlib, monkeypatch, capsys
+):
+    """The audit half needs the artifacts but not the solver, and says no.
+
+    This is the claim the notebook exists to make, held where it can actually be
+    checked: on a machine carrying TurbulentTransport.jl, with GACODE deleted.
+    """
+    import vaft
+    from vaft.code.gacode.tglf import surrogate
+
+    if not surrogate.available_models():
+        pytest.skip(
+            "needs a TurbulentTransport.jl checkout; VAFT vendors no model weights"
+        )
+    sample = Path(vaft.data.data_path("kineticEfit/ods_48224_300ms.json"))
+    if not sample.exists():  # pragma: no cover - repository-only asset
+        pytest.skip("the packaged 48224 kinetic sample is a repository-only asset")
+
+    for name in ("GACODEHOME", "GACODE_ROOT", "GACODE_PLATFORM"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+
+    namespace = _run_every_cell(_tglf_notebook(), "tglf-audit")
+
+    assert namespace["HAVE_GACODE"] is False
+    assert namespace["HAVE_RUN"] is False
+    assert namespace["HAVE_MODELS"] is True
+    assert namespace["HAVE_AUDIT"] is True
+
+    audits = namespace["AUDITS"]
+    assert len(audits) >= 3, audits
+    assert all(not audit.in_domain for audit in audits.values())
+    assert all(
+        any(name.startswith("TAUS") for name in audit.violations)
+        for audit in audits.values()
+    ), {name: audit.violations for name, audit in audits.items()}
+
+    # The refusal is shown rather than swallowed: this is run_surrogate's own text.
+    if namespace["HAVE_PREDICTION"]:
+        assert "refusing to predict outside the training distribution" in (
+            capsys.readouterr().out
+        )
 
 
 def test_fluctuation_notebook_configured_ods_branch(monkeypatch, tmp_path):

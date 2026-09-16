@@ -48,10 +48,13 @@ class NEOConfig(GACODEConfig):
         discretisation error, so a convergence scan is the caller's job and
         these are the knobs for it.
     n_radial
-        Number of radial points solved. With ``PROFILE_MODEL=2`` these are
-        placed relative to ``rmin_over_a``.
-    rmin_over_a
-        Normalised minor radius of the (first) surface to solve.
+        Number of radial points solved.
+    rmin_over_a, rmin_over_a_2
+        The surfaces to solve, as normalised minor radius. With
+        ``n_radial == 1`` only the first is used; beyond that NEO spaces
+        ``n_radial`` points linearly between them
+        (``neo_make_profiles.f90:31``), which is how a profile rather than a
+        single surface is produced.
     collision_model
         4 is the full linearised Fokker-Planck operator.
     profile_model
@@ -71,6 +74,7 @@ class NEOConfig(GACODEConfig):
     n_theta: int = 17
     n_radial: int = 1
     rmin_over_a: float = 0.5
+    rmin_over_a_2: float = 0.6
     collision_model: int = 4
     profile_model: int = PROFILE_MODEL_EXPERIMENTAL
     profile_erad0_model: int = 1
@@ -87,11 +91,18 @@ class NEOConfig(GACODEConfig):
         for name in ("n_energy", "n_xi", "n_theta", "n_radial"):
             if int(getattr(self, name)) < 1:
                 raise ValueError(f"{name} must be at least 1; got {getattr(self, name)!r}")
-        if not 0.0 < float(self.rmin_over_a) < 1.0:
+        for name in ("rmin_over_a", "rmin_over_a_2"):
+            value = float(getattr(self, name))
+            if not 0.0 < value < 1.0:
+                raise ValueError(
+                    f"{name} must lie in (0, 1); got {value!r}. NEO solves a flux "
+                    "surface, and neither the axis nor the separatrix is one."
+                )
+        if int(self.n_radial) > 1 and float(self.rmin_over_a_2) <= float(self.rmin_over_a):
             raise ValueError(
-                f"rmin_over_a must lie in (0, 1); got {self.rmin_over_a!r}. "
-                "NEO solves a flux surface, and neither the axis nor the "
-                "separatrix is one."
+                f"rmin_over_a_2 ({self.rmin_over_a_2!r}) must exceed rmin_over_a "
+                f"({self.rmin_over_a!r}) when n_radial > 1: NEO spaces the surfaces "
+                "linearly between them."
             )
         # NEO's own limits (neo/src/neo_check.f90), refused here so that the
         # message names the setting rather than arriving through out.neo.run.

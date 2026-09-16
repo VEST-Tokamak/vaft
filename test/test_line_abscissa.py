@@ -30,10 +30,12 @@ from vaft.plot.backend.recipes import (
 )
 from vaft.plot.models import LineSeries, Panels
 
+from _sample_fixtures import sample_ods
+
 
 @pytest.fixture(scope="module")
 def sample():
-    return vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    return sample_ods(39915)
 
 
 @pytest.fixture(scope="module")

@@ -14,10 +14,14 @@ serves every data model.  The recipes mirror the ``required_paths`` that
 :mod:`vaft.plot.registry` publishes, so the declared data requirements and
 the actual reads cannot drift apart.
 
-The ``CallableRecipe`` builders are the one known impurity: they hand the
-object to ``vaft.omas`` / ``vaft.process`` functions written for an ODS, so a
-non-OMAS namespace converts the IDS such a plot declares before calling
-them (see ``vaft.imas``).  Those imports are function-local; nothing here
+A ``CallableRecipe`` computes its view instead of reading it.  Each one
+declares the paths its builder and helpers read (``reads``) and how it reads
+them (``backend``, issue #439): a *neutral* builder goes through the accessor
+only and is handed any data model as it is; an *OMAS-bound* one hands the
+object to ``vaft.omas`` / ``vaft.process`` functions written for an ODS --
+they write, deep-copy or subscript it -- so a non-OMAS namespace converts the
+IDS such a plot declares before calling them (see ``vaft.imas``), and
+``reason`` names the helper.  Those imports are function-local; nothing here
 imports ``omas`` or ``imas`` at module level.
 """
 
@@ -36,6 +40,7 @@ import numpy as np
 # One shared non-mutating accessor, dispatched on the object (issues #118, #63).
 from vaft.plot.backend.access import array as _array, count as _count, get as _get, has as _has
 
+from vaft.plot.intent import palette
 from vaft.plot.presentation import EQUILIBRIUM_ROLE
 from vaft.plot.models import (
     Field2D,
@@ -80,6 +85,10 @@ __all__ = [
     "required_ids",
     "SpectrogramRecipe",
     "build_model",
+    "expand_template",
+    "is_lazy_ods",
+    "materialise_reads",
+    "materialises_for_builder",
     "diagnoses_itself",
     "entry_supports",
     "missing_required_path",
@@ -849,6 +858,19 @@ class PowerSpectrumRecipe:
     value_label: str = "PSD"
 
 
+#: How a computed view reads its input (issue #439).  ``NEUTRAL``: every read
+#: goes through :mod:`vaft.plot.backend.access` or a ``vaft.omas`` helper that
+#: reads through :mod:`vaft.ods_access` (both dispatch on the object), so an
+#: OMAS ODS, a native IMAS entry and a lazy remote handle are all handed to the
+#: builder as they are.
+#: ``OMAS_BOUND``: the builder passes the object to a helper that writes,
+#: deep-copies or subscripts an OMAS ODS, so a convertible input is converted
+#: first (:func:`_ods_for_callable`).
+NEUTRAL = "neutral"
+OMAS_BOUND = "omas"
+BACKENDS = (NEUTRAL, OMAS_BOUND)
+
+
 @dataclass(frozen=True)
 class CallableRecipe:
     """A plot whose extraction needs real computation, not just path reads.
@@ -861,11 +883,29 @@ class CallableRecipe:
     reason the input cannot serve the plot, or ``None`` when it can, and
     :func:`missing_required_path` consults it after the declared paths, so
     discovery never advertises a plot that would then raise.
+
+    ``reads`` are the IMAS-DD path templates the builder and every helper it
+    calls read (``{i}``/``{j}`` for an enumerated index, a digit for a fixed
+    one; leaves, never containers).  It is a declaration for ``dd_*`` and the
+    completeness tests, not a gate: availability stays with the registry
+    spec's ``required_paths`` and ``available``.  ``backend`` is one of
+    :data:`BACKENDS`; an OMAS-bound recipe names in ``reason`` the helper that
+    binds it, a neutral one carries no reason.
     """
 
     builder: Any
     description: str = ""
     available: Any = None
+    reads: tuple[str, ...] = ()
+    backend: str = OMAS_BOUND
+    reason: str = ""
+
+    def __post_init__(self) -> None:
+        if self.backend not in BACKENDS:
+            raise ValueError(f"CallableRecipe.backend must be one of {BACKENDS}; got {self.backend!r}")
+        if self.backend == NEUTRAL and self.reason:
+            raise ValueError("a neutral CallableRecipe carries no reason; reason names an OMAS-bound helper")
+        object.__setattr__(self, "reads", tuple(self.reads))
 
 
 @dataclass(frozen=True)
@@ -966,6 +1006,229 @@ def _nbi_profile_builder(**spec):
 
     return builder
 
+
+# ---------------------------------------------------------------------------
+# What the computed views read (issue #439): the templates their builders and
+# helpers touch, shared where several builders share a helper.
+# ---------------------------------------------------------------------------
+
+_WALL_LIMITER_READS = (
+    "wall.description_2d.0.limiter.unit.{i}.outline.r",
+    "wall.description_2d.0.limiter.unit.{i}.outline.z",
+)
+_WALL_VESSEL_READS = (
+    "wall.description_2d.0.vessel.unit.{i}.annular.outline_inner.r",
+    "wall.description_2d.0.vessel.unit.{i}.annular.outline_outer.r",
+    "wall.description_2d.0.vessel.unit.{i}.annular.centreline.r",
+    "wall.description_2d.0.vessel.unit.{i}.element.{j}.outline.r",
+)
+
+
+def _element_reads(base: str) -> tuple[str, ...]:
+    """What :func:`_element_outlines` reads under ``base`` (a coil or a loop)."""
+    return tuple(
+        f"{base}.element.{{j}}.geometry.{leaf}"
+        for leaf in ("outline.r", "outline.z", "rectangle.r", "rectangle.z", "rectangle.width", "rectangle.height")
+    )
+
+
+_PF_COIL_READS = _element_reads("pf_active.coil.{i}") + ("pf_active.coil.{i}.name",)
+_PF_PASSIVE_READS = _element_reads("pf_passive.loop.{i}")
+_CAMERA_FRAME_READS = (
+    "camera_visible.channel.{i}.detector.{j}.frame.{k}.image_raw",
+    "camera_visible.channel.{i}.detector.{j}.frame.{k}.time",
+)
+
+
+def _impa_reads(*quantities: str) -> tuple[str, ...]:
+    """What the IMPA builders read: the probe with an ``impa:`` identifier on either node."""
+    reads: list[str] = []
+    for node in ("magnetics.b_field_tor_probe", "magnetics.b_field_pol_probe"):
+        reads += [f"{node}.{{i}}.identifier", f"{node}.{{i}}.name"]
+        for quantity in quantities:
+            reads += [f"{node}.{{i}}.{quantity}.data", f"{node}.{{i}}.{quantity}.time"]
+    return (*reads, "magnetics.time")
+
+
+def _nbi_reads(field: str) -> tuple[str, ...]:
+    return (
+        "core_sources.source.{i}.identifier.index",
+        "core_sources.source.{i}.identifier.name",
+        "core_sources.source.{i}.profiles_1d.{j}.grid.rho_tor_norm",
+        f"core_sources.source.{{i}}.profiles_1d.{{j}}.{field}",
+    )
+
+
+def _geometry_reads(*names: str) -> tuple[str, ...]:
+    """The outline and label templates of the named ``GeometryRecipe`` entries."""
+    reads: list[str] = []
+    for name in names:
+        for _kind, r_template, z_template, _container, label_template, _style in RECIPES[name].layers:
+            reads += [r_template, z_template]
+            if "." in label_template:
+                reads.append(label_template)
+    return tuple(reads)
+
+
+def _topview_reads() -> tuple[str, ...]:
+    """What :func:`_topview_diagnostic_layers` reads for every diagnostic family."""
+    reads: list[str] = []
+    for container, _label, kind, _style in _TOPVIEW_DIAGNOSTICS:
+        if kind == "segments":
+            for point in ("first_point", "second_point"):
+                reads += [f"{container}.{{i}}.line_of_sight.{point}.r", f"{container}.{{i}}.line_of_sight.{point}.phi"]
+        elif container in _LISTED_POSITIONS:
+            reads += [f"{container}.{{i}}.position.{{j}}.r", f"{container}.{{i}}.position.{{j}}.phi"]
+        else:
+            reads += [f"{container}.{{i}}.position.r", f"{container}.{{i}}.position.phi"]
+    return tuple(reads)
+
+
+#: The EFIT constraint families vaft.omas.efit_quality reads, per slice.
+_EFIT_CONSTRAINT_READS = tuple(
+    f"equilibrium.time_slice.{{i}}.constraints.{family}.{leaf}"
+    for family in ("bpol_probe.{j}", "flux_loop.{j}", "pf_current.{j}")
+    for leaf in ("measured", "measured_error_upper", "reconstructed", "chi_squared", "weight", "source", "exact")
+) + tuple(
+    f"equilibrium.time_slice.{{i}}.constraints.{family}.{leaf}"
+    for family in ("ip", "diamagnetic_flux")
+    for leaf in ("measured", "measured_error_upper", "reconstructed", "chi_squared", "weight")
+) + (
+    "equilibrium.time_slice.{i}.constraints.b_field_tor_vacuum_r.measured",
+    "equilibrium.time_slice.{i}.constraints.b_field_tor_vacuum_r.measured_error_upper",
+    "equilibrium.time_slice.{i}.convergence.iterations_n",
+    "equilibrium.time_slice.{i}.convergence.grad_shafranov_deviation_value",
+    "equilibrium.time_slice.{i}.time",
+    "equilibrium.time",
+    "equilibrium.code.parameters",
+)
+
+#: The wall-mode basis and impedance helpers (vaft.omas.process_wrapper) read
+#: the conductor tables and the coupling matrices.
+_WALL_MODE_READS = (
+    *_PF_PASSIVE_READS, *_PF_COIL_READS,
+    "pf_active.coil.{i}.current.data", "pf_active.coil.{i}.current.time",
+    "pf_active.coil.{i}.identifier", "pf_active.coil.{i}.resistance",
+    "pf_active.coil.{i}.element.{j}.area", "pf_active.coil.{i}.element.{j}.turns_with_sign",
+    "pf_active.coil.{i}.element.{j}.geometry.geometry_type",
+    "pf_passive.loop.{i}.identifier", "pf_passive.loop.{i}.name",
+    "pf_passive.loop.{i}.resistance", "pf_passive.loop.{i}.resistivity",
+    "pf_passive.loop.{i}.element.{j}.area", "pf_passive.loop.{i}.element.{j}.identifier",
+    "pf_passive.loop.{i}.element.{j}.turns_with_sign",
+    "pf_passive.loop.{i}.element.{j}.geometry.geometry_type",
+    "pf_passive.code.parameters", "pf_passive.ids_properties.comment",
+    "pf_passive.ids_properties.provenance.node.{i}.path",
+    "pf_active.ids_properties.comment",
+    "em_coupling.mutual_passive_active", "em_coupling.mutual_passive_passive",
+    "em_coupling.code.parameters", "em_coupling.ids_properties.comment",
+    "wall.description_2d.0.limiter.type.index",
+    *_WALL_LIMITER_READS,
+)
+
+_MAGNETICS_SENSOR_READS = (
+    "magnetics.time",
+    "magnetics.flux_loop.{i}.flux.data", "magnetics.flux_loop.{i}.flux.time",
+    "magnetics.flux_loop.{i}.flux.validity", "magnetics.flux_loop.{i}.flux.validity_timed",
+    "magnetics.flux_loop.{i}.name",
+    "magnetics.flux_loop.{i}.position.{j}.r", "magnetics.flux_loop.{i}.position.{j}.z",
+    "magnetics.b_field_pol_probe.{i}.field.data", "magnetics.b_field_pol_probe.{i}.field.time",
+    "magnetics.b_field_pol_probe.{i}.field.validity", "magnetics.b_field_pol_probe.{i}.field.validity_timed",
+    "magnetics.b_field_pol_probe.{i}.name", "magnetics.b_field_pol_probe.{i}.poloidal_angle",
+    "magnetics.b_field_pol_probe.{i}.position.r", "magnetics.b_field_pol_probe.{i}.position.z",
+)
+
+#: The plasma-onset finders (vaft.omas.discharge_timing / find_breakdown_onset)
+#: read the current, the UV lines and the summary's time convention.
+_ONSET_READS = (
+    "magnetics.ip.{i}.data", "magnetics.ip.{i}.time",
+    "magnetics.ip.{i}.validity", "magnetics.ip.{i}.validity_timed", "magnetics.time",
+    "spectrometer_uv.time",
+    "spectrometer_uv.channel.{i}.processed_line.{j}.intensity.data",
+    "spectrometer_uv.channel.{i}.processed_line.{j}.intensity.time",
+    "spectrometer_uv.channel.{i}.processed_line.{j}.intensity.validity",
+    "spectrometer_uv.channel.{i}.processed_line.{j}.intensity.validity_timed",
+    "spectrometer_uv.channel.{i}.processed_line.{j}.label",
+    "spectrometer_uv.channel.{i}.processed_line.{j}.wavelength_central",
+    "summary.code.parameters",
+)
+
+_COIL_3D_READS = tuple(
+    f"coils_non_axisymmetric.coil.{{i}}.conductor.0.elements.{point}.{axis}"
+    for point in ("start_points", "end_points") for axis in ("r", "phi", "z")
+) + ("coils_non_axisymmetric.coil.{i}.name",)
+
+
+def _core_profile_field_reads(quantity: str) -> tuple[str, ...]:
+    return (
+        "equilibrium.time",
+        "equilibrium.time_slice.{i}.time",
+        "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1",
+        "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2",
+        "equilibrium.time_slice.{i}.profiles_2d.0.psi",
+        "equilibrium.time_slice.{i}.global_quantities.psi_axis",
+        "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+        "core_profiles.time",
+        "core_profiles.profiles_1d.{i}.time",
+        f"core_profiles.profiles_1d.{{i}}.electrons.{quantity}",
+        "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+        *_WALL_LIMITER_READS,
+    )
+
+
+def _mhd_linear_profile_reads(field: str) -> tuple[str, ...]:
+    base = "mhd_linear.time_slice.{i}.toroidal_mode.{j}"
+    return (
+        "mhd_linear.time", "mhd_linear.code.parameters",
+        f"{base}.n_tor", f"{base}.energy_perturbed", f"{base}.m_pol_dominant",
+        f"{base}.plasma.grid.dim1", f"{base}.plasma.grid.dim2",
+        f"{base}.plasma.{field}.real", f"{base}.plasma.{field}.imaginary",
+    )
+
+
+#: What the equilibrium helpers (as_equilibrium, the psi-convention probe, the
+#: derived-profile updaters) read off a slice beside the constraints.
+_EQUILIBRIUM_SLICE_READS = (
+    "equilibrium.code.parameters", "equilibrium.ids_properties.cocos",
+    "equilibrium.ids_properties.comment", "equilibrium.ids_properties.homogeneous_time",
+    "equilibrium.time", "equilibrium.time_slice.{i}.time",
+    "equilibrium.vacuum_toroidal_field.b0", "equilibrium.vacuum_toroidal_field.r0",
+    "equilibrium.time_slice.{i}.boundary.outline.r", "equilibrium.time_slice.{i}.boundary.outline.z",
+    "equilibrium.time_slice.{i}.global_quantities.ip",
+    "equilibrium.time_slice.{i}.global_quantities.b0",
+    "equilibrium.time_slice.{i}.global_quantities.major_radius",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.z",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.b_field_tor",
+    "equilibrium.time_slice.{i}.global_quantities.psi_axis",
+    "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+    "equilibrium.time_slice.{i}.global_quantities.q_axis",
+    "equilibrium.time_slice.{i}.global_quantities.q_95",
+    "equilibrium.time_slice.{i}.global_quantities.q_min.value",
+    "equilibrium.time_slice.{i}.global_quantities.q_min.rho_tor_norm",
+    "equilibrium.time_slice.{i}.profiles_1d.psi", "equilibrium.time_slice.{i}.profiles_1d.psi_norm",
+    "equilibrium.time_slice.{i}.profiles_1d.phi", "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
+    "equilibrium.time_slice.{i}.profiles_1d.q", "equilibrium.time_slice.{i}.profiles_1d.f",
+    "equilibrium.time_slice.{i}.profiles_1d.pressure",
+    "equilibrium.time_slice.{i}.profiles_1d.dpressure_dpsi", "equilibrium.time_slice.{i}.profiles_1d.f_df_dpsi",
+    "equilibrium.time_slice.{i}.profiles_1d.area", "equilibrium.time_slice.{i}.profiles_1d.volume",
+    "equilibrium.time_slice.{i}.profiles_1d.r_inboard", "equilibrium.time_slice.{i}.profiles_1d.r_outboard",
+    "equilibrium.time_slice.{i}.profiles_2d.0.grid_type.index",
+    "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1", "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2",
+    "equilibrium.time_slice.{i}.profiles_2d.0.psi", "equilibrium.time_slice.{i}.profiles_2d.0.j_tor",
+)
+
+#: What vaft.omas.efit_quality.efit_quality_metrics reads beside the constraints.
+_EFIT_QUALITY_READS = (
+    *_EFIT_CONSTRAINT_READS,
+    "equilibrium.time_slice.{i}.global_quantities.ip",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.z",
+    "equilibrium.time_slice.{i}.global_quantities.psi_axis",
+    "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+    "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1",
+    "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2",
+    "equilibrium.time_slice.{i}.profiles_2d.0.psi",
+)
 
 RECIPES: dict[str, Any] = {
     # --- magnetics -----------------------------------------------------------
@@ -1302,6 +1565,8 @@ RECIPES: dict[str, Any] = {
             heading="NBI electron heating",
         ),
         description="Beam power density to electrons, from a mapped NUBEAM result.",
+        reads=_nbi_reads("electrons.energy"),
+        backend=NEUTRAL,
     ),
     "nbi_profile_ion_heating": CallableRecipe(
         builder=_nbi_profile_builder(
@@ -1311,6 +1576,8 @@ RECIPES: dict[str, Any] = {
             heading="NBI ion heating",
         ),
         description="Beam power density to ions, from a mapped NUBEAM result.",
+        reads=_nbi_reads("total_ion_energy"),
+        backend=NEUTRAL,
     ),
     "nbi_profile_current_drive": CallableRecipe(
         builder=_nbi_profile_builder(
@@ -1320,6 +1587,8 @@ RECIPES: dict[str, Any] = {
             heading="NBI driven current",
         ),
         description="Beam-driven parallel current density, from a mapped NUBEAM result.",
+        reads=_nbi_reads("j_parallel"),
+        backend=NEUTRAL,
     ),
     "equilibrium_profile_pressure": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.pressure",
@@ -1473,7 +1742,7 @@ RECIPES: dict[str, Any] = {
                 "wall.description_2d.0.limiter.unit.{i}.outline.z",
                 "wall.description_2d.0.limiter.unit",
                 "",
-                {"color": "0.4"},
+                {"color": "feature:wall"},
             ),
         ),
         title="First Wall",
@@ -1486,7 +1755,7 @@ RECIPES: dict[str, Any] = {
                 "magnetics.flux_loop.{i}.position.0.z",
                 "magnetics.flux_loop",
                 "Flux Loops",
-                {"marker": "s", "markersize": 3, "color": "#377eb8"},
+                {"marker": "s", "markersize": 3, "color": palette(0)},
             ),
             (
                 "points",
@@ -1494,7 +1763,7 @@ RECIPES: dict[str, Any] = {
                 "magnetics.b_field_pol_probe.{i}.position.z",
                 "magnetics.b_field_pol_probe",
                 "B-field Probes",
-                {"marker": "x", "markersize": 4, "color": "#ff7f00"},
+                {"marker": "x", "markersize": 4, "color": palette(1)},
             ),
         ),
         title="Magnetic Diagnostics",
@@ -1508,7 +1777,7 @@ RECIPES: dict[str, Any] = {
                 "equilibrium.time_slice.{i}.boundary.outline.z",
                 "equilibrium.time_slice",
                 "",
-                {"color": "#e41a1c"},
+                {"color": "feature:boundary"},
             ),
         ),
         title="Plasma Boundary",
@@ -1561,6 +1830,8 @@ RECIPES: dict[str, Any] = {
     "interferometer_spectrogram": CallableRecipe(
         builder=lambda ods, **options: _build_interferometer_spectrogram(ods, **options),
         description="Time-frequency map of one interferometer channel's density fluctuation.",
+        reads=("interferometer.channel.{i}.n_e_line.data", "interferometer.channel.{i}.n_e_line.time", "interferometer.time", "interferometer.channel.{i}.name"),
+        backend=NEUTRAL,
     ),
     # --- power spectra -------------------------------------------------------
     "mirnov_spectrum": PowerSpectrumRecipe(
@@ -1619,6 +1890,8 @@ RECIPES: dict[str, Any] = {
     "passive_structure_time_current": CallableRecipe(
         builder=lambda ods, **options: _build_passive_current(ods, **options),
         description="Eddy current in the passive structure, summed over loops.",
+        reads=("pf_passive.time", "pf_passive.loop.{i}.current", "pf_passive.loop.{i}.name", "pf_passive.loop.{i}.identifier"),
+        backend=NEUTRAL,
     ),
     "current_overview": PanelRecipe(
         members=(
@@ -1674,14 +1947,20 @@ RECIPES: dict[str, Any] = {
     "impa_time_field": CallableRecipe(
         builder=lambda ods, **options: _build_impa_lines(ods, quantity="field", **options),
         description="Compensated internal Bz from the IMPA Hall-probe array.",
+        reads=_impa_reads("field"),
+        backend=NEUTRAL,
     ),
     "impa_time_voltage": CallableRecipe(
         builder=lambda ods, **options: _build_impa_lines(ods, quantity="voltage", **options),
         description="Raw IMPA Hall-probe voltages.",
+        reads=_impa_reads("voltage"),
+        backend=NEUTRAL,
     ),
     "impa_profile_field": CallableRecipe(
         builder=lambda ods, **options: _build_impa_tf_profile(ods, **options),
         description="IMPA measured field against probe radius with the 1/R model.",
+        reads=(*_impa_reads("field", "voltage"), "magnetics.b_field_tor_probe.{i}.position.r", "magnetics.b_field_pol_probe.{i}.position.r", "tf.coil.0.current.data", "tf.time"),
+        backend=NEUTRAL,
     ),
     "impa_overview": PanelRecipe(
         members=("impa_time_voltage", "impa_time_field",
@@ -1781,7 +2060,7 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
     )
     return Spectrogram.from_result(
         result,
-        max_frequency=options.get("max_frequency"),
+        max_frequency=_display_ceiling(result, options),
         cmap=options.get("cmap", "turbo"),
         title=_channel_label(ods, "interferometer.channel.{i}.name", index, f"channel {index}"),
         value_label="Fluctuation Magnitude",
@@ -1796,11 +2075,10 @@ def _toroidal_phase_channels(ods: Any) -> tuple[list[int], np.ndarray]:
     indices: list[int] = []
     angles: list[float] = []
     for index in range(_count(ods, _MIRNOV_PROBES)):
-        angle = None
-        for suffix in ("toroidal_angle", "position.phi"):
-            angle = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.{suffix}"))
-            if angle is not None:
-                break
+        # position.phi only: `toroidal_angle` is an orientation field in the DD
+        # and preferring it here is what hid a position being written into it
+        # (issue #725).
+        angle = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.position.phi"))
         if angle is None:
             continue
         signal = _array(ods, f"{_MIRNOV_PROBES}.{index}.voltage.data")
@@ -1809,6 +2087,70 @@ def _toroidal_phase_channels(ods: Any) -> tuple[list[int], np.ndarray]:
         indices.append(index)
         angles.append(float(angle))
     return indices, np.asarray(angles, dtype=float)
+
+
+#: Two probes count as one poloidal position within this distance, in metres.
+#: Positions come from a machine description in metres on a sub-metre machine,
+#: so this separates genuinely different mounting rows without splitting one
+#: row over a rounding difference.
+_PHASE_POSITION_TOLERANCE_M = 0.005
+
+
+def _poloidal_position_key(ods: Any, index: int) -> tuple[int, int] | None:
+    """Which poloidal mounting position a probe sits at, or ``None``.
+
+    ``None`` when the input does not say.  Those probes are kept together as
+    one group rather than dropped: an ODS that omits ``position.r``/``.z``
+    cannot be separated by poloidal position, and refusing to fit it would
+    reject synthetic and reduced inputs that are a single toroidal array by
+    construction.
+    """
+    r = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.position.r"))
+    z = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.position.z"))
+    if r is None or z is None:
+        return None
+    return (
+        int(round(r / _PHASE_POSITION_TOLERANCE_M)),
+        int(round(z / _PHASE_POSITION_TOLERANCE_M)),
+    )
+
+
+def _toroidal_phase_group(ods: Any) -> tuple[list[int], np.ndarray]:
+    """One poloidal position's probes: the set a toroidal mode fit may use.
+
+    A toroidal mode fit compares the phase of one mode at several toroidal
+    angles.  The model it minimises, ``phi = phi_0 - n * theta``, carries no
+    poloidal term, so probes at different poloidal positions bring a phase
+    difference it will absorb into ``n`` (issue #816).
+
+    Of the groups that span more than one toroidal angle, this takes the one
+    spanning the **most** angles, since that is what limits how well ``n`` can
+    be separated from its aliases; ties go to the group nearest the midplane,
+    then to the lowest probe index so the choice is deterministic.
+
+    On VEST that lands on the outboard array at ``r = 0.796``: the inboard,
+    side and outboard *equilibrium* arrays each sit at a single toroidal angle
+    and cannot support a fit at all, while the four phase-reference Mirnov
+    channels at ``z = +0.02`` span four angles and each row of the outboard
+    fluctuation array spans three.
+    """
+    indices, angles = _toroidal_phase_channels(ods)
+    groups: dict[tuple[int, int] | None, list[int]] = {}
+    for position, index in zip((_poloidal_position_key(ods, i) for i in indices), indices):
+        groups.setdefault(position, []).append(index)
+
+    def rank(item: tuple[tuple[int, int] | None, list[int]]) -> tuple[int, float, int]:
+        position, members = item
+        spanned = _distinct_toroidal_angles(
+            angles[[indices.index(index) for index in members]]
+        ).size
+        height = 0.0 if position is None else abs(position[1] * _PHASE_POSITION_TOLERANCE_M)
+        return (spanned, -height, -members[0])
+
+    if not groups:
+        return [], np.asarray([], dtype=float)
+    _, chosen = max(groups.items(), key=rank)
+    return chosen, angles[[indices.index(index) for index in chosen]]
 
 
 #: Two probes count as separated only beyond this angle, in degrees.  Stored
@@ -1854,10 +2196,11 @@ def _mirnov_phase_available(ods: Any) -> str | None:
     a fit that discovered this only while building would have been advertised
     already.
     """
-    indices, angles = _toroidal_phase_channels(ods)
+    indices, angles = _toroidal_phase_group(ods)
     if len(indices) < 2 or _distinct_toroidal_angles(angles).size < 2:
         return (
-            "two or more Mirnov probes at distinct toroidal angles, each carrying a waveform"
+            "two or more Mirnov probes at one poloidal position and distinct toroidal "
+            "angles, each carrying a waveform"
         )
     kept, _ = _shared_timebase_probes(ods, indices)
     if len(kept) < 2 or _distinct_toroidal_angles(
@@ -1893,7 +2236,7 @@ def _shared_timebase_probes(ods: Any, indices: Sequence[int]) -> tuple[list[int]
 
 
 #: One colour per fitted band, so a band and its fit are read together.
-_PHASE_BAND_COLOURS = ("#377eb8", "#e41a1c", "#4daf4a", "#984ea3", "#ff7f00")
+_PHASE_BAND_COLOURS = (palette(0), palette(8), palette(3), palette(2), palette(1))
 
 
 def _build_mirnov_spatial_phase(
@@ -1925,16 +2268,22 @@ def _build_mirnov_spatial_phase(
     """
     from vaft.process.magnetics import mirnov_preprocess_signal, toroidal_phase_fit_at_time
 
-    indices, angles = _toroidal_phase_channels(ods)
-    if channels is not None:
+    if channels is None:
+        # One poloidal position, chosen from the geometry (issue #816).
+        indices, angles = _toroidal_phase_group(ods)
+    else:
+        # An explicit choice is honoured across poloidal positions: the caller
+        # has named the probes and may be comparing rows deliberately. It is
+        # still checked against what the input actually offers.
+        candidates, candidate_angles = _toroidal_phase_channels(ods)
         wanted = [int(channel) for channel in np.atleast_1d(channels)]
-        unknown = [channel for channel in wanted if channel not in indices]
+        unknown = [channel for channel in wanted if channel not in candidates]
         if unknown:
             raise ValueError(
                 f"channels {unknown} carry no toroidal angle and waveform; this input "
-                f"offers {indices}"
+                f"offers {candidates}"
             )
-        angles = angles[[indices.index(channel) for channel in wanted]]
+        angles = candidate_angles[[candidates.index(channel) for channel in wanted]]
         indices = wanted
     reason = _mirnov_phase_available(ods) if channels is None else None
     if reason:
@@ -2215,7 +2564,7 @@ def _build_lines_of_sight(
                     if label_channels
                     else ("Soft X-ray LOS" if not layers else "")
                 ),
-                style={"lw": 0.8} if label_channels else {"lw": 0.6, "color": "#e6ab02"},
+                style={"lw": 0.8} if label_channels else {"lw": 0.6, "color": palette(7)},
             )
         )
     if include_wall:
@@ -2232,7 +2581,7 @@ def _wall_layers(ods: Any) -> list[GeometryLayer]:
         if r is None or z is None or r.size != z.size:
             continue
         layers.append(
-            GeometryLayer(r=r, z=z, kind="polygon", style={"color": "0.4", "lw": 1.0})
+            GeometryLayer(r=r, z=z, kind="polygon", style={"color": "feature:wall", "lw": 1.0})
         )
     return layers
 
@@ -2342,7 +2691,9 @@ def _build_pf_coil_geometry(ods: Any, *, collective: bool = False, **options: An
         if not outlines:
             continue
         name = _channel_label(ods, "pf_active.coil.{i}.name", index, f"PF{index + 1}")
-        color = "#d62728" if collective else f"C{index % 10}"
+        # A collective coil set is a feature; per-coil colours are Matplotlib's
+        # current cycle, which already follows a theme.
+        color = "feature:coil" if collective else f"C{index % 10}"
         for position, (r, z) in enumerate(outlines):
             if collective:
                 label = "" if labelled_set else "PF coils"
@@ -2382,7 +2733,7 @@ def _build_passive_structure_geometry(ods: Any, **options: Any) -> GeometryLayer
             layers.append(GeometryLayer(
                 r=r, z=z, kind="polygon",
                 label="" if layers else "Passive structure",
-                style={"color": "0.55", "lw": 0.5},
+                style={"color": "feature:passive", "lw": 0.5},
             ))
     if not layers:
         raise ValueError(
@@ -2446,7 +2797,7 @@ def _build_wall_mode_shape(ods: Any, **options: Any) -> GeometryLayers:
                 layers.append(GeometryLayer(
                     r=r, z=z, kind="polygon",
                     label="" if labelled_other else "other segments",
-                    style={"color": "0.75", "lw": 0.4},
+                    style={"color": "emphasis:faint", "lw": 0.4},
                 ))
                 labelled_other = True
     if not layers:
@@ -2485,7 +2836,7 @@ def _build_pf_plasma_geometry(ods: Any, **options: Any) -> GeometryLayers:
     wall_z = _array(ods, "wall.description_2d.0.limiter.unit.0.outline.z")
     if wall_r is not None and wall_z is not None and wall_r.size == wall_z.size and wall_r.size >= 3:
         layers.append(GeometryLayer(r=wall_r, z=wall_z, kind="polygon", label="limiter",
-                                    style={"color": "k", "lw": 0.8}))
+                                    style={"color": "feature:limiter", "lw": 0.8}))
     title = options.get(
         "title",
         f"plasma elements at t = {elements['time']:.4f} s: {elements['current'].size} elements, "
@@ -2519,7 +2870,7 @@ def _build_wall_mode_spectrum(ods: Any, **options: Any) -> Panels:
             global_tau = global_tau[:max_modes]
         series.append(Series(
             x=np.arange(1, global_tau.size + 1, dtype=float), y=global_tau,
-            label="whole wall", style={"color": "k", "lw": 1.5, "ls": "--"},
+            label="whole wall", style={"color": "role:reference", "lw": 1.5, "ls": "--"},
         ))
     panel = LineSeries(
         series=tuple(series), x_label="mode number within segment", y_label="decay time",
@@ -2663,7 +3014,7 @@ def _build_wall_reduction_map(ods: Any, **options: Any) -> Field2D:
     error = float(np.linalg.norm((reduced - full)[inside]) / max(np.linalg.norm(full[inside]), 1e-300))
     values = {"full": full, "reduced": reduced, "difference": reduced - full}[which]
     field = np.where(inside, values, np.nan).reshape(gz.shape)
-    overlay = GeometryLayer(r=outline_r, z=outline_z, label="limiter", style={"color": "k", "lw": 0.8})
+    overlay = GeometryLayer(r=outline_r, z=outline_z, label="limiter", style={"color": "feature:limiter", "lw": 0.8})
     n_levels = int(options.get("contour_levels", 15))
     if which == "difference":
         # Grid points next to a wall loop see that loop's own singular field,
@@ -2751,7 +3102,7 @@ def _build_equilibrium_topview(
         x, y = _ring(radius)
         layers.append(
             GeometryLayer(
-                r=x, z=y, kind="polyline", label=label, style={"color": "#e41a1c"}
+                r=x, z=y, kind="polyline", label=label, style={"color": "feature:boundary"}
             )
         )
     return GeometryLayers(
@@ -2783,45 +3134,54 @@ def _pellet_positions(ods: Any, time_slice: int) -> list[tuple[float, float]]:
 #: is ``points`` for a channel with a position, ``segments`` for one with a
 #: line of sight (first and second point projected onto the midplane), and
 #: ``rings`` for a toroidal loop (drawn as the circle at its radius).
+#: ``(container, label, kind, style)``; the flux loop is the one family whose
+#: ``position`` is a list of points, read at index 0 (issue #439).
 _TOPVIEW_DIAGNOSTICS: tuple[tuple[str, str, str, dict], ...] = (
     ("magnetics.flux_loop", "Flux loops", "rings",
-     {"color": "#377eb8", "lw": 0.6, "linestyle": ":"}),
+     {"color": palette(0), "lw": 0.6, "linestyle": ":"}),
     ("magnetics.b_field_pol_probe", "B-pol probes", "points",
-     {"marker": "x", "markersize": 4, "color": "#ff7f00"}),
+     {"marker": "x", "markersize": 4, "color": palette(1)}),
     ("magnetics.b_field_tor_probe", "B-tor probes", "points",
-     {"marker": "+", "markersize": 5, "color": "#984ea3"}),
+     {"marker": "+", "markersize": 5, "color": palette(2)}),
     ("thomson_scattering.channel", "Thomson scattering", "points",
-     {"marker": "o", "markersize": 3, "color": "#4daf4a"}),
+     {"marker": "o", "markersize": 3, "color": palette(3)}),
     ("charge_exchange.channel", "Charge exchange", "points",
-     {"marker": "d", "markersize": 3, "color": "#a65628"}),
+     {"marker": "d", "markersize": 3, "color": palette(4)}),
     ("langmuir_probes.embedded", "Langmuir probes", "points",
-     {"marker": "v", "markersize": 3, "color": "#f781bf"}),
+     {"marker": "v", "markersize": 3, "color": palette(5)}),
     ("barometry.gauge", "Pressure gauges", "points",
-     {"marker": "p", "markersize": 4, "color": "#999999"}),
+     {"marker": "p", "markersize": 4, "color": palette(6)}),
     ("interferometer.channel", "Interferometer", "segments",
-     {"color": "#377eb8", "lw": 0.8}),
+     {"color": palette(0), "lw": 0.8}),
     ("soft_x_rays.channel", "Soft X-ray LOS", "segments",
-     {"color": "#e6ab02", "lw": 0.6}),
+     {"color": palette(7), "lw": 0.6}),
     ("bolometer.channel", "Bolometer LOS", "segments",
-     {"color": "#e41a1c", "lw": 0.6}),
+     {"color": palette(8), "lw": 0.6}),
     ("spectrometer_uv.channel", "UV spectrometer LOS", "segments",
-     {"color": "#66a61e", "lw": 0.8}),
+     {"color": palette(9), "lw": 0.8}),
 )
 
 
+_LISTED_POSITIONS = ("magnetics.flux_loop",)
+
+
 def _toroidal_position(ods: Any, base: str) -> tuple[float, float] | None:
-    """``(r, phi)`` stored under ``base`` as a single or a first list point."""
-    for prefix in (base, f"{base}.0"):
-        radius = _get(ods, f"{prefix}.r")
-        phi = _get(ods, f"{prefix}.phi")
-        if radius is None or phi is None:
-            continue
-        try:
-            return (float(np.asarray(radius, dtype=float).ravel()[0]),
-                    float(np.asarray(phi, dtype=float).ravel()[0]))
-        except (IndexError, TypeError, ValueError):
-            continue
-    return None
+    """``(r, phi)`` stored under ``base``, the first point where the DD stores a list.
+
+    A flux loop's ``position`` is an array of structures and is read at index
+    0; every other family stores a single structure, so only the paths the
+    Data Dictionary defines are probed (issue #439).
+    """
+    prefix = f"{base}.0" if base.startswith(_LISTED_POSITIONS) and base.endswith(".position") else base
+    radius = _get(ods, f"{prefix}.r")
+    phi = _get(ods, f"{prefix}.phi")
+    if radius is None or phi is None:
+        return None
+    try:
+        return (float(np.asarray(radius, dtype=float).ravel()[0]),
+                float(np.asarray(phi, dtype=float).ravel()[0]))
+    except (IndexError, TypeError, ValueError):
+        return None
 
 
 def _topview_diagnostic_layers(ods: Any) -> list[GeometryLayer]:
@@ -2891,7 +3251,7 @@ def _build_machine_topview(
             layers.append(
                 GeometryLayer(
                     r=x, z=y, kind="polyline", label=label,
-                    style={"color": "0.4", "lw": 1.0},
+                    style={"color": "feature:wall", "lw": 1.0},
                 )
             )
     if _has(ods, "equilibrium"):
@@ -2936,7 +3296,7 @@ def _build_machine_topview(
                 z=[radius * np.sin(phi)],
                 kind="points",
                 label=f"Pellet {index}",
-                style={"marker": "*", "color": "#984ea3"},
+                style={"marker": "*", "color": palette(2)},
             )
         )
     if not layers:
@@ -3401,75 +3761,249 @@ def _build_coils_non_axisymmetric_topview(ods: Any, **_: Any) -> GeometryLayers:
 RECIPES["soft_x_rays_geometry_lines_of_sight"] = CallableRecipe(
     builder=_build_lines_of_sight,
     description="One polyline per detector line of sight, over the wall outline.",
+    reads=("soft_x_rays.channel.{i}.line_of_sight.first_point.r", "soft_x_rays.channel.{i}.line_of_sight.first_point.z", "soft_x_rays.channel.{i}.line_of_sight.second_point.r", "soft_x_rays.channel.{i}.line_of_sight.second_point.z", "soft_x_rays.channel.{i}.name", *_WALL_LIMITER_READS),
+    backend=NEUTRAL,
 )
 RECIPES["coil_3d_geometry3d"] = CallableRecipe(
     builder=_build_coils_non_axisymmetric_3d,
     description="Every non-axisymmetric coil filament as a 3D machine-coordinate polyline.",
+    reads=_COIL_3D_READS,
+    backend=NEUTRAL,
 )
 RECIPES["coil_3d_geometry_topview"] = CallableRecipe(
     builder=_build_coils_non_axisymmetric_topview,
     description="Non-axisymmetric coil filaments projected into the machine top view.",
+    reads=_COIL_3D_READS,
+    backend=NEUTRAL,
 )
 RECIPES["pf_coil_geometry_poloidal"] = CallableRecipe(
     builder=_build_pf_coil_geometry,
     description="Every PF coil's elements (rectangle or outline), one colour per coil.",
+    reads=_PF_COIL_READS,
+    backend=NEUTRAL,
 )
 RECIPES["passive_structure_geometry_poloidal"] = CallableRecipe(
     builder=_build_passive_structure_geometry,
     description="The passive conducting structure drawn as one structure.",
+    reads=_PF_PASSIVE_READS,
+    backend=NEUTRAL,
 )
 RECIPES["passive_structure_geometry_wall_mode"] = CallableRecipe(
     builder=_build_wall_mode_shape,
     description="One segment-local wall eigenmode coloured onto the passive structure.",
+    reads=_WALL_MODE_READS,
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_wall_mode_basis_ods subscripts the ODS and may write em_coupling.code.parameters',
 )
 RECIPES["pf_plasma_geometry_poloidal"] = CallableRecipe(
     builder=_build_pf_plasma_geometry,
     description="The plasma-current elements of pf_plasma, coloured by current.",
+    reads=("pf_plasma.time", "pf_plasma.element.{i}.current", "pf_plasma.element.{i}.area", "pf_plasma.element.{i}.geometry.geometry_type", *_element_reads("pf_plasma"), *_WALL_LIMITER_READS),
+    backend=NEUTRAL,
 )
+
+
+def _stored_bootstrap_series(ods: Any, time_slice: Any = None) -> dict[str, Any] | None:
+    """Whatever bootstrap current the ODS already carries, as a one-series model set."""
+    index = 0 if time_slice is None else int(time_slice)
+    base = f"core_profiles.profiles_1d.{index}"
+    values = _array(ods, f"{base}.j_bootstrap")
+    grid = _array(ods, f"{base}.grid.rho_tor_norm")
+    if values is None or grid is None or values.size != grid.size:
+        return None
+    label = "stored"
+    try:
+        if "core_profiles.code.name" in ods:
+            written_by = str(ods["core_profiles.code.name"]).strip()
+            if written_by:
+                label = written_by.lower()
+    except (KeyError, ValueError, TypeError):
+        pass
+    return {
+        "rho_tor_norm": grid,
+        "series": {label: {"j_bootstrap": values, "source": "stored"}},
+        "provenance": {},
+    }
+
+
+def _neoclassical_bootstrap_available(ods: Any) -> str | None:
+    """Why this input cannot support the bootstrap comparison, or ``None``.
+
+    The pressure gradients need an electron density, which ``core_profiles`` spells
+    either ``density_thermal`` or ``density`` -- a requirement no single declared path
+    expresses, and the reason this predicate exists rather than another entry in
+    ``required_paths``. Without it a temperature-only fit is advertised as supporting
+    the plot and then raises from the provider.
+    """
+    for index in range(max(_count(ods, "core_profiles.profiles_1d"), 1)):
+        base = f"core_profiles.profiles_1d.{index}.electrons"
+        if any(_array(ods, f"{base}.{leaf}") is not None for leaf in ("density_thermal", "density")):
+            return None
+    return "core_profiles.profiles_1d.{i}.electrons.density_thermal (or density)"
+
+
+def _build_neoclassical_bootstrap(ods: Any, **options: Any) -> Profile1D:
+    """Bootstrap-current profiles from each neoclassical model, on one radial axis.
+
+    One series per model. The analytic ones are evaluated here through
+    :func:`vaft.validation.neoclassical.bootstrap_models`, which composes the ODS-level
+    provider; a solver result already written to ``core_profiles.j_bootstrap`` joins them
+    under the name of whatever wrote it, so a NEO run mapped by
+    :mod:`vaft.machine_mapping.neoclassical` appears beside the formulas it is there to
+    be compared with.
+
+    A caller who has already run the study passes ``rows=`` and nothing is recomputed,
+    the arrangement ``_build_wall_reduction_convergence`` uses -- and it is spelled
+    ``rows`` there and here for the same reason: ``models=`` already means something in
+    :func:`~vaft.validation.neoclassical.bootstrap_models`, namely which analytic
+    formulations to evaluate, and it keeps that meaning as a plot option.
+
+    NEO solves a handful of surfaces, so its profile is NaN outside them. That is carried
+    as a ``valid_mask`` rather than silently interpolated: the gap in the line is the
+    honest statement that the solver was not asked about those radii.
+    """
+    models = options.get("rows")
+    if models is None:
+        from vaft.validation.neoclassical import bootstrap_models
+
+        keys = (
+            "models", "z_eff", "impurity", "rho_range", "ion_index", "time_slice",
+            "include_stored",
+        )
+        passed = {key: options[key] for key in keys if key in options}
+        try:
+            models = bootstrap_models(ods, **passed)
+        except ValueError:
+            # The analytic models need an effective charge, and the provider
+            # refuses to invent one. A solver result already in the ODS is still
+            # worth drawing on its own, so fall back to it rather than showing
+            # nothing -- but only when the caller did not ask for it to be left
+            # out, and only when there is one; otherwise say why nothing is drawn.
+            stored = (
+                _stored_bootstrap_series(ods, passed.get("time_slice"))
+                if passed.get("include_stored", True)
+                else None
+            )
+            if stored is None:
+                raise
+            models = stored
+
+    grid = np.asarray(models["rho_tor_norm"], dtype=float)
+    order = tuple(options.get("order", ("neo", "sauter", "redl")))
+    names = [name for name in order if name in models["series"]]
+    names += [name for name in sorted(models["series"]) if name not in names]
+
+    series: list[Series] = []
+    for name in names:
+        values = np.asarray(models["series"][name]["j_bootstrap"], dtype=float)
+        finite = np.isfinite(values)
+        if not finite.any():
+            continue
+        series.append(
+            Series(
+                x=grid,
+                y=values,
+                label=name,
+                valid_mask=finite if not finite.all() else None,
+                style={"lw": 1.4} if name in ("sauter", "redl") else {"lw": 1.8},
+            )
+        )
+    if not series:
+        raise ValueError("no model produced a finite bootstrap-current profile")
+
+    time = models.get("provenance", {}).get("time")
+    return Profile1D(
+        series=tuple(series),
+        coordinate_label="rho_tor_norm",
+        y_label="Bootstrap current density",
+        y_unit="A.m^-2",
+        title=(
+            "Neoclassical bootstrap current"
+            + ("" if time is None else f" at {float(time):.4g} s")
+        ),
+    )
+
+
 RECIPES["passive_structure_overview_wall_time"] = CallableRecipe(
     builder=_build_wall_mode_spectrum,
     description="Decay-time spectrum of the wall's segment-wise eigenmodes.",
+    reads=_WALL_MODE_READS,
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_wall_mode_basis_ods and compute_impedance_matrices_ods subscript the ODS',
 )
 RECIPES["passive_structure_overview_wall_reduction"] = CallableRecipe(
     builder=_build_wall_reduction_convergence,
     description="Reduced-wall response error against retained order, per selection rule.",
+    reads=(*_WALL_MODE_READS, *_MAGNETICS_SENSOR_READS, "pf_active.time"),
+    backend=OMAS_BOUND,
+    reason='vaft.validation.wall_reduction.wall_system deep-copies the ODS',
 )
 RECIPES["passive_structure_field_wall_reduction"] = CallableRecipe(
     builder=_build_wall_reduction_map,
     description="The wall's poloidal flux on the equilibrium region: full, reduced or their difference.",
+    reads=(*_WALL_MODE_READS, "pf_active.time"),
+    backend=OMAS_BOUND,
+    reason='vaft.validation.wall_reduction.wall_system deep-copies the ODS and compute_point_response_matrices_ods subscripts it',
+)
+RECIPES["neoclassical_profile_bootstrap_current"] = CallableRecipe(
+    builder=_build_neoclassical_bootstrap,
+    description=(
+        "Bootstrap current density from each neoclassical model on one radial axis: "
+        "the Sauter and Redl formulas, and a solver result the ODS already carries."
+    ),
+    available=_neoclassical_bootstrap_available,
+    reads=("core_profiles.time", "core_profiles.code.name", "core_profiles.profiles_1d.{i}.grid.rho_tor_norm", "core_profiles.profiles_1d.{i}.electrons.density_thermal", "core_profiles.profiles_1d.{i}.electrons.density", "core_profiles.profiles_1d.{i}.electrons.temperature", "core_profiles.profiles_1d.{i}.ion.{j}.density_thermal", "core_profiles.profiles_1d.{i}.ion.{j}.density", "core_profiles.profiles_1d.{i}.ion.{j}.temperature", "core_profiles.profiles_1d.{i}.ion.{j}.z_ion", "core_profiles.profiles_1d.{i}.zeff", "core_profiles.profiles_1d.{i}.j_bootstrap", "core_profiles.profiles_1d.{i}.time", "core_profiles.vacuum_toroidal_field.b0", "equilibrium.time_slice.{i}.profiles_1d.trapped_fraction", "equilibrium.time_slice.{i}.profiles_1d.gm1", "equilibrium.time_slice.{i}.profiles_1d.gm2", *_EQUILIBRIUM_SLICE_READS, *_EFIT_CONSTRAINT_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.validation.neoclassical.bootstrap_models subscripts the ODS; the stored-series fallback reads core_profiles.code.name with `in`',
 )
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
     description="Wall, coils, passive structure and diagnostic positions composed.",
+    reads=(*_WALL_LIMITER_READS, *_PF_PASSIVE_READS, *_PF_COIL_READS, "pf_active.coil.{i}.element.{j}.geometry.geometry_type", "pf_passive.loop.{i}.element.{j}.geometry.geometry_type", *_geometry_reads("magnetics_geometry_poloidal", "thomson_scattering_geometry_poloidal", "charge_exchange_geometry_poloidal"), *RECIPES["soft_x_rays_geometry_lines_of_sight"].reads),
+    backend=NEUTRAL,
 )
 RECIPES["equilibrium_geometry_topview"] = CallableRecipe(
     builder=_build_equilibrium_topview,
     description="Plasma inboard/outboard extent projected into the top view.",
+    reads=("equilibrium.time_slice.{i}.boundary.outline.r",),
+    backend=NEUTRAL,
 )
 RECIPES["machine_geometry_topview"] = CallableRecipe(
     builder=_build_machine_topview,
     description="Plasma extent plus launcher and antenna positions in the top view.",
+    reads=(*_WALL_LIMITER_READS, *_WALL_VESSEL_READS, "equilibrium.time_slice.{i}.boundary.outline.r", "lh_antennas.antenna.{i}.position.r", "lh_antennas.antenna.{i}.position.phi", "ec_launchers.beam.{i}.launching_position.r", "ec_launchers.beam.{i}.launching_position.phi", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.r", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.phi", *_topview_reads()),
+    backend=NEUTRAL,
 )
 RECIPES["equilibrium_field_psi_vacuum"] = CallableRecipe(
     builder=_build_vacuum_psi,
     description="Vacuum flux map from the PF currents via vaft.omas.compute_null_ods.",
+    reads=("pf_active", "pf_passive", "wall", "equilibrium", "dataset_description", "em_coupling.mutual_passive_active", "em_coupling.mutual_passive_passive", "em_coupling.code.parameters", "em_coupling.ids_properties.comment", *_ONSET_READS),
+    backend=OMAS_BOUND,
+    reason='compute_null_ods writes eddy currents into a private copy of pf_active/pf_passive/wall/equilibrium (_isolated_copy)',
 )
 RECIPES["vacuum_field"] = CallableRecipe(
     builder=_build_vacuum_field,
     description="Flux, |B_p|, the decay index or the breakdown figure of merit "
                 "from one cached vacuum-field evaluation.",
+    reads=("pf_active", "pf_passive", "wall", "equilibrium", "tf", "dataset_description", "em_coupling.mutual_passive_active", "em_coupling.mutual_passive_passive", "em_coupling.code.parameters", "em_coupling.ids_properties.comment", *_ONSET_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_vacuum_field_map subscripts a private copy of pf_active/pf_passive/wall/equilibrium/tf (_isolated_copy)',
 )
 RECIPES["electron_temperature_field"] = CallableRecipe(
     builder=lambda ods, **options: _build_core_profile_field(
         ods, **{**options, "quantity": "temperature"}
     ),
     description="Electron temperature mapped onto the poloidal plane.",
+    reads=_core_profile_field_reads("temperature"),
+    backend=NEUTRAL,
 )
 RECIPES["electron_density_field"] = CallableRecipe(
     builder=lambda ods, **options: _build_core_profile_field(
         ods, **{**options, "quantity": "density"}
     ),
     description="Electron density mapped onto the poloidal plane.",
+    reads=_core_profile_field_reads("density"),
+    backend=NEUTRAL,
 )
 
 
@@ -3627,6 +4161,9 @@ def _build_power_balance(ods: Any, **_: Any) -> Panels:
 RECIPES["summary_time_power_balance"] = CallableRecipe(
     builder=_build_power_balance,
     description="Power-balance terms computed by vaft.omas.compute_power_balance.",
+    reads=(*_EQUILIBRIUM_SLICE_READS, "equilibrium.time_slice.{i}.global_quantities.volume", "equilibrium.time_slice.{i}.global_quantities.energy_mhd", "equilibrium.time_slice.{i}.profiles_1d.j_tor", "core_profiles.time", "core_profiles.profiles_1d.{i}.time", "core_profiles.profiles_1d.{i}.grid.rho_tor_norm", "core_profiles.profiles_1d.{i}.electrons.temperature", "core_profiles.profiles_1d.{i}.electrons.density", "core_profiles.profiles_1d.{i}.ion.{j}.label", "core_profiles.profiles_1d.{i}.zeff", "core_profiles.profiles_1d.{i}.j_ohmic", "core_profiles.profiles_1d.{i}.conductivity_parallel", "summary.time", "summary.global_quantities.power_radiated.value", "summary.global_quantities.energy_thermal.value", *_WALL_LIMITER_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.formula_wrapper.compute_power_balance and compute_bremsstrahlung_power subscript the ODS and build a scratch ODS',
 )
 
 
@@ -3684,6 +4221,8 @@ def _efit_overlay_layers(
                 z=overlay["wall_uv"][:, 1],
                 kind="points",
                 label="Wall",
+                # Camera overlays keep literal colours: they must contrast with a
+                # photograph, not follow a theme (issue #709).
                 style={"marker": "o", "markersize": 1, "color": "yellow"},
             )
         )
@@ -3957,25 +4496,294 @@ def _build_camera_visible_animation_frames(ods: Any, **options: Any) -> ImageSeq
     )
 
 
+# ---------------------------------------------------------------------------
+# Camera fluctuation views (issue #161)
+# ---------------------------------------------------------------------------
+
+
+def _camera_visible_frame_times(ods: Any, *, channel: int, detector: int) -> np.ndarray:
+    prefix = _camera_visible_frame_prefix(channel, detector)
+    count = _count(ods, prefix)
+    if not count:
+        raise ValueError(f"{prefix} holds no frames")
+    return np.asarray(
+        [float(_get(ods, f"{prefix}.{i}.time", np.nan)) for i in range(count)], dtype=float
+    )
+
+
+def _camera_visible_frame_window(
+    ods: Any, *, channel: int, detector: int, first: int, last: int
+) -> np.ndarray:
+    """Frames ``first..last`` inclusive, as one cube."""
+    return np.stack(
+        [
+            _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=i)
+            for i in range(first, last + 1)
+        ]
+    )
+
+
+def _camera_visible_region(options: Mapping[str, Any]):
+    region = options.get("region")
+    return None if region is None else tuple(int(v) for v in region)
+
+
+def _build_camera_visible_image_fluctuation(ods: Any, **options: Any) -> Image2D:
+    """One frame with its local temporal background removed (#161 section 1).
+
+    Only the frames the local mean needs are read, and the answer is the one
+    subtracting over the whole record would give.  That takes a span of a full
+    window either side of the target rather than half: with only half, the
+    sub-cube's own edge would shrink the window again -- for the first frame of
+    a 15-frame window, over four frames instead of eight -- and the frames at
+    the ends of a record would come out wrong.
+    """
+    from vaft.process.camera_fluctuation import (
+        BACKGROUND_FRAMES_50KFPS,
+        subtract_temporal_background,
+    )
+
+    channel = int(options.get("channel", 0))
+    detector = int(options.get("detector", 0))
+    idx, resolved_time, _shape = _resolve_camera_visible_frame(
+        ods, channel=channel, detector=detector, options=options
+    )
+    count = _count(ods, _camera_visible_frame_prefix(channel, detector))
+    window = int(options.get("background_frames", BACKGROUND_FRAMES_50KFPS))
+    first = max(0, idx - window)
+    last = min(count - 1, idx + window)
+    cube = _camera_visible_frame_window(
+        ods, channel=channel, detector=detector, first=first, last=last
+    )
+    # Not clamped to the cube: the span above already holds every frame the
+    # whole-record window would average, and clamping would substitute a
+    # narrower window whenever the record is shorter than the one asked for.
+    fluctuation = subtract_temporal_background(cube, window_frames=window)
+    channel_name = _camera_visible_channel_name(ods, channel)
+    title = options.get(
+        "title",
+        f"{channel_name} frame {idx} @ t={resolved_time:.4f}s "
+        f"-- {window}-frame background removed",
+    )
+    return Image2D(
+        values=fluctuation[idx - first],
+        value_label="Digital levels, background removed",
+        title=title,
+        cmap=options.get("cmap", "RdBu_r"),
+    )
+
+
+def _camera_visible_region_signal(ods: Any, **options: Any):
+    """``(time, signal)`` of the summed region, with its temporal background removed.
+
+    Summation and the local-mean subtraction are both linear, so summing the
+    region first and detrending the resulting series is identical to detrending
+    every pixel and then summing -- and never materialises the cube.
+    """
+    from vaft.process.camera_fluctuation import (
+        BACKGROUND_FRAMES_50KFPS,
+        subtract_temporal_background,
+        summed_region_signal,
+    )
+
+    channel = int(options.get("channel", 0))
+    detector = int(options.get("detector", 0))
+    times = _camera_visible_frame_times(ods, channel=channel, detector=detector)
+    window = options.get("time_range")
+    keep = slice(None)
+    if window is not None:
+        inside = np.nonzero((times >= float(window[0])) & (times <= float(window[1])))[0]
+        if inside.size < 2:
+            raise ValueError(
+                f"time_range {tuple(window)} holds {inside.size} camera frame(s); "
+                f"the record spans {times[0]:.4f}-{times[-1]:.4f} s"
+            )
+        keep = slice(int(inside[0]), int(inside[-1]) + 1)
+    region = _camera_visible_region(options)
+    frames = [
+        _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=i)
+        for i in range(*keep.indices(times.size))
+    ]
+    summed = summed_region_signal(np.stack(frames), region=region)
+    background = int(options.get("background_frames", BACKGROUND_FRAMES_50KFPS))
+    fluctuation = subtract_temporal_background(summed[:, None], window_frames=background)[:, 0]
+    return times[keep], fluctuation, region
+
+
+def _build_camera_visible_spectrogram(ods: Any, **options: Any) -> Spectrogram:
+    """Time-frequency map of the camera intensity summed over one region (#161 section 5).
+
+    The published comparison puts this beside the magnetic probe's own
+    spectrogram to show that the camera carries the same MHD component; the
+    region is stated by the caller because which part of the image views the
+    low-field side depends on the camera pose.
+    """
+    from vaft.process.fluctuation import compute_spectrogram
+
+    time, signal, region = _camera_visible_region_signal(ods, **options)
+    result = compute_spectrogram(
+        time,
+        signal,
+        nperseg=int(options.get("nperseg", 50)),
+        overlap=float(options.get("overlap", 0.5)),
+        window=options.get("window", "hann"),
+    )
+    channel_name = _camera_visible_channel_name(ods, int(options.get("channel", 0)))
+    where = "whole frame" if region is None else f"rows {region[0]}-{region[1]}, columns {region[2]}-{region[3]}"
+    return Spectrogram.from_result(
+        result,
+        # Through the shared rule, like every other spectrogram here: a camera
+        # analysed to 25 kHz whose content sits at 3-5 kHz otherwise renders
+        # almost empty (#765).
+        max_frequency=_display_ceiling(result, options),
+        cmap=options.get("cmap", "hot_r"),
+        title=options.get("title", f"{channel_name} summed intensity -- {where}"),
+        value_label="Intensity fluctuation",
+    )
+
+
+def _build_camera_visible_image_mhd_power(ods: Any, **options: Any) -> Image2D:
+    """Normalised MHD-band power of every pixel, at one time (#161 section 6).
+
+    ``centre_frequency`` is the band centre; the published method takes it from
+    a magnetic probe, which a camera-only product cannot supply, so when it is
+    not given the camera's own dominant component in the search range stands in
+    and the title says so.
+    """
+    from vaft.process.camera_fluctuation import (
+        BACKGROUND_FRAMES_50KFPS,
+        MHD_BAND_HALF_WIDTH_HZ,
+        REFERENCE_SEARCH_RANGE_HZ,
+        SPECTRAL_WINDOW_FRAMES_50KFPS,
+        EMISSION_NORMALISATION_FRAMES_50KFPS,
+        mhd_band_power,
+        normalize_by_local_emission,
+        pixelwise_spectrogram,
+        subtract_temporal_background,
+    )
+
+    channel = int(options.get("channel", 0))
+    detector = int(options.get("detector", 0))
+    idx, resolved_time, _shape = _resolve_camera_visible_frame(
+        ods, channel=channel, detector=detector, options=options
+    )
+    times = _camera_visible_frame_times(ods, channel=channel, detector=detector)
+    background = int(options.get("background_frames", BACKGROUND_FRAMES_50KFPS))
+    transform = int(options.get("window_frames", SPECTRAL_WINDOW_FRAMES_50KFPS))
+    if times.size < transform:
+        raise ValueError(
+            f"a {transform}-frame transform needs {transform} frames; the record holds "
+            f"{times.size}. Pass a shorter window_frames."
+        )
+    # Centred on the frame where the record allows it, and slid inwards rather
+    # than truncated at either end: a frame near the start of a long movie has a
+    # perfectly good window, it just is not centred on it.
+    span = transform // 2 + background // 2 + 1
+    first = min(max(0, idx - span), times.size - 1)
+    last = max(min(times.size - 1, idx + span), 0)
+    if last - first + 1 < transform:
+        shortfall = transform - (last - first + 1)
+        take_before = min(shortfall, first)
+        first -= take_before
+        last = min(times.size - 1, last + (shortfall - take_before))
+    cube = _camera_visible_frame_window(
+        ods, channel=channel, detector=detector, first=first, last=last
+    )
+    window_times = times[first : last + 1]
+    fluctuation = subtract_temporal_background(cube, window_frames=background)
+    spectrogram = pixelwise_spectrogram(
+        fluctuation, window_times, window_frames=transform,
+        overlap=float(options.get("overlap", 0.5)),
+    )
+    centre = options.get("centre_frequency")
+    note = ""
+    if centre is None:
+        low, high = REFERENCE_SEARCH_RANGE_HZ
+        band = (spectrogram.frequency >= low) & (spectrogram.frequency <= high)
+        if not np.any(band):
+            raise ValueError(
+                "no frequency bin falls in the reference search range; pass centre_frequency="
+            )
+        summed = spectrogram.magnitude[band].reshape(int(np.count_nonzero(band)), -1).sum(axis=1)
+        centre = float(spectrogram.frequency[band][int(np.argmax(summed))])
+        note = " (camera's own dominant component; the published method takes it from a magnetic probe)"
+    power = mhd_band_power(
+        spectrogram,
+        centre_frequency=float(centre),
+        half_width=float(options.get("half_width", MHD_BAND_HALF_WIDTH_HZ)),
+    )
+    normalised = normalize_by_local_emission(
+        power, cube, frame_time=window_times, power_time=spectrogram.time,
+        window_frames=int(options.get("normalisation_frames", EMISSION_NORMALISATION_FRAMES_50KFPS)),
+    )
+    step = int(np.argmin(np.abs(spectrogram.time - resolved_time)))
+    channel_name = _camera_visible_channel_name(ods, channel)
+    title = options.get(
+        "title",
+        f"{channel_name} @ t={spectrogram.time[step]:.4f}s -- "
+        f"{float(centre) / 1e3:.1f} kHz band power / local emission{note}",
+    )
+    return Image2D(
+        values=normalised[step],
+        value_label="Band power / local emission",
+        title=title,
+        cmap=options.get("cmap", "turbo"),
+    )
+
+
 RECIPES["camera_visible_image"] = CallableRecipe(
     builder=_build_camera_visible_image,
     description="One camera frame with optional overlays through one projection.",
+    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name", *_EQUILIBRIUM_SLICE_READS, *_WALL_LIMITER_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper._resolve_camera_frame and the overlay helpers subscript the ODS; camera_projection_for reads the packaged pose by shot',
 )
 RECIPES["camera_visible_image_frame"] = CallableRecipe(
     builder=_build_camera_visible_image_frame,
     description="One FAST-camera frame, selected by frame_index or nearest time.",
+    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name"),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper._resolve_camera_frame subscripts the ODS',
 )
 RECIPES["camera_visible_image_efit_overlay"] = CallableRecipe(
     builder=_build_camera_visible_image_efit_overlay,
     description="FAST-camera frame with the projected EFIT/wall overlay (requires shot=).",
+    reads=RECIPES["camera_visible_image"].reads,
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_camera_visible_efit_overlay subscripts the ODS',
 )
 RECIPES["camera_visible_image_field_line"] = CallableRecipe(
     builder=_build_camera_visible_image_field_line,
     description="FAST-camera frame with a projected traced field line (requires shot=, r0=, z0=).",
+    reads=RECIPES["camera_visible_image"].reads,
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_camera_visible_field_line_overlay subscripts the ODS',
 )
 RECIPES["camera_visible_animation_frames"] = CallableRecipe(
     builder=_build_camera_visible_animation_frames,
     description="Animate a sequence of FAST-camera frames on a shared color scale.",
+    reads=_CAMERA_FRAME_READS,
+    backend=NEUTRAL,
+)
+RECIPES["camera_visible_image_fluctuation"] = CallableRecipe(
+    builder=_build_camera_visible_image_fluctuation,
+    description="One FAST-camera frame with its local temporal background removed.",
+    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name"),
+    backend=OMAS_BOUND,
+    reason="vaft.omas.process_wrapper._resolve_camera_frame subscripts the ODS",
+)
+RECIPES["camera_visible_image_mhd_power"] = CallableRecipe(
+    builder=_build_camera_visible_image_mhd_power,
+    description="Per-pixel MHD-band power normalised by local emission, at one time.",
+    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name"),
+    backend=OMAS_BOUND,
+    reason="vaft.omas.process_wrapper._resolve_camera_frame subscripts the ODS",
+)
+RECIPES["camera_visible_spectrogram"] = CallableRecipe(
+    builder=_build_camera_visible_spectrogram,
+    description="Time-frequency map of the camera intensity summed over one image region.",
+    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name"),
+    backend=NEUTRAL,
 )
 
 
@@ -5246,14 +6054,14 @@ def _profile_reference_lines(ods: Any, time_slice: int, coordinate: str, traces:
         axis_r = _finite_scalar(_get(ods, f"{base}.r"))
         axis_z = _finite_scalar(_get(ods, f"{base}.z"))
         if axis_r is not None:
-            lines.append(ReferenceLine(axis_r, "Magnetic axis", {"color": "k", "linestyle": "--"}))
+            lines.append(ReferenceLine(axis_r, "Magnetic axis", {"color": "feature:axis", "linestyle": "--"}))
         radii, surface = _wall_midplane_radii(ods, axis_z)
         if radii:
             lines.append(ReferenceLine(min(radii), surface))
             lines.append(ReferenceLine(max(radii), ""))
     elif coordinate == "r_minor" and traces:
         edge = max(float(np.asarray(trace.x)[-1]) for trace in traces if np.asarray(trace.x).size)
-        lines.append(ReferenceLine(edge, "LCFS", {"color": "#e41a1c"}))
+        lines.append(ReferenceLine(edge, "LCFS", {"color": "feature:boundary"}))
     return tuple(lines)
 
 
@@ -5930,7 +6738,7 @@ def _poloidal_overlays(
         if boundary_r is not None and boundary_z is not None:
             layers.append(GeometryLayer(
                 r=boundary_r, z=boundary_z, kind="polygon", label="Boundary",
-                style={"color": "#e41a1c"}, role=EQUILIBRIUM_ROLE,
+                style={"color": "feature:boundary"}, role=EQUILIBRIUM_ROLE,
             ))
     if "axis" in names:
         base = f"equilibrium.time_slice.{time_slice}.global_quantities.magnetic_axis"
@@ -5939,7 +6747,7 @@ def _poloidal_overlays(
         if axis_r is not None and axis_z is not None:
             layers.append(GeometryLayer(
                 r=np.array([axis_r]), z=np.array([axis_z]), kind="points", label="Magnetic axis",
-                style={"marker": "+", "color": "k", "markersize": 10, "markeredgewidth": 1.5},
+                style={"marker": "+", "color": "feature:axis", "markersize": 10, "markeredgewidth": 1.5},
                 role=EQUILIBRIUM_ROLE,
             ))
     return layers
@@ -6101,6 +6909,69 @@ def _spectrogram_method(options: dict, plot_name: str | None = None) -> str:
     return method
 
 
+#: How bright a frequency row must be, relative to the brightest pixel of the
+#: whole map, to count as something the reader can actually see. A `hot_r` or
+#: `turbo` map renders anything well below this as background, so rows under it
+#: contribute nothing but empty axis.
+_SPECTROGRAM_VISIBLE_FRACTION = 0.01
+
+
+def _default_display_band(result: Any) -> float | None:
+    """Return a display ceiling for a spectrogram, or None to show everything.
+
+    A spectrogram is analysed to Nyquist, which for a diagnostic sampled far
+    above its physics band means the content occupies the bottom few percent of
+    the axis and the default render reads as an empty map. VEST soft X-ray
+    digitizers sample near 1 MHz while the plasma content sits below ~30 kHz
+    (#765).
+
+    The ceiling comes from the map itself rather than from a machine constant,
+    so nothing VEST-specific is baked into a general renderer: it sits one bin
+    above the highest frequency whose brightest pixel still reaches
+    :data:`_SPECTROGRAM_VISIBLE_FRACTION` of the map's peak. Above that the
+    colormap draws background, so nothing is hidden that was visible.
+
+    A broadband channel keeps its whole axis, because its top rows are as
+    bright as its bottom ones. :func:`_display_ceiling` is what decides whether
+    to ask at all; this function only answers.
+
+    The brightness of a row is its maximum over time, not its mean: a burst
+    confined to a few milliseconds is exactly what these maps are read for, and
+    averaging it against a quiet shot would hide it.
+    """
+    frequency = np.asarray(result.frequency, dtype=float)
+    magnitude = np.abs(np.asarray(result.magnitude, dtype=float))
+    if frequency.size < 2 or magnitude.ndim != 2 or magnitude.shape[0] != frequency.size:
+        return None
+    magnitude = np.where(np.isfinite(magnitude), magnitude, 0.0)
+    peak = float(magnitude.max())
+    if peak <= 0.0:
+        return None
+    visible = np.nonzero(magnitude.max(axis=1) >= _SPECTROGRAM_VISIBLE_FRACTION * peak)[0]
+    if visible.size == 0:
+        return None
+    highest = int(visible[-1])
+    if highest >= frequency.size - 1:
+        return None  # the content really does fill the band; show all of it
+    # One bin of headroom, so the cut does not sit exactly on the last content.
+    return float(frequency[highest + 1])
+
+
+def _display_ceiling(result: Any, options: dict) -> float | None:
+    """The ``max_frequency`` a built spectrogram carries.
+
+    Anything the caller said decides: ``max_frequency`` is used as given, and a
+    named ``frequency_range`` is already the analysis band, so cropping inside
+    it would hide part of what was asked for and put empty axis below its lower
+    edge. Only when neither is present does the map choose its own band.
+    """
+    if "max_frequency" in options:
+        return options["max_frequency"]
+    if options.get("frequency_range") is not None:
+        return None
+    return _default_display_band(result)
+
+
 def _spectrogram_result(
     time: np.ndarray,
     values: np.ndarray,
@@ -6210,7 +7081,7 @@ def _build_spectrogram(
     )
     return Spectrogram.from_result(
         result,
-        max_frequency=options.get("max_frequency"),
+        max_frequency=_display_ceiling(result, options),
         cmap=options.get("cmap", "hot_r"),
         title=_channel_label(ods, recipe.label_path, index, f"channel {index}"),
         value_label=recipe.value_label,
@@ -6546,6 +7417,8 @@ def _build_limiter_shunt_currents(ods: Any, **options: Any) -> Panels:
 RECIPES["limiter_current_time"] = CallableRecipe(
     builder=_build_limiter_shunt_currents,
     description="VEST limiter currents derived from shunt voltage / resistance.",
+    reads=("magnetics.shunt.{i}.name", "magnetics.shunt.{i}.resistance", "magnetics.shunt.{i}.voltage.data", "magnetics.shunt.{i}.voltage.time", "magnetics.time"),
+    backend=NEUTRAL,
 )
 
 
@@ -6664,13 +7537,13 @@ def _verification_constraint_panel(
                 y=measured_array,
                 yerr=measured_yerr,
                 label="Measured",
-                style={"color": "black", "marker": "o", "linestyle": "none"},
+                style={"color": "role:measured", "marker": "o", "linestyle": "none"},
             ),
             Series(
                 x=x,
                 y=reconstructed_array,
                 label="Reconstructed",
-                style={"color": "red", "marker": "o", "linestyle": "none"},
+                style={"color": "role:reconstructed", "marker": "o", "linestyle": "none"},
             ),
         ),
         x_label="Constraint index",
@@ -7136,16 +8009,23 @@ RECIPES["mirnov_spatial_phase"] = CallableRecipe(
     builder=_build_mirnov_spatial_phase,
     description="Measured toroidal phase per fluctuation band at one time, with the fitted n lines.",
     available=_mirnov_phase_available,
+    reads=("magnetics.b_field_pol_probe.{i}.position.phi", "magnetics.b_field_pol_probe.{i}.position.r", "magnetics.b_field_pol_probe.{i}.position.z", "magnetics.b_field_pol_probe.{i}.voltage.data", "magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
+    backend=NEUTRAL,
 )
 
 RECIPES["equilibrium_overview"] = CallableRecipe(
     builder=_build_equilibrium_slice_overview,
     description="One equilibrium slice from one figure: psi, profiles, global quantities.",
+    reads=("equilibrium", "wall", "tf.r0", "equilibrium.code.output_flag", "equilibrium.ids_properties.cocos", *_EFIT_CONSTRAINT_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.update_equilibrium_derived_profiles writes derived profiles into a private copy of equilibrium/wall (_isolated_copy)',
 )
 
 RECIPES["equilibrium_overview_verification"] = CallableRecipe(
     builder=_build_equilibrium_verification,
     description="EFIT measured/reconstructed constraints and poloidal-flux map.",
+    reads=(*_EFIT_CONSTRAINT_READS, "equilibrium.ids_properties.cocos", "equilibrium.time_slice.{i}.boundary.outline.r", "equilibrium.time_slice.{i}.boundary.outline.z", "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r", "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.z", "equilibrium.time_slice.{i}.global_quantities.psi_axis", "equilibrium.time_slice.{i}.global_quantities.psi_boundary", "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1", "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2", "equilibrium.time_slice.{i}.profiles_2d.0.psi", *_WALL_LIMITER_READS),
+    backend=NEUTRAL,
 )
 
 
@@ -7156,9 +8036,9 @@ RECIPES["equilibrium_overview_verification"] = CallableRecipe(
 #: Marker style per channel state, shared by the submitted and residual views so
 #: a dead channel looks the same in both.
 _STATE_STYLE = {
-    "enabled": {"color": "black", "marker": "o", "linestyle": "none"},
-    "disabled": {"color": "tab:orange", "marker": "x", "linestyle": "none"},
-    "missing": {"color": "tab:red", "marker": "s", "linestyle": "none",
+    "enabled": {"color": "state:enabled", "marker": "o", "linestyle": "none"},
+    "disabled": {"color": "state:disabled", "marker": "x", "linestyle": "none"},
+    "missing": {"color": "state:missing", "marker": "s", "linestyle": "none",
                 "markerfacecolor": "none"},
 }
 
@@ -7448,7 +8328,7 @@ def _build_equilibrium_fit_quality(ods: Any, **options: Any) -> Panels:
                         x=times,
                         y=np.ones_like(times),
                         label="χ²/ν = 1",
-                        style={"linestyle": "--", "color": "0.5", "lw": 1.0},
+                        style={"linestyle": "--", "color": "emphasis:low", "lw": 1.0},
                     ),
                 ),
                 x_label="time",
@@ -7533,7 +8413,7 @@ def _build_equilibrium_fit_quality(ods: Any, **options: Any) -> Panels:
                         x=span,
                         y=np.full(2, sign * level),
                         label=f"±{level:g}σ" if sign > 0 else "",
-                        style={"linestyle": style, "color": "0.6", "lw": 0.9},
+                        style={"linestyle": style, "color": "emphasis:lower", "lw": 0.9},
                     )
                 )
         bias = entry.get("z_bias", float("nan"))
@@ -7597,7 +8477,7 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
                     ),
                     style={
                         "linestyle": ":" if inert else "--",
-                        "color": "0.75" if inert else "0.5",
+                        "color": "emphasis:faint" if inert else "emphasis:low",
                         "lw": 1.0,
                     },
                 )
@@ -7608,7 +8488,7 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
             series.append(
                 Series(x=times, y=acceptance,
                        label=f"acceptance threshold ({name}, {source})",
-                       style={"linestyle": "-.", "color": "tab:red", "lw": 1.0})
+                       style={"linestyle": "-.", "color": "emphasis:alert", "lw": 1.0})
             )
         # For iconvr=2 the statistic with content is how the solve terminated,
         # not the ratio against a tolerance the solver never consults.
@@ -7645,7 +8525,7 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
         if np.isfinite(caps).any():
             series.append(
                 Series(x=times, y=caps, label="cap",
-                       style={"linestyle": "--", "color": "0.5", "lw": 1.0})
+                       style={"linestyle": "--", "color": "emphasis:low", "lw": 1.0})
             )
         hit = sum(1 for block in blocks if block["iterations"]["hit_cap"])
         panels.append(
@@ -7782,24 +8662,34 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
 RECIPES["equilibrium_overview_fit_quality"] = CallableRecipe(
     builder=_build_equilibrium_fit_quality,
     description="Reduced chi-square, per-family chi-square share and normalized residuals.",
+    reads=_EFIT_QUALITY_READS,
+    backend=NEUTRAL,
 )
 RECIPES["equilibrium_overview_convergence"] = CallableRecipe(
     builder=_build_equilibrium_convergence,
     description="Grad-Shafranov error against tolerance, iterations, and self-consistency.",
+    reads=_EFIT_QUALITY_READS,
+    backend=NEUTRAL,
 )
 
 
 RECIPES["equilibrium_overview_constraints"] = CallableRecipe(
     builder=_build_equilibrium_constraints,
     description="Magnetic constraints submitted to EFIT, by family and channel state.",
+    reads=_EFIT_CONSTRAINT_READS,
+    backend=NEUTRAL,
 )
 RECIPES["equilibrium_overview_constraint_coverage"] = CallableRecipe(
     builder=_build_equilibrium_constraint_coverage,
     description="Enabled, disabled and missing constraint channels across slices.",
+    reads=_EFIT_CONSTRAINT_READS,
+    backend=NEUTRAL,
 )
 RECIPES["equilibrium_overview_residuals"] = CallableRecipe(
     builder=_build_equilibrium_residuals,
     description="Measured-minus-reconstructed residuals by family, beside convergence.",
+    reads=_EFIT_CONSTRAINT_READS,
+    backend=NEUTRAL,
 )
 
 
@@ -7862,9 +8752,91 @@ def _build_mhd_linear_energy_perturbed(ods: Any, **options: Any) -> LineSeries:
     )
 
 
+def _build_ntms_delta_prime(ods: Any, **options: Any) -> LineSeries:
+    """Classical tearing index against time, one trace per rational surface.
+
+    An `ntms.mode` entry is a rational *surface* -- an ``(m_pol, n_tor)`` pair
+    the solver located in the equilibrium -- not a requested toroidal mode. So
+    the traces are pivoted by the pair: several surfaces share one ``n_tor``,
+    and collapsing them would average together physically distinct tearing
+    layers.
+
+    How many surfaces exist is itself a result, so the set can differ between
+    time slices. A surface is drawn at the times it was found and simply absent
+    at the others, rather than padded with a value the solver never produced.
+    """
+    count = _count(ods, "ntms.time_slice")
+    if count == 0:
+        raise ValueError("ODS carries no ntms time slices")
+    times = _array(ods, "ntms.time")
+    if times is None or times.size < count:
+        times = np.arange(count, dtype=float)
+    times = np.asarray(times[:count], dtype=float)
+
+    by_surface: dict[tuple[int, int], dict[int, float]] = {}
+    for index in range(count):
+        root = f"ntms.time_slice.{index}.mode"
+        for position in range(_count(ods, root)):
+            base = f"{root}.{position}"
+            n_tor = _get(ods, f"{base}.n_tor")
+            m_pol = _get(ods, f"{base}.m_pol")
+            if n_tor is None or m_pol is None:
+                continue
+            # Selected by name, not by position: `deltaw` is an array of
+            # contributions and a future one must not be read as the classical
+            # index just because it was appended first.
+            value = None
+            for slot in range(_count(ods, f"{base}.deltaw")):
+                if _get(ods, f"{base}.deltaw.{slot}.name") == "classical":
+                    value = _get(ods, f"{base}.deltaw.{slot}.value")
+                    break
+            if value is None:
+                continue
+            scalar = _scalar(value)
+            if not np.isfinite(scalar):
+                continue
+            by_surface.setdefault((int(n_tor), int(m_pol)), {})[index] = scalar
+    if not by_surface:
+        raise ValueError(
+            "ODS carries no classical tearing index; only RDCON and STRIDE write "
+            "ntms deltaw, and none was mapped for this shot"
+        )
+
+    series = []
+    for n_tor, m_pol in sorted(by_surface):
+        samples = by_surface[(n_tor, m_pol)]
+        indexes = sorted(samples)
+        series.append(
+            Series(
+                x=times[indexes],
+                y=np.asarray([samples[index] for index in indexes], dtype=float),
+                label=f"m/n = {m_pol}/{n_tor}",
+                style={"marker": "."},
+            )
+        )
+    pulse = _get(ods, "dataset_description.data_entry.pulse", "")
+    return LineSeries(
+        series=tuple(series),
+        x_label="time",
+        x_unit="s",
+        y_label="tearing index $\\Delta'$",
+        title=f"Classical tearing stability — shot {pulse} (positive is unstable)",
+    )
+
+
+RECIPES["ntms_time_delta_prime"] = CallableRecipe(
+    builder=_build_ntms_delta_prime,
+    description="Classical tearing index against time, per rational surface.",
+    reads=("ntms.time", "ntms.time_slice.{i}.mode.{j}.n_tor", "ntms.time_slice.{i}.mode.{j}.m_pol", "ntms.time_slice.{i}.mode.{j}.deltaw.{k}.name", "ntms.time_slice.{i}.mode.{j}.deltaw.{k}.value"),
+    backend=NEUTRAL,
+)
+
+
 RECIPES["mhd_linear_time_energy_perturbed"] = CallableRecipe(
     builder=_build_mhd_linear_energy_perturbed,
     description="DCON perturbed potential energy against time, per toroidal mode.",
+    reads=("mhd_linear.time", "mhd_linear.time_slice.{i}.toroidal_mode.{j}.n_tor", "mhd_linear.time_slice.{i}.toroidal_mode.{j}.energy_perturbed"),
+    backend=NEUTRAL,
 )
 
 
@@ -8058,14 +9030,212 @@ def _build_mhd_linear_profile_b_field_perturbed(ods: Any, **options: Any) -> Pro
     )
 
 
+#: Attributes the mapper writes on each ``<surface>`` of a GPEC run's
+#: ``code.parameters``. Ordered as the derivation consumes them.
+_SURFACE_FIELDS = ("psi_n", "q", "dq_dpsi_n", "area", "geometric_factor")
+
+
+def _gpec_rational_surfaces(ods: Any, n_tor: int) -> tuple[float, list[dict[str, float]]]:
+    """``chi1`` and the per-surface geometry one GPEC mode recorded.
+
+    Read shape-agnostically for the reason ``_mhd_linear_radial_stride``
+    documents: ``code.parameters`` reaches a reader either as the string the
+    mapper wrote or as a tree OMAS decoded, and which one depends on the
+    document rather than on anything the caller controls. The string path
+    takes the ``<solver>`` whose ``n_tor`` matches, because a multi-mode run
+    holds one block per mode and their surfaces differ.
+    """
+    parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
+    if isinstance(parameters, str):
+        blocks = re.findall(
+            r'<solver\b[^>]*\bn_tor="(\d+)"[^>]*>(.*?)</solver>', parameters, re.S
+        )
+        body = next((b for mode, b in blocks if int(mode) == int(n_tor)), None)
+        if body is None:
+            return float("nan"), []
+        chi1 = re.search(r'<rational_surfaces\b[^>]*\bchi1="([^"]+)"', body)
+        surfaces = [
+            {name: float(value) for name, value in re.findall(r'(\w+)="([^"]+)"', row)}
+            for row in re.findall(r"<surface\b([^/]*)/>", body)
+        ]
+        return (float(chi1.group(1)) if chi1 else float("nan")), surfaces
+
+    # Decoded tree. `codeparams2dict` turns each element into a mapping whose
+    # attribute keys carry a leading '@' and whose repeated children collapse
+    # into a list -- and it only gets that far for documents it can decode at
+    # all: a run with more than one rational surface, or more than one mode,
+    # makes it raise internally and leave the string above. Both shapes are
+    # real, so both are handled.
+    def _children(node: Any, tag: str) -> list[Any]:
+        if not isinstance(node, Mapping) or tag not in node:
+            return []
+        value = node[tag]
+        return list(value) if isinstance(value, (list, tuple)) else [value]
+
+    for solver in _children(parameters, "solver"):
+        if int(_scalar(solver.get("@n_tor", -1))) != int(n_tor):
+            continue
+        for block in _children(solver, "rational_surfaces"):
+            surfaces = [
+                {name: float(_scalar(row[f"@{name}"])) for name in _SURFACE_FIELDS}
+                for row in _children(block, "surface")
+                if all(f"@{name}" in row for name in _SURFACE_FIELDS)
+            ]
+            chi1 = block.get("@chi1")
+            return (float(_scalar(chi1)) if chi1 is not None else float("nan")), surfaces
+    return float("nan"), []
+
+
+def _gpec_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
+    """Derive one GPEC mode's resonant table from the mapped spectral field.
+
+    The derivation runs **once**, here, and every renderer built on it reads
+    the result: each surface costs a pair of one-sided cubic fits, and a
+    figure should not pay for them again per trace.
+
+    What the IDS carries is the perturbed flux on a ``(psi_n, m)`` grid plus
+    the equilibrium geometry; :func:`vaft.process.perturbation.resonant_delta`
+    turns the jump across each rational surface into the resonance parameter,
+    and the closed forms in :mod:`vaft.formula.stability` take it from there.
+    Reproduces GPEC's own ``w_isl`` to about a per cent on the DIII-D
+    reference.
+    """
+    from vaft.formula.stability import (
+        island_width_from_resonant_flux,
+        resonant_flux_from_delta,
+    )
+    from vaft.process.perturbation import resonant_delta
+
+    cell = _mhd_linear_eigenfunction_cell(ods, **options)
+    n_tor = int(cell["n_tor"])
+    chi1, surfaces = _gpec_rational_surfaces(ods, n_tor)
+    if not surfaces:
+        raise ValueError(
+            f"mhd_linear ODS carries no rational-surface geometry for n={n_tor}. "
+            "Only an ideal-GPEC mapping writes it, and only when the run's chi1 "
+            "was available; a DCON-only product has none"
+        )
+    if not np.isfinite(chi1) or chi1 == 0.0:
+        raise ValueError(
+            f"the recorded chi1 for n={n_tor} is {chi1!r}; the jump is scaled by "
+            "it, so the table cannot be derived"
+        )
+    base = cell["base"]
+    real = _array(ods, f"{base}.plasma.b_field_perturbed.coordinate1.real")
+    imaginary = _array(ods, f"{base}.plasma.b_field_perturbed.coordinate1.imaginary")
+    if real is None or imaginary is None:
+        raise ValueError(f"mhd_linear ODS carries a grid but no perturbed flux for n={n_tor}")
+    field = np.asarray(real, dtype=float) + 1j * np.asarray(imaginary, dtype=float)
+    psi_n, harmonics = cell["psi_n"], cell["m"]
+    if field.shape != (psi_n.size, harmonics.size):
+        raise ValueError(
+            f"the perturbed flux has shape {field.shape}, but the declared (psi, m) "
+            f"grid is {(psi_n.size, harmonics.size)}"
+        )
+
+    rows: list[dict[str, Any]] = []
+    for surface in surfaces:
+        m_pol = int(round(n_tor * surface["q"]))
+        column = int(np.argmin(np.abs(harmonics - m_pol)))
+        if int(harmonics[column]) != m_pol:
+            # The resonant harmonic is outside the mapped band, so this
+            # surface has no column to take a jump in.
+            continue
+        jump = resonant_delta(
+            psi_n, field[:, column],
+            psi_rational=surface["psi_n"], area=surface["area"],
+            dq_dpsi_norm=surface["dq_dpsi_n"], chi1=chi1,
+            m_pol=m_pol, n_tor=n_tor,
+        )
+        flux = resonant_flux_from_delta(jump.delta, surface["geometric_factor"], n_tor)
+        rows.append({
+            "psi_n": surface["psi_n"],
+            "q": surface["q"],
+            "m_pol": m_pol,
+            "delta": jump.delta,
+            "Phi_res": complex(flux),
+            "w_isl": float(island_width_from_resonant_flux(
+                flux, surface["area"], surface["q"], surface["dq_dpsi_n"], m_pol, chi1,
+            )),
+        })
+    if not rows:
+        raise ValueError(
+            f"none of the {len(surfaces)} rational surfaces recorded for n={n_tor} "
+            "resonates at a harmonic the mapped band covers"
+        )
+    return {"cell": cell, "n_tor": n_tor, "chi1": chi1, "rows": rows}
+
+
+def _build_gpec_resonant_profile(
+    ods: Any, *, key: str, y_label: str, description: str, **options: Any
+) -> Profile1D:
+    """One marker per rational surface, against normalized poloidal flux."""
+    table = _gpec_resonant_table(ods, **options)
+    rows = table["rows"]
+    psi = np.asarray([row["psi_n"] for row in rows], dtype=float)
+    raw = [row[key] for row in rows]
+    y = np.asarray([abs(value) for value in raw], dtype=float)
+    series = (
+        Series(
+            x=psi, y=y,
+            label=", ".join(f"m={row['m_pol']}" for row in rows[:4])
+            + (" ..." if len(rows) > 4 else ""),
+        ),
+    )
+    return Profile1D(
+        series=series,
+        coordinate_label=r"$\psi_N$",
+        y_label=y_label,
+        title=(
+            f"{description} — n={table['n_tor']}, {len(rows)} rational surfaces"
+            " (derived from the mapped flux, not read from the IDS)"
+        ),
+    )
+
+
+def _build_mhd_linear_profile_resonant_flux(ods: Any, **options: Any) -> Profile1D:
+    return _build_gpec_resonant_profile(
+        ods, key="Phi_res", y_label=r"$|\Phi_{res}|$ [T]",
+        description="Pitch-resonant flux", **options,
+    )
+
+
+def _build_mhd_linear_profile_island_width(ods: Any, **options: Any) -> Profile1D:
+    return _build_gpec_resonant_profile(
+        ods, key="w_isl", y_label=r"$w_{isl}$ [$\psi_N$]",
+        description="Saturated island width", **options,
+    )
+
+
+RECIPES["mhd_linear_profile_resonant_flux"] = CallableRecipe(
+    builder=_build_mhd_linear_profile_resonant_flux,
+    description="Pitch-resonant flux per rational surface, derived from the mapped "
+                "spectral field.",
+    reads=_mhd_linear_profile_reads("b_field_perturbed.coordinate1"),
+    backend=NEUTRAL,
+)
+
+RECIPES["mhd_linear_profile_island_width"] = CallableRecipe(
+    builder=_build_mhd_linear_profile_island_width,
+    description="Saturated island width per rational surface, derived from the mapped "
+                "spectral field.",
+    reads=_mhd_linear_profile_reads("b_field_perturbed.coordinate1"),
+    backend=NEUTRAL,
+)
+
+
 RECIPES["mhd_linear_profile_displacement"] = CallableRecipe(
     builder=_build_mhd_linear_profile_displacement,
     description="DCON displacement eigenfunction per poloidal harmonic against psi_n.",
+    reads=_mhd_linear_profile_reads("displacement_perpendicular"),
+    backend=NEUTRAL,
 )
 
 RECIPES["mhd_linear_profile_b_field_perturbed"] = CallableRecipe(
     builder=_build_mhd_linear_profile_b_field_perturbed,
     description="DCON normal perturbed field per poloidal harmonic against psi_n.",
+    reads=_mhd_linear_profile_reads("b_field_perturbed.coordinate1"),
+    backend=NEUTRAL,
 )
 
 RECIPES["mhd_linear_overview_eigenfunction"] = PanelRecipe(
@@ -8194,7 +9364,7 @@ def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
         ip_series = [Series(x=ip_time, y=ip_data * 1e-3, label="Ip", style={"lw": 1.8})]
         marker = _onset_marker(
             ip_time, ip_data * 1e-3, current_onset, "Ip onset",
-            {"linestyle": "--", "color": "0.35", "lw": 1.0},
+            {"linestyle": "--", "color": "emphasis:strong", "lw": 1.0},
         )
         if marker is not None:
             ip_series.append(marker)
@@ -8221,13 +9391,13 @@ def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
                 x=channel.time,
                 y=np.full(channel.time.size, baseline + band),
                 label=f"±{sigma:g}σ pre-plasma",
-                style={"lw": 0.9, "linestyle": ":", "color": "0.5"},
+                style={"lw": 0.9, "linestyle": ":", "color": "emphasis:low"},
             ),
             Series(
                 x=channel.time,
                 y=np.full(channel.time.size, baseline - band),
                 label="",
-                style={"lw": 0.9, "linestyle": ":", "color": "0.5"},
+                style={"lw": 0.9, "linestyle": ":", "color": "emphasis:low"},
             ),
         ]
         for onset, name, color in (
@@ -8261,10 +9431,16 @@ def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
 RECIPES["magnetics_overview_vacuum"] = CallableRecipe(
     builder=_build_magnetics_vacuum,
     description="Measured, coil-only and coil+eddy synthetic magnetics per channel.",
+    reads=("pf_active", "pf_passive", "em_coupling", "magnetics", "wall", "tf", *_ONSET_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.vacuum_magnetics.synthetic_vacuum_magnetics deep-copies the ODS',
 )
 RECIPES["magnetics_overview_plasma_residual"] = CallableRecipe(
     builder=_build_magnetics_plasma_residual,
     description="Plasma residual left by the coil+eddy synthetic vacuum response.",
+    reads=("pf_active", "pf_passive", "em_coupling", "magnetics", "wall", "tf", *_ONSET_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.vacuum_magnetics.synthetic_vacuum_magnetics deep-copies the ODS',
 )
 
 
@@ -8460,10 +9636,14 @@ def _build_chease_profile_validity(ods: Any, **options: Any) -> Panels:
 RECIPES["chease_overview_refinement_summary"] = CallableRecipe(
     builder=_build_chease_refinement_summary,
     description="Profile and boundary RMS change from refinement, slice by slice.",
+    reads=("equilibrium.code.parameters", "equilibrium.code.library.{i}.name", "equilibrium.time", "equilibrium.time_slice.{i}.time"),
+    backend=NEUTRAL,
 )
 RECIPES["chease_overview_profile_validity"] = CallableRecipe(
     builder=_build_chease_profile_validity,
     description="q0/q95, q-monotonicity and pressure positivity of the refined equilibrium.",
+    reads=("equilibrium.code.library.{i}.name", "equilibrium.time", "equilibrium.time_slice.{i}.time", "equilibrium.time_slice.{i}.global_quantities.q_axis", "equilibrium.time_slice.{i}.global_quantities.q_95", "equilibrium.time_slice.{i}.profiles_1d.q", "equilibrium.time_slice.{i}.profiles_1d.pressure"),
+    backend=NEUTRAL,
 )
 
 
@@ -8517,18 +9697,195 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
 def _ods_for_callable(obj: Any, name: str) -> Any:
     """The object a code-backed builder receives.
 
-    Those builders call functions written for an OMAS ODS.  An entry of
-    another data model that can convert itself (``as_ods_for``, as
-    ``vaft.imas.IDSEntry`` does) is asked for an ODS holding only the IDS the
-    plot declares, plus the data entry that names the shot; anything else is
-    handed over as it is.  Path-driven recipes never come this way.
+    A neutral builder (``CallableRecipe.backend == NEUTRAL``) reads through
+    the accessor and takes the object as it is.  An OMAS-bound builder calls
+    functions written for an OMAS ODS: an entry of another data model that can
+    convert itself (``as_ods_for``, as ``vaft.imas.IDSEntry`` does) is asked
+    for an ODS holding only the IDS the plot declares, plus the data entry
+    that names the shot.  An input that cannot supply that -- a lazily loaded
+    IMAS handle, or a lazy OMAS store whose unfetched leaves a deep copy would
+    miss -- is read through the accessor instead: exactly the paths the recipe
+    declares in ``reads`` are materialised into a private ODS
+    (:func:`materialise_reads`).  A plain ODS is handed over as it is.
+    Path-driven recipes never come this way.
     """
-    convert = getattr(obj, "as_ods_for", None)
-    if convert is None:
+    recipe = RECIPES[name]
+    if recipe.backend == NEUTRAL:
         return obj
-    return convert(required_ids(name) + ("dataset_description",))
+    if converts_for_builder(obj, name):
+        return obj.as_ods_for(required_ids(name) + ("dataset_description",))
+    if materialises_for_builder(obj, name):
+        return materialise_reads(obj, name)
+    return obj
+
+
+def _can_convert(obj: Any, name: str) -> bool:
+    """Whether ``obj`` converts itself whole for plot ``name`` (an eager IMAS entry)."""
+    if not hasattr(obj, "as_ods_for"):
+        return False
+    can = getattr(obj, "can_convert", None)
+    return True if can is None else bool(can(required_ids(name)))
+
+
+def is_lazy_ods(obj: Any) -> bool:
+    """Whether ``obj`` is a lazy OMAS store (``vaft.database.lazy_ods.HSDSODS``).
+
+    Matched by name so this module never imports the database package: such
+    an ODS fetches a leaf on first read, so a deep copy of an unfetched root
+    is empty and a builder that copies has to be handed its reads instead.
+    """
+    return type(obj).__name__ == "HSDSODS" and getattr(obj, "store", None) is not None
+
+
+_TEMPLATE_INDEX = re.compile(r"\.(\{[a-z]\}|:)(?=\.|$)")
+
+
+def expand_template(obj: Any, template: str) -> list[str]:
+    """The concrete paths ``template`` names in ``obj``, one per enumerated index.
+
+    ``pf_active.coil.{i}.current.data`` becomes one path per coil the object
+    holds (``_count`` of the container), nested placeholders left to right; a
+    container the object lacks contributes nothing.
+    """
+    match = _TEMPLATE_INDEX.search(template)
+    if match is None:
+        return [template]
+    head, tail = template[: match.start()], template[match.end():]
+    paths: list[str] = []
+    for index in range(_count(obj, head)):
+        paths.extend(expand_template(obj, f"{head}.{index}{tail}"))
+    return paths
+
+
+def materialise_reads(obj: Any, name: str) -> Any:
+    """A private ODS holding what OMAS-bound plot ``name`` declares in ``reads``.
+
+    Every leaf template is expanded over the object's own indices and read
+    through the accessor, so a lazy remote store fetches exactly the leaves
+    the builder will touch and a native IMAS entry is read without conversion.
+    A bare IDS root in ``reads`` (the builder deep-copies the whole IDS) is
+    copied whole: from the entry's own conversion of that one IDS, from a
+    lazy OMAS store by walking its index, or from a plain ODS.  A lazily
+    loaded IMAS handle cannot supply a whole IDS and is refused by name.
+    """
+    from omas import ODS
+
+    recipe = RECIPES[name]
+    private = ODS(consistency_check=False)
+    templates = (*recipe.reads, "dataset_description.data_entry.pulse")
+    # Roots first: a whole IDS the input cannot supply is refused before any
+    # leaf is read.
+    for template in [t for t in templates if "." not in t] + [t for t in templates if "." in t]:
+        if "." not in template:
+            _copy_root(obj, template, private, name)
+        else:
+            _materialise_template(obj, template, private)
+    _decode_code_parameters(private)
+    return private
+
+
+def _decode_code_parameters(private: Any) -> None:
+    """Turn the ``code.parameters`` XML text a data model stores into the tree helpers read.
+
+    Conversion and eager loading decode it on the way in; the accessor hands
+    the stored text back, and a helper reading ``code.parameters.cocos``
+    through it would see nothing.
+    """
+    from omas.omas_core import CodeParameters
+
+    for path in list(private.flat()):
+        if not path.endswith(".code.parameters") or not isinstance(private[path], str):
+            continue
+        text = private[path]
+        if not text.lstrip().startswith("<"):
+            continue  # not XML: a JSON stage blob stays what it is
+        decoded = CodeParameters()
+        decoded.from_string(text)
+        private[path] = decoded
+
+
+def _materialise_template(obj: Any, template: str, private: Any) -> None:
+    """Read one template's leaves into ``private``, keeping the arrays of structures whole.
+
+    Every element of an enumerated container is created in ``private`` even
+    when it holds none of this template's leaves, so a helper that indexes
+    the array (``ods["magnetics.b_field_pol_probe"][k]``) finds the same
+    elements, at the same indices, as in the input.
+    """
+    from omas import ODS
+
+    match = _TEMPLATE_INDEX.search(template)
+    if match is None:
+        value = _get(obj, template)
+        if value is not None:
+            private[template] = value
+        return
+    head, tail = template[: match.start()], template[match.end():]
+    for index in range(_count(obj, head)):
+        element = f"{head}.{index}"
+        if not _has(private, element):
+            private[element] = ODS(consistency_check=False)
+        _materialise_template(obj, f"{element}{tail}", private)
+
+
+def _copy_root(obj: Any, root: str, private: Any, name: str) -> None:
+    import copy
+
+    convert = getattr(obj, "as_ods_for", None)
+    if convert is not None:
+        can = getattr(obj, "can_convert", None)
+        if can is not None and not can((root,)):
+            raise NotImplementedError(
+                f"plot {name!r} deep-copies the whole {root!r} IDS, which this lazily loaded "
+                f"IMAS handle cannot supply; load the shot eagerly (lazy=False) for it"
+            )
+        source = convert((root,))
+        if _has(source, root):
+            private[root] = copy.deepcopy(source[root])
+        return
+    store = getattr(obj, "store", None)
+    if is_lazy_ods(obj) and root in {str(key) for key in store.keys("")}:
+        # Walk the store's index: a leaf is what the store can fetch, the
+        # rest are structures and arrays of structures to descend.  Each leaf
+        # is read through the ODS, so a value the caller wrote over the store
+        # (issue #329) is what travels.
+        def walk(location: str) -> None:
+            for child in store.keys(location):
+                below = f"{location}.{child}"
+                if store.__contains__(below):
+                    private[below] = _get(obj, below)
+                else:
+                    walk(below)
+
+        walk(root)
+        return
+    if _has(obj, root):
+        private[root] = copy.deepcopy(obj[root])
 
 
 def converts_for_builder(obj: Any, name: str) -> bool:
-    """Whether plot ``name`` would convert ``obj`` before building (for discovery)."""
-    return isinstance(RECIPES.get(name), CallableRecipe) and hasattr(obj, "as_ods_for")
+    """Whether plot ``name`` would convert ``obj`` whole before building (for discovery)."""
+    recipe = RECIPES.get(name)
+    return (
+        isinstance(recipe, CallableRecipe)
+        and recipe.backend == OMAS_BOUND
+        and _can_convert(obj, name)
+    )
+
+
+def materialises_for_builder(obj: Any, name: str) -> bool:
+    """Whether plot ``name`` would read ``obj``'s declared paths into a private ODS.
+
+    A lazy OMAS store, or an IMAS entry that cannot convert itself whole (a
+    lazily loaded remote handle).
+    """
+    recipe = RECIPES.get(name)
+    if not isinstance(recipe, CallableRecipe) or recipe.backend != OMAS_BOUND:
+        return False
+    return is_lazy_ods(obj) or (hasattr(obj, "as_ods_for") and not _can_convert(obj, name))
+
+
+def conversion_reason(name: str) -> str:
+    """Why plot ``name`` converts a non-OMAS input, or ``""`` when it never does."""
+    recipe = RECIPES.get(name)
+    return recipe.reason if isinstance(recipe, CallableRecipe) else ""

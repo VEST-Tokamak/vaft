@@ -1115,7 +1115,6 @@ def _thomson_pressure(ods: Any, index: int, diagnostics: Any) -> dict[str, Any]:
 def _diamagnetic_energy(ods: Any, index: int, virial: Mapping[str, Any], dia_row: Mapping[str, Any] | None,
                         descriptors: Mapping[str, Any] | None) -> dict[str, Any]:
     from vaft.formula.equilibrium import kinetic_energy_from_beta_p_B_pa_V_p, virial_beta_pd_from_S_mu_rt
-    from vaft.process.equilibrium import computed_diamagnetism_from_phi
 
     if dia_row is None or not math.isfinite(_float(dia_row.get("measured"))):
         return _unavailable("no measured diamagnetic flux at this slice")
@@ -1131,8 +1130,34 @@ def _diamagnetic_energy(ods: Any, index: int, virial: Mapping[str, Any], dia_row
         return _result(ValidationStatus.INDETERMINATE,
                        reason=f"the virial inputs are not decided: {', '.join(missing) or 'non-positive volume, field or radius'}",
                        measured_flux=measured)
-    mui = _float(computed_diamagnetism_from_phi(measured, b_t0, r_0, needed["V_p"], needed["B_pa"]))
-    beta_pd = _float(virial_beta_pd_from_S_mu_rt(needed["s_1"], needed["s_2"], mui, needed["rt"] / r_0))
+    # One computation, not two. The wrapper already converts this slice's
+    # measured flux, using F at the boundary for the magnitude and the machine's
+    # field direction for the sign. Its value is the volume convention, which is
+    # what every other mu_i in this report is on -- virial_beta_pd_from_S_mu_rt
+    # takes the flux one, so it is negated at the single point that needs it.
+    #
+    # There is no second conversion here. The fallback that used to stand in
+    # this place recomputed mu_i as b0 * major_radius, which is not F at the
+    # boundary -- b0 is defined at vacuum_toroidal_field.r0 while major_radius
+    # is the geometric axis, and on the packaged shot that pairing is wrong by
+    # up to 41% (the same defect just fixed in the wrapper). It published that
+    # number under the same field name as the wrapper's, and no test reached
+    # it: replacing its body with a raise left the validation suite green.
+    # A slice this check cannot source from the wrapper is one it should not
+    # invent a number for.
+    mui = _float((virial.get("mu_i_sources") or {}).get("measured"))
+    if not math.isfinite(mui):
+        return _result(
+            ValidationStatus.INDETERMINATE,
+            reason="the wrapper could not convert the measured flux for this slice",
+            measured_flux=measured,
+        )
+    beta_pd = _float(virial_beta_pd_from_S_mu_rt(needed["s_1"], needed["s_2"], -mui, needed["rt"] / r_0))
+    # B_t0 is reported for provenance and still gated on above, but it no longer
+    # feeds any arithmetic here: the conversion is the wrapper's, on F at the
+    # boundary, so recomputing mui_measured from B_t0 and R_0 will not reproduce
+    # it. The gate stays because a slice with no toroidal field on record at all
+    # is not one this check should certify.
     fields = dict(measured_flux=measured, B_t0=b_t0, R_0=r_0, mui_measured=mui, beta_p_diamagnetic=beta_pd,
                   W_kin_virial=needed["W_kin"],
                   thermal_energy=_float(descriptors["thermal_energy"].value) if descriptors and "thermal_energy" in descriptors else math.nan)

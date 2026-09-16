@@ -24,12 +24,14 @@ from vaft.plot.backend.recipes import build_model
 from vaft.plot.display import COORDINATE_LABELS, PROFILE_COORDINATES
 from vaft.plot.models import Profile1D, ReferenceLine
 
+from _sample_fixtures import sample_ods
+
 SLICE = 4
 
 
 @pytest.fixture(scope="module")
 def sample():
-    return vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    return sample_ods(39915)
 
 
 @pytest.fixture(scope="module")
@@ -253,7 +255,7 @@ def test_discovery_and_controls_offer_the_coordinates(sample):
     record = next(r for r in vaft.omas.available_plots(sample) if r.name == "equilibrium_profile_q")
     assert record.coordinates["default"] == "rho_tor_norm"
     assert record.coordinates["options"] == PROFILE_COORDINATES
-    assert record.controls == ("time_slice", "coordinate", "orientation")
+    assert record.controls == ("time_slice", "coordinate", "orientation", "theme")
     assert "coordinates: rho_tor_norm (default) | psi_norm | sqrt_phi_norm | r_major | r_minor" in str(
         vaft.omas.available_plots(sample, query="equilibrium", view="profile")
     )

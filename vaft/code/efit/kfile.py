@@ -7,11 +7,12 @@ import json
 import numpy as np
 import os
 import re
-import statistics
 import warnings
+from dataclasses import dataclass, fields
 from functools import partial
 from numbers import Integral
 from pathlib import Path
+from typing import Sequence
 from omas import ODS, save_omas_json
 
 from vaft.ods_access import path_value
@@ -22,18 +23,19 @@ from vaft.machine_mapping.magnetics import (
     OUTBOARD_FLUX_LOOP_MIN_R,
     OUTBOARD_PROBE_MIN_R,
     SIDE_PROBE_MIN_ABS_Z,
+    equilibrium_probe_count,
     vest_equilibrium_magnetics_channel_definitions,
 )
 
 from .legacy import (
     vfit_equilibrium_form_constraints,
-    vfit_pf_active_efit26,
 )
 from .recovery import ProbeFamilies, family_of, gaussian_probe_recovery, probe_families
 from vaft.validation.channel_decision import MISSING, RECOVERED, ChannelDecisions
 from vaft.validation.efit_channels import condemned_channels, decide_efit_channels
 from vaft.validation.magnetics import unusable_channels_at
 
+from .efund import table_machine_era
 from .magnetic import EFITConfig
 from .config import EFITScientificConfig, EFITProfileConfig
 
@@ -47,24 +49,70 @@ _EFIT_CONSTRAINT_FAMILY = {
 }
 
 
-#: Positions, in the 26-channel legacy coil list of
-#: ``legacy.vfit_pf_active_efit26``, of the sixteen groups EFIT's VEST tables
-#: carry: PF1-1..PF1-8, PF5U/L, PF6U/L, PF9U/L, PF10U/L.
-EFIT16_GROUP_POSITIONS: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 16, 17, 22, 23, 24, 25)
+def build_efit_coil_currents(destination, source, *, coilset=None, window=None) -> None:
+    """The EFIT current groups, built from the machine's own PF circuits.
 
+    VEST energises ten PF circuits.  EFIT's VEST table carries sixteen current
+    groups over them: the solenoid split into eight axial segments, and PF5,
+    PF6, PF9 and PF10 each split at the midplane.  Splitting a circuit is
+    bookkeeping, so every group takes the current of the circuit it belongs
+    to, and the eight solenoid segments all carry PF1.
 
-def efit16_group_indices(count: int, target: int) -> list[int]:
-    """Indices of the coil channels the k-file writes for an ``nfsum``-group table.
+    ``coilset`` is the resolved coilset policy -- which circuits the table
+    describes and how each is split -- and defaults to the configured one.  It
+    is the same policy the EFUND projection is given, so the table and the
+    k-file cannot disagree about which coils exist.  Circuits are matched by
+    name, not by position.
 
-    The routine VEST table has sixteen groups and the constraints ODS carries
-    the twenty-six legacy channels, so the sixteen are picked by position.
-    Any other pairing takes the leading channels.  The same selection defines
-    the F-coil groups ``vaft.machine_mapping.efund_geometry`` projects for
-    EFUND, so table and k-file cannot disagree about which coils exist.
+    ``window`` is ``(tstart, tend, dt)`` to resample the currents onto, and
+    defaults to **not resampling**: the currents are taken on the time base
+    they were measured on.  This used to be a fixed 0.26-0.36 s at 40 us
+    written into the writer, which is VEST's analysis window and had no
+    business here -- and was inert besides.  Every packaged product already
+    arrives on exactly that grid (2500 uniform 40 us samples from 0.26 s), so
+    the interpolation was a series onto its own abscissa.  A caller that does
+    need a different grid resolves one from the machine layer and passes it.
     """
-    if target == 16 and count >= 26:
-        return list(EFIT16_GROUP_POSITIONS)
-    return list(range(min(count, target)))
+    if coilset is None:
+        from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
+
+        coilset = vest_efit_coilset_policy()
+
+    by_name: dict[str, int] = {}
+    for index in range(len(source["coil"])):
+        by_name[str(source[f"coil.{index}.name"])] = index
+    missing = sorted(set(coilset.source_circuit.values()) - set(by_name))
+    if missing:
+        raise ValueError(
+            "pf_active is missing the circuits EFIT's groups are driven by: "
+            + ", ".join(missing)
+            + f" (present: {', '.join(sorted(by_name))})"
+        )
+
+    time = np.asarray(source["time"], dtype=float)
+    if window is None:
+        resampled = time
+    else:
+        tstart, tend, dt = (float(value) for value in window)
+        if dt <= 0:
+            raise ValueError(f"the resampling step must be positive, got {dt}")
+        resampled = np.arange(max(tstart, time[0]), min(tend, time[-1]), dt)
+        if resampled.size == 0:
+            raise ValueError(
+                f"the window {tstart}-{tend} s does not overlap the record "
+                f"{time[0]}-{time[-1]} s"
+            )
+
+    destination["ids_properties.comment"] = "PF config from vest_pf_active, grouped for EFIT"
+    destination["ids_properties.homogeneous_time"] = 1
+    destination["time"] = resampled
+    for group, name in enumerate(coilset.group_names):
+        circuit = by_name[coilset.source_circuit[name]]
+        destination[f"coil.{group}.name"] = name
+        destination[f"coil.{group}.identifier"] = name
+        destination[f"coil.{group}.current.data"] = np.interp(
+            resampled, time, np.asarray(source[f"coil.{circuit}.current.data"], dtype=float)
+        )
 
 
 def _condemned_channels(ods, nbprobe: int) -> set[int]:
@@ -124,6 +172,93 @@ PROBE_WEIGHT_INDEX = {"inboard": 3, "side": 4, "outboard": 5}
 FLUX_WEIGHT_INDEX = {"inboard": 6, "outboard": 7}
 
 
+@dataclass(frozen=True)
+class ConstraintErrors:
+    """The relative error assigned to each constraint family.
+
+    Every value is a fraction of the measurement: the stored
+    ``measured_error_upper`` is ``value * measured``.
+
+    These arrived as a nine-element list indexed by position, with the meaning
+    of each slot written down nowhere and copied into five workflow scripts and
+    a test. Naming them is not cosmetic: ``uncertainty[5]`` and
+    ``uncertainty[6]`` are the side probes and the outboard probes, and nothing
+    in a call site said so.
+
+    The probe and flux-loop fields still name VEST's three probe families and
+    two flux-loop families. That is the next thing to move (#708); a named
+    field at least says which family it is.
+    """
+
+    pf_current: float
+    b_field_tor_vacuum_r: float
+    ip: float
+    diamagnetic_flux: float
+    probe_inboard: float
+    probe_side: float
+    probe_outboard: float
+    flux_loop_inboard: float
+    flux_loop_outboard: float
+
+    @classmethod
+    def from_sequence(cls, values: Sequence[float]) -> "ConstraintErrors":
+        """The legacy positional list, in its documented order."""
+        expected = len(fields(cls))
+        values = [float(value) for value in values]
+        if len(values) != expected:
+            raise ValueError(
+                f"expected {expected} constraint errors in the legacy order "
+                f"({', '.join(field.name for field in fields(cls))}), got {len(values)}"
+            )
+        return cls(*values)
+
+    @classmethod
+    def coerce(cls, values: "ConstraintErrors | Sequence[float]") -> "ConstraintErrors":
+        return values if isinstance(values, cls) else cls.from_sequence(values)
+
+
+@dataclass(frozen=True)
+class ConstraintWeights:
+    """The fit weight assigned to each constraint family.
+
+    The eight-element positional twin of :class:`ConstraintErrors`, with the
+    same complaint: ``weighting[6]`` is the inboard flux loops and only
+    ``FLUX_WEIGHT_INDEX`` knew it.
+    """
+
+    pf_current: float
+    ip: float
+    diamagnetic_flux: float
+    probe_inboard: float
+    probe_side: float
+    probe_outboard: float
+    flux_loop_inboard: float
+    flux_loop_outboard: float
+
+    #: The family names the probe and flux-loop weights are keyed by, so a
+    #: caller can look one up without knowing a field name.
+    def probe(self, family: str) -> float:
+        return float(getattr(self, f"probe_{family}"))
+
+    def flux_loop(self, family: str) -> float:
+        return float(getattr(self, f"flux_loop_{family}"))
+
+    @classmethod
+    def from_sequence(cls, values: Sequence[float]) -> "ConstraintWeights":
+        expected = len(fields(cls))
+        values = [float(value) for value in values]
+        if len(values) != expected:
+            raise ValueError(
+                f"expected {expected} constraint weights in the legacy order "
+                f"({', '.join(field.name for field in fields(cls))}), got {len(values)}"
+            )
+        return cls(*values)
+
+    @classmethod
+    def coerce(cls, values: "ConstraintWeights | Sequence[float]") -> "ConstraintWeights":
+        return values if isinstance(values, cls) else cls.from_sequence(values)
+
+
 def apply_channel_decisions(
     EQ,
     decisions: ChannelDecisions,
@@ -137,9 +272,9 @@ def apply_channel_decisions(
     Per slice and submitted channel whose constraint already exists: a
     ``missing`` decision is skipped (the #145 placeholder stands); every
     other state writes ``weight = nominal * weight_factor``, where the
-    nominal weight is the family's entry of ``weighting`` (probes: inboard
-    ``[3]``, side ``[4]``, outboard ``[5]``; flux loops: inboard ``[6]``,
-    outboard ``[7]``); a ``recovered`` slice also writes the backend's value
+    nominal weight is the family's entry of ``weighting``, which may be a
+    :class:`ConstraintWeights` or the legacy positional list; a ``recovered``
+    slice also writes the backend's value
     into ``measured`` and, when it supplied one, its uncertainty into
     ``measured_error_upper``.  A channel in no family gets no weight, as the
     legacy builder left it.  Nothing is invented: a decision for a channel
@@ -149,17 +284,18 @@ def apply_channel_decisions(
     ``code.parameters.channel_decisions`` (channels with a notable state
     only) so the product says why a constraint carries the weight it does.
     """
+    weights = ConstraintWeights.coerce(weighting)
     inboard_flux, outboard_flux = (set(int(k) for k in fam) for fam in flux_families)
     written = 0
     skipped: list[tuple[str, int]] = []
     for (kind, index), decision in decisions.entries.items():
         if kind == "b_field_pol_probe":
             family = family_of(index, families)
-            nominal = None if family is None else float(weighting[PROBE_WEIGHT_INDEX[family]])
+            nominal = None if family is None else weights.probe(family)
             node = "bpol_probe"
         elif kind == "flux_loop":
             family = "inboard" if index in inboard_flux else "outboard" if index in outboard_flux else None
-            nominal = None if family is None else float(weighting[FLUX_WEIGHT_INDEX[family]])
+            nominal = None if family is None else weights.flux_loop(family)
             node = "flux_loop"
         else:
             continue
@@ -182,21 +318,14 @@ def apply_channel_decisions(
 
 
 def _efit_bpol_probe_count(magnetics) -> int:
-    """Return the B-pol channels represented in VEST EFIT geometry.
+    """The B-pol channels EFIT's geometry represents.
 
-    The magnetics IDS also carries trailing toroidal-Mirnov phase-reference
-    channels.  They are useful diagnostics, but are not represented in EFIT's
-    ``dprobe.dat``/``mhdin.dat`` geometry and must not become constraints.
-    The fitted count comes from the canonical MD-channel definition rather
-    than from the larger magnetics IDS container.
+    One line, because the rule is not this module's to state: three copies of
+    ``min(present, defined)`` had accumulated and the one here disagreed with
+    the other two when no channel was defined, returning zero probes where
+    they returned every present one.
     """
-    return min(
-        len(magnetics["b_field_pol_probe"]),
-        sum(
-            channel["kind"] == "b_field_pol_probe"
-            for channel in vest_equilibrium_magnetics_channel_definitions()
-        ),
-    )
+    return equilibrium_probe_count(magnetics)
 
 
 def _has_matching_signal(magnetics, path: str) -> bool:
@@ -234,6 +363,9 @@ def generate_constraints_ods(
     decisions: ChannelDecisions | None = None,
     recovery=None,
     average_window: float = DEFAULT_AVERAGE_WINDOW,
+    coil_current_window: tuple[float, float, float] | None = None,
+    expected_table_era: str | None = None,
+    coilset=None,
 ) -> ChannelDecisions:
     """Generate the constraints ODS, ``save_dir/{shotnumber}_constraints.json``.
 
@@ -258,6 +390,23 @@ def generate_constraints_ods(
     product was built from.
     """
 
+    # A Green table is a projection of one machine's conductors and is only
+    # valid for the era it was built from. The caller resolves which era this
+    # discharge belongs to -- that is a fact about the machine, not about EFIT
+    # -- and the table states its own; disagreement is refused here rather
+    # than reconstructed against the wrong coils (#805).
+    if expected_table_era is not None:
+        declared = table_machine_era(efit_table_dir)
+        if declared is not None and declared != expected_table_era:
+            raise ValueError(
+                f"the Green table in {efit_table_dir} was built for machine era "
+                f"{declared!r}, but shot {shotnumber} belongs to {expected_table_era!r}. "
+                "Coil geometry differs between eras, so this would reconstruct "
+                "against conductors that are in the wrong place. Regenerate the "
+                "table for this era (workflow/efit_tables/regenerate_legacy_table.py "
+                f"--era {expected_table_era}) or analyse a shot from {declared!r}."
+            )
+
     # coilset_opt
     # "16_coils" : PF1 - 8 segments + PF5, 6, 9, 10 Upper and Lower Segments
     # "26_coils" : PF1 - 8 segments + PF2-10 Upper and Lower Segments
@@ -273,23 +422,39 @@ def generate_constraints_ods(
     ]
     # For later need to develop option to add other constraints (e.g. internal magnetic probe, thomson scattering, etc.)
 
+    # Accepts the legacy positional lists; everything below reads names.
+    errors = ConstraintErrors.coerce(uncertainty)
+    weights = ConstraintWeights.coerce(weighting)
+
     ods_tmp = ODS()
     PF = ods_tmp["pf_active"]
     PF_orig = ods["pf_active"]
 
-    ## (1) PF coil - # 16 coils. It is used for EFIT input, PF1 (CS) Coil is discriesed by 16 coils in EFIT.
-    tstart = 0.26
-    #    if shotnumber>=43635:
-    #        tstart=0.245
-    tend = 0.36
-    dt = 4e-5
+    ## (1) The EFIT current groups, from the measured PF circuits.
+    if coilset is None:
+        from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
 
-    vfit_pf_active_efit26(PF, PF_orig, shotnumber, tstart, tend, dt)
+        coilset = vest_efit_coilset_policy()
+    build_efit_coil_currents(PF, PF_orig, coilset=coilset, window=coil_current_window)
+
+    # Which circuits this discharge energised. Recorded on the product so it
+    # says why a coil carries the weight it does, and read back by the writer.
+    from vaft.machine_mapping.efit_coilset import detect_energised_circuits
+
+    energisation = detect_energised_circuits(
+        PF_orig, coilset, window=(float(time[0]), float(time[-1]))
+    )
+    if energisation.disagreement:
+        warnings.warn(
+            "the energised circuits measured for this discharge differ from the "
+            f"configured declaration -- {energisation.disagreement}; the measurement is used",
+            stacklevel=2,
+        )
 
     for i, _ in enumerate(PF["coil"]):
         PF[f"coil.{i}.current.time"] = PF["time"]
         PF[f"coil.{i}.current.data_error_upper"] = abs(
-            uncertainty[0] * PF[f"coil.{i}.current.data"]
+            errors.pf_current * PF[f"coil.{i}.current.data"]
         )
 
     #    print('___',PF['coil.0.current.data'])
@@ -299,17 +464,17 @@ def generate_constraints_ods(
     TF = ods["tf"]
     TF["b_field_tor_vacuum_r.time"] = TF["time"]
     TF["b_field_tor_vacuum_r.data_error_upper"] = abs(
-        uncertainty[1] * TF["b_field_tor_vacuum_r.data"]
+        errors.b_field_tor_vacuum_r * TF["b_field_tor_vacuum_r.data"]
     )
 
     ## (3) Ip
     MG = ods["magnetics"]
-    MG["ip.0.data_error_upper"] = abs(uncertainty[2] * MG["ip.0.data"])
+    MG["ip.0.data_error_upper"] = abs(errors.ip * MG["ip.0.data"])
 
     ## (4) Diamagnetic flux
     MG["diamagnetic_flux.0.time"] = MG["time"]
     MG["diamagnetic_flux.0.data_error_upper"] = abs(
-        uncertainty[3] * MG["diamagnetic_flux.0.data"]
+        errors.diamagnetic_flux * MG["diamagnetic_flux.0.data"]
     )
 
     ## (5) Poloidal magnetic probe
@@ -343,18 +508,18 @@ def generate_constraints_ods(
     for i in Index_inBz:
         MG[f"b_field_pol_probe.{i}.field.time"] = MG["time"]
         MG[f"b_field_pol_probe.{i}.field.data_error_upper"] = abs(
-            uncertainty[4] * MG[f"b_field_pol_probe.{i}.field.data"]
+            errors.probe_inboard * MG[f"b_field_pol_probe.{i}.field.data"]
         )
     for i in Index_sideBz:
         MG[f"b_field_pol_probe.{i}.field.time"] = MG["time"]
         MG[f"b_field_pol_probe.{i}.field.data_error_upper"] = abs(
-            uncertainty[5] * MG[f"b_field_pol_probe.{i}.field.data"]
+            errors.probe_side * MG[f"b_field_pol_probe.{i}.field.data"]
         )
 
     for i in Index_outBz:
         MG[f"b_field_pol_probe.{i}.field.time"] = MG["time"]
         MG[f"b_field_pol_probe.{i}.field.data_error_upper"] = abs(
-            uncertainty[6] * MG[f"b_field_pol_probe.{i}.field.data"]
+            errors.probe_outboard * MG[f"b_field_pol_probe.{i}.field.data"]
         )
 
     ## (6) Flux loops
@@ -387,13 +552,13 @@ def generate_constraints_ods(
     for i in Index_inFlux:
         MG[f"flux_loop.{i}.flux.time"] = MG["time"]
         MG[f"flux_loop.{i}.flux.data_error_upper"] = abs(
-            uncertainty[7] * MG[f"flux_loop.{i}.flux.data"]
+            errors.flux_loop_inboard * MG[f"flux_loop.{i}.flux.data"]
         )
 
     for i in Index_OutFlux:
         MG[f"flux_loop.{i}.flux.time"] = MG["time"]
         MG[f"flux_loop.{i}.flux.data_error_upper"] = abs(
-            uncertainty[8] * MG[f"flux_loop.{i}.flux.data"]
+            errors.flux_loop_outboard * MG[f"flux_loop.{i}.flux.data"]
         )
 
     # Convert diagnostics ODS to equilibrium constraints ODS
@@ -434,9 +599,9 @@ def generate_constraints_ods(
     # reconstruction, which is not what EFIT does.
     for i in range(len(EQ["time"])):
         for j in range(len(EQ[f"time_slice.{i}.constraints.pf_current"])):
-            EQ[f"time_slice.{i}.constraints.pf_current.{j}.weight"] = weighting[0]
-        EQ[f"time_slice.{i}.constraints.ip.weight"] = weighting[1]
-        EQ[f"time_slice.{i}.constraints.diamagnetic_flux.weight"] = weighting[2]
+            EQ[f"time_slice.{i}.constraints.pf_current.{j}.weight"] = weights.pf_current
+        EQ[f"time_slice.{i}.constraints.ip.weight"] = weights.ip
+        EQ[f"time_slice.{i}.constraints.diamagnetic_flux.weight"] = weights.diamagnetic_flux
 
     if decisions is None:
         # The legacy interface: the manual list and the fit option are the
@@ -484,11 +649,12 @@ def generate_constraints_ods(
         PM[f"time_slice.{i}.IN1.PCURBD"] = 1
         PM[f"time_slice.{i}.IN1.KCALPA"] = 0
         PM[f"time_slice.{i}.IN1.KCGAMA"] = 0
-        PM[f"time_slice.{i}.IN1.CUTIP"] = 50000.0
-        PM[f"time_slice.{i}.IN1.RZERO"] = 0.4
-        PM[f"time_slice.{i}.IN1.RELIP"] = 0.4
-        PM[f"time_slice.{i}.IN1.AELIP"] = 0.3
-        PM[f"time_slice.{i}.IN1.EELIP"] = 1.6
+        # The seed ellipse, the reference radius and the plasma-current floor
+        # are NOT written here. They were, as five VEST numbers, and the writer
+        # took them from `EFITScientificConfig` regardless -- so they never
+        # reached a k-file and simply sat in the stored parameters
+        # contradicting the live values. `CUTIP` said 50000 A where the
+        # configuration says 5000.
 
         # Add wall eddy current to the k-file
         Iwall = []
@@ -496,73 +662,18 @@ def generate_constraints_ods(
             Iwall.append(np.interp(mytime, PFP["time"], PFP[f"loop.{j}.current"]))
         PM[f"time_slice.{i}.IN1.VCURRT"] = Iwall
 
-        # Add coil geometry to the k-file
+        # The coil constraint matrix is not built here. It used to be, from a
+        # hard-coded choice between a sixteen- and a twenty-six-coil layout,
+        # and none of it ever reached the k-file: the `&INWANT` block is
+        # written from `EFITConstraintConfig` (see the writer below), which
+        # silently overrode these values. It is gone rather than left to be
+        # rediscovered.
 
-        nbcoil1 = 8
-        coilset_opt = "26_coils"
-        if coilset_opt == "16_coils":
-            nbcoil = nbcoil1 + 8
-            nbcons = nbcoil1 + (nbcoil - nbcoil1) / 2
-        elif coilset_opt == "26_coils":
-            nbcoil = nbcoil1 + 18
-            nbcons = int(nbcoil1 + (nbcoil - nbcoil1) / 2)
-            # add extra constraint if needed: PF2U=0, PF2L=0,PF3U=0, PF3L=0,PF4U=0, PF4L=0,PF7U=0, PF7L=0,PF8U=0, PF8L=0
-            add0 = []
-            for i in range(nbcoil):
-                if statistics.mean(PF[f"coil.{i}.current.data"]) == 0.0:
-                    add0.append(i)
-            nbcons = nbcons + int(len(add0) / 2)
-
-        PM[f"time_slice.{i}.INWANT.NCCOIL"] = 0
-        PM[f"time_slice.{i}.INWANT.KCCOILS"] = nbcons
-        PM[f"time_slice.{i}.INWANT.XCOILS"] = np.zeros(nbcons)
-
-        CCOILS = np.zeros((nbcoil, nbcons))
-        for j in range(nbcoil1 - 1):
-            CCOILS[0][j] = 1.0
-            CCOILS[j + 1][j] = -1.0
-
-        if coilset_opt == "16_coils":
-            # Upper and lower is same
-            CCOILS[nbcoil1][nbcoil1 - 1] = 1.0
-            CCOILS[nbcoil1 + 1][nbcoil1 - 1] = -1.0
-            CCOILS[nbcoil1 + 2][nbcoil1] = 1.0
-            CCOILS[nbcoil1 + 3][nbcoil1] = -1.0
-            CCOILS[nbcoil1 + 4][nbcoil1 + 1] = 1.0
-            CCOILS[nbcoil1 + 5][nbcoil1 + 1] = -1.0
-            CCOILS[nbcoil1 + 6][nbcoil1 + 2] = 1.0
-            CCOILS[nbcoil1 + 7][nbcoil1 + 2] = -1.0
-            # PF 9 = PF 10 is same
-            CCOILS[nbcoil1 + 5][nbcoil1 + 3] = 1.0
-            CCOILS[nbcoil1 + 6][nbcoil1 + 3] = -1.0
-        elif coilset_opt == "26_coils":
-            # Upper and lower is same
-            CCOILS[nbcoil1][nbcoil1 - 1] = 1.0
-            CCOILS[nbcoil1 + 1][nbcoil1 - 1] = -1.0
-            CCOILS[nbcoil1 + 2][nbcoil1] = 1.0
-            CCOILS[nbcoil1 + 3][nbcoil1] = -1.0
-            CCOILS[nbcoil1 + 4][nbcoil1 + 1] = 1.0
-            CCOILS[nbcoil1 + 5][nbcoil1 + 1] = -1.0
-            CCOILS[nbcoil1 + 6][nbcoil1 + 2] = 1.0
-            CCOILS[nbcoil1 + 7][nbcoil1 + 2] = -1.0
-            CCOILS[nbcoil1 + 8][nbcoil1 + 3] = 1.0
-            CCOILS[nbcoil1 + 9][nbcoil1 + 3] = -1.0
-            CCOILS[nbcoil1 + 10][nbcoil1 + 4] = 1.0
-            CCOILS[nbcoil1 + 11][nbcoil1 + 4] = -1.0
-            CCOILS[nbcoil1 + 12][nbcoil1 + 5] = 1.0
-            CCOILS[nbcoil1 + 13][nbcoil1 + 5] = -1.0
-            CCOILS[nbcoil1 + 14][nbcoil1 + 6] = 1.0
-            CCOILS[nbcoil1 + 15][nbcoil1 + 6] = -1.0
-            CCOILS[nbcoil1 + 16][nbcoil1 + 7] = 1.0
-            CCOILS[nbcoil1 + 17][nbcoil1 + 7] = -1.0
-            # PF 9 = PF 10 is same
-            CCOILS[nbcoil1 + 15][nbcoil1 + 8] = 1.0
-            CCOILS[nbcoil1 + 16][nbcoil1 + 8] = -1.0
-
-            # force 0 for unused coils
-            for j in range(int(len(add0) / 2)):
-                CCOILS[add0[2 * j]][nbcoil1 + 9 + j] = 1.0
-        PM[f"time_slice.{i}.INWANT.CCOILS"] = CCOILS
+    # Which circuits this discharge energised, recorded so the product says why
+    # a coil carries the weight it does, and read back by the writer. Written
+    # here and not earlier: a leaf placed in `code.parameters` before its
+    # `time_slice` sub-tree exists takes the sub-tree's place on the way out.
+    EQ["code.parameters.energisation"] = json.dumps(energisation.as_dict(), default=float)
 
     # Save the constraints ODS
     ods_eq = ODS()
@@ -580,6 +691,7 @@ def generate_kfile(
     save_dir="./tmp",
     *,
     config: EFITConfig | EFITScientificConfig | None = None,
+    coilset=None,
 ):
     """
     Generate k-files under ``save_dir/kfile`` for the requested shot.
@@ -689,32 +801,92 @@ def generate_kfile(
         CSTR = EQ[f"time_slice.{time_idx}.constraints"]
 
         ## (1) PF Coil currents with weight
-        nfsum = _machine_count("nfsum", len(CSTR["pf_current"]))
-        pf_indices = efit16_group_indices(len(CSTR["pf_current"]), nfsum)
-        nbcoil = len(pf_indices)
+        # The constraint tree carries exactly the groups EFIT's table has, in
+        # its order, so there is nothing to select -- and a disagreement is an
+        # error rather than something to trim. Taking `min()` here silently
+        # dropped the trailing groups of a tree longer than the table, which
+        # is the shape of every future mistake in this area: the k-file still
+        # looks well formed and simply omits coils.
+        available = len(CSTR["pf_current"])
+        nfsum = _machine_count("nfsum", available)
+        if nfsum != available:
+            raise ValueError(
+                f"the table declares nfsum = {nfsum} but the constraint tree carries "
+                f"{available} PF current groups; they describe different coilsets. "
+                f"Table directory: {PM['time_slice.0.IN1.INPUT_DIR']}"
+            )
+        pf_indices = list(range(available))
+        nbcoil = available
+        # `None` means "the coilset says": splitting a circuit into groups does
+        # not split its current, and series-wired circuits carry one, so the
+        # equalities follow from the machine description rather than from a
+        # table written out by index.
         matrix = constraint_config.coil_constraint_matrix
+        targets = constraint_config.coil_constraint_targets
+        if matrix is None:
+            if coilset is None:
+                from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
+
+                coilset = vest_efit_coilset_policy()
+            matrix = coilset.constraint_matrix()
+            if targets is None:
+                targets = coilset.constraint_targets()
+        elif targets is None:
+            targets = (0.0,) * len(matrix[0])
         if constraint_config.use_coil_relation_constraints and len(matrix) != nbcoil:
             raise ValueError(
                 "coil_constraint_matrix row count must match the selected "
                 f"PF coil count ({len(matrix)} != {nbcoil})"
             )
         column_count = len(matrix[0])
+        # Which circuits this discharge energised; an unenergised group is
+        # pinned at zero rather than fitted, and its error bar is floored so a
+        # zero current does not become a zero uncertainty.
+        stored = path_value(EQ, "code.parameters.energisation", None)
+        energised = None
+        if stored:
+            try:
+                energised = set(json.loads(stored)["energised"])
+            except (ValueError, KeyError, TypeError):
+                energised = None
+        floor = 0.0 if coilset is None else float(coilset.coil_current_error_floor)
+
         COILCURRENT = np.zeros(nbcoil)
         BITCURRENT = np.zeros(nbcoil)
+        COILWEIGHT = np.zeros(nbcoil)
         for i, source_index in enumerate(pf_indices):
             COILCURRENT[i] = CSTR[
                 f"pf_current.{source_index}.measured"
             ]  # Coil current in A
-            BITCURRENT[i] = _measurement_error(
-                CSTR,
-                f"pf_current.{source_index}",
-                CSTR[f"pf_current.{source_index}.measured_error_upper"],
+            BITCURRENT[i] = max(
+                _measurement_error(
+                    CSTR,
+                    f"pf_current.{source_index}",
+                    CSTR[f"pf_current.{source_index}.measured_error_upper"],
+                ),
+                floor,
             )
+            if energised is None or coilset is None:
+                COILWEIGHT[i] = 1.0
+            else:
+                circuit = coilset.source_circuit[coilset.group_names[i]]
+                COILWEIGHT[i] = 1.0 if circuit in energised else 0.0
         BRSP = _namelist_array("BRSP", COILCURRENT, per_line=3)
         BITFC = _namelist_array("BITFC", BITCURRENT, per_line=3)
         pf_weight = _weight(CSTR, "pf_current.0", "pf_current")
+        # Fortran's repeat count while every coil is weighted alike, which is
+        # the routine case and keeps the k-file as it was; the array form only
+        # when a circuit is switched off. The objective scale multiplies the
+        # weight in both forms -- it is a property of the family, not of the
+        # spelling.
         pf_objective_scale = _objective_scale("pf_current")
-        FWTFC = f"FWTFC= {nbcoil}*{pf_weight * pf_objective_scale}\n"
+        scaled_pf_weight = pf_weight * pf_objective_scale
+        if np.all(COILWEIGHT == 1.0):
+            FWTFC = f"FWTFC= {nbcoil}*{scaled_pf_weight}\n"
+        else:
+            FWTFC = _namelist_array(
+                "FWTFC", [scaled_pf_weight * factor for factor in COILWEIGHT], per_line=8
+            )
 
         ## (2) Wall eddy current
         WALLCURRENT = PM[f"time_slice.{time_idx}.IN1.VCURRT"]
@@ -965,7 +1137,7 @@ def generate_kfile(
         if constraint_config.use_coil_relation_constraints:
             f.write(
                 _namelist_array(
-                    "XCOILS", constraint_config.coil_constraint_targets, per_line=8
+                    "XCOILS", targets, per_line=8
                 )
             )
         f.write(" /\n")

@@ -71,6 +71,9 @@ DEFINITIONAL = frozenset({
     "export_electron_profile_txt",
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
+    # Deleting a sum-over-species leaf from a slice that has no ion species is
+    # what the leaf means, not a method borrowed from anywhere.
+    "strip_electron_only_pressure",
     "compute_time_match_atol",
     "find_time_match_index",
     "normalize_atomic_symbol",
@@ -156,6 +159,12 @@ PIPELINE = frozenset({
     "core_profiles_from_eq_ratio",
     "integrate_emissivity_profile",
     "compute_line_radiation_power_series",
+
+    # camera_fluctuation (#161)
+    "mhd_band_power",
+    "normalize_by_local_emission",
+    "pixelwise_spectrogram",
+    "subtract_temporal_background",
 })
 
 #: Routines whose output sits at a different place in the processing chain
@@ -180,10 +189,38 @@ STATEFUL = frozenset({
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
     "compute_line_radiation_power_series",
+
+    # camera_fluctuation (#161): power and frames arrive on different time bases
+    "normalize_by_local_emission",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    "lab_to_straight_field_line",
+    "straight_field_line_tables",
+    "cocos_field_scales",
+    "resonant_delta",
+    "resonant_geometric_factor",
+    "align_surfaces_by_q",
+    "composite_drive_at_q",
+    "helical_phase_sweep",
+    "q_composite_table",
+    "reduce_delta_e",
+    # perturbation: the resonant reductions state their radial window
+    # convention and their tesla-not-gauss unit choice.
+    "chirikov",
+    "edge_overlap_metric",
+    "energy_norm_matrix",
+    "critical_island_width",
+    "group_coincident_islands",
+    "island_overlap_width",
+    "island_pairs",
+    "penetration_ratio",
+    "reduce_resonant",
+    "resonant_metrics",
+    "resonant_windows",
+    "rms_resonant_field",
+
     # profile (V4/D-05): the position is in the declared radial coordinate
     # and is never converted
     "pedestal_top",
@@ -361,6 +398,17 @@ CONVENTION_SENSITIVE = frozenset({
     "export_electron_profile_txt",
     "toroidal_mode_decomposition",
     "biot_savart_filaments",
+
+    # camera_fluctuation (#161): the frame axis comes first, band edges are
+    # closed, pixel bounds are row-then-column while projected pixels are
+    # column-then-row, and the reference frequency is tracked rather than fixed.
+    "mhd_band_power",
+    "normalize_by_local_emission",
+    "pixelwise_spectrogram",
+    "poisson_window",
+    "subtract_temporal_background",
+    "summed_region_signal",
+    "track_reference_frequency",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]

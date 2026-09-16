@@ -16,6 +16,7 @@ import pytest
 
 import vaft
 import vaft.omas
+from vaft import ods_access
 from vaft.plot.backend import access, recipes
 from vaft.plot.backend.entries import label_entries
 from vaft.plot.registry import canonical_names, get_spec
@@ -84,8 +85,14 @@ def test_a_registered_accessor_wins_for_its_objects():
         assert access.accessor_for(box) is accessor
         assert access.count(box, "a.b") == 3 and access.has(box, "a.b")
         assert np.array_equal(access.array(box, "a.b"), [1.0, 2.0, 3.0])
+        # The registry lives in the core, so vaft.ods_access's readers dispatch too.
+        assert ods_access.path_value(box, "a.b") == [1, 2, 3]
+        assert ods_access.path_count(box, "a.b") == 3 and ods_access.path_exists(box, "a.b")
+        assert ods_access.get_path(box, "a.b") == [1, 2, 3]
+        with pytest.raises(KeyError):
+            ods_access.get_path(box, "a.c")
     finally:
-        access._REGISTERED[:] = [pair for pair in access._REGISTERED if pair[1] is not accessor]
+        ods_access._REGISTERED[:] = [pair for pair in ods_access._REGISTERED if pair[1] is not accessor]
 
 
 def test_label_entries_is_the_one_labelling_rule(shot):

@@ -43,7 +43,7 @@ def scan_module():
 def test_the_table_was_scanned_with_the_current_policy(table):
     """A retuned rule invalidates the corpus: the scan must be re-run, not the prose edited."""
     policy = resolve_plasma_timing_policy().as_dict()
-    assert table["schema_version"] == 1
+    assert table["schema_version"] == 2
     assert table["shots_requested"] == SHOTS_REQUESTED
     for key in ("window", "baseline_lead_s", "h_alpha", "ip", "usability", "agreement"):
         assert table["policy"][key] == policy[key], key
@@ -104,3 +104,63 @@ def test_the_raw_and_ods_readers_share_one_agreement_vocabulary(table):
             assert row["agreement"] in words
             if row["agreement"] != AGREEMENT_CONSISTENT:
                 assert row["agreement"] in row["flags"]
+
+
+def test_every_judged_window_reports_how_much_of_it_was_active(table):
+    """The extent of a window is not how long the plasma was there (#752).
+
+    A window is the envelope of its segments, so a record of two brief flashes
+    tens of milliseconds apart reports a long window that is mostly gap.  The
+    table carries the duty cycle per detector because it is the one measure it
+    cannot be asked for after the fact.
+    """
+    judged = [row for row in table["rows"] if row.get("status") == "judged"]
+    for row in judged:
+        for detector in ("h_alpha", "ip"):
+            record = row.get(detector)
+            if not record or record.get("start") is None:
+                continue
+            duty = record.get("duty_cycle")
+            assert duty is not None, (row["shot"], detector)
+            assert 0.0 < duty <= 1.0, (row["shot"], detector, duty)
+
+
+def test_no_light_window_is_an_envelope_over_gaps_any_more(table):
+    """Both detectors now answer the same question (#842).
+
+    The light rule used to return the envelope of every accepted segment, so a
+    record of scattered flashes reported one long window that was mostly gap --
+    and its onset came from the first flash, which the current said was the
+    discharge in only 11 of 35 shots.  Both rules are principal-pulse rules
+    now, so every window is one run and every duty cycle is 1.
+
+    The three records #752 was opened for are the check: 40002, 40263 and
+    40365 reported windows of 45, 18 and 21 ms at duty 0.07-0.19, over
+    scattered bursts with no plasma current at all.  None of them is a light
+    window any more.
+    """
+    rows = {row["shot"]: row for row in table["rows"]}
+
+    for shot in (40002, 40263, 40365):
+        assert rows[shot]["source"] != "h_alpha_raw", shot
+
+    fragmented = [
+        row["shot"] for row in table["rows"]
+        if row.get("h_alpha") and (row["h_alpha"].get("duty_cycle") or 1.0) < 1.0
+    ]
+    assert fragmented == []
+
+
+def test_every_window_is_one_run_now(table):
+    """Both rules ask for the principal pulse, so neither reports an envelope.
+
+    This is what makes the extent of a window a duration again: with one
+    segment, `duration_s`, the summed active time and the largest segment are
+    the same number (#842).  Before, a fifth of the light windows had gaps and
+    the hollowest was 4 % above threshold.
+    """
+    duty = table["summary"]["duty_cycle"]
+
+    for detector in ("h_alpha", "ip"):
+        assert duty[detector]["below_1"] == 0, detector
+        assert duty[detector]["min"] == 1.0, detector

@@ -28,7 +28,7 @@ Typical use::
 
     config = GACODEConfig(home="~/git/gacode", platform="GFORTRAN_OSX_BREW")
     result = neo.run_neo_case(profile, workdir="runs/48224", config=config)
-    result.outputs_native.bootstrap_current_parallel
+    result.outputs_native.bootstrap_current
 """
 
 from __future__ import annotations
@@ -72,17 +72,20 @@ __all__ = [
 ]
 
 
+#: Suite members that are subpackages, imported on first use so that
+#: `vaft.code.gacode` itself stays as light as the rest of `vaft.code`.
+_SUBPACKAGES = ("neo", "tglf")
+
+
 def __getattr__(name: str):
-    # `neo` is a subpackage, imported on first use so that `vaft.code.gacode`
-    # itself stays as light as the rest of `vaft.code`.
-    if name == "neo":
+    if name in _SUBPACKAGES:
         from importlib import import_module
 
-        module = import_module(".neo", __name__)
-        globals()["neo"] = module
+        module = import_module(f".{name}", __name__)
+        globals()[name] = module
         return module
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def __dir__() -> list[str]:
-    return sorted([*__all__, "neo"])
+    return sorted([*__all__, *_SUBPACKAGES])

@@ -263,11 +263,35 @@ def check_toolchain(*, required: bool, mingw_environment: str = "ucrt64") -> Che
 # ---------------------------------------------------------------------------
 
 
-def default_prefix(code: str) -> Optional[Path]:
+#: Where each POSIX installer puts its prefix, relative to the source tree.
+#: NUBEAM and GACODE differ from the rest and say so in their own recipes:
+#: NUBEAM installs into <root>/local, and GACODE builds in place so its
+#: "prefix" is the checkout itself.
+POSIX_PREFIX_LAYOUT = {
+    "nubeam": Path("local"),
+    "gacode": Path("."),
+}
+
+
+def default_prefix(
+    code: str, source: Optional[str | os.PathLike[str]] = None
+) -> Optional[Path]:
+    """Where this code is installed when nothing says otherwise.
+
+    On Windows that is a fixed per-user location, so it can be answered from
+    the code name alone. On POSIX it cannot: the installers put the prefix
+    *inside* the source tree, which is unguessable without ``--source`` but
+    perfectly derivable with it. Returning ``None`` there is what made
+    ``check_chease.py --source ...`` report "no install prefix to look in" and
+    then recommend a PowerShell script to a Linux operator.
+    """
     local = os.environ.get("LOCALAPPDATA")
-    if not local:
-        return None
-    return Path(local) / "vaft" / "external" / code
+    if local:
+        return Path(local) / "vaft" / "external" / code
+    if source:
+        relative = POSIX_PREFIX_LAYOUT.get(code, Path("vaft-install"))
+        return (Path(source).expanduser() / relative).resolve()
+    return None
 
 
 def read_manifest(prefix: Optional[str | os.PathLike[str]]) -> Optional[dict[str, Any]]:

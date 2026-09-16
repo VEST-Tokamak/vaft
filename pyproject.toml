@@ -49,7 +49,6 @@ dependencies = [
   "PyYAML==6.0.2",
   "requests-unixsocket==0.4.1",
   "scikit-image",
-  "scikit-learn",
   "scipy>=1.13.0,<2",
   "seaborn",
   "setuptools>=64.0.0,<81.0.0",
@@ -71,14 +70,41 @@ dependencies = [
 vaft = "vaft.cli._main:main"
 
 [project.optional-dependencies]
+# scikit-learn is needed only by `fit_profile(fitting_function='gp_sklearn')`.
+# The default 'gp' mode is implemented against scipy, so the package no longer
+# pays a heavy import for one optional fitting backend (#426).
+sklearn = ["scikit-learn"]
+# onnxruntime is needed only by `vaft.code.gacode.tglf.surrogate` when it actually
+# runs a network. Resolving a model and auditing an input against its training
+# distribution need neither the runtime nor a prediction, so the decision "does this
+# model apply to this plasma" stays answerable without a heavy ML dependency (#553).
+surrogate = ["onnxruntime"]
+# TokaMaker is the one external code VAFT drives in-process rather than as a
+# subprocess, so "installed" means "importable in this interpreter" and pip can
+# express it -- unlike CHEASE, GPEC, GACODE or NUBEAM, which are Fortran builds
+# with no packaging and live behind install/. It stays optional all the same:
+# the wheel carries compiled libraries, and every other workflow works without
+# it. vaft.code.tokamaker raises an actionable ImportError when it is absent.
+tokamaker = ["openfusiontoolkit"]
 dev = [
   "pytest",
+  # so the surrogate's arithmetic check actually runs on the gate. CI installs
+  # [dev], and without the runtime every inference test skips -- an inverted
+  # denormalisation would then pass CI green.
+  "onnxruntime",
+  # for test_fit_profile_gp_backends.py, which compares the two GP backends
+  "scikit-learn",
   # The suite is 4800+ largely independent tests; running them on one core is
   # what made the required CI check a 20-minute gate (issue #413).
   "pytest-xdist",
   "pre-commit",
   "black",
   "flake8",
+  # F821 (undefined name) is a required check on vaft/formula/. flake8 carries
+  # the same pyflakes code, but ruff runs it over the tree in well under a
+  # second, which is what makes it affordable as a gate rather than a nightly
+  # (issue #753).
+  "ruff",
   "ipykernel>=7.2.0",
   "nbclient>=0.10",
   "nbformat>=5.10",

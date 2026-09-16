@@ -99,6 +99,57 @@ def test_a_native_object_handed_to_a_model_is_rejected(magnetics):
         Series(x=IDSEntry(magnetics), y=[0.0])
 
 
+def test_code_parameters_decode_on_the_native_walk(entry):
+    """A path into ``code.parameters`` is answered from the decoded tree, as on an ODS.
+
+    The leaf itself stays the stored text (a JSON stage blob is not XML and
+    answers no sub-path), and the helpers written against vaft.ods_access
+    read the entry through the same walk.
+    """
+    from vaft.imas.access import IDSEntry
+    from vaft.ods_access import path_count, path_exists, path_value
+    from vaft.omas.general import ods_cocos
+    from vaft.plot.backend import access
+
+    bundle = IDSEntry(entry)
+    assert isinstance(access.get(bundle, "equilibrium.code.parameters"), str)
+    assert access.get(bundle, "equilibrium.code.parameters.cocos") == 11
+    assert access.get(bundle, "equilibrium.code.parameters.nope") is None
+    assert not access.has(bundle, "equilibrium.code.parameters.nope")
+    assert access.count(bundle, "equilibrium.code.parameters.cocos") == 0  # a scalar, not a container
+    assert "equilibrium.code.parameters" in bundle._parameters  # decoded once, then cached
+    # The core readers dispatch to the same walk, so an OMAS helper reads natively.
+    assert path_value(bundle, "equilibrium.code.parameters.cocos") == 11
+    assert path_exists(bundle, "equilibrium.code.parameters.cocos")
+    assert path_count(bundle, "magnetics.flux_loop") == access.count(bundle, "magnetics.flux_loop") > 0
+    ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    assert ods_cocos(bundle) == ods_cocos(ods)
+
+
+def test_an_indexed_code_parameters_subtree_decodes_natively():
+    """A ``time_slice.N.*`` subtree in the XML reads as on an ODS, and the walk keys its cache exactly."""
+    from omas.omas_core import CodeParameters
+    from vaft.imas.access import IDSEntry
+    from vaft.plot.backend import access
+
+    parameters = CodeParameters()
+    parameters["cocos"] = 11
+    parameters["time_slice.0.aeqdsk.chisq"] = 1.5
+    parameters["time_slice.1.aeqdsk.chisq"] = 2.5
+    equilibrium = imas.IDSFactory("3.41.0").equilibrium()
+    equilibrium.code.parameters = parameters.to_string()
+    equilibrium.code.library.resize(1)
+    equilibrium.code.library[0].parameters = "<parameters><depth>3</depth></parameters>"
+    bundle = IDSEntry({"equilibrium": equilibrium})
+    assert access.get(bundle, "equilibrium.code.parameters.time_slice.1.aeqdsk.chisq") == 2.5
+    assert access.count(bundle, "equilibrium.code.parameters.time_slice") == 2
+    assert access.get(bundle, "equilibrium.code.parameters.time_slice.2.aeqdsk.chisq") is None
+    assert list(bundle._parameters) == ["equilibrium.code.parameters"]
+    # A library's parameters stay text, as OMAS keeps them.
+    assert access.get(bundle, "equilibrium.code.library.0.parameters.depth") is None
+    assert access.get(bundle, "equilibrium.code.library.0.parameters").startswith("<parameters>")
+
+
 def test_code_backed_plots_convert_only_the_ids_they_declare(entry):
     bundle = IDSEntry(entry)
     ods = bundle.as_ods_for(("equilibrium", "wall", "dataset_description"))
@@ -130,5 +181,34 @@ def test_a_lazy_hsds_handle_reads_natively():
     # Discovery evaluates the same reads and never converts; a code-backed plot
     # cannot convert a lazy remote handle and says so.
     assert isinstance(vaft.imas.available_plots(handle).names(), tuple)
+    with pytest.raises(NotImplementedError, match="lazily loaded handle"):
+        bundle.as_ods_for(("equilibrium",))
+
+
+def test_a_neutral_computed_view_runs_on_a_lazy_remote_handle():
+    """A model-neutral computed view (issue #439) builds from the lazy handle natively.
+
+    Before #439 every computed view converted its input to an ODS first, which
+    a lazy remote handle cannot supply; the neutral ones now read through the
+    accessor like a path-driven plot, and the conversion contract is unchanged.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    from vaft.plot.backend.recipes import NEUTRAL, RECIPES, build_model, converts_for_builder
+    from vaft.plot.models import GeometryLayers
+
+    spec = importlib.util.spec_from_file_location("_lazy_imas_fixtures", Path(__file__).with_name("test_lazy_imas.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    from vaft.database.lazy_imas import HSDSIMASHandle
+
+    handle = HSDSIMASHandle(1, ids=["equilibrium", "magnetics"], imas_version="3.41.0", h5pyd_module=module._fake_hsds())
+    bundle = IDSEntry(handle)
+    assert RECIPES["equilibrium_geometry_topview"].backend == NEUTRAL
+    assert not converts_for_builder(bundle, "equilibrium_geometry_topview")
+    model = build_model("equilibrium_geometry_topview", [("1", bundle)])
+    assert isinstance(model, GeometryLayers)
+    assert len(model.layers) >= 1
     with pytest.raises(NotImplementedError, match="lazily loaded handle"):
         bundle.as_ods_for(("equilibrium",))

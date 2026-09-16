@@ -194,8 +194,9 @@ every consumer (issue #409). Its `window` names a `diagnostics_time_policies` wi
 0.28–0.36 s, which no diagnostic maps onto and the stage's `tstart`/`tend` never retune — and `baseline_lead_s`
 the stretch before it, `[tstart − lead, tstart)`, whose samples are the **baseline** the detectors measure
 their noise on. The block then carries the detector recipes, keyed by the signal they were tuned on: `h_alpha`
-(median filter, threshold `max(2 % peak, 5 σ)`, 0.5 ms persistence, width, prominence and integral floors),
-`ip` (zero-phase low-pass, principal pulse, pickup floor, 10 % end threshold, collapse fallback), per-line
+(median filter, threshold `max(2 % peak, 5 σ)`, 0.5 ms persistence, width, prominence and integral floors,
+**principal pulse**), `ip` (zero-phase low-pass, principal pulse, pickup floor, 10 % end threshold, collapse
+fallback), per-line
 `lines` for impurity lines with their own morphology, the H-alpha `usability` floors (rail level, quantized
 baseline, validity) and the `agreement` tolerances between light and current. Every rule is validated against
 `vaft.process.onset.active_window`'s signature when the policy is loaded:
@@ -207,6 +208,12 @@ policy = resolve_plasma_timing_policy()
 policy.window.tstart, policy.window.tend, policy.baseline_start   # 0.28, 0.36, 0.26
 policy.h_alpha, policy.ip                                          # keyword arguments of active_window
 ```
+
+Both detector rules are **principal-pulse** rules: each keeps only the segment holding its own maximum, so a
+window is one run and the two sources answer the same question — *where is the one main discharge*. The light
+rule was an envelope rule until [#842](https://github.com/VEST-Tokamak/vaft/issues/842), which meant a record
+of scattered flashes reported a window spanning all of them and opened it at the first, and a record whose
+brightest feature is a refused spike now yields no light window rather than one built from lesser bursts.
 
 The rules were tuned on a scan of the raw database, and that scan is reproducible:
 `workflow/plasma_onset/scan_corpus.py --shots 39900-41700` runs the raw-side detector over every shot in the

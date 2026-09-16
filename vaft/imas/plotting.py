@@ -21,6 +21,11 @@ the IDS they declare to an OMAS ODS on the way, through
 :meth:`vaft.imas.access.IDSEntry.as_ods_for`; ``available_plots(obj,
 detail=True)`` marks them.  Use :func:`available_plots` to see which plots a
 particular object can produce.
+
+Every ``plot_<stem>`` has two twins (umbrella #434): ``dd_<stem>()`` lists the
+IMAS Data Dictionary paths it reads, and ``extract_<stem>(source, ...)``
+returns the view model undrawn, the same one ``vaft.omas.extract_<stem>``
+builds from an ODS.
 """
 
 from __future__ import annotations
@@ -87,6 +92,25 @@ def plot_nbi_profile_current_drive(
     Renders with :func:`vaft.plot.nbi_profile_current_drive` from native IMAS input.
     """
     return render("nbi_profile_current_drive", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_neoclassical_profile_bootstrap_current(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Bootstrap current density from each neoclassical model on one radial axis.
+
+    The Sauter and Redl formulas against whatever solver result the ODS
+    carries (:func:`vaft.validation.neoclassical.bootstrap_models`), one
+    series per model, so the models are compared on one radial axis.
+
+    Renders with :func:`vaft.plot.neoclassical_profile_bootstrap_current` from native IMAS input.
+    """
+    return render("neoclassical_profile_bootstrap_current", source, ax=ax, show=show, label=label, **options)
 
 __all__ = ["available_plots", "normalize_entries", "render"]
 
@@ -243,6 +267,51 @@ def plot_camera_visible_image_frame(
     Renders with :func:`vaft.plot.camera_visible_image_frame` from native IMAS input.
     """
     return render("camera_visible_image_frame", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_camera_visible_image_fluctuation(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """One FAST-camera frame with its local temporal background removed.
+
+    Renders with :func:`vaft.plot.camera_visible_image_fluctuation` from native IMAS input.
+    """
+    return render("camera_visible_image_fluctuation", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_camera_visible_image_mhd_power(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Per-pixel MHD-band power normalised by the local average emission.
+
+    Renders with :func:`vaft.plot.camera_visible_image_mhd_power` from native IMAS input.
+    """
+    return render("camera_visible_image_mhd_power", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_camera_visible_spectrogram(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Time-frequency map of the camera intensity summed over one image region.
+
+    Renders with :func:`vaft.plot.camera_visible_spectrogram` from native IMAS input.
+    """
+    return render("camera_visible_spectrogram", source, ax=ax, show=show, label=label, **options)
 
 
 def plot_charge_exchange_geometry_poloidal(
@@ -1402,6 +1471,21 @@ def plot_magnetics_overview_vacuum(
     return render("magnetics_overview_vacuum", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_ntms_time_delta_prime(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Classical tearing index Delta-prime against time, one trace per rational surface; a positive value is a tearing-unstable surface.
+
+    Renders with :func:`vaft.plot.ntms_time_delta_prime` from native IMAS input.
+    """
+    return render("ntms_time_delta_prime", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_mhd_linear_time_energy_perturbed(
     source: Any,
     *,
@@ -1445,6 +1529,36 @@ def plot_mhd_linear_profile_b_field_perturbed(
     Renders with :func:`vaft.plot.mhd_linear_profile_b_field_perturbed` from native IMAS input.
     """
     return render("mhd_linear_profile_b_field_perturbed", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_mhd_linear_profile_resonant_flux(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Pitch-resonant flux per rational surface against normalized poloidal flux, derived from the mapped perturbed flux by the jump across each singular surface rather than read from the IDS.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_resonant_flux` from native IMAS input.
+    """
+    return render("mhd_linear_profile_resonant_flux", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_mhd_linear_profile_island_width(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Saturated island width per rational surface against normalized poloidal flux, in psi_N as GPEC reports it, derived from the resonant flux.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_island_width` from native IMAS input.
+    """
+    return render("mhd_linear_profile_island_width", source, ax=ax, show=show, label=label, **options)
 
 
 def plot_mhd_linear_overview_eigenfunction(
@@ -2001,6 +2115,10 @@ __all__ += [
     "plot_camera_visible_image_efit_overlay",
     "plot_camera_visible_image_field_line",
     "plot_camera_visible_image_frame",
+    "plot_camera_visible_image_fluctuation",
+    "plot_neoclassical_profile_bootstrap_current",
+    "plot_camera_visible_image_mhd_power",
+    "plot_camera_visible_spectrogram",
     "plot_charge_exchange_geometry_poloidal",
     "plot_charge_exchange_profile_ion_temperature",
     "plot_charge_exchange_profile_velocity_tor",
@@ -2080,10 +2198,13 @@ __all__ += [
     "plot_mhd_linear_overview_eigenfunction",
     "plot_mhd_linear_profile_b_field_perturbed",
     "plot_mhd_linear_profile_displacement",
+    "plot_mhd_linear_profile_island_width",
+    "plot_mhd_linear_profile_resonant_flux",
     "plot_nbi_profile_current_drive",
     "plot_nbi_profile_electron_heating",
     "plot_nbi_profile_ion_heating",
     "plot_mhd_linear_time_energy_perturbed",
+    "plot_ntms_time_delta_prime",
     "plot_mirnov_spectrogram",
     "plot_mirnov_spectrum",
     "plot_mirnov_time_voltage",
@@ -2119,3 +2240,12 @@ __all__ += [
     "plot_thomson_scattering_time_electron_temperature",
     "plot_wall_geometry_poloidal",
 ]
+
+# The other two verbs of every plot (umbrella #434): ``dd_<stem>()`` and
+# ``extract_<stem>(source, ...)``, generated from the registry the ``plot_*``
+# above are written against.
+from vaft.plot.backend.facade import install_facades as _install_facades  # noqa: E402
+
+__all__ += list(_install_facades(
+    globals(), normalize=normalize_entries, namespace="vaft.imas", subject="ids",
+))

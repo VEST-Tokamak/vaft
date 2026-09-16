@@ -192,7 +192,7 @@ from .renderers.panels import render_panels
 from .renderers.profiles import render_profile_1d
 from .renderers.spectra import render_power_spectrum
 from .renderers.spectrograms import render_spectrogram
-from .presentation import FORMATS, THEMES, resolve_presentation
+from .presentation import DEFAULT_FORMAT, FORMATS, THEMES, resolve_presentation
 from .style import save_figure
 
 # Canonical renderers are re-exported explicitly rather than bound in a loop, so
@@ -229,7 +229,9 @@ from .renderers.images import (
     camera_visible_image,
     camera_visible_image_efit_overlay,
     camera_visible_image_field_line,
+    camera_visible_image_fluctuation,
     camera_visible_image_frame,
+    camera_visible_image_mhd_power,
 )
 from .renderers.lines import (
     barometry_time_pressure,
@@ -260,6 +262,7 @@ from .renderers.lines import (
     plasma_current_time,
     mirnov_time_voltage,
     mhd_linear_time_energy_perturbed,
+    ntms_time_delta_prime,
     passive_structure_time_current,
     pf_coil_time_current,
     pf_coil_time_current_turns,
@@ -322,8 +325,11 @@ from .renderers.profiles import (
     equilibrium_profile_pprime,
     equilibrium_profile_pressure,
     equilibrium_profile_q,
+    neoclassical_profile_bootstrap_current,
     mhd_linear_profile_b_field_perturbed,
     mhd_linear_profile_displacement,
+    mhd_linear_profile_island_width,
+    mhd_linear_profile_resonant_flux,
     impa_profile_field,
     thomson_scattering_profile_electron_density,
     thomson_scattering_profile_electron_temperature,
@@ -334,6 +340,7 @@ from .renderers.spectra import (
     soft_x_rays_spectrum,
 )
 from .renderers.spectrograms import (
+    camera_visible_spectrogram,
     interferometer_spectrogram,
     mirnov_spectrogram,
     soft_x_rays_spectrogram,
@@ -343,6 +350,7 @@ from .parameter_history import plot_parameter_history
 # Public surface that is not a canonical renderer.
 _SUPPORT_EXPORTS = (
     "Field2D",
+    "DEFAULT_FORMAT",
     "FORMATS",
     "PSI_STYLES",
     "Geometry3DLayer",
@@ -366,6 +374,8 @@ _SUPPORT_EXPORTS = (
     "ViewModel",
     "available_plots",
     "canonical_names",
+    "dd",
+    "extract",
     "get_spec",
     "migration_table",
     "render_field_2d",
@@ -385,6 +395,49 @@ _SUPPORT_EXPORTS = (
 )
 
 __all__ = sorted(_SUPPORT_EXPORTS + registry.canonical_names())
+
+
+def dd(name: str) -> tuple:
+    """The IMAS Data Dictionary paths canonical plot ``name`` reads, without any data.
+
+    A tuple of :class:`vaft.plot.backend.dd.DDPath`, data paths first -- the
+    same answer as ``vaft.omas.dd_<name>()`` and ``vaft.imas.dd_<name>()``
+    (umbrella #434).  See :func:`vaft.plot.backend.dd.dd_paths`.
+    """
+    from .backend.dd import dd_paths
+
+    return dd_paths(name)
+
+
+def extract(name: str, source: Any, *, label: Any = "shot", **options: Any) -> Any:
+    """The data behind canonical plot ``name`` for ``source``, as its view model, undrawn.
+
+    Dispatches on the kind of ``source``: an OMAS ``ODS``/``ODC`` (or a list
+    of them) goes to ``vaft.omas.extract_<name>``, a native IMAS
+    ``IDSToplevel``/``DBEntry``/handle (or a mapping of IDS name to toplevel)
+    to ``vaft.imas.extract_<name>``;
+    anything else is refused naming both.  ``label`` and the extraction
+    options are those of the matching ``plot_<name>``; a rendering keyword is
+    refused (umbrella #434).
+    """
+    namespace = _extract_namespace(source)
+    return getattr(import_module(namespace), f"extract_{name}")(source, label=label, **options)
+
+
+def _extract_namespace(source: Any) -> str:
+    from collections.abc import Mapping
+
+    item = source[0] if isinstance(source, (list, tuple)) and source else source
+    names = {cls.__name__ for cls in type(item).__mro__}
+    root = type(item).__module__.partition(".")[0]
+    if root == "omas" or names & {"ODS", "ODC"}:
+        return "vaft.omas"
+    if root == "imas" or names & {"IMASHandle", "HSDSIMASHandle", "IDSEntry"} or isinstance(item, Mapping):
+        return "vaft.imas"
+    raise TypeError(
+        f"vaft.plot.extract reads an OMAS ODS/ODC (vaft.omas.extract_*) or a native IMAS "
+        f"IDSToplevel/DBEntry/handle (vaft.imas.extract_*); got {type(item).__name__}"
+    )
 
 #: Legacy submodules that stay importable as ``vaft.plot.<name>``.
 _LEGACY_SUBMODULES = frozenset(LEGACY_MODULES.values()) | {"utils"}

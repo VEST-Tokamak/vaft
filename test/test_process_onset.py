@@ -687,3 +687,121 @@ def test_a_trailing_re_emergence_under_the_end_threshold_is_dropped():
     assert "trailing_segment_dropped" in window.flags
     assert window.offset.time == pytest.approx(0.045, abs=1e-3)
     assert len(window.segments) == 1
+
+
+def test_a_refused_spike_does_not_set_the_level_the_pulse_must_fall_below():
+    """#726: the end rule is judged against what the detector accepted.
+
+    An isolated spike taller than the pulse is refused as a segment -- that is
+    what persistence is for -- but it used to scale the end threshold anyway,
+    so the pulse was asked to fall below a level set by noise that had already
+    been thrown away.  On the corpus that left thirteen windows unable to end
+    at all, every one of them a record whose maximum sits in a refused run.
+    """
+    y = 0.01 * RNG.standard_normal(T.size)
+    y[(T >= 0.030) & (T < 0.045)] += 0.20         # the pulse
+    y[(T >= 0.0700) & (T < 0.0702)] += 1.00       # a 0.2 ms spike, five times taller
+
+    window = active_window(T, y, reference_mask=T < 0.02, end_fraction=0.10, hold_s=1e-3)
+
+    assert window.found
+    assert "offset_threshold_above_peak" not in window.flags
+    # The level comes from the pulse, not from the spike.
+    assert window.evidence["accepted_peak"] == pytest.approx(0.20, abs=0.03)
+    assert window.evidence["peak"] > 0.9          # the spike is still the record's maximum
+    assert window.evidence["offset_threshold"] < window.evidence["accepted_peak"]
+    assert window.offset.time == pytest.approx(0.045, abs=1e-3)
+
+
+def test_the_accepted_amplitude_is_the_largest_segment_not_the_last():
+    """A weak trailing segment does not lower the level the window is judged at.
+
+    Otherwise the rule would weaken itself on exactly the records the drop loop
+    exists for: a faint re-emergence would set a threshold it then passes.
+    """
+    y = 0.01 * RNG.standard_normal(T.size)
+    y[(T >= 0.030) & (T < 0.045)] += 1.0
+    y[(T >= 0.060) & (T < 0.070)] += 0.06
+
+    window = active_window(T, y, reference_mask=T < 0.02, end_fraction=0.10,
+                           hold_s=1e-3, gap_s=1e-3)
+
+    assert window.evidence["accepted_peak"] == pytest.approx(1.0, abs=0.05)
+    assert "trailing_segment_dropped" in window.flags
+    assert len(window.segments) == 1
+
+
+def test_a_record_whose_maximum_is_accepted_is_judged_exactly_as_before():
+    """The common case must not move: the two peaks are the same sample.
+
+    1199 of the corpus's 1213 light windows hold their maximum inside an
+    accepted segment, so the change is confined to the records that motivated
+    it.
+    """
+    y = 0.01 * RNG.standard_normal(T.size)
+    y[(T >= 0.030) & (T < 0.045)] += 1.0
+
+    window = active_window(T, y, reference_mask=T < 0.02, end_fraction=0.10, hold_s=1e-3)
+
+    assert window.evidence["accepted_peak"] == pytest.approx(window.evidence["peak"], rel=1e-12)
+
+
+def test_a_window_reports_how_much_of_it_is_above_threshold():
+    """#752: the extent of a window is not how long the signal was there.
+
+    A window is the envelope of its segments, so two brief flashes tens of
+    milliseconds apart make a long window that is nearly all gap.  Consumers
+    read the extent as a duration -- `find_pulse_duration`, the shot
+    overview's `pulse_duration_s` -- and had no way to tell the two apart.
+    """
+    y = 0.01 * RNG.standard_normal(T.size)
+    y[(T >= 0.030) & (T < 0.032)] += 1.0          # 2 ms
+    y[(T >= 0.070) & (T < 0.072)] += 1.0          # 2 ms, 38 ms later
+
+    window = active_window(T, y, reference_mask=T < 0.02, hold_s=1e-3, gap_s=1e-3)
+
+    assert "multiple_segments" in window.flags
+    assert len(window.segments) == 2
+    assert window.duration_s == pytest.approx(0.042, abs=1e-3)
+    assert window.active_s == pytest.approx(0.004, abs=5e-4)
+    assert window.duty_cycle == pytest.approx(0.095, abs=0.02)
+
+
+def test_one_uninterrupted_run_is_fully_active():
+    """The measures agree exactly when there is nothing to disagree about.
+
+    ``active_s`` is measured the way ``duration_s`` is -- last sample minus
+    first -- so a single segment gives a duty cycle of exactly one rather than
+    one sample more.
+    """
+    y = 0.01 * RNG.standard_normal(T.size)
+    y[(T >= 0.030) & (T < 0.045)] += 1.0
+
+    window = active_window(T, y, reference_mask=T < 0.02, hold_s=1e-3)
+
+    assert len(window.segments) == 1
+    assert window.active_s == pytest.approx(window.duration_s, rel=1e-12)
+    assert window.duty_cycle == 1.0
+
+
+def test_a_window_that_was_not_found_reports_neither():
+    y = 0.01 * RNG.standard_normal(T.size)
+
+    window = active_window(T, y, reference_mask=T < 0.02, hold_s=1e-3)
+
+    assert not window.found
+    assert window.active_s is None
+    assert window.duty_cycle is None
+
+
+def test_the_duty_cycle_travels_with_the_record():
+    """A consumer that serializes the window keeps the measure."""
+    y = 0.01 * RNG.standard_normal(T.size)
+    y[(T >= 0.030) & (T < 0.032)] += 1.0
+    y[(T >= 0.070) & (T < 0.072)] += 1.0
+
+    payload = active_window(T, y, reference_mask=T < 0.02, hold_s=1e-3, gap_s=1e-3).as_dict()
+
+    assert payload["active_s"] < payload["duration_s"]
+    assert payload["duty_cycle"] == pytest.approx(payload["active_s"] / payload["duration_s"])
+    json.dumps(payload)

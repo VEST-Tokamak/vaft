@@ -19,6 +19,7 @@ from vaft.database.replication import (
     StageNotReplicableError,
     is_reusable,
     replicate_stage,
+    sha256_file,
 )
 from vaft.database.staging import external_h5_links, merge_master_links
 
@@ -403,13 +404,32 @@ def test_derived_images_are_not_mistaken_for_stage_ids():
 # --------------------------------------------------------------------------- #
 
 
+#: Every fixture here is the magnetic-EFIT lineage, which is the only one
+#: pipeline 1 produces today. Named once so a future family test has something
+#: to vary rather than a literal to hunt for.
+FAMILY = "magnetic"
+
+#: Which stability product these fixtures stand for. Any one would do -- the
+#: point is that a stage product now belongs to exactly one.
+PRODUCT = "dcon-peeling"
+
+
+def _lineage(stage):
+    """The lineage arguments a stage's FileDB path takes."""
+    from vaft.database.filedb import stage_lineage
+
+    return stage_lineage(
+        stage, family=FAMILY, refinement="chease", product=PRODUCT
+    )
+
+
 def _stage_product(db, stage, shot, ods, status="success", manifest_extra=None):
     from vaft.omas import save as save_local
 
-    product = db.omas_product(stage, shot=shot)
+    product = db.omas_product(stage, shot=shot, **_lineage(stage))
     product.parent.mkdir(parents=True, exist_ok=True)
     save_local(ods, product)
-    manifest = db.omas_manifest(stage, shot=shot)
+    manifest = db.omas_manifest(stage, shot=shot, **_lineage(stage))
     manifest.parent.mkdir(parents=True, exist_ok=True)
     payload = {"stage": stage, "status": status, **(manifest_extra or {})}
     manifest.write_text(json.dumps(payload), encoding="utf-8")
@@ -448,10 +468,19 @@ def test_a_vacuum_shot_reaches_main_without_an_equilibrium(tmp_path, monkeypatch
     assert {call["source"] for call in sent} == {"main"}
 
 
-def test_eddy_does_not_overwrite_what_diagnostics_wrote(tmp_path, monkeypatch):
+def test_replication_refuses_an_eddy_product_that_carries_more_than_it_owns(
+    tmp_path, monkeypatch
+):
+    """`_project` stays defensive even though the builder no longer over-carries.
+
+    The eddy product is now built as its own projection, so a product shaped
+    like the one below should not exist. This asserts replication would still
+    refuse to publish its extra IDS if one did -- a stale product on disk, a
+    hand-assembled one, or a regression in the builder.
+    """
     db = FileDB(tmp_path)
     eddy = ODS(consistency_check=False)
-    eddy["magnetics.ids_properties.comment"] = "carried through from diagnostics"
+    eddy["magnetics.ids_properties.comment"] = "an IDS eddy does not own"
     eddy["pf_passive.ids_properties.comment"] = "computed here"
     _stage_product(db, "eddy", 45000, eddy)
 
@@ -477,8 +506,51 @@ def test_the_refinement_and_the_baseline_land_in_different_sources(tmp_path, mon
     refined = replicate_stage("chease", 39915, filedb=db)
 
     assert baseline.source == "main"
-    assert refined.source == "chease-mhd-stability"
+    # The refinement hangs beneath the baseline it refines rather than sitting
+    # in a namespace of its own, and is still a separate source: `main` does not
+    # acquire it, because nothing is unioned on read.
+    assert refined.source == "main/chease"
     assert baseline.ids == refined.ids == ("equilibrium",)
+
+
+def test_replication_reads_the_family_it_is_given(tmp_path, monkeypatch):
+    """The lineage a product was written under has to reach the reader.
+
+    `PipelinePaths` files an electron-EFIT run's products under
+    `omas/efit/electron/...`. If replication defaults to `magnetic` regardless,
+    it either fails on a path the pipeline never wrote or -- worse, when an
+    earlier magnetic run left one there -- publishes the magnetic equilibrium to
+    HSDS under the electron campaign. That is the lineage collision this grammar
+    exists to prevent, at the one boundary that leaves the local tree.
+    """
+    from vaft.database.filedb import stage_lineage
+
+    db = FileDB(tmp_path)
+    for family, comment in (("magnetic", "the magnetic one"), ("electron", "the electron one")):
+        ods = ODS(consistency_check=False)
+        ods["equilibrium.ids_properties.comment"] = comment
+        lineage = stage_lineage("efit", family=family)
+        product = db.omas_product("efit", shot=39915, **lineage)
+        product.parent.mkdir(parents=True, exist_ok=True)
+        from vaft.omas import save as save_local
+
+        save_local(ods, product)
+        manifest = db.omas_manifest("efit", shot=39915, **lineage)
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(json.dumps({"stage": "efit", "status": "success"}), encoding="utf-8")
+
+    sent = []
+    _patch_remote(monkeypatch, sent=sent)
+    electron = replicate_stage("efit", 39915, filedb=db, family="electron")
+
+    assert electron.state in ("success", "validated")
+    assert (
+        electron.product_sha256
+        == sha256_file(db.omas_product("efit", shot=39915, family="electron"))
+    )
+    assert electron.product_sha256 != sha256_file(
+        db.omas_product("efit", shot=39915, family="magnetic")
+    ), "the electron run must not have replicated the magnetic product"
 
 
 def test_a_failed_stability_replication_leaves_the_baseline_alone(tmp_path, monkeypatch):
@@ -493,21 +565,21 @@ def test_a_failed_stability_replication_leaves_the_baseline_alone(tmp_path, monk
     baseline = replicate_stage("efit", 39915, filedb=db)
 
     def only_stability_fails(ods, shot, *, source=None, **kwargs):
-        if source == "chease-mhd-stability":
+        if source.startswith("main/chease"):
             raise RuntimeError("stability replication failed")
         return f"hdf5://{source}/{shot}/"
 
     monkeypatch.setattr("vaft.database.save", only_stability_fails)
     with pytest.raises(replication.ReplicationError):
-        replicate_stage("mhd_linear", 39915, filedb=db, attempts=1)
+        replicate_stage("mhd_linear", 39915, filedb=db, product=PRODUCT, attempts=1)
 
     # The EFIT record is untouched: separate stages, separate records.
     assert replication.read_record(
-        db.omas_replication_record("efit", shot=39915)
+        db.omas_replication_record("efit", family="magnetic", shot=39915)
     ) == baseline
     assert (
         replication.read_record(
-            db.omas_replication_record("mhd_linear", shot=39915)
+            db.omas_replication_record("mhd_linear", family="magnetic", refinement="chease", product=PRODUCT, shot=39915)
         ).state
         == "failed"
     )
@@ -580,9 +652,9 @@ def test_per_code_and_mode_stability_detail_travels_in_the_shapes_that_exist(
     _patch_remote(monkeypatch, sent=[])
     monkeypatch.setattr("vaft.database.save", capture)
 
-    record = replicate_stage("mhd_linear", 39915, filedb=db)
+    record = replicate_stage("mhd_linear", 39915, filedb=db, product=PRODUCT)
 
-    assert record.source == "chease-mhd-stability"
+    assert record.source == f"main/chease/{PRODUCT}"
     replicated = captured["ods"]
 
     # The local product leg keeps the field a string: only the Access Layer
@@ -604,7 +676,7 @@ def test_per_code_and_mode_stability_detail_travels_in_the_shapes_that_exist(
     # Per-(code, mode) status lives in the manifest, and the manifest is not
     # replicated: `replicate_stage` reads it to decide eligibility and sends
     # only the IDS the stage owns, so nothing carries that status onward.
-    manifest = json.loads(db.omas_manifest("mhd_linear", shot=39915).read_text(encoding="utf-8"))
+    manifest = json.loads(db.omas_manifest("mhd_linear", family="magnetic", refinement="chease", product=PRODUCT, shot=39915).read_text(encoding="utf-8"))
     assert manifest["modules_modes"]["t=316/stride/n=1"]["status"] == "failed"
     assert set(replicated.keys()) <= {"mhd_linear", "ntms", "dataset_description"}
     assert "failed" not in json.dumps(replicated["mhd_linear.code.parameters"])

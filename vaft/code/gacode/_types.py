@@ -35,7 +35,7 @@ GACODE_COMPATIBILITY_ENVS: tuple[str, ...] = (GACODE_ROOT_ENV,)
 SUITE_CODES: tuple[str, ...] = ("neo", "tglf", "cgyro")
 
 #: Backends VAFT can actually prepare, run and parse.
-SUPPORTED_CODES = frozenset({"neo"})
+SUPPORTED_CODES = frozenset({"neo", "tglf"})
 
 
 @dataclass(frozen=True)

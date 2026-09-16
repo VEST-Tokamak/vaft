@@ -10,7 +10,7 @@ VEST machine and experiment -> validated, analysis-ready data
 ```
 
 The sessions are executable research examples, not an API catalogue. Each one
-answers a question a VEST researcher actually has, and the infrastructure is
+answers a question a VEST researcher actually has, and the framework is
 introduced as it becomes needed rather than up front.
 
 This directory holds the course contract, the session notebooks, and their slide
@@ -50,9 +50,19 @@ relevant external-code roots, such as `CHEASEHOME`, `EFITHOME`, and `GPECHOME`.
 | 01 | Getting Started with VAFT | diagnostic data and public plotting APIs | complete |
 | 02 | Operation Scenario and Vacuum Fields | discharge operation and vacuum-field interpretation | complete |
 | 03 | Equilibrium and Kinetic Profiles | reconstruction, profiles, and forward equilibrium | complete |
-| 04 | Fluctuations and Transient Events | spectral analysis and event interpretation | scaffold |
-| 05 | MHD Linear Stability and 3D Perturbed Equilibrium | equilibrium-to-stability/response modelling | scaffold |
+| 04 | Fluctuations and Transient Events | spectral analysis and event interpretation | complete |
+| 05 | MHD Stability and 3D Perturbed Equilibrium | equilibrium-to-stability/response modelling | scaffold |
 | 06 | Operational Space and Statistics | cross-shot filtering, limits, and statistical analysis | scaffold |
+
+Each session assumes the one before it. Session 02 starts from a discharge you
+can load and plot; session 03 from a discharge you can place in time; session 04
+from an equilibrium you can interrogate. Only session 04 currently says so in its
+own text.
+
+One promise is session-scoped and worth knowing about: session 01 tells you that
+you need no NumPy and no VAFT submodule imported by hand. That holds for session
+01 alone. Session 02 imports NumPy; sessions 03 and 04 also reach into VAFT
+submodules directly.
 
 The intended learning path is:
 
@@ -162,53 +172,59 @@ Completed and executed copies of the notebooks live in the private
 a runtime dependency: the public test suite passes without any access to them,
 and nothing in public CI may reference them.
 
-## Presentation sources: two kinds, during the pilot
+## Slides: one source, two backends
 
-Sessions 02-06 are hand-written Beamer `.tex` decks with committed PDFs, as
-described below. **Session 01 is different**: its slides are a Quarto `.qmd`
-source in [`presentations/`](presentations/README.md), rendered to Reveal.js
-HTML and Beamer PDF, with nothing committed.
+Every session's slides are a single Quarto `.qmd` source in
+[`presentations/`](presentations/README.md), rendered to Reveal.js HTML for live
+teaching and Beamer PDF for archiving, plus a third build that shows the speaker
+notes as facing pages.
 
-That is the pilot slice of [issue #322](https://github.com/VEST-Tokamak/vaft/issues/322),
-which proposes QMD as the canonical presentation source repository-wide. It is
-deliberately one deck: the pilot exists so the two forms can be compared before
-the convention spreads. Do not migrate the remaining decks until that review has
-happened, and do not author a deck in both formats -- one source per deck is the
-whole point.
-
-The rest of this section governs the five Beamer decks.
-
-## Slide and figure contract
-
-Each session has one standalone 16:9 Beamer source and one PDF with the same
-stem. The preamble is deliberately small and duplicated so any deck can be
-compiled independently. Every deck searches `figures/common/` and its own
-numbered figure directory.
-
-Use vector PDF figures when practical; PNG and JPEG are acceptable for raster
-data such as camera images. Add only source/teaching figures, include attribution
-and license information in `figures/README.md`, and never use the figure tree to
-store generated notebook results.
-
-Build all decks from the repository root with:
-
-```bash
-make -C tutorial slides
+```text
+.qmd (canonical source)
+   |-- HTML -> Reveal.js   live teaching, presenter view, speaker notes
+   `-- PDF  -> Beamer      archival and printable
 ```
 
-LaTeX intermediates are written to `tutorial/.build/`; only the five requested
-PDFs are copied into the tutorial directory and committed.
+That is the end state [issue #322](https://github.com/VEST-Tokamak/vaft/issues/322)
+proposed. It was piloted on session 01 and adopted for the rest of the course
+once the pilot had been reviewed: both backends render from one source, the
+shared theme in `presentations/_extensions/vaft/vaftslides/` gives every deck the
+same identity, and speaker notes authored once in `::: {.notes}` reach the
+Reveal presenter view *and* the Beamer presenter PDF.
 
-Whenever you change a deck source or a figure it pulls in, rebuild that deck and
-commit the regenerated PDF in the same change. CI enforces this: it checks that
-every changed deck input ships a rebuilt PDF, then compiles all five Beamer
-decks from scratch and confirms the rebuild reproduces the committed page structure.
+Author one source per deck. Do not write a deck in two formats.
 
-The build pins `SOURCE_DATE_EPOCH` and `FORCE_SOURCE_DATE`, so rebuilding on one
-machine reproduces byte-identical PDFs. That does not hold across TeX Live
-releases, because pdfTeX records its own version in every file it writes. CI
-therefore compares page structure rather than bytes, and the paired-rebuild
-check is what keeps a committed PDF from drifting away from its source.
+Build from the repository root:
+
+```bash
+make -C tutorial presentations            # every deck, all three outputs
+make -C tutorial presentations-html       # Reveal.js only
+make -C tutorial presentations-pdf        # archival Beamer PDFs only
+make -C tutorial presentations-presenter  # Beamer PDFs with notes shown
+```
+
+Requires [Quarto](https://quarto.org), a LaTeX installation for the PDF targets,
+and `rsvg-convert` (from `librsvg`) so Beamer can embed SVG figures.
+
+### Nothing rendered is committed
+
+The `.html`, `.pdf`, `_files/` and Quarto's caches are all git-ignored. The
+Reveal.js output is a directory of JS, CSS and fonts regenerated on every render,
+and committing it would put exactly the kind of generated weight into git that
+the tutorial tree's rules exist to prevent. CI renders every deck on every pull
+request and uploads them as the `tutorial-presentations` artifact, which is how a
+reviewer sees them.
+
+### Figures
+
+Decks search `figures/common/` and their own numbered directory, and a deck may
+reference only its own session's directory. Use vector PDF or SVG when practical;
+PNG and JPEG are acceptable for raster data such as camera images. Add only
+source and teaching figures, record attribution in `figures/README.md`, and never
+use the figure tree to store generated notebook results.
+
+Sessions 02-06 currently carry no figures. Authoring them is open work, not an
+oversight to paper over.
 
 ## Validation and contribution sequence
 
@@ -216,16 +232,11 @@ Run the repository contract before committing tutorial changes:
 
 ```bash
 python test/verify_tutorial.py
-make -B -C tutorial slides
-python test/verify_tutorial.py
+make -B -C tutorial presentations
 ```
 
-To reproduce the CI freshness checks locally, compare your branch against its
-base and against a scratch copy of the committed decks:
-
-```bash
-python test/verify_tutorial_freshness.py pairing --base origin/develop --head HEAD
-```
+The render is the check: nothing about a deck is committed, so a source that no
+longer builds is the only failure mode there is.
 
 Develop sessions in numerical order. For each session:
 
@@ -234,7 +245,7 @@ Develop sessions in numerical order. For each session:
 3. Implement the offline path, then gated lab extensions.
 4. Add interpretation checkpoints and the independent exercise.
 5. Execute from a clean environment and inspect all generated results.
-6. clear the committed notebook, rebuild its PDF, run validation, and update
+6. clear the committed notebook, render its deck, run validation, and update
    the status table above.
 
 Session 01 is the first completed content milestone. It stays on the packaged
@@ -252,5 +263,5 @@ and Session 01 must not contradict it. The existing
 [plotting sample notebook](../notebooks/plotting_sample_using_vaft_plot_module.ipynb)
 remains a specialized reference with broader research-oriented examples.
 
-Session 02 is the next content milestone. The presence of all six scaffold
-artifacts does not mean the remaining course content is complete.
+Session 05 is the next content milestone. The presence of a scaffold artifact
+does not mean the session's content is complete.

@@ -76,8 +76,19 @@ PROBE_Z_TABLE: tuple[float, ...] = (
     -0.8328, -0.8728, -0.9128, -0.9528, -0.9928, -1.0328, -1.0728, -1.1128,
 )
 
-#: Below this plasma current no fit is attempted (the legacy IPLIM).
-IP_FIT_FLOOR = 45000.0
+#: Below this plasma current no probe fit is attempted (the legacy IPLIM).
+#:
+#: One policy, not two.  This is a different quantity from
+#: ``EFITInitializationConfig.current_threshold`` -- that one is EFIT's
+#: ``CUTIP``, the switch that declares a slice vacuum, while this one decides
+#: whether the probe-recovery backend has enough signal to fit a family
+#: Gaussian.  But there is no reason for the backend to withhold a recovered
+#: probe reading from a slice EFIT will go on to reconstruct, which is what
+#: the inherited 45 kA did between the two floors, so they are set alike at
+#: 15 kA (#708).  Across the three reference discharges 1.8 % to 6.7 % of the
+#: in-window samples fall in that band -- the current ramps, where a rejected
+#: probe is exactly what recovery exists for.
+IP_FIT_FLOOR = 15000.0
 GAUSSIAN_PROVENANCE = "gaussian_fit4"
 _START = (0.1, 0.0, 0.2, -0.1)
 _START_MIRRORED = (-0.1, 0.0, 0.2, -0.1)

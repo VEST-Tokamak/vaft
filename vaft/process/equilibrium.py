@@ -93,6 +93,11 @@ __all__ = [
     "calculate_average_boundary_poloidal_field",
     "calculate_diamagnetism",
     "calculate_q_profile_from_psi",
+    "find_rational_surfaces",
+    "lab_to_straight_field_line",
+    "straight_field_line_tables",
+    "resistive_layer_at",
+    "resistive_layer_parameters",
     "calculate_reconstructed_diamagnetic_flux",
     "computed_diamagnetism_from_phi",
     "contour_shape_parameters",
@@ -1914,9 +1919,25 @@ def shafranov_integrals(
     weights = _plasma_cell_weights(R_grid, Z_grid, R_bdry, Z_bdry, cell_weights=cell_weights)
     dA = _cell_area_from_mesh(R_grid, Z_grid)
     B_p_sq = B_R_grid**2 + B_Z_grid**2
-    alpha_num = np.sum(R_grid * (B_Z_grid**2) * weights * dA)
-    alpha_den = np.sum(R_grid * B_p_sq * weights * dA)
-    alpha = 0.0 if alpha_den == 0.0 else float(2.0 * alpha_num / alpha_den)
+    # Mask on the weight, not with nansum. The psi-gradient field fallback marks
+    # the R = 0 column NaN on purpose and 0 * nan is nan, so a column *outside*
+    # the plasma used to void alpha for the whole slice. Dropping every NaN
+    # instead would also swallow one *inside* it, where the honest answer is
+    # NaN rather than a plausible-looking biased number.
+    _inside = weights > 0.0
+    alpha_num = np.sum(np.where(_inside, R_grid * (B_Z_grid**2) * weights * dA, 0.0))
+    alpha_den = np.sum(np.where(_inside, R_grid * B_p_sq * weights * dA, 0.0))
+    # NaN, not the 0.0 sentinel, when the denominator is undetermined. 0.0 is
+    # pair_23's exact singular point and a plausible-looking alpha, so it sails
+    # past the wrapper's `isfinite` abstain guard and yields finite closures
+    # from an equilibrium nothing could measure. The 0.0 above is for degenerate
+    # *geometry*, which is a different statement.
+    if not np.isfinite(alpha_den):
+        alpha = np.nan
+    elif alpha_den == 0.0:
+        alpha = 0.0
+    else:
+        alpha = float(2.0 * alpha_num / alpha_den)
 
     return S1, S2, S3, alpha
 
@@ -2008,9 +2029,15 @@ def efit_virial_volume_integrals(
     weights = _plasma_cell_weights(R_grid, Z_grid, R_bdry, Z_bdry, cell_weights=cell_weights)
 
     B_p_sq = B_R_grid**2 + B_Z_grid**2
-    alpha_num = np.sum(R_grid * (B_Z_grid**2) * weights * dA)
-    alpha_den = np.sum(R_grid * B_p_sq * weights * dA)
-    alpha = np.nan if alpha_den == 0.0 else float(2.0 * alpha_num / alpha_den)
+    # Mask on the weight, not with nansum. The psi-gradient field fallback marks
+    # the R = 0 column NaN on purpose and 0 * nan is nan, so a column *outside*
+    # the plasma used to void alpha for the whole slice. Dropping every NaN
+    # instead would also swallow one *inside* it, where the honest answer is
+    # NaN rather than a plausible-looking biased number.
+    _inside = weights > 0.0
+    alpha_num = np.sum(np.where(_inside, R_grid * (B_Z_grid**2) * weights * dA, 0.0))
+    alpha_den = np.sum(np.where(_inside, R_grid * B_p_sq * weights * dA, 0.0))
+    alpha = np.nan if not np.isfinite(alpha_den) or alpha_den == 0.0 else float(2.0 * alpha_num / alpha_den)
 
     RT = np.nan
     # |int G dA| / int |G| dA -- how much of the RT denominator survives the
@@ -2346,25 +2373,13 @@ def r_at_z_extremum(r_seg: np.ndarray, z_seg: np.ndarray, *, upper: bool) -> flo
     ----------
     .. [1] Consumed by :func:`contour_shape_parameters` for both triangularities,
        which is where the several-percent error would otherwise land.
+    .. [2] The arithmetic is
+       :func:`vaft.formula.equilibrium.r_at_z_extremum_from_RZ_contour`; this is
+       the process-layer name for it, so the two layers cannot drift apart.
     """
-    r_seg = np.asarray(r_seg, dtype=float).reshape(-1)
-    z_seg = np.asarray(z_seg, dtype=float).reshape(-1)
-    index = int(np.argmax(z_seg) if upper else np.argmin(z_seg))
-    size = z_seg.size
-    if size < 3:
-        return float(r_seg[index])
-    prev, nxt = (index - 1) % size, (index + 1) % size
-    z_prev, z_here, z_next = float(z_seg[prev]), float(z_seg[index]), float(z_seg[nxt])
-    denominator = z_prev - 2.0 * z_here + z_next
-    if denominator == 0.0:
-        return float(r_seg[index])
-    # Vertex of the parabola through (-1, z_prev), (0, z_here), (1, z_next).
-    shift = 0.5 * (z_prev - z_next) / denominator
-    if not np.isfinite(shift) or abs(shift) > 1.0:
-        return float(r_seg[index])
-    r_here = float(r_seg[index])
-    neighbour = float(r_seg[nxt] if shift > 0 else r_seg[prev])
-    return r_here + abs(shift) * (neighbour - r_here)
+    from vaft.formula.equilibrium import r_at_z_extremum_from_RZ_contour
+
+    return r_at_z_extremum_from_RZ_contour(r_seg, z_seg, upper=upper)
 
 
 def _closed_contour(r_seg: np.ndarray, z_seg: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -3786,3 +3801,594 @@ def grad_shafranov_residual(
         source=source,
         mask=mask,
     )
+
+
+def resistive_layer_parameters(
+    psi_norm,
+    q,
+    n,
+    *,
+    t_e,
+    n_e,
+    psi_norm_kinetic=None,
+    ion_mass_amu=1.0,
+    z_eff=2.0,
+    ln_lambda=17.0,
+    m_range=None,
+):
+    """Resistivity and mass density at each rational surface of a toroidal mode.
+
+    Asymptotic-matching codes -- RDCON's ``rmatch``, STRIDE -- ask for one
+    resistivity and one mass density *per rational surface*, because the
+    resistive layer width and the reconnection rate are set locally. This
+    composes the two things needed to answer that from an equilibrium and its
+    kinetic profiles: where the surfaces are, and what the plasma is like
+    there.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Normalized poloidal flux of the ``q`` profile, increasing [-].
+    q : array_like
+        Safety factor on ``psi_norm`` [-].
+    n : int
+        Toroidal mode number; its sign is ignored [-].
+    t_e : array_like
+        Electron temperature [eV].
+    n_e : array_like
+        Electron density [m^-3].
+    psi_norm_kinetic : array_like, optional
+        Normalized poloidal flux of ``t_e``/``n_e``; ``psi_norm`` by default,
+        which requires the kinetic profiles to already be on the q grid [-].
+    ion_mass_amu : float, optional
+        Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default,
+        which is what VEST runs [-].
+    z_eff : float, optional
+        Effective ion charge, passed to the Spitzer resistivity [-].
+    ln_lambda : float, optional
+        Coulomb logarithm, passed to the Spitzer resistivity [-].
+    m_range : tuple of int, optional
+        Forwarded to :func:`find_rational_surfaces` [-].
+
+    Returns
+    -------
+    dict of str to ndarray
+        ``m``, ``q_rational`` and ``psi_n_rational`` as
+        :func:`find_rational_surfaces` returns them, ordered outward, plus
+        ``mass_density`` [kg m^-3], the ``t_e`` [eV] and ``n_e`` [m^-3] each
+        was computed from, and the Spitzer resistivity ``eta`` [Ohm m].
+
+    Raises
+    ------
+    ValueError
+        A kinetic profile does not match its coordinate in length, or
+        ``ion_mass_amu`` is not positive. Propagates
+        :func:`find_rational_surfaces`'s own validation.
+
+    Processing steps
+    ----------------
+    1. Locate the rational surfaces with :func:`find_rational_surfaces`.
+    2. Interpolate ``t_e`` and ``n_e`` linearly onto those surfaces.
+    3. Evaluate
+       :func:`vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda`
+       at each, and take the mass density as ``n_e * ion_mass_amu * m_p``,
+       which assumes quasineutrality with a single bulk ion species.
+
+    Limitations
+    -----------
+    Spitzer resistivity carries no neoclassical trapped-particle correction,
+    so it underestimates the parallel resistivity of a spherical tokamak,
+    where the trapped fraction is large; the returned ``eta`` is a lower
+    bound in that sense.
+
+    It also diverges as ``T_e`` goes to zero. A reconstruction whose
+    ``T_e`` reaches zero at the separatrix therefore yields a non-finite
+    ``eta`` at any rational surface that sits on that point, and surfaces
+    within a few percent of it are dominated by however the profile was
+    extrapolated rather than by measurement. Both are reported rather than
+    clipped, because the right floor is a property of the discharge and not
+    of this function.
+
+    The mass density ignores impurities: with a non-unit ``z_eff`` the bulk
+    ion density is below ``n_e``, so this overestimates it by roughly the
+    dilution factor.
+
+    Applicability
+    -------------
+    Machine-independent. The ``ion_mass_amu`` default of 1 is the only VEST
+    choice, and it is a keyword.
+
+    Provenance
+    ----------
+    .. [issue] #716 -- the packaged ``rmatch.in`` supplied a single scalar
+       where the code wants one value per rational surface, so ``rmatch``
+       stopped before writing its global solution.
+    """
+    import numpy as _np
+
+    from vaft.formula.constants import MI_P
+    from vaft.formula.equilibrium import (
+        spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
+    )
+
+    if float(ion_mass_amu) <= 0.0:
+        raise ValueError(f"ion_mass_amu must be positive, got {ion_mass_amu!r}")
+
+    surfaces = find_rational_surfaces(psi_norm, q, n, m_range=m_range)
+    return {
+        **surfaces,
+        **resistive_layer_at(
+            surfaces["psi_n_rational"],
+            psi_norm=psi_norm if psi_norm_kinetic is None else psi_norm_kinetic,
+            t_e=t_e,
+            n_e=n_e,
+            ion_mass_amu=ion_mass_amu,
+            z_eff=z_eff,
+            ln_lambda=ln_lambda,
+        ),
+    }
+
+
+def resistive_layer_at(
+    psi_n_surfaces,
+    *,
+    psi_norm,
+    t_e,
+    n_e,
+    ion_mass_amu=1.0,
+    z_eff=2.0,
+    ln_lambda=17.0,
+):
+    """Resistivity and mass density at flux surfaces someone else located.
+
+    The companion to :func:`resistive_layer_parameters`, for when the surfaces
+    are already known -- read back from a solver that reported its own, which
+    is the only way to be sure the values line up with what that solver will
+    index.
+
+    Parameters
+    ----------
+    psi_n_surfaces : array_like
+        Normalized poloidal flux of each surface, ordered as the consumer
+        expects them [-].
+    psi_norm : array_like
+        Normalized poloidal flux of ``t_e``/``n_e`` [-].
+    t_e : array_like
+        Electron temperature [eV].
+    n_e : array_like
+        Electron density [m^-3].
+    ion_mass_amu : float, optional
+        Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default [-].
+    z_eff : float, optional
+        Effective ion charge [-].
+    ln_lambda : float, optional
+        Coulomb logarithm [-].
+
+    Returns
+    -------
+    dict of str to ndarray
+        ``mass_density`` [kg m^-3], the ``t_e`` [eV] and ``n_e`` [m^-3] each
+        was computed from, and the Spitzer resistivity ``eta`` [Ohm m].
+
+    Raises
+    ------
+    ValueError
+        A kinetic profile does not match its coordinate in length, or
+        ``ion_mass_amu`` is not positive.
+
+    Processing steps
+    ----------------
+    1. Interpolate ``t_e`` and ``n_e`` linearly onto ``psi_n_surfaces``.
+    2. Evaluate the Spitzer resistivity at each, and take the mass density as
+       ``n_e * ion_mass_amu * m_p``.
+
+    Limitations
+    -----------
+    As :func:`resistive_layer_parameters`: Spitzer carries no neoclassical
+    correction and diverges as ``T_e`` goes to zero, and the mass density
+    ignores impurity dilution.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [issue] #716.
+    """
+    import numpy as _np
+
+    from vaft.formula.constants import MI_P
+    from vaft.formula.equilibrium import (
+        spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
+    )
+
+    if float(ion_mass_amu) <= 0.0:
+        raise ValueError(f"ion_mass_amu must be positive, got {ion_mass_amu!r}")
+
+    coordinate = _np.asarray(psi_norm, dtype=float)
+    t_e = _np.asarray(t_e, dtype=float)
+    n_e = _np.asarray(n_e, dtype=float)
+    for name, values in (("t_e", t_e), ("n_e", n_e)):
+        if values.shape != coordinate.shape:
+            raise ValueError(
+                f"{name} has {values.size} points against {coordinate.size} "
+                "coordinate points"
+            )
+
+    where = _np.asarray(psi_n_surfaces, dtype=float)
+    t_e_at = _np.interp(where, coordinate, t_e)
+    n_e_at = _np.interp(where, coordinate, n_e)
+
+    # `_np.float64` rather than `float`: the formula divides by T_e**1.5, and
+    # a Python float raises ZeroDivisionError there while IEEE gives `inf`.
+    # The divergence at T_e = 0 is a real property of Spitzer and the caller
+    # has to see it, so it is returned as a non-finite value rather than as an
+    # exception from three frames down.
+    with _np.errstate(divide="ignore", invalid="ignore"):
+        eta = _np.array(
+            [
+                spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(
+                    _np.float64(value),
+                    Z_eff=float(z_eff),
+                    ln_Lambda=float(ln_lambda),
+                )
+                for value in t_e_at
+            ],
+            dtype=float,
+        )
+
+    return {
+        "eta": eta,
+        "mass_density": n_e_at * float(ion_mass_amu) * MI_P,
+        "t_e": t_e_at,
+        "n_e": n_e_at,
+    }
+
+
+def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
+    """Where a toroidal mode resonates: the surfaces with q = m / n.
+
+    A perturbation with toroidal mode number ``n`` resonates where the safety
+    factor equals ``m / n`` for an integer ``m``. This finds those crossings
+    by linear interpolation on the ``q`` profile, so the result is the
+    equilibrium's own answer and needs no perturbed-equilibrium code.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Normalized poloidal flux, increasing [-].
+    q : array_like
+        Safety factor on ``psi_norm`` [-].
+    n : int
+        Toroidal mode number; its sign is ignored [-].
+    m_range : tuple of int, optional
+        ``(m_min, m_max)`` to search; the range ``q`` actually spans by
+        default [-].
+
+    Returns
+    -------
+    dict of str to ndarray
+        ``m`` (poloidal mode number), ``q_rational`` (= m / n) and
+        ``psi_n_rational`` (where the crossing is), ordered outward [-].
+
+    Raises
+    ------
+    ValueError
+        ``psi_norm`` and ``q`` differ in length, ``psi_norm`` does not
+        increase, or ``n`` is zero.
+
+    Processing steps
+    ----------------
+    1. Drop non-finite samples.
+    2. For each integer ``m`` in range, find every bracket where ``q - m/n``
+       changes sign and interpolate the crossing linearly.
+    3. Sort the crossings outward.
+
+    Limitations
+    -----------
+    Accuracy is that of linear interpolation, so the error scales with the
+    square of the local grid spacing and with the curvature of ``q`` -- which
+    means it is worst exactly where ``q`` is steepest, at the edge. On the
+    grid GPEC itself writes, which is refined around the rational surfaces
+    (a spacing of 3.6e-06 at the outermost surface of the DIII-D example
+    against 7.4e-03 in the core), the surfaces come back to 1.4e-09 in
+    ``psi_norm``. On a uniform grid of the kind an equilibrium reconstruction
+    produces they do not: 6.5e-04 at 129 points and 4.0e-05 at 513, in both
+    cases dominated by the outermost surface. Interpolate ``q`` onto a finer
+    grid before asking, if the answer has to be better than that.
+
+    A reversed-shear ``q`` resonates twice on the same ``m``, and both
+    crossings are returned. A root that sits exactly on a grid point, or a
+    ``q`` that is flat at ``m / n`` over an interval, is returned once -- at
+    the node and at the start of the flat region respectively -- rather than
+    once per sign change, which would double-count it.
+
+    Applicability
+    -------------
+    Machine-independent. Any monotonic radial coordinate; the name says
+    ``psi_norm`` because that is what the perturbed-equilibrium codes report
+    their rational surfaces on.
+
+    Provenance
+    ----------
+    .. [legacy] ``gpec_multimode_metrics.rational_surface_table`` derived the
+       same surfaces from GPEC output; this takes them from the equilibrium,
+       so they can be known before a run -- at the accuracy the equilibrium's
+       own grid supports, which the Limitations quantify.
+    """
+    psi_norm = np.asarray(psi_norm, dtype=float)
+    q = np.asarray(q, dtype=float)
+    if psi_norm.ndim != 1 or q.ndim != 1:
+        raise ValueError(
+            f"psi_norm is {psi_norm.ndim}-D and q is {q.ndim}-D; a profile is one "
+            "dimensional, and flattening a (time, radius) array here would "
+            "interpolate across the time axis"
+        )
+    if psi_norm.shape != q.shape:
+        raise ValueError(
+            f"{psi_norm.size} coordinate points against {q.size} q values"
+        )
+    if n != int(n):
+        raise ValueError(f"n must be a whole toroidal mode number, not {n!r}")
+    if int(n) == 0:
+        raise ValueError("n must be non-zero; q = m / n is undefined for n = 0")
+    finite = np.isfinite(psi_norm) & np.isfinite(q)
+    psi_norm, q = psi_norm[finite], q[finite]
+    if psi_norm.size < 2:
+        raise ValueError("need at least two finite samples to find a crossing")
+    if not np.all(np.diff(psi_norm) > 0):
+        raise ValueError(
+            "psi_norm must increase; a crossing is located by interpolation and a "
+            "non-monotonic coordinate would place it ambiguously"
+        )
+
+    order = abs(int(n))
+    if m_range is None:
+        lo = int(np.ceil(np.nanmin(q) * order))
+        hi = int(np.floor(np.nanmax(q) * order))
+    else:
+        lo, hi = int(m_range[0]), int(m_range[1])
+        if lo > hi:
+            raise ValueError(
+                f"m_range is ({lo}, {hi}), which is empty; a reversed range would "
+                "return no surfaces and read as a plasma with no resonance"
+            )
+
+    modes: list[int] = []
+    q_rational: list[float] = []
+    positions: list[float] = []
+    for m in range(lo, hi + 1):
+        target = m / order
+        residual = q - target
+        # Exact zeros are roots in their own right, and are taken first: a
+        # root sitting on a node otherwise shows up as two sign changes,
+        # +1 -> 0 and 0 -> -1, that interpolate to the same point, and a q
+        # flat at m/n over an interval shows up as one at each end of it.
+        # Either way it is one surface, and counting it twice would double its
+        # weight in every reduction downstream.
+        zero = residual == 0.0
+        crossings = [
+            float(psi_norm[index])
+            for index in np.nonzero(zero)[0]
+            if index == 0 or not zero[index - 1]
+        ]
+        for index in np.nonzero(np.diff(np.sign(residual)) != 0)[0]:
+            if zero[index] or zero[index + 1]:
+                continue  # already taken, as the zero itself
+            span = residual[index + 1] - residual[index]
+            weight = -residual[index] / span
+            crossings.append(
+                float(psi_norm[index] + weight * (psi_norm[index + 1] - psi_norm[index]))
+            )
+        for crossing in crossings:
+            modes.append(m)
+            q_rational.append(target)
+            positions.append(crossing)
+
+    outward = np.argsort(positions) if positions else np.empty(0, dtype=int)
+    return {
+        "m": np.asarray(modes, dtype=int)[outward],
+        "q_rational": np.asarray(q_rational, dtype=float)[outward],
+        "psi_n_rational": np.asarray(positions, dtype=float)[outward],
+    }
+
+
+def straight_field_line_tables(
+    theta_turns,
+    r,
+    z,
+    magnetic_axis,
+    *,
+    jacobian: str,
+    minimum_separation: float = 1e-10,
+) -> tuple[tuple[np.ndarray, np.ndarray], ...]:
+    """Per-surface tables taking the geometric poloidal angle to the code's own.
+
+    Parameters
+    ----------
+    theta_turns : array_like
+        The code's poloidal angle **in turns**, one value per row of ``r`` and
+        ``z``. A closing duplicate is dropped [-].
+    r, z : array_like
+        Flux-surface geometry, ``(theta, psi)`` [m].
+    magnetic_axis : sequence of float
+        ``(r, z)`` of the axis the geometric angle is measured about [m].
+    jacobian : str
+        Which straight-field-line angle these are -- ``hamada``, ``pest``,
+        ``boozer`` and so on. Required and recorded, not inferred: the file
+        does not carry it, and the mapping is meaningless without knowing
+        which angle it lands in [n/a].
+    minimum_separation : float, optional
+        Geometric-angle spacing below which two samples are treated as one
+        [rad].
+
+    Returns
+    -------
+    tuple of (ndarray, ndarray)
+        One ``(lab, sfl)`` pair per flux surface, both strictly increasing and
+        spanning exactly one period, ready for
+        :func:`lab_to_straight_field_line` [rad].
+
+    Raises
+    ------
+    ValueError
+        ``r`` and ``z`` disagree in shape, ``theta_turns`` does not match their
+        first axis, an input is not finite, ``jacobian`` is empty, or a surface
+        collapses to fewer than three distinct angles.
+
+    Convention
+    ----------
+    **The angle arrives in turns, and nothing in the file says so.** GPEC
+    writes ``theta_dcon`` from 0 to 1 with no ``units`` attribute, so a caller
+    that took it for radians would be wrong by ``2 pi`` and the error would
+    look like a mis-shaped plasma rather than a unit mistake. It is converted
+    here, once, and the parameter is named for what it holds.
+
+    The geometric angle is ``atan2(z - z_axis, r - r_axis)``, which is the lab
+    angle FLARE's Poincare output is in; the straight-field-line angle is what
+    GPEC and DCON label their harmonics by. The two agree only on a circular
+    concentric equilibrium.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Processing steps
+    ----------------
+    1. Drop the closing duplicate, which GPEC writes so its grid is periodic.
+    2. Per surface, take the geometric angle about the axis.
+    3. Roll so the table starts near the outboard midplane, then unwrap both
+       angles together.
+    4. Reverse when the geometric angle runs backwards, so the table increases
+       whichever way the surface was traced.
+    5. Drop samples closer than ``minimum_separation``, which a
+       near-stagnation point in the geometric angle can produce.
+    6. Close the period by repeating the first entry shifted by ``2 pi``.
+
+    Limitations
+    -----------
+    The relabelling is **one flux surface at a time** and says nothing about
+    the radial coordinate: a caller with points between surfaces has to decide
+    how to interpolate across them, and doing that in the lab angle is not the
+    same as doing it in the straight-field-line one.
+
+    Provenance
+    ----------
+    .. [legacy] ``library/flare_plotting.py::_build_lab_to_sfl_inverse_tables``
+       and ``_interp_periodic_inverse``.
+    """
+    if not str(jacobian).strip():
+        raise ValueError(
+            "jacobian must name which straight-field-line angle this lands in "
+            "-- hamada, pest, boozer. GPEC's profile output does not carry it, "
+            "so it is passed rather than guessed"
+        )
+    turns = np.atleast_1d(np.asarray(theta_turns, dtype=float))
+    radius = np.asarray(r, dtype=float)
+    height = np.asarray(z, dtype=float)
+    if radius.shape != height.shape or radius.ndim != 2:
+        raise ValueError(
+            f"r and z must be one 2-D (theta, psi) grid; got {radius.shape} and "
+            f"{height.shape}"
+        )
+    if turns.size != radius.shape[0]:
+        raise ValueError(
+            f"{turns.size} poloidal angles against {radius.shape[0]} rows of geometry"
+        )
+    if not (np.all(np.isfinite(turns)) and np.all(np.isfinite(radius))
+            and np.all(np.isfinite(height))):
+        raise ValueError("the angle or the geometry holds a non-finite value")
+    axis = np.asarray(magnetic_axis, dtype=float).ravel()
+    if axis.size != 2 or not np.all(np.isfinite(axis)):
+        raise ValueError(f"magnetic_axis must be a finite (r, z) pair, not {magnetic_axis!r}")
+
+    sfl = np.mod(turns * 2.0 * np.pi, 2.0 * np.pi)
+    # GPEC closes its grid, so the last row repeats the first; keeping it would
+    # put a zero-length step in every table.
+    if sfl.size > 1 and np.isclose(turns[0] % 1.0, turns[-1] % 1.0):
+        sfl, radius, height = sfl[:-1], radius[:-1, :], height[:-1, :]
+
+    tables: list[tuple[np.ndarray, np.ndarray]] = []
+    for column in range(radius.shape[1]):
+        lab = np.mod(
+            np.arctan2(height[:, column] - axis[1], radius[:, column] - axis[0]),
+            2.0 * np.pi,
+        )
+        start = int(np.argmin(np.abs(np.angle(np.exp(1j * lab)))))
+        lab_line = np.unwrap(np.roll(lab, -start))
+        sfl_line = np.unwrap(np.roll(sfl, -start))
+        if lab_line[-1] < lab_line[0]:
+            lab_line, sfl_line = lab_line[::-1], sfl_line[::-1]
+        if np.any(np.diff(lab_line) <= 0.0):
+            order = np.argsort(lab_line)
+            lab_line, sfl_line = lab_line[order], sfl_line[order]
+        keep = np.r_[True, np.diff(lab_line) > float(minimum_separation)]
+        lab_line, sfl_line = lab_line[keep], sfl_line[keep]
+        if lab_line.size < 3:
+            raise ValueError(
+                f"flux surface {column} collapses to {lab_line.size} distinct "
+                "geometric angles, so it cannot be relabelled"
+            )
+        tables.append((
+            np.r_[lab_line, lab_line[0] + 2.0 * np.pi],
+            np.r_[sfl_line, sfl_line[0] + 2.0 * np.pi],
+        ))
+    return tuple(tables)
+
+
+def lab_to_straight_field_line(theta_lab, table: tuple[np.ndarray, np.ndarray]):
+    """Relabel a geometric poloidal angle into the straight-field-line one.
+
+    Parameters
+    ----------
+    theta_lab : float or array_like
+        Geometric angle about the magnetic axis, any branch [rad].
+    table : tuple of ndarray
+        One ``(lab, sfl)`` pair from :func:`straight_field_line_tables` [rad].
+
+    Returns
+    -------
+    float or ndarray
+        The straight-field-line angle, wrapped to ``[0, 2 pi)`` [rad].
+
+    Raises
+    ------
+    ValueError
+        The table's two arrays disagree in length, or it is too short to
+        interpolate.
+
+    Convention
+    ----------
+    The input is wrapped onto the table's own branch before interpolating.
+    The table spans one period starting wherever the surface's outboard
+    midplane fell, **not** at zero, so wrapping to ``[0, 2 pi)`` and
+    interpolating would read off the end for every angle below that start.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Processing steps
+    ----------------
+    1. Wrap the angle onto the table's branch.
+    2. Interpolate, and wrap the result into ``[0, 2 pi)``.
+
+    Provenance
+    ----------
+    .. [legacy] ``library/flare_plotting.py::_interp_periodic_inverse``.
+    """
+    lab_grid, sfl_grid = (np.asarray(part, dtype=float) for part in table)
+    if lab_grid.size != sfl_grid.size:
+        raise ValueError(
+            f"the table pairs {lab_grid.size} geometric angles with "
+            f"{sfl_grid.size} straight-field-line ones"
+        )
+    if lab_grid.size < 3:
+        raise ValueError("a relabelling table needs at least three entries")
+    angle = np.mod(np.asarray(theta_lab, dtype=float), 2.0 * np.pi)
+    start = float(lab_grid[0])
+    angle = angle + 2.0 * np.pi * np.ceil((start - angle) / (2.0 * np.pi))
+    angle = np.where(angle >= start + 2.0 * np.pi, angle - 2.0 * np.pi, angle)
+    result = np.mod(np.interp(angle, lab_grid, sfl_grid), 2.0 * np.pi)
+    return float(result) if np.ndim(theta_lab) == 0 else result

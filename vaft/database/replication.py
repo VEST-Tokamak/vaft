@@ -34,7 +34,13 @@ from collections.abc import Callable
 from typing import Any
 
 from . import sources as _sources
-from .filedb import FileDB, OMASStage
+from .filedb import (
+    LEGACY_FAMILY,
+    LEGACY_REFINEMENT,
+    FileDB,
+    OMASStage,
+    stage_lineage,
+)
 from .sources import MissingSourceError
 
 
@@ -197,7 +203,13 @@ def _check_eligible(manifest: dict[str, Any], stage: str, product: Path) -> None
 
 
 def _project(ods, ids_names: tuple[str, ...]) -> tuple[Any, tuple[str, ...]]:
-    """Return a copy holding only the IDS this stage owns, plus provenance."""
+    """Return a copy holding only the IDS this stage owns, plus provenance.
+
+    The inverse is :func:`vaft.database.composition.compose_stage_products`,
+    which unions per-stage subtrees back into one shot for a reader that needs
+    more than one of them.  This splits on the way out; that joins on the way
+    in, and neither hides which stage a subtree came from.
+    """
     from omas import ODS
 
     projected = ODS(consistency_check=False)
@@ -446,6 +458,9 @@ def replicate_stage(
     shot: int,
     *,
     filedb: FileDB,
+    family: str = LEGACY_FAMILY,
+    refinement: str = LEGACY_REFINEMENT,
+    product: str | None = None,
     attempts: int = 3,
     retry_delay: float = 5.0,
     validate: bool = True,
@@ -470,8 +485,16 @@ def replicate_stage(
     replaced, so this stage's data may be missing until a retry. Nothing here
     rolls a partial payload back.
     """
-    entry = _sources.replication_for_stage(stage)
     name = OMASStage(stage).value
+
+    # One statement of the lineage, used twice: it names the local product's
+    # path and computes the remote destination. Deriving the destination from
+    # the same values is what stops the two from disagreeing -- a stage product
+    # read from `magnetic/chease/rdcon` cannot be sent to another product's
+    # source without changing this one call.
+    entry = _sources.replication_for_stage(
+        stage, family=family, refinement=refinement, product=product
+    )
     if entry.source is None:
         raise StageNotReplicableError(
             f"The {name} stage is not replicated to HSDS"
@@ -482,13 +505,19 @@ def replicate_stage(
             f"Replication of the {name} stage is not wired yet; it belongs to "
             f"issue {entry.deferred_to}."
         )
+    # After the two "there is nowhere to send this" guards, so a stage that is
+    # not replicated at all says that rather than complaining about a lineage
+    # argument it would never have used.
+    lineage = stage_lineage(
+        name, family=family, refinement=refinement, product=product
+    )
     # writable=True is what makes it impossible to replicate into `public`.
     source = _sources.resolve(entry.source, writable=True)
 
     shot = int(shot)
-    product = filedb.omas_product(name, shot=shot)
-    manifest_path = filedb.omas_manifest(name, shot=shot)
-    record_path = filedb.omas_replication_record(name, shot=shot)
+    product_path = filedb.omas_product(name, shot=shot, **lineage)
+    manifest_path = filedb.omas_manifest(name, shot=shot, **lineage)
+    record_path = filedb.omas_replication_record(name, shot=shot, **lineage)
 
     def skipped(reason: str) -> ReplicationRecord:
         """Record why an optional stage published nothing, and carry on."""
@@ -496,7 +525,7 @@ def replicate_stage(
             stage=name, shot=shot, source=source,
             remote_uri=f"hdf5://{source}/{shot}/", ids=entry.ids,
             occurrence=entry.occurrence,
-            product_sha256=sha256_file(product) if product.exists() else "",
+            product_sha256=sha256_file(product_path) if product_path.exists() else "",
             state="skipped", attempts=0, started_at=_now(), completed_at=_now(),
             error=reason,
         )
@@ -505,12 +534,12 @@ def replicate_stage(
         return record
 
     try:
-        _check_eligible(_read_manifest(manifest_path), name, product)
+        _check_eligible(_read_manifest(manifest_path), name, product_path)
     except ProductNotEligibleError as error:
         if not entry.optional:
             raise
         return skipped(str(error))
-    product_sha256 = sha256_file(product)
+    product_sha256 = sha256_file(product_path)
 
     previous = read_record(record_path)
     if not force and is_reusable(
@@ -524,16 +553,16 @@ def replicate_stage(
     from ..omas import load as load_local
     from . import save as save_remote
 
-    ods = load_local(product)
+    ods = load_local(product_path)
     projected, present = _project(ods, entry.ids)
     if not present and entry.optional:
         return skipped(
-            f"The {name} product at {product} carries none of the IDS this stage "
+            f"The {name} product at {product_path} carries none of the IDS this stage "
             f"owns ({', '.join(entry.ids)})."
         )
     if not present:
         raise ProductNotEligibleError(
-            f"The {name} product at {product} carries none of the IDS this stage "
+            f"The {name} product at {product_path} carries none of the IDS this stage "
             f"owns ({', '.join(entry.ids)}); there is nothing to replicate."
         )
 

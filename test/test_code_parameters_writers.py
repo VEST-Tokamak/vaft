@@ -68,22 +68,28 @@ ALLOWED: dict[str, tuple[tuple[str, str, str], ...]] = {
          "replicated copy of this provenance is the JSON string generate_efit_ods.py "
          "writes (#380)"),
     ),
-    "vaft/database/_summary.py": (
-        ("equilibrium.code.parameters.time_slice.", "read",
-         "shot overview reads the cache from the local product it summarizes"),
-    ),
     "vaft/omas/efit_quality.py": (
         ("equilibrium.code.parameters.time_slice.", "read", "fit quality reads the cache"),
     ),
     "vaft/plot/backend/recipes.py": (
         ("equilibrium.code.parameters.time_slice.", "read", "convergence plot reads the cache"),
     ),
+    "test/test_imas_plot_adapters.py": (
+        ("equilibrium.code.parameters.time_slice.", "read",
+         "proves the native walk decodes the per-slice cache like an ODS, on an "
+         "in-memory toplevel that is never written to a product"),
+    ),
+    "vaft/validation/equilibrium_regime.py": (
+        ("equilibrium.code.parameters.time_slice.", "read",
+         "the regime classifier reads the a-file cache for `limloc`, which is the "
+         "only place EFIT says where the boundary was defined. Because the cache "
+         "stops at the local product, a reconstruction that round-tripped through "
+         "the Access Layer classifies as topology `unknown` with reason "
+         "`limloc_absent` rather than silently as limited (#76)"),
+    ),
     # -- Tests that build or read that cache as a fixture.
     "test/test_aeqdsk.py": (
         ("equilibrium.code.parameters.time_slice.", "read", "a-file cache fixture"),
-    ),
-    "test/test_database_summary.py": (
-        ("equilibrium.code.parameters.time_slice.", "write", "shot overview fixture"),
     ),
     "test/test_diamagnetic_flux_sign.py": (
         ("equilibrium.code.parameters.time_slice.", "write", "k-file namelist fixture"),
@@ -99,6 +105,15 @@ ALLOWED: dict[str, tuple[tuple[str, str, str], ...]] = {
     ),
     "test/test_eqdsk_derived_quantities.py": (
         ("equilibrium.code.parameters.time_slice.", "read", "a-file cache fixture"),
+    ),
+    "test/test_equilibrium_regime.py": (
+        ("equilibrium.code.parameters.time_slice.", "write",
+         "a-file cache fixture: the topology cases need a `limloc` to classify"),
+    ),
+    "test/test_equilibrium_cohorts.py": (
+        ("equilibrium.code.parameters.time_slice.", "write",
+         "a-file cache fixture: the cohort cut on topology needs a `limloc`, so the "
+         "join's fixtures write one the same way the regime tests do (#76)"),
     ),
     "test/test_ods_access.py": (
         ("equilibrium.code.parameters.time_slice.", "read",
