@@ -1400,7 +1400,10 @@ def test_stage2_plan_fails_closed_then_uses_hashed_baseline_restart(
         },
     ]
     for reference in study.REFERENCE_SLICES:
-        case_id = f"case-{reference.key}"
+        # Not `reference.key`: that is "41672:331", and a colon is not allowed
+        # in a Windows path. The study's own case ids are already safe
+        # (`s41672_t00331_...`); this fabricated one only has to be as well.
+        case_id = f"case-{reference.shot}-{reference.time_ms}"
         workdir = tmp_path / case_id
         workdir.mkdir()
         restart = workdir / "esave.dat"
@@ -1470,7 +1473,7 @@ def test_incompatible_663_evidence_has_a_concrete_instrumented_rerun(monkeypatch
     confirmation_tables.mkdir()
     cases = []
     for reference in study.REFERENCE_SLICES:
-        case_dir = tmp_path / f"case-{reference.key}"
+        case_dir = tmp_path / f"case-{reference.shot}-{reference.time_ms}"
         case_dir.mkdir()
         kfile = case_dir / f"k0{reference.shot}.{reference.time_ms:05d}"
         selected_tables = tables if reference.shot == 41672 else confirmation_tables
