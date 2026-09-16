@@ -200,8 +200,11 @@ def _write_mode_entry(
         f'<energy_plasma units="J">{control.energy_plasma!r}</energy_plasma>'
         '<energy_perturbed derivation="energy_vacuum+energy_surface+energy_plasma"'
         ' units="J" source="gpec_control_output global attributes"/>'
-        "</solver>"
     )
+    # Everything below is nested inside this mode's <solver>, not appended
+    # beside it: `code.parameters` is one IDS-global string that accumulates a
+    # fragment per mode, so siblings would leave a reader pairing N <solver>,
+    # N <spectral_field> and N <rational_surfaces> by document order alone.
     if spectral is not None:
         fragment += (
             f'<spectral_field variable="{_SPECTRAL_FIELD}"'
@@ -220,6 +223,7 @@ def _write_mode_entry(
             ' note="the cylindrical decomposition lives in the sidecar; the IDS'
             ' region carries one grid, and it carries the spectral field"/>'
         )
+    fragment += "</solver>"
     _append_code_parameters(ods, "mhd_linear", fragment, code_name="GPEC")
     if control.version:
         ods["mhd_linear.code.version"] = control.version

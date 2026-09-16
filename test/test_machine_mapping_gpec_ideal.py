@@ -106,6 +106,39 @@ def test_everything_the_derivation_needs_is_in_the_ods(run_dir):
         assert f'{field}="' in parameters
 
 
+def test_each_modes_geometry_is_inside_its_own_solver_element(run_dir):
+    """`code.parameters` is one IDS-global string that accumulates a fragment
+    per mode. As siblings, N <solver>, N <spectral_field> and N
+    <rational_surfaces> could only be paired by document order -- and the
+    surfaces of n = 1 and n = 3 are different surfaces."""
+    import xml.etree.ElementTree as ET
+
+    ods = ODS(consistency_check=False)
+    write_profile_nc(run_dir, n=1, rational_q=(2.0, 3.0))
+    write_control_nc(run_dir, n=1)
+    write_cylindrical_nc(run_dir, n=1)
+    write_profile_nc(run_dir, n=2, rational_q=(2.0, 2.5, 3.0))
+    write_control_nc(run_dir, n=2)
+    write_cylindrical_nc(run_dir, n=2)
+    gpec_ideal(ods, str(run_dir), {"mode": 1, "modes": [1, 2]})
+    gpec_ideal(ods, str(run_dir), {"mode": 2, "modes": [1, 2]})
+
+    root = ET.fromstring(ods["mhd_linear.code.parameters"])
+    solvers = root.findall("solver")
+    assert [s.get("n_tor") for s in solvers] == ["1", "2"]
+    counts = {
+        s.get("n_tor"): len(s.find("rational_surfaces").findall("surface"))
+        for s in solvers
+    }
+    assert counts == {"1": 2, "2": 3}
+    for solver in solvers:
+        assert solver.find("spectral_field") is not None
+        assert solver.find("rational_surfaces").get("chi1")
+    # Nothing left at the top level to be paired by position.
+    assert root.findall("rational_surfaces") == []
+    assert root.findall("spectral_field") == []
+
+
 def test_geometry_is_withheld_rather_than_written_without_its_normalisation(run_dir):
     """A geometry block without chi1 reads as complete and is not: a consumer
     would have to go back to the control file for one number."""
