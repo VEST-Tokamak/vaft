@@ -126,6 +126,30 @@ def test_code_parameters_decode_on_the_native_walk(entry):
     assert ods_cocos(bundle) == ods_cocos(ods)
 
 
+def test_an_indexed_code_parameters_subtree_decodes_natively():
+    """A ``time_slice.N.*`` subtree in the XML reads as on an ODS, and the walk keys its cache exactly."""
+    from omas.omas_core import CodeParameters
+    from vaft.imas.access import IDSEntry
+    from vaft.plot.backend import access
+
+    parameters = CodeParameters()
+    parameters["cocos"] = 11
+    parameters["time_slice.0.aeqdsk.chisq"] = 1.5
+    parameters["time_slice.1.aeqdsk.chisq"] = 2.5
+    equilibrium = imas.IDSFactory("3.41.0").equilibrium()
+    equilibrium.code.parameters = parameters.to_string()
+    equilibrium.code.library.resize(1)
+    equilibrium.code.library[0].parameters = "<parameters><depth>3</depth></parameters>"
+    bundle = IDSEntry({"equilibrium": equilibrium})
+    assert access.get(bundle, "equilibrium.code.parameters.time_slice.1.aeqdsk.chisq") == 2.5
+    assert access.count(bundle, "equilibrium.code.parameters.time_slice") == 2
+    assert access.get(bundle, "equilibrium.code.parameters.time_slice.2.aeqdsk.chisq") is None
+    assert list(bundle._parameters) == ["equilibrium.code.parameters"]
+    # A library's parameters stay text, as OMAS keeps them.
+    assert access.get(bundle, "equilibrium.code.library.0.parameters.depth") is None
+    assert access.get(bundle, "equilibrium.code.library.0.parameters").startswith("<parameters>")
+
+
 def test_code_backed_plots_convert_only_the_ids_they_declare(entry):
     bundle = IDSEntry(entry)
     ods = bundle.as_ods_for(("equilibrium", "wall", "dataset_description"))

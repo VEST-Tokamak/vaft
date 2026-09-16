@@ -274,6 +274,7 @@ def _walk(node: Any, segments: list[str], *, entry: IDSEntry | None = None, pref
             if index >= len(node):
                 return _MISSING
             node = node[index]
+            prefix = f"{prefix}.{segment}"
             continue
         if not (_is_structure(node) or _is_struct_array(node)):
             return _MISSING
@@ -286,20 +287,23 @@ def _walk(node: Any, segments: list[str], *, entry: IDSEntry | None = None, pref
 
 
 def _is_code_parameters(node: Any) -> bool:
-    """Whether ``node`` is a ``code.parameters`` leaf (the DD's one string tree)."""
+    """Whether ``node`` is an IDS's ``code.parameters`` leaf (the DD's one string tree).
+
+    A library's ``code.library[].parameters`` is not decoded, as OMAS does not.
+    """
     metadata = getattr(node, "metadata", None)
-    parent = getattr(node, "_parent", None)
-    return (
-        metadata is not None and str(metadata.name) == "parameters"
-        and parent is not None and str(getattr(getattr(parent, "metadata", None), "name", "")) == "code"
-    )
+    return metadata is not None and str(getattr(metadata, "path_string", "")) == "code/parameters"
 
 
 def _decoded_parameters(entry: IDSEntry, prefix: str, node: Any) -> Any:
     """The ``CodeParameters`` tree for the string at ``prefix``, or ``None``.
 
     Only XML text decodes (a JSON stage blob stays a string and answers no
-    sub-path, as on an ODS); the result is cached on the entry.
+    sub-path, as on an ODS); the result is cached on the entry.  The leaf
+    itself is still the text: ``count`` of ``<ids>.code.parameters`` is 0
+    here where an ODS counts the decoded keys, and a nested subtree an entry
+    was written without (``vaft.imas.save`` keeps the flat leaves only, see
+    ``vaft.imas.code_parameters``) is absent on both models.
     """
     if prefix in entry._parameters:
         return entry._parameters[prefix]

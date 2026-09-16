@@ -74,6 +74,11 @@ ALLOWED: dict[str, tuple[tuple[str, str, str], ...]] = {
     "vaft/plot/backend/recipes.py": (
         ("equilibrium.code.parameters.time_slice.", "read", "convergence plot reads the cache"),
     ),
+    "test/test_imas_plot_adapters.py": (
+        ("equilibrium.code.parameters.time_slice.", "read",
+         "proves the native walk decodes the per-slice cache like an ODS, on an "
+         "in-memory toplevel that is never written to a product"),
+    ),
     "vaft/validation/equilibrium_regime.py": (
         ("equilibrium.code.parameters.time_slice.", "read",
          "the regime classifier reads the a-file cache for `limloc`, which is the "
