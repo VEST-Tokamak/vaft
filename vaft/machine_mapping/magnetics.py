@@ -495,6 +495,25 @@ TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT = int(
 )
 
 
+#: Only the toroidal arrays are gated by shot, and only because their history
+#: is recorded.  The 64 equilibrium probes and the 11 flux loops are mapped for
+#: every shot, which is not a claim that every one of them existed throughout.
+#:
+#: No source states when they did.  `MD.yaml` and the geometry file carry no
+#: shot field; ``vest.yaml`` carries shot ``revisions`` for *processing* eras
+#: (baseline windows, FL10 compensation) but none for channel existence; and
+#: the VEST magnetics logs give per-channel DAQ wiring and positions without
+#: dates, their only shot note being the one behind
+#: :data:`TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT`.
+#:
+#: So a channel that did not record is published as an empty entry with
+#: ``validity = -2`` -- "no datum here" -- rather than omitted.  That is the
+#: honest statement when the alternative is a boundary nobody wrote down:
+#: inventing one would silently drop real channels, and issue #843 is what
+#: acting on an unverified probe table costs.
+EQUILIBRIUM_PROBE_SHOT_HISTORY_IS_UNRECORDED = True
+
+
 def toroidal_array_for_shot(shot: int) -> dict[str, Any]:
     """Which toroidal Mirnov array ``shot`` has, and what it can resolve.
 
