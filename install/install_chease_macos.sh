@@ -106,7 +106,10 @@ fi
 
 if ((UNINSTALL)); then
   [[ -f "$MANIFEST" ]] || die "no $MANIFEST_NAME under $PREFIX; nothing this script installed is there to remove"
-  rm -rf "$PREFIX/bin" "$MANIFEST"
+  # ${PREFIX:?} rather than $PREFIX: an empty variable here would make this
+  # `rm -rf /bin`. It cannot be empty by this point, but the guard costs
+  # nothing and the failure mode is unrecoverable (SC2115).
+  rm -rf "${PREFIX:?}/bin" "${MANIFEST:?}"
   note "removed bin/ and $MANIFEST_NAME from $PREFIX"
   note "the source tree was never modified, so there is nothing to undo there"
   exit 0
