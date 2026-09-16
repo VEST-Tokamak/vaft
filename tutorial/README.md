@@ -10,7 +10,7 @@ VEST machine and experiment -> validated, analysis-ready data
 ```
 
 The sessions are executable research examples, not an API catalogue. Each one
-answers a question a VEST researcher actually has, and the infrastructure is
+answers a question a VEST researcher actually has, and the framework is
 introduced as it becomes needed rather than up front.
 
 This directory holds the course contract, the session notebooks, and their slide

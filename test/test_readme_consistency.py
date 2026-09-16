@@ -2,10 +2,10 @@
 
 `README.ko.md` was a faithful translation that fell four sections and one dead
 API behind its English counterpart. Nothing caught that, because nothing
-compared them. These tests pin the parts of #330's reframing that a reader would
-notice if they rotted: the positioning statement, the four infrastructure
-concepts, the order they appear in, and the promise that long-term ambitions are
-not presented as shipped features.
+compared them. These tests pin the parts of #330's and #529's reframing that a reader
+would notice if they rotted: the core message, the positioning statement, the
+four framework concepts, the order they appear in, and the promise that
+long-term ambitions are not presented as shipped features.
 """
 
 from __future__ import annotations
@@ -25,6 +25,18 @@ NOTICES_KO = ROOT / "THIRD_PARTY_NOTICES.ko.md"
 #: The identity narrative #330 prescribes, in order. Each README states it in
 #: its own language, so they are matched by position rather than by text.
 IDENTITY_SECTIONS = 3
+
+#: The top-level message #529 organises the landing page around. Each README
+#: states it in its own language; the English is pinned verbatim because it is
+#: the sentence the rest of the page is written to support.
+CORE_MESSAGE = "Integrate fusion science knowledge so it can be discovered, verified, compared, and studied."
+
+#: What the four #529 verbs are called in each README, so a translation that
+#: quietly drops one of them fails here rather than in a reader's head.
+CORE_VERBS = {
+    ENGLISH: ("discovered", "verified", "compared", "studied"),
+    KOREAN: ("찾고", "검증하고", "비교하고", "연구"),
+}
 
 #: Capabilities that must not be described as current functionality (#330 §4).
 LONG_TERM_TERMS = (
@@ -64,14 +76,61 @@ def test_the_positioning_statement_leads(path):
     opening = text[: text.index("\n## ")]
     for phrase in ("VAFT", "VEST"):
         assert phrase in opening
-    # The claim that distinguishes the new framing from "a Python library".
-    assert "infrastructure" in opening or "인프라" in opening, (
-        f"{path.name}: the opening does not state that VAFT is infrastructure"
+    # The claim that distinguishes the framing from "a Python library". The
+    # project settled on "framework" rather than "infrastructure"; both READMEs,
+    # CONTRIBUTING.md and the repository's About text say the same word.
+    assert "scientific framework" in opening or "과학 프레임워크" in opening, (
+        f"{path.name}: the opening does not state that VAFT is a scientific framework"
+    )
+    assert "infrastructure" not in opening and "인프라" not in opening, (
+        f"{path.name}: the opening still uses the retired word 'infrastructure'"
     )
 
 
 @pytest.mark.parametrize("path", [ENGLISH, KOREAN], ids=["en", "ko"])
-def test_the_four_infrastructure_concepts_are_present_and_ordered(path):
+def test_the_core_message_opens_the_page_with_all_four_verbs(path):
+    """#529: one statement of what the four concepts are ultimately *for*."""
+    text = path.read_text(encoding="utf-8")
+    opening = text[: text.index("\n## ")]
+    first_quote = next(line for line in opening.splitlines() if line.startswith("> **"))
+    for verb in CORE_VERBS[path]:
+        assert verb in first_quote, (
+            f"{path.name}: the core message has lost {verb!r}: {first_quote!r}"
+        )
+    if path is ENGLISH:
+        assert CORE_MESSAGE in first_quote
+
+
+def test_the_overview_says_what_vaft_is_then_enables_then_where_it_runs():
+    """#529: what VAFT is -> what it enables -> VEST as the reference implementation."""
+    text = ENGLISH.read_text(encoding="utf-8")
+    opening = text[: text.index("\n## ")]
+    # The core message above repeats the four verbs, so each step is searched
+    # for *after* the one before it; a plain index() would match the quote.
+    is_ = opening.index("scientific framework")
+    enables = opening.find("can be discovered, verified, compared, and studied", is_)
+    reference = opening.find("reference\nimplementation", enables)
+    if reference == -1:
+        reference = opening.find("reference implementation", enables)
+    assert is_ < enables < reference, (
+        "the overview must say what VAFT is, then what it enables, then name VEST "
+        "as the reference implementation"
+    )
+
+
+def test_traceable_and_verifiable_are_not_used_as_synonyms():
+    """#529: traceable and reproducible workflows *enable* verifiable results."""
+    text = ENGLISH.read_text(encoding="utf-8")
+    pipeline = text[text.index("### Version-Controlled Data Pipeline"):
+                    text.index("### IMAS-FAIR Database")]
+    assert "traceable" in pipeline.lower() and "reproducible" in pipeline.lower()
+    assert "verifiable" in pipeline.lower(), (
+        "the pipeline section must say what traceability and reproducibility enable"
+    )
+
+
+@pytest.mark.parametrize("path", [ENGLISH, KOREAN], ids=["en", "ko"])
+def test_the_four_framework_concepts_are_present_and_ordered(path):
     """All four, in #330's order. They are the shared conceptual vocabulary."""
     text = path.read_text(encoding="utf-8")
     positions = []
