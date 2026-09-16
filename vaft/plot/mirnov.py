@@ -415,12 +415,7 @@ def toroidal_phase_mode_fit(
     ods: Any,
     center_time: float,
     *,
-    channels: Sequence[int | str] = (
-        "OutMirnov_130_Bz:phase_reference",
-        "OutMirnov_530_Bz:phase_reference",
-        "OutMirnov_730_Bz:phase_reference",
-        "MagneticFieldProbe_C2-05_Bz:phase_reference",
-    ),
+    channels: Sequence[int | str] | None = None,
     probe_group: str = "b_field_pol_probe",
     time_range: tuple[float, float] | None = None,
     frequencies: Sequence[float] | None = None,
@@ -437,6 +432,28 @@ def toroidal_phase_mode_fit(
     return_result: bool = False,
 ):
     """Plot toroidal phase variation and best-fit wrapped ``n`` mode lines."""
+    if channels is None:
+        # Whichever toroidal array this shot has. Naming the phase-reference
+        # channels outright used to be the default, and since they are mapped
+        # only up to their last operational shot that raised on every modern
+        # ODS instead of drawing what the shot does carry.
+        available = [
+            str(path_value(ods, f"magnetics.{probe_group}.{index}.identifier"))
+            for index in range(path_count(ods, f"magnetics.{probe_group}"))
+            if path_value(ods, f"magnetics.{probe_group}.{index}.identifier") is not None
+        ]
+        channels = [name for name in available if name.endswith(":phase_reference")]
+        if not channels:
+            from vaft.machine_mapping.magnetics import fluctuation_mirnov_probe_indices
+
+            channels = sorted(fluctuation_mirnov_probe_indices(ods))
+        if not channels:
+            raise ValueError(
+                f"no toroidal Mirnov array in this ODS: magnetics.{probe_group} carries "
+                "neither phase-reference nor fluctuation identifiers, so there is no "
+                "set of probes at distinct toroidal angles to fit across"
+            )
+
     selected = _normalise_channels(ods, probe_group, channels)
     times: list[np.ndarray] = []
     data: list[np.ndarray] = []

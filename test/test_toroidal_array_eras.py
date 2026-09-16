@@ -30,6 +30,11 @@ from vaft.machine_mapping.magnetics import (
 LEGACY = Path(__file__).resolve().parents[1] / "vaft" / "data" / "legacy"
 REFERENCE_FIELDS = (207, 209, 241)
 
+#: The bound the three evidenced channels share. Field 171 has none: it is
+#: still in the 44740 and 45531 archives, because the logs class it as outboard
+#: equilibrium probe `Bz C2 05` (issue #825).
+REFERENCE_LAST_SHOT = max(TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT.values())
+
 
 # ---------------------------------------------------------------------------
 # The boundaries
@@ -38,15 +43,27 @@ REFERENCE_FIELDS = (207, 209, 241)
 
 def test_the_two_arrays_do_not_overlap():
     """A gap, not a handover -- which is why the middle era resolves nothing."""
-    assert TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT < FLUCTUATION_MIRNOV_FIRST_SHOT
+    assert REFERENCE_LAST_SHOT < FLUCTUATION_MIRNOV_FIRST_SHOT
+
+
+def test_only_the_evidenced_channels_carry_a_bound():
+    """Field 171 must not inherit a boundary the evidence does not cover."""
+    assert set(TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT) == set(REFERENCE_FIELDS)
+    assert 171 not in TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT
+
+
+def test_the_channel_still_in_the_archives_is_still_mapped():
+    """44740 and 45531 carry field 171; dropping it would lose real data."""
+    fields = {int(c["field_code"]) for c in toroidal_mirnov_reference_channels(44740)}
+    assert fields == {171}
 
 
 @pytest.mark.parametrize(
     "shot,name",
     [
         (30000, "phase_reference"),
-        (TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT, "phase_reference"),
-        (TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT + 1, None),
+        (REFERENCE_LAST_SHOT, "phase_reference"),
+        (REFERENCE_LAST_SHOT + 1, None),
         (39915, None),
         (FLUCTUATION_MIRNOV_FIRST_SHOT - 1, None),
         (FLUCTUATION_MIRNOV_FIRST_SHOT, "fluctuation"),
@@ -97,8 +114,10 @@ def test_the_inventory_is_ungated():
 
 
 def test_a_shot_past_the_boundary_has_no_reference_channels():
-    assert toroidal_mirnov_reference_channels(TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT) != ()
-    assert toroidal_mirnov_reference_channels(TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT + 1) == ()
+    before = {int(c["field_code"]) for c in toroidal_mirnov_reference_channels(REFERENCE_LAST_SHOT)}
+    after = {int(c["field_code"]) for c in toroidal_mirnov_reference_channels(REFERENCE_LAST_SHOT + 1)}
+    assert before == {207, 209, 241, 171}
+    assert after == {171}
 
 
 def test_the_returned_channels_are_copies():
@@ -128,5 +147,7 @@ def test_the_archives_past_the_boundary_carry_no_reference_field(shot):
     with gzip.open(archive, "rt") as handle:
         payload = json.load(handle)
     present = set(payload.get("fields", {}))
-    assert shot > TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT
+    assert shot > REFERENCE_LAST_SHOT
+    # ... while field 171, which carries no bound, is present.
+    assert str(171) in present or 171 in present
     assert not [f for f in REFERENCE_FIELDS if str(f) in present or f in present]

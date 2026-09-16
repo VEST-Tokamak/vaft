@@ -255,7 +255,18 @@ def _toroidal_mirnov_reference_config() -> dict[str, Any]:
     than a per-channel field -- the same split
     :func:`_fluctuation_mirnov_config` documents for its own boundary.
     """
-    return resolve_vest_diagnostic(0, "toroidal_mirnov_reference")
+    config = resolve_vest_diagnostic(0, "toroidal_mirnov_reference")
+    # The same guard :func:`_fluctuation_mirnov_config` documents: a revision
+    # without an explicit ``from_shot`` is unbounded below, so it would match
+    # shot 0 and quietly redefine the inventory that the module-level constants
+    # are built from at import.
+    for revision in config.get("revisions", ()) or ():
+        if "from_shot" not in revision:
+            raise VestConfigurationError(
+                "toroidal_mirnov_reference: a revision must state from_shot, or it "
+                "also matches shot 0 and changes what the inventory means"
+            )
+    return config
 
 
 @lru_cache(maxsize=8)
@@ -514,13 +525,19 @@ TOROIDAL_MIRNOV_REFERENCE_CHANNELS = tuple(
     for channel in _toroidal_mirnov_reference_config()["channels"]
 )
 
-#: The last shot whose archive carries the phase-reference channels.
+#: The last shot each phase-reference channel's archive carries it, by field
+#: code.  A field absent from this map is never dropped.
 #:
-#: A gate the caller applies, the way ``first_operational_shot`` is for the
-#: fluctuation array -- see ``vest.yaml`` for the evidence behind the number.
-TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT = int(
-    _toroidal_mirnov_reference_config()["last_operational_shot"]
-)
+#: Per channel, not per array, because the evidence is per channel: the
+#: magnetics log bounds 207 at 35520 and the archives for 44740 and 45531 carry
+#: none of 207/209/241 -- but they *do* carry 171, which the same logs class as
+#: outboard equilibrium probe ``Bz C2 05``.  Bounding 171 with the others would
+#: drop a channel whose data exists, and would settle issue #825 by side effect.
+TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT: dict[int, int] = {
+    int(channel["field"]): int(channel["last_operational_shot"])
+    for channel in _toroidal_mirnov_reference_config()["channels"]
+    if "last_operational_shot" in channel
+}
 
 
 #: Only the toroidal arrays are gated by shot, and only because their history
@@ -545,13 +562,18 @@ EQUILIBRIUM_PROBE_SHOT_HISTORY_IS_UNRECORDED = True
 def toroidal_array_for_shot(shot: int) -> dict[str, Any]:
     """Which toroidal Mirnov array ``shot`` has, and what it can resolve.
 
-    VEST has had two, and a gap between them.  Before shot 35520 the three
-    phase-reference channels at clock 1:30, 5:30 and 7:30; from shot 44156 the
-    30-channel outboard fluctuation array at clock 45, 135 and 225 degrees.
-    Between those boundaries no array recorded at more than one toroidal
-    position, so no toroidal mode number can be measured at all -- which is a
-    fact about the machine, not about the analysis, and is why this is
-    answerable without opening a shot.
+    VEST has had two, and a gap between them.  Up to shot 35520 the
+    phase-reference channels -- three at clock 1:30, 5:30 and 7:30, plus the
+    disputed 9:30 entry issue #825 is about; from shot 44156 the 30-channel
+    outboard fluctuation array at clock 45, 135 and 225 degrees.  Between those
+    boundaries nothing recorded at more than one toroidal position, so no
+    toroidal mode number can be measured at all -- a fact about the machine
+    rather than about the analysis, which is why this is answerable without
+    opening a shot.
+
+    ``shot`` must be a real shot number.  Unlike the inventory accessors, 0 is
+    not a sentinel here: there is no "the machine in general" answer to which
+    array a discharge had.
 
     Returns ``name``, the ``clock`` positions, the distinct IMAS ``angles_deg``
     and the ``alias_step`` those angles impose -- ``n`` is resolved only modulo
@@ -562,9 +584,19 @@ def toroidal_array_for_shot(shot: int) -> dict[str, Any]:
     from .conventions import port_toroidal_angle
 
     shot = int(shot)
-    if shot <= TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT:
+    if shot <= 0:
+        raise ValueError(
+            f"shot must be a real shot number, not {shot}: which toroidal array a "
+            "discharge had is a per-shot fact with no un-gated reading"
+        )
+    # A set spanning one toroidal position resolves nothing, so it does not
+    # count as "the array this shot has": past 35520 only the disputed field 171
+    # survives the reference gate, and a modern shot's array is the fluctuation
+    # one regardless.
+    reference = toroidal_mirnov_reference_channels(shot)
+    if len({float(c["clock"]) for c in reference}) > 1:
         name = "phase_reference"
-        clocks = [float(c["clock"]) for c in TOROIDAL_MIRNOV_REFERENCE_CHANNELS]
+        clocks = [float(c["clock"]) for c in reference]
     elif shot >= FLUCTUATION_MIRNOV_FIRST_SHOT:
         name = "fluctuation"
         clocks = sorted(
@@ -575,8 +607,15 @@ def toroidal_array_for_shot(shot: int) -> dict[str, Any]:
         return {"name": None, "clocks": (), "angles_deg": (), "alias_step": None}
 
     angles = sorted({round(float(_np.rad2deg(port_toroidal_angle(c))), 6) for c in clocks})
+    # The modulus is 360/gcd(spacings), not 360/min(spacing): a set spaced
+    # 0/100/200 aliases modulo 18, not modulo 4.  They coincide only when the
+    # array is uniform, which both VEST arrays happen to be.
     spacing = _np.diff(_np.asarray(angles + [angles[0] + 360.0]))
-    step = int(round(360.0 / spacing.min())) if len(angles) > 1 else None
+    if len(angles) > 1:
+        scaled = _np.rint(spacing * 1000.0).astype(int)
+        step = int(round(360.0 / (_np.gcd.reduce(scaled) / 1000.0)))
+    else:
+        step = None
     return {
         "name": name,
         "clocks": tuple(sorted(clocks)),
@@ -588,15 +627,21 @@ def toroidal_array_for_shot(shot: int) -> dict[str, Any]:
 def toroidal_mirnov_reference_channels(shot: int = 0) -> tuple[dict[str, Any], ...]:
     """The phase-reference channels ``shot`` actually has.
 
-    Empty for any shot after :data:`TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT`.
-    ``shot=0`` means the inventory, un-gated, matching
-    :func:`_fluctuation_mirnov_config`'s reading of the same argument.
+    Each channel is dropped past its own ``last_operational_shot``; a channel
+    without one is never dropped.  ``shot=0`` means the inventory, un-gated,
+    matching :func:`_fluctuation_mirnov_config`'s reading of the same argument.
 
     Copies are returned so a caller cannot corrupt the table.
     """
-    if shot and int(shot) > TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT:
-        return ()
-    return tuple(dict(channel) for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS)
+    if not shot:
+        return tuple(dict(channel) for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS)
+    return tuple(
+        dict(channel)
+        for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS
+        if int(shot) <= TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT.get(
+            int(channel["field_code"]), int(shot)
+        )
+    )
 
 
 class UnsupportedMagneticsGeometryError(NotImplementedError):

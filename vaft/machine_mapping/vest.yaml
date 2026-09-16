@@ -716,12 +716,19 @@
     toroidal_mirnov_reference:
       source: {raw_unit: V, daq_type: slow}
       role: phase_reference
-      last_operational_shot: 35520
       geometry: {major_radius: 0.796, z: 0.02}
       channels:
-        - {field: 207, identifier: OutMirnov_130_Bz, clock: 1.5, gain: 9.0e-4}
-        - {field: 241, identifier: OutMirnov_530_Bz, clock: 5.5, gain: -9.0e-4}
-        - {field: 209, identifier: OutMirnov_730_Bz, clock: 7.5, gain: 9.0e-4}
+        - {field: 207, identifier: OutMirnov_130_Bz, clock: 1.5, gain: 9.0e-4,
+           last_operational_shot: 35520}
+        - {field: 241, identifier: OutMirnov_530_Bz, clock: 5.5, gain: -9.0e-4,
+           last_operational_shot: 35520}
+        - {field: 209, identifier: OutMirnov_730_Bz, clock: 7.5, gain: 9.0e-4,
+           last_operational_shot: 35520}
+        # No bound: field 171 is still in the archives for 44740 and 45531, and
+        # it would be -- the logs class it as outboard equilibrium probe
+        # `Bz C2 05`, which records for every shot. The 35520 evidence covers
+        # 207/209/241 only, so applying it here would drop a channel whose data
+        # exists and would decide #825 by side effect.
         - {field: 171, identifier: MagneticFieldProbe_C2-05_Bz, clock: 9.5, gain: 0.004529,
            disputed: "issue #825: the magnetics logs class field 171 as outboard equilibrium probe Bz C2 05"}
 

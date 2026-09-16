@@ -255,8 +255,13 @@ def test_dd_paths_lists_the_reads_with_their_provenance():
         assert path.attrs["backend"] == "neutral", path
         # A read the spec also gates on keeps the spec's role; the rest are inputs.
         assert path.role == "input" or path.attrs["declared_by"] == "spec+recipe", path
-    angle = paths["magnetics/b_field_pol_probe(:)/toroidal_angle"]
-    assert angle.attrs["declared_by"] == "spec+recipe"
+    # `toroidal_angle` is deliberately absent: it is a sensor *orientation* in
+    # the DD, and issue #725 stopped both the mapper writing a position there
+    # and this view reading one. The position the view needs is position.phi,
+    # which the recipe and the spec both declare.
+    assert "magnetics/b_field_pol_probe(:)/toroidal_angle" not in paths
+    phi = paths["magnetics/b_field_pol_probe(:)/position/phi"]
+    assert phi.attrs["declared_by"] == "spec+recipe"
     # A view whose builder reads beyond its spec lists those reads as inputs.
     topview = dd.dd_paths("machine_geometry_topview")
     assert any(p.role == "input" and p.attrs["declared_by"] == "recipe" for p in topview)

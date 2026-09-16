@@ -43,47 +43,50 @@ def test_magnetics_mapping_preserves_raw_mirnov_voltage():
     voltage_data = np.asarray(get_path(payload, "magnetics.b_field_pol_probe.0.voltage.data"))
 
     # Shot 44740 is >= FLUCTUATION_MIRNOV_FIRST_SHOT, so the 30-channel
-    # outboard fluctuation array (issue #155) is appended after the 64
-    # equilibrium probes. It is also past TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT,
-    # so the four phase-reference channels are not mapped at all: 64 + 30.
-    assert len(get_path(payload, "magnetics.b_field_pol_probe")) == 94
+    # outboard fluctuation array (issue #155) is appended after the equilibrium
+    # probes. It is also past the bound on fields 207/209/241, so three of the
+    # four phase-reference channels are not mapped: 64 + 1 + 30.
+    assert len(get_path(payload, "magnetics.b_field_pol_probe")) == 95
     assert field_data.size == mapped_time.size
     assert voltage_time.size == NATIVE_SAMPLES
     assert voltage_data.size == voltage_time.size
     assert voltage_time.size != mapped_time.size
 
-    # No phase-reference channel survives this shot. Field 207 is recorded as
-    # existing only to 35520, and the raw archives for 44740 and 45531 carry
-    # none of 207/209/241 -- so mapping them would publish four channels the
-    # machine did not have, three of them empty.
+    # Exactly one phase-reference entry survives this shot, and it is the
+    # disputed one. Fields 207/209/241 are bounded at 35520 and are absent from
+    # the 44740 archive; field 171 carries no bound because it *is* in that
+    # archive -- the logs class it as outboard equilibrium probe Bz C2 05, which
+    # is what issue #825 is about.
     identifiers = {
         str(get_path(payload, f"magnetics.b_field_pol_probe.{index}.identifier"))
         for index in range(len(get_path(payload, "magnetics.b_field_pol_probe")))
         if path_exists(payload, f"magnetics.b_field_pol_probe.{index}.identifier")
     }
-    assert not [name for name in identifiers if name.endswith(":phase_reference")]
+    assert {name for name in identifiers if name.endswith(":phase_reference")} == {
+        "MagneticFieldProbe_C2-05_Bz:phase_reference"
+    }
 
     # First fluctuation-Mirnov entry (45 deg, L1-01, field 286).
     # Regression for the raw-archive timebase: the 2 MHz outboard array must
     # come back at its native cadence.  The old two-rate archive schema
     # reconstructed these channels at 250 kHz, stretching their timebase
     # eightfold; the self-describing t0/dt entries preserve it.
-    fluct_time = np.asarray(get_path(payload, "magnetics.b_field_pol_probe.64.voltage.time"))
+    fluct_time = np.asarray(get_path(payload, "magnetics.b_field_pol_probe.65.voltage.time"))
     assert fluct_time.size > 2
     np.testing.assert_allclose(np.diff(fluct_time), FLUCTUATION_MIRNOV_DT, rtol=1e-4)
     assert fluct_time[0] >= TSTART and fluct_time[-1] < TEND
 
-    assert get_path(payload, "magnetics.b_field_pol_probe.64.identifier") == "OutMirnov_45_L1-01"
-    assert get_path(payload, "magnetics.b_field_pol_probe.64.position.z") == 0.4
+    assert get_path(payload, "magnetics.b_field_pol_probe.65.identifier") == "OutMirnov_45_L1-01"
+    assert get_path(payload, "magnetics.b_field_pol_probe.65.position.z") == 0.4
     # The identifier says 45, which is the VEST clock angle (1:30). Its IMAS
     # toroidal angle is the reflection of that, 315 deg -- issue #718.
     assert np.isclose(
-        get_path(payload, "magnetics.b_field_pol_probe.64.position.phi"), np.radians(315.0)
+        get_path(payload, "magnetics.b_field_pol_probe.65.position.phi"), np.radians(315.0)
     )
-    assert not path_exists(payload, "magnetics.b_field_pol_probe.64.field.data")
+    assert not path_exists(payload, "magnetics.b_field_pol_probe.65.field.data")
     # Last fluctuation-Mirnov entry (225 deg, L2-05, field 303).
-    assert get_path(payload, "magnetics.b_field_pol_probe.93.identifier") == "OutMirnov_225_L2-05"
-    assert get_path(payload, "magnetics.b_field_pol_probe.93.position.z") == -0.4
+    assert get_path(payload, "magnetics.b_field_pol_probe.94.identifier") == "OutMirnov_225_L2-05"
+    assert get_path(payload, "magnetics.b_field_pol_probe.94.position.z") == -0.4
 
 
 def test_fluctuation_mirnov_omitted_before_first_operational_shot():

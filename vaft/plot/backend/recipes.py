@@ -8002,7 +8002,7 @@ RECIPES["mirnov_spatial_phase"] = CallableRecipe(
     builder=_build_mirnov_spatial_phase,
     description="Measured toroidal phase per fluctuation band at one time, with the fitted n lines.",
     available=_mirnov_phase_available,
-    reads=("magnetics.b_field_pol_probe.{i}.toroidal_angle", "magnetics.b_field_pol_probe.{i}.position.phi", "magnetics.b_field_pol_probe.{i}.voltage.data", "magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
+    reads=("magnetics.b_field_pol_probe.{i}.position.phi", "magnetics.b_field_pol_probe.{i}.position.r", "magnetics.b_field_pol_probe.{i}.position.z", "magnetics.b_field_pol_probe.{i}.voltage.data", "magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
     backend=NEUTRAL,
 )
 
