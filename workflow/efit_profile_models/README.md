@@ -44,10 +44,14 @@ slices. Quantitative profile and geometry differences use paired times where
 both the candidate and `(2,2)` baseline produced an equilibrium.
 
 The raw EFIT files remain beneath `shot_<shot>/<model>/`. The JSON report keeps
-the resolved configuration and digest, outcome of every requested time, a-file
-metrics, diagnostic-resolved m-file fit measures, LCFS, and 1-D profiles.
-Re-running the command resumes completed model runs whose scientific digest and
-analysis schema match.
+the resolved configuration and digest, the outcome of every requested time,
+a-file metrics, diagnostic-resolved m-file fit measures, the boundary extent,
+the edge-current and oscillation diagnostics, and every paired difference. The
+1-D profiles and the LCFS polygon those were computed from are released before
+the report is written — they are about twenty times the rest of it — and stay
+in the g-files and the per-model cache; `--keep-arrays` writes them into the
+report instead. Re-running the command resumes completed model runs whose
+scientific digest and analysis schema match.
 
 The reported reference-R current profile is reconstructed from the g-file as
 `j_phi(R_axis, psi) = R_axis p'(psi) + FF'(psi) / (mu_0 R_axis)`. It is a
