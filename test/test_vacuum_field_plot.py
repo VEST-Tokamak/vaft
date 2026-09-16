@@ -193,3 +193,77 @@ def test_the_declared_ids_cover_what_the_default_instant_reads():
     declared = set(get_spec("vacuum_field").ids)
     assert {"magnetics", "spectrometer_uv"} <= declared
     assert declared >= set(get_spec("equilibrium_field_psi_vacuum").ids) - {"tf"}
+
+
+# ---------------------------------------------------------------------------
+# Reading a value off the map
+# ---------------------------------------------------------------------------
+
+def _labels_of(axes):
+    """The contour labels `clabel` wrote onto an axes."""
+    from matplotlib.text import Text
+
+    return [
+        child for child in axes.get_children()
+        if isinstance(child, Text) and child.get_text() and child not in
+        (axes.title, axes.xaxis.label, axes.yaxis.label)
+    ]
+
+
+def test_contour_labels_are_off_unless_asked_for(ods):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    _, axes = plt.subplots()
+    vaft.omas.plot_vacuum_field(ods, field="b_poloidal", ax=axes, resolution=COARSE)
+    assert not _labels_of(axes)
+    plt.close("all")
+
+
+def test_contour_labels_stay_few_enough_to_read(ods):
+    """A psi map draws 40 levels; labelling every one is a smear, so only an
+    evenly spaced handful gets a value written on it.
+
+    Counted as distinct values, not as label objects: a level broken into
+    several contour segments is labelled once per segment, which is correct --
+    the same number reappearing on a disconnected branch is not clutter.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from vaft.plot.renderers.fields import _MAX_CONTOUR_LABELS
+
+    _, axes = plt.subplots()
+    vaft.omas.plot_vacuum_field(
+        ods, field="psi", ax=axes, resolution=COARSE, label_contours=True
+    )
+    values = {label.get_text() for label in _labels_of(axes)}
+    assert 0 < len(values) <= _MAX_CONTOUR_LABELS
+    plt.close("all")
+
+
+def test_a_contour_label_is_readable_on_a_filled_map(ods):
+    """Left to itself a label takes the contour's colour, which on a filled map
+    is the colour of what it is written on."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    _, axes = plt.subplots()
+    vaft.omas.plot_vacuum_field(
+        ods, field="b_poloidal", ax=axes, resolution=COARSE, label_contours=True
+    )
+    labels = _labels_of(axes)
+    assert labels
+    for label in labels:
+        assert label.get_path_effects(), "no halo behind the text"
+    plt.close("all")
+
+
+def test_label_contours_is_a_recognised_option(ods):
+    """It reaches the renderer as a style keyword, so every field plot takes it
+    and a misspelling is refused rather than swallowed."""
+    from vaft.plot.backend.options import STYLE_OPTIONS
+
+    assert "label_contours" in STYLE_OPTIONS
