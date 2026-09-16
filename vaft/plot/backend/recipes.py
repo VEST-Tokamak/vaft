@@ -3454,7 +3454,12 @@ VACUUM_FIELDS: dict[str, VacuumField] = {
         # levels come from a percentile and the stable band is marked with its
         # own contours rather than by the colour scale.
         VacuumField("decay_index", "Field Decay Index n", "", upper=95.0),
+        VacuumField("e_toroidal", "Toroidal Electric Field |E_phi|", "V/m", lower=0.0),
         VacuumField("breakdown", "Breakdown Figure E_t B_t / B_p", "V/m", lower=0.0),
+        # The threshold itself rather than a proxy for it, which costs a traced
+        # connection length from every grid point -- seconds, against
+        # milliseconds for the others.  Drawn with its own unit contour.
+        VacuumField("lloyd_margin", "Lloyd Breakdown Margin", "", lower=0.0),
     )
 }
 
@@ -3465,6 +3470,12 @@ VACUUM_FIELD_NAMES = tuple(VACUUM_FIELDS)
 #: as two grey contours beneath the filled map, so the band a startup has to
 #: sit inside is visible without reading the colourbar.
 DECAY_INDEX_STABLE_BAND = (0.0, 1.5)
+
+#: Where the Lloyd margin is exactly one: the drive the machine supplies equals
+#: the threshold the fill pressure and the connection length ask for.  Drawn as
+#: a single contour, because the interesting question about a margin map is
+#: which side of this line a point is on.
+LLOYD_MARGIN_THRESHOLD = (1.0,)
 
 
 def _vacuum_map_time(ods: Any, time: float | None, time_index: int | None) -> float:
@@ -3539,6 +3550,7 @@ def _build_vacuum_field(
     time_index: int | None = None,
     resolution: int = 65,
     units: str | None = None,
+    p_Pa: float | None = None,
     **_: Any,
 ) -> Field2D:
     """One quantity of the vacuum field on the poloidal plane, at one instant.
@@ -3567,7 +3579,9 @@ def _build_vacuum_field(
     instant = _vacuum_map_time(ods, time, time_index)
     # The evaluator solves the vessel currents when they are absent; give it a
     # private copy so the caller's ODS is left as it was found.
-    ods = _isolated_copy(ods, (*_NULL_FIELD_ROOTS, "tf"))
+    # `barometry` rides along for field='lloyd_margin', which reads the fill
+    # pressure the threshold is evaluated at.
+    ods = _isolated_copy(ods, (*_NULL_FIELD_ROOTS, "tf", "barometry"))
     result = compute_vacuum_field_map(ods, time=instant, resolution=int(resolution))
 
     r_axis, z_axis = result["r"], result["z"]
@@ -3579,6 +3593,27 @@ def _build_vacuum_field(
     elif field == "decay_index":
         # Along R, which is axis 0 of an (R, Z) map.
         values = decay_index_from_bz(r_axis, result["b_z"], axis=0)
+    elif field == "e_toroidal":
+        # The magnitude, as everything downstream of it takes: an avalanche runs
+        # in whichever direction the field points (issue #354).
+        values = np.abs(toroidal_electric_field(mesh_r, result["dpsi_dt"]))
+    elif field == "lloyd_margin":
+        from vaft.formula.startup import breakdown_margin, lloyd_breakdown_field
+        from vaft.omas.process_wrapper import compute_connection_length_map_ods
+
+        traced = compute_connection_length_map_ods(
+            ods, time=result["time"], resolution=int(resolution)
+        )
+        pressure = (
+            float(p_Pa) if p_Pa is not None else _prefill_pressure(ods, result["time"])
+        )
+        e_toroidal = np.abs(toroidal_electric_field(mesh_r, result["dpsi_dt"]))
+        with warnings.catch_warnings():
+            # Below A p L = 1 the threshold does not exist and the kernel says so
+            # once per call; on a map that is a region, not an incident.
+            warnings.simplefilter("ignore", RuntimeWarning)
+            threshold = lloyd_breakdown_field(pressure, traced["length_m"])
+        values = breakdown_margin(e_toroidal, threshold)
     else:
         e_toroidal = toroidal_electric_field(mesh_r, result["dpsi_dt"])
         b_toroidal = _vacuum_b_toroidal(ods, result["time"], mesh_r)
@@ -3609,11 +3644,46 @@ def _build_vacuum_field(
         display=display,
         filled=spec.filled,
         contour_levels=_vacuum_levels(scaled.T, spec),
-        secondary_levels=DECAY_INDEX_STABLE_BAND if field == "decay_index" else None,
+        secondary_levels=_vacuum_secondary_levels(field),
         extend=spec.extend,
         overlays=tuple(_wall_layers(ods)),
         title=f"{spec.label} at t = {result['time'] * 1e3:.1f} ms (vacuum)",
     )
+
+
+def _vacuum_secondary_levels(field: str) -> tuple[float, ...] | None:
+    """The reference contours drawn beneath a vacuum map, if it has any.
+
+    Two quantities on this map are read against a line rather than against the
+    colourbar: the decay index against the band a rigid ring is stable in, and
+    the Lloyd margin against one.
+    """
+    if field == "decay_index":
+        return DECAY_INDEX_STABLE_BAND
+    if field == "lloyd_margin":
+        return LLOYD_MARGIN_THRESHOLD
+    return None
+
+
+def _prefill_pressure(ods: Any, before: float) -> float:
+    """The fill pressure a breakdown saw, from the barometry, in pascal.
+
+    The median rather than the mean of the samples ahead of ``before``: a
+    Penning gauge spikes, and one spike moves a mean far enough to matter in a
+    logarithm.  The gauge is slow, so this is the pressure the discharge was
+    filled to and not a reading at any one instant.
+    """
+    pressure = _array(ods, "barometry.gauge.0.pressure.data")
+    stamps = _array(ods, "barometry.gauge.0.pressure.time")
+    if pressure is None or stamps is None or len(pressure) == 0:
+        raise ValueError(
+            "barometry.gauge.0.pressure is required for field='lloyd_margin'; "
+            "without a fill pressure there is no Townsend threshold"
+        )
+    pressure = np.asarray(pressure, dtype=float)
+    stamps = np.asarray(stamps, dtype=float)
+    ahead = pressure[stamps < before]
+    return float(np.median(ahead if ahead.size else pressure))
 
 
 def _vacuum_b_toroidal(ods: Any, time: float, mesh_r: np.ndarray) -> np.ndarray:

@@ -465,6 +465,8 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             updates["slices"] = _slices_block(ods)
         if record.name == "vacuum_field":
             updates["times"] = _pf_samples_block(ods)
+        elif record.name.startswith("camera_visible_image"):
+            updates["times"] = _camera_frames_block(ods)
         if record.fields:
             updates["fields"] = _fields_block(record, ods)
         if record.name in PSI_FIELD_CONVENTIONS:
@@ -636,14 +638,22 @@ def _vacuum_fields_block(
     """The vacuum quantities this input can draw.
 
     The field itself needs only the PF programme, which the plot already
-    requires; the breakdown figure of merit additionally needs the toroidal
-    field, so an input without it is offered the other three rather than a
-    control that would raise.
+    requires.  The breakdown figure of merit additionally needs the toroidal
+    field, and the Lloyd margin needs that plus a limiter to terminate its
+    traced field lines and a gauge to read the fill pressure from -- so an
+    input missing any of them is offered the quantities it can draw rather
+    than a control that would raise.
     """
-    options = tuple(
-        name for name in declared
-        if name != "breakdown" or _has(ods, "tf.b_field_tor_vacuum_r.data")
-    )
+    has_toroidal = _has(ods, "tf.b_field_tor_vacuum_r.data")
+    requires = {
+        "breakdown": has_toroidal,
+        "lloyd_margin": (
+            has_toroidal
+            and _has(ods, "wall.description_2d.0.limiter.unit.0.outline.r")
+            and _has(ods, "barometry.gauge.0.pressure.data")
+        ),
+    }
+    options = tuple(name for name in declared if requires.get(name, True))
     default = record.fields.get("default")
     return {
         "default": default if default in options else (options[0] if options else None),
@@ -863,6 +873,34 @@ def _times_block(ods: Any, recipe: Any) -> dict[str, Any]:
         if axis is not None and axis.size:
             return {"start": float(axis.min()), "stop": float(axis.max()), "count": int(axis.size)}
     return {}
+
+
+def _camera_frames_block(ods: Any, channel: int = 0, detector: int = 0) -> dict[str, Any]:
+    """The stored camera frames a frame plot can step through.
+
+    The camera analogue of :func:`_pf_samples_block`, and the reason a camera
+    plot offers a slider where it could not before: an embedded animation is
+    megabytes of GIF that a notebook cannot carry, while a slider over the
+    frames already in the ODS redraws one of them at a time.  Times come from
+    each frame's own ``time``, which is what the recipe's ``time=`` snaps to.
+    """
+    base = f"camera_visible.channel.{channel}.detector.{detector}.frame"
+    count = _count(ods, base)
+    if count < 2:
+        return {}
+    stamps = []
+    for index in range(count):
+        try:
+            stamps.append(float(ods[f"{base}.{index}.time"]))
+        except (KeyError, TypeError, ValueError):
+            return {}
+    return {
+        "start": stamps[0],
+        "stop": stamps[-1],
+        "count": count,
+        "option": "frame_index",
+        "selected": 0,
+    }
 
 
 def _pf_samples_block(ods: Any) -> dict[str, Any]:

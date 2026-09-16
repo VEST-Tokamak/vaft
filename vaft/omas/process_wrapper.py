@@ -1179,16 +1179,19 @@ def _vacuum_toroidal_product(ods: ODS, instant: float) -> float:
     programme, so it is matched by time and not by index (the trap that
     ``vaft`` has hit most often).
     """
+    missing = (
+        "tf.b_field_tor_vacuum_r is required for a connection length; without "
+        "the toroidal field a field line has no pitch to follow"
+    )
     try:
         product = np.asarray(ods["tf.b_field_tor_vacuum_r.data"], dtype=float)
         tf_time = np.asarray(ods["tf.time"], dtype=float)
     except (KeyError, ValueError) as error:
-        raise ValueError(
-            "tf.b_field_tor_vacuum_r is required for a connection length; without "
-            "the toroidal field a field line has no pitch to follow"
-        ) from error
+        raise ValueError(missing) from error
+    # An OMAS read of an absent path materialises an empty node instead of
+    # raising, so "absent" and "empty" arrive here as the same thing.
     if product.size == 0 or tf_time.size == 0:
-        raise ValueError("tf.b_field_tor_vacuum_r carries no samples.")
+        raise ValueError(missing)
     return float(product[int(np.argmin(np.abs(tf_time - instant)))])
 
 
