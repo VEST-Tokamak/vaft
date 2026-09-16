@@ -160,6 +160,16 @@ def test_a_ratio_is_withheld_when_there_is_nothing_to_be_relative_to(module):
 
 
 def test_the_phases_come_from_the_current_and_not_from_the_clock(module):
+    """The rule now lives in `vaft.validation` (#76); this is its local spelling.
+
+    Two things follow from the move. The labels are the library's, so this
+    study and the profile-model study can no longer classify the same slice
+    differently. And a slice below EFIT's `CUTIP` is now `vacuum` rather than
+    a ramp: the first slice here is 10 kA, which EFIT would not reconstruct at
+    all, so calling it `ramp_up` put a vacuum solution in a plasma cohort.
+    The stored study table predates that and carries no `vacuum` cohort; a
+    re-run would add one.
+    """
     from omas import ODS
 
     ods = ODS(consistency_check=False)
@@ -167,7 +177,13 @@ def test_the_phases_come_from_the_current_and_not_from_the_clock(module):
     for index, value in enumerate(current):
         ods[f"equilibrium.time_slice.{index}.constraints.ip.measured"] = value * 1e3
     labels = module.phases(ods, np.asarray([0.300, 0.301, 0.302, 0.303, 0.304]))
-    assert labels == {300: "ramp_up", 301: "ramp_up", 302: "flat_top", 303: "flat_top", 304: "ramp_down"}
+    assert labels == {
+        300: "vacuum",
+        301: "ramp_up",
+        302: "flat_top",
+        303: "flat_top",
+        304: "ramp_down",
+    }
 
 
 def test_every_case_was_run_against_a_table_that_matches_it(table):

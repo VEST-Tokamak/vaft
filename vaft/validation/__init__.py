@@ -72,10 +72,22 @@ _ARTIFACT_EXPORTS = (
 #: ``vaft.validation.validate_equilibrium``.  Lazy, like everything else here.
 _EQUILIBRIUM_EXPORTS = ("validate_equilibrium",)
 
+#: The regime classifier (#76): which cohort a reconstructed slice belongs to.
+#: Its own module, because it answers a different question from
+#: ``validate_equilibrium`` -- not "is this reconstruction sound" but "what was
+#: the plasma doing", which is what makes a soundness result interpretable.
+_REGIME_EXPORTS = (
+    "PHASES",
+    "RegimeLabels",
+    "classify_equilibrium_regime",
+    "classify_equilibrium_regimes",
+)
+
 __all__ = [
     "CATEGORIES",
     "ValidationStatus",
     *_EQUILIBRIUM_EXPORTS,
+    *_REGIME_EXPORTS,
     *_EVIDENCE_EXPORTS,
     *_ARTIFACT_EXPORTS,
 ]
@@ -102,6 +114,13 @@ def __getattr__(name: str):
         from . import equilibrium
 
         value = getattr(equilibrium, name)
+        globals()[name] = value
+        return value
+
+    if name in _REGIME_EXPORTS:
+        from . import equilibrium_regime
+
+        value = getattr(equilibrium_regime, name)
         globals()[name] = value
         return value
 
