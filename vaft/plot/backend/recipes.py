@@ -85,6 +85,10 @@ __all__ = [
     "required_ids",
     "SpectrogramRecipe",
     "build_model",
+    "expand_template",
+    "is_lazy_ods",
+    "materialise_reads",
+    "materialises_for_builder",
     "diagnoses_itself",
     "entry_supports",
     "missing_required_path",
@@ -8002,7 +8006,7 @@ RECIPES["mirnov_spatial_phase"] = CallableRecipe(
     builder=_build_mirnov_spatial_phase,
     description="Measured toroidal phase per fluctuation band at one time, with the fitted n lines.",
     available=_mirnov_phase_available,
-    reads=("magnetics.b_field_pol_probe.{i}.toroidal_angle", "magnetics.b_field_pol_probe.{i}.position.phi", "magnetics.b_field_pol_probe.{i}.voltage.data", "magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
+    reads=("magnetics.b_field_pol_probe.{i}.position.phi", "magnetics.b_field_pol_probe.{i}.position.r", "magnetics.b_field_pol_probe.{i}.position.z", "magnetics.b_field_pol_probe.{i}.voltage.data", "magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
     backend=NEUTRAL,
 )
 
@@ -9210,12 +9214,16 @@ RECIPES["mhd_linear_profile_resonant_flux"] = CallableRecipe(
     builder=_build_mhd_linear_profile_resonant_flux,
     description="Pitch-resonant flux per rational surface, derived from the mapped "
                 "spectral field.",
+    reads=_mhd_linear_profile_reads("b_field_perturbed.coordinate1"),
+    backend=NEUTRAL,
 )
 
 RECIPES["mhd_linear_profile_island_width"] = CallableRecipe(
     builder=_build_mhd_linear_profile_island_width,
     description="Saturated island width per rational surface, derived from the mapped "
                 "spectral field.",
+    reads=_mhd_linear_profile_reads("b_field_perturbed.coordinate1"),
+    backend=NEUTRAL,
 )
 
 
@@ -9699,16 +9707,135 @@ def _ods_for_callable(obj: Any, name: str) -> Any:
     functions written for an OMAS ODS: an entry of another data model that can
     convert itself (``as_ods_for``, as ``vaft.imas.IDSEntry`` does) is asked
     for an ODS holding only the IDS the plot declares, plus the data entry
-    that names the shot; anything else is handed over as it is.  Path-driven
-    recipes never come this way.
+    that names the shot.  An input that cannot supply that -- a lazily loaded
+    IMAS handle, or a lazy OMAS store whose unfetched leaves a deep copy would
+    miss -- is read through the accessor instead: exactly the paths the recipe
+    declares in ``reads`` are materialised into a private ODS
+    (:func:`materialise_reads`).  A plain ODS is handed over as it is.
+    Path-driven recipes never come this way.
     """
     recipe = RECIPES[name]
     if recipe.backend == NEUTRAL:
         return obj
     convert = getattr(obj, "as_ods_for", None)
-    if convert is None:
-        return obj
-    return convert(required_ids(name) + ("dataset_description",))
+    if convert is not None:
+        try:
+            return convert(required_ids(name) + ("dataset_description",))
+        except NotImplementedError:
+            return materialise_reads(obj, name)
+    if is_lazy_ods(obj):
+        return materialise_reads(obj, name)
+    return obj
+
+
+def is_lazy_ods(obj: Any) -> bool:
+    """Whether ``obj`` is a lazy OMAS store (``vaft.database.lazy_ods.HSDSODS``).
+
+    Matched by name so this module never imports the database package: such
+    an ODS fetches a leaf on first read, so a deep copy of an unfetched root
+    is empty and a builder that copies has to be handed its reads instead.
+    """
+    return type(obj).__name__ == "HSDSODS" and getattr(obj, "store", None) is not None
+
+
+_TEMPLATE_INDEX = re.compile(r"\.(\{[a-z]\}|:)(?=\.|$)")
+
+
+def expand_template(obj: Any, template: str) -> list[str]:
+    """The concrete paths ``template`` names in ``obj``, one per enumerated index.
+
+    ``pf_active.coil.{i}.current.data`` becomes one path per coil the object
+    holds (``_count`` of the container), nested placeholders left to right; a
+    container the object lacks contributes nothing.
+    """
+    match = _TEMPLATE_INDEX.search(template)
+    if match is None:
+        return [template]
+    head, tail = template[: match.start()], template[match.end():]
+    paths: list[str] = []
+    for index in range(_count(obj, head)):
+        paths.extend(expand_template(obj, f"{head}.{index}{tail}"))
+    return paths
+
+
+def materialise_reads(obj: Any, name: str) -> Any:
+    """A private ODS holding what OMAS-bound plot ``name`` declares in ``reads``.
+
+    Every leaf template is expanded over the object's own indices and read
+    through the accessor, so a lazy remote store fetches exactly the leaves
+    the builder will touch and a native IMAS entry is read without conversion.
+    A bare IDS root in ``reads`` (the builder deep-copies the whole IDS) is
+    copied whole: from the entry's own conversion of that one IDS, from a
+    lazy OMAS store by walking its index, or from a plain ODS.  A lazily
+    loaded IMAS handle cannot supply a whole IDS and is refused by name.
+    """
+    from omas import ODS
+
+    recipe = RECIPES[name]
+    private = ODS(consistency_check=False)
+    for template in (*recipe.reads, "dataset_description.data_entry.pulse"):
+        if "." not in template:
+            _copy_root(obj, template, private, name)
+            continue
+        _materialise_template(obj, template, private)
+    return private
+
+
+def _materialise_template(obj: Any, template: str, private: Any) -> None:
+    """Read one template's leaves into ``private``, keeping the arrays of structures whole.
+
+    Every element of an enumerated container is created in ``private`` even
+    when it holds none of this template's leaves, so a helper that indexes
+    the array (``ods["magnetics.b_field_pol_probe"][k]``) finds the same
+    elements, at the same indices, as in the input.
+    """
+    from omas import ODS
+
+    match = _TEMPLATE_INDEX.search(template)
+    if match is None:
+        value = _get(obj, template)
+        if value is not None:
+            private[template] = value
+        return
+    head, tail = template[: match.start()], template[match.end():]
+    for index in range(_count(obj, head)):
+        element = f"{head}.{index}"
+        if not _has(private, element):
+            private[element] = ODS(consistency_check=False)
+        _materialise_template(obj, f"{element}{tail}", private)
+
+
+def _copy_root(obj: Any, root: str, private: Any, name: str) -> None:
+    import copy
+
+    convert = getattr(obj, "as_ods_for", None)
+    if convert is not None:
+        try:
+            source = convert((root,))
+        except NotImplementedError as error:
+            raise NotImplementedError(
+                f"plot {name!r} deep-copies the whole {root!r} IDS, which this lazily loaded "
+                f"IMAS handle cannot supply; load the shot eagerly (lazy=False) for it"
+            ) from error
+        if _has(source, root):
+            private[root] = copy.deepcopy(source[root])
+        return
+    store = getattr(obj, "store", None)
+    if is_lazy_ods(obj) and root in {str(key) for key in store.keys("")}:
+        # Walk the store's index: a leaf is what the store can fetch, the
+        # rest are structures and arrays of structures to descend.
+        def walk(location: str) -> None:
+            for child in store.keys(location):
+                below = f"{location}.{child}"
+                if store.__contains__(below):
+                    private[below] = store[below]
+                else:
+                    walk(below)
+
+        walk(root)
+        return
+    if _has(obj, root):
+        private[root] = copy.deepcopy(obj[root])
 
 
 def converts_for_builder(obj: Any, name: str) -> bool:
@@ -9719,6 +9846,12 @@ def converts_for_builder(obj: Any, name: str) -> bool:
         and recipe.backend == OMAS_BOUND
         and hasattr(obj, "as_ods_for")
     )
+
+
+def materialises_for_builder(obj: Any, name: str) -> bool:
+    """Whether plot ``name`` would read ``obj``'s declared paths into a private ODS."""
+    recipe = RECIPES.get(name)
+    return isinstance(recipe, CallableRecipe) and recipe.backend == OMAS_BOUND and is_lazy_ods(obj)
 
 
 def conversion_reason(name: str) -> str:

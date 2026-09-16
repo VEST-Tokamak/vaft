@@ -171,9 +171,11 @@ def extract(
 
     The same IDS :func:`render` opens, lazily by default; the model is what
     ``vaft.omas.extract_<name>`` builds from the loaded ODS, so
-    ``.to_xarray()`` works on it.  A computed view whose builder needs a
-    whole OMAS ODS (``CallableRecipe.backend == "omas"``) cannot be served
-    from a lazy store yet; pass ``lazy=False`` for those.  Only the extraction options are taken
+    ``.to_xarray()`` works on it.  A computed view whose builder needs an
+    OMAS ODS (``CallableRecipe.backend == "omas"``) is served from the lazy
+    store by reading exactly the paths its recipe declares
+    (:func:`vaft.plot.backend.recipes.materialise_reads`); one that
+    deep-copies a whole IDS fetches that IDS whole.  Only the extraction options are taken
     (:data:`vaft.plot.backend.options.EXTRACTION_OPTIONS`); a rendering
     keyword such as ``ax=`` is refused by name.
     """
@@ -385,9 +387,7 @@ def _extract_adapter(name: str, description: str):
         f"{description.rstrip('.')}.  Opens the IDS ``{name}`` declares for the shot in "
         f"``source`` (lazily by default) and builds the model :func:`vaft.omas.extract_{name}` "
         f"builds; a rendering keyword is refused.  ``.to_xarray()`` on the result gives an "
-        f":class:`xarray.Dataset`; :func:`dd_{name}` lists the Data Dictionary paths it reads.  "
-        f"An OMAS-bound computed view (``available_plots(..., detail=True)`` says ``needs an "
-        f"OMAS ODS``) needs ``lazy=False``."
+        f":class:`xarray.Dataset`; :func:`dd_{name}` lists the Data Dictionary paths it reads."
     )
     return adapter
 
