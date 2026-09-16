@@ -41,6 +41,7 @@ NEUTRAL = frozenset({
     "limiter_current_time", "mirnov_spatial_phase",
     "ntms_time_delta_prime", "mhd_linear_time_energy_perturbed",
     "mhd_linear_profile_displacement", "mhd_linear_profile_b_field_perturbed",
+    "mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width",
 })
 OMAS_BOUND = frozenset({
     "passive_structure_geometry_wall_mode", "pf_plasma_geometry_poloidal",
@@ -61,7 +62,14 @@ OMAS_BOUND = frozenset({
 IGNORED_READS: dict[str, dict[str, str]] = {}
 
 #: Neutral views whose synthetic input cannot be written to IMAS and read back.
-SYNTHETIC_ROUND_TRIP_UNSUPPORTED: dict[str, str] = {}
+SYNTHETIC_ROUND_TRIP_UNSUPPORTED: dict[str, str] = {
+    name: (
+        "the ideal-GPEC mapper writes mhd_linear.time_slice without a homogeneous time "
+        "mode, which imas-python refuses to write (ValidationError: time mode "
+        "IDS_TIME_MODE_INDEPENDENT); the recorder still proves the reads"
+    )
+    for name in ("mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width")
+}
 
 
 def _callables() -> list[str]:
@@ -255,8 +263,9 @@ def test_dd_paths_lists_the_reads_with_their_provenance():
         assert path.attrs["backend"] == "neutral", path
         # A read the spec also gates on keeps the spec's role; the rest are inputs.
         assert path.role == "input" or path.attrs["declared_by"] == "spec+recipe", path
-    angle = paths["magnetics/b_field_pol_probe(:)/toroidal_angle"]
-    assert angle.attrs["declared_by"] == "spec+recipe"
+    # A read the spec also gates on (the voltage) carries both provenances.
+    voltage = paths["magnetics/b_field_pol_probe(:)/voltage/data"]
+    assert voltage.attrs["declared_by"] == "spec+recipe" and voltage.role == "required"
     # A view whose builder reads beyond its spec lists those reads as inputs.
     topview = dd.dd_paths("machine_geometry_topview")
     assert any(p.role == "input" and p.attrs["declared_by"] == "recipe" for p in topview)
