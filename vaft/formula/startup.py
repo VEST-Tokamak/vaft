@@ -76,11 +76,19 @@ def _maybe_scalar(value, *inputs):
 
 
 def _require_positive(name, value):
-    """Reject a non-finite or non-positive physical input by name."""
+    """Reject an infinite or non-positive physical input by name.
+
+    ``nan`` passes and propagates.  A masked map is how this layer carries "no
+    answer here" -- :func:`lloyd_breakdown_field` returns ``nan`` below its own
+    domain edge, a connection-length map is ``nan`` outside the wall, a decay
+    index is ``nan`` where $B_Z$ vanishes -- so a caller feeding one of those
+    into the next kernel is doing the ordinary thing, not making a mistake.  A
+    negative pressure or an infinity still is a mistake, and still raises.
+    """
     array = np.asarray(value, dtype=float)
-    if not np.all(np.isfinite(array)) or np.any(array <= 0.0):
+    if np.any(np.isinf(array)) or np.any(array <= 0.0):
         raise ValueError(
-            f"{name} must be finite and positive; got {value!r}"
+            f"{name} must be positive, or nan where it has no value; got {value!r}"
         )
     return array
 
@@ -130,7 +138,8 @@ def neutral_density_from_pressure(p_Pa, T_gas_K=300.0):
     Raises
     ------
     ValueError
-        Non-finite, zero or negative pressure or temperature.
+        Infinite, zero or negative pressure or temperature; ``nan`` passes
+        through as a missing value.
 
     Convention
     ----------
@@ -189,7 +198,8 @@ def atomic_inventory_from_molecular_gas(n_molecular_m3, atoms_per_molecule=2):
     Raises
     ------
     ValueError
-        Non-finite, zero or negative density or atom count.
+        Infinite, zero or negative density or atom count; ``nan`` passes
+        through as a missing value.
 
     Convention
     ----------
@@ -248,7 +258,8 @@ def townsend_ionization_coefficient(E_parallel, p_Pa, A, B):
     Raises
     ------
     ValueError
-        Non-finite or zero field, or non-finite or non-positive pressure.
+        Infinite or zero field, or an infinite or non-positive pressure;
+        ``nan`` passes through as a missing value.
 
     Convention
     ----------
@@ -421,7 +432,9 @@ def lloyd_breakdown_field(p_Pa, connection_length_m):
     Raises
     ------
     ValueError
-        Non-finite, zero or negative pressure or connection length.
+        Infinite, zero or negative pressure or connection length; ``nan``
+        passes through as a missing value, which is how a connection-length map
+        carries the points outside the wall.
 
     Convention
     ----------

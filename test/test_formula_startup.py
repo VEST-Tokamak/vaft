@@ -166,7 +166,7 @@ def test_just_above_the_edge_the_threshold_is_large_and_falling():
     [
         {"p_Pa": 0.0, "connection_length_m": 200.0},
         {"p_Pa": -1e-3, "connection_length_m": 200.0},
-        {"p_Pa": np.nan, "connection_length_m": 200.0},
+        {"p_Pa": np.inf, "connection_length_m": 200.0},
         {"p_Pa": 1e-3, "connection_length_m": 0.0},
         {"p_Pa": 1e-3, "connection_length_m": -5.0},
     ],
@@ -176,6 +176,17 @@ def test_an_unphysical_input_raises_rather_than_blanking(kwargs):
     more useful than a nan."""
     with pytest.raises(ValueError):
         lloyd_breakdown_field(**kwargs)
+
+
+def test_a_missing_value_propagates_rather_than_raising():
+    """`nan` is how this layer says "no answer here" -- a connection-length map
+    is `nan` outside the wall -- so feeding one kernel's blanks to the next is
+    the ordinary thing to do, not a mistake."""
+    length = np.array([np.nan, 200.0, np.nan])
+    field = lloyd_breakdown_field(VEST_PREFILL_PA, length)
+    assert np.isnan(field[0]) and np.isnan(field[2])
+    assert np.isfinite(field[1])
+    assert np.isnan(breakdown_margin(VEST_DRIVE_V_PER_M, field)[0])
 
 
 def test_a_healthy_call_is_silent():

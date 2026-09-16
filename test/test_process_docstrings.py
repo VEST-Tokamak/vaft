@@ -121,6 +121,7 @@ PIPELINE = frozenset({
     "psi_to_radial",
     "psi_to_rz",
     "solve_solovev_constraints",
+    "connection_length_map",
     "trace_field_line",
     # cocos (#419)
     "validate_cocos",
@@ -336,6 +337,8 @@ CONVENTION_SENSITIVE = frozenset({
     "virial_alpha_thin_annulus",
     "solovev_to_equilibrium",
     "solve_solovev_constraints",
+    "connection_length_map",
+    "make_vacuum_field_interpolator",
     "trace_field_line",
     "volume_average",
     # cocos (#419): the module exists to reason about conventions
