@@ -132,3 +132,32 @@ def test_a_lazy_hsds_handle_reads_natively():
     assert isinstance(vaft.imas.available_plots(handle).names(), tuple)
     with pytest.raises(NotImplementedError, match="lazily loaded handle"):
         bundle.as_ods_for(("equilibrium",))
+
+
+def test_a_neutral_computed_view_runs_on_a_lazy_remote_handle():
+    """A model-neutral computed view (issue #439) builds from the lazy handle natively.
+
+    Before #439 every computed view converted its input to an ODS first, which
+    a lazy remote handle cannot supply; the neutral ones now read through the
+    accessor like a path-driven plot, and the conversion contract is unchanged.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    from vaft.plot.backend.recipes import NEUTRAL, RECIPES, build_model, converts_for_builder
+    from vaft.plot.models import GeometryLayers
+
+    spec = importlib.util.spec_from_file_location("_lazy_imas_fixtures", Path(__file__).with_name("test_lazy_imas.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    from vaft.database.lazy_imas import HSDSIMASHandle
+
+    handle = HSDSIMASHandle(1, ids=["equilibrium", "magnetics"], imas_version="3.41.0", h5pyd_module=module._fake_hsds())
+    bundle = IDSEntry(handle)
+    assert RECIPES["equilibrium_geometry_topview"].backend == NEUTRAL
+    assert not converts_for_builder(bundle, "equilibrium_geometry_topview")
+    model = build_model("equilibrium_geometry_topview", [("1", bundle)])
+    assert isinstance(model, GeometryLayers)
+    assert len(model.layers) >= 1
+    with pytest.raises(NotImplementedError, match="lazily loaded handle"):
+        bundle.as_ods_for(("equilibrium",))

@@ -52,6 +52,12 @@ def _fake_hsds():
                 np.arange(12, dtype=float).reshape(2, 1, 2, 3)
             ),
             "time_slice[]&profiles_2d[]&psi_SHAPE": _Dataset([[[2, 3]], [[2, 3]]]),
+            # A boundary outline per slice, so a computed geometry view can be
+            # built from the handle natively (issue #439).
+            "time_slice[]&boundary&outline&r": _Dataset([[0.3, 0.5, 0.7], [0.3, 0.5, 0.7]]),
+            "time_slice[]&boundary&outline&r_SHAPE": _Dataset([[3], [3]]),
+            "time_slice[]&boundary&outline&z": _Dataset([[-0.2, 0.0, 0.2], [-0.2, 0.0, 0.2]]),
+            "time_slice[]&boundary&outline&z_SHAPE": _Dataset([[3], [3]]),
         }
     )
     magnetics = _Group(
