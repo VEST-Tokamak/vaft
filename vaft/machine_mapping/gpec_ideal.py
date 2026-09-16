@@ -187,7 +187,9 @@ def _write_mode_entry(
         profile = result.profile
         if profile is not None:
             spectral = _write_spectral_field(entry, profile, control.jacobian or "hamada")
-            geometry = _rational_surface_geometry(profile, control.n_tor)
+            geometry = _rational_surface_geometry(
+                profile, control.n_tor, (control.attrs or {}).get("chi1")
+            )
 
     fragment = (
         f'<solver name="gpec" n_tor="{control.n_tor}">'
@@ -224,7 +226,7 @@ def _write_mode_entry(
     _set_output_flag(ods, "mhd_linear", time_slice, 0)
 
 
-def _rational_surface_geometry(profile, n_tor: int) -> Optional[str]:
+def _rational_surface_geometry(profile, n_tor: int, chi1: Optional[float]) -> Optional[str]:
     """The per-surface geometry the resonant derivation needs, as XML.
 
     ``psi``, ``q``, ``dq/dpsi_N`` and the surface area are equilibrium
@@ -250,14 +252,19 @@ def _rational_surface_geometry(profile, n_tor: int) -> Optional[str]:
         # A run whose Delta is zero, or whose pair is not matched, simply has
         # no factor to record -- that is not a reason to drop the geometry.
         factor = np.full(psi.size, np.nan)
+    if chi1 is None or not np.isfinite(chi1) or float(chi1) == 0.0:
+        # Without it the jump cannot be scaled, and a consumer reading this
+        # block would have to go back to the control file for one number.
+        return None
     rows = "".join(
         f'<surface psi_n="{float(p)!r}" q="{float(qq)!r}" dq_dpsi_n="{float(d)!r}"'
         f' area="{float(a)!r}" geometric_factor="{float(g)!r}"/>'
         for p, qq, d, a, g in zip(psi, q, dq, area, factor)
     )
     return (
-        '<rational_surfaces units="psi_n, -, -, m^2, T"'
-        ' note="equilibrium geometry for the resonant derivation;'
+        f'<rational_surfaces chi1="{float(chi1)!r}"'
+        ' units="psi_n, -, -, m^2, T"'
+        ' note="equilibrium geometry for the resonant derivation; chi1 is  d(chi)/d(psi_N), the flux normalisation the jump is scaled by;'
         ' geometric_factor is -n*Phi_res/Delta, which absorbs the vacuum'
         ' surface inductance and cannot be rebuilt downstream">'
         f"{rows}</rational_surfaces>"

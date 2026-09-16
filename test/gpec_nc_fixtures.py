@@ -30,6 +30,7 @@ def write_control_nc(
     energy_vacuum=0.25,
     energy_surface=0.5,
     energy_plasma=0.75,
+    chi1=1.65,
     filename_mode=None,
 ):
     """Write a miniature ``gpec_control_output_n<mode>.nc``; returns its data."""
@@ -85,12 +86,17 @@ def write_control_nc(
             "energy_vacuum": energy_vacuum,
             "energy_surface": energy_surface,
             "energy_plasma": energy_plasma,
+            # d(chi)/d(psi_N). The resonant derivation scales its jump by it,
+            # so a control file without it makes the mapping withhold the
+            # geometry block rather than write an incomplete one.
+            "chi1": chi1,
         },
     )
     mode_label = filename_mode if filename_mode is not None else n
     target = path / f"gpec_control_output_n{mode_label}.nc"
     ds.to_netcdf(target)
-    return {"b_n": b_n, "xi_n": xi_n, "b_n_fun": b_n_fun, "phi_coil": phi_coil}
+    return {"b_n": b_n, "xi_n": xi_n, "b_n_fun": b_n_fun, "phi_coil": phi_coil,
+            "chi1": chi1}
 
 
 def write_cylindrical_nc(path, *, n=1, nr=7, nz=5):

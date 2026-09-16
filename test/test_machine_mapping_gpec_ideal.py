@@ -84,6 +84,40 @@ def test_the_cylindrical_field_is_not_written_into_the_spectral_slot(run_dir):
     assert "vacuum" not in entry or "b_field_perturbed" not in entry["vacuum"]
 
 
+def test_everything_the_derivation_needs_is_in_the_ods(run_dir):
+    """The point of this mapping: a consumer reads the resonant response out
+    of `mhd_linear` without going back to the run directory. chi1 is the one
+    that nearly got away -- it scales the jump, it is a control-file
+    attribute, and the round trip I first called "from the IDS alone" was
+    quietly still opening the .nc for it."""
+    ods = ODS(consistency_check=False)
+    write_profile_nc(run_dir)
+    gpec_ideal(ods, str(run_dir))
+
+    entry = ods["mhd_linear.time_slice.0.toroidal_mode.0"]
+    parameters = ods["mhd_linear.code.parameters"]
+    assert entry["n_tor"] == 1
+    assert np.size(entry["plasma.grid.dim1"]) and np.size(entry["plasma.grid.dim2"])
+    assert "real" in entry["plasma.b_field_perturbed.coordinate1"]
+    chi1 = re.search(r'<rational_surfaces chi1="([^"]+)"', parameters)
+    assert chi1 is not None, "chi1 is not recoverable from the IDS"
+    assert float(chi1.group(1)) != 0.0
+    for field in ("psi_n", "q", "dq_dpsi_n", "area", "geometric_factor"):
+        assert f'{field}="' in parameters
+
+
+def test_geometry_is_withheld_rather_than_written_without_its_normalisation(run_dir):
+    """A geometry block without chi1 reads as complete and is not: a consumer
+    would have to go back to the control file for one number."""
+    from vaft.machine_mapping import gpec_ideal as module
+
+    write_profile_nc(run_dir)
+    profile = module.read_gpec_netcdf(str(run_dir)).profile
+    assert module._rational_surface_geometry(profile, 1, None) is None
+    assert module._rational_surface_geometry(profile, 1, 0.0) is None
+    assert module._rational_surface_geometry(profile, 1, 1.6) is not None
+
+
 def test_one_ods_cannot_hold_both_the_dcon_and_the_gpec_product(run_dir, tmp_path):
     """`mhd_linear`'s plasma region carries one grid per mode, and the two
     writers fill it with different quantities on different grids. Merging
