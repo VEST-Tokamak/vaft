@@ -122,3 +122,32 @@ def test_the_per_product_stages_are_reachable_by_the_paths_that_name_them(tmp_pa
     assert result.returncode == 0, result.stderr[-3000:]
     assert "build_gpec_ideal" in result.stdout
     assert "build_mhd_linear" in result.stdout
+
+
+def test_the_full_target_set_resolves_once_preflight_has_run(tmp_path):
+    """`rule all` asks for most of its targets only after the preflight checkpoint.
+
+    Its input functions -- the validation plots, the replication records, every
+    per-product stage -- run when Snakemake re-evaluates the DAG with the
+    checkpoint's output in hand, not while it reads the file. A dry run with no
+    preflight output stops at the checkpoint and never calls them, so both tests
+    above pass while a path those functions build can still be unresolvable.
+    Writing the checkpoint's output first is what makes the dry run reach them.
+    """
+    paths = _paths(tmp_path)
+    raw_dump = Path(paths.raw_dump(SHOT))
+    raw_dump.parent.mkdir(parents=True, exist_ok=True)
+    raw_dump.write_bytes(b"")
+    Path(paths.raw_manifest(SHOT)).write_text("{}", encoding="utf-8")
+    eligible = Path(paths.preflight_eligible())
+    eligible.parent.mkdir(parents=True, exist_ok=True)
+    eligible.write_text(json.dumps({"eligible_shots": [SHOT]}), encoding="utf-8")
+    Path(paths.preflight_excluded()).write_text(
+        json.dumps({"excluded_shots": []}), encoding="utf-8"
+    )
+
+    result = _dry_run(tmp_path)
+
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "build_gpec_ideal" in result.stdout
+    assert "plot_mhd_linear" in result.stdout
