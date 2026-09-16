@@ -52,6 +52,7 @@ from ._types import (
 )
 
 __all__ = [
+    "TGLFNormalisation",
     "TGLFInput",
     "TGLFInputs",
     "LocalConversionError",
@@ -70,6 +71,9 @@ _K_ERG_PER_EV = 1.6022e-12
 _E_STATCOUL = 4.8032e-10
 _C_CM_S = 2.9979e10
 _MASS_DEUTERIUM_G = 3.34358e-24
+#: One electronvolt in joules; `input.gacode` carries temperatures in keV and densities
+#: in 1e19 m^-3, and a gyro-Bohm flux needs both in SI.
+_EV_JOULE = 1.602176634e-19
 _TEMP_NORM_FAC = 1602.2
 _CHARGE_NORM_FAC = 1.6022
 
@@ -81,6 +85,79 @@ class LocalConversionError(ValueError):
     modelled at this radius" from a programming mistake, matching
     :class:`~vaft.code.gacode.inputs.ProfileConversionError`.
     """
+
+
+@dataclass(frozen=True)
+class TGLFNormalisation:
+    """The SI scales of one TGLF surface, and the gyro-Bohm units they define.
+
+    TGLF reports every flux in gyro-Bohm units, and the conversion out of them is not a
+    constant: it depends on the local density, temperature and field. The definitions
+    below are GACODE's own, from ``tgyro/src/tgyro_profile_functions.f90``, converted
+    from its cgs to SI here rather than re-derived --
+    ``gamma_gb = ne c_s (rho_s/a)^2``, ``q_gb = ne k Te c_s (rho_s/a)^2``,
+    ``pi_gb = ne k Te a (rho_s/a)^2`` and ``s_gb = ne k Te (c_s/a) (rho_s/a)^2``. The SI
+    units are upstream's too, from the header ``tgyro_write_data.f90:386`` prints over
+    ``out.tgyro.gyrobohm``: m^2/s, MW/m^2, 10^19/m^2/s, J/m^2, MW/m^3.
+
+    Attributes
+    ----------
+    electron_density
+        ``n_e`` at the surface [m^-3].
+    electron_temperature
+        ``T_e`` at the surface [J], not eV: it multiplies a flux, not a potential.
+    sound_speed
+        ``c_s = sqrt(k T_e / m_D)`` [m s^-1]. Deuterium-normalised whatever the ions
+        actually are, which is GACODE's convention and not a statement about the plasma.
+    gyroradius
+        ``rho_s = c_s / (e B_unit / m_D)`` [m], signed as ``B_unit`` is.
+    minor_radius
+        ``a`` [m], the normalising length.
+    b_unit
+        The GACODE effective field at the surface [T], signed under COCOS 2.
+    """
+
+    electron_density: float
+    electron_temperature: float
+    sound_speed: float
+    gyroradius: float
+    minor_radius: float
+    b_unit: float
+
+    @property
+    def _gyro_ratio_squared(self) -> float:
+        """``(rho_s/a)^2``, the small parameter every gyro-Bohm unit carries."""
+        return (self.gyroradius / self.minor_radius) ** 2
+
+    @property
+    def particle_flux(self) -> float:
+        """``Gamma_GB`` [m^-2 s^-1]."""
+        return self.electron_density * self.sound_speed * self._gyro_ratio_squared
+
+    @property
+    def energy_flux(self) -> float:
+        """``Q_GB`` [W m^-2]."""
+        return self.particle_flux * self.electron_temperature
+
+    @property
+    def momentum_flux(self) -> float:
+        """``Pi_GB`` [J m^-2], which is TGYRO's own label for it.
+
+        Dimensionally that is N/m: a toroidal stress, not a flux per unit time, which is
+        why it carries a factor of ``a`` where the energy flux carries ``c_s``.
+        """
+        return (
+            self.electron_density * self.electron_temperature
+            * self.minor_radius * self._gyro_ratio_squared
+        )
+
+    @property
+    def exchange_power(self) -> float:
+        """``S_GB`` [W m^-3]: a power *density*, which is why it has no flux home."""
+        return (
+            self.electron_density * self.electron_temperature
+            * (self.sound_speed / self.minor_radius) * self._gyro_ratio_squared
+        )
 
 
 @dataclass(frozen=True)
@@ -138,6 +215,11 @@ class TGLFInput:
 
     vexb_shear: Optional[float] = None
     names: Sequence[str] = ()
+    #: The SI scales this surface was normalised by, so that a flux TGLF returns in
+    #: gyro-Bohm units can be dimensionalised without re-deriving them. Every entry is
+    #: already computed here to build `betae`, `xnue` and `debye`; carrying them out is
+    #: what lets `core_transport` be written without a second, divergent derivation.
+    normalisation: Optional["TGLFNormalisation"] = None
     provenance: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
     @property
@@ -362,6 +444,37 @@ def prepare_tglf_input(
     q_at = _at(grid, q_profile, target)
     shear = _at(grid, rmin * bound_deriv(np.log(q_profile), rmin), target)
 
+    # Before the normalisations, not after: B_unit is built from torfluxa and the
+    # gyroradius divides by it, so a zero here would otherwise surface as a spline
+    # refusing non-finite values -- true, and naming nothing that would help.
+    # SIGN_BT and SIGN_IT are derivable from the file, and were hardcoded to +1 until
+    # this was written. `locpargen` agreeing was not evidence: it writes the same two
+    # numbers, so the oracle comparison that fixed every other key could not see these.
+    # GACODE's own derivation: expro_signb = sign(torfluxa) and expro_signq = sign(q)
+    # (f2py/expro/expro_util.f90:51-52), btccw = -expro_signb
+    # (gyro/src/gyro_read_experimental_profiles.f90:40), and expro_q = ipccw*btccw*|q|
+    # (profiles_gen/src/prgen_map_inputgacode.f90:87) inverts to ipccw = signq*btccw.
+    # It matters: tglf/src/tglf_LS.f90:1009 multiplies the toroidal stress by SIGN_IT,
+    # so a wrong sign here inverts the momentum flux and nothing else.
+    # np.sign(0) is 0, and neither convention admits it: a zero here would reach
+    # input.tglf as SIGN_IT=0.0 and silently zero every momentum channel.
+    if float(profile.torfluxa) == 0.0 or q_at == 0.0:
+        raise LocalConversionError(
+            f"the field and current directions are derived from the signs of torfluxa "
+            f"({float(profile.torfluxa):g}) and q ({q_at:g}); a zero has no sign, and "
+            f"SIGN_BT/SIGN_IT are +/-1 conventions rather than numbers"
+        )
+    sign_bt = -float(np.sign(float(profile.torfluxa)))
+    sign_it = float(np.sign(q_at)) * sign_bt
+    provenance["sign_bt"] = {
+        "kind": "derived",
+        "reason": "-sign(torfluxa), GACODE's btccw",
+    }
+    provenance["sign_it"] = {
+        "kind": "derived",
+        "reason": "sign(q) * btccw, GACODE's ipccw",
+    }
+
     # Normalisations, in GACODE's cgs constants.
     toroidal_flux = float(profile.torfluxa) * np.asarray(profile.rho, dtype=float) ** 2
     b_unit = bound_deriv(toroidal_flux, 0.5 * rmin**2)
@@ -386,6 +499,7 @@ def prepare_tglf_input(
         collision_constant * coulomb_log * electron_density_at
         / (np.sqrt(profile.masse / 2.0) * electron_temperature_at**1.5)
     )
+
 
     effective_charge = (
         2.0 if profile.z_eff is None
@@ -440,10 +554,18 @@ def prepare_tglf_input(
         debye=7.43 * np.sqrt(
             1e3 * electron_temperature_at / (1e13 * electron_density_at)
         ) / abs(gyroradius_at),
-        sign_bt=1.0,
-        sign_it=1.0,
+        sign_bt=sign_bt,
+        sign_it=sign_it,
         vexb_shear=rotation,
         names=("e",) + tuple(profile.name),
+        normalisation=TGLFNormalisation(
+            electron_density=float(electron_density_at) * 1.0e19,
+            electron_temperature=float(electron_temperature_at) * 1.0e3 * _EV_JOULE,
+            sound_speed=float(sound_speed_at),
+            gyroradius=float(gyroradius_at),
+            minor_radius=float(minor_radius),
+            b_unit=float(b_unit_at),
+        ),
         provenance=provenance,
     )
 

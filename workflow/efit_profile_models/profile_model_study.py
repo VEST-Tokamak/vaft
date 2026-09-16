@@ -8,12 +8,27 @@ explicitly, and varies only ``KPPCUR``, ``KFFCUR``, ``PCURBD``, ``FCURBD`` and
 
 Example::
 
-    PYTHONPATH=$PWD EFITHOME=~/git/efit/vaft-install \
-      python workflow/efit_profile_models/profile_model_study.py \
-        --output /scratch/efit-profile-models --shots 41672
+    cd <checkout> && EFITHOME=~/git/efit/vaft-install python - <<'EOF'
+    import os, runpy, sys
+    root = os.getcwd()
+    sys.path.insert(0, root)
+    import vaft; assert vaft.__file__.startswith(root), vaft.__file__
+    sys.argv = ["profile_model_study.py", "--output", "/scratch/efit-profile-models"]
+    runpy.run_path(
+        "workflow/efit_profile_models/profile_model_study.py", run_name="__main__"
+    )
+    EOF
 
-The default pilot includes the low-order model that VFIT found informative,
-the routine-like (2,2) baseline, edge freedom, and the FWTBP interaction.  Use
+Run it that way rather than as ``python workflow/.../profile_model_study.py``.
+Executing the script by path puts its own directory at ``sys.path[0]``, so an
+editable install elsewhere on the machine -- the main checkout, when this is a
+worktree -- supplies ``vaft`` and the study silently measures the wrong tree.
+``PYTHONPATH`` does not fix it: the editable install's path finder wins anyway,
+which is why the launcher asserts on ``vaft.__file__`` instead of trusting it.
+
+Shots default to the reference set's packaged discharges.  The default pilot
+includes the low-order model that VFIT found informative, the routine-like
+(2,2) baseline, edge freedom, and the FWTBP interaction.  Use
 ``--full-matrix`` to add (2,3), (3,2), and (3,3) order cases.
 """
 
@@ -40,7 +55,7 @@ import warnings
 
 import numpy as np
 
-SCHEMA = 3
+SCHEMA = 4
 REPOSITORY = Path(__file__).resolve().parents[2]
 SEED_STUDY = REPOSITORY / "workflow" / "efit_numerics" / "seed_basin.py"
 REFERENCE_SET = REPOSITORY / "test" / "data" / "efit_reference_set.json"
@@ -71,10 +86,28 @@ ORDER_MODELS = (
     Model("p23_zero", 2, 3, 1, 1, 0, "asymmetric FF-prime order"),
     Model("p32_zero", 3, 2, 1, 1, 0, "asymmetric P-prime order"),
     Model("p33_zero", 3, 3, 1, 1, 0, "higher-order zero-edge comparison"),
+    # The first pass separated the two orders: `p32_zero` moves the boundary
+    # by a millimetre and `p23_zero` by two centimetres, and `p33_zero` adds
+    # nothing to `p23_zero`.  At VEST's poloidal beta the P-prime term barely
+    # reaches `j_phi`, so FF-prime order is the whole axis -- and whether it
+    # has converged by three is a question only a fourth point can answer.
+    Model("p24_zero", 2, 4, 1, 1, 0, "whether the FF-prime order has converged"),
 )
 
 BASELINE_MODEL = "p22_zero"
 PLASMA_PHASES = frozenset(("ramp_up", "quasi_stationary", "ramp_down"))
+
+#: Two paired reconstructions count as unchanged on a quantity when their
+#: relative difference is at or below this.  The a-file prints about seven
+#: significant digits and the m-file's per-channel sums carry their own
+#: accumulation noise, so a difference down here is the file format rather
+#: than the profile model.
+#:
+#: It is deliberately *not* a "physically negligible" band.  A half-percent
+#: change counts as a change, and how big a change is gets read off the signed
+#: median, never off these counts.  The counts answer a different question --
+#: which way, and on how many slices.
+UNCHANGED_RELATIVE = 1.0e-6
 
 
 def _module(path: Path, name: str):
@@ -399,6 +432,27 @@ def _blank_log(time_ms: int) -> dict[str, Any]:
     }
 
 
+def outcome_of(record: Mapping[str, Any], shared: Any) -> str:
+    """What became of one slice, in the vocabulary `seed_basin` established.
+
+    `shared` is `seed_basin.outcome`.  It is called rather than restated
+    because a second definition of "accepted" is how two studies stop being
+    comparable, and the numbers here have to sit beside the seed, domain and
+    termination scans.
+
+    One condition is added and it is stated rather than hidden: this study
+    also needs the g-file.  Every comparison it makes is about `p'`, `FF'`,
+    the current profile or the boundary, all of which live in the g-file, so a
+    slice that wrote an a-file and no g-file contributes nothing here.  It is
+    `no_output` in this study and `flagged` in `seed_basin`, and that is the
+    only label on which the two disagree.
+    """
+    label = shared(record)
+    if label in ("accepted", "flagged") and record["gfile"] is None:
+        return "no_output"
+    return label
+
+
 def run_model(
     constraints: Any,
     *,
@@ -408,6 +462,7 @@ def run_model(
     executable: str,
     scientific: Any,
     baseline_module: Any,
+    seed_module: Any,
     phase_by_time: Mapping[int, Mapping[str, Any]],
 ) -> dict[str, Any]:
     """Run one model on every requested time and retain every outcome."""
@@ -467,12 +522,7 @@ def run_model(
         row["gfile"] = gfiles.get(gfile_key) if gfile_key is not None and abs(float(gfile_key) - time_ms) < 0.51 else None
         row["mfile"] = mfiles.get(mfile_key) if mfile_key is not None and abs(float(mfile_key) - time_ms) < 0.51 else None
         row.update(phase_by_time.get(time_ms, {"current": None, "dcurrent_dt": None, "phase": "unknown"}))
-        if row["collapsed"]:
-            row["outcome"] = "collapsed"
-        elif row["afile"] is None or row["gfile"] is None:
-            row["outcome"] = "no_output"
-        else:
-            row["outcome"] = "accepted" if row["afile"]["accepted"] else "flagged"
+        row["outcome"] = outcome_of(row, seed_module.outcome)
         slices.append(row)
 
     payload = {
@@ -488,6 +538,27 @@ def run_model(
     }
     cache.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     return payload
+
+
+def missing_fit_measures(run: Mapping[str, Any]) -> int:
+    """Equilibria that came without the m-file this study ranks models on.
+
+    EFIT writes the m-file only when it was built against netCDF.  A build
+    without it says so once, on a unit that does not reach the run log, and
+    then omits the file: `efit.F90` guards `write_m` with `#ifdef USE_NETCDF`
+    and the `#else` branch only prints "netcdf needs to be linked to write
+    m-files".
+
+    Nothing else notices.  The a-files and g-files arrive, every slice is
+    classified, geometry and profiles compare normally -- and every
+    chi-square in the report is `None`, because the quantity this study uses
+    is `sum(saimpi) + sum(saisil)` from the m-file rather than the a-file
+    total, which is dominated by the model-invariant plasma-current term.  A
+    full scan on such a build looks like a successful run that answers none of
+    the questions, which is how one was spent.
+    """
+    produced = [item for item in run["slices"] if item["afile"] and item["gfile"]]
+    return sum(1 for item in produced if not item.get("mfile"))
 
 
 def _numbers(values: Iterable[Any]) -> np.ndarray:
@@ -508,6 +579,39 @@ def spread(values: Iterable[Any], *, absolute: bool = False) -> dict[str, Any]:
         "p95": float(np.percentile(array, 95)),
         "max": float(array.max()),
     }
+
+
+def signed_change(
+    values: Iterable[Any], *, tolerance: float = UNCHANGED_RELATIVE
+) -> dict[str, Any]:
+    """Which way a paired quantity moved, and on how many slices.
+
+    `spread(..., absolute=True)` says how far a model moved something and
+    never which way, so it cannot answer "does raising the order *lower*
+    chi-square".  This is the same summary with the sign kept, plus the
+    counts the termination scan reported for exactly this reason (#171):
+    on the slices both configurations produced, how many went down, how many
+    went up, and how many did not move.
+
+    The key names are direction-neutral because the same helper summarizes
+    `area` and `li`, where smaller is not better.  Calling a decrease an
+    improvement is a judgement about chi-square specifically, and it belongs
+    in the rendered table where it can be explained, not in a stored key.
+
+    `identical` counts exact equality and is a subset of `unchanged`.  It is
+    kept separate because "the two configurations produced the same number on
+    every slice" is a stronger and more useful statement than "they agreed to
+    within the file's precision", and #171 found configurations that did.
+    """
+    array = _numbers(values)
+    record: dict[str, Any] = dict(spread(array))
+    record["tolerance"] = float(tolerance)
+    record["p05"] = float(np.percentile(array, 5)) if array.size else None
+    record["decreased"] = int(np.count_nonzero(array < -tolerance))
+    record["increased"] = int(np.count_nonzero(array > tolerance))
+    record["unchanged"] = int(np.count_nonzero(np.abs(array) <= tolerance))
+    record["identical"] = int(np.count_nonzero(array == 0.0))
+    return record
 
 
 def _curve_distance(left: Mapping[str, Any], right: Mapping[str, Any]) -> dict[str, float] | None:
@@ -716,6 +820,20 @@ def compare_runs(candidate: Mapping[str, Any], baseline: Mapping[str, Any]) -> d
                 ),
                 absolute=True,
             ),
+            # A model can lower chi-square through the flat-top and raise it
+            # through the ramp.  The aggregate signed median is precisely the
+            # statistic that cancels those two and reports nothing, so the
+            # direction has to be resolved per cohort as well.
+            "signed_relative_change": {
+                name: signed_change(
+                    pair["scalar_delta"][f"{name}_relative"] for pair in selected
+                )
+                for name in ("area", "volume", "li", "betap", "q95", "condno")
+            },
+            "magnetics_chisq_signed_relative_change": signed_change(
+                pair["fit_delta"].get("magnetics_chisq_relative")
+                for pair in selected
+            ),
             "jphi_edge_shell_to_peak_absolute_change": spread(
                 (
                     pair["profile_diagnostic_delta"].get(
@@ -787,26 +905,101 @@ def compare_runs(candidate: Mapping[str, Any], baseline: Mapping[str, Any]) -> d
                 "total_chisq",
             )
         },
+        # The same three quantities with the sign kept.  `n` is not
+        # `common_produced`: a scalar's relative change is withheld when the
+        # baseline value is exactly zero, and a fit delta needs an m-file on
+        # both sides, so the counts sum to `n` and a report that prints only
+        # `common_produced` beside them will not add up.
+        "signed_relative_change": {
+            name: signed_change(
+                pair["scalar_delta"][f"{name}_relative"] for pair in pairs
+            )
+            for name in (
+                "area", "volume", "li", "betap", "q95", "qmin", "wmhd", "cjor0",
+                "cjor95", "cjor99", "cj1ave", "peak", "chisq", "condno",
+            )
+        },
+        # `PCURBD` and `FCURBD` are edge-current switches, so the sign of the
+        # edge-current change is what they do.  An absolute median there loses
+        # the thing the model was varied to find out.
+        "edge_current_signed_relative_change": {
+            name: signed_change(
+                pair["profile_diagnostic_delta"].get(f"{name}_relative")
+                for pair in pairs
+            )
+            for name in (
+                "jphi_psi_080",
+                "jphi_psi_090",
+                "jphi_psi_095",
+                "jphi_edge",
+                "jphi_edge_shell_mean",
+                "jphi_edge_shell_to_peak",
+            )
+        },
+        "fit_signed_relative_change": {
+            name: signed_change(
+                pair["fit_delta"].get(f"{name}_relative") for pair in pairs
+            )
+            for name in (
+                "magnetics_chisq",
+                "magnetics_chisq_per_active_signal",
+                "bpol_probe_chisq",
+                "flux_loop_chisq",
+                "plasma_current_chisq",
+                "total_chisq",
+            )
+        },
         "pairs": pairs,
     }
 
 
+ENSEMBLE_QUANTITIES = ("area", "volume", "li", "betap", "q95", "magnetics_chisq")
+
+
 def summarize_ensemble(models: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
-    """Summarize across-model spread at each common plasma time."""
-    by_time: dict[int, list[Mapping[str, Any]]] = {}
-    for model in models.values():
-        for item in model["run"]["slices"]:
-            if (
-                item["phase"] in PLASMA_PHASES
-                and item.get("afile")
-                and item.get("gfile")
-            ):
-                by_time.setdefault(int(item["time_ms"]), []).append(item)
+    """Across-model spread at each plasma time, over a population it names.
+
+    The spread is only a trajectory if the ensemble it is taken over is the
+    same one at every time.  Changing a profile model changes which slices
+    reconstruct at all, so a sigma taken over "whatever produced an
+    equilibrium here" is a sigma over a different ensemble at every slice --
+    the same selection effect that made `NXITER = 3` look like an improvement
+    in #171 when it had simply failed on the badly-fitted slices.
+
+    Both populations are therefore reported and named.  `complete` is the
+    headline: the times where every model in the roster produced an
+    equilibrium.  The unqualified `relative_sigma` and `relative_span` keep
+    their original meaning, over whatever was available, and
+    `models_n_per_time` says in one row whether the two can differ at all.
+
+    When one model produces nothing the strict intersection empties.  That is
+    not repaired by quietly taking the largest subset that survives -- a
+    population chosen to fit the discharge is what `vest_acceptance_envelope`
+    refused to do for bounds.  `complete_times_n_without` names the model
+    responsible and leaves the choice to the reader.
+    """
+    roster = sorted(models)
+    models_total = len(roster)
+    by_time: dict[int, dict[str, Mapping[str, Any]]] = {}
+    # Every plasma time the discharge asked for, produced or not.  A time
+    # where fewer than two models reconstructed carries no spread and so
+    # leaves `records` entirely; counting the population only over the times
+    # that survived would be the selection effect this function exists to
+    # report, one level up.
+    plasma_times: set[int] = set()
+    for name in roster:
+        for item in models[name]["run"]["slices"]:
+            if item["phase"] not in PLASMA_PHASES:
+                continue
+            plasma_times.add(int(item["time_ms"]))
+            if item.get("afile") and item.get("gfile"):
+                by_time.setdefault(int(item["time_ms"]), {})[name] = item
 
     records = []
-    for time_ms, items in sorted(by_time.items()):
-        if len(items) < 2:
+    for time_ms, entries in sorted(by_time.items()):
+        if len(entries) < 2:
             continue
+        items = list(entries.values())
         values = {
             name: np.asarray(
                 [item["afile"]["scalars"][name] for item in items], dtype=float
@@ -824,10 +1017,19 @@ def summarize_ensemble(models: Mapping[str, Mapping[str, Any]]) -> dict[str, Any
         )
         if magnetic.size:
             values["magnetics_chisq"] = magnetic
+        missing = sorted(set(roster) - set(entries))
         record = {
             "time_ms": time_ms,
             "phase": items[0]["phase"],
+            # Every model is handed the same `phase_by_time`, built once per
+            # shot, so this should never be false.  It is recorded so that
+            # guarantee is falsifiable rather than assumed: the day it is
+            # false, the phase merge in `run_model` is broken, not the slice.
+            "phase_agreement": len({item["phase"] for item in items}) == 1,
             "models_n": len(items),
+            "models_total": models_total,
+            "models_missing": missing,
+            "complete": not missing,
             "quantities": {},
         }
         for name, array in values.items():
@@ -837,6 +1039,10 @@ def summarize_ensemble(models: Mapping[str, Mapping[str, Any]]) -> dict[str, Any
             center = float(np.median(finite))
             sigma = float(np.std(finite))
             record["quantities"][name] = {
+                "n": int(finite.size),
+                # The normalizer, stored so `relative_sigma` can be checked
+                # against the table instead of recomputed from nothing.
+                "center": center,
                 "sigma": sigma,
                 "relative_sigma": None if center == 0.0 else sigma / abs(center),
                 "relative_span": (
@@ -847,25 +1053,264 @@ def summarize_ensemble(models: Mapping[str, Mapping[str, Any]]) -> dict[str, Any
             }
         records.append(record)
 
-    names = ("area", "volume", "li", "betap", "q95", "magnetics_chisq")
+    names = ENSEMBLE_QUANTITIES
+
+    def _complete(record: Mapping[str, Any], name: str) -> bool:
+        quantity = record["quantities"].get(name)
+        return bool(record["complete"] and quantity and quantity["n"] == models_total)
+
+    def _aggregate(
+        selected: Sequence[Mapping[str, Any]], key: str, *, strict: bool
+    ) -> dict[str, Any]:
+        return {
+            name: spread(
+                record["quantities"].get(name, {}).get(key)
+                for record in selected
+                if not strict or _complete(record, name)
+            )
+            for name in names
+        }
+
+    complete_records = [record for record in records if record["complete"]]
+    # Leave-one-out, over every plasma time rather than over the times that
+    # reached `records`.  A time only one model reconstructed carries no
+    # spread, so it is absent from `records` -- but it is exactly the kind of
+    # time a reader wants attributed, and counting only the survivors would
+    # hide the model that caused the loss.
+    without = {name: 0 for name in roster}
+    for time_ms in plasma_times:
+        missing = set(roster) - set(by_time.get(time_ms, {}))
+        if not missing:
+            for name in roster:
+                without[name] += 1
+        elif len(missing) == 1:
+            without[missing.pop()] += 1
+
+    by_phase = {}
+    for phase in ("ramp_up", "quasi_stationary", "ramp_down"):
+        selected = [record for record in records if record["phase"] == phase]
+        if not selected:
+            continue
+        by_phase[phase] = {
+            "times_n": len(selected),
+            "complete_times_n": sum(1 for record in selected if record["complete"]),
+            "models_n_per_time": spread(record["models_n"] for record in selected),
+            "relative_sigma": _aggregate(selected, "relative_sigma", strict=False),
+            "complete": {
+                "times_n": sum(1 for record in selected if record["complete"]),
+                "relative_sigma": _aggregate(
+                    selected, "relative_sigma", strict=True
+                ),
+            },
+        }
+
     return {
+        "models": roster,
+        "models_total": models_total,
+        # What the unqualified keys below are taken over.
+        "population": "available",
+        "statistics": {
+            "center": "median",
+            "sigma": "population standard deviation (numpy std, ddof=0)",
+            "relative_to": "center",
+        },
+        "plasma_times_n": len(plasma_times),
         "times_n": len(records),
-        "relative_sigma": {
-            name: spread(
-                record["quantities"].get(name, {}).get("relative_sigma")
-                for record in records
-            )
-            for name in names
+        # The selection-effect measure.  The two populations coincide only
+        # when every model produced at every plasma time -- that is
+        # `complete_times_n == plasma_times_n`, not `== times_n`, because a
+        # time with one lone model never reached `records` to be counted.
+        "models_n_per_time": spread(record["models_n"] for record in records),
+        "complete_times_n": len(complete_records),
+        "complete_times_n_without": without,
+        "relative_sigma": _aggregate(records, "relative_sigma", strict=False),
+        "relative_span": _aggregate(records, "relative_span", strict=False),
+        "complete": {
+            "times_n": len(complete_records),
+            "models_n": models_total,
+            "relative_sigma": _aggregate(records, "relative_sigma", strict=True),
+            "relative_span": _aggregate(records, "relative_span", strict=True),
         },
-        "relative_span": {
-            name: spread(
-                record["quantities"].get(name, {}).get("relative_span")
-                for record in records
-            )
-            for name in names
-        },
+        "by_phase": by_phase,
         "records": records,
     }
+
+
+def _ensemble_section(lines: list[str], payload: Mapping[str, Any], cell) -> None:
+    """The model-induced uncertainty #579 asks for, over a population it names."""
+    blocks = {
+        shot: block["ensemble"]
+        for shot, block in payload["shots"].items()
+        if block.get("ensemble")
+    }
+    # A spread needs two models at one time.  A single-model run is a
+    # legitimate thing to ask for -- it is how one model is re-run against a
+    # cache -- and it has no across-model uncertainty to report, which is a
+    # sentence rather than a missing section.
+    empty = {shot: block for shot, block in blocks.items() if not block["times_n"]}
+    blocks = {shot: block for shot, block in blocks.items() if block["times_n"]}
+    if not blocks:
+        if empty:
+            lines.extend(
+                [
+                    "",
+                    "## Model-induced uncertainty",
+                    "",
+                    "No plasma time carries two models that both produced an equilibrium, so "
+                    "there is no across-model spread to report.",
+                ]
+            )
+        return
+
+    lines.extend(
+        [
+            "",
+            "## Model-induced uncertainty",
+            "",
+            "Each plasma time carries a spread across the models that reconstructed it; the "
+            "tables summarize those over time. `sigma` is a population standard deviation "
+            "(numpy `std`, `ddof=0`) divided by the models' median. Over a handful of models "
+            "that is a spread indicator and not a Gaussian one-sigma — with two models it is "
+            "exactly half the span by construction. Plasma area and volume come first because "
+            "#579 names them the primary model-sensitivity quantities.",
+        ]
+    )
+
+    for shot, ensemble in blocks.items():
+        per_time = ensemble["models_n_per_time"]
+        total = ensemble["models_total"]
+        complete_n = ensemble["complete_times_n"]
+        plasma_n = ensemble["plasma_times_n"]
+        if complete_n == plasma_n:
+            lines.extend(
+                [
+                    "",
+                    f"**{shot}: all {total} models produced an equilibrium at every one of the "
+                    f"{plasma_n} plasma times, so the two populations coincide** and nothing "
+                    f"below can be a selection effect.",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    "",
+                    f"**{shot}: the population is not the same at every time.** Only "
+                    f"{complete_n} of {plasma_n} plasma times carry all {total} models; where a "
+                    f"spread exists at all, between {int(per_time['min'])} and "
+                    f"{int(per_time['max'])} models produced one. A sigma taken over whatever "
+                    f"happened to reconstruct is a sigma over a different ensemble at every "
+                    f"slice — #171's `NXITER = 3` is the standing example of what that does to "
+                    f"a median. The table therefore reports the all-{total}-model times. The "
+                    f"all-available figures are kept in the JSON under "
+                    f"`shots.{shot}.ensemble.relative_sigma` and are not the headline.",
+                ]
+            )
+
+    lines.extend(
+        [
+            "",
+            "| shot | quantity | times (every model) | models | relative sigma median | p95 | max | relative span median |",
+            "|---|---|---:|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for shot, ensemble in blocks.items():
+        complete = ensemble["complete"]
+        for name in ENSEMBLE_QUANTITIES:
+            sigma = complete["relative_sigma"][name]
+            span = complete["relative_span"][name]
+            lines.append(
+                f"| {shot} | {name} | {sigma['n']} | {ensemble['models_total']} "
+                f"| {cell(sigma['median'])} | {cell(sigma['p95'])} | {cell(sigma['max'])} "
+                f"| {cell(span['median'])} |"
+            )
+
+    phase_rows = [
+        (shot, phase, phase_block)
+        for shot, ensemble in blocks.items()
+        for phase, phase_block in ensemble["by_phase"].items()
+    ]
+    if phase_rows:
+        lines.extend(
+            [
+                "",
+                "Per cohort, on the same every-model population:",
+                "",
+                "| shot | phase | times (every model) | area | volume | li | q95 |",
+                "|---|---|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for shot, phase, phase_block in phase_rows:
+            sigma = phase_block["complete"]["relative_sigma"]
+            lines.append(
+                f"| {shot} | {phase} | {phase_block['complete']['times_n']} "
+                + "".join(
+                    f"| {cell(sigma[name]['median'])} "
+                    for name in ("area", "volume", "li", "q95")
+                )
+                + "|"
+            )
+
+    incomplete = {
+        shot: ensemble
+        for shot, ensemble in blocks.items()
+        if ensemble["complete_times_n"] < ensemble["plasma_times_n"]
+    }
+    if incomplete:
+        lines.extend(
+            [
+                "",
+                "Which model empties the common population, one at a time. This is the caveat "
+                "as a table rather than a choice made on the reader's behalf: the largest "
+                "subset that happens to survive would be a population fitted to the discharge.",
+                "",
+                "| shot | model dropped | plasma times complete without it |",
+                "|---|---|---:|",
+            ]
+        )
+        for shot, ensemble in incomplete.items():
+            without = ensemble["complete_times_n_without"]
+            for name in sorted(without, key=lambda item: (-without[item], item)):
+                lines.append(f"| {shot} | `{name}` | {without[name]} |")
+
+    lines.extend(
+        [
+            "",
+            "The per-time series itself — sigma_A(t), sigma_V(t), sigma_li(t), sigma_q95(t) — is "
+            "in the JSON at `shots.<shot>.ensemble.records[].quantities.<name>.relative_sigma`, "
+            "with `models_n`, `models_missing` and `complete` on every record so any time's "
+            "population can be checked. These tables are summaries of it, not a substitute.",
+        ]
+    )
+
+
+def drop_sampled_arrays(payload: Mapping[str, Any]) -> None:
+    """Release the 1-D profiles and LCFS points once everything is derived.
+
+    Every quantity this table supports has already been computed by the time
+    this runs: the paired profile RMS and the LCFS distances live in
+    `comparisons[...].pairs[]`, the edge-current and oscillation diagnostics in
+    each slice's `profile_diagnostics`, and the boundary extent in
+    `boundary.r_min`/`r_max`/`z_min`/`z_max`.  What is dropped is the samples
+    those were taken from -- six 129-point profiles and the boundary polygon
+    per produced slice per model, which is roughly twenty times the rest of
+    the report and an order of magnitude past any other study's stored table.
+
+    They are not lost.  The g-files remain under `shot_<shot>/<model>/` and
+    the per-model cache beside them keeps the arrays, so a new comparison can
+    be derived without re-solving anything.  `--keep-arrays` writes them into
+    the report for a reader who wants to plot a profile straight from it.
+    """
+    for block in payload["shots"].values():
+        for model in block["models"].values():
+            for item in model["run"]["slices"]:
+                gfile = item.get("gfile")
+                if not gfile:
+                    continue
+                gfile.pop("profiles", None)
+                boundary = gfile.get("boundary")
+                if boundary:
+                    boundary.pop("r", None)
+                    boundary.pop("z", None)
 
 
 def markdown(payload: Mapping[str, Any]) -> str:
@@ -882,16 +1327,24 @@ def markdown(payload: Mapping[str, Any]) -> str:
             "",
             "The headline counts exclude vacuum slices; the JSON retains every requested outcome.",
             "",
-            "| shot | model | plasma produced/requested | accepted | collapsed | no output | magnetic chi-square median | condno median | seconds |",
-            "|---|---|---:|---:|---:|---:|---:|---:|---:|",
+            "`coefficients` is `KPPCUR + KFFCUR`, the fitted profile freedom each row bought "
+            "its fit with. The chi-square beside it is **not** reduced by it: EFIT does not "
+            "report its total free-parameter count, and `magnetics_chisq_per_active_signal` "
+            "in the JSON divides by the number of active signals, not by degrees of freedom.",
+            "",
+            "| shot | model | coefficients | plasma produced/requested | accepted | collapsed | no output | magnetic chi-square median | condno median | seconds |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for shot, block in payload["shots"].items():
         for name, run in block["models"].items():
             summary = run["summary"]
             outcomes = summary["plasma_outcomes"]
+            specification = run["specification"]
+            coefficients = int(specification["kppcur"]) + int(specification["kffcur"])
             lines.append(
-                f"| {shot} | `{name}` | {summary['plasma_produced']}/{summary['plasma_requested']} "
+                f"| {shot} | `{name}` | {coefficients} "
+                f"| {summary['plasma_produced']}/{summary['plasma_requested']} "
                 f"| {outcomes.get('accepted', 0)} | {outcomes.get('collapsed', 0)} "
                 f"| {outcomes.get('no_output', 0)} | {cell(summary['magnetics_chisq']['median'])} "
                 f"| {cell(summary['condno']['median'])} "
@@ -916,6 +1369,56 @@ def markdown(payload: Mapping[str, Any]) -> str:
                 f"| {cell(change['area']['median'])} | {cell(change['volume']['median'])} "
                 f"| {cell(fit_change['magnetics_chisq']['median'])} |"
             )
+    lines.extend(
+        [
+            "",
+            "## Which way the fit moved",
+            "",
+            f"An absolute median says how far a model moved the fit and never which way, so it "
+            f"cannot answer whether more profile freedom *lowers* chi-square. These counts are "
+            f"taken on the slices both models produced. `unchanged` means the two agreed to "
+            f"within {UNCHANGED_RELATIVE:g} relative — the files' own precision, not a physical "
+            f"tolerance, so a half-percent change counts as a change and its size is the signed "
+            f"median rather than these counts. `identical` is exact equality, a subset of "
+            f"`unchanged`.",
+            "",
+            "`compared` is below `slices in both` wherever a slice is missing an m-file: the "
+            "three counts sum to `compared`.",
+            "",
+            "| shot | candidate | slices in both | compared | chi-square improved | worsened | unchanged | identical | signed median | p05 | p95 |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for shot, block in payload["shots"].items():
+        for name, comparison in block["comparisons"].items():
+            signed = comparison["fit_signed_relative_change"]["magnetics_chisq"]
+            lines.append(
+                f"| {shot} | `{name}` | {comparison['common_produced']} "
+                f"| {signed['n']} | {signed['decreased']} | {signed['increased']} "
+                f"| {signed['unchanged']} | {signed['identical']} "
+                f"| {cell(signed['median'])} | {cell(signed['p05'])} "
+                f"| {cell(signed['p95'])} |"
+            )
+    lines.extend(
+        [
+            "",
+            "The same question per cohort, because a model can lower chi-square through the "
+            "flat-top and raise it through the ramp, and one signed median over the discharge "
+            "cancels exactly that:",
+            "",
+            "| shot | candidate | phase | compared | improved | worsened | unchanged | signed median |",
+            "|---|---|---|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for shot, block in payload["shots"].items():
+        for name, comparison in block["comparisons"].items():
+            for phase, phase_result in comparison["by_phase"].items():
+                signed = phase_result["magnetics_chisq_signed_relative_change"]
+                lines.append(
+                    f"| {shot} | `{name}` | {phase} | {signed['n']} "
+                    f"| {signed['decreased']} | {signed['increased']} "
+                    f"| {signed['unchanged']} | {cell(signed['median'])} |"
+                )
     lines.extend(
         [
             "",
@@ -957,6 +1460,7 @@ def markdown(payload: Mapping[str, Any]) -> str:
                 f"| {cell(pathology['pprime_turns']['max'])} "
                 f"| {cell(pathology['ffprime_turns']['max'])} |"
             )
+    _ensemble_section(lines, payload, cell)
     lines.extend([
         "",
         "Magnetic chi-square is `sum(saimpi) + sum(saisil)` from EFIT's m-file. The a-file total is retained in JSON but is dominated by the model-invariant plasma-current term and is not used to rank profile models.",
@@ -984,7 +1488,11 @@ def _selected_models(names: str | None, full_matrix: bool) -> tuple[Model, ...]:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--shots", default="41672", help="comma-separated; first pass defaults to 41672")
+    parser.add_argument(
+        "--shots",
+        default=None,
+        help="comma-separated; default: every reference-set shot with a packaged product",
+    )
     parser.add_argument("--models", default=None, help="comma-separated model names")
     parser.add_argument("--full-matrix", action="store_true")
     parser.add_argument("--tables", default=None, help="source 129x129 table directory")
@@ -993,6 +1501,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--tstep", type=float, default=0.001)
     parser.add_argument("--average-window", type=float, default=0.0005)
     parser.add_argument("--table", type=Path, default=None)
+    parser.add_argument(
+        "--keep-arrays",
+        action="store_true",
+        help=(
+            "keep the 1-D profiles and LCFS points in the report. They are "
+            "dropped by default once every derived quantity is computed; the "
+            "g-files and the per-model cache still hold them."
+        ),
+    )
     parser.add_argument("--markdown", type=Path, default=None)
     args = parser.parse_args(argv)
 
@@ -1022,7 +1539,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         for item in reference["shots"]
         if item["files"]["product"] and item["files"]["product"]["exists"]
     }
-    shots = [int(value) for value in args.shots.split(",")]
+    shots = [int(value) for value in args.shots.split(",")] if args.shots else sorted(products)
     models = _selected_models(args.models, args.full_matrix)
     seed_study = _module(SEED_STUDY, "profile_model_seed_support")
     base = fixed_scientific_config()
@@ -1036,7 +1553,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         "fixed_scientific": base.to_dict(),
         "fixed_scientific_sha256": base.sha256,
         "models": [model.__dict__ for model in models],
-        "phase_rule": "vacuum below CUTIP; otherwise sign(dIp/dt), quasi-stationary within 15% of max |dIp/dt|",
+        # What actually labelled the slices, which is the library's level rule
+        # since #76 -- not the slope rule this study used to carry locally.
+        "phase_rule": (
+            "vaft.validation.classify_equilibrium_regimes under "
+            "vest.yaml equilibrium_regime: vacuum below the policy current cut; "
+            "otherwise flat within flat_fraction of that discharge's peak |Ip|, "
+            "else ramp_up or ramp_down by the sign of dIp/dt"
+        ),
         "shots": {},
     }
 
@@ -1057,7 +1581,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         shot_block: dict[str, Any] = {
             "window": {"start": float(window.start), "end": float(window.end), "requested": int(times.size)},
-            "phase_dcurrent_dt_threshold": phase_threshold,
+            # An absolute current, not a rate: the level rule's flat/ramp
+            # boundary for this discharge, `flat_fraction * peak |Ip|`.
+            "phase_flat_current_threshold": phase_threshold,
             "models": {},
             "comparisons": {},
         }
@@ -1072,8 +1598,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                 executable=str(resolved["efit"]),
                 scientific=scientific,
                 baseline_module=baseline_module,
+                seed_module=seed_study,
                 phase_by_time=phase_by_time,
             )
+            unmeasured = missing_fit_measures(run)
+            if unmeasured and unmeasured == sum(
+                1 for item in run["slices"] if item["afile"] and item["gfile"]
+            ):
+                raise SystemExit(
+                    f"{shot}/{model.name}: {unmeasured} equilibria and not one "
+                    f"m-file. {resolved['efit']} was built without netCDF, so "
+                    "EFIT never writes them and every chi-square in this report "
+                    "would be empty. Rebuild against netCDF, or point --efit-home "
+                    "at a build that has it."
+                )
             shot_block["models"][model.name] = {
                 "specification": model.__dict__,
                 "summary": summarize_run(run),
@@ -1096,6 +1634,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         # Checkpoint after each discharge; the raw model outputs and per-model
         # caches already make each individual run resumable.
+        if not args.keep_arrays:
+            drop_sampled_arrays(payload)
         target = args.table or output / "profile_model_study.json"
         target.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
 

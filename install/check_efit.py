@@ -199,6 +199,45 @@ def check_toolchain_executables(executables: dict[str, Path]) -> CheckResult:
     return CheckResult(label, PASS, ", ".join(found))
 
 
+#: EFIT prints this, and only this, when it was compiled without NetCDF and the
+#: k-file asked for m-files (``efit/efit.F90``, the ``#else`` of
+#: ``#ifdef USE_NETCDF``). Its presence in the binary is therefore a direct
+#: statement that ``write_m`` was compiled out -- which is what matters, and
+#: what ``ENABLE_NETCDF`` in CMakeCache does not tell you.
+_NO_NETCDF_MARKER = b"netcdf needs to be linked to write m-files"
+
+
+def _netcdf_compiled_in(executable: Optional[Path]) -> Optional[bool]:
+    """Whether this `efit` can write m-files, read off the binary itself.
+
+    Asking the build system is not enough, and the difference is not academic.
+    ``io/efitIO.cmake`` reads:
+
+        option(ENABLE_NETCDF "Enable NetCDF" off)
+        if(${ENABLE_NETCDF})
+          find_package (NetCDF)
+          if(${NetCDF_FOUND})
+            set(USE_NETCDF ...)
+          endif()
+        endif()
+
+    There is no ``else`` on the inner ``if``. A failed ``find_package`` is
+    silent: the build carries on without NetCDF while ``ENABLE_NETCDF:BOOL=ON``
+    stays in CMakeCache and in the install manifest. Reading either one then
+    reports "NetCDF on" for a binary that will refuse to write an m-file, which
+    is a worse answer than no answer.
+
+    Returns True, False, or None when the binary cannot be read.
+    """
+    if executable is None or not executable.is_file():
+        return None
+    try:
+        blob = executable.read_bytes()
+    except OSError:
+        return None
+    return _NO_NETCDF_MARKER not in blob
+
+
 def check_capabilities(prefix: Optional[str], build_tree: Optional[str]) -> CheckResult:
     """What the build can do: NetCDF (m-files), build type, compiler."""
     label = "EFIT build capabilities"
@@ -243,11 +282,35 @@ def check_capabilities(prefix: Optional[str], build_tree: Optional[str]) -> Chec
                 build_type = line.split("=", 1)[1].strip()
             elif line.startswith("CMAKE_Fortran_COMPILER:"):
                 compiler = line.split("=", 1)[1].strip()
+    # The binary outranks the record. What was asked for and what was built
+    # come apart exactly when it matters -- see _netcdf_compiled_in.
+    requested = netcdf
+    built = _netcdf_compiled_in(_executables(prefix, build_tree).get("efit"))
+    if built is not None:
+        netcdf = built
+
+    rebuild = ("Rebuild with NetCDF enabled; it is on by default in "
+               + ("install_efit_windows.ps1." if IS_WINDOWS else "install/install_efit.sh."))
     detail = f"build type {build_type or 'unknown'}, compiler {compiler or 'unknown'}, NetCDF {'on' if netcdf else 'off'}"
+    if built is not None:
+        detail += " (read from the executable)"
+
+    if requested is True and built is False:
+        return CheckResult(
+            label, FAIL, detail,
+            "The build was configured with -DENABLE_NETCDF=ON but the executable "
+            "was compiled without it, so EFIT writes no m-file. efitIO.cmake "
+            "ignores a failed find_package(NetCDF) silently, so this is what a "
+            "missing or unfindable netCDF-Fortran looks like. Point the build at "
+            "one -- NetCDF_FORTRAN_DIR and NetCDF_C_DIR -- and rebuild. "
+            + rebuild,
+        )
     if netcdf is False:
-        return CheckResult(label, WARN, detail, "Without NetCDF EFIT writes no m-file, so iteration counts and per-slice "
-            "residuals are unavailable. Rebuild with NetCDF enabled; it is on by "
-            "default in " + ("install_efit_windows.ps1." if IS_WINDOWS else "install/install_efit.sh."))
+        return CheckResult(
+            label, WARN, detail,
+            "Without NetCDF EFIT writes no m-file, so iteration counts and "
+            "per-slice residuals are unavailable. " + rebuild,
+        )
     return CheckResult(label, PASS, detail)
 
 

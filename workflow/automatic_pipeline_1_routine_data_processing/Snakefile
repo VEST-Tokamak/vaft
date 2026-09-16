@@ -154,12 +154,24 @@ OPTIONAL_REPLICATED_STAGES = tuple(
 )
 
 
+# `mhd_linear` is one stage product per stability product (#787), so it is
+# replicated -- and records that it was -- once per product, which is what
+# `replicate_mhd_linear_to_hsds` writes. Every other stage has one per shot.
+PER_PRODUCT_REPLICATED_STAGES = {"mhd_linear": GPEC_STABILITY_MODULES}
+
+
 def replication_records(shots, stages=None):
-    return [
-        PATHS.replication_record(shot, stage)
-        for shot in shots
-        for stage in (REPLICATED_STAGES if stages is None else stages)
-    ]
+    records = []
+    for shot in shots:
+        for stage in (REPLICATED_STAGES if stages is None else stages):
+            products = PER_PRODUCT_REPLICATED_STAGES.get(stage)
+            if products is None:
+                records.append(PATHS.replication_record(shot, stage))
+            else:
+                records.extend(
+                    PATHS.replication_record(shot, stage, product) for product in products
+                )
+    return records
 
 
 PLOTS_ENABLED = PATHS.layout == FILEDB
@@ -198,11 +210,15 @@ def validation_plot_products(shots):
         for name in stage_plot_filenames("raw", required_only=True):
             outputs.append(PATHS.raw_plot(shot, name))
         outputs.append(PATHS.raw_plot_manifest(shot))
-        for stage in ("diagnostics", "eddy", "efit", "mhd_linear", "chease"):
+        for stage in ("diagnostics", "eddy", "efit", "chease"):
             if stage not in EMPTY_VALIDATION_STAGES:
                 for name in stage_plot_filenames(stage, required_only=True):
                     outputs.append(PATHS.stage_plot(shot, stage, name))
             outputs.append(PATHS.stage_plot_manifest(shot, stage))
+        # `mhd_linear` is one stage product per stability product (#787), so its
+        # plot manifest is one per product too -- the one `plot_mhd_linear` writes.
+        for module in GPEC_STABILITY_MODULES:
+            outputs.append(PATHS.stage_plot_manifest(shot, "mhd_linear", module))
         outputs.append(PATHS.chease_plot_manifest(shot))
     return outputs
 
@@ -1017,7 +1033,7 @@ if PLOTS_ENABLED:
             plots=stage_plot_outputs("mhd_linear"),
             manifest=PATHS.product_pattern("stage_plot_manifest", "mhd_linear")
         log:
-            PATHS.shot_pattern("log", "plot_mhd_linear") + ".{product}"
+            PATHS.product_pattern("log", "plot_mhd_linear")
         params:
             directory=lambda wildcards: str(
                 Path(
@@ -1267,10 +1283,10 @@ rule build_gpec_ideal:
             for mode in GPEC_MODES
         ]
     output:
-        ods=PATHS.shot_pattern("gpec_ideal_ods"),
-        manifest=PATHS.shot_pattern("gpec_ideal_manifest")
+        ods=PATHS.shot_pattern("gpec_ideal_ods", "gpec"),
+        manifest=PATHS.shot_pattern("gpec_ideal_manifest", "gpec")
     log:
-        PATHS.shot_pattern("log", "build_gpec_ideal")
+        PATHS.shot_pattern("log", "build_gpec_ideal", "gpec")
     params:
         modes=csv(GPEC_MODES),
         mode_workdirs=lambda wildcards: ",".join(

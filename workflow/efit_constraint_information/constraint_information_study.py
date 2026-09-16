@@ -1119,7 +1119,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "end": float(window.end),
                 "requested": int(times.size),
             },
-            "phase_dcurrent_dt_threshold": threshold,
+            # An absolute current, not a rate: the level rule's flat/ramp
+            # boundary for this discharge (see `profile_study._phase_map`).
+            "phase_flat_current_threshold": threshold,
             "variants": {},
             "comparisons": {},
         }
@@ -1135,6 +1137,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 executable=str(resolved["efit"]),
                 scientific=scientific,
                 baseline_module=baseline_module,
+                seed_module=seed_study,
                 phase_by_time=phase_by_time,
             )
             enrich_run(run, workdir, shot, scientific)

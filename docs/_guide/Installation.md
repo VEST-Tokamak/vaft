@@ -53,7 +53,7 @@ import vaft
 ods = vaft.omas.sample_ods()
 print(sorted(ods.keys()))
 
-vaft.plot.magnetics_time_ip(ods)
+vaft.omas.plot_plasma_current_time(ods)
 plt.show()
 ```
 

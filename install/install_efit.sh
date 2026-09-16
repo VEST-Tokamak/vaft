@@ -381,19 +381,44 @@ cmake --build "$BUILD_DIR" -j "$JOBS" >>"$LOG" 2>&1 || die "build failed; see $L
 [[ -x "$BUILD_DIR/efit/efit" ]] || die "efit was not produced at $BUILD_DIR/efit/efit"
 [[ -x "$BUILD_DIR/green/efund" ]] || die "efund was not produced at $BUILD_DIR/green/efund"
 
-# config.h said what the configure decided; this asks the executable. They can
-# disagree -- a stale object file leaves no NetCDF symbol to reference, the
-# linker drops the libraries even though they are on the link line, and the
-# binary writes no m-file while every configuration artifact claims it will.
-# The executable is the only thing that runs, so it is what gets believed.
-binary_links_netcdf() {
-  local bin="$1"
-  if command -v ldd >/dev/null && ldd "$bin" 2>/dev/null | grep -qi netcdf; then return 0; fi
-  if command -v otool >/dev/null && otool -L "$bin" 2>/dev/null | grep -qi netcdf; then return 0; fi
-  strings -a "$bin" 2>/dev/null | grep -qi 'netcdf'
-}
-if ((WITH_NETCDF)) && ! binary_links_netcdf "$BUILD_DIR/efit/efit"; then
-  die "the configure linked NetCDF but the built efit does not reference it, so it would write no m-files. This is what a stale object file in $BUILD_DIR looks like: remove that directory and build again."
+# --- did NetCDF actually get in? ----------------------------------------------
+# Asking for it is not the same as getting it. io/efitIO.cmake is
+#
+#   option(ENABLE_NETCDF "Enable NetCDF" off)
+#   if(${ENABLE_NETCDF})
+#     find_package (NetCDF)
+#     if(${NetCDF_FOUND})
+#       set(USE_NETCDF ...)
+#     endif()
+#   endif()
+#
+# with no else on the inner if. A find_package that comes up empty is silent:
+# the build finishes, ENABLE_NETCDF:BOOL=ON stays in CMakeCache and in this
+# script's own manifest, and the first sign of trouble is a reconstruction that
+# quietly writes no m-file hours later. The binary is the only honest witness --
+# EFIT compiles that message in exactly when write_m was compiled out.
+if ((WITH_NETCDF)); then
+  if grep -qa 'netcdf needs to be linked to write m-files' "$BUILD_DIR/efit/efit"; then
+    printf '[FAIL] NetCDF was requested but the build did not get it, so this efit writes no m-files.\n' >&2
+    printf '       find_package(NetCDF) found nothing under:\n' >&2
+    printf '         NetCDF_C_DIR       %s\n' "$NETCDF_C_DIR" >&2
+    printf '         NetCDF_FORTRAN_DIR %s\n' "$NETCDF_F_DIR" >&2
+    printf '       Check that each holds the library and the .mod, or pass --without-netcdf\n' >&2
+    printf '       to accept a build with no m-files.\n' >&2
+    die "see the configure output in $LOG for what find_package looked at"
+  fi
+  # Second, independent witness, because the one above is a string that lives in
+  # EFIT's source and can be reworded upstream without anyone here noticing.
+  # This one reads the linkage instead, and catches the same stale-object case:
+  # write_m.F90.o compiled before NetCDF was turned on references no NetCDF
+  # symbol, so the linker drops the libraries even though they are on the link
+  # line. Measured on a real build before it was fixed.
+  if ! { { command -v ldd >/dev/null && ldd "$BUILD_DIR/efit/efit" 2>/dev/null | grep -qi netcdf; } ||
+         { command -v otool >/dev/null && otool -L "$BUILD_DIR/efit/efit" 2>/dev/null | grep -qi netcdf; } ||
+         strings -a "$BUILD_DIR/efit/efit" 2>/dev/null | grep -qi netcdf; }; then
+    die "the configure linked NetCDF but the built efit references none of it, so it would write no m-files. That is what a stale object file in $BUILD_DIR looks like: remove that directory and build again."
+  fi
+  note "NetCDF is compiled in; this build writes m-files"
 fi
 
 CTEST_STATUS="skipped"

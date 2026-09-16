@@ -145,16 +145,24 @@ spherical-tokamak; the rest are Julia `.bson` and cannot be read from Python.
 ## Verified
 
 **macOS/arm64.** Built against `gafusion/gacode` `6357db30` (2026-07-22) with
-Homebrew gfortran 15.2 and Open MPI, **`--codes neo`** — the default at the
-time. The NEO `reg18` regression case reproduces its shipped `out.neo.prec`
-value `0.12268957E+02` exactly.
+Homebrew gfortran and Open MPI, `--codes neo,tglf` — the current default on
+both platforms. The NEO `reg18` regression case reproduces its shipped
+`out.neo.prec` value `0.12268957E+02` exactly, and `install/check_gacode.py`
+reports every layer green.
 
-TGLF has not been built on macOS. The default is now `neo,tglf` on both
-platforms, so the documented command compiles a member this record does not
-cover, and `reg18` exercises NEO alone either way. Nothing suggests it will
-fail — it is the same suite and the same compiler family — but it is unverified
-there, and this says so rather than letting the entry read as though it were
-not.
+TGLF is covered here now, and was compiled from scratch rather than found
+already built: `tglf/src` was emptied of its objects and `tglf_lib.a` first, so
+the run compiled the whole source list, archived the library and linked `tglf`,
+`tglf_mpi` and `ptglf`. `reg18` still exercises NEO alone — GACODE ships no
+equivalent TGLF regression — so what is verified for TGLF is that it builds and
+that VAFT resolves it, not a number.
+
+One thing to know before emptying a member's directory yourself: `tglf/bin/tglf`
+is a **tracked launcher script**, not a build product. The compiled binary lands
+in `tglf/src/`. Deleting `bin/tglf` to force a rebuild removes a file the build
+never puts back, and `check_gacode.py`'s discovery layer then reports the member
+missing — which is what `test_gacode_linux_recipe_asserts_on_the_compiled_binary_not_the_launcher`
+exists to keep the recipes from confusing.
 
 **Linux/x86_64.** Built against `gafusion/gacode` `b49339750` with
 gfortran 11.4.0 and Open MPI 4.1.2 on Ubuntu 22.04.4, `GACODE_PLATFORM=TUMBLEWEED`,
