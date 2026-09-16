@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a670689</code>. What is described
+  <code>acf3b5e</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -359,7 +359,7 @@ outward normal is only outward then.</p>
 </li>
   <li><a href="#fit_miller_sequence"><code>fit_miller_sequence</code></a> &mdash; Fit Miller parameters across a sequence of flux surfaces, with radial derivatives.
 </li>
-  <li><a href="#fit_miller_surface"><code>fit_miller_surface</code></a> &mdash; Fit the five Miller shape parameters to one closed flux-surface contour.
+  <li><a href="#fit_miller_surface"><code>fit_miller_surface</code></a> &mdash; Fit the Miller shape parameters to one closed flux-surface contour.
 </li>
   <li><a href="#flux_surface_quantities"><code>flux_surface_quantities</code></a> &mdash; Flux-surface averages and shape parameters on each normalized flux level.
 </li>
@@ -1423,14 +1423,15 @@ spline extrapolates beyond the grid, where the field should not be read.</p>
 
 <p>Points on a Miller-parameterized flux surface at given poloidal angles.</p>
 
-<p>The Miller parameterization writes a shaped, up-down symmetric surface in five
-numbers: minor radius, centre, elongation and triangularity.  This is the
-forward evaluation; <code class="language-plaintext highlighter-rouge">fit_miller_surface</code> is the inverse.</p>
+<p>The Miller parameterization writes a shaped, up-down symmetric surface in a
+handful of numbers: minor radius, centre, elongation, triangularity and –
+optionally – squareness.  This is the forward evaluation;
+<code class="language-plaintext highlighter-rouge">fit_miller_surface</code> is the inverse.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>surface</code></td><td>MillerSurface</td><td>-</td><td><p>The five shape parameters.  <code class="language-plaintext highlighter-rouge">r</code>, <code class="language-plaintext highlighter-rouge">r0</code> and <code class="language-plaintext highlighter-rouge">z0</code> in metres, <code class="language-plaintext highlighter-rouge">kappa</code> and <code class="language-plaintext highlighter-rouge">delta</code> dimensionless.</p>
+  <tr><td><code>surface</code></td><td>MillerSurface</td><td>-</td><td><p>The shape parameters.  <code class="language-plaintext highlighter-rouge">r</code>, <code class="language-plaintext highlighter-rouge">r0</code> and <code class="language-plaintext highlighter-rouge">z0</code> in metres, <code class="language-plaintext highlighter-rouge">kappa</code>, <code class="language-plaintext highlighter-rouge">delta</code> and <code class="language-plaintext highlighter-rouge">zeta</code> dimensionless.</p>
 </td></tr>
   <tr><td><code>theta</code></td><td>array_like</td><td>rad</td><td><p>Poloidal angles at which to evaluate.</p>
 </td></tr>
@@ -1448,16 +1449,20 @@ forward evaluation; <code class="language-plaintext highlighter-rouge">fit_mille
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    The geometry is degenerate: minor radius or elongation not positive, or
-    triangularity of magnitude one or more.</p>
+    The geometry is degenerate: minor radius or elongation not positive,
+    triangularity of magnitude one or more, or squareness of magnitude one
+    half or more.</p>
 
 <p><strong>Convention.</strong></p>
 
 <p><code class="language-plaintext highlighter-rouge">R = r0 + r*cos(theta + arcsin(delta)*sin(theta))</code> and
-<code class="language-plaintext highlighter-rouge">Z = z0 + kappa*r*sin(theta)</code>.  <em>theta</em> is the parameter of the
-parameterization, not a geometric poloidal angle about the centre, and the two
-differ once the surface is shaped.  Positive <code class="language-plaintext highlighter-rouge">delta</code> shifts the extremum of
-<code class="language-plaintext highlighter-rouge">Z</code> inboard.  The surface is up-down symmetric by construction.</p>
+<code class="language-plaintext highlighter-rouge">Z = z0 + kappa*r*sin(theta + zeta*sin(2*theta))</code>.  <em>theta</em> is the parameter
+of the parameterization, not a geometric poloidal angle about the centre, and
+the two differ once the surface is shaped.  Positive <code class="language-plaintext highlighter-rouge">delta</code> shifts the
+extremum of <code class="language-plaintext highlighter-rouge">Z</code> inboard.  Positive <code class="language-plaintext highlighter-rouge">zeta</code> squares the surface off,
+negative rounds it.  <code class="language-plaintext highlighter-rouge">zeta = 0</code> is the five-parameter surface exactly, to
+the bit, so nothing that does not ask for squareness moves.  The surface is
+up-down symmetric by construction, squareness included.</p>
 
 <p><strong>Applicability.</strong></p>
 
@@ -1467,12 +1472,18 @@ differ once the surface is shaped.  Positive <code class="language-plaintext hig
 
 <p>Up-down symmetric and single-valued in <em>theta</em>, so it cannot represent a
 separatrix, an X-point, or an asymmetric boundary at all.  Triangularity is
-bounded by one because the arcsine of it must exist.</p>
+bounded by one because the arcsine of it must exist.  Squareness is bounded
+by one half because <code class="language-plaintext highlighter-rouge">d(theta + zeta*sin(2*theta))/dtheta = 1 +
+2*zeta*cos(2*theta)</code> changes sign beyond it: the parameterization then
+doubles back and the “surface” crosses itself, so a larger magnitude does not
+describe a squarer plasma but a curve that is not one.</p>
 
 <p><strong>Provenance.</strong></p>
 
 <ol class="formula-references">
   <li>Miller, Chu, Greene, Lin-Liu and Waltz, <em>Noncircular, finite aspect ratio, local equilibrium model</em>, Phys. Plasmas 5, 973 (1998), which introduced this parameterization.
+</li>
+  <li>The squareness term follows the extended form used for shape comparison, e.g. Barr, Boyer, Humphreys <em>et al.</em>, <em>ShapeFIT</em>, Nucl. Fusion 58, 076011 (2018), App. A.
 </li>
 </ol>
 
@@ -1789,11 +1800,11 @@ are simply absent without them.</p>
 
 <h3 id="fit_miller_surface"><code class="language-plaintext highlighter-rouge">fit_miller_surface</code></h3>
 
-<p class="formula-signature"><code>fit_miller_surface(contour, *, radial_value=None, radial_coordinate='psi_n', max_normalized_rms=0.02, near_xpoint=False)</code></p>
+<p class="formula-signature"><code>fit_miller_surface(contour, *, radial_value=None, radial_coordinate='psi_n', max_normalized_rms=0.02, near_xpoint=False, squareness=False)</code></p>
 
 <p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
-<p>Fit the five Miller shape parameters to one closed flux-surface contour.</p>
+<p>Fit the Miller shape parameters to one closed flux-surface contour.</p>
 
 <p>Answers “how Miller-like is this surface, and with what parameters”, and says
 when the answer is that it is not Miller-like enough to use.  Acceptance is a
@@ -1811,6 +1822,8 @@ property of the fit, reported on the result rather than raised.</p>
   <tr><td><code>max_normalized_rms</code></td><td>float, optional</td><td>-</td><td><p>Largest residual, as a root-mean-square distance divided by the fitted minor radius, that still counts as accepted.</p>
 </td></tr>
   <tr><td><code>near_xpoint</code></td><td>bool, optional</td><td>-</td><td><p>Caller’s determination that this surface lies close to an active X-point, which vetoes acceptance regardless of the residual.</p>
+</td></tr>
+  <tr><td><code>squareness</code></td><td>bool, optional</td><td>-</td><td><p>Fit the sixth parameter, <code class="language-plaintext highlighter-rouge">zeta</code>, as well.  Off by default: adding a free parameter changes the answer of a fit that did not ask for it.</p>
 </td></tr>
   </tbody>
 </table>
@@ -1865,7 +1878,11 @@ thing on every surface.</p>
 <p><strong>Limitations.</strong></p>
 
 <p>Miller is up-down symmetric, so a genuinely asymmetric surface fits poorly by
-construction and is rejected rather than approximated.  Surfaces at or beyond
+construction and is rejected rather than approximated.  Without <em>squareness</em>
+a surface whose corners are squarer or rounder than a sine can express has
+nowhere to put that shape either: it goes into the residual, and past
+<em>max_normalized_rms</em> the fit is rejected as “not Miller-like enough to use”
+when what is true is “not five-parameter Miller-like” (#867).  Surfaces at or beyond
 95.5 percent of the normalized flux are rejected outright, because separatrix
 geometry is not locally Miller-like there.  The X-point proximity has to be
 determined by the caller; this function only honours the flag.  Unlike every
@@ -3954,7 +3971,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 07:29:46 +0000"
+        "time": "2026-09-16 07:56:22 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

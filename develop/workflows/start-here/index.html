@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a670689</code>. What is described
+  <code>acf3b5e</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -336,8 +336,8 @@ a staged eager object. Remote saving is restricted to authorized operators; this
 
 <h2 id="4-optional-external-fusion-codes">4. Optional external fusion codes</h2>
 
-<p>VAFT can prepare and collect inputs for EFIT, CHEASE, GPEC/DCON/RDCON, TES, NUBEAM and the GACODE suite
-(NEO and TGLF). Configure only the codes you have installed:</p>
+<p>VAFT can prepare and collect inputs for EFIT, CHEASE, GPEC/DCON/RDCON, TES, NUBEAM, the GACODE suite
+(NEO and TGLF) and TokaMaker. Configure only the codes you have installed:</p>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">EFITHOME</span><span class="o">=</span>/path/to/efit
 <span class="nb">export </span><span class="nv">CHEASEHOME</span><span class="o">=</span>/path/to/chease
@@ -349,6 +349,17 @@ a staged eager object. Remote saving is restricted to authorized operators; this
 
 <p>Each executable belongs under its root’s <code class="language-plaintext highlighter-rouge">bin/</code> directory. The workflow guides degrade to deterministic
 input preparation when a binary is absent.</p>
+
+<p><strong>TokaMaker is the exception.</strong> VAFT drives it in-process rather than as a subprocess, so there is no
+<code class="language-plaintext highlighter-rouge">bin/</code> and no <code class="language-plaintext highlighter-rouge">$TOKAMAKERHOME</code>: “installed” means “importable in this interpreter”. Its upstream, the
+Open FUSION Toolkit, publishes wheels, so pip can express it — and it stays an optional extra, because
+the wheel carries compiled libraries and every other workflow works without it:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pip <span class="nb">install</span> <span class="s1">'vaft[tokamaker]'</span>     <span class="c"># or: pip install openfusiontoolkit</span>
+</code></pre></div></div>
+
+<p>Nothing needs to be exported afterwards. <code class="language-plaintext highlighter-rouge">vaft.code.tokamaker</code> raises an actionable <code class="language-plaintext highlighter-rouge">ImportError</code> when
+the toolkit is absent, and <code class="language-plaintext highlighter-rouge">OFT_ROOTPATH</code> is only for pointing at a source build instead of the wheel.</p>
 
 <p>EFIT is licensed software that VAFT neither bundles nor fetches: obtain authorized access to the
 source through the EFIT-AI channel and agree to its users agreement first, then build it from your
@@ -712,7 +723,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 07:29:46 +0000"
+        "time": "2026-09-16 07:56:22 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
