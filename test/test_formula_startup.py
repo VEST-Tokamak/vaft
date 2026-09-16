@@ -28,6 +28,12 @@ from vaft.formula.startup import (
     townsend_ionization_coefficient,
     vertical_field_from_I_p_R0_a_beta_p_li,
 )
+from vaft.formula.startup import _HIRSHMAN_A as HIRSHMAN_A
+from vaft.formula.startup import (
+    d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li,
+    plasma_external_inductance_hirshman_from_R_eps_kappa,
+    plasma_inductance_hirshman_from_R_eps_kappa_li,
+)
 
 #: Lloyd's published hydrogen coefficients, per torr.
 A_TORR = 510.0
@@ -503,3 +509,165 @@ def test_ejiri_f3_approaches_its_large_slope_asymptote():
 def test_ejiri_f3_rejects_a_negative_slope():
     with pytest.raises(ValueError, match="alpha must be finite and non-negative"):
         ejiri_f3_from_alpha(-0.1)
+
+
+# ==========================================================================
+# The Hirshman inductance behind the low-aspect-ratio vertical field (#783)
+# ==========================================================================
+
+def test_the_vertical_field_reduces_to_the_circular_form_at_unit_elongation():
+    # The elongation factor l_kappa = sqrt((1+kappa^2)/2) is 1 at kappa = 1, so
+    # the Mitarai form and the circular Shafranov form must coincide exactly.
+    I_p, R0, a, beta_p, li = 8.0e6, 6.2, 1.9, 2.5, 0.5
+    circular = MU0 * I_p / (4.0 * np.pi * R0) * (
+        np.log(8.0 * R0 / a) + beta_p + 0.5 * li - 1.5
+    )
+    assert vertical_field_from_I_p_R0_a_beta_p_li(I_p, R0, a, beta_p, li) == (
+        pytest.approx(circular, rel=1e-13, abs=0.0)
+    )
+    assert vertical_field_from_I_p_R0_a_beta_p_li(
+        I_p, R0, a, beta_p, li, kappa=1.0
+    ) == pytest.approx(circular, rel=1e-13, abs=0.0)
+
+
+def test_the_vertical_field_matches_mitarai_equation_1_3():
+    # Paper parameters, ITER-FEAT row of its table 1.
+    I_p, R0, a, beta_p, li, kappa = 8.0e6, 6.2, 1.9, 2.5, 0.5, 1.7
+    l_kappa = np.sqrt(0.5 * (1.0 + kappa**2))
+    expected = MU0 * I_p / (4.0 * np.pi * R0) * (
+        np.log(8.0 * R0 / (a * l_kappa)) + beta_p + 0.5 * li - 1.5
+    )
+    assert vertical_field_from_I_p_R0_a_beta_p_li(
+        I_p, R0, a, beta_p, li, kappa
+    ) == pytest.approx(expected, rel=1e-13, abs=0.0)
+    # Elongation shortens the effective minor radius, so it lowers the field.
+    assert expected < vertical_field_from_I_p_R0_a_beta_p_li(
+        I_p, R0, a, beta_p, li
+    )
+
+
+def test_the_hirshman_inductance_reproduces_the_mitarai_table():
+    # Mitarai table 1 reports L_p = 9.18 uH for R = 6.2, a = 1.9, kappa = 1.7,
+    # li = 0.5 from his own circular expression; the Hirshman fit is a
+    # different formula, so this pins that the two agree to a few percent
+    # rather than exactly -- which is the whole reason to have both.
+    R0, a, kappa, li = 6.2, 1.9, 1.7, 0.5
+    eps = a / R0
+    l_kappa = np.sqrt(0.5 * (1.0 + kappa**2))
+    mitarai = MU0 * R0 * (np.log(8.0 * R0 / (a * l_kappa)) + 0.5 * li - 2.0)
+    assert mitarai == pytest.approx(9.18e-6, rel=5e-3)
+    hirshman = plasma_inductance_hirshman_from_R_eps_kappa_li(R0, eps, kappa, li)
+    assert hirshman == pytest.approx(mitarai, rel=0.15)
+
+
+def test_the_hirshman_inductance_splits_into_external_and_internal():
+    R0, eps, kappa, li = 1.0, 0.3, 1.6, 0.8
+    external = plasma_external_inductance_hirshman_from_R_eps_kappa(R0, eps, kappa)
+    total = plasma_inductance_hirshman_from_R_eps_kappa_li(R0, eps, kappa, li)
+    assert total - external == pytest.approx(MU0 * R0 * 0.5 * li, rel=1e-12, abs=0.0)
+    # The external part does not know li at all.
+    assert plasma_inductance_hirshman_from_R_eps_kappa_li(
+        R0, eps, kappa, 0.0
+    ) == pytest.approx(external, rel=1e-13, abs=0.0)
+
+
+@pytest.mark.parametrize("eps", [0.1, 0.3, 0.5, 0.7])
+@pytest.mark.parametrize("convention", ["fixed", "inboard", "outboard"])
+def test_the_inductance_derivative_matches_a_finite_difference(eps, convention):
+    # The analytic derivative is the claim; a finite difference of the
+    # inductance itself is the independent check, and it has to be taken with
+    # the minor radius held the way the convention says.
+    R0, kappa, li = 1.0, 1.6, 0.8
+    a0 = eps * R0
+    step = 1e-7
+
+    def inductance(R):
+        if convention == "fixed":
+            a = a0
+        elif convention == "inboard":
+            a = R - (R0 - a0)
+        else:
+            a = (R0 + a0) - R
+        return plasma_inductance_hirshman_from_R_eps_kappa_li(R, a / R, kappa, li)
+
+    finite = (inductance(R0 + step) - inductance(R0 - step)) / (2.0 * step)
+    assert d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li(
+        R0, eps, kappa, li, minor_radius=convention
+    ) == pytest.approx(finite, rel=1e-6)
+
+
+def test_the_minor_radius_convention_changes_the_sign_not_just_the_size():
+    # This is the trap the docstring warns about: at eps = 0.3 the inboard
+    # convention is negative while the other two are positive, so a radial
+    # force balance solved with the wrong one pushes the plasma the other way.
+    values = {
+        convention: d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li(
+            1.0, 0.3, 1.0, 0.0, minor_radius=convention
+        )
+        for convention in ("fixed", "inboard", "outboard")
+    }
+    assert values["inboard"] < 0.0 < values["fixed"] < values["outboard"]
+
+
+def test_the_fixed_convention_is_the_one_that_reproduces_mitarai():
+    # Substituting an inductance into B_VE = -(mu0 Ip/4 pi R)[dLp/dR / mu0
+    # + beta_p - 1/2] with the minor radius *held* is what gives Mitarai's
+    # Eq. (1.3); that is why 'fixed' is the default.
+    I_p, R0, a, beta_p, li, kappa = 8.0e6, 6.2, 1.9, 2.5, 0.5, 1.7
+    l_kappa = np.sqrt(0.5 * (1.0 + kappa**2))
+    step = 1e-7
+
+    def circular_inductance(R):
+        return MU0 * R * (np.log(8.0 * R / (a * l_kappa)) + 0.5 * li - 2.0)
+
+    dLp_dR = (circular_inductance(R0 + step) - circular_inductance(R0 - step)) / (
+        2.0 * step
+    )
+    reconstructed = MU0 * I_p / (4.0 * np.pi * R0) * (
+        dLp_dR / MU0 + beta_p - 0.5
+    )
+    assert reconstructed == pytest.approx(
+        vertical_field_from_I_p_R0_a_beta_p_li(I_p, R0, a, beta_p, li, kappa),
+        rel=1e-6,
+    )
+
+
+def test_the_derivative_coefficient_is_6_435_not_5_935():
+    # A circulating derivation note calls Mitarai's 6.435 a typo for 5.935.
+    # da/deps is differentiated in closed form here; a finite difference of
+    # a(eps) decides between them, and it picks 6.435 to eight figures.
+    from vaft.formula.startup import _hirshman_a, _hirshman_da
+
+    step = 1e-7
+    for eps in (0.1, 0.3, 0.5, 0.7):
+        finite = (_hirshman_a(eps + step) - _hirshman_a(eps - step)) / (2.0 * step)
+        assert _hirshman_da(eps) == pytest.approx(finite, rel=1e-7)
+
+    a1, _, a3, _ = HIRSHMAN_A
+    assert a1 + 0.5 * a3 == pytest.approx(6.435, rel=1e-12, abs=0.0)
+
+
+def test_the_derivative_constant_is_a2_minus_a4():
+    a1, a2, a3, a4 = HIRSHMAN_A
+    assert a2 - a4 == pytest.approx(0.84, rel=1e-12, abs=0.0)
+    # a2 + a4 would be 3.26, which the finite-difference test above rejects.
+    assert a2 + a4 != pytest.approx(0.84, rel=1e-3)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [{"epsilon": 0.0}, {"epsilon": 1.0}, {"epsilon": 1.5}, {"kappa": 0.0},
+     {"R_m": -1.0}],
+)
+def test_the_hirshman_helpers_reject_a_non_physical_geometry(kwargs):
+    call = {"R_m": 1.0, "epsilon": 0.3, "kappa": 1.6}
+    call.update(kwargs)
+    with pytest.raises(ValueError):
+        plasma_external_inductance_hirshman_from_R_eps_kappa(**call)
+
+
+def test_an_unknown_minor_radius_convention_is_rejected():
+    with pytest.raises(ValueError, match="unknown minor_radius"):
+        d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li(
+            1.0, 0.3, 1.6, 0.8, minor_radius="limiter"
+        )

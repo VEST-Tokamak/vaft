@@ -663,12 +663,13 @@ def plasma_self_field_from_I_p_a(I_p_A, a_m):
     return _maybe_scalar(field, I_p_A, a_m)
 
 
-def vertical_field_from_I_p_R0_a_beta_p_li(I_p_A, R0_m, a_m, beta_p, li):
+def vertical_field_from_I_p_R0_a_beta_p_li(I_p_A, R0_m, a_m, beta_p, li, kappa=1.0):
     r"""Vertical field that holds a circular plasma in radial equilibrium.
 
     $$B_v = \frac{\mu_0 I_p}{4\pi R_0}
-      \left[\ln\!\left(\frac{8R_0}{a}\right)
-      + \beta_p + \frac{l_i}{2} - \frac{3}{2}\right]$$
+      \left[\ln\!\left(\frac{8R_0}{a\,l_\kappa}\right)
+      + \beta_p + \frac{l_i}{2} - \frac{3}{2}\right],\qquad
+      l_\kappa = \sqrt{\frac{1 + \kappa^2}{2}}$$
 
     Parameters
     ----------
@@ -683,6 +684,8 @@ def vertical_field_from_I_p_R0_a_beta_p_li(I_p_A, R0_m, a_m, beta_p, li):
     li : float or np.ndarray
         Normalised internal inductance, the same normalisation the
         equilibrium layer reports [-].
+    kappa : float or np.ndarray, optional
+        Elongation; default 1, a circular cross-section [-].
 
     Returns
     -------
@@ -692,8 +695,8 @@ def vertical_field_from_I_p_R0_a_beta_p_li(I_p_A, R0_m, a_m, beta_p, li):
     Raises
     ------
     ValueError
-        Non-finite or non-positive current, major or minor radius, or a minor
-        radius that is not smaller than the major one.
+        Non-finite or non-positive current, major radius, minor radius or
+        elongation, or a minor radius that is not smaller than the major one.
 
     Convention
     ----------
@@ -708,11 +711,19 @@ def vertical_field_from_I_p_R0_a_beta_p_li(I_p_A, R0_m, a_m, beta_p, li):
     ignore in a start-up estimate, large enough that a reported number should
     say which was used.
 
+    Elongation enters only through $l_\kappa = \sqrt{(1+\kappa^2)/2}$ inside the
+    logarithm, which is Mitarai's form: the shape shortens the effective minor
+    radius rather than changing the bracket.  At $\kappa = 1$ it is exactly the
+    circular Shafranov result, and at the $\kappa = 1.7$ of an ITER-FEAT-like
+    case it lowers $B_v$ by about 7 %.
+
     Assumptions
     -----------
-    High aspect ratio and a circular cross-section: the Shafranov result, with
-    elongation absent.  A spherical tokamak violates both, which is why the
-    low-aspect-ratio treatment is tracked separately in #783.
+    High aspect ratio: the Shafranov result, with shaping carried only by
+    $l_\kappa$.  A spherical tokamak violates the aspect-ratio expansion, and
+    the Hirshman external inductance is the route to that case --
+    see :func:`plasma_external_inductance_hirshman_from_R_eps_kappa` and
+    :func:`d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li`.
 
     Validity
     --------
@@ -730,13 +741,16 @@ def vertical_field_from_I_p_R0_a_beta_p_li(I_p_A, R0_m, a_m, beta_p, li):
     ----------
     .. [1] V. D. Shafranov, in *Reviews of Plasma Physics*, Vol. 2,
            Consultants Bureau (1966), p. 103.
-    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+    .. [2] O. Mitarai, R. Yoshino and K. Ushigusa, Nucl. Fusion 42 (2002) 1257,
+           Eq. (1.3); the elongation factor is Eq. (1.2).
+    .. [3] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 6.2.
 
     See Also
     --------
     startup_geometry_from_limiter_radii
     plasma_self_field_from_I_p_a
+    plasma_external_inductance_hirshman_from_R_eps_kappa
     """
     current = _require_positive("I_p_A", I_p_A)
     major = _require_positive("R0_m", R0_m)
@@ -745,11 +759,15 @@ def vertical_field_from_I_p_R0_a_beta_p_li(I_p_A, R0_m, a_m, beta_p, li):
         raise ValueError(
             f"a_m must be smaller than R0_m; got {a_m!r} and {R0_m!r}"
         )
+    shape = _require_positive("kappa", kappa)
     beta = np.asarray(beta_p, dtype=float)
     inductance = np.asarray(li, dtype=float)
-    bracket = np.log(8.0 * major / minor) + beta + 0.5 * inductance - 1.5
+    l_kappa = np.sqrt(0.5 * (1.0 + shape**2))
+    bracket = (
+        np.log(8.0 * major / (minor * l_kappa)) + beta + 0.5 * inductance - 1.5
+    )
     field = MU0 * current * bracket / (4.0 * np.pi * major)
-    return _maybe_scalar(field, I_p_A, R0_m, a_m, beta_p, li)
+    return _maybe_scalar(field, I_p_A, R0_m, a_m, beta_p, li, kappa)
 
 
 def flux_closure_margin_from_E_t_a_B_stray_eta(E_t, a_m, B_stray_T, eta_ohm_m):
@@ -828,6 +846,308 @@ def flux_closure_margin_from_E_t_a_B_stray_eta(E_t, a_m, B_stray_T, eta_ohm_m):
     resistivity = _require_positive("eta_ohm_m", eta_ohm_m)
     margin = 0.5 * MU0 * field * minor / (stray * resistivity)
     return _maybe_scalar(margin, E_t, a_m, B_stray_T, eta_ohm_m)
+
+
+
+#: Hirshman and Neilson's fit coefficients for the external inductance of a
+#: shaped plasma, in the order they appear in $a(\epsilon)$ and $b(\epsilon)$.
+#: Pinned here rather than inlined because the two derivative helpers below
+#: differentiate the same fit and must not drift from it.
+_HIRSHMAN_A = (1.81, 2.05, 9.25, 1.21)
+_HIRSHMAN_B = (0.73, 2.0, 6.0, 3.7)
+
+#: How the minor radius is held while the external inductance is
+#: differentiated with respect to the major radius.  Each entry is
+#: $R\,\mathrm{d}\epsilon/\mathrm{d}R$, which is the only way the choice enters.
+_MINOR_RADIUS_CONVENTIONS = {
+    "fixed": lambda eps: -eps,
+    "inboard": lambda eps: 1.0 - eps,
+    "outboard": lambda eps: -(1.0 + eps),
+}
+
+
+def plasma_external_inductance_hirshman_from_R_eps_kappa(R_m, epsilon, kappa):
+    r"""External inductance of a shaped plasma, Hirshman and Neilson's fit.
+
+    $$L_e = \mu_0 R\,\frac{a(\epsilon)\,(1 - \epsilon)}
+      {(1 - \epsilon) + b(\epsilon)\,\kappa}$$
+
+    $$a(\epsilon) = \left(1 + 1.81\sqrt\epsilon + 2.05\epsilon\right)
+      \ln\!\frac{8}{\epsilon} - \left(2.0 + 9.25\sqrt\epsilon
+      - 1.21\epsilon\right)$$
+
+    $$b(\epsilon) = 0.73\sqrt\epsilon\left(1 + 2\epsilon^4 - 6\epsilon^5
+      + 3.7\epsilon^6\right)$$
+
+    Parameters
+    ----------
+    R_m : float or np.ndarray
+        Major radius, finite and positive [m].
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $a/R$, finite and in $(0, 1)$ [-].
+    kappa : float or np.ndarray
+        Elongation, finite and positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        External inductance [H].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive input, or an inverse aspect ratio that is
+        not below one.
+
+    Convention
+    ----------
+    **External only.**  The plasma's own internal inductance is the separate
+    $\mu_0 R\,l_i/2$ that :func:`plasma_inductance_hirshman_from_R_eps_kappa_li`
+    adds; splitting them is what lets the internal term carry whichever $l_i$
+    normalisation the caller's equilibrium reports.
+
+    This is the fit the low-aspect-ratio start-up literature reaches for when
+    the circular $\ln(8R/a) - 2$ form runs out.  It is often met under
+    Mitarai's name, because his vertical-field expression is where it is
+    usually substituted, but the inductance itself is Hirshman and Neilson's;
+    Mitarai's own Eq. (1.2) is the circular form with the
+    $l_\kappa = \sqrt{(1+\kappa^2)/2}$ correction that
+    :func:`vertical_field_from_I_p_R0_a_beta_p_li` carries.
+
+    Validity
+    --------
+    An empirical fit over $\epsilon$ and $\kappa$, unlike the circular form,
+    which is an expansion.  It therefore stays usable at the
+    $\epsilon \approx 0.7$ of a spherical tokamak, which is the reason to
+    prefer it there.
+
+    Limitations
+    -----------
+    Shaping enters only through $\kappa$: no triangularity, no squareness.  The
+    fit says nothing about where the plasma sits, only about the inductance of
+    a boundary of that shape.
+
+    References
+    ----------
+    .. [1] S. P. Hirshman and G. H. Neilson, Phys. Fluids 29 (1986) 790.
+    .. [2] O. Mitarai, R. Yoshino and K. Ushigusa, Nucl. Fusion 42 (2002) 1257.
+
+    See Also
+    --------
+    plasma_inductance_hirshman_from_R_eps_kappa_li
+    d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li
+    """
+    major = _require_positive("R_m", R_m)
+    eps = _require_positive("epsilon", epsilon)
+    shape = _require_positive("kappa", kappa)
+    if np.any(eps >= 1.0):
+        raise ValueError(f"epsilon must be below 1; got {epsilon!r}")
+    numerator = _hirshman_a(eps) * (1.0 - eps)
+    denominator = (1.0 - eps) + _hirshman_b(eps) * shape
+    return _maybe_scalar(MU0 * major * numerator / denominator, R_m, epsilon, kappa)
+
+
+def plasma_inductance_hirshman_from_R_eps_kappa_li(R_m, epsilon, kappa, li):
+    r"""Total plasma inductance, Hirshman external plus the internal term.
+
+    $$L_p = \mu_0 R\left[\frac{a(\epsilon)(1 - \epsilon)}
+      {(1 - \epsilon) + b(\epsilon)\kappa} + \frac{l_i}{2}\right]$$
+
+    Parameters
+    ----------
+    R_m : float or np.ndarray
+        Major radius, finite and positive [m].
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $a/R$, finite and in $(0, 1)$ [-].
+    kappa : float or np.ndarray
+        Elongation, finite and positive [-].
+    li : float or np.ndarray
+        Normalised internal inductance [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Total plasma inductance [H].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive radius, inverse aspect ratio or elongation,
+        or an inverse aspect ratio that is not below one.
+
+    Convention
+    ----------
+    $l_i$ is whichever normalisation the caller's equilibrium reports, and it
+    enters as the dimensional $\mu_0 R\,l_i/2$.  That is the Romero/ITER
+    convention $l_i = 2L_i/(\mu_0 R)$ read backwards, so a caller holding a
+    dimensional $L_i$ should divide rather than pass it here.
+
+    Limitations
+    -----------
+    A lumped inductance for a circuit model.  It is not the flux-surface
+    quantity an equilibrium code reports, and the two coincide only to the
+    accuracy of the fit.
+
+    References
+    ----------
+    .. [1] S. P. Hirshman and G. H. Neilson, Phys. Fluids 29 (1986) 790.
+    .. [2] O. Mitarai, R. Yoshino and K. Ushigusa, Nucl. Fusion 42 (2002) 1257,
+           Eq. (1.2).
+
+    See Also
+    --------
+    plasma_external_inductance_hirshman_from_R_eps_kappa
+    d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li
+    """
+    external = plasma_external_inductance_hirshman_from_R_eps_kappa(
+        R_m, epsilon, kappa
+    )
+    major = np.asarray(R_m, dtype=float)
+    internal = MU0 * major * 0.5 * np.asarray(li, dtype=float)
+    return _maybe_scalar(external + internal, R_m, epsilon, kappa, li)
+
+
+def d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li(
+    R_m, epsilon, kappa, li, minor_radius="fixed"
+):
+    r"""Radial derivative of the Hirshman plasma inductance.
+
+    $$\frac{\partial L_p}{\partial R} = \mu_0\frac{N}{D}
+      + \mu_0\left(R\frac{\mathrm{d}\epsilon}{\mathrm{d}R}\right)
+        \left[\frac{N'}{D} - \frac{N D'}{D^2}\right]
+      + \mu_0\frac{l_i}{2}$$
+
+    with $N = a(\epsilon)(1-\epsilon)$ and $D = (1-\epsilon) + b(\epsilon)\kappa$.
+
+    Parameters
+    ----------
+    R_m : float or np.ndarray
+        Major radius, finite and positive [m].
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $a/R$, finite and in $(0, 1)$ [-].
+    kappa : float or np.ndarray
+        Elongation, finite and positive [-].
+    li : float or np.ndarray
+        Normalised internal inductance, held fixed by the derivative [-].
+    minor_radius : str, optional
+        What is held while $R$ varies: ``'fixed'`` (default) keeps $a$,
+        ``'inboard'`` keeps the inboard limiter so $a = R - R_{\min}$, and
+        ``'outboard'`` keeps the outboard limiter so $a = R_{\max} - R$ [str].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\partial L_p/\partial R$ [H/m].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive input, an inverse aspect ratio that is not
+        below one, or an unknown ``minor_radius``.
+
+    Convention
+    ----------
+    **The minor-radius convention changes the sign, not just the size.**  It
+    enters only through $R\,\mathrm{d}\epsilon/\mathrm{d}R$, which is
+    $-\epsilon$ for a fixed minor radius, $1-\epsilon$ for an inboard-limited
+    plasma and $-(1+\epsilon)$ for an outboard-limited one.  At
+    $\epsilon = 0.3$, $\kappa = 1$, $l_i = 0$ the three give $+2.89$, $-1.80$
+    and $+7.58\ \mathrm{\mu H/m}$: a radial force balance solved with the wrong
+    one does not merely misestimate, it pushes the plasma the other way.
+
+    ``'fixed'`` is the default because it is what reproduces the reduced
+    vertical-field expressions: substituting the circular inductance into
+    $B_{VE} = -(\mu_0 I_p/4\pi R)[\mu_0^{-1}\partial L_p/\partial R + \beta_p
+    - 1/2]$ with $a$ held gives Mitarai's Eq. (1.3) exactly.  A solver that
+    moves the plasma against a limiter wants one of the other two.
+
+    $l_i$ is held fixed, so the $\mu_0 l_i/2$ term is the derivative of the
+    internal part alone.  A current profile that redistributes while the plasma
+    moves contributes a $\mu_0 R\,\dot l_i/2$ this does not carry.
+
+    Limitations
+    -----------
+    Differentiates the fit, not the plasma: it is only as good as Hirshman's
+    $a$ and $b$, and inherits their shaping limits.
+
+    Numerical notes
+    ---------------
+    Analytic, not a finite difference: $a'$ and $b'$ are differentiated in
+    closed form, so the result is exact to machine precision rather than
+    limited by a step size.
+
+    References
+    ----------
+    .. [1] S. P. Hirshman and G. H. Neilson, Phys. Fluids 29 (1986) 790.
+    .. [2] O. Mitarai, R. Yoshino and K. Ushigusa, Nucl. Fusion 42 (2002) 1257,
+           Eq. (1.2) and Eq. (1.3).
+
+    See Also
+    --------
+    plasma_inductance_hirshman_from_R_eps_kappa_li
+    vertical_field_from_I_p_R0_a_beta_p_li
+    """
+    _require_positive("R_m", R_m)
+    eps = _require_positive("epsilon", epsilon)
+    shape = _require_positive("kappa", kappa)
+    if np.any(eps >= 1.0):
+        raise ValueError(f"epsilon must be below 1; got {epsilon!r}")
+    if minor_radius not in _MINOR_RADIUS_CONVENTIONS:
+        raise ValueError(
+            f"unknown minor_radius {minor_radius!r}; choose one of "
+            f"{sorted(_MINOR_RADIUS_CONVENTIONS)}"
+        )
+    numerator = _hirshman_a(eps) * (1.0 - eps)
+    denominator = (1.0 - eps) + _hirshman_b(eps) * shape
+    d_numerator = _hirshman_da(eps) * (1.0 - eps) - _hirshman_a(eps)
+    d_denominator = -1.0 + _hirshman_db(eps) * shape
+    core = d_numerator / denominator - numerator * d_denominator / denominator**2
+    r_deps_dr = _MINOR_RADIUS_CONVENTIONS[minor_radius](eps)
+    derivative = MU0 * (
+        numerator / denominator
+        + r_deps_dr * core
+        + 0.5 * np.asarray(li, dtype=float)
+    )
+    return _maybe_scalar(derivative, R_m, epsilon, kappa, li)
+
+
+def _hirshman_a(eps):
+    """Hirshman's $a(\\epsilon)$."""
+    a1, a2, a3, a4 = _HIRSHMAN_A
+    root = np.sqrt(eps)
+    return (1.0 + a1 * root + a2 * eps) * np.log(8.0 / eps) - (
+        2.0 + a3 * root - a4 * eps
+    )
+
+
+def _hirshman_da(eps):
+    r"""$\\mathrm{d}a/\\mathrm{d}\\epsilon$, in closed form.
+
+    The $1/\\sqrt\\epsilon$ coefficient is $a_1 + a_3/2 = 6.435$.  Mitarai's
+    paper prints that value; a circulating derivation note calls it a typo for
+    5.935, which numerical differentiation of $a(\\epsilon)$ refutes to eight
+    significant figures.  The constant term is $a_2 - a_4 = 0.84$, not
+    $a_2 + a_4$.
+    """
+    a1, a2, a3, a4 = _HIRSHMAN_A
+    root = np.sqrt(eps)
+    return (0.5 * a1 / root + a2) * np.log(8.0 / eps) - (
+        (a2 - a4) + 1.0 / eps + (a1 + 0.5 * a3) / root
+    )
+
+
+def _hirshman_b(eps):
+    """Hirshman's $b(\\epsilon)$."""
+    b1, b2, b3, b4 = _HIRSHMAN_B
+    return b1 * np.sqrt(eps) * (1.0 + b2 * eps**4 - b3 * eps**5 + b4 * eps**6)
+
+
+def _hirshman_db(eps):
+    r"""$\\mathrm{d}b/\\mathrm{d}\\epsilon$, in closed form."""
+    b1, b2, b3, b4 = _HIRSHMAN_B
+    return (b1 / np.sqrt(eps)) * (
+        0.5 + 4.5 * b2 * eps**4 - 5.5 * b3 * eps**5 + 6.5 * b4 * eps**6
+    )
 
 
 
