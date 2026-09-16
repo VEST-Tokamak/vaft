@@ -7,10 +7,6 @@ of which shot happened to be loaded.  Policy:
 ``notebooks/plotting_sample_using_vaft_plot_module.ipynb``.
 """
 
-import contextlib
-import io
-import warnings
-
 import matplotlib
 
 matplotlib.use("Agg")
@@ -24,19 +20,15 @@ import vaft
 import vaft.omas
 from vaft.plot.models import Panels
 
-
-def _load(rel):
-    with contextlib.redirect_stderr(io.StringIO()), warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        return vaft.omas.load(str(vaft.data.data_path(rel)))
+from _sample_fixtures import packaged_ods
 
 
 @pytest.fixture(scope="module")
 def shots():
     return {
-        39915: _load("samples/39915/omas.json.gz"),
-        41524: _load("samples/41524/imas.nc"),
-        41672: _load("samples/41672/imas.nc"),
+        39915: packaged_ods("samples/39915/omas.json.gz"),
+        41524: packaged_ods("samples/41524/imas.nc"),
+        41672: packaged_ods("samples/41672/imas.nc"),
     }
 
 

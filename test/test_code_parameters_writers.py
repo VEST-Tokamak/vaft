@@ -105,6 +105,11 @@ ALLOWED: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("equilibrium.code.parameters.time_slice.", "write",
          "a-file cache fixture: the topology cases need a `limloc` to classify"),
     ),
+    "test/test_equilibrium_cohorts.py": (
+        ("equilibrium.code.parameters.time_slice.", "write",
+         "a-file cache fixture: the cohort cut on topology needs a `limloc`, so the "
+         "join's fixtures write one the same way the regime tests do (#76)"),
+    ),
     "test/test_ods_access.py": (
         ("equilibrium.code.parameters.time_slice.", "read",
          "the accessor's own tests for descending into the cache"),

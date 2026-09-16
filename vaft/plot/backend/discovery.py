@@ -83,6 +83,7 @@ from .recipes import (
     conversion_reason,
     converts_for_builder,
     diagnoses_itself,
+    materialises_for_builder,
     has_synthetic_values,
     missing_required_path,
 )
@@ -430,6 +431,11 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
         if any(converts_for_builder(obj, record.name) for _, obj in entries):
             reason = (
                 "checked at render time; converted per IDS for this input "
+                f"({conversion_reason(record.name)})"
+            )
+        elif any(materialises_for_builder(obj, record.name) for _, obj in entries):
+            reason = (
+                "checked at render time; built from its declared reads on this lazy input "
                 f"({conversion_reason(record.name)})"
             )
     updates: dict[str, Any] = {

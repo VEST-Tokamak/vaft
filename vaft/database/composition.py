@@ -24,6 +24,7 @@ import numpy as np
 
 from ..machine_mapping.utils import path_exists
 from . import sources as _sources
+from .filedb import OMAS_MANIFEST_NAME
 
 
 #: Both nodes the array can land on: Hall channels are mounted for the toroidal
@@ -128,6 +129,27 @@ def _load_product(path: Path) -> Any:
     return load_product(path)
 
 
+def _superseded_sha256(product: Path) -> str | None:
+    """The hash of the file this product was migrated from, if it was.
+
+    `migrate-products` rewrites a manifest's `output` to the file that now
+    exists and records the one it replaced under `migration.previous_output`.
+    Read defensively: a tree that has never been migrated has no such block, a
+    manifest may be absent on a hand-assembled product, and neither is an error
+    here -- both simply mean there is no superseded hash to accept.
+    """
+    manifest_path = product.parent.parent / "metadata" / OMAS_MANIFEST_NAME
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(manifest, dict):
+        return None
+    previous = (manifest.get("migration") or {}).get("previous_output") or {}
+    recorded = previous.get("sha256")
+    return recorded if isinstance(recorded, str) else None
+
+
 def compose_stage_products(
     *,
     diagnostics: str | Path,
@@ -163,6 +185,17 @@ def compose_stage_products(
     file against the hash the eddy manifest recorded for the product it read.
     Harnesses pointed at hand-assembled products pass ``strict=False`` to
     downgrade it to a warning; nothing downgrades the grid check.
+
+    That second check has one accepted way to disagree.  Migrating a product
+    onto a new container (``vaft.cli filedb migrate-products``, #813) re-encodes
+    bytes that are already correct, so the diagnostics file hashes differently
+    while holding the same data -- and the migration deliberately does **not**
+    rewrite the eddy manifest's ``input``, because those hashes record the files
+    the run actually read and editing them would assert the physics was computed
+    from a file that did not exist then.  The join is closed from the other side
+    instead: the diagnostics manifest records what it was migrated *from*, and a
+    recorded hash matching that is the same file, so it passes.  Without this the
+    migration would break every composition on the deployment at once.
 
     Returns the composed ODS and a provenance record naming both inputs.
     """
@@ -211,12 +244,18 @@ def compose_stage_products(
         recorded = (manifest.get("input") or {}).get("diagnostics_sha256")
 
     actual = _sha256_file(diagnostics_path)
-    if recorded is not None and recorded != actual:
+    superseded = _superseded_sha256(diagnostics_path)
+    if recorded is not None and recorded != actual and recorded != superseded:
         message = (
             "The eddy product was computed from a different diagnostics file: "
             f"its manifest records {recorded}, but {diagnostics_path} hashes to "
             f"{actual}."
         )
+        if superseded is not None:
+            message += (
+                f" Its manifest records a migration from {superseded}, which "
+                "does not match either."
+            )
         if strict:
             raise StageCompositionError(message)
         warnings.warn(message, RuntimeWarning, stacklevel=2)

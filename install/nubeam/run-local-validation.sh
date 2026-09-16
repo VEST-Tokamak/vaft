@@ -98,7 +98,13 @@ fi
 NUBEAM_ROOT="$(cd "$NUBEAM_ROOT" 2>/dev/null && pwd -P)" ||
   die "NUBEAM source tree does not exist"
 DATA_DIR="$NUBEAM_ROOT/nubeam_comp_exec"
-BUILD_DIR="$NUBEAM_ROOT/build/darwin-arm64"
+# Derived, not hardcoded: the installers write build/darwin-arm64 on macOS and
+# build/linux-<arch> on Linux, and this ran on Linux against the macOS path.
+case "$(uname -s)" in
+  Darwin) BUILD_DIR="$NUBEAM_ROOT/build/darwin-$(uname -m)" ;;
+  Linux) BUILD_DIR="$NUBEAM_ROOT/build/linux-$(uname -m)" ;;
+  *) die "unsupported platform: $(uname -s)" ;;
+esac
 PREFIX="${NUBEAMHOME:-$NUBEAM_ROOT/local}"
 
 NUBEAM_EXEC="$PREFIX/bin/nubeam_comp_exec"
@@ -225,12 +231,16 @@ note "NUBEAM completed normally"
 printf 'RESULT_DIR=%s\n' "$WORK_DIR"
 printf 'INTERPOLATION_WARNINGS=%s\n' "$interpolation_warnings"
 
-if [[ -x "$SCRIPT_DIR/compare-plasma-state.py" ]]; then
+# Run it through the interpreter and test for the file, not for the execute
+# bit. compare-plasma-state.py is committed 100644, so `[[ -x ]]` was false on
+# every fresh checkout and the comparison -- the step this script exists for --
+# was skipped while the run still reported success.
+if [[ -f "$SCRIPT_DIR/compare-plasma-state.py" ]]; then
   note "comparing against the reference Plasma State"
-  "$SCRIPT_DIR/compare-plasma-state.py" \
+  "${PYTHON:-python3}" "$SCRIPT_DIR/compare-plasma-state.py" \
     "$WORK_DIR/$REFERENCE_STATE" "$WORK_DIR/$OUTPUT_STATE" \
     --changes "$WORK_DIR/state_changes.cdf" \
     | tee "$WORK_DIR/comparison.txt"
 else
-  note "compare-plasma-state.py not found; skipping the profile comparison"
+  die "compare-plasma-state.py is missing from $SCRIPT_DIR, so this run cannot be validated against its reference"
 fi

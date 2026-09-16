@@ -48,9 +48,14 @@ PROJECT = "GPEC"
 EXECUTABLES = ("dcon", "match", "rdcon", "rmatch", "stride", "gpec")
 
 SOURCE_MARKERS = ("install/makefile", "install/DEFAULTS.inc", "install/TARGETS.inc", "dcon", "gpec")
+#: The installer that works on this platform; see check_chease.py.
 BUILD_REMEDIATION = (
     "Build the suite with:\n"
-    "         powershell -ExecutionPolicy Bypass -File install\\install_gpec_windows.ps1 <source>"
+    + (
+        "         powershell -ExecutionPolicy Bypass -File install\\install_gpec_windows.ps1 <source>"
+        if os.name == "nt"
+        else "         bash install/install_gpec.sh --source <source>"
+    )
 )
 
 #: Upstream's own self-contained regression case: an analytic Solov'ev
@@ -387,7 +392,7 @@ def run_checks(
     if prefix is None:
         prefix = os.environ.get("GPECHOME")
     if prefix is None:
-        candidate = default_prefix("gpec")
+        candidate = default_prefix("gpec", source)
         if candidate is not None and (candidate / "bin").is_dir():
             prefix = str(candidate)
 

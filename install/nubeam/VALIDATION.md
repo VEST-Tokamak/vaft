@@ -1,4 +1,4 @@
-# macOS arm64 build validation
+# Build validation: macOS arm64 and Linux x86_64
 
 Both reference cases that ship with the NTCC distribution were run on this
 build and compared against the reference Plasma States shipped alongside them.
@@ -104,6 +104,63 @@ depend on halo neutrals, this is the thread to pull.
 
 `pcx_reco` on D3D (155%) is a small-denominator artifact -- the same profile is
 6.31% on TFTR, and its D3D noise floor is 1.74%.
+
+## Linux x86_64: the same numbers, including the anomalies
+
+The D3D case was rerun on the Linux build (Ubuntu 22.04.4, gfortran 11.4.0,
+`install/nubeam/linux.sh`), with its own noise floor measured the same way —
+the same two seeds, this build against itself.
+
+| profile | Linux vs ref | Linux noise | macOS vs ref | macOS noise |
+| --- | ---: | ---: | ---: | ---: |
+| `pbe` | 0.29% | 0.56% | 0.31% | 0.85% |
+| `pbi` | 5.29% | 3.76% | 4.99% | 3.24% |
+| `pbth` | 4.07% | 30.04% | 4.22% | 28.26% |
+| `nbeami` | 4.73% | 4.41% | 4.75% | 4.42% |
+| `curbeam` | 8.58% | 3.03% | 8.54% | 2.80% |
+| `tqbe` | 6.65% | 1.81% | 6.89% | 2.17% |
+| `tqbi` | 8.88% | 41.67% | 11.64% | 41.18% |
+| `tqbjxb` | 0.15% | 82.44% | 0.60% | 71.35% |
+| `eperp_beami` | 3.16% | 1.44% | 3.19% | 1.57% |
+| `epll_beami` | 1.16% | 5.86% | 1.14% | 5.57% |
+| `sbedep` | 3.62% | 0.37% | 3.62% | 0.43% |
+
+And the FRANTIC residual, which is the more informative half:
+
+| profile | Linux vs ref | Linux noise | macOS vs ref | macOS noise |
+| --- | ---: | ---: | ---: | ---: |
+| `psc_halo` | 23.66% | 0.40% | 23.65% | 0.48% |
+| `pcx_halo` | 23.50% | 1.12% | 23.50% | 1.16% |
+| `n0_halo` | 16.48% | 0.48% | 16.48% | 0.52% |
+| `psc_reco` | 14.92% | 0.05% | 14.92% | 0.06% |
+| `n0_reco` | 11.28% | 0.02% | 11.28% | 0.02% |
+| `s0reco_e` | 10.39% | 0.10% | 10.39% | 0.10% |
+| `pcx_reco` | 155.06% | 1.71% | 155.14% | 1.74% |
+
+63 NUBEAM output profiles compared, median 2.83%.
+
+The two builds agree to about a tenth of a percentage point on every profile,
+and their noise floors agree too. That includes the FRANTIC offset and the
+`pcx_reco` small-denominator artifact: the Linux build reproduces the macOS
+build's quirks at the same magnitude, not merely its healthy channels.
+
+That is what makes this more than a second passing run. Two independent
+toolchains — gfortran 11.4.0 with reference netlib BLAS on Linux, Homebrew
+gfortran 15.2 with OpenBLAS on macOS — landing on the same residual confirms
+the section above: the offset belongs to the 2.044-to-2.055 model change, not
+to either platform.
+
+### One caveat specific to this build
+
+Linux compiles a different `nubeam.cpp` than macOS does. The 2021 distribution's
+copy calls a PSPLINE C API that current PPPL PSPLINE no longer provides, so
+`linux.sh` compiles the adapted copy from `vendor/server-ntcc-2021/` instead,
+with the `_r8` suffixes upstream has since removed. The prefix records which
+file was used, with its digest, in `vaft-external-install.json`.
+
+That substitution affects `Nubeam::interp1d` only, and the agreement above is
+the evidence that it changed nothing observable: a wrong interpolation would
+not leave 63 profiles within a tenth of a percent of the macOS build.
 
 ## Notes
 

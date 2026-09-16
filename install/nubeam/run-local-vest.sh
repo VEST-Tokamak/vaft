@@ -37,7 +37,7 @@ runs NUBEAM INIT and STEP against it. Everything runs locally; no server.
   --input-dir PATH  directory holding inputf, profiles, mdescr_*.dat,
                     sconfig_*.dat and the four nubeam_*.dat files
   --gfile PATH      G-EQDSK equilibrium
-  --run-name NAME   work directory name under build/darwin-arm64/ (default: vest)
+  --run-name NAME   work directory name under the platform build dir (default: vest)
   --repeat CxS      NUBEAM_REPEAT_COUNT (default: 1x0.001)
   --nptcls N        override nptcls/nptclf in the init namelist (minimum 100)
 EOF

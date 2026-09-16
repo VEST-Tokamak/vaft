@@ -38,7 +38,9 @@ All four share one on-disk root, `base_dir` (`/srv/vest.filedb/public` in every 
 pipeline 1 writes under it in one of two layouts selected by the `layout:` config key.
 
 `layout: shot_first` (the default) is the legacy server hierarchy, kept so this pipeline stays
-directly diffable against the reference output:
+directly diffable against the reference output. Its product names are plain `.json` and stay that
+way: the tree is a read-only record of what the legacy pipeline wrote, so it does not follow the
+canonical layout's container (`OMAS_PRODUCT_SUFFIX`, `.json.gz` since #813).
 
 ```text
 {base_dir}/{shot}/

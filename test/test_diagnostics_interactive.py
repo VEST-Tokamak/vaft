@@ -25,12 +25,14 @@ from vaft.plot.backend.recipes import RECIPES, build_model, member_options_for
 from vaft.plot.controls import controls_for
 from vaft.plot.navigation import ControlState
 
+from _sample_fixtures import sample_ods
+
 NAME = "diagnostics_overview"
 
 
 @pytest.fixture(scope="module")
 def sample():
-    return vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    return sample_ods(39915)
 
 
 @pytest.fixture(scope="module")
@@ -216,7 +218,7 @@ def test_the_database_twins_exist_and_explore_one_shot(monkeypatch):
 
     def fake_load(shot, source=None, paths=None, occurrence=None):
         seen.update(shot=shot, source=source, paths=paths)
-        return vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+        return sample_ods(39915)
 
     monkeypatch.setattr("vaft.database.load", fake_load)
     monkeypatch.setattr(db, "_resolve_source", lambda source: source or "resolved")
