@@ -369,10 +369,18 @@ def audit_mfile(
         dtype=float,
     )
     relation = np.asarray([], dtype=float)
-    matrix = np.asarray(scientific.constraints.coil_constraint_matrix, dtype=float)
-    targets = np.asarray(scientific.constraints.coil_constraint_targets, dtype=float)
-    if pf_reconstructed.size == matrix.shape[0]:
-        relation = matrix.T @ pf_reconstructed - targets
+    # `None` is the documented default for both: it means "derive them from the
+    # coilset the writer is given" rather than "there are none", so the matrix
+    # is simply not available here. np.asarray(None) is a 0-d array, and asking
+    # it for shape[0] raises IndexError -- which only ever fires when an m-file
+    # exists to audit, so a build without NetCDF hides it completely.
+    matrix_spec = scientific.constraints.coil_constraint_matrix
+    targets_spec = scientific.constraints.coil_constraint_targets
+    if matrix_spec is not None and targets_spec is not None:
+        matrix = np.asarray(matrix_spec, dtype=float)
+        targets = np.asarray(targets_spec, dtype=float)
+        if matrix.ndim == 2 and pf_reconstructed.size == matrix.shape[0]:
+            relation = matrix.T @ pf_reconstructed - targets
 
     return {
         "path": path.name,
