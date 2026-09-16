@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>dc9fe53</code>. What is described
+  <code>7cc70b4</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -459,7 +459,9 @@ a 2-D $(R, Z)$ map.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">V</span>     <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">volume_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">)</span>              <span class="c1"># 2 pi A_poly R_bar
 </span><span class="n">kappa</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">elongation_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">)</span>          <span class="c1"># kappa = (Zmax-Zmin)/(2a)
-</span><span class="n">delta</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">triangularity_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>   <span class="c1"># delta = (R0 - R_sep)/a
+</span><span class="n">delta</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">triangularity_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>   <span class="c1"># mean of the two below
+</span><span class="n">d_u</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">triangularity_upper_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>  <span class="c1"># (R0 - R at Zmax)/a
+</span><span class="n">d_l</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">triangularity_lower_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>  <span class="c1"># (R0 - R at Zmin)/a
 </span><span class="n">eK</span>    <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">eK_from_K</span><span class="p">(</span><span class="n">kappa</span><span class="p">)</span>                                     <span class="c1"># eK = (k^2-1)/(k^2+1)
 </span><span class="n">eps</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">inverse_aspect_ratio_from_a_R</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>                  <span class="c1"># epsilon = a/R
 </span><span class="n">A</span>     <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">aspect_ratio_from_a_R</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>                          <span class="c1"># A = R/a
@@ -1094,7 +1096,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 02:41:05 +0000"
+        "time": "2026-09-16 03:31:46 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

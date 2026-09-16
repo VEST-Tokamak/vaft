@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>dc9fe53</code>. What is described
+  <code>7cc70b4</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -294,7 +294,7 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td>
-    <td><code>vaft.formula.equilibrium</code></td><td>77</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
+    <td><code>vaft.formula.equilibrium</code></td><td>81</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/virial/">virial</a></td>
@@ -417,7 +417,7 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="equilibrium">Equilibrium</h2>
 
-<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/develop/reference/formula/equilibrium/">77 functions</a>.</p>
+<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/develop/reference/formula/equilibrium/">81 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/equilibrium/#alpha_heating_power_from_n_D_n_T_T_keV_V"><code>alpha_heating_power_from_n_D_n_T_T_keV_V</code></a> <em>(empirical)</em> &mdash; D-T alpha heating power with the rough $\langle\sigma v\rangle \propto T^2$ fit.
@@ -440,7 +440,9 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#bremsstrahlung_power_density_from_T_e_p_Z_eff"><code>bremsstrahlung_power_density_from_T_e_p_Z_eff</code></a> <em>(convention)</em> &mdash; Bremsstrahlung power density in the pressure form.
 </li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#bremsstrahlung_power_density_from_Z_eff_n_e_T_e"><code>bremsstrahlung_power_density_from_Z_eff_n_e_T_e</code></a> <em>(convention)</em> &mdash; Maxwellian free-free (bremsstrahlung) power density from first principles.
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#bremsstrahlung_power_density_from_Z_eff_n_e_T_e"><code>bremsstrahlung_power_density_from_Z_eff_n_e_T_e</code></a> &mdash; Deprecated: use <code class="language-plaintext highlighter-rouge">bremsstrahlung_power_density_from_n_e_T_e_Z_eff</code>.
+</li>
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#bremsstrahlung_power_density_from_n_e_T_e_Z_eff"><code>bremsstrahlung_power_density_from_n_e_T_e_Z_eff</code></a> <em>(convention)</em> &mdash; Maxwellian free-free (bremsstrahlung) power density from first principles.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#bremsstrahlung_radiation_power_from_z_eff_n_e_t_e"><code>bremsstrahlung_radiation_power_from_z_eff_n_e_t_e</code></a> <em>(convention)</em> &mdash; Bremsstrahlung power density, NRL engineering form.
 </li>
@@ -550,6 +552,8 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#q_from_rhoN"><code>q_from_rhoN</code></a> <em>(convention)</em> &mdash; Safety factor from the toroidal-flux label $\rho_N(\psi_N)$.
 </li>
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#r_at_z_extremum_from_RZ_contour"><code>r_at_z_extremum_from_RZ_contour</code></a> <em>(convention)</em> &mdash; Major radius where a closed contour reaches its highest or lowest point.
+</li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#radial_magnetic_field_from_psi"><code>radial_magnetic_field_from_psi</code></a> <em>(convention)</em> &mdash; Radial magnetic field $B_R$ from the poloidal flux map.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#rhoN_from_phi"><code>rhoN_from_phi</code></a> <em>(convention)</em> &mdash; Normalised toroidal-flux radius $\rho_N$.
@@ -584,7 +588,11 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#toroidal_flux_from_q_psi"><code>toroidal_flux_from_q_psi</code></a> <em>(convention)</em> &mdash; Cumulative toroidal flux $\Phi(\psi)$ from the $q$ profile on a full-weber grid.
 </li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#triangularity_from_RZ_boundary"><code>triangularity_from_RZ_boundary</code></a> <em>(convention)</em> &mdash; Boundary triangularity $\delta$ from the midplane intersection.
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#triangularity_from_RZ_boundary"><code>triangularity_from_RZ_boundary</code></a> <em>(convention)</em> &mdash; Boundary triangularity $\delta$, the mean of the upper and lower values.
+</li>
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#triangularity_lower_from_RZ_boundary"><code>triangularity_lower_from_RZ_boundary</code></a> <em>(convention)</em> &mdash; Lower boundary triangularity $\delta_l$ from the contour’s lowest point.
+</li>
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#triangularity_upper_from_RZ_boundary"><code>triangularity_upper_from_RZ_boundary</code></a> <em>(convention)</em> &mdash; Upper boundary triangularity $\delta_u$ from the contour’s highest point.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#verify_kadomtsev_constraint"><code>verify_kadomtsev_constraint</code></a> &mdash; Reconstruct the Kadomtsev constraint value from dimensionless indices.
 </li>
@@ -1161,7 +1169,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 02:41:05 +0000"
+        "time": "2026-09-16 03:31:46 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

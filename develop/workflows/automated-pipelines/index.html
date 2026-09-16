@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>dc9fe53</code>. What is described
+  <code>7cc70b4</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -372,6 +372,7 @@ and the <code class="language-plaintext highlighter-rouge">Makefile</code> does 
     A["generate_raw_db_dump&lt;br/&gt;vest_SHOT_daq_raw.json.gz"] --&gt; B["generate_diagnostics_ods&lt;br/&gt;SHOT_diagnostics.json"]
     B --&gt; C["generate_eddy_ods&lt;br/&gt;SHOT_eddy.json"]
     C --&gt; D["generate_constraints_ods&lt;br/&gt;SHOT_constraints.json"]
+    B --&gt; D
     D --&gt; E["generate_kfile&lt;br/&gt;efit/kfile/kfiles_generated.txt"]
     E --&gt; F["run_efit_reconstruction&lt;br/&gt;gfiles_generated.txt + efit_status.txt"]
     F --&gt; G["generate_efit_ods&lt;br/&gt;SHOT_efit.json"]
@@ -379,6 +380,14 @@ and the <code class="language-plaintext highlighter-rouge">Makefile</code> does 
     H --&gt; I["generate_chease_ods&lt;br/&gt;SHOT_chease.json"]
     H --&gt; J["run_gpec_suite&lt;br/&gt;gpec_suite_runs.json + gpec_suite_status.txt"]
 </code></pre>
+
+<p><code class="language-plaintext highlighter-rouge">generate_constraints_ods</code> takes <strong>two</strong> products, not one. Each stage stores only the IDS it owns,
+so the constraint builder reads <code class="language-plaintext highlighter-rouge">magnetics</code>, <code class="language-plaintext highlighter-rouge">pf_active</code> and <code class="language-plaintext highlighter-rouge">tf</code> from the diagnostics product and
+<code class="language-plaintext highlighter-rouge">pf_passive</code> from the eddy product, unioning them through
+<code class="language-plaintext highlighter-rouge">vaft.database.composition.compose_stage_products</code>. That composer also refuses a pairing whose time
+grids show the two came from different runs — the EFIT constraint builder interpolates each slice
+onto <code class="language-plaintext highlighter-rouge">pf_passive.time</code>, so a mismatched pairing produces wall currents for the wrong instants
+rather than an error.</p>
 
 <p>Stages do <strong>not</strong> hand individual g-/k-files to each other as Snakemake outputs. Each stage writes a
 <strong>manifest</strong> — a text file with one absolute path per line — and the next stage reads it. <code class="language-plaintext highlighter-rouge">run_gpec_suite</code>
@@ -1192,7 +1201,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 02:41:05 +0000"
+        "time": "2026-09-16 03:31:46 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
