@@ -4228,7 +4228,7 @@ def straight_field_line_tables(
     tuple of (ndarray, ndarray)
         One ``(lab, sfl)`` pair per flux surface, both strictly increasing and
         spanning exactly one period, ready for
-        :func:`lab_to_straight_field_line`.
+        :func:`lab_to_straight_field_line` [rad].
 
     Raises
     ------
