@@ -1,5 +1,5 @@
 ---
-title: "Operation Scenario and Vacuum Fields"
+title: "Startup Scenario and Vacuum Fields"
 subtitle: "VAFT Introductory Tutorial | Session 02"
 format:
   vaftslides-revealjs: default

@@ -272,3 +272,22 @@ def test_mathtext_labels_reach_plotly_as_text(sample):
     assert "$" not in figure.layout.xaxis.title.text
     # The lazy table answers every dict access, not only the overridden ones.
     assert PLOTLY_MODELS.get(LineSeries) is not None and len(list(PLOTLY_MODELS.items())) == 6
+
+
+def test_a_single_reference_contour_is_drawn_rather_than_given_a_zero_step():
+    """Found in review: a Lloyd margin's one reference line had start == end and a
+    zero size, which Plotly silently draws nothing for."""
+    import numpy as np
+
+    from vaft.plot.models import Field2D
+    from vaft.plot.plotly.fields import render_field_2d
+
+    r = np.linspace(0.1, 0.8, 9)
+    z = np.linspace(-0.5, 0.5, 11)
+    values = np.add.outer(z, r)
+    for levels in ((1.0,), (0.0, 1.5)):
+        figure = render_field_2d(Field2D(r=r, z=z, values=values, secondary_levels=levels))
+        reference = next(trace for trace in figure.data if trace.meta.get("vaft") == "secondary")
+        assert reference.contours.size > 0, levels
+        assert reference.contours.start == min(levels)
+        assert reference.contours.end == max(levels)

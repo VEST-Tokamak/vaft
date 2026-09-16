@@ -16,7 +16,7 @@ from nbclient import NotebookClient
 pytestmark = pytest.mark.slow
 
 ROOT = Path(__file__).resolve().parents[1]
-NOTEBOOK = ROOT / "tutorial" / "02_operation_scenario_and_vacuum_fields.ipynb"
+NOTEBOOK = ROOT / "tutorial" / "02_startup_scenario_and_vacuum_fields.ipynb"
 
 MAX_OUTPUT_BYTES = 200_000
 MAX_IMAGE_BYTES = 2_000_000
@@ -199,11 +199,13 @@ def test_the_session_declares_itself_complete_in_both_modes(book):
     assert list(metadata.get("modes", [])) == ["offline", "lab"]
 
 
-def test_the_two_unsupported_exercises_are_named_rather_than_faked(book):
-    """#230 asks for connection length and the EC resonance layer.
+def test_what_230_asked_for_is_computed_or_named_rather_than_faked(book):
+    """#230 asked for the connection length and the EC resonance layer.
 
-    Neither exists in VAFT. An unlabelled approximation in teaching material is
-    worse than an honest gap, so the session says which two and why.
+    The connection length is traced now; the resonance layer still is not,
+    because VEST's registry describes no 2.45 GHz system to place it for. An
+    unlabelled approximation in teaching material is worse than an honest gap,
+    so the session says which one it computes, which one it does not, and why.
     """
     markdown = "\n".join(
         _source(cell) for cell in book.cells if cell.cell_type == "markdown"
@@ -220,3 +222,25 @@ def test_the_unmapped_actuators_are_named(book):
     )
     assert "gas valve command" in markdown
     assert "mapping gap" in markdown
+
+
+def test_the_onset_criterion_is_shown_and_not_only_its_answer(executed):
+    """`find_breakdown_onset` is one float; the session shows the object behind it."""
+    printed = _printed(executed)
+    assert "decided by" in printed
+    assert "light and current" in printed
+
+
+def test_the_connection_length_is_traced_rather_than_assumed(executed):
+    printed = _printed(executed)
+    assert "scaling / trace" in printed
+    assert "never met the wall" in printed
+
+
+def test_the_interactive_cells_run_headless(book):
+    """`interaction_backend="auto"` resolves to ipywidgets under nbclient, which
+    leaves a widget that is dead on GitHub -- so every interactive cell pins it."""
+    for cell in _code_cells(book):
+        source = _source(cell)
+        if "interactive=True" in source:
+            assert 'interaction_backend="none"' in source, cell.id

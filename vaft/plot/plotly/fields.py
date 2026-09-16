@@ -77,10 +77,17 @@ def add_field_2d(
     values = np.asarray(model.values, dtype=float)
     if model.secondary_levels:
         secondary = np.asarray(model.secondary_levels, dtype=float)
+        # Plotly draws start, start + size, ... up to end, and needs size > 0. A
+        # single reference line -- a Lloyd margin of one -- has start == end, and a
+        # zero size would silently draw nothing, so any positive step does.
+        if secondary.size > 1:
+            step = float((secondary.max() - secondary.min()) / (secondary.size - 1))
+        else:
+            step = max(abs(float(secondary[0])), 1.0)
         figure.add_trace(go.Contour(
             x=model.r, y=model.z, z=values, showscale=False, hoverinfo="skip",
             contours={"coloring": "none", "start": float(secondary.min()), "end": float(secondary.max()),
-                      "size": float((secondary.max() - secondary.min()) / max(secondary.size - 1, 1))},
+                      "size": step},
             line={"color": "rgb(170,170,170)", "width": 0.7}, meta={"vaft": "secondary"},
         ), **cell)
     if model.region is not None:

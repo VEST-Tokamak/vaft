@@ -904,6 +904,7 @@ def clear_vacuum_field_cache() -> None:
     """
     _VACUUM_MAP_CACHE.clear()
     _VACUUM_EDDY_CACHE.clear()
+    _CONNECTION_LENGTH_CACHE.clear()
 
 
 def _machine_fingerprint(ods: ODS, sources: Optional[tuple] = None) -> tuple:
@@ -1158,6 +1159,143 @@ def compute_vacuum_field_map(
         "dpsi_dt": dpsi_dt,
         "time": float(time_base[index]),
         "time_index": index,
+    }
+
+#: Connection-length maps, keyed by the field they were traced through, the
+#: toroidal product, the wall and the tracing settings.
+#: One map is a few thousand traced lines and costs seconds; a reader comparing
+#: two instants, or a recipe drawing the Lloyd margin beside the field it comes
+#: from, would otherwise pay for the same trace twice.
+_CONNECTION_LENGTH_CACHE: dict[tuple, Dict[str, ndarray]] = {}
+
+#: Four entries. Each is five float or bool arrays over the grid -- small beside
+#: the response matrices, so the limit is about staleness, not memory.
+_CONNECTION_LENGTH_CACHE_LIMIT = 4
+
+
+def _vacuum_toroidal_product(ods: ODS, instant: float) -> float:
+    """``tf.b_field_tor_vacuum_r`` at the stored sample nearest ``instant``.
+
+    The TF product is on its own time base, sampled far more slowly than the PF
+    programme, so it is matched by time and not by index (the trap that
+    ``vaft`` has hit most often).
+    """
+    missing = (
+        "tf.b_field_tor_vacuum_r is required for a connection length; without "
+        "the toroidal field a field line has no pitch to follow"
+    )
+    try:
+        product = np.asarray(ods["tf.b_field_tor_vacuum_r.data"], dtype=float)
+        tf_time = np.asarray(ods["tf.time"], dtype=float)
+    except (KeyError, ValueError) as error:
+        raise ValueError(missing) from error
+    # An OMAS read of an absent path materialises an empty node instead of
+    # raising, so "absent" and "empty" arrive here as the same thing.
+    if product.size == 0 or tf_time.size == 0:
+        raise ValueError(missing)
+    return float(product[int(np.argmin(np.abs(tf_time - instant)))])
+
+
+def compute_connection_length_map_ods(
+    ods: ODS,
+    *,
+    time: float,
+    resolution: int = 33,
+    dphi_deg: float = 2.0,
+    max_length_m: float = 150.0,
+) -> Dict[str, ndarray]:
+    """Connection length over the vacuum field's grid, at one instant.
+
+    Traces a field line from every grid point in both directions until it
+    strikes the limiter, which is the quantity a breakdown threshold needs and
+    the one VAFT could not previously supply (issue #230).  The field is the
+    vacuum field -- coils and vessel, no plasma -- because before breakdown
+    there is nothing else.
+
+    Args:
+        ods: OMAS data structure carrying ``pf_active``, ``pf_passive``, ``tf``
+            and ``wall``, with the vessel currents already solved.
+        time: Instant to evaluate, snapped to the nearest stored PF sample [s].
+        resolution: Points per axis of the tracing grid [-].
+        dphi_deg: Fixed step in toroidal angle [deg].
+        max_length_m: Path length at which to stop each direction [m].
+
+    Returns:
+        The mapping :func:`vaft.process.equilibrium.connection_length_map`
+        returns -- ``length_m``, ``forward_m``, ``backward_m``, ``saturated``
+        and ``outside`` -- plus the ``r`` and ``z`` axes it was evaluated on and
+        the ``time`` and ``time_index`` actually used.
+
+    Raises:
+        ValueError: The toroidal field product or the limiter outline is missing.
+
+    Notes:
+        A map is much more expensive than the field it is traced through: the
+        field is one contraction of a cached response, milliseconds, while this
+        steps thousands of lines and costs seconds.  The default grid is
+        therefore coarser than the field map's, and the result is cached by the
+        field it was traced through, the toroidal product, the wall and the
+        tracing settings -- never by machine geometry alone, which every shot on
+        one machine shares.  Measured on VEST's
+        packaged shot at the breakdown onset: 6.5 s at 33x33, 22 s at 65x65.
+    """
+    grid = compute_vacuum_field_map(ods, time=time, resolution=resolution)
+    product = _vacuum_toroidal_product(ods, grid["time"])
+
+    try:
+        wall_r = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float)
+        wall_z = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
+    except (KeyError, ValueError) as error:
+        raise ValueError(
+            "a limiter outline is required for a connection length; without a wall "
+            "nothing terminates a field line"
+        ) from error
+
+    # Keyed on what the length is a function of -- the field on this grid, the
+    # toroidal product and the wall -- and not on the machine's geometry: every
+    # VEST shot shares that geometry, so a geometry key hands one shot's lengths
+    # to the next shot that asks at the same sample index.
+    key = (
+        grid["r"].tobytes(),
+        grid["z"].tobytes(),
+        np.ascontiguousarray(grid["b_r"]).tobytes(),
+        np.ascontiguousarray(grid["b_z"]).tobytes(),
+        product,
+        wall_r.tobytes(),
+        wall_z.tobytes(),
+        float(dphi_deg),
+        float(max_length_m),
+    )
+    cached = _CONNECTION_LENGTH_CACHE.get(key)
+    if cached is None:
+        from vaft.process.equilibrium import (
+            connection_length_map,
+            make_vacuum_field_interpolator,
+        )
+
+        b_field = make_vacuum_field_interpolator(
+            grid["r"], grid["z"], grid["b_r"], grid["b_z"], product
+        )
+        mesh_r, mesh_z = np.meshgrid(grid["r"], grid["z"], indexing="ij")
+        cached = connection_length_map(
+            mesh_r,
+            mesh_z,
+            b_field,
+            wall_r=wall_r,
+            wall_z=wall_z,
+            dphi=np.deg2rad(float(dphi_deg)),
+            max_length_m=float(max_length_m),
+        )
+        if len(_CONNECTION_LENGTH_CACHE) >= _CONNECTION_LENGTH_CACHE_LIMIT:
+            _CONNECTION_LENGTH_CACHE.pop(next(iter(_CONNECTION_LENGTH_CACHE)))
+        _CONNECTION_LENGTH_CACHE[key] = cached
+
+    return {
+        **cached,
+        "r": grid["r"],
+        "z": grid["z"],
+        "time": grid["time"],
+        "time_index": grid["time_index"],
     }
 
 

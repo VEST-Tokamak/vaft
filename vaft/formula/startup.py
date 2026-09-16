@@ -85,6 +85,25 @@ def _require_positive(name, value):
     return array
 
 
+def _require_positive_or_blank(name, value):
+    """Like :func:`_require_positive`, but a ``nan`` passes through and propagates.
+
+    Only for a quantity that arrives as a *masked map*.  A connection-length map
+    is ``nan`` outside the wall, and a caller feeding that map to a threshold is
+    doing the ordinary thing rather than making a mistake -- so the blank carries
+    through to the threshold instead of raising.  An infinity or a non-positive
+    value still is a mistake and still raises.  Every other input in this module
+    keeps the strict guard: it is scalar or physically total, and a ``nan`` there
+    is far more likely to be an uninitialised array than a deliberate blank.
+    """
+    array = np.asarray(value, dtype=float)
+    if np.any(np.isinf(array)) or np.any(array <= 0.0):
+        raise ValueError(
+            f"{name} must be positive, or nan where it has no value; got {value!r}"
+        )
+    return array
+
+
 def _breakdown_field(p, connection_length_m, A, B):
     """Townsend closure inverted for the threshold field, without the wrapping.
 
@@ -93,7 +112,7 @@ def _breakdown_field(p, connection_length_m, A, B):
     line inside this module.
     """
     pressure = _require_positive("p", p)
-    length = _require_positive("connection_length_m", connection_length_m)
+    length = _require_positive_or_blank("connection_length_m", connection_length_m)
     coeff_a = _require_positive("A", A)
     coeff_b = _require_positive("B", B)
     argument = coeff_a * pressure * length
@@ -130,7 +149,8 @@ def neutral_density_from_pressure(p_Pa, T_gas_K=300.0):
     Raises
     ------
     ValueError
-        Non-finite, zero or negative pressure or temperature.
+        Infinite, zero or negative pressure or temperature; ``nan`` passes
+        through as a missing value.
 
     Convention
     ----------
@@ -189,7 +209,8 @@ def atomic_inventory_from_molecular_gas(n_molecular_m3, atoms_per_molecule=2):
     Raises
     ------
     ValueError
-        Non-finite, zero or negative density or atom count.
+        Infinite, zero or negative density or atom count; ``nan`` passes
+        through as a missing value.
 
     Convention
     ----------
@@ -339,8 +360,10 @@ def townsend_breakdown_field(p, connection_length_m, A, B):
     Raises
     ------
     ValueError
-        Non-finite, zero or negative pressure, connection length or
-        coefficient.
+        Non-finite, zero or negative pressure or coefficient; an infinite, zero
+        or negative connection length.  A ``nan`` connection length passes
+        through as a missing value, which is how a connection-length map carries
+        the points outside the wall.
 
     Convention
     ----------
@@ -421,7 +444,10 @@ def lloyd_breakdown_field(p_Pa, connection_length_m):
     Raises
     ------
     ValueError
-        Non-finite, zero or negative pressure or connection length.
+        Non-finite, zero or negative pressure; an infinite, zero or negative
+        connection length.  A ``nan`` connection length passes through as a
+        missing value, which is how a connection-length map carries the points
+        outside the wall.
 
     Convention
     ----------

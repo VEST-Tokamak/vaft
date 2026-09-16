@@ -123,6 +123,10 @@ def _draw_text_panel(
     return axis.figure, axis
 
 
+#: Height reserved under a panel grid for its one shared legend [inch].
+_LEGEND_STRIP_INCHES = 0.45
+
+
 @presented(default_figsize=None)
 def render_panels(
     model: Panels,
@@ -214,11 +218,17 @@ def render_panels(
         )
         grid = np.asarray(axes, dtype=object).reshape(model.nrows, model.ncols)
         flat = grid.ravel()
+    # A shared legend is drawn once for the figure below, so the panels must
+    # not each draw their own.  A caller-supplied `ax` is a grid this renderer
+    # does not own, so it keeps whatever legends its panels would have drawn.
+    spare_cells = len(flat) - len(model.models)
+    shared_legend = model.share_legend and ax is None and spare_cells > 0
+    panel_style = {**style, "legend": False} if shared_legend else style
     for index, panel_model in enumerate(model.models):
         axis = flat[index]
         member_style = dict(model.member_styles[index]) if model.member_styles else {}
         draw = _panel_drawer(panel_model)
-        draw(panel_model, ax=axis, show=False, **{**member_style, **style})
+        draw(panel_model, ax=axis, show=False, **{**member_style, **panel_style})
         _mark_if_invalid(axis, panel_model, {**member_style, **style})
     for axis in flat[len(model.models):]:
         # A grid cell past the last member (five members in a 3 x 2 grid).
@@ -243,6 +253,32 @@ def render_panels(
     # a figure that redraws its panels must not be re-laid-out each time).
     # `show` is held back until the suptitle has been placed.
     figure, grid = finalize(figure, grid, show=False, tight_layout=ax is None)
+    if shared_legend:
+        # One legend for the grid, in a cell the grid was wasting.  It cannot
+        # be a `figure.legend` placed in figure coordinates: the presentation
+        # wrapper lays the figure out again after this renderer returns, and
+        # `tight_layout` neither knows about figure legends nor leaves the
+        # space one was given.  A legend belonging to an *axes* is inside that
+        # axes' tight bbox, so the relayout accounts for it and nothing lands
+        # on top of anything.  A grid with no spare cell keeps its per-panel
+        # legends, which is the behaviour every figure had before.
+        # Every distinct label across the grid, first occurrence wins.  Taking
+        # them from one panel would miss a series the others carry: a residual
+        # grid leads with a plasma-current panel, and a channel that never
+        # crossed its threshold contributes no onset marker.
+        handles: list[Any] = []
+        labels: list[str] = []
+        for axis in flat[: len(model.models)]:
+            for handle, label in zip(*axis.get_legend_handles_labels()):
+                if label not in labels:
+                    handles.append(handle)
+                    labels.append(label)
+        spare = [axis for axis in flat[len(model.models):]]
+        if handles and spare:
+            host = spare[0]
+            host.set_visible(True)
+            host.set_axis_off()
+            host.legend(handles, labels, loc="center", frameon=False)
     if model.suptitle and ax is None:
         # tight_layout reserves no room for a suptitle, so on a tall grid the
         # default position lands it on the first row's own titles. Re-place it

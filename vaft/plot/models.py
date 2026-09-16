@@ -926,6 +926,13 @@ class Panels(ViewModel):
     #: model.  ``None`` fills the ``nrows x ncols`` grid in order.  A 2-D map that deserves the height of three stacked profiles
     #: is expressed here rather than by drawing three copies of it.
     spans: tuple[tuple[int, int, int, int], ...] | None = None
+    #: Draw one legend for the whole figure instead of one per panel.  Set it
+    #: when every panel carries the same series -- a grid of channels measured
+    #: and forward-modeled the same way -- where a per-axes legend is the same
+    #: three entries repeated N times, on top of the data it explains.  The
+    #: entries come from the first panel, so the panels must agree; a figure
+    #: whose panels show different quantities wants its per-panel legends.
+    share_legend: bool = False
 
     def __post_init__(self) -> None:
         _reject_data_objects(self.models, where="Panels.models")

@@ -220,3 +220,161 @@ def test_clearing_the_cache_is_public(solved):
     assert pw._VACUUM_MAP_CACHE
     pw.clear_vacuum_field_cache()
     assert not pw._VACUUM_MAP_CACHE and not pw._VACUUM_EDDY_CACHE
+
+
+# ---------------------------------------------------------------------------
+# The connection length and the two quantities it made drawable (#230)
+# ---------------------------------------------------------------------------
+
+BREAKDOWN_S = 0.3063  # the packaged shot's own onset, pinned in test_omas_general_finders
+
+
+@pytest.fixture(scope="module")
+def traced(solved):
+    """One coarse connection-length map, shared: a trace costs seconds."""
+    pw.clear_vacuum_field_cache()
+    return pw.compute_connection_length_map_ods(solved, time=BREAKDOWN_S, resolution=17)
+
+
+def test_the_connection_length_map_is_laid_out_like_the_field_it_is_traced_through(solved, traced):
+    grid = pw.compute_vacuum_field_map(solved, time=BREAKDOWN_S, resolution=17)
+    np.testing.assert_array_equal(traced["r"], grid["r"])
+    np.testing.assert_array_equal(traced["z"], grid["z"])
+    assert traced["time"] == grid["time"]
+    for key in ("length_m", "forward_m", "backward_m", "saturated", "outside"):
+        assert traced[key].shape == (grid["r"].size, grid["z"].size), key
+
+
+def test_every_point_outside_the_limiter_has_no_length_and_every_point_inside_has_one(traced):
+    """`nan` outside, finite inside: a map that blanked an interior point
+    would be hiding a line that failed to trace, not a wall."""
+    outside = traced["outside"]
+    assert outside.any() and (~outside).any()
+    assert np.isnan(traced["length_m"][outside]).all()
+    assert np.isfinite(traced["length_m"][~outside]).all()
+
+
+def test_the_lengths_are_the_size_a_vest_startup_has(traced):
+    """Tens of metres, bounded by the two-branch ceiling -- the scale Lloyd's
+    threshold is sensitive to on VEST, where no threshold exists below ~98 m."""
+    interior = traced["length_m"][~traced["outside"]]
+    assert 10.0 < float(np.median(interior)) < 300.0
+    assert float(interior.max()) <= 300.0 + 1e-9
+
+
+def test_a_second_request_for_the_same_trace_is_recalled_not_repeated(solved, monkeypatch):
+    """The file clears every cache between tests, so this one fills its own."""
+    import vaft.process.equilibrium as process
+
+    first = pw.compute_connection_length_map_ods(solved, time=BREAKDOWN_S, resolution=9)
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("the connection length was traced again")
+
+    monkeypatch.setattr(process, "connection_length_map", refuse)
+    again = pw.compute_connection_length_map_ods(solved, time=BREAKDOWN_S, resolution=9)
+    np.testing.assert_array_equal(again["length_m"], first["length_m"])
+
+
+def test_clearing_the_vacuum_cache_also_releases_the_traces(solved):
+    pw.compute_connection_length_map_ods(solved, time=BREAKDOWN_S, resolution=9)
+    assert pw._CONNECTION_LENGTH_CACHE
+    pw.clear_vacuum_field_cache()
+    assert not pw._CONNECTION_LENGTH_CACHE
+
+
+def test_a_connection_length_needs_the_toroidal_field(solved):
+    import copy
+
+    bare = copy.deepcopy(solved)
+    del bare["tf"]
+    with pytest.raises(ValueError, match="tf.b_field_tor_vacuum_r is required"):
+        pw.compute_connection_length_map_ods(bare, time=BREAKDOWN_S, resolution=9)
+
+
+def test_the_toroidal_electric_field_map_is_the_magnitude_of_the_formula(solved):
+    """Drawn as |E_phi|, which is what the breakdown chain consumes (#354)."""
+    from vaft.formula.equilibrium import toroidal_electric_field
+    from vaft.plot.backend.recipes import build_model
+
+    model = build_model("vacuum_field", [("0", solved)], field="e_toroidal",
+                        time=BREAKDOWN_S, resolution=17)
+    grid = pw.compute_vacuum_field_map(solved, time=BREAKDOWN_S, resolution=17)
+    expected = np.abs(toroidal_electric_field(grid["r"][:, None], grid["dpsi_dt"])).T
+    finite = np.isfinite(model.values)
+    assert finite.any()
+    np.testing.assert_allclose(model.values[finite], expected[finite] * model.display.scale)
+    assert (model.values[finite] >= 0.0).all()
+
+
+def test_the_lloyd_margin_map_marks_the_threshold_with_its_own_contour(solved):
+    from vaft.plot.backend.recipes import LLOYD_MARGIN_THRESHOLD, build_model
+
+    model = build_model("vacuum_field", [("0", solved)], field="lloyd_margin",
+                        time=BREAKDOWN_S, resolution=17)
+    assert model.secondary_levels == LLOYD_MARGIN_THRESHOLD == (1.0,)
+    assert (model.values[np.isfinite(model.values)] >= 0.0).all()
+
+
+def test_the_lloyd_margin_blanks_where_no_threshold_exists(solved):
+    """Below A p L = 1 there is no field that breaks the gas down, which is a
+    region of the map and not a large number -- so it is blank, and the blank
+    is part of the answer."""
+    from vaft.plot.backend.recipes import build_model
+
+    model = build_model("vacuum_field", [("0", solved)], field="lloyd_margin",
+                        time=BREAKDOWN_S, resolution=17)
+    grid = pw.compute_vacuum_field_map(solved, time=BREAKDOWN_S, resolution=17)
+    traced_here = pw.compute_connection_length_map_ods(solved, time=BREAKDOWN_S, resolution=17)
+    interior = (~traced_here["outside"]).T
+    assert np.isfinite(model.values[interior]).any()
+    assert np.isnan(model.values[interior]).any()
+
+
+def test_an_explicit_pressure_moves_the_margin_the_way_a_threshold_should(solved):
+    """A threshold exists only where A p L > 1, so more gas can only extend the
+    region that has one -- the one direction Lloyd's expression guarantees
+    whatever side of its Paschen minimum a point sits on."""
+    from vaft.plot.backend.recipes import build_model
+
+    thin = build_model("vacuum_field", [("0", solved)], field="lloyd_margin",
+                       time=BREAKDOWN_S, resolution=17, p_Pa=2.0e-3)
+    dense = build_model("vacuum_field", [("0", solved)], field="lloyd_margin",
+                        time=BREAKDOWN_S, resolution=17, p_Pa=8.0e-3)
+    both = np.isfinite(thin.values) & np.isfinite(dense.values)
+    assert both.any()
+    assert np.isfinite(dense.values).sum() >= np.isfinite(thin.values).sum()
+
+
+def test_discovery_offers_the_lloyd_margin_only_to_an_input_that_can_draw_it(solved):
+    import copy
+
+    def offered(ods):
+        record = vaft.omas.available_plots(ods, query="vacuum_field", detail=True)[0]
+        return record.fields["options"]
+
+    assert {"e_toroidal", "lloyd_margin"} <= set(offered(solved))
+    no_gauge = copy.deepcopy(solved)
+    del no_gauge["barometry"]
+    assert "lloyd_margin" not in offered(no_gauge)
+    assert "e_toroidal" in offered(no_gauge)
+
+
+def test_two_programmes_on_one_machine_never_share_a_connection_length(solved):
+    """The cache used to key on machine geometry, grid and sample index. Every VEST
+    shot shares the geometry, so the second shot to ask at the same index was handed
+    the first shot's lengths -- found in review, reproduced here."""
+    import copy
+
+    other = copy.deepcopy(solved)
+    for index in range(len(other["pf_active.coil"])):
+        path = f"pf_active.coil.{index}.current.data"
+        other[path] = np.asarray(other[path]) * 1.5
+
+    first = pw.compute_connection_length_map_ods(solved, time=BREAKDOWN_S, resolution=9)
+    second = pw.compute_connection_length_map_ods(other, time=BREAKDOWN_S, resolution=9)
+    pw.clear_vacuum_field_cache()
+    second_fresh = pw.compute_connection_length_map_ods(other, time=BREAKDOWN_S, resolution=9)
+
+    np.testing.assert_array_equal(second["length_m"], second_fresh["length_m"])
+    assert not np.array_equal(first["length_m"], second["length_m"], equal_nan=True)

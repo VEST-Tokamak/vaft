@@ -41,8 +41,8 @@ SESSIONS = {
         "modes": ["offline"],
     },
     2: {
-        "notebook": "02_operation_scenario_and_vacuum_fields.ipynb",
-        "qmd": "presentations/02_operation_scenario_and_vacuum_fields.qmd",
+        "notebook": "02_startup_scenario_and_vacuum_fields.ipynb",
+        "qmd": "presentations/02_startup_scenario_and_vacuum_fields.qmd",
     },
     3: {
         "notebook": "03_equilibrium_and_kinetic_profiles.ipynb",

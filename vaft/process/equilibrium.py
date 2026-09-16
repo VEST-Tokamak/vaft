@@ -111,6 +111,7 @@ __all__ = [
     "grad_shafranov_residual",
     "equilibrium_field_on_grid",
     "make_equilibrium_field_interpolator",
+    "make_vacuum_field_interpolator",
     "parallel_current_from_toroidal",
     "poloidal_field_at_boundary",
     "prepare_boundary_for_shafranov",
@@ -123,6 +124,7 @@ __all__ = [
     "rho_to_psi",
     "scale_boundary_conformal",
     "shafranov_integrals",
+    "connection_length_map",
     "trace_field_line",
     "virial_alpha_conformal_annulus",
     "virial_alpha_thin_annulus",
@@ -3383,6 +3385,300 @@ try:  # pragma: no branch - normal package import takes this path
 except ImportError:  # direct ``spec_from_file_location`` loading
     from vaft.process._equilibrium_parametric import *  # noqa: E402,F401,F403
 
+
+def make_vacuum_field_interpolator(
+    R_grid_1d: np.ndarray,
+    Z_grid_1d: np.ndarray,
+    b_r: np.ndarray,
+    b_z: np.ndarray,
+    r0_b0: float,
+):
+    r"""Build a callable giving the vacuum magnetic field anywhere on one grid.
+
+    The twin of :func:`make_equilibrium_field_interpolator` for a machine with no
+    plasma in it.  That one reads the poloidal field off a flux map and the
+    toroidal field off ``profiles_1d.f``, both of which a reconstruction
+    supplies; before breakdown there is no reconstruction, and the field the
+    coils and the vessel make is all there is.
+
+    Parameters
+    ----------
+    R_grid_1d : np.ndarray
+        Major radius of the grid columns, increasing [m].
+    Z_grid_1d : np.ndarray
+        Height of the grid rows, increasing [m].
+    b_r : np.ndarray
+        Radial field on the ``(len(R), len(Z))`` grid [T].
+    b_z : np.ndarray
+        Vertical field on the same grid [T].
+    r0_b0 : float
+        The vacuum toroidal field product $R_0 B_0$, as
+        ``tf.b_field_tor_vacuum_r`` stores it [T m].
+
+    Returns
+    -------
+    callable
+        A function of ``(R, Z)`` returning ``(B_R, B_Z, B_phi)``, accepting
+        scalars or arrays of matching shape [T].
+
+    Raises
+    ------
+    ValueError
+        Grids and field arrays whose shapes disagree [-].
+
+    Convention
+    ----------
+    The toroidal field is $B_\varphi = R_0 B_0 / R$ exactly, not interpolated:
+    in a vacuum it is a pure $1/R$ and the grid would only add error to it.  The
+    poloidal components are interpolated, so they carry the grid's resolution --
+    which is the caller's choice, not this function's.
+
+    Assumptions
+    -----------
+    The grid is the one :func:`vaft.omas.compute_vacuum_field_map` builds, whose
+    axes are monotonic and whose fields already include the vessel's eddy
+    currents.  Nothing here checks that the field is curl-free.
+
+    Applicability
+    -------------
+    Machine-independent.  The grid and the toroidal product are the caller's.
+
+    Limitations
+    -----------
+    Bicubic over the supplied grid, so the field between nodes is as good as the
+    grid is fine: poor within a coil's near field, where the true field varies on
+    the scale of the conductor, and good near a null, where it varies on the
+    scale of the machine.  Outside the grid the spline extrapolates rather than
+    raising, so a caller that can leave the grid must terminate on its own bound.
+
+    Provenance
+    ----------
+    .. [1] The vacuum field decomposition: the poloidal part from the Green's
+       function response of the coils and the passive structure, the toroidal
+       part from the TF product.
+    """
+    R_grid_1d = np.asarray(R_grid_1d, dtype=float)
+    Z_grid_1d = np.asarray(Z_grid_1d, dtype=float)
+    b_r = np.asarray(b_r, dtype=float)
+    b_z = np.asarray(b_z, dtype=float)
+    expected = (R_grid_1d.size, Z_grid_1d.size)
+    if b_r.shape != expected or b_z.shape != expected:
+        raise ValueError(
+            f"b_r and b_z must both be {expected}; got {b_r.shape} and {b_z.shape}."
+        )
+
+    spline_b_r = RectBivariateSpline(R_grid_1d, Z_grid_1d, b_r)
+    spline_b_z = RectBivariateSpline(R_grid_1d, Z_grid_1d, b_z)
+    product = float(r0_b0)
+
+    def b_field(R, Z):
+        return spline_b_r.ev(R, Z), spline_b_z.ev(R, Z), product / np.asarray(R, dtype=float)
+
+    return b_field
+
+
+def connection_length_map(
+    seed_r: np.ndarray,
+    seed_z: np.ndarray,
+    b_field,
+    *,
+    wall_r: np.ndarray,
+    wall_z: np.ndarray,
+    phi0: float = 0.0,
+    dphi: float = np.deg2rad(2.0),
+    max_length_m: float = 150.0,
+) -> dict[str, Any]:
+    r"""Connection length of the field line through each of many starting points.
+
+    How far a field line runs in both directions before it strikes the wall,
+    which is what decides whether an electron accelerating along it avalanches
+    or is lost.  Every line is stepped together rather than one at a time, so a
+    whole grid costs one pass instead of one pass per point.
+
+    Parameters
+    ----------
+    seed_r : np.ndarray
+        Major radius of each starting point [m].
+    seed_z : np.ndarray
+        Height of each starting point, broadcastable against ``seed_r`` [m].
+    b_field : callable
+        A function of ``(R, Z)`` returning ``(B_R, B_Z, B_phi)`` for arrays,
+        normally from :func:`make_vacuum_field_interpolator` [T].
+    wall_r : np.ndarray
+        Major radius of the limiting polygon [m].
+    wall_z : np.ndarray
+        Height of the limiting polygon [m].
+    phi0 : float, optional
+        Starting toroidal angle, the same for every line [rad].
+    dphi : float, optional
+        Fixed step in toroidal angle [rad].
+    max_length_m : float, optional
+        Path length at which to stop each direction [m].
+
+    Returns
+    -------
+    dict of str to np.ndarray
+        ``length_m`` the two directions summed, with ``nan`` at points outside
+        the wall and wherever a step left the field model -- a callable that
+        returned a non-finite field -- since nothing is then known about where
+        that line ends; ``forward_m`` and ``backward_m`` the branches; ``saturated``
+        true where either branch stopped on ``max_length_m`` rather than on the
+        wall; ``outside`` true where the point itself is not inside the wall.
+        Every array has the shape of ``seed_r`` [m].
+
+    Raises
+    ------
+    ValueError
+        A non-positive ``dphi`` or ``max_length_m``, or seed arrays whose shapes
+        do not match [-].
+
+    Processing steps
+    ----------------
+    1. Drop the seeds that are already outside the limiting polygon; they have
+       no connection length and are reported as ``nan``.
+    2. Step every surviving line together by fourth-order Runge-Kutta in the
+       toroidal angle, once forward and once backward, retiring a line as it
+       leaves the polygon or reaches ``max_length_m``.
+    3. Add the two branches. A line retired on length contributes
+       ``max_length_m`` and is flagged rather than being read as a wall hit.
+
+    Defaults
+    --------
+    The two-degree step is a numerical convenience, chosen by convergence
+    against a half-degree trace on VEST's vacuum field: the median length moves
+    by 7e-5 and the 95th percentile by 4e-3 of itself.  The 150 m limit is an
+    assumed value, long enough that a Lloyd threshold evaluated on it has
+    already saturated and short enough that a line circulating near a null
+    terminates.
+
+    Convention
+    ----------
+    The toroidal angle is the integration variable, as in
+    :func:`trace_field_line`, so a vanishing toroidal field ends a line rather
+    than slowing it.  The length is the **sum of both directions** from the
+    seed, which is the quantity a Townsend avalanche sees; a caller wanting one
+    branch should read ``forward_m`` or ``backward_m``.  A saturated line
+    reports ``max_length_m``, not infinity, and ``saturated`` is how a consumer
+    tells the difference.
+
+    Applicability
+    -------------
+    Machine-independent.  The wall polygon and the field are both the caller's.
+
+    Limitations
+    -----------
+    The wall test is applied once per step, so a line ends at the last point
+    inside the polygon rather than at the true crossing -- of order
+    $R\,\mathrm{d}\varphi$, millimetres against the tens of metres the length
+    itself runs to.  Fixed step, so accuracy is set by the step alone and there
+    is no error control.  A field line that closes on itself never strikes the
+    wall, and this returns ``max_length_m`` for it, flagged; distinguishing a
+    closed line from a merely long one is not attempted.
+
+    Provenance
+    ----------
+    .. [1] The field-line equations in toroidal-angle form, as in
+       :func:`trace_field_line`, stepped over many seeds at once.
+    .. [2] B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2, for the role the
+       connection length plays in the breakdown threshold this feeds.
+    """
+    from matplotlib.path import Path as MplPath
+
+    if dphi <= 0:
+        raise ValueError("dphi must be positive.")
+    if max_length_m <= 0:
+        raise ValueError("max_length_m must be positive.")
+    seed_r = np.asarray(seed_r, dtype=float)
+    seed_z = np.asarray(seed_z, dtype=float)
+    if seed_r.shape != seed_z.shape:
+        raise ValueError(
+            f"seed_r and seed_z must have the same shape; got {seed_r.shape} and {seed_z.shape}."
+        )
+
+    shape = seed_r.shape
+    flat_r = seed_r.ravel()
+    flat_z = seed_z.ravel()
+    polygon = MplPath(np.column_stack([np.asarray(wall_r, float), np.asarray(wall_z, float)]))
+    inside = polygon.contains_points(np.column_stack([flat_r, flat_z]))
+
+    branches = {}
+    saturated = np.zeros(flat_r.size, dtype=bool)
+    for name, sign in (("forward_m", 1.0), ("backward_m", -1.0)):
+        length, hit_limit = _trace_branch_lengths(
+            flat_r, flat_z, inside, b_field, polygon, sign * dphi, max_length_m
+        )
+        branches[name] = length
+        saturated |= hit_limit
+
+    total = branches["forward_m"] + branches["backward_m"]
+    total[~inside] = np.nan
+    for name in branches:
+        branches[name][~inside] = np.nan
+    return {
+        "length_m": total.reshape(shape),
+        "forward_m": branches["forward_m"].reshape(shape),
+        "backward_m": branches["backward_m"].reshape(shape),
+        "saturated": (saturated & inside).reshape(shape),
+        "outside": (~inside).reshape(shape),
+    }
+
+
+def _trace_branch_lengths(flat_r, flat_z, inside, b_field, polygon, step, max_length_m):
+    """One direction of :func:`connection_length_map`, carrying only live lines.
+
+    The live set is compacted every step rather than masked in place: a handful
+    of lines circulating near a null would otherwise keep every retired line's
+    element in the arithmetic until the last of them finished.
+    """
+    length = np.zeros(flat_r.size)
+    hit_limit = np.zeros(flat_r.size, dtype=bool)
+    live = np.flatnonzero(inside)
+    position_r = flat_r[live].copy()
+    position_z = flat_z[live].copy()
+    travelled = np.zeros(live.size)
+
+    def slope(r_values, z_values):
+        b_r, b_z, b_phi = b_field(r_values, z_values)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return r_values * b_r / b_phi, r_values * b_z / b_phi
+
+    while live.size:
+        k1_r, k1_z = slope(position_r, position_z)
+        k2_r, k2_z = slope(position_r + 0.5 * step * k1_r, position_z + 0.5 * step * k1_z)
+        k3_r, k3_z = slope(position_r + 0.5 * step * k2_r, position_z + 0.5 * step * k2_z)
+        k4_r, k4_z = slope(position_r + step * k3_r, position_z + step * k3_z)
+        next_r = position_r + (step / 6.0) * (k1_r + 2.0 * k2_r + 2.0 * k3_r + k4_r)
+        next_z = position_z + (step / 6.0) * (k1_z + 2.0 * k2_z + 2.0 * k3_z + k4_z)
+        next_travelled = travelled + np.sqrt(
+            (next_r - position_r) ** 2
+            + (next_z - position_z) ** 2
+            + ((position_r + next_r) / 2.0 * step) ** 2
+        )
+
+        # A step that produced no finite point has left the field model, not the
+        # wall: nothing is known about where that line ends, so it has no length
+        # rather than the length it had reached when the field gave out.
+        finite = np.isfinite(next_r) & np.isfinite(next_z)
+        within = np.zeros(next_r.size, dtype=bool)
+        within[finite] = polygon.contains_points(
+            np.column_stack([next_r[finite], next_z[finite]])
+        )
+        over = next_travelled > max_length_m
+
+        left_model = ~finite
+        stopped_at_wall = finite & ~within
+        stopped_on_length = within & over
+        length[live[left_model]] = np.nan
+        length[live[stopped_at_wall]] = travelled[stopped_at_wall]
+        length[live[stopped_on_length]] = max_length_m
+        hit_limit[live[stopped_on_length]] = True
+
+        running = within & ~over
+        live = live[running]
+        position_r = next_r[running]
+        position_z = next_z[running]
+        travelled = next_travelled[running]
+    return length, hit_limit
 
 @dataclass(frozen=True)
 class ParallelCurrentResult:

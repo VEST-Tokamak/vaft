@@ -171,17 +171,29 @@ def _member_controls(record: Any) -> list[ControlSpec]:
     )]
 
 
+#: The dense indexed axes a plot can step along, by the keyword each is passed
+#: as, with what the slider calls it.
+_DENSE_INDEX_LABELS = {
+    "time_index": "Time sample",
+    "frame_index": "Camera frame",
+}
+
+
 def _slice_controls(record: Any) -> list[ControlSpec]:
     times: Mapping[str, Any] = getattr(record, "times", None) or {}
-    if times.get("option") == "time_index" and int(times.get("count", 0)) > 1:
+    option = times.get("option")
+    if option in _DENSE_INDEX_LABELS and int(times.get("count", 0)) > 1:
         # A dense time base is a slider, not a list: thousands of samples
         # cannot be offered as radio buttons, and the reader wants to sweep
         # them anyway.  The label carries the span, since the positions
-        # themselves are indices.
+        # themselves are indices.  A PF programme and a camera's stored
+        # frames are both this shape, so the control is keyed by the keyword
+        # the index is passed as rather than by one plot.
         count = int(times["count"])
         return [ControlSpec(
-            "time_index", "range",
-            f"Time sample ({float(times['start']) * 1e3:.0f}-{float(times['stop']) * 1e3:.0f} ms)",
+            option, "range",
+            f"{_DENSE_INDEX_LABELS[option]} "
+            f"({float(times['start']) * 1e3:.0f}-{float(times['stop']) * 1e3:.0f} ms)",
             int(times.get("selected") or 0), (0, count - 1, 1), group="slice",
         )]
     slices: Mapping[str, Any] = getattr(record, "slices", None) or {}
