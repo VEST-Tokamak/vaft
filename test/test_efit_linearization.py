@@ -8,6 +8,7 @@ import subprocess
 
 import numpy as np
 import pytest
+from external_code_stubs import write_launchable_stub
 import xarray as xr
 
 from vaft.code.efit import (
@@ -698,9 +699,7 @@ def test_run_stages_restart_and_patches_only_execution_kfile(tmp_path, monkeypat
             "parameter_order_sha256": "c" * 64,
         }
     ).to_netcdf(direction, engine="scipy")
-    executable = source_dir / "efit"
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(source_dir / "efit")
     captured: dict[str, object] = {}
 
     def fake_run(command, **kwargs):
@@ -756,9 +755,7 @@ def test_run_refuses_an_unwritten_stale_restart_output(tmp_path, monkeypatch):
     kfile.write_text(" &IN1\n IOUT=4\n ICINIT=2\n /\n", encoding="utf-8")
     restart = tmp_path / "input-esave.dat"
     restart.write_bytes(b"restart-input")
-    executable = tmp_path / "efit"
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "efit")
 
     monkeypatch.setattr(
         subprocess,
@@ -787,9 +784,7 @@ def test_run_ignores_unmodified_stale_equilibrium_outputs(tmp_path, monkeypatch)
     kfile.write_text(" &IN1\n IOUT=4\n ICINIT=2\n /\n", encoding="utf-8")
     for prefix in ("g", "a", "m"):
         (workdir / f"{prefix}041672.00331").write_bytes(b"stale")
-    executable = tmp_path / "efit"
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "efit")
     monkeypatch.setattr(
         subprocess,
         "run",
@@ -849,9 +844,7 @@ def test_export_only_stages_long_external_kfile_path(tmp_path, monkeypatch):
     kfile = source_dir / "k041672.00331"
     original = " &IN1\n IOUT=4\n ICINIT=2\n /\n MAG\n"
     kfile.write_text(original, encoding="utf-8")
-    executable = tmp_path / "efit"
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "efit")
     captured: dict[str, object] = {}
 
     def fake_run(command, **kwargs):
@@ -877,9 +870,7 @@ def test_export_only_stages_long_external_kfile_path(tmp_path, monkeypatch):
 
 
 def test_direction_and_restart_controls_require_one_kfile(tmp_path):
-    executable = tmp_path / "efit"
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "efit")
     first = tmp_path / "k01.00001"
     second = tmp_path / "k01.00002"
     first.write_text(" &IN1\n /\n", encoding="utf-8")
@@ -898,9 +889,7 @@ def test_direction_and_restart_controls_require_one_kfile(tmp_path):
 
 
 def test_missing_direction_is_never_silently_ignored(tmp_path):
-    executable = tmp_path / "efit"
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "efit")
     kfile = tmp_path / "k01.00001"
     kfile.write_text(" &IN1\n /\n", encoding="utf-8")
 
@@ -917,9 +906,7 @@ def test_missing_direction_is_never_silently_ignored(tmp_path):
 
 
 def test_invalid_direction_schema_is_never_passed_to_efit(tmp_path):
-    executable = tmp_path / "efit"
-    executable.write_text("#!/bin/sh\n", encoding="utf-8")
-    executable.chmod(0o755)
+    executable = write_launchable_stub(tmp_path / "efit")
     kfile = tmp_path / "k01.00001"
     kfile.write_text(" &IN1\n /\n", encoding="utf-8")
     direction = tmp_path / "direction.nc"
