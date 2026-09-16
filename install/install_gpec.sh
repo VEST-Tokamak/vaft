@@ -216,7 +216,20 @@ export LAPACKHOME="$LAPACK_HOME"
 export NETCDF_FORTRAN_HOME="$NETCDF_F_HOME"
 export NETCDFINC="$NETCDF_INC"
 export FFLAGS="-fallow-argument-mismatch -O2"
-export OMPFLAG=-fopenmp RECURSFLAG=-frecursive LDFLAGS=-fopenmp
+# -rpath, so the executables find the netCDF-Fortran they were linked against
+# rather than whichever one LD_LIBRARY_PATH happens to name first. Without it a
+# machine carrying a second, differently-compiled netCDF -- an ifort build on
+# LD_LIBRARY_PATH is the ordinary case on a cluster -- links correctly and then
+# dies at run time with `undefined symbol: __netcdf_MOD_nf90_put_var_*`, which
+# names neither the library nor the variable that chose it.
+export OMPFLAG=-fopenmp RECURSFLAG=-frecursive
+# --disable-new-dtags is what makes this work. Current binutils defaults to
+# --enable-new-dtags, which emits DT_RUNPATH, and LD_LIBRARY_PATH takes
+# precedence over RUNPATH -- so the rpath is present and ignored. DT_RPATH is
+# searched *before* LD_LIBRARY_PATH, which is the ordering needed here: an
+# ABI-incompatible netCDF-Fortran substituted at run time is a symbol-lookup
+# crash, not a preference worth honouring.
+export LDFLAGS="-fopenmp -Wl,--disable-new-dtags -Wl,-rpath,$NETCDF_F_HOME"
 unset MKLROOT ACML_HOME NETCDFHOME NETCDF_DIR F90HOME X11_HOME || true
 
 mkdir -p "$PREFIX/logs"

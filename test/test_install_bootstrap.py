@@ -1470,7 +1470,12 @@ def test_gpec_linux_build_uses_openmp_and_says_why_windows_cannot():
     """
     text = (INSTALL / "install_gpec.sh").read_text(encoding="utf-8")
     assert "OMPFLAG=-fopenmp" in text
-    assert "LDFLAGS=-fopenmp" in text
+    # Matched loosely: LDFLAGS also carries the -rpath that pins netCDF, so the
+    # assertion is that OpenMP reaches the link, not that it is the only flag.
+    ldflags = [l for l in text.splitlines() if "LDFLAGS=" in l]
+    assert ldflags and any("-fopenmp" in l for l in ldflags), (
+        "OpenMP must reach the link step, not only the compile step"
+    )
     assert "threadprivate" in text, "the header must explain why Windows differs"
 
 
@@ -2285,3 +2290,42 @@ def test_gacode_verification_says_which_members_it_covered():
     assert "not been built on macOS" in verified, (
         "and say plainly what it does not cover"
     )
+
+
+def test_gpec_binaries_pin_the_netcdf_they_were_built_against():
+    """LD_LIBRARY_PATH must not be able to substitute a different netCDF.
+
+    A machine carrying a second, differently-compiled netCDF-Fortran on
+    LD_LIBRARY_PATH -- an ifort build is the ordinary case on a cluster -- links
+    correctly and then dies at run time with
+    `undefined symbol: __netcdf_MOD_nf90_put_var_*`, naming neither the library
+    nor the variable that chose it.
+
+    --disable-new-dtags is the load-bearing half: current binutils emits
+    DT_RUNPATH by default, and LD_LIBRARY_PATH takes precedence over RUNPATH,
+    so the rpath would be present and ignored. DT_RPATH is searched first.
+    """
+    text = _executable_source(INSTALL / "install_gpec.sh")
+    assert "-Wl,-rpath," in text
+    assert "--disable-new-dtags" in text, (
+        "without it the rpath is emitted as RUNPATH, which LD_LIBRARY_PATH overrides"
+    )
+
+
+def test_tokamaker_is_an_optional_extra_not_a_dependency():
+    """It is the one external code pip can express, and still optional.
+
+    VAFT drives TokaMaker in-process, so upstream's wheel is installable --
+    unlike the Fortran codes behind install/. That does not make it required:
+    the wheel carries compiled libraries and every other workflow runs without
+    it.
+    """
+    text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    extras = text[text.index("[project.optional-dependencies]"):]
+    extras = extras[: extras.index("\n[")]
+    assert "tokamaker = [" in extras
+    assert "openfusiontoolkit" in extras
+    # And never among the hard dependencies.
+    required = text[text.index("dependencies = ["):]
+    required = required[: required.index("]")]
+    assert "openfusiontoolkit" not in required
