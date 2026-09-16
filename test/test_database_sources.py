@@ -423,6 +423,58 @@ def test_source_probe_never_asks_the_server_to_create_a_namespace():
     assert 'mode="r"' in body
 
 
+def test_source_probe_opens_the_namespace_without_enumerating_its_children(monkeypatch):
+    """A publication probe must stay constant-cost as the source grows."""
+    from vaft.database import utils
+
+    calls = []
+
+    class Folder:
+        def __iter__(self):
+            raise AssertionError("the source probe must not enumerate child domains")
+
+    def open_folder(path, *, mode):
+        calls.append((path, mode))
+        return Folder()
+
+    monkeypatch.setattr(utils.h5pyd, "Folder", open_folder)
+
+    utils.require_source_exists("main")
+
+    assert calls == [("/main/", "r")]
+
+
+@pytest.mark.parametrize("status", [404, 410])
+def test_source_probe_turns_only_missing_namespace_statuses_into_source_errors(
+    monkeypatch, status
+):
+    from vaft.database import utils
+
+    def open_folder(path, *, mode):
+        raise OSError(status, "domain not found")
+
+    monkeypatch.setattr(utils.h5pyd, "Folder", open_folder)
+
+    with pytest.raises(MissingSourceError):
+        utils.require_source_exists("main")
+
+
+def test_source_probe_preserves_transient_hsds_errors(monkeypatch):
+    from vaft.database import utils
+
+    transient = OSError(503, "server busy")
+
+    def open_folder(path, *, mode):
+        raise transient
+
+    monkeypatch.setattr(utils.h5pyd, "Folder", open_folder)
+
+    with pytest.raises(OSError) as caught:
+        utils.require_source_exists("main")
+
+    assert caught.value is transient
+
+
 def test_a_child_source_is_navigable_from_its_parent():
     """A hierarchy nothing can walk is two conventions, not one.
 
