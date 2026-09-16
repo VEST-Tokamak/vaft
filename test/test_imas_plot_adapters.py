@@ -115,8 +115,8 @@ def test_code_parameters_decode_on_the_native_walk(entry):
     assert isinstance(access.get(bundle, "equilibrium.code.parameters"), str)
     assert access.get(bundle, "equilibrium.code.parameters.cocos") == 11
     assert access.get(bundle, "equilibrium.code.parameters.nope") is None
-    assert access.get(bundle, "equilibrium.code.parameters.time_slice.0.aeqdsk.chisq") is None
-    assert access.count(bundle, "equilibrium.code.parameters.time_slice") == 0
+    assert not access.has(bundle, "equilibrium.code.parameters.nope")
+    assert access.count(bundle, "equilibrium.code.parameters.cocos") == 0  # a scalar, not a container
     assert "equilibrium.code.parameters" in bundle._parameters  # decoded once, then cached
     # The core readers dispatch to the same walk, so an OMAS helper reads natively.
     assert path_value(bundle, "equilibrium.code.parameters.cocos") == 11
