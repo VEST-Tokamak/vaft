@@ -14,9 +14,10 @@ unknown keyword is refused as ``plot_*`` refuses it.  It
 returns exactly what :func:`vaft.plot.backend.recipes.build_model` builds, so
 ``plot_*`` and ``render(extract_*(...))`` cannot diverge.
 
-``vaft.database`` gets no ``extract_*`` here: its ``plot_*`` signature is
-``(shot, source, lazy=, occurrence=)`` and opens IDS selectively, which is a
-different contract and belongs with selective loading.
+``vaft.database`` builds its own twins in :mod:`vaft.database.plotting`: its
+``plot_*`` signature is ``(shot, source, lazy=, occurrence=)`` and opens IDS
+selectively, so ``extract_*`` there opens the same IDS and hands the loaded
+ODS to :func:`vaft.plot.backend.recipes.build_model`.
 """
 
 from __future__ import annotations

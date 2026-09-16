@@ -395,9 +395,10 @@ def __getattr__(name: str):
         module = import_module(f".{name}", __name__)
         globals()[name] = module
         return module
-    # Plot adapters (issue #63): resolved lazily so importing vaft.database
-    # pulls in neither the plotting stack nor Matplotlib.
-    if name.startswith("plot_") or name == "available_plots":
+    # Plot adapters (issue #63) and their dd_*/extract_* twins (umbrella #434):
+    # resolved lazily so importing vaft.database pulls in neither the
+    # plotting stack nor Matplotlib.
+    if name.startswith(("plot_", "extract_", "dd_")) or name == "available_plots":
         plotting = import_module(".plotting", __name__)
         try:
             value = getattr(plotting, name)
