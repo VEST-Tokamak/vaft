@@ -9,6 +9,7 @@ from omas import ODS
 from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
 
 COILSET = vest_efit_coilset_policy()
+from vaft.code.efit.config import DIAGNOSTIC_GROUPS
 from vaft.code.efit import (
     EFITConfig,
     EFITConstraintConfig,
@@ -857,6 +858,96 @@ def test_objective_scales_change_only_submitted_fwt_values(tmp_path):
     # Objective strength must not be smuggled into the legacy uncertainties.
     assert "BITMPI= 5000.000" in text
     assert "PSIBIT= 6000.000" in text
+
+
+def test_uncertainty_scales_divide_only_their_own_family_sigma(tmp_path):
+    """Issue #386: the row weight EFIT processes is ``FWT/sigma``, not ``FWT``.
+
+    ``data_input.F90:2782`` divides each family's submitted ``FWT*`` by its
+    sigma (``nsq = 1``, ``:109``), so the diamagnetic row VEST actually
+    submits carries ``FWTDLC/sigdia = 1e-4`` while the stored measurement
+    error implies ``2.3e4``.  This knob closes that gap from the sigma side,
+    which is the quantity that is wrong, and it must move nothing else.
+    """
+    baseline = _kfile_text(tmp_path / "baseline")
+    scaled = _kfile_text(
+        tmp_path / "scaled",
+        EFITScientificConfig(
+            constraints=EFITConstraintConfig(
+                uncertainty_scales={"diamagnetic_flux": 1000.0}
+            )
+        ),
+    )
+
+    assert "SIGDLC= 40000000.0" in baseline
+    assert "SIGDLC= 40000.0" in scaled
+    # The measurement, the submitted weight and every other family stand still.
+    for unchanged in ("DFLUX= -4.0", "FWTDLC= 1.0", "BITMPI= 5000.000",
+                      "PSIBIT= 6000.000", "BITIP= 3000.0"):
+        assert unchanged in baseline and unchanged in scaled
+
+
+def test_an_unscaled_kfile_is_byte_identical_to_the_one_without_the_knob(tmp_path):
+    """The instrument must be inert until a study reaches for it."""
+    baseline = _kfile_text(tmp_path / "implicit")
+    explicit = _kfile_text(
+        tmp_path / "implicit",
+        EFITScientificConfig(
+            constraints=EFITConstraintConfig(
+                uncertainty_scales={name: 1.0 for name in DIAGNOSTIC_GROUPS}
+            )
+        ),
+    )
+
+    assert baseline == explicit
+
+
+def test_a_scaled_legacy_sigma_is_not_rounded_away_to_zero(tmp_path):
+    """``f"{0.0001:.3f}"`` is ``"0.000"``, and a zero sigma is not a small one.
+
+    EFIT guards its ``fwt/sigma`` division on ``sigma > 1e-10``
+    (``data_input.F90:2782``), so a sigma rounded to zero leaves the row at
+    the weight the study was trying to change -- silently, and in the
+    direction that looks like "the constraint does nothing".
+    """
+    text = _kfile_text(
+        tmp_path,
+        EFITScientificConfig(
+            constraints=EFITConstraintConfig(
+                uncertainty_scales={"bpol_probe": 1.0e7}
+            )
+        ),
+    )
+
+    assert "BITMPI= 0.0005" in text
+    # The family that was not scaled keeps the legacy three-decimal spelling.
+    assert "PSIBIT= 6000.000" in text
+
+
+def test_an_uncertainty_scale_must_be_positive_because_it_divides():
+    for bad in (0.0, -1.0):
+        with pytest.raises(ValueError, match="must be greater than zero"):
+            EFITConstraintConfig(uncertainty_scales={"diamagnetic_flux": bad})
+    with pytest.raises(ValueError, match="unknown EFIT diagnostic group"):
+        EFITConstraintConfig(uncertainty_scales={"not_a_family": 1.0})
+
+
+def test_uncertainty_scales_survive_the_round_trip_and_the_grid():
+    base = EFITScientificConfig()
+    assert set(base.constraints.uncertainty_scales) == set(DIAGNOSTIC_GROUPS)
+    assert set(base.to_dict()["constraints"]["uncertainty_scales"]) == set(
+        DIAGNOSTIC_GROUPS
+    )
+    assert EFITScientificConfig.from_dict(base.to_dict()).sha256 == base.sha256
+
+    grid = efit_parameter_grid(
+        base, {"constraints.uncertainty_scales.diamagnetic_flux": [1.0, 1.0e6]}
+    )
+    assert [item.constraints.uncertainty_scales["diamagnetic_flux"] for item in grid] == [
+        1.0,
+        1.0e6,
+    ]
+    assert len({item.sha256 for item in grid}) == 2
 
 
 def test_zero_objective_scale_disables_without_reenabling_rejected_channels(tmp_path):

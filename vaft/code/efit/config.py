@@ -33,6 +33,11 @@ def _unit_objective_scales() -> dict[str, float]:
     return {name: 1.0 for name in sorted(DIAGNOSTIC_GROUPS)}
 
 
+def _unit_uncertainty_scales() -> dict[str, float]:
+    """Return an explicit unit uncertainty scale for every constraint family."""
+    return {name: 1.0 for name in sorted(DIAGNOSTIC_GROUPS)}
+
+
 def _require_finite(name: str, value: float, *, positive: bool = False) -> None:
     if not math.isfinite(float(value)):
         raise ValueError(f"{name} must be finite")
@@ -360,11 +365,37 @@ class EFITConstraintConfig:
     without changing the measurement or its uncertainty.  A zero channel
     weight remains zero so a rejected channel cannot be accidentally
     re-enabled by either control.
+
+    ``uncertainty_scales`` is the other half of that pair: it *divides* the
+    submitted uncertainty (``SIGDLC``, ``BITMPI``, ``PSIBIT``, ``BITIP``,
+    ``BITFC``) for the named group, leaving the measurement and ``FWT*``
+    alone.  The two are not interchangeable, because EFIT processes a
+    statistical row as ``FWT/sigma`` (``data_input.F90:2782`` with ``nsq=1``
+    at ``:109``): the row weight VEST actually submits for the diamagnetic
+    flux is ``FWTDLC/sigdia = 1e-4`` under :attr:`uncertainty_mode`
+    ``"legacy_weight"``, while the stored measurement error implies ``2.3e4``.
+    Closing eight decades through ``objective_scales`` alone would write an
+    ``FWT*`` far outside anything EFIT was exercised with and would perturb
+    the branches that test ``fwtdlc`` directly (``response_matrix.F90:2840``,
+    ``chkerr.f90:61``).  Scaling the sigma moves the row weight and nothing
+    else, and it is the same quantity a production uncertainty decision would
+    set (#386).
+
+    :attr:`legacy_weight_scale` cannot serve this purpose: it is shared by
+    every family's legacy uncertainty, so moving it moves them all.
     """
 
     group_weights: Mapping[str, float] = field(default_factory=dict)
     objective_scales: Mapping[str, float] = field(
         default_factory=_unit_objective_scales
+    )
+    #: Per-family divisor on the submitted uncertainty.  1.0 everywhere is
+    #: today's behaviour; a value above one narrows that family's sigma and so
+    #: raises its processed row weight.  Applies in both
+    #: :attr:`uncertainty_mode` settings, so a weight ladder stays continuous
+    #: across the mode boundary.
+    uncertainty_scales: Mapping[str, float] = field(
+        default_factory=_unit_uncertainty_scales
     )
     uncertainty_mode: str = "legacy_weight"
     legacy_vbit: float = 10.0
@@ -406,14 +437,18 @@ class EFITConstraintConfig:
         for field_name, values in (
             ("group_weights", self.group_weights),
             ("objective_scales", self.objective_scales),
+            ("uncertainty_scales", self.uncertainty_scales),
         ):
             unknown = set(values) - DIAGNOSTIC_GROUPS
             if unknown:
                 names = ", ".join(sorted(unknown))
                 raise ValueError(f"unknown EFIT diagnostic group(s): {names}")
             for name, value in values.items():
-                _require_finite(f"{field_name}[{name!r}]", value)
-                if value < 0:
+                # An uncertainty scale divides, so zero is not "disabled" here
+                # the way it is for a weight -- it is a division by zero.
+                positive = field_name == "uncertainty_scales"
+                _require_finite(f"{field_name}[{name!r}]", value, positive=positive)
+                if not positive and value < 0:
                     raise ValueError(f"{field_name}[{name!r}] must be non-negative")
         if self.uncertainty_mode not in {"legacy_weight", "standard_deviation"}:
             raise ValueError(
@@ -474,6 +509,13 @@ class EFITConstraintConfig:
         resolved_scales = _unit_objective_scales()
         resolved_scales.update(self.objective_scales)
         object.__setattr__(self, "objective_scales", MappingProxyType(resolved_scales))
+        resolved_sigmas = _unit_uncertainty_scales()
+        resolved_sigmas.update(
+            {name: float(value) for name, value in self.uncertainty_scales.items()}
+        )
+        object.__setattr__(
+            self, "uncertainty_scales", MappingProxyType(resolved_sigmas)
+        )
         if self.coil_constraint_matrix is not None:
             object.__setattr__(self, "coil_constraint_matrix", rows)
             if self.coil_constraint_targets is not None:
