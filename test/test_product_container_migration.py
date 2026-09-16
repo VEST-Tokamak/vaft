@@ -431,3 +431,74 @@ def test_a_projected_product_is_decoded_once(tree, monkeypatch):
     migrate_product_containers(tree, stages=["eddy"], apply=True)
 
     assert loads.count(str(source)) == 1, loads
+# --------------------------------------------------------------------------- #
+# The join the migration leaves dangling
+# --------------------------------------------------------------------------- #
+def _real_hash_tree(root: Path) -> tuple[Path, Path, Path]:
+    """A tree whose eddy manifest records the diagnostics hash a run would.
+
+    The fixture above writes `"deadbeef"`, which never matches and so cannot
+    show a migration *breaking* a match that held. These do.
+    """
+    from vaft.database.replication import sha256_file
+
+    diagnostics = _write_legacy(root, "diagnostics", SHOT, _diagnostics_ods())
+    eddy = _write_legacy(root, "eddy", SHOT, _over_carrying_eddy_ods())
+    manifest_path = root / "omas" / "eddy" / str(SHOT) / "metadata" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["input"] = {"diagnostics_sha256": sha256_file(diagnostics)}
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    return diagnostics, eddy, manifest_path
+
+
+def test_composition_survives_the_migration_it_invalidates(tmp_path):
+    """Re-encoding diagnostics must not break every composition on the tree.
+
+    `migrate-products` leaves the eddy manifest's `input` alone on purpose, so
+    after the diagnostics product is re-containered its recorded hash names a
+    file that no longer exists. `compose_stage_products` is called at
+    `strict=True` by the pipeline itself -- `generate_constraints_ods` and
+    `generate_stage_plots` -- so without the superseded-hash fallback the
+    migration would stop EFIT on every shot at once.
+    """
+    from vaft.database.composition import compose_stage_products
+
+    diagnostics, eddy, manifest_path = _real_hash_tree(tmp_path)
+    compose_stage_products(
+        diagnostics=diagnostics, eddy=eddy, eddy_manifest=manifest_path
+    )  # holds before
+
+    migrate_product_containers(tmp_path, apply=True)
+
+    compose_stage_products(
+        diagnostics=tmp_path / "omas/diagnostics" / str(SHOT) / "output/diagnostics.json.gz",
+        eddy=tmp_path / "omas/eddy" / str(SHOT) / "output/eddy.json.gz",
+        eddy_manifest=manifest_path,
+    )
+
+
+def test_the_fallback_accepts_only_the_file_that_was_superseded(tmp_path):
+    """The relaxation is one hash, not the end of the check.
+
+    A migrated tree still has to refuse an eddy product paired with diagnostics
+    it was not computed from -- otherwise the fallback would have replaced a
+    guard with nothing, which is worse than the failure it was added to prevent.
+    """
+    from vaft.database.composition import StageCompositionError, compose_stage_products
+
+    _, _, manifest_path = _real_hash_tree(tmp_path)
+    migrate_product_containers(tmp_path, apply=True)
+
+    # Same grids, so this gets past the grid check and reaches the hash check --
+    # only the bytes differ, which is exactly what the hash is there to notice.
+    other = _diagnostics_ods()
+    other["magnetics.ip.0.data"] = np.full_like(TIME, 2.0)
+    foreign = tmp_path / "foreign.json.gz"
+    vomas.save(other, foreign)
+
+    with pytest.raises(StageCompositionError, match="different diagnostics file"):
+        compose_stage_products(
+            diagnostics=foreign,
+            eddy=tmp_path / "omas/eddy" / str(SHOT) / "output/eddy.json.gz",
+            eddy_manifest=manifest_path,
+        )
