@@ -9717,15 +9717,19 @@ def _ods_for_callable(obj: Any, name: str) -> Any:
     recipe = RECIPES[name]
     if recipe.backend == NEUTRAL:
         return obj
-    convert = getattr(obj, "as_ods_for", None)
-    if convert is not None:
-        try:
-            return convert(required_ids(name) + ("dataset_description",))
-        except NotImplementedError:
-            return materialise_reads(obj, name)
-    if is_lazy_ods(obj):
+    if converts_for_builder(obj, name):
+        return obj.as_ods_for(required_ids(name) + ("dataset_description",))
+    if materialises_for_builder(obj, name):
         return materialise_reads(obj, name)
     return obj
+
+
+def _can_convert(obj: Any, name: str) -> bool:
+    """Whether ``obj`` converts itself whole for plot ``name`` (an eager IMAS entry)."""
+    if not hasattr(obj, "as_ods_for"):
+        return False
+    can = getattr(obj, "can_convert", None)
+    return True if can is None else bool(can(required_ids(name)))
 
 
 def is_lazy_ods(obj: Any) -> bool:
@@ -9773,12 +9777,36 @@ def materialise_reads(obj: Any, name: str) -> Any:
 
     recipe = RECIPES[name]
     private = ODS(consistency_check=False)
-    for template in (*recipe.reads, "dataset_description.data_entry.pulse"):
+    templates = (*recipe.reads, "dataset_description.data_entry.pulse")
+    # Roots first: a whole IDS the input cannot supply is refused before any
+    # leaf is read.
+    for template in [t for t in templates if "." not in t] + [t for t in templates if "." in t]:
         if "." not in template:
             _copy_root(obj, template, private, name)
-            continue
-        _materialise_template(obj, template, private)
+        else:
+            _materialise_template(obj, template, private)
+    _decode_code_parameters(private)
     return private
+
+
+def _decode_code_parameters(private: Any) -> None:
+    """Turn the ``code.parameters`` XML text a data model stores into the tree helpers read.
+
+    Conversion and eager loading decode it on the way in; the accessor hands
+    the stored text back, and a helper reading ``code.parameters.cocos``
+    through it would see nothing.
+    """
+    from omas.omas_core import CodeParameters
+
+    for path in list(private.flat()):
+        if not path.endswith(".code.parameters") or not isinstance(private[path], str):
+            continue
+        text = private[path]
+        if not text.lstrip().startswith("<"):
+            continue  # not XML: a JSON stage blob stays what it is
+        decoded = CodeParameters()
+        decoded.from_string(text)
+        private[path] = decoded
 
 
 def _materialise_template(obj: Any, template: str, private: Any) -> None:
@@ -9810,25 +9838,27 @@ def _copy_root(obj: Any, root: str, private: Any, name: str) -> None:
 
     convert = getattr(obj, "as_ods_for", None)
     if convert is not None:
-        try:
-            source = convert((root,))
-        except NotImplementedError as error:
+        can = getattr(obj, "can_convert", None)
+        if can is not None and not can((root,)):
             raise NotImplementedError(
                 f"plot {name!r} deep-copies the whole {root!r} IDS, which this lazily loaded "
                 f"IMAS handle cannot supply; load the shot eagerly (lazy=False) for it"
-            ) from error
+            )
+        source = convert((root,))
         if _has(source, root):
             private[root] = copy.deepcopy(source[root])
         return
     store = getattr(obj, "store", None)
     if is_lazy_ods(obj) and root in {str(key) for key in store.keys("")}:
         # Walk the store's index: a leaf is what the store can fetch, the
-        # rest are structures and arrays of structures to descend.
+        # rest are structures and arrays of structures to descend.  Each leaf
+        # is read through the ODS, so a value the caller wrote over the store
+        # (issue #329) is what travels.
         def walk(location: str) -> None:
             for child in store.keys(location):
                 below = f"{location}.{child}"
                 if store.__contains__(below):
-                    private[below] = store[below]
+                    private[below] = _get(obj, below)
                 else:
                     walk(below)
 
@@ -9839,19 +9869,25 @@ def _copy_root(obj: Any, root: str, private: Any, name: str) -> None:
 
 
 def converts_for_builder(obj: Any, name: str) -> bool:
-    """Whether plot ``name`` would convert ``obj`` before building (for discovery)."""
+    """Whether plot ``name`` would convert ``obj`` whole before building (for discovery)."""
     recipe = RECIPES.get(name)
     return (
         isinstance(recipe, CallableRecipe)
         and recipe.backend == OMAS_BOUND
-        and hasattr(obj, "as_ods_for")
+        and _can_convert(obj, name)
     )
 
 
 def materialises_for_builder(obj: Any, name: str) -> bool:
-    """Whether plot ``name`` would read ``obj``'s declared paths into a private ODS."""
+    """Whether plot ``name`` would read ``obj``'s declared paths into a private ODS.
+
+    A lazy OMAS store, or an IMAS entry that cannot convert itself whole (a
+    lazily loaded remote handle).
+    """
     recipe = RECIPES.get(name)
-    return isinstance(recipe, CallableRecipe) and recipe.backend == OMAS_BOUND and is_lazy_ods(obj)
+    if not isinstance(recipe, CallableRecipe) or recipe.backend != OMAS_BOUND:
+        return False
+    return is_lazy_ods(obj) or (hasattr(obj, "as_ods_for") and not _can_convert(obj, name))
 
 
 def conversion_reason(name: str) -> str:

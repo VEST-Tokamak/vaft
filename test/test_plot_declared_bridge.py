@@ -55,6 +55,9 @@ def lazy_entry():
     from vaft.imas.access import IDSEntry
 
     class Lazy(IDSEntry):
+        def can_convert(self, ids_names=()):
+            return False
+
         def as_ods_for(self, ids_names):
             raise NotImplementedError("a lazily loaded handle cannot supply a full copy (test double)")
 
@@ -97,6 +100,15 @@ def test_materialised_reads_keep_the_arrays_of_structures_whole(sample):
     assert private["dataset_description.data_entry.pulse"] == 39915
     # The private copy is a plain ODS the builder may write into; the input is untouched.
     assert type(private).__name__ == "ODS" and private is not sample
+
+
+def test_code_parameters_are_decoded_on_the_bridge(sample, lazy_entry):
+    """The accessor hands back the stored XML text; helpers read the decoded tree."""
+    from vaft.omas.general import ods_cocos
+
+    private = materialise_reads(lazy_entry, "equilibrium_overview_fit_quality")
+    assert type(private["equilibrium.code.parameters"]).__name__ == "CodeParameters"
+    assert ods_cocos(private) == ods_cocos(sample)
 
 
 def test_only_a_lazy_store_is_a_lazy_ods(sample):
@@ -193,6 +205,30 @@ def test_a_lazy_store_is_read_by_template_and_walked_for_a_root():
     assert private["equilibrium.time_slice.1.global_quantities.q_axis"] == 1.2
     assert len(private["equilibrium.time_slice"]) == 2
     store.close()
+
+
+def test_a_lazy_imas_handle_is_announced_as_bridged_not_converted():
+    from vaft.database.lazy_imas import HSDSIMASHandle
+    from vaft.imas.access import IDSEntry
+    from vaft.plot.backend.discovery import describe_one
+    from vaft.plot.backend.recipes import converts_for_builder
+
+    spec = importlib.util.spec_from_file_location("_lazy_imas_fixtures", Path(__file__).with_name("test_lazy_imas.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    handle = HSDSIMASHandle(1, ids=["equilibrium", "magnetics"], imas_version="3.41.0", h5pyd_module=module._fake_hsds())
+    bundle = IDSEntry(handle)
+    assert not bundle.can_convert(("equilibrium",))
+    assert not converts_for_builder(bundle, "equilibrium_overview")
+    assert materialises_for_builder(bundle, "equilibrium_overview")
+    record = describe_one("equilibrium_overview", [("1", bundle)])
+    assert "declared reads on this lazy input" in record.reason
+    # A root-declaring view refuses before reading a single leaf (discovery
+    # above has already fetched what availability needed).
+    fetched = handle.metrics["payload_selection_count"]
+    with pytest.raises(NotImplementedError, match="deep-copies the whole 'equilibrium' IDS"):
+        materialise_reads(bundle, "equilibrium_overview")
+    assert handle.metrics["payload_selection_count"] == fetched
 
 
 def test_discovery_says_a_lazy_store_is_read_by_its_declared_paths():
