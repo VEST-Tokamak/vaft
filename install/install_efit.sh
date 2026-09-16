@@ -104,6 +104,16 @@ esac
 [[ -n "$BUILD_DIR" ]] || BUILD_DIR="$SOURCE/build-vaft-$PLATFORM"
 MANIFEST="$PREFIX/$MANIFEST_NAME"
 
+# The prefix is removed wholesale by --uninstall, so it must never be inside the
+# VAFT checkout. The PowerShell installers enforce this through
+# Resolve-InstallPrefix; the POSIX ones did not. Made absolute first, or a
+# relative --prefix would slip past the comparison and past the manifest.
+[[ "$PREFIX" == /* ]] || PREFIX="$PWD/$PREFIX"
+VAFT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+case "$PREFIX/" in
+  "$VAFT_ROOT"/*) die "the install prefix must be outside the VAFT checkout, because --uninstall removes it: $PREFIX is inside $VAFT_ROOT" ;;
+esac
+
 PYTHON="$(command -v python3 || command -v python || true)"
 [[ -n "$PYTHON" ]] || die "python3 is required (the VAFT environment provides it)"
 

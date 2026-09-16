@@ -130,7 +130,10 @@ def _executables(prefix: Optional[str], build_tree: Optional[str]) -> dict[str, 
         resolved = {}
         for role in INSTALLED_LAYOUT:
             for layout in (INSTALLED_LAYOUT, BUILD_TREE_LAYOUT):
-                candidate = root / layout[role]
+                # Through _resolve, so a Windows build tree holding efit.exe is
+                # recognised: testing the bare POSIX name would miss it and send
+                # the reader to the installed path that was never written.
+                candidate = _resolve(root / layout[role])
                 if candidate.is_file():
                     resolved[role] = candidate
                     break

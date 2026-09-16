@@ -168,7 +168,18 @@ NETCDF_C_HOME="$(nc-config --prefix 2>/dev/null || echo /usr)"
 
 # Reference netlib LAPACK/BLAS is what a stock Linux carries; OpenBLAS is used
 # instead when it is installed, since NUBEAM's linear algebra is a real cost.
-LAPACK_LIB_DIR="$(dirname "$(find /usr/lib -name 'liblapack.so*' -print -quit 2>/dev/null || echo /usr/lib)")"
+# `find` exits 0 and prints nothing when it matches nothing, so `|| echo` never
+# fires and `dirname ""` would yield ".", quietly producing `-L.` on every link.
+# Ask the linker where it actually finds the library instead, and fall back to
+# the multiarch directory rather than to the current one.
+LAPACK_LIB_DIR="$(dirname "$("$CC" -print-file-name=liblapack.so 2>/dev/null || true)" 2>/dev/null || true)"
+# -print-file-name answers relative to the gcc lib directory, so the path comes
+# back with ../.. in it; it links, but it is unreadable in a manifest.
+[[ -z "$LAPACK_LIB_DIR" ]] || LAPACK_LIB_DIR="$(cd "$LAPACK_LIB_DIR" 2>/dev/null && pwd -P || true)"
+if [[ -z "$LAPACK_LIB_DIR" || "$LAPACK_LIB_DIR" == "." ]]; then
+  LAPACK_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu"
+  [[ -d "$LAPACK_LIB_DIR" ]] || LAPACK_LIB_DIR=/usr/lib
+fi
 if ldconfig -p 2>/dev/null | grep -q 'libopenblas\.so'; then
   BLAS_FLAGS="-lopenblas"
   LAPACK_FLAGS="-llapack -lopenblas"
@@ -209,6 +220,10 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 GENERATED_CONFIGS=("$ROOT_DIR/share/Make.local")
 write_manifest() {
   {
+    # The root is recorded rather than inferred. uninstall.sh otherwise has to
+    # guess it from the entries, and the longest common prefix is wrong the
+    # moment they all share a subdirectory.
+    printf 'root\t%s\n' "$ROOT_DIR"
     printf 'managed_dir\t%s\n' "$PREFIX"
     printf 'managed_dir\t%s\n' "$BUILD_DIR"
     for config in "${GENERATED_CONFIGS[@]}"; do

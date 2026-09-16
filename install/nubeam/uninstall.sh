@@ -75,18 +75,34 @@ is_child_of_root() {
   esac
 }
 
-# A tree that was built on one machine and copied to another carries a manifest
-# full of the first machine's paths -- a NUBEAM tree built on macOS and rsynced
-# to a Linux server records /Users/... entries that do not exist here. Those are
-# not corruption and not an attack; they are the same relative paths under a
-# different root. Recognise that case by finding the root they all share, and
-# rebase them onto this one. Anything that does not fit that single shared root
-# is left to the outside-the-tree refusal below, because then the manifest is
-# describing something this script cannot account for.
+# A tree built on one machine and copied to another carries a manifest full of
+# the first machine's paths -- a NUBEAM tree built on macOS and rsynced to a
+# Linux server records /Users/... entries that do not exist here. Those are the
+# same relative paths under a different root, so they can be rebased onto this
+# one.
+#
+# Which root, though, is not something to infer. The longest common prefix of
+# the entries is the root only when they do not all share a subdirectory; when
+# they do -- two entries under <root>/local, say -- it lands a level too deep,
+# and rebasing then maps recorded paths onto *different* real paths that are
+# still inside the tree, where the outside-the-tree refusal cannot see them.
+# Deleting <root>/bin because the manifest said <old>/local/bin is exactly the
+# kind of mistake this script exists to not make.
+#
+# So the installer records the root (`root\t<path>`), and that is used when
+# present. For a manifest written before that -- macos.sh still writes none --
+# fall back to the common prefix, but only accept it when its last component
+# matches this tree's, which is what a relocated copy of the same tree looks
+# like. Anything else is refused rather than guessed at.
 recorded_root() {
-  local common="" path
-  while IFS=$'\t' read -r _ path; do
-    [[ -n "${path:-}" ]] || continue
+  local declared common="" path
+  declared="$(awk -F'\t' '$1 == "root" { print $2; exit }' "$MANIFEST")"
+  if [[ -n "$declared" ]]; then
+    printf '%s' "$declared"
+    return 0
+  fi
+  while IFS=$'\t' read -r kind path; do
+    [[ -n "${path:-}" && "$kind" != "root" ]] || continue
     if [[ -z "$common" ]]; then
       common="$path"
       continue
@@ -96,10 +112,21 @@ recorded_root() {
       [[ -n "$common" ]] || return 1
     done
   done < "$MANIFEST"
+  [[ -n "$common" ]] || return 1
+  # The guard: a relocated tree keeps its own name.
+  [[ "${common##*/}" == "${ROOT_DIR##*/}" ]] || {
+    printf 'the manifest records no root, and its entries share only %s, whose name does not match this tree (%s).\n' "$common" "$ROOT_DIR" >&2
+    printf 'Refusing to guess which prefix they were written under; remove the installation by hand, or delete %s.\n' "$MANIFEST" >&2
+    return 2
+  }
   printf '%s' "$common"
 }
 
-RECORDED_ROOT="$(recorded_root || true)"
+RECORDED_ROOT="$(recorded_root)" || {
+  status=$?
+  ((status == 2)) && exit 1
+  RECORDED_ROOT=""
+}
 REBASED=0
 if [[ -n "$RECORDED_ROOT" && "$RECORDED_ROOT" != "$ROOT_DIR" ]]; then
   note "this manifest was written for $RECORDED_ROOT; the tree is now $ROOT_DIR"
@@ -124,6 +151,7 @@ removed=0
 kept=0
 while IFS=$'\t' read -r kind path; do
   [[ -n "${kind:-}" && -n "${path:-}" ]] || continue
+  [[ "$kind" != "root" ]] || continue
   path="$(rebase "$path")"
   is_child_of_root "$path" || die "refusing path outside source tree: $path"
   case "$kind" in

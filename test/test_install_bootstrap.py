@@ -2120,3 +2120,86 @@ def test_efit_checker_resolves_the_layouts_the_runtime_resolves():
     assert "BUILD_TREE_LAYOUT" in body and "INSTALLED_LAYOUT" in body, (
         "the prefix branch must try both layouts, as toolchain.py does"
     )
+
+
+# ---------------------------------------------------------------------------
+# What the cold review turned up in the change above.
+# ---------------------------------------------------------------------------
+
+
+def test_nubeam_manifest_records_its_own_root():
+    """Inferring the root from the entries is wrong when they share a subtree.
+
+    The longest common prefix of `<root>/local/bin` and `<root>/local/lib` is
+    `<root>/local`, one level too deep. Rebasing a relocated manifest against
+    that maps recorded paths onto *different* real paths still inside the tree,
+    where the outside-the-tree refusal cannot see them -- removing `<root>/bin`
+    because the manifest said `<old>/local/bin`.
+    """
+    installer = _executable_source(NUBEAM_DIR / "linux.sh")
+    assert "printf 'root\\t%s\\n'" in installer, "the installer must record the root"
+
+    # Raw text, not _executable_source: the comment stripper cuts at the first
+    # `#`, and the guard below is written with ${var##*/}.
+    remover = (NUBEAM_DIR / "uninstall.sh").read_text(encoding="utf-8")
+    assert '$1 == "root"' in remover, "the remover must prefer the recorded root"
+    # And when there is none, the fallback is constrained rather than trusted.
+    assert '"${common##*/}" == "${ROOT_DIR##*/}"' in remover, (
+        "a guessed root must at least name the same tree"
+    )
+
+
+def test_nubeam_linux_does_not_derive_a_library_dir_from_a_bare_find():
+    """`find` exits 0 and prints nothing when nothing matches.
+
+    `dirname "$(find ... || echo /usr/lib)"` therefore yields "." rather than
+    the fallback, and the link line silently becomes `-L.`.
+    """
+    text = _executable_source(NUBEAM_DIR / "linux.sh")
+    assert 'dirname "$(find' not in text, (
+        "a bare find cannot carry its own fallback; ask the compiler instead"
+    )
+    assert "-print-file-name=liblapack.so" in text
+
+
+@pytest.mark.parametrize("name", EXTERNAL_CODE_POSIX_SCRIPTS)
+def test_posix_external_installers_install_outside_every_checkout(name):
+    """--uninstall removes the prefix wholesale, so it must not be the checkout.
+
+    The PowerShell installers enforce this through Resolve-InstallPrefix; the
+    POSIX ones did not, and would happily install into -- and later delete --
+    a directory inside the VAFT working tree.
+    """
+    text = _executable_source(INSTALL / name)
+    assert "VAFT_ROOT=" in text, f"install/{name} must know where the checkout is"
+    assert "must be outside the VAFT checkout" in text
+    # A relative --prefix would otherwise slip past the comparison.
+    assert '[[ "$PREFIX" == /* ]] || PREFIX=' in text
+
+
+def test_efit_checker_resolves_both_layouts_through_the_same_helper():
+    """_resolve is what appends .exe on Windows.
+
+    Testing the bare POSIX name inside the layout loop would miss a Windows
+    build tree holding efit.exe -- the same checker/runtime contradiction the
+    loop was added to remove, just confined to one platform.
+    """
+    text = (INSTALL / "check_efit.py").read_text(encoding="utf-8")
+    body = text[text.index("def _executables("):]
+    body = body[: body.index("\ndef ")]
+    assert "_resolve(root / layout[role])" in body
+
+
+@pytest.mark.parametrize(
+    "name,variable",
+    [("install_chease.sh", "CHEASEHOME"), ("install_gpec.sh", "GPECHOME")],
+)
+def test_check_only_reports_what_the_install_reports(name, variable):
+    """--check-only exists to answer the same question the installer answers.
+
+    The post-install verification passes the home variable; --check-only did
+    not, so the discovery layer fell back to the ambient environment and failed
+    on an installation that was fine.
+    """
+    text = _executable_source(INSTALL / name)
+    assert f'exec env {variable}="$PREFIX"' in text

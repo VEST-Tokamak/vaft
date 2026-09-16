@@ -125,11 +125,25 @@ esac
 MANIFEST="$PREFIX/$MANIFEST_NAME"
 BUILD_DIR="$SOURCE/install"
 
+# The prefix is removed wholesale by --uninstall, so it must never be inside the
+# VAFT checkout. The PowerShell installers enforce this through
+# Resolve-InstallPrefix; the POSIX ones did not. Made absolute first, or a
+# relative --prefix would slip past the comparison and past the manifest.
+[[ "$PREFIX" == /* ]] || PREFIX="$PWD/$PREFIX"
+VAFT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+case "$PREFIX/" in
+  "$VAFT_ROOT"/*) die "the install prefix must be outside the VAFT checkout, because --uninstall removes it: $PREFIX is inside $VAFT_ROOT" ;;
+esac
+
 PYTHON="$(command -v python3 || command -v python || true)"
 [[ -n "$PYTHON" ]] || die "python3 is required (the VAFT environment provides it)"
 
 if ((CHECK_ONLY)); then
-  exec "$PYTHON" "$SCRIPT_DIR/check_gpec.py" --source "$SOURCE" --prefix "$PREFIX"
+  # With the home variable set, so --check-only reports what the
+  # post-install verification reports. Without it the discovery layer
+  # asks VAFT to resolve $GPECHOME from the ambient environment and fails
+  # on a perfectly good installation.
+  exec env GPECHOME="$PREFIX" "$PYTHON" "$SCRIPT_DIR/check_gpec.py" --source "$SOURCE" --prefix "$PREFIX"
 fi
 
 if ((UNINSTALL)); then
