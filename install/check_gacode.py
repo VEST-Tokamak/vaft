@@ -49,9 +49,15 @@ SOURCE_MARKERS = (
     "Makefile", "shared/bin/gacode_setup", "platform/build", "neo/src", "tglf/src",
 )
 
+#: The recipe that works on this platform. GACODE has one per platform and they
+#: are not interchangeable -- macos.sh resolves its dependencies through
+#: Homebrew, linux.sh through the distribution -- so naming the wrong one sends
+#: the reader to a script that cannot run where they are.
+RECIPE = "install/gacode/macos.sh" if sys.platform == "darwin" else "install/gacode/linux.sh"
+
 BUILD_REMEDIATION = (
     "Build GACODE with:\n"
-    "         bash install/gacode/macos.sh --gacode-root <source> --check"
+    f"         bash {RECIPE} --gacode-root <source> --check"
 )
 
 

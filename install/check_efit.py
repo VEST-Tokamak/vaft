@@ -111,12 +111,34 @@ def _resolve(candidate: Path) -> Path:
 
 
 def _executables(prefix: Optional[str], build_tree: Optional[str]) -> dict[str, Path]:
+    """Where each role's executable is, resolved the way the runtime resolves it.
+
+    ``--build-tree`` states the layout, so it is honoured as given. A prefix
+    does not: ``$EFITHOME`` may legitimately point at either an installed
+    prefix or a CMake build tree, and ``vaft.code.efit.toolchain`` tries
+    ``INSTALLED_LAYOUT`` then ``BUILD_TREE_LAYOUT`` under the one root
+    (toolchain.py:89-91). Checking only the first meant a working build-tree
+    ``$EFITHOME`` was reported as "missing efit at <root>/bin/efit" on the same
+    run whose VAFT-discovery layer found it -- the checker contradicting the
+    code it exists to check.
+    """
     if build_tree:
         root = Path(build_tree).expanduser()
         return {role: _resolve(root / relative) for role, relative in BUILD_TREE_LAYOUT.items()}
     if prefix:
         root = Path(prefix).expanduser()
-        return {role: _resolve(root / relative) for role, relative in INSTALLED_LAYOUT.items()}
+        resolved = {}
+        for role in INSTALLED_LAYOUT:
+            for layout in (INSTALLED_LAYOUT, BUILD_TREE_LAYOUT):
+                candidate = root / layout[role]
+                if candidate.is_file():
+                    resolved[role] = candidate
+                    break
+            else:
+                # Neither exists: name the installed path, which is what the
+                # installer would have written and what the remediation builds.
+                resolved[role] = _resolve(root / INSTALLED_LAYOUT[role])
+        return resolved
     return {}
 
 
