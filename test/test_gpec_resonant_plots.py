@@ -80,6 +80,39 @@ def test_the_two_figures_share_one_derivation(mapped, monkeypatch):
     assert len(calls) == len(NAMES), "one derivation per figure, not per trace"
 
 
+def test_the_decoded_and_the_string_shapes_of_code_parameters_agree(tmp_path):
+    """`code.parameters` reaches a reader as either the string the mapper wrote
+    or a tree OMAS decoded, and which one is not the caller's choice: OMAS
+    raises internally on a document with repeated elements and leaves the
+    string alone, so a single-surface run decodes and a two-surface run does
+    not. A reader that handles one shape works by accident on some shots.
+    """
+    import warnings
+
+    from vaft.plot.backend.recipes import _gpec_rational_surfaces
+
+    write_control_nc(tmp_path, n=1)
+    write_cylindrical_nc(tmp_path, n=1)
+    write_profile_nc(tmp_path, n=1, rational_q=(2.0,))
+    ods = ODS(consistency_check=False)
+    gpec_ideal(ods, str(tmp_path), {"modes": [1]})
+
+    assert isinstance(ods["mhd_linear.code.parameters"], str)
+    from_string = _gpec_rational_surfaces(ods, 1)
+    drawn_from_string = RECIPES[NAMES[1]].builder(ods).series[0].y
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        try:
+            ods.codeparams2dict()
+        except Exception:  # pragma: no cover - OMAS declines some documents
+            pytest.skip("OMAS did not decode this document")
+    assert not isinstance(ods["mhd_linear.code.parameters"], str), "nothing to test"
+
+    assert _gpec_rational_surfaces(ods, 1) == from_string
+    np.testing.assert_allclose(RECIPES[NAMES[1]].builder(ods).series[0].y, drawn_from_string)
+
+
 def test_a_dcon_only_product_says_what_is_missing(tmp_path):
     """`mhd_linear` also holds DCON's eigenfunction on a (psi, m) grid, so the
     grid alone does not mean the resonant table can be derived -- the surface

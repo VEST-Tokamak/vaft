@@ -8610,26 +8610,29 @@ def _gpec_rational_surfaces(ods: Any, n_tor: int) -> tuple[float, list[dict[str,
         ]
         return (float(chi1.group(1)) if chi1 else float("nan")), surfaces
 
-    # Decoded tree. Attribute keys carry a leading '@'; the per-mode blocks are
-    # walked the same way `_code_parameter_values` walks the string-free case.
-    solvers = _code_parameter_values(parameters, "solver")
-    for solver in solvers if isinstance(solvers, list) else [solvers]:
-        for candidate in solver if isinstance(solver, list) else [solver]:
-            modes = _code_parameter_values(candidate, "n_tor")
-            if not modes or int(_scalar(modes[0])) != int(n_tor):
-                continue
-            chi1_values = _code_parameter_values(candidate, "chi1")
-            columns = {
-                name: [float(_scalar(v)) for v in _code_parameter_values(candidate, name)]
-                for name in _SURFACE_FIELDS
-            }
-            length = min((len(v) for v in columns.values()), default=0)
+    # Decoded tree. `codeparams2dict` turns each element into a mapping whose
+    # attribute keys carry a leading '@' and whose repeated children collapse
+    # into a list -- and it only gets that far for documents it can decode at
+    # all: a run with more than one rational surface, or more than one mode,
+    # makes it raise internally and leave the string above. Both shapes are
+    # real, so both are handled.
+    def _children(node: Any, tag: str) -> list[Any]:
+        if not isinstance(node, Mapping) or tag not in node:
+            return []
+        value = node[tag]
+        return list(value) if isinstance(value, (list, tuple)) else [value]
+
+    for solver in _children(parameters, "solver"):
+        if int(_scalar(solver.get("@n_tor", -1))) != int(n_tor):
+            continue
+        for block in _children(solver, "rational_surfaces"):
             surfaces = [
-                {name: columns[name][index] for name in _SURFACE_FIELDS}
-                for index in range(length)
+                {name: float(_scalar(row[f"@{name}"])) for name in _SURFACE_FIELDS}
+                for row in _children(block, "surface")
+                if all(f"@{name}" in row for name in _SURFACE_FIELDS)
             ]
-            chi1 = float(_scalar(chi1_values[0])) if chi1_values else float("nan")
-            return chi1, surfaces
+            chi1 = block.get("@chi1")
+            return (float(_scalar(chi1)) if chi1 is not None else float("nan")), surfaces
     return float("nan"), []
 
 
