@@ -14,7 +14,7 @@ per code: [`install/nubeam/`](nubeam/) and [`install/gacode/`](gacode/). Both
 operate on a source tree you supply rather than one VAFT vendors, and neither
 is run by CI. NUBEAM builds on macOS/Apple Silicon (`macos.sh`) and native
 Windows (`windows.ps1`); GACODE is macOS/Apple Silicon only so far. CHEASE and
-GPEC have native-Windows installers here and belong to #226 elsewhere.
+GPEC have installers here for native Windows and for macOS; Linux remains #226.
 
 Budget about 15–20 minutes from a nearly clean machine.
 
@@ -294,9 +294,9 @@ to *run* CHEASE or the DCON/GPEC suite rather than only prepare their inputs.
 
 ```text
 Need VAFT only?            -> the platform script above; you are done
-Need CHEASE?               -> obtain CHEASE, then install\install_chease_windows.ps1
-Need DCON/GPEC?            -> obtain GPEC, then install_gpec_windows.ps1 -BuildDependencies
-Need EFIT/EFUND?           -> obtain EFIT, then install_efit_windows.ps1 -AcceptEfitUsersAgreement
+Need CHEASE?               -> obtain CHEASE, then install_chease_macos.sh / install\install_chease_windows.ps1
+Need DCON/GPEC?            -> obtain GPEC, then install_gpec_macos.sh / install_gpec_windows.ps1 -BuildDependencies
+Need EFIT/EFUND?           -> obtain EFIT, then install_efit.sh / install_efit_windows.ps1 (accepting the users agreement)
 ```
 
 **You obtain the source yourself.** The installers take the path to a checkout
@@ -532,17 +532,68 @@ value otherwise fails inside a shell script without naming itself. See
 [`install/gacode/README.md`](gacode/README.md). macOS/Apple Silicon only for
 now.
 
-### Linux and macOS
+### macOS
 
-CHEASE and GPEC are not yet automated — tracked in
-[issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). Build by hand
-with the recipe in
+CHEASE and the DCON/GPEC suite each have a macOS entry point, alongside the
+native-Windows ones above. Both take a checkout you already hold, build it, and
+copy the executables into a prefix; neither clones, fetches, pulls or switches
+revision, and neither edits a shell profile.
+
+```bash
+bash install/install_chease_macos.sh --source ~/git/chease
+export CHEASEHOME=~/.local/vaft/chease
+
+bash install/install_gpec_macos.sh --source ~/git/GPEC
+export GPECHOME=~/.local/vaft/gpec
+```
+
+Each ends by running its own checker, so a finished run has already proved
+itself: `install_chease_macos.sh` refines a VEST equilibrium and compares q,
+pressure and current against the reference, and `install_gpec_macos.sh` runs
+upstream's Solov'ev regression case through the real DCON → GPEC handoff.
+Re-run either check later with `--check-only`, and undo an install with
+`--uninstall`.
+
+Prerequisites are Homebrew's `gcc` (for gfortran) plus, for GPEC, `netcdf` and
+`netcdf-fortran`. Neither script installs a toolchain for you.
+
+**Neither patches its source tree.** CHEASE's `Makefile.define_FLAGS` has no
+gfortran branch under `darwin`, so a plain `make` there compiles with empty
+`F90FLAGS`; rather than editing the file, the installer passes the flags as
+make command-line variables, which override the makefile's own assignments.
+GPEC needs no equivalent, because its `install/DEFAULTS.inc` already reads the
+compiler and library locations out of the environment. So the revision the
+manifest records is the revision that was compiled, and a tree you have edited
+yourself comes back exactly as you left it.
+
+Two macOS specifics are worth knowing. Both codes use **Accelerate** for LAPACK
+and BLAS — CHEASE links `-framework Accelerate`, GPEC reaches the same
+implementation through the SDK's `liblapack.tbd` with `LAPACKHOME=/usr`, which
+`--lapack-home` overrides. And **xdraw is not built**: it wants X11, VAFT never
+calls it, and on the older GPEC build layout its absence breaks the `all`
+target's `mkbin` step. The installer names the modules it needs instead.
+
+`install_gpec_macos.sh` was verified against GPEC's current `develop`
+(`e68d7ac2`, v1.5.7-611), which is the layout `check_gpec.py` expects — that
+checker requires `install/TARGETS.inc`, added upstream after v1.5.5. An older
+checkout will fail the checker's source test for that reason and should be
+updated rather than worked around.
+
+### Linux
+
+Still by hand, tracked in
+[issue #226](https://github.com/VEST-Tokamak/vaft/issues/226): use the recipe in
 `workflow/automatic_pipeline_1_routine_data_processing/DEPLOYMENT.md`, then set
 `CHEASEHOME` / `GPECHOME` the same way. `install/check_chease.py` and
 `install/check_gpec.py` run on every platform, so the verification half is
-available today.
+available there today.
 
 ### Tested toolchain
+
+The macOS verification used Apple Silicon with Homebrew gfortran 16, the
+Command Line Tools SDK, Accelerate for LAPACK/BLAS, and Homebrew `netcdf`
+4.9.3 / `netcdf-fortran` 4.6.1 for GPEC. CHEASE was built from `0b2a7d2`
+(crpptbx-release-v14.6.1-13) and GPEC from `e68d7ac2` (v1.5.7-611).
 
 | Component | Version used for the Windows verification |
 | --- | --- |
@@ -879,4 +930,8 @@ into your question.
 | CHEASE, Windows native | Verified **manually** on a clean Windows 11 machine: build, VAFT discovery, a refinement of a packaged equilibrium, and its comparison metrics. Not automated -- hosted runners have no Fortran toolchain, and a full build takes tens of minutes. |
 | DCON/GPEC, Windows native | Verified **manually** on a clean Windows 11 machine with `-BuildDependencies`: build, VAFT discovery, the DCON to GPEC handoff on upstream's Solov'ev regression, and its energies. Not automated -- hosted runners have no Fortran toolchain and the dependency chain alone takes half an hour. The script-level guarantees are pinned by `test/test_install_bootstrap.py`, which runs in CI on every platform. |
 | EFIT/EFUND, Windows native | Verified **manually** on Windows 11, end to end: build, runtime-library colocation, EFUND's seven Green tables byte-exact, and a full DIII-D reconstruction of shot 186610 at 2400 ms driven through `vaft.code.efit` with no MSYS2 on `PATH` -- chi^2 2.081E+01, q95 2.956, g-file, a-file and m-file written, process exits 0. Requires one upstream defect fixed in your own tree; see below. |
-| CHEASE and DCON/GPEC, Linux and macOS | Installers not yet written -- tracked in [issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). The checkers run on every platform today. |
+| CHEASE, macOS | Verified **manually** on Apple Silicon against a pristine checkout: build, VAFT discovery, a refinement of packaged `g039915.00319`, and its metrics -- `q_rms_rel` 0.0144, `pressure_rms_rel` 0.0655, `current_rel_diff` 0.0429. The source tree is byte-identical afterwards. Not automated, for the same reason as the Windows rows. |
+| DCON/GPEC, macOS | Verified **manually** on Apple Silicon against a pristine checkout of `develop` (`e68d7ac2`): all six executables, VAFT discovery, the DCON to GPEC handoff on upstream's Solov'ev regression, and its energies -- plasma 14.28, vacuum 2.355, total 16.63, stable. 1m43s with 6 jobs. The same script also builds all six from v1.5.5 (`f06e6abd`), which then fails the checker's own source test because `install/TARGETS.inc` postdates it. |
+| NUBEAM, macOS and Windows native | Recipes for both platforms; each records what it verified. See [`install/nubeam/README.md`](nubeam/README.md). |
+| GACODE, macOS | Verified **manually** on macOS/arm64 against `gafusion/gacode` `6357db30`: NEO's shipped `reg18` regression reproduces `out.neo.prec` `0.12268957E+02` exactly. See [`install/gacode/README.md`](gacode/README.md). |
+| CHEASE and DCON/GPEC, Linux | Installers not yet written -- tracked in [issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). The checkers run on every platform today. |

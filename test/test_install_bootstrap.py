@@ -25,22 +25,31 @@ ROOT = Path(__file__).resolve().parents[1]
 INSTALL = ROOT / "install"
 CHECKER = INSTALL / "check_vaft_environment.py"
 
-POSIX_SCRIPTS = (
-    "linux.sh", "macos.sh", "windows_wsl.sh", "uninstall.sh", "_common.sh",
-    "install_efit.sh",
-)
-PLATFORM_SCRIPTS = ("linux.sh", "macos.sh", "windows_wsl.sh", "windows_native.ps1")
-# Removal is identical on every POSIX platform, so it needs one entry point,
-# not one per platform.
-UNINSTALL_SCRIPTS = ("uninstall.sh", "uninstall_windows_native.ps1")
 # The external Fortran codes are their own entry points, deliberately separate
 # from the VAFT bootstrap: building them takes tens of minutes and needs a
 # compiler toolchain, neither of which belongs in the path a student runs first.
+#
+# The split is by shell, not by importance: the PowerShell recipes share
+# _external_code_common.ps1 and a parameter block, which several tests below
+# assert on directly, so the POSIX ones cannot be folded into the same tuple.
 EXTERNAL_CODE_SCRIPTS = (
     "install_chease_windows.ps1",
     "install_efit_windows.ps1",
     "install_gpec_windows.ps1",
 )
+EXTERNAL_CODE_POSIX_SCRIPTS = (
+    "install_efit.sh",
+    "install_chease_macos.sh",
+    "install_gpec_macos.sh",
+)
+POSIX_SCRIPTS = (
+    "linux.sh", "macos.sh", "windows_wsl.sh", "uninstall.sh", "_common.sh",
+    *EXTERNAL_CODE_POSIX_SCRIPTS,
+)
+PLATFORM_SCRIPTS = ("linux.sh", "macos.sh", "windows_wsl.sh", "windows_native.ps1")
+# Removal is identical on every POSIX platform, so it needs one entry point,
+# not one per platform.
+UNINSTALL_SCRIPTS = ("uninstall.sh", "uninstall_windows_native.ps1")
 EXTERNAL_CODE_CHECKERS = (
     "check_chease.py",
     "check_efit.py",
@@ -149,6 +158,7 @@ def test_install_directory_is_flat_and_complete():
         *PLATFORM_SCRIPTS,
         *UNINSTALL_SCRIPTS,
         *EXTERNAL_CODE_SCRIPTS,
+        *EXTERNAL_CODE_POSIX_SCRIPTS,
         *EXTERNAL_CODE_CHECKERS,
         "_common.sh",
         "_external_code_common.ps1",
@@ -1213,6 +1223,7 @@ def test_uninstall_reverses_exactly_what_the_bootstrap_creates():
 
 EXTERNAL_SOURCES = (
     *EXTERNAL_CODE_SCRIPTS,
+    *EXTERNAL_CODE_POSIX_SCRIPTS,
     *EXTERNAL_CODE_CHECKERS,
     "_external_code_common.ps1",
     "_external_code_common.py",
@@ -1256,6 +1267,48 @@ def test_external_code_installers_require_an_explicit_source_path():
         )
         assert "Assert-SourceCheckout" in text, (
             f"install/{name} must validate the path it was given"
+        )
+
+
+def test_posix_external_code_installers_never_guess_where_the_source_is():
+    for name in EXTERNAL_CODE_POSIX_SCRIPTS:
+        text = _executable_source(INSTALL / name)
+        for guess in ("~/git", "$HOME/git"):
+            assert guess not in text, f"install/{name} guesses a source path: {guess}"
+
+
+def test_posix_external_code_installers_require_an_explicit_source_path():
+    """The same #226 promise the PowerShell recipes make, in the shell they use.
+
+    Defaulting to some conventional checkout would turn provenance into a
+    guess. These scripts refuse to build without being told, and say why.
+    """
+    for name in EXTERNAL_CODE_POSIX_SCRIPTS:
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        assert "--source is required: VAFT does not vendor" in text, (
+            f"install/{name} must refuse to run without an explicit --source, "
+            "and say that VAFT does not vendor the code"
+        )
+        assert "_SOURCE_DIR:-" in text, (
+            f"install/{name} must also accept the source path from the "
+            "environment, so a repeat build need not retype it"
+        )
+
+
+def test_posix_external_code_installers_record_what_they_built():
+    """A prefix with no manifest cannot be traced back to a revision.
+
+    check_build_record reads this file; without it the checker can only say
+    that some executable exists, not that it came from the source at hand.
+    """
+    for name in EXTERNAL_CODE_POSIX_SCRIPTS:
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        assert "vaft-external-install.json" in text, (
+            f"install/{name} must write the install manifest"
+        )
+        assert "rev-parse --short HEAD" in text, (
+            f"install/{name} must record the abbreviated revision, which is "
+            "what check_build_record compares against"
         )
 
 

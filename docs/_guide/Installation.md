@@ -138,6 +138,19 @@ The executable under `bin/` may be the native `chease.exe` or `dcon.exe`; VAFT
 resolves the documented POSIX name to it. `install/README.md` covers building
 CHEASE and the DCON/GPEC suite natively on Windows.
 
+On macOS/Apple Silicon both build from a checkout you already hold:
+
+```bash
+bash install/install_chease_macos.sh --source /path/to/chease   # sets nothing; prints CHEASEHOME
+bash install/install_gpec_macos.sh   --source /path/to/GPEC     # prints GPECHOME
+```
+
+Each ends by running its own checker, so a run that finishes has already solved
+a reference case and compared the numbers. Neither installer clones, fetches or
+switches revision, and neither patches its source tree. On Linux these two are
+still a manual build, tracked in
+[issue #226](https://github.com/VEST-Tokamak/vaft/issues/226).
+
 
 ## Expected outputs
 
