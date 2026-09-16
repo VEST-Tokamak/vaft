@@ -85,6 +85,31 @@ def _require_positive(name, value):
     return array
 
 
+def _breakdown_field(p, connection_length_m, A, B):
+    """Townsend closure inverted for the threshold field, without the wrapping.
+
+    Both public spellings call this, so the degenerate-case warning is always
+    raised two frames below the caller and blames the call site rather than a
+    line inside this module.
+    """
+    pressure = _require_positive("p", p)
+    length = _require_positive("connection_length_m", connection_length_m)
+    coeff_a = _require_positive("A", A)
+    coeff_b = _require_positive("B", B)
+    argument = coeff_a * pressure * length
+    degenerate = argument <= 1.0
+    if np.any(degenerate):
+        warnings.warn(
+            "the Townsend avalanche cannot close over this connection length "
+            "(A p L <= 1), so no breakdown threshold exists; returning nan",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        field = coeff_b * pressure / np.log(argument)
+    return np.where(degenerate, np.nan, field)
+
+
 def neutral_density_from_pressure(p_Pa, T_gas_K=300.0):
     r"""Number density of a fill gas at a measured pressure and temperature.
 
@@ -283,7 +308,7 @@ def townsend_ionization_coefficient(E_parallel, p_Pa, A, B):
     return _maybe_scalar(alpha, E_parallel, p_Pa, A, B)
 
 
-def townsend_breakdown_field(p, connection_length_m, A, B, *, _stacklevel=2):
+def townsend_breakdown_field(p, connection_length_m, A, B):
     r"""Breakdown threshold field of a gas, by inverting the Townsend closure.
 
     $$E_{BD} = \frac{B\,p}{\ln\!\left(A\,p\,L\right)}$$
@@ -351,9 +376,10 @@ def townsend_breakdown_field(p, connection_length_m, A, B, *, _stacklevel=2):
     plotting path, so it blanks a point instead of taking down a figure.
     Exactly at $A\,p\,L = 1$ the expression has a pole, and ``nan`` is returned
     there too, because an infinite threshold is a feature of the fit and not a
-    physical field.  The private ``_stacklevel`` lets a wrapper such as
-    :func:`lloyd_breakdown_field` make that warning point at *its* caller
-    rather than at the delegating line inside this module.
+    physical field.  Both this function and :func:`lloyd_breakdown_field` are
+    thin wrappers over one private kernel, so the warning is raised exactly two
+    frames below the caller either way and blames the call site rather than a
+    line in this module.
 
     References
     ----------
@@ -365,22 +391,7 @@ def townsend_breakdown_field(p, connection_length_m, A, B, *, _stacklevel=2):
     lloyd_breakdown_field
     townsend_ionization_coefficient
     """
-    pressure = _require_positive("p", p)
-    length = _require_positive("connection_length_m", connection_length_m)
-    coeff_a = _require_positive("A", A)
-    coeff_b = _require_positive("B", B)
-    argument = coeff_a * pressure * length
-    degenerate = argument <= 1.0
-    if np.any(degenerate):
-        warnings.warn(
-            "the Townsend avalanche cannot close over this connection length "
-            "(A p L <= 1), so no breakdown threshold exists; returning nan",
-            RuntimeWarning,
-            stacklevel=_stacklevel,
-        )
-    with np.errstate(divide="ignore", invalid="ignore"):
-        field = coeff_b * pressure / np.log(argument)
-    field = np.where(degenerate, np.nan, field)
+    field = _breakdown_field(p, connection_length_m, A, B)
     return _maybe_scalar(field, p, connection_length_m, A, B)
 
 
@@ -469,12 +480,11 @@ def lloyd_breakdown_field(p_Pa, connection_length_m):
     vaft.formula.equilibrium.toroidal_electric_field
     """
     p_torr = _require_positive("p_Pa", p_Pa) / PA_PER_TORR
-    field = townsend_breakdown_field(
+    field = _breakdown_field(
         p_torr,
         connection_length_m,
         _LLOYD_A_PER_M_TORR,
         _LLOYD_B_V_PER_M_TORR,
-        _stacklevel=3,
     )
     return _maybe_scalar(field, p_Pa, connection_length_m)
 
