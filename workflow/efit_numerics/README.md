@@ -168,6 +168,76 @@ Rerunning with that policy and nothing else changed:
 Per shot: 4 of 7 on 39915, 2 of 5 on 41524, 12 of 19 on 41672. **These are the
 first accepted VEST reconstructions in this line of work.**
 
+## What the termination settings are worth (issue #171)
+
+Six of the parameters that decide when a VEST fit stops were EFIT's own
+defaults that VAFT never wrote. `termination_scan.py` sweeps the five that
+are settable, one axis at a time, over the three reference discharges.
+
+| configuration | accepted | equilibria | collapsed | hit cap | iterations | chi2 |
+| --- | --- | --- | --- | --- | --- | --- |
+| **routine** | **29** | 49 | 22 | 0 | 9.8 | 51.2 |
+| `SAICON = 60` | 27 | 49 | 22 | 0 | 9.8 | 51.2 |
+| `SAICON = 40` | 24 | 49 | 22 | 0 | 9.8 | 51.2 |
+| `ERRMIN = 3e-3` | 30 | 50 | 22 | 0 | 13.2 | 45.4 |
+| `ERRMIN = 1e-3` | 29 | 49 | 22 | 6 | 22.5 | 51.2 |
+| `NXITER = 3` | 27 | 41 | 6 | 39 | 102.8 | 33.2 |
+| `MXITER = 25` | 29 | 49 | 22 | 1 | 9.8 | 51.2 |
+| `MXITER = 200` | 29 | 49 | 22 | 0 | 9.8 | 51.2 |
+| `RELAX = 0.7` | 30 | 50 | 22 | 0 | 13.2 | 45.4 |
+
+**Nothing here is worth changing.** `SAICON` is monotonically worse downward;
+`MXITER` is inert in both directions; `ERRMIN = 1e-3` costs 1.8x the runtime
+for no acceptance at all, which measures the writer's own note that it moves a
+fit "from under a minute to about three"; `NXITER = 3` loses eight equilibria
+and drives thirty-nine slices into the iteration cap for 6.9x the runtime.
+
+`RELAX` was refined over 0.4 to 0.95 before being ruled out. It changes the
+iteration count monotonically -- 21.8 at 0.4 down to 10.2 at 0.95, which is
+what dividing `errorm` should do -- and the entire acceptance difference is
+**one slice on 41672**, present at 0.6, 0.7 and 0.85 and absent at 0.5, 0.8,
+0.9 and 0.95. A non-monotonic one-slice difference is a threshold wobble, not
+an effect.
+
+So the answer #171 asked for is that the inherited defaults are already the
+right ones. That is now a measured claim rather than an unexamined
+inheritance, which was the point.
+
+### The chi-square that remains is not a termination problem
+
+`#1`, chi-square above `SAICON = 80`, is the only acceptance failure left, and
+no setting above moves it. The apparent improvements in the table are
+selection, not fit: compared **slice by slice on the slices both
+configurations produced**, chi-square is identical to within one percent.
+
+| | slices in both | chi2 improved | worsened | unchanged |
+| --- | --- | --- | --- | --- |
+| `NXITER = 3` | 41 | 0 | 0 | **41** |
+| `ERRMIN = 3e-3` | 49 | 0 | 0 | **49** |
+| `RELAX = 0.7` | 49 | 0 | 0 | **49** |
+
+`NXITER = 3`'s median falls from 51.2 to 33.2 only because the eight slices it
+failed to reconstruct were the poorly-fitted ones.
+
+`MXITER` is the cleanest evidence: if the fit were being cut short, 200
+iterations would beat 100. They are identical, and 25 is identical too with
+one slice reaching the cap. **The solver is converging, not being truncated** --
+it reaches the best fit it can and that best is above 80.
+
+Lowering chi-square therefore means changing what produces the residual: which
+constraint families carry independent information (#663), how much freedom the
+profile model has (#579), and the pressure deficit (#386). Raising `SAICON`
+above 80 was deliberately not scanned: it would reduce `#1` by definition
+without changing a single reconstruction, and whether 80 is the right bar for
+VEST is a physics argument rather than something a termination scan can settle.
+
+Nothing is discarded either way. VEST runs `ierchk = 1`, so `efit.F90` writes
+both the a-file and the g-file whatever `lflag` says, and VAFT's own
+`EFITSliceStatus` never reads `jflag` -- the two verdicts are recorded side by
+side. The thirty-two rejected slices are on disk with their chi-square and
+their global quantities, so whether 80 is the right bar can be asked of the
+data that already exists.
+
 ### Re-baselined with the envelope actually shipped (issue #852)
 
 The three tables above were measured by a harness deriving its own envelope.
