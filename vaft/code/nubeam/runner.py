@@ -132,7 +132,7 @@ def _reaction_database_env(config: NUBEAMConfig) -> dict[str, str]:
         path = Path(value).expanduser()
         if not path.is_dir():
             raise FileNotFoundError(
-                f"{name} does not exist: {path}. Run external/nubeam/macos.sh to "
+                f"{name} does not exist: {path}. Run install/nubeam/macos.sh to "
                 "create and populate the reaction databases."
             )
     # Both are caches: the table code writes newly computed reaction tables

@@ -9,11 +9,12 @@ environment**. Building the external Fortran codes is optional and independent,
 and has its own entry points: see
 [External fusion codes](#external-fusion-codes-chease-and-dcongpec).
 
-Build recipes for external codes live in [`external/`](../external/) instead, one
-directory per code. [`external/nubeam/`](../external/nubeam/) is the first: it
-builds on macOS/Apple Silicon (`macos.sh`) and on native Windows
-(`windows.ps1`), is not run by CI, and operates on a NUBEAM source tree you
-supply rather than one VAFT vendors. Linux belongs to #226.
+Build recipes for the external codes live beside the bootstrap, one directory
+per code: [`install/nubeam/`](nubeam/) and [`install/gacode/`](gacode/). Both
+operate on a source tree you supply rather than one VAFT vendors, and neither
+is run by CI. NUBEAM builds on macOS/Apple Silicon (`macos.sh`) and native
+Windows (`windows.ps1`); GACODE is macOS/Apple Silicon only so far. CHEASE and
+GPEC have native-Windows installers here and belong to #226 elsewhere.
 
 Budget about 15–20 minutes from a nearly clean machine.
 
@@ -500,23 +501,23 @@ your source tree, MSYS2, or anything `pacman` installed.
 
 ### NUBEAM
 
-NUBEAM has its own entry point, [`external/nubeam/windows.ps1`](../external/nubeam/windows.ps1),
+NUBEAM has its own entry point, [`install/nubeam/windows.ps1`](nubeam/windows.ps1),
 because it shares the reference cases and validation scripts with the macOS
 recipe beside it. It needs a netCDF without S3, which
 `install_gpec_windows.ps1 -BuildDependencies` produces, and it downloads three
 NTCC dependency modules only after you pass `-AcceptNtccTerms`. Everything it
 generates stays inside your NUBEAM source tree. See
-[`external/nubeam/README.md`](../external/nubeam/README.md).
+[`install/nubeam/README.md`](nubeam/README.md).
 
 ### GACODE
 
-GACODE has its own entry point, [`external/gacode/macos.sh`](../external/gacode/macos.sh),
+GACODE has its own entry point, [`install/gacode/macos.sh`](gacode/macos.sh),
 which installs the Homebrew dependencies, builds the shared and `f2py` libraries and the
 requested suite members, and can run NEO's shipped `reg18` regression case in the same
 invocation:
 
 ```bash
-bash external/gacode/macos.sh --gacode-root ~/git/gacode --check
+bash install/gacode/macos.sh --gacode-root ~/git/gacode --check
 export GACODEHOME=~/git/gacode
 export GACODE_PLATFORM=GFORTRAN_OSX_BREW
 python install/check_gacode.py --source ~/git/gacode
@@ -528,7 +529,7 @@ its own `bin`, so the executable is `neo/bin/neo`, not `bin/neo`. It also needs
 `GACODE_PLATFORM`, which selects `platform/exec/exec.$GACODE_PLATFORM` at run time --
 `vaft.code.gacode` resolves it up front and lists the available tags, because a wrong
 value otherwise fails inside a shell script without naming itself. See
-[`external/gacode/README.md`](../external/gacode/README.md). macOS/Apple Silicon only for
+[`install/gacode/README.md`](gacode/README.md). macOS/Apple Silicon only for
 now.
 
 ### Linux and macOS

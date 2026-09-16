@@ -51,7 +51,7 @@ SOURCE_MARKERS = (
 
 BUILD_REMEDIATION = (
     "Build GACODE with:\n"
-    "         bash external/gacode/macos.sh --gacode-root <source> --check"
+    "         bash install/gacode/macos.sh --gacode-root <source> --check"
 )
 
 

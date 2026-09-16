@@ -223,11 +223,11 @@ separate prefix, and each member carries its own `bin` (`neo/bin/neo`). `GACODE_
 names the tag it was built with. VAFT sets GACODE's own `GACODE_ROOT` and
 `GACODE_PLATFORM` for the subprocess from these rather than redefining them, and falls
 back to `GACODE_ROOT` when `GACODEHOME` is unset. Build it through
-[`external/gacode/`](external/gacode/) and verify with `python install/check_gacode.py`.
+[`install/gacode/`](install/gacode/) and verify with `python install/check_gacode.py`.
 
 `NUBEAMHOME` also supplies the PREACT and ADAS reaction databases NUBEAM cannot
 run without, at `share/preact` and `share/adas`. VAFT builds NUBEAM through
-[`external/nubeam/`](external/nubeam/) rather than vendoring it: NTCC requires each
+[`install/nubeam/`](install/nubeam/) rather than vendoring it: NTCC requires each
 user to accept its licence before downloading the source. That path is macOS/Apple
 Silicon only for now; Linux and Windows are tracked in
 [issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). The adapter runs

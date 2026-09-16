@@ -27,7 +27,7 @@ runs in CI; the VAFT test suite passes with GACODE absent.
 ## Usage
 
 ```bash
-bash external/gacode/macos.sh --gacode-root ~/git/gacode --check
+bash install/gacode/macos.sh --gacode-root ~/git/gacode --check
 export GACODEHOME=~/git/gacode
 python install/check_gacode.py --source ~/git/gacode
 ```

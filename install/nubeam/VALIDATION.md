@@ -5,8 +5,8 @@ build and compared against the reference Plasma States shipped alongside them.
 Reproduce with:
 
 ```bash
-bash external/nubeam/run-local-validation.sh --nubeam-root /path/to/nubeam --case d3d
-bash external/nubeam/run-local-validation.sh --nubeam-root /path/to/nubeam --case tftr
+bash install/nubeam/run-local-validation.sh --nubeam-root /path/to/nubeam --case d3d
+bash install/nubeam/run-local-validation.sh --nubeam-root /path/to/nubeam --case tftr
 ```
 
 ## How to read these numbers
@@ -158,7 +158,7 @@ currently depends on it.
 ## End-to-end VEST run
 
 ```bash
-bash external/nubeam/run-local-vest.sh --nubeam-root /path/to/nubeam \
+bash install/nubeam/run-local-vest.sh --nubeam-root /path/to/nubeam \
     --input-dir ~/Downloads/gbyhj_test --gfile ~/Downloads/g020000.015100
 ```
 

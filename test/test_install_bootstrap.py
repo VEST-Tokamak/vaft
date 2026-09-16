@@ -129,8 +129,21 @@ checker = _load_checker()
 # ---------------------------------------------------------------------------
 
 
+#: The external Fortran codes that keep a directory of their own under
+#: `install/`, because a build recipe is more than one file: it carries its
+#: own README, reference cases and validation notes. This is not the axis
+#: #225's flatness rule is about -- that one forbids splitting the *bootstrap*
+#: by platform or by role, which is what a student would have to navigate.
+EXTERNAL_CODE_DIRECTORIES = ("gacode", "nubeam")
+
+
 def test_install_directory_is_flat_and_complete():
-    """Issue #225 requires a flat install/ with one entry point per platform."""
+    """Issue #225 requires a flat install/ with one entry point per platform.
+
+    Flat means no `install/linux/`, no `install/checkers/`: the bootstrap a
+    student runs first is one directory of scripts. A per-code build recipe is
+    a different axis and keeps its own directory, listed above.
+    """
     assert INSTALL.is_dir()
     expected = (
         *PLATFORM_SCRIPTS,
@@ -145,13 +158,22 @@ def test_install_directory_is_flat_and_complete():
     )
     for name in expected:
         assert (INSTALL / name).is_file(), f"install/{name} is missing"
+    for code in EXTERNAL_CODE_DIRECTORIES:
+        assert (INSTALL / code).is_dir(), f"install/{code}/ is missing"
+        assert (INSTALL / code / "README.md").is_file(), (
+            f"install/{code}/ must say what it builds and how"
+        )
     subdirectories = [
         child.name
         for child in INSTALL.iterdir()
-        if child.is_dir() and child.name != "__pycache__"
+        if child.is_dir()
+        and child.name != "__pycache__"
+        and child.name not in EXTERNAL_CODE_DIRECTORIES
     ]
     assert not subdirectories, (
-        f"install/ must stay flat: no platform or checker subdirectories, found {subdirectories}"
+        "install/ must stay flat: no platform or checker subdirectories, found "
+        f"{subdirectories}. A new external code's recipe goes in "
+        "EXTERNAL_CODE_DIRECTORIES."
     )
 
 
@@ -1442,21 +1464,21 @@ def test_readme_documents_the_external_code_path():
 
 
 # ---------------------------------------------------------------------------
-# external/nubeam: the Windows NUBEAM recipe
+# install/nubeam: the Windows NUBEAM recipe
 #
-# NUBEAM's entry point lives in external/nubeam/ rather than install/, beside
+# NUBEAM's entry point lives in install/nubeam/ rather than install/, beside
 # the macOS recipe it mirrors, because the two share the reference cases and
 # the validation scripts. The rules issue #226 sets for install/ apply to it
 # all the same, so they are asserted here rather than assumed.
 # ---------------------------------------------------------------------------
 
-NUBEAM_DIR = ROOT / "external" / "nubeam"
+NUBEAM_DIR = ROOT / "install" / "nubeam"
 NUBEAM_SCRIPTS = ("windows.ps1", "windows.sh")
 
 
 def test_nubeam_windows_recipe_is_present_beside_the_macos_one():
     for name in (*NUBEAM_SCRIPTS, "macos.sh"):
-        assert (NUBEAM_DIR / name).is_file(), f"external/nubeam/{name} is missing"
+        assert (NUBEAM_DIR / name).is_file(), f"install/nubeam/{name} is missing"
 
 
 def test_nubeam_windows_recipe_never_obtains_or_moves_the_source():
@@ -1470,14 +1492,14 @@ def test_nubeam_windows_recipe_never_obtains_or_moves_the_source():
     for name in NUBEAM_SCRIPTS:
         text = _executable_source(NUBEAM_DIR / name)
         for pattern in ACQUISITIVE:
-            assert not pattern.search(text), f"external/nubeam/{name} runs `{pattern.pattern}`"
+            assert not pattern.search(text), f"install/nubeam/{name} runs `{pattern.pattern}`"
 
 
 def test_nubeam_windows_recipe_never_guesses_where_the_source_is():
     for name in NUBEAM_SCRIPTS:
         text = _executable_source(NUBEAM_DIR / name)
         for guess in ("~/git", "$HOME/git", "USERPROFILE\\git"):
-            assert guess not in text, f"external/nubeam/{name} guesses a source path: {guess}"
+            assert guess not in text, f"install/nubeam/{name} guesses a source path: {guess}"
 
 
 def test_nubeam_windows_wrapper_requires_an_explicit_source_path():
@@ -1546,4 +1568,4 @@ def test_nubeam_windows_recipe_is_valid_shell():
 def test_nubeam_readme_documents_the_windows_path():
     text = (NUBEAM_DIR / "README.md").read_text(encoding="utf-8")
     for fragment in ("windows.ps1", "windows.sh", "-AcceptNtccTerms"):
-        assert fragment in text, f"external/nubeam/README.md does not mention {fragment}"
+        assert fragment in text, f"install/nubeam/README.md does not mention {fragment}"

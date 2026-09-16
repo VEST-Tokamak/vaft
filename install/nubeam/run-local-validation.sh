@@ -61,7 +61,7 @@ CASE_EDIT="$SCRIPT_DIR/_case_edit.py"
 [[ -f "$CASE_EDIT" ]] || die "missing helper: $CASE_EDIT"
 # Text edits go through Python, never sed/awk: `sed -i ''` is correct on BSD
 # and broken on GNU, and the two spell a whole-line replacement differently.
-# See external/nubeam/_case_edit.py.
+# See install/nubeam/_case_edit.py.
 case_edit() { python3 "$CASE_EDIT" "$@"; }
 
 while (($#)); do
