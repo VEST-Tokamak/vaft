@@ -196,6 +196,8 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    "lab_to_straight_field_line",
+    "straight_field_line_tables",
     "cocos_field_scales",
     "resonant_delta",
     "resonant_geometric_factor",

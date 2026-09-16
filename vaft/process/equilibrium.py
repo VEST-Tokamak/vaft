@@ -94,6 +94,8 @@ __all__ = [
     "calculate_diamagnetism",
     "calculate_q_profile_from_psi",
     "find_rational_surfaces",
+    "lab_to_straight_field_line",
+    "straight_field_line_tables",
     "resistive_layer_at",
     "resistive_layer_parameters",
     "calculate_reconstructed_diamagnetic_flux",
@@ -4190,3 +4192,203 @@ def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
         "q_rational": np.asarray(q_rational, dtype=float)[outward],
         "psi_n_rational": np.asarray(positions, dtype=float)[outward],
     }
+
+
+def straight_field_line_tables(
+    theta_turns,
+    r,
+    z,
+    magnetic_axis,
+    *,
+    jacobian: str,
+    minimum_separation: float = 1e-10,
+) -> tuple[tuple[np.ndarray, np.ndarray], ...]:
+    """Per-surface tables taking the geometric poloidal angle to the code's own.
+
+    Parameters
+    ----------
+    theta_turns : array_like
+        The code's poloidal angle **in turns**, one value per row of ``r`` and
+        ``z``. A closing duplicate is dropped [-].
+    r, z : array_like
+        Flux-surface geometry, ``(theta, psi)`` [m].
+    magnetic_axis : sequence of float
+        ``(r, z)`` of the axis the geometric angle is measured about [m].
+    jacobian : str
+        Which straight-field-line angle these are -- ``hamada``, ``pest``,
+        ``boozer`` and so on. Required and recorded, not inferred: the file
+        does not carry it, and the mapping is meaningless without knowing
+        which angle it lands in [n/a].
+    minimum_separation : float, optional
+        Geometric-angle spacing below which two samples are treated as one
+        [rad].
+
+    Returns
+    -------
+    tuple of (ndarray, ndarray)
+        One ``(lab, sfl)`` pair per flux surface, both strictly increasing and
+        spanning exactly one period, ready for
+        :func:`lab_to_straight_field_line`.
+
+    Raises
+    ------
+    ValueError
+        ``r`` and ``z`` disagree in shape, ``theta_turns`` does not match their
+        first axis, an input is not finite, ``jacobian`` is empty, or a surface
+        collapses to fewer than three distinct angles.
+
+    Convention
+    ----------
+    **The angle arrives in turns, and nothing in the file says so.** GPEC
+    writes ``theta_dcon`` from 0 to 1 with no ``units`` attribute, so a caller
+    that took it for radians would be wrong by ``2 pi`` and the error would
+    look like a mis-shaped plasma rather than a unit mistake. It is converted
+    here, once, and the parameter is named for what it holds.
+
+    The geometric angle is ``atan2(z - z_axis, r - r_axis)``, which is the lab
+    angle FLARE's Poincare output is in; the straight-field-line angle is what
+    GPEC and DCON label their harmonics by. The two agree only on a circular
+    concentric equilibrium.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Processing steps
+    ----------------
+    1. Drop the closing duplicate, which GPEC writes so its grid is periodic.
+    2. Per surface, take the geometric angle about the axis.
+    3. Roll so the table starts near the outboard midplane, then unwrap both
+       angles together.
+    4. Reverse when the geometric angle runs backwards, so the table increases
+       whichever way the surface was traced.
+    5. Drop samples closer than ``minimum_separation``, which a
+       near-stagnation point in the geometric angle can produce.
+    6. Close the period by repeating the first entry shifted by ``2 pi``.
+
+    Limitations
+    -----------
+    The relabelling is **one flux surface at a time** and says nothing about
+    the radial coordinate: a caller with points between surfaces has to decide
+    how to interpolate across them, and doing that in the lab angle is not the
+    same as doing it in the straight-field-line one.
+
+    Provenance
+    ----------
+    .. [legacy] ``library/flare_plotting.py::_build_lab_to_sfl_inverse_tables``
+       and ``_interp_periodic_inverse``.
+    """
+    if not str(jacobian).strip():
+        raise ValueError(
+            "jacobian must name which straight-field-line angle this lands in "
+            "-- hamada, pest, boozer. GPEC's profile output does not carry it, "
+            "so it is passed rather than guessed"
+        )
+    turns = np.atleast_1d(np.asarray(theta_turns, dtype=float))
+    radius = np.asarray(r, dtype=float)
+    height = np.asarray(z, dtype=float)
+    if radius.shape != height.shape or radius.ndim != 2:
+        raise ValueError(
+            f"r and z must be one 2-D (theta, psi) grid; got {radius.shape} and "
+            f"{height.shape}"
+        )
+    if turns.size != radius.shape[0]:
+        raise ValueError(
+            f"{turns.size} poloidal angles against {radius.shape[0]} rows of geometry"
+        )
+    if not (np.all(np.isfinite(turns)) and np.all(np.isfinite(radius))
+            and np.all(np.isfinite(height))):
+        raise ValueError("the angle or the geometry holds a non-finite value")
+    axis = np.asarray(magnetic_axis, dtype=float).ravel()
+    if axis.size != 2 or not np.all(np.isfinite(axis)):
+        raise ValueError(f"magnetic_axis must be a finite (r, z) pair, not {magnetic_axis!r}")
+
+    sfl = np.mod(turns * 2.0 * np.pi, 2.0 * np.pi)
+    # GPEC closes its grid, so the last row repeats the first; keeping it would
+    # put a zero-length step in every table.
+    if sfl.size > 1 and np.isclose(turns[0] % 1.0, turns[-1] % 1.0):
+        sfl, radius, height = sfl[:-1], radius[:-1, :], height[:-1, :]
+
+    tables: list[tuple[np.ndarray, np.ndarray]] = []
+    for column in range(radius.shape[1]):
+        lab = np.mod(
+            np.arctan2(height[:, column] - axis[1], radius[:, column] - axis[0]),
+            2.0 * np.pi,
+        )
+        start = int(np.argmin(np.abs(np.angle(np.exp(1j * lab)))))
+        lab_line = np.unwrap(np.roll(lab, -start))
+        sfl_line = np.unwrap(np.roll(sfl, -start))
+        if lab_line[-1] < lab_line[0]:
+            lab_line, sfl_line = lab_line[::-1], sfl_line[::-1]
+        if np.any(np.diff(lab_line) <= 0.0):
+            order = np.argsort(lab_line)
+            lab_line, sfl_line = lab_line[order], sfl_line[order]
+        keep = np.r_[True, np.diff(lab_line) > float(minimum_separation)]
+        lab_line, sfl_line = lab_line[keep], sfl_line[keep]
+        if lab_line.size < 3:
+            raise ValueError(
+                f"flux surface {column} collapses to {lab_line.size} distinct "
+                "geometric angles, so it cannot be relabelled"
+            )
+        tables.append((
+            np.r_[lab_line, lab_line[0] + 2.0 * np.pi],
+            np.r_[sfl_line, sfl_line[0] + 2.0 * np.pi],
+        ))
+    return tuple(tables)
+
+
+def lab_to_straight_field_line(theta_lab, table: tuple[np.ndarray, np.ndarray]):
+    """Relabel a geometric poloidal angle into the straight-field-line one.
+
+    Parameters
+    ----------
+    theta_lab : float or array_like
+        Geometric angle about the magnetic axis, any branch [rad].
+    table : tuple of ndarray
+        One ``(lab, sfl)`` pair from :func:`straight_field_line_tables` [rad].
+
+    Returns
+    -------
+    float or ndarray
+        The straight-field-line angle, wrapped to ``[0, 2 pi)`` [rad].
+
+    Raises
+    ------
+    ValueError
+        The table's two arrays disagree in length, or it is too short to
+        interpolate.
+
+    Convention
+    ----------
+    The input is wrapped onto the table's own branch before interpolating.
+    The table spans one period starting wherever the surface's outboard
+    midplane fell, **not** at zero, so wrapping to ``[0, 2 pi)`` and
+    interpolating would read off the end for every angle below that start.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Processing steps
+    ----------------
+    1. Wrap the angle onto the table's branch.
+    2. Interpolate, and wrap the result into ``[0, 2 pi)``.
+
+    Provenance
+    ----------
+    .. [legacy] ``library/flare_plotting.py::_interp_periodic_inverse``.
+    """
+    lab_grid, sfl_grid = (np.asarray(part, dtype=float) for part in table)
+    if lab_grid.size != sfl_grid.size:
+        raise ValueError(
+            f"the table pairs {lab_grid.size} geometric angles with "
+            f"{sfl_grid.size} straight-field-line ones"
+        )
+    if lab_grid.size < 3:
+        raise ValueError("a relabelling table needs at least three entries")
+    angle = np.mod(np.asarray(theta_lab, dtype=float), 2.0 * np.pi)
+    start = float(lab_grid[0])
+    angle = angle + 2.0 * np.pi * np.ceil((start - angle) / (2.0 * np.pi))
+    angle = np.where(angle >= start + 2.0 * np.pi, angle - 2.0 * np.pi, angle)
+    result = np.mod(np.interp(angle, lab_grid, sfl_grid), 2.0 * np.pi)
+    return float(result) if np.ndim(theta_lab) == 0 else result
