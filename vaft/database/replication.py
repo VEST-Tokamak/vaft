@@ -203,7 +203,13 @@ def _check_eligible(manifest: dict[str, Any], stage: str, product: Path) -> None
 
 
 def _project(ods, ids_names: tuple[str, ...]) -> tuple[Any, tuple[str, ...]]:
-    """Return a copy holding only the IDS this stage owns, plus provenance."""
+    """Return a copy holding only the IDS this stage owns, plus provenance.
+
+    The inverse is :func:`vaft.database.composition.compose_stage_products`,
+    which unions per-stage subtrees back into one shot for a reader that needs
+    more than one of them.  This splits on the way out; that joins on the way
+    in, and neither hides which stage a subtree came from.
+    """
     from omas import ODS
 
     projected = ODS(consistency_check=False)

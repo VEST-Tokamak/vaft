@@ -242,10 +242,11 @@ def test_static_is_not_shot_replicated_and_says_why():
 
 
 def test_eddy_owns_only_what_it_computes():
-    """The eddy product carries the diagnostics IDS through but does not own them.
+    """eddy solves against the diagnostics IDS but owns and stores none of them.
 
-    `build_eddy_ods` starts from the finalized diagnostics ODS, so replicating
-    the whole product would have eddy overwrite what diagnostics wrote.
+    Its product is exactly this projection, so `replication._project` is an
+    identity on it -- what is on disk and what is published cannot disagree
+    about which stage is authoritative for an IDS.
     """
     eddy = sources.replication_for_stage("eddy")
     diagnostics = sources.replication_for_stage("diagnostics")

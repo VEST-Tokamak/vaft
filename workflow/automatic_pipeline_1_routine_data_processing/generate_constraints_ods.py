@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Generate EFIT constraints OMAS ODS from eddy-current diagnostics ODS."""
+"""Generate EFIT constraints OMAS ODS from the diagnostics and eddy products.
+
+The constraint builder needs `magnetics`, `pf_active` and `tf` from the
+diagnostics stage and `pf_passive` from the eddy stage.  Each stage stores only
+what it owns, so the two are unioned here through
+`vaft.database.composition.compose_stage_products`, which also refuses a pairing
+whose time grids say the products came from different runs.
+"""
 
 from __future__ import annotations
 
@@ -11,9 +18,9 @@ from pathlib import Path
 from typing import NamedTuple
 
 import numpy as np
-from omas import load_omas_json
 
 from vaft.code.efit import correct_flux_loop, generate_constraints_ods as build_constraints
+from vaft.database.composition import compose_stage_products
 from vaft.machine_mapping.utils import PlasmaTimingPolicy, resolve_plasma_timing_policy
 from vaft.omas.plasma_timing import plasma_timing
 from vaft.omas.vest_upstream import machine_era_for_shot
@@ -226,7 +233,19 @@ def _window_comment(window: ConstraintWindow | None, times: np.ndarray) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--shot", required=True, type=int, help="VEST shot number.")
-    parser.add_argument("--eddy-ods", "--input", required=True, type=Path, help="Input eddy ODS JSON.")
+    parser.add_argument("--eddy-ods", "--input", required=True, type=Path, help="Input eddy ODS (pf_passive).")
+    parser.add_argument(
+        "--diagnostics-ods",
+        required=True,
+        type=Path,
+        help="The diagnostics ODS the eddy product was computed from.",
+    )
+    parser.add_argument(
+        "--eddy-manifest",
+        default=None,
+        type=Path,
+        help="The eddy stage manifest, for the input-provenance check.",
+    )
     parser.add_argument("--output", required=True, type=Path, help="Output constraints ODS JSON.")
     parser.add_argument("--efit-table-dir", default="", help="EFIT table/input directory written into kfiles.")
     parser.add_argument("--timeset", default="auto", choices=["auto", "manual"], help="EFIT constraint time selection mode.")
@@ -266,7 +285,12 @@ def main() -> int:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
     )
-    ods = load_omas_json(str(args.eddy_ods), consistency_check=False)
+    ods, composition = compose_stage_products(
+        diagnostics=args.diagnostics_ods,
+        eddy=args.eddy_ods,
+        eddy_manifest=args.eddy_manifest,
+    )
+    LOGGER.info("composed inputs: %s", json.dumps(composition, default=str))
     times, window = _select_times(ods, args.timeset, args.tstep, args.tstart, args.tend)
     if times.size == 0:
         raise ValueError("No EFIT constraint times selected")
