@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>33f9907</code>. What is described
+  <code>24c8bdf</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -267,7 +267,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/perturbation.py"><code class="language-plaintext highlighter-rouge">vaft/process/perturbation.py</code></a>:
-19 public functions.  The category overview and notation come from the module
+21 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("perturbation.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -372,6 +372,10 @@ which unit it is showing.</p>
   <li><a href="#reduce_delta_e"><code>reduce_delta_e</code></a> &mdash; Combine a per-mode edge-overlap metric into one number.
 </li>
   <li><a href="#reduce_resonant"><code>reduce_resonant</code></a> &mdash; Reduce one resonant column over one radial window.
+</li>
+  <li><a href="#resonant_delta"><code>resonant_delta</code></a> &mdash; The resonance parameter from the jump in a stored spectral field.
+</li>
+  <li><a href="#resonant_geometric_factor"><code>resonant_geometric_factor</code></a> &mdash; Measure the surface factor that turns a resonance parameter into a flux.
 </li>
   <li><a href="#resonant_metrics"><code>resonant_metrics</code></a> &mdash; Reduce every named column of a resonant table over every window.
 </li>
@@ -1528,6 +1532,178 @@ four rational surfaces has regions that are legitimately empty.</p>
 </li>
 </ol>
 
+<h3 id="resonant_delta"><code class="language-plaintext highlighter-rouge">resonant_delta</code></h3>
+
+<p class="formula-signature"><code>resonant_delta(psi_norm, field, *, psi_rational, area, dq_dpsi_norm, chi1, m_pol, n_tor, offset=0.0005)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The resonance parameter from the jump in a stored spectral field.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Radial grid the field is stored on.</p>
+</td></tr>
+  <tr><td><code>field</code></td><td>array_like</td><td>T</td><td><p>One harmonic of the Jacobian-weighted contravariant flux, <code class="language-plaintext highlighter-rouge">J b . grad psi</code>, on that grid – GPEC’s <code class="language-plaintext highlighter-rouge">Jbgradpsi</code> at <code class="language-plaintext highlighter-rouge">m = m_pol</code>. Complex.</p>
+</td></tr>
+  <tr><td><code>psi_rational</code></td><td>float</td><td>-</td><td><p>Where the surface is.</p>
+</td></tr>
+  <tr><td><code>area</code></td><td>float</td><td>m^2</td><td><p>Area of that surface.</p>
+</td></tr>
+  <tr><td><code>dq_dpsi_norm</code></td><td>float</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">dq/dpsi_N</code> at the surface.</p>
+</td></tr>
+  <tr><td><code>chi1</code></td><td>float</td><td>-</td><td><p>The equilibrium’s poloidal flux normalization.</p>
+</td></tr>
+  <tr><td><code>m_pol, n_tor</code></td><td>int</td><td>-</td><td><p>The harmonic’s mode numbers, <code class="language-plaintext highlighter-rouge">m_pol = n_tor * q</code>.</p>
+</td></tr>
+  <tr><td><code>offset</code></td><td>float, optional</td><td>-</td><td><p>Where the jump is evaluated, as a fraction of <code class="language-plaintext highlighter-rouge">1 / (n |dq/dpsi_N|)</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ResonantJump</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">delta</code> is the unitless resonance parameter [-]; <code class="language-plaintext highlighter-rouge">offset</code> is the distance in <code class="language-plaintext highlighter-rouge">psi_N</code> the jump was taken over.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The grid and the field disagree in length, a value is not finite,
+    the shear is zero, <code class="language-plaintext highlighter-rouge">chi1</code> or the area is zero or non-finite, the
+    offset is not positive, the surface is outside the grid, or one side
+    has too few points to fit.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Place the evaluation points at <code class="language-plaintext highlighter-rouge">psi_rational +- offset / (n |q'|)</code>.</li>
+  <li>Fit a cubic to the field on each side separately, over the band
+between half and four times that distance, and differentiate it.</li>
+  <li>Take the difference, scale by <code class="language-plaintext highlighter-rouge">area / (2 pi chi1)</code>.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">offset = 5e-4</code> is a legacy compatibility value: GPEC’s compiled-in
+<code class="language-plaintext highlighter-rouge">sing_spot</code> (<code class="language-plaintext highlighter-rouge">gpec/gpec.f:120</code>). <strong>It is a namelist parameter, so a
+run can and does change it</strong> – <code class="language-plaintext highlighter-rouge">docs/examples/run_kinetic_example/</code>
+<code class="language-plaintext highlighter-rouge">gpec.in</code> ships <code class="language-plaintext highlighter-rouge">1e-3</code> – and the result depends on it: on the DIII-D
+reference, evaluating at <code class="language-plaintext highlighter-rouge">1e-3</code> instead moves the derived <code class="language-plaintext highlighter-rouge">Delta</code> by
+2.2 to 5.7 per cent and at <code class="language-plaintext highlighter-rouge">2e-3</code> by up to 13 per cent. A comparison
+against a run’s own <code class="language-plaintext highlighter-rouge">Delta</code> has to pass that run’s <code class="language-plaintext highlighter-rouge">sing_spot</code>.
+Agreement being best at the value the reference run actually used is
+itself evidence the jump is being taken the way GPEC takes it.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The resonant harmonic is screened, its derivative is not.</strong> In an ideal
+solution the <code class="language-plaintext highlighter-rouge">m = nq</code> component of the perturbed field falls to zero at
+its own rational surface. Measured on the DIII-D reference at the <code class="language-plaintext highlighter-rouge">q = 2</code>
+surface, <code class="language-plaintext highlighter-rouge">Jbgradpsi</code> at <code class="language-plaintext highlighter-rouge">m = 2</code> is 2.4e-9 where its neighbours
+<code class="language-plaintext highlighter-rouge">m = 1, 3, 4</code> are 1.2e-4, 3.7e-4 and 5.0e-4 – five orders down, and
+radially it collapses to its minimum at that surface. Sampling the field
+there recovers nothing. What survives is the jump in
+its radial derivative, and that is what this takes.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The fit is one-sided because the layer between the two points is where
+the solution is least resolved; how well it extrapolates back to the
+surface is what limits the accuracy. Against GPEC’s own <code class="language-plaintext highlighter-rouge">Delta</code> on 24
+rational surfaces of the 147131 reference the magnitude agrees to between
+0.4 and 5.5 per cent and the phase to within a degree on all but three.
+GPEC re-solves at the evaluation points rather than fitting a stored
+grid, and closing the remaining few per cent means doing the same.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">GPEC/gpec/gpout.f:1678-1688</code>, which evaluates <code class="language-plaintext highlighter-rouge">bwp1_mn</code> at <code class="language-plaintext highlighter-rouge">respsi -+ sing_spot/(nn |q1|)</code> and forms <code class="language-plaintext highlighter-rouge">delta = (rbwp1mn - lbwp1mn) / (twopi * chi1)</code>. The factor of <code class="language-plaintext highlighter-rouge">area</code> here is the <code class="language-plaintext highlighter-rouge">singflx_mn/area(ising)</code> normalization applied at <code class="language-plaintext highlighter-rouge">:1705</code>, which the stored <code class="language-plaintext highlighter-rouge">Jbgradpsi</code> already carries.
+</li>
+</ol>
+
+<h3 id="resonant_geometric_factor"><code class="language-plaintext highlighter-rouge">resonant_geometric_factor</code></h3>
+
+<p class="formula-signature"><code>resonant_geometric_factor(delta, phi_res, n_tor)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Measure the surface factor that turns a resonance parameter into a flux.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>delta</code></td><td>array_like</td><td>-</td><td><p>Resonance parameter per rational surface, complex.</p>
+</td></tr>
+  <tr><td><code>phi_res</code></td><td>array_like</td><td>T</td><td><p>Pitch-resonant flux per rational surface, complex.</p>
+</td></tr>
+  <tr><td><code>n_tor</code></td><td>int</td><td>-</td><td><p>Toroidal mode number the two were computed at.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>T</td><td><p><code class="language-plaintext highlighter-rouge">G</code> per surface, real and positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The two disagree in length, a value is not finite, a <code class="language-plaintext highlighter-rouge">delta</code> is
+    zero or small enough to overflow the ratio, or the ratio is not real
+    to within a tenth of a degree – which means the inputs are not a
+    matched pair from one run.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Form <code class="language-plaintext highlighter-rouge">-n * Phi_res / Delta</code> per surface.</li>
+  <li>Check the result is real, and return its real part.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">G = -n * Phi_res / Delta</code> is a property of the <strong>equilibrium</strong>, not of
+the perturbation: it absorbs the surface integral <code class="language-plaintext highlighter-rouge">j_c</code> and the
+diagonal of the vacuum surface inductance, neither of which knows about
+the applied field. Measured on the DIII-D reference it agrees across
+n = 1, 2 and 3 at every shared surface to 0.6 per cent, and the values
+the three modes report at surfaces only one of them reaches fall on one
+smooth curve in <code class="language-plaintext highlighter-rouge">q</code> – so a run’s own surfaces are enough to
+interpolate <code class="language-plaintext highlighter-rouge">G</code> onto surfaces a different <code class="language-plaintext highlighter-rouge">n</code> resonates at.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The 0.6 per cent agreement across mode numbers is systematic rather than
+noise – it grows monotonically with <code class="language-plaintext highlighter-rouge">n</code> – because the vacuum Green’s
+function does depend weakly on the toroidal mode number. <code class="language-plaintext highlighter-rouge">G</code> measured
+at one <code class="language-plaintext highlighter-rouge">n</code> and used at another carries that error. Measuring it at the
+<code class="language-plaintext highlighter-rouge">n</code> in hand avoids it entirely.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The chain this collapses is <code class="language-plaintext highlighter-rouge">GPEC/gpec/gpout.f:1690-1705</code>: <code class="language-plaintext highlighter-rouge">I_res</code> from <code class="language-plaintext highlighter-rouge">Delta</code> through <code class="language-plaintext highlighter-rouge">j_c</code>, then <code class="language-plaintext highlighter-rouge">Phi_res</code> from <code class="language-plaintext highlighter-rouge">I_res</code> through <code class="language-plaintext highlighter-rouge">fsurf_indmats</code>, which <code class="language-plaintext highlighter-rouge">gpvacuum.f:236-342</code> builds by calling the VACUUM code twice per surface.
+</li>
+</ol>
+
 <h3 id="resonant_metrics"><code class="language-plaintext highlighter-rouge">resonant_metrics</code></h3>
 
 <p class="formula-signature"><code>resonant_metrics(table, *, windows, columns=None, statistic='rms')</code></p>
@@ -1807,7 +1983,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#align_surfaces_by_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">align_surfaces_by_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#amplification_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">amplification_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#chirikov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">chirikov</a></li><li class="page-toc-item page-toc-level-3"><a href="#composite_drive_at_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">composite_drive_at_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#critical_island_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">critical_island_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#edge_overlap_metric" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">edge_overlap_metric</a></li><li class="page-toc-item page-toc-level-3"><a href="#energy_norm_matrix" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">energy_norm_matrix</a></li><li class="page-toc-item page-toc-level-3"><a href="#group_coincident_islands" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">group_coincident_islands</a></li><li class="page-toc-item page-toc-level-3"><a href="#helical_phase_sweep" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">helical_phase_sweep</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_overlap_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_overlap_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_pairs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_pairs</a></li><li class="page-toc-item page-toc-level-3"><a href="#nearest_surface_spacing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">nearest_surface_spacing</a></li><li class="page-toc-item page-toc-level-3"><a href="#penetration_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">penetration_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#q_composite_table" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">q_composite_table</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_delta_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_delta_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_resonant" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_resonant</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_metrics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_metrics</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_windows" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_windows</a></li><li class="page-toc-item page-toc-level-3"><a href="#rms_resonant_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rms_resonant_field</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#align_surfaces_by_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">align_surfaces_by_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#amplification_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">amplification_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#chirikov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">chirikov</a></li><li class="page-toc-item page-toc-level-3"><a href="#composite_drive_at_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">composite_drive_at_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#critical_island_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">critical_island_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#edge_overlap_metric" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">edge_overlap_metric</a></li><li class="page-toc-item page-toc-level-3"><a href="#energy_norm_matrix" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">energy_norm_matrix</a></li><li class="page-toc-item page-toc-level-3"><a href="#group_coincident_islands" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">group_coincident_islands</a></li><li class="page-toc-item page-toc-level-3"><a href="#helical_phase_sweep" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">helical_phase_sweep</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_overlap_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_overlap_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_pairs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_pairs</a></li><li class="page-toc-item page-toc-level-3"><a href="#nearest_surface_spacing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">nearest_surface_spacing</a></li><li class="page-toc-item page-toc-level-3"><a href="#penetration_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">penetration_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#q_composite_table" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">q_composite_table</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_delta_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_delta_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_resonant" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_resonant</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_geometric_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_geometric_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_metrics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_metrics</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_windows" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_windows</a></li><li class="page-toc-item page-toc-level-3"><a href="#rms_resonant_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rms_resonant_field</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1925,7 +2101,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-15 12:45:35 +0000"
+        "time": "2026-09-16 01:15:37 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

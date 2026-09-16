@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>33f9907</code>. What is described
+  <code>24c8bdf</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -267,7 +267,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/stability.py"><code class="language-plaintext highlighter-rouge">vaft/formula/stability.py</code></a>:
-19 public functions.  The category overview and notation come from the module
+21 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("stability.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
 
@@ -320,6 +320,8 @@ limits, and transport parameters.</p>
 </li>
   <li><a href="#greenwald_fraction"><code>greenwald_fraction</code></a> &mdash; Greenwald fraction $f_G = n_e/n_G$.
 </li>
+  <li><a href="#island_width_from_resonant_flux"><code>island_width_from_resonant_flux</code></a> &mdash; Full magnetic island width from the pitch-resonant flux.
+</li>
   <li><a href="#kink_stability_criterion"><code>kink_stability_criterion</code></a> &mdash; Heuristic kink margin against $\beta_{N,crit} = 2.8\,q_{95}$.
 </li>
   <li><a href="#li_from_qa_empirical"><code>li_from_qa_empirical</code></a> &mdash; Internal inductance at a given $q_a$ by interpolating the JET survey points.
@@ -329,6 +331,8 @@ limits, and transport parameters.</p>
   <li><a href="#power_limit_from_beta"><code>power_limit_from_beta</code></a> &mdash; Energy-like figure $\beta_N B_0^2 V/(2\mu_0)$ labelled a power limit.
 </li>
   <li><a href="#power_limit_from_q"><code>power_limit_from_q</code></a> &mdash; Expression $2\pi R_0 I_p/(\mu_0 q_{95})$ labelled a power limit.
+</li>
+  <li><a href="#resonant_flux_from_delta"><code>resonant_flux_from_delta</code></a> &mdash; Pitch-resonant flux from the resonance parameter and the surface geometry.
 </li>
   <li><a href="#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a> &mdash; Normalised electron gyroradius $\rho_e/a$.
 </li>
@@ -903,6 +907,83 @@ lower fraction.</p>
 </li>
 </ol>
 
+<h3 id="island_width_from_resonant_flux"><code class="language-plaintext highlighter-rouge">island_width_from_resonant_flux</code></h3>
+
+<p class="formula-signature"><code>island_width_from_resonant_flux(Phi_res, area, q, dq_dpsi_norm, m_pol, chi1)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Full magnetic island width from the pitch-resonant flux.</p>
+
+\[w = 2\sqrt{\left|\frac{4\,\Phi_\mathrm{res}\,A}{2\pi\,s\,q\,\chi_1}\right|},
+\qquad s = \frac{m\,q'}{q^{2}}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>Phi_res</code></td><td>complex or np.ndarray</td><td>T</td><td><p>Pitch-resonant flux, normalised by the surface area.</p>
+</td></tr>
+  <tr><td><code>area</code></td><td>float or np.ndarray</td><td>m^2</td><td><p>Area of the rational surface.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td>float or np.ndarray</td><td>-</td><td><p>Safety factor at the surface.</p>
+</td></tr>
+  <tr><td><code>dq_dpsi_norm</code></td><td>float or np.ndarray</td><td>-</td><td><p>$\mathrm{d}q/\mathrm{d}\psi_N$ at the surface.</p>
+</td></tr>
+  <tr><td><code>m_pol</code></td><td>int or np.ndarray</td><td>-</td><td><p>Poloidal mode number, $m = nq$.</p>
+</td></tr>
+  <tr><td><code>chi1</code></td><td>float</td><td>-</td><td><p>$\mathrm{d}\chi/\mathrm{d}\psi_N$, the poloidal flux normalisation the equilibrium was solved with.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Full island width, in normalised poloidal flux.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>A <strong>full</strong> width, not a half width, and in $\psi_N$ rather than in metres
+– matching what GPEC writes as <code class="language-plaintext highlighter-rouge">w_isl</code> (its <code class="language-plaintext highlighter-rouge">units</code> attribute reads
+<code class="language-plaintext highlighter-rouge">psi_n</code>). Converting to metres needs the equilibrium’s
+$\mathrm{d}r/\mathrm{d}\psi_N$ and is not done here.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The island a resonant flux would open if it were not shielded. In an ideal
+solution it is not opened: the resonant component of the perturbed field
+is screened to zero at the surface, and $\Phi_\mathrm{res}$ is what the
+singular current would have to admit for the island to form.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Constant-$\psi$, a single helicity, and a shear evaluated at the surface
+rather than across the island. The island is taken to be symmetric about
+the rational surface.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>A rational surface with non-zero shear. At $q’ \to 0$ the width diverges,
+which is the formula failing rather than the island growing.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>The magnitude is taken before the square root, so a negative or complex
+argument does not propagate a <code class="language-plaintext highlighter-rouge">nan</code>: the sign carries the island’s
+phase, which this width does not report.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 7.4.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">GPEC/gpec/gpout.f:1709-1711</code>, which this reproduces exactly on the DIII-D 147131 reference – 16 rational surfaces over n = 1 and n = 3, ratio 1.000000 on every one.
+</li>
+</ol>
+
 <h3 id="kink_stability_criterion"><code class="language-plaintext highlighter-rouge">kink_stability_criterion</code></h3>
 
 <p class="formula-signature"><code>kink_stability_criterion(q_95, beta_N)</code></p>
@@ -1133,6 +1214,84 @@ no derivation or source is recorded.  Kept for compatibility.  Tracked in
 
 <ol class="formula-references">
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.4 (cylindrical $q$, the relation this seems to rearrange).
+</li>
+</ol>
+
+<h3 id="resonant_flux_from_delta"><code class="language-plaintext highlighter-rouge">resonant_flux_from_delta</code></h3>
+
+<p class="formula-signature"><code>resonant_flux_from_delta(delta, geometric_factor, n_tor)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Pitch-resonant flux from the resonance parameter and the surface geometry.</p>
+
+\[\Phi_\mathrm{res} = -\frac{G(\psi_\mathrm{res})}{n}\,\Delta\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>delta</code></td><td>complex or np.ndarray</td><td>-</td><td><p>Unitless resonance parameter $\Delta$, the jump in the resonant field’s $\psi$ derivative across the surface.</p>
+</td></tr>
+  <tr><td><code>geometric_factor</code></td><td>float or np.ndarray</td><td>T</td><td><p>$G(\psi_\mathrm{res})$, the surface’s own factor.</p>
+</td></tr>
+  <tr><td><code>n_tor</code></td><td>int</td><td>-</td><td><p>Toroidal mode number.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>complex or np.ndarray</td><td>T</td><td><p>Pitch-resonant flux, normalised by the surface area.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">n_tor</code> is not a positive mode number.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>$G$ absorbs two equilibrium-only quantities GPEC forms separately: the
+surface integral $j_c$ of $B^{2}/|\nabla\psi|^{3}$, and the diagonal of
+the vacuum surface inductance that <code class="language-plaintext highlighter-rouge">gpvacuum_flxsurf</code> builds by calling
+the VACUUM code. Both depend on the flux surface and not on the
+perturbation, so $G$ is a property of the equilibrium and is measured
+once for it rather than rebuilt per run.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>$\Delta$ says how much the resonant field is discontinuous across the
+surface; $G$ converts that discontinuity into the flux the singular
+current drives. The minus sign is GPEC’s: measured, the phase of
+$n\,\Phi_\mathrm{res}/\Delta$ is exactly 180 degrees.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>That $G$ was measured on the same equilibrium. It is not transferable
+between equilibria, and nothing here can detect a mismatch.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Measured on the DIII-D 147131 reference, $n\,\Phi_\mathrm{res}/\Delta$
+agrees across n = 1, 2 and 3 at every shared rational surface to within
+0.6 per cent, and the values the three modes report at <em>different</em>
+surfaces fall on one smooth curve in $q$ – which is what makes $G$
+interpolable in $\psi$ from the surfaces any single run reaches.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The 0.6 per cent spread is systematic rather than noise: it grows
+monotonically from n = 1 to n = 3, which is the vacuum Green’s function’s
+own weak dependence on the toroidal mode number. A study needing better
+than that has to build the inductance rather than measure $G$.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">GPEC/gpec/gpout.f:1690-1705</code> for the chain $\Delta \to I_\mathrm{res} \to \Phi_\mathrm{res}$, and <code class="language-plaintext highlighter-rouge">GPEC/gpec/gpvacuum.f:236-342</code> for the inductance $G$ absorbs.
 </li>
 </ol>
 
@@ -1391,7 +1550,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#ballooning_alpha_from_p_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_alpha_from_p_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#ballooning_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_N_from_beta_a_B0_Ip" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_N_from_beta_a_B0_Ip</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_pol_from_beta_tor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_pol_from_beta_tor</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_stability_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_stability_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_tor_from_beta_pol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_tor_from_beta_pol</a></li><li class="page-toc-item page-toc-level-3"><a href="#c_s_from_Te_Ti_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">c_s_from_Te_Ti_mi</a></li><li class="page-toc-item page-toc-level-3"><a href="#collisionality_from_n_T_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">collisionality_from_n_T_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#empirical_li_qa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">empirical_li_qa</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_fraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_fraction</a></li><li class="page-toc-item page-toc-level-3"><a href="#kink_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kink_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#li_from_qa_empirical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">li_from_qa_empirical</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_stability_margins" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_stability_margins</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_beta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_beta</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#rhostar_from_Te_a_Bt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rhostar_from_Te_a_Bt</a></li><li class="page-toc-item page-toc-level-3"><a href="#sawtooth_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sawtooth_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#v_alfven_from_B_n_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">v_alfven_from_B_n_mi</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#ballooning_alpha_from_p_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_alpha_from_p_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#ballooning_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_N_from_beta_a_B0_Ip" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_N_from_beta_a_B0_Ip</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_pol_from_beta_tor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_pol_from_beta_tor</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_stability_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_stability_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_tor_from_beta_pol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_tor_from_beta_pol</a></li><li class="page-toc-item page-toc-level-3"><a href="#c_s_from_Te_Ti_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">c_s_from_Te_Ti_mi</a></li><li class="page-toc-item page-toc-level-3"><a href="#collisionality_from_n_T_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">collisionality_from_n_T_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#empirical_li_qa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">empirical_li_qa</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_fraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_fraction</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_width_from_resonant_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_width_from_resonant_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#kink_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kink_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#li_from_qa_empirical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">li_from_qa_empirical</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_stability_margins" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_stability_margins</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_beta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_beta</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_flux_from_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_flux_from_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#rhostar_from_Te_a_Bt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rhostar_from_Te_a_Bt</a></li><li class="page-toc-item page-toc-level-3"><a href="#sawtooth_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sawtooth_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#v_alfven_from_B_n_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">v_alfven_from_B_n_mi</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1509,7 +1668,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-15 12:45:35 +0000"
+        "time": "2026-09-16 01:15:37 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

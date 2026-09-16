@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>33f9907</code>. What is described
+  <code>24c8bdf</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -302,7 +302,7 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/stability/">stability</a></td>
-    <td><code>vaft.formula.stability</code></td><td>19</td><td>Plasma stability, operational limits, and transport calculations.</td>
+    <td><code>vaft.formula.stability</code></td><td>21</td><td>Plasma stability, operational limits, and transport calculations.</td>
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/green/">green</a></td>
@@ -669,7 +669,7 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="stability">Stability</h2>
 
-<p>Plasma stability, operational limits, and transport calculations. — <a href="/vaft/develop/reference/formula/stability/">19 functions</a>.</p>
+<p>Plasma stability, operational limits, and transport calculations. — <a href="/vaft/develop/reference/formula/stability/">21 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/stability/#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a> <em>(convention)</em> &mdash; Normalised pressure gradient $\alpha$ of the $s$-$\alpha$ ballooning model.
@@ -694,6 +694,8 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/develop/reference/formula/stability/#greenwald_fraction"><code>greenwald_fraction</code></a> <em>(convention)</em> &mdash; Greenwald fraction $f_G = n_e/n_G$.
 </li>
+  <li><a href="/vaft/develop/reference/formula/stability/#island_width_from_resonant_flux"><code>island_width_from_resonant_flux</code></a> <em>(convention)</em> &mdash; Full magnetic island width from the pitch-resonant flux.
+</li>
   <li><a href="/vaft/develop/reference/formula/stability/#kink_stability_criterion"><code>kink_stability_criterion</code></a> <em>(empirical)</em> &mdash; Heuristic kink margin against $\beta_{N,crit} = 2.8\,q_{95}$.
 </li>
   <li><a href="/vaft/develop/reference/formula/stability/#li_from_qa_empirical"><code>li_from_qa_empirical</code></a> <em>(empirical)</em> &mdash; Internal inductance at a given $q_a$ by interpolating the JET survey points.
@@ -703,6 +705,8 @@ which documents the conventions and cites every entry.</p>
   <li><a href="/vaft/develop/reference/formula/stability/#power_limit_from_beta"><code>power_limit_from_beta</code></a> &mdash; Energy-like figure $\beta_N B_0^2 V/(2\mu_0)$ labelled a power limit.
 </li>
   <li><a href="/vaft/develop/reference/formula/stability/#power_limit_from_q"><code>power_limit_from_q</code></a> &mdash; Expression $2\pi R_0 I_p/(\mu_0 q_{95})$ labelled a power limit.
+</li>
+  <li><a href="/vaft/develop/reference/formula/stability/#resonant_flux_from_delta"><code>resonant_flux_from_delta</code></a> <em>(convention)</em> &mdash; Pitch-resonant flux from the resonance parameter and the surface geometry.
 </li>
   <li><a href="/vaft/develop/reference/formula/stability/#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a> <em>(convention)</em> &mdash; Normalised electron gyroradius $\rho_e/a$.
 </li>
@@ -1157,7 +1161,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-15 12:45:35 +0000"
+        "time": "2026-09-16 01:15:37 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
