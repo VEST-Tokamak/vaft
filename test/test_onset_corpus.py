@@ -125,26 +125,42 @@ def test_every_judged_window_reports_how_much_of_it_was_active(table):
             assert 0.0 < duty <= 1.0, (row["shot"], detector, duty)
 
 
-def test_the_envelope_windows_this_was_opened_for_are_visible(table):
-    """The three records that motivated #752 read as mostly gap, and say so."""
+def test_no_light_window_is_an_envelope_over_gaps_any_more(table):
+    """Both detectors now answer the same question (#842).
+
+    The light rule used to return the envelope of every accepted segment, so a
+    record of scattered flashes reported one long window that was mostly gap --
+    and its onset came from the first flash, which the current said was the
+    discharge in only 11 of 35 shots.  Both rules are principal-pulse rules
+    now, so every window is one run and every duty cycle is 1.
+
+    The three records #752 was opened for are the check: 40002, 40263 and
+    40365 reported windows of 45, 18 and 21 ms at duty 0.07-0.19, over
+    scattered bursts with no plasma current at all.  None of them is a light
+    window any more.
+    """
     rows = {row["shot"]: row for row in table["rows"]}
 
     for shot in (40002, 40263, 40365):
-        record = rows[shot]["h_alpha"]
-        assert record["duty_cycle"] < 0.25, (shot, record["duty_cycle"])
-        assert "multiple_segments" in record["flags"]
+        assert rows[shot]["source"] != "h_alpha_raw", shot
+
+    fragmented = [
+        row["shot"] for row in table["rows"]
+        if row.get("h_alpha") and (row["h_alpha"].get("duty_cycle") or 1.0) < 1.0
+    ]
+    assert fragmented == []
 
 
-def test_the_light_fragments_and_the_current_does_not(table):
-    """The measure is worth carrying because the two detectors disagree on it.
+def test_every_window_is_one_run_now(table):
+    """Both rules ask for the principal pulse, so neither reports an envelope.
 
-    Every plasma-current window in the corpus is one uninterrupted run. A fifth
-    of the light windows are not, and a tenth are less than 30 % above
-    threshold -- so an extent read as a duration is wrong for a tenth of the
-    shots this table covers, and only for the optical source (#752).
+    This is what makes the extent of a window a duration again: with one
+    segment, `duration_s`, the summed active time and the largest segment are
+    the same number (#842).  Before, a fifth of the light windows had gaps and
+    the hollowest was 4 % above threshold.
     """
     duty = table["summary"]["duty_cycle"]
 
-    assert duty["ip"]["below_1"] == 0, "a current window has never been an envelope"
-    assert duty["h_alpha"]["below_1"] > 0.1 * duty["h_alpha"]["windows"]
-    assert duty["h_alpha"]["min"] < 0.1
+    for detector in ("h_alpha", "ip"):
+        assert duty[detector]["below_1"] == 0, detector
+        assert duty[detector]["min"] == 1.0, detector

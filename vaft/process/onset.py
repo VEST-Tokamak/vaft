@@ -1607,12 +1607,24 @@ def _active_window(
         evidence["pickup_scale"] = scale
         if pickup_floor and scale > 0.0 and peak < float(pickup_floor) * scale:
             return empty(("no_onset", "peak_below_pickup_floor"))
+        # The segments this rule sets aside are real activity that passed every
+        # morphology test and simply is not the principal pulse -- VEST's
+        # pre-ionization light before breakdown, say.  They are recorded rather
+        # than dropped, so a reader can still see what else the record held
+        # without re-running the detector (#842).
+        discarded = [seg for seg in merged if seg is not chosen[0]]
+        if discarded:
+            evidence["discarded_segments"] = [
+                [float(t[a]), float(t[b - 1])] for a, b in discarded
+            ]
         segments = [chosen[0]]
     else:
         segments = merged
 
     first, last = segments[0][0], segments[-1][1]
     flags: list[str] = list(ref_flags)
+    if evidence.get("discarded_segments"):
+        flags.append("segments_outside_principal")
     # The end rule is judged against the amplitude this detector *accepted*,
     # not against the largest sample in the search stretch.  They differ
     # exactly where a run the segment tests refused -- an optical spike, a
