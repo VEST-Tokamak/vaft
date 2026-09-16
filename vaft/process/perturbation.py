@@ -2272,13 +2272,15 @@ def _one_sided_derivative(psi_norm, values, target: float, *, side: int, span: f
             f"between {0.5 * span:.3e} and {4 * span:.3e} away; a one-sided "
             "cubic fit needs at least four"
         )
-    order = np.argsort(psi[window])
-    x = psi[window][order]
-    y = data[window][order]
+    # A least-squares fit does not depend on the order of its points, so the
+    # window is taken as a mask and never sorted: a file whose radial axis
+    # runs outward-in reads the same as one that runs inward-out.
+    x = psi[window] - target
+    y = data[window]
     # Fit real and imaginary parts separately: a complex cubic through a
     # singular layer is two real fits, and np.polyfit refuses complex y.
-    real = np.polyfit(x - target, y.real, 3)
-    imag = np.polyfit(x - target, y.imag, 3)
+    real = np.polyfit(x, y.real, 3)
+    imag = np.polyfit(x, y.imag, 3)
     at = float(side) * span
     d_real = np.polyval(np.polyder(real), at)
     d_imag = np.polyval(np.polyder(imag), at)
@@ -2331,8 +2333,9 @@ def resonant_delta(
     ------
     ValueError
         The grid and the field disagree in length, a value is not finite,
-        the shear is zero, the surface is outside the grid, or one side has
-        too few points to fit.
+        the shear is zero, ``chi1`` or the area is zero or non-finite, the
+        offset is not positive, the surface is outside the grid, or one side
+        has too few points to fit.
 
     Convention
     ----------
@@ -2347,9 +2350,15 @@ def resonant_delta(
 
     Defaults
     --------
-    ``offset = 5e-4`` is a legacy compatibility value: GPEC's own
-    ``sing_spot`` (``gpec/gpec.f:120``), so a comparison against a run's
-    ``Delta`` is made at the same distance from the surface.
+    ``offset = 5e-4`` is a legacy compatibility value: GPEC's compiled-in
+    ``sing_spot`` (``gpec/gpec.f:120``). **It is a namelist parameter, so a
+    run can and does change it** -- ``docs/examples/run_kinetic_example/``
+    ``gpec.in`` ships ``1e-3`` -- and the result depends on it: on the DIII-D
+    reference, evaluating at ``1e-3`` instead moves the derived ``Delta`` by
+    2.2 to 5.7 per cent and at ``2e-3`` by up to 13 per cent. A comparison
+    against a run's own ``Delta`` has to pass that run's ``sing_spot``.
+    Agreement being best at the value the reference run actually used is
+    itself evidence the jump is being taken the way GPEC takes it.
 
     Processing steps
     ----------------
@@ -2399,6 +2408,19 @@ def resonant_delta(
         )
     if int(n_tor) <= 0:
         raise ValueError(f"n_tor must be positive, not {n_tor!r}")
+    if not np.isfinite(chi1) or float(chi1) == 0.0:
+        raise ValueError(
+            f"chi1 is {chi1!r}; it scales the jump, so zero divides and a "
+            "non-finite value propagates silently"
+        )
+    if not np.isfinite(area):
+        raise ValueError(f"the surface area is {area!r}")
+    if not np.isfinite(offset) or float(offset) <= 0.0:
+        raise ValueError(
+            f"offset must be positive and finite, not {offset!r}; it is a "
+            "distance from the surface, and a non-positive one puts both "
+            "evaluation points on the same side"
+        )
     span = float(offset) / (int(n_tor) * abs(float(dq_dpsi_norm)))
     outward = _one_sided_derivative(psi, values, psi_rational, side=+1, span=span)
     inward = _one_sided_derivative(psi, values, psi_rational, side=-1, span=span)
@@ -2432,9 +2454,10 @@ def resonant_geometric_factor(delta, phi_res, n_tor: int) -> np.ndarray:
     Raises
     ------
     ValueError
-        The two disagree in length, a ``delta`` is zero, or the ratio is not
-        real to within a tenth of a degree -- which means the inputs are not
-        a matched pair from one run.
+        The two disagree in length, a value is not finite, a ``delta`` is
+        zero or small enough to overflow the ratio, or the ratio is not real
+        to within a tenth of a degree -- which means the inputs are not a
+        matched pair from one run.
 
     Convention
     ----------
@@ -2475,9 +2498,23 @@ def resonant_geometric_factor(delta, phi_res, n_tor: int) -> np.ndarray:
     denominator = np.atleast_1d(np.asarray(delta, dtype=complex))
     if numerator.size != denominator.size:
         raise ValueError(f"{denominator.size} values of delta against {numerator.size} fluxes")
+    if not np.all(np.isfinite(numerator)) or not np.all(np.isfinite(denominator)):
+        raise ValueError(
+            "a delta or a flux is not finite. The phase check below compares "
+            "with '>', which is False for a nan, so an unchecked nan would be "
+            "returned as a measured factor"
+        )
+    if int(n_tor) <= 0:
+        raise ValueError(f"n_tor must be positive, not {n_tor!r}")
     if np.any(denominator == 0):
         raise ValueError("a delta is zero, so its surface has no measurable factor")
-    ratio = -float(n_tor) * numerator / denominator
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        ratio = -float(n_tor) * numerator / denominator
+    if not np.all(np.isfinite(ratio)):
+        raise ValueError(
+            "the ratio overflowed: a delta is small enough that -n * Phi / Delta "
+            "is not representable, so its surface has no measurable factor"
+        )
     phase = np.angle(ratio)
     if np.max(np.abs(phase)) > np.deg2rad(0.1):
         worst = float(np.rad2deg(np.max(np.abs(phase))))

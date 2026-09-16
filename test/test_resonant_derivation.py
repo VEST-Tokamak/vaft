@@ -39,6 +39,22 @@ def kinked_field(psi, psi_res, *, left_slope, right_slope, value=0.0):
 #: shear is only 2e-4 wide.
 GRID = np.linspace(0.2, 0.9, 40001)
 PSI_RES = 0.55
+SPAN = 5e-4  # the default offset, at dq_dpsi_norm = 1 and n = 1
+
+
+def layered_field(psi, psi_res, *, left_slope, right_slope, curvature=0.0, layer=0.0):
+    """A kink with curvature, and a boundary layer that decays inside it.
+
+    The real solution is not piecewise linear: it curves away from the
+    surface, and inside the evaluation distance it varies rapidly, which is
+    why the fit is taken over a band that starts half a span out. A fixture
+    without both cannot tell a correct band or a correct evaluation point
+    from a wrong one.
+    """
+    d = np.asarray(psi, dtype=float) - psi_res
+    slope = np.where(d < 0, left_slope, right_slope)
+    body = slope * d + curvature * d**2
+    return (body + layer * np.exp(-np.abs(d) / (0.1 * SPAN)) * np.sign(d)).astype(complex)
 
 
 def extract(field, **kwargs):
@@ -77,6 +93,38 @@ def test_the_screened_value_at_the_surface_does_not_matter():
     a = kinked_field(GRID, PSI_RES, left_slope=1.0, right_slope=4.0, value=0.0)
     b = kinked_field(GRID, PSI_RES, left_slope=1.0, right_slope=4.0, value=17.0)
     assert extract(a).delta == pytest.approx(extract(b).delta, rel=1e-9)
+
+
+def test_the_derivative_is_taken_at_the_evaluation_distance_not_at_the_surface():
+    """With curvature the slope varies across the band, so evaluating the
+    fitted cubic at the surface rather than at +- span gives a different
+    answer -- and GPEC evaluates at +- span."""
+    curvature = 800.0
+    field = layered_field(GRID, PSI_RES, left_slope=1.0, right_slope=4.0,
+                          curvature=curvature)
+    # d/dpsi of (slope*d + c*d^2) is slope + 2*c*d, so the jump taken at
+    # +-span is (4 + 2*c*span) - (1 - 2*c*span) = 3 + 4*c*span. Taken at the
+    # surface instead it would be 3 exactly, whatever the curvature.
+    assert extract(field).delta.real == pytest.approx(
+        3.0 + 4.0 * curvature * SPAN, rel=1e-4
+    )
+    assert 3.0 + 4.0 * curvature * SPAN != pytest.approx(3.0, rel=1e-2)
+
+
+def test_the_fit_band_starts_away_from_the_layer():
+    """Inside half a span the solution varies too fast to fit; a band that
+    reached the surface would take the layer's slope instead of the
+    solution's."""
+    clean = layered_field(GRID, PSI_RES, left_slope=1.0, right_slope=4.0)
+    layered = layered_field(GRID, PSI_RES, left_slope=1.0, right_slope=4.0, layer=2.0e-2)
+    # The layer decays over 0.1 span, so by 0.5 span it has fallen by e^-5:
+    # the band this fits sees almost none of it and the answer barely moves.
+    assert extract(layered).delta.real == pytest.approx(
+        extract(clean).delta.real, rel=2e-2
+    )
+    # It is emphatically present inside the band a naive fit would use.
+    inside = np.abs(GRID - PSI_RES) < 0.5 * SPAN
+    assert np.max(np.abs(layered[inside] - clean[inside])) > 1e-3
 
 
 def test_a_complex_kink_keeps_its_phase():
@@ -148,6 +196,47 @@ def test_a_non_positive_mode_number_is_refused():
         extract(field, n_tor=0)
 
 
+@pytest.mark.parametrize("bad", [0.0, np.nan, np.inf])
+def test_a_zero_or_non_finite_chi1_is_refused(bad):
+    """It scales the jump, so zero raised ZeroDivisionError where the Raises
+    block promises ValueError, and a nan propagated in silence."""
+    field = kinked_field(GRID, PSI_RES, left_slope=1.0, right_slope=4.0)
+    with pytest.raises(ValueError, match="chi1 is"):
+        extract(field, chi1=bad)
+
+
+@pytest.mark.parametrize("bad", [0.0, -5e-4, np.nan])
+def test_a_non_positive_offset_is_refused_with_a_useful_message(bad):
+    """A negative offset inverts both windows, so the fit silently found no
+    points and complained about the grid instead of the offset."""
+    field = kinked_field(GRID, PSI_RES, left_slope=1.0, right_slope=4.0)
+    with pytest.raises(ValueError, match="offset must be positive"):
+        extract(field, offset=bad)
+
+
+def test_a_non_finite_area_is_refused():
+    field = kinked_field(GRID, PSI_RES, left_slope=1.0, right_slope=4.0)
+    with pytest.raises(ValueError, match="surface area is"):
+        extract(field, area=np.nan)
+
+
+@pytest.mark.parametrize(
+    "reorder",
+    [lambda g: g[::-1], lambda g: np.concatenate([g[1000:], g[:1000]])],
+    ids=["descending", "rotated"],
+)
+def test_the_grid_need_not_arrive_in_order(reorder):
+    """A least-squares fit does not depend on the order of its points and the
+    window is a boolean mask, so a file that writes its radial axis
+    outward-in reads the same. Worth pinning: a rewrite reaching for
+    np.searchsorted or np.diff would break it silently."""
+    grid = reorder(GRID)
+    field = kinked_field(grid, PSI_RES, left_slope=1.0, right_slope=4.0)
+    got = resonant_delta(grid, field, psi_rational=PSI_RES, area=1.0,
+                         dq_dpsi_norm=1.0, chi1=1.0 / (2 * np.pi), m_pol=2, n_tor=1)
+    assert got.delta.real == pytest.approx(3.0, rel=1e-6)
+
+
 # --------------------------------------------------------------------------
 # The geometric factor
 # --------------------------------------------------------------------------
@@ -175,6 +264,35 @@ def test_a_pair_whose_ratio_is_not_real_is_refused():
     real part alone would be a plausible-looking wrong number."""
     with pytest.raises(ValueError, match="off the real axis"):
         resonant_geometric_factor(np.array([1.0 + 0j]), np.array([-0.05 - 0.05j]), 1)
+
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf])
+def test_a_non_finite_pair_is_refused_before_the_phase_check(bad):
+    """The phase check compares with '>', which is False for a nan -- the
+    same hole that let the legacy return a nan q as a matched surface. A nan
+    would come back as a measured geometric factor."""
+    with pytest.raises(ValueError, match="not finite"):
+        resonant_geometric_factor(np.array([complex(bad, 0)]), np.array([1.0 + 0j]), 1)
+    with pytest.raises(ValueError, match="not finite"):
+        resonant_geometric_factor(np.array([1.0 + 0j]), np.array([complex(bad, 0)]), 1)
+
+
+def test_a_delta_small_enough_to_overflow_the_ratio_is_refused():
+    """Non-zero, so the zero check passes, but -n * Phi / Delta is inf and
+    was returned as a factor."""
+    with pytest.raises(ValueError, match="overflowed"):
+        resonant_geometric_factor(np.array([1e-320 + 0j]), np.array([-1.0 + 0j]), 1)
+
+
+def test_the_factor_refuses_a_non_positive_mode_number():
+    with pytest.raises(ValueError, match="n_tor must be positive"):
+        resonant_geometric_factor(np.array([1.0 + 0j]), np.array([-0.05 + 0j]), 0)
+
+
+def test_the_flux_refuses_a_non_positive_mode_number():
+    """Dividing by it gave -inf + nan j."""
+    with pytest.raises(ValueError, match="positive mode number"):
+        resonant_flux_from_delta(np.array([1.0 + 0j]), np.array([0.05]), 0)
 
 
 def test_a_zero_delta_has_no_measurable_factor():

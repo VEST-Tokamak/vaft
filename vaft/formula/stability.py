@@ -1014,6 +1014,11 @@ def resonant_flux_from_delta(delta, geometric_factor, n_tor: int):
     complex or np.ndarray
         Pitch-resonant flux, normalised by the surface area [T].
 
+    Raises
+    ------
+    ValueError
+        ``n_tor`` is not a positive mode number.
+
     Convention
     ----------
     $G$ absorbs two equilibrium-only quantities GPEC forms separately: the
@@ -1056,4 +1061,6 @@ def resonant_flux_from_delta(delta, geometric_factor, n_tor: int):
            $\Delta \to I_\mathrm{res} \to \Phi_\mathrm{res}$, and
            ``GPEC/gpec/gpvacuum.f:236-342`` for the inductance $G$ absorbs.
     """
+    if int(n_tor) <= 0:
+        raise ValueError(f"n_tor must be a positive mode number, not {n_tor!r}")
     return -np.asarray(geometric_factor) * np.asarray(delta) / float(n_tor)
