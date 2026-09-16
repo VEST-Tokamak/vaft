@@ -99,6 +99,33 @@ def test_a_native_object_handed_to_a_model_is_rejected(magnetics):
         Series(x=IDSEntry(magnetics), y=[0.0])
 
 
+def test_code_parameters_decode_on_the_native_walk(entry):
+    """A path into ``code.parameters`` is answered from the decoded tree, as on an ODS.
+
+    The leaf itself stays the stored text (a JSON stage blob is not XML and
+    answers no sub-path), and the helpers written against vaft.ods_access
+    read the entry through the same walk.
+    """
+    from vaft.imas.access import IDSEntry
+    from vaft.ods_access import path_count, path_exists, path_value
+    from vaft.omas.general import ods_cocos
+    from vaft.plot.backend import access
+
+    bundle = IDSEntry(entry)
+    assert isinstance(access.get(bundle, "equilibrium.code.parameters"), str)
+    assert access.get(bundle, "equilibrium.code.parameters.cocos") == 11
+    assert access.get(bundle, "equilibrium.code.parameters.nope") is None
+    assert access.get(bundle, "equilibrium.code.parameters.time_slice.0.aeqdsk.chisq") is None
+    assert access.count(bundle, "equilibrium.code.parameters.time_slice") == 0
+    assert "equilibrium.code.parameters" in bundle._parameters  # decoded once, then cached
+    # The core readers dispatch to the same walk, so an OMAS helper reads natively.
+    assert path_value(bundle, "equilibrium.code.parameters.cocos") == 11
+    assert path_exists(bundle, "equilibrium.code.parameters.cocos")
+    assert path_count(bundle, "magnetics.flux_loop") == access.count(bundle, "magnetics.flux_loop") > 0
+    ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    assert ods_cocos(bundle) == ods_cocos(ods)
+
+
 def test_code_backed_plots_convert_only_the_ids_they_declare(entry):
     bundle = IDSEntry(entry)
     ods = bundle.as_ods_for(("equilibrium", "wall", "dataset_description"))

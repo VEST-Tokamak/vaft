@@ -3,7 +3,7 @@
 A test utility, not a test: ``test_plot_recipe_reads.py`` imports it by bare
 name (``test/`` is on ``sys.path`` through ``conftest.py``).  Two recorders:
 
-* :func:`accessor_reads` wraps :func:`vaft.plot.backend.access.accessor_for`,
+* :func:`accessor_reads` wraps :func:`vaft.ods_access.accessor_for`,
   so every ``get``/``count``/``has`` call is recorded whatever object answers
   it -- an OMAS ODS or a native IMAS entry alike.
 * :func:`ods_reads` wraps ``omas.ODS`` subscripting, membership and
@@ -50,26 +50,43 @@ class Recorded:
 
 @contextlib.contextmanager
 def accessor_reads(monkeypatch) -> Iterator[Recorded]:
-    """Every path read through :mod:`vaft.plot.backend.access`."""
-    from vaft.plot.backend import access
+    """Every path read through :mod:`vaft.ods_access` or :mod:`vaft.plot.backend.access`.
+
+    Both dispatch through :func:`vaft.ods_access.accessor_for` at call time,
+    so wrapping that one name records a recipe's reads and an OMAS helper's
+    alike (the ODS accessor's methods do not re-dispatch, so nothing is
+    recorded twice or recursed into).
+    """
+    from vaft import ods_access as access
 
     recorded = Recorded()
     real = access.accessor_for
+
+    def absolute(obj: Any, path: str) -> str:
+        # A helper reading a sub-ODS passes a relative path: record it from the
+        # root.  One handed an absolute path (the same rule as ``ods_reads``)
+        # reads from the top: keep the path.
+        location = getattr(obj, "location", "")
+        if not (isinstance(location, str) and location):
+            return path
+        if path.split(".")[0] == location.split(".")[0]:
+            return path
+        return f"{location}.{path}"
 
     class _Recording:
         def __init__(self, inner: Any) -> None:
             self._inner = inner
 
         def get(self, obj: Any, path: str, default: Any = None) -> Any:
-            recorded.add(path)
+            recorded.add(absolute(obj, path))
             return self._inner.get(obj, path, default)
 
         def count(self, obj: Any, path: str) -> int:
-            recorded.add(path)
+            recorded.add(absolute(obj, path))
             return self._inner.count(obj, path)
 
         def has(self, obj: Any, path: str) -> bool:
-            recorded.add(path)
+            recorded.add(absolute(obj, path))
             return self._inner.has(obj, path)
 
     monkeypatch.setattr(access, "accessor_for", lambda obj: _Recording(real(obj)))

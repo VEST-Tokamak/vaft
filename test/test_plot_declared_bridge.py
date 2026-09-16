@@ -106,7 +106,7 @@ def test_code_parameters_are_decoded_on_the_bridge(sample, lazy_entry):
     """The accessor hands back the stored XML text; helpers read the decoded tree."""
     from vaft.omas.general import ods_cocos
 
-    private = materialise_reads(lazy_entry, "equilibrium_overview_fit_quality")
+    private = materialise_reads(lazy_entry, "summary_time_power_balance")
     assert type(private["equilibrium.code.parameters"]).__name__ == "CodeParameters"
     assert ods_cocos(private) == ods_cocos(sample)
 
@@ -131,7 +131,11 @@ def _omas_bound_on_sample(sample):
 
 def test_the_sample_supports_enough_omas_bound_views_for_this_to_mean_something(sample):
     names = _omas_bound_on_sample(sample)
-    assert len(names) >= 10 and len([n for n in names if n not in ROOT_DECLARING]) >= 8
+    # Seven on the packaged sample since the EFIT verification views and
+    # pf_plasma_geometry_poloidal went neutral (they read through vaft.ods_access,
+    # which dispatches to the IMAS accessor); the four wall-mode views are the
+    # ones that actually cross the bridge, the other three declare a root.
+    assert len(names) >= 7 and len([n for n in names if n not in ROOT_DECLARING]) >= 4
 
 
 @pytest.mark.parametrize(
