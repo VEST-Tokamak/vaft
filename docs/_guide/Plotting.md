@@ -665,8 +665,10 @@ dimension and NaN-padded along `sample`, with a `length` coordinate holding each
 sample count; channel, entry, validity and position are coordinates on `series`; units, scale
 and title are attributes (JSON text where a value is a list or mapping), so the dataset writes
 to netCDF as it is. A composite (`Panels`) becomes an `xarray.DataTree` with one child per
-panel. `vaft.database` has no `extract_*` yet: its `plot_*` opens IDS selectively and belongs
-with selective loading.
+panel. `vaft.database` carries the same twins over a shot: `dd_<stem>()` touches nothing, and
+`extract_<stem>(shot, source=..., lazy=True)` opens exactly the IDS the plot declares (lazily by
+default, like `plot_*`) and returns the model undrawn. `plot_*(..., interactive=True)` loads those
+IDS eagerly whatever `lazy` says, because the controls redraw after the call returns.
 
 ## Utilities
 
