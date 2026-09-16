@@ -48,9 +48,16 @@ SOURCE_MARKERS = (
     "src-f90/Makefile.define_FLAGS",
     "src-f90/chease_prog_effxml.f90",
 )
+#: The installer that works on this platform. Naming the other one sends the
+#: reader to a script they cannot run: a Linux operator told to launch
+#: PowerShell has been given a dead end, not an instruction.
 BUILD_REMEDIATION = (
     "Build CHEASE with:\n"
-    "         powershell -ExecutionPolicy Bypass -File install\\install_chease_windows.ps1 <source>"
+    + (
+        "         powershell -ExecutionPolicy Bypass -File install\\install_chease_windows.ps1 <source>"
+        if os.name == "nt"
+        else "         bash install/install_chease.sh --source <source>"
+    )
 )
 
 #: A packaged equilibrium, so the smoke run needs no data of its own.
@@ -291,7 +298,7 @@ def run_checks(
     if prefix is None:
         prefix = os.environ.get("CHEASEHOME")
     if prefix is None:
-        candidate = default_prefix("chease")
+        candidate = default_prefix("chease", source)
         if candidate is not None and (candidate / "bin").is_dir():
             prefix = str(candidate)
 

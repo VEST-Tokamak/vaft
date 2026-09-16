@@ -265,6 +265,16 @@ python notebooks/_clean_outputs.py notebooks/*.ipynb
 python -m pip install -e ".[dev]"
 ```
 
+Before pushing a pull request into `develop`, run what gates it:
+
+```bash
+python -m pytest -q -m "core and not perf"
+```
+
+The whole suite is release qualification rather than a pre-push step — it is what
+the `main` gate runs, on Linux and on Windows, and what runs on the push to
+`develop` after a PR lands. Run it when you want that answer:
+
 ```bash
 python -m pytest -q
 ```
@@ -285,14 +295,9 @@ suite.
 | `perf` | performance budgets, calibrated against the Linux runner class | the full Linux suite only — deselected on Windows and in the `develop` gate |
 | `integration` | opt-in read-only HSDS or IMAS access | wherever the resource is reachable; self-skips otherwise |
 
-To run what gates a PR into `develop`, before pushing:
-
-```bash
-python -m pytest -q -m "core and not perf"
-```
-
-`perf` is deselected there for the same reason the Windows leg drops it: a
-wall-clock ratio is the last thing to trust in a job built to be quick.
+The develop gate is `-m "core and not perf"`, the command at the top of this
+section. `perf` is deselected there for the same reason the Windows leg drops it:
+a wall-clock ratio is the last thing to trust in a job built to be quick.
 
 `core` is not written into test modules by hand. It is one declared list in
 [`test/core_selection.py`](test/core_selection.py), applied during collection by

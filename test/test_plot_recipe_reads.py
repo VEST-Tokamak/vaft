@@ -42,34 +42,30 @@ NEUTRAL = frozenset({
     "ntms_time_delta_prime", "mhd_linear_time_energy_perturbed",
     "mhd_linear_profile_displacement", "mhd_linear_profile_b_field_perturbed",
     "mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width",
+    # Built on vaft.omas helpers that read through vaft.ods_access, which
+    # dispatches to the registered accessor: native on an IMAS entry too.
+    "pf_plasma_geometry_poloidal",
+    "equilibrium_overview_verification", "equilibrium_overview_fit_quality",
+    "equilibrium_overview_convergence", "equilibrium_overview_constraints",
+    "equilibrium_overview_constraint_coverage", "equilibrium_overview_residuals",
+    "chease_overview_refinement_summary", "chease_overview_profile_validity",
 })
 OMAS_BOUND = frozenset({
-    "passive_structure_geometry_wall_mode", "pf_plasma_geometry_poloidal",
+    "passive_structure_geometry_wall_mode",
     "passive_structure_overview_wall_time", "passive_structure_overview_wall_reduction",
     "passive_structure_field_wall_reduction", "neoclassical_profile_bootstrap_current",
     "equilibrium_field_psi_vacuum", "vacuum_field", "summary_time_power_balance",
     "camera_visible_image", "camera_visible_image_frame", "camera_visible_image_efit_overlay",
     "camera_visible_image_field_line", "camera_visible_image_fluctuation",
     "camera_visible_image_mhd_power", "equilibrium_overview",
-    "equilibrium_overview_verification", "equilibrium_overview_fit_quality",
-    "equilibrium_overview_convergence", "equilibrium_overview_constraints",
-    "equilibrium_overview_constraint_coverage", "equilibrium_overview_residuals",
     "magnetics_overview_vacuum", "magnetics_overview_plasma_residual",
-    "chease_overview_refinement_summary", "chease_overview_profile_validity",
 })
 
 #: Recorded reads that are not the plot's input, per plot, with the reason.
 IGNORED_READS: dict[str, dict[str, str]] = {}
 
 #: Neutral views whose synthetic input cannot be written to IMAS and read back.
-SYNTHETIC_ROUND_TRIP_UNSUPPORTED: dict[str, str] = {
-    name: (
-        "the ideal-GPEC mapper writes mhd_linear.time_slice without a homogeneous time "
-        "mode, which imas-python refuses to write (ValidationError: time mode "
-        "IDS_TIME_MODE_INDEPENDENT); the recorder still proves the reads"
-    )
-    for name in ("mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width")
-}
+SYNTHETIC_ROUND_TRIP_UNSUPPORTED: dict[str, str] = {}
 
 
 def _callables() -> list[str]:

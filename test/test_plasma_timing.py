@@ -300,7 +300,17 @@ def test_offset_disagreement_is_flagged_and_the_offset_stays_with_the_light():
     assert timing.agreement == AGREEMENT_CONSISTENT
 
 
-def test_pre_ionization_light_starts_the_window_and_is_a_second_segment():
+def test_pre_ionization_light_is_not_the_discharge_but_is_still_recorded():
+    """The window is the main discharge; the earlier light is kept as evidence.
+
+    VEST's pre-ionization glows before breakdown.  The light rule used to open
+    its window there and report the pair as one window with a gap, which put
+    the onset 16 ms before the plasma current and raised
+    `halpha_leads_ip_large` -- a disagreement the corpus showed 64 times and
+    that vanished entirely when both rules became principal-pulse rules
+    (#842).  The early light is not lost: the segments the rule sets aside are
+    recorded, so a reader can still see what else the record held.
+    """
     t = grid()
     early = light(t, onset=0.290, offset=0.297, amplitude=0.4, noise=0.0)
     main = light(t, onset=0.306, offset=0.331)
@@ -308,10 +318,15 @@ def test_pre_ionization_light_starts_the_window_and_is_a_second_segment():
 
     timing = plasma_timing(ods)
 
-    assert timing.onset == pytest.approx(0.290, abs=3e-4)
-    assert "multiple_segments" in timing.flags
-    assert timing.agreement == AGREEMENT_HALPHA_LEADS_IP_LARGE
-    assert len(timing.optical.segments) == 2
+    assert timing.onset == pytest.approx(0.306, abs=3e-4)
+    assert len(timing.optical.segments) == 1
+    assert "multiple_segments" not in timing.flags
+    assert timing.agreement == AGREEMENT_CONSISTENT
+
+    discarded = timing.optical.evidence["discarded_segments"]
+    assert "segments_outside_principal" in timing.flags
+    assert len(discarded) == 1
+    assert discarded[0][0] == pytest.approx(0.290, abs=3e-4)
 
 
 def test_light_without_current_is_halpha_only():

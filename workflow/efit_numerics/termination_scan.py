@@ -168,6 +168,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--axis", default=None, help="restrict to one axis, e.g. numerics.chi_squared_target"
     )
     parser.add_argument("--values", default=None, help="comma-separated values for --axis")
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help=(
+            "run this many configurations at once. The cases are independent -- "
+            "separate workdirs, separate EFIT processes, no shared state -- and "
+            "EFIT is built serial (no MPI, no OpenMP), so process-level "
+            "concurrency is the only axis there is and it does not oversubscribe."
+        ),
+    )
     parser.add_argument("--tstep", type=float, default=0.001)
     parser.add_argument("--average-window", type=float, default=0.0005)
     args = parser.parse_args(argv)
@@ -241,39 +252,50 @@ def main(argv: Sequence[str] | None = None) -> int:
             str(workdir / "constraints" / f"{shot}_constraints.json"), consistency_check=False
         )
 
-        cases: dict[str, Any] = {}
-        base = seed_study.run_seed(
-            built, shot=shot, times=times, workdir=workdir / "routine",
-            efit=str(efit), scientific=routine, baseline=baseline,
-        )
-        cases["routine"] = {
-            "settings": {axis: ROUTINE[axis] for axis in sorted(ROUTINE)},
-            "seconds": base["seconds"],
-            "summary": summarize(base["slices"], seed_study),
-            "slices": base["slices"],
-        }
-        print(f"{shot} routine: {cases['routine']['summary']['outcomes']} "
-              f"in {base['seconds']:.0f} s", flush=True)
-
+        # Every configuration of one shot: the routine point, then one value
+        # off one axis at a time.
+        plan: list[tuple[str, str | None, Any, Any]] = [
+            ("routine", None, None, routine)
+        ]
         for axis, values in axes.items():
             for value in values:
                 if value == ROUTINE.get(axis):
-                    continue  # the routine point, already measured above
-                scientific = _apply(routine, axis, value)
-                name = f"{axis}={value}"
-                run = seed_study.run_seed(
-                    built, shot=shot, times=times,
-                    workdir=workdir / name.replace(".", "_").replace("=", "-"),
-                    efit=str(efit), scientific=scientific, baseline=baseline,
-                )
-                cases[name] = {
-                    "settings": {**{a: ROUTINE[a] for a in sorted(ROUTINE)}, axis: value},
-                    "seconds": run["seconds"],
-                    "summary": summarize(run["slices"], seed_study),
-                    "slices": run["slices"],
-                }
-                print(f"{shot} {name}: {cases[name]['summary']['outcomes']} "
-                      f"in {run['seconds']:.0f} s", flush=True)
+                    continue  # the routine point, already first in the plan
+                plan.append((f"{axis}={value}", axis, value, _apply(routine, axis, value)))
+
+        def _one(entry):
+            name, axis, value, scientific = entry
+            run = seed_study.run_seed(
+                built, shot=shot, times=times,
+                workdir=workdir / name.replace(".", "_").replace("=", "-"),
+                efit=str(efit), scientific=scientific, baseline=baseline,
+            )
+            settings = {a: ROUTINE[a] for a in sorted(ROUTINE)}
+            if axis is not None:
+                settings[axis] = value
+            return name, {
+                "settings": settings,
+                "seconds": run["seconds"],
+                "summary": summarize(run["slices"], seed_study),
+                "slices": run["slices"],
+            }
+
+        cases: dict[str, Any] = {}
+        workers = max(1, int(args.workers))
+        if workers == 1:
+            results = [_one(entry) for entry in plan]
+        else:
+            # Threads, not processes: `run_seed` spends its time waiting on an
+            # EFIT subprocess, so the GIL is released throughout and nothing
+            # has to be pickled across a boundary.
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor(max_workers=min(workers, len(plan))) as pool:
+                results = list(pool.map(_one, plan))
+        for name, record in results:
+            cases[name] = record
+            print(f"{shot} {name}: {record['summary']['outcomes']} "
+                  f"in {record['seconds']:.0f} s", flush=True)
 
         payload["shots"][str(shot)] = {
             "window": [float(times[0]), float(times[-1])],

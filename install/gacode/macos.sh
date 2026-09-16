@@ -20,7 +20,10 @@ set -euo pipefail
 IFS=$'\n\t'
 
 GACODE_SOURCE="${GACODE_SOURCE_DIR:-}"
-CODES="neo"
+# Both, not neo alone: install/check_gacode.py requires neo and tglf, and
+# vaft.code.gacode resolves both, so a neo-only tree fails its own
+# verification. linux.sh has defaulted to this since it was written.
+CODES="neo,tglf"
 RUN_CHECK=0
 
 usage() {
@@ -28,7 +31,8 @@ usage() {
 Usage: bash install/gacode/macos.sh --gacode-root PATH [--codes neo,tglf] [--check]
 
   --gacode-root PATH   the GACODE source tree to build (or set GACODE_SOURCE_DIR)
-  --codes LIST         comma-separated suite members to build; default "neo"
+  --codes LIST         comma-separated suite members (default: neo,tglf --
+                       both, because install/check_gacode.py requires both)
   --check              after building, run the NEO reg18 regression case
 
 Environment overrides:
@@ -46,7 +50,9 @@ EOF
 while [ $# -gt 0 ]; do
   case "$1" in
     --gacode-root) GACODE_SOURCE="${2:-}" ; shift 2 ;;
-    --codes)       CODES="${2:-}"         ; shift 2 ;;
+    --codes)       [ $# -ge 2 ] && [ -n "${2:-}" ] ||
+                     { echo "error: --codes needs a non-empty list" >&2; exit 2; }
+                   CODES="$2"            ; shift 2 ;;
     --check)       RUN_CHECK=1            ; shift ;;
     -h|--help)     usage ; exit 0 ;;
     *) echo "unknown argument: $1" >&2 ; usage >&2 ; exit 2 ;;
@@ -87,8 +93,12 @@ fi
 
 export GACODE_ROOT="$GACODE_SOURCE"
 export GACODE_PLATFORM="${GACODE_PLATFORM:-GFORTRAN_OSX_BREW}"
-export FFTW_INC="$(brew --prefix fftw)/include"
-export BREW_LIB="$(brew --prefix)/lib"
+# Assigned before export: `export VAR="$(cmd)"` takes the exit status of
+# `export`, so a failing brew would leave FFTW_INC as a bare "/include" and the
+# build would carry on with it.
+FFTW_INC="$(brew --prefix fftw)/include"
+BREW_LIB="$(brew --prefix)/lib"
+export FFTW_INC BREW_LIB
 export PATH="$GACODE_ROOT/shared/bin:$PATH"
 
 MAKE_INC="$GACODE_ROOT/platform/build/make.inc.$GACODE_PLATFORM"

@@ -108,7 +108,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
-          shellcheck --severity=warning install/*.sh
+          # Every shell entry point, the per-code recipes included. The three
+          # that predated this step are clean now, so the glob no longer has to
+          # name files one at a time -- and a new recipe is covered the moment
+          # it lands rather than when somebody remembers to add it here.
+          shellcheck --severity=warning install/*.sh install/*/*.sh
 
   # The real thing: install and uninstall on a clean runner, twice round.
   # These are not required checks, so on an unrelated change they are simply

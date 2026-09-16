@@ -17,457 +17,29 @@
           offset: 0.0
           calibration_factor: 1.0
 
-    b_field_pol_probe:
-      channels:
-        0:
-          label: Bz H-1 01
-          r: 0.089
-          z: 0.54
-          gain: -0.00524
-          field: 179
-          daq_type: 1
-        1:
-          label: Bz H-1 02
-          r: 0.089
-          z: 0.5
-          gain: 0.00524
-          field: 180
-          daq_type: 1
-        2:
-          label: Bz H-1 03
-          r: 0.089
-          z: 0.46
-          gain: -0.0051
-          field: 181
-          daq_type: 1
-        3:
-          label: Bz H-1 04
-          r: 0.089
-          z: 0.42
-          gain: 0.0051
-          field: 182
-          daq_type: 1
-        4:
-          label: Bz H-1 05
-          r: 0.089
-          z: 0.38
-          gain: 0.0051
-          field: 183
-          daq_type: 1
-        5:
-          label: Bz H-1 06
-          r: 0.089
-          z: 0.34
-          gain: -0.0051
-          field: 184
-          daq_type: 1
-        6:
-          label: Bz H-1 07
-          r: 0.089
-          z: 0.3
-          gain: -0.0051
-          field: 185
-          daq_type: 1
-        7:
-          label: Bz H-1 08
-          r: 0.089
-          z: 0.26
-          gain: -0.0051
-          field: 186
-          daq_type: 1
-        8:
-          label: Bz H-1 09
-          r: 0.089
-          z: 0.22
-          gain: 0.0051
-          field: 187
-          daq_type: 1
-        9:
-          label: Bz H-2 01
-          r: 0.089
-          z: 0.16
-          gain: -0.00524
-          field: 188
-          daq_type: 1
-        10:
-          label: Bz H-2 02
-          r: 0.089
-          z: 0.12
-          gain: -0.00524
-          field: 189
-          daq_type: 1
-        11:
-          label: Bz H-2 03
-          r: 0.089
-          z: 0.08
-          gain: 0.0051
-          field: 190
-          daq_type: 1
-        12:
-          label: Bz H-2 04
-          r: 0.089
-          z: 0.04
-          gain: -0.0051
-          field: 191
-          daq_type: 1
-        13:
-          label: Bz H-2 05
-          r: 0.089
-          z: 0
-          gain: -0.0051
-          field: 192
-          daq_type: 1
-        14:
-          label: Bz H-2 06
-          r: 0.089
-          z: -0.04
-          gain: 0.0051
-          field: 193
-          daq_type: 1
-        15:
-          label: Bz H-2 07
-          r: 0.089
-          z: -0.08
-          gain: -0.0051
-          field: 194
-          daq_type: 1
-        16:
-          label: Bz H-2 08
-          r: 0.089
-          z: -0.12
-          gain: -0.0051
-          field: 195
-          daq_type: 1
-        17:
-          label: Bz H-2 09
-          r: 0.089
-          z: -0.16
-          gain: -0.0051
-          field: 196
-          daq_type: 1
-        18:
-          label: Bz H-3 01
-          r: 0.089
-          z: -0.22
-          gain: 0.0051
-          field: 197
-          daq_type: 1
-        19:
-          label: Bz H-3 02
-          r: 0.089
-          z: -0.26
-          gain: -0.00524
-          field: 198
-          daq_type: 1
-        20:
-          label: Bz H-3 03
-          r: 0.089
-          z: -0.3
-          gain: -0.0051
-          field: 199
-          daq_type: 1
-        21:
-          label: Bz H-3 04
-          r: 0.089
-          z: -0.34
-          gain: -0.0051
-          field: 200
-          daq_type: 1
-        22:
-          label: Bz H-3 05
-          r: 0.089
-          z: -0.38
-          gain: -0.0051
-          field: 201
-          daq_type: 1
-        23:
-          label: Bz H-3 06
-          r: 0.089
-          z: -0.42
-          gain: 0.0051
-          field: 202
-          daq_type: 1
-        24:
-          label: Bz H-3 07
-          r: 0.089
-          z: -0.46
-          gain: 0.0051
-          field: 203
-          daq_type: 1
-        25:
-          label: Bz H-3 08
-          r: 0.089
-          z: -0.5
-          gain: 0.00524
-          field: 204
-          daq_type: 1
-        26:
-          label: Bz H-3 09
-          r: 0.089
-          z: -0.54
-          gain: 0.0051
-          field: 205
-          daq_type: 1
-        27:
-          label: Bz C1 01
-          r: 0.796
-          z: 0.22
-          gain: -0.005007511
-          field: 87
-          daq_type: 1
-        28:
-          label: Bz C1 02
-          r: 0.796
-          z: 0.26
-          gain: -0.004547522
-          field: 88
-          daq_type: 1
-        29:
-          label: Bz C1 03
-          r: 0.796
-          z: 0.3
-          gain: 0.00450045
-          field: 89
-          daq_type: 1
-        30:
-          label: Bz C1 04
-          r: 0.796
-          z: 0.34
-          gain: -0.004524887
-          field: 90
-          daq_type: 1
-        31:
-          label: Bz C1 05
-          r: 0.796
-          z: 0.38
-          gain: -0.004438526
-          field: 91
-          daq_type: 1
-        32:
-          label: Bz C1 06
-          r: 0.796
-          z: 0.42
-          gain: -0.00452284
-          field: 92
-          daq_type: 1
-        33:
-          label: Bz C2 01
-          r: 0.796
-          z: 0.18
-          gain: 0.004545455
-          field: 93
-          daq_type: 1
-        34:
-          label: Bz C2 03
-          r: 0.796
-          z: 0.1
-          gain: 0.004595588
-          field: 169
-          daq_type: 1
-        35:
-          label: Bz C2 04
-          r: 0.796
-          z: 0.06
-          gain: 0.004539265
-          field: 170
-          daq_type: 1
-        36:
-          label: Bz C2 05
-          r: 0.796
-          z: 0.02
-          gain: -0.004528986
-          field: 171
-          daq_type: 1
-        37:
-          label: Bz C3 01
-          r: 0.796
-          z: -0.02
-          gain: -0.00447828
-          field: 172
-          daq_type: 1
-        38:
-          label: Bz C3 02
-          r: 0.796
-          z: -0.06
-          gain: -0.004679457
-          field: 173
-          daq_type: 1
-        39:
-          label: Bz C3 03
-          r: 0.796
-          z: -0.1
-          gain: 0.00462963
-          field: 174
-          daq_type: 1
-        40:
-          label: Bz C3 04
-          r: 0.796
-          z: -0.14
-          gain: -0.00462963
-          field: 175
-          daq_type: 1
-        41:
-          label: Bz C3 05
-          r: 0.796
-          z: -0.18
-          gain: -0.00450045
-          field: 176
-          daq_type: 1
-        42:
-          label: Bz C4 01
-          r: 0.796
-          z: -0.22
-          gain: -0.004424779
-          field: 177
-          daq_type: 1
-        43:
-          label: Bz C4 02
-          r: 0.796
-          z: -0.26
-          gain: -0.004962779
-          field: 178
-          daq_type: 1
-        44:
-          label: Bz C4 03
-          r: 0.796
-          z: -0.3
-          gain: -0.004782401
-          field: 223
-          daq_type: 1
-        45:
-          label: Bz C4 04
-          r: 0.796
-          z: -0.34
-          gain: 0.004814636
-          field: 224
-          daq_type: 1
-        46:
-          label: Bz C4 05
-          r: 0.796
-          z: -0.38
-          gain: -0.004520796
-          field: 225
-          daq_type: 1
-        47:
-          label: Bz C4 06
-          r: 0.796
-          z: -0.42
-          gain: -0.00452284
-          field: 226
-          daq_type: 1
-        48:
-          label: Bz U1-01
-          r: 0.1377
-          z: 0.8328
-          gain: 0.002200186
-          field: 81
-          daq_type: 1
-        49:
-          label: Bz U1-02
-          r: 0.1377
-          z: 0.8728
-          gain: -0.001800815
-          field: 80
-          daq_type: 1
-        50:
-          label: Bz U1-03
-          r: 0.1377
-          z: 0.9128
-          gain: 0.002034091
-          field: 79
-          daq_type: 1
-        51:
-          label: Bz U1-04
-          r: 0.1377
-          z: 0.9528
-          gain: 0.002026749
-          field: 78
-          daq_type: 1
-        52:
-          label: Bz U1-05
-          r: 0.1377
-          z: 0.9928
-          gain: 0.001973928
-          field: 77
-          daq_type: 1
-        53:
-          label: Bz U1-06
-          r: 0.1377
-          z: 1.0328
-          gain: -0.002194922
-          field: 76
-          daq_type: 1
-        54:
-          label: Bz U1-07
-          r: 0.1377
-          z: 1.0728
-          gain: 0.002022318
-          field: 75
-          daq_type: 1
-        55:
-          label: Bz U1-08
-          r: 0.1377
-          z: 1.1128
-          gain: -0.00227653
-          field: 74
-          daq_type: 1
-        56:
-          label: Bz L1-01
-          r: 0.1377
-          z: -0.8328
-          gain: -0.002000964
-          field: 66
-          daq_type: 1
-        57:
-          label: Bz L1-02
-          r: 0.1377
-          z: -0.8728
-          gain: 0.00229523
-          field: 67
-          daq_type: 1
-        58:
-          label: Bz L1-03
-          r: 0.1377
-          z: -0.9128
-          gain: -0.002299347
-          field: 68
-          daq_type: 1
-        59:
-          label: Bz L1-04
-          r: 0.1377
-          z: -0.9528
-          gain: 0.002237959
-          field: 69
-          daq_type: 1
-        60:
-          label: Bz L1-05
-          r: 0.1377
-          z: -0.9928
-          gain: 0.001956307
-          field: 70
-          daq_type: 1
-        61:
-          label: Bz L1-06
-          r: 0.1377
-          z: -1.0328
-          gain: 0.00204412
-          field: 71
-          daq_type: 1
-        62:
-          label: Bz L1-07
-          r: 0.1377
-          z: -1.0728
-          gain: 0.002093101
-          field: 72
-          daq_type: 1
-        63:
-          label: Bz L1-08
-          r: 0.1377
-          z: -1.1128
-          gain: 0.001943771
-          field: 73
-          daq_type: 1
-      
+    # Poloidal probe geometry and calibration are NOT here.
+    #
+    # They live in two files under `vaft/data/geometry/`, and those are what
+    # the mapper reads:
+    #
+    #   MD.yaml                                 field_code + calibration
+    #   VEST_MagneticsGeometry_Full_ver_2302.yaml   field_code + r, z
+    #
+    # The two are joined by list position -- ODS probe `i` takes its signal and
+    # gain from entry `i` of the first and its position from entry `i` of the
+    # second -- and `test/test_magnetics_geometry_join.py` asserts they name the
+    # same probe at every index.
+    #
+    # A 64-entry `b_field_pol_probe.channels` block used to sit here carrying a
+    # third description: same probes, same values, but ordered differently, so
+    # it disagreed with the live pair at 11 of 64 positions. Nothing read it --
+    # `raw_database_info` is the only function that could, and it has no callers
+    # anywhere. It was removed in issue #843, which it caused: it looks
+    # authoritative, so comparing it against the live geometry reads as the live
+    # geometry being wrong. The plasma-free vacuum benchmark then rejected the
+    # "correction" that comparison suggested, three probes out of five getting
+    # worse, which is what established that the live pairing is the right one.
+
     # The legacy `rogowski_coil` block was removed in issue #214.
     #
     # It was read by nothing -- its only consumers were the
@@ -1120,6 +692,45 @@
           vd3: 89.8
           tip_length_mm: 2.0
           tip_radius_mm: 0.15
+
+    # VEST toroidal phase-reference Mirnov channels. Three outboard probes on
+    # the vessel wall between ports, at clock 1:30, 5:30 and 7:30, whose names
+    # carry those positions. They are the only toroidal array VEST had before
+    # the fluctuation array below was installed.
+    #
+    # last_operational_shot is what bounds them. The 2023-04 magnetics log
+    # (2304_Magnetics_VEST.xlsx, History sheet) records "207 - exists until
+    # 35520", and three archived shots above that boundary corroborate it:
+    # 39915 maps all three with zero samples, and the raw dumps for 44740 and
+    # 45531 contain no field 207, 209 or 241 at all. Like the fluctuation
+    # array's first_operational_shot, this is a gate the caller applies, not a
+    # per-channel field.
+    #
+    # Field 171 is DISPUTED and is left in place pending issue #825. The same
+    # machine logs classify it as `Bz C2 05` / group `OutBz` -- an outboard
+    # *equilibrium* probe at z = +0.02, filling that array's uniform 0.04 m
+    # ladder -- so it is very likely not a toroidal reference at all, and VAFT
+    # currently publishes it twice at two different toroidal angles. Its clock
+    # position here was inferred in issue #718 from a layout figure and is the
+    # inference #825 disputes; resolving it needs the VEST channel list.
+    toroidal_mirnov_reference:
+      source: {raw_unit: V, daq_type: slow}
+      role: phase_reference
+      geometry: {major_radius: 0.796, z: 0.02}
+      channels:
+        - {field: 207, identifier: OutMirnov_130_Bz, clock: 1.5, gain: 9.0e-4,
+           last_operational_shot: 35520}
+        - {field: 241, identifier: OutMirnov_530_Bz, clock: 5.5, gain: -9.0e-4,
+           last_operational_shot: 35520}
+        - {field: 209, identifier: OutMirnov_730_Bz, clock: 7.5, gain: 9.0e-4,
+           last_operational_shot: 35520}
+        # No bound: field 171 is still in the archives for 44740 and 45531, and
+        # it would be -- the logs class it as outboard equilibrium probe
+        # `Bz C2 05`, which records for every shot. The 35520 evidence covers
+        # 207/209/241 only, so applying it here would drop a channel whose data
+        # exists and would decide #825 by side effect.
+        - {field: 171, identifier: MagneticFieldProbe_C2-05_Bz, clock: 9.5, gain: 0.004529,
+           disputed: "issue #825: the magnetics logs class field 171 as outboard equilibrium probe Bz C2 05"}
 
     # VEST outboard Mirnov fluctuation array (issue #155). 30 raw-voltage
     # channels at three toroidal locations (45/135/225 deg), two vertical
@@ -2007,6 +1618,13 @@ plasma_timing:
   # table test/data/onset_corpus.json (shots 39900-41700; the summary holds
   # the counts, a retune means a re-scan).
   h_alpha:
+    # The unit is the one main discharge, not every burst of light (#842).
+    # Without this the rule returned the envelope of every accepted segment,
+    # so a record with an earlier flash opened its window at the flash: on the
+    # shots where the plasma current names which burst was the discharge, the
+    # first segment was the right one only 11 times in 35.  The current rule
+    # has always asked the principal-pulse question; now both sources ask it.
+    principal_only: true
     prefilter_samples: 5
     fraction: 0.02
     sigma: 5.0

@@ -8,15 +8,16 @@ licence before downloading NUBEAM, so VAFT owns the build recipe and the adapter
 contract while the source stays external. Every script takes `--nubeam-root`
 naming a tree you already hold, and writes nothing into the VAFT checkout.
 
-**macOS / Apple Silicon and native Windows.** Linux is still tracked in
-[issue #226](https://github.com/VEST-Tokamak/vaft/issues/226). None of this runs
-in CI; the VAFT test suite passes with NUBEAM absent.
+**Linux, macOS / Apple Silicon and native Windows.** None of this runs in CI;
+the VAFT test suite passes with NUBEAM absent.
 
 | File | Purpose |
 | --- | --- |
 | `macos.sh` | Builds NUBEAM, the Plasma State generator, `update_state` and `preact_init`, and populates the PREACT/ADAS databases. |
 | `windows.ps1` | The same, for native Windows: finds MSYS2, runs the recipe, colocates the runtime DLLs, and sets `NUBEAMHOME`. |
 | `windows.sh` | The Windows build recipe itself, run inside MSYS2 by `windows.ps1`. |
+| `linux.sh` | The Linux build. Same contract as `macos.sh`, against distribution packages; it names what is missing rather than installing it. |
+| `uninstall.sh` | Removes what a POSIX run generated, driven by `.nubeam-install-manifest` rather than by a list kept here. Refuses any recorded path outside the source tree, and leaves a `share/Make.local` you have edited — it stops being the installer's once you change it. `--dry-run` lists without removing; a second run is a quiet no-op. |
 | `run-local-validation.sh` | Runs a shipped reference case (D3D or TFTR) and compares it to the reference output that ships with it. |
 | `run-local-vest.sh` | G-EQDSK → Plasma State → NUBEAM, the full VEST chain, locally. |
 | `compare-plasma-state.py` | Profile-by-profile comparison of two Plasma State files. |
@@ -24,6 +25,17 @@ in CI; the VAFT test suite passes with NUBEAM absent.
 | `VALIDATION.md` | What the reference cases actually showed, and how to read it. |
 
 ## Usage
+
+Linux — install the toolchain yourself first; `linux.sh` names what is missing
+and stops, because a package install needs root:
+
+```bash
+apt install gfortran gcc g++ make curl libnetcdff-dev liblapack-dev libblas-dev
+
+bash install/nubeam/linux.sh --nubeam-root ~/git/nubeam --accept-ntcc-terms
+export NUBEAMHOME=~/git/nubeam/local
+bash install/nubeam/run-local-validation.sh --nubeam-root ~/git/nubeam --case d3d
+```
 
 macOS:
 

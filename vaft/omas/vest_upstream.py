@@ -33,12 +33,10 @@ from vaft.machine_mapping.impa import (
 )
 from vaft.machine_mapping.langmuir_probes import langmuir_probes
 from vaft.machine_mapping.magnetics import (
-    LIMITER_SHUNT_CHANNELS,
-    TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
     FLUCTUATION_MIRNOV_FIRST_SHOT,
     LIMITER_SHUNT_CHANNELS,
-    TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
     fluctuation_mirnov_channel_definitions,
+    toroidal_mirnov_reference_channels,
     vest_equilibrium_magnetics_channel_definitions,
     vfit_magnetics_dynamic,
     vfit_magnetics_static,
@@ -184,6 +182,12 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
     vfit_pf_active_static(ods, shot=era.reference_shot)
     pf_passive(ods)
     em_coupling(ods, shot=era.reference_shot)
+    # Deliberately un-gated (shot=0, the inventory). A static product describes
+    # a machine *era*, and the phase-reference Mirnov boundary (shot 35520)
+    # falls inside the first era, whose reference_shot is 43016 -- so no single
+    # shot represents that era's magnetics truthfully. Per-shot availability is
+    # applied in `build_shot_components`, which rebuilds this IDS with the shot
+    # rather than copying it.
     vfit_magnetics_static(ods)
     vfit_tf_static(ods)
     ods["wall.ids_properties.comment"] = (
@@ -837,7 +841,13 @@ def build_diagnostics_ods(
     )
     magnetics_channels = [
         int(channel["field_code"]) for channel in vest_equilibrium_magnetics_channel_definitions()
-    ] + [int(channel["field_code"]) for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS] + [
+    ] + [
+        # Gated, like the fluctuation list below: a channel the mapper declines
+        # to map past its last operational shot is not a channel the archive is
+        # missing, and reporting it as one pins component_status at "partial"
+        # for every modern shot.
+        int(channel["field_code"]) for channel in toroidal_mirnov_reference_channels(int(shot))
+    ] + [
         int(channel["field_code"]) for channel in LIMITER_SHUNT_CHANNELS
     ]
     if int(shot) >= FLUCTUATION_MIRNOV_FIRST_SHOT:
@@ -852,7 +862,13 @@ def build_diagnostics_ods(
         "magnetics",
         ("magnetics",),
         lambda component: (
-            _copy_ids(component, static, ("magnetics",)),
+            # Rebuilt with the shot rather than copied from the era static:
+            # the static carries the un-gated inventory, and copying it would
+            # publish phase-reference channels the machine no longer had while
+            # `vfit_mirnov_raw_dynamic` gated them out -- leaving the array at
+            # different indices depending on whether a product came from this
+            # pipeline or from a fresh mapping.
+            vfit_magnetics_static(component, shot),
             vfit_magnetics_dynamic(
                 component,
                 shot,

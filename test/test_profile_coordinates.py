@@ -24,12 +24,14 @@ from vaft.plot.backend.recipes import build_model
 from vaft.plot.display import COORDINATE_LABELS, PROFILE_COORDINATES
 from vaft.plot.models import Profile1D, ReferenceLine
 
+from _sample_fixtures import sample_ods
+
 SLICE = 4
 
 
 @pytest.fixture(scope="module")
 def sample():
-    return vaft.omas.load(vaft.data.sample(39915, representation="omas"))
+    return sample_ods(39915)
 
 
 @pytest.fixture(scope="module")

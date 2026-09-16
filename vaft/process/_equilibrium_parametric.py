@@ -966,15 +966,16 @@ def derive_global_descriptors(
 def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.ndarray]:
     """Points on a Miller-parameterized flux surface at given poloidal angles.
 
-    The Miller parameterization writes a shaped, up-down symmetric surface in five
-    numbers: minor radius, centre, elongation and triangularity.  This is the
-    forward evaluation; :func:`fit_miller_surface` is the inverse.
+    The Miller parameterization writes a shaped, up-down symmetric surface in a
+    handful of numbers: minor radius, centre, elongation, triangularity and --
+    optionally -- squareness.  This is the forward evaluation;
+    :func:`fit_miller_surface` is the inverse.
 
     Parameters
     ----------
     surface : MillerSurface
-        The five shape parameters.  ``r``, ``r0`` and ``z0`` in metres,
-        ``kappa`` and ``delta`` dimensionless [-].
+        The shape parameters.  ``r``, ``r0`` and ``z0`` in metres, ``kappa``,
+        ``delta`` and ``zeta`` dimensionless [-].
     theta : array_like
         Poloidal angles at which to evaluate [rad].
 
@@ -986,16 +987,20 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     Raises
     ------
     ValueError
-        The geometry is degenerate: minor radius or elongation not positive, or
-        triangularity of magnitude one or more.
+        The geometry is degenerate: minor radius or elongation not positive,
+        triangularity of magnitude one or more, or squareness of magnitude one
+        half or more.
 
     Convention
     ----------
     ``R = r0 + r*cos(theta + arcsin(delta)*sin(theta))`` and
-    ``Z = z0 + kappa*r*sin(theta)``.  *theta* is the parameter of the
-    parameterization, not a geometric poloidal angle about the centre, and the two
-    differ once the surface is shaped.  Positive ``delta`` shifts the extremum of
-    ``Z`` inboard.  The surface is up-down symmetric by construction.
+    ``Z = z0 + kappa*r*sin(theta + zeta*sin(2*theta))``.  *theta* is the parameter
+    of the parameterization, not a geometric poloidal angle about the centre, and
+    the two differ once the surface is shaped.  Positive ``delta`` shifts the
+    extremum of ``Z`` inboard.  Positive ``zeta`` squares the surface off,
+    negative rounds it.  ``zeta = 0`` is the five-parameter surface exactly, to
+    the bit, so nothing that does not ask for squareness moves.  The surface is
+    up-down symmetric by construction, squareness included.
 
     Applicability
     -------------
@@ -1005,20 +1010,30 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     -----------
     Up-down symmetric and single-valued in *theta*, so it cannot represent a
     separatrix, an X-point, or an asymmetric boundary at all.  Triangularity is
-    bounded by one because the arcsine of it must exist.
+    bounded by one because the arcsine of it must exist.  Squareness is bounded
+    by one half because ``d(theta + zeta*sin(2*theta))/dtheta = 1 +
+    2*zeta*cos(2*theta)`` changes sign beyond it: the parameterization then
+    doubles back and the "surface" crosses itself, so a larger magnitude does not
+    describe a squarer plasma but a curve that is not one.
 
     Provenance
     ----------
     .. [1] Miller, Chu, Greene, Lin-Liu and Waltz, *Noncircular, finite aspect
        ratio, local equilibrium model*, Phys. Plasmas 5, 973 (1998), which
        introduced this parameterization.
+    .. [2] The squareness term follows the extended form used for shape
+       comparison, e.g. Barr, Boyer, Humphreys *et al.*, *ShapeFIT*, Nucl.
+       Fusion 58, 076011 (2018), App. A.
     """
 
     theta = np.asarray(theta, dtype=float)
     if surface.r <= 0 or surface.kappa <= 0 or abs(surface.delta) >= 1:
         raise ValueError("Miller geometry requires r>0, kappa>0, and abs(delta)<1")
+    if abs(surface.zeta) >= 0.5:
+        raise ValueError("Miller geometry requires abs(zeta)<0.5; beyond that the parameterization doubles back on itself")
     angle = theta + np.arcsin(surface.delta) * np.sin(theta)
-    return surface.r0 + surface.r * np.cos(angle), surface.z0 + surface.kappa * surface.r * np.sin(theta)
+    vertical = theta + surface.zeta * np.sin(2.0 * theta)
+    return surface.r0 + surface.r * np.cos(angle), surface.z0 + surface.kappa * surface.r * np.sin(vertical)
 
 
 def _resample_contour(contour: Contour, count: int = 256) -> Contour:
@@ -1033,9 +1048,9 @@ def _resample_contour(contour: Contour, count: int = 256) -> Contour:
 def fit_miller_surface(
     contour: Contour | tuple[Any, Any], *, radial_value: float | None = None,
     radial_coordinate: str = "psi_n", max_normalized_rms: float = 0.02,
-    near_xpoint: bool = False,
+    near_xpoint: bool = False, squareness: bool = False,
 ) -> MillerFitResult:
-    """Fit the five Miller shape parameters to one closed flux-surface contour.
+    """Fit the Miller shape parameters to one closed flux-surface contour.
 
     Answers "how Miller-like is this surface, and with what parameters", and says
     when the answer is that it is not Miller-like enough to use.  Acceptance is a
@@ -1056,6 +1071,9 @@ def fit_miller_surface(
     near_xpoint : bool, optional
         Caller's determination that this surface lies close to an active X-point,
         which vetoes acceptance regardless of the residual [-].
+    squareness : bool, optional
+        Fit the sixth parameter, ``zeta``, as well.  Off by default: adding a
+        free parameter changes the answer of a fit that did not ask for it [-].
 
     Returns
     -------
@@ -1104,7 +1122,11 @@ def fit_miller_surface(
     Limitations
     -----------
     Miller is up-down symmetric, so a genuinely asymmetric surface fits poorly by
-    construction and is rejected rather than approximated.  Surfaces at or beyond
+    construction and is rejected rather than approximated.  Without *squareness*
+    a surface whose corners are squarer or rounder than a sine can express has
+    nowhere to put that shape either: it goes into the residual, and past
+    *max_normalized_rms* the fit is rejected as "not Miller-like enough to use"
+    when what is true is "not five-parameter Miller-like" (#867).  Surfaces at or beyond
     95.5 percent of the normalized flux are rejected outright, because separatrix
     geometry is not locally Miller-like there.  The X-point proximity has to be
     determined by the caller; this function only honours the flag.  Unlike every
@@ -1126,28 +1148,46 @@ def fit_miller_surface(
     if minor <= 0:
         raise ValueError("contour must have nonzero radial extent")
     initial = np.array([0.5 * (rmin + rmax), 0.5 * (zmin + zmax), minor, (zmax-zmin)/(2*minor), 0.0])
+    if squareness:
+        initial = np.r_[initial, 0.0]
     theta = np.linspace(0, 2*np.pi, observed.r.size, endpoint=False)
     observed_points = observed.points
 
+    def _surface(params: np.ndarray) -> MillerSurface:
+        # Without squareness the parameter vector is the five it always was, so
+        # the optimiser sees the identical problem and returns the identical fit.
+        zeta = float(params[5]) if params.size > 5 else 0.0
+        return MillerSurface(params[2], params[0], params[1], params[3], params[4], zeta)
+
     def model(params: np.ndarray) -> np.ndarray:
-        s = MillerSurface(params[2], params[0], params[1], params[3], params[4])
-        rr, zz = evaluate_miller(s, theta)
+        rr, zz = evaluate_miller(_surface(params), theta)
         return np.column_stack((rr, zz))
 
     def nearest_model_points(params: np.ndarray) -> np.ndarray:
         dense_theta = np.linspace(0, 2*np.pi, 8*observed.r.size, endpoint=False)
-        surface = MillerSurface(params[2], params[0], params[1], params[3], params[4])
+        surface = _surface(params)
         dense_points = np.column_stack(evaluate_miller(surface, dense_theta))
         nearest = cKDTree(dense_points).query(observed_points)[1]
         local_theta = dense_theta[nearest]
         asin_delta = np.arcsin(params[4])
+        zeta = surface.zeta
         for _ in range(5):
             angle = local_theta + asin_delta*np.sin(local_theta)
             angle_prime = 1 + asin_delta*np.cos(local_theta)
             angle_second = -asin_delta*np.sin(local_theta)
-            points = np.column_stack((params[0]+params[2]*np.cos(angle), params[1]+params[3]*params[2]*np.sin(local_theta)))
-            first = np.column_stack((-params[2]*np.sin(angle)*angle_prime, params[3]*params[2]*np.cos(local_theta)))
-            second = np.column_stack((-params[2]*(np.cos(angle)*angle_prime**2+np.sin(angle)*angle_second), -params[3]*params[2]*np.sin(local_theta)))
+            # The vertical angle carries squareness, and the Newton step below
+            # needs its derivatives too: left at theta, the projection stops
+            # being orthogonal and the residual stops being a distance to the
+            # curve -- silently, since it still shrinks.
+            vertical = local_theta + zeta*np.sin(2*local_theta)
+            vertical_prime = 1 + 2*zeta*np.cos(2*local_theta)
+            vertical_second = -4*zeta*np.sin(2*local_theta)
+            points = np.column_stack((params[0]+params[2]*np.cos(angle), params[1]+params[3]*params[2]*np.sin(vertical)))
+            first = np.column_stack((-params[2]*np.sin(angle)*angle_prime, params[3]*params[2]*np.cos(vertical)*vertical_prime))
+            second = np.column_stack((
+                -params[2]*(np.cos(angle)*angle_prime**2+np.sin(angle)*angle_second),
+                params[3]*params[2]*(np.cos(vertical)*vertical_second-np.sin(vertical)*vertical_prime**2),
+            ))
             delta_points = points-observed_points
             numerator = np.sum(delta_points*first, axis=1)
             denominator = np.sum(first*first+delta_points*second, axis=1)
@@ -1159,13 +1199,23 @@ def fit_miller_surface(
         return (nearest_model_points(params)-observed_points).reshape(-1)
 
     span_r = max(rmax-rmin, 1e-9); span_z = max(zmax-zmin, 1e-9)
+    lower = [rmin-span_r, zmin-span_z, 1e-9, 0.05, -0.999]
+    upper = [rmax+span_r, zmax+span_z, 2*span_r, 10.0, 0.999]
+    if squareness:
+        # Short of the 0.5 where the parameterization doubles back.
+        lower.append(-0.499)
+        upper.append(0.499)
     result = least_squares(
-        residual, initial,
-        bounds=([rmin-span_r, zmin-span_z, 1e-9, 0.05, -0.999], [rmax+span_r, zmax+span_z, 2*span_r, 10.0, 0.999]),
+        residual, initial, bounds=(lower, upper),
         xtol=1e-11, ftol=1e-11, gtol=1e-11, max_nfev=1000,
     )
     nearest_points = nearest_model_points(result.x)
-    fitted = MillerSurface(float(result.x[2]), float(result.x[0]), float(result.x[1]), float(result.x[3]), float(result.x[4]), radial_value, radial_coordinate)
+    best = _surface(result.x)
+    fitted = MillerSurface(
+        float(best.r), float(best.r0), float(best.z0), float(best.kappa),
+        float(best.delta), float(best.zeta),
+        radial_value=radial_value, radial_coordinate=radial_coordinate,
+    )
     predicted = Contour(nearest_points[:, 0], nearest_points[:, 1], True)
     d1 = np.linalg.norm(nearest_points-observed_points, axis=1)
     d2 = cKDTree(observed_points).query(predicted.points)[0]

@@ -106,6 +106,16 @@ esac
 [[ -n "$BUILD_DIR" ]] || BUILD_DIR="$SOURCE/build-vaft-$PLATFORM"
 MANIFEST="$PREFIX/$MANIFEST_NAME"
 
+# The prefix is removed wholesale by --uninstall, so it must never be inside the
+# VAFT checkout. The PowerShell installers enforce this through
+# Resolve-InstallPrefix; the POSIX ones did not. Made absolute first, or a
+# relative --prefix would slip past the comparison and past the manifest.
+[[ "$PREFIX" == /* ]] || PREFIX="$PWD/$PREFIX"
+VAFT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+case "$PREFIX/" in
+  "$VAFT_ROOT"/*) die "the install prefix must be outside the VAFT checkout, because --uninstall removes it: $PREFIX is inside $VAFT_ROOT" ;;
+esac
+
 PYTHON="${VAFT_PYTHON:-}"
 if [[ -z "$PYTHON" ]]; then
   # The manifest needs only the standard library, but check_efit.py imports
@@ -243,23 +253,36 @@ netcdf_libdir_of() {  # where this prefix actually keeps libnetcdf
 }
 
 netcdf_prefix_for_efit() {
-  local nf_prefix nc_prefix candidate chosen=""
-  nf_prefix="$(nf-config --prefix 2>/dev/null || true)"
-  nc_prefix="$(nc-config --prefix 2>/dev/null || true)"
-  for candidate in "$nc_prefix" "$nf_prefix" /usr /usr/local; do
-    [[ -n "$candidate" && -d "$candidate" ]] || continue
-    if netcdf_has_half "$candidate" c && netcdf_has_half "$candidate" fortran &&
-       netcdf_has_module "$candidate"; then
-      chosen="$candidate"; break
+  local candidate candidate_fc prefix chosen=""
+  # First filter: the compiler the Fortran half was built with. nf-config
+  # reports its own --fc, and a library built with ifort ships ifort .mod
+  # files; linking those into a gfortran build fails with errors that never
+  # mention a compiler. On a machine carrying a hand-built netCDF ahead of the
+  # distribution one -- ordinary on a cluster -- taking the first nf-config
+  # silently configures the wrong one.
+  #
+  # Second filter: the prefix has to hold all three pieces. A Fortran-only
+  # netCDF passes the compiler test and still leaves EFIT with no C library,
+  # because FindNetCDF searches one prefix for both halves.
+  for candidate in "$(command -v nf-config || true)" /usr/bin/nf-config /usr/local/bin/nf-config; do
+    [[ -n "$candidate" && -x "$candidate" ]] || continue
+    candidate_fc="$("$candidate" --fc 2>/dev/null || true)"
+    if [[ "$(basename "${candidate_fc%% *}")" != gfortran* ]]; then
+      note "skipping $candidate: built with ${candidate_fc:-an unknown compiler}, not gfortran"
+      continue
     fi
+    prefix="$("$candidate" --prefix 2>/dev/null || true)"
+    [[ -n "$prefix" && -d "$prefix" ]] || continue
+    if netcdf_has_half "$prefix" c && netcdf_has_half "$prefix" fortran &&
+       netcdf_has_module "$prefix"; then
+      chosen="$prefix"
+      note "using netCDF from $candidate (prefix $prefix)"
+      break
+    fi
+    note "skipping $candidate: $prefix has no NetCDF C library beside the Fortran one"
   done
   if [[ -z "$chosen" ]]; then
-    printf 'nf-config reports prefix %s\nnc-config reports prefix %s\n' \
-      "${nf_prefix:-<none>}" "${nc_prefix:-<none>}" >&2
-    die "no prefix provides the NetCDF C library, the Fortran library and the Fortran module together. EFIT searches one prefix for all three. Install a complete NetCDF (e.g. apt install libnetcdf-dev libnetcdff-dev), or pass --without-netcdf and accept that EFIT will write no m-files."
-  fi
-  if [[ -n "$nf_prefix" && "$nf_prefix" != "$chosen" ]]; then
-    note "nf-config on PATH reports $nf_prefix, which does not provide a NetCDF C library; using $chosen instead ($(command -v nf-config))"
+    die "no NetCDF provides a gfortran-built Fortran library, its module and a C library under one prefix. EFIT searches one prefix for all three. Install a complete NetCDF (e.g. apt install libnetcdf-dev libnetcdff-dev), or pass --without-netcdf and accept that EFIT will write no m-files."
   fi
   NETCDF_C_DIR="$chosen"; NETCDF_F_DIR="$chosen"
   # EFIT's FindNetCDF only looks in <prefix>/lib and <prefix>/Lib
@@ -268,9 +291,13 @@ netcdf_prefix_for_efit() {
   # found from the prefix alone. Passing the library directory explicitly takes
   # the NetCDF_LIBRARY_DIR branch instead, which searches it directly. The
   # Fortran half needs its own variable: that branch has no fallback for it.
-  NETCDF_LIB_DIR="$(nc-config --libdir 2>/dev/null || true)"
-  if [[ -z "$NETCDF_LIB_DIR" || ! -e "$NETCDF_LIB_DIR/libnetcdf.so" ]]; then
-    NETCDF_LIB_DIR="$(netcdf_libdir_of "$chosen" || true)"
+  # The chosen prefix is what was vetted, so look inside it first; nc-config
+  # may well describe a different installation from the one that survived the
+  # filters above, and is only useful here when it happens to agree.
+  NETCDF_LIB_DIR="$(netcdf_libdir_of "$chosen" || true)"
+  if [[ -z "$NETCDF_LIB_DIR" ]]; then
+    NETCDF_LIB_DIR="$(nc-config --libdir 2>/dev/null || true)"
+    [[ -n "$NETCDF_LIB_DIR" && -e "$NETCDF_LIB_DIR/libnetcdf.so" ]] || NETCDF_LIB_DIR=""
   fi
   [[ -n "$NETCDF_LIB_DIR" ]] ||
     die "found a NetCDF prefix at $chosen but no directory in it holding libnetcdf"

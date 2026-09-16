@@ -338,6 +338,7 @@ def make_chease(_sample: ODS) -> ODS:
     for index, (q0, q95) in enumerate(((1.05, 3.2), (1.10, 3.5))):
         root = f"equilibrium.time_slice.{index}"
         ods[f"{root}.time"] = float(times[index])
+        ods[f"{root}.profiles_1d.psi"] = np.linspace(0.0, 1.0, 33)  # the profiles' coordinate, so IMAS can write them
         ods[f"{root}.profiles_1d.q"] = np.linspace(q0, q95, 33)
         ods[f"{root}.profiles_1d.pressure"] = np.linspace(2.0e4, 0.0, 33)
         ods[f"{root}.global_quantities.q_axis"] = float(q0)
