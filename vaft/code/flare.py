@@ -42,6 +42,7 @@ from vaft.process.cocos import (
 from ._executables import executable_from_home, missing_home_message
 
 __all__ = [
+    "BRZPHI_IMAGINARY_COLUMNS",
     "FLARE_TASKS",
     "FlareConfig",
     "FlareEquilibriumScales",
@@ -49,7 +50,18 @@ __all__ = [
     "flare_equilibrium_scales",
     "flare_executable",
     "run_flare",
+    "write_helicity_flipped_field",
 ]
+
+#: Zero-based positions of ``imag(b_r)``, ``imag(b_z)`` and ``imag(b_phi)`` in
+#: a ``GPEC_BRZPHI`` data row, whose nine tokens are
+#: ``l r z re(b_r) im(b_r) re(b_z) im(b_z) re(b_phi) im(b_phi)``.
+BRZPHI_IMAGINARY_COLUMNS: tuple[int, ...] = (4, 6, 8)
+
+#: How many tokens a ``GPEC_BRZPHI`` data row has. Header lines have other
+#: counts, which is how the two are told apart -- the header length varies
+#: between GPEC builds, so counting lines would not do.
+_BRZPHI_TOKENS = 9
 
 #: The subcommands ``flare`` dispatches, from its own usage text. ``run``
 #: executes whatever the control file defines; the rest are shortcuts.
@@ -378,3 +390,109 @@ def run_flare(
         stdout=completed.stdout,
         stderr=completed.stderr,
     )
+
+
+def _is_brzphi_row(tokens: Sequence[str]) -> bool:
+    """Whether a line is a ``GPEC_BRZPHI`` data row rather than header text."""
+    if len(tokens) != _BRZPHI_TOKENS:
+        return False
+    for token in tokens:
+        try:
+            float(token.replace("D", "E").replace("d", "e"))
+        except ValueError:
+            return False
+    return True
+
+
+def _negate(token: str) -> str:
+    """Flip a numeric token's sign without touching the rest of its text."""
+    token = token.strip()
+    if token.startswith("-"):
+        return token[1:]
+    if token.startswith("+"):
+        return "-" + token[1:]
+    return "-" + token
+
+
+def write_helicity_flipped_field(
+    source: str | os.PathLike[str], destination: str | os.PathLike[str] | None = None
+) -> Path:
+    """Write the complex conjugate of a GPEC ``BRZPHI`` file.
+
+    Parameters
+    ----------
+    source : str or path-like
+        A ``gpec_*brzphi_n*.out`` as GPEC wrote it [n/a].
+    destination : str or path-like, optional
+        Where to write. Defaults to the source with ``_helicityflip`` before
+        its extension, which is the name the legacy workflow used [n/a].
+
+    Returns
+    -------
+    Path
+        The file written.
+
+    Raises
+    ------
+    FileNotFoundError
+        ``source`` does not exist.
+    ValueError
+        No data row was found, so nothing was conjugated and the copy would
+        be a silent duplicate of the input.
+
+    Convention
+    ----------
+    **FLARE reconstructs ``B = Re(C exp(-i n phi))``**, so conjugating the
+    stored coefficients is the same as ``n -> -n``, which is the same as
+    ``phi -> -phi``: it flips the helicity the trace assumes. Only the three
+    imaginary columns change.
+
+    Everything else is copied **as text, byte for byte** -- the ``l``, ``r``
+    and ``z`` columns, the real parts, and every header line, whose ``n``,
+    ``nr`` and ``nz`` sit at fixed character positions. Re-formatting the
+    numbers would change the ASCII FLARE splines from, so the sign is flipped
+    on the token rather than by parsing and printing a float.
+
+    Data rows are recognised by content -- nine numeric tokens -- because the
+    header's length varies between GPEC builds, so a fixed skip would silently
+    treat a header line as data on one build and drop a data row on another.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [legacy] ``run_flare.py::_write_helicity_flipped_field`` and
+       ``_flare_gpec_realspace``, whose reconstruction this matches.
+    """
+    origin = Path(source)
+    if not origin.is_file():
+        raise FileNotFoundError(f"GPEC perturbed-field input not found: {origin}")
+    if destination is None:
+        target = origin.with_name(
+            f"{origin.stem}_helicityflip{origin.suffix}" if origin.suffix
+            else f"{origin.name}_helicityflip"
+        )
+    else:
+        target = Path(destination)
+
+    lines: list[str] = []
+    flipped = 0
+    for line in origin.read_text().splitlines():
+        tokens = line.split()
+        if not _is_brzphi_row(tokens):
+            lines.append(line)
+            continue
+        for column in BRZPHI_IMAGINARY_COLUMNS:
+            tokens[column] = _negate(tokens[column])
+        lines.append("  " + "  ".join(tokens))
+        flipped += 1
+    if flipped == 0:
+        raise ValueError(
+            f"{origin.name} holds no BRZPHI data row -- nine numeric tokens -- "
+            "so nothing was conjugated. Writing the copy anyway would produce a "
+            "file named helicityflip that is identical to its input"
+        )
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return target
