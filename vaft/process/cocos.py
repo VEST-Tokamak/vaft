@@ -42,8 +42,8 @@ from vaft.data.cocos import cocos_spec
 from vaft.data.equilibrium import ValidationIssue, ValidationReport
 
 __all__ = [
-    "FLUX_EXPONENT_TOLERANCE", "cocos_consistency_signs", "identify_convention",
-    "identify_flux_exponent", "validate_cocos",
+    "FLUX_EXPONENT_TOLERANCE", "cocos_consistency_signs", "cocos_field_scales",
+    "identify_convention", "identify_flux_exponent", "validate_cocos",
 ]
 
 #: Relative band around 1 and 2*pi within which the Ampere ratio is accepted.
@@ -500,3 +500,75 @@ def identify_convention(
         if narrowed:
             candidates = narrowed
     return tuple(sorted(candidates))
+
+
+def cocos_field_scales(source: int, target: int) -> tuple[int, int]:
+    """The two sign multipliers that carry an equilibrium from one COCOS to another.
+
+    Parameters
+    ----------
+    source : int
+        The index the equilibrium is in [-].
+    target : int
+        The index it is wanted in [-].
+
+    Returns
+    -------
+    tuple of int
+        ``(psi_scale, field_scale)``, each ``+1`` or ``-1``. ``psi_scale``
+        multiplies the poloidal flux -- ``psi`` on the grid and the axis and
+        boundary values with it -- and ``field_scale`` multiplies the toroidal
+        field and the poloidal current function ``F`` [-].
+
+    Raises
+    ------
+    ValueError
+        Either index is not one of the eighteen COCOS indices.
+
+    Convention
+    ----------
+    From Sauter Eq. 12, ``B_pol = sigma_Bp sigma_RphiZ grad(psi) x grad(phi) /
+    (2 pi)**e_Bp``: the sign ``psi`` carries relative to the physical poloidal
+    field is the **product** ``sigma_Bp * sigma_RphiZ``, so the flux flips when
+    that product differs between the two conventions. The toroidal field's
+    direction follows ``sigma_RphiZ`` alone, so ``F`` and ``B_t`` flip when the
+    handedness of ``(R, phi, Z)`` differs.
+
+    **This is a sign conversion, not a unit conversion.** ``e_Bp`` differs
+    between the 1-8 and 11-18 families by a factor of ``2 pi`` on ``psi``, and
+    nothing here applies it: a caller crossing the families has to scale the
+    flux itself, and :func:`identify_flux_exponent` is what tells it which
+    family a file is in.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Processing steps
+    ----------------
+    1. Look up both conventions' ``sigma_Bp`` and ``sigma_RphiZ``.
+    2. The flux multiplier is the product of the two ``sigma_Bp sigma_RphiZ``
+       products; the field multiplier is the product of the two
+       ``sigma_RphiZ``.
+
+    Limitations
+    -----------
+    Says nothing about ``sigma_rhothetaphi``, which sets the poloidal angle's
+    direction. Two conventions differing only in that give ``(+1, +1)`` here
+    and still disagree about the sign of ``theta`` -- a caller relabelling a
+    poloidal angle needs the third sigma, not these two.
+
+    Provenance
+    ----------
+    .. [sauter] O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184
+       (2013) 293, Eq. 12 and Table I.
+    .. [measured] Two conversions measured on real runs, both reproduced by
+       this rule: a COCOS 5 g-file into FLARE's COCOS 3 needs ``(-1, +1)``,
+       and a COCOS 2 CHEASE equilibrium needs ``(+1, -1)``.
+    """
+    from vaft.data.cocos import cocos_spec
+
+    first, second = cocos_spec(int(source)), cocos_spec(int(target))
+    psi_scale = (first.sigma_bp * first.sigma_rpz) * (second.sigma_bp * second.sigma_rpz)
+    field_scale = first.sigma_rpz * second.sigma_rpz
+    return int(psi_scale), int(field_scale)
