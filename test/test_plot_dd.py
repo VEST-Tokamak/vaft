@@ -245,12 +245,22 @@ def test_a_composite_lists_its_members_paths_and_names_the_member():
         assert {p.canonical for p in dd.dd_paths(member)} <= {p.canonical for p in paths}
 
 
-def test_a_computed_view_declares_only_what_its_spec_lists():
-    assert isinstance(R.RECIPES["vacuum_field"], R.CallableRecipe)
-    paths = dd.dd_paths("vacuum_field")
-    assert paths and all(p.attrs.get("declared_by") == "spec" for p in paths)
-    spec = get_spec("vacuum_field")
-    assert _by_role(paths, "required") == [dd.from_template(t).canonical for t in spec.required_paths]
+@pytest.mark.parametrize("name, backend", [("vacuum_field", "omas"), ("pf_coil_geometry_poloidal", "neutral")])
+def test_a_computed_view_declares_its_reads_beside_its_gate(name, backend):
+    recipe = R.RECIPES[name]
+    assert isinstance(recipe, R.CallableRecipe) and recipe.backend == backend
+    paths = dd.dd_paths(name)
+    by_canonical = {p.canonical: p for p in paths}
+    assert {p.attrs["declared_by"] for p in paths} <= {"spec", "recipe", "spec+recipe"}
+    assert "recipe" in {p.attrs["declared_by"] for p in paths}
+    spec = get_spec(name)
+    for template in spec.required_paths:
+        assert by_canonical[dd.from_template(template).canonical].role == "required"
+    for template in recipe.reads:
+        path = by_canonical[dd.from_template(template).canonical]
+        assert "recipe" in path.attrs["declared_by"]
+        assert path.role == "input" or path.attrs["declared_by"] == "spec+recipe"
+        assert path.attrs["backend"] == backend
 
 
 def test_a_geometry_layer_caption_is_not_a_path():
@@ -307,6 +317,37 @@ MISSING_FROM_DD: dict[str, str] = {
     "equilibrium/time_slice(:)/profiles_1d/ffprime": (
         "legacy leaf name read as a fallback for profiles_1d/f_df_dpsi"
     ),
+    "pf_passive/loop(:)/identifier": (
+        "VEST's passive-structure mapping writes an identifier beside name; DD 3.41.0 defines "
+        "none on pf_passive.loop; read by the channel selection policy"
+    ),
+    "magnetics/ip(:)/validity": (
+        "DD 3.41.0 carries no validity on magnetics.ip; VAFT's validation layer writes it (#253) "
+        "and the plasma-onset finder reads it"
+    ),
+    "equilibrium/ids_properties/cocos": (
+        "VAFT probe for a COCOS hint beside the DD's code.parameters; not a DD leaf"
+    ),
+    "magnetics/ip(:)/validity_timed": (
+        "DD 3.41.0 carries no validity_timed on magnetics.ip; VAFT's validation layer writes it "
+        "(#253) and the plasma-onset finder reads it"
+    ),
+    "equilibrium/time_slice(:)/global_quantities/major_radius": (
+        "probed by vaft.process.equilibrium.as_equilibrium as a per-slice r0 fallback before "
+        "vacuum_toroidal_field.r0; not a DD leaf"
+    ),
+    "spectrometer_uv/channel(:)/processed_line(:)/intensity/validity": (
+        "DD 3.41.0 carries no validity on processed_line.intensity; VAFT's validation layer "
+        "writes it (#253) and the plasma-onset finder reads it"
+    ),
+    "spectrometer_uv/channel(:)/processed_line(:)/intensity/validity_timed": (
+        "DD 3.41.0 carries no validity_timed on processed_line.intensity; VAFT's validation "
+        "layer writes it (#253) and the plasma-onset finder reads it"
+    ),
+    "equilibrium/time_slice(:)/global_quantities/b0": (
+        "probed by vaft.process.equilibrium.as_equilibrium as a per-slice b0 fallback before "
+        "vacuum_toroidal_field.b0; not a DD leaf"
+    ),
 }
 
 #: ``(canonical path, declared unit)`` whose declared unit is not the Data
@@ -348,6 +389,11 @@ def _declared() -> dict[tuple[str, str], dd.DDPath]:
 @pytest.mark.parametrize("name", canonical_names())
 def test_every_declared_path_exists_in_the_data_dictionary(name):
     for path in dd.dd_paths(name):
+        if "/" not in path.canonical:
+            # A bare IDS root: a computed view that deep-copies the whole IDS
+            # declares it as such (issue #439); the IDS exists by construction.
+            assert path.role == "input" and path.attrs["backend"] == "omas", path.canonical
+            continue
         if path.canonical in MISSING_FROM_DD:
             assert path.role != "data" or "extension" in MISSING_FROM_DD[path.canonical], path.canonical
             continue
