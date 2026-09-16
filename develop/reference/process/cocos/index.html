@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>acf3b5e</code>. What is described
+  <code>e049ffa</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -267,7 +267,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/cocos.py"><code class="language-plaintext highlighter-rouge">vaft/process/cocos.py</code></a>:
-4 public functions.  The category overview and notation come from the module
+5 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("cocos.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -308,6 +308,8 @@ ever added, not because they are being tested today.</p>
 
 <ul class="formula-index">
   <li><a href="#cocos_consistency_signs"><code>cocos_consistency_signs</code></a> &mdash; Observed sign of each Sauter Eq. 23 quantity, or <code class="language-plaintext highlighter-rouge">None</code> where not determinable.
+</li>
+  <li><a href="#cocos_field_scales"><code>cocos_field_scales</code></a> &mdash; The two sign multipliers that carry an equilibrium from one COCOS to another.
 </li>
   <li><a href="#identify_convention"><code>identify_convention</code></a> &mdash; Candidate COCOS indices for an equilibrium, from its observable signs.
 </li>
@@ -382,6 +384,81 @@ two paths can disagree for a hand-built equilibrium is tracked in #605.</p>
 
 <ol class="formula-references">
   <li>Sauter and Medvedev, <em>Tokamak Coordinate Conventions: COCOS</em>, Comput. Phys. Commun. 184, 293 (2013), Eq. 23, which defines the six sign relations this function measures.  The preference for a bulk pressure slope over a pointwise derivative is that paper’s own recommendation.
+</li>
+</ol>
+
+<h3 id="cocos_field_scales"><code class="language-plaintext highlighter-rouge">cocos_field_scales</code></h3>
+
+<p class="formula-signature"><code>cocos_field_scales(source, target)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The two sign multipliers that carry an equilibrium from one COCOS to another.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>source</code></td><td>int</td><td>-</td><td><p>The index the equilibrium is in.</p>
+</td></tr>
+  <tr><td><code>target</code></td><td>int</td><td>-</td><td><p>The index it is wanted in.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of int</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(psi_scale, field_scale)</code>, each <code class="language-plaintext highlighter-rouge">+1</code> or <code class="language-plaintext highlighter-rouge">-1</code>. <code class="language-plaintext highlighter-rouge">psi_scale</code> multiplies the poloidal flux – <code class="language-plaintext highlighter-rouge">psi</code> on the grid and the axis and boundary values with it – and <code class="language-plaintext highlighter-rouge">field_scale</code> multiplies the toroidal field and the poloidal current function <code class="language-plaintext highlighter-rouge">F</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Either index is not one of the eighteen COCOS indices.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Look up both conventions’ <code class="language-plaintext highlighter-rouge">sigma_Bp</code> and <code class="language-plaintext highlighter-rouge">sigma_RphiZ</code>.</li>
+  <li>The flux multiplier is the product of the two <code class="language-plaintext highlighter-rouge">sigma_Bp sigma_RphiZ</code>
+products; the field multiplier is the product of the two
+<code class="language-plaintext highlighter-rouge">sigma_RphiZ</code>.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>From Sauter Eq. 12, <code class="language-plaintext highlighter-rouge">B_pol = sigma_Bp sigma_RphiZ grad(psi) x grad(phi) /
+(2 pi)**e_Bp</code>: the sign <code class="language-plaintext highlighter-rouge">psi</code> carries relative to the physical poloidal
+field is the <strong>product</strong> <code class="language-plaintext highlighter-rouge">sigma_Bp * sigma_RphiZ</code>, so the flux flips when
+that product differs between the two conventions. The toroidal field’s
+direction follows <code class="language-plaintext highlighter-rouge">sigma_RphiZ</code> alone, so <code class="language-plaintext highlighter-rouge">F</code> and <code class="language-plaintext highlighter-rouge">B_t</code> flip when the
+handedness of <code class="language-plaintext highlighter-rouge">(R, phi, Z)</code> differs.</p>
+
+<p><strong>This is a sign conversion, not a unit conversion.</strong> <code class="language-plaintext highlighter-rouge">e_Bp</code> differs
+between the 1-8 and 11-18 families by a factor of <code class="language-plaintext highlighter-rouge">2 pi</code> on <code class="language-plaintext highlighter-rouge">psi</code>, and
+nothing here applies it: a caller crossing the families has to scale the
+flux itself, and <code class="language-plaintext highlighter-rouge">identify_flux_exponent</code> is what tells it which
+family a file is in.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Says nothing about <code class="language-plaintext highlighter-rouge">sigma_rhothetaphi</code>, which sets the poloidal angle’s
+direction. Two conventions differing only in that give <code class="language-plaintext highlighter-rouge">(+1, +1)</code> here
+and still disagree about the sign of <code class="language-plaintext highlighter-rouge">theta</code> – a caller relabelling a
+poloidal angle needs the third sigma, not these two.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293, Eq. 12 and Table I.
+</li>
+  <li>Two conversions measured on real runs, both reproduced by this rule: a COCOS 5 g-file into FLARE’s COCOS 3 needs <code class="language-plaintext highlighter-rouge">(-1, +1)</code>, and a COCOS 2 CHEASE equilibrium needs <code class="language-plaintext highlighter-rouge">(+1, -1)</code>.
 </li>
 </ol>
 
@@ -716,7 +793,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#cocos_consistency_signs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cocos_consistency_signs</a></li><li class="page-toc-item page-toc-level-3"><a href="#identify_convention" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">identify_convention</a></li><li class="page-toc-item page-toc-level-3"><a href="#identify_flux_exponent" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">identify_flux_exponent</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_cocos</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#cocos_consistency_signs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cocos_consistency_signs</a></li><li class="page-toc-item page-toc-level-3"><a href="#cocos_field_scales" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cocos_field_scales</a></li><li class="page-toc-item page-toc-level-3"><a href="#identify_convention" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">identify_convention</a></li><li class="page-toc-item page-toc-level-3"><a href="#identify_flux_exponent" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">identify_flux_exponent</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_cocos</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -834,7 +911,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 07:56:22 +0000"
+        "time": "2026-09-16 08:22:11 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
