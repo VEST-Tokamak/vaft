@@ -240,8 +240,23 @@ def test_the_title_reports_the_probes_behind_the_positions(sample):
     title = build_model(NAME, normalize_entries(sample), time=0.30, window_size=512).title
     assert "2 toroidal positions" in title
     assert "probes at" in title
-    # Probes on another timebase are excluded, and saying so is part of the count.
-    assert "left out" in title
+    # No "left out" clause here: since issue #816 the fit is built from one
+    # poloidal position, and on this sample every probe of the chosen group
+    # shares a timebase. The clause is exercised below, where probes really are
+    # dropped.
+
+
+def test_the_title_says_when_probes_were_dropped_for_their_timebase(phase_ods):
+    """Probes on another timebase are excluded, and saying so is part of the count."""
+    import copy as _copy
+
+    mixed = _copy.deepcopy(phase_ods)
+    probe = "magnetics.b_field_pol_probe.3"
+    mixed[f"{probe}.voltage.time"] = np.asarray(mixed[f"{probe}.voltage.time"])[:100]
+    mixed[f"{probe}.voltage.data"] = np.asarray(mixed[f"{probe}.voltage.data"])[:100]
+
+    title = _model(mixed).title
+    assert "1 on another timebase left out" in title
 
 
 def test_probes_a_hair_apart_are_one_position():
@@ -307,3 +322,108 @@ def test_each_band_is_paired_with_its_own_fit_by_colour(sample):
     for band, fit in zip(measured, fits):
         assert fit.style["color"] == band.style["color"]
         assert fit.channel == band.channel
+
+
+# ---------------------------------------------------------------------------
+# One poloidal position (issue #816)
+# ---------------------------------------------------------------------------
+
+
+def _positioned_ods(rows):
+    """Probes at explicit ``(r, z, phi_deg)``, each carrying the same waveform."""
+    from omas import ODS
+
+    sample_rate = 100_000.0
+    time = np.arange(1024, dtype=float) / sample_rate
+    ods = ODS()
+    for index, (r, z, phi_deg) in enumerate(rows):
+        probe = f"magnetics.b_field_pol_probe.{index}"
+        ods[f"{probe}.name"] = f"P{index}"
+        ods[f"{probe}.position.r"] = float(r)
+        ods[f"{probe}.position.z"] = float(z)
+        ods[f"{probe}.position.phi"] = float(np.deg2rad(phi_deg))
+        ods[f"{probe}.voltage.time"] = time
+        ods[f"{probe}.voltage.data"] = np.sin(2 * np.pi * 8_000.0 * time)
+    ods["dataset_description.data_entry.pulse"] = 99999
+    return ods
+
+
+def test_a_poloidal_array_at_one_toroidal_angle_cannot_carry_the_fit():
+    """The shape of VEST's inboard, side and outboard equilibrium arrays.
+
+    Many probes, many poloidal positions, one toroidal angle: nothing to fit a
+    toroidal mode number against.
+    """
+    ods = _positioned_ods([(0.089, z / 100.0, 330.0) for z in range(-20, 21, 4)])
+    reason = missing_required_path(ods, NAME)
+    assert reason and "one poloidal position" in reason, reason
+
+
+def test_the_group_spanning_the_most_toroidal_angles_wins():
+    """More angles is what separates n from its aliases, so it is preferred."""
+    from vaft.plot.backend.recipes import _toroidal_phase_group
+
+    ods = _positioned_ods([
+        (0.796, 0.20, 0.0), (0.796, 0.20, 120.0), (0.796, 0.20, 240.0),   # 3 angles
+        (0.796, 0.02, 45.0), (0.796, 0.02, 135.0),                        # 2 angles
+        (0.796, 0.02, 225.0), (0.796, 0.02, 315.0),                       # ...4 total
+    ])
+    indices, angles = _toroidal_phase_group(ods)
+    assert sorted(indices) == [3, 4, 5, 6]
+    assert sorted(np.round(np.rad2deg(angles), 1)) == [45.0, 135.0, 225.0, 315.0]
+
+
+def test_a_tie_on_angles_goes_to_the_midplane():
+    ods = _positioned_ods([
+        (0.796, 0.40, 0.0), (0.796, 0.40, 180.0),
+        (0.796, 0.02, 0.0), (0.796, 0.02, 180.0),
+    ])
+    from vaft.plot.backend.recipes import _toroidal_phase_group
+
+    indices, _ = _toroidal_phase_group(ods)
+    assert sorted(indices) == [2, 3]
+
+
+def test_probes_a_hair_apart_poloidally_are_one_row():
+    """Positions come from geometry, so sub-millimetre noise is not a new row."""
+    from vaft.plot.backend.recipes import _toroidal_phase_group
+
+    ods = _positioned_ods([
+        (0.796, 0.0200, 0.0), (0.7960001, 0.0200001, 120.0), (0.796, 0.02, 240.0),
+    ])
+    indices, angles = _toroidal_phase_group(ods)
+    assert sorted(indices) == [0, 1, 2]
+    assert len(set(np.round(np.rad2deg(angles), 1))) == 3
+
+
+def test_separate_rows_are_not_merged():
+    """Two rows 4 cm apart are two poloidal positions, not one array."""
+    from vaft.plot.backend.recipes import _toroidal_phase_group
+
+    ods = _positioned_ods([
+        (0.796, 0.02, 0.0), (0.796, 0.02, 180.0),
+        (0.796, 0.06, 90.0), (0.796, 0.06, 270.0),
+    ])
+    indices, _ = _toroidal_phase_group(ods)
+    assert len(indices) == 2
+    positions = {(round(float(ods[f"magnetics.b_field_pol_probe.{i}.position.z"]), 3)) for i in indices}
+    assert len(positions) == 1
+
+
+def test_an_explicit_channel_list_still_crosses_rows():
+    """Grouping is the default, not a cage: a named set is the caller's call."""
+    ods = _positioned_ods([
+        (0.796, 0.02, 0.0), (0.796, 0.02, 180.0),
+        (0.796, 0.40, 90.0),
+    ])
+    model = _model(ods, channels=[0, 1, 2])
+    assert "3 probes" in model.title
+
+
+def test_probes_without_a_position_are_one_group():
+    """A reduced or synthetic input cannot be split, and is not refused for it."""
+    from vaft.plot.backend.recipes import _toroidal_phase_group
+
+    indices, angles = _toroidal_phase_group(_phase_ods())
+    assert len(indices) == 4
+    assert len(set(np.round(np.rad2deg(angles), 1))) == 4

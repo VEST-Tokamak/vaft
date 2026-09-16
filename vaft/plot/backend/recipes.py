@@ -1811,6 +1811,70 @@ def _toroidal_phase_channels(ods: Any) -> tuple[list[int], np.ndarray]:
     return indices, np.asarray(angles, dtype=float)
 
 
+#: Two probes count as one poloidal position within this distance, in metres.
+#: Positions come from a machine description in metres on a sub-metre machine,
+#: so this separates genuinely different mounting rows without splitting one
+#: row over a rounding difference.
+_PHASE_POSITION_TOLERANCE_M = 0.005
+
+
+def _poloidal_position_key(ods: Any, index: int) -> tuple[int, int] | None:
+    """Which poloidal mounting position a probe sits at, or ``None``.
+
+    ``None`` when the input does not say.  Those probes are kept together as
+    one group rather than dropped: an ODS that omits ``position.r``/``.z``
+    cannot be separated by poloidal position, and refusing to fit it would
+    reject synthetic and reduced inputs that are a single toroidal array by
+    construction.
+    """
+    r = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.position.r"))
+    z = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.position.z"))
+    if r is None or z is None:
+        return None
+    return (
+        int(round(r / _PHASE_POSITION_TOLERANCE_M)),
+        int(round(z / _PHASE_POSITION_TOLERANCE_M)),
+    )
+
+
+def _toroidal_phase_group(ods: Any) -> tuple[list[int], np.ndarray]:
+    """One poloidal position's probes: the set a toroidal mode fit may use.
+
+    A toroidal mode fit compares the phase of one mode at several toroidal
+    angles.  The model it minimises, ``phi = phi_0 - n * theta``, carries no
+    poloidal term, so probes at different poloidal positions bring a phase
+    difference it will absorb into ``n`` (issue #816).
+
+    Of the groups that span more than one toroidal angle, this takes the one
+    spanning the **most** angles, since that is what limits how well ``n`` can
+    be separated from its aliases; ties go to the group nearest the midplane,
+    then to the lowest probe index so the choice is deterministic.
+
+    On VEST that lands on the outboard array at ``r = 0.796``: the inboard,
+    side and outboard *equilibrium* arrays each sit at a single toroidal angle
+    and cannot support a fit at all, while the four phase-reference Mirnov
+    channels at ``z = +0.02`` span four angles and each row of the outboard
+    fluctuation array spans three.
+    """
+    indices, angles = _toroidal_phase_channels(ods)
+    groups: dict[tuple[int, int] | None, list[int]] = {}
+    for position, index in zip((_poloidal_position_key(ods, i) for i in indices), indices):
+        groups.setdefault(position, []).append(index)
+
+    def rank(item: tuple[tuple[int, int] | None, list[int]]) -> tuple[int, float, int]:
+        position, members = item
+        spanned = _distinct_toroidal_angles(
+            angles[[indices.index(index) for index in members]]
+        ).size
+        height = 0.0 if position is None else abs(position[1] * _PHASE_POSITION_TOLERANCE_M)
+        return (spanned, -height, -members[0])
+
+    if not groups:
+        return [], np.asarray([], dtype=float)
+    _, chosen = max(groups.items(), key=rank)
+    return chosen, angles[[indices.index(index) for index in chosen]]
+
+
 #: Two probes count as separated only beyond this angle, in degrees.  Stored
 #: angles come from geometry computations, so a rounding difference of a
 #: microdegree is one position recorded twice, not a baseline to fit across.
@@ -1854,10 +1918,11 @@ def _mirnov_phase_available(ods: Any) -> str | None:
     a fit that discovered this only while building would have been advertised
     already.
     """
-    indices, angles = _toroidal_phase_channels(ods)
+    indices, angles = _toroidal_phase_group(ods)
     if len(indices) < 2 or _distinct_toroidal_angles(angles).size < 2:
         return (
-            "two or more Mirnov probes at distinct toroidal angles, each carrying a waveform"
+            "two or more Mirnov probes at one poloidal position and distinct toroidal "
+            "angles, each carrying a waveform"
         )
     kept, _ = _shared_timebase_probes(ods, indices)
     if len(kept) < 2 or _distinct_toroidal_angles(
@@ -1925,16 +1990,22 @@ def _build_mirnov_spatial_phase(
     """
     from vaft.process.magnetics import mirnov_preprocess_signal, toroidal_phase_fit_at_time
 
-    indices, angles = _toroidal_phase_channels(ods)
-    if channels is not None:
+    if channels is None:
+        # One poloidal position, chosen from the geometry (issue #816).
+        indices, angles = _toroidal_phase_group(ods)
+    else:
+        # An explicit choice is honoured across poloidal positions: the caller
+        # has named the probes and may be comparing rows deliberately. It is
+        # still checked against what the input actually offers.
+        candidates, candidate_angles = _toroidal_phase_channels(ods)
         wanted = [int(channel) for channel in np.atleast_1d(channels)]
-        unknown = [channel for channel in wanted if channel not in indices]
+        unknown = [channel for channel in wanted if channel not in candidates]
         if unknown:
             raise ValueError(
                 f"channels {unknown} carry no toroidal angle and waveform; this input "
-                f"offers {indices}"
+                f"offers {candidates}"
             )
-        angles = angles[[indices.index(channel) for channel in wanted]]
+        angles = candidate_angles[[candidates.index(channel) for channel in wanted]]
         indices = wanted
     reason = _mirnov_phase_available(ods) if channels is None else None
     if reason:
