@@ -28,9 +28,9 @@ in CI; the VAFT test suite passes with NUBEAM absent.
 macOS:
 
 ```bash
-bash external/nubeam/macos.sh --nubeam-root ~/git/nubeam --accept-ntcc-terms
+bash install/nubeam/macos.sh --nubeam-root ~/git/nubeam --accept-ntcc-terms
 export NUBEAMHOME=~/git/nubeam/local
-bash external/nubeam/run-local-validation.sh --nubeam-root ~/git/nubeam --case d3d
+bash install/nubeam/run-local-validation.sh --nubeam-root ~/git/nubeam --case d3d
 ```
 
 Windows, from an ordinary PowerShell prompt:

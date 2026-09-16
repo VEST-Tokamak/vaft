@@ -2,7 +2,7 @@
 # Build the GACODE suite (NEO first) natively on Apple Silicon macOS.
 #
 # Usage:
-#   bash external/gacode/macos.sh --gacode-root PATH [--codes neo,tglf] [--check]
+#   bash install/gacode/macos.sh --gacode-root PATH [--codes neo,tglf] [--check]
 #
 # VAFT does not vendor the GACODE source. This script owns the reproducible
 # build recipe and operates on a GACODE tree you already hold, named by
@@ -25,7 +25,7 @@ RUN_CHECK=0
 
 usage() {
   cat <<'EOF'
-Usage: bash external/gacode/macos.sh --gacode-root PATH [--codes neo,tglf] [--check]
+Usage: bash install/gacode/macos.sh --gacode-root PATH [--codes neo,tglf] [--check]
 
   --gacode-root PATH   the GACODE source tree to build (or set GACODE_SOURCE_DIR)
   --codes LIST         comma-separated suite members to build; default "neo"

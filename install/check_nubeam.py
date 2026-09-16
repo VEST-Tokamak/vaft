@@ -44,7 +44,7 @@ PROJECT = "NUBEAM"
 #: generator, then NUBEAM itself, then the merge of its state changes.
 EXECUTABLES = ("plasma_state_test", "nubeam_comp_exec", "update_state")
 
-#: A NUBEAM source tree, as external/nubeam/macos.sh identifies one.
+#: A NUBEAM source tree, as install/nubeam/macos.sh identifies one.
 SOURCE_MARKERS = ("Makefile", "nubeam_comp_exec")
 
 BUILD_REMEDIATION = (
