@@ -187,6 +187,31 @@ def test_r_at_z_extremum_beats_the_nearest_vertex_and_wraps():
     # Sampled over 2e6 random neighbour pairs, the largest was 0.4999998.
 
 
+def test_a_repeated_first_point_does_not_disable_the_sub_vertex_fit():
+    # Marching-squares contours and g-file boundaries close the loop by
+    # repeating the first point.  Left in place it becomes the wrap-around
+    # neighbour of an extremum at index 0, making z_prev == z_here, collapsing
+    # the parabola and returning the vertex the fit exists to improve on --
+    # here 1.4 instead of 1.5, a 7 % error straight into triangularity.
+    R = np.array([1.40, 1.60, 2.00, 1.00])
+    Z = np.array([0.99, 0.99, 0.00, 0.00])
+    expected = r_at_z_extremum_from_RZ_contour(R, Z, upper=True)
+    assert expected == pytest.approx(1.5)
+    assert r_at_z_extremum_from_RZ_contour(
+        np.r_[R, R[0]], np.r_[Z, Z[0]], upper=True
+    ) == pytest.approx(expected, rel=1e-13, abs=0.0)
+
+
+def test_triangularity_is_unchanged_by_closing_the_boundary_explicitly():
+    theta = np.linspace(0.0, 2 * np.pi, 401, endpoint=False)
+    a, R0, kappa, delta = 0.4, 1.5, 1.8, 0.35
+    R = R0 + a * np.cos(theta + delta * np.sin(theta))
+    Z = kappa * a * np.sin(theta)
+    assert triangularity_from_RZ_boundary(
+        np.r_[R, R[0]], np.r_[Z, Z[0]], R0
+    ) == pytest.approx(triangularity_from_RZ_boundary(R, Z, R0), rel=1e-13, abs=0.0)
+
+
 def test_the_formula_and_process_extremum_helpers_are_one_implementation():
     from vaft.process.equilibrium import r_at_z_extremum
 

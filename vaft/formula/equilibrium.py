@@ -1707,15 +1707,17 @@ def r_at_z_extremum_from_RZ_contour(R: np.ndarray,
     vertex of extreme height is wrong by several percent in triangularity
     because the true extremum falls between vertices, so a parabola is fitted to
     height over the three points around the extreme sample and the major radius
-    is interpolated there.  Indices wrap, so the contour is treated as closed
-    whether or not the first point is repeated.
+    is interpolated there.  Indices wrap, so the contour is treated as closed.
+    A repeated final point is dropped first: without that, an extremum landing on
+    the seam takes its own duplicate as a neighbour, the parabola degenerates and
+    the fit silently falls back to the vertex.
 
     Limitations
     -----------
-    Falls back to the extreme vertex for a contour of fewer than three points,
-    and for a flat neighbourhood where the parabola is degenerate.  The parabola
-    is local, so a contour too coarsely sampled to resolve its own curvature near
-    the extremum is still limited by that sampling.
+    Falls back to the extreme vertex for a contour of fewer than three distinct
+    points, and for a flat neighbourhood where the parabola is degenerate.  The
+    parabola is local, so a contour too coarsely sampled to resolve its own
+    curvature near the extremum is still limited by that sampling.
 
     See Also
     --------
@@ -1729,6 +1731,12 @@ def r_at_z_extremum_from_RZ_contour(R: np.ndarray,
     """
     R = np.asarray(R, dtype=float).reshape(-1)
     Z = np.asarray(Z, dtype=float).reshape(-1)
+    # Marching-squares contours and g-file boundaries usually repeat the first
+    # point to close the loop.  Left in place it becomes the wrap-around
+    # neighbour of an extremum at index 0, which makes z_prev == z_here and
+    # collapses the parabola to the vertex it was meant to improve on.
+    if Z.size > 1 and R[0] == R[-1] and Z[0] == Z[-1]:
+        R, Z = R[:-1], Z[:-1]
     index = int(np.argmax(Z) if upper else np.argmin(Z))
     size = Z.size
     if size < 3:
