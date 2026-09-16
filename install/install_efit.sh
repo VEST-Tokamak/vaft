@@ -59,6 +59,8 @@ Usage: bash install/install_efit.sh --source PATH --accept-efit-users-agreement 
                                    digest and file list are then recorded in the manifest
   --without-netcdf                 build without NetCDF (EFIT then writes no m-files)
   --jobs N                         parallel build jobs (default: all cores)
+  (set VAFT_PYTHON to choose the interpreter the VAFT-side checks run under;
+   by default the first one on PATH that can import vaft and f90nml)
   --skip-tests                     do not run EFIT's ctest suite after building
   --check-only                     run install/check_efit.py and change nothing
   --uninstall                      remove the build directory and prefix this script created
@@ -104,8 +106,25 @@ esac
 [[ -n "$BUILD_DIR" ]] || BUILD_DIR="$SOURCE/build-vaft-$PLATFORM"
 MANIFEST="$PREFIX/$MANIFEST_NAME"
 
-PYTHON="$(command -v python3 || command -v python || true)"
+PYTHON="${VAFT_PYTHON:-}"
+if [[ -z "$PYTHON" ]]; then
+  # The manifest needs only the standard library, but check_efit.py imports
+  # VAFT, so the interpreter has to be the one VAFT is installed into. The
+  # first python3 on PATH need not be: a conda environment shadows the system
+  # one, and either may be the one carrying VAFT and f90nml. Choosing by "can
+  # it import what the check will import" beats choosing by PATH order, and a
+  # check that fails on a missing module reads as a broken EFIT build when it
+  # is a broken interpreter choice.
+  for candidate in python3 /usr/bin/python3 python; do
+    resolved="$(command -v "$candidate" 2>/dev/null)" || continue
+    if "$resolved" -c 'import vaft, f90nml' >/dev/null 2>&1; then PYTHON="$resolved"; break; fi
+    [[ -n "$PYTHON" ]] || PYTHON="$resolved"   # remember the first that exists
+  done
+fi
 [[ -n "$PYTHON" ]] || die "python3 is required (the VAFT environment provides it)"
+if ! "$PYTHON" -c 'import vaft, f90nml' >/dev/null 2>&1; then
+  printf '[WARN] %s cannot import vaft and f90nml, so the VAFT-side checks will report a failure that is about this interpreter and not about EFIT. Set VAFT_PYTHON to the interpreter VAFT is installed into.\n' "$PYTHON" >&2
+fi
 
 if ((CHECK_ONLY)); then
   exec "$PYTHON" "$SCRIPT_DIR/check_efit.py" --source "$SOURCE" --prefix "$PREFIX"
@@ -156,10 +175,111 @@ if [[ -n "$DIRTY_FILES" ]]; then
   note "building a dirty tree ($DESCRIBED); diff sha256 $DIRTY_DIFF_SHA will be recorded"
 fi
 
+# --- BLAS link order ----------------------------------------------------------
+# EFIT's CMakeLists puts its own static archives (libgreen, liblsode,
+# libr8slatec) after the shared LAPACK and BLAS on the link line. GNU ld
+# resolves left to right and, since binutils 2.22 defaults to
+# --no-copy-dt-needed-entries, then refuses liblapack's own reference to
+# dscal_ with
+#
+#   liblapack.so: undefined reference to symbol 'dscal_'
+#   libblas.so: error adding symbols: DSO missing from command line
+#
+# even though libblas is on the line, because it was already passed. This is
+# not a NetCDF problem -- the same link fails with NetCDF off -- and it is not
+# specific to this machine; it is what a current binutils does with that
+# ordering. CMAKE_<LANG>_STANDARD_LIBRARIES is appended last, which is exactly
+# where BLAS has to appear.
+blas_link_repair() {
+  local dir
+  [[ "$PLATFORM" == linux-* ]] || return 0   # macOS resolves BLAS via Accelerate
+  for dir in /usr/lib /usr/lib64 "/usr/lib/$(uname -m)-linux-gnu" /usr/local/lib; do
+    if [[ -e "$dir/libblas.so" || -e "$dir/libblas.a" ]]; then
+      CMAKE_ARGS+=("-DCMAKE_Fortran_STANDARD_LIBRARIES=-lblas")
+      note "appending -lblas after EFIT's static archives (link-order repair)"
+      return 0
+    fi
+  done
+}
+
+# --- NetCDF discovery ---------------------------------------------------------
+# EFIT's FindNetCDF searches ONE prefix for both the C and the Fortran halves
+# (io/FindNetCDF.cmake), so handing it a split pair fails even when both halves
+# exist somewhere. That is easy to do by accident: nf-config and nc-config are
+# resolved off PATH independently, and a Fortran-only NetCDF belonging to some
+# other package can shadow the system one. GPEC ships exactly that -- a private
+# netcdf-fortran whose bin/ goes on PATH ahead of /usr/bin and which contains no
+# libnetcdf at all -- so nf-config reports its prefix, nc-config reports /usr,
+# and the configure dies on "Can not locate NetCDF C library".
+#
+# Pick a prefix that provides both halves, and say which one and why.
+
+netcdf_libdirs() {  # every place a distribution might put the libraries
+  local prefix="$1"
+  printf '%s\n' "$prefix/lib" "$prefix/lib64" "$prefix/lib/$(uname -m)-linux-gnu"
+}
+
+netcdf_has_half() {  # netcdf_has_half PREFIX c|fortran
+  local prefix="$1" half="$2" stem dir
+  [[ "$half" == c ]] && stem=libnetcdf || stem=libnetcdff
+  while read -r dir; do
+    [[ -e "$dir/$stem.so" || -e "$dir/$stem.a" || -e "$dir/$stem.dylib" ]] && return 0
+  done < <(netcdf_libdirs "$prefix")
+  return 1
+}
+
+netcdf_has_module() {  # gfortran needs the module or the include file
+  local prefix="$1"
+  [[ -e "$prefix/include/netcdf.mod" || -e "$prefix/include/netcdf.inc" ]]
+}
+
+netcdf_libdir_of() {  # where this prefix actually keeps libnetcdf
+  local prefix="$1" dir
+  while read -r dir; do
+    [[ -e "$dir/libnetcdf.so" || -e "$dir/libnetcdf.a" || -e "$dir/libnetcdf.dylib" ]] &&
+      { printf '%s\n' "$dir"; return 0; }
+  done < <(netcdf_libdirs "$prefix")
+  return 1
+}
+
+netcdf_prefix_for_efit() {
+  local nf_prefix nc_prefix candidate chosen=""
+  nf_prefix="$(nf-config --prefix 2>/dev/null || true)"
+  nc_prefix="$(nc-config --prefix 2>/dev/null || true)"
+  for candidate in "$nc_prefix" "$nf_prefix" /usr /usr/local; do
+    [[ -n "$candidate" && -d "$candidate" ]] || continue
+    if netcdf_has_half "$candidate" c && netcdf_has_half "$candidate" fortran &&
+       netcdf_has_module "$candidate"; then
+      chosen="$candidate"; break
+    fi
+  done
+  if [[ -z "$chosen" ]]; then
+    printf 'nf-config reports prefix %s\nnc-config reports prefix %s\n' \
+      "${nf_prefix:-<none>}" "${nc_prefix:-<none>}" >&2
+    die "no prefix provides the NetCDF C library, the Fortran library and the Fortran module together. EFIT searches one prefix for all three. Install a complete NetCDF (e.g. apt install libnetcdf-dev libnetcdff-dev), or pass --without-netcdf and accept that EFIT will write no m-files."
+  fi
+  if [[ -n "$nf_prefix" && "$nf_prefix" != "$chosen" ]]; then
+    note "nf-config on PATH reports $nf_prefix, which does not provide a NetCDF C library; using $chosen instead ($(command -v nf-config))"
+  fi
+  NETCDF_C_DIR="$chosen"; NETCDF_F_DIR="$chosen"
+  # EFIT's FindNetCDF only looks in <prefix>/lib and <prefix>/Lib
+  # (io/FindNetCDF.cmake: netcdf_lib_suffixes), so on a multiarch distribution
+  # -- Debian and Ubuntu put it in lib/<triplet> -- a system NetCDF is never
+  # found from the prefix alone. Passing the library directory explicitly takes
+  # the NetCDF_LIBRARY_DIR branch instead, which searches it directly. The
+  # Fortran half needs its own variable: that branch has no fallback for it.
+  NETCDF_LIB_DIR="$(nc-config --libdir 2>/dev/null || true)"
+  if [[ -z "$NETCDF_LIB_DIR" || ! -e "$NETCDF_LIB_DIR/libnetcdf.so" ]]; then
+    NETCDF_LIB_DIR="$(netcdf_libdir_of "$chosen" || true)"
+  fi
+  [[ -n "$NETCDF_LIB_DIR" ]] ||
+    die "found a NetCDF prefix at $chosen but no directory in it holding libnetcdf"
+}
+
 # --- toolchain ---------------------------------------------------------------
 CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Release -DTEST_EFUND=ON)
 FC_PATH=""
-NETCDF_C_DIR=""; NETCDF_F_DIR=""
+NETCDF_C_DIR=""; NETCDF_F_DIR=""; NETCDF_LIB_DIR=""
 if [[ "$PLATFORM" == darwin-* ]]; then
   command -v brew >/dev/null || die "Homebrew is required on macOS: https://brew.sh"
   brew list --versions gcc >/dev/null 2>&1 || die "Homebrew gcc (gfortran) is required: brew install gcc"
@@ -175,30 +295,88 @@ else
   [[ -n "$FC_PATH" ]] || die "gfortran is required (e.g. apt install gfortran)"
   if ((WITH_NETCDF)); then
     command -v nf-config >/dev/null || die "NetCDF-Fortran is required for m-files (e.g. apt install libnetcdff-dev), or pass --without-netcdf"
-    NETCDF_C_DIR="$(nc-config --prefix 2>/dev/null || echo /usr)"; NETCDF_F_DIR="$(nf-config --prefix 2>/dev/null || echo /usr)"
+    netcdf_prefix_for_efit
   fi
 fi
 CMAKE_ARGS+=("-DCMAKE_Fortran_COMPILER=$FC_PATH")
 if ((WITH_NETCDF)); then
   CMAKE_ARGS+=(-DENABLE_NETCDF=ON "-DNetCDF_C_DIR=$NETCDF_C_DIR" "-DNetCDF_FORTRAN_DIR=$NETCDF_F_DIR")
+  if [[ -n "$NETCDF_LIB_DIR" ]]; then
+    CMAKE_ARGS+=("-DNetCDF_LIBRARY_DIR=$NETCDF_LIB_DIR"
+                 "-DNetCDF_C_LIBRARY_DIR=$NETCDF_LIB_DIR"
+                 "-DNetCDF_FORTRAN_LIBRARY_DIR=$NETCDF_LIB_DIR")
+  fi
 else
   CMAKE_ARGS+=(-DENABLE_NETCDF=OFF)
 fi
+blas_link_repair
 FC_VERSION="$("$FC_PATH" --version | head -1)"
 [[ -n "$JOBS" ]] || JOBS="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)"
 
 # --- configure, build, test ----------------------------------------------------
 mkdir -p "$PREFIX/logs"
 LOG="$PREFIX/logs/efit-build-$(date +%Y%m%d-%H%M%S).log"
+
+# Turning NetCDF on or off changes config.h, and CMake does not track config.h
+# as a dependency of the Fortran sources. An incremental build therefore leaves
+# write_m.F90.o compiled against the *old* setting: it references no NetCDF
+# symbol, the linker drops the libraries as unneeded, and the result is a
+# binary with HAVE_NETCDF in its config.h and no NetCDF in it. Reconfiguring a
+# build tree whose NetCDF state disagrees with what is being asked for is the
+# one case that has to start clean.
+if [[ -f "$BUILD_DIR/config.h" ]]; then
+  had_netcdf=0
+  grep -qE '^[[:space:]]*#define[[:space:]]+HAVE_NETCDF' "$BUILD_DIR/config.h" && had_netcdf=1
+  if ((had_netcdf != WITH_NETCDF)); then
+    note "NetCDF is changing from $had_netcdf to $WITH_NETCDF; removing $BUILD_DIR so the sources are recompiled against it"
+    rm -rf "$BUILD_DIR"
+  fi
+fi
+
 note "configuring $SOURCE -> $BUILD_DIR (log: $LOG)"
 cmake -S "$SOURCE" -B "$BUILD_DIR" "${CMAKE_ARGS[@]}" >>"$LOG" 2>&1 || die "cmake configure failed; see $LOG"
+
+# EFIT's io/efitIO.cmake calls find_package(NetCDF) without REQUIRED and has no
+# else branch, so ENABLE_NETCDF=ON plus a NetCDF it cannot find is not an error:
+# it is a silent build that writes no m-file. The generated config.h is the only
+# statement of what was actually achieved, so believe that and not the request.
+NETCDF_ACHIEVED=0
+if [[ -f "$BUILD_DIR/config.h" ]] && grep -qE '^[[:space:]]*#define[[:space:]]+HAVE_NETCDF' "$BUILD_DIR/config.h"; then
+  NETCDF_ACHIEVED=1
+fi
+if ((WITH_NETCDF)) && ((!NETCDF_ACHIEVED)); then
+  grep -iE 'netcdf' "$LOG" | tail -5 >&2 || true
+  die "NetCDF was requested but the configure did not link it, so this build would write no m-files. The lines above are what CMake said; searched prefix $NETCDF_C_DIR. Fix the NetCDF installation, or pass --without-netcdf to accept a build with no m-files."
+fi
+((WITH_NETCDF)) && note "NetCDF linked from $NETCDF_C_DIR (m-files will be written)"
 note "building with $JOBS jobs"
 cmake --build "$BUILD_DIR" -j "$JOBS" >>"$LOG" 2>&1 || die "build failed; see $LOG"
 [[ -x "$BUILD_DIR/efit/efit" ]] || die "efit was not produced at $BUILD_DIR/efit/efit"
 [[ -x "$BUILD_DIR/green/efund" ]] || die "efund was not produced at $BUILD_DIR/green/efund"
 
+# config.h said what the configure decided; this asks the executable. They can
+# disagree -- a stale object file leaves no NetCDF symbol to reference, the
+# linker drops the libraries even though they are on the link line, and the
+# binary writes no m-file while every configuration artifact claims it will.
+# The executable is the only thing that runs, so it is what gets believed.
+binary_links_netcdf() {
+  local bin="$1"
+  if command -v ldd >/dev/null && ldd "$bin" 2>/dev/null | grep -qi netcdf; then return 0; fi
+  if command -v otool >/dev/null && otool -L "$bin" 2>/dev/null | grep -qi netcdf; then return 0; fi
+  strings -a "$bin" 2>/dev/null | grep -qi 'netcdf'
+}
+if ((WITH_NETCDF)) && ! binary_links_netcdf "$BUILD_DIR/efit/efit"; then
+  die "the configure linked NetCDF but the built efit does not reference it, so it would write no m-files. This is what a stale object file in $BUILD_DIR looks like: remove that directory and build again."
+fi
+
 CTEST_STATUS="skipped"
 if ((!SKIP_TESTS)); then
+  # EFIT generates its test drivers with configure_file, which does not carry
+  # an execute bit, so every one of them is "Process not started / permission
+  # denied" and the suite reports 0 of 44 passed. That looks like a catastrophic
+  # physics failure and is a file mode.
+  while IFS= read -r script; do chmod +x "$script"; done \
+    < <(find "$BUILD_DIR/test" -name '*.sh' -type f ! -perm -u+x 2>/dev/null)
   note "running EFIT's own ctest suite as the build's acceptance"
   if (cd "$BUILD_DIR" && ctest --output-on-failure >>"$LOG" 2>&1); then
     CTEST_STATUS="passed"
@@ -243,7 +421,13 @@ record = {
     "build_dir": "$BUILD_DIR",
     "cmake_arguments": ${CMAKE_ARGS[@]+$(printf '%s\n' "${CMAKE_ARGS[@]}" | "$PYTHON" -c 'import json,sys; print(json.dumps(sys.stdin.read().split("\n")[:-1]))')},
     "compiler": {"fortran": "$FC_PATH", "version": "$FC_VERSION"},
-    "netcdf": {"enabled": bool($WITH_NETCDF), "c_dir": "$NETCDF_C_DIR" or None, "fortran_dir": "$NETCDF_F_DIR" or None},
+    # "requested" is what the flags asked for; "linked" is what config.h says was
+    # achieved. They can differ, and only the second one decides whether this
+    # build writes m-files.
+    "netcdf": {"enabled": bool($NETCDF_ACHIEVED), "requested": bool($WITH_NETCDF),
+               "linked": bool($NETCDF_ACHIEVED),
+               "c_dir": "$NETCDF_C_DIR" or None, "fortran_dir": "$NETCDF_F_DIR" or None,
+               "library_dir": "$NETCDF_LIB_DIR" or None},
     "blas_libraries": "$BLAS_LIBS" or None,
     "lapack_libraries": "$LAPACK_LIBS" or None,
     "platform": "$PLATFORM",
