@@ -120,9 +120,15 @@ bounds — `li`, `betap`, `qstar`, elongation — and the consistency tolerances
 are left exactly as they were: what those should be is a separate argument,
 and moving them alongside the geometry would confound the two.
 
-`write_mhdin` emits an `&incheck` block when an envelope is passed, so a
-generated table carries the VEST envelope while the bundled table keeps its
-own. The Green tables themselves are byte-identical either way.
+`write_mhdin` emits an `&incheck` block when an envelope is passed. Until
+#649 that was only ever exercised by a study: `regenerate_legacy_table.py`
+passed no envelope, so a generated table carried no `&incheck` at all, and the
+bundled table carried a hand-preserved legacy block with the bounds above. The
+generator now derives and passes it, and the bundled table carries the result,
+so the measurements below are what the routine pipeline does rather than what
+a harness could do. The Green tables themselves are byte-identical either way:
+`incheck` is read in exactly one place in the whole EFIT/EFUND source,
+`efit/read_namelist.F90`, and EFUND never sees it.
 
 ### Measured: the envelope works, and it is not enough
 
@@ -161,6 +167,39 @@ Rerunning with that policy and nothing else changed:
 
 Per shot: 4 of 7 on 39915, 2 of 5 on 41524, 12 of 19 on 41672. **These are the
 first accepted VEST reconstructions in this line of work.**
+
+### Re-baselined with the envelope actually shipped (issue #852)
+
+The three tables above were measured by a harness deriving its own envelope.
+Once the bundled table carried it (#849), the baseline was re-run unchanged.
+Two things had moved, and only one of them is the envelope:
+
+| shot | window [s] | plasma | a-files | **accepted** | iterations (med) | chi2 (med) | GS error (med) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 39915 | 0.306–0.331 | 22 | 18 | **10** | 10 | 32.4 | 0.0085 |
+| 41524 | 0.315–0.336 | 20 | 11 | **4** | 11 | 81 | 0.293 |
+| 41672 | 0.312–0.352 | 35 | 33 | **16** | 8.5 | 22.8 | 0.0078 |
+| | | **77** | **62** | **30** | | | |
+
+Against the 31 a-files and 18 accepted recorded above: **the yield itself
+doubled**, and that is not the envelope's doing. The seed moved inboard to
+0.32 m (#660), the vacuum cut rose to 15 kA (#708) and the coilset became
+twenty-six groups on a regenerated table (#708, #719) in between. The envelope
+decides acceptance; those three decide how many slices produce an equilibrium
+at all, and a reader comparing the two tables should not attribute the change
+to one cause.
+
+What remains is what the previous section predicted: **`#1`, chi-square above
+`SAICON = 80`, is the only acceptance failure left** — four slices on 39915,
+five on 41524, eleven on 41672. Every geometric and virial criterion passes
+everywhere.
+
+That is the acceptance question closed and the fit-quality question opened. It
+should not be read as a quality result: 15 of 77 plasma slices still end in
+`bound` or `findax`, and 29 collapse to a null solution — the residual falls
+below 1e-5 while the Grad-Shafranov error stays above 0.1. Neither is
+something an acceptance bound touches, and the GS error at exit is still three
+to four orders above the 1e-5 every k-file asks for.
 
 What remains is a single criterion, and it is the right one: **#1, chi-square
 above `SAICON = 80`**, on exactly the 13 slices that are not accepted. Every
