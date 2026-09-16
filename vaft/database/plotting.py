@@ -130,11 +130,12 @@ def render(
     ``backend="plotly"`` among the options returns a Plotly figure instead of
     ``(Figure, Axes)`` (see :mod:`vaft.plot.backends`).
     """
-    _refuse_lazy_occurrence(lazy, occurrence)
     if options.get("interactive") and lazy:
         # The controls rebuild the model on every widget event, long after
-        # this call returns and its lazy store has closed: load once instead.
+        # this call returns and its lazy store has closed: load once instead,
+        # with the eager path's whole contract (an occurrence is honoured).
         lazy = False
+    _refuse_lazy_occurrence(lazy, occurrence)
     resolved = _resolve_source(source)
     shots = _shots(shot)
     ids = _declared_ids(name)
@@ -169,8 +170,10 @@ def extract(
     """Open what plot ``name`` needs of ``shot`` and return its view model, undrawn.
 
     The same IDS :func:`render` opens, lazily by default; the model is what
-    :func:`vaft.omas.extract_<name>` builds from the loaded ODS, so
-    ``.to_xarray()`` works on it.  Only the extraction options are taken
+    ``vaft.omas.extract_<name>`` builds from the loaded ODS, so
+    ``.to_xarray()`` works on it.  A computed view whose builder needs a
+    whole OMAS ODS (``CallableRecipe.backend == "omas"``) cannot be served
+    from a lazy store yet; pass ``lazy=False`` for those.  Only the extraction options are taken
     (:data:`vaft.plot.backend.options.EXTRACTION_OPTIONS`); a rendering
     keyword such as ``ax=`` is refused by name.
     """
@@ -188,7 +191,11 @@ def extract(
         objects = _open_all(stack, shots, resolved, ids, lazy=lazy, occurrence=occurrence)
         source_object = objects[0] if len(objects) == 1 else objects
         entries = normalize_entries(source_object, label=_labels(shots, label))
-        refuse_when_unsupported(name, entries, namespace="vaft.database", subject="shot")
+        # The pointer names a discovery that sees the leaves: available_plots(shot)
+        # judges by IDS domains only, a loaded ODS by what it holds.
+        refuse_when_unsupported(
+            name, entries, namespace="vaft.database", subject="vaft.database.load(shot)",
+        )
         return build_model(name, entries, **options)
 
 
@@ -378,7 +385,9 @@ def _extract_adapter(name: str, description: str):
         f"{description.rstrip('.')}.  Opens the IDS ``{name}`` declares for the shot in "
         f"``source`` (lazily by default) and builds the model :func:`vaft.omas.extract_{name}` "
         f"builds; a rendering keyword is refused.  ``.to_xarray()`` on the result gives an "
-        f":class:`xarray.Dataset`; :func:`dd_{name}` lists the Data Dictionary paths it reads."
+        f":class:`xarray.Dataset`; :func:`dd_{name}` lists the Data Dictionary paths it reads.  "
+        f"An OMAS-bound computed view (``available_plots(..., detail=True)`` says ``needs an "
+        f"OMAS ODS``) needs ``lazy=False``."
     )
     return adapter
 

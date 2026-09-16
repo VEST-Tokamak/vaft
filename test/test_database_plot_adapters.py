@@ -295,9 +295,14 @@ def test_interactive_loads_eagerly_over_the_lazy_path(sample_ods):
         "vaft.database.ods": _fake_module("vaft.database.ods", load_ods=load_ods),
     }
     with patch.dict("sys.modules", modules):
-        result = database.plot_plasma_current_time(39915, interactive=True, interaction_backend="none")
+        result = database.plot_plasma_current_time(
+            39915, interactive=True, interaction_backend="none", occurrence=1,
+        )
     plt.close(result.figure)
     assert not open_ods.called
     assert load_ods.call_args.kwargs["paths"] == ["dataset_description", "magnetics"]
+    # interactive=True takes the eager path's whole contract: the occurrence is honoured.
+    assert load_ods.call_args.kwargs["occurrence"] == {"dataset_description": 1, "magnetics": 1}
+    assert "dd" not in dir(database) and "render" not in dir(database) and "dd_plasma_current_time" in dir(database)
     result.state.set("yunit", "MA")  # rebuilds from the loaded ODS, long after the call returned
     assert result.axes.get_ylabel().endswith("[MA]")
