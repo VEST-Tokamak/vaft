@@ -79,6 +79,13 @@ sklearn = ["scikit-learn"]
 # distribution need neither the runtime nor a prediction, so the decision "does this
 # model apply to this plasma" stays answerable without a heavy ML dependency (#553).
 surrogate = ["onnxruntime"]
+# TokaMaker is the one external code VAFT drives in-process rather than as a
+# subprocess, so "installed" means "importable in this interpreter" and pip can
+# express it -- unlike CHEASE, GPEC, GACODE or NUBEAM, which are Fortran builds
+# with no packaging and live behind install/. It stays optional all the same:
+# the wheel carries compiled libraries, and every other workflow works without
+# it. vaft.code.tokamaker raises an actionable ImportError when it is absent.
+tokamaker = ["openfusiontoolkit"]
 dev = [
   "pytest",
   # so the surrogate's arithmetic check actually runs on the gate. CI installs

@@ -216,7 +216,34 @@ export LAPACKHOME="$LAPACK_HOME"
 export NETCDF_FORTRAN_HOME="$NETCDF_F_HOME"
 export NETCDFINC="$NETCDF_INC"
 export FFLAGS="-fallow-argument-mismatch -O2"
-export OMPFLAG=-fopenmp RECURSFLAG=-frecursive LDFLAGS=-fopenmp
+export OMPFLAG=-fopenmp RECURSFLAG=-frecursive
+# An rpath, so the executables find the netCDF-Fortran they were linked against
+# rather than whichever one LD_LIBRARY_PATH names first. Without it a machine
+# carrying a second, differently-compiled netCDF -- an ifort build on
+# LD_LIBRARY_PATH is the ordinary case on a cluster -- links correctly and then
+# dies at run time with `undefined symbol: __netcdf_MOD_nf90_put_var_*`, naming
+# neither the library nor the variable that chose it.
+#
+# --disable-new-dtags is the load-bearing half on ELF: current binutils emits
+# DT_RUNPATH, which LD_LIBRARY_PATH overrides, so the rpath would be present
+# and ignored. DT_RPATH is searched first.
+#
+# Note what that costs, because it is wider than the case that motivated it.
+# ELF has no per-library rpath, so the entry is a whole directory -- usually the
+# multiarch one -- and DT_RPATH then wins over LD_LIBRARY_PATH for *everything*
+# resolvable there: LAPACK, BLAS, HDF5, libgfortran. An operator who puts a
+# tuned OpenBLAS on LD_LIBRARY_PATH will find these six binaries ignoring it.
+# That is the deliberate trade: an ABI-incompatible library substituted at run
+# time is a crash, while a deliberate override is a preference.
+#
+# Linux only. Mach-O has no DT_RUNPATH and does not resolve through
+# LD_LIBRARY_PATH, and ld64 rejects --disable-new-dtags outright, so applying
+# this on Darwin would fail the first link rather than harden it.
+LDFLAGS="-fopenmp"
+if [[ "$PLATFORM" == linux-* ]]; then
+  LDFLAGS="$LDFLAGS -Wl,--disable-new-dtags -Wl,-rpath,$NETCDF_F_HOME"
+fi
+export LDFLAGS
 unset MKLROOT ACML_HOME NETCDFHOME NETCDF_DIR F90HOME X11_HOME || true
 
 mkdir -p "$PREFIX/logs"

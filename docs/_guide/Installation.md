@@ -94,8 +94,8 @@ a staged eager object. Remote saving is restricted to authorized operators; this
 
 ## 4. Optional external fusion codes
 
-VAFT can prepare and collect inputs for EFIT, CHEASE, GPEC/DCON/RDCON, TES, NUBEAM and the GACODE suite
-(NEO and TGLF). Configure only the codes you have installed:
+VAFT can prepare and collect inputs for EFIT, CHEASE, GPEC/DCON/RDCON, TES, NUBEAM, the GACODE suite
+(NEO and TGLF) and TokaMaker. Configure only the codes you have installed:
 
 ```bash
 export EFITHOME=/path/to/efit
@@ -108,6 +108,18 @@ export GACODEHOME=/path/to/gacode
 
 Each executable belongs under its root’s `bin/` directory. The workflow guides degrade to deterministic
 input preparation when a binary is absent.
+
+**TokaMaker is the exception.** VAFT drives it in-process rather than as a subprocess, so there is no
+`bin/` and no `$TOKAMAKERHOME`: "installed" means "importable in this interpreter". Its upstream, the
+Open FUSION Toolkit, publishes wheels, so pip can express it — and it stays an optional extra, because
+the wheel carries compiled libraries and every other workflow works without it:
+
+```bash
+pip install 'vaft[tokamaker]'     # or: pip install openfusiontoolkit
+```
+
+Nothing needs to be exported afterwards. `vaft.code.tokamaker` raises an actionable `ImportError` when
+the toolkit is absent, and `OFT_ROOTPATH` is only for pointing at a source build instead of the wheel.
 
 EFIT is licensed software that VAFT neither bundles nor fetches: obtain authorized access to the
 source through the EFIT-AI channel and agree to its users agreement first, then build it from your
