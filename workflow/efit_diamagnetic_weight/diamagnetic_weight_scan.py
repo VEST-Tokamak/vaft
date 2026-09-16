@@ -179,23 +179,66 @@ def _finite(value: Any) -> float | None:
     return number if math.isfinite(number) else None
 
 
-def _stored_sigma_wb(constraints: Any, shot_times: np.ndarray) -> dict[int, float]:
-    """The measurement's own error bar per slice, in Wb, from the ODS.
+def _stored_measurement(
+    constraints: Any, shot_times: np.ndarray
+) -> dict[int, dict[str, float]]:
+    """The measured flux and its own error bar per slice, in Wb, from the ODS.
 
-    This is what the rungs are measured against.  It is read from the frozen
-    constraints rather than from any run, so it is the same number for every
-    rung by construction.
+    Read from the frozen constraints rather than from any run, so it is the
+    same number for every rung by construction: the sigma the rungs are
+    measured against, and the signed value the k-file is supposed to carry.
     """
-    stored: dict[int, float] = {}
+    stored: dict[int, dict[str, float]] = {}
     for index, time_s in enumerate(shot_times):
         path = f"equilibrium.time_slice.{index}.constraints.diamagnetic_flux"
+        record: dict[str, float] = {}
         try:
-            value = abs(float(constraints[f"{path}.measured_error_upper"]))
+            sigma = abs(float(constraints[f"{path}.measured_error_upper"]))
+            if math.isfinite(sigma) and sigma > 0.0:
+                record["sigma_wb"] = sigma
         except Exception:
-            continue
-        if math.isfinite(value) and value > 0.0:
-            stored[int(round(float(time_s) * 1000.0))] = value
+            pass
+        try:
+            measured = float(constraints[f"{path}.measured"])
+            if math.isfinite(measured):
+                record["measured_wb"] = measured
+        except Exception:
+            pass
+        if record:
+            stored[int(round(float(time_s) * 1000.0))] = record
     return stored
+
+
+def sign_convention(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Did the signed measurement survive into DFLUX? (#386 question 2)
+
+    ``diamagnetic_flux_sign`` has defaulted to ``"imas"`` since #385, so the
+    writer should pass the stored sign through untouched.  The regression that
+    pins this covers 39915 alone, through the packaged sample; 41524 and 41672
+    have never been checked.  Every rung writes a k-file for every slice
+    anyway, so reading the sign back out of them costs nothing and covers all
+    three shots on real constraints rather than on a fixture.
+    """
+    compared = [
+        row
+        for row in rows
+        if row.get("measured_wb") is not None
+        and row.get("stored_measured_wb") is not None
+        and row["stored_measured_wb"] != 0.0
+    ]
+    mismatched = [
+        row["time_ms"]
+        for row in compared
+        if np.sign(row["measured_wb"]) != np.sign(row["stored_measured_wb"])
+    ]
+    negative = sum(1 for row in compared if row["measured_wb"] < 0.0)
+    return {
+        "slices_compared": len(compared),
+        "kfile_sign_matches_stored": not mismatched,
+        "mismatched_slices": mismatched,
+        "diamagnetic_slices": negative,
+        "paramagnetic_slices": len(compared) - negative,
+    }
 
 
 def _kfile_for(workdir: Path, shot: int, afile_name: str) -> Path:
@@ -232,7 +275,7 @@ def diamagnetic_rows(
     *,
     workdir: Path,
     shot: int,
-    stored_sigma: Mapping[int, float],
+    stored: Mapping[int, Mapping[str, float]],
 ) -> list[dict[str, Any]]:
     """What the diamagnetic row did on each slice, and what pressure did.
 
@@ -261,7 +304,8 @@ def diamagnetic_rows(
         record: dict[str, Any] = {
             "time_ms": time_ms,
             "outcome": item.get("outcome"),
-            "sigma_stored_wb": stored_sigma.get(time_ms),
+            "sigma_stored_wb": stored.get(time_ms, {}).get("sigma_wb"),
+            "stored_measured_wb": stored.get(time_ms, {}).get("measured_wb"),
             "row_source": None,
         }
         afile = item.get("afile")
@@ -287,9 +331,9 @@ def diamagnetic_rows(
                     record["chi_squared_reweighted"] = (weight * residual) ** 2
                 if record["measured_wb"]:
                     record["residual_relative"] = residual / abs(record["measured_wb"])
-                stored = record["sigma_stored_wb"]
-                if sigma and stored:
-                    record["sigma_ratio_to_stored"] = sigma / stored
+                stored_sigma = record["sigma_stored_wb"]
+                if sigma and stored_sigma:
+                    record["sigma_ratio_to_stored"] = sigma / stored_sigma
         # The m-file, when this build can write one, says the same thing from
         # EFIT's own arrays.  Disagreement is a fact about the run, not noise.
         family = (item.get("constraint_audit") or {}).get("families", {}).get(
@@ -553,6 +597,17 @@ def markdown(payload: Mapping[str, Any]) -> str:
                 f"{cell(s['diamagnetic_residual_relative'])} | "
                 f"{cell(s['p_axis'])} | {cell(s['betap'])} |"
             )
+        sign = block.get("sign_convention")
+        if sign and sign["slices_compared"]:
+            lines += [
+                "",
+                "The signed measurement reached `DFLUX` on "
+                f"{sign['slices_compared']} of {sign['slices_compared']} "
+                "compared slices."
+                if sign["kfile_sign_matches_stored"]
+                else "**The k-file sign disagrees with the stored measurement "
+                f"on slices {sign['mismatched_slices']}.**",
+            ]
         classification = block["classification"]
         lines += [
             "",
@@ -700,7 +755,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         phase_by_time, threshold = profile_study._phase_map(
             constraints, times, base.initialization.current_threshold
         )
-        stored_sigma = _stored_sigma_wb(constraints, times)
+        stored = _stored_measurement(constraints, times)
 
         def execute(rung: Rung) -> tuple[Rung, dict[str, Any], Path, Any]:
             scientific = scientific_for(rung, profile_study)
@@ -736,7 +791,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         for rung, run, workdir, scientific in results:
             constraint_study.enrich_run(run, workdir, shot, scientific)
             rows = diamagnetic_rows(
-                run, workdir=workdir, shot=shot, stored_sigma=stored_sigma
+                run, workdir=workdir, shot=shot, stored=stored
             )
             runs[rung.name] = run
             block["rungs"][rung.name] = {
@@ -776,6 +831,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             item["branch_response"] = branch_response(
                 item["geometry_versus_baseline"]
             )
+        block["sign_convention"] = sign_convention(
+            block["rungs"][BASELINE]["diamagnetic"]
+        )
         block["classification"] = classify_reachability(block)
         print(f"  {shot}: {block['classification']['verdict']}", flush=True)
 

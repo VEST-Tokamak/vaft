@@ -390,3 +390,79 @@ def test_a_ladder_whose_survivors_miss_the_thomson_window_says_so(thomson):
 
     assert summary_without["compared"] == 0
     assert summary_with["compared"] == 1
+
+
+# ---------------------------------------------------------------------------
+# the sign convention, on shots the existing regression never covered
+# ---------------------------------------------------------------------------
+
+def test_a_signed_measurement_that_survived_into_the_kfile_is_reported(scan):
+    rows = [
+        _row(315, measured_wb=-1.4e-3, stored_measured_wb=-1.4e-3),
+        _row(320, measured_wb=-1.5e-3, stored_measured_wb=-1.5e-3),
+    ]
+
+    result = scan.sign_convention(rows)
+
+    assert result["kfile_sign_matches_stored"]
+    assert result["slices_compared"] == 2
+    assert result["diamagnetic_slices"] == 2
+
+
+def test_an_absolute_value_smuggled_into_dflux_is_caught(scan):
+    """#385's defect: the writer used to pass abs(measured) to EFIT.
+
+    EFIT fits DFLUX signed, so a magnitude pulls the fit toward a
+    paramagnetic plasma. The default has been "imas" since the fix, and this
+    is what would notice a regression on a shot the packaged-sample
+    regression does not cover.
+    """
+    rows = [
+        _row(315, measured_wb=+1.4e-3, stored_measured_wb=-1.4e-3),
+        _row(320, measured_wb=-1.5e-3, stored_measured_wb=-1.5e-3),
+    ]
+
+    result = scan.sign_convention(rows)
+
+    assert not result["kfile_sign_matches_stored"]
+    assert result["mismatched_slices"] == [315]
+
+
+def test_a_slice_with_no_stored_measurement_is_not_counted_as_agreement(scan):
+    rows = [
+        _row(315, measured_wb=-1.4e-3, stored_measured_wb=None),
+        _row(320, measured_wb=None, stored_measured_wb=-1.5e-3),
+    ]
+
+    result = scan.sign_convention(rows)
+
+    assert result["slices_compared"] == 0
+
+
+def test_the_stored_measurement_is_attached_to_every_slice_not_just_the_first(
+    scan, tmp_path
+):
+    """Regression: a local name once shadowed the stored-measurement mapping.
+
+    The shadowing only bit from the second slice onward, so any test built on
+    hand-made rows -- or on a single slice -- passes straight through it.
+    """
+    run = {
+        "slices": [
+            {"time_ms": 315, "outcome": "no_output"},
+            {"time_ms": 320, "outcome": "no_output"},
+            {"time_ms": 325, "outcome": "no_output"},
+        ]
+    }
+    stored = {
+        315: {"sigma_wb": 4.3e-5, "measured_wb": -1.4e-3},
+        320: {"sigma_wb": 4.6e-5, "measured_wb": -1.5e-3},
+        325: {"sigma_wb": 2.3e-5, "measured_wb": -7.8e-4},
+    }
+
+    rows = scan.diamagnetic_rows(run, workdir=tmp_path, shot=39915, stored=stored)
+
+    assert [row["sigma_stored_wb"] for row in rows] == [4.3e-5, 4.6e-5, 2.3e-5]
+    assert [row["stored_measured_wb"] for row in rows] == [-1.4e-3, -1.5e-3, -7.8e-4]
+    # No a-file, so no row could be read, and that must be visible.
+    assert all(row["row_source"] is None for row in rows)
