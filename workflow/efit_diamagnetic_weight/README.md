@@ -177,6 +177,88 @@ A slice whose row could not be read is counted in `diamagnetic_row_read` and
 never treated as a slice that did not respond — the verdict refuses to
 conclude anything when no rung's row could be read at all.
 
+## Result
+
+Run on 39915, 41524 and 41672 at 1 ms cadence, ten rungs each, EFIT commit
+`4d10ed5`. Medians over the slices that produced an equilibrium:
+
+| rung | row weight | 39915 produced/accepted | 41524 | 41672 | common-slice residual change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `legacy_sigma` | `1e-4` | 18 / 14 | 11 / 6 | 32 / 21 | baseline |
+| `sigma_x1e1` | `1e-3` | 18 / 14 | 11 / 6 | 33 / 22 | `0` … `1.5e-9` |
+| `sigma_x1e2` | `1e-2` | 18 / 14 | 11 / 6 | 32 / 21 | `0` |
+| `sigma_x1e3` | `1e-1` | 18 / 14 | 11 / 6 | 33 / 22 | `0` … `2.2e-9` |
+| `sigma_x1e4` | `1` | 10 / 10 | 3 / 3 | 13 / 13 | `0` … `1.4e-8` |
+| `sigma_x1e5` | `10` | 6 / 6 | 2 / 2 | 8 / 8 | `0` |
+| `sigma_x1e6`–`x1e9` | `1e2`–`1e5` | 4 / 4 | 2 / 2 | 7 / 7 | `0` |
+
+**`w_activation`: never, on all three shots.** Across nine decades of processed
+row weight the common surviving slices are unchanged to `1e-8` — on most rungs
+bit-identical. Tracing one slice (39915 at 315 ms, measured `-1.4275e-3` Wb):
+`cdflux` is `1.8764e-3` Wb at both `1e-4` and `1e-1`, equal to eight
+significant figures, with `p_axis` `35.5588207` against `35.5588206`.
+
+**`w_fail`: `sigma_x1e4` or `sigma_x1e5`.** What ends the ladder is not a
+diverging fit but a **collapse to the null solution**: at row weight `1` the
+slices that had a real plasma fail in the boundary tracer — *"First and last
+contour points are too far apart"*, *"Less than 3 contour points found"*,
+*"Number of contour points greater than max allowed"* — with `chi2_final`
+around `4.5e-8` and `gs_error` near `0.29`, which is the collapse signature
+`vaft/code/efit/termination.py` defines. 39915 at 315 ms goes from `flagged`,
+`exit=iconvr=2`, 11 iterations at `1e-1` to `collapsed`, `exit=solver_error`,
+9 iterations at `1`.
+
+**The 100 % acceptance at the top of the ladder is an artifact and must not be
+read as quality.** The count of degenerate slices — `cdflux == 0` and
+`p_axis == 0`, the sub-`CUTIP` vacuum returns — is constant across the whole
+ladder (4 on 39915, 2 on 41524, 6 on 41672). High weight does not create them;
+it removes everything else, until at `sigma_x1e9` on 39915 all four surviving
+slices are vacuum. Vacuum solutions pass the acceptance gate trivially.
+
+So between inert and collapse there is **no usable band**, and the transition
+takes less than one decade. The diamagnetic constraint cannot be made to
+constrain a VEST reconstruction by weighting. **The pressure deficit of #386 is
+not a weighting problem.**
+
+A mechanism worth testing rather than asserting: the row is confined to the
+FF' columns (`response_matrix.F90:2192-2196` writes only
+`(nbase+1):(nbase+kffcur)`), and #663 found the VEST solution is selected by Ip
+plus PF-current anchoring. If FF' is effectively pinned by those, the
+diamagnetic row can push on it and be either overruled or fatal, with nothing
+in between — which is what this ladder measures.
+
+### The sign convention, on all three shots
+
+The signed measurement reached `DFLUX` on **18 of 18, 11 of 11 and 32 of 32**
+compared slices. #385's convention holds on 41524 and 41672, which the
+packaged-sample regression never covered.
+
+### Against Thomson
+
+Three reconstructions fell inside the Thomson window (39915 at 315, 316 and
+317 ms, five channels each). The electron pressure alone is **2.04x, 3.01x and
+4.56x** the reconstructed pressure at the sampled positions, decisive on two
+of the three. Electrons are a lower bound, so an excess cannot be explained by
+unmeasured ions: **the pressure is real and the fit is missing it. Not a data
+problem either.**
+
+State the factor carefully. This is 2-4.6x *at the Thomson channel positions*,
+not the ~90x #386 records — that figure is a volume-integral beta_p against a
+virial estimate, a different quantity measured a different way. Thomson
+confirms the direction and the reality of the deficit; it does not
+independently confirm its size.
+
+The six highest rungs kept no slice inside the Thomson window and say nothing.
+This arm falls silent exactly where the ladder is most aggressive.
+
+### One reporting caveat
+
+`chi_squared` and `chi_squared_reweighted` are equal throughout these runs,
+because `FWTDLC = 1` makes the processed weight exactly `1/sigma` and the two
+definitions coincide. They are kept separate because #663's correction is
+about configurations where the submitted `FWT` is not one; here the
+distinction is real but degenerate.
+
 ## Scope
 
 Characterization only. No production default changes: `uncertainty_scales`
