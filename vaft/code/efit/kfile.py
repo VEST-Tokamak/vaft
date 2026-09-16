@@ -776,17 +776,43 @@ def generate_kfile(
         return float(constraint_config.objective_scales[group])
 
     def _measurement_error(
-        cstr, path: str, fallback: float, *, unit_scale: float = 1.0
+        cstr, path: str, fallback: float, *, group: str, unit_scale: float = 1.0
     ) -> float:
+        """The sigma submitted for one channel, after the group's scale.
+
+        ``uncertainty_scales`` divides here rather than multiplying ``FWT*``
+        because EFIT processes a statistical row as ``FWT/sigma``: narrowing
+        the sigma is the only way to raise a row's weight without writing an
+        ``FWT*`` outside the range the code was exercised with (#386).
+        """
+        scale = float(constraint_config.uncertainty_scales[group])
         if constraint_config.uncertainty_mode == "legacy_weight":
-            return float(fallback)
+            return float(fallback) / scale
         try:
             value = abs(float(cstr[f"{path}.measured_error_upper"]))
         except Exception as exc:
             raise ValueError(
                 f"standard_deviation mode requires {path}.measured_error_upper"
             ) from exc
-        return value * unit_scale
+        return value * unit_scale / scale
+
+    def _uncertainty_formatter(group: str):
+        """How a submitted sigma is spelled in the namelist.
+
+        The legacy three-decimal spelling is kept exactly wherever it is still
+        meaningful, so an unscaled k-file is byte-identical to the one this
+        writer has always produced.  It stops being meaningful once a group's
+        uncertainty is scaled down: ``f"{0.0001:.3f}"`` is ``"0.000"``, and a
+        zero sigma makes EFIT skip its ``fwt/sigma`` division entirely
+        (``data_input.F90:2782`` guards on ``> 1e-10``), so the row would
+        silently keep the weight the study meant to change.
+        """
+        if (
+            constraint_config.uncertainty_mode == "standard_deviation"
+            or float(constraint_config.uncertainty_scales[group]) != 1.0
+        ):
+            return lambda value: f"{value:.9g}"
+        return lambda value: f"{value:.3f}"
 
     # find the maximum decimal places in the time
     #    for time_idx, _ in enumerate(time):
@@ -863,6 +889,7 @@ def generate_kfile(
                     CSTR,
                     f"pf_current.{source_index}",
                     CSTR[f"pf_current.{source_index}.measured_error_upper"],
+                    group="pf_current",
                 ),
                 floor,
             )
@@ -902,7 +929,7 @@ def generate_kfile(
         ## (4) Plasma current with weight
         plasma_weight = _weight(CSTR, "ip", "plasma_current")
         PLASMA = f"PLASMA= {CSTR['ip.measured']}"
-        BITIP = f"BITIP= {_measurement_error(CSTR, 'ip', plasma_weight / vbit * shft)}"
+        BITIP = f"BITIP= {_measurement_error(CSTR, 'ip', plasma_weight / vbit * shft, group='plasma_current')}"
         FWTCUR = f"FWTCUR= {plasma_weight * _objective_scale('plasma_current')}"
 
         ## (5) Diamagnetic flux with weight
@@ -919,7 +946,7 @@ def generate_kfile(
 
         ## Original SIGDLC is written as the standard deviation but we use the fitting weight instead
         diamagnetic_weight = _weight(CSTR, "diamagnetic_flux", "diamagnetic_flux")
-        SIGDLC = f"SIGDLC= {_measurement_error(CSTR, 'diamagnetic_flux', diamagnetic_weight * shft * flux_scale, unit_scale=flux_scale)}"
+        SIGDLC = f"SIGDLC= {_measurement_error(CSTR, 'diamagnetic_flux', diamagnetic_weight * shft * flux_scale, group='diamagnetic_flux', unit_scale=flux_scale)}"
         # SIGDLC=f'SIGDLC= {CSTR["diamagnetic_flux.measured_error_upper"]*1000}' # Standard deviation of diamagnetic flux measurement data in mWb
         # SIGDLC=f'SIGDLC= {VAL*CSTR["diamagnetic_flux.weight"]}' # set sigdlc as measured value * weight
 
@@ -964,16 +991,15 @@ def generate_kfile(
                         CSTR,
                         f"bpol_probe.{i}",
                         weight / vbit * shft,
+                        group="bpol_probe",
                     )
                 )
         FWTMP2 = _namelist_array("FWTMP2", fwtmp2_values, per_line=32)
-        uncertainty_formatter = (
-            (lambda value: f"{value:.9g}")
-            if constraint_config.uncertainty_mode == "standard_deviation"
-            else (lambda value: f"{value:.3f}")
-        )
         BITMPI = _namelist_array(
-            "BITMPI", bitmpi_values, per_line=3, formatter=uncertainty_formatter
+            "BITMPI",
+            bitmpi_values,
+            per_line=3,
+            formatter=_uncertainty_formatter("bpol_probe"),
         )
 
         ## (4) Flux loops
@@ -1001,12 +1027,16 @@ def generate_kfile(
                         CSTR,
                         f"flux_loop.{i}",
                         weight / vbit * shft,
+                        group="flux_loop",
                         unit_scale=1.0 / (2.0 * np.pi),
                     )
                 )
         FWTSI = _namelist_array("FWTSI", fwtsi_values, per_line=32)
         PSIBIT = _namelist_array(
-            "PSIBIT", psibit_values, per_line=3, formatter=uncertainty_formatter
+            "PSIBIT",
+            psibit_values,
+            per_line=3,
+            formatter=_uncertainty_formatter("flux_loop"),
         )
 
         # Named the way EFIT names its outputs: the millisecond, then the
