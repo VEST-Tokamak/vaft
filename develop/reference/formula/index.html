@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fb97cf</code>. What is described
+  <code>946e37e</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -326,7 +326,7 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/startup/">startup</a></td>
-    <td><code>vaft.formula.startup</code></td><td>5</td><td>Start-up physics from the gas fill to the avalanche.</td>
+    <td><code>vaft.formula.startup</code></td><td>15</td><td>Start-up physics from the gas fill to the avalanche.</td>
   </tr>
   </tbody>
 </table>
@@ -895,18 +895,38 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="startup">Startup</h2>
 
-<p>Start-up physics from the gas fill to the avalanche. — <a href="/vaft/develop/reference/formula/startup/">5 functions</a>.</p>
+<p>Start-up physics from the gas fill to the avalanche. — <a href="/vaft/develop/reference/formula/startup/">15 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/startup/#atomic_inventory_from_molecular_gas"><code>atomic_inventory_from_molecular_gas</code></a> <em>(convention)</em> &mdash; Atom inventory of a molecular gas fill.
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#breakdown_margin"><code>breakdown_margin</code></a> <em>(convention)</em> &mdash; Available drive relative to the Lloyd breakdown threshold.
 </li>
+  <li><a href="/vaft/develop/reference/formula/startup/#d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li"><code>d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</code></a> <em>(convention)</em> &mdash; Radial derivative of the Hirshman plasma inductance.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#ejiri_f3_from_alpha"><code>ejiri_f3_from_alpha</code></a> <em>(convention)</em> &mdash; Low-temperature geometry factor of the Ejiri mirror proxy.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max"><code>ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max</code></a> <em>(convention)</em> &mdash; Slope of the Ejiri confined-orbit boundary in velocity space.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#flux_closure_margin_from_E_t_a_B_stray_eta"><code>flux_closure_margin_from_E_t_a_B_stray_eta</code></a> <em>(convention)</em> &mdash; Order-of-magnitude margin for a current channel to overcome stray field.
+</li>
   <li><a href="/vaft/develop/reference/formula/startup/#lloyd_breakdown_field"><code>lloyd_breakdown_field</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Lloyd threshold toroidal field for hydrogenic tokamak breakdown.
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#neutral_density_from_pressure"><code>neutral_density_from_pressure</code></a> <em>(convention)</em> &mdash; Number density of a fill gas at a measured pressure and temperature.
 </li>
+  <li><a href="/vaft/develop/reference/formula/startup/#plasma_external_inductance_hirshman_from_R_eps_kappa"><code>plasma_external_inductance_hirshman_from_R_eps_kappa</code></a> <em>(convention)</em> &mdash; External inductance of a shaped plasma, Hirshman and Neilson’s fit.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#plasma_inductance_hirshman_from_R_eps_kappa_li"><code>plasma_inductance_hirshman_from_R_eps_kappa_li</code></a> <em>(convention)</em> &mdash; Total plasma inductance, Hirshman external plus the internal term.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#plasma_self_field_from_I_p_a"><code>plasma_self_field_from_I_p_a</code></a> <em>(convention)</em> &mdash; Poloidal field a circular current channel makes at its own edge.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#startup_geometry_from_limiter_radii"><code>startup_geometry_from_limiter_radii</code></a> <em>(convention)</em> &mdash; Geometric centre and minor radius of the limiter aperture.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#townsend_breakdown_field"><code>townsend_breakdown_field</code></a> <em>(convention)</em> &mdash; Breakdown threshold field of a gas, by inverting the Townsend closure.
+</li>
   <li><a href="/vaft/develop/reference/formula/startup/#townsend_ionization_coefficient"><code>townsend_ionization_coefficient</code></a> <em>(convention)</em> &mdash; Townsend first ionisation coefficient of a gas in a field.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#vertical_field_from_I_p_R0_a_beta_p_li"><code>vertical_field_from_I_p_R0_a_beta_p_li</code></a> <em>(convention)</em> &mdash; Vertical field that holds a circular plasma in radial equilibrium.
 </li>
 </ul>
 
@@ -1169,7 +1189,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 04:50:24 +0000"
+        "time": "2026-09-16 05:23:44 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

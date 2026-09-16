@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fb97cf</code>. What is described
+  <code>946e37e</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -312,7 +312,9 @@ are library API.</p>
 pipeline 1 writes under it in one of two layouts selected by the <code class="language-plaintext highlighter-rouge">layout:</code> config key.</p>
 
 <p><code class="language-plaintext highlighter-rouge">layout: shot_first</code> (the default) is the legacy server hierarchy, kept so this pipeline stays
-directly diffable against the reference output:</p>
+directly diffable against the reference output. Its product names are plain <code class="language-plaintext highlighter-rouge">.json</code> and stay that
+way: the tree is a read-only record of what the legacy pipeline wrote, so it does not follow the
+canonical layout’s container (<code class="language-plaintext highlighter-rouge">OMAS_PRODUCT_SUFFIX</code>, <code class="language-plaintext highlighter-rouge">.json.gz</code> since #813).</p>
 
 <div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>{base_dir}/{shot}/
 ├── diagnostics/          vest_{shot}_daq_raw.json.gz, Thomson *.mat
@@ -1201,7 +1203,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 04:50:24 +0000"
+        "time": "2026-09-16 05:23:44 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

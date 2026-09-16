@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fb97cf</code>. What is described
+  <code>946e37e</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -835,11 +835,15 @@ role it plays and the reason that data may stop at the FileDB.</p>
 
 <h3 id="budgeting-a-large-payload">Budgeting a large payload</h3>
 
-<p>Stage products are written uncompressed (<code class="language-plaintext highlighter-rouge">vaft.database.filedb.OMAS_PRODUCT_SUFFIX</code> is <code class="language-plaintext highlighter-rouge">.json</code>) and
-nothing anywhere guards their size, so a payload’s budget is <strong>raw bytes of the finished field
-string</strong> — measured after XML escaping, which can inflate quote-heavy content several times over,
-not bytes of the payload before it. For scale, the packaged whole-shot sample
-<code class="language-plaintext highlighter-rouge">vaft/data/samples/39915/omas.json.gz</code> is about 10 MB gzipped and carries no <code class="language-plaintext highlighter-rouge">mhd_linear</code> at all.</p>
+<p>Stage products are gzipped (<code class="language-plaintext highlighter-rouge">vaft.database.filedb.OMAS_PRODUCT_SUFFIX</code> is <code class="language-plaintext highlighter-rouge">.json.gz</code> since #813),
+and nothing anywhere guards their size. <strong>Do not budget against the file on disk.</strong> A
+<code class="language-plaintext highlighter-rouge">code.parameters</code> payload is quote-heavy XML-escaped text, which is exactly what gzip is best at, so
+a payload that inflates several-fold on escaping can leave the product barely larger — the file size
+stops tracking the cost entirely. The budget is <strong>raw bytes of the finished field string</strong>, measured
+after XML escaping, because that is what the Access Layer serializes and what HSDS stores: neither
+sees the local container. For scale, the packaged whole-shot sample
+<code class="language-plaintext highlighter-rouge">vaft/data/samples/39915/omas.json.gz</code> is about 10 MB gzipped and carries no <code class="language-plaintext highlighter-rouge">mhd_linear</code> at all —
+now directly comparable to a stage product, which is stored the same way.</p>
 
 <h2 id="converting-a-real-vest-shot">Converting a real VEST shot</h2>
 
@@ -1578,7 +1582,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 04:50:24 +0000"
+        "time": "2026-09-16 05:23:44 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
