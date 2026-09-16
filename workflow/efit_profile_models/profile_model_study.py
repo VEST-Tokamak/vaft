@@ -1116,7 +1116,23 @@ def _ensemble_section(lines: list[str], payload: Mapping[str, Any], cell) -> Non
         for shot, block in payload["shots"].items()
         if block.get("ensemble")
     }
+    # A spread needs two models at one time.  A single-model run is a
+    # legitimate thing to ask for -- it is how one model is re-run against a
+    # cache -- and it has no across-model uncertainty to report, which is a
+    # sentence rather than a missing section.
+    empty = {shot: block for shot, block in blocks.items() if not block["times_n"]}
+    blocks = {shot: block for shot, block in blocks.items() if block["times_n"]}
     if not blocks:
+        if empty:
+            lines.extend(
+                [
+                    "",
+                    "## Model-induced uncertainty",
+                    "",
+                    "No plasma time carries two models that both produced an equilibrium, so "
+                    "there is no across-model spread to report.",
+                ]
+            )
         return
 
     lines.extend(

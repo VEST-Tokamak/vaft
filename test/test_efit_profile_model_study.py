@@ -381,3 +381,23 @@ def test_the_report_says_so_when_the_two_populations_coincide(study):
 
     assert "so the two populations coincide" in text
     assert "model dropped" not in text
+
+
+def test_a_single_model_run_reports_no_spread_rather_than_failing(study):
+    """Re-running one model against the cache is a normal thing to ask for."""
+    run = _run([_produced_slice(100, "ramp_up", magnetic_chisq=10.0)])
+    models = {
+        "p22_zero": {
+            "specification": {"kppcur": 2, "kffcur": 2},
+            "summary": study.summarize_run(run),
+            "run": run,
+        }
+    }
+    ensemble = study.summarize_ensemble(models)
+    assert ensemble["times_n"] == 0
+    assert ensemble["plasma_times_n"] == 1
+
+    text = study.markdown(_payload(models, {}, ensemble))
+
+    assert "no across-model spread to report" in text
+    assert "relative sigma median" not in text
