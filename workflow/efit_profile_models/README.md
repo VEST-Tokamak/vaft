@@ -18,13 +18,25 @@ The baseline is explicit:
 - the same upstream channel-quality decisions and constraint values for every
   model.
 
-Run the five-model pilot on shot 41672:
+Run the five-model pilot over the reference set:
 
 ```bash
-PYTHONPATH=$PWD EFITHOME=~/git/efit/vaft-install \
-  python workflow/efit_profile_models/profile_model_study.py \
-    --output /scratch/efit-profile-models --shots 41672
+cd <checkout> && EFITHOME=~/git/efit/vaft-install python - <<'EOF'
+import os, runpy, sys
+root = os.getcwd()
+sys.path.insert(0, root)
+import vaft; assert vaft.__file__.startswith(root), vaft.__file__
+sys.argv = ["profile_model_study.py", "--output", "/scratch/efit-profile-models"]
+runpy.run_path("workflow/efit_profile_models/profile_model_study.py", run_name="__main__")
+EOF
 ```
+
+Running the script by path instead would put its own directory at `sys.path[0]`,
+so an editable install elsewhere — the main checkout, when this is a worktree —
+would supply `vaft` and the study would silently measure the wrong tree.
+`PYTHONPATH` does not fix that, which is why the launcher asserts on
+`vaft.__file__`. Pass `--shots` to narrow; the default is every reference-set
+discharge with a packaged product.
 
 Add the `(2,3)`, `(3,2)`, and `(3,3)` order cases with `--full-matrix`. Every
 requested time remains in the output, including collapsed and missing-output
@@ -51,4 +63,18 @@ Interpretation limits are explicit:
   the m-file; the reported total is dominated by the model-invariant plasma-
   current term and is retained only as a diagnostic;
 - a smaller magnetic chi-square is not evidence of a better model when
-  geometry, condition number, or temporal jitter deteriorates.
+  geometry, condition number, or temporal jitter deteriorates;
+- `unchanged` in the signed comparison means the two models agreed to within
+  `1e-6` relative, which is the files' own precision and not a physical
+  tolerance. A half-percent change counts as a change, and how big a change is
+  gets read off the signed median rather than off the counts;
+- the model-induced spread is reported over the times **every** model produced
+  an equilibrium. A sigma over whatever happened to reconstruct at each slice
+  is a sigma over a different ensemble at every slice, which is the selection
+  effect that made `NXITER = 3` look like an improvement in #171. The
+  all-available figures are kept in the JSON and are not the headline, and the
+  model that empties the common population is named rather than dropped;
+- the chi-square is not reduced by the fitted coefficient count. EFIT does not
+  report how many free parameters it used, and
+  `magnetics_chisq_per_active_signal` divides by the number of active signals,
+  not by degrees of freedom.
