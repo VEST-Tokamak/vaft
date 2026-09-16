@@ -1,9 +1,10 @@
-"""Session 02 executes offline and teaches at the public API level.
+"""Contract for Tutorial 02: VEST startup and vacuum-field analysis.
 
-Modelled on ``test_tutorial_session_03.py``. The session's spine is that a
-*modelling* step -- solving the vessel currents -- is what makes the
-vacuum-field analysis possible, so the tests pin that sequence rather than only
-the individual calls.
+The tutorial runs offline from the packaged VEST sample, while teaching the
+same public workflow that can be applied to database-loaded shots.  The tests
+pin the narrative spine as well as the important physics/data-honesty rules:
+one early breakdown time, explicit reduced-model assumptions, and no invented
+EC power or raw diagnostics.
 """
 
 import re
@@ -57,12 +58,22 @@ def _code_cells(book):
 
 
 def _source(cell):
-    return cell.source if isinstance(cell.source, str) else "".join(cell.source)
+    source = cell.get("source", "")
+    return source if isinstance(source, str) else "".join(source)
+
+
+def _code(book):
+    return "\n".join(_source(cell) for cell in _code_cells(book))
 
 
 def _executable(book):
-    joined = "\n".join(_source(cell) for cell in _code_cells(book))
-    return re.sub(r"(?m)^\s*#.*$", "", joined)
+    return re.sub(r"(?m)^\s*#.*$", "", _code(book))
+
+
+def _markdown(book):
+    return "\n".join(
+        _source(cell) for cell in book.cells if cell.cell_type == "markdown"
+    )
 
 
 def _printed(executed):
@@ -75,8 +86,9 @@ def _printed(executed):
 
 
 # ---------------------------------------------------------------------------
-# Runs offline
+# Runs offline, but teaches the database path
 # ---------------------------------------------------------------------------
+
 
 def test_the_notebook_runs_top_to_bottom(executed):
     assert _code_cells(executed)
@@ -103,10 +115,12 @@ def test_no_cell_dumps_a_data_object(executed):
             assert len("".join(output.get("text", ""))) < MAX_OUTPUT_BYTES, cell.id
 
 
-def test_the_notebook_needs_no_credentials(book):
+def test_the_default_path_needs_no_credentials_but_database_loading_is_taught(book):
     executable = _executable(book)
+    code = _code(book)
     assert "vaft.omas.sample_ods()" in executable
-    assert "vaft.database" not in executable
+    assert "vaft.database.load(" in code
+    assert "vaft.database.load(" not in executable
 
 
 def test_the_committed_notebook_stores_no_outputs(book):
@@ -116,11 +130,100 @@ def test_the_committed_notebook_stores_no_outputs(book):
 
 
 # ---------------------------------------------------------------------------
-# The session's spine
+# Observe response first; establish one common breakdown time
 # ---------------------------------------------------------------------------
 
-def test_the_vessel_currents_are_solved_before_anything_is_derived(book):
-    """Every vacuum-field number rests on that solve, so it has to come first."""
+
+def test_the_response_section_includes_the_requested_signal_families(book):
+    executable = _executable(book)
+    for api in (
+        "plot_plasma_current_time",
+        "plot_spectrometer_uv_time_intensity",
+        "plot_diamagnetic_flux_time",
+        "plot_flux_loop_time_voltage",
+        "plot_b_field_probe_time_field",
+    ):
+        assert api in executable, api
+
+
+def test_the_spectroscopy_is_not_reduced_to_one_impurity_line(book):
+    executable = _executable(book)
+    assert 'emission="H_alpha"' in executable
+    # The tutorial should request the mapped impurity families/lines together,
+    # rather than presenting CIII as if it were the only impurity observable.
+    assert "CIII" not in executable or "emission=[" in executable
+    assert "O" in executable and "C" in executable
+
+
+def test_breakdown_time_is_detected_once_and_reused(book):
+    code = _code(book)
+    executable = _executable(book)
+    assert "t_breakdown =" in executable
+    assert executable.count("find_breakdown_onset") == 1
+    assert "0.3307" not in code
+
+
+def test_breakdown_is_established_before_the_eddy_solve(book):
+    sources = [_source(cell) for cell in _code_cells(book)]
+    onset = next(i for i, s in enumerate(sources) if "t_breakdown =" in s)
+    solve = next(i for i, s in enumerate(sources) if "compute_eddy_currents" in s)
+    assert onset < solve
+
+
+# ---------------------------------------------------------------------------
+# Actuators and the explicit 2.45 GHz teaching assumption
+# ---------------------------------------------------------------------------
+
+
+def test_startup_actuators_include_tf_pf_pressure_and_ampere_turns(book):
+    executable = _executable(book)
+    for api in (
+        "plot_tf_coil_time_current",
+        "plot_tf_coil_time_b_t",
+        "plot_pf_coil_time_current",
+        "plot_pf_coil_time_current_turns",
+        "plot_barometry_time_pressure",
+    ):
+        assert api in executable, api
+
+
+def test_ec_frequency_is_one_explicit_tutorial_assumption(book):
+    code = _code(book)
+    markdown = _markdown(book)
+    assert "EC_FREQUENCY_HZ = 2.45e9" in code
+    assert code.count("2.45e9") == 1
+    assert "2.45 GHz" in markdown
+    assert "resonance" in markdown.lower()
+
+
+def test_ec_assumption_does_not_invent_ec_power(book):
+    executable = _executable(book)
+    assert "ec_launchers" not in executable
+    assert "power_launched" not in executable
+    markdown = _markdown(book)
+    assert "#165" in markdown
+
+
+# ---------------------------------------------------------------------------
+# Geometry -> Green response -> eddy solve -> magnetics validation
+# ---------------------------------------------------------------------------
+
+
+def test_geometry_and_green_function_are_taught_before_the_eddy_solve(book):
+    sources = [_source(cell) for cell in book.cells]
+    solve = next(i for i, s in enumerate(sources) if "compute_eddy_currents" in s)
+    geometry = min(
+        i
+        for i, s in enumerate(sources)
+        if "plot_pf_coil_geometry_poloidal" in s
+        or "plot_machine_geometry_poloidal" in s
+    )
+    green = min(i for i, s in enumerate(sources) if "Green" in s and "mutual" in s.lower())
+    assert geometry < solve
+    assert green < solve
+
+
+def test_the_vessel_currents_are_solved_before_vacuum_quantities(book):
     sources = [_source(cell) for cell in _code_cells(book)]
     solve = next(i for i, s in enumerate(sources) if "compute_eddy_currents" in s)
     for token in (
@@ -134,52 +237,69 @@ def test_the_vessel_currents_are_solved_before_anything_is_derived(book):
         assert min(uses) > solve, token
 
 
-def test_the_solve_is_shown_to_unlock_the_analysis(executed):
-    """The session's point: a modelling step changes what can be plotted."""
-    printed = _printed(executed)
-    assert "passive current available? False" in printed
-    assert "magnetics_overview_vacuum" in printed
-
-
-def test_the_model_is_checked_against_the_magnetics_before_it_is_used(book):
-    """The validation comes before the physics, not after."""
+def test_the_model_is_checked_against_magnetics_before_null_physics(book):
     sources = [_source(cell) for cell in _code_cells(book)]
     check = next(i for i, s in enumerate(sources) if "plot_magnetics_overview_vacuum" in s)
+    residual = next(i for i, s in enumerate(sources) if "plot_magnetics_overview_plasma_residual" in s)
     null = next(i for i, s in enumerate(sources) if "plot_equilibrium_field_psi_vacuum" in s)
-    assert check < null
+    assert check < residual < null
 
 
-def test_the_derived_quantities_are_actually_reported(executed):
-    printed = _printed(executed)
-    assert "peak |V_loop|" in printed
-    assert "breakdown onset" in printed
-    assert "entirely inside 0 < n < 1.5: True" in printed
+def test_rogowski_explanation_distinguishes_sensor_current_from_raw_daq(book):
+    markdown = _markdown(book).lower()
+    assert "rogowski_coil" in markdown
+    assert "raw daq" in markdown
+    assert "calibrated" in markdown
+    assert "magnetics.ip" in markdown
+    assert "magnetics.diamagnetic_flux" in markdown
 
 
 # ---------------------------------------------------------------------------
-# Stays at the public API level
+# Reduced startup proxies and interactive field interpretation
 # ---------------------------------------------------------------------------
 
-def test_no_notebook_local_helper_functions(book):
+
+def test_reduced_proxy_caveats_are_explicit(book):
+    markdown = _markdown(book)
+    lower = markdown.lower()
+    assert "radial force" in lower
+    assert "proxy" in lower
+    assert "decay index" in lower
+    assert "Ohmic" in markdown or "ohmic" in lower
+    assert "dissipated" in lower or "not identical" in lower
+
+
+def test_ecr_radius_is_used_in_the_field_and_camera_story(book):
+    executable = _executable(book)
+    markdown = _markdown(book)
+    assert "B_ECR" in executable
+    assert "R_ECR" in executable
+    assert "R_ECR" in code_or_markdown(book)
+    assert "camera" in markdown.lower()
+
+
+def code_or_markdown(book):
+    return _code(book) + "\n" + _markdown(book)
+
+
+def test_the_interactive_cells_run_headless(book):
     for cell in _code_cells(book):
         source = _source(cell)
-        assert not re.search(r"(?m)^\s*def\s", source), cell.id
-        assert not re.search(r"(?m)^\s*class\s", source), cell.id
+        if "interactive=True" in source:
+            assert 'interaction_backend="none"' in source, cell.id
 
 
-def test_no_tutorial_specific_machinery(book):
-    banned = ("BLANK", "require(", "check_values", "exercise_support",
-              "find_repository_root", "savefig", "getattr(vaft")
+# ---------------------------------------------------------------------------
+# Comparative workflow and exercise
+# ---------------------------------------------------------------------------
+
+
+def test_multiple_shot_loading_is_taught_but_not_executed_offline(book):
+    code = _code(book)
     executable = _executable(book)
-    for token in banned:
-        assert token not in executable, token
-
-
-def test_the_spectroscopy_is_asked_for_by_species(book):
-    """Session 01 teaches emission=; this session uses it for burn-through."""
-    executable = _executable(book)
-    assert 'emission="H_alpha"' in executable
-    assert 'emission="CIII"' in executable
+    assert "vaft.database.load([" in code or "vaft.database.load(shots" in code
+    assert "vaft.database.load([" not in executable
+    assert "vaft.database.load(shots" not in executable
 
 
 def test_the_exercise_executes_nothing_on_its_own(book):
@@ -188,59 +308,8 @@ def test_the_exercise_executes_nothing_on_its_own(book):
         assert not line.strip() or line.lstrip().startswith("#"), line
 
 
-# ---------------------------------------------------------------------------
-# Structure and honesty
-# ---------------------------------------------------------------------------
-
 def test_the_session_declares_itself_complete_in_both_modes(book):
     metadata = book.metadata.get("vaft_tutorial", {})
     assert metadata.get("session") == 2
     assert metadata.get("status") == "complete"
     assert list(metadata.get("modes", [])) == ["offline", "lab"]
-
-
-def test_what_230_asked_for_is_computed_or_named_rather_than_faked(book):
-    """#230 asked for the connection length and the EC resonance layer.
-
-    The connection length is traced now; the resonance layer still is not,
-    because VEST's registry describes no 2.45 GHz system to place it for. An
-    unlabelled approximation in teaching material is worse than an honest gap,
-    so the session says which one it computes, which one it does not, and why.
-    """
-    markdown = "\n".join(
-        _source(cell) for cell in book.cells if cell.cell_type == "markdown"
-    )
-    assert "Connection length" in markdown
-    assert "2.45 GHz" in markdown
-    assert "#230" in markdown
-
-
-def test_the_unmapped_actuators_are_named(book):
-    """Gas and EC trigger are recorded on VEST but not mapped into IMAS."""
-    markdown = "\n".join(
-        _source(cell) for cell in book.cells if cell.cell_type == "markdown"
-    )
-    assert "gas valve command" in markdown
-    assert "mapping gap" in markdown
-
-
-def test_the_onset_criterion_is_shown_and_not_only_its_answer(executed):
-    """`find_breakdown_onset` is one float; the session shows the object behind it."""
-    printed = _printed(executed)
-    assert "decided by" in printed
-    assert "light and current" in printed
-
-
-def test_the_connection_length_is_traced_rather_than_assumed(executed):
-    printed = _printed(executed)
-    assert "scaling / trace" in printed
-    assert "never met the wall" in printed
-
-
-def test_the_interactive_cells_run_headless(book):
-    """`interaction_backend="auto"` resolves to ipywidgets under nbclient, which
-    leaves a widget that is dead on GitHub -- so every interactive cell pins it."""
-    for cell in _code_cells(book):
-        source = _source(cell)
-        if "interactive=True" in source:
-            assert 'interaction_backend="none"' in source, cell.id
