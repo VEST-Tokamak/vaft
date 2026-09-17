@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a154e08</code>. What is described
+  <code>6686bda</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -326,7 +326,7 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/startup/">startup</a></td>
-    <td><code>vaft.formula.startup</code></td><td>15</td><td>Start-up physics from the gas fill to the avalanche.</td>
+    <td><code>vaft.formula.startup</code></td><td>18</td><td>Start-up physics from the gas fill to the avalanche.</td>
   </tr>
   </tbody>
 </table>
@@ -895,7 +895,7 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="startup">Startup</h2>
 
-<p>Start-up physics from the gas fill to the avalanche. — <a href="/vaft/develop/reference/formula/startup/">15 functions</a>.</p>
+<p>Start-up physics from the gas fill to the avalanche. — <a href="/vaft/develop/reference/formula/startup/">18 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/startup/#atomic_inventory_from_molecular_gas"><code>atomic_inventory_from_molecular_gas</code></a> <em>(convention)</em> &mdash; Atom inventory of a molecular gas fill.
@@ -908,9 +908,15 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max"><code>ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max</code></a> <em>(convention)</em> &mdash; Slope of the Ejiri confined-orbit boundary in velocity space.
 </li>
+  <li><a href="/vaft/develop/reference/formula/startup/#electron_cyclotron_resonance_field"><code>electron_cyclotron_resonance_field</code></a> &mdash; Field magnitude at which electrons gyrate in step with a microwave source.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#electron_cyclotron_resonance_radius"><code>electron_cyclotron_resonance_radius</code></a> <em>(convention)</em> &mdash; Major radius of the electron-cyclotron resonance in a vacuum toroidal field.
+</li>
   <li><a href="/vaft/develop/reference/formula/startup/#flux_closure_margin_from_E_t_a_B_stray_eta"><code>flux_closure_margin_from_E_t_a_B_stray_eta</code></a> <em>(convention)</em> &mdash; Order-of-magnitude margin for a current channel to overcome stray field.
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#lloyd_breakdown_field"><code>lloyd_breakdown_field</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Lloyd threshold toroidal field for hydrogenic tokamak breakdown.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#lloyd_figure_of_merit"><code>lloyd_figure_of_merit</code></a> <em>(convention)</em> &mdash; Lloyd’s breakdown figure of merit: toroidal drive times field-line pitch.
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#neutral_density_from_pressure"><code>neutral_density_from_pressure</code></a> <em>(convention)</em> &mdash; Number density of a fill gas at a measured pressure and temperature.
 </li>
@@ -1189,7 +1195,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-17 05:27:59 +0000"
+        "time": "2026-09-17 06:09:23 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

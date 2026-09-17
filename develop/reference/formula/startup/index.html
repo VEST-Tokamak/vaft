@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a154e08</code>. What is described
+  <code>6686bda</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -267,7 +267,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/startup.py"><code class="language-plaintext highlighter-rouge">vaft/formula/startup.py</code></a>:
-15 public functions.  The category overview and notation come from the module
+18 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("startup.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
 
@@ -295,6 +295,9 @@ inductance and the current ramp belong with the transformer dynamics.</p>
   <tr><td>A, B</td><td>Townsend similarity coefficients</td><td>[m^-1 Pa^-1], [V m^-1 Pa^-1]</td></tr>
   <tr><td>E_BD</td><td>Lloyd breakdown threshold field</td><td>V/m</td></tr>
   <tr><td>M_BD</td><td>breakdown margin, E_parallel / E_BD</td><td>-</td></tr>
+  <tr><td>f</td><td>microwave source frequency</td><td>Hz</td></tr>
+  <tr><td>B_ECR</td><td>electron-cyclotron resonant field magnitude</td><td>T</td></tr>
+  <tr><td>R_ECR</td><td>major radius of the resonance in a vacuum 1/R field</td><td>m</td></tr>
   </tbody>
 </table>
 
@@ -331,9 +334,15 @@ disagreement: every function below takes $|E_\parallel|$.</p>
 </li>
   <li><a href="#ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max"><code>ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max</code></a> &mdash; Slope of the Ejiri confined-orbit boundary in velocity space.
 </li>
+  <li><a href="#electron_cyclotron_resonance_field"><code>electron_cyclotron_resonance_field</code></a> &mdash; Field magnitude at which electrons gyrate in step with a microwave source.
+</li>
+  <li><a href="#electron_cyclotron_resonance_radius"><code>electron_cyclotron_resonance_radius</code></a> &mdash; Major radius of the electron-cyclotron resonance in a vacuum toroidal field.
+</li>
   <li><a href="#flux_closure_margin_from_E_t_a_B_stray_eta"><code>flux_closure_margin_from_E_t_a_B_stray_eta</code></a> &mdash; Order-of-magnitude margin for a current channel to overcome stray field.
 </li>
   <li><a href="#lloyd_breakdown_field"><code>lloyd_breakdown_field</code></a> &mdash; Lloyd threshold toroidal field for hydrogenic tokamak breakdown.
+</li>
+  <li><a href="#lloyd_figure_of_merit"><code>lloyd_figure_of_merit</code></a> &mdash; Lloyd’s breakdown figure of merit: toroidal drive times field-line pitch.
 </li>
   <li><a href="#neutral_density_from_pressure"><code>neutral_density_from_pressure</code></a> &mdash; Number density of a fill gas at a measured pressure and temperature.
 </li>
@@ -731,6 +740,140 @@ orbit calculation.</p>
 </li>
 </ol>
 
+<h3 id="electron_cyclotron_resonance_field"><code class="language-plaintext highlighter-rouge">electron_cyclotron_resonance_field</code></h3>
+
+<p class="formula-signature"><code>electron_cyclotron_resonance_field(frequency_Hz, harmonic=1)</code></p>
+
+<p>Field magnitude at which electrons gyrate in step with a microwave source.</p>
+
+\[B_{ECR} = \frac{2\pi\,m_e\,f}{h\,e}\]
+
+<p>the cold, non-relativistic electron-cyclotron resonance at harmonic $h$.
+A 2.45 GHz magnetron resonates at 87.5 mT on the fundamental.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>frequency_Hz</code></td><td>float or np.ndarray</td><td>Hz</td><td><p>Source frequency, finite and positive.</p>
+</td></tr>
+  <tr><td><code>harmonic</code></td><td>int, optional</td><td>-</td><td><p>Positive cyclotron harmonic number; the fundamental is <code class="language-plaintext highlighter-rouge">1</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>T</td><td><p>Resonant field magnitude.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A non-finite, zero or negative frequency; a harmonic that is not a
+    positive integer.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>Where $|B| = B_{ECR}$ an electron sees the wave’s electric field rotate
+with it and gains energy every gyration; everywhere else the phase slips
+and the gain averages away.  That surface is where microwave
+pre-ionisation seeds the free electrons an avalanche starts from.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The cold resonance only.  The relativistic mass increase and the Doppler
+shift of an oblique launch move the absorption away from this field, and
+whether the wave reaches the layer at all – the cutoff density – is a
+separate question this expression does not ask.  Says nothing about how
+much power is absorbed.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>electron_cyclotron_resonance_radius</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>T. H. Stix, <em>Waves in Plasmas</em>, AIP (1992), Sec. 1-2.
+</li>
+</ol>
+
+<h3 id="electron_cyclotron_resonance_radius"><code class="language-plaintext highlighter-rouge">electron_cyclotron_resonance_radius</code></h3>
+
+<p class="formula-signature"><code>electron_cyclotron_resonance_radius(B_T_R_Tm, frequency_Hz, harmonic=1)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Major radius of the electron-cyclotron resonance in a vacuum toroidal field.</p>
+
+\[R_{ECR} = \frac{|B_T R|}{B_{ECR}(f, h)}\]
+
+<p>because a vacuum toroidal field falls as $1/R$, so the product $B_T R$ is
+a constant of the coil current and the resonance is a vertical line at one
+major radius.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>B_T_R_Tm</code></td><td>float or np.ndarray</td><td>T m</td><td><p>Vacuum toroidal field times major radius, as stored in <code class="language-plaintext highlighter-rouge">tf.b_field_tor_vacuum_r</code>; used as a magnitude.</p>
+</td></tr>
+  <tr><td><code>frequency_Hz</code></td><td>float or np.ndarray</td><td>Hz</td><td><p>Source frequency, finite and positive.</p>
+</td></tr>
+  <tr><td><code>harmonic</code></td><td>int, optional</td><td>-</td><td><p>Positive cyclotron harmonic number; the fundamental is <code class="language-plaintext highlighter-rouge">1</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>m</td><td><p>Resonance major radius; <code class="language-plaintext highlighter-rouge">0</code> while the toroidal field is off.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A non-finite $B_T R$; a non-finite, zero or negative frequency; a
+    harmonic that is not a positive integer.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>$B_T R$ is taken as a <strong>magnitude</strong>: the resonance depends on $|B|$, and
+the sign of <code class="language-plaintext highlighter-rouge">b_field_tor_vacuum_r</code> is a COCOS and coil-polarity choice.
+The input is the product, not $B_T$ at some radius, so no reference
+radius enters – VEST’s $R_0 = 0.4$ m is where a plot quotes $B_T$, not
+part of this relation.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>As the TF current ramps, $B_T R$ grows and the resonance sweeps outward
+from the centre stack.  Pre-ionisation happens where this line crosses
+the vessel; compare it with the field null to see whether the seed
+electrons are born where the avalanche can use them.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Vacuum toroidal field only.  The poloidal field adds to $|B|$ and bends
+the resonance near a coil; at a startup null it is a few gauss against
+tens of millitesla and the vertical line is accurate, far from one it is
+not.  Plasma diamagnetism is ignored, which is exact before breakdown.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>electron_cyclotron_resonance_field</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>T. H. Stix, <em>Waves in Plasmas</em>, AIP (1992), Sec. 1-2.
+</li>
+</ol>
+
 <h3 id="flux_closure_margin_from_E_t_a_B_stray_eta"><code class="language-plaintext highlighter-rouge">flux_closure_margin_from_E_t_a_B_stray_eta</code></h3>
 
 <p class="formula-signature"><code>flux_closure_margin_from_E_t_a_B_stray_eta(E_t, a_m, B_stray_T, eta_ohm_m)</code></p>
@@ -914,6 +1057,76 @@ vaft.formula.equilibrium.toroidal_electric_field</p>
   <li>B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
 </li>
   <li>D. Mueller, Phys. Plasmas 20 (2013) 058101, Sec. II.
+</li>
+</ol>
+
+<h3 id="lloyd_figure_of_merit"><code class="language-plaintext highlighter-rouge">lloyd_figure_of_merit</code></h3>
+
+<p class="formula-signature"><code>lloyd_figure_of_merit(E_phi, B_phi, B_p)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Lloyd’s breakdown figure of merit: toroidal drive times field-line pitch.</p>
+
+\[F_{BD} = \frac{|E_\phi|\,|B_\phi|}{|B_p|}\]
+
+<p>The toroidal electric field projected along a field line whose length
+grows as $B_\phi / B_p$; the quantity the empirical Ohmic and
+ECH-assisted breakdown thresholds
+(<code class="language-plaintext highlighter-rouge">LLOYD_FIGURE_OF_MERIT_OHMIC_V_PER_M</code>,
+<code class="language-plaintext highlighter-rouge">LLOYD_FIGURE_OF_MERIT_ECH_V_PER_M</code>) are stated against.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>E_phi</code></td><td>float or np.ndarray</td><td>V/m</td><td><p>Toroidal electric field; used as a magnitude.</p>
+</td></tr>
+  <tr><td><code>B_phi</code></td><td>float or np.ndarray</td><td>T</td><td><p>Toroidal field; used as a magnitude.</p>
+</td></tr>
+  <tr><td><code>B_p</code></td><td>float or np.ndarray</td><td>T</td><td><p>Poloidal field magnitude; used as a magnitude.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>V/m</td><td><p>Figure of merit; <code class="language-plaintext highlighter-rouge">nan</code> where <code class="language-plaintext highlighter-rouge">B_p</code> is zero or any input is non-finite.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>All three inputs are used as <strong>magnitudes</strong>: the sign of $E_\phi$ depends
+on the flux kernel (tracked in #354) and the signs of $B_\phi$ and $B_p$ on
+COCOS and coil polarity, none of which changes whether an avalanche can
+form.  A null ($B_p = 0$) has no finite figure and is returned as <code class="language-plaintext highlighter-rouge">nan</code>
+rather than <code class="language-plaintext highlighter-rouge">inf</code>, so a map of it keeps a finite colour range.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>$E_\phi B_\phi / B_p$ is the parallel field an electron would see if the
+connection length were set by the pitch alone.  A strong toroidal field
+and a weak poloidal one lengthen the path over which the drive acts, which
+is why a startup looks for a null.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A proxy, not a threshold: it ignores the fill pressure and the real
+connection length to the wall, both of which
+<code class="language-plaintext highlighter-rouge">lloyd_breakdown_field</code> and <code class="language-plaintext highlighter-rouge">breakdown_margin</code> take into
+account.  The 1000 V/m and 100 V/m thresholds are machine experience, not
+derived.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>breakdown_margin</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
 </li>
 </ol>
 
@@ -1671,7 +1884,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#atomic_inventory_from_molecular_gas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">atomic_inventory_from_molecular_gas</a></li><li class="page-toc-item page-toc-level-3"><a href="#breakdown_margin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">breakdown_margin</a></li><li class="page-toc-item page-toc-level-3"><a href="#d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_f3_from_alpha" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_f3_from_alpha</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_closure_margin_from_E_t_a_B_stray_eta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_closure_margin_from_E_t_a_B_stray_eta</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#neutral_density_from_pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">neutral_density_from_pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_external_inductance_hirshman_from_R_eps_kappa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_external_inductance_hirshman_from_R_eps_kappa</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_inductance_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_inductance_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_self_field_from_I_p_a" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_self_field_from_I_p_a</a></li><li class="page-toc-item page-toc-level-3"><a href="#startup_geometry_from_limiter_radii" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">startup_geometry_from_limiter_radii</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_ionization_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_ionization_coefficient</a></li><li class="page-toc-item page-toc-level-3"><a href="#vertical_field_from_I_p_R0_a_beta_p_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vertical_field_from_I_p_R0_a_beta_p_li</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#atomic_inventory_from_molecular_gas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">atomic_inventory_from_molecular_gas</a></li><li class="page-toc-item page-toc-level-3"><a href="#breakdown_margin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">breakdown_margin</a></li><li class="page-toc-item page-toc-level-3"><a href="#d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_f3_from_alpha" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_f3_from_alpha</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_cyclotron_resonance_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_cyclotron_resonance_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_cyclotron_resonance_radius" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_cyclotron_resonance_radius</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_closure_margin_from_E_t_a_B_stray_eta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_closure_margin_from_E_t_a_B_stray_eta</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_figure_of_merit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_figure_of_merit</a></li><li class="page-toc-item page-toc-level-3"><a href="#neutral_density_from_pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">neutral_density_from_pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_external_inductance_hirshman_from_R_eps_kappa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_external_inductance_hirshman_from_R_eps_kappa</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_inductance_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_inductance_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_self_field_from_I_p_a" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_self_field_from_I_p_a</a></li><li class="page-toc-item page-toc-level-3"><a href="#startup_geometry_from_limiter_radii" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">startup_geometry_from_limiter_radii</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_ionization_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_ionization_coefficient</a></li><li class="page-toc-item page-toc-level-3"><a href="#vertical_field_from_I_p_R0_a_beta_p_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vertical_field_from_I_p_R0_a_beta_p_li</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1789,7 +2002,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-17 05:27:59 +0000"
+        "time": "2026-09-17 06:09:23 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
