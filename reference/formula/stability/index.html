@@ -2,7 +2,7 @@
 <html lang="en" >
     <head><meta charset="UTF-8">
 <meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: stability · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
 <link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
@@ -139,6 +139,36 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
                     
                         <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
@@ -224,7 +254,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/stability.py"><code class="language-plaintext highlighter-rouge">vaft/formula/stability.py</code></a>:
-19 public functions.  The category overview and notation come from the module
+21 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("stability.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/reference/formula/">formula reference index</a>.</p>
 
@@ -255,17 +285,17 @@ limits, and transport parameters.</p>
 <h2 id="functions">Functions</h2>
 
 <ul class="formula-index">
-  <li><a href="#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a> &mdash; Normalised pressure gradient of the $s$-$\alpha$ ballooning model, without $q^2$.
+  <li><a href="#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a> &mdash; Normalised pressure gradient $\alpha$ of the $s$-$\alpha$ ballooning model.
 </li>
   <li><a href="#ballooning_stability_criterion"><code>ballooning_stability_criterion</code></a> &mdash; Distance from the first ballooning stability boundary $\alpha_{crit} \approx 0.6\,s$.
 </li>
-  <li><a href="#beta_N_from_beta_a_B0_Ip"><code>beta_N_from_beta_a_B0_Ip</code></a> &mdash; Normalised beta evaluated literally as $\beta\,a\,B_0/I_p$.
+  <li><a href="#beta_N_from_beta_a_B0_Ip"><code>beta_N_from_beta_a_B0_Ip</code></a> &mdash; Normalised beta in the Troyon convention, %·m·T/MA.
 </li>
-  <li><a href="#beta_pol_from_beta_tor"><code>beta_pol_from_beta_tor</code></a> &mdash; Poloidal beta from toroidal beta, $\beta_p = \beta_t\,q_{95}^2$.
+  <li><a href="#beta_pol_from_beta_tor"><code>beta_pol_from_beta_tor</code></a> &mdash; Poloidal beta from toroidal beta, cylindrical relation.
 </li>
   <li><a href="#beta_stability_boundary"><code>beta_stability_boundary</code></a> &mdash; Heuristic beta margin against $\beta_{N,crit} = 0.028\,q_{95}$.
 </li>
-  <li><a href="#beta_tor_from_beta_pol"><code>beta_tor_from_beta_pol</code></a> &mdash; Toroidal beta from poloidal beta, $\beta_t = \beta_p/q_{95}^2$.
+  <li><a href="#beta_tor_from_beta_pol"><code>beta_tor_from_beta_pol</code></a> &mdash; Toroidal beta from poloidal beta, cylindrical relation.
 </li>
   <li><a href="#c_s_from_Te_Ti_mi"><code>c_s_from_Te_Ti_mi</code></a> &mdash; Isothermal ion sound speed $c_s = \sqrt{(T_e + T_i)/m_i}$.
 </li>
@@ -277,6 +307,8 @@ limits, and transport parameters.</p>
 </li>
   <li><a href="#greenwald_fraction"><code>greenwald_fraction</code></a> &mdash; Greenwald fraction $f_G = n_e/n_G$.
 </li>
+  <li><a href="#island_width_from_resonant_flux"><code>island_width_from_resonant_flux</code></a> &mdash; Full magnetic island width from the pitch-resonant flux.
+</li>
   <li><a href="#kink_stability_criterion"><code>kink_stability_criterion</code></a> &mdash; Heuristic kink margin against $\beta_{N,crit} = 2.8\,q_{95}$.
 </li>
   <li><a href="#li_from_qa_empirical"><code>li_from_qa_empirical</code></a> &mdash; Internal inductance at a given $q_a$ by interpolating the JET survey points.
@@ -287,7 +319,9 @@ limits, and transport parameters.</p>
 </li>
   <li><a href="#power_limit_from_q"><code>power_limit_from_q</code></a> &mdash; Expression $2\pi R_0 I_p/(\mu_0 q_{95})$ labelled a power limit.
 </li>
-  <li><a href="#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a> &mdash; Electron gyroradius figure $\sqrt{T_e}\,a/B_t$ (as implemented).
+  <li><a href="#resonant_flux_from_delta"><code>resonant_flux_from_delta</code></a> &mdash; Pitch-resonant flux from the resonance parameter and the surface geometry.
+</li>
+  <li><a href="#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a> &mdash; Normalised electron gyroradius $\rho_e/a$.
 </li>
   <li><a href="#sawtooth_stability_criterion"><code>sawtooth_stability_criterion</code></a> &mdash; Heuristic sawtooth margin against $\beta_{p,crit} = 0.3\,(1 - q_0)$.
 </li>
@@ -297,13 +331,13 @@ limits, and transport parameters.</p>
 
 <h3 id="ballooning_alpha_from_p_B_R"><code class="language-plaintext highlighter-rouge">ballooning_alpha_from_p_B_R</code></h3>
 
-<p class="formula-signature"><code>ballooning_alpha_from_p_B_R(p, B, R)</code></p>
+<p class="formula-signature"><code>ballooning_alpha_from_p_B_R(p, B, R, q)</code></p>
 
 <p><strong>Convention-sensitive.</strong> </p>
 
-<p>Normalised pressure gradient of the $s$-$\alpha$ ballooning model, without $q^2$.</p>
+<p>Normalised pressure gradient $\alpha$ of the $s$-$\alpha$ ballooning model.</p>
 
-\[\alpha = -\frac{2\mu_0 R}{B^2}\,\frac{dp}{dR}\]
+\[\alpha = -\frac{2\mu_0 R q^2}{B^2}\,\frac{dp}{dr}\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
@@ -314,24 +348,33 @@ limits, and transport parameters.</p>
 </td></tr>
   <tr><td><code>R</code></td><td>float or np.ndarray</td><td>m</td><td><p>Major radius of the samples, monotonic.</p>
 </td></tr>
+  <tr><td><code>q</code></td><td>float or np.ndarray</td><td>-</td><td><p>Safety factor on the same surfaces.</p>
+</td></tr>
   </tbody>
 </table>
 
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Ballooning parameter as defined above.</p>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Ballooning parameter in the Connor-Hastie-Taylor normalisation.</p>
 </td></tr>
   </tbody>
 </table>
 
 <p><strong>Convention.</strong></p>
 
-<p>Connor, Hastie and Taylor define $\alpha = -2\mu_0 R q^2\,(dp/dr)/B^2$ with
-$r$ the minor radius.  This routine omits the $q^2$ factor and
-differentiates against the major radius $R$, so it returns the standard
-$\alpha$ divided by $q^2$; multiply by $q^2$ before reading it against the
-$s$-$\alpha$ diagram.  Tracked in #364.</p>
+<p>Connor, Hastie and Taylor [1] define $\alpha$ with the $q^2$ and with $r$
+the minor radius. Until #364 this omitted the $q^2$ entirely, so it returned
+$\alpha/q^2$ – an order of magnitude at $q \simeq 3$ – while
+<code class="language-plaintext highlighter-rouge">ballooning_stability_criterion</code> compared the result against
+$0.6\,s$ as though it were the standard $\alpha$.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The derivative is still taken against the <strong>major</strong> radius $R$, not the
+minor radius $r$ of the definition. For a large-aspect-ratio circular
+plasma on the outboard midplane the two coincide, which is the case this is
+used for; anywhere else the caller must supply a minor-radius abscissa.</p>
 
 <p><strong>Numerical notes.</strong></p>
 
@@ -400,24 +443,24 @@ uncited coefficient (read from the diagram).</p>
 
 <h3 id="beta_N_from_beta_a_B0_Ip"><code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code></h3>
 
-<p class="formula-signature"><code>beta_N_from_beta_a_B0_Ip(beta, a, B0, I_p)</code></p>
+<p class="formula-signature"><code>beta_N_from_beta_a_B0_Ip(beta_percent, a, B0, I_p_MA)</code></p>
 
 <p><strong>Convention-sensitive.</strong> </p>
 
-<p>Normalised beta evaluated literally as $\beta\,a\,B_0/I_p$.</p>
+<p>Normalised beta in the Troyon convention, %·m·T/MA.</p>
 
-\[\beta_N = \frac{\beta\,a\,B_0}{I_p}\]
+\[\beta_N = \frac{\beta[\%]\;a[\mathrm{m}]\;B_0[\mathrm{T}]}{I_p[\mathrm{MA}]}\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>beta</code></td><td>float</td><td>-</td><td><p>Toroidal beta as a fraction.</p>
+  <tr><td><code>beta_percent</code></td><td>float</td><td>%</td><td><p>Toroidal beta <strong>in percent</strong>, not as a fraction.</p>
 </td></tr>
   <tr><td><code>a</code></td><td>float</td><td>m</td><td><p>Minor radius.</p>
 </td></tr>
   <tr><td><code>B0</code></td><td>float</td><td>T</td><td><p>Toroidal field on axis.</p>
 </td></tr>
-  <tr><td><code>I_p</code></td><td>float</td><td>A</td><td><p>Plasma current.</p>
+  <tr><td><code>I_p_MA</code></td><td>float</td><td>MA</td><td><p>Plasma current <strong>in megaamperes</strong>.</p>
 </td></tr>
   </tbody>
 </table>
@@ -425,18 +468,25 @@ uncited coefficient (read from the diagram).</p>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>float</td><td>m T/A</td><td><p>The ratio in fraction-metre-tesla per ampere.</p>
+  <tr><td></td><td>float</td><td>%·m·T/MA</td><td><p>Normalised beta, directly comparable with the Troyon limit.</p>
 </td></tr>
   </tbody>
 </table>
 
 <p><strong>Convention.</strong></p>
 
-<p>The community $\beta_N$ (Troyon) is quoted in %·m·T/MA, i.e. $\beta$ in
-percent and $I_p$ in MA, and the Troyon limit is $\beta_N \lesssim 2.8$ in
-those units.  This function does not rescale: with the SI inputs above the
-result is $10^{-8}$ times the conventional number.  Feed $\beta$ in percent
-and $I_p$ in MA to obtain it directly.  Tracked in #349.</p>
+<p>Percent and megaamperes, which is how Troyon [1] and the ITER Physics
+Basis [2] quote $\beta_N$ and the only convention in which the limit
+$\beta_N \lesssim 2.8$ means anything. The parameter names carry their
+units because this function used to take SI – a fraction and amperes –
+and return $10^{-8}$ times the conventional number, which no rescaling of
+the <em>output</em> fixes for a reader comparing against 2.8 (#349).</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The pressure a tokamak can hold scales with $I_p/(aB_0)$, so dividing it
+out leaves a figure that is comparable across machines; exceeding ~2.8
+means an ideal-MHD beta limit rather than a machine-specific one.</p>
 
 <p><strong>References.</strong></p>
 
@@ -449,11 +499,11 @@ and $I_p$ in MA to obtain it directly.  Tracked in #349.</p>
 
 <h3 id="beta_pol_from_beta_tor"><code class="language-plaintext highlighter-rouge">beta_pol_from_beta_tor</code></h3>
 
-<p class="formula-signature"><code>beta_pol_from_beta_tor(beta_tor, q_95)</code></p>
+<p class="formula-signature"><code>beta_pol_from_beta_tor(beta_tor, q_95, epsilon)</code></p>
 
-<p>Poloidal beta from toroidal beta, $\beta_p = \beta_t\,q_{95}^2$.</p>
+<p>Poloidal beta from toroidal beta, cylindrical relation.</p>
 
-\[\beta_p = \beta_t\,q_{95}^2\]
+\[\beta_p = \beta_t\left(\frac{q}{\varepsilon}\right)^2\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
@@ -461,6 +511,8 @@ and $I_p$ in MA to obtain it directly.  Tracked in #349.</p>
   <tr><td><code>beta_tor</code></td><td>float</td><td>-</td><td><p>Toroidal beta.</p>
 </td></tr>
   <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
+</td></tr>
+  <tr><td><code>epsilon</code></td><td>float</td><td>-</td><td><p>Inverse aspect ratio $a/R_0$, strictly positive.</p>
 </td></tr>
   </tbody>
 </table>
@@ -473,16 +525,24 @@ and $I_p$ in MA to obtain it directly.  Tracked in #349.</p>
   </tbody>
 </table>
 
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    When <code class="language-plaintext highlighter-rouge">epsilon</code> is not strictly positive, since the relation divides
+    by it [-].</p>
+
 <p><strong>Assumptions.</strong></p>
 
 <p>Circular, large-aspect-ratio cylinder in which $B_p/B_t = \varepsilon/q$.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>The cylindrical relation is $\beta_p = \beta_t\,(q/\varepsilon)^2$; the
-$1/\varepsilon^2$ is missing here, so the result equals the standard value
-only at $\varepsilon = 1$ and underestimates $\beta_p$ by $\varepsilon^2$
-otherwise.  Tracked in #363.</p>
+<p>Until #363 the $1/\varepsilon^2$ was missing, so the result was right only
+at $\varepsilon = 1$ and low by $\varepsilon^2$ everywhere else – a factor
+of about 2 at the $\varepsilon \simeq 0.7$ of a spherical tokamak and more
+than 10 at a conventional $\varepsilon \simeq 0.3$. Round-tripping through
+<code class="language-plaintext highlighter-rouge">beta_tor_from_beta_pol</code> hid it, because both directions were wrong by
+the same factor.</p>
 
 <p><strong>References.</strong></p>
 
@@ -538,11 +598,11 @@ the fraction convention.  Tracked in #350.</p>
 
 <h3 id="beta_tor_from_beta_pol"><code class="language-plaintext highlighter-rouge">beta_tor_from_beta_pol</code></h3>
 
-<p class="formula-signature"><code>beta_tor_from_beta_pol(beta_pol, q_95)</code></p>
+<p class="formula-signature"><code>beta_tor_from_beta_pol(beta_pol, q_95, epsilon)</code></p>
 
-<p>Toroidal beta from poloidal beta, $\beta_t = \beta_p/q_{95}^2$.</p>
+<p>Toroidal beta from poloidal beta, cylindrical relation.</p>
 
-\[\beta_t = \frac{\beta_p}{q_{95}^2}\]
+\[\beta_t = \beta_p\left(\frac{\varepsilon}{q}\right)^2\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
@@ -550,6 +610,8 @@ the fraction convention.  Tracked in #350.</p>
   <tr><td><code>beta_pol</code></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
 </td></tr>
   <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
+</td></tr>
+  <tr><td><code>epsilon</code></td><td>float</td><td>-</td><td><p>Inverse aspect ratio $a/R_0$, strictly positive.</p>
 </td></tr>
   </tbody>
 </table>
@@ -562,15 +624,19 @@ the fraction convention.  Tracked in #350.</p>
   </tbody>
 </table>
 
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    When <code class="language-plaintext highlighter-rouge">epsilon</code> is not strictly positive [-].</p>
+
 <p><strong>Assumptions.</strong></p>
 
-<p>Circular, large-aspect-ratio cylinder; inverse of <code class="language-plaintext highlighter-rouge">beta_pol_from_beta_tor</code>.</p>
+<p>Circular, large-aspect-ratio cylinder; exact inverse of
+<code class="language-plaintext highlighter-rouge">beta_pol_from_beta_tor</code>.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>Missing $\varepsilon^2$ factor of the cylindrical relation $\beta_t =
-\beta_p\,\varepsilon^2/q^2$, as for <code class="language-plaintext highlighter-rouge">beta_pol_from_beta_tor</code>.
-Tracked in #363.</p>
+<p>Carried the same missing $\varepsilon^2$ as its inverse until #363.</p>
 
 <p><strong>References.</strong></p>
 
@@ -828,6 +894,83 @@ lower fraction.</p>
 </li>
 </ol>
 
+<h3 id="island_width_from_resonant_flux"><code class="language-plaintext highlighter-rouge">island_width_from_resonant_flux</code></h3>
+
+<p class="formula-signature"><code>island_width_from_resonant_flux(Phi_res, area, q, dq_dpsi_norm, m_pol, chi1)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Full magnetic island width from the pitch-resonant flux.</p>
+
+\[w = 2\sqrt{\left|\frac{4\,\Phi_\mathrm{res}\,A}{2\pi\,s\,q\,\chi_1}\right|},
+\qquad s = \frac{m\,q'}{q^{2}}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>Phi_res</code></td><td>complex or np.ndarray</td><td>T</td><td><p>Pitch-resonant flux, normalised by the surface area.</p>
+</td></tr>
+  <tr><td><code>area</code></td><td>float or np.ndarray</td><td>m^2</td><td><p>Area of the rational surface.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td>float or np.ndarray</td><td>-</td><td><p>Safety factor at the surface.</p>
+</td></tr>
+  <tr><td><code>dq_dpsi_norm</code></td><td>float or np.ndarray</td><td>-</td><td><p>$\mathrm{d}q/\mathrm{d}\psi_N$ at the surface.</p>
+</td></tr>
+  <tr><td><code>m_pol</code></td><td>int or np.ndarray</td><td>-</td><td><p>Poloidal mode number, $m = nq$.</p>
+</td></tr>
+  <tr><td><code>chi1</code></td><td>float</td><td>-</td><td><p>$\mathrm{d}\chi/\mathrm{d}\psi_N$, the poloidal flux normalisation the equilibrium was solved with.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Full island width, in normalised poloidal flux.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>A <strong>full</strong> width, not a half width, and in $\psi_N$ rather than in metres
+– matching what GPEC writes as <code class="language-plaintext highlighter-rouge">w_isl</code> (its <code class="language-plaintext highlighter-rouge">units</code> attribute reads
+<code class="language-plaintext highlighter-rouge">psi_n</code>). Converting to metres needs the equilibrium’s
+$\mathrm{d}r/\mathrm{d}\psi_N$ and is not done here.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The island a resonant flux would open if it were not shielded. In an ideal
+solution it is not opened: the resonant component of the perturbed field
+is screened to zero at the surface, and $\Phi_\mathrm{res}$ is what the
+singular current would have to admit for the island to form.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Constant-$\psi$, a single helicity, and a shear evaluated at the surface
+rather than across the island. The island is taken to be symmetric about
+the rational surface.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>A rational surface with non-zero shear. At $q’ \to 0$ the width diverges,
+which is the formula failing rather than the island growing.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>The magnitude is taken before the square root, so a negative or complex
+argument does not propagate a <code class="language-plaintext highlighter-rouge">nan</code>: the sign carries the island’s
+phase, which this width does not report.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 7.4.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">GPEC/gpec/gpout.f:1709-1711</code>, which this reproduces exactly on the DIII-D 147131 reference – 16 rational surfaces over n = 1 and n = 3, ratio 1.000000 on every one.
+</li>
+</ol>
+
 <h3 id="kink_stability_criterion"><code class="language-plaintext highlighter-rouge">kink_stability_criterion</code></h3>
 
 <p class="formula-signature"><code>kink_stability_criterion(q_95, beta_N)</code></p>
@@ -1061,15 +1204,95 @@ no derivation or source is recorded.  Kept for compatibility.  Tracked in
 </li>
 </ol>
 
-<h3 id="rhostar_from_Te_a_Bt"><code class="language-plaintext highlighter-rouge">rhostar_from_Te_a_Bt</code></h3>
+<h3 id="resonant_flux_from_delta"><code class="language-plaintext highlighter-rouge">resonant_flux_from_delta</code></h3>
 
-<p class="formula-signature"><code>rhostar_from_Te_a_Bt(Te_eV, a_minor, B_t, m_e=9.10938356e-31)</code></p>
+<p class="formula-signature"><code>resonant_flux_from_delta(delta, geometric_factor, n_tor)</code></p>
 
 <p><strong>Convention-sensitive.</strong> </p>
 
-<p>Electron gyroradius figure $\sqrt{T_e}\,a/B_t$ (as implemented).</p>
+<p>Pitch-resonant flux from the resonance parameter and the surface geometry.</p>
 
-\[\rho_*^{\mathrm{(impl)}} = \frac{\sqrt{T_e}}{B_t}\,a\]
+\[\Phi_\mathrm{res} = -\frac{G(\psi_\mathrm{res})}{n}\,\Delta\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>delta</code></td><td>complex or np.ndarray</td><td>-</td><td><p>Unitless resonance parameter $\Delta$, the jump in the resonant field’s $\psi$ derivative across the surface.</p>
+</td></tr>
+  <tr><td><code>geometric_factor</code></td><td>float or np.ndarray</td><td>T</td><td><p>$G(\psi_\mathrm{res})$, the surface’s own factor.</p>
+</td></tr>
+  <tr><td><code>n_tor</code></td><td>int</td><td>-</td><td><p>Toroidal mode number.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>complex or np.ndarray</td><td>T</td><td><p>Pitch-resonant flux, normalised by the surface area.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">n_tor</code> is not a positive mode number.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>$G$ absorbs two equilibrium-only quantities GPEC forms separately: the
+surface integral $j_c$ of $B^{2}/|\nabla\psi|^{3}$, and the diagonal of
+the vacuum surface inductance that <code class="language-plaintext highlighter-rouge">gpvacuum_flxsurf</code> builds by calling
+the VACUUM code. Both depend on the flux surface and not on the
+perturbation, so $G$ is a property of the equilibrium and is measured
+once for it rather than rebuilt per run.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>$\Delta$ says how much the resonant field is discontinuous across the
+surface; $G$ converts that discontinuity into the flux the singular
+current drives. The minus sign is GPEC’s: measured, the phase of
+$n\,\Phi_\mathrm{res}/\Delta$ is exactly 180 degrees.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>That $G$ was measured on the same equilibrium. It is not transferable
+between equilibria, and nothing here can detect a mismatch.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Measured on the DIII-D 147131 reference, $n\,\Phi_\mathrm{res}/\Delta$
+agrees across n = 1, 2 and 3 at every shared rational surface to within
+0.6 per cent, and the values the three modes report at <em>different</em>
+surfaces fall on one smooth curve in $q$ – which is what makes $G$
+interpolable in $\psi$ from the surfaces any single run reaches.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The 0.6 per cent spread is systematic rather than noise: it grows
+monotonically from n = 1 to n = 3, which is the vacuum Green’s function’s
+own weak dependence on the toroidal mode number. A study needing better
+than that has to build the inductance rather than measure $G$.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">GPEC/gpec/gpout.f:1690-1705</code> for the chain $\Delta \to I_\mathrm{res} \to \Phi_\mathrm{res}$, and <code class="language-plaintext highlighter-rouge">GPEC/gpec/gpvacuum.f:236-342</code> for the inductance $G$ absorbs.
+</li>
+</ol>
+
+<h3 id="rhostar_from_Te_a_Bt"><code class="language-plaintext highlighter-rouge">rhostar_from_Te_a_Bt</code></h3>
+
+<p class="formula-signature"><code>rhostar_from_Te_a_Bt(Te_eV, a_minor, B_t)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Normalised electron gyroradius $\rho_e/a$.</p>
+
+\[\rho_* = \frac{\rho_e}{a}, \qquad
+  \rho_e = \frac{\sqrt{2 m_e e T_e}}{e B_t}
+          = \sqrt{\frac{2m_e}{e}}\;\frac{\sqrt{T_e}}{B_t}\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
@@ -1080,28 +1303,29 @@ no derivation or source is recorded.  Kept for compatibility.  Tracked in
 </td></tr>
   <tr><td><code>B_t</code></td><td>float</td><td>T</td><td><p>Toroidal field.</p>
 </td></tr>
-  <tr><td><code>m_e</code></td><td>float, optional</td><td>kg</td><td><p>Electron mass, accepted but unused; default <code class="language-plaintext highlighter-rouge">ME</code>.</p>
-</td></tr>
   </tbody>
 </table>
 
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>float</td><td>eV^1/2 m/T</td><td><p>The expression above.</p>
+  <tr><td></td><td>float</td><td>-</td><td><p>Normalised electron gyroradius.</p>
 </td></tr>
   </tbody>
 </table>
 
 <p><strong>Convention.</strong></p>
 
-<p>Intended as the normalised electron gyroradius $\rho_e/a$ with $\rho_e =
-\sqrt{2m_eT_e}/(eB)$, which <em>divides</em> by $a$ and carries the constant
-$\sqrt{2m_e/e} = 3.37\times10^{-6}$ m T eV$^{-1/2}$.  The implementation
-multiplies by $a$ and omits the constant, so it is neither dimensionless
-nor proportional to $\rho_*$ across devices.  Tracked in #348; use
-<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.normalized_larmor_radius_from_M_T_a_Bt</code>
-with <code class="language-plaintext highlighter-rouge">M=ME</code>.</p>
+<p>Thermal speed $\sqrt{2T/m}$ and the toroidal field, normalised by the minor
+radius: the ITER Physics Basis definition [1], and the electron counterpart
+of <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.normalized_larmor_radius_from_M_T_a_Bt</code>,
+which this delegates to so the two cannot drift.</p>
+
+<p>Until #348 this multiplied by $a$ instead of dividing, omitted the constant
+$\sqrt{2m_e/e} = 3.37\times10^{-6}$ m T eV$^{-1/2}$, and ignored an
+<code class="language-plaintext highlighter-rouge">m_e</code> argument it accepted – so the result was neither dimensionless nor
+proportional to $\rho_*$ across devices, and no rescaling recovered it. The
+dead <code class="language-plaintext highlighter-rouge">m_e</code> parameter is gone with the defect.</p>
 
 <p><strong>References.</strong></p>
 
@@ -1313,7 +1537,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#ballooning_alpha_from_p_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_alpha_from_p_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#ballooning_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_N_from_beta_a_B0_Ip" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_N_from_beta_a_B0_Ip</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_pol_from_beta_tor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_pol_from_beta_tor</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_stability_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_stability_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_tor_from_beta_pol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_tor_from_beta_pol</a></li><li class="page-toc-item page-toc-level-3"><a href="#c_s_from_Te_Ti_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">c_s_from_Te_Ti_mi</a></li><li class="page-toc-item page-toc-level-3"><a href="#collisionality_from_n_T_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">collisionality_from_n_T_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#empirical_li_qa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">empirical_li_qa</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_fraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_fraction</a></li><li class="page-toc-item page-toc-level-3"><a href="#kink_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kink_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#li_from_qa_empirical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">li_from_qa_empirical</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_stability_margins" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_stability_margins</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_beta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_beta</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#rhostar_from_Te_a_Bt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rhostar_from_Te_a_Bt</a></li><li class="page-toc-item page-toc-level-3"><a href="#sawtooth_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sawtooth_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#v_alfven_from_B_n_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">v_alfven_from_B_n_mi</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#ballooning_alpha_from_p_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_alpha_from_p_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#ballooning_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_N_from_beta_a_B0_Ip" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_N_from_beta_a_B0_Ip</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_pol_from_beta_tor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_pol_from_beta_tor</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_stability_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_stability_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_tor_from_beta_pol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_tor_from_beta_pol</a></li><li class="page-toc-item page-toc-level-3"><a href="#c_s_from_Te_Ti_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">c_s_from_Te_Ti_mi</a></li><li class="page-toc-item page-toc-level-3"><a href="#collisionality_from_n_T_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">collisionality_from_n_T_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#empirical_li_qa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">empirical_li_qa</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_fraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_fraction</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_width_from_resonant_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_width_from_resonant_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#kink_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kink_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#li_from_qa_empirical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">li_from_qa_empirical</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_stability_margins" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_stability_margins</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_beta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_beta</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_flux_from_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_flux_from_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#rhostar_from_Te_a_Bt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rhostar_from_Te_a_Bt</a></li><li class="page-toc-item page-toc-level-3"><a href="#sawtooth_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sawtooth_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#v_alfven_from_B_n_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">v_alfven_from_B_n_mi</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1431,7 +1655,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-17 06:09:00 +0000"
+        "time": "2026-09-17 09:45:58 +0000"
     },
     "basePath": "/vaft",
     "book": {

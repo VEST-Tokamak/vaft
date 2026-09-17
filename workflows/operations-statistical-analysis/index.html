@@ -2,7 +2,7 @@
 <html lang="en" >
     <head><meta charset="UTF-8">
 <meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Operations and statistical analysis · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
 <link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
@@ -136,6 +136,36 @@
                     <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
                     
                         <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
                     </li>
                 
                     
@@ -395,7 +425,12 @@ authors used. Every unit trap on this page is collected again in
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">B_r</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">radial_magnetic_field_from_psi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span>      <span class="c1"># B_r = -(1/R) dpsi/dZ
 </span><span class="n">B_z</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">vertical_magnetic_field_from_psi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span>    <span class="c1"># B_z = +(1/R) dpsi/dR
-</span><span class="n">j</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">current_density_from_psi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>               <span class="c1"># j = -(1/(mu0 R)) dpsi/dR
+# current_density_from_psi is deprecated (#355): it returns -B_Z/mu0 [A/m],
+# not a current density.  For that quantity, note the minus sign:
+</span><span class="n">j</span>   <span class="o">=</span> <span class="o">-</span><span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">vertical_magnetic_field_from_psi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span> <span class="o">/</span> <span class="n">MU0</span>   <span class="c1"># [A/m]
+# For a real toroidal current density use the Grad-Shafranov operator:
+#   vaft.process.equilibrium.grad_shafranov_operator(psi, R, Z), or the
+#   ODS's own profiles_2d.j_tor.
 </span></code></pre></div></div>
 
 <p>All of these differentiate with <code class="language-plaintext highlighter-rouge">np.gradient</code> along a single axis, so they expect <strong>1-D slices</strong>, not
@@ -416,7 +451,9 @@ a 2-D $(R, Z)$ map.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">V</span>     <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">volume_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">)</span>              <span class="c1"># 2 pi A_poly R_bar
 </span><span class="n">kappa</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">elongation_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">)</span>          <span class="c1"># kappa = (Zmax-Zmin)/(2a)
-</span><span class="n">delta</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">triangularity_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>   <span class="c1"># delta = (R0 - R_sep)/a
+</span><span class="n">delta</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">triangularity_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>   <span class="c1"># mean of the two below
+</span><span class="n">d_u</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">triangularity_upper_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>  <span class="c1"># (R0 - R at Zmax)/a
+</span><span class="n">d_l</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">triangularity_lower_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>  <span class="c1"># (R0 - R at Zmin)/a
 </span><span class="n">eK</span>    <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">eK_from_K</span><span class="p">(</span><span class="n">kappa</span><span class="p">)</span>                                     <span class="c1"># eK = (k^2-1)/(k^2+1)
 </span><span class="n">eps</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">inverse_aspect_ratio_from_a_R</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>                  <span class="c1"># epsilon = a/R
 </span><span class="n">A</span>     <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">aspect_ratio_from_a_R</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>                          <span class="c1"># A = R/a
@@ -665,7 +702,7 @@ is the symptom.</p>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">radial_magnetic_field_from_psi</code>, <code class="language-plaintext highlighter-rouge">vertical_magnetic_field_from_psi</code>, <code class="language-plaintext highlighter-rouge">current_density_from_psi</code></td>
+      <td><code class="language-plaintext highlighter-rouge">radial_magnetic_field_from_psi</code>, <code class="language-plaintext highlighter-rouge">vertical_magnetic_field_from_psi</code></td>
       <td>Differentiate along a single axis with <code class="language-plaintext highlighter-rouge">np.gradient</code> — pass <strong>1-D slices</strong>, not a 2-D $(R,Z)$ map.</td>
     </tr>
     <tr>
@@ -755,7 +792,10 @@ is the symptom.</p>
       <ul>
         
           
-          <li data-resource-id="process"><a href="/vaft/reference/api/#vaftprocess-and-vaftformula"><code>vaft.process</code></a></li>
+          <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/reference/process/"><code>vaft.process</code></a></li>
         
           
           <li data-resource-id="plot"><a href="/vaft/reference/api/#vaftplot"><code>vaft.plot</code></a></li>
@@ -1048,7 +1088,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-17 06:09:00 +0000"
+        "time": "2026-09-17 09:45:58 +0000"
     },
     "basePath": "/vaft",
     "book": {

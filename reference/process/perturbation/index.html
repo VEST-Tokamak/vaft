@@ -1,0 +1,2123 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: perturbation · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/process/camera_fluctuation/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/vest-diagnostics/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: perturbation</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_perturbation">Process reference: perturbation</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.perturbation, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/perturbation.py"><code class="language-plaintext highlighter-rouge">vaft/process/perturbation.py</code></a>:
+21 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("perturbation.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/reference/process/">process reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>A 3-D perturbation is felt at the surfaces where it resonates, and a code
+like GPEC reports one row per rational surface: the resonant flux, the
+shielding current, the island it would open, the Chirikov parameter. Reading
+those rows is <code class="language-plaintext highlighter-rouge">vaft.code.gpec</code>’s job and it is done; this module is what
+turns a table of them into the few numbers a study actually compares.</p>
+
+<p>Nothing here is specific to a machine or to a code. The input is a radial
+coordinate and a column of values; <code class="language-plaintext highlighter-rouge">resonant_metrics</code> takes the mapping
+<code class="language-plaintext highlighter-rouge">vaft.code.gpec.GpecProfileOutput.resonant_table</code> returns because that
+is the shape the data already has, not because the module knows about GPEC.</p>
+
+<p>Two things this module is careful about, because the code it replaces was
+not.</p>
+
+<p><strong>Where a region starts and ends is not a constant.</strong> The legacy metrics
+hard-code the core at psi_n &lt;= 0.8 and the edge at 0.8 to 0.95, and seven
+different window sets are scattered across the notebooks that used them
+(convention C-16). Decision D-05 settles it: the boundary comes from the
+pedestal, through <code class="language-plaintext highlighter-rouge">vaft.process.profile.pedestal_top</code>, and every
+reduction records which window it used and where that window came from. The
+legacy numbers survive only as <code class="language-plaintext highlighter-rouge">LEGACY_WINDOWS</code>, so an old result can
+still be reproduced deliberately.</p>
+
+<p><strong>An island width is not a threshold.</strong> GPEC reports the island each
+resonant surface would open, and whether those islands overlap decides
+whether the region goes stochastic. The comparison it is made against –
+the distance to the nearest neighbouring surface – is pure geometry, and
+GPEC leaves its own <code class="language-plaintext highlighter-rouge">w_isl_v_crit</code> at zero on an ideal run, so it has to be
+computed. It is, here, and it reproduces GPEC’s own Chirikov parameter
+exactly: <code class="language-plaintext highlighter-rouge">w_isl / d_nn</code> equals the <code class="language-plaintext highlighter-rouge">K_isl</code> in the file to the last bit on
+every surface of every run checked, which is what makes the derived
+quantities trustworthy rather than merely plausible.</p>
+
+<p><strong>A coupling matrix and a field have to be on one basis.</strong> A GPEC run
+reports five couplings – flux, current, island width, penetrated flux and
+Delta – and writes them as <code class="language-plaintext highlighter-rouge">C_f_x_out</code> and its four siblings on the
+<em>output</em> harmonic basis <code class="language-plaintext highlighter-rouge">m_out</code>, which in the DIII-D example has 129
+entries. The external field <code class="language-plaintext highlighter-rouge">Phi_xe</code> is on <code class="language-plaintext highlighter-rouge">m</code>, which has 34. The one
+array that pairs with it is <code class="language-plaintext highlighter-rouge">C_xe</code>, the flux coupling on the field’s own
+basis – its singular values agree with <code class="language-plaintext highlighter-rouge">C_f_xe_out_singval</code> to 1.4e-5.
+<code class="language-plaintext highlighter-rouge">edge_overlap_metric</code> refuses a mismatch rather than broadcasting one,
+and nothing here maps a family name to a variable, because four of the five
+have no counterpart on the basis the field lives on.</p>
+
+<p><strong>Several mode numbers meet only at a rational surface.</strong> A harmonic
+<code class="language-plaintext highlighter-rouge">(m, n)</code> varies as <code class="language-plaintext highlighter-rouge">exp(i (m theta - n zeta))</code>, so on the surface
+<code class="language-plaintext highlighter-rouge">q = m / n</code> its phase is <code class="language-plaintext highlighter-rouge">n (q theta - zeta)</code> – <code class="language-plaintext highlighter-rouge">n</code> times one angle,
+whatever <code class="language-plaintext highlighter-rouge">n</code> is. Every mode resonating at one <code class="language-plaintext highlighter-rouge">q</code> is therefore a
+harmonic of a single Fourier series, and <code class="language-plaintext highlighter-rouge">composite_drive_at_q</code> sums
+them as one. Away from such a surface they are unlike things and nothing
+here adds them; Chirikov parameters in particular are not additive across
+<code class="language-plaintext highlighter-rouge">n</code> at all, which the legacy acknowledged by naming the column that added
+them <code class="language-plaintext highlighter-rouge">sum_K_isl_wrong</code>.</p>
+
+<p><strong>A reduction is not a verdict.</strong> <code class="language-plaintext highlighter-rouge">vaft.process</code> computes; it does not
+decide. The thresholds the legacy compared against – a Chirikov parameter of
+1, a penetration ratio of 1, an edge overlap of 7.4e-4 – are arguments here
+and defaults nowhere, and nothing in this module returns “stable”. A study
+that wants a verdict registers one in <code class="language-plaintext highlighter-rouge">vaft.validation</code>.</p>
+
+<p>Units are SI throughout: the resonant flux is in tesla, as GPEC writes it,
+and is <em>not</em> multiplied by 1e4. The legacy reported gauss, silently, inside
+the reduction; a factor of ten thousand belongs to a display layer that says
+which unit it is showing.</p>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#align_surfaces_by_q"><code>align_surfaces_by_q</code></a> &mdash; Match rational surfaces across toroidal mode numbers by their <code class="language-plaintext highlighter-rouge">q</code>.
+</li>
+  <li><a href="#amplification_ratio"><code>amplification_ratio</code></a> &mdash; How much larger one run’s resonant response is than another’s.
+</li>
+  <li><a href="#chirikov"><code>chirikov</code></a> &mdash; The island-overlap parameter, by either of the two definitions in use.
+</li>
+  <li><a href="#composite_drive_at_q"><code>composite_drive_at_q</code></a> &mdash; Sum one resonant column over every mode that resonates at a given <code class="language-plaintext highlighter-rouge">q</code>.
+</li>
+  <li><a href="#critical_island_width"><code>critical_island_width</code></a> &mdash; The island width at which a surface’s islands reach its neighbour’s.
+</li>
+  <li><a href="#edge_overlap_metric"><code>edge_overlap_metric</code></a> &mdash; How much of an external field lands on the dominant coupling mode.
+</li>
+  <li><a href="#energy_norm_matrix"><code>energy_norm_matrix</code></a> &mdash; The inverse square root of an energy matrix, from its eigendecomposition.
+</li>
+  <li><a href="#group_coincident_islands"><code>group_coincident_islands</code></a> &mdash; Collapse islands that sit on the same surface into one.
+</li>
+  <li><a href="#helical_phase_sweep"><code>helical_phase_sweep</code></a> &mdash; The composite drive at one surface, as a function of the helical angle.
+</li>
+  <li><a href="#island_overlap_width"><code>island_overlap_width</code></a> &mdash; How far in from the boundary the islands overlap without a break.
+</li>
+  <li><a href="#island_pairs"><code>island_pairs</code></a> &mdash; Every adjacent pair of islands, with the gap between their separatrices.
+</li>
+  <li><a href="#nearest_surface_spacing"><code>nearest_surface_spacing</code></a> &mdash; Distance from each rational surface to its nearest neighbour.
+</li>
+  <li><a href="#penetration_ratio"><code>penetration_ratio</code></a> &mdash; Island width as a fraction of the width at which islands would overlap.
+</li>
+  <li><a href="#q_composite_table"><code>q_composite_table</code></a> &mdash; One row per rational surface, summed over the modes that reach it.
+</li>
+  <li><a href="#reduce_delta_e"><code>reduce_delta_e</code></a> &mdash; Combine a per-mode edge-overlap metric into one number.
+</li>
+  <li><a href="#reduce_resonant"><code>reduce_resonant</code></a> &mdash; Reduce one resonant column over one radial window.
+</li>
+  <li><a href="#resonant_delta"><code>resonant_delta</code></a> &mdash; The resonance parameter from the jump in a stored spectral field.
+</li>
+  <li><a href="#resonant_geometric_factor"><code>resonant_geometric_factor</code></a> &mdash; Measure the surface factor that turns a resonance parameter into a flux.
+</li>
+  <li><a href="#resonant_metrics"><code>resonant_metrics</code></a> &mdash; Reduce every named column of a resonant table over every window.
+</li>
+  <li><a href="#resonant_windows"><code>resonant_windows</code></a> &mdash; The core, edge and total radial windows a reduction is taken over.
+</li>
+  <li><a href="#rms_resonant_field"><code>rms_resonant_field</code></a> &mdash; Root-mean-square resonant field over a radial window.
+</li>
+</ul>
+
+<h3 id="align_surfaces_by_q"><code class="language-plaintext highlighter-rouge">align_surfaces_by_q</code></h3>
+
+<p class="formula-signature"><code>align_surfaces_by_q(tables, *, integrality_tolerance=1e-06)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Match rational surfaces across toroidal mode numbers by their <code class="language-plaintext highlighter-rouge">q</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>tables</code></td><td>mapping of int to mapping</td><td>n/a</td><td><p>One resonant table per toroidal mode number, each carrying at least a <code class="language-plaintext highlighter-rouge">q_rational</code> column – the shape <code class="language-plaintext highlighter-rouge">vaft.code.gpec.GpecProfileOutput.resonant_table</code> returns. <code class="language-plaintext highlighter-rouge">psi_n_rational</code> is recorded when present.</p>
+</td></tr>
+  <tr><td><code>integrality_tolerance</code></td><td>float, optional</td><td>-</td><td><p>How far <code class="language-plaintext highlighter-rouge">n * q</code> may sit from an integer and still count as a rational surface of that mode.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of AlignedSurface</td><td>n/a</td><td><p>Every <code class="language-plaintext highlighter-rouge">q</code> at which any mode resonates, ascending, each carrying one <code class="language-plaintext highlighter-rouge">SurfaceMember</code> per mode in the input.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A mode number is not a positive integer, a table has no
+    <code class="language-plaintext highlighter-rouge">q_rational</code>, a <code class="language-plaintext highlighter-rouge">q</code> is not finite, or <code class="language-plaintext highlighter-rouge">n * q</code> is not an integer
+    for a surface the run itself reports.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Turn each reported <code class="language-plaintext highlighter-rouge">q</code> into the fraction <code class="language-plaintext highlighter-rouge">m / n</code> and refuse a
+surface whose <code class="language-plaintext highlighter-rouge">n * q</code> is not integral – a run reporting one is
+reporting something that is not a rational surface.</li>
+  <li>Collect the union of those fractions across modes, ascending.</li>
+  <li>For every mode at every <code class="language-plaintext highlighter-rouge">q</code>, record <code class="language-plaintext highlighter-rouge">resonant</code> when the run
+reports a surface, <code class="language-plaintext highlighter-rouge">non_resonant</code> when <code class="language-plaintext highlighter-rouge">n * q</code> is not an integer,
+and <code class="language-plaintext highlighter-rouge">absent</code> when it is but the run reports nothing.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">integrality_tolerance = 1e-6</code> is a numerical convenience: loose
+enough for a <code class="language-plaintext highlighter-rouge">q</code> that has been through a file format. Rounding to the
+nearest integer is what decides which rational a value belongs to, so
+two rationals cannot be confused at any mode number whatever the
+tolerance is; it only decides how far from <em>any</em> of them a value may sit
+before it is refused, and being absolute on <code class="language-plaintext highlighter-rouge">n * q</code> it tightens as
+<code class="language-plaintext highlighter-rouge">1e-6 / n</code> on <code class="language-plaintext highlighter-rouge">q</code> itself. The match is exact – this is not a
+matching tolerance.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Surfaces are matched on the <strong>exact rational</strong> <code class="language-plaintext highlighter-rouge">m / n</code>, not on a
+tolerance around a float. On the DIII-D reference <code class="language-plaintext highlighter-rouge">q_rational</code> is
+exactly <code class="language-plaintext highlighter-rouge">m / n</code> in double precision for every surface of every mode,
+and IEEE division is correctly rounded, so two fractions that reduce to
+the same rational give the same double – <code class="language-plaintext highlighter-rouge">4/3</code> and <code class="language-plaintext highlighter-rouge">8/6</code> compare
+equal. The positions do not: at <code class="language-plaintext highlighter-rouge">q = 2</code> the three runs put
+<code class="language-plaintext highlighter-rouge">psi_n_rational</code> at 0.59364383816324717, 0.59364383816324717 and
+0.59364383816403732, first differing in the twelfth significant digit.
+<code class="language-plaintext highlighter-rouge">q</code> is the key because it is exact; <code class="language-plaintext highlighter-rouge">psi</code> is the root finder’s answer
+and is not.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent. Nothing here reads a machine, a code or a file; the
+input is a column of <code class="language-plaintext highlighter-rouge">q</code> per mode number.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">absent</code> and <code class="language-plaintext highlighter-rouge">resonant</code> are statements about one run’s radial extent,
+not about the plasma: a surface the run truncated away is real. Nothing
+here reads <code class="language-plaintext highlighter-rouge">qlim</code>, so <code class="language-plaintext highlighter-rouge">absent</code> cannot distinguish a truncated run
+from a failed root find.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.align_surfaces_by_q</code>, which matched the single nearest surface within <code class="language-plaintext highlighter-rouge">q_tol = 0.05</code> of four hard-coded targets <code class="language-plaintext highlighter-rouge">(2, 3, 4, 5)</code>. Three departures. The window is absolute, so it admits more than one rational once the spacing <code class="language-plaintext highlighter-rouge">1 / n</code> falls below it – at n = 20 exactly, where it silently keeps the nearest and drops the rest. A mode out of tolerance was dropped from the group with no record, which is indistinguishable here from a mode that cannot resonate at that <code class="language-plaintext highlighter-rouge">q</code> at all. And its tolerance test was <code class="language-plaintext highlighter-rouge">abs(q - target) &gt; q_tol</code>, which is <code class="language-plaintext highlighter-rouge">False</code> for a <code class="language-plaintext highlighter-rouge">nan</code>, so a <code class="language-plaintext highlighter-rouge">nan</code> <code class="language-plaintext highlighter-rouge">q</code> was returned as a match.
+</li>
+</ol>
+
+<h3 id="amplification_ratio"><code class="language-plaintext highlighter-rouge">amplification_ratio</code></h3>
+
+<p class="formula-signature"><code>amplification_ratio(psi_norm, values, reference_psi_norm, reference_values, *, window, statistic='rms')</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>How much larger one run’s resonant response is than another’s.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Rational-surface coordinate of the case.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The case’s resonant column.</p>
+</td></tr>
+  <tr><td><code>reference_psi_norm</code></td><td>array_like</td><td>-</td><td><p>Rational-surface coordinate of the reference, usually the vacuum run</p>
+</td></tr>
+  <tr><td><code>reference_values</code></td><td>array_like</td><td>any</td><td><p>The reference’s resonant column, in the same unit as <code class="language-plaintext highlighter-rouge">values</code>.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td>ResonantWindow</td><td>-</td><td><p>The interval both are reduced over.</p>
+</td></tr>
+  <tr><td><code>statistic</code></td><td>str, optional</td><td>n/a</td><td><p>One of <code class="language-plaintext highlighter-rouge">RESONANT_STATISTICS</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>Case over reference; <code class="language-plaintext highlighter-rouge">nan</code> when either window is empty or the reference reduces to zero.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Reduce each run over <code class="language-plaintext highlighter-rouge">window</code> independently, so the two need not
+share a rational-surface set.</li>
+  <li>Divide.</li>
+</ol>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Both runs are reduced on their <em>own</em> surfaces. Two equilibria resonate at
+different places, and interpolating one onto the other’s surfaces would
+invent a resonance where there is none.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_analysis.calculate_amplification_ratio</code>, which fell back to the vacuum column silently when the plasma one was absent – returning a ratio of one and calling it no amplification. Not carried over: an absent column raises here.
+</li>
+</ol>
+
+<h3 id="chirikov"><code class="language-plaintext highlighter-rouge">chirikov</code></h3>
+
+<p class="formula-signature"><code>chirikov(psi_norm, width, *, definition='surface')</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The island-overlap parameter, by either of the two definitions in use.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Rational-surface positions.</p>
+</td></tr>
+  <tr><td><code>width</code></td><td>array_like</td><td>-</td><td><p>Full island width per surface.</p>
+</td></tr>
+  <tr><td><code>definition</code></td><td>str, optional</td><td>n/a</td><td><p><code class="language-plaintext highlighter-rouge">"surface"</code> centres it on each surface, <code class="language-plaintext highlighter-rouge">width / d_nn</code>, and returns one value per surface. <code class="language-plaintext highlighter-rouge">"pair"</code> takes each adjacent pair, <code class="language-plaintext highlighter-rouge">(w_inner + w_outer) / 2 / spacing</code>, and returns one value per <em>pair</em> – one fewer than the surfaces.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>-</td><td><p>For <code class="language-plaintext highlighter-rouge">"surface"</code>, one value per surface in the caller’s order. For <code class="language-plaintext highlighter-rouge">"pair"</code>, one per adjacent pair <strong>sorted outward</strong> – which two islands are neighbours is a property of the sorted sequence, and <code class="language-plaintext highlighter-rouge">IslandPairs</code> carries the indices that map each pair back.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">definition</code> is neither, or two surfaces share a position.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">definition="surface"</code> is a legacy compatibility value: it is the form
+GPEC itself reports as <code class="language-plaintext highlighter-rouge">K_isl</code>, so it is what a caller comparing with a
+file will want. It also returns a different array length from <code class="language-plaintext highlighter-rouge">"pair"</code>.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The two definitions answer different questions and disagree by design:
+the surface form asks whether one island reaches its nearest neighbour,
+the pair form whether two particular islands reach each other. GPEC’s own
+<code class="language-plaintext highlighter-rouge">K_isl</code> is the surface form.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.compute_surface_chirikov</code> and <code class="language-plaintext highlighter-rouge">compute_pair_chirikov</code>.
+</li>
+</ol>
+
+<h3 id="composite_drive_at_q"><code class="language-plaintext highlighter-rouge">composite_drive_at_q</code></h3>
+
+<p class="formula-signature"><code>composite_drive_at_q(tables, q, column, *, weights=None, integrality_tolerance=1e-06, angle_points=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Sum one resonant column over every mode that resonates at a given <code class="language-plaintext highlighter-rouge">q</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>tables</code></td><td>mapping of int to mapping</td><td>n/a</td><td><p>One resonant table per toroidal mode number, as <code class="language-plaintext highlighter-rouge">align_surfaces_by_q</code> takes.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td>float</td><td>-</td><td><p>The rational surface to sum at.</p>
+</td></tr>
+  <tr><td><code>column</code></td><td>str</td><td>n/a</td><td><p>The column to sum. Complex is the point – a magnitude carries no phase to interfere with.</p>
+</td></tr>
+  <tr><td><code>weights</code></td><td>mapping of int to complex, optional</td><td>n/a</td><td><p>Per-mode complex weight, applied before the sum. A unit-modulus weight rotates a mode’s phase; a real one rescales its amplitude</p>
+</td></tr>
+  <tr><td><code>integrality_tolerance</code></td><td>float, optional</td><td>-</td><td><p>Passed to <code class="language-plaintext highlighter-rouge">align_surfaces_by_q</code>.</p>
+</td></tr>
+  <tr><td><code>angle_points</code></td><td>int, optional</td><td>-</td><td><p>How finely the helical angle is sampled before the peak is refined. Left unset it is sized from the highest resonating mode number; given, it must be at least <code class="language-plaintext highlighter-rouge">16 * n_max + 1</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>CompositeDrive</td><td>rad</td><td><p><code class="language-plaintext highlighter-rouge">peak</code> and <code class="language-plaintext highlighter-rouge">peak_angle</code> are the largest real amplitude over the helical angle and where it occurs; <code class="language-plaintext highlighter-rouge">quadrature</code> is <code class="language-plaintext highlighter-rouge">sqrt(sum |z|**2)</code>; <code class="language-plaintext highlighter-rouge">linear_bound</code> is <code class="language-plaintext highlighter-rouge">sum |z|</code>, the value the peak would reach if every mode aligned. <code class="language-plaintext highlighter-rouge">peak</code>, <code class="language-plaintext highlighter-rouge">quadrature</code> and <code class="language-plaintext highlighter-rouge">linear_bound</code> carry <code class="language-plaintext highlighter-rouge">column</code>’s own units and <code class="language-plaintext highlighter-rouge">peak_angle</code> is an angle.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    No mode resonates at <code class="language-plaintext highlighter-rouge">q</code>, the column is missing from a resonating
+    mode’s table, a contribution is not finite, <code class="language-plaintext highlighter-rouge">angle_points</code> is less
+    than 2, or a weight names a mode that is not in <code class="language-plaintext highlighter-rouge">tables</code>.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Align the surfaces and keep the modes that resonate at <code class="language-plaintext highlighter-rouge">q</code>.</li>
+  <li>Weight each mode’s contribution.</li>
+  <li>Evaluate <code class="language-plaintext highlighter-rouge">sum_n Re(z_n exp(i n u))</code> over <code class="language-plaintext highlighter-rouge">u</code> in <code class="language-plaintext highlighter-rouge">[0, 2 pi)</code>,
+take the largest, and refine it by golden-section search.</li>
+  <li>Report the quadrature sum and the aligned-phase bound alongside.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">angle_points</code> unset is a numerical convenience: <code class="language-plaintext highlighter-rouge">16 * n_max + 1</code>
+points, sixteen per period of the top harmonic, but never fewer than</p>
+<ol>
+  <li>The size has to follow <code class="language-plaintext highlighter-rouge">n_max</code> because the sum is a trigonometric
+polynomial of that degree and has up to <code class="language-plaintext highlighter-rouge">2 n_max</code> maxima. A fixed
+721-point grid was measured against a two-million-point scan on 400
+random cases per row: it already missed the peak in 2 of 400 at
+<code class="language-plaintext highlighter-rouge">n_max = 20</code> – worst deficit 1.5e-3, on the two-mode case (14, 19) –
+and in 281 of 400 at <code class="language-plaintext highlighter-rouge">n_max = 400</code>, worst deficit 0.20. Sized from
+<code class="language-plaintext highlighter-rouge">n_max</code> and refined from every sampled local maximum it misses none.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The modes that share a rational surface also share a helical angle,
+and that is what makes this sum well defined.</strong> A harmonic <code class="language-plaintext highlighter-rouge">(m, n)</code>
+varies as <code class="language-plaintext highlighter-rouge">exp(i (m theta - n zeta))</code>, and on the surface <code class="language-plaintext highlighter-rouge">q = m / n</code>
+that phase is <code class="language-plaintext highlighter-rouge">n (q theta - zeta)</code> – <code class="language-plaintext highlighter-rouge">n</code> times the single angle
+<code class="language-plaintext highlighter-rouge">u = q theta - zeta</code>, whatever <code class="language-plaintext highlighter-rouge">n</code> is. So every mode resonating at
+one <code class="language-plaintext highlighter-rouge">q</code> is a harmonic of one Fourier series in <code class="language-plaintext highlighter-rouge">u</code>, the <code class="language-plaintext highlighter-rouge">n</code>-th, and
+summing them is ordinary Fourier synthesis rather than an addition of
+unlike things. Away from a rational surface it would be neither.</p>
+
+<p>The origin of <code class="language-plaintext highlighter-rouge">u</code> is a gauge: shifting it by <code class="language-plaintext highlighter-rouge">d</code> takes <code class="language-plaintext highlighter-rouge">z_n</code> to
+<code class="language-plaintext highlighter-rouge">z_n exp(i n d)</code>, so the amplitude at a <em>particular</em> angle means
+nothing unless the caller fixed that origin – through the coil geometry,
+say. <code class="language-plaintext highlighter-rouge">peak</code> is invariant under the shift and is the number to quote;
+<code class="language-plaintext highlighter-rouge">peak_angle</code> is reported relative to the input’s own origin and moves
+with it. <code class="language-plaintext highlighter-rouge">quadrature</code> and <code class="language-plaintext highlighter-rouge">linear_bound</code> are invariant too.</p>
+
+<p>The decomposition assumed is <code class="language-plaintext highlighter-rouge">exp(i (m theta - n phi))</code>, which is
+GPEC’s, and its spectral <code class="language-plaintext highlighter-rouge">Phi_res</code> is written without the
+<code class="language-plaintext highlighter-rouge">-helicity</code> flip its real-space outputs carry, so no helicity factor
+enters the sum. <strong>What helicity does reach is</strong> <code class="language-plaintext highlighter-rouge">peak_angle</code>: GPEC’s
+<code class="language-plaintext highlighter-rouge">phi</code> runs counter-clockwise for a left-handed plasma and clockwise
+for a right-handed one, so on a <code class="language-plaintext highlighter-rouge">helicity = +1</code> run the same spectral
+convention makes <code class="language-plaintext highlighter-rouge">u = q theta + phi</code> in machine coordinates and the
+reported angle runs the other way. <code class="language-plaintext highlighter-rouge">peak</code>, <code class="language-plaintext highlighter-rouge">quadrature</code> and
+<code class="language-plaintext highlighter-rouge">linear_bound</code> are untouched – conjugating every <code class="language-plaintext highlighter-rouge">z_n</code> mirrors
+<code class="language-plaintext highlighter-rouge">u -&gt; -u</code>, and a mirrored curve has the same height.</p>
+
+<p>The amplitude summed is <code class="language-plaintext highlighter-rouge">Re(z exp(i n u))</code> and not twice it. A real
+field reconstructed from positive <code class="language-plaintext highlighter-rouge">n</code> alone carries the conjugate
+harmonics too, so a comparison against a real-space output will differ
+by a factor of two; this follows the convention the legacy’s own
+artefact records rather than that one.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent. The helical angle exists wherever <code class="language-plaintext highlighter-rouge">q = m / n</code>
+does, which is every tokamak.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The peak is over the helical angle at one surface; it is not an island
+width, and the modes do not combine into one. Chirikov parameters in
+particular are <strong>not</strong> additive across <code class="language-plaintext highlighter-rouge">n</code> – the legacy summed them
+into a column it named <code class="language-plaintext highlighter-rouge">sum_K_isl_wrong</code>, and nothing here reproduces
+that sum under a better name.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.composite_drive_at_q</code>, which returned <code class="language-plaintext highlighter-rouge">abs(sum(z))</code> at the caller’s fixed phases and <code class="language-plaintext highlighter-rouge">sum(abs(z))</code> beside it, with a third key duplicating the second. The first is this function’s drive at whatever angle the weights happen to encode, which is gauge-dependent and was reported as though it were not; the second is <code class="language-plaintext highlighter-rouge">linear_bound</code>. The angle the legacy swept was never identified as the helical one.
+</li>
+  <li>The legacy’s own multi-n artefact records the phase convention it combined under: <code class="language-plaintext highlighter-rouge">sample/gpec_optimization_examples/</code> <code class="language-plaintext highlighter-rouge">q2p0_harmonic/gpec_multimode_summary_n12.json</code> carries <code class="language-plaintext highlighter-rouge">phase_convention = "real(B_n * exp(i * n * phi))"</code>.
+</li>
+</ol>
+
+<h3 id="critical_island_width"><code class="language-plaintext highlighter-rouge">critical_island_width</code></h3>
+
+<p class="formula-signature"><code>critical_island_width(psi_norm)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The island width at which a surface’s islands reach its neighbour’s.</p>
+
+<p>Purely geometric: an island overlaps its neighbour when it is as wide as
+the distance to that neighbour, so the critical width <em>is</em> the
+nearest-neighbour spacing.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Rational-surface positions.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>-</td><td><p>Critical width per surface, in the same units as <code class="language-plaintext highlighter-rouge">psi_norm</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Widths are full widths, in normalized poloidal flux, matching what GPEC
+writes as <code class="language-plaintext highlighter-rouge">w_isl</code>. The identity this rests on – <code class="language-plaintext highlighter-rouge">w_isl / w_crit</code>
+equalling GPEC’s own <code class="language-plaintext highlighter-rouge">K_isl</code> – holds because GPEC forms its Chirikov
+parameter from a half width over a half distance, and the halves cancel.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Undefined for a single surface, which has no neighbour: <code class="language-plaintext highlighter-rouge">nan</code>.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Reproduces GPEC’s own <code class="language-plaintext highlighter-rouge">K_isl</code> exactly when divided into <code class="language-plaintext highlighter-rouge">w_isl</code>: zero relative difference on every surface of the DIII-D n=1, n=2 and n=3 ideal runs.
+</li>
+  <li>GPEC leaves its own <code class="language-plaintext highlighter-rouge">w_isl_v_crit</code> at zero on an ideal run, which is why this is computed rather than read.
+</li>
+</ol>
+
+<h3 id="edge_overlap_metric"><code class="language-plaintext highlighter-rouge">edge_overlap_metric</code></h3>
+
+<p class="formula-signature"><code>edge_overlap_metric(coupling, external_field, *, b_t0, norm=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>How much of an external field lands on the dominant coupling mode.</p>
+
+<p>The coupling matrix is decomposed, the field is projected onto its
+singular modes, and the dominant mode’s share is reported per unit field.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>coupling</code></td><td>array_like</td><td>-</td><td><p>Coupling matrix, modes by harmonics, complex.</p>
+</td></tr>
+  <tr><td><code>external_field</code></td><td>array_like</td><td>T</td><td><p>The external field on the same harmonic basis, complex.</p>
+</td></tr>
+  <tr><td><code>b_t0</code></td><td>float</td><td>T</td><td><p>Vacuum toroidal field on axis, which the projection is divided by. Required: the code this replaces defaulted it to one, which silently reports a field in tesla as a dimensionless metric. A GPEC run carries it as a global attribute.</p>
+</td></tr>
+  <tr><td><code>norm</code></td><td>array_like, optional</td><td>-</td><td><p>An energy norm to apply to <code class="language-plaintext highlighter-rouge">coupling</code> first, from <code class="language-plaintext highlighter-rouge">energy_norm_matrix</code>. Omit it when the matrix is already normed – GPEC’s own <code class="language-plaintext highlighter-rouge">C_xe</code> is.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>EdgeOverlap</td><td>-</td><td><p>The metric, the per-mode projection and the singular values.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The shapes disagree, the coupling matrix or the field holds a
+    non-finite entry, the coupling matrix is empty or identically zero,
+    or <code class="language-plaintext highlighter-rouge">b_t0</code> is not a positive finite real number.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Apply <code class="language-plaintext highlighter-rouge">norm</code> to the coupling matrix when one is given.</li>
+  <li>Take its singular value decomposition.</li>
+  <li>Project the field onto the conjugated right singular vectors.</li>
+  <li>Divide the largest projection by <code class="language-plaintext highlighter-rouge">b_t0</code>.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>The projection is reported as a magnitude. A right singular vector is
+fixed only up to a phase, so the complex overlap is a gauge – GPEC’s own
+vectors and a fresh decomposition of the same matrix differ by exactly
+that phase – and a caller handed the complex number would be reading the
+decomposition rather than the plasma. The magnitude is not affected. The
+dominant mode is the one carrying the most field, which need not be the
+one with the largest singular value.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A coupling matrix that a run never filled decomposes to zero singular
+values and a projection that is just the field’s own components, which
+would report a confident metric for a run that computed nothing. An
+all-zero matrix is refused for that reason; a merely tiny one is not,
+and a run whose external field is at the level of floating-point residue
+– the n=2 ideal example has a field norm of 1e-19 – gives a ratio of
+two residues.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Conventions register C-25: the dominant singular vector needs explicit gauge fixing or the complex overlap phase is arbitrary.
+</li>
+  <li>Reproduces GPEC’s own <code class="language-plaintext highlighter-rouge">O_CPhi_xe</code> to 3e-16 and its <code class="language-plaintext highlighter-rouge">Phi_overlap_norm</code> to 4e-5 on the DIII-D n=1, n=2 and n=3 ideal runs.
+</li>
+</ol>
+
+<h3 id="energy_norm_matrix"><code class="language-plaintext highlighter-rouge">energy_norm_matrix</code></h3>
+
+<p class="formula-signature"><code>energy_norm_matrix(eigenvalues, eigenvectors, *, negative_eigenvalues)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The inverse square root of an energy matrix, from its eigendecomposition.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>eigenvalues</code></td><td>array_like</td><td>-</td><td><p>Eigenvalues of the energy matrix.</p>
+</td></tr>
+  <tr><td><code>eigenvectors</code></td><td>array_like</td><td>-</td><td><p>Its eigenvectors, one per row, matching <code class="language-plaintext highlighter-rouge">eigenvalues</code>.</p>
+</td></tr>
+  <tr><td><code>negative_eigenvalues</code></td><td>str</td><td>n/a</td><td><p>What to do with an eigenvalue at or below zero, one of <code class="language-plaintext highlighter-rouge">NEGATIVE_EIGENVALUE_POLICIES</code>. Required: the three constructions this replaces answered it three ways, and the answer changes the metric.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">W^{-1/2}</code>, square and Hermitian.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">negative_eigenvalues</code> is not one of the three; the shapes disagree
+    or <code class="language-plaintext highlighter-rouge">eigenvectors</code> is not square; an eigenvalue is complex or not
+    finite; <code class="language-plaintext highlighter-rouge">"raise"</code> was chosen and an eigenvalue is not positive; or
+    the policy left nothing.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Apply the policy to the eigenvalues.</li>
+  <li>Form <code class="language-plaintext highlighter-rouge">V^H diag(lambda^{-1/2}) V</code> over what survives.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>Rows of <code class="language-plaintext highlighter-rouge">eigenvectors</code> are the eigenvectors, so the reconstruction is
+<code class="language-plaintext highlighter-rouge">V^H diag(lambda) V</code>. That is this function’s contract, not a claim
+about any file: see the Limitations.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p><strong>No run in reach satisfies this contract</strong>, so it is unvalidated against
+real data. The ideal examples carry <code class="language-plaintext highlighter-rouge">W_xe</code> as identically zero, and
+every policy then refuses. The kinetic example carries a non-zero one,
+but that matrix is not Hermitian at all – <code class="language-plaintext highlighter-rouge">max|W - W^H|</code> is 1.8 times
+<code class="language-plaintext highlighter-rouge">max|W|</code> – and its own eigenvector array reconstructs it under none of
+the four orientations, the closest being <code class="language-plaintext highlighter-rouge">V^T diag V*</code> against the
+Hermitian part at a relative error of 1.0. Feeding GPEC’s own pair in
+gives a matrix <code class="language-plaintext highlighter-rouge">N</code> with <code class="language-plaintext highlighter-rouge">max|N W N - I|</code> of order ten. Whatever
+<code class="language-plaintext highlighter-rouge">W_xe</code> and <code class="language-plaintext highlighter-rouge">W_xe_eigenvector</code> are to each other, it is not an
+eigendecomposition in the sense used here. Establish that before norming
+a coupling matrix with a file’s own arrays.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Conventions register C-11: three different <code class="language-plaintext highlighter-rouge">W^{-1/2}</code> constructions, with different negative-eigenvalue policies, fed the same metric.
+</li>
+</ol>
+
+<h3 id="group_coincident_islands"><code class="language-plaintext highlighter-rouge">group_coincident_islands</code></h3>
+
+<p class="formula-signature"><code>group_coincident_islands(psi_norm, width, *, policy='envelope', psi_tol=1e-08)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Collapse islands that sit on the same surface into one.</p>
+
+<p>Several toroidal modes resonate at the same q, so a multi-mode study has
+islands stacked on one surface. The spacing between <em>surfaces</em> means
+nothing until those are one island, and the width that one island should
+have is not derivable – hence <code class="language-plaintext highlighter-rouge">policy</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Island positions, possibly with repeats.</p>
+</td></tr>
+  <tr><td><code>width</code></td><td>array_like</td><td>-</td><td><p>Full width of each.</p>
+</td></tr>
+  <tr><td><code>policy</code></td><td>str, optional</td><td>n/a</td><td><p>One of <code class="language-plaintext highlighter-rouge">COINCIDENT_POLICIES</code>: <code class="language-plaintext highlighter-rouge">envelope</code> takes the widest of a stack, <code class="language-plaintext highlighter-rouge">rss</code> adds them in quadrature.</p>
+</td></tr>
+  <tr><td><code>psi_tol</code></td><td>float, optional</td><td>-</td><td><p>How close two positions must be to count as the same surface. Clustering is single-linkage: each island is compared with the last one added, so a chain of islands each within <code class="language-plaintext highlighter-rouge">psi_tol</code> of the previous collapses together however far the chain reaches.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(psi_norm, width, members)</code> – one entry per distinct surface, sorted outward, with <code class="language-plaintext highlighter-rouge">members</code> giving the input indices that went into each.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">policy</code> is not one of <code class="language-plaintext highlighter-rouge">COINCIDENT_POLICIES</code>, <code class="language-plaintext highlighter-rouge">psi_tol</code> is
+    negative, or <code class="language-plaintext highlighter-rouge">width</code> is not one per surface.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">policy="envelope"</code> is a numerical convenience – the conservative of
+the two – and <code class="language-plaintext highlighter-rouge">psi_tol=1e-8</code> is an empirical estimate: it separates
+the genuinely distinct surfaces of the runs looked at, whose closest
+non-coincident pair is 7.9e-13 apart, from the exactly coincident ones.
+Neither is supplied by the physics.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">envelope</code> is the conservative reading – a stack is as wide as its
+widest member – and <code class="language-plaintext highlighter-rouge">rss</code> treats the modes as independent
+contributions. They differ by up to the square root of the stack size,
+and neither is a default the physics supplies, so the choice travels with
+the result.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics._group_coincident_islands</code>.
+</li>
+</ol>
+
+<h3 id="helical_phase_sweep"><code class="language-plaintext highlighter-rouge">helical_phase_sweep</code></h3>
+
+<p class="formula-signature"><code>helical_phase_sweep(tables, q, column, *, angles, weights=None, integrality_tolerance=1e-06)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The composite drive at one surface, as a function of the helical angle.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>tables</code></td><td>mapping of int to mapping</td><td>n/a</td><td><p>One resonant table per toroidal mode number.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td>float</td><td>-</td><td><p>The rational surface to sweep at.</p>
+</td></tr>
+  <tr><td><code>column</code></td><td>str</td><td>n/a</td><td><p>The column to sum.</p>
+</td></tr>
+  <tr><td><code>angles</code></td><td>array_like</td><td>rad</td><td><p>Helical angles to evaluate at.</p>
+</td></tr>
+  <tr><td><code>weights</code></td><td>mapping of int to complex, optional</td><td>n/a</td><td><p>Per-mode complex weight, applied before the sum.</p>
+</td></tr>
+  <tr><td><code>integrality_tolerance</code></td><td>float, optional</td><td>-</td><td><p>Passed to <code class="language-plaintext highlighter-rouge">align_surfaces_by_q</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>n/a</td><td><p>The real amplitude at each angle, in the order given. Units follow <code class="language-plaintext highlighter-rouge">column</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    As <code class="language-plaintext highlighter-rouge">composite_drive_at_q</code>, or an angle is not finite.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Align, weight and collect the contributions, as
+<code class="language-plaintext highlighter-rouge">composite_drive_at_q</code> does.</li>
+  <li>Evaluate <code class="language-plaintext highlighter-rouge">sum_n Re(z_n exp(i n u))</code> at each requested angle.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>The angle is the helical one, <code class="language-plaintext highlighter-rouge">u = q theta - zeta</code>, in which the mode
+<code class="language-plaintext highlighter-rouge">n</code> advances as <code class="language-plaintext highlighter-rouge">exp(i n u)</code>; <code class="language-plaintext highlighter-rouge">composite_drive_at_q</code> derives
+it. Its origin is the input’s, and shifting that origin translates the
+whole curve rather than changing its shape.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A sweep resolves a series whose highest harmonic is the largest
+resonating <code class="language-plaintext highlighter-rouge">n</code>; sampling it more coarsely than a few points per period
+of that harmonic will miss the peak, and nothing here checks the caller’s
+spacing against it.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.phase_sweep_composite</code>, which rotated one nominated mode through a default three angles – 0, 90 and 180 degrees, so a sweep could not tell <code class="language-plaintext highlighter-rouge">+90</code> from <code class="language-plaintext highlighter-rouge">-90</code> – and returned <code class="language-plaintext highlighter-rouge">nan</code> rows rather than an error when no surface matched. Rotating one mode and sweeping the shared angle differ once more than two modes resonate.
+</li>
+</ol>
+
+<h3 id="island_overlap_width"><code class="language-plaintext highlighter-rouge">island_overlap_width</code></h3>
+
+<p class="formula-signature"><code>island_overlap_width(psi_norm, width, *, separatrix=1.0, policy='envelope', psi_tol=1e-08)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>How far in from the boundary the islands overlap without a break.</p>
+
+<p>Two conditions, and the first is what makes the quantity mean anything:
+the outermost island must actually reach <code class="language-plaintext highlighter-rouge">separatrix</code>, and from there
+the chain is followed inward while adjacent pairs touch. The first gap is
+the inner edge of the region. Islands overlapping deep in the core are
+not an edge-connected layer however much they overlap, and a region of
+zero extent is not connected to anything.</p>
+
+<p><strong>This differs from the code it replaces</strong>, which decided the question
+from whether the outermost <em>pair</em> overlapped and never looked at where
+the outermost island ended – so a stochastic patch at psi_n = 0.2 came
+back as an edge layer 0.83 wide.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Island positions.</p>
+</td></tr>
+  <tr><td><code>width</code></td><td>array_like</td><td>-</td><td><p>Full island width per surface.</p>
+</td></tr>
+  <tr><td><code>separatrix</code></td><td>float, optional</td><td>-</td><td><p>Where the boundary is, which the width is measured in from.</p>
+</td></tr>
+  <tr><td><code>policy</code></td><td>str, optional</td><td>n/a</td><td><p>Passed to <code class="language-plaintext highlighter-rouge">group_coincident_islands</code>.</p>
+</td></tr>
+  <tr><td><code>psi_tol</code></td><td>float, optional</td><td>-</td><td><p>Passed to <code class="language-plaintext highlighter-rouge">group_coincident_islands</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>IslandOverlap</td><td>-</td><td><p>The width, the first gap that broke the chain, whether the chain reached the boundary at all, and the two Chirikov maxima.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">separatrix</code> is not finite, <code class="language-plaintext highlighter-rouge">policy</code>/<code class="language-plaintext highlighter-rouge">psi_tol</code> are invalid, or
+    the islands do not pass <code class="language-plaintext highlighter-rouge">island_pairs</code>’ checks.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Collapse coincident surfaces under <code class="language-plaintext highlighter-rouge">policy</code>.</li>
+  <li>Form the adjacent pairs and their gaps.</li>
+  <li>If the outermost island does not reach <code class="language-plaintext highlighter-rouge">separatrix</code>, the width is
+zero and the region is not edge-connected.</li>
+  <li>If the outermost pair does not touch, likewise.</li>
+  <li>Otherwise walk inward to the first pair that does not touch; its gap
+midpoint is the inner boundary. With no such gap, the innermost
+island’s inner separatrix is.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">separatrix = 1.0</code> is a numerical convenience: the last closed flux
+surface in normalized poloidal flux. <code class="language-plaintext highlighter-rouge">policy</code> and <code class="language-plaintext highlighter-rouge">psi_tol</code> are
+passed through and documented on <code class="language-plaintext highlighter-rouge">group_coincident_islands</code>.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Measured inward from <code class="language-plaintext highlighter-rouge">separatrix</code> and clipped to it: the result is a
+width measured from the boundary, so it cannot exceed the boundary’s own
+position. A fixed upper bound of one – what the code this replaces used
+– reports a width larger than the plasma whenever the innermost island
+extends past the axis.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">onset_scale</code> is the factor the perturbation field would have to be
+multiplied by for the outermost pair to reach contact, on the assumption
+that island width scales as the square root of the field. That assumption
+is fixed-equilibrium linear response and is recorded, not checked.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.compute_island_overlap_width</code>.
+</li>
+</ol>
+
+<h3 id="island_pairs"><code class="language-plaintext highlighter-rouge">island_pairs</code></h3>
+
+<p class="formula-signature"><code>island_pairs(psi_norm, width)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Every adjacent pair of islands, with the gap between their separatrices.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Rational-surface positions.</p>
+</td></tr>
+  <tr><td><code>width</code></td><td>array_like</td><td>-</td><td><p>Full island width per surface.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>IslandPairs</td><td>-</td><td><p>One entry per adjacent pair, sorted outward; empty for fewer than two surfaces.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">width</code> is not one per surface, two surfaces share a position, or a
+    position or width is not finite or a width is negative.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Sort outward.</li>
+  <li>For each pair, the gap is the spacing less the two half widths.</li>
+  <li>A gap at or below zero – within rounding – is contact.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The contact tolerance is a numerical convenience, 1e-12 of the spacing.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Residual gaps below that fraction of the spacing count as contact rather
+than separation, so two separatrices that meet exactly are not reported
+as apart – and “round-off” means the same thing at every radius, which a
+fixed absolute tolerance does not.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.compute_pair_chirikov</code>.
+</li>
+</ol>
+
+<h3 id="nearest_surface_spacing"><code class="language-plaintext highlighter-rouge">nearest_surface_spacing</code></h3>
+
+<p class="formula-signature"><code>nearest_surface_spacing(psi_norm)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Distance from each rational surface to its nearest neighbour.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Rational-surface positions, in any order.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>-</td><td><p>One distance per surface, in the input’s order; <code class="language-plaintext highlighter-rouge">nan</code> for a single surface, which has no neighbour.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Two surfaces share a position.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Sort the surfaces outward.</li>
+  <li>Take the smaller of the two gaps either side; an end surface has one.</li>
+  <li>Put the result back in the caller’s order.</li>
+</ol>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_analysis_metrics._nearest_neighbour_spacing</code> and <code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.compute_surface_chirikov</code>, which computed the same spacing twice and disagreed about repeated positions: one tolerated them, the other refused. This refuses.
+</li>
+</ol>
+
+<h3 id="penetration_ratio"><code class="language-plaintext highlighter-rouge">penetration_ratio</code></h3>
+
+<p class="formula-signature"><code>penetration_ratio(psi_norm, width)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Island width as a fraction of the width at which islands would overlap.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Rational-surface positions.</p>
+</td></tr>
+  <tr><td><code>width</code></td><td>array_like</td><td>-</td><td><p>Full island width per surface, in the same units.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">width / critical_island_width</code>; one at overlap.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">width</code> is not one per surface, two surfaces share a position, or a
+    position or width is not finite or a width is negative.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>A ratio, not a verdict: the value one is where islands touch, and
+comparing against it is the caller’s to do.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_analysis_metrics.compute_critical_island_width</code>.
+</li>
+</ol>
+
+<h3 id="q_composite_table"><code class="language-plaintext highlighter-rouge">q_composite_table</code></h3>
+
+<p class="formula-signature"><code>q_composite_table(tables, column, *, weights=None, integrality_tolerance=1e-06, shared_only=False)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>One row per rational surface, summed over the modes that reach it.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>tables</code></td><td>mapping of int to mapping</td><td>n/a</td><td><p>One resonant table per toroidal mode number.</p>
+</td></tr>
+  <tr><td><code>column</code></td><td>str</td><td>n/a</td><td><p>The column to sum.</p>
+</td></tr>
+  <tr><td><code>weights</code></td><td>mapping of int to complex, optional</td><td>n/a</td><td><p>Per-mode complex weight.</p>
+</td></tr>
+  <tr><td><code>integrality_tolerance</code></td><td>float, optional</td><td>-</td><td><p>Passed to <code class="language-plaintext highlighter-rouge">align_surfaces_by_q</code>.</p>
+</td></tr>
+  <tr><td><code>shared_only</code></td><td>bool, optional</td><td>n/a</td><td><p>Keep only the surfaces every mode resonates at.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to ndarray</td><td>n/a</td><td><p>Columns <code class="language-plaintext highlighter-rouge">q</code>, <code class="language-plaintext highlighter-rouge">n_modes</code>, <code class="language-plaintext highlighter-rouge">peak</code>, <code class="language-plaintext highlighter-rouge">peak_angle</code>, <code class="language-plaintext highlighter-rouge">quadrature</code> and <code class="language-plaintext highlighter-rouge">linear_bound</code>, plus <code class="language-plaintext highlighter-rouge">psi_norm_&lt;n&gt;</code> and <code class="language-plaintext highlighter-rouge">m_&lt;n&gt;</code> per mode (<code class="language-plaintext highlighter-rouge">nan</code> and <code class="language-plaintext highlighter-rouge">-1</code> where that mode does not resonate). Rows ascend in <code class="language-plaintext highlighter-rouge">q</code>, and every aligned surface gets one.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    As <code class="language-plaintext highlighter-rouge">composite_drive_at_q</code>, or <code class="language-plaintext highlighter-rouge">shared_only</code> leaves nothing.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Align the surfaces across the modes.</li>
+  <li>Compute the composite drive at each.</li>
+  <li>Lay the per-mode positions and poloidal mode numbers out beside it.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>A surface a mode cannot resonate at is not a gap in the data, so its
+<code class="language-plaintext highlighter-rouge">m_&lt;n&gt;</code> is <code class="language-plaintext highlighter-rouge">-1</code> rather than missing, and every row has every column.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Every row is one surface’s own Fourier series; nothing sums down a
+column. A radial reduction over these rows would mix surfaces whose
+helical angles are different angles, which is what
+<code class="language-plaintext highlighter-rouge">reduce_resonant</code> refuses to do across modes.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.compute_q_composite_table</code>, which built rows only for four hard-coded <code class="language-plaintext highlighter-rouge">q</code> values, dropped any row where no mode matched so the row count depended on the data, and emitted per-mode columns only where a mode was present, leaving a frame whose columns varied by row. Two of its columns are not ported: <code class="language-plaintext highlighter-rouge">K_proxy_sqrt</code>, the square root of a flux magnitude standing in for a Chirikov parameter, which is not dimensionally a Chirikov parameter of anything; and <code class="language-plaintext highlighter-rouge">sum_K_isl_wrong</code>, whose name was its own warning.
+</li>
+</ol>
+
+<h3 id="reduce_delta_e"><code class="language-plaintext highlighter-rouge">reduce_delta_e</code></h3>
+
+<p class="formula-signature"><code>reduce_delta_e(values, *, combination='quadrature', weights=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Combine a per-mode edge-overlap metric into one number.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>values</code></td><td>mapping of int to float</td><td>-</td><td><p>One <code class="language-plaintext highlighter-rouge">EdgeOverlap.delta_e</code> per toroidal mode number.</p>
+</td></tr>
+  <tr><td><code>combination</code></td><td>{'quadrature', 'linear'}, optional</td><td>n/a</td><td><p><code class="language-plaintext highlighter-rouge">quadrature</code> is <code class="language-plaintext highlighter-rouge">sqrt(sum (w d)**2)</code>; <code class="language-plaintext highlighter-rouge">linear</code> is <code class="language-plaintext highlighter-rouge">sum w d</code>.</p>
+</td></tr>
+  <tr><td><code>weights</code></td><td>mapping of int to float, optional</td><td>-</td><td><p>Per-mode weight; every mode present in <code class="language-plaintext highlighter-rouge">values</code> needs one if any does.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>-</td><td><p>The combined metric, in the same units as the inputs.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">values</code> is empty, a value or weight is not finite or not real, a
+    value is negative, the combination is not one of the two, or
+    <code class="language-plaintext highlighter-rouge">weights</code> names a mode that <code class="language-plaintext highlighter-rouge">values</code> does not.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Weight each mode’s value.</li>
+  <li>Sum the weighted values, in quadrature or linearly.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">combination = "quadrature"</code> is a conventional choice that follows
+from what the input is: <code class="language-plaintext highlighter-rouge">delta_e</code> is the magnitude of a projection, so
+the modes carry no relative phase and adding them linearly would assume
+one they do not have.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Both combinations are homogeneous of degree one in the weights, so
+rescaling every weight by the same non-negative factor moves either
+result by that factor; what differs is how modes combine with each
+other, and quadrature is the default because <code class="language-plaintext highlighter-rouge">delta_e</code> is a magnitude
+with no phase left to interfere. Negative weights are refused rather
+than given a meaning: they are homogeneous of degree one only for
+<code class="language-plaintext highlighter-rouge">linear</code> – quadrature squares them away – and they reintroduce the
+cancellation the negative-value check exists to forbid.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Neither combination is a physical amplitude. <code class="language-plaintext highlighter-rouge">delta_e</code> measures how
+much of one mode’s external field lands on that mode’s own most-coupled
+direction, and those directions belong to different singular value
+problems, so no combination of them is the overlap of anything.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.delta_e_weighted_norm</code>, whose <code class="language-plaintext highlighter-rouge">use_complex_sum=True</code> branch took <code class="language-plaintext highlighter-rouge">abs(sum(w * complex(v)))</code>. Its inputs are real by construction – <code class="language-plaintext highlighter-rouge">delta_e_vector</code> reads <code class="language-plaintext highlighter-rouge">projected_overlap</code>, a magnitude – so that branch equalled the linear sum and the “coherent” name promised a phase that had already been discarded upstream. It is <code class="language-plaintext highlighter-rouge">linear</code> here, under a name that claims no more than it does. Its companion <code class="language-plaintext highlighter-rouge">delta_e_vector</code> was a dictionary comprehension over an attribute name, with an unvalidated region returning <code class="language-plaintext highlighter-rouge">None</code> for every mode; assembling that mapping is the caller’s job and needs no function.
+</li>
+</ol>
+
+<h3 id="reduce_resonant"><code class="language-plaintext highlighter-rouge">reduce_resonant</code></h3>
+
+<p class="formula-signature"><code>reduce_resonant(psi_norm, values, *, window, statistic='rms')</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Reduce one resonant column over one radial window.</p>
+
+<p>Complex columns – the resonant flux, the shielding current, the
+resonance parameter – are reduced on their magnitude: a complex mean
+depends on a gauge the file does not fix, so averaging the phase would
+give an answer that changes with a convention rather than with the
+plasma. A <strong>real</strong> column keeps its sign, so <code class="language-plaintext highlighter-rouge">mean</code> of a rotation
+profile that changes sign is that mean and not its rectification; pass
+<code class="language-plaintext highlighter-rouge">numpy.abs(values)</code> to reduce a signed column on magnitude.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Normalized poloidal flux of each rational surface.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>One column of the resonant table, real or complex.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td>ResonantWindow</td><td>-</td><td><p>The interval to reduce over.</p>
+</td></tr>
+  <tr><td><code>statistic</code></td><td>str, optional</td><td>n/a</td><td><p>One of <code class="language-plaintext highlighter-rouge">RESONANT_STATISTICS</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>any</td><td><p>The reduced value, in the column’s own unit; <code class="language-plaintext highlighter-rouge">nan</code> when the window holds no surface.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">psi_norm</code> and <code class="language-plaintext highlighter-rouge">values</code> differ in length, or <code class="language-plaintext highlighter-rouge">statistic</code> is not
+    one of <code class="language-plaintext highlighter-rouge">RESONANT_STATISTICS</code>.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Take the magnitude of a complex column; leave a real one signed.</li>
+  <li>Select the surfaces inside <code class="language-plaintext highlighter-rouge">window</code>.</li>
+  <li>Drop non-finite samples, then apply <code class="language-plaintext highlighter-rouge">statistic</code>.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>A complex column reduces on its magnitude and a real one keeps its sign;
+the value comes back in the column’s own unit, unscaled.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent. Any per-rational-surface column.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Returns <code class="language-plaintext highlighter-rouge">nan</code> rather than raising when the window is empty: a plasma
+with no rational surface in a region is a normal result, and a run with
+four rational surfaces has regions that are legitimately empty.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Conventions register C-18: quantities on the rational-surface index must not be averaged with quantities on the mode index, and a complex mean is gauge-dependent.
+</li>
+</ol>
+
+<h3 id="resonant_delta"><code class="language-plaintext highlighter-rouge">resonant_delta</code></h3>
+
+<p class="formula-signature"><code>resonant_delta(psi_norm, field, *, psi_rational, area, dq_dpsi_norm, chi1, m_pol, n_tor, offset=0.0005)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The resonance parameter from the jump in a stored spectral field.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Radial grid the field is stored on.</p>
+</td></tr>
+  <tr><td><code>field</code></td><td>array_like</td><td>T</td><td><p>One harmonic of the Jacobian-weighted contravariant flux, <code class="language-plaintext highlighter-rouge">J b . grad psi</code>, on that grid – GPEC’s <code class="language-plaintext highlighter-rouge">Jbgradpsi</code> at <code class="language-plaintext highlighter-rouge">m = m_pol</code>. Complex.</p>
+</td></tr>
+  <tr><td><code>psi_rational</code></td><td>float</td><td>-</td><td><p>Where the surface is.</p>
+</td></tr>
+  <tr><td><code>area</code></td><td>float</td><td>m^2</td><td><p>Area of that surface.</p>
+</td></tr>
+  <tr><td><code>dq_dpsi_norm</code></td><td>float</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">dq/dpsi_N</code> at the surface.</p>
+</td></tr>
+  <tr><td><code>chi1</code></td><td>float</td><td>-</td><td><p>The equilibrium’s poloidal flux normalization.</p>
+</td></tr>
+  <tr><td><code>m_pol, n_tor</code></td><td>int</td><td>-</td><td><p>The harmonic’s mode numbers, <code class="language-plaintext highlighter-rouge">m_pol = n_tor * q</code>.</p>
+</td></tr>
+  <tr><td><code>offset</code></td><td>float, optional</td><td>-</td><td><p>Where the jump is evaluated, as a fraction of <code class="language-plaintext highlighter-rouge">1 / (n |dq/dpsi_N|)</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ResonantJump</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">delta</code> is the unitless resonance parameter [-]; <code class="language-plaintext highlighter-rouge">offset</code> is the distance in <code class="language-plaintext highlighter-rouge">psi_N</code> the jump was taken over.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The grid and the field disagree in length, a value is not finite,
+    the shear is zero, <code class="language-plaintext highlighter-rouge">chi1</code> or the area is zero or non-finite, the
+    offset is not positive, the surface is outside the grid, or one side
+    has too few points to fit.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Place the evaluation points at <code class="language-plaintext highlighter-rouge">psi_rational +- offset / (n |q'|)</code>.</li>
+  <li>Fit a cubic to the field on each side separately, over the band
+between half and four times that distance, and differentiate it.</li>
+  <li>Take the difference, scale by <code class="language-plaintext highlighter-rouge">area / (2 pi chi1)</code>.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">offset = 5e-4</code> is a legacy compatibility value: GPEC’s compiled-in
+<code class="language-plaintext highlighter-rouge">sing_spot</code> (<code class="language-plaintext highlighter-rouge">gpec/gpec.f:120</code>). <strong>It is a namelist parameter, so a
+run can and does change it</strong> – <code class="language-plaintext highlighter-rouge">docs/examples/run_kinetic_example/</code>
+<code class="language-plaintext highlighter-rouge">gpec.in</code> ships <code class="language-plaintext highlighter-rouge">1e-3</code> – and the result depends on it: on the DIII-D
+reference, evaluating at <code class="language-plaintext highlighter-rouge">1e-3</code> instead moves the derived <code class="language-plaintext highlighter-rouge">Delta</code> by
+2.2 to 5.7 per cent and at <code class="language-plaintext highlighter-rouge">2e-3</code> by up to 13 per cent. A comparison
+against a run’s own <code class="language-plaintext highlighter-rouge">Delta</code> has to pass that run’s <code class="language-plaintext highlighter-rouge">sing_spot</code>.
+Agreement being best at the value the reference run actually used is
+itself evidence the jump is being taken the way GPEC takes it.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The resonant harmonic is screened, its derivative is not.</strong> In an ideal
+solution the <code class="language-plaintext highlighter-rouge">m = nq</code> component of the perturbed field falls to zero at
+its own rational surface. Measured on the DIII-D reference at the <code class="language-plaintext highlighter-rouge">q = 2</code>
+surface, <code class="language-plaintext highlighter-rouge">Jbgradpsi</code> at <code class="language-plaintext highlighter-rouge">m = 2</code> is 2.4e-9 where its neighbours
+<code class="language-plaintext highlighter-rouge">m = 1, 3, 4</code> are 1.2e-4, 3.7e-4 and 5.0e-4 – five orders down, and
+radially it collapses to its minimum at that surface. Sampling the field
+there recovers nothing. What survives is the jump in
+its radial derivative, and that is what this takes.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The fit is one-sided because the layer between the two points is where
+the solution is least resolved; how well it extrapolates back to the
+surface is what limits the accuracy. Against GPEC’s own <code class="language-plaintext highlighter-rouge">Delta</code> on 24
+rational surfaces of the 147131 reference the magnitude agrees to between
+0.4 and 5.5 per cent and the phase to within a degree on all but three.
+GPEC re-solves at the evaluation points rather than fitting a stored
+grid, and closing the remaining few per cent means doing the same.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">GPEC/gpec/gpout.f:1678-1688</code>, which evaluates <code class="language-plaintext highlighter-rouge">bwp1_mn</code> at <code class="language-plaintext highlighter-rouge">respsi -+ sing_spot/(nn |q1|)</code> and forms <code class="language-plaintext highlighter-rouge">delta = (rbwp1mn - lbwp1mn) / (twopi * chi1)</code>. The factor of <code class="language-plaintext highlighter-rouge">area</code> here is the <code class="language-plaintext highlighter-rouge">singflx_mn/area(ising)</code> normalization applied at <code class="language-plaintext highlighter-rouge">:1705</code>, which the stored <code class="language-plaintext highlighter-rouge">Jbgradpsi</code> already carries.
+</li>
+</ol>
+
+<h3 id="resonant_geometric_factor"><code class="language-plaintext highlighter-rouge">resonant_geometric_factor</code></h3>
+
+<p class="formula-signature"><code>resonant_geometric_factor(delta, phi_res, n_tor)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Measure the surface factor that turns a resonance parameter into a flux.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>delta</code></td><td>array_like</td><td>-</td><td><p>Resonance parameter per rational surface, complex.</p>
+</td></tr>
+  <tr><td><code>phi_res</code></td><td>array_like</td><td>T</td><td><p>Pitch-resonant flux per rational surface, complex.</p>
+</td></tr>
+  <tr><td><code>n_tor</code></td><td>int</td><td>-</td><td><p>Toroidal mode number the two were computed at.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>T</td><td><p><code class="language-plaintext highlighter-rouge">G</code> per surface, real and positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The two disagree in length, a value is not finite, a <code class="language-plaintext highlighter-rouge">delta</code> is
+    zero or small enough to overflow the ratio, or the ratio is not real
+    to within a tenth of a degree – which means the inputs are not a
+    matched pair from one run.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Form <code class="language-plaintext highlighter-rouge">-n * Phi_res / Delta</code> per surface.</li>
+  <li>Check the result is real, and return its real part.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">G = -n * Phi_res / Delta</code> is a property of the <strong>equilibrium</strong>, not of
+the perturbation: it absorbs the surface integral <code class="language-plaintext highlighter-rouge">j_c</code> and the
+diagonal of the vacuum surface inductance, neither of which knows about
+the applied field. Measured on the DIII-D reference it agrees across
+n = 1, 2 and 3 at every shared surface to 0.6 per cent, and the values
+the three modes report at surfaces only one of them reaches fall on one
+smooth curve in <code class="language-plaintext highlighter-rouge">q</code> – so a run’s own surfaces are enough to
+interpolate <code class="language-plaintext highlighter-rouge">G</code> onto surfaces a different <code class="language-plaintext highlighter-rouge">n</code> resonates at.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The 0.6 per cent agreement across mode numbers is systematic rather than
+noise – it grows monotonically with <code class="language-plaintext highlighter-rouge">n</code> – because the vacuum Green’s
+function does depend weakly on the toroidal mode number. <code class="language-plaintext highlighter-rouge">G</code> measured
+at one <code class="language-plaintext highlighter-rouge">n</code> and used at another carries that error. Measuring it at the
+<code class="language-plaintext highlighter-rouge">n</code> in hand avoids it entirely.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The chain this collapses is <code class="language-plaintext highlighter-rouge">GPEC/gpec/gpout.f:1690-1705</code>: <code class="language-plaintext highlighter-rouge">I_res</code> from <code class="language-plaintext highlighter-rouge">Delta</code> through <code class="language-plaintext highlighter-rouge">j_c</code>, then <code class="language-plaintext highlighter-rouge">Phi_res</code> from <code class="language-plaintext highlighter-rouge">I_res</code> through <code class="language-plaintext highlighter-rouge">fsurf_indmats</code>, which <code class="language-plaintext highlighter-rouge">gpvacuum.f:236-342</code> builds by calling the VACUUM code twice per surface.
+</li>
+</ol>
+
+<h3 id="resonant_metrics"><code class="language-plaintext highlighter-rouge">resonant_metrics</code></h3>
+
+<p class="formula-signature"><code>resonant_metrics(table, *, windows, columns=None, statistic='rms')</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Reduce every named column of a resonant table over every window.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>table</code></td><td>mapping of str to ndarray</td><td>any</td><td><p>A resonant table, as <code class="language-plaintext highlighter-rouge">vaft.code.gpec.GpecProfileOutput.resonant_table</code> returns it; it must carry <code class="language-plaintext highlighter-rouge">psi_n_rational</code>.</p>
+</td></tr>
+  <tr><td><code>windows</code></td><td>mapping of str to ResonantWindow</td><td>-</td><td><p>The windows to reduce over, from <code class="language-plaintext highlighter-rouge">resonant_windows</code>.</p>
+</td></tr>
+  <tr><td><code>columns</code></td><td>sequence of str, optional</td><td>n/a</td><td><p>Which columns to reduce; those of <code class="language-plaintext highlighter-rouge">RESONANT_RESPONSE_COLUMNS</code> the table carries, by default. Anything else – a coordinate, or an equilibrium profile sampled at the surfaces – has to be named, so that reducing it is a decision rather than a side effect.</p>
+</td></tr>
+  <tr><td><code>statistic</code></td><td>str, optional</td><td>n/a</td><td><p>One of <code class="language-plaintext highlighter-rouge">RESONANT_STATISTICS</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict</td><td>any</td><td><p>Keyed <code class="language-plaintext highlighter-rouge">(column, window)</code>, in the column’s own unit.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>KeyError
+    The table carries no <code class="language-plaintext highlighter-rouge">psi_n_rational</code>, no response column at all, or
+    not one that <code class="language-plaintext highlighter-rouge">columns</code> named.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Inherits <code class="language-plaintext highlighter-rouge">reduce_resonant</code>’s – magnitudes for complex columns,
+the column’s own unit – and the window convention of whatever
+<code class="language-plaintext highlighter-rouge">resonant_windows</code> produced.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A reconstruction run carries rational surfaces and no perturbed response,
+and a kinetic run may carry no rational-surface block at all – its table
+comes back empty. Both are refused here rather than reduced into something
+that looks like an answer.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_analysis_metrics.compute_metric_table</code>, which carried the same reductions with the windows and the gauss factor built in.
+</li>
+</ol>
+
+<h3 id="resonant_windows"><code class="language-plaintext highlighter-rouge">resonant_windows</code></h3>
+
+<p class="formula-signature"><code>resonant_windows(pedestal=None, *, legacy=False)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The core, edge and total radial windows a reduction is taken over.</p>
+
+<p>The core/edge boundary comes from the pedestal rather than from a
+constant. With a <code class="language-plaintext highlighter-rouge">PedestalTop</code> that resolved a fit, the edge begins at
+the pedestal’s inner knee; with one that fell back, it begins at the
+fallback position, and the window says so.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>pedestal</code></td><td>PedestalTop, optional</td><td>-</td><td><p>The pedestal boundary, from <code class="language-plaintext highlighter-rouge">vaft.process.profile.pedestal_top</code>. Omit it only together with <code class="language-plaintext highlighter-rouge">legacy=True</code>.</p>
+</td></tr>
+  <tr><td><code>legacy</code></td><td>bool, optional</td><td>-</td><td><p>Return <code class="language-plaintext highlighter-rouge">LEGACY_WINDOWS</code> instead, for reproducing a published number that used them.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to ResonantWindow</td><td>-</td><td><p>Keyed <code class="language-plaintext highlighter-rouge">core</code>, <code class="language-plaintext highlighter-rouge">edge</code>, <code class="language-plaintext highlighter-rouge">total</code>, each carrying its own bounds and the source they were derived from.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Neither a pedestal nor <code class="language-plaintext highlighter-rouge">legacy=True</code> was given, or the pedestal’s
+    coordinate is not <code class="language-plaintext highlighter-rouge">psi_norm</code>.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The 0.8 and 0.95 boundaries of <code class="language-plaintext highlighter-rouge">LEGACY_WINDOWS</code> are a legacy
+compatibility value, not a physical one: they are what the metrics this
+module replaces hard-coded.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Bounds are normalized poloidal flux, endpoints included at both ends, so
+a rational surface exactly at the boundary is counted in both neighbours
+rather than dropped by one.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent. Any radial coordinate expressed as normalized
+poloidal flux.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Migration decision D-05: the pedestal top is determined from an EPED-style profile fit, and core, edge and pedestal regions are derived from that result rather than fixed.
+</li>
+  <li>Conventions register C-16: seven different core/edge/pedestal window sets were in use across the code this replaces.
+</li>
+</ol>
+
+<h3 id="rms_resonant_field"><code class="language-plaintext highlighter-rouge">rms_resonant_field</code></h3>
+
+<p class="formula-signature"><code>rms_resonant_field(psi_norm, phi_res, *, window)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Root-mean-square resonant field over a radial window.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Normalized poloidal flux of each rational surface.</p>
+</td></tr>
+  <tr><td><code>phi_res</code></td><td>array_like</td><td>T</td><td><p>Resonant flux per surface, complex as GPEC writes it.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td>ResonantWindow</td><td>-</td><td><p>The interval to reduce over.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float</td><td>T</td><td><p>RMS magnitude, in tesla; <code class="language-plaintext highlighter-rouge">nan</code> when the window holds no surface.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Tesla, not gauss. GPEC normalizes this flux by the surface area, so it
+carries field units already; the code this replaces multiplied by 1e4
+inside the reduction, which put a unit conversion where nothing said so.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">gpec_analysis_metrics.compute_rms_resonant_field</code>, whose <code class="language-plaintext highlighter-rouge">to_gauss=True</code> default is the factor not applied here.
+</li>
+</ol>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/process/camera_fluctuation/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: camera_fluctuation">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#align_surfaces_by_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">align_surfaces_by_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#amplification_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">amplification_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#chirikov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">chirikov</a></li><li class="page-toc-item page-toc-level-3"><a href="#composite_drive_at_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">composite_drive_at_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#critical_island_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">critical_island_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#edge_overlap_metric" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">edge_overlap_metric</a></li><li class="page-toc-item page-toc-level-3"><a href="#energy_norm_matrix" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">energy_norm_matrix</a></li><li class="page-toc-item page-toc-level-3"><a href="#group_coincident_islands" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">group_coincident_islands</a></li><li class="page-toc-item page-toc-level-3"><a href="#helical_phase_sweep" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">helical_phase_sweep</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_overlap_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_overlap_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_pairs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_pairs</a></li><li class="page-toc-item page-toc-level-3"><a href="#nearest_surface_spacing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">nearest_surface_spacing</a></li><li class="page-toc-item page-toc-level-3"><a href="#penetration_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">penetration_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#q_composite_table" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">q_composite_table</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_delta_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_delta_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_resonant" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_resonant</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_geometric_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_geometric_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_metrics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_metrics</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_windows" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_windows</a></li><li class="page-toc-item page-toc-level-3"><a href="#rms_resonant_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rms_resonant_field</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "VEST diagnostics and data availability",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_perturbation.md",
+        "mtime": "2026-09-14 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-17 09:45:58 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

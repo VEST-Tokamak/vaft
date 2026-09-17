@@ -2,7 +2,7 @@
 <html lang="en" >
     <head><meta charset="UTF-8">
 <meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>VEST diagnostics and data availability · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
 <link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
@@ -25,7 +25,7 @@
 
 
 
-            <link rel="prev" href="/vaft/reference/formula/magnetics/" />
+            <link rel="prev" href="/vaft/reference/process/perturbation/" />
         
 
         
@@ -136,6 +136,36 @@
                     <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
                     
                         <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
                     </li>
                 
                     
@@ -297,7 +327,7 @@ inventory; no personal email is shown unless it is explicitly recorded in the re
     <tr>
       <td>Electron cyclotron heating</td><td><code>ec_launchers</code></td><td>변준혁</td>
       <td>Raw DAQ (MySQL / archived raw dump)</td>
-      <td>If-requested</td><td>in_maintenance</td><td>not_implemented</td>
+      <td>If-requested</td><td>in_maintenance</td><td>implemented</td>
     </tr>
   
     
@@ -324,7 +354,7 @@ inventory; no personal email is shown unless it is explicitly recorded in the re
     
     <tr>
       <td>Hard X-ray detector</td><td><code>hard_x_rays</code></td><td>임수빈</td>
-      <td>Unknown</td>
+      <td>File (csv)</td>
       <td>If-requested</td><td>in_maintenance</td><td>not_implemented</td>
     </tr>
   
@@ -372,7 +402,7 @@ inventory; no personal email is shown unless it is explicitly recorded in the re
   
     
     <tr>
-      <td>Internal magnetic probes</td><td><code>magnetics.b_field_pol_probe</code></td><td>남건우</td>
+      <td>Internal magnetic probes</td><td><code>magnetics.b_field_tor_probe</code></td><td>남건우</td>
       <td>Raw DAQ (MySQL / archived raw dump)</td>
       <td>If-requested</td><td>available</td><td>implemented</td>
     </tr>
@@ -395,7 +425,7 @@ inventory; no personal email is shown unless it is explicitly recorded in the re
     <tr>
       <td>Neutral beam injection</td><td><code>nbi</code></td><td>정윤호</td>
       <td>Unknown</td>
-      <td>If-requested</td><td>in_maintenance</td><td>not_implemented</td>
+      <td>If-requested</td><td>in_maintenance</td><td>partial</td>
     </tr>
   
     
@@ -458,7 +488,7 @@ inventory; no personal email is shown unless it is explicitly recorded in the re
   <li><strong>Magnetic probes (Mirnov coils)</strong> — <code class="language-plaintext highlighter-rouge">magnetics.b_field_pol_probe</code>; implemented via raw DAQ.</li>
   <li><strong>Diamagnetic flux</strong> — <code class="language-plaintext highlighter-rouge">magnetics.diamagnetic_flux</code>; implemented via derived.</li>
   <li><strong>Flux loops</strong> — <code class="language-plaintext highlighter-rouge">magnetics.flux_loop</code>; implemented via raw DAQ.</li>
-  <li><strong>Internal magnetic probes</strong> — <code class="language-plaintext highlighter-rouge">magnetics.b_field_pol_probe</code>; implemented via raw DAQ.</li>
+  <li><strong>Internal magnetic probes</strong> — <code class="language-plaintext highlighter-rouge">magnetics.b_field_tor_probe</code>; implemented via raw DAQ.</li>
   <li><strong>Plasma current</strong> — <code class="language-plaintext highlighter-rouge">magnetics.ip</code>; implemented via derived.</li>
   <li><strong>Rogowski coils</strong> — <code class="language-plaintext highlighter-rouge">magnetics.rogowski_coil</code>; implemented via raw DAQ.</li>
 </ul>
@@ -475,7 +505,7 @@ inventory; no personal email is shown unless it is explicitly recorded in the re
 
 <ul>
   <li><strong>Visible bremsstrahlung spectroscopy</strong> — <code class="language-plaintext highlighter-rouge">bremsstrahlung_visible</code>; not_implemented via unknown.</li>
-  <li><strong>Hard X-ray detector</strong> — <code class="language-plaintext highlighter-rouge">hard_x_rays</code>; not_implemented via unknown.</li>
+  <li><strong>Hard X-ray detector</strong> — <code class="language-plaintext highlighter-rouge">hard_x_rays</code>; not_implemented via file-backed csv.</li>
   <li><strong>Soft X-ray detector</strong> — <code class="language-plaintext highlighter-rouge">soft_x_rays</code>; implemented via file-backed csv.</li>
   <li><strong>Filterscope spectroscopy</strong> — <code class="language-plaintext highlighter-rouge">spectrometer_uv</code>; implemented via raw DAQ.</li>
 </ul>
@@ -498,9 +528,9 @@ inventory; no personal email is shown unless it is explicitly recorded in the re
 <h3 id="heating-current-drive">Heating current drive</h3>
 
 <ul>
-  <li><strong>Electron cyclotron heating</strong> — <code class="language-plaintext highlighter-rouge">ec_launchers</code>; not_implemented via raw DAQ.</li>
+  <li><strong>Electron cyclotron heating</strong> — <code class="language-plaintext highlighter-rouge">ec_launchers</code>; implemented via raw DAQ.</li>
   <li><strong>Helicity injection</strong> — <code class="language-plaintext highlighter-rouge">not_developed</code>; not_implemented via unknown.</li>
-  <li><strong>Neutral beam injection</strong> — <code class="language-plaintext highlighter-rouge">nbi</code>; not_implemented via unknown.</li>
+  <li><strong>Neutral beam injection</strong> — <code class="language-plaintext highlighter-rouge">nbi</code>; partial via model.</li>
 </ul>
 
 <h3 id="machine-systems">Machine systems</h3>
@@ -644,7 +674,7 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/reference/formula/magnetics/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: magnetics">
+                        <a href="/vaft/reference/process/perturbation/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: perturbation">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
@@ -779,12 +809,12 @@ window.MathJax = {
     },
     "file": {
         "path": "_guide/VEST_diagnostics.md",
-        "mtime": "2026-09-17 06:09:00 +0000",
+        "mtime": "2026-09-17 09:45:58 +0000",
         "type": "markdown"
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-17 06:09:00 +0000"
+        "time": "2026-09-17 09:45:58 +0000"
     },
     "basePath": "/vaft",
     "book": {

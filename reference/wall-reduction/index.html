@@ -1,0 +1,675 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Reduced-wall order study · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/wall-modes/" />
+        
+
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Reduced-wall order study</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Wall_reduction">Reduced-wall order study</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>How many wall modes the VEST vessel needs, decided by response fidelity rather than by decay time, and checked against measured magnetics.</dd>
+    <dt>Prerequisites / inputs</dt><dd>The wall eigenmode basis (see Wall eigenmodes) and a loaded ODS with pf_active waveforms, pf_passive, em_coupling, magnetics and the limiter outline.</dd>
+    <dt>Expected result</dt><dd>How to run the full-versus-reduced convergence study, read off a representation order, compare full and reduced walls with the data, and find plasma-free shots.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<h1 id="reduced-wall-order-study">Reduced-wall order study</h1>
+
+<p>The wall eigenmode basis (<a href="/reference/wall-modes/">Wall eigenmodes</a>,
+<a href="https://github.com/VEST-Tokamak/vaft/issues/473">#473</a>) can represent the
+vessel current in any number of modes. This page is about <em>how many, and
+which</em> — the representation order <code class="language-plaintext highlighter-rouge">M_repr = (M_1, …, M_G)</code> that
+<a href="https://github.com/VEST-Tokamak/vfit/issues/10">VEST-Tokamak/vfit#10</a> asks
+for, implemented in <code class="language-plaintext highlighter-rouge">vaft.validation.wall_reduction</code>
+(<a href="https://github.com/VEST-Tokamak/vaft/issues/494">#494</a>).</p>
+
+<p>Three layers, kept apart on purpose:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>layer</th>
+      <th>question</th>
+      <th>function</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>full ↔ reduced</td>
+      <td>how much of the wall’s own response does a truncated basis miss?</td>
+      <td><code class="language-plaintext highlighter-rouge">order_convergence</code></td>
+    </tr>
+    <tr>
+      <td>representation order</td>
+      <td>which is the smallest order within the tolerances an application sets?</td>
+      <td><code class="language-plaintext highlighter-rouge">representation_order</code></td>
+    </tr>
+    <tr>
+      <td>measurement ↔ model</td>
+      <td>do full and reduced walls disagree with the data alike (vessel-model error) or differently (reduction error)?</td>
+      <td><code class="language-plaintext highlighter-rouge">experimental_comparison</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Metrics only, no verdicts: tolerances are the study’s and are reported with
+the result.</p>
+
+<h2 id="the-reduced-circuit">The reduced circuit</h2>
+
+<p>With the projected operators of the basis the reduced wall obeys</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>L_r da/dt + R_r a = -M_r dI_coil/dt,        I_w = V a
+</code></pre></div></div>
+
+<p>integrated by the same routine as the full wall
+(<code class="language-plaintext highlighter-rouge">vaft.process.electromagnetics.solve_eddy_currents</code>), so the only difference
+between the two solutions is the retained subspace. Keeping every mode
+reproduces the 950-loop solve to 1e-12; the error of any truncation is the
+basis span, not the closure.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process</span> <span class="kn">import</span> <span class="n">wall_modes</span> <span class="k">as</span> <span class="n">wm</span>
+<span class="kn">from</span> <span class="n">vaft.validation</span> <span class="kn">import</span> <span class="n">wall_reduction</span> <span class="k">as</span> <span class="n">wr</span>
+
+<span class="n">system</span> <span class="o">=</span> <span class="n">wr</span><span class="p">.</span><span class="nf">wall_system</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>                <span class="c1"># R, L, source coupling, basis, PF drive
+</span><span class="n">keep</span> <span class="o">=</span> <span class="n">wm</span><span class="p">.</span><span class="nf">select_by_score</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">basis</span><span class="sh">"</span><span class="p">],</span> <span class="n">wm</span><span class="p">.</span><span class="nf">mode_scores</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">basis</span><span class="sh">"</span><span class="p">],</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">R_mat</span><span class="sh">"</span><span class="p">],</span>
+                          <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">M_mat</span><span class="sh">"</span><span class="p">],</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">L_mat</span><span class="sh">"</span><span class="p">],</span> <span class="n">drive</span><span class="o">=</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">drive</span><span class="sh">"</span><span class="p">],</span>
+                          <span class="n">time</span><span class="o">=</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">time</span><span class="sh">"</span><span class="p">])[</span><span class="sh">"</span><span class="s">output_weight</span><span class="sh">"</span><span class="p">],</span> <span class="mi">76</span><span class="p">)</span>
+<span class="n">ops</span> <span class="o">=</span> <span class="n">wm</span><span class="p">.</span><span class="nf">reduced_operators</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">basis</span><span class="sh">"</span><span class="p">],</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">R_mat</span><span class="sh">"</span><span class="p">],</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">M_mat</span><span class="sh">"</span><span class="p">],</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">L_mat</span><span class="sh">"</span><span class="p">],</span> <span class="n">keep</span><span class="p">)</span>
+<span class="n">a</span><span class="p">,</span> <span class="n">I_w</span> <span class="o">=</span> <span class="n">wm</span><span class="p">.</span><span class="nf">solve_reduced_eddy</span><span class="p">(</span><span class="n">ops</span><span class="p">,</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">drive</span><span class="sh">"</span><span class="p">],</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">time</span><span class="sh">"</span><span class="p">],</span> <span class="n">V</span><span class="o">=</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">basis</span><span class="sh">"</span><span class="p">].</span><span class="nc">V</span><span class="p">(</span><span class="n">keep</span><span class="p">))</span>
+</code></pre></div></div>
+
+<h2 id="which-modes-rankings-not-the-spectrum">Which modes: rankings, not the spectrum</h2>
+
+<p><code class="language-plaintext highlighter-rouge">mode_scores</code> returns one value per mode under four rankings — <code class="language-plaintext highlighter-rouge">tau</code> (the
+decay time), <code class="language-plaintext highlighter-rouge">drive_gain</code> (quasi-static amplitude a unit source ramp excites,
+times observability; needs no drive), <code class="language-plaintext highlighter-rouge">response_energy</code> (rms projected
+amplitude under a drive) and <code class="language-plaintext highlighter-rouge">output_weight</code> (energy times observability).
+<code class="language-plaintext highlighter-rouge">select_by_score</code> keeps the top <code class="language-plaintext highlighter-rouge">M</code> across segments; <code class="language-plaintext highlighter-rouge">allocate_per_segment</code>
+grows a per-segment allocation greedily until a dissipation or output
+tolerance is met, adding modes where the remaining error is largest.</p>
+
+<p>On the packaged wall (shot 39915, its PF programme, 62 probes and 11 flux
+loops), relative error of the wall term at the probes:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>retained</th>
+      <th>slowest (<code class="language-plaintext highlighter-rouge">tau</code>)</th>
+      <th>one per segment</th>
+      <th><code class="language-plaintext highlighter-rouge">output_weight</code></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>19</td>
+      <td>28 %</td>
+      <td>15 %</td>
+      <td>7.4 %</td>
+    </tr>
+    <tr>
+      <td>76</td>
+      <td>24 %</td>
+      <td>6.1 %</td>
+      <td>1.2 %</td>
+    </tr>
+    <tr>
+      <td>152</td>
+      <td>5.6 %</td>
+      <td>3.4 %</td>
+      <td>0.26 %</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Decay time alone is a poor guide: the driven response is not sparse in eigen
+coordinates, and a whole-wall eigenbasis behaves the same as the segment-wise
+one, so the penalty is intrinsic to eigen coordinates rather than to the
+segmentation.</p>
+
+<h2 id="moment-patterns-the-enrichment-the-contract-does-not-yet-include">Moment patterns: the enrichment the contract does not yet include</h2>
+
+<p>The response to the coils lives in the block Krylov space
+<code class="language-plaintext highlighter-rouge">span{R⁻¹M, (R⁻¹L)R⁻¹M, …}</code> — the coil-controllable subspace — and
+<code class="language-plaintext highlighter-rouge">moment_patterns</code> returns an R-orthonormal basis of it, block by block, built
+as a block Arnoldi iteration in the R inner product. The first block is the
+resistive limit, the wall current a constant ramp settles into; each further
+block is the next inductive correction (the transfer function’s moments at
+zero frequency).</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>patterns</th>
+      <th>probe error, PF programme</th>
+      <th>probe error, step drive</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>10 (resistive limit)</td>
+      <td>1.7 %</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>19</td>
+      <td>0.9 %</td>
+      <td>25 %</td>
+    </tr>
+    <tr>
+      <td>76</td>
+      <td>1e-4</td>
+      <td>0.6 %</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Ten drive-independent vectors do what 76 eigenmodes do, and 76 do what no
+eigen truncation reaches. These patterns are global, not segment-tagged, so
+they are outside the reduced-wall contract (vfit #8); the study reports them
+as the alternative the downstream EFIT issues can decide on.
+<code class="language-plaintext highlighter-rouge">combined_operators</code> projects the wall onto any R-orthonormal basis, eigen
+or not.</p>
+
+<h2 id="running-the-study">Running the study</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">observation</span> <span class="o">=</span> <span class="n">wr</span><span class="p">.</span><span class="nf">observation_set</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">n_coils</span><span class="o">=</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">n_coils</span><span class="sh">"</span><span class="p">])</span>   <span class="c1"># probes, loops, boundary ring, grid
+</span><span class="n">rows</span> <span class="o">=</span> <span class="n">wr</span><span class="p">.</span><span class="nf">order_convergence</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">observation</span><span class="o">=</span><span class="n">observation</span><span class="p">)</span>        <span class="c1"># every (rule, order, drive)
+</span><span class="n">order</span> <span class="o">=</span> <span class="n">wr</span><span class="p">.</span><span class="nf">representation_order</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="p">{</span><span class="sh">"</span><span class="s">probe</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span> <span class="sh">"</span><span class="s">flux_loop</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span> <span class="sh">"</span><span class="s">grid_psi</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">})</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">order_convergence</code> scores the drive-dependent rankings on the PF programme
+and then tests every selection on three drives — the programme, the loudest
+coil alone, and a step on it — so a row for <code class="language-plaintext highlighter-rouge">step</code> says how a selection made
+for the programme transfers to a transient it never saw. Rows carry the
+Euclidean and dissipation-weighted current error, the error per segment, the
+relative error at each observation class, the probe peak error and the cost.</p>
+
+<p>Two plots draw the rows: <code class="language-plaintext highlighter-rouge">plot_passive_structure_overview_wall_reduction</code>
+(error against retained order, one panel per metric) and
+<code class="language-plaintext highlighter-rouge">plot_passive_structure_field_wall_reduction</code> (the wall’s flux on the
+equilibrium region — full, reduced or their difference).</p>
+
+<h2 id="against-the-measurements">Against the measurements</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">result</span> <span class="o">=</span> <span class="n">wr</span><span class="p">.</span><span class="nf">experimental_comparison</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="p">{</span><span class="sh">"</span><span class="s">tau_19</span><span class="sh">"</span><span class="p">:</span> <span class="n">wm</span><span class="p">.</span><span class="nf">select_slowest</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">basis</span><span class="sh">"</span><span class="p">],</span> <span class="mi">19</span><span class="p">),</span>
+                                          <span class="sh">"</span><span class="s">moments_30</span><span class="sh">"</span><span class="p">:</span> <span class="n">wm</span><span class="p">.</span><span class="nf">moment_patterns</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">R_mat</span><span class="sh">"</span><span class="p">],</span>
+                                                        <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">M_mat</span><span class="sh">"</span><span class="p">],</span> <span class="n">system</span><span class="p">[</span><span class="sh">"</span><span class="s">L_mat</span><span class="sh">"</span><span class="p">],</span> <span class="mi">3</span><span class="p">)})</span>
+</code></pre></div></div>
+
+<p>This runs the <a href="https://github.com/VEST-Tokamak/vaft/issues/190">#190</a>
+plasma-free benchmark for the full PF-only wall and for each reduced wall
+over the same window, and reports two blocks per model: <code class="language-plaintext highlighter-rouge">measurement</code>
+(residual against the data) and <code class="language-plaintext highlighter-rouge">reduction</code> (distance from the full model
+at the same channels). On shot 39915 the full wall improves the coil-only
+residual by a median 78 % over the 73 usable channels, and a converged
+reduction improves it by the same 78 % to within a tenth of a point
+(<code class="language-plaintext highlighter-rouge">moments_30</code>, 0.5 % from the full wall term at the probes): the residual
+that remains is the vessel model’s, not the truncation’s. The nineteen
+slowest modes are the counter-example rather than a second instance of it:
+they reach only 64 %, and sit 34 % from the full wall term at the probes over
+this benchmark’s 25 ms window — the 28 % in the table above is the same rule
+and the same metric scored over the whole record instead, so the two are not
+in conflict. The separation is a claim about converged reductions, not about
+reduction in general.</p>
+
+<p><code class="language-plaintext highlighter-rouge">find_plasma_free_shots</code> classifies database shots as <code class="language-plaintext highlighter-rouge">plasma_free</code>,
+<code class="language-plaintext highlighter-rouge">plasma</code>, <code class="language-plaintext highlighter-rouge">undriven</code> or <code class="language-plaintext highlighter-rouge">daq_missing</code> from their plasma-current and coil
+peaks, with the evidence, so dedicated vacuum shots can be brought into the
+comparison; the plasma-free interval of a mapped shot is judged by
+<code class="language-plaintext highlighter-rouge">vaft.validation.vacuum_benchmark.plasma_free_interval</code> as for any other case.</p>
+
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/wall-modes/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Wall eigenmodes">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-reduced-circuit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The reduced circuit</a></li><li class="page-toc-item page-toc-level-2"><a href="#which-modes-rankings-not-the-spectrum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Which modes: rankings, not the spectrum</a></li><li class="page-toc-item page-toc-level-2"><a href="#moment-patterns-the-enrichment-the-contract-does-not-yet-include" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Moment patterns: the enrichment the contract does not yet include</a></li><li class="page-toc-item page-toc-level-2"><a href="#running-the-study" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Running the study</a></li><li class="page-toc-item page-toc-level-2"><a href="#against-the-measurements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Against the measurements</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Wall_reduction.md",
+        "mtime": "2026-09-04 09:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-17 09:45:58 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

@@ -2,7 +2,7 @@
 <html lang="en" >
     <head><meta charset="UTF-8">
 <meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: utils · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
 <link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
@@ -139,6 +139,36 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
                     
                         <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
@@ -224,7 +254,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/utils.py"><code class="language-plaintext highlighter-rouge">vaft/formula/utils.py</code></a>:
-9 public functions.  The category overview and notation come from the module
+11 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("utils.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/reference/formula/">formula reference index</a>.</p>
 
@@ -244,7 +274,11 @@ the formula module.</p>
 </li>
   <li><a href="#calculate_volume_weighted_average"><code>calculate_volume_weighted_average</code></a> &mdash; Volume-weighted average of a sampled profile.
 </li>
+  <li><a href="#eped_tanh_bounds"><code>eped_tanh_bounds</code></a> &mdash; Parameter box the <code class="language-plaintext highlighter-rouge">eped_tanh</code> fit uses for this data.
+</li>
   <li><a href="#fit_profile"><code>fit_profile</code></a> &mdash; Fit a 1-D profile with a selectable model and evaluate it on a grid.
+</li>
+  <li><a href="#gp_fit"><code>gp_fit</code></a> &mdash; Fit a squared-exponential Gaussian process and evaluate it on a grid.
 </li>
   <li><a href="#gradient"><code>gradient</code></a> &mdash; Derivative $dy/dx$ on a sampled 1-D profile.
 </li>
@@ -282,9 +316,9 @@ the formula module.</p>
   </tbody>
 </table>
 
-<p><strong>Limitations.</strong></p>
+<p><strong>Numerical notes.</strong></p>
 
-<p>No guard against a zero volume average.  Tracked in #357.</p>
+<p>A zero volume average warns and returns <code class="language-plaintext highlighter-rouge">nan</code>.</p>
 
 <h3 id="calculate_poloidal_flux"><code class="language-plaintext highlighter-rouge">calculate_poloidal_flux</code></h3>
 
@@ -392,9 +426,53 @@ order in the cell size.  Tracked in #358.</p>
   </tbody>
 </table>
 
-<p><strong>Limitations.</strong></p>
+<p><strong>Numerical notes.</strong></p>
 
-<p>No guard against a zero total volume.  Tracked in #357.</p>
+<p>A zero total volume warns and returns <code class="language-plaintext highlighter-rouge">nan</code>.</p>
+
+<h3 id="eped_tanh_bounds"><code class="language-plaintext highlighter-rouge">eped_tanh_bounds</code></h3>
+
+<p class="formula-signature"><code>eped_tanh_bounds(x, y)</code></p>
+
+<p>Parameter box the <code class="language-plaintext highlighter-rouge">eped_tanh</code> fit uses for this data.</p>
+
+<p>Public so that a caller checking whether a fitted parameter came back
+resting on a bound compares against the same box the fit used, rather than
+re-deriving one that can drift out of step with it.  The amplitude bounds
+scale with the data’s magnitude; the shape bounds are fixed.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>x</code></td><td>array_like</td><td>-</td><td><p>Radial coordinate; used only for its length.</p>
+</td></tr>
+  <tr><td><code>y</code></td><td>array_like</td><td>any</td><td><p>Profile samples, whose magnitude sets the amplitude bounds.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of list</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(lower, upper)</code>, each seven entries ordered as the model’s arguments <code class="language-plaintext highlighter-rouge">f0, f_ped, f_sep, x_ped, width, alpha, beta</code>.  The amplitudes are <code class="language-plaintext highlighter-rouge">+-5 max|y|</code> [any]; <code class="language-plaintext highlighter-rouge">x_ped</code> is in <code class="language-plaintext highlighter-rouge">[0.75, 0.999]</code> and <code class="language-plaintext highlighter-rouge">width</code> in <code class="language-plaintext highlighter-rouge">[0.01, 0.3]</code> [-]; <code class="language-plaintext highlighter-rouge">alpha</code> and <code class="language-plaintext highlighter-rouge">beta</code> are in <code class="language-plaintext highlighter-rouge">[1, 8]</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Notes.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">alpha</code> and <code class="language-plaintext highlighter-rouge">beta</code> stay at or above one because below it the gated
+core term has an infinite slope – at <code class="language-plaintext highlighter-rouge">x_ped</code> for <code class="language-plaintext highlighter-rouge">beta</code>, at the
+magnetic axis for <code class="language-plaintext highlighter-rouge">alpha</code> – which no flux-function profile has, and
+which would make any gradient taken from the fit depend on the caller’s
+grid spacing.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>The seven-parameter form and the <code class="language-plaintext highlighter-rouge">x_ped</code>/<code class="language-plaintext highlighter-rouge">width</code> box follow the pedestal-fitting study ported in migration decision D-05; <code class="language-plaintext highlighter-rouge">vaft.process.profile.pedestal_top</code> is the consumer.
+</li>
+</ol>
 
 <h3 id="fit_profile"><code class="language-plaintext highlighter-rouge">fit_profile</code></h3>
 
@@ -423,9 +501,9 @@ modes that fit $y^2$ and return $\sqrt{f}$.</p>
 </td></tr>
   <tr><td><code>uncertainty_option</code></td><td>int, optional</td><td>-</td><td><p>1 (default) weights by <code class="language-plaintext highlighter-rouge">y_std</code> when given; 0 ignores it.</p>
 </td></tr>
-  <tr><td><code>fitting_function</code></td><td>str, optional</td><td>str</td><td><p>Model name, default <code class="language-plaintext highlighter-rouge">'polynomial'</code>. One of <code class="language-plaintext highlighter-rouge">'gp'</code>, <code class="language-plaintext highlighter-rouge">'polynomial'</code>, <code class="language-plaintext highlighter-rouge">'free_polynomial'</code>, <code class="language-plaintext highlighter-rouge">'exponential'</code>, <code class="language-plaintext highlighter-rouge">'free_exponential'</code>, <code class="language-plaintext highlighter-rouge">'linear'</code>, <code class="language-plaintext highlighter-rouge">'core_poly_edge_exp'</code>, <code class="language-plaintext highlighter-rouge">'sqrt'</code>, <code class="language-plaintext highlighter-rouge">'sqrt_exponential'</code>.</p>
+  <tr><td><code>fitting_function</code></td><td>str, optional</td><td>str</td><td><p>Model name, default <code class="language-plaintext highlighter-rouge">'polynomial'</code>. One of <code class="language-plaintext highlighter-rouge">'gp'</code> (scipy), <code class="language-plaintext highlighter-rouge">'gp_sklearn'</code>, <code class="language-plaintext highlighter-rouge">'polynomial'</code>, <code class="language-plaintext highlighter-rouge">'free_polynomial'</code>, <code class="language-plaintext highlighter-rouge">'exponential'</code>, <code class="language-plaintext highlighter-rouge">'free_exponential'</code>, <code class="language-plaintext highlighter-rouge">'linear'</code>, <code class="language-plaintext highlighter-rouge">'core_poly_edge_exp'</code>, <code class="language-plaintext highlighter-rouge">'eped_tanh'</code>, <code class="language-plaintext highlighter-rouge">'sqrt'</code>, <code class="language-plaintext highlighter-rouge">'sqrt_exponential'</code>.  <code class="language-plaintext highlighter-rouge">'eped_tanh'</code> fits the seven-parameter pedestal model <code class="language-plaintext highlighter-rouge">(f0, f_ped, f_sep, x_ped, width, alpha, beta)</code> and is what <code class="language-plaintext highlighter-rouge">vaft.process.profile.pedestal_top</code> uses.</p>
 </td></tr>
-  <tr><td><code>gp_kernel</code></td><td>sklearn kernel or None, optional</td><td>n/a</td><td><p>Kernel for the GP mode; default constant times RBF.</p>
+  <tr><td><code>gp_kernel</code></td><td>sklearn kernel or None, optional</td><td>n/a</td><td><p>Kernel for <code class="language-plaintext highlighter-rouge">'gp_sklearn'</code> only; ignored, with a warning, by the scipy <code class="language-plaintext highlighter-rouge">'gp'</code> mode; default constant times RBF.</p>
 </td></tr>
   <tr><td><code>gp_anchor</code></td><td>tuple or None, optional</td><td>n/a</td><td><p><code class="language-plaintext highlighter-rouge">(x_anchor, y_anchor, y_std_anchor)</code> extra points for the GP.</p>
 </td></tr>
@@ -487,6 +565,54 @@ fit_profile(x, y, y_std, x_eval, order=3, fitting_function=’core_poly_edge_exp
     </blockquote>
   </blockquote>
 </blockquote>
+
+<h3 id="gp_fit"><code class="language-plaintext highlighter-rouge">gp_fit</code></h3>
+
+<p class="formula-signature"><code>gp_fit(x, y, y_std, x_eval, *, n_restarts_optimizer=5, random_state=0)</code></p>
+
+<p>Fit a squared-exponential Gaussian process and evaluate it on a grid.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>x</code></td><td>array-like</td><td>any</td><td><p>Data abscissae, 1-D.</p>
+</td></tr>
+  <tr><td><code>y</code></td><td>array-like</td><td>any</td><td><p>Data values.</p>
+</td></tr>
+  <tr><td><code>y_std</code></td><td>array-like or None</td><td>any</td><td><p>Per-point one-sigma uncertainty, entering as the diagonal noise; <code class="language-plaintext highlighter-rouge">None</code> uses a numerical jitter.</p>
+</td></tr>
+  <tr><td><code>x_eval</code></td><td>array-like</td><td>any</td><td><p>Evaluation grid.</p>
+</td></tr>
+  <tr><td><code>n_restarts_optimizer</code></td><td>int, optional</td><td>-</td><td><p>Extra random restarts of the marginal-likelihood optimisation, on top of the one from the default hyperparameters; default 5.</p>
+</td></tr>
+  <tr><td><code>random_state</code></td><td>int, optional</td><td>-</td><td><p>Seed for the restart draws, so a fit is reproducible; default 0.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>mean</code></td><td>np.ndarray</td><td>any</td><td><p>Posterior mean on <code class="language-plaintext highlighter-rouge">x_eval</code>.</p>
+</td></tr>
+  <tr><td><code>std</code></td><td>np.ndarray</td><td>any</td><td><p>Posterior standard deviation on <code class="language-plaintext highlighter-rouge">x_eval</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">y</code> is standardised before fitting and the posterior is mapped back,
+which is what makes one set of hyperparameter bounds work for data in
+m^-3 and in keV alike.  The marginal likelihood is optimised with
+<code class="language-plaintext highlighter-rouge">scipy.optimize.minimize</code> (L-BFGS-B) over the log-hyperparameters.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>C. E. Rasmussen and C. K. I. Williams, <em>Gaussian Processes for Machine Learning</em>, MIT Press (2006), Algorithm 2.1 and Eq. (5.8).
+</li>
+</ol>
 
 <h3 id="gradient"><code class="language-plaintext highlighter-rouge">gradient</code></h3>
 
@@ -592,11 +718,11 @@ positive and decay monotonically when the polynomial is decreasing.</p>
   </tbody>
 </table>
 
-<p><strong>Limitations.</strong></p>
+<p><strong>Numerical notes.</strong></p>
 
-<p>No guard against <code class="language-plaintext highlighter-rouge">x_boundary == x_axis</code>: a degenerate equilibrium with
-equal axis and boundary flux, which packaged VEST samples do contain,
-returns <code class="language-plaintext highlighter-rouge">inf</code>/<code class="language-plaintext highlighter-rouge">nan</code>.  Tracked in #357.</p>
+<p>A degenerate profile whose axis and boundary values are equal – which
+packaged VEST samples do contain – warns and returns <code class="language-plaintext highlighter-rouge">nan</code> rather than
+propagating <code class="language-plaintext highlighter-rouge">inf</code>.</p>
 
 <h3 id="trapz_integral"><code class="language-plaintext highlighter-rouge">trapz_integral</code></h3>
 
@@ -745,7 +871,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#calculate_peaking_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_peaking_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_poloidal_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_poloidal_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_toroidal_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_toroidal_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_volume_weighted_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_volume_weighted_average</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_profile" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_profile</a></li><li class="page-toc-item page-toc-level-3"><a href="#gradient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">gradient</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_fit_function" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_fit_function</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalize_profile" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalize_profile</a></li><li class="page-toc-item page-toc-level-3"><a href="#trapz_integral" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trapz_integral</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#calculate_peaking_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_peaking_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_poloidal_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_poloidal_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_toroidal_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_toroidal_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_volume_weighted_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_volume_weighted_average</a></li><li class="page-toc-item page-toc-level-3"><a href="#eped_tanh_bounds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">eped_tanh_bounds</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_profile" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_profile</a></li><li class="page-toc-item page-toc-level-3"><a href="#gp_fit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">gp_fit</a></li><li class="page-toc-item page-toc-level-3"><a href="#gradient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">gradient</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_fit_function" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_fit_function</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalize_profile" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalize_profile</a></li><li class="page-toc-item page-toc-level-3"><a href="#trapz_integral" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trapz_integral</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -863,7 +989,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-17 06:09:00 +0000"
+        "time": "2026-09-17 09:45:58 +0000"
     },
     "basePath": "/vaft",
     "book": {

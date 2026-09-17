@@ -2,7 +2,7 @@
 <html lang="en" >
     <head><meta charset="UTF-8">
 <meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>MHD stability · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
 <link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
@@ -136,6 +136,36 @@
                     <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
                     
                         <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
                     </li>
                 
                     
@@ -340,13 +370,13 @@ needs no formula call:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load_ods</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>
 
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_equilibrium_beta_n</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_equilibrium_q95</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_equilibrium_beta_pol</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">time_equilibrium_beta_tor</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_equilibrium_time_beta_n</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_equilibrium_time_q95</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_equilibrium_time_beta_p</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_equilibrium_time_beta_t</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">vaft.plot.time_equilibrium_analysis(ods)</code> packs $I_p$, $V_{\rm loop}$ and $\beta_N$ against
+<p><code class="language-plaintext highlighter-rouge">vaft.omas.plot_equilibrium_overview_histories(ods)</code> packs $I_p$, $V_{\rm loop}$ and $\beta_N$ against
 $H_\alpha$, $B_z$ and $R_{\rm major}$ into one 3×2 figure — the fastest way to see whether a beta
 excursion coincides with a disruption.</p>
 
@@ -453,6 +483,22 @@ mapping merged into the subprocess environment.</p>
   </tbody>
 </table>
 
+<h3 id="3-d-coil-input-for-any-machine">3-D coil input for any machine</h3>
+
+<p>By default the ideal-GPEC stage copies the packaged VEST <code class="language-plaintext highlighter-rouge">coil.in</code> template. Passing
+<code class="language-plaintext highlighter-rouge">IdealGPECOptions(coil_specs=[CoilInputSpec(name, currents_a), ...])</code> instead generates <code class="language-plaintext highlighter-rouge">coil.in</code>
+and stages one <code class="language-plaintext highlighter-rouge">&lt;machine&gt;_&lt;set&gt;.dat</code> per activated set (<code class="language-plaintext highlighter-rouge">coil_num</code> is always the number of specs).
+For <code class="language-plaintext highlighter-rouge">machine="vest"</code> (the default) the geometry and the GPEC direction words come from the packaged
+VEST configuration and <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.conventions.VEST_GPEC_COIL_DIRECTIONS</code>. For any other
+machine three things are mandatory and are never inherited from the template: <code class="language-plaintext highlighter-rouge">coil_config</code>, a
+mapping of set name to <code class="language-plaintext highlighter-rouge">CoilSet3D</code> (build one from Cartesian loops with
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.coils_non_axisymmetric_geometry.coil_set_from_xyz_loops</code>, or from an existing
+GPEC file with <code class="language-plaintext highlighter-rouge">coil_set_from_dat</code>), and the machine’s <code class="language-plaintext highlighter-rouge">ip_direction</code> / <code class="language-plaintext highlighter-rouge">bt_direction</code>
+(<code class="language-plaintext highlighter-rouge">"positive"</code> for counter-clockwise, <code class="language-plaintext highlighter-rouge">"negative"</code> for clockwise, viewed from above, as GPEC defines
+them). A set built in memory is written out with the canonical header <code class="language-plaintext highlighter-rouge">ncoil nsec npts nw</code>
+(<code class="language-plaintext highlighter-rouge">GPEC_COIL_DAT_HEADER</code>). The toroidal-mode content of a current pattern and the vacuum field of
+the filaments are available as plain-array kernels in <code class="language-plaintext highlighter-rouge">vaft.process.coils_non_axisymmetric</code>.</p>
+
 <p>To stage the inputs without executing anything — useful when the run itself is dispatched by a
 scheduler — call <code class="language-plaintext highlighter-rouge">prepare_gpec_suite_case(inputs, config)</code> directly. <code class="language-plaintext highlighter-rouge">run_gpec(inputs, config)</code> is a
 compatibility entry point that forwards to <code class="language-plaintext highlighter-rouge">run_gpec_suite_case</code>.</p>
@@ -477,13 +523,19 @@ products of a whole case with:</p>
 <p>The result is a dict keyed by module name (<code class="language-plaintext highlighter-rouge">dcon</code>, <code class="language-plaintext highlighter-rouge">rdcon</code>, <code class="language-plaintext highlighter-rouge">stride</code>, <code class="language-plaintext highlighter-rouge">gpec</code>).</p>
 
 <p><code class="language-plaintext highlighter-rouge">GPECSuiteResult.records</code> is a tuple of <code class="language-plaintext highlighter-rouge">GPECModuleRun</code>, one per module/mode, each carrying <code class="language-plaintext highlighter-rouge">status</code>
-(<code class="language-plaintext highlighter-rouge">prepared</code>, <code class="language-plaintext highlighter-rouge">completed</code>, <code class="language-plaintext highlighter-rouge">failed</code>, <code class="language-plaintext highlighter-rouge">skipped</code>), <code class="language-plaintext highlighter-rouge">returncode</code>, <code class="language-plaintext highlighter-rouge">reason</code>, <code class="language-plaintext highlighter-rouge">logs</code> and <code class="language-plaintext highlighter-rouge">outputs</code>. The
-<code class="language-plaintext highlighter-rouge">ok</code> property is true only when <code class="language-plaintext highlighter-rouge">status == "completed"</code> <strong>and</strong> <code class="language-plaintext highlighter-rouge">returncode == 0</code>, so inspect it per
-module rather than trusting the suite-level return code alone:</p>
+(<code class="language-plaintext highlighter-rouge">prepared</code>, <code class="language-plaintext highlighter-rouge">completed</code>, <code class="language-plaintext highlighter-rouge">stable</code>, <code class="language-plaintext highlighter-rouge">failed</code>, <code class="language-plaintext highlighter-rouge">skipped</code>), <code class="language-plaintext highlighter-rouge">returncode</code>, <code class="language-plaintext highlighter-rouge">reason</code>, <code class="language-plaintext highlighter-rouge">logs</code> and
+<code class="language-plaintext highlighter-rouge">outputs</code>. The <code class="language-plaintext highlighter-rouge">ok</code> property is true when <code class="language-plaintext highlighter-rouge">status</code> is <code class="language-plaintext highlighter-rouge">completed</code> or <code class="language-plaintext highlighter-rouge">stable</code> <strong>and</strong>
+<code class="language-plaintext highlighter-rouge">returncode == 0</code>, so inspect it per module rather than trusting the suite-level return code alone:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">result</span><span class="p">.</span><span class="n">records</span><span class="p">:</span>
     <span class="nf">print</span><span class="p">(</span><span class="n">record</span><span class="p">.</span><span class="n">module</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">mode</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">status</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">ok</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">reason</span><span class="p">)</span>
 </code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">stable</code> is a <em>successful</em> status, kept apart from <code class="language-plaintext highlighter-rouge">completed</code> because a stable equilibrium produces
+no unstable-mode output and so cannot be told from a broken run by what it wrote (#423). It is read
+from the solver’s own free-boundary energy – <code class="language-plaintext highlighter-rouge">Re(total1)</code>, which DCON, RDCON and STRIDE all write
+into their netCDF – so a companion such as <code class="language-plaintext highlighter-rouge">rmatch</code> exiting badly with nothing to analyse does not
+make the cell a failure. A run that produced no usable output is still <code class="language-plaintext highlighter-rouge">failed</code>, stable or not.</p>
 
 <h2 id="geqdsk-headers">GEQDSK headers</h2>
 
@@ -653,7 +705,7 @@ and <a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/code/gpec.py"><
           <li data-resource-id="code"><a href="/vaft/reference/api/#vaftcode"><code>vaft.code</code></a></li>
         
           
-          <li data-resource-id="process"><a href="/vaft/reference/api/#vaftprocess-and-vaftformula"><code>vaft.process</code></a></li>
+          <li data-resource-id="process"><a href="/vaft/reference/process/"><code>vaft.process</code></a></li>
         
       </ul>
     </div>
@@ -822,7 +874,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#density-limit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Density limit</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-combined-margin-helper-and-its-one-trap" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The combined margin helper, and its one trap</a></li><li class="page-toc-item page-toc-level-2"><a href="#operational-space-traces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Operational-space traces</a></li><li class="page-toc-item page-toc-level-2"><a href="#configure-prepare-run" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configure, prepare, run</a></li><li class="page-toc-item page-toc-level-2"><a href="#directory-layout-and-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Directory layout and outputs</a></li><li class="page-toc-item page-toc-level-2"><a href="#geqdsk-headers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GEQDSK headers</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#density-limit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Density limit</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-combined-margin-helper-and-its-one-trap" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The combined margin helper, and its one trap</a></li><li class="page-toc-item page-toc-level-2"><a href="#operational-space-traces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Operational-space traces</a></li><li class="page-toc-item page-toc-level-2"><a href="#configure-prepare-run" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configure, prepare, run</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#3-d-coil-input-for-any-machine" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D coil input for any machine</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#directory-layout-and-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Directory layout and outputs</a></li><li class="page-toc-item page-toc-level-2"><a href="#geqdsk-headers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GEQDSK headers</a></li></ul>
     </nav>
 </aside>
 
@@ -940,7 +992,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-17 06:09:00 +0000"
+        "time": "2026-09-17 09:45:58 +0000"
     },
     "basePath": "/vaft",
     "book": {

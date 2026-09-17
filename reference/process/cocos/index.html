@@ -1,0 +1,933 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: cocos · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/process/statistical_analysis/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/process/profile/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: cocos</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_cocos">Process reference: cocos</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.cocos, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/cocos.py"><code class="language-plaintext highlighter-rouge">vaft/process/cocos.py</code></a>:
+5 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("cocos.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/reference/process/">process reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.data.cocos</code> declares <em>what</em> each convention and each external code is.
+This module answers <em>whether a given equilibrium is actually consistent with the
+convention it claims</em>, which is the check that catches a mislabelled file before
+its signs propagate into derived quantities.</p>
+
+<p>Sauter &amp; Medvedev 2013 Eq. 23 gives six relations that any equilibrium in a given
+COCOS must satisfy, in terms of the signs of the plasma current and the vacuum
+toroidal field:</p>
+
+<p>===============  =====================================
+quantity         required sign
+===============  =====================================
+<code class="language-plaintext highlighter-rouge">F</code>            <code class="language-plaintext highlighter-rouge">sigma_B0</code>
+<code class="language-plaintext highlighter-rouge">Phi_tor</code>      <code class="language-plaintext highlighter-rouge">sigma_B0</code>
+<code class="language-plaintext highlighter-rouge">psi_edge -</code>   <code class="language-plaintext highlighter-rouge">sigma_Ip * sigma_Bp</code>
+<code class="language-plaintext highlighter-rouge">psi_axis</code>
+<code class="language-plaintext highlighter-rouge">dp/dpsi</code>      <code class="language-plaintext highlighter-rouge">-sigma_Ip * sigma_Bp</code>
+<code class="language-plaintext highlighter-rouge">j_phi</code>        <code class="language-plaintext highlighter-rouge">sigma_Ip</code>
+<code class="language-plaintext highlighter-rouge">q</code>            <code class="language-plaintext highlighter-rouge">sigma_Ip * sigma_B0 * sigma_rhotheta</code>
+===============  =====================================</p>
+
+<p>The <code class="language-plaintext highlighter-rouge">q</code> relation is reported as a warning rather than an error: Sauter Sect. IV
+notes that codes frequently emit <code class="language-plaintext highlighter-rouge">abs(q)</code>, so a mismatch there is common and is
+not on its own evidence of a wrong index.</p>
+
+<p>Only four of the six are checkable against <code class="language-plaintext highlighter-rouge">vaft.data.equilibrium.EquilibriumData</code>
+as it stands: it carries no toroidal current density and no toroidal flux, so
+<code class="language-plaintext highlighter-rouge">j_phi</code> and <code class="language-plaintext highlighter-rouge">Phi_tor</code> are always reported as unverifiable.  They are listed
+here because they are part of Eq. 23 and become checkable if those fields are
+ever added, not because they are being tested today.</p>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#cocos_consistency_signs"><code>cocos_consistency_signs</code></a> &mdash; Observed sign of each Sauter Eq. 23 quantity, or <code class="language-plaintext highlighter-rouge">None</code> where not determinable.
+</li>
+  <li><a href="#cocos_field_scales"><code>cocos_field_scales</code></a> &mdash; The two sign multipliers that carry an equilibrium from one COCOS to another.
+</li>
+  <li><a href="#identify_convention"><code>identify_convention</code></a> &mdash; Candidate COCOS indices for an equilibrium, from its observable signs.
+</li>
+  <li><a href="#identify_flux_exponent"><code>identify_flux_exponent</code></a> &mdash; Decide whether psi is stored in weber or weber per radian, from Ampere’s law.
+</li>
+  <li><a href="#validate_cocos"><code>validate_cocos</code></a> &mdash; Check an equilibrium against the Sauter Eq. 23 relations for one COCOS index.
+</li>
+</ul>
+
+<h3 id="cocos_consistency_signs"><code class="language-plaintext highlighter-rouge">cocos_consistency_signs</code></h3>
+
+<p class="formula-signature"><code>cocos_consistency_signs(equilibrium)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Observed sign of each Sauter Eq. 23 quantity, or <code class="language-plaintext highlighter-rouge">None</code> where not determinable.</p>
+
+<p>Reads signs off the equilibrium as it stands.  Nothing is compared against a
+convention here and nothing is converted; <code class="language-plaintext highlighter-rouge">validate_cocos</code> does the
+comparison and <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.convert_cocos</code> is the only
+transform in the package.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>equilibrium</code></td><td>EquilibriumData</td><td>-</td><td><p>The equilibrium to inspect.  Missing fields yield <code class="language-plaintext highlighter-rouge">None</code> for the relations that need them rather than an error.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to int or None</td><td>-</td><td><p>Keys <code class="language-plaintext highlighter-rouge">f</code>, <code class="language-plaintext highlighter-rouge">q</code>, <code class="language-plaintext highlighter-rouge">j_phi</code>, <code class="language-plaintext highlighter-rouge">phi_tor</code>, <code class="language-plaintext highlighter-rouge">dpsi</code>, <code class="language-plaintext highlighter-rouge">pprime</code>; each <code class="language-plaintext highlighter-rouge">+1</code>, <code class="language-plaintext highlighter-rouge">-1</code>, or <code class="language-plaintext highlighter-rouge">None</code> when the field is absent or all-zero.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li><code class="language-plaintext highlighter-rouge">f</code>, <code class="language-plaintext highlighter-rouge">q</code>, <code class="language-plaintext highlighter-rouge">j_phi</code> and <code class="language-plaintext highlighter-rouge">phi_tor</code>: the sign of the profile’s median,
+with a deadband so a numerically-zero profile reports <code class="language-plaintext highlighter-rouge">None</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">dpsi</code>: the sign of <code class="language-plaintext highlighter-rouge">psi_boundary - psi_axis</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">pprime</code>: the stored <code class="language-plaintext highlighter-rouge">pprime</code> profile’s sign when the equilibrium
+carries one, which for a GEQDSK or an ODS it essentially always does.
+Only when it does not is the bulk slope
+<code class="language-plaintext highlighter-rouge">(p_edge - p_axis)/(psi_edge - psi_axis)</code> used instead, taken on a
+profile reordered axis-to-edge so the direction is known.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>Signs only, in whatever convention the equilibrium is already in; this
+function neither assumes nor imposes a COCOS.  <code class="language-plaintext highlighter-rouge">j_phi</code> and <code class="language-plaintext highlighter-rouge">phi_tor</code> are
+always <code class="language-plaintext highlighter-rouge">None</code> today because <code class="language-plaintext highlighter-rouge">vaft.data.equilibrium.EquilibriumData</code>
+carries neither a toroidal current density nor a toroidal flux; they are
+reported so that Eq. 23 is represented in full, not because they are tested.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A bulk slope is the sign of the overall trend, not of every point: a
+non-monotonic pressure profile still reports one sign.  Because the stored
+<code class="language-plaintext highlighter-rouge">pprime</code> takes precedence, the fallback rarely runs in practice; that the
+two paths can disagree for a hand-built equilibrium is tracked in #605.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Sauter and Medvedev, <em>Tokamak Coordinate Conventions: COCOS</em>, Comput. Phys. Commun. 184, 293 (2013), Eq. 23, which defines the six sign relations this function measures.  The preference for a bulk pressure slope over a pointwise derivative is that paper’s own recommendation.
+</li>
+</ol>
+
+<h3 id="cocos_field_scales"><code class="language-plaintext highlighter-rouge">cocos_field_scales</code></h3>
+
+<p class="formula-signature"><code>cocos_field_scales(source, target)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The two sign multipliers that carry an equilibrium from one COCOS to another.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>source</code></td><td>int</td><td>-</td><td><p>The index the equilibrium is in.</p>
+</td></tr>
+  <tr><td><code>target</code></td><td>int</td><td>-</td><td><p>The index it is wanted in.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of int</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(psi_scale, field_scale)</code>, each <code class="language-plaintext highlighter-rouge">+1</code> or <code class="language-plaintext highlighter-rouge">-1</code>. <code class="language-plaintext highlighter-rouge">psi_scale</code> multiplies the poloidal flux – <code class="language-plaintext highlighter-rouge">psi</code> on the grid and the axis and boundary values with it – and <code class="language-plaintext highlighter-rouge">field_scale</code> multiplies the toroidal field and the poloidal current function <code class="language-plaintext highlighter-rouge">F</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Either index is not one of the eighteen COCOS indices.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Look up both conventions’ <code class="language-plaintext highlighter-rouge">sigma_Bp</code> and <code class="language-plaintext highlighter-rouge">sigma_RphiZ</code>.</li>
+  <li>The flux multiplier is the product of the two <code class="language-plaintext highlighter-rouge">sigma_Bp sigma_RphiZ</code>
+products; the field multiplier is the product of the two
+<code class="language-plaintext highlighter-rouge">sigma_RphiZ</code>.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>From Sauter Eq. 12, <code class="language-plaintext highlighter-rouge">B_pol = sigma_Bp sigma_RphiZ grad(psi) x grad(phi) /
+(2 pi)**e_Bp</code>: the sign <code class="language-plaintext highlighter-rouge">psi</code> carries relative to the physical poloidal
+field is the <strong>product</strong> <code class="language-plaintext highlighter-rouge">sigma_Bp * sigma_RphiZ</code>, so the flux flips when
+that product differs between the two conventions. The toroidal field’s
+direction follows <code class="language-plaintext highlighter-rouge">sigma_RphiZ</code> alone, so <code class="language-plaintext highlighter-rouge">F</code> and <code class="language-plaintext highlighter-rouge">B_t</code> flip when the
+handedness of <code class="language-plaintext highlighter-rouge">(R, phi, Z)</code> differs.</p>
+
+<p><strong>This is a sign conversion, not a unit conversion.</strong> <code class="language-plaintext highlighter-rouge">e_Bp</code> differs
+between the 1-8 and 11-18 families by a factor of <code class="language-plaintext highlighter-rouge">2 pi</code> on <code class="language-plaintext highlighter-rouge">psi</code>, and
+nothing here applies it: a caller crossing the families has to scale the
+flux itself, and <code class="language-plaintext highlighter-rouge">identify_flux_exponent</code> is what tells it which
+family a file is in.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Says nothing about <code class="language-plaintext highlighter-rouge">sigma_rhothetaphi</code>, which sets the poloidal angle’s
+direction. Two conventions differing only in that give <code class="language-plaintext highlighter-rouge">(+1, +1)</code> here
+and still disagree about the sign of <code class="language-plaintext highlighter-rouge">theta</code> – a caller relabelling a
+poloidal angle needs the third sigma, not these two.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293, Eq. 12 and Table I.
+</li>
+  <li>Two conversions measured on real runs, both reproduced by this rule: a COCOS 5 g-file into FLARE’s COCOS 3 needs <code class="language-plaintext highlighter-rouge">(-1, +1)</code>, and a COCOS 2 CHEASE equilibrium needs <code class="language-plaintext highlighter-rouge">(+1, -1)</code>.
+</li>
+</ol>
+
+<h3 id="identify_convention"><code class="language-plaintext highlighter-rouge">identify_convention</code></h3>
+
+<p class="formula-signature"><code>identify_convention(equilibrium, *, clockwise_phi=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Candidate COCOS indices for an equilibrium, from its observable signs.</p>
+
+<p>Narrows rather than decides: the return is every index consistent with what
+the data shows, which is often more than one.  A caller that needs a single
+index supplies the missing fact instead of guessing.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>equilibrium</code></td><td>EquilibriumData</td><td>-</td><td><p>Must carry <code class="language-plaintext highlighter-rouge">bt0</code>, <code class="language-plaintext highlighter-rouge">ip</code>, <code class="language-plaintext highlighter-rouge">q</code> and <code class="language-plaintext highlighter-rouge">psi_1d</code>; without them the candidate set is empty.</p>
+</td></tr>
+  <tr><td><code>clockwise_phi</code></td><td>bool, optional</td><td>-</td><td><p>Whether the machine’s toroidal angle runs clockwise seen from above.  A fact about the machine, not about the data; without it both the odd and the even index of each pair are returned.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of int</td><td>-</td><td><p>The candidate COCOS indices in increasing order, empty when the required fields are missing or the sign identification fails.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Reorder <code class="language-plaintext highlighter-rouge">psi_1d</code> and <code class="language-plaintext highlighter-rouge">q</code> axis-to-edge when the stored profile runs the
+other way.</li>
+  <li>Get the sign family from <code class="language-plaintext highlighter-rouge">omas.identify_cocos</code>, which reads it off the
+signs of <code class="language-plaintext highlighter-rouge">ip</code>, <code class="language-plaintext highlighter-rouge">bt0</code>, <code class="language-plaintext highlighter-rouge">q</code> and the psi gradient.</li>
+  <li>Narrow to 1-8 or 11-18 using <code class="language-plaintext highlighter-rouge">identify_flux_exponent</code>, keeping the
+full set when that abstains.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>Returns indices in the standard 1 to 18 numbering; 9 and 10 do not exist.
+The sign family and the storage family are identified by different evidence,
+signs for the first and an Ampere loop integral for the second, and either can
+be inconclusive on its own.  What each index means is declared in
+<code class="language-plaintext highlighter-rouge">vaft.data.cocos</code>, not here.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  <code class="language-plaintext highlighter-rouge">clockwise_phi</code> is where a machine’s own geometry
+enters.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The axis-to-edge reorder exists because <code class="language-plaintext highlighter-rouge">identify_cocos</code> reads the psi
+gradient at the first node, so a boundary-first profile would invert the
+poloidal-flux sign silently.  When the flux exponent abstains the result spans
+both storage families, and a caller that then converts must not assume the
+candidates share one.  Any exception from the underlying identification is
+reported as no candidates rather than raised.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Sauter and Medvedev (2013) for the index numbering and the sign relations the identification rests on.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">omas.identify_cocos</code> supplies the sign family; its flux-exponent argument is deliberately not used, see <code class="language-plaintext highlighter-rouge">identify_flux_exponent</code>.
+</li>
+</ol>
+
+<h3 id="identify_flux_exponent"><code class="language-plaintext highlighter-rouge">identify_flux_exponent</code></h3>
+
+<p class="formula-signature"><code>identify_flux_exponent(equilibrium)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Decide whether psi is stored in weber or weber per radian, from Ampere’s law.</p>
+
+<p>The loop integral of the poloidal field around the last closed flux surface
+equals <code class="language-plaintext highlighter-rouge">mu0*|Ip|</code>.  Computing that field from psi <em>as if</em> it were weber per
+radian gives a ratio of 1 when the assumption holds and <code class="language-plaintext highlighter-rouge">2*pi</code> when psi is
+really in weber, so the two answers are a factor <code class="language-plaintext highlighter-rouge">2*pi</code> apart and the test is
+decisive rather than a threshold on a continuum.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>equilibrium</code></td><td>EquilibriumData</td><td>-</td><td><p>Must carry <code class="language-plaintext highlighter-rouge">ip</code>, a closed <code class="language-plaintext highlighter-rouge">lcfs</code>, and a <code class="language-plaintext highlighter-rouge">psi</code> map on its <code class="language-plaintext highlighter-rouge">r</code> and <code class="language-plaintext highlighter-rouge">z</code> grid; anything missing yields <code class="language-plaintext highlighter-rouge">(None, None)</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of (int or None, float or None)</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(e_Bp, ratio)</code>.  <code class="language-plaintext highlighter-rouge">e_Bp</code> is 0 for a weber-per-radian psi (COCOS 1-8) and 1 for a weber psi (COCOS 11-18), or <code class="language-plaintext highlighter-rouge">None</code> when the inputs are unavailable or the ratio lands near neither answer.  <code class="language-plaintext highlighter-rouge">ratio</code> is the measured loop integral over <code class="language-plaintext highlighter-rouge">mu0*|Ip|</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Close the LCFS contour and compute the poloidal field on it with
+<code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.poloidal_field_at_boundary</code> in the
+weber-per-radian form; only the magnitude matters.</li>
+  <li>Integrate it along the contour by the trapezoidal rule.</li>
+  <li>Divide by <code class="language-plaintext highlighter-rouge">mu0*|Ip|</code>.</li>
+  <li>Accept 0 or 1 if the ratio is within
+<code class="language-plaintext highlighter-rouge">FLUX_EXPONENT_TOLERANCE</code> of 1 or <code class="language-plaintext highlighter-rouge">2*pi</code>; otherwise abstain.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">FLUX_EXPONENT_TOLERANCE</code> is 0.15, a numerical convenience rather than
+a physical threshold: a correct equilibrium lands within about half a
+percent, the residual being LCFS discretization, so the band is roughly
+thirty times the observed error while leaving the two acceptance windows
+far apart, at 0.85 to 1.15 against 5.34 to 7.23.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Decides which storage family psi is in; it does not rescale psi and does not
+say which of the eight sign orientations applies.  <code class="language-plaintext highlighter-rouge">e_Bp</code> is Sauter’s flux
+exponent: 0 means the <code class="language-plaintext highlighter-rouge">2*pi</code> is not carried in psi, 1 means it is.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Abstains rather than picking the nearer of two wrong answers.  A ratio near
+neither value is evidence the input is broken, a truncated LCFS or an <code class="language-plaintext highlighter-rouge">ip</code>
+that disagrees with the psi map, not evidence of a convention.  Needs a
+2-D psi map and an LCFS, so a profiles-only equilibrium cannot be classified.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Sauter and Medvedev (2013) for <code class="language-plaintext highlighter-rouge">e_Bp</code> and the storage families.
+</li>
+  <li>Replaces the <code class="language-plaintext highlighter-rouge">a</code> argument of <code class="language-plaintext highlighter-rouge">omas.identify_cocos</code>, which is not usable here: it evaluates <code class="language-plaintext highlighter-rouge">pi*B0*(a[i]-a[0])**2/(psi[i]-psi[0])</code> at the node adjacent to the axis, where the minor radius goes as <code class="language-plaintext highlighter-rouge">sqrt(psi)</code>, so a linear reconstruction underestimates it and the estimate depends on its square.  On the packaged VEST sample that picks the wrong family on a margin of 0.22 against 1.67, where this loop integral separates 1.004 from 6.31.
+</li>
+</ol>
+
+<h3 id="validate_cocos"><code class="language-plaintext highlighter-rouge">validate_cocos</code></h3>
+
+<p class="formula-signature"><code>validate_cocos(equilibrium, cocos=None, *, sigma_ip=None, sigma_b0=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Check an equilibrium against the Sauter Eq. 23 relations for one COCOS index.</p>
+
+<p>The check that catches a mislabelled file before its signs propagate into
+derived quantities.  Never raises on an inconsistency: it returns a report and
+lets the caller decide whether a mismatch is fatal.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>equilibrium</code></td><td>EquilibriumData</td><td>-</td><td><p>The equilibrium to check.</p>
+</td></tr>
+  <tr><td><code>cocos</code></td><td>int, optional</td><td>-</td><td><p>The convention to check against, 1 to 18.  Defaults to the index recorded on the equilibrium’s own <code class="language-plaintext highlighter-rouge">convention</code>.</p>
+</td></tr>
+  <tr><td><code>sigma_ip</code></td><td>int, optional</td><td>-</td><td><p>Sign of the plasma current, <code class="language-plaintext highlighter-rouge">+1</code> or <code class="language-plaintext highlighter-rouge">-1</code>.  Defaults to the sign of the equilibrium’s <code class="language-plaintext highlighter-rouge">ip</code>.</p>
+</td></tr>
+  <tr><td><code>sigma_b0</code></td><td>int, optional</td><td>-</td><td><p>Sign of the vacuum toroidal field.  Defaults to the sign of <code class="language-plaintext highlighter-rouge">bt0</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ValidationReport</td><td>-</td><td><p>One issue per violated relation, plus at most one <code class="language-plaintext highlighter-rouge">cocos_unverifiable</code> warning covering every relation whose inputs were missing.  An empty report means every checkable relation held.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Resolve the target index and the two reference signs from the arguments,
+falling back to the equilibrium’s own convention and field signs.</li>
+  <li>Measure the observed signs with <code class="language-plaintext highlighter-rouge">cocos_consistency_signs</code>.</li>
+  <li>Compare each against the sign Eq. 23 requires for that index, collecting
+the mismatches.</li>
+  <li>Collapse every unverifiable relation into a single warning rather than
+one issue each.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>Checks consistency <em>with</em> a convention; it does not identify one and does not
+convert. A mismatch on <code class="language-plaintext highlighter-rouge">q</code> is reported at warning severity rather than
+error, because codes commonly emit <code class="language-plaintext highlighter-rouge">abs(q)</code> and a sign disagreement there is
+not on its own evidence of a wrong index.  Every other relation is an error.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Only four of Eq. 23’s six relations are checkable against
+<code class="language-plaintext highlighter-rouge">vaft.data.equilibrium.EquilibriumData</code> as it stands; <code class="language-plaintext highlighter-rouge">j_phi</code> and
+<code class="language-plaintext highlighter-rouge">phi_tor</code> have no field to read and are always unverifiable.  A passing
+report therefore means “consistent as far as the stored fields can say”, not
+“the index is correct”.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Sauter and Medvedev (2013), Eq. 23 for the relations and Sect. IV for the rule that a <code class="language-plaintext highlighter-rouge">q</code> sign mismatch is a warning, not a rejection.
+</li>
+</ol>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/process/statistical_analysis/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: statistical_analysis">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/process/profile/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: profile">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#cocos_consistency_signs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cocos_consistency_signs</a></li><li class="page-toc-item page-toc-level-3"><a href="#cocos_field_scales" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cocos_field_scales</a></li><li class="page-toc-item page-toc-level-3"><a href="#identify_convention" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">identify_convention</a></li><li class="page-toc-item page-toc-level-3"><a href="#identify_flux_exponent" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">identify_flux_exponent</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_cocos</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: profile",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_profile.md",
+            "ref": "_guide/Process_reference_profile.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_cocos.md",
+        "mtime": "2026-09-03 10:04:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-17 09:45:58 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>

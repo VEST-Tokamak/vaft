@@ -2,7 +2,7 @@
 <html lang="en" >
     <head><meta charset="UTF-8">
 <meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="description" content="VAFT is an open-source Python framework for tokamak data analysis: an IMAS-compliant data interface built on OMAS, an HSDS remote database of VEST experimental shots, machine mapping into standard IDSs, equilibrium and stability code interfaces (EFIT, CHEASE, GPEC/DCON), profile fitting, and automated Snakemake pipelines.
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
 <link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
@@ -139,6 +139,36 @@
                     </li>
                 
                     
+                    <li class="chapter active" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
                     
                         <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
@@ -247,15 +277,19 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/reference/formula/utils/">utils</a></td>
-    <td><code>vaft.formula.utils</code></td><td>9</td><td>Utility functions for plasma physics calculations.</td>
+    <td><code>vaft.formula.utils</code></td><td>11</td><td>Utility functions for plasma physics calculations.</td>
   </tr>
   <tr>
     <td><a href="/vaft/reference/formula/equilibrium/">equilibrium</a></td>
-    <td><code>vaft.formula.equilibrium</code></td><td>96</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
+    <td><code>vaft.formula.equilibrium</code></td><td>81</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
+  </tr>
+  <tr>
+    <td><a href="/vaft/reference/formula/virial/">virial</a></td>
+    <td><code>vaft.formula.virial</code></td><td>33</td><td>Virial closures: global quantities from the Shafranov boundary integrals.</td>
   </tr>
   <tr>
     <td><a href="/vaft/reference/formula/stability/">stability</a></td>
-    <td><code>vaft.formula.stability</code></td><td>19</td><td>Plasma stability, operational limits, and transport calculations.</td>
+    <td><code>vaft.formula.stability</code></td><td>21</td><td>Plasma stability, operational limits, and transport calculations.</td>
   </tr>
   <tr>
     <td><a href="/vaft/reference/formula/green/">green</a></td>
@@ -273,6 +307,14 @@ numerical notes, references), and these pages are generated from those docstring
     <td><a href="/vaft/reference/formula/magnetics/">magnetics</a></td>
     <td><code>vaft.formula.magnetics</code></td><td>2</td><td>Magnetic-probe geometry shared by every forward model.</td>
   </tr>
+  <tr>
+    <td><a href="/vaft/reference/formula/neoclassical/">neoclassical</a></td>
+    <td><code>vaft.formula.neoclassical</code></td><td>12</td><td>Analytic neoclassical transport formulas: Sauter and Redl.</td>
+  </tr>
+  <tr>
+    <td><a href="/vaft/reference/formula/startup/">startup</a></td>
+    <td><code>vaft.formula.startup</code></td><td>18</td><td>Start-up physics from the gas fill to the avalanche.</td>
+  </tr>
   </tbody>
 </table>
 
@@ -286,7 +328,10 @@ numerical notes, references), and these pages are generated from those docstring
   <li><strong>Poloidal flux, Wb versus Wb/rad.</strong> The equilibrium helpers default to flux per radian
 (COCOS 1-8, EFIT g-files, VFIT); the IMAS Data Dictionary and the Green’s functions use full weber
 (COCOS 11-18).  <code class="language-plaintext highlighter-rouge">poloidal_field_factor(cocos)</code> carries both the $2\pi$ and the orientation sign;
-<code class="language-plaintext highlighter-rouge">vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor</code> settles which family an ODS holds.</li>
+<code class="language-plaintext highlighter-rouge">vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor</code> settles which family an ODS holds – a declared
+COCOS index first, the data probes only for an unlabelled file.  <code class="language-plaintext highlighter-rouge">vaft.omas.equilibrium_psi_to_weber</code>
+moves a legacy Wb/rad ODS to the DD’s weber in place and declares COCOS 11; the packaged 39915
+sample is stored that way since issue #478.</li>
   <li><strong>Engineering units.</strong> The confinement scalings, $n_G$, $\beta_N$ and the Verdoolaege dimensionless
 parameters are defined in MA, MW, $10^{19}$ m$^{-3}$ and percent; each page states what is converted
 internally and what is not.</li>
@@ -316,6 +361,7 @@ which documents the conventions and cites every entry.</p>
   <thead><tr><th>Name</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
   <tr><td><code>MU0</code></td><td>vacuum permeability</td><td>H/m</td></tr>
+  <tr><td><code>PA_PER_TORR</code></td><td>one torr, by definition 101325/760</td><td>Pa</td></tr>
   <tr><td><code>EPS0</code></td><td>vacuum permittivity</td><td>F/m</td></tr>
   <tr><td><code>QE</code></td><td>elementary charge</td><td>C</td></tr>
   <tr><td><code>ME</code></td><td>electron mass</td><td>kg</td></tr>
@@ -329,7 +375,7 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="utils">Utils</h2>
 
-<p>Utility functions for plasma physics calculations. — <a href="/vaft/reference/formula/utils/">9 functions</a>.</p>
+<p>Utility functions for plasma physics calculations. — <a href="/vaft/reference/formula/utils/">11 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/reference/formula/utils/#calculate_peaking_factor"><code>calculate_peaking_factor</code></a> &mdash; Peaking factor, central value over volume average.
@@ -340,7 +386,11 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/reference/formula/utils/#calculate_volume_weighted_average"><code>calculate_volume_weighted_average</code></a> &mdash; Volume-weighted average of a sampled profile.
 </li>
+  <li><a href="/vaft/reference/formula/utils/#eped_tanh_bounds"><code>eped_tanh_bounds</code></a> &mdash; Parameter box the <code class="language-plaintext highlighter-rouge">eped_tanh</code> fit uses for this data.
+</li>
   <li><a href="/vaft/reference/formula/utils/#fit_profile"><code>fit_profile</code></a> &mdash; Fit a 1-D profile with a selectable model and evaluate it on a grid.
+</li>
+  <li><a href="/vaft/reference/formula/utils/#gp_fit"><code>gp_fit</code></a> &mdash; Fit a squared-exponential Gaussian process and evaluate it on a grid.
 </li>
   <li><a href="/vaft/reference/formula/utils/#gradient"><code>gradient</code></a> &mdash; Derivative $dy/dx$ on a sampled 1-D profile.
 </li>
@@ -354,12 +404,10 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="equilibrium">Equilibrium</h2>
 
-<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/reference/formula/equilibrium/">96 functions</a>.</p>
+<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/reference/formula/equilibrium/">81 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/reference/formula/equilibrium/#alpha_heating_power_from_n_D_n_T_T_keV_V"><code>alpha_heating_power_from_n_D_n_T_T_keV_V</code></a> <em>(empirical)</em> &mdash; D-T alpha heating power with the rough $\langle\sigma v\rangle \propto T^2$ fit.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi"><code>approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi</code></a> <em>(convention)</em> &mdash; Diamagnetic parameter from the vacuum toroidal field and flux change.
 </li>
   <li><a href="/vaft/reference/formula/equilibrium/#aspect_ratio_from_a_R"><code>aspect_ratio_from_a_R</code></a> &mdash; Aspect ratio $A = R/a = 1/\varepsilon$.
 </li>
@@ -379,7 +427,9 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/reference/formula/equilibrium/#bremsstrahlung_power_density_from_T_e_p_Z_eff"><code>bremsstrahlung_power_density_from_T_e_p_Z_eff</code></a> <em>(convention)</em> &mdash; Bremsstrahlung power density in the pressure form.
 </li>
-  <li><a href="/vaft/reference/formula/equilibrium/#bremsstrahlung_power_density_from_Z_eff_n_e_T_e"><code>bremsstrahlung_power_density_from_Z_eff_n_e_T_e</code></a> <em>(convention)</em> &mdash; Maxwellian free-free (bremsstrahlung) power density from first principles.
+  <li><a href="/vaft/reference/formula/equilibrium/#bremsstrahlung_power_density_from_Z_eff_n_e_T_e"><code>bremsstrahlung_power_density_from_Z_eff_n_e_T_e</code></a> &mdash; Deprecated: use <code class="language-plaintext highlighter-rouge">bremsstrahlung_power_density_from_n_e_T_e_Z_eff</code>.
+</li>
+  <li><a href="/vaft/reference/formula/equilibrium/#bremsstrahlung_power_density_from_n_e_T_e_Z_eff"><code>bremsstrahlung_power_density_from_n_e_T_e_Z_eff</code></a> <em>(convention)</em> &mdash; Maxwellian free-free (bremsstrahlung) power density from first principles.
 </li>
   <li><a href="/vaft/reference/formula/equilibrium/#bremsstrahlung_radiation_power_from_z_eff_n_e_t_e"><code>bremsstrahlung_radiation_power_from_z_eff_n_e_t_e</code></a> <em>(convention)</em> &mdash; Bremsstrahlung power density, NRL engineering form.
 </li>
@@ -397,7 +447,7 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/reference/formula/equilibrium/#current_density_from_B"><code>current_density_from_B</code></a> <em>(convention)</em> &mdash; Toroidal current density from the radial derivative of a poloidal field.
 </li>
-  <li><a href="/vaft/reference/formula/equilibrium/#current_density_from_psi"><code>current_density_from_psi</code></a> <em>(convention)</em> &mdash; Radial-derivative current-density estimate from a poloidal flux cut.
+  <li><a href="/vaft/reference/formula/equilibrium/#current_density_from_psi"><code>current_density_from_psi</code></a> <em>(convention)</em> &mdash; Deprecated: this is $-B_Z/\mu_0$, not a current density.
 </li>
   <li><a href="/vaft/reference/formula/equilibrium/#current_drive_efficiency"><code>current_drive_efficiency</code></a> <em>(empirical)</em> &mdash; Heuristic lower-hybrid current-drive efficiency $\eta_{CD}$.
 </li>
@@ -408,6 +458,8 @@ which documents the conventions and cites every entry.</p>
   <li><a href="/vaft/reference/formula/equilibrium/#cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e"><code>cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e</code></a> &mdash; Classical electron-cyclotron emission power density, no reabsorption.
 </li>
   <li><a href="/vaft/reference/formula/equilibrium/#cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta"><code>cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta</code></a> <em>(convention)</em> &mdash; Cylindrical safety factor with a shape function.
+</li>
+  <li><a href="/vaft/reference/formula/equilibrium/#decay_index_from_bz"><code>decay_index_from_bz</code></a> <em>(convention)</em> &mdash; Field decay index $n = -\dfrac{R}{B_Z}\dfrac{\partial B_Z}{\partial R}$.
 </li>
   <li><a href="/vaft/reference/formula/equilibrium/#dimensionless_scaling_coeffs_from_engineering_scaling_coeffs"><code>dimensionless_scaling_coeffs_from_engineering_scaling_coeffs</code></a> &mdash; Dimensionless scaling indices $(\mu_\rho, \mu_\beta, \mu_\nu)$ from engineering exponents.
 </li>
@@ -465,15 +517,29 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/reference/formula/equilibrium/#poloidal_field_factor"><code>poloidal_field_factor</code></a> <em>(convention)</em> &mdash; Sauter Eq. 20 prefactor $k = \sigma_{R\varphi Z}\,\sigma_{B_p}/(2\pi)^{e_{B_p}}$.
 </li>
+  <li><a href="/vaft/reference/formula/equilibrium/#poloidal_field_magnitude"><code>poloidal_field_magnitude</code></a> <em>(convention)</em> &mdash; <table>
+  <tbody>
+    <tr>
+      <td>Poloidal field strength $</td>
+      <td>B_p</td>
+      <td>= \sqrt{B_R^2 + B_Z^2}$.</td>
+    </tr>
+  </tbody>
+</table>
+</li>
   <li><a href="/vaft/reference/formula/equilibrium/#psi_from_RBtheta"><code>psi_from_RBtheta</code></a> <em>(convention)</em> &mdash; Poloidal flux $\psi$ from a line integral of $R B_\theta$ across flux surfaces.
 </li>
   <li><a href="/vaft/reference/formula/equilibrium/#psi_normalised"><code>psi_normalised</code></a> <em>(convention)</em> &mdash; Normalised poloidal flux $\psi_N$.
 </li>
   <li><a href="/vaft/reference/formula/equilibrium/#q_cyl_from_B_R_epsilon_kappa_I"><code>q_cyl_from_B_R_epsilon_kappa_I</code></a> <em>(convention)</em> &mdash; Cylindrical safety factor in the Verdoolaege convention.
 </li>
+  <li><a href="/vaft/reference/formula/equilibrium/#q_from_flux_surface_averages"><code>q_from_flux_surface_averages</code></a> <em>(convention)</em> &mdash; Safety factor $q$ from flux-surface geometric averages and poloidal current.
+</li>
   <li><a href="/vaft/reference/formula/equilibrium/#q_from_phi"><code>q_from_phi</code></a> <em>(convention)</em> &mdash; Safety factor $q$ as the flux derivative $d\Phi/d\psi$.
 </li>
   <li><a href="/vaft/reference/formula/equilibrium/#q_from_rhoN"><code>q_from_rhoN</code></a> <em>(convention)</em> &mdash; Safety factor from the toroidal-flux label $\rho_N(\psi_N)$.
+</li>
+  <li><a href="/vaft/reference/formula/equilibrium/#r_at_z_extremum_from_RZ_contour"><code>r_at_z_extremum_from_RZ_contour</code></a> <em>(convention)</em> &mdash; Major radius where a closed contour reaches its highest or lowest point.
 </li>
   <li><a href="/vaft/reference/formula/equilibrium/#radial_magnetic_field_from_psi"><code>radial_magnetic_field_from_psi</code></a> <em>(convention)</em> &mdash; Radial magnetic field $B_R$ from the poloidal flux map.
 </li>
@@ -505,78 +571,113 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/reference/formula/equilibrium/#surface_poloidal_flux_from_psi_boundary"><code>surface_poloidal_flux_from_psi_boundary</code></a> <em>(convention)</em> &mdash; Total poloidal flux at the plasma surface, $\Phi_{surface} = 2\pi\psi_b$.
 </li>
+  <li><a href="/vaft/reference/formula/equilibrium/#toroidal_electric_field"><code>toroidal_electric_field</code></a> <em>(convention)</em> &mdash; Toroidal electric field $E_\varphi = -\dfrac{1}{2\pi R}\dfrac{\partial\psi}{\partial t}$.
+</li>
   <li><a href="/vaft/reference/formula/equilibrium/#toroidal_flux_from_q_psi"><code>toroidal_flux_from_q_psi</code></a> <em>(convention)</em> &mdash; Cumulative toroidal flux $\Phi(\psi)$ from the $q$ profile on a full-weber grid.
 </li>
-  <li><a href="/vaft/reference/formula/equilibrium/#triangularity_from_RZ_boundary"><code>triangularity_from_RZ_boundary</code></a> <em>(convention)</em> &mdash; Boundary triangularity $\delta$ from the midplane intersection.
+  <li><a href="/vaft/reference/formula/equilibrium/#triangularity_from_RZ_boundary"><code>triangularity_from_RZ_boundary</code></a> <em>(convention)</em> &mdash; Boundary triangularity $\delta$, the mean of the upper and lower values.
+</li>
+  <li><a href="/vaft/reference/formula/equilibrium/#triangularity_lower_from_RZ_boundary"><code>triangularity_lower_from_RZ_boundary</code></a> <em>(convention)</em> &mdash; Lower boundary triangularity $\delta_l$ from the contour’s lowest point.
+</li>
+  <li><a href="/vaft/reference/formula/equilibrium/#triangularity_upper_from_RZ_boundary"><code>triangularity_upper_from_RZ_boundary</code></a> <em>(convention)</em> &mdash; Upper boundary triangularity $\delta_u$ from the contour’s highest point.
 </li>
   <li><a href="/vaft/reference/formula/equilibrium/#verify_kadomtsev_constraint"><code>verify_kadomtsev_constraint</code></a> &mdash; Reconstruct the Kadomtsev constraint value from dimensionless indices.
 </li>
   <li><a href="/vaft/reference/formula/equilibrium/#vertical_magnetic_field_from_psi"><code>vertical_magnetic_field_from_psi</code></a> <em>(convention)</em> &mdash; Vertical magnetic field $B_Z$ from the poloidal flux map.
 </li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_D0_boundary_from_bp_li_eK"><code>virial_D0_boundary_from_bp_li_eK</code></a> <em>(convention)</em> &mdash; Boundary Shafranov shift $D_0(b)$ from $\beta_p$, $l_i$ and elongation.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_S1_approx"><code>virial_S1_approx</code></a> <em>(convention)</em> &mdash; Leading-order value of the first Shafranov integral, $S_1 = 2$.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_S2_approx_from_D0_a_R0"><code>virial_S2_approx_from_D0_a_R0</code></a> <em>(convention)</em> &mdash; Analytic approximation of the second Shafranov integral for an elongated boundary.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_S3_approx_from_eK_d"><code>virial_S3_approx_from_eK_d</code></a> <em>(convention)</em> &mdash; Analytic approximation of the third Shafranov integral for an elongated boundary.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_beta_p_from_S_alpha_mu"><code>virial_beta_p_from_S_alpha_mu</code></a> <em>(convention)</em> &mdash; Poloidal beta from the Shafranov integrals, low-aspect-ratio closure.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_beta_p_from_S_li"><code>virial_beta_p_from_S_li</code></a> &mdash; Poloidal beta from $S_1$, $S_2$ and a known internal inductance.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_beta_p_from_volume"><code>virial_beta_p_from_volume</code></a> <em>(convention)</em> &mdash; Poloidal beta from a volume integral of pressure.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_beta_p_lao_from_S_mu_rt"><code>virial_beta_p_lao_from_S_mu_rt</code></a> &mdash; Poloidal beta, Lao large-aspect-ratio virial closure.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_beta_p_li_from_S_alpha_mu_rt"><code>virial_beta_p_li_from_S_alpha_mu_rt</code></a> &mdash; Lao closure bundle: $\beta_p$, $l_i$ and $\beta_{p,d}$ in one call.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_beta_pd_from_S_mu_rt"><code>virial_beta_pd_from_S_mu_rt</code></a> &mdash; Diamagnetic poloidal beta $\beta_{p,d}$ from $S_1$, $S_2$ and $\mu_i$.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_bongard_from_S_alpha_mu"><code>virial_bongard_from_S_alpha_mu</code></a> &mdash; Low-aspect-ratio virial closure (Bongard 2016): $\beta_p$ and $l_i$.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_bp_li_lihat_from_S123"><code>virial_bp_li_lihat_from_S123</code></a> &mdash; Solve the three virial relations for $\beta_p$, $l_i$ and $\hat l_i$.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_kinetic_energy"><code>virial_kinetic_energy</code></a> &mdash; Bulk kinetic energy of a sampled flow, $W_{kin} = \tfrac{1}{2}\sum n m v^2\,V$.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_lao_from_S_alpha_mu_rt"><code>virial_lao_from_S_alpha_mu_rt</code></a> &mdash; Large-aspect-ratio virial closure (Lao 1985): $\beta_p$ and $l_i$.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_li_from_S_alpha_mu"><code>virial_li_from_S_alpha_mu</code></a> <em>(convention)</em> &mdash; Internal inductance from the Shafranov integrals, low-aspect-ratio closure.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_li_from_S_alpha_rt"><code>virial_li_from_S_alpha_rt</code></a> &mdash; Internal inductance, Lao large-aspect-ratio virial closure.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_li_from_volume"><code>virial_li_from_volume</code></a> <em>(convention)</em> &mdash; Internal inductance from a volume integral of $B_p^2$.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_magnetic_energy"><code>virial_magnetic_energy</code></a> &mdash; Magnetic energy of a sampled field, $W_{mag} = \sum B^2\,V/(2\mu_0)$.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_muihat_from_Bt_R0_dphi"><code>virial_muihat_from_Bt_R0_dphi</code></a> <em>(convention)</em> &mdash; Diamagnetic parameter $\hat\mu_i$ from the measured diamagnetic flux.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_stability_criterion"><code>virial_stability_criterion</code></a> &mdash; Virial-ratio margin against the heuristic threshold $r_v = 0.5$.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_theorem"><code>virial_theorem</code></a> &mdash; Total energy and virial ratio of magnetic, kinetic and thermal contributions.
-</li>
-  <li><a href="/vaft/reference/formula/equilibrium/#virial_thermal_energy"><code>virial_thermal_energy</code></a> <em>(convention)</em> &mdash; Thermal energy of a sampled plasma, $W_{th} = \tfrac{3}{2}\sum n T\,V$.
-</li>
   <li><a href="/vaft/reference/formula/equilibrium/#volume_from_RZ_boundary"><code>volume_from_RZ_boundary</code></a> &mdash; Plasma volume from a boundary polygon, mean-radius approximation.
+</li>
+</ul>
+
+<h2 id="virial">Virial</h2>
+
+<p>Virial closures: global quantities from the Shafranov boundary integrals. — <a href="/vaft/reference/formula/virial/">33 functions</a>.</p>
+
+<ul class="formula-index">
+  <li><a href="/vaft/reference/formula/virial/#approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi"><code>approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi</code></a> <em>(convention)</em> &mdash; Diamagnetic parameter from the vacuum toroidal field and flux change.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_D0_boundary_from_bp_li_eK"><code>virial_D0_boundary_from_bp_li_eK</code></a> <em>(convention)</em> &mdash; Boundary Shafranov shift $D_0(b)$ from $\beta_p$, $l_i$ and elongation.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_S1_approx"><code>virial_S1_approx</code></a> <em>(convention)</em> &mdash; Leading-order value of the first Shafranov integral, $S_1 = 2$.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_S2_approx_from_D0_a_R0"><code>virial_S2_approx_from_D0_a_R0</code></a> <em>(convention)</em> &mdash; Analytic approximation of the second Shafranov integral for an elongated boundary.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_S3_approx_from_eK_d"><code>virial_S3_approx_from_eK_d</code></a> <em>(convention)</em> &mdash; Analytic approximation of the third Shafranov integral for an elongated boundary.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_alpha_approx_from_kappa"><code>virial_alpha_approx_from_kappa</code></a> <em>(convention)</em> &mdash; Virial closure coefficient from the boundary elongation (Bongard $\hat\alpha_1$).
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_alpha_from_R_Bz_Bp_dl"><code>virial_alpha_from_R_Bz_Bp_dl</code></a> <em>(convention)</em> &mdash; Virial closure coefficient from the boundary field (thin-annulus $\hat\alpha_2$).
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_beta_p_from_S_alpha_mu"><code>virial_beta_p_from_S_alpha_mu</code></a> <em>(convention)</em> &mdash; Poloidal beta from the Shafranov integrals, low-aspect-ratio closure.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_beta_p_from_S_li"><code>virial_beta_p_from_S_li</code></a> &mdash; Poloidal beta from $S_1$, $S_2$ and a known internal inductance.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_beta_p_from_volume"><code>virial_beta_p_from_volume</code></a> <em>(convention)</em> &mdash; Poloidal beta from a volume integral of pressure.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_beta_p_lao_from_S_mu_rt"><code>virial_beta_p_lao_from_S_mu_rt</code></a> <em>(convention)</em> &mdash; Poloidal beta, Lao large-aspect-ratio virial closure.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_beta_p_li_from_S_alpha_mu_rt"><code>virial_beta_p_li_from_S_alpha_mu_rt</code></a> &mdash; Lao closure bundle: $\beta_p$, $l_i$ and $\beta_{p,d}$ in one call.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_beta_pd_from_S_mu_rt"><code>virial_beta_pd_from_S_mu_rt</code></a> <em>(convention)</em> &mdash; Diamagnetic poloidal beta $\beta_{p,d}$ from $S_1$, $S_2$ and $\mu_i$.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_bongard_from_S_alpha_mu"><code>virial_bongard_from_S_alpha_mu</code></a> &mdash; Low-aspect-ratio virial closure (Bongard 2016): $\beta_p$ and $l_i$.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_bp_li_lihat_from_S123"><code>virial_bp_li_lihat_from_S123</code></a> &mdash; Deprecated historical name for the three-relation virial solve.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_closure_denominators"><code>virial_closure_denominators</code></a> &mdash; The denominator each virial closure divides by, for conditioning checks.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_full_123_from_S_alpha_rt"><code>virial_full_123_from_S_alpha_rt</code></a> <em>(convention)</em> &mdash; Solve all three virial relations for $\beta_p$, $l_i$ and $\mu_i$.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_identity_residuals"><code>virial_identity_residuals</code></a> <em>(convention)</em> &mdash; Residuals of the three virial identities at a given $(\beta_p, l_i, \mu_i)$.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_kinetic_energy"><code>virial_kinetic_energy</code></a> &mdash; Bulk kinetic energy of a sampled flow, $W_{kin} = \tfrac{1}{2}\sum n m v^2\,V$.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_lao_from_S_alpha_mu_rt"><code>virial_lao_from_S_alpha_mu_rt</code></a> &mdash; Large-aspect-ratio virial closure (Lao 1985): $\beta_p$ and $l_i$.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_li_from_S_alpha_mu"><code>virial_li_from_S_alpha_mu</code></a> <em>(convention)</em> &mdash; Internal inductance from the Shafranov integrals, low-aspect-ratio closure.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_li_from_S_alpha_rt"><code>virial_li_from_S_alpha_rt</code></a> &mdash; Internal inductance, Lao large-aspect-ratio virial closure.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_li_from_volume"><code>virial_li_from_volume</code></a> <em>(convention)</em> &mdash; Internal inductance from a volume integral of $B_p^2$.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_magnetic_energy"><code>virial_magnetic_energy</code></a> &mdash; Magnetic energy of a sampled field, $W_{mag} = \sum B^2\,V/(2\mu_0)$.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_muihat_from_Bt_R0_dphi"><code>virial_muihat_from_Bt_R0_dphi</code></a> <em>(convention)</em> &mdash; Diamagnetic parameter $\hat\mu_i$ from the measured diamagnetic flux.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_normalized_residual"><code>virial_normalized_residual</code></a> &mdash; Scale a virial identity residual so shots can be compared.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_pair_12_from_S_mu_rt"><code>virial_pair_12_from_S_mu_rt</code></a> <em>(convention)</em> &mdash; Virial closure on $E_1$ and $E_2$, leaving $E_3$ free.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_pair_13_from_S_alpha_mu"><code>virial_pair_13_from_S_alpha_mu</code></a> <em>(convention)</em> &mdash; Virial closure on $E_1$ and $E_3$, leaving $E_2$ free.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_pair_23_from_S_alpha_mu_rt"><code>virial_pair_23_from_S_alpha_mu_rt</code></a> &mdash; Virial closure on $E_2$ and $E_3$, leaving $E_1$ free.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_residual_rms"><code>virial_residual_rms</code></a> &mdash; Aggregate the three normalised virial residuals into one number.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_stability_criterion"><code>virial_stability_criterion</code></a> &mdash; Virial-ratio margin against the heuristic threshold $r_v = 0.5$.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_theorem"><code>virial_theorem</code></a> &mdash; Total energy and virial ratio of magnetic, kinetic and thermal contributions.
+</li>
+  <li><a href="/vaft/reference/formula/virial/#virial_thermal_energy"><code>virial_thermal_energy</code></a> <em>(convention)</em> &mdash; Thermal energy of a sampled plasma, $W_{th} = \tfrac{3}{2}\sum n T\,V$.
 </li>
 </ul>
 
 <h2 id="stability">Stability</h2>
 
-<p>Plasma stability, operational limits, and transport calculations. — <a href="/vaft/reference/formula/stability/">19 functions</a>.</p>
+<p>Plasma stability, operational limits, and transport calculations. — <a href="/vaft/reference/formula/stability/">21 functions</a>.</p>
 
 <ul class="formula-index">
-  <li><a href="/vaft/reference/formula/stability/#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a> <em>(convention)</em> &mdash; Normalised pressure gradient of the $s$-$\alpha$ ballooning model, without $q^2$.
+  <li><a href="/vaft/reference/formula/stability/#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a> <em>(convention)</em> &mdash; Normalised pressure gradient $\alpha$ of the $s$-$\alpha$ ballooning model.
 </li>
   <li><a href="/vaft/reference/formula/stability/#ballooning_stability_criterion"><code>ballooning_stability_criterion</code></a> <em>(empirical)</em> &mdash; Distance from the first ballooning stability boundary $\alpha_{crit} \approx 0.6\,s$.
 </li>
-  <li><a href="/vaft/reference/formula/stability/#beta_N_from_beta_a_B0_Ip"><code>beta_N_from_beta_a_B0_Ip</code></a> <em>(convention)</em> &mdash; Normalised beta evaluated literally as $\beta\,a\,B_0/I_p$.
+  <li><a href="/vaft/reference/formula/stability/#beta_N_from_beta_a_B0_Ip"><code>beta_N_from_beta_a_B0_Ip</code></a> <em>(convention)</em> &mdash; Normalised beta in the Troyon convention, %·m·T/MA.
 </li>
-  <li><a href="/vaft/reference/formula/stability/#beta_pol_from_beta_tor"><code>beta_pol_from_beta_tor</code></a> &mdash; Poloidal beta from toroidal beta, $\beta_p = \beta_t\,q_{95}^2$.
+  <li><a href="/vaft/reference/formula/stability/#beta_pol_from_beta_tor"><code>beta_pol_from_beta_tor</code></a> &mdash; Poloidal beta from toroidal beta, cylindrical relation.
 </li>
   <li><a href="/vaft/reference/formula/stability/#beta_stability_boundary"><code>beta_stability_boundary</code></a> <em>(empirical)</em> &mdash; Heuristic beta margin against $\beta_{N,crit} = 0.028\,q_{95}$.
 </li>
-  <li><a href="/vaft/reference/formula/stability/#beta_tor_from_beta_pol"><code>beta_tor_from_beta_pol</code></a> &mdash; Toroidal beta from poloidal beta, $\beta_t = \beta_p/q_{95}^2$.
+  <li><a href="/vaft/reference/formula/stability/#beta_tor_from_beta_pol"><code>beta_tor_from_beta_pol</code></a> &mdash; Toroidal beta from poloidal beta, cylindrical relation.
 </li>
   <li><a href="/vaft/reference/formula/stability/#c_s_from_Te_Ti_mi"><code>c_s_from_Te_Ti_mi</code></a> <em>(convention)</em> &mdash; Isothermal ion sound speed $c_s = \sqrt{(T_e + T_i)/m_i}$.
 </li>
@@ -588,6 +689,8 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/reference/formula/stability/#greenwald_fraction"><code>greenwald_fraction</code></a> <em>(convention)</em> &mdash; Greenwald fraction $f_G = n_e/n_G$.
 </li>
+  <li><a href="/vaft/reference/formula/stability/#island_width_from_resonant_flux"><code>island_width_from_resonant_flux</code></a> <em>(convention)</em> &mdash; Full magnetic island width from the pitch-resonant flux.
+</li>
   <li><a href="/vaft/reference/formula/stability/#kink_stability_criterion"><code>kink_stability_criterion</code></a> <em>(empirical)</em> &mdash; Heuristic kink margin against $\beta_{N,crit} = 2.8\,q_{95}$.
 </li>
   <li><a href="/vaft/reference/formula/stability/#li_from_qa_empirical"><code>li_from_qa_empirical</code></a> <em>(empirical)</em> &mdash; Internal inductance at a given $q_a$ by interpolating the JET survey points.
@@ -598,7 +701,9 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/reference/formula/stability/#power_limit_from_q"><code>power_limit_from_q</code></a> &mdash; Expression $2\pi R_0 I_p/(\mu_0 q_{95})$ labelled a power limit.
 </li>
-  <li><a href="/vaft/reference/formula/stability/#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a> <em>(convention)</em> &mdash; Electron gyroradius figure $\sqrt{T_e}\,a/B_t$ (as implemented).
+  <li><a href="/vaft/reference/formula/stability/#resonant_flux_from_delta"><code>resonant_flux_from_delta</code></a> <em>(convention)</em> &mdash; Pitch-resonant flux from the resonance parameter and the surface geometry.
+</li>
+  <li><a href="/vaft/reference/formula/stability/#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a> <em>(convention)</em> &mdash; Normalised electron gyroradius $\rho_e/a$.
 </li>
   <li><a href="/vaft/reference/formula/stability/#sawtooth_stability_criterion"><code>sawtooth_stability_criterion</code></a> <em>(empirical)</em> &mdash; Heuristic sawtooth margin against $\beta_{p,crit} = 0.3\,(1 - q_0)$.
 </li>
@@ -744,6 +849,80 @@ which documents the conventions and cites every entry.</p>
 </li>
 </ul>
 
+<h2 id="neoclassical">Neoclassical</h2>
+
+<p>Analytic neoclassical transport formulas: Sauter and Redl. — <a href="/vaft/reference/formula/neoclassical/">12 functions</a>.</p>
+
+<ul class="formula-index">
+  <li><a href="/vaft/reference/formula/neoclassical/#coulomb_logarithm_electron_sauter"><code>coulomb_logarithm_electron_sauter</code></a> <em>(convention)</em> &mdash; Electron Coulomb logarithm $\ln\Lambda_e$ in the Sauter convention.
+</li>
+  <li><a href="/vaft/reference/formula/neoclassical/#coulomb_logarithm_ion_sauter"><code>coulomb_logarithm_ion_sauter</code></a> <em>(convention)</em> &mdash; Ion-ion Coulomb logarithm $\ln\Lambda_{ii}$ in the Sauter convention.
+</li>
+  <li><a href="/vaft/reference/formula/neoclassical/#electron_collisionality_sauter"><code>electron_collisionality_sauter</code></a> <em>(convention)</em> &mdash; Normalised electron collisionality $\nu_e^*$ in the Sauter convention.
+</li>
+  <li><a href="/vaft/reference/formula/neoclassical/#ion_collisionality_sauter"><code>ion_collisionality_sauter</code></a> <em>(convention)</em> &mdash; Normalised ion collisionality $\nu_i^*$ in the Sauter convention.
+</li>
+  <li><a href="/vaft/reference/formula/neoclassical/#redl_bootstrap_coefficients"><code>redl_bootstrap_coefficients</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; The Redl 2021 bootstrap coefficients $L_{31}$, $L_{32}$, $L_{34}$, $\alpha$.
+</li>
+  <li><a href="/vaft/reference/formula/neoclassical/#redl_bootstrap_current"><code>redl_bootstrap_current</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Flux-surface-averaged bootstrap current $\langle j_\parallel B\rangle$, Redl 2021.
+</li>
+  <li><a href="/vaft/reference/formula/neoclassical/#redl_neoclassical_conductivity"><code>redl_neoclassical_conductivity</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Neoclassical parallel conductivity $\sigma_{\mathrm{neo}}$, Redl 2021.
+</li>
+  <li><a href="/vaft/reference/formula/neoclassical/#sauter_bootstrap_coefficients"><code>sauter_bootstrap_coefficients</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; The Sauter 1999 bootstrap coefficients $L_{31}$, $L_{32}$, $L_{34}$, $\alpha$.
+</li>
+  <li><a href="/vaft/reference/formula/neoclassical/#sauter_bootstrap_current"><code>sauter_bootstrap_current</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Flux-surface-averaged bootstrap current $\langle j_\parallel B\rangle$, Sauter 1999.
+</li>
+  <li><a href="/vaft/reference/formula/neoclassical/#sauter_neoclassical_conductivity"><code>sauter_neoclassical_conductivity</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Neoclassical parallel conductivity $\sigma_{\mathrm{neo}}$, Sauter 1999.
+</li>
+  <li><a href="/vaft/reference/formula/neoclassical/#sauter_spitzer_conductivity"><code>sauter_spitzer_conductivity</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Spitzer parallel conductivity $\sigma_{\mathrm{Sptz}}$ in the Sauter normalisation.
+</li>
+  <li><a href="/vaft/reference/formula/neoclassical/#trapped_particle_fraction"><code>trapped_particle_fraction</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Trapped-particle fraction $f_t$ of a circular surface of inverse aspect ratio.
+</li>
+</ul>
+
+<h2 id="startup">Startup</h2>
+
+<p>Start-up physics from the gas fill to the avalanche. — <a href="/vaft/reference/formula/startup/">18 functions</a>.</p>
+
+<ul class="formula-index">
+  <li><a href="/vaft/reference/formula/startup/#atomic_inventory_from_molecular_gas"><code>atomic_inventory_from_molecular_gas</code></a> <em>(convention)</em> &mdash; Atom inventory of a molecular gas fill.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#breakdown_margin"><code>breakdown_margin</code></a> <em>(convention)</em> &mdash; Available drive relative to the Lloyd breakdown threshold.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li"><code>d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</code></a> <em>(convention)</em> &mdash; Radial derivative of the Hirshman plasma inductance.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#ejiri_f3_from_alpha"><code>ejiri_f3_from_alpha</code></a> <em>(convention)</em> &mdash; Low-temperature geometry factor of the Ejiri mirror proxy.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max"><code>ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max</code></a> <em>(convention)</em> &mdash; Slope of the Ejiri confined-orbit boundary in velocity space.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#electron_cyclotron_resonance_field"><code>electron_cyclotron_resonance_field</code></a> &mdash; Field magnitude at which electrons gyrate in step with a microwave source.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#electron_cyclotron_resonance_radius"><code>electron_cyclotron_resonance_radius</code></a> <em>(convention)</em> &mdash; Major radius of the electron-cyclotron resonance in a vacuum toroidal field.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#flux_closure_margin_from_E_t_a_B_stray_eta"><code>flux_closure_margin_from_E_t_a_B_stray_eta</code></a> <em>(convention)</em> &mdash; Order-of-magnitude margin for a current channel to overcome stray field.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#lloyd_breakdown_field"><code>lloyd_breakdown_field</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Lloyd threshold toroidal field for hydrogenic tokamak breakdown.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#lloyd_figure_of_merit"><code>lloyd_figure_of_merit</code></a> <em>(convention)</em> &mdash; Lloyd’s breakdown figure of merit: toroidal drive times field-line pitch.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#neutral_density_from_pressure"><code>neutral_density_from_pressure</code></a> <em>(convention)</em> &mdash; Number density of a fill gas at a measured pressure and temperature.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#plasma_external_inductance_hirshman_from_R_eps_kappa"><code>plasma_external_inductance_hirshman_from_R_eps_kappa</code></a> <em>(convention)</em> &mdash; External inductance of a shaped plasma, Hirshman and Neilson’s fit.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#plasma_inductance_hirshman_from_R_eps_kappa_li"><code>plasma_inductance_hirshman_from_R_eps_kappa_li</code></a> <em>(convention)</em> &mdash; Total plasma inductance, Hirshman external plus the internal term.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#plasma_self_field_from_I_p_a"><code>plasma_self_field_from_I_p_a</code></a> <em>(convention)</em> &mdash; Poloidal field a circular current channel makes at its own edge.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#startup_geometry_from_limiter_radii"><code>startup_geometry_from_limiter_radii</code></a> <em>(convention)</em> &mdash; Geometric centre and minor radius of the limiter aperture.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#townsend_breakdown_field"><code>townsend_breakdown_field</code></a> <em>(convention)</em> &mdash; Breakdown threshold field of a gas, by inverting the Townsend closure.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#townsend_ionization_coefficient"><code>townsend_ionization_coefficient</code></a> <em>(convention)</em> &mdash; Townsend first ionisation coefficient of a gas in a field.
+</li>
+  <li><a href="/vaft/reference/formula/startup/#vertical_field_from_I_p_R0_a_beta_p_li"><code>vertical_field_from_I_p_R0_a_beta_p_li</code></a> <em>(convention)</em> &mdash; Vertical field that holds a circular plasma in radial equilibrium.
+</li>
+</ul>
+
 <h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
 
 <p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
@@ -787,7 +966,7 @@ The same text is available offline as <code class="language-plaintext highlighte
           <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
         
           
-          <li data-resource-id="process"><a href="/vaft/reference/api/#vaftprocess-and-vaftformula"><code>vaft.process</code></a></li>
+          <li data-resource-id="process"><a href="/vaft/reference/process/"><code>vaft.process</code></a></li>
         
       </ul>
     </div>
@@ -885,7 +1064,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Categories</a></li><li class="page-toc-item page-toc-level-2"><a href="#conventions-that-change-the-number" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Conventions that change the number</a></li><li class="page-toc-item page-toc-level-2"><a href="#constants" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Constants</a></li><li class="page-toc-item page-toc-level-2"><a href="#utils" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Utils</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability</a></li><li class="page-toc-item page-toc-level-2"><a href="#green" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Green</a></li><li class="page-toc-item page-toc-level-2"><a href="#atomic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atomic</a></li><li class="page-toc-item page-toc-level-2"><a href="#statistics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Statistics</a></li><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetics</a></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Categories</a></li><li class="page-toc-item page-toc-level-2"><a href="#conventions-that-change-the-number" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Conventions that change the number</a></li><li class="page-toc-item page-toc-level-2"><a href="#constants" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Constants</a></li><li class="page-toc-item page-toc-level-2"><a href="#utils" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Utils</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium</a></li><li class="page-toc-item page-toc-level-2"><a href="#virial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Virial</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability</a></li><li class="page-toc-item page-toc-level-2"><a href="#green" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Green</a></li><li class="page-toc-item page-toc-level-2"><a href="#atomic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atomic</a></li><li class="page-toc-item page-toc-level-2"><a href="#statistics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Statistics</a></li><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetics</a></li><li class="page-toc-item page-toc-level-2"><a href="#neoclassical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical</a></li><li class="page-toc-item page-toc-level-2"><a href="#startup" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Startup</a></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1003,7 +1182,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-17 06:09:00 +0000"
+        "time": "2026-09-17 09:45:58 +0000"
     },
     "basePath": "/vaft",
     "book": {
