@@ -1299,6 +1299,489 @@ def compute_connection_length_map_ods(
     }
 
 
+# ---------------------------------------------------------------------------
+# Startup proxies: the vacuum quantities a startup tutorial reads, as arrays
+# (issue #888).  Each is a reading of an evaluator above -- the point response,
+# the cached vacuum map, the connection-length trace -- so they agree with the
+# maps and the plot recipes by construction rather than by re-derivation.
+# ---------------------------------------------------------------------------
+
+#: The ECRH source VEST pre-ionises with [Hz].
+EC_FREQUENCY_VEST_HZ = 2.45e9
+
+
+def compute_prefill_pressure_ods(ods: ODS, *, before: float) -> float:
+    """The fill pressure a breakdown saw, from the barometry, in pascal.
+
+    The median of ``barometry.gauge.0.pressure`` over the samples strictly
+    before ``before`` (all samples when none precede it). The median and not
+    the mean: a Penning gauge spikes, and one spike moves a mean far enough to
+    matter inside the logarithm of a Lloyd threshold. This is the definition
+    the ``lloyd_margin`` vacuum-field plot uses; it is public here so every
+    caller reads the same number.
+
+    Args:
+        ods: structure carrying ``barometry.gauge.0.pressure``.
+        before: instant the fill is read ahead of [s], normally the breakdown
+            onset.
+
+    Returns:
+        The prefill pressure [Pa].
+
+    Raises:
+        ValueError: the gauge carries no samples.
+    """
+    from vaft.ods_access import path_value
+
+    pressure = path_value(ods, "barometry.gauge.0.pressure.data")
+    stamps = path_value(ods, "barometry.gauge.0.pressure.time")
+    if pressure is None or stamps is None or len(pressure) == 0:
+        raise ValueError(
+            "barometry.gauge.0.pressure is required for a prefill pressure; "
+            "without it there is no Townsend threshold"
+        )
+    pressure = np.asarray(pressure, dtype=float)
+    stamps = np.asarray(stamps, dtype=float)
+    ahead = pressure[stamps < float(before)]
+    return float(np.median(ahead if ahead.size else pressure))
+
+
+def _limiter_outline(ods: ODS) -> Tuple[Optional[ndarray], Optional[ndarray]]:
+    """``(wall_r, wall_z)`` of limiter unit 0, or ``(None, None)`` without one.
+
+    Read through :func:`vaft.ods_access.path_value` so an ODS without a wall is
+    not given an empty one.
+    """
+    from vaft.ods_access import path_value
+
+    wall_r = path_value(ods, "wall.description_2d.0.limiter.unit.0.outline.r")
+    wall_z = path_value(ods, "wall.description_2d.0.limiter.unit.0.outline.z")
+    if wall_r is None or wall_z is None:
+        return None, None
+    wall_r = np.asarray(wall_r, dtype=float)
+    wall_z = np.asarray(wall_z, dtype=float)
+    if wall_r.size < 3 or wall_r.shape != wall_z.shape:
+        return None, None
+    return wall_r, wall_z
+
+
+def _inside_limiter(wall_r: Optional[ndarray], wall_z: Optional[ndarray], r, z) -> ndarray:
+    """Which ``(r, z)`` points lie inside the limiter; all of them without one."""
+    r = np.asarray(r, dtype=float)
+    z = np.broadcast_to(np.asarray(z, dtype=float), r.shape)
+    if wall_r is None:
+        return np.ones(r.shape, dtype=bool)
+    # Imported as a module rather than importing its Path class: this file
+    # takes filesystem paths and must never shadow pathlib.Path.
+    import matplotlib.path as _mpl_path
+
+    polygon = _mpl_path.Path(np.column_stack([wall_r, wall_z]))
+    return polygon.contains_points(np.column_stack([r.ravel(), z.ravel()])).reshape(r.shape)
+
+
+def compute_startup_proxies_ods(
+    ods: ODS,
+    *,
+    rz: Tuple[float, float] = (0.4, 0.0),
+    dr: float = 0.01,
+    mode: str = "vacuum",
+) -> Dict[str, Any]:
+    """Vertical field, loop voltage and decay index at one point, over the whole PF time base.
+
+    The three vacuum proxies a startup is judged by, as time traces from one
+    point response: ``(Psi, Bz, Br)`` at ``(R, Z)`` and ``B_z`` at
+    ``(R - dr, Z)`` and ``(R + dr, Z)``, contracted with every sample's coil
+    and vessel currents at once -- no per-time loop.
+
+    * ``v_loop = -dpsi/dt`` at ``rz`` [V], the sign and the derivative
+      (:func:`vaft.process.time_derivative`) of
+      :func:`compute_startup_loop_voltage_ods`.
+    * ``decay_index = -(R / B_z) dB_z/dR`` [-], with ``dB_z/dR`` the central
+      difference across ``2 dr``. That is what
+      :func:`compute_decay_index_ods` evaluates at an interior sample of its
+      line (``np.gradient``), so at ``dr = 0.01`` it reproduces that function's
+      default 41-point, 0.25-0.65 m line at R = 0.4 m. The index is a ratio of
+      ``B_z`` to its own derivative, so it does not depend on the COCOS sign
+      of ``B_z``; ``nan`` where ``B_z`` vanishes.
+
+    Args:
+        ods: structure carrying pf_active currents and pf_active/pf_passive
+            geometry. With ``mode`` ``'vacuum'`` or ``'pf_passive'`` and no
+            stored passive-loop currents, the vessel currents are solved
+            (and stored) first, as :func:`compute_vacuum_field_map` does.
+        rz: observation point ``(R, Z)`` [m].
+        dr: half-width of the radial difference for the decay index [m].
+        mode: ``'vacuum'`` (coils and eddy currents), ``'pf_active'`` or
+            ``'pf_passive'``, as :func:`compute_point_vacuum_fields_ods`.
+
+    Returns:
+        ``time`` [s], ``b_z`` [T], ``b_r`` [T], ``psi`` [Wb, full weber],
+        ``v_loop`` [V], ``decay_index`` [-], each one value per PF sample; and
+        ``r``, ``z`` [m], ``dr`` [m], ``mode``.
+
+    Raises:
+        ValueError: an unknown ``mode``, a non-positive ``dr`` or ``R - dr``,
+            or a flux that is entirely non-finite (a failed eddy solve).
+
+    Notes:
+        Uses the exact-elliptic response
+        (:func:`compute_point_response_matrices_ods`), not the polynomial one
+        behind :func:`compute_point_vacuum_fields_ods`; on VEST's packaged
+        shot the two agree to ~1e-7 relative in ``B_z`` and ``psi``.
+    """
+    from vaft.process import time_derivative
+
+    if mode not in ("vacuum", "pf_active", "pf_passive"):
+        raise ValueError(f"Invalid mode: {mode}. Must be one of: vacuum, pf_active, pf_passive")
+    r0, z0, dr = float(rz[0]), float(rz[1]), float(dr)
+    if not dr > 0.0 or not r0 - dr > 0.0:
+        raise ValueError(f"need dr > 0 and R - dr > 0; got R={r0}, dr={dr}")
+
+    sources = _vacuum_sources(ods)
+    if mode != "pf_active" and "time" not in ods["pf_passive"]:
+        _solve_or_recall_eddy_currents(ods, sources)
+
+    pf, pfp = ods["pf_active"], ods["pf_passive"]
+    time_arr = np.asarray(pf["time"], dtype=float)
+    nbcoil, nbloop = len(pf["coil"]), len(pfp["loop"])
+    currents = np.zeros((time_arr.size, nbcoil + nbloop))
+    if mode in ("vacuum", "pf_active") and nbcoil:
+        currents[:, :nbcoil] = np.column_stack(
+            [np.asarray(pf[f"coil.{i}.current.data"], dtype=float) for i in range(nbcoil)]
+        )
+    if mode in ("vacuum", "pf_passive") and nbloop:
+        currents[:, nbcoil:] = np.column_stack(
+            [np.asarray(pfp[f"loop.{i}.current"], dtype=float) for i in range(nbloop)]
+        )
+
+    psi_response, bz_response, br_response = compute_point_response_matrices_ods(
+        ods, [[r0, z0], [r0 - dr, z0], [r0 + dr, z0]]
+    )
+    psi = currents @ psi_response[0]
+    b_z = currents @ bz_response.T  # (n_time, 3): centre, inner, outer
+    b_r = currents @ br_response[0]
+    if not np.isfinite(psi).any():
+        raise ValueError(
+            "the vacuum flux at this point is entirely non-finite; the eddy-current "
+            "solve produced NaN (singular impedance matrix)"
+        )
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        decay_index = -r0 * (b_z[:, 2] - b_z[:, 1]) / (2.0 * dr) / b_z[:, 0]
+    return {
+        "time": time_arr,
+        "b_z": b_z[:, 0],
+        "b_r": b_r,
+        "psi": psi,
+        "v_loop": -time_derivative(time_arr, psi),
+        "decay_index": np.where(np.isfinite(decay_index), decay_index, np.nan),
+        "r": r0,
+        "z": z0,
+        "dr": dr,
+        "mode": mode,
+    }
+
+
+def compute_vacuum_midplane_profiles_ods(
+    ods: ODS,
+    *,
+    time: float,
+    z: float = 0.0,
+    resolution: int = 65,
+    p_Pa: Optional[float] = None,
+    ec_frequency_Hz: float = EC_FREQUENCY_VEST_HZ,
+    dphi_deg: float = 2.0,
+    max_length_m: float = 150.0,
+) -> Dict[str, Any]:
+    """Radial profiles of the vacuum startup quantities along one row of the vacuum map.
+
+    Every profile is a row of :func:`compute_vacuum_field_map` at the grid
+    height nearest ``z`` -- the same evaluation the vacuum-field plots draw --
+    so a profile and a map at the same instant cannot disagree.
+
+    * ``b_poloidal = sqrt(B_R^2 + B_Z^2)`` [T].
+    * ``e_toroidal = |E_phi|``, ``E_phi = -(dpsi/dt) / (2 pi R)`` [V/m], the
+      magnitude as the start-up chain takes it (issue #354).
+    * ``v_loop = 2 pi R E_phi = -dpsi/dt`` [V], signed as
+      :func:`compute_startup_loop_voltage_ods`.
+    * ``breakdown_figure = |E_phi| |B_phi| / |B_p|`` [V/m], the empirical
+      Lloyd figure of merit the ``breakdown`` vacuum map draws, with
+      ``B_phi = (R_0 B_0) / R`` from ``tf.b_field_tor_vacuum_r``.
+    * ``lloyd_margin = |E_phi| / E_BD(p, L)`` [-], with ``L`` the connection
+      length traced (both directions, to limiter unit 0) from each point of the
+      row only, through the same field and with the same settings as
+      :func:`compute_connection_length_map_ods`; ``nan`` where ``A p L <= 1``
+      and no threshold exists.
+    * ``r_ecr = |R_0 B_0| / B_ECR(f)`` [m], the fundamental electron-cyclotron
+      resonance radius.
+
+    Args:
+        ods: structure carrying pf_active/pf_passive (vessel currents solved if
+            absent), and, for the toroidal-field quantities, ``tf``; for the
+            margin, ``wall`` and ``barometry`` (or ``p_Pa``).
+        time: instant, snapped to the nearest stored PF sample [s].
+        z: height of the row; the nearest grid row is used and returned [m].
+        resolution: points per axis of the vacuum map [-].
+        p_Pa: fill pressure for the Lloyd threshold [Pa]; defaults to
+            :func:`compute_prefill_pressure_ods` before the map's instant.
+        ec_frequency_Hz: ECRH source frequency [Hz].
+        dphi_deg: toroidal step of the connection-length trace [deg].
+        max_length_m: per-direction trace limit [m].
+
+    Returns:
+        ``r`` [m] (the grid axis) and, one value per ``r``: ``b_z``, ``b_r``,
+        ``b_poloidal``, ``b_toroidal`` [T], ``e_toroidal`` [V/m], ``v_loop``
+        [V], ``breakdown_figure`` [V/m], ``connection_length_m`` [m],
+        ``lloyd_threshold`` [V/m], ``lloyd_margin`` [-], ``inside`` [bool];
+        scalars ``z`` [m] (row used), ``p_Pa`` [Pa], ``b_field_tor_vacuum_r``
+        [T m], ``r_ecr`` [m], ``ec_frequency_Hz`` [Hz], ``time`` [s],
+        ``time_index`` and ``row_index``.
+
+    Notes:
+        Points outside limiter unit 0 are ``nan`` in every profile, as the
+        vacuum maps mask them: there the field is the conductors' own. Without
+        ``tf`` the toroidal-field quantities and the margin are ``nan``;
+        without a barometry (and no ``p_Pa``) the threshold and the margin are
+        ``nan``; without a wall nothing is masked and the margin is ``nan``.
+        No empirical threshold on ``breakdown_figure`` is applied here.
+    """
+    import warnings
+
+    from vaft.formula.equilibrium import poloidal_field_magnitude, toroidal_electric_field
+    from vaft.formula.startup import (
+        breakdown_margin,
+        electron_cyclotron_resonance_radius,
+        lloyd_breakdown_field,
+    )
+
+    grid = compute_vacuum_field_map(ods, time=time, resolution=int(resolution))
+    r_axis = grid["r"]
+    row = int(np.argmin(np.abs(grid["z"] - float(z))))
+    z_row = float(grid["z"][row])
+
+    b_z = grid["b_z"][:, row]
+    b_r = grid["b_r"][:, row]
+    dpsi_dt = grid["dpsi_dt"][:, row]
+    b_poloidal = poloidal_field_magnitude(b_r, b_z)
+    e_toroidal = np.abs(toroidal_electric_field(r_axis, dpsi_dt))
+    v_loop = -dpsi_dt
+
+    try:
+        product = _vacuum_toroidal_product(ods, grid["time"])
+    except ValueError:
+        product = float("nan")
+    b_toroidal = product / r_axis
+    with np.errstate(divide="ignore", invalid="ignore"):
+        figure = e_toroidal * np.abs(b_toroidal) / b_poloidal
+    figure = np.where(np.isfinite(figure), figure, np.nan)
+    r_ecr = (
+        float(electron_cyclotron_resonance_radius(product, float(ec_frequency_Hz)))
+        if np.isfinite(product) else float("nan")
+    )
+
+    wall_r, wall_z = _limiter_outline(ods)
+    inside = _inside_limiter(wall_r, wall_z, r_axis, z_row)
+
+    length = np.full(r_axis.shape, np.nan)
+    if wall_r is not None and np.isfinite(product):
+        from vaft.process.equilibrium import connection_length_map, make_vacuum_field_interpolator
+
+        b_field = make_vacuum_field_interpolator(
+            r_axis, grid["z"], grid["b_r"], grid["b_z"], product
+        )
+        traced = connection_length_map(
+            r_axis, np.full(r_axis.shape, z_row), b_field,
+            wall_r=wall_r, wall_z=wall_z,
+            dphi=np.deg2rad(float(dphi_deg)), max_length_m=float(max_length_m),
+        )
+        length = np.asarray(traced["length_m"], dtype=float)
+
+    if p_Pa is not None:
+        pressure = float(p_Pa)
+    else:
+        try:
+            pressure = compute_prefill_pressure_ods(ods, before=grid["time"])
+        except ValueError:
+            pressure = float("nan")
+    if np.isfinite(pressure) and pressure > 0.0:
+        with warnings.catch_warnings():
+            # Below A p L = 1 there is no threshold; on a profile that is a
+            # region, not an incident.
+            warnings.simplefilter("ignore", RuntimeWarning)
+            threshold = lloyd_breakdown_field(pressure, length)
+        margin = breakdown_margin(e_toroidal, threshold)
+    else:
+        threshold = np.full(r_axis.shape, np.nan)
+        margin = np.full(r_axis.shape, np.nan)
+
+    def _masked(values):
+        return np.where(inside, np.asarray(values, dtype=float), np.nan)
+
+    return {
+        "r": r_axis,
+        "z": z_row,
+        "b_z": _masked(b_z),
+        "b_r": _masked(b_r),
+        "b_poloidal": _masked(b_poloidal),
+        "b_toroidal": _masked(b_toroidal),
+        "e_toroidal": _masked(e_toroidal),
+        "v_loop": _masked(v_loop),
+        "breakdown_figure": _masked(figure),
+        "connection_length_m": _masked(length),
+        "lloyd_threshold": _masked(threshold),
+        "lloyd_margin": _masked(margin),
+        "inside": inside,
+        "p_Pa": pressure,
+        "b_field_tor_vacuum_r": product,
+        "r_ecr": r_ecr,
+        "ec_frequency_Hz": float(ec_frequency_Hz),
+        "time": grid["time"],
+        "time_index": grid["time_index"],
+        "row_index": row,
+    }
+
+
+def compute_camera_visible_vacuum_field_lines(
+    ods: ODS,
+    *,
+    shot: int,
+    time: float,
+    seeds,
+    resolution: int = 65,
+    phi0: float = 0.0,
+    dphi_deg: float = 1.0,
+    max_length_m: float = 30.0,
+    max_turns: Optional[float] = None,
+    pose_path: Optional[str] = None,
+    intrinsics_path: Optional[str] = None,
+    projection: Any = None,
+    image_size: Optional[Tuple[int, int]] = None,
+) -> List[Dict[str, Any]]:
+    """Vacuum field lines from ``(R, Z)`` seeds, projected into FAST-camera pixels.
+
+    For a discharge that has not broken down there is no equilibrium, so the
+    field is the vacuum one: the poloidal part from the cached
+    :func:`compute_vacuum_field_map` at ``resolution`` through
+    :func:`vaft.process.equilibrium.make_vacuum_field_interpolator`, the
+    toroidal part ``R_0 B_0 / R`` from ``tf.b_field_tor_vacuum_r`` at the same
+    instant. It never falls back to an equilibrium. Each seed is traced in both
+    directions (:func:`vaft.process.equilibrium.trace_field_line`) until it
+    leaves limiter unit 0, the map's grid, or ``max_length_m`` per direction,
+    then projected with :func:`camera_projection_for` -- the same calibrated
+    model :func:`compute_camera_visible_field_line_overlay` uses.
+
+    Args:
+        ods: structure carrying pf_active/pf_passive, ``tf`` and (for wall
+            termination) ``wall``.
+        shot: shot whose packaged camera pose is used (ignored with
+            ``projection``).
+        time: instant, snapped to the nearest PF sample [s].
+        seeds: sequence of ``(R, Z)`` starting points [m].
+        resolution: points per axis of the vacuum map [-].
+        phi0: starting toroidal angle [rad].
+        dphi_deg: toroidal RK4 step [deg].
+        max_length_m: path-length limit per direction [m].
+        max_turns: optional limit on toroidal turns per direction [-]; the
+            trace is cut to ``|phi - phi0| <= 2 pi max_turns``.
+        pose_path, intrinsics_path: external calibration files.
+        projection: a ready :class:`vaft.process.camera_geometry.CameraProjection`.
+        image_size: ``(width, height)`` [px]; defaults to the packaged
+            intrinsics' ``image_size``.
+
+    Returns:
+        One dict per seed: ``seed`` ``(R, Z)``; ``r``, ``z`` [m], ``phi``
+        [rad] along the trace in increasing ``phi``; ``u``, ``v`` [px]
+        (column, row; ``nan`` where the projection is not valid);
+        ``valid`` (projection trusted) and ``in_image`` (valid and within
+        ``image_size``) masks; ``termination_reason``; ``length_m`` [m], the
+        total traced length; ``inside_wall`` whether the seed started inside
+        the limiter; ``image_size``; ``time`` [s] and ``time_index``.
+
+    Raises:
+        ValueError: ``tf.b_field_tor_vacuum_r`` is missing -- a vacuum line
+            has no pitch without it.
+        FileNotFoundError: no pose is packaged for ``shot``.
+
+    Notes:
+        A seed outside the limiter is not traced: its record holds the seed
+        alone with ``termination_reason = 'seed_outside_wall'``.
+    """
+    from vaft.process.equilibrium import make_vacuum_field_interpolator
+
+    grid = compute_vacuum_field_map(ods, time=time, resolution=int(resolution))
+    product = _vacuum_toroidal_product(ods, grid["time"])
+    b_field = make_vacuum_field_interpolator(
+        grid["r"], grid["z"], grid["b_r"], grid["b_z"], product
+    )
+    wall_r, wall_z = _limiter_outline(ods)
+    r_bounds = (float(grid["r"].min()), float(grid["r"].max()))
+    z_bounds = (float(grid["z"].min()), float(grid["z"].max()))
+
+    if projection is None:
+        projection = camera_projection_for(
+            shot, pose_path=pose_path, intrinsics_path=intrinsics_path
+        )
+    if image_size is None:
+        image_size = _load_camera_intrinsics(intrinsics_path)["image_size"]
+    width, height = (int(image_size[0]), int(image_size[1]))
+
+    records = []
+    for seed in seeds:
+        r_seed, z_seed = float(seed[0]), float(seed[1])
+        inside = bool(_inside_limiter(wall_r, wall_z, np.array([r_seed]), z_seed)[0])
+        in_grid = r_bounds[0] <= r_seed <= r_bounds[1] and z_bounds[0] <= z_seed <= z_bounds[1]
+        if not inside or not in_grid:
+            phi = np.array([float(phi0)])
+            r_line, z_line = np.array([r_seed]), np.array([z_seed])
+            reason = "seed_outside_wall" if not inside else "seed_outside_grid"
+            length = 0.0
+        else:
+            trace = trace_field_line(
+                r_seed, z_seed, float(phi0), b_field,
+                dphi=np.deg2rad(float(dphi_deg)), max_length_m=float(max_length_m),
+                direction="both", wall_r=wall_r, wall_z=wall_z,
+                r_bounds=r_bounds, z_bounds=z_bounds,
+            )
+            phi, r_line, z_line = trace["phi"], trace["R"], trace["Z"]
+            reason = trace["termination_reason"]
+            if max_turns is not None:
+                keep = np.abs(phi - float(phi0)) <= 2.0 * np.pi * float(max_turns) + 1e-12
+                if not keep.all():
+                    reason = f"{reason}; cut at max_turns={float(max_turns):g}"
+                phi, r_line, z_line = phi[keep], r_line[keep], z_line[keep]
+            if phi.size > 1:
+                segments = np.sqrt(
+                    np.diff(r_line) ** 2 + np.diff(z_line) ** 2
+                    + (0.5 * (r_line[:-1] + r_line[1:]) * np.diff(phi)) ** 2
+                )
+                length = float(np.sum(segments))
+            else:
+                length = 0.0
+
+        pixel_uv, valid = projection.project(trajectory_world_points(r_line, z_line, phi))
+        u = np.where(valid, pixel_uv[:, 0], np.nan)
+        v = np.where(valid, pixel_uv[:, 1], np.nan)
+        with np.errstate(invalid="ignore"):
+            in_image = valid & (u >= 0.0) & (u < width) & (v >= 0.0) & (v < height)
+        records.append({
+            "seed": (r_seed, z_seed),
+            "r": r_line,
+            "z": z_line,
+            "phi": phi,
+            "u": u,
+            "v": v,
+            "valid": valid,
+            "in_image": in_image,
+            "termination_reason": reason,
+            "length_m": length,
+            "inside_wall": inside,
+            "image_size": (width, height),
+            "time": grid["time"],
+            "time_index": grid["time_index"],
+        })
+    return records
+
+
 def compute_null_ods(ods, time):
     """Compute poloidal flux (psi) on grid at given time using coil and eddy currents.
     
