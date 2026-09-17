@@ -1078,12 +1078,14 @@ def sustained_excess_onset(
             feats = _brief_run(t, y, baseline, start, stop)
         else:
             feats = run_features(t, y, baseline, start, stop)
-        if why is None and feats.width_s < float(min_width_s):
-            why = "width"
-        elif spread > 0 and feats.prominence < float(min_prominence_sigma) * spread:
-            why = "prominence"
-        elif feats.integral < float(min_integral_fraction) * total:
-            why = "integral"
+            # morphology is judged only on a run that passed persistence, so a
+            # brief run keeps the reason it was actually refused for
+            if feats.width_s < float(min_width_s):
+                why = "width"
+            elif spread > 0 and feats.prominence < float(min_prominence_sigma) * spread:
+                why = "prominence"
+            elif feats.integral < float(min_integral_fraction) * total:
+                why = "integral"
         if why is not None:
             n_rejected += 1
             if len(rejected) < MAX_REJECTED_RUNS:

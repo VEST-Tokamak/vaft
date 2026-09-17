@@ -845,3 +845,17 @@ def test_the_rejected_count_is_not_capped_with_the_list():
     )
     assert crossing.evidence["n_rejected"] >= 60
     assert len(crossing.rejected) == 32
+
+
+def test_a_brief_run_stays_a_persistence_rejection():
+    """With ``min_integral_fraction > 0`` the morphology chain ran on after the
+    persistence verdict and relabelled it ``integral`` (cold review process F8)."""
+    t, y = _sixty_spikes()
+    reasons = {}
+    for fraction in (0.0, 0.01):
+        rec = sustained_excess_onset(
+            t, y, reference_mask=t < 0.05, min_integral_fraction=fraction
+        )
+        reasons[fraction] = [why for _, why, _ in rec.rejected]
+    assert reasons[0.0] and set(reasons[0.0]) == {"persistence"}
+    assert reasons[0.01] == reasons[0.0]
