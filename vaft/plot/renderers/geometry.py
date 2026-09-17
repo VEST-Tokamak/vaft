@@ -18,7 +18,9 @@ from matplotlib.figure import Figure
 
 from ..models import Geometry3DLayers, GeometryLayer, GeometryLayers
 from ..registry import renderer
-from ..style import finalize, resolve_axes
+from ..intent import active_theme
+from ..presentation import presented, resolve_style
+from ..style import apply_legend, finalize, resolve_axes
 
 __all__ = [
     "charge_exchange_geometry_poloidal",
@@ -31,6 +33,8 @@ __all__ = [
     "machine_geometry_topview",
     "magnetics_geometry_poloidal",
     "passive_structure_geometry_poloidal",
+    "passive_structure_geometry_wall_mode",
+    "pf_plasma_geometry_poloidal",
     "pf_coil_geometry_poloidal",
     "render_geometry_3d_layers",
     "render_geometry_layers",
@@ -49,13 +53,25 @@ def draw_geometry_layer(
 
     ``defaults`` are applied to every layer; the layer's own ``style`` wins.
     """
-    options = {**defaults, **layer.style}
+    options = resolve_style({**defaults, **layer.style})
+    r, z = layer.r, layer.z
+    if layer.kind == "text":
+        # An annotation names what is drawn beside it; legend keys are for
+        # layers, so ``label`` is the text and never a legend entry.
+        options = {k: v for k, v in options.items() if k not in ("label", "lw", "linewidth", "marker")}
+        options.setdefault("fontsize", "x-small")
+        options.setdefault("ha", "center")
+        options.setdefault("va", "center")
+        axes.annotate(layer.label, (float(r[0]), float(z[0])), **options)
+        return
     if layer.label:
         options.setdefault("label", layer.label)
-    r, z = layer.r, layer.z
     if layer.kind == "points":
         options.setdefault("linestyle", "none")
         options.setdefault("marker", "o")
+        if active_theme() is not None:
+            # Every point is a sensor; a theme's markevery thins traces, not these.
+            options.setdefault("markevery", 1)
         axes.plot(r, z, **options)
         return
     if layer.kind == "polygon" and r.size and (r[0] != r[-1] or z[0] != z[-1]):
@@ -64,14 +80,32 @@ def draw_geometry_layer(
     axes.plot(r, z, **options)
 
 
+def _entry_colors(model: GeometryLayers) -> dict[str, Any]:
+    """One colour per entry when a view draws several, else no colouring.
+
+    Cycled from the active style so a geometry overlay matches the line and
+    profile overlays beside it: one colour per machine, whatever its parts.
+    """
+    entries = list(dict.fromkeys(layer.entry for layer in model.layers if layer.entry))
+    if len(entries) < 2:
+        return {}
+    colors = plt.rcParams["axes.prop_cycle"].by_key().get("color", [])
+    if not colors:
+        return {}
+    return {entry: colors[index % len(colors)] for index, entry in enumerate(entries)}
+
+
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_geometry_layers(
     model: GeometryLayers,
     *,
     ax: Axes | None = None,
     show: bool = False,
     figsize: tuple[float, float] | None = None,
-    legend: bool = True,
+    legend: bool | None = None,
     grid: bool = True,
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`GeometryLayers` stack into one equal-aspect axes.
@@ -86,10 +120,16 @@ def render_geometry_layers(
         )
     figure, axes = resolve_axes(ax, figsize=figsize or _DEFAULT_FIGSIZE)
 
+    palette = _entry_colors(model)
     labelled = False
     for layer in model.layers:
-        draw_geometry_layer(axes, layer, **style)
-        labelled = labelled or bool(layer.label)
+        defaults = dict(style)
+        if layer.entry in palette:
+            # A default, not an override: a layer that names its own colour --
+            # any single-input view -- still keeps it.
+            defaults.setdefault("color", palette[layer.entry])
+        draw_geometry_layer(axes, layer, **defaults)
+        labelled = labelled or bool(layer.label and layer.kind != "text")
 
     axes.set_xlabel(model.x_label)
     axes.set_ylabel(model.y_label)
@@ -99,8 +139,18 @@ def render_geometry_layers(
         axes.set_aspect("equal", adjustable="box")
     if grid:
         axes.grid(True, alpha=0.25)
-    if legend and labelled:
-        axes.legend(loc="best", fontsize="small")
+    # Room above and below what is drawn, so the outermost parts and their
+    # annotations do not sit on the frame.
+    low, high = axes.get_ylim()
+    pad = 0.06 * (high - low)
+    axes.set_ylim(low - pad, high + pad)
+    if model.legend and labelled:
+        # Through the shared policy rather than straight to `axes.legend`: a
+        # view with more layers than `LEGEND_MAX_ENTRIES` -- 40 soft X-ray
+        # sight lines, 10 PF coils -- otherwise draws a legend that covers the
+        # drawing it is labelling (#764). `lone_entry` keeps the legend a
+        # single named layer still earns.
+        apply_legend(axes, legend=legend, lone_entry=True)
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
@@ -117,11 +167,13 @@ def _geometry_renderer(*, domain: str, subject: str, quantity: str, description:
 @_geometry_renderer(
     domain="pf_active", quantity="poloidal",
     subject="pf_coil",
-    description="PF coil outlines in the poloidal plane.",
+    description="PF coil cross-sections in the poloidal plane: every element "
+                "of every coil, as the rectangle or outline the IDS stores.",
     ids=("pf_active",),
-    required_paths=("pf_active.coil.{i}.element.{j}.geometry.outline.r",
-                    "pf_active.coil.{i}.element.{j}.geometry.outline.z"),
-    optional_paths=("pf_active.coil.{i}.name",),
+    required_paths=("pf_active.coil.{i}.element.{j}.geometry.geometry_type",),
+    optional_paths=("pf_active.coil.{i}.name",
+                    "pf_active.coil.{i}.element.{j}.geometry.rectangle.r",
+                    "pf_active.coil.{i}.element.{j}.geometry.outline.r"),
 )
 def pf_coil_geometry_poloidal(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
@@ -133,16 +185,57 @@ def pf_coil_geometry_poloidal(
 @_geometry_renderer(
     domain="pf_passive", quantity="poloidal",
     subject="passive_structure",
-    description="Passive conducting-structure loop outlines in the poloidal plane.",
+    description="Passive conducting structure in the poloidal plane: every loop "
+                "element, drawn as one structure rather than one object per loop.",
     ids=("pf_passive",),
-    required_paths=("pf_passive.loop.{i}.element.{j}.geometry.outline.r",
-                    "pf_passive.loop.{i}.element.{j}.geometry.outline.z"),
-    optional_paths=("pf_passive.loop.{i}.name",),
+    required_paths=("pf_passive.loop.{i}.element.{j}.geometry.geometry_type",),
+    optional_paths=("pf_passive.loop.{i}.name",
+                    "pf_passive.loop.{i}.element.{j}.geometry.rectangle.r",
+                    "pf_passive.loop.{i}.element.{j}.geometry.outline.r"),
 )
 def passive_structure_geometry_poloidal(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Passive conducting-structure loop outlines in the poloidal plane."""
+    return render_geometry_layers(model, ax=ax, show=show, **style)
+
+
+@_geometry_renderer(
+    domain="machine", quantity="wall_mode",
+    subject="passive_structure",
+    description="One eigenmode of the passive wall: every loop of the chosen "
+                "segment coloured by its signed relative current, the rest grey "
+                "(vaft #473; the reduced-wall contract, vfit #8).",
+    ids=("pf_active", "pf_passive", "em_coupling"),
+    required_paths=("pf_passive.loop.{i}.element.{j}.geometry.geometry_type",
+                    "pf_passive.loop.{i}.resistance",
+                    "pf_active.coil.{i}.element.{j}.geometry.geometry_type"),
+    optional_paths=("pf_passive.loop.{i}.name",
+                    "em_coupling.mutual_passive_passive"),
+)
+def passive_structure_geometry_wall_mode(
+    model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """A wall eigenmode's current pattern on the passive structure."""
+    return render_geometry_layers(model, ax=ax, show=show, **style)
+
+
+@_geometry_renderer(
+    domain="machine", quantity="poloidal",
+    subject="pf_plasma",
+    description="The plasma current as pf_plasma elements (filaments or a grid of "
+                "current elements), each coloured by its signed current at one instant.",
+    ids=("pf_plasma", "wall"),
+    required_paths=("pf_plasma.element.{i}.geometry.geometry_type",
+                    "pf_plasma.element.{i}.current"),
+    optional_paths=("pf_plasma.element.{i}.geometry.rectangle.r",
+                    "pf_plasma.element.{i}.geometry.outline.r",
+                    "wall.description_2d.{i}.limiter.unit.{j}.outline.r"),
+)
+def pf_plasma_geometry_poloidal(
+    model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Plasma-current elements in the poloidal plane, coloured by current."""
     return render_geometry_layers(model, ax=ax, show=show, **style)
 
 
@@ -253,8 +346,8 @@ def charge_exchange_geometry_poloidal(
          "charge_exchange", "soft_x_rays"),
     required_paths=(),
     optional_paths=("wall.description_2d.{i}.limiter.unit.{j}.outline.r",
-                    "pf_active.coil.{i}.element.{j}.geometry.outline.r",
-                    "pf_passive.loop.{i}.element.{j}.geometry.outline.r"),
+                    "pf_active.coil.{i}.element.{j}.geometry.geometry_type",
+                    "pf_passive.loop.{i}.element.{j}.geometry.geometry_type"),
 )
 def machine_geometry_poloidal(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
@@ -280,15 +373,23 @@ def equilibrium_geometry_topview(
 @_geometry_renderer(
     domain="machine", quantity="topview",
     subject="machine",
-    description="Composed machine top view: machine-boundary and plasma extent "
-                "plus launcher, antenna and pellet-injector geometry.",
-    ids=("wall", "equilibrium", "lh_antennas", "ec_launchers", "pellets"),
+    description="Composed machine top view: machine-boundary and plasma extent, "
+                "launcher, antenna and pellet-injector geometry, and the toroidal "
+                "position of every diagnostic channel that stores one.",
+    ids=("wall", "equilibrium", "lh_antennas", "ec_launchers", "pellets",
+         "magnetics", "thomson_scattering", "charge_exchange", "langmuir_probes",
+         "barometry", "interferometer", "soft_x_rays", "bolometer", "spectrometer_uv"),
     required_paths=(),
     optional_paths=("wall.description_2d.{i}.limiter.unit.{j}.outline.r",
                     "equilibrium.time_slice.{i}.boundary.outline.r",
                     "lh_antennas.antenna.{i}.position.r",
                     "ec_launchers.beam.{i}.launching_position.r",
-                    "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.r"),
+                    "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.r",
+                    "magnetics.b_field_pol_probe.{i}.position.phi",
+                    "magnetics.b_field_tor_probe.{i}.position.phi",
+                    "magnetics.flux_loop.{i}.position.{j}.phi",
+                    "thomson_scattering.channel.{i}.position.phi",
+                    "soft_x_rays.channel.{i}.line_of_sight.first_point.phi"),
 )
 def machine_geometry_topview(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
@@ -297,9 +398,9 @@ def machine_geometry_topview(
     return render_geometry_layers(model, ax=ax, show=show, **style)
 
 
-def _resolve_3d_axes(ax: Axes | None) -> tuple[Figure, Axes]:
+def _resolve_3d_axes(ax: Axes | None, figsize: tuple[float, float] | None = None) -> tuple[Figure, Axes]:
     if ax is None:
-        figure = plt.figure(figsize=_DEFAULT_FIGSIZE)
+        figure = plt.figure(figsize=figsize or _DEFAULT_FIGSIZE)
         return figure, figure.add_subplot(projection="3d")
     if getattr(ax, "name", "") == "3d":
         return ax.figure, ax
@@ -314,12 +415,16 @@ def _resolve_3d_axes(ax: Axes | None) -> tuple[Figure, Axes]:
     return figure, figure.add_subplot(projection="3d")
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_geometry_3d_layers(
     model: Geometry3DLayers,
     *,
     ax: Axes | None = None,
     show: bool = False,
-    legend: bool = True,
+    legend: bool | None = None,
+    figsize: tuple[float, float] | None = None,
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Geometry3DLayers` stack into one 3D machine view.
@@ -333,17 +438,19 @@ def render_geometry_3d_layers(
             f"expected a vaft.plot.models.Geometry3DLayers; got {type(model).__name__}. "
             "Adapters such as vaft.omas.plot_* build the model from data objects."
         )
-    figure, axes = _resolve_3d_axes(ax)
+    figure, axes = _resolve_3d_axes(ax, figsize)
 
     labelled = False
     for layer in model.layers:
-        options = {**style, **layer.style}
+        options = resolve_style({**style, **layer.style})
         if layer.label:
             options.setdefault("label", layer.label)
             labelled = True
         if layer.kind == "points":
             options.setdefault("linestyle", "none")
             options.setdefault("marker", "o")
+            if active_theme() is not None:
+                options.setdefault("markevery", 1)
         axes.plot(layer.x, layer.y, layer.z, **options)
 
     if model.layers:
@@ -361,8 +468,8 @@ def render_geometry_3d_layers(
     axes.set_zlabel(model.z_label)
     if model.title:
         axes.set_title(model.title)
-    if legend and labelled:
-        axes.legend(loc="best", fontsize="small")
+    if labelled:
+        apply_legend(axes, legend=legend, lone_entry=True)
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 

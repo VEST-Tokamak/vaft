@@ -1,0 +1,335 @@
+"""Discovery-driven controls: what a reader may change about one plot (issue #480).
+
+A :class:`~vaft.plot.discovery.PlotCapability` already states every option
+a plot takes and what this input supports -- the channel presets, the
+layouts, the display units, the validity and uncertainty modes, the sign
+policy, the stored slices.  :func:`controls_for` turns those facts into
+:class:`ControlSpec` entries, in a fixed order, with the defaults the plot
+would apply on its own.  Widget toolkits are adapters over these specs
+(:func:`vaft.plot.renderers.interactive.render_controls`); this module
+imports none.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Mapping, Sequence
+
+from .display import COORDINATE_LABELS, PSI_STYLES
+from .presentation import THEMES
+from .selection import REGION_PRESETS, REPRESENTATIVE_PRESETS, SIGNAL_PRESETS
+from .style import UNCERTAINTY_MODES, VALIDITY_MODES
+
+__all__ = ["CONTROL_GROUPS", "CONTROL_KINDS", "ControlSpec", "controls_for"]
+
+#: ``toggle`` (on/off), ``choice`` (one of ``options``), ``multi`` (several
+#: of ``options``), ``range`` (an integer position in ``(min, max, step)``),
+#: ``text`` (free text).
+CONTROL_KINDS = ("toggle", "choice", "multi", "range", "text")
+
+#: The order controls are offered in, and the group each belongs to.
+CONTROL_GROUPS = ("slice", "selection", "layout", "display", "model", "style", "backend")
+
+def _plain(label: str) -> str:
+    """A mathtext axis label as plain widget text: ``$\\rho_N$`` -> ``rho_N``."""
+    import re
+
+    text = re.sub(r"\$\\?([A-Za-z]+)(_[A-Za-z0-9]+)?\$", lambda m: m.group(1) + (m.group(2) or ""), label)
+    text = text.replace("\\sqrt{", "sqrt(").replace("}", ")").replace("$", "")
+    return text.replace("\\", "")
+
+
+#: The value a ``choice`` control uses to say "no overlay" for an option
+#: that is otherwise absent.
+NONE = "none"
+
+#: Flux maps with no plasma in them: there is no separatrix to normalise
+#: against and no magnetic axis to mark, so the psi styles do not apply.
+_NO_FLUX_STYLE = frozenset({"equilibrium_field_psi_vacuum", "vacuum_field"})
+
+
+@dataclass(frozen=True)
+class ControlSpec:
+    """One thing a reader may change: the option it drives and its choices.
+
+    ``name`` is the keyword handed to ``build_model``/``render_entries``;
+    ``options`` the values a ``choice``/``multi`` may take or the
+    ``(min, max, step)`` of a ``range``; ``labels`` the text shown for each
+    option when it differs from the value (channel positions, slice times).
+    """
+
+    name: str
+    kind: str
+    label: str
+    default: Any = None
+    options: tuple[Any, ...] = ()
+    labels: tuple[str, ...] = ()
+    group: str = "model"
+    #: What another control must read for this one to apply, as
+    #: ``{control name: accepted values}``.  A 2-D map's unit and style
+    #: belong to the flux field; while another field is chosen they are not
+    #: sent to the builder (issue #483).
+    applies_to: Mapping[str, tuple[Any, ...]] = field(default_factory=dict)
+    #: A value that means "leave the option out" for a renderer-side control,
+    #: the way the ``"none"`` choice does for a builder option.  Set only where
+    #: the word is not itself a mode: ``uncertainty="none"`` is one and must be
+    #: passed; ``theme="none"`` is the absence of a theme (issue #710).
+    absent: Any = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "applies_to", dict(self.applies_to))
+        if self.kind not in CONTROL_KINDS:
+            raise ValueError(f"kind must be one of {', '.join(CONTROL_KINDS)}; got {self.kind!r}")
+        if self.group not in CONTROL_GROUPS:
+            raise ValueError(f"group must be one of {', '.join(CONTROL_GROUPS)}; got {self.group!r}")
+        if self.kind == "choice":
+            if not self.options:
+                raise ValueError(f"control {self.name!r} offers no choices")
+            if self.default is not None and self.default not in self.options:
+                raise ValueError(f"control {self.name!r}: default {self.default!r} is not one of its choices")
+        elif self.kind == "multi":
+            if not self.options:
+                raise ValueError(f"control {self.name!r} offers no choices")
+            chosen = tuple(self.default or ())
+            if any(value not in self.options for value in chosen):
+                raise ValueError(f"control {self.name!r}: default {self.default!r} is not within its choices")
+        elif self.kind == "range":
+            if len(self.options) != 3:
+                raise ValueError(f"control {self.name!r}: a range needs (min, max, step)")
+            low, high, _ = self.options
+            if self.default is not None and not low <= self.default <= high:
+                raise ValueError(f"control {self.name!r}: default {self.default!r} is outside [{low}, {high}]")
+        if self.labels and self.kind in ("choice", "multi") and len(self.labels) != len(self.options):
+            raise ValueError(f"control {self.name!r}: one label per option, got {len(self.labels)} for {len(self.options)}")
+
+    def validate(self, value: Any) -> Any:
+        """``value`` coerced to what the option takes, or ``ValueError``."""
+        if self.kind == "toggle":
+            return bool(value)
+        if self.kind == "choice":
+            if value not in self.options:
+                raise ValueError(f"{self.name} must be one of {', '.join(map(str, self.options))}; got {value!r}")
+            return value
+        if self.kind == "multi":
+            chosen = tuple(value) if not isinstance(value, str) else (value,)
+            bad = [v for v in chosen if v not in self.options]
+            if bad:
+                raise ValueError(f"{self.name}: {bad!r} not among {', '.join(map(str, self.options))}")
+            return chosen
+        if self.kind == "range":
+            low, high, step = self.options
+            position = int(value)
+            if not low <= position <= high:
+                raise ValueError(f"{self.name} must lie in [{low}, {high}]; got {value!r}")
+            return position
+        return str(value)
+
+
+def controls_for(
+    record: Any, *, include_style: bool = True, include_backend: bool = False
+) -> tuple[ControlSpec, ...]:
+    """The controls a plot's capability record supports, in offer order.
+
+    Only facts the record states produce a control: a plot with one layout
+    offers no layout control, a record without validity facts no validity
+    control.  ``include_style`` adds the renderer-side modes (validity,
+    uncertainty) and the theme, which every plot offers; ``include_backend``
+    adds the rendering library, off by
+    default because changing it replaces the figure object.
+    """
+    controls: list[ControlSpec] = []
+    controls.extend(_member_controls(record))
+    controls.extend(_slice_controls(record))
+    controls.extend(_selection_controls(record))
+    controls.extend(_layout_controls(record))
+    controls.extend(_display_controls(record))
+    controls.extend(_model_controls(record))
+    if include_style:
+        controls.extend(_style_controls(record))
+    if include_backend and len(record.backends) > 1:
+        controls.append(ControlSpec(
+            "backend", "choice", "Rendering backend", record.backends[0], tuple(record.backends), group="backend",
+        ))
+    return tuple(controls)
+
+
+def _member_controls(record: Any) -> list[ControlSpec]:
+    """Which panels of a composite to draw (issue #482).
+
+    Offered only when the input can draw more than one member; the default
+    is every available one, which is also what the static call draws, so
+    the toggles start from the figure the reader already has.
+    """
+    members: Mapping[str, Any] = getattr(record, "members", None) or {}
+    available = tuple(members.get("available") or ())
+    if len(available) < 2:
+        return []
+    labels = members.get("labels") or {}
+    return [ControlSpec(
+        "members", "multi", "Panels", available, available,
+        tuple(str(labels.get(name, name)) for name in available), group="layout",
+    )]
+
+
+#: The dense indexed axes a plot can step along, by the keyword each is passed
+#: as, with what the slider calls it.
+_DENSE_INDEX_LABELS = {
+    "time_index": "Time sample",
+    "frame_index": "Camera frame",
+}
+
+
+def _slice_controls(record: Any) -> list[ControlSpec]:
+    times: Mapping[str, Any] = getattr(record, "times", None) or {}
+    option = times.get("option")
+    if option in _DENSE_INDEX_LABELS and int(times.get("count", 0)) > 1:
+        # A dense time base is a slider, not a list: thousands of samples
+        # cannot be offered as radio buttons, and the reader wants to sweep
+        # them anyway.  The label carries the span, since the positions
+        # themselves are indices.  A PF programme and a camera's stored
+        # frames are both this shape, so the control is keyed by the keyword
+        # the index is passed as rather than by one plot.
+        count = int(times["count"])
+        return [ControlSpec(
+            option, "range",
+            f"{_DENSE_INDEX_LABELS[option]} "
+            f"({float(times['start']) * 1e3:.0f}-{float(times['stop']) * 1e3:.0f} ms)",
+            int(times.get("selected") or 0), (0, count - 1, 1), group="slice",
+        )]
+    slices: Mapping[str, Any] = getattr(record, "slices", None) or {}
+    usable = tuple(int(i) for i in slices.get("usable", ()))
+    if len(usable) < 2:
+        return []
+    times = slices.get("times", ())
+    labels = tuple(
+        f"{i}: {float(times[i]) * 1e3:.1f} ms" if i < len(times) else str(i) for i in usable
+    )
+    selected = slices.get("selected", usable[len(usable) // 2])
+    return [ControlSpec(
+        "time_slice", "choice", "Equilibrium slice",
+        int(selected) if selected in usable else usable[len(usable) // 2],
+        usable, labels, group="slice",
+    )]
+
+
+def _selection_controls(record: Any) -> list[ControlSpec]:
+    channels: Mapping[str, Any] = record.channels or {}
+    if not channels.get("total"):
+        return []
+    presets: list[str] = list(SIGNAL_PRESETS)
+    if channels.get("regions"):
+        presets = list(REGION_PRESETS) + presets
+    if channels.get("representatives"):
+        presets = list(REPRESENTATIVE_PRESETS) + presets
+    controls = [ControlSpec("selection", "choice", "Channels", SIGNAL_PRESETS[0], tuple(presets), group="selection")]
+    identifiers = tuple(channels.get("identifiers") or ())
+    positions = tuple(channels.get("positions") or ())
+    if identifiers:
+        controls.append(ControlSpec(
+            "channels", "multi", "Individual channels", (),
+            tuple(range(len(identifiers))),
+            tuple(f"{p}  {i}" for i, p in zip(identifiers, positions)) if len(positions) == len(identifiers) else tuple(map(str, identifiers)),
+            group="selection",
+        ))
+    return controls
+
+
+def _layout_controls(record: Any) -> list[ControlSpec]:
+    layouts = tuple(record.layouts or ())
+    if len(layouts) < 2:
+        return []
+    return [ControlSpec("layout", "choice", "Layout", layouts[0], layouts, group="layout")]
+
+
+def _display_controls(record: Any) -> list[ControlSpec]:
+    display: Mapping[str, Any] = record.display or {}
+    units = tuple(display.get("units") or ())
+    if len(units) < 2 or display.get("unit") is None:
+        return []
+    is_map = "convention" in display
+    name = "units" if is_map else "yunit"
+    # These units describe the flux; a map that can draw other quantities
+    # offers them only while the flux is the one drawn (issue #483).
+    fields = tuple((getattr(record, "fields", None) or {}).get("options") or ())
+    applies_to = {"field": ("psi",)} if len(fields) > 1 else {}
+    return [ControlSpec(name, "choice", "Unit", display["unit"], units, group="display", applies_to=applies_to)]
+
+
+def _model_controls(record: Any) -> list[ControlSpec]:
+    controls: list[ControlSpec] = []
+    abscissa: Mapping[str, Any] = getattr(record, "abscissa", None) or {}
+    options = tuple(abscissa.get("options") or ())
+    if len(options) > 1:
+        default = abscissa.get("default") if abscissa.get("default") in options else options[0]
+        controls.append(ControlSpec("x", "choice", "Abscissa", default, options))
+    analysis: Mapping[str, Any] = getattr(record, "analysis", None) or {}
+    methods = tuple(analysis.get("methods") or ())
+    if len(methods) > 1:
+        default = analysis.get("default") if analysis.get("default") in methods else methods[0]
+        controls.append(ControlSpec("method", "choice", "Analysis method", default, methods))
+    coordinates: Mapping[str, Any] = getattr(record, "coordinates", None) or {}
+    options = tuple(coordinates.get("options") or ())
+    if len(options) > 1:
+        default = coordinates.get("default") if coordinates.get("default") in options else options[0]
+        controls.append(ControlSpec(
+            "coordinate", "choice", "Radial coordinate", default, options,
+            tuple(_plain(COORDINATE_LABELS.get(name, name)) for name in options),
+        ))
+    fields: Mapping[str, Any] = getattr(record, "fields", None) or {}
+    options = tuple(fields.get("options") or ())
+    flux_only: Mapping[str, tuple[Any, ...]] = {}
+    if len(options) > 1:
+        default = fields.get("default") if fields.get("default") in options else options[0]
+        controls.append(ControlSpec("field", "choice", "Field", default, options))
+        # Every field but the flux one is a single filled map in its own unit.
+        flux_only = {"field": ("psi",)}
+    overlays = tuple(getattr(record, "overlays", None) or ())
+    if overlays and record.model in ("Field2D", "GeometryLayers"):
+        from .backend.recipes import overlay_defaults_for
+
+        default = tuple(name for name in overlay_defaults_for(record.name) if name in overlays)
+        controls.append(ControlSpec("overlay", "multi", "Overlays", default, overlays))
+    display: Mapping[str, Any] = record.display or {}
+    # The psi styles normalise against the separatrix and mark the axis; a
+    # vacuum map has neither, so it offers no flux-map style.
+    if ("convention" in display and record.model in ("Field2D", "Panels")
+            and record.name not in _NO_FLUX_STYLE):
+        controls.append(ControlSpec(
+            "style", "choice", "Flux map style", PSI_STYLES[0], tuple(PSI_STYLES),
+            applies_to=flux_only,
+        ))
+    synthetic: Mapping[str, Any] = record.synthetic or {}
+    if synthetic.get("overlay") and synthetic.get("available", True):
+        controls.append(ControlSpec("synthetic", "choice", "Reconstruction overlay", NONE, (NONE, "equilibrium", "both")))
+    analysis_parameters = tuple(
+        parameter
+        for parameters in ((getattr(record, "analysis", None) or {}).get("methods") or {}).values()
+        for parameter in parameters
+    )
+    if "show_fit" in analysis_parameters:
+        controls.append(ControlSpec("show_fit", "toggle", "Fitted mode lines", True))
+    orientation: Mapping[str, Any] = record.orientation or {}
+    options = tuple(orientation.get("options") or ())
+    if len(options) > 1:
+        controls.append(ControlSpec("orientation", "choice", "Sign", orientation.get("default", options[0]), options))
+    return controls
+
+
+def _style_controls(record: Any) -> list[ControlSpec]:
+    controls: list[ControlSpec] = []
+    validity: Mapping[str, Any] = record.validity or {}
+    if validity.get("available"):
+        modes = tuple(validity.get("modes") or VALIDITY_MODES)
+        default = validity.get("default") if validity.get("default") in modes else modes[0]
+        controls.append(ControlSpec("validity", "choice", "Flagged samples", default, modes, group="style"))
+    uncertainty: Mapping[str, Any] = record.uncertainty or {}
+    if uncertainty.get("available"):
+        modes = tuple(uncertainty.get("modes") or UNCERTAINTY_MODES)
+        default = uncertainty.get("default") if uncertainty.get("default") in modes else modes[0]
+        controls.append(ControlSpec("uncertainty", "choice", "Uncertainty", default, modes, group="style"))
+    # The visual grammar applies to any Matplotlib figure, so every plot
+    # offers it (issue #710).  There is no format control: the controls figure
+    # owns its canvas and draws each redraw into it with ax=, which is exactly
+    # the case format= refuses (issue #689 section 11).
+    controls.append(ControlSpec("theme", "choice", "Theme", NONE, (NONE, *THEMES), group="style", absent=NONE))
+    return controls

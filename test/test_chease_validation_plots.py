@@ -202,3 +202,31 @@ def test_refinement_summary_requires_embedded_comparison_metrics():
     ods["equilibrium.time_slice.0.time"] = 0.300
     with pytest.raises(ValueError, match="comparison_metrics"):
         vomas.plot_chease_overview_refinement_summary(ods)
+
+
+@pytest.mark.parametrize("suffix", [".json", ".json.gz"])
+def test_the_embedded_comparison_survives_a_round_trip_through_the_loader(tmp_path, suffix):
+    """`vaft.omas.load` promotes `code.parameters`; this payload must not move.
+
+    The stage products moved to gzipped JSON (#813), and the readers that
+    followed them moved from `omas.load_omas_json` to `vaft.omas.load` -- which
+    is not a pure rename: it also runs
+    `vaft.database._local._promote_code_parameters`, turning a *flat branch*
+    under `code.parameters` back into a `CodeParameters` object.
+
+    CHEASE's payload is neither a branch nor flat leaves: it is one serialized
+    JSON string on the `STR_0D` leaf itself, which is what `_chease_metrics`
+    calls `json.loads` on. Promotion has no branch to take, so the string is
+    returned unchanged -- asserted here for both containers, because a
+    promotion that ever reached the leaf would empty `comparison` for every
+    slice with no error anywhere.
+    """
+    product = tmp_path / f"chease{suffix}"
+    vomas.save(_chease_ods(), product)
+
+    reloaded = vomas.load(product)
+    assert isinstance(reloaded.get("equilibrium.code.parameters", None), str)
+
+    metrics = STAGE_METRICS["chease"](reloaded)
+    assert metrics["slices"]["0"]["comparison"] == COMPARISON_METRICS["0"]
+    assert metrics["records_summary"]

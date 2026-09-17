@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import numpy as np
+
 from typing import Any
 
 from matplotlib.axes import Axes
@@ -9,20 +11,30 @@ from matplotlib.figure import Figure
 
 from ..models import Field2D
 from ..registry import renderer
+from ..presentation import presented, resolve_color
 from ..style import finalize, resolve_axes
 from .geometry import draw_geometry_layer
 
 __all__ = [
+    "passive_structure_field_wall_reduction",
     "electron_density_field",
     "electron_temperature_field",
+    "equilibrium_field_2d",
     "equilibrium_field_psi",
     "equilibrium_field_psi_vacuum",
+    "vacuum_field",
     "render_field_2d",
 ]
 
 _DEFAULT_FIGSIZE = (6.0, 7.0)
 
 
+#: How many contours ``label_contours`` writes a value on.  Enough to read a
+#: gradient off the map, few enough that the labels do not collide.
+_MAX_CONTOUR_LABELS = 8
+
+
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_field_2d(
     model: Field2D,
     *,
@@ -31,9 +43,17 @@ def render_field_2d(
     figsize: tuple[float, float] | None = None,
     colorbar: bool = True,
     cmap: str = "viridis",
+    format: str | None = None,
+    theme: str | None = None,
+    label_contours: bool = False,
     **style: Any,
 ) -> tuple[Figure, Axes]:
-    """Draw a :class:`Field2D` as filled or line contours with its overlays."""
+    """Draw a :class:`Field2D` as filled or line contours with its overlays.
+
+    ``label_contours`` writes each contour's value onto the line itself.  It is
+    off by default and worth turning on for a line-contour map, where reading a
+    value off the curve beats matching a colour against a colorbar.
+    """
     # A caller that owns a colorbar axes (a figure that redraws this panel,
     # issue #261) keeps its layout fixed by passing it; otherwise Matplotlib
     # takes the space from the panel as usual.  Taken out before the style
@@ -50,9 +70,36 @@ def render_field_2d(
     contour_kwargs = {"cmap": cmap, **style}
     if levels is not None:
         contour_kwargs["levels"] = levels
+        if model.extend != "neither":
+            contour_kwargs["extend"] = model.extend
+    if model.secondary_levels:
+        axes.contour(
+            model.r, model.z, model.values, levels=list(model.secondary_levels),
+            colors=resolve_color("emphasis:lower"), linewidths=0.5, linestyles="--",
+        )
     draw = axes.contourf if model.filled else axes.contour
-    mappable = draw(model.r, model.z, model.values, **contour_kwargs)
-    if colorbar:
+    values = model.values
+    if model.region is not None:
+        values = np.where(model.region, values, np.nan)
+    mappable = draw(model.r, model.z, values, **contour_kwargs)
+    if label_contours:
+        # Every level labelled is a smear: a psi map draws 40 or more, and
+        # their labels overlap into illegibility. Label an evenly spaced
+        # handful instead, which is what a reader takes a value off.
+        from matplotlib import patheffects
+
+        drawn = np.asarray(getattr(mappable, "levels", ()), dtype=float)
+        chosen = drawn[:: max(1, int(np.ceil(drawn.size / _MAX_CONTOUR_LABELS)))]
+        labels = axes.clabel(mappable, levels=chosen, inline=True, fontsize=7)
+        # A label sitting on a filled map takes the contour's own colour, which
+        # is by construction the colour of what it is written on. The halo is
+        # what makes it readable there.
+        for label in labels:
+            label.set_color("0.1")
+            label.set_path_effects(
+                [patheffects.withStroke(linewidth=2.0, foreground="white")]
+            )
+    if colorbar and model.colorbar:
         if colorbar_axes is not None:
             figure.colorbar(mappable, cax=colorbar_axes, label=model.value_label)
         else:
@@ -84,7 +131,9 @@ def _field_renderer(*, domain: str, subject: str, quantity: str, description: st
     domain="equilibrium", quantity="psi",
     subject="equilibrium",
     description="Reconstructed poloidal flux map on the equilibrium (R, Z) grid.",
-    ids=("equilibrium", "wall"),
+    # The machine geometry the default overlays draw over the map (issue #483);
+    # none of it is required, so availability is still the flux map's own.
+    ids=("equilibrium", "wall", "pf_active", "pf_passive"),
     required_paths=(
         "equilibrium.time_slice.{i}.profiles_2d.{j}.grid.dim1",
         "equilibrium.time_slice.{i}.profiles_2d.{j}.grid.dim2",
@@ -104,10 +153,38 @@ def equilibrium_field_psi(
 
 
 @_field_renderer(
+    domain="equilibrium", quantity="2d",
+    subject="equilibrium",
+    description="Any reconstructed 2-D equilibrium quantity on the (R, Z) grid: flux, current density, pressure or field, with the machine drawn over it.",
+    ids=("equilibrium", "wall", "pf_active", "pf_passive"),
+    required_paths=(
+        "equilibrium.time_slice.{i}.profiles_2d.{j}.grid.dim1",
+        "equilibrium.time_slice.{i}.profiles_2d.{j}.grid.dim2",
+        "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",
+    ),
+    optional_paths=(
+        "equilibrium.time_slice.{i}.profiles_1d.pressure",
+        "equilibrium.time_slice.{i}.profiles_1d.f",
+        "equilibrium.time_slice.{i}.profiles_1d.dpressure_dpsi",
+        "equilibrium.time_slice.{i}.profiles_1d.f_df_dpsi",
+        "equilibrium.time_slice.{i}.boundary.outline.r",
+        "equilibrium.time_slice.{i}.boundary.outline.z",
+        "pf_active.coil.{i}.element.{j}.geometry.outline.r",
+        "wall.description_2d.{i}.limiter.unit.{j}.outline.r",
+    ),
+)
+def equilibrium_field_2d(
+    model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """One reconstructed 2-D equilibrium quantity, chosen with ``field=``."""
+    return render_field_2d(model, ax=ax, show=show, **style)
+
+
+@_field_renderer(
     domain="equilibrium", quantity="psi_vacuum",
     subject="equilibrium",
     description="Vacuum poloidal flux from the PF coils alone, without plasma.",
-    ids=("pf_active", "pf_passive", "wall", "spectrometer_uv", "equilibrium"),
+    ids=("pf_active", "pf_passive", "wall", "spectrometer_uv", "magnetics", "equilibrium"),
     required_paths=("pf_active.time", "pf_active.coil.{i}.current.data"),
     optional_paths=("wall.description_2d.{i}.limiter.unit.{j}.outline.r",),
 )
@@ -115,6 +192,52 @@ def equilibrium_field_psi_vacuum(
     model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Vacuum poloidal flux from the PF coils alone, without plasma."""
+    return render_field_2d(model, ax=ax, show=show, **style)
+
+
+@_field_renderer(
+    domain="pf_active", quantity="",
+    subject="vacuum",
+    description="The vacuum field of the coils and vessel at one instant: the "
+                "flux, the poloidal field strength, the decay index, or the "
+                "breakdown figure of merit, chosen with field=.",
+    # spectrometer_uv earns its place: with no time= the map is drawn at the
+    # breakdown onset, and that timing reads H-alpha alongside the plasma
+    # current.  An adapter that loads only the declared IDSs would otherwise
+    # resolve a different instant than one that hands over the whole entry.
+    ids=("pf_active", "pf_passive", "wall", "tf", "equilibrium", "magnetics",
+         "spectrometer_uv"),
+    required_paths=("pf_active.time", "pf_active.coil.{i}.current.data"),
+    optional_paths=(
+        "pf_passive.loop.{i}.element.{j}.geometry.outline.r",
+        "tf.b_field_tor_vacuum_r.data",
+        "wall.description_2d.{i}.limiter.unit.{j}.outline.r",
+    ),
+)
+def vacuum_field(
+    model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """One quantity of the coils' and vessel's vacuum field, at one instant."""
+    return render_field_2d(model, ax=ax, show=show, **style)
+
+
+@_field_renderer(
+    domain="machine", quantity="wall_reduction",
+    subject="passive_structure",
+    description="The passive wall's poloidal flux on the equilibrium region -- "
+                "full, reduced, or their difference -- at one instant of the "
+                "shot's PF programme (vaft #494, vfit #10).",
+    ids=("pf_active", "pf_passive", "em_coupling", "wall"),
+    required_paths=("pf_passive.loop.{i}.resistance",
+                    "pf_active.coil.{i}.element.{j}.geometry.geometry_type",
+                    "pf_active.coil.{i}.current.data",
+                    "wall.description_2d.{i}.limiter.unit.{j}.outline.r"),
+    optional_paths=("em_coupling.mutual_passive_passive",),
+)
+def passive_structure_field_wall_reduction(
+    model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Full, reduced or difference wall flux map on the equilibrium region."""
     return render_field_2d(model, ax=ax, show=show, **style)
 
 

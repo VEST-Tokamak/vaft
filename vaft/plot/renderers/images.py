@@ -13,6 +13,7 @@ from matplotlib.figure import Figure
 
 from ..models import Image2D, ImageSequence
 from ..registry import renderer
+from ..presentation import presented
 from ..style import finalize, resolve_axes
 from .geometry import draw_geometry_layer
 
@@ -21,7 +22,9 @@ __all__ = [
     "camera_visible_image",
     "camera_visible_image_efit_overlay",
     "camera_visible_image_field_line",
+    "camera_visible_image_fluctuation",
     "camera_visible_image_frame",
+    "camera_visible_image_mhd_power",
     "render_image_2d",
     "render_image_sequence",
 ]
@@ -29,6 +32,7 @@ __all__ = [
 _DEFAULT_FIGSIZE = (5.0, 6.0)
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_image_2d(
     model: Image2D,
     *,
@@ -36,6 +40,8 @@ def render_image_2d(
     show: bool = False,
     figsize: tuple[float, float] | None = None,
     colorbar: bool = True,
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw an :class:`Image2D` with ``imshow`` plus its pixel-space overlays."""
@@ -74,6 +80,7 @@ def render_image_2d(
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_image_sequence(
     model: ImageSequence,
     *,
@@ -84,6 +91,8 @@ def render_image_sequence(
     interval_ms: float = 100.0,
     save_path: str | Path | None = None,
     fps: float = 10.0,
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ):
     """Animate an :class:`ImageSequence`, optionally saving it to disk.
@@ -177,6 +186,48 @@ def camera_visible_image(
     model: Image2D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Camera frame with optional overlays; the ``_frame``/``_efit_overlay``/``_field_line`` renderers are its presets."""
+    return render_image_2d(model, ax=ax, show=show, **style)
+
+
+@_image_renderer(
+    domain="camera_visible", quantity="fluctuation",
+    subject="camera_visible",
+    description=(
+        "One FAST-camera frame with its local temporal background removed, the "
+        "published step that brings fast filamentary structure out of the slowly "
+        "varying line emission (issue #161)."
+    ),
+    ids=("camera_visible",),
+    required_paths=(
+        "camera_visible.channel.{i}.detector.{j}.frame.{k}.image_raw",
+        "camera_visible.channel.{i}.detector.{j}.frame.{k}.time",
+    ),
+)
+def camera_visible_image_fluctuation(
+    model: Image2D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """FAST-camera frame with its local temporal background subtracted."""
+    return render_image_2d(model, ax=ax, show=show, **style)
+
+
+@_image_renderer(
+    domain="camera_visible", quantity="mhd_power",
+    subject="camera_visible",
+    description=(
+        "Per-pixel MHD-band power divided by the local average emission: the "
+        "published spectrally filtered image, which is a band magnitude and not "
+        "an inverse-transform reconstruction (issue #161)."
+    ),
+    ids=("camera_visible",),
+    required_paths=(
+        "camera_visible.channel.{i}.detector.{j}.frame.{k}.image_raw",
+        "camera_visible.channel.{i}.detector.{j}.frame.{k}.time",
+    ),
+)
+def camera_visible_image_mhd_power(
+    model: Image2D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Normalised MHD-band power of every pixel at one time."""
     return render_image_2d(model, ax=ax, show=show, **style)
 
 

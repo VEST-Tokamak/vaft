@@ -70,7 +70,7 @@ def analysis_diagnostics(
     except Exception:
         shot = _value(ods, "dataset_description.data_entry.pulse", "unknown")
     try:
-        status = vaft.omas.find_shotclass(ods)
+        status = vaft.omas.classify_shot(ods)
     except Exception:
         status = "unknown"
     fig.suptitle(f"Diagnostics for {shot} - {status}", fontsize=16)

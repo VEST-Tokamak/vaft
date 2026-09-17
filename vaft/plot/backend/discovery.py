@@ -28,8 +28,10 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 
 from vaft.plot import discovery as _core
+from vaft.validation.validity import is_condemned, record_from_mask
 from vaft.plot.discovery import PlotCapability, PlotCatalog, with_capabilities
 from vaft.plot.display import (
+    allowed_units,
     DIMENSIONLESS_DISPLAY,
     QUANTITIES,
     channel_label,
@@ -48,15 +50,26 @@ from vaft.plot.selection import (
 from vaft.plot.style import UNCERTAINTY_MODES, VALIDITY_MODES
 
 from .recipes import (
+    entry_supports,
     CAMERA_OVERLAYS,
+    ChannelProfileRecipe,
+    SPECTROGRAM_METHODS,
+    SPECTROGRAM_PARAMETERS,
+    _coordinate_options,
+    abscissa_options,
+    field_options_for,
+    overlay_options_for,
+    _has,
     CAMERA_PROJECTIONS,
     RECIPES,
     SYNTHETIC_CONSTRAINTS,
+    FieldRecipe,
     LineRecipe,
     PanelRecipe,
     PowerSpectrumRecipe,
     ProfileRecipe,
     SpectrogramRecipe,
+    _channel_carries_signal,
     _channel_has_data,
     _channel_identifiers,
     _channel_positions,
@@ -66,8 +79,11 @@ from .recipes import (
     _resolve_preset,
     _uncertainty_of,
     _validity_of,
+    CallableRecipe,
+    conversion_reason,
     converts_for_builder,
     diagnoses_itself,
+    materialises_for_builder,
     has_synthetic_values,
     missing_required_path,
 )
@@ -78,11 +94,19 @@ __all__ = ["describe_by_ids", "describe_entries", "INTERACTION", "INTERACTION_EN
 #: summary is the baseline; a time-navigable entry point appears beside it.
 INTERACTION: dict[str, tuple[str, ...]] = {
     "equilibrium_overview": ("static", "time-navigable"),
+    "diagnostics_overview": ("static",),
 }
 
 #: The public entry point behind an interaction mode that is not a view.
 INTERACTION_ENTRY_POINTS: dict[str, str] = {
     "time-navigable": "plot_equilibrium_interactive()",
+    "controls": "plot_<name>(..., interactive=True)",
+}
+
+#: A plot whose ``controls`` mode has a named entry point of its own, beside
+#: the generic ``interactive=True`` spelling (issue #482).
+CONTROLS_ENTRY_POINTS: dict[str, str] = {
+    "diagnostics_overview": "plot_diagnostics_time_interactive()",
 }
 
 #: What a composite built by code (not a PanelRecipe) draws, for discovery's
@@ -96,10 +120,34 @@ OVERVIEW_CONTENTS: dict[str, tuple[str, ...]] = {
 #: power spectral densities (:func:`vaft.process.fluctuation.compute_psd`).
 #: Only methods that exist are listed -- discovery never advertises a
 #: capability that would raise.
-ANALYSIS_METHODS: dict[type, tuple[str, ...]] = {
-    SpectrogramRecipe: ("STFT",),
-    PowerSpectrumRecipe: ("Welch PSD",),
+def _analysis_methods() -> dict[str, tuple[str, ...]]:
+    """The analysis each plot offers, by plot name (issue #484).
+
+    Keyed by name rather than by recipe kind because the spectrograms no
+    longer share one transform: the two path-driven ones and the
+    interferometer's own builder all take ``method=``.
+    """
+    methods: dict[str, tuple[str, ...]] = {}
+    for name, recipe in RECIPES.items():
+        if isinstance(recipe, SpectrogramRecipe) or name.endswith("_spectrogram"):
+            methods[name] = SPECTROGRAM_METHODS
+        elif isinstance(recipe, PowerSpectrumRecipe):
+            methods[name] = ("Welch PSD",)
+    methods["mirnov_spatial_phase"] = ("wrapped n fit",)
+    return methods
+
+
+#: The options each named analysis reads (issue #484, extended by #485).
+ANALYSIS_PARAMETERS: dict[str, tuple[str, ...]] = {
+    "wrapped n fit": (
+        "frequencies", "num_modes", "candidate_n", "channels", "window_size",
+        "show_fit", "preprocess",
+    ),
 }
+
+
+#: Plot name -> the analyses it offers.
+ANALYSIS_METHODS: dict[str, tuple[str, ...]] = _analysis_methods()
 
 
 
@@ -209,23 +257,102 @@ def _source_label(shots: Sequence[str]) -> str:
 # ---------------------------------------------------------------------------
 
 
+#: Plots whose value unit is a poloidal flux: ``None`` means "the stored
+#: convention of the input"; the vacuum map is always full weber (Green's
+#: functions), whatever the equilibrium declares.
+PSI_FIELD_CONVENTIONS: dict[str, str | None] = {
+    "equilibrium_field_psi": None,
+    "equilibrium_field_2d": None,
+    "equilibrium_field_psi_vacuum": "Wb",
+    "equilibrium_overview": None,
+}
+
+#: What each 2-D equilibrium field needs beyond the psi map itself, so a
+#: record offers only the fields this input can actually draw (issue #483).
+_FIELD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
+    "psi": (),
+    "j_tor": ("profiles_1d.dpressure_dpsi", "profiles_1d.f_df_dpsi"),
+    "pressure": ("profiles_1d.pressure",),
+    "b_field_r": ("profiles_1d.f",),
+    "b_field_z": ("profiles_1d.f",),
+    "b_field_tor": ("profiles_1d.f",),
+}
+
+
 def _declare(record: PlotCapability) -> PlotCapability:
     recipe = RECIPES.get(record.name)
     updates: dict[str, Any] = {}
+    if isinstance(recipe, CallableRecipe):
+        updates["computation"] = {
+            "backend": recipe.backend, "reason": recipe.reason, "reads": tuple(recipe.reads),
+        }
     unit = getattr(recipe, "y_unit", None)
     if isinstance(recipe, (LineRecipe, ProfileRecipe)):
         updates["display"] = _display_block(record, unit or "")
+    if isinstance(recipe, ProfileRecipe):
+        options = _coordinate_options(recipe)
+        updates["coordinates"] = {
+            "default": recipe.default_coordinate, "options": options, "declared": options,
+        }
+    if isinstance(recipe, ChannelProfileRecipe):
+        updates["display"] = _display_block(record, unit or "")
+        updates["coordinates"] = {
+            "default": recipe.default_coordinate,
+            "options": tuple(recipe.coordinates),
+            "declared": tuple(recipe.coordinates),
+        }
+    elif record.name in PSI_FIELD_CONVENTIONS or record.name == "vacuum_field":
+        # The psi maps take units= (issue #478); the default unit follows the
+        # stored convention, which only an input can tell -- see _evaluate.
+        # The vacuum map is computed from the Green's functions, so its flux
+        # is full weber whatever the stored equilibrium declares, and it can
+        # say so without an input.
+        convention = PSI_FIELD_CONVENTIONS.get(record.name, "Wb")
+        updates["display"] = {
+            "unit": resolve_display(convention, subject="equilibrium").unit
+                    if convention else None,
+            "units": allowed_units("magnetic_flux", "equilibrium"),
+            "notation": "auto",
+            "convention": convention,
+        }
     if isinstance(recipe, LineRecipe):
+        options = abscissa_options(recipe)
+        updates["abscissa"] = {"default": "time", "options": options, "declared": options}
         # Only the line-series builder takes layout= (issue #260); grouped
         # needs a radial split, which an ODS decides -- see _evaluate.
         updates["layouts"] = (
             ("overlay", "subplots", "grouped") if recipe.index == "channel" else ("overlay",)
         )
-    for kind, methods in ANALYSIS_METHODS.items():
-        if isinstance(recipe, kind):
-            updates["analysis_methods"] = methods
+    declared = field_options_for(record.name)
+    if declared:
+        updates["fields"] = {"default": declared[0], "options": declared, "declared": declared}
+    overlays = overlay_options_for(record.name)
+    if overlays:
+        updates["overlays"] = overlays
+    methods = ANALYSIS_METHODS.get(record.name)
+    if methods:
+        updates["analysis_methods"] = methods
+        parameters = {
+            **{name: SPECTROGRAM_PARAMETERS[name] for name in methods if name in SPECTROGRAM_PARAMETERS},
+            **{name: ANALYSIS_PARAMETERS[name] for name in methods if name in ANALYSIS_PARAMETERS},
+        }
+        if parameters:
+            updates["analysis"] = {"default": methods[0], "methods": parameters}
     if isinstance(recipe, PanelRecipe):
         updates["overview_members"] = _member_subjects(recipe)
+        updates["members"] = {
+            "options": tuple(recipe.members),
+            "declared": tuple(recipe.members),
+            "labels": {name: _identity_of(name) for name in recipe.members},
+        }
+        # A composite is drawable by a backend only when every member is.
+        from vaft.plot.backends import render_backends_for
+
+        members = [get_spec(member) for member in recipe.members]
+        updates["backends"] = tuple(
+            name for name in record.backends
+            if all(name in render_backends_for(spec) for spec in members)
+        )
     elif record.name in OVERVIEW_CONTENTS:
         updates["overview_members"] = OVERVIEW_CONTENTS[record.name]
     if record.name in SYNTHETIC_CONSTRAINTS:
@@ -251,7 +378,7 @@ def _display_block(record: PlotCapability, unit: str) -> dict[str, Any]:
     except ValueError:
         return {}
     quantity = quantity_for_unit(unit) if unit else None
-    units = tuple(QUANTITIES[quantity].units) if quantity else (display.unit,)
+    units = allowed_units(quantity, record.subject) if quantity else (display.unit,)
     return {"unit": display.unit, "units": units, "notation": display.notation}
 
 
@@ -272,6 +399,20 @@ def _member_subjects(recipe: PanelRecipe) -> tuple[str, ...]:
 # ---------------------------------------------------------------------------
 
 
+def describe_one(name: str, entries: Sequence[tuple[str, Any]]) -> PlotCapability:
+    """The capability record of one plot, evaluated against ``entries``.
+
+    What ``describe_entries`` does for the whole catalog, for the single
+    record a control layer needs (issue #480); the unavailable record is
+    returned with its reason rather than dropped.
+    """
+    base = _core.catalog(status=None)
+    record = next((record for record in base if record.name == name), None)
+    if record is None:
+        raise KeyError(f"no plot named {name!r}")
+    return _evaluate(_declare(record), entries)
+
+
 def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> PlotCapability:
     missing = {str(label): missing_required_path(ods, record.name) for label, ods in entries}
     per_entry = {label: path is None for label, path in missing.items()}
@@ -288,7 +429,15 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
     elif diagnoses_itself(record.name):
         reason = "checked at render time"
         if any(converts_for_builder(obj, record.name) for _, obj in entries):
-            reason = "checked at render time; converted per IDS for this input"
+            reason = (
+                "checked at render time; converted per IDS for this input "
+                f"({conversion_reason(record.name)})"
+            )
+        elif any(materialises_for_builder(obj, record.name) for _, obj in entries):
+            reason = (
+                "checked at render time; built from its declared reads on this lazy input "
+                f"({conversion_reason(record.name)})"
+            )
     updates: dict[str, Any] = {
         "available": available,
         "reason": reason,
@@ -299,6 +448,37 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
         recipe = RECIPES.get(record.name)
         if isinstance(recipe, LineRecipe):
             updates.update(_line_facts(record, recipe, ods))
+            updates["abscissa"] = _abscissa_block(record, recipe, ods)
+        elif isinstance(recipe, ChannelProfileRecipe):
+            updates.update(_channel_facts(record, recipe, ods))
+            updates["times"] = _times_block(ods, recipe)
+        elif isinstance(recipe, ProfileRecipe):
+            # Profiles take the same sign policy (issue #307); the catalog has
+            # to say which default a profile applies, or a caller cannot know
+            # whether the curve it gets back was flipped.
+            updates["orientation"] = _orientation_block(recipe)
+            if record.coordinates and recipe.index == "time_slice":
+                updates["coordinates"] = _coordinates_block(record, recipe, ods)
+        elif isinstance(recipe, PanelRecipe):
+            updates.update(_composite_facts(record, recipe, entries))
+        if _takes_time_slice(record.name):
+            updates["slices"] = _slices_block(ods)
+        if record.name == "vacuum_field":
+            updates["times"] = _pf_samples_block(ods)
+        elif record.name.startswith("camera_visible_image"):
+            updates["times"] = _camera_frames_block(ods)
+        if record.fields:
+            updates["fields"] = _fields_block(record, ods)
+        if record.name in PSI_FIELD_CONVENTIONS:
+            from .convention import psi_convention
+
+            convention = PSI_FIELD_CONVENTIONS[record.name] or psi_convention(ods)
+            display = resolve_display(convention, subject="equilibrium")
+            updates["display"] = {
+                **record.display,
+                "unit": display.unit,
+                "convention": convention,
+            }
         if record.synthetic:
             updates["synthetic"] = {
                 **record.synthetic,
@@ -306,7 +486,256 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             }
         if record.projection:
             updates["projection"] = {**record.projection, **_projection_state(ods)}
+        # A plot with something to change offers ``interactive=True`` (issue #480).
+        from vaft.plot.controls import controls_for
+
+        evaluated = with_capabilities(record, **updates)
+        offered = controls_for(evaluated)
+        if offered:
+            updates["interaction"] = tuple(dict.fromkeys((*record.interaction, "controls")))
+            updates["interaction_entry_points"] = {
+                **record.interaction_entry_points,
+                "controls": CONTROLS_ENTRY_POINTS.get(
+                    record.name, f"{record.function.removesuffix('()')}(..., interactive=True)"
+                ),
+            }
+            updates["controls"] = tuple(c.name for c in offered)
     return with_capabilities(record, **updates)
+
+
+def _identity_of(name: str) -> str:
+    """``subject / view / quantity`` of plot ``name``, for a member label."""
+    spec = get_spec(name)
+    parts = [spec.subject or spec.domain, spec.view] + ([spec.quantity] if spec.quantity else [])
+    return " / ".join(parts)
+
+
+def _composite_facts(
+    record: PlotCapability, recipe: PanelRecipe, entries: Sequence[tuple[str, Any]]
+) -> dict[str, Any]:
+    """What a panel composite can offer, folded from its members (issue #482).
+
+    A composite has no facts of its own: its channels, sign policy, validity
+    and overlays are its members'.  Each available member is evaluated the
+    way a single plot is and the results are folded so that a control the
+    composite offers is one every member it reaches can honour --
+    ``_build_panels`` hands the same options to every panel, so a preset
+    only some members know would make the others raise.  Nothing here is
+    hand-listed per composite.
+    """
+    evaluated = {}
+    for name in recipe.members:
+        if any(entry_supports(ods, name) for _, ods in entries):
+            evaluated[name] = describe_one(name, entries)
+    available = tuple(evaluated)
+    facts: dict[str, Any] = {
+        "members": {
+            **(record.members or {}),
+            "available": available,
+            "default": available,
+        },
+    }
+    members = list(evaluated.values())
+    channel_members = [m for m in members if (m.channels or {}).get("total")]
+    if channel_members:
+        # Presets only; individual channel indices mean nothing across panels.
+        # Presets a member lacks would make it raise when the composite
+        # hands them down, so a region or representative preset is offered
+        # only when every channel member has one; the summed counts say how
+        # many channels the presets act on across the panels.
+        channels: dict[str, Any] = {
+            "total": sum(int(m.channels["total"]) for m in channel_members),
+            "usable": sum(int(m.channels.get("usable") or 0) for m in channel_members),
+        }
+        if all(m.channels.get("regions") for m in channel_members):
+            regions: dict[str, int] = {}
+            for m in channel_members:
+                for name, count in m.channels["regions"].items():
+                    regions[name] = regions.get(name, 0) + int(count)
+            channels["regions"] = regions
+        # A representative a member could not resolve is stored as None;
+        # such a preset is offered only when every member resolves it.
+        terms = [set(m.channels.get("representatives") or {}) for m in channel_members]
+        shared = set.intersection(*terms) if terms else set()
+        representatives = {
+            term: channel_members[0].channels["representatives"][term]
+            for term in sorted(shared)
+            if all(m.channels["representatives"].get(term) is not None for m in channel_members)
+        }
+        if representatives:
+            channels["representatives"] = representatives
+        facts["channels"] = channels
+    # A composite may fix a renderer mode for its members (the diagnostics
+    # overview masks flagged channels); the control then starts there, so
+    # opening the controls does not change the figure.
+    member_defaults = dict(recipe.member_defaults)
+    if any((m.validity or {}).get("available") for m in members):
+        facts["validity"] = {"available": True, "modes": VALIDITY_MODES, "default": member_defaults.get("validity", VALIDITY_MODES[0])}
+    if any((m.uncertainty or {}).get("available") for m in members):
+        facts["uncertainty"] = {"available": True, "modes": UNCERTAINTY_MODES, "default": member_defaults.get("uncertainty", UNCERTAINTY_MODES[0])}
+    oriented = [m.orientation for m in members if (m.orientation or {}).get("options")]
+    if oriented:
+        signs = {o.get("default") for o in oriented}
+        facts["orientation"] = {
+            "default": signs.pop() if len(signs) == 1 else "canonical",
+            "options": list(oriented[0]["options"]),
+        }
+    synthetic = [m.synthetic for m in members if (m.synthetic or {}).get("overlay")]
+    if synthetic:
+        facts["synthetic"] = {
+            "overlay": synthetic[0]["overlay"],
+            "available": any(s.get("available") for s in synthetic),
+        }
+    abscissae = [tuple((m.abscissa or {}).get("options") or ()) for m in members]
+    if abscissae and all(abscissae):
+        common = [x for x in abscissae[0] if all(x in options for options in abscissae)]
+        if len(common) > 1:
+            facts["abscissa"] = {"default": "time" if "time" in common else common[0], "options": tuple(common)}
+    units = {tuple((m.display or {}).get("units") or ()) for m in members}
+    unit_defaults = {(m.display or {}).get("unit") for m in members}
+    if len(units) == 1 and len(unit_defaults) == 1 and len(next(iter(units))) > 1:
+        # One shared unit only when every panel draws the same quantity;
+        # an overview of different diagnostics offers none.
+        facts["display"] = {**record.display, "unit": unit_defaults.pop(), "units": next(iter(units))}
+    return facts
+
+
+def _fields_block(record: PlotCapability, ods: Any) -> dict[str, Any]:
+    """The 2-D fields this input can draw (issue #483).
+
+    ``psi`` is the plot's own required path; every other field is derived
+    from 1-D profiles the slice may or may not carry, so a record offers
+    only what a build would actually produce.
+    """
+    from .recipes import _count, resolve_time_slice
+
+    declared = tuple(record.fields.get("declared") or record.fields.get("options") or ())
+    if record.name == "vacuum_field":
+        return _vacuum_fields_block(record, ods, declared)
+    if not _count(ods, "equilibrium.time_slice"):
+        return {**record.fields, "options": ()}
+    try:
+        index = int(resolve_time_slice(ods)[0])
+    except Exception:
+        index = 0
+    base = f"equilibrium.time_slice.{index}"
+    options = tuple(
+        name for name in declared
+        if all(_has(ods, f"{base}.{leaf}") for leaf in _FIELD_REQUIREMENTS.get(name, ()))
+        or _has(ods, f"{base}.profiles_2d.0.{name}")
+    )
+    default = record.fields.get("default")
+    return {
+        "default": default if default in options else (options[0] if options else None),
+        "options": options,
+        "declared": declared,
+    }
+
+
+def _vacuum_fields_block(
+    record: PlotCapability, ods: Any, declared: tuple[str, ...]
+) -> dict[str, Any]:
+    """The vacuum quantities this input can draw.
+
+    The field itself needs only the PF programme, which the plot already
+    requires.  The breakdown figure of merit additionally needs the toroidal
+    field, and the Lloyd margin needs that plus a limiter to terminate its
+    traced field lines and a gauge to read the fill pressure from -- so an
+    input missing any of them is offered the quantities it can draw rather
+    than a control that would raise.
+    """
+    has_toroidal = _has(ods, "tf.b_field_tor_vacuum_r.data")
+    requires = {
+        "breakdown": has_toroidal,
+        "lloyd_margin": (
+            has_toroidal
+            and _has(ods, "wall.description_2d.0.limiter.unit.0.outline.r")
+            and _has(ods, "barometry.gauge.0.pressure.data")
+        ),
+    }
+    options = tuple(name for name in declared if requires.get(name, True))
+    default = record.fields.get("default")
+    return {
+        "default": default if default in options else (options[0] if options else None),
+        "options": options,
+        "declared": declared,
+    }
+
+
+def _coordinates_block(record: PlotCapability, recipe: ProfileRecipe, ods: Any) -> dict[str, Any]:
+    """The coordinates this input can resolve for a slice-indexed profile.
+
+    Evaluated on the representative slice: a stored leaf, or the leaves a
+    derivation needs (``q``/``psi`` for the toroidal ones, the 2-D map with
+    the axis and the boundary outline for the radial ones, issue #479).
+    """
+    from .recipes import _count, resolve_time_slice
+
+    declared = tuple(record.coordinates.get("declared") or record.coordinates.get("options") or ())
+    if not _count(ods, "equilibrium.time_slice"):
+        return {**record.coordinates, "options": ()}
+    try:
+        index = int(resolve_time_slice(ods)[0])
+    except Exception:
+        index = 0
+    base = f"equilibrium.time_slice.{index}.profiles_1d"
+    has = lambda leaf: _has(ods, f"{base}.{leaf}")  # noqa: E731
+    radial = (has("r_inboard") and has("r_outboard")) or (
+        _has(ods, f"equilibrium.time_slice.{index}.profiles_2d.0.psi")
+        and _has(ods, f"equilibrium.time_slice.{index}.global_quantities.magnetic_axis.r")
+        and _has(ods, f"equilibrium.time_slice.{index}.boundary.outline.r")
+        and has("psi")
+    )
+    supported = {
+        "psi_norm": has("psi"),
+        "rho_tor_norm": has("psi") and (has("q") or has("rho_tor_norm")),
+        "sqrt_phi_norm": has("psi") and (has("phi") or has("q")),
+        "r_major": radial,
+        "r_minor": radial,
+    }
+    options = tuple(name for name in declared if supported.get(name, True))
+    default = record.coordinates.get("default")
+    if default not in options and options:
+        default = options[0]
+    return {"default": default, "options": options, "declared": declared}
+
+
+def _takes_time_slice(name: str) -> bool:
+    """Whether ``name`` draws one stored equilibrium slice (``time_slice=``).
+
+    A profile indexed by slice and a 2-D map do; a time history gathers every
+    slice into one trace and takes no ``time_slice=`` (``LineRecipe`` with
+    ``index="time_slice"`` is that history, not a selection), so the check is
+    on the recipe's kind, never on the text of its paths.
+    """
+    recipe = RECIPES.get(name)
+    if name in PSI_FIELD_CONVENTIONS:
+        return True
+    if isinstance(recipe, ProfileRecipe):
+        return recipe.index == "time_slice"
+    if isinstance(recipe, FieldRecipe):
+        return "{i}" in recipe.value_path
+    return False
+
+
+def _slices_block(ods: Any) -> dict[str, Any]:
+    """The stored equilibrium slices: how many, which are usable, their times."""
+    from .recipes import _count, _get, _usable_slices, resolve_time_slice
+
+    total = _count(ods, "equilibrium.time_slice")
+    times = []
+    for index in range(total):
+        raw = _get(ods, f"equilibrium.time_slice.{index}.time")
+        try:
+            times.append(float(np.asarray(raw, dtype=float).ravel()[0]))
+        except (IndexError, TypeError, ValueError):
+            times.append(float("nan"))
+    usable = tuple(int(i) for i in _usable_slices(ods)) if total else ()
+    try:
+        selected = int(resolve_time_slice(ods)[0]) if total else None
+    except Exception:
+        selected = None
+    return {"total": total, "usable": usable, "times": tuple(times), "selected": selected}
 
 
 def _projection_state(ods: Any) -> dict[str, Any]:
@@ -323,37 +752,37 @@ def _projection_state(ods: Any) -> dict[str, Any]:
     return {"available": True}
 
 
-def _condemned(code, mask) -> bool:
-    """Whether a channel has nothing usable to draw.
-
-    The IMAS scalar ``validity`` is "worst state reached", so a channel that
-    holds its last value after the diagnostics window reads ``-2`` there while
-    every earlier sample is a measurement.  A negative scalar counts as
-    unusable only when no per-sample validity is stored or the stored mask
-    leaves no usable sample -- the same reading ``Series.is_invalid_channel``
-    applies when the trace is drawn.
-    """
-    if code is None or int(code) >= 0:
-        return False
-    return mask is None or not bool(np.asarray(mask, dtype=bool).any())
-
-
 def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[str, Any]:
     """Channel, layout and metadata facts for one line-series plot."""
-    facts: dict[str, Any] = {}
+    facts: dict[str, Any] = {"orientation": _orientation_block(recipe)}
     if recipe.index != "channel":
         code, mask = _validity_of(ods, recipe.y_path)
-        facts["validity"] = _validity_block(present=code is not None, flagged=int(_condemned(code, mask)))
+        facts["validity"] = _validity_block(
+            present=code is not None, flagged=int(is_condemned(record_from_mask(code, mask)))
+        )
         facts["uncertainty"] = _uncertainty_block(_uncertainty_of(ods, recipe.y_path) is not None)
         return facts
 
+    facts.update(_channel_facts(record, recipe, ods))
+    return facts
+
+
+def _channel_facts(record: PlotCapability, recipe: Any, ods: Any) -> dict[str, Any]:
+    """Channel, layout and metadata facts of a channel-indexed recipe.
+
+    Shared by the time histories (``LineRecipe``) and the spatial plots
+    (``ChannelProfileRecipe``, issue #486): the same family, the same split.
+    """
+    facts: dict[str, Any] = {}
     container = _container_of(recipe.y_path, "{i}")
     total = _count(ods, container)
     candidates = (recipe.y_path,) + tuple(recipe.fallback_y_paths)
     with_data = [i for i in range(total) if _channel_has_data(ods, candidates, i)]
     verdicts = {i: _validity_of(ods, recipe.y_path, i) for i in with_data}
     codes = {i: code for i, (code, _mask) in verdicts.items()}
-    flagged = [i for i, (code, mask) in verdicts.items() if _condemned(code, mask)]
+    # "Nothing usable to draw" is the same reading ``Series.is_invalid_channel``
+    # applies when the trace is drawn: the per-sample mask decides when stored.
+    flagged = [i for i, (code, mask) in verdicts.items() if is_condemned(record_from_mask(code, mask))]
     channels: dict[str, Any] = {
         "total": total,
         "with_data": len(with_data),
@@ -362,12 +791,15 @@ def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[st
     }
     r_values, z_values = _channel_positions(ods, container, total)
     # The divider is the whole family's (that is what grouped infers it from);
-    # the counts are of the channels that carry data, because those are the
-    # traces grouped actually places -- an empty channel builds no trace.
+    # the counts are of the channels the default selection draws -- flagged
+    # valid and carrying a signal -- because those are the traces grouped
+    # actually places (``active`` in vaft.plot.selection).
+    active = [i for i in with_data if i not in flagged and _channel_carries_signal(ods, candidates, i)]
+    channels["active"] = len(active)
     split = radial_divider(r_values)
     layouts: tuple[str, ...] = ("overlay", "subplots")
     if split:
-        regions = classify_regions(r_values[with_data], split=split)
+        regions = classify_regions(r_values[active], split=split)
         counts = {name: regions.count(name) for name in (INBOARD, OUTBOARD, UNCLASSIFIED)}
         channels["regions"] = {name: count for name, count in counts.items() if count}
         representatives: dict[str, int | None] = {}
@@ -384,7 +816,8 @@ def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[st
         channel_label(i, r_values[i], z_values[i]) for i in range(total)
     )
     facts["channels"] = channels
-    facts["layouts"] = layouts
+    if isinstance(recipe, LineRecipe):
+        facts["layouts"] = layouts
     facts["validity"] = _validity_block(
         present=any(code is not None for code in codes.values()), flagged=len(flagged)
     )
@@ -394,10 +827,122 @@ def _line_facts(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[st
     return facts
 
 
+def _abscissa_block(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[str, Any]:
+    """The abscissae this input can actually supply (issue #481).
+
+    ``time`` and ``index`` always can be; a declared sibling needs its own
+    leaf, so a shot without one is not offered a control that would silently
+    fall back to the index.
+    """
+    declared = tuple(record.abscissa.get("declared") or abscissa_options(recipe))
+    available = []
+    for name in declared:
+        entry = next((a for a in recipe.abscissae if a.name == name), None)
+        if entry is None or _abscissa_is_stored(ods, entry):
+            available.append(name)
+    return {"default": "time", "options": tuple(available), "declared": declared}
+
+
+def _abscissa_is_stored(ods: Any, entry: Any) -> bool:
+    """Whether this input holds a declared sibling abscissa anywhere.
+
+    The builder gathers a slice-indexed sibling across every slice and fills
+    what is missing, so one slice without the leaf does not make the abscissa
+    unavailable -- discovery must not refuse what rendering would draw.
+    """
+    from .recipes import _container_of
+
+    for path in entry.paths:
+        if "{i}" not in path:
+            if _has(ods, path):
+                return True
+            continue
+        total = _count(ods, _container_of(path, "{i}"))
+        if any(_has(ods, path.format(i=index)) for index in range(total)):
+            return True
+    return False
+
+
+def _times_block(ods: Any, recipe: Any) -> dict[str, Any]:
+    """The stored time axis a spatial plot samples: start, stop, count."""
+    from .recipes import _first_time
+
+    container = _container_of(recipe.y_path, "{i}")
+    for index in range(_count(ods, container)):
+        axis = _first_time(ods, recipe.time_paths, i=index)
+        if axis is not None and axis.size:
+            return {"start": float(axis.min()), "stop": float(axis.max()), "count": int(axis.size)}
+    return {}
+
+
+def _camera_frames_block(ods: Any, channel: int = 0, detector: int = 0) -> dict[str, Any]:
+    """The stored camera frames a frame plot can step through.
+
+    The camera analogue of :func:`_pf_samples_block`, and the reason a camera
+    plot offers a slider where it could not before: an embedded animation is
+    megabytes of GIF that a notebook cannot carry, while a slider over the
+    frames already in the ODS redraws one of them at a time.  Times come from
+    each frame's own ``time``, which is what the recipe's ``time=`` snaps to.
+    """
+    base = f"camera_visible.channel.{channel}.detector.{detector}.frame"
+    count = _count(ods, base)
+    if count < 2:
+        return {}
+    stamps = []
+    for index in range(count):
+        try:
+            stamps.append(float(ods[f"{base}.{index}.time"]))
+        except (KeyError, TypeError, ValueError):
+            return {}
+    return {
+        "start": stamps[0],
+        "stop": stamps[-1],
+        "count": count,
+        "option": "frame_index",
+        "selected": 0,
+    }
+
+
+def _pf_samples_block(ods: Any) -> dict[str, Any]:
+    """The PF time base a vacuum map steps along, as a dense indexed axis.
+
+    ``option`` names the keyword the index is passed as, which is what tells
+    the control layer to offer a slider rather than a list: an equilibrium has
+    a handful of stored slices to pick between, a PF programme has thousands of
+    samples.  ``selected`` is the sample the plot draws on its own, so opening
+    the controls does not move the figure.
+    """
+    from .recipes import _array, _vacuum_map_time
+
+    axis = _array(ods, "pf_active.time")
+    if axis is None or len(axis) < 2:
+        return {}
+    axis = np.asarray(axis, dtype=float)
+    try:
+        default = _vacuum_map_time(ods, None, None)
+        selected = int(np.argmin(np.abs(axis - float(default))))
+    except (ValueError, KeyError, IndexError):
+        selected = 0
+    return {
+        "start": float(axis[0]),
+        "stop": float(axis[-1]),
+        "count": int(axis.size),
+        "option": "time_index",
+        "selected": selected,
+    }
+
+
 def _validity_block(*, present: bool, flagged: int) -> dict[str, Any]:
     if not present:
         return {}
     return {"available": True, "flagged": flagged, "modes": VALIDITY_MODES}
+
+
+def _orientation_block(recipe: LineRecipe | ProfileRecipe) -> dict[str, Any]:
+    """The display sign policy a line or profile plot applies by default (#307)."""
+    from vaft.plot.backend.recipes import ORIENTATIONS
+
+    return {"default": recipe.orientation, "options": list(ORIENTATIONS)}
 
 
 def _uncertainty_block(present: bool) -> dict[str, Any]:

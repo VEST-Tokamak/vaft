@@ -18,11 +18,13 @@ from matplotlib.figure import Figure
 
 from ..models import LineSeries
 from ..registry import renderer
+from ..presentation import presented
 from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axes, trace_labels
 
 _DEFAULT_FIGSIZE = (6.0, 2.5)
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_line_series(
     model: LineSeries,
     *,
@@ -33,6 +35,8 @@ def render_line_series(
     grid: bool = True,
     uncertainty: str = "auto",
     validity: str = "show",
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`LineSeries` into one axes.
@@ -275,6 +279,31 @@ def mirnov_time_voltage(
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Raw or preprocessed Mirnov coil voltage traces."""
+    return render_line_series(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="pf_passive",
+    subject="passive_structure",
+    view="time",
+    quantity="current",
+    model=LineSeries,
+    description="Eddy current induced in the passive structure, summed over loops.",
+    ids=("pf_passive",),
+    required_paths=(
+        "pf_passive.time",
+        "pf_passive.loop.{i}.current",
+    ),
+    optional_paths=("pf_passive.loop.{i}.name",),
+)
+def passive_structure_time_current(
+    model: LineSeries,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """Eddy current in the passive structure."""
     return render_line_series(model, ax=ax, show=show, **style)
 
 
@@ -1015,6 +1044,7 @@ __all__ = [
     "plasma_current_time",
     "mhd_linear_time_energy_perturbed",
     "mirnov_time_voltage",
+    "ntms_time_delta_prime",
     "pf_coil_time_current",
     "pf_coil_time_current_turns",
     "soft_x_rays_time_power",
@@ -1025,6 +1055,32 @@ __all__ = [
     "thomson_scattering_time_electron_density",
     "thomson_scattering_time_electron_temperature",
 ]
+
+
+@renderer(
+    domain="mhd_linear",
+    subject="ntms",
+    view="time",
+    quantity="delta_prime",
+    model=LineSeries,
+    description=(
+        "Classical tearing index Delta-prime against time, one trace per "
+        "rational surface; a positive value is a tearing-unstable surface. "
+        "This is RDCON's and STRIDE's physical result, which has no slot under "
+        "`toroidal_mode` and lives in `ntms`."
+    ),
+    ids=("ntms",),
+    required_paths=(
+        "ntms.time_slice.{i}.mode.{j}.n_tor",
+        "ntms.time_slice.{i}.mode.{j}.m_pol",
+        "ntms.time_slice.{i}.mode.{j}.deltaw.{k}.value",
+    ),
+)
+def ntms_time_delta_prime(
+    model: LineSeries, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, Any]:
+    """Classical tearing index per rational surface, against time."""
+    return render_line_series(model, ax=ax, show=show, **style)
 
 
 @renderer(

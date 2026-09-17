@@ -25,6 +25,8 @@ The policy this module implements is documented in
 
 from __future__ import annotations
 
+import math
+import warnings
 from dataclasses import dataclass
 from types import MappingProxyType
 import re
@@ -32,7 +34,12 @@ from typing import Any, Mapping
 
 import numpy as np
 
+# One definition of the torr, shared with the physics layer rather than rounded
+# again here; `vaft.formula.constants` imports nothing, so this costs ~0.2 ms.
+from vaft.formula.constants import PA_PER_TORR
+
 __all__ = [
+    "PSI_STYLES",
     "DisplaySpec",
     "QUANTITIES",
     "QuantityDisplay",
@@ -46,10 +53,56 @@ __all__ = [
     "unit_markup",
 ]
 
+#: How a poloidal-flux map is drawn (``style=`` of ``plot_equilibrium_field_psi``
+#: and the slice overview).
+#:
+#: ``surfaces`` (default) -- line contours at fixed steps of normalised flux
+#: from the magnetic axis to the boundary, so the axis, the nested internal
+#: surfaces and the last closed surface are each identifiable; the flux
+#: outside the plasma continues at the same spacing as thin grey lines.
+#: ``normalized`` -- the same reading as a filled map of psi_N in [0, 1].
+#: ``filled`` -- the raw psi field filled over its full range, the map that
+#: shows the coils' flux; inside the plasma it is a single colour.
+PSI_STYLES = ("surfaces", "normalized", "filled")
+
+#: The radial coordinates a 1-D equilibrium profile can be drawn against
+#: (issue #479).  ``sqrt_phi_norm`` equals ``rho_tor_norm`` by definition
+#: (both are the square root of the normalised toroidal flux) and differs
+#: only in its source: the stored ``profiles_1d.phi`` when there is one.
+#: ``r_major`` runs from the inboard to the outboard midplane crossing of
+#: each flux surface, the profile mirrored through the magnetic axis;
+#: ``r_minor`` is the midplane half-width ``(r_outboard - r_inboard) / 2``,
+#: which equals ``boundary.minor_radius`` at the edge.
+PROFILE_COORDINATES = ("rho_tor_norm", "psi_norm", "sqrt_phi_norm", "r_major", "r_minor")
+
+#: Axis labels of the profile coordinates.  ``index`` is what an axis says
+#: when no coordinate could be resolved; it is never accepted as a request.
+COORDINATE_LABELS = {
+    "index": "Profile sample index",
+    "rho_tor_norm": r"Normalized Toroidal Flux $\rho_N$",
+    "psi_norm": r"Normalized Poloidal Flux $\psi_N$",
+    "sqrt_phi_norm": r"Normalized Toroidal Flux $\sqrt{\Phi_N}$",
+    "r_major": "Major Radius R [m]",
+    "r_minor": "Minor Radius r [m]",
+}
+
+
 NOTATIONS = ("auto", "plain", "scientific", "scaled_axis", "percent")
 
-#: Torr in pascal.
-_PA_PER_TORR = 133.322368
+_TWO_PI = 2.0 * math.pi
+
+#: The two poloidal-flux storage families, spelled as canonical unit tokens
+#: (issue #478).  A backend resolves which one an equilibrium stores; the
+#: display policy only converts between them.
+FLUX_CONVENTIONS = ("Wb", "Wb/rad")
+
+#: Display units that exist only for a subject: the per-radian flux units
+#: describe an equilibrium's psi, never a flux loop's or the diamagnetic
+#: loop's measured weber.
+_SUBJECT_ONLY_UNITS: dict[str, frozenset[str]] = {
+    "Wb/rad": frozenset({"equilibrium"}),
+    "mWb/rad": frozenset({"equilibrium"}),
+}
 
 
 @dataclass(frozen=True)
@@ -86,8 +139,27 @@ _QUANTITIES = (
         "current_turns", "A-turns", {"A-turns": 1.0, "kA-turns": 1e-3}, "kA-turns"
     ),
     QuantityDisplay("voltage", "V", {"V": 1.0, "mV": 1e3}, "V"),
-    QuantityDisplay("magnetic_field", "T", {"T": 1.0, "mT": 1e3}, "mT"),
-    QuantityDisplay("magnetic_flux", "Wb", {"Wb": 1.0, "mWb": 1e3}, "mWb"),
+    # Gauss is the working unit of tokamak start-up: a breakdown null is a few
+    # gauss and the vertical field a few hundred, where millitesla reads as a
+    # decimal fraction.
+    QuantityDisplay("magnetic_field", "T", {"T": 1.0, "mT": 1e3, "G": 1e4}, "mT"),
+    QuantityDisplay("electric_field", "V/m", {"V/m": 1.0, "mV/m": 1e3}, "V/m"),
+    QuantityDisplay(
+        "magnetic_flux",
+        "Wb",
+        {"Wb": 1.0, "mWb": 1e3, "Wb/rad": 1.0 / _TWO_PI, "mWb/rad": 1e3 / _TWO_PI},
+        "mWb",
+    ),
+    # Poloidal flux stored per radian (COCOS 1-8, g-files, legacy VAFT
+    # artifacts).  A distinct canonical token keeps the conversion exact and
+    # one-directional per call; the per-radian units are offered only where
+    # the equilibrium is the subject (see :func:`allowed_units`).
+    QuantityDisplay(
+        "poloidal_flux",
+        "Wb/rad",
+        {"Wb/rad": 1.0, "mWb/rad": 1e3, "Wb": _TWO_PI, "mWb": 1e3 * _TWO_PI},
+        "mWb/rad",
+    ),
     QuantityDisplay("temperature", "eV", {"eV": 1.0, "keV": 1e-3}, "eV"),
     QuantityDisplay(
         "density",
@@ -110,8 +182,8 @@ _QUANTITIES = (
             "Pa": 1.0,
             "mPa": 1e3,
             "kPa": 1e-3,
-            "Torr": 1.0 / _PA_PER_TORR,
-            "mTorr": 1e3 / _PA_PER_TORR,
+            "Torr": 1.0 / PA_PER_TORR,
+            "mTorr": 1e3 / PA_PER_TORR,
         },
         "Pa",
     ),
@@ -139,6 +211,7 @@ del _q
 SUBJECT_UNIT_DEFAULTS: dict[tuple[str, str], str] = {
     ("tf_coil", "magnetic_field"): "T",
     ("barometry", "pressure"): "Torr",
+    ("vacuum", "magnetic_field"): "G",
 }
 
 #: (subject, quantity) -> notation override.
@@ -154,6 +227,9 @@ SUBJECT_NOTATION_DEFAULTS: dict[tuple[str, str], str] = {
 #: is why a beta family plot cannot put all three on one shared axis.
 DIMENSIONLESS_DISPLAY: dict[tuple[str, str], tuple[str, float, str]] = {
     ("equilibrium", "beta_t"): ("%", 100.0, "percent"),
+    # A ratio of a field gradient to the field; the stable window 0 < n < 1.5
+    # is quoted in these units and no other, so there is nothing to convert.
+    ("vacuum", "decay_index"): ("", 1.0, "auto"),
 }
 
 
@@ -180,18 +256,42 @@ class DisplaySpec:
     notation: str = "auto"
 
 
-def _auto_unit(quantity: QuantityDisplay, data: Any) -> str:
-    """Pick the allowed unit that puts the median |value| in [1, 1000)."""
+def _auto_unit(quantity: QuantityDisplay, data: Any, subject: str | None = None) -> str:
+    """Pick the allowed unit that puts the median |value| in [1, 1000).
+
+    Only the units the subject may show are searched (``allowed_units``): a
+    flux loop's magnitude never lands on a per-radian unit.
+    """
     values = np.abs(np.asarray(data, dtype=float).ravel())
     values = values[np.isfinite(values) & (values > 0)]
     if values.size == 0:
         return quantity.default
     magnitude = float(np.median(values))
-    for unit, factor in sorted(quantity.units.items(), key=lambda item: -item[1]):
+    permitted = allowed_units(quantity.name, subject)
+    candidates = {unit: factor for unit, factor in quantity.units.items() if unit in permitted}
+    for unit, factor in sorted(candidates.items(), key=lambda item: -item[1]):
         scaled = magnitude * factor
         if 1.0 <= scaled < 1000.0:
             return unit
     return quantity.default
+
+
+def allowed_units(quantity_name: str, subject: str | None = None) -> tuple[str, ...]:
+    """The display units of ``quantity_name`` a subject may show, in table order.
+
+    Per-radian flux is an equilibrium's business only; every other subject
+    sees the quantity's remaining units.
+    """
+    quantity = QUANTITIES[quantity_name]
+    return tuple(
+        unit
+        for unit in quantity.units
+        if unit not in _SUBJECT_ONLY_UNITS or subject in _SUBJECT_ONLY_UNITS[unit]
+    )
+
+
+def _is_display_unit(unit: str) -> bool:
+    return any(unit in quantity.units for quantity in QUANTITIES.values())
 
 
 def resolve_display(
@@ -230,7 +330,15 @@ def resolve_display(
             return DisplaySpec(
                 quantity=quantity, unit=label, scale=factor, notation=notation
             )
-        # Pass-through: no conversion table for this unit.
+        # Pass-through: no conversion table for this unit.  A token that is a
+        # display unit of some quantity (``"mWb"``, ``"kA"``) is almost
+        # certainly a recipe declaring its display unit as canonical, so say so.
+        if _is_display_unit(canonical_unit):
+            warnings.warn(
+                f"{canonical_unit!r} is a display unit, not a canonical storage "
+                f"unit; declare the canonical unit and pass unit={canonical_unit!r}",
+                stacklevel=2,
+            )
         if unit not in (None, "auto", canonical_unit):
             raise ValueError(
                 f"no display conversions exist for unit {canonical_unit!r}; "
@@ -253,14 +361,16 @@ def resolve_display(
     elif unit == "auto":
         if data is None:
             raise ValueError('unit="auto" requires the plotted data')
-        chosen = _auto_unit(quantity, data)
+        chosen = _auto_unit(quantity, data, subject)
     else:
         chosen = unit
-    if chosen not in quantity.units:
+    permitted = allowed_units(quantity_name, subject)
+    if chosen not in permitted:
         raise ValueError(
             f"unsupported display unit {chosen!r} for {quantity_name} "
-            f"[{canonical_unit}]; supported units: "
-            f"{', '.join(sorted(quantity.units))}"
+            f"[{canonical_unit}]"
+            + (f" on subject {subject!r}" if subject and chosen in quantity.units else "")
+            + f"; supported units: {', '.join(sorted(permitted))}"
         )
     return DisplaySpec(
         quantity=quantity_name,
@@ -321,11 +431,16 @@ def channel_label(index: int, r: float | None = None, z: float | None = None) ->
 _EXPONENT = re.compile(r"\^(-?\d+(?:\.\d+)?)")
 
 
-def unit_markup(unit: str) -> str:
-    """Render an ASCII unit for Matplotlib: ``10^18 m^-3`` -> ``10$^{18}$ m$^{-3}$``.
+def unit_markup(unit: str, *, flavor: str = "mathtext") -> str:
+    """Render an ASCII unit for a renderer: ``10^18 m^-3`` -> ``10$^{18}$ m$^{-3}$``.
 
     Presentation only.  The ASCII spelling stays the key of every conversion
     table and the string a caller passes as ``yunit=``; only the label a reader
     sees is typeset.  Units without an exponent come back unchanged.
+    ``flavor="html"`` writes ``<sup>``, which is what Plotly reads.
     """
+    if flavor == "html":
+        return _EXPONENT.sub(lambda m: f"<sup>{m.group(1)}</sup>", str(unit or ""))
+    if flavor != "mathtext":
+        raise ValueError(f"flavor must be 'mathtext' or 'html'; got {flavor!r}")
     return _EXPONENT.sub(lambda m: f"$^{{{m.group(1)}}}$", str(unit or ""))

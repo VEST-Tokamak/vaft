@@ -7,10 +7,6 @@ of which shot happened to be loaded.  Policy:
 ``notebooks/plotting_sample_using_vaft_plot_module.ipynb``.
 """
 
-import contextlib
-import io
-import warnings
-
 import matplotlib
 
 matplotlib.use("Agg")
@@ -24,19 +20,15 @@ import vaft
 import vaft.omas
 from vaft.plot.models import Panels
 
-
-def _load(rel):
-    with contextlib.redirect_stderr(io.StringIO()), warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        return vaft.omas.load(str(vaft.data.data_path(rel)))
+from _sample_fixtures import packaged_ods
 
 
 @pytest.fixture(scope="module")
 def shots():
     return {
-        39915: _load("samples/39915/omas.json.gz"),
-        41524: _load("samples/41524/imas.nc"),
-        41672: _load("samples/41672/imas.nc"),
+        39915: packaged_ods("samples/39915/omas.json.gz"),
+        41524: packaged_ods("samples/41524/imas.nc"),
+        41672: packaged_ods("samples/41672/imas.nc"),
     }
 
 
@@ -213,39 +205,55 @@ def test_a_composite_member_cannot_take_a_layout(shots):
 
 
 # ---------------------------------------------------------------------------
-# Overviews keep one shape on every shot (sections 6, 18; C12)
+# Overviews draw the members the input holds, in declared order (#476)
 # ---------------------------------------------------------------------------
 
-def test_the_diagnostics_overview_has_the_same_shape_on_every_shot(shots):
-    shapes, placeholders = set(), {}
+def test_the_diagnostics_overview_draws_only_the_members_the_shot_holds(shots):
     for shot, ods in shots.items():
         figure, axes = vaft.omas.plot_diagnostics_overview(ods)
-        shapes.add(axes.shape)
-        placeholders[shot] = sum(1 for panel in axes.ravel() if not panel.axison)
+        drawn = [panel for panel in axes.ravel() if panel.get_visible()]
+        # Every packaged shot holds the same five of the ten members; the
+        # 2-column grid shrinks to three rows and the trailing cell is hidden.
+        assert axes.shape == (3, 2) and len(drawn) == 5, shot
+        assert all(panel.axison and panel.lines for panel in drawn), shot
+        available = vaft.omas.available_plots(ods).names()
+        expected = [m for m in ("flux_loop_time_flux", "b_field_probe_time_field", "mirnov_time_voltage",
+                                "impa_time_field", "soft_x_rays_time_power", "interferometer_time_n_e_line",
+                                "thomson_scattering_time_electron_density", "charge_exchange_time_ion_temperature",
+                                "spectrometer_uv_time_intensity", "barometry_time_pressure") if m in available]
+        assert len(expected) == len(drawn)
         plt.close(figure)
-    assert shapes == {(5, 2)}
-    assert all(0 < n < 10 for n in placeholders.values()), placeholders
 
 
 def test_the_diagnostics_overview_excludes_flagged_channels_by_default(shots):
     figure, axes = vaft.omas.plot_diagnostics_overview(shots[39915])
     assert not any(line.get_linestyle() == "--" for line in _traces(axes))
     plt.close(figure)
-    # The caller's own choice still wins over the overview's default.
-    figure, axes = vaft.omas.plot_diagnostics_overview(shots[39915], validity="show")
+    # The caller's own choice still wins over the overview's default: every
+    # channel drawn (selection="all"), the flagged ones shown demoted.
+    figure, axes = vaft.omas.plot_diagnostics_overview(shots[39915], validity="show", selection="all")
     assert any(line.get_linestyle() == "--" for line in _traces(axes))
     plt.close(figure)
 
 
-def test_placeholders_keep_a_fixed_grid_and_name_the_missing_member():
+def test_a_composite_never_reserves_a_cell_for_what_it_does_not_draw():
     from vaft.plot.models import LineSeries, Series
 
     trace = Series(x=np.arange(3.0), y=np.arange(3.0))
-    panels = Panels(models=(LineSeries(series=(trace,)),), ncols=2,
-                    placeholders=((1, "x\nnot available"),))
-    assert (panels.nrows, panels.ncols) == (1, 2)
-    with pytest.raises(ValueError, match="outside the grid"):
-        Panels(models=(LineSeries(series=(trace,)),), ncols=1, placeholders=((5, "x"),))
+    with pytest.raises(TypeError):
+        Panels(models=(LineSeries(series=(trace,)),), ncols=2, placeholders=((1, "x"),))
+    # One member declared for two columns draws one column.
+    from vaft.plot.backend.recipes import PanelRecipe, _build_panels
+    from vaft.omas.entries import normalize_entries
+    import omas
+
+    ods = omas.ODS(consistency_check=False)
+    ods["magnetics.time"] = np.linspace(0, 1, 5)
+    ods["magnetics.ip.0.data"] = np.ones(5)
+    ods["magnetics.ip.0.time"] = np.linspace(0, 1, 5)
+    recipe = PanelRecipe(members=("plasma_current_time", "diamagnetic_flux_time"), ncols=2)
+    panels = _build_panels(normalize_entries(ods), recipe)
+    assert len(panels.models) == 1 and (panels.nrows, panels.ncols) == (1, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -289,3 +297,22 @@ def test_supplied_axes_must_be_axes(shots):
         vaft.omas.plot_flux_loop_time_flux(
             shots[39915], selection="inboard", layout="subplots", ax=["a"] * 7
         )
+
+
+def test_panels_sharing_a_time_base_label_it_once_per_column(shots):
+    figure, axes = vaft.omas.plot_pf_coil_time_current_turns(shots[39915], layout="subplots")
+    labels = [axis.get_xlabel() for axis in axes.ravel() if axis.get_visible()]
+    assert labels[:-1] == [""] * (len(labels) - 1) and labels[-1] == "Time [s]"
+    assert all(axis.get_ylabel() == "Coil Ampere-turns [kA-turns]" for axis in axes.ravel() if axis.get_visible())
+    plt.close(figure)
+    figure, axes = vaft.omas.plot_pf_coil_time_current_turns(shots[39915], layout="subplots", ncols=2)
+    columns = {}
+    for axis in axes.ravel():
+        if axis.get_visible():
+            columns.setdefault(round(axis.get_position().x0, 3), []).append(axis.get_xlabel())
+    assert all(labels[-1] == "Time [s]" and not any(labels[:-1]) for labels in columns.values())
+    # The shorter column's last panel shows its tick numbers too.
+    figure.canvas.draw()
+    bottoms = [axis for axis in axes.ravel() if axis.get_visible() and axis.get_xlabel() == "Time [s]"]
+    assert len(bottoms) == 2 and all(any(t.get_text() for t in axis.get_xticklabels()) for axis in bottoms)
+    plt.close(figure)

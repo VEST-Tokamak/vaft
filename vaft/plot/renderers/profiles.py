@@ -17,6 +17,7 @@ from matplotlib.figure import Figure
 
 from ..models import Profile1D
 from ..registry import renderer
+from ..presentation import presented, resolve_style
 from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axes, trace_labels
 
 __all__ = [
@@ -33,6 +34,8 @@ __all__ = [
     "equilibrium_profile_pprime",
     "equilibrium_profile_pressure",
     "equilibrium_profile_q",
+    "mhd_linear_profile_b_field_perturbed",
+    "mhd_linear_profile_displacement",
     "render_profile_1d",
     "thomson_scattering_profile_electron_density",
     "thomson_scattering_profile_electron_temperature",
@@ -41,6 +44,7 @@ __all__ = [
 _DEFAULT_FIGSIZE = (6.0, 4.0)
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_profile_1d(
     model: Profile1D,
     *,
@@ -51,6 +55,8 @@ def render_profile_1d(
     grid: bool = True,
     uncertainty: str = "auto",
     validity: str = "show",
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Profile1D` into one axes."""
@@ -68,6 +74,12 @@ def render_profile_1d(
             options.setdefault("label", label)
         draw_series(axes, series, uncertainty=uncertainty, validity=validity, **options)
 
+    for line in model.reference_lines:
+        axes.axvline(
+            line.x,
+            **resolve_style({"color": "emphasis:medium", "linestyle": ":", "linewidth": 1.0, **line.style}),
+            label=line.label or None,
+        )
     axes.set_xlabel(model.coordinate_label)
     axes.set_ylabel(axis_label(model.y_label, model.y_unit))
     if model.title:
@@ -100,12 +112,114 @@ def _profile_renderer(
     )
 
 
+_SENSOR_POSITIONS = {
+    "flux_loop": ("magnetics.flux_loop.{i}.position.0.r", "magnetics.flux_loop.{i}.position.0.z"),
+    "b_field_probe": (
+        "magnetics.b_field_pol_probe.{i}.position.r",
+        "magnetics.b_field_pol_probe.{i}.position.z",
+        "magnetics.b_field_pol_probe.{i}.poloidal_angle",
+    ),
+}
+
+
+@renderer(
+    domain="magnetics",
+    subject="mirnov",
+    view="spatial",
+    quantity="phase",
+    model=Profile1D,
+    description="Toroidal phase of each fluctuation band around the torus at one time, with the fitted n mode lines.",
+    ids=("magnetics",),
+    required_paths=("magnetics.b_field_pol_probe.{i}.voltage.data",),
+    optional_paths=(
+        "magnetics.b_field_pol_probe.{i}.position.phi",
+        "magnetics.b_field_pol_probe.{i}.voltage.time",
+        "magnetics.time",
+    ),
+)
+def mirnov_spatial_phase(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
+    """Toroidal phase per fluctuation band at one time (issue #485)."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="magnetics",
+    subject="flux_loop",
+    view="spatial",
+    quantity="flux",
+    model=Profile1D,
+    description="Flux-loop flux against sensor position at one time: height (inboard and outboard panels) or poloidal angle about the layout centre.",
+    ids=("magnetics",),
+    required_paths=("magnetics.flux_loop.{i}.flux.data",),
+    optional_paths=_SENSOR_POSITIONS["flux_loop"] + ("magnetics.flux_loop.{i}.flux.time", "magnetics.time"),
+)
+def flux_loop_spatial_flux(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
+    """Flux-loop flux against sensor position at one time (issue #486)."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="magnetics",
+    subject="b_field_probe",
+    view="spatial",
+    quantity="field",
+    model=Profile1D,
+    description="B-probe field against sensor position at one time: height (inboard and outboard panels) or poloidal angle about the layout centre.",
+    ids=("magnetics",),
+    required_paths=("magnetics.b_field_pol_probe.{i}.field.data",),
+    optional_paths=_SENSOR_POSITIONS["b_field_probe"] + ("magnetics.b_field_pol_probe.{i}.field.time", "magnetics.time"),
+)
+def b_field_probe_spatial_field(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
+    """B-probe poloidal field against sensor position at one time (issue #486)."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+_MHD_LINEAR_EIGENFUNCTION_PATHS = (
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.n_tor",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim1",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim2",
+)
+
+
+#: The coordinate leaves a profile may read; r_minor is computed from the
+#: two radii and never stored (vaft.plot.display.PROFILE_COORDINATES).
 _EQ_COORDS = (
     "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
     "equilibrium.time_slice.{i}.profiles_1d.psi_norm",
+    "equilibrium.time_slice.{i}.profiles_1d.phi",
     "equilibrium.time_slice.{i}.profiles_1d.r_inboard",
     "equilibrium.time_slice.{i}.profiles_1d.r_outboard",
 )
+
+
+@_profile_renderer(
+    domain="core_profiles", quantity="bootstrap_current",
+    subject="neoclassical",
+    description=(
+        "Bootstrap current density from each neoclassical model on one radial axis: "
+        "the Sauter and Redl formulas against whatever solver result the ODS carries."
+    ),
+    ids=("core_profiles", "equilibrium"),
+    required_paths=(
+        "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
+        "equilibrium.time_slice.{i}.profiles_1d.psi",
+        "equilibrium.time_slice.{i}.profiles_1d.q",
+        "equilibrium.time_slice.{i}.profiles_1d.f",
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+        # The electron density is required too, in either of its two spellings,
+        # which the recipe's own `available` predicate checks.
+    ),
+    optional_paths=(
+        "equilibrium.time_slice.{i}.profiles_1d.trapped_fraction",
+        "core_profiles.profiles_1d.{i}.zeff",
+        "core_profiles.profiles_1d.{i}.j_bootstrap",
+    ),
+)
+def neoclassical_profile_bootstrap_current(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Bootstrap current density, one series per neoclassical model."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
 
 
 @_profile_renderer(
@@ -355,3 +469,157 @@ def impa_profile_field(
 ) -> tuple[Figure, Axes]:
     """IMPA radial profile against the 1/R toroidal-field model."""
     return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="mhd_linear", quantity="displacement",
+    subject="mhd_linear",
+    description="DCON displacement eigenfunction against normalized flux, one trace "
+                "per poloidal harmonic; amplitudes are normalized to the peak because "
+                "DCON's eigenvector normalization is arbitrary.",
+    ids=("mhd_linear",),
+    required_paths=_MHD_LINEAR_EIGENFUNCTION_PATHS + (
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.displacement_perpendicular.real",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.displacement_perpendicular.imaginary",
+    ),
+    optional_paths=(
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.energy_perturbed",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.m_pol_dominant",
+    ),
+)
+def mhd_linear_profile_displacement(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """DCON displacement eigenfunction per poloidal harmonic."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="mhd_linear", quantity="b_field_perturbed",
+    subject="mhd_linear",
+    description="Normal perturbed field per poloidal harmonic against normalized flux, "
+                "derived from the DCON eigenfunction as i(m - nq) xi.grad(psi).",
+    ids=("mhd_linear",),
+    required_paths=_MHD_LINEAR_EIGENFUNCTION_PATHS + (
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.real",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.imaginary",
+    ),
+    optional_paths=(
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.energy_perturbed",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.m_pol_dominant",
+    ),
+)
+def mhd_linear_profile_b_field_perturbed(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Normal perturbed field per poloidal harmonic."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+_GPEC_RESONANT_PATHS = (
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.n_tor",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim1",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim2",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.real",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.imaginary",
+    # The per-surface geometry and chi1 the derivation needs. They have no
+    # IMAS slot -- `mhd_linear` has no per-surface numeric field and `ntms`'s
+    # deltaw is m^-1 where GPEC's Delta is unitless -- so the mapper records
+    # them here, and the adapter reads them back.
+    "mhd_linear.code.parameters",
+)
+
+
+@_profile_renderer(
+    domain="mhd_linear", quantity="resonant_flux",
+    subject="mhd_linear",
+    description="Pitch-resonant flux per rational surface against normalized poloidal "
+                "flux, derived from the mapped perturbed flux by the jump across each "
+                "singular surface rather than read from the IDS.",
+    ids=("mhd_linear",),
+    required_paths=_GPEC_RESONANT_PATHS,
+)
+def mhd_linear_profile_resonant_flux(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Pitch-resonant flux per rational surface."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="mhd_linear", quantity="island_width",
+    subject="mhd_linear",
+    description="Saturated island width per rational surface against normalized "
+                "poloidal flux, in psi_N as GPEC reports it, derived from the "
+                "resonant flux.",
+    ids=("mhd_linear",),
+    required_paths=_GPEC_RESONANT_PATHS,
+)
+def mhd_linear_profile_island_width(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Saturated island width per rational surface."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+_NBI_PROFILE_PATHS = (
+    "core_sources.source.{i}.identifier.index",
+    "core_sources.source.{i}.profiles_1d.{j}.grid.rho_tor_norm",
+)
+
+
+@_profile_renderer(
+    domain="core_sources", quantity="electron_heating",
+    subject="nbi",
+    description="Beam power density to electrons against normalized toroidal flux, "
+                "from a NUBEAM result mapped into core_sources.",
+    ids=("core_sources",),
+    required_paths=_NBI_PROFILE_PATHS + (
+        "core_sources.source.{i}.profiles_1d.{j}.electrons.energy",
+    ),
+    optional_paths=("core_sources.source.{i}.profiles_1d.{j}.electrons.power_inside",),
+)
+def nbi_profile_electron_heating(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Beam power density to electrons."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="core_sources", quantity="ion_heating",
+    subject="nbi",
+    description="Beam power density to ions against normalized toroidal flux, from "
+                "a NUBEAM result mapped into core_sources.",
+    ids=("core_sources",),
+    required_paths=_NBI_PROFILE_PATHS + (
+        "core_sources.source.{i}.profiles_1d.{j}.total_ion_energy",
+    ),
+    optional_paths=("core_sources.source.{i}.profiles_1d.{j}.total_ion_power_inside",),
+)
+def nbi_profile_ion_heating(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Beam power density to ions."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="core_sources", quantity="current_drive",
+    subject="nbi",
+    description="Beam-driven parallel current density against normalized toroidal "
+                "flux, <J.B>/B0. Derived from the solver's toroidal driven current "
+                "and the equilibrium geometry, assuming the driven current is "
+                "field-aligned on each flux surface; it is not a direct solver "
+                "output.",
+    ids=("core_sources",),
+    required_paths=_NBI_PROFILE_PATHS + (
+        "core_sources.source.{i}.profiles_1d.{j}.j_parallel",
+    ),
+    optional_paths=("core_sources.source.{i}.profiles_1d.{j}.current_parallel_inside",),
+)
+def nbi_profile_current_drive(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Beam-driven parallel current density."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+

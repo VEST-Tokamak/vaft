@@ -97,12 +97,26 @@ _SUBJECTS = (
     Subject("pf_coil", "machine", ("pf_active",)),
     Subject("tf_coil", "machine", ("tf",)),
     Subject("passive_structure", "machine", ("pf_passive",)),
+    Subject("pf_plasma", "machine", ("plasma_elements", "plasma_current_elements")),
     Subject("coil_3d", "machine", ("coils_non_axisymmetric", "3d_coil")),
     Subject("machine", "machine"),
     # Reconstructions, models, and codes
     Subject("equilibrium", "reconstruction"),
+    # The field the coils and the vessel make with no plasma in it: a model of
+    # the machine, not a reconstruction of a discharge.
+    Subject("vacuum", "model", ("vacuum_field", "null_field")),
     Subject("core_profiles", "reconstruction"),
     Subject("mhd_linear", "model"),
+    # The resistive half of the linear-MHD suite. Its own subject rather than a
+    # view of `mhd_linear`, because an `ntms.mode` entry is a rational *surface*
+    # the solver located -- not one of the toroidal modes the caller asked for --
+    # so the two IDS are indexed by different things and a plot of one is not a
+    # plot of the other.
+    Subject("ntms", "model", ("tearing", "delta_prime")),
+    # Neoclassical transport: the analytic models and the drift-kinetic solver
+    # that answer the same question, which is why the plot compares them.
+    Subject("neoclassical", "model", ("bootstrap_current",)),
+    Subject("nbi", "machine", ("neutral_beam", "nubeam")),
     Subject("chease", "code"),
     # Purpose-driven composites
     Subject("current", "composite"),

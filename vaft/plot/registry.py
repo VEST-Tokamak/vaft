@@ -38,11 +38,13 @@ Status = Literal["canonical", "legacy"]
 #: The ``<view>`` component of canonical plot identity.  ``evolution`` is
 #: ``quantity(t, x)`` -- distinct from ``time`` (``quantity(t)``), ``profile``
 #: (``quantity(x)`` at one time), and ``spectrogram``
-#: (``spectral_quantity(t, f)``).  Interaction, 3D representation, comparison,
-#: and validation are capabilities, not views (issue #251).
+#: (``spectral_quantity(t, f)``); ``spatial`` is ``quantity(position)`` across
+#: a sensor array at one time (issue #486).  Interaction, 3D representation,
+#: comparison, and validation are capabilities, not views (issue #251).
 VIEWS = (
     "time",
     "profile",
+    "spatial",
     "evolution",
     "field",
     "geometry",

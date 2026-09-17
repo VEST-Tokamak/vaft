@@ -318,6 +318,15 @@ def test_set_path_is_the_one_primitive_that_creates(ods):
     assert path_value(ods, "magnetics.b_field_pol_probe.0.field.validity") == 0
 
 
+def test_a_native_imas_object_is_refused_not_read_as_empty():
+    """The readers dispatch on the object; a raw IDS answers no dotted path and says so."""
+    imas = pytest.importorskip("imas")
+    ids = imas.IDSFactory("3.41.0").new("magnetics")
+    for read in (path_exists, path_value, path_count, get_path):
+        with pytest.raises(TypeError, match="vaft.imas"):
+            read(ids, "magnetics.time")
+
+
 def test_plain_mappings_keep_working():
     payload = {"a": {"b": [10, 20]}, "empty": {}}
 

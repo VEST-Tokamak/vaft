@@ -102,6 +102,28 @@ def test_discovery_agrees(ods, entry):
     assert vaft.omas.available_plots(ods).names() == vaft.imas.available_plots(entry).names()
 
 
+@pytest.mark.parametrize("emission", ["CIII", "C2+", "Carbon", "H_alpha"])
+def test_emission_resolves_the_same_through_either_namespace(ods, entry, emission):
+    """The selector reads labels through the accessor, so both must agree.
+
+    This also pins the two packaged representations to the same spectroscopy
+    metadata: they are corrected together or not at all.
+    """
+    assert_models_equal(
+        recipes.build_model(
+            "spectrometer_uv_time_intensity",
+            vaft.omas.normalize_entries(ods),
+            emission=emission,
+        ),
+        recipes.build_model(
+            "spectrometer_uv_time_intensity",
+            vaft.imas.normalize_entries(entry),
+            emission=emission,
+        ),
+        where=f"emission={emission}",
+    )
+
+
 def test_both_label_the_shot(ods, entry):
     assert [l for l, _ in vaft.omas.normalize_entries(ods)] == ["39915"]
     assert [l for l, _ in vaft.imas.normalize_entries(entry)] == ["39915"]

@@ -597,7 +597,7 @@ def charge_exchange_rho_profiles(
                 time_index = int(idx_candidates[0])
             time_s = float(times[time_index]) if times.size else np.nan
 
-            mapped_rho = process_profile.equilibrium_mapping_charge_exchange(ods, eq)
+            mapped = process_profile.equilibrium_mapping_charge_exchange(ods, eq)
 
             (
                 Vtor_func,
@@ -609,7 +609,7 @@ def charge_exchange_rho_profiles(
             ) = process_profile.profile_fitting_charge_exchange(
                 ods,
                 time_ms=float(time_ms),
-                mapped_rho_position=mapped_rho,
+                mapped_positions=mapped,
                 Ti_order=int(Ti_order),
                 Vtor_order=int(Vtor_order),
                 uncertainty_option=int(uncertainty_option),
@@ -622,7 +622,8 @@ def charge_exchange_rho_profiles(
             rho_fit = np.linspace(0.0, 1.0, int(rho_points))
 
             n_channels = len(ods["charge_exchange.channel"])
-            rho_meas = np.asarray(mapped_rho, dtype=float).reshape(-1)[:n_channels]
+            # measured points in the coordinate the fit was made in (rho_tor_norm by default)
+            rho_meas = mapped.select(Ti_func.coordinate)[:n_channels]
 
             Ti_meas, Ti_err = [], []
             Vtor_meas, Vtor_err = [], []

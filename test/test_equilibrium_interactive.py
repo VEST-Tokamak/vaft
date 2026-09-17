@@ -81,7 +81,7 @@ def test_observers_run_once_per_change_and_can_leave():
 def test_the_interactive_figure_shares_one_selected_slice(shot):
     result = vaft.omas.plot_equilibrium_interactive(shot, backend="none")
     figure, axes, nav = result
-    assert axes.shape == (2, 2) and len(result.history_axes) == 2 and result.widget is None
+    assert axes.shape == (7,) and len(result.history_axes) == 1 and result.widget is None
     assert nav.selected == 4  # the representative slice, as the static overview
     assert "t = 320.00 ms (slice 5 of 9, selected)" in figure._suptitle.get_text()
     assert all(float(m.get_xdata()[0]) == nav.time for m in _markers(result))
@@ -90,7 +90,8 @@ def test_the_interactive_figure_shares_one_selected_slice(shot):
     assert "t = 325.00 ms (slice 7 of 9, selected)" in figure._suptitle.get_text()
     assert all(float(m.get_xdata()[0]) == 0.325 for m in _markers(result))
     assert [panel.get_title() for panel in axes.ravel()] == [
-        "Poloidal flux", "Pressure", "Safety Factor q", "Global quantities"
+        "Poloidal flux", "Pressure", "Safety Factor q", "Toroidal Current Density (derived)",
+        "dp/dpsi", "F dF/dpsi", "Global quantities",
     ]
     plt.close(figure)
 
@@ -144,8 +145,11 @@ def test_static_plotting_never_imports_a_widget_toolkit():
 
 def test_discovery_names_the_entry_point_as_an_interaction_mode(shot):
     record = vaft.omas.available_plots(shot, query="equilibrium", view="overview").find("equilibrium_overview")
-    assert record.interaction == ("static", "time-navigable")
-    assert record.interaction_entry_points == {"time-navigable": "plot_equilibrium_interactive()"}
+    assert record.interaction == ("static", "time-navigable", "controls")
+    assert record.interaction_entry_points == {
+        "time-navigable": "plot_equilibrium_interactive()",
+        "controls": "plot_equilibrium_overview(..., interactive=True)",
+    }
     text = str(vaft.omas.available_plots(query="equilibrium", view="overview"))
     assert "interaction: static | time-navigable" in text
     detailed = str(vaft.omas.available_plots(query="equilibrium", view="overview", detail=True))
@@ -164,17 +168,22 @@ def test_redrawing_leaves_the_figure_as_it_found_it(shot):
     result.figure.canvas.draw()  # positions settle only once the figure is laid out
     # The layout position: the drawn box also follows each slice's data extent
     # through the panel's equal aspect, which is content, not layout.
-    width = result.axes[0, 0].get_position(original=True).width
+    width = result.axes[0].get_position(original=True).width
+    panels = len(result.axes)
     for index in result.navigator.usable:
         result.navigator.select_index(index)
         result.figure.canvas.draw()
-        assert result.axes[0, 0].get_position(original=True).width == pytest.approx(width)
+        if len(result.axes) != panels:
+            continue  # a slice drawing another panel set is laid out afresh (#476)
+        assert result.axes[0].get_position(original=True).width == pytest.approx(width)
+    result.navigator.select_index(result.navigator.usable[0])
     assert len(result.figure.axes) == count
     plt.close(result.figure)
     result = vaft.omas.plot_equilibrium_interactive(shot, backend="matplotlib")
     count = len(result.figure.axes)
     for position in range(len(result.navigator.usable)):
         result.widget.set_val(position)
+    result.widget.set_val(result.navigator.usable.index(result.navigator.usable[0]))
     assert len(result.figure.axes) == count
     plt.close(result.figure)
 
@@ -190,5 +199,47 @@ def test_the_current_history_is_the_measured_waveform_with_the_reconstruction(sh
     current = result.history_axes[0]
     assert "Plasma Current" in current.get_title()
     labels = [line.get_label() for line in current.lines if line.get_linestyle() != ":"]
-    assert labels[0] == "39915"  # the magnetics waveform, not the equilibrium's own Ip
+    # The magnetics waveform, not the equilibrium's own Ip; with overlays on a
+    # scalar plot the legend names roles, so the waveform reads "measured".
+    assert labels[0] == "measured"
+    assert current.lines[0].get_xdata().size > 100
+    plt.close(result.figure)
+
+
+def test_the_history_is_the_plasma_current_with_the_stored_slices_marked(shot):
+    result = vaft.omas.plot_equilibrium_interactive(shot, backend="none")
+    (history,) = result.history_axes
+    assert history.get_title() == "Plasma Current"
+    labels = [line.get_label() for line in history.lines]
+    assert "slices" in labels and not any("q95" in label for label in labels)
+    markers = history.lines[labels.index("slices")]
+    assert markers.get_xdata().size == len(result.navigator.usable)
+    assert np.allclose(markers.get_xdata(), result.navigator.times[list(result.navigator.usable)])
+    plt.close(result.figure)
+
+
+def test_a_slice_that_draws_fewer_panels_gets_fresh_axes(shot):
+    import copy
+
+    ods = copy.deepcopy(shot)
+    del ods["equilibrium.time_slice.6.profiles_1d.pressure"]
+    result = vaft.omas.plot_equilibrium_interactive(ods, backend="none")
+    assert result.navigator.selected == 4 and len(result.axes) == 7
+    count = len(result.figure.axes)
+    result.figure.canvas.draw()
+    history = [a.get_position(original=True).bounds for a in result.history_axes]
+    result.navigator.select_index(6)
+    assert len(result.axes) == 6 and result.axes[1].get_title() == "Safety Factor q"
+    assert len(result.figure.axes) == count - 1
+    assert result.slice_axes.colorbar in result.figure.axes
+    result.figure.canvas.draw()
+    # The histories above the slice cell do not move when the cell is rebuilt,
+    # and the rebuilt panels are laid out (no two overlap).
+    assert [a.get_position(original=True).bounds for a in result.history_axes] == history
+    boxes = [a.get_position() for a in result.axes]
+    for i, a in enumerate(boxes):
+        for b in boxes[i + 1:]:
+            assert not (a.x0 < b.x1 - 1e-6 and b.x0 < a.x1 - 1e-6 and a.y0 < b.y1 - 1e-6 and b.y0 < a.y1 - 1e-6)
+    result.navigator.select_index(4)
+    assert len(result.axes) == 7 and len(result.figure.axes) == count
     plt.close(result.figure)

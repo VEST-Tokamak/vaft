@@ -20,6 +20,7 @@ from matplotlib.figure import Figure
 
 from ..models import PowerSpectrum, ReferenceSlope
 from ..registry import renderer
+from ..presentation import presented, resolve_color
 from ..style import finalize, resolve_axes
 
 __all__ = [
@@ -72,6 +73,7 @@ def _guide_points(
     return edges, anchor_psd * (edges / anchor_frequency) ** reference.slope
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_power_spectrum(
     model: PowerSpectrum,
     *,
@@ -79,6 +81,8 @@ def render_power_spectrum(
     show: bool = False,
     figsize: tuple[float, float] | None = None,
     legend: bool = True,
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`PowerSpectrum` with its fits, guides and frequency markers."""
@@ -98,7 +102,7 @@ def render_power_spectrum(
         points = _guide_points(model, reference)
         if points is None:
             continue
-        guide_style = {"linestyle": "--", "linewidth": 1.0, "color": "0.4"}
+        guide_style = {"linestyle": "--", "linewidth": 1.0, "color": resolve_color("emphasis:medium")}
         guide_style.update(dict(reference.style))
         # No label is synthesized beyond the bare exponent: naming what a slope
         # means is the caller's job, not this renderer's.
@@ -109,7 +113,7 @@ def render_power_spectrum(
         )
 
     for frequency, label in model.marker_frequencies:
-        axes.axvline(frequency, color="0.6", linestyle=":", linewidth=1.0,
+        axes.axvline(frequency, color=resolve_color("emphasis:lower"), linestyle=":", linewidth=1.0,
                      label=label or None)
 
     if model.log_x:

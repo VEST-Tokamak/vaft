@@ -304,15 +304,22 @@ def _common_timebase_many(
 
 
 def _channel_toroidal_angle(ods: Any, probe_group: str, channel: int) -> float:
-    for suffix in ("toroidal_angle", "position.phi"):
-        stored = path_value(ods, f"magnetics.{probe_group}.{channel}.{suffix}")
-        if stored is None:
-            continue
+    """Where a probe sits toroidally, from ``position.phi``.
+
+    ``toroidal_angle`` is not consulted.  It is a sensor *orientation* in the
+    DD, not a position, and reading it first is what let the mapper's old habit
+    of writing a position there go unnoticed (issue #725).  Keeping it as a
+    fallback would be worse than dropping it: an ODS written before that fix
+    carries a position in it, in the pre-#718 frame, so the same code path
+    would silently mean different things depending on the file's age.
+    """
+    stored = path_value(ods, f"magnetics.{probe_group}.{channel}.position.phi")
+    if stored is not None:
         try:
             return float(stored)
         except (TypeError, ValueError):
-            continue
-    raise KeyError(f"{probe_group} channel {channel} does not define toroidal_angle or position.phi.")
+            pass
+    raise KeyError(f"{probe_group} channel {channel} does not define position.phi.")
 
 
 def _with_phase_jumps(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -408,17 +415,12 @@ def toroidal_phase_mode_fit(
     ods: Any,
     center_time: float,
     *,
-    channels: Sequence[int | str] = (
-        "OutMirnov_130_Bz:phase_reference",
-        "OutMirnov_530_Bz:phase_reference",
-        "OutMirnov_730_Bz:phase_reference",
-        "MagneticFieldProbe_C2-05_Bz:phase_reference",
-    ),
+    channels: Sequence[int | str] | None = None,
     probe_group: str = "b_field_pol_probe",
     time_range: tuple[float, float] | None = None,
     frequencies: Sequence[float] | None = None,
     num_modes: int = 2,
-    candidate_n: Sequence[int] = tuple(range(0, 7)),
+    candidate_n: Sequence[int] = tuple(range(-6, 7)),
     window_size: int = 500,
     preprocess: bool = True,
     gains: Any = None,
@@ -430,6 +432,28 @@ def toroidal_phase_mode_fit(
     return_result: bool = False,
 ):
     """Plot toroidal phase variation and best-fit wrapped ``n`` mode lines."""
+    if channels is None:
+        # Whichever toroidal array this shot has. Naming the phase-reference
+        # channels outright used to be the default, and since they are mapped
+        # only up to their last operational shot that raised on every modern
+        # ODS instead of drawing what the shot does carry.
+        available = [
+            str(path_value(ods, f"magnetics.{probe_group}.{index}.identifier"))
+            for index in range(path_count(ods, f"magnetics.{probe_group}"))
+            if path_value(ods, f"magnetics.{probe_group}.{index}.identifier") is not None
+        ]
+        channels = [name for name in available if name.endswith(":phase_reference")]
+        if not channels:
+            from vaft.machine_mapping.magnetics import fluctuation_mirnov_probe_indices
+
+            channels = sorted(fluctuation_mirnov_probe_indices(ods))
+        if not channels:
+            raise ValueError(
+                f"no toroidal Mirnov array in this ODS: magnetics.{probe_group} carries "
+                "neither phase-reference nor fluctuation identifiers, so there is no "
+                "set of probes at distinct toroidal angles to fit across"
+            )
+
     selected = _normalise_channels(ods, probe_group, channels)
     times: list[np.ndarray] = []
     data: list[np.ndarray] = []

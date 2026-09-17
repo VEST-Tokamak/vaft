@@ -34,6 +34,7 @@ sys.path.insert(0, str(WORKFLOW_DIR))
 from paths import FILEDB, SHOT_FIRST, PipelinePaths  # noqa: E402
 
 BASE_DIR = "/srv/vest.filedb/public"
+FAMILY = "magnetic"
 SHOT = 41234
 MACHINE_VERSION = "vest-45967-plus-pf2507"
 REQUIRED_RAW_FIELDS = (1, 12, 25, 59, 109)
@@ -129,18 +130,18 @@ def test_plot_paths_resolve_to_the_canonical_plot_artifact():
     assert paths.raw_plot(SHOT, "raw_overview_acquisition.png") == str(
         filedb.raw(SHOT) / "plot" / "raw_overview_acquisition.png"
     )
-    assert paths.code_plot_dir(SHOT, "chease") == str(filedb.chease(SHOT, artifact="plot"))
+    assert paths.code_plot_dir(SHOT, "chease") == str(filedb.chease(SHOT, family=FAMILY, artifact="plot"))
     assert paths.chease_plot_manifest(SHOT) == str(
-        filedb.chease(SHOT, artifact="plot") / "plot_refined_gfiles_generated.txt"
+        filedb.chease(SHOT, family=FAMILY, artifact="plot") / "plot_refined_gfiles_generated.txt"
     )
     assert paths.stage_plot(SHOT, "chease", "chease_refinement_summary.png") == str(
-        filedb.omas("chease", shot=SHOT, artifact="plot") / "chease_refinement_summary.png"
+        filedb.omas("chease", shot=SHOT, family=FAMILY, artifact="plot") / "chease_refinement_summary.png"
     )
     assert paths.stage_plot_manifest(SHOT, "chease") == str(
-        filedb.omas("chease", shot=SHOT, artifact="metadata") / "plot_manifest.json"
+        filedb.omas("chease", shot=SHOT, family=FAMILY, artifact="metadata") / "plot_manifest.json"
     )
     assert paths.chease_runs(SHOT) == str(
-        filedb.chease(SHOT, artifact="output") / "chease_runs.json"
+        filedb.chease(SHOT, family=FAMILY, artifact="output") / "chease_runs.json"
     )
 
 
@@ -296,11 +297,24 @@ def test_snakefile_declares_required_plots_as_real_outputs():
 
 def test_stage_plot_paths_cover_every_required_plot():
     paths = PipelinePaths(BASE_DIR, FILEDB)
-    for stage in ("diagnostics", "eddy", "efit", "mhd_linear", "chease"):
+    for stage in ("diagnostics", "eddy", "efit", "chease"):
         required = stage_plot_filenames(stage, required_only=True)
         patterns = [paths.shot_pattern("stage_plot", stage, name) for name in required]
         assert len(patterns) == len(required)
         assert all("{shot}" in pattern and "/plot/" in pattern for pattern in patterns)
+
+    # `mhd_linear` is one solve's result, so its figures describe one product's
+    # ODS and live beside it rather than in a shot-wide directory several
+    # products would share. The pattern therefore carries a product wildcard too.
+    required = stage_plot_filenames("mhd_linear", required_only=True)
+    patterns = [
+        paths.product_pattern("stage_plot", "mhd_linear", name) for name in required
+    ]
+    assert len(patterns) == len(required)
+    assert all(
+        "{shot}" in pattern and "{product}" in pattern and "/plot/" in pattern
+        for pattern in patterns
+    )
 
     source = (WORKFLOW_DIR / "Snakefile").read_text(encoding="utf-8")
     assert 'EMPTY_VALIDATION_STAGES = {"chease", "eddy", "efit", "mhd_linear"}' in source
@@ -395,7 +409,7 @@ def test_a_shot_that_never_formed_a_plasma_is_an_empty_eddy_product(tmp_path):
 
     vacuum_shot = ODS(consistency_check=False)
     vacuum_shot["dataset_description.data_entry.pulse"] = 41234
-    assert "no plasma-current onset" in STAGE_PRECONDITIONS["eddy"](vacuum_shot)
+    assert "no plasma onset" in STAGE_PRECONDITIONS["eddy"](vacuum_shot)
 
     manifest = render_stage_plots("eddy", vacuum_shot, tmp_path / "plot")
     assert manifest["status"] == "empty"
@@ -440,3 +454,47 @@ def test_a_skipped_or_failed_chease_run_is_an_empty_product(tmp_path):
     assert manifest["metrics"]["records_summary"] == [
         {"input": "g041234.00300", "status": "missing_input"}
     ]
+
+
+def _stage_plots_module():
+    """Load the driver as a module so its helpers can be exercised directly."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "_generate_stage_plots", WORKFLOW_DIR / "generate_stage_plots.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_a_companion_the_composer_cannot_express_is_refused_by_name(monkeypatch):
+    """The registry is generic; the composition behind it is not (#813).
+
+    `compose_stage_products` composes a diagnostics product with an eddy one
+    specifically, because that pairing is the one with a physical invariant to
+    check. A registry entry naming any other companion has to be refused where
+    a reader can act on it -- not reach the composer as the wrong argument, and
+    not raise `KeyError: 'diagnostics'` from a line that mentions neither the
+    stage nor the registry.
+    """
+    module = _stage_plots_module()
+    monkeypatch.setitem(module.STAGE_PLOT_COMPANIONS, "chease", ("efit",))
+
+    # The argument itself is accepted: the registry does declare it.
+    assert module._companions("chease", ["efit=/tmp/efit.json"]) == {
+        "efit": Path("/tmp/efit.json")
+    }
+
+    argv = [
+        "generate_stage_plots.py",
+        "--stage", "chease",
+        "--input", "/tmp/chease.json",
+        "--output-dir", "/tmp/plots",
+        "--metadata", "/tmp/manifest.json",
+        "--compose-with", "efit=/tmp/efit.json",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(SystemExit) as caught:
+        module.main()
+    assert "diagnostics + eddy" in str(caught.value)

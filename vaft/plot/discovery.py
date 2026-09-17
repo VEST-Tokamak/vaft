@@ -114,12 +114,48 @@ class PlotCapability:
     #: Uncertainty / validity metadata present beside the signal (#256).
     uncertainty: Mapping[str, Any] = field(default_factory=dict)
     validity: Mapping[str, Any] = field(default_factory=dict)
+    #: Display sign policy of a line plot (#307): ``default`` and ``options``.
+    orientation: Mapping[str, Any] = field(default_factory=dict)
+    #: The rendering libraries that can draw this plot (#491).
+    backends: tuple[str, ...] = ("matplotlib",)
     # -- reserved for issue #261; empty and unprinted until it lands ----------
     sources: Mapping[str, Any] = field(default_factory=dict)
     interaction: tuple[str, ...] = ()
     #: Public function behind an interaction mode that is not itself a plot.
     interaction_entry_points: Mapping[str, str] = field(default_factory=dict)
     projection: Mapping[str, Any] = field(default_factory=dict)
+    #: The stored equilibrium slices a slice-indexed plot can draw (instance
+    #: level, issue #480): ``total``, ``usable``, ``times``, ``selected``.
+    slices: Mapping[str, Any] = field(default_factory=dict)
+    #: The quantities a 2-D map can draw (issue #483): ``default``,
+    #: ``options`` (what this input can supply) and ``declared``.
+    fields: Mapping[str, Any] = field(default_factory=dict)
+    #: How a time-frequency map is computed (issue #484): ``default`` and
+    #: ``methods``, each naming the options that method reads.
+    analysis: Mapping[str, Any] = field(default_factory=dict)
+    #: How a computed view reads its input (issue #439): ``backend`` is
+    #: ``"neutral"`` (native reads through the accessor, any data model) or
+    #: ``"omas"`` (an OMAS ODS is required; ``reason`` names the helper), and
+    #: ``reads`` the declared input templates.  Empty for a path-driven or
+    #: composite plot.
+    computation: Mapping[str, Any] = field(default_factory=dict)
+    #: What a line plot can be drawn against (issue #481): ``default``,
+    #: ``options`` (what this input can supply) and ``declared``.
+    abscissa: Mapping[str, Any] = field(default_factory=dict)
+    #: The stored time axis a spatial plot samples (issue #486): ``start``,
+    #: ``stop`` in seconds and ``count``.
+    times: Mapping[str, Any] = field(default_factory=dict)
+    #: The radial coordinates a 1-D profile can be drawn against (issue #479):
+    #: ``default``, ``options`` (what this input can resolve) and ``declared``
+    #: (what the recipe offers regardless of input).
+    coordinates: Mapping[str, Any] = field(default_factory=dict)
+    #: The controls ``plot_*(..., interactive=True)`` offers for this input
+    #: (instance level, issue #480), in offer order.
+    controls: tuple[str, ...] = ()
+    #: A composite's panels by name (issue #482): ``options`` (declared),
+    #: ``available`` (what this input can draw), ``default`` (what is drawn
+    #: with no ``members=``) and ``labels`` (name -> identity).
+    members: Mapping[str, Any] = field(default_factory=dict)
 
     # The old ``available_plots`` rows were plain dictionaries; keep that
     # access so ``row["name"]`` and friends still work on a record.
@@ -206,7 +242,14 @@ def capability_for(spec: PlotSpec) -> PlotCapability:
         status=spec.status,
         description=spec.description,
         overlays=_overlays_for(spec),
+        backends=_backends_for(spec),
     )
+
+
+def _backends_for(spec: PlotSpec) -> tuple[str, ...]:
+    from .backends import render_backends_for
+
+    return render_backends_for(spec)
 
 
 def _overlays_for(spec: PlotSpec) -> tuple[str, ...]:
@@ -499,9 +542,17 @@ def _compact_notes(record: PlotCapability) -> list[str]:
             layouts[layouts.index("grouped")] = "grouped (with a radial split)"
         notes.append("layout: " + " | ".join(layouts))
     if record.analysis_methods:
-        notes.append("methods: " + " | ".join(record.analysis_methods))
+        default = record.analysis.get("default")
+        notes.append("methods: " + " | ".join(
+            f"{name} (default)" if name == default else name for name in record.analysis_methods
+        ))
     if record.overview_members:
         notes.append("overview: " + " · ".join(record.overview_members))
+    members = record.members or {}
+    if members.get("available") is not None and members.get("options"):
+        notes.append(
+            f"members: {len(members['available'])} of {len(members['options'])} available"
+        )
     if record.overlays:
         notes.append("overlays: " + " | ".join(record.overlays))
     if record.projection:
@@ -510,12 +561,35 @@ def _compact_notes(record: PlotCapability) -> list[str]:
         notes.append(_synthetic_note(record.synthetic))
     if record.interaction:
         notes.append("interaction: " + " | ".join(record.interaction))
+    if record.times.get("count"):
+        notes.append(f"time: {record.times['start']:.4g}-{record.times['stop']:.4g} s ({record.times['count']} samples)")
+    if len(record.fields.get("options") or ()) > 1:
+        default = record.fields.get("default")
+        notes.append("fields: " + " | ".join(
+            f"{name} (default)" if name == default else name for name in record.fields["options"]
+        ))
+    if len(record.abscissa.get("options") or ()) > 1:
+        default = record.abscissa.get("default")
+        notes.append("abscissa: " + " | ".join(
+            f"{name} (default)" if name == default else name for name in record.abscissa["options"]
+        ))
+    if record.coordinates.get("options"):
+        default = record.coordinates.get("default")
+        notes.append("coordinates: " + " | ".join(
+            f"{name} (default)" if name == default else name for name in record.coordinates["options"]
+        ))
+    if record.controls:
+        notes.append("controls: " + ", ".join(record.controls))
     flags = []
     if record.uncertainty.get("available"):
         flags.append("uncertainty")
     if record.validity.get("available"):
         flagged = record.validity.get("flagged")
         flags.append(f"validity ({flagged} flagged)" if flagged else "validity")
+    if record.orientation.get("default") == "intuitive":
+        notes.append("orientation: intuitive by default")
+    if len(record.backends) > 1:
+        notes.append("backends: " + " | ".join(record.backends))
     if flags:
         notes.append("metadata: " + ", ".join(flags))
     return notes
@@ -570,10 +644,32 @@ def _detail_lines(record: PlotCapability) -> list[str]:
             lines.append("positions: " + ", ".join(c["positions"]))
     if record.layouts:
         lines.append("layouts: " + " | ".join(record.layouts))
+    for key, what in (("abscissa", "abscissa"), ("coordinates", "coordinate"), ("fields", "field")):
+        block = getattr(record, key) or {}
+        if len(block.get("options") or ()) > 1:
+            lines.append(
+                f"{what}: {block.get('default')} by default; " + " | ".join(block["options"])
+            )
+    if record.computation:
+        backend = record.computation.get("backend")
+        lines.append(
+            "computed: native reads" if backend == "neutral"
+            else f"computed: needs an OMAS ODS — {record.computation.get('reason', '')}"
+        )
+        lines.append(f"reads: {len(record.computation.get('reads') or ())} declared paths (dd_{record.name}())")
     if record.analysis_methods:
         lines.append("methods: " + " | ".join(record.analysis_methods))
+    for name, parameters in (record.analysis.get("methods") or {}).items():
+        lines.append(f"  {name}: " + (", ".join(parameters) if parameters else "no parameters"))
     if record.overview_members:
         lines.append("includes: " + ", ".join(record.overview_members))
+    members = record.members or {}
+    if members.get("options"):
+        available = members.get("available")
+        lines.append("members: " + ", ".join(
+            name if available is None or name in available else f"{name} (unavailable)"
+            for name in members["options"]
+        ))
     if record.overlays:
         lines.append("overlays: " + ", ".join(record.overlays))
     if record.synthetic:
@@ -585,7 +681,17 @@ def _detail_lines(record: PlotCapability) -> list[str]:
             extra = f" ({block['flagged']} flagged)" if block.get("flagged") else ""
             lines.append(f"{key}: {state}{extra}")
             if block.get("modes"):
-                lines.append(f"{key} handling: " + " | ".join(block["modes"]))
+                modes = " | ".join(block["modes"])
+                default = block.get("default")
+                lines.append(
+                    f"{key} handling: {default} by default; {modes}" if default else f"{key} handling: {modes}"
+                )
+    if record.orientation:
+        lines.append(
+            f"orientation: {record.orientation['default']} by default; "
+            + " | ".join(record.orientation.get("options", ()))
+        )
+    lines.append("backends: " + " | ".join(record.backends))
     if record.sources:
         lines.append("sources: " + ", ".join(record.sources))
     if record.interaction:

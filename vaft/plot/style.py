@@ -18,6 +18,8 @@ from typing import Any, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+from .intent import active_theme, resolve_style
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
@@ -109,12 +111,22 @@ def trace_labels(series_list, *, panel_title: str | None = None) -> tuple[list[s
     return labels, title
 
 
-def apply_legend(axes: Any, *, legend: bool | None, title: str | None = None) -> None:
+def apply_legend(
+    axes: Any,
+    *,
+    legend: bool | None,
+    title: str | None = None,
+    lone_entry: bool = False,
+) -> None:
     """Draw, omit, or summarise the legend according to the display policy.
 
     ``legend=None`` applies the policy: nothing for a lone trace, a legend for
     up to :data:`LEGEND_MAX_ENTRIES`, and past that a corner note with the
     trace count.  ``True`` forces a legend, ``False`` suppresses it.
+
+    ``lone_entry`` keeps a legend for a single entry. A lone *trace* needs no
+    key -- the title already names it -- but a lone labelled *layer* drawn
+    among unlabelled ones does, which is why the geometry views pass it.
 
     Traces drawn in a role beside a measurement (a reconstruction under each
     channel, issue #261) are legend entries but do not count toward the
@@ -139,11 +151,15 @@ def apply_legend(axes: Any, *, legend: bool | None, title: str | None = None) ->
     if legend is True:
         axes.legend(loc="best", title=title, fontsize="small").set_gid(_POLICY_LEGEND_GID)
         return
-    if count <= 1:
+    if count <= 1 and not lone_entry:
         return
     judged = sum(1 for handle in handles if getattr(handle, "get_gid", lambda: None)() != _ROLE_GID)
     if judged > LEGEND_MAX_ENTRIES:
-        axes.text(
+        # `Axes3D.text` takes (x, y, z, s), so the 2-D call would raise there;
+        # a 3-D axes offers `text2D` for exactly this, a note in axes
+        # coordinates over the projection.
+        place = getattr(axes, "text2D", axes.text)
+        place(
             0.99, 0.97, f"{count} traces", transform=axes.transAxes,
             ha="right", va="top", fontsize="small", alpha=0.7, gid=_COUNT_NOTE_GID,
         )
@@ -160,6 +176,7 @@ def resolve_axes(
     sharex: bool = False,
     sharey: bool = False,
     squeeze: bool = True,
+    gridspec_kw: dict[str, Any] | None = None,
 ) -> tuple[Figure, Any]:
     """Return ``(figure, axes)`` for a renderer.
 
@@ -177,6 +194,7 @@ def resolve_axes(
             sharex=sharex,
             sharey=sharey,
             squeeze=squeeze and needed == 1,
+            gridspec_kw=gridspec_kw,
         )
         return figure, axes
 
@@ -206,12 +224,15 @@ def finalize(
     *,
     show: bool = False,
     tight_layout: bool = True,
+    pad: float | None = None,
 ) -> tuple[Figure, Any]:
     """Apply the shared closing steps and honor the ``show`` contract.
 
     ``tight_layout`` is for a figure the renderer created; a caller-supplied
     ``ax=`` belongs to the caller's figure, whose layout is theirs (issue #260
-    section 8), so renderers pass ``tight_layout=ax is None``.
+    section 8), so renderers pass ``tight_layout=ax is None``.  ``pad`` is
+    the layout padding in font units when a presentation format sets one
+    (issue #689); ``None`` keeps Matplotlib's default.
     """
     if tight_layout:
         # Dense panel grids can be impossible to lay out tightly; that is a
@@ -219,7 +240,10 @@ def finalize(
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message=".*[Tt]ight layout.*")
             try:
-                figure.tight_layout()
+                if pad is None:
+                    figure.tight_layout()
+                else:
+                    figure.tight_layout(pad=pad)
             except Exception:  # pragma: no cover - layout engines can refuse
                 pass
     if show:
@@ -321,6 +345,17 @@ def draw_series(
     if x.size == 1 and not options.get("marker") and not series.style.get("marker"):
         # A single sample has no line to draw; without a marker it is invisible.
         options["marker"] = "o"
+
+    # A recipe says what a colour means; the theme in force says what it is
+    # (issue #709).  Resolved before the invalid demotion so precedence is
+    # unchanged: a recipe's colour still wins over the invalid grey.
+    options = resolve_style(options)
+    if active_theme() is not None and _scatter_like(series, options):
+        # Marker-only points are every one a sample; a theme's prop cycle
+        # may thin markers along a dense line (``markevery``) and must not
+        # thin these.  Matplotlib reads ``None`` as "take the cycle's", so
+        # the stride is spelled out.
+        options.setdefault("markevery", 1)
 
     if invalid_channel:
         options.setdefault("color", INVALID_COLOR)
