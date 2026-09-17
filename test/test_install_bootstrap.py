@@ -10,6 +10,7 @@ These tests keep three promises the student-facing bootstrap makes:
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import re
 import shutil
@@ -2358,3 +2359,66 @@ def test_tokamaker_is_an_optional_extra_not_a_dependency():
     required = text[text.index("dependencies = ["):]
     required = required[: required.index("]")]
     assert "openfusiontoolkit" not in required
+
+
+# ---------------------------------------------------------------------------
+# 0.7.1: cold review `install`
+# ---------------------------------------------------------------------------
+
+_MANIFEST_WRITERS = (
+    INSTALL / "install_chease.sh",
+    INSTALL / "install_gpec.sh",
+    INSTALL / "install_efit.sh",
+    INSTALL / "nubeam" / "linux.sh",
+)
+_PYTHON_HEREDOC = re.compile(r'"\$PYTHON" - [^\n]*<<(\S+)\n(.*?)\nEOF\n', re.S)
+
+
+@pytest.mark.parametrize("path", _MANIFEST_WRITERS, ids=lambda p: p.name)
+def test_manifest_python_never_interpolates_shell_values(path, tmp_path):
+    """Cold review install F20: shell text must not become Python source.
+
+    The record was written by an unquoted heredoc holding
+    `\"\"\"$DIRTY_FILES\"\"\"`. `git status --porcelain` quotes a path with a
+    space in it, so the literal ended in four quotes: a SyntaxError after bin/
+    was installed and before the manifest existed, which --uninstall then
+    refused. Values travel through the environment instead.
+    """
+    text = path.read_text(encoding="utf-8")
+    blocks = _PYTHON_HEREDOC.findall(text)
+    assert blocks, f"{path.name} no longer writes its record through a heredoc"
+    for delimiter, body in blocks:
+        assert delimiter == "'EOF'", f"{path.name}: the Python heredoc must be quoted"
+        assert "$" not in body, f"{path.name}: a shell expansion inside Python source"
+
+    # Run the record writer itself against values that used to break it.
+    delimiter, body = blocks[-1]
+    prefix = tmp_path / "prefix"
+    (prefix / "bin").mkdir(parents=True)
+    for name in ("chease", "efit", "efund", "dcon"):
+        (prefix / "bin" / name).write_text("x", encoding="utf-8")
+    hostile = 'a"b \\ $(touch nope) \'c'
+    names = re.findall(r"^\s*VAFT_MANIFEST_([A-Z_]+)=", text, re.M)
+    assert names
+    environment = dict(os.environ)
+    environment.update({f"VAFT_MANIFEST_{name}": hostile for name in names})
+    environment.update(
+        VAFT_MANIFEST_PREFIX=str(prefix),
+        VAFT_MANIFEST_DIRTY_FILES=' M "src-f90/my file.f90"',
+        VAFT_MANIFEST_PROGRAMS_LINE="dcon",
+        VAFT_MANIFEST_NETCDF_ACHIEVED="1",
+        VAFT_MANIFEST_WITH_NETCDF="1",
+        VAFT_MANIFEST_PREFIX_CREATED="1",
+        VAFT_MANIFEST_ACCEPTANCE="passed",
+        VAFT_MANIFEST_NUBEAM_CPP_SOURCE=str(prefix / "bin" / "chease"),
+    )
+    record = tmp_path / "record.json"
+    completed = subprocess.run(
+        [sys.executable, "-", str(record)],
+        input=body, text=True, capture_output=True, env=environment, timeout=60,
+    )
+    assert completed.returncode == 0, completed.stderr
+    written = json.loads(record.read_text(encoding="utf-8"))
+    assert written["source"] == hostile
+    if "source_dirty_files" in written:
+        assert written["source_dirty_files"] == [' M "src-f90/my file.f90"']

@@ -448,51 +448,79 @@ note "installed bin/efit and bin/efund into $PREFIX"
 # --- manifest ---------------------------------------------------------------
 BLAS_LIBS="$(grep -m1 '^BLAS_LIBRARIES' "$BUILD_DIR/CMakeCache.txt" | cut -d= -f2- || true)"
 LAPACK_LIBS="$(grep -m1 '^LAPACK_LIBRARIES' "$BUILD_DIR/CMakeCache.txt" | cut -d= -f2- || true)"
-"$PYTHON" - "$MANIFEST" <<EOF
+CMAKE_ARGS_LINES="$(printf '%s\n' "${CMAKE_ARGS[@]}")"
+# Values reach Python through the environment and the heredoc is quoted, so no
+# shell text is ever parsed as Python source. Interpolating them broke on the
+# first quoted path in `git status --porcelain` ("""...name"""" is a
+# SyntaxError) -- after bin/ was installed and before the manifest existed.
+VAFT_MANIFEST_NETCDF_ACHIEVED="$NETCDF_ACHIEVED" \
+VAFT_MANIFEST_WITH_NETCDF="$WITH_NETCDF" \
+VAFT_MANIFEST_PREFIX="$PREFIX" \
+VAFT_MANIFEST_SOURCE="$SOURCE" \
+VAFT_MANIFEST_REVISION="$REVISION" \
+VAFT_MANIFEST_DESCRIBED="$DESCRIBED" \
+VAFT_MANIFEST_BRANCH="$BRANCH" \
+VAFT_MANIFEST_REMOTE="$REMOTE" \
+VAFT_MANIFEST_DIRTY_DIFF_SHA="$DIRTY_DIFF_SHA" \
+VAFT_MANIFEST_BUILD_DIR="$BUILD_DIR" \
+VAFT_MANIFEST_FC_PATH="$FC_PATH" \
+VAFT_MANIFEST_FC_VERSION="$FC_VERSION" \
+VAFT_MANIFEST_NETCDF_C_DIR="$NETCDF_C_DIR" \
+VAFT_MANIFEST_NETCDF_F_DIR="$NETCDF_F_DIR" \
+VAFT_MANIFEST_NETCDF_LIB_DIR="$NETCDF_LIB_DIR" \
+VAFT_MANIFEST_BLAS_LIBS="$BLAS_LIBS" \
+VAFT_MANIFEST_LAPACK_LIBS="$LAPACK_LIBS" \
+VAFT_MANIFEST_PLATFORM="$PLATFORM" \
+VAFT_MANIFEST_CTEST_STATUS="$CTEST_STATUS" \
+VAFT_MANIFEST_LOG="$LOG" \
+VAFT_MANIFEST_DIRTY_FILES="$DIRTY_FILES" \
+VAFT_MANIFEST_CMAKE_ARGS_LINES="$CMAKE_ARGS_LINES" \
+"$PYTHON" - "$MANIFEST" <<'EOF'
 import hashlib, json, os, platform, sys
 from datetime import datetime, timezone
 from pathlib import Path
+env = {k[len("VAFT_MANIFEST_"):]: v for k, v in os.environ.items() if k.startswith("VAFT_MANIFEST_")}
 def sha(p):
     h = hashlib.sha256()
     with open(p, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""): h.update(chunk)
     return h.hexdigest()
-prefix = Path("$PREFIX")
+prefix = Path(env["PREFIX"])
 record = {
     "code": "efit",
     "installer": "install/install_efit.sh",
     "prefix": str(prefix),
-    "source": "$SOURCE",
-    "source_revision": "$REVISION",
-    "source_described": "$DESCRIBED",
-    "source_branch": "$BRANCH",
-    "source_remote": "$REMOTE",
-    "source_dirty": bool("""$DIRTY_FILES""".strip()),
-    "source_dirty_files": [l for l in """$DIRTY_FILES""".splitlines() if l.strip()],
-    "source_dirty_diff_sha256": "$DIRTY_DIFF_SHA" or None,
-    "build_dir": "$BUILD_DIR",
-    "cmake_arguments": ${CMAKE_ARGS[@]+$(printf '%s\n' "${CMAKE_ARGS[@]}" | "$PYTHON" -c 'import json,sys; print(json.dumps(sys.stdin.read().split("\n")[:-1]))')},
-    "compiler": {"fortran": "$FC_PATH", "version": "$FC_VERSION"},
+    "source": env["SOURCE"],
+    "source_revision": env["REVISION"],
+    "source_described": env["DESCRIBED"],
+    "source_branch": env["BRANCH"],
+    "source_remote": env["REMOTE"],
+    "source_dirty": bool(env["DIRTY_FILES"].strip()),
+    "source_dirty_files": [l for l in env["DIRTY_FILES"].splitlines() if l.strip()],
+    "source_dirty_diff_sha256": env["DIRTY_DIFF_SHA"] or None,
+    "build_dir": env["BUILD_DIR"],
+    "cmake_arguments": [a for a in env["CMAKE_ARGS_LINES"].split("\n") if a],
+    "compiler": {"fortran": env["FC_PATH"], "version": env["FC_VERSION"]},
     # "requested" is what the flags asked for; "linked" is what config.h says was
     # achieved. They can differ, and only the second one decides whether this
     # build writes m-files.
-    "netcdf": {"enabled": bool($NETCDF_ACHIEVED), "requested": bool($WITH_NETCDF),
-               "linked": bool($NETCDF_ACHIEVED),
-               "c_dir": "$NETCDF_C_DIR" or None, "fortran_dir": "$NETCDF_F_DIR" or None,
-               "library_dir": "$NETCDF_LIB_DIR" or None},
-    "blas_libraries": "$BLAS_LIBS" or None,
-    "lapack_libraries": "$LAPACK_LIBS" or None,
-    "platform": "$PLATFORM",
+    "netcdf": {"enabled": bool(int(env["NETCDF_ACHIEVED"])), "requested": bool(int(env["WITH_NETCDF"])),
+               "linked": bool(int(env["NETCDF_ACHIEVED"])),
+               "c_dir": env["NETCDF_C_DIR"] or None, "fortran_dir": env["NETCDF_F_DIR"] or None,
+               "library_dir": env["NETCDF_LIB_DIR"] or None},
+    "blas_libraries": env["BLAS_LIBS"] or None,
+    "lapack_libraries": env["LAPACK_LIBS"] or None,
+    "platform": env["PLATFORM"],
     "host": platform.node(),
     "built_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-    "ctest": "$CTEST_STATUS",
-    "log": "$LOG",
+    "ctest": env["CTEST_STATUS"],
+    "log": env["LOG"],
     "executables": {
         role: {"path": str(prefix / "bin" / role), "sha256": sha(prefix / "bin" / role), "size": (prefix / "bin" / role).stat().st_size}
         for role in ("efit", "efund")
     },
 }
-Path(sys.argv[1]).write_text(json.dumps(record, indent=2) + "\n")
+Path(sys.argv[1]).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 print("wrote", sys.argv[1])
 EOF
 

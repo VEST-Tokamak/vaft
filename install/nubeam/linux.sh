@@ -656,49 +656,65 @@ stage_nubeam_cpp_replacement() {
 # revision to record; the executable digests are what identifies this build.
 write_install_record() {
   local record="$PREFIX/vaft-external-install.json"
-  "$PYTHON" - "$record" <<EOF
-import hashlib, json, platform, sys
+  # Through the environment, with a quoted heredoc: a path holding a quote or a
+  # backslash must not become Python source.
+  VAFT_MANIFEST_ROOT_DIR="$ROOT_DIR" \
+  VAFT_MANIFEST_PREFIX="$PREFIX" \
+  VAFT_MANIFEST_NUBEAM_CPP_SOURCE="$NUBEAM_CPP_SOURCE" \
+  VAFT_MANIFEST_BUILD_DIR="$BUILD_DIR" \
+  VAFT_MANIFEST_FC="$FC" \
+  VAFT_MANIFEST_CC="$CC" \
+  VAFT_MANIFEST_CXX="$CXX" \
+  VAFT_MANIFEST_FC_WRAPPER="$FC_WRAPPER" \
+  VAFT_MANIFEST_NETCDF_FORTRAN_HOME="$NETCDF_FORTRAN_HOME" \
+  VAFT_MANIFEST_NETCDF_C_HOME="$NETCDF_C_HOME" \
+  VAFT_MANIFEST_LAPACK_LIB_DIR="$LAPACK_LIB_DIR" \
+  VAFT_MANIFEST_PLATFORM="$PLATFORM" \
+  VAFT_MANIFEST_LOG_FILE="$LOG_FILE" \
+  "$PYTHON" - "$record" <<'EOF'
+import hashlib, json, os, platform, sys
 from datetime import datetime, timezone
 from pathlib import Path
+env = {k[len("VAFT_MANIFEST_"):]: v for k, v in os.environ.items() if k.startswith("VAFT_MANIFEST_")}
 def sha(p):
     h = hashlib.sha256()
     with open(p, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""): h.update(chunk)
     return h.hexdigest()
-prefix = Path("$PREFIX")
-source = Path("$NUBEAM_CPP_SOURCE")
+prefix = Path(env["PREFIX"])
+source = Path(env["NUBEAM_CPP_SOURCE"])
 record = {
     "code": "nubeam",
     "installer": "install/nubeam/linux.sh",
     "prefix": str(prefix),
-    "source": "$ROOT_DIR",
+    "source": env["ROOT_DIR"],
     "source_revision": None,
     "source_dirty": False,
-    "build_dir": "$BUILD_DIR",
+    "build_dir": env["BUILD_DIR"],
     "build_in_place": True,
     "nubeam_cpp": {
         "compiled_from": str(source),
         "sha256": sha(source),
-        "in_tree_copy_untouched": "$ROOT_DIR/nubeam/nubeam.cpp",
-        "substituted": str(source) != "$ROOT_DIR/nubeam/nubeam.cpp",
+        "in_tree_copy_untouched": env["ROOT_DIR"] + "/nubeam/nubeam.cpp",
+        "substituted": str(source) != env["ROOT_DIR"] + "/nubeam/nubeam.cpp",
     },
-    "compiler": {"fortran": "$FC", "c": "$CC", "cxx": "$CXX",
-                 "wrapper": "$FC_WRAPPER"},
+    "compiler": {"fortran": env["FC"], "c": env["CC"], "cxx": env["CXX"],
+                 "wrapper": env["FC_WRAPPER"]},
     "dependency_providers": {
-        "netcdf_fortran_home": "$NETCDF_FORTRAN_HOME",
-        "netcdf_c_home": "$NETCDF_C_HOME",
-        "lapack_lib_dir": "$LAPACK_LIB_DIR",
+        "netcdf_fortran_home": env["NETCDF_FORTRAN_HOME"],
+        "netcdf_c_home": env["NETCDF_C_HOME"],
+        "lapack_lib_dir": env["LAPACK_LIB_DIR"],
     },
-    "platform": "$PLATFORM",
+    "platform": env["PLATFORM"],
     "host": platform.node(),
     "built_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-    "log": "$LOG_FILE",
+    "log": env["LOG_FILE"],
     "executables": {
         p.name: {"path": str(p), "sha256": sha(p), "size": p.stat().st_size}
         for p in sorted((prefix / "bin").iterdir()) if p.is_file()
     },
 }
-Path(sys.argv[1]).write_text(json.dumps(record, indent=2) + "\n")
+Path(sys.argv[1]).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 print("wrote", sys.argv[1])
 EOF
 }

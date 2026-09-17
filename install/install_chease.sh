@@ -211,43 +211,63 @@ chmod +x "$PREFIX/bin/chease"
 note "installed bin/chease into $PREFIX"
 
 # --- manifest -----------------------------------------------------------------
-"$PYTHON" - "$MANIFEST" <<EOF
-import hashlib, json, platform, sys
+# Values reach Python through the environment and the heredoc is quoted, so no
+# shell text is ever parsed as Python source. Interpolating them broke on the
+# first quoted path in `git status --porcelain` ("""...name"""" is a
+# SyntaxError) -- after bin/ was installed and before the manifest existed.
+VAFT_MANIFEST_PREFIX="$PREFIX" \
+VAFT_MANIFEST_SOURCE="$SOURCE" \
+VAFT_MANIFEST_REVISION="$REVISION" \
+VAFT_MANIFEST_DESCRIBED="$DESCRIBED" \
+VAFT_MANIFEST_BRANCH="$BRANCH" \
+VAFT_MANIFEST_REMOTE="$REMOTE" \
+VAFT_MANIFEST_DIRTY_DIFF_SHA="$DIRTY_DIFF_SHA" \
+VAFT_MANIFEST_BUILD_DIR="$BUILD_DIR" \
+VAFT_MANIFEST_MAKE_COMMAND="$MAKE_COMMAND" \
+VAFT_MANIFEST_MACHINE="$MACHINE" \
+VAFT_MANIFEST_FC_PATH="$FC_PATH" \
+VAFT_MANIFEST_FC_VERSION="$FC_VERSION" \
+VAFT_MANIFEST_PLATFORM="$PLATFORM" \
+VAFT_MANIFEST_LOG="$LOG" \
+VAFT_MANIFEST_DIRTY_FILES="$DIRTY_FILES" \
+"$PYTHON" - "$MANIFEST" <<'EOF'
+import hashlib, json, os, platform, sys
 from datetime import datetime, timezone
 from pathlib import Path
+env = {k[len("VAFT_MANIFEST_"):]: v for k, v in os.environ.items() if k.startswith("VAFT_MANIFEST_")}
 def sha(p):
     h = hashlib.sha256()
     with open(p, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""): h.update(chunk)
     return h.hexdigest()
-prefix = Path("$PREFIX")
+prefix = Path(env["PREFIX"])
 executable = prefix / "bin" / "chease"
 record = {
     "code": "chease",
     "installer": "install/install_chease.sh",
     "prefix": str(prefix),
-    "source": "$SOURCE",
-    "source_revision": "$REVISION",
-    "source_described": "$DESCRIBED",
-    "source_branch": "$BRANCH",
-    "source_remote": "$REMOTE",
-    "source_dirty": bool("""$DIRTY_FILES""".strip()),
-    "source_dirty_files": [l for l in """$DIRTY_FILES""".splitlines() if l.strip()],
-    "source_dirty_diff_sha256": "$DIRTY_DIFF_SHA" or None,
-    "build_dir": "$BUILD_DIR",
+    "source": env["SOURCE"],
+    "source_revision": env["REVISION"],
+    "source_described": env["DESCRIBED"],
+    "source_branch": env["BRANCH"],
+    "source_remote": env["REMOTE"],
+    "source_dirty": bool(env["DIRTY_FILES"].strip()),
+    "source_dirty_files": [l for l in env["DIRTY_FILES"].splitlines() if l.strip()],
+    "source_dirty_diff_sha256": env["DIRTY_DIFF_SHA"] or None,
+    "build_dir": env["BUILD_DIR"],
     "build_in_place": True,
-    "make_command": "$MAKE_COMMAND",
-    "chease_machine": "$MACHINE",
-    "compiler": {"fortran": "$FC_PATH", "version": "$FC_VERSION"},
-    "platform": "$PLATFORM",
+    "make_command": env["MAKE_COMMAND"],
+    "chease_machine": env["MACHINE"],
+    "compiler": {"fortran": env["FC_PATH"], "version": env["FC_VERSION"]},
+    "platform": env["PLATFORM"],
     "host": platform.node(),
     "built_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-    "log": "$LOG",
+    "log": env["LOG"],
     "executables": {
         "chease": {"path": str(executable), "sha256": sha(executable), "size": executable.stat().st_size}
     },
 }
-Path(sys.argv[1]).write_text(json.dumps(record, indent=2) + "\n")
+Path(sys.argv[1]).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 print("wrote", sys.argv[1])
 EOF
 
