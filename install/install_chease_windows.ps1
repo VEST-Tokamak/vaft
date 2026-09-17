@@ -59,8 +59,11 @@
     Run install\check_chease.py and change nothing.
 
 .PARAMETER Uninstall
-    Remove what this script installed: the prefix and, when it still points
-    there, the CHEASEHOME user variable. Your source tree is left alone.
+    Remove what this script installed into the prefix and, when it still
+    points there, the CHEASEHOME user variable. A directory with no record of this
+    installer is refused; other files in the prefix are left, and the prefix
+    directory itself is removed only if this script created it. Your source
+    tree is left alone.
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File install\install_chease_windows.ps1 C:\git\CHEASE
@@ -114,9 +117,10 @@ if ($Uninstall) {
     if (-not $target) { $target = Join-Path $env:LOCALAPPDATA "vaft\external\$CodeName" }
     if (Test-Path -LiteralPath $target) {
         $resolved = (Resolve-Path -LiteralPath $target).Path
+        # Refuses, before anything is changed, a directory it has no record of
+        # installing into; never removes the prefix wholesale.
+        Remove-InstallPrefix -Prefix $resolved -CodeName $CodeName
         Remove-ExternalCodeEnvironment -Name $HomeVariable -ExpectedValue $resolved
-        Remove-Item -LiteralPath $resolved -Recurse -Force
-        Write-Result -Status PASS -Name 'Install prefix' -Detail "removed $resolved"
     }
     else {
         Write-Result -Status SKIP -Name 'Install prefix' -Detail "nothing at $target"

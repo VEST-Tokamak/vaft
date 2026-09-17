@@ -418,6 +418,49 @@ function Write-RevisionResult {
 # Install prefix
 # ---------------------------------------------------------------------------
 
+# Ownership. -Uninstall may remove only what these scripts can show they put
+# there. A manifest alone is not that evidence -- the installer writes it into
+# whatever directory it is given, so `-Prefix D:\tools` followed by
+# `-Uninstall -Prefix D:\tools` would authorise itself. The marker is written
+# when the prefix is claimed, before the build, and says whether the directory
+# was created here. Same format as the POSIX installers' marker.
+$script:PrefixMarkerName = '.vaft-external-prefix'
+$script:PrefixManifestName = 'vaft-external-install.json'
+#: Every top-level directory a Windows installer creates inside its prefix.
+$script:PrefixOwnedChildren = @('bin', 'build', 'deps', 'logs', 'shim')
+
+function Get-PrefixRecord {
+    <#
+        Who owns this prefix, read without changing anything. `Code` is $null
+        when there is no record. A manifest without a marker is what VAFT
+        0.7.0 left behind; it counts only when the directory holds nothing but
+        what an installer creates, because 0.7.0 accepted any directory.
+    #>
+    param([Parameter(Mandatory)] [string] $Prefix)
+
+    $record = [pscustomobject]@{ Code = $null; Created = $false }
+    $marker = Join-Path $Prefix $script:PrefixMarkerName
+    $manifest = Join-Path $Prefix $script:PrefixManifestName
+    if (Test-Path -LiteralPath $marker -PathType Leaf) {
+        foreach ($line in @(Get-Content -LiteralPath $marker)) {
+            $parts = @(([string] $line) -split "`t", 2)
+            if ($parts.Count -ne 2) { continue }
+            if ($parts[0] -eq 'code') { $record.Code = $parts[1].Trim() }
+            if ($parts[0] -eq 'prefix_created') { $record.Created = ($parts[1].Trim() -eq '1') }
+        }
+        return $record
+    }
+    if (Test-Path -LiteralPath $manifest -PathType Leaf) {
+        $known = @($script:PrefixOwnedChildren) + @($script:PrefixManifestName)
+        $foreign = @(Get-ChildItem -LiteralPath $Prefix -Force | Where-Object { $known -notcontains $_.Name })
+        if ($foreign.Count -eq 0) {
+            $json = Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json
+            if ($json.PSObject.Properties.Name -contains 'code') { $record.Code = [string] $json.code }
+        }
+    }
+    return $record
+}
+
 function Resolve-InstallPrefix {
     param(
         [string] $Prefix,
@@ -429,8 +472,10 @@ function Resolve-InstallPrefix {
     if (-not $Prefix) {
         $Prefix = Join-Path $env:LOCALAPPDATA "vaft\external\$CodeName"
     }
+    $created = $false
     if (-not (Test-Path -LiteralPath $Prefix)) {
         New-Item -ItemType Directory -Path $Prefix -Force | Out-Null
+        $created = $true
     }
     $resolved = (Resolve-Path -LiteralPath $Prefix).Path
 
@@ -443,7 +488,71 @@ function Resolve-InstallPrefix {
             Stop-WithGuidance "The install prefix must be outside $normalized. Pass a different -Prefix."
         }
     }
+
+    if (-not $created) {
+        $owner = Get-PrefixRecord -Prefix $resolved
+        if ($owner.Code) {
+            if ($owner.Code -ne $CodeName) {
+                Stop-WithGuidance "$resolved holds a VAFT install of '$($owner.Code)', not '$CodeName'. Every external code needs a prefix of its own. Pass a different -Prefix."
+            }
+            $created = $owner.Created
+        }
+        elseif (@(Get-ChildItem -LiteralPath $resolved -Force).Count -gt 0) {
+            Stop-WithGuidance @"
+The install prefix already exists, is not empty, and was not created by this script:
+
+    $resolved
+
+-Uninstall has to be able to tell its own files from yours, so install into a
+directory of its own, for example -Prefix $(Join-Path $resolved "vaft-$CodeName")
+"@
+        }
+    }
+    $flag = if ($created) { '1' } else { '0' }
+    Set-Content -LiteralPath (Join-Path $resolved $script:PrefixMarkerName) `
+        -Value @("code`t$CodeName", "prefix_created`t$flag") -Encoding ascii
     return $resolved
+}
+
+function Remove-InstallPrefix {
+    <#
+        -Uninstall. Refuses a directory with no record that this code was
+        installed there, removes the directories and records an installer
+        creates, and removes the prefix itself only when the installer created
+        it and nothing else is left inside.
+    #>
+    param(
+        [Parameter(Mandatory)] [string] $Prefix,
+        [Parameter(Mandatory)] [string] $CodeName
+    )
+
+    $owner = Get-PrefixRecord -Prefix $Prefix
+    if ($owner.Code -ne $CodeName) {
+        Stop-WithGuidance @"
+$Prefix carries no record that this script installed $CodeName there, so nothing
+was removed. (An install made by VAFT 0.7.0 into a directory that also holds
+other files has no such record: look at what is there and remove it by hand.)
+"@
+    }
+    foreach ($child in $script:PrefixOwnedChildren) {
+        $path = Join-Path $Prefix $child
+        if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force }
+    }
+    foreach ($name in @($script:PrefixManifestName, $script:PrefixMarkerName)) {
+        $path = Join-Path $Prefix $name
+        if (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path -Force }
+    }
+    $left = @(Get-ChildItem -LiteralPath $Prefix -Force)
+    if ($left.Count -gt 0) {
+        Write-Result -Status PASS -Name 'Install prefix' -Detail "removed what this script installed; left $Prefix, which still holds $($left.Count) item(s) it did not install"
+    }
+    elseif ($owner.Created) {
+        Remove-Item -LiteralPath $Prefix -Force
+        Write-Result -Status PASS -Name 'Install prefix' -Detail "removed $Prefix"
+    }
+    else {
+        Write-Result -Status PASS -Name 'Install prefix' -Detail "emptied $Prefix; the directory itself was not created by this script and is left"
+    }
 }
 
 # ---------------------------------------------------------------------------

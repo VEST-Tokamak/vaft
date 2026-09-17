@@ -33,7 +33,11 @@ set -euo pipefail
 IFS=$'\n\t'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-MANIFEST_NAME="vaft-external-install.json"
+# Prefix ownership: what --uninstall may remove, and what an install may claim.
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/_external_code_common.sh"
+MANIFEST_NAME="$VAFT_EXTERNAL_MANIFEST_NAME"
+PREFIX_CREATED=0
 
 SOURCE="${EFIT_SOURCE_DIR:-}"
 PREFIX=""
@@ -63,7 +67,9 @@ Usage: bash install/install_efit.sh --source PATH --accept-efit-users-agreement 
    by default the first one on PATH that can import vaft and f90nml)
   --skip-tests                     do not run EFIT's ctest suite after building
   --check-only                     run install/check_efit.py and change nothing
-  --uninstall                      remove the build directory and prefix this script created
+  --uninstall                      remove the build directory this script configured and what
+                                   it installed into the prefix; the prefix itself only if
+                                   this script created it and it is then empty
   -h, --help
 
 The prefix is what $EFITHOME should point at: VAFT resolves $EFITHOME/bin/efit and
@@ -104,17 +110,18 @@ case "$(uname -s)" in
 esac
 [[ -n "$PREFIX" ]] || PREFIX="$SOURCE/vaft-install"
 [[ -n "$BUILD_DIR" ]] || BUILD_DIR="$SOURCE/build-vaft-$PLATFORM"
-MANIFEST="$PREFIX/$MANIFEST_NAME"
 
-# The prefix is removed wholesale by --uninstall, so it must never be inside the
-# VAFT checkout. The PowerShell installers enforce this through
-# Resolve-InstallPrefix; the POSIX ones did not. Made absolute first, or a
-# relative --prefix would slip past the comparison and past the manifest.
-[[ "$PREFIX" == /* ]] || PREFIX="$PWD/$PREFIX"
+# Nothing this script writes may land inside the VAFT checkout. Both sides of
+# the comparison are physical paths: a relative --prefix, a symlink or a
+# spelling such as /tmp/../<checkout>/x would otherwise compare unequal to the
+# checkout it is inside. (The PowerShell installers do the same through
+# Resolve-InstallPrefix.)
+PREFIX="$(vaft_external_canonical_path "$PREFIX")" || die "cannot resolve the install prefix (a '..' below a directory that does not exist?): $PREFIX"
+MANIFEST="$PREFIX/$MANIFEST_NAME"
 VAFT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
-case "$PREFIX/" in
-  "$VAFT_ROOT"/*) die "the install prefix must be outside the VAFT checkout, because --uninstall removes it: $PREFIX is inside $VAFT_ROOT" ;;
-esac
+if vaft_external_is_inside "$PREFIX" "$VAFT_ROOT"; then
+  die "the install prefix must be outside the VAFT checkout: $PREFIX is inside $VAFT_ROOT"
+fi
 
 PYTHON="${VAFT_PYTHON:-}"
 if [[ -z "$PYTHON" ]]; then
@@ -140,15 +147,26 @@ if ((CHECK_ONLY)); then
   exec "$PYTHON" "$SCRIPT_DIR/check_efit.py" --source "$SOURCE" --prefix "$PREFIX"
 fi
 
+# A build directory is removed recursively, so it has to prove it is one: an
+# absolute path holding a CMakeCache.txt that was configured from this source.
+efit_build_dir_is_ours() {  # efit_build_dir_is_ours DIR SOURCE
+  [[ "$1" == /* && -f "$1/CMakeCache.txt" ]] || return 1
+  grep -qxF "CMAKE_HOME_DIRECTORY:INTERNAL=$2" "$1/CMakeCache.txt"
+}
+
 if ((UNINSTALL)); then
+  recorded_build=""
   if [[ -f "$MANIFEST" ]]; then
-    recorded_build="$("$PYTHON" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("build_dir",""))' "$MANIFEST")"
-    if [[ -n "$recorded_build" && -d "$recorded_build" ]]; then
+    recorded_build="$("$PYTHON" -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("build_dir",""))' "$MANIFEST")"
+  fi
+  # First, because it is what refuses a prefix this script does not own.
+  vaft_external_uninstall_prefix "$PREFIX" efit "$PYTHON"
+  if [[ -n "$recorded_build" && -d "$recorded_build" ]]; then
+    if efit_build_dir_is_ours "$recorded_build" "$SOURCE"; then
       note "removing build directory $recorded_build"; rm -rf "$recorded_build"
+    else
+      note "left $recorded_build: it is not an absolute path to a CMake build tree configured from $SOURCE"
     fi
-    note "removing prefix $PREFIX"; rm -rf "$PREFIX"
-  else
-    die "no $MANIFEST_NAME under $PREFIX; nothing this script installed is there to remove"
   fi
   exit 0
 fi
@@ -341,6 +359,9 @@ FC_VERSION="$("$FC_PATH" --version | head -1)"
 [[ -n "$JOBS" ]] || JOBS="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)"
 
 # --- configure, build, test ----------------------------------------------------
+# Refuses a directory that holds somebody else's files, and records whether the
+# prefix is this script's creation, before anything is written into it.
+vaft_external_claim_prefix "$PREFIX" efit "$PYTHON"
 mkdir -p "$PREFIX/logs"
 LOG="$PREFIX/logs/efit-build-$(date +%Y%m%d-%H%M%S).log"
 
@@ -456,6 +477,7 @@ CMAKE_ARGS_LINES="$(printf '%s\n' "${CMAKE_ARGS[@]}")"
 VAFT_MANIFEST_NETCDF_ACHIEVED="$NETCDF_ACHIEVED" \
 VAFT_MANIFEST_WITH_NETCDF="$WITH_NETCDF" \
 VAFT_MANIFEST_PREFIX="$PREFIX" \
+VAFT_MANIFEST_PREFIX_CREATED="$PREFIX_CREATED" \
 VAFT_MANIFEST_SOURCE="$SOURCE" \
 VAFT_MANIFEST_REVISION="$REVISION" \
 VAFT_MANIFEST_DESCRIBED="$DESCRIBED" \
@@ -490,6 +512,10 @@ record = {
     "code": "efit",
     "installer": "install/install_efit.sh",
     "prefix": str(prefix),
+    # What --uninstall may remove: these files, this script's build logs and
+    # its two records; the directory itself only when prefix_created is true.
+    "prefix_created": bool(int(env["PREFIX_CREATED"])),
+    "installed_files": ["bin/efit", "bin/efund"],
     "source": env["SOURCE"],
     "source_revision": env["REVISION"],
     "source_described": env["DESCRIBED"],
