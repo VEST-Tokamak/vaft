@@ -187,6 +187,24 @@ python -m pip install -e .
 python -m pip install -e ".[dev]"
 ```
 
+#### Updating an existing installation
+
+VAFT is installed in editable mode, so updating your checkout updates VAFT. From
+the checkout, with your own edits set aside first:
+
+```bash
+git status
+git stash push -m "before VAFT update"   # only if `git status` lists modified files
+git pull --ff-only
+git stash pop                             # only if you stashed
+conda run -n vaft python -m pip install -e .
+conda run -n vaft python install/check_vaft_environment.py
+```
+
+Then restart your Jupyter kernel. [`install/README.md`](install/README.md#updating-vaft)
+walks through each step, what to do when `git pull` or `git stash pop` stops, and
+which commands never to run while recovering.
+
 #### Legacy NumPy 1 installation
 
 Use this only for an external package that still requires NumPy 1. Because

@@ -42,6 +42,25 @@ recommended installation route.
 python -m pip install -e ".[dev]"
 ```
 
+### Updating an existing installation
+
+Because the installation is editable, updating the checkout updates VAFT. Run these from the checkout,
+setting your own edits aside first. Running a notebook counts as editing it, because its outputs are
+saved into the file:
+
+```bash
+git status
+git stash push -m "before VAFT update"   # only if `git status` lists modified files
+git pull --ff-only
+git stash pop                             # only if you stashed
+python -m pip install -e .
+```
+
+Restart any running Jupyter kernel afterwards; a kernel that was already running keeps the old VAFT in
+memory. The [update procedure in install/README.md](https://github.com/VEST-Tokamak/vaft/blob/develop/install/README.md#updating-vaft)
+covers each step, what to do when `git pull` or `git stash pop` stops, and which commands must never be
+used to recover.
+
 ## 2. Produce the first offline result
 
 The packaged sample follows the same OMAS/IMAS paths as a VEST shot:

@@ -135,8 +135,8 @@ configuration, or any system package manager.
 ### Why editable mode?
 
 The course uses a VAFT checkout that keeps changing over the semester. An
-editable installation means `git pull` is normally enough to pick up new code —
-you do not reinstall after every change. **This does not imply that you are
+editable installation means `git pull` and a kernel restart are normally enough
+to pick up new code — see [Updating VAFT](#updating-vaft). **This does not imply that you are
 expected to develop VAFT itself.**
 
 ### Where dependencies are declared
@@ -234,33 +234,126 @@ Every failure names the corrective action:
 ## Updating VAFT
 
 VAFT changes during the semester. Keeping your checkout current is routine
-maintenance, not a Git lesson.
+maintenance, not a Git lesson. Because VAFT is installed in editable mode, the
+code you run *is* your checkout: updating the checkout updates VAFT.
+
+The short version, when you have not edited anything:
 
 ```bash
 git status
 git pull --ff-only
+conda run -n vaft python -m pip install -e .
 conda run -n vaft python install/check_vaft_environment.py
 ```
 
-`git pull --ff-only` refuses to create a merge commit; it either fast-forwards
-cleanly or stops and tells you so. That is deliberate.
+Then restart any running Jupyter kernel (**Kernel → Restart Kernel**). A kernel
+that was already running keeps the old VAFT in memory until it restarts.
 
-**Rerun the editable installation when dependency metadata changed** — that is,
-whenever the pull touched `pyproject.toml` or `environment.yml`, or whenever the
-checker reports a failure that mentions a missing or outdated package:
+The rest of this section is the same procedure one step at a time, for when
+something does not go as above. Run every command from the root of your VAFT
+checkout (the folder `git clone` created).
+
+### 1. Close notebooks and check where you are
+
+Save and close the notebooks you have open in JupyterLab first. An open
+notebook autosaves, and can modify a file again while you are updating.
+
+```bash
+git branch --show-current
+git status
+```
+
+- **Branch.** A plain `git clone` gives you `main`, which carries VAFT
+  releases. `develop` carries the newest integrated work; use it only when
+  your instructor tells you to. Stay on the branch you are on — updating never
+  requires switching.
+- **Status.** `nothing to commit, working tree clean` means you can go straight
+  to step 3. Any `modified:` file means step 2 comes first. Running a notebook
+  counts as modifying it, because its outputs are saved into the file.
+  `Untracked files:` alone is normally harmless; see the table in step 3.
+
+### 2. Set your own changes aside
+
+If you edited notebooks or other files, `git pull --ff-only` may refuse to
+proceed. Set your work aside, update, then bring it back:
+
+```bash
+git stash push -m "before VAFT update"
+git stash list
+```
+
+`git stash list` should now show `stash@{0}: On main: before VAFT update`, and
+`git status` should report a clean working tree. Your changes are stored safely
+inside Git, not deleted.
+
+Work you want to keep for good is easier to protect up front: copy a notebook
+you intend to change to a new name (for example `01_getting_started_mine.ipynb`)
+and work in the copy. A file Git does not track is never touched by an update.
+
+### 3. See what is coming, then pull
+
+```bash
+git fetch
+git log --oneline 'HEAD..@{u}'
+git diff --stat HEAD '@{u}' -- pyproject.toml environment.yml
+```
+
+`git fetch` downloads the new commits without changing any of your files.
+`HEAD..@{u}` lists the commits you are about to receive (`@{u}` is the remote
+branch yours follows, `origin/main` for a plain clone); an empty list means you
+are already current. Keep the quotes: PowerShell otherwise reads `@{...}` as
+its own syntax. The last command prints something only when dependencies
+changed — see step 5.
+
+```bash
+git pull --ff-only
+```
+
+`git pull --ff-only` refuses to create a merge commit; it either fast-forwards
+cleanly or stops and tells you so. That is deliberate. When it stops:
+
+| Message | Meaning | What to do |
+| --- | --- | --- |
+| `Your local changes to the following files would be overwritten` | a file you edited is still modified | go back to step 2 |
+| `untracked working tree files would be overwritten` | the update adds a file whose name you already used for a file of your own | rename or move that file, then pull again |
+| `Not possible to fast-forward, aborting` | you made commits of your own on this branch | stop and see [below](#when-an-update-is-blocked-by-your-own-changes) |
+
+### 4. Bring your changes back
+
+Skip this step if you stashed nothing in step 2.
+
+```bash
+git stash pop
+git status
+```
+
+When `git stash pop` succeeds, your edits are back on top of the new VAFT and
+the stash entry is removed. If it reports conflicts, stop and read the next
+section.
+
+### 5. Refresh the installation and verify
 
 ```bash
 conda run -n vaft python -m pip install -e .
 conda run -n vaft python install/check_vaft_environment.py
 ```
 
+Rerunning the editable installation is quick when nothing changed, so doing it
+after every update is the simplest rule. It is **required** whenever the diff in
+step 3 touched `pyproject.toml` or `environment.yml`, or whenever the checker
+reports a failure that mentions a missing or outdated package. If you installed
+VAFT into your own virtual environment rather than with the bootstrap, activate
+that environment and run `python -m pip install -e .` there instead.
+
 If the Python dependency set changed substantially, rerunning the whole
 bootstrap script is always safe — it is idempotent.
 
+Finally, restart the Jupyter kernel of every notebook you reopen, or restart
+JupyterLab itself.
+
 ## When an update is blocked by your own changes
 
-If you edited notebooks or other files, `git pull --ff-only` may refuse to
-proceed. Set your work aside, update, then bring it back:
+The complete sequence for a checkout with local edits is:
 
 ```bash
 git status
@@ -272,13 +365,18 @@ git stash pop
 > **`git stash pop` can itself produce conflicts.** If you and the upstream
 > repository changed the same part of the same file, Git stops and leaves
 > conflict markers in your working tree. This is normal and your work is not
-> lost — it is still in the stash until the pop succeeds.
+> lost — it is still in the stash until the pop succeeds. `git stash list`
+> still shows it, and `git stash show -p 'stash@{0}'` prints what it contains.
 
 **If you hit conflicts, stop.** Do not run `git reset --hard`, `git checkout --`,
-or `git clean -fd`: those commands permanently destroy the work you were trying
-to protect. Nothing in this repository will ever run them for you — the
-bootstrap and checker never stash, reset, clean, overwrite, or discard anything
-in your checkout.
+`git clean -fd`, or `git stash drop`: those commands permanently destroy the
+work you were trying to protect. Nothing in this repository will ever run them
+for you — the bootstrap and checker never stash, reset, clean, overwrite, or
+discard anything in your checkout.
+
+The same applies to `Not possible to fast-forward, aborting`: your own commits
+and the upstream ones have to be combined, which is a decision about your work
+rather than a routine update.
 
 Ask your instructor, or hand the situation to an AI coding agent with a prompt
 like this one:
