@@ -671,6 +671,10 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
     """
 
     def decorate(render: Callable[..., Any]) -> Callable[..., Any]:
+        import inspect
+
+        takes_show = "show" in inspect.signature(render).parameters
+
         @functools.wraps(render)
         def wrapper(model: Any, *args: Any, ax: Any = None, figsize: Any = None,
                     format: str | None = None, theme: str | None = None, **kwargs: Any) -> Any:
@@ -691,6 +695,14 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
                 if ax is not None and presentation.theme is not None:
                     for axis in _axes_of(ax):
                         apply_axes_theme(axis, presentation.theme)
+                # The figure is shown once it is finished: the renderer's own
+                # finalize would call plt.show() -- which blocks -- before the
+                # theme's grid and the format's padding below are applied, so
+                # what the user saw was not what was returned or saved (cold
+                # review plot G11).  The show is taken over and done last.
+                show = bool(kwargs.pop("show", False)) if takes_show else False
+                if takes_show:
+                    kwargs["show"] = False
                 result = render(model, *args, ax=ax, figsize=size, **kwargs)
                 figure, axes = result[0], result[1]
                 if presentation.theme is not None:
@@ -700,6 +712,11 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
                     from .style import finalize
 
                     finalize(figure, axes, show=False, tight_layout=True, pad=presentation.pad)
+                # An animation written to save_path= is saved instead of shown.
+                if show and kwargs.get("save_path") is None:
+                    import matplotlib.pyplot as plt
+
+                    plt.show()
             return result
 
         return wrapper
