@@ -428,7 +428,10 @@ def prepare_tglf_input(
 
     # Geometry. The shaping shears are built on the grid and interpolated.
     major = np.asarray(profile.rmaj, dtype=float)
-    q_profile = np.abs(np.asarray(profile.q, dtype=float))
+    # |q| for Q_LOC and the shear, as locpargen writes them (locpargen_tglf.f90:17);
+    # the sign is kept apart because it is what SIGN_IT is derived from.
+    signed_q = np.asarray(profile.q, dtype=float)
+    q_profile = np.abs(signed_q)
     kappa = np.asarray(profile.kappa, dtype=float)
     elevation = (
         np.zeros_like(rmin) if profile.zmag is None
@@ -450,22 +453,32 @@ def prepare_tglf_input(
     # SIGN_BT and SIGN_IT are derivable from the file, and were hardcoded to +1 until
     # this was written. `locpargen` agreeing was not evidence: it writes the same two
     # numbers, so the oracle comparison that fixed every other key could not see these.
-    # GACODE's own derivation: expro_signb = sign(torfluxa) and expro_signq = sign(q)
-    # (f2py/expro/expro_util.f90:51-52), btccw = -expro_signb
-    # (gyro/src/gyro_read_experimental_profiles.f90:40), and expro_q = ipccw*btccw*|q|
-    # (profiles_gen/src/prgen_map_inputgacode.f90:87) inverts to ipccw = signq*btccw.
+    # GACODE's own derivation: expro_signb = sign(torfluxa) and expro_signq = sign(q(1))
+    # (f2py/expro/expro_util.f90:51-52), then btccw = -expro_signb and
+    # ipccw = -expro_signq*expro_signb = signq*btccw (f2py/expro/expro_locsim.f90:202-203,
+    # which is what locpargen calls before writing SIGN_BT/SIGN_IT).
+    # The sign has to come from the SIGNED q: taken from |q| it can never differ from
+    # SIGN_BT, which is wrong for every file with q < 0 -- the norm for DIII-D.
     # It matters: tglf/src/tglf_LS.f90:1009 multiplies the toroidal stress by SIGN_IT,
     # so a wrong sign here inverts the momentum flux and nothing else.
     # np.sign(0) is 0, and neither convention admits it: a zero here would reach
     # input.tglf as SIGN_IT=0.0 and silently zero every momentum channel.
-    if float(profile.torfluxa) == 0.0 or q_at == 0.0:
+    q_signs = np.sign(signed_q[np.isfinite(signed_q)])
+    if float(profile.torfluxa) == 0.0 or q_signs.size == 0 or np.any(q_signs == 0.0):
         raise LocalConversionError(
             f"the field and current directions are derived from the signs of torfluxa "
-            f"({float(profile.torfluxa):g}) and q ({q_at:g}); a zero has no sign, and "
+            f"({float(profile.torfluxa):g}) and q; a zero has no sign, and "
             f"SIGN_BT/SIGN_IT are +/-1 conventions rather than numbers"
         )
+    if np.any(q_signs != q_signs[0]):
+        # GACODE reads the sign at q(1); a profile that changes sign has no single
+        # current direction, and picking the axis or the target would both be guesses.
+        raise LocalConversionError(
+            "q changes sign across the profile, so the plasma-current direction "
+            "SIGN_IT is derived from is not defined"
+        )
     sign_bt = -float(np.sign(float(profile.torfluxa)))
-    sign_it = float(np.sign(q_at)) * sign_bt
+    sign_it = float(q_signs[0]) * sign_bt
     provenance["sign_bt"] = {
         "kind": "derived",
         "reason": "-sign(torfluxa), GACODE's btccw",
@@ -602,6 +615,14 @@ def _shaping(
 
 def _rotation(profile: GACODEProfile, provenance: dict) -> Optional[float]:
     """The ExB shear, when the profile carries the rotation to derive it from.
+
+    Nothing is derived yet, for any profile, so ``VEXB_SHEAR`` and the ``VPAR_*``
+    keys never leave TGLF's zero default and carry no sign to get wrong. Whoever
+    writes the derivation must apply GACODE's current-direction sign the way
+    ``locpargen`` does (``locpargen_tglf.f90:61-65,88-89``):
+    ``VEXB_SHEAR = (ipccw if q < 0 else -ipccw) * gamma_e * a/c_s``,
+    ``VPAR_SHEAR = -ipccw * gamma_p * a/c_s`` and ``VPAR = -ipccw * mach/c_s``,
+    with ``ipccw`` the ``SIGN_IT`` derived above from the signed ``q``.
 
     ``prepare_gacode_profile`` does not populate ``w0`` today, so this is normally
     ``None``. TGLF's default of zero then reaches the file -- a zero ExB shear
