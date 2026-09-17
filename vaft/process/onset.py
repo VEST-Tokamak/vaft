@@ -1697,8 +1697,15 @@ def _active_window(
     if steepest < 0.0:
         steep = dy < float(collapse_rate_fraction) * steepest
         steep[:i_peak_seg] = False
+        # A collapse belongs to the pulse, so it starts inside the window.
+        # Once the level has come down (`last` < record end) a run that starts
+        # after it sits at the baseline, where `max(y[a] - baseline, 0)` is zero
+        # and the drop test passes any sample-to-sample noise step; the "last"
+        # fall then landed in the noise tail.  When the level never came down
+        # `last` is the record end, so the fallback below sees the same falls.
         falls = [(a, b) for a, b in _runs(steep)
-                 if (y[a] - y[min(b, y.size - 1)]) >= float(collapse_min_drop) * max(y[a] - baseline, 0.0)]
+                 if a < last
+                 and (y[a] - y[min(b, y.size - 1)]) >= float(collapse_min_drop) * max(y[a] - baseline, 0.0)]
         if falls:
             collapse_end = int(min(falls[-1][1], y.size - 1))
             evidence["collapse_time"] = float(t[collapse_end])

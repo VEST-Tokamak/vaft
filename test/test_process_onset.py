@@ -859,3 +859,17 @@ def test_a_brief_run_stays_a_persistence_rejection():
         reasons[fraction] = [why for _, why, _ in rec.rejected]
     assert reasons[0.0] and set(reasons[0.0]) == {"persistence"}
     assert reasons[0.01] == reasons[0.0]
+
+
+@pytest.mark.parametrize("noise, prefilter", [(0.002, 1), (0.002, 25), (0.01, 1), (0.01, 25)])
+def test_the_collapse_time_is_the_quench_not_the_noise_tail(noise, prefilter):
+    """At the baseline the minimum-drop test is vacuous, so with the default
+    unfiltered record the "last steep fall" was a noise step near the record's
+    end: 0.497 s for a quench that finishes at 0.320 s (cold review process F9)."""
+    t = np.arange(0.0, 0.5, 4e-5)
+    flat = np.clip((t - 0.25) / 0.02, 0, 1) * np.clip((0.32 - t) / 0.002, 0, 1)
+    y = flat + noise * np.random.default_rng(3).normal(size=t.size)
+    window = active_window(t, y, reference_mask=t < 0.2, prefilter_samples=prefilter)
+    assert window.offset.time == pytest.approx(0.320, abs=1e-3)
+    assert "offset_from_collapse" not in window.flags
+    assert window.evidence["collapse_time"] == pytest.approx(0.320, abs=1e-3)
