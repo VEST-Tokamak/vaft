@@ -10,7 +10,7 @@ import scipy.io
 from scipy import ndimage, signal
 
 from vaft.database import raw as raw_db
-from vaft.process.signal_processing import repair_clipped_interval
+from vaft.process.signal_processing import _filtfilt_min_length, repair_clipped_interval
 
 from .utils import resolve_vest_diagnostic, set_path
 
@@ -138,8 +138,9 @@ def _legacy_pf_filter(values: np.ndarray, processing: dict) -> np.ndarray:
         fs=float(filter_config["sample_rate"]),
     )
     # scipy.signal.filtfilt requires a long acquisition. Tiny synthetic test
-    # dumps retain a deterministic forward-filter fallback.
-    if values.size > 3 * (taps.size - 1):
+    # dumps retain a deterministic forward-filter fallback. The length rule is
+    # the shared one: this check used to stop three samples short of it (#893).
+    if values.size >= _filtfilt_min_length(taps.size):
         filtered = signal.filtfilt(taps, 1, values)
     else:
         filtered = signal.lfilter(taps, 1, values)
