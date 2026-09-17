@@ -236,6 +236,25 @@ def test_a_deep_pytest_tmp_path_is_refused_rather_than_truncated(tmp_path):
     assert not deep.exists()
 
 
+def test_the_budget_is_the_run_id_inputf_declares(tmp_path):
+    """The default configuration budgets for ``NUBEAM`` (101 characters) while
+    the case runs as ``FUSMA_NUBEAM`` (95): a 99-character work directory was
+    accepted and needed a 144-character name in NUBEAM's 140-character buffer
+    (cold review transport F4)."""
+    source = _case_directory(tmp_path)
+    gfile = tmp_path / "g"
+    gfile.write_text("EQDSK\n", encoding="utf-8")
+    config = nubeam.NUBEAMConfig()
+    assert nubeam.workdir_budget("FUSMA_NUBEAM") < 99 <= config.workdir_budget
+
+    with short_temporary_directory(max_length=40) as scratch:
+        run = Path(str(scratch / "w") + "x" * (99 - len(str(scratch / "w"))))
+        assert len(str(run)) == 99
+        with pytest.raises(nubeam.NUBEAMInputError, match="FUSMA_NUBEAM"):
+            nubeam.prepare_nubeam_inputs(source, gfile=gfile, workdir=run, config=config)
+        assert not run.exists()
+
+
 def test_staging_reports_a_missing_input(tmp_path):
     source = _case_directory(tmp_path)
     (source / "profiles").unlink()
