@@ -736,6 +736,68 @@ def test_a_stable_run_is_not_a_failure_even_when_its_companion_exits_badly(
     assert "rmatch exited 1" in record.reason
 
 
+def test_a_stable_cell_is_not_solved_again_for_a_companion_that_writes_nothing(
+    monkeypatch, tmp_path, case
+):
+    """An installed companion with nothing to match leaves no output, and its
+    missing file was read as "can succeed on a retry": every stable cell was
+    solved again on every call (cold review stability F1)."""
+    write_launchable_stub(tmp_path / "gpec/bin/rdcon")
+    write_launchable_stub(tmp_path / "gpec/bin/rmatch", exit_code=1)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    launched: list[str] = []
+    real = gpec.rt.run_subprocess
+
+    def counting(executable, *args, **kwargs):
+        launched.append(Path(executable).stem)
+        return real(executable, *args, **kwargs)
+
+    monkeypatch.setattr(gpec.rt, "run_subprocess", counting)
+
+    config = gpec.GPECSuiteConfig(modules=("rdcon",), modes=(1,), run_mode="auto")
+    gpec.prepare_gpec_suite_case(case, config)
+    run_dir = gpec._module_dir(case.workdir, case.time_ms, "rdcon", 1, geqdsk=case.geqdsk)
+    _write_rdcon_netcdf(run_dir, n=1, total1=7.891, delta_prime=False)
+    # Whatever else RDCON itself owes, so that only the companion's is missing.
+    for pattern in gpec.required_outputs(gpec._solvers.SOLVERS["rdcon"], 1):
+        (run_dir / pattern).touch()
+
+    (first,) = gpec.run_gpec_suite_case(case, config).records
+    (second,) = gpec.run_gpec_suite_case(case, config).records
+    assert first.status == second.status == "stable"
+    assert second.reason.startswith("reused existing solver outputs")
+    assert first.reason.startswith("reused existing solver outputs")
+    # RDCON's own outputs were complete before the first call, so neither call
+    # has anything to solve; it was launched once per call.
+    assert launched == []
+
+
+def test_an_unstable_cell_still_retries_its_installed_companion(monkeypatch, tmp_path, case):
+    """The retry the predicate exists for is kept where the companion has work."""
+    write_launchable_stub(tmp_path / "gpec/bin/rdcon")
+    write_launchable_stub(tmp_path / "gpec/bin/rmatch", exit_code=1)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+    launched: list[str] = []
+    real = gpec.rt.run_subprocess
+
+    def counting(executable, *args, **kwargs):
+        launched.append(Path(executable).stem)
+        return real(executable, *args, **kwargs)
+
+    monkeypatch.setattr(gpec.rt, "run_subprocess", counting)
+    config = gpec.GPECSuiteConfig(modules=("rdcon",), modes=(1,), run_mode="auto")
+    gpec.prepare_gpec_suite_case(case, config)
+    run_dir = gpec._module_dir(case.workdir, case.time_ms, "rdcon", 1, geqdsk=case.geqdsk)
+    _write_rdcon_netcdf(run_dir, n=1, total1=-0.3, delta_prime=True)
+    for pattern in gpec.required_outputs(gpec._solvers.SOLVERS["rdcon"], 1):
+        (run_dir / pattern).touch()
+
+    gpec.run_gpec_suite_case(case, config)
+    gpec.run_gpec_suite_case(case, config)
+    assert launched.count("rdcon") == 2
+
+
 def test_a_genuine_solver_failure_is_still_a_failure(monkeypatch, tmp_path, case):
     """The solver's own exit code gates this, so a real failure cannot hide.
 
