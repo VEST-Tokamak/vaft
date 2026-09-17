@@ -4,9 +4,20 @@ This directory is the single entry point for setting up VAFT on a new machine,
 verifying that the setup works, and keeping an existing checkout current during
 a course.
 
-It covers the **VAFT / Python / HSDS / JupyterLab environment only**. Building
-the external Fortran codes (CHEASE, DCON, GPEC) is a separate topic tracked in
-[issue #226](https://github.com/VEST-Tokamak/vaft/issues/226).
+The platform scripts below cover the **VAFT / Python / HSDS / JupyterLab
+environment**. Building the external Fortran codes is optional and independent,
+and has its own entry points: see
+[External fusion codes](#external-fusion-codes-chease-dcongpec-nubeam-gacode).
+
+Build recipes for the external codes live beside the bootstrap, one directory
+per code: [`install/nubeam/`](nubeam/) and [`install/gacode/`](gacode/). Both
+operate on a source tree you supply rather than one VAFT vendors, and neither
+is run by CI. NUBEAM builds on Linux (`linux.sh`), macOS/Apple Silicon
+(`macos.sh`) and native Windows (`windows.ps1`); GACODE builds on Linux
+(`linux.sh`) and macOS/Apple Silicon (`macos.sh`). CHEASE and GPEC are installed
+from this directory on every platform: `install_chease.sh` and `install_gpec.sh`
+on Linux and macOS, `install_chease_windows.ps1` and `install_gpec_windows.ps1`
+on native Windows.
 
 Budget about 15–20 minutes from a nearly clean machine.
 
@@ -19,9 +30,9 @@ Budget about 15–20 minutes from a nearly clean machine.
 | Windows, native | `powershell -ExecutionPolicy Bypass -File install\windows_native.ps1` |
 | Windows, inside WSL2 | `bash install/windows_wsl.sh` |
 
-**Native Windows is a first-class VAFT path. WSL2 is never required.** Choose
-the WSL2 path only if you prefer a Linux shell or intend to build the external
-Fortran codes later.
+**Native Windows is a first-class VAFT path. WSL2 is never required.** CHEASE
+and the DCON/GPEC suite build natively too; choose the WSL2 path only if you
+prefer a Linux shell.
 
 Every script accepts `--check-only` (`-CheckOnly` in PowerShell), which runs the
 environment checker and changes nothing.
@@ -278,6 +289,621 @@ Please inspect `git status` and the conflicted files, preserve my local tutorial
 integrate the upstream changes safely, and do not discard or overwrite my work.
 ```
 
+## External fusion codes (CHEASE, DCON/GPEC, NUBEAM, GACODE)
+
+The bootstrap above gives you VAFT, Python and JupyterLab. The external Fortran
+codes are optional and independent: you only need this section if you want VAFT
+to *run* CHEASE or the DCON/GPEC suite rather than only prepare their inputs.
+
+```text
+Need VAFT only?            -> the platform script above; you are done
+Need CHEASE?    Linux/macOS -> bash install/install_chease.sh --source PATH
+                Windows     -> install\install_chease_windows.ps1
+Need DCON/GPEC? Linux/macOS -> bash install/install_gpec.sh --source PATH
+                Windows     -> install_gpec_windows.ps1 -BuildDependencies
+Need EFIT/EFUND? Linux/macOS -> bash install/install_efit.sh --source PATH --accept-efit-users-agreement
+                Windows     -> install_efit_windows.ps1 -AcceptEfitUsersAgreement
+```
+
+**You obtain the source yourself.** The installers take the path to a checkout
+you already have and never clone, fetch, pull, change a revision, or initialise
+a submodule. Which revision was built is a fact you state and the installer
+records, not one it infers — with more than one checkout on a machine, that is
+the difference between reproducible provenance and a guess.
+
+The rest of this section is ordered by platform: find your own heading and
+read only that one. Notes that hold whatever you are on — CHEASE's `nideal`
+default, the two suite tests it un-skips, and the separate entry points for
+NUBEAM and GACODE — are collected under [Per-code notes](#per-code-notes)
+afterwards.
+
+### Linux and macOS
+
+```bash
+bash install/install_chease.sh --source ~/git/CHEASE
+bash install/install_gpec.sh   --source ~/git/GPEC
+```
+
+Each builds the code, installs into `<source>/vaft-install`, writes
+`vaft-external-install.json` recording the revision and the exact build command,
+and finishes by running the matching checker. Both accept `--check-only`,
+`--uninstall`, `--jobs N` and `--allow-dirty`, and both refuse a source tree
+with uncommitted changes unless you pass that last one, because a build from a
+dirty tree has no revision you can state.
+
+Install the compiler and libraries yourself first — these scripts name what is
+missing, they never run a package manager:
+
+| Code | Debian/Ubuntu packages |
+| --- | --- |
+| CHEASE | `gfortran make git` |
+| GPEC | `gfortran gcc make git libnetcdff-dev liblapack-dev libblas-dev` |
+
+Three things about the Linux build worth knowing before they bite:
+
+**The first `nf-config` on `PATH` may be the wrong netCDF-Fortran.** A library
+built with `ifort` ships `ifort` `.mod` files, and linking those into a gfortran
+build fails with errors that never mention a compiler. `install_gpec.sh` asks
+each candidate what it was built with (`nf-config --fc`) and takes the first
+that answers `gfortran`, reporting the ones it skipped. On a machine with a
+hand-built netCDF ahead of the distro one, expect to see it skip.
+
+**`-fallow-argument-mismatch` is mandatory on gfortran 10 and newer.** Without
+it `dcon_interface.mod` is never produced, and every dependent package then
+fails on the missing module rather than on the real cause. The script sets it.
+
+**`CHEASE_MACHINE` is not cosmetic.** `src-f90/Makefile.define_FLAGS` matches
+`linux_nohdf5` in exactly one branch, and that branch is the only one setting
+`-fdefault-real-8 -fdefault-double-8`. Upstream's default machine compiles
+cleanly in single precision and gives you a numerically different code, with no
+warning anywhere. The script pins it; `--machine` overrides it if you must.
+
+Clone CHEASE with symlink support — it commits several sources as symlinks, and
+a tree without them holds one-line placeholders that gfortran reports as a
+syntax error naming nothing useful:
+
+```bash
+git -c core.symlinks=true clone https://gitlab.epfl.ch/spc/chease.git ~/git/CHEASE
+git clone https://github.com/PrincetonUniversity/GPEC.git ~/git/GPEC
+```
+
+`install_chease.sh` detects the placeholder case and says so rather than letting
+the compiler fail obscurely.
+
+### Windows (native)
+
+Clone the two sources yourself, wherever you keep them:
+
+```powershell
+git clone https://github.com/PrincetonUniversity/GPEC.git C:\git\GPEC
+git -c core.symlinks=true clone https://gitlab.epfl.ch/spc/chease.git C:\git\CHEASE
+```
+
+CHEASE is cloned with `core.symlinks=true` on purpose. It commits several
+sources as symbolic links, one of which is compiled into the plain `chease`
+target, and without symlink support Git for Windows writes a short text file
+naming the target instead. The build then fails with a Fortran syntax error
+that says nothing about the cause. Creating symbolic links needs Developer Mode
+or an elevated prompt; if you already have a checkout without them, the
+installer's `-MaterializeSymlinks` copies each target over its placeholder
+instead, which rewrites those tracked files in your CHEASE tree.
+
+#### Installing
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install\install_chease_windows.ps1 C:\git\CHEASE
+powershell -ExecutionPolicy Bypass -File install\install_gpec_windows.ps1 C:\git\GPEC -BuildDependencies
+```
+
+Both build with the MinGW-w64 gfortran toolchain from MSYS2, which produces
+ordinary Windows executables — no WSL2, no emulation layer at run time.
+
+Add `-InstallToolchain` to let the installer set MSYS2 up for you with `winget`
+and `pacman`. Without it, a machine with no toolchain stops with the exact
+commands to run yourself. That follows the same rule as the rest of this
+directory: Git, Conda and now a Fortran compiler are things you decide to
+install, not things a script installs behind you.
+
+| Switch | Effect |
+| --- | --- |
+| `-InstallToolchain` | Install MSYS2 and the compiler packages. The only switch that changes anything outside the prefix. |
+| `-Prefix <path>` | Install somewhere other than `%LOCALAPPDATA%\vaft\external\<code>`. |
+| `-BuildDependencies` | GPEC only. Compile HDF5 and netCDF without S3 into the prefix. Needed once per prefix; without it the suite computes correctly and then never exits. |
+| `-MaterializeSymlinks` | CHEASE only. Replace symbolic-link placeholders with copies of their targets. |
+| `-NoEnvironmentWiring` | Do not set `CHEASEHOME` / `GPECHOME`; print the command instead. |
+| `-CheckOnly` | Run the checker and change nothing. |
+| `-Uninstall` | Remove the prefix and the environment variable. Your source tree is untouched. |
+
+#### What gets installed, and where
+
+Everything lands in one self-contained prefix outside every checkout:
+
+```text
+%LOCALAPPDATA%\vaft\external\gpec\
+    bin\   dcon.exe rdcon.exe stride.exe gpec.exe match.exe rmatch.exe
+           + the runtime libraries those need
+    deps\  the HDF5 and netCDF built for them by -BuildDependencies
+    logs\  the full build output
+    vaft-external-install.json
+```
+
+The runtime libraries are **copied next to the executables** rather than reached
+through `PATH`. Windows searches an executable's own directory first, so the
+prefix works from a plain terminal, from `conda run`, and from a Jupyter kernel
+started by a server in a different environment, with no `PATH` change anywhere.
+Putting MSYS2's `bin` on `PATH` instead would place a second `libcrypto`,
+`libssl` and `zlib` ahead of Anaconda's for every process in that session, which
+breaks unrelated things in ways that are hard to trace back here.
+
+`vaft-external-install.json` records the source path and revision, the toolchain,
+the exact make command and every installed file. It is what `-Uninstall` reads,
+and what the checker compares your checkout against.
+
+#### How VAFT finds them
+
+The installer sets `CHEASEHOME` or `GPECHOME` as a **user** environment
+variable. The registered "Python (vaft)" kernel starts the environment's
+`python.exe` directly rather than through Conda activation, so an `activate.d`
+script would never reach a notebook; a user variable reaches every newly started
+process. Nothing machine-wide is changed.
+
+Open a new terminal, or restart JupyterLab, before expecting it to take effect.
+
+To set it yourself instead:
+
+```powershell
+[Environment]::SetEnvironmentVariable('GPECHOME', "$env:LOCALAPPDATA\vaft\external\gpec", 'User')
+$env:GPECHOME = "$env:LOCALAPPDATA\vaft\external\gpec"
+```
+
+VAFT resolves `$GPECHOME/bin/dcon` and `$CHEASEHOME/bin/chease` — the documented
+POSIX names — and finds the native `.exe` beside them automatically.
+
+#### Verifying
+
+```powershell
+conda run -n vaft python install/check_chease.py --source C:\git\CHEASE
+conda run -n vaft python install/check_gpec.py   --source C:\git\GPEC
+```
+
+Each checker reports one line per layer, so a failure names what broke rather
+than handing you compiler output: toolchain, source checkout, revision, build
+record, executables, whether they load with a bare `PATH`, whether VAFT's own
+resolution finds them, a real run, the products, and whether the numbers are
+sound. The GPEC checker runs upstream's own Solov'ev regression case and
+exercises the real DCON → GPEC handoff rather than starting two binaries
+separately.
+
+#### What this build does differently
+
+Two differences from a Linux build are real, and both are reported rather than
+papered over.
+
+**The DCON/GPEC suite is serial.** LSODE and ZVODE mark a COMMON block
+`!$OMP THREADPRIVATE`, and gfortran expresses that with an assembler directive
+the PE object format has no equivalent for, so an OpenMP build cannot assemble
+at all. The installer builds without OpenMP. Results are unaffected; long runs
+take longer than the same case on Linux.
+
+**The DCON/GPEC suite needs its own HDF5 and netCDF.** That is what
+`-BuildDependencies` is for, and it is not optional in practice.
+
+MSYS2's netCDF package *and* its HDF5 both link the AWS C++ S3 SDK. That SDK
+registers an `atexit` handler which waits on a condition variable that is never
+signalled, so a program linked against either writes every output correctly,
+prints its normal-termination message, and then never exits -- and the process
+cannot be killed, because the thread is blocked inside the kernel. Six lines of
+Fortran reproduce it with no GPEC or VAFT code involved:
+
+```fortran
+program probe
+  use netcdf
+  integer :: ncid, ierr
+  ierr = nf90_create("probe.nc", NF90_CLOBBER, ncid)
+  ierr = nf90_close(ncid)
+end program probe
+```
+
+Cutting S3 out of netCDF alone does **not** fix it: HDF5 pulls the same SDK in
+through its ROS3 virtual file driver. `-BuildDependencies` builds both without
+it -- HDF5 with `--disable-ros3-vfd`, netCDF-C with `--disable-s3
+--disable-nczarr`, then netCDF-Fortran on top -- statically, into the prefix. It
+takes 20 to 40 minutes and is needed once per prefix.
+
+With that chain in place, `dcon` on upstream's Solov'ev regression case exits
+**0** in under two seconds with the same energies it computes on Linux, and
+`check_gpec.py` reports every layer green through the DCON to GPEC handoff.
+
+The static chain also shrinks the install: nine runtime libraries beside the
+executables instead of forty-eight, because netCDF and HDF5 are no longer DLLs.
+
+#### What the build leaves in your source tree
+
+The upstream Makefiles write their objects and binaries inside the checkout you
+pointed at. GPEC ignores its own `*.o`, `*.mod` and `bin/`, but not the
+`<module>/<name>.exe` files a Windows build produces, so `git status` in your
+GPEC tree will show a few untracked executables. CHEASE ignores `chease` but not
+`chease.exe`, for the same reason. Neither installer changes a tracked file
+unless you pass `-MaterializeSymlinks`.
+
+`-Uninstall` removes the prefix and the environment variable. It never touches
+your source tree, MSYS2, or anything `pacman` installed.
+
+## Per-code notes
+
+### CHEASE and the `nideal` default
+
+`CHEASEConfig.nideal` defaults to `6`, which upstream CHEASE accepts and which
+is its own documented default for writing the EQDSK that VAFT reads back.
+
+It used to default to `11`, the value the VEST `jsk95` workflow runs against
+the CHEASE build that group uses. Upstream validates the range in `cotrol.f90`
+(0 to 10) and quits before doing any equilibrium work on anything outside it:
+
+```
+WRONG VALUE FOR NIDEAL IT HAS TO BE 1,2,3,4,5,6,7,8,9 OR 10
+ after cotrol, output_flag =         -798
+```
+
+so a CHEASE built from the public repository refused the default configuration
+on every platform. That is fixed (#717); pass `CHEASEConfig(nideal=11)`
+explicitly if you are running against the jsk95 CHEASE revision.
+
+### Two suite tests start running once CHEASE is installed
+
+`test/test_chease_adapter.py` gates three tests on `$CHEASEHOME` so they skip on
+a machine without CHEASE. Installing it un-skips them, and two then fail against
+a CHEASE built from the public repository:
+
+- `test_run_chease_gfile_and_equivalent_ods_input_agree` — `ZMAXIS` differs from
+  the reference by about 1.5e-5 relative, against an `rtol` of 1e-7.
+
+Both compare against the CHEASE build the VEST workflow was written for, so they
+are measuring the difference between two CHEASE revisions rather than anything
+about VAFT or about Windows. CI never sets `$CHEASEHOME`, so they stay skipped
+there; you will only see them locally, and only after installing CHEASE.
+
+If you need a green local suite before that is resolved, unset `CHEASEHOME` for
+the run:
+
+```powershell
+$env:CHEASEHOME = $null; python -m pytest -q
+```
+
+### NUBEAM
+
+NUBEAM has its own entry point, [`install/nubeam/windows.ps1`](nubeam/windows.ps1),
+because it shares the reference cases and validation scripts with the macOS
+recipe beside it. It needs a netCDF without S3, which
+`install_gpec_windows.ps1 -BuildDependencies` produces, and it downloads three
+NTCC dependency modules only after you pass `-AcceptNtccTerms`. Everything it
+generates stays inside your NUBEAM source tree. See
+[`install/nubeam/README.md`](nubeam/README.md).
+
+### GACODE
+
+GACODE has one entry point per platform — [`install/gacode/linux.sh`](gacode/linux.sh)
+and [`install/gacode/macos.sh`](gacode/macos.sh) — each of which builds the shared and
+`f2py` libraries and the requested suite members, and can run NEO's shipped `reg18`
+regression case in the same invocation:
+
+```bash
+# Linux: install gfortran, make, openmpi, lapack, blas, fftw and netcdff first;
+# the script names what is missing rather than installing it.
+bash install/gacode/linux.sh --gacode-root ~/git/gacode --check
+export GACODE_PLATFORM=TUMBLEWEED
+
+# macOS / Apple Silicon: Homebrew dependencies are installed for you.
+bash install/gacode/macos.sh --gacode-root ~/git/gacode --check
+export GACODE_PLATFORM=GFORTRAN_OSX_BREW
+
+export GACODEHOME=~/git/gacode
+python install/check_gacode.py --source ~/git/gacode
+```
+
+Both recipes default to `neo,tglf` rather than `neo` alone, because
+`install/check_gacode.py` requires both.
+
+Two things about it differ from every other code here. It **builds in place**, so
+`GACODEHOME` is the checkout rather than a separate prefix; and each suite member carries
+its own `bin`, so the executables are `neo/bin/neo` and `tglf/bin/tglf`, not
+`bin/neo`. It also needs
+`GACODE_PLATFORM`, which selects `platform/exec/exec.$GACODE_PLATFORM` at run time --
+`vaft.code.gacode` resolves it up front and lists the available tags, because a wrong
+value otherwise fails inside a shell script without naming itself. Both recipes
+build `neo,tglf` by default, which is what VAFT drives. See
+[`install/gacode/README.md`](gacode/README.md), which also explains why the Linux
+recipe defaults to the `TUMBLEWEED` tag out of upstream's ninety.
+
+The TGLF-NN surrogate needs no build and no compiler at all -- only pretrained
+networks, which VAFT neither vendors nor downloads. Point
+`TURBULENTTRANSPORTHOME` at a TurbulentTransport.jl checkout you already hold, or
+let VAFT find one in an existing Julia depot; `onnxruntime` is an optional extra
+(`pip install 'vaft[surrogate]'`) needed only to run a network. The same README
+covers the resolution order and what happens when two installed versions answer
+to one model name.
+
+## Tested toolchains
+
+| Component | Windows verification | Linux verification |
+| --- | --- | --- |
+| OS | Windows 11, MSYS2 20260611 (UCRT64) | Ubuntu 22.04.4 LTS, x86_64 |
+| gcc / gfortran | 16.2.0 | 11.4.0 |
+| GNU make | 4.4.1 | 4.3 |
+| BLAS / LAPACK | OpenBLAS 0.3.34 | reference netlib (`libblas`, `liblapack`) |
+| HDF5 | 1.14.6, built with `--disable-ros3-vfd` | 1.10.7 (distro, serial) |
+| netCDF-C / netCDF-Fortran | 4.9.3 / 4.6.1, built with `--disable-s3 --disable-nczarr` | 4.8.1 / distro `libnetcdff-dev` |
+| CHEASE | `fb46366` | `fb46366` |
+| GPEC | `e68d7ac2` (v1.5.7-611) | `e68d7ac2` (v1.5.7-611) |
+| NUBEAM | 2021 serial distribution, with NTCC PSPLINE / PREACT / XPLASMA | not yet |
+
+Both platforms were verified at the same CHEASE and GPEC revisions, so the two
+columns are comparable rather than merely adjacent.
+
+## EFIT and EFUND (licensed software; obtain it yourself)
+
+EFIT is **licensed software**. It is distributed by the EFIT-AI collaboration
+under the EFIT users agreement, which forbids redistributing the original or
+modified sources and asks every user to register with the authors. VAFT does
+not bundle EFIT, does not mirror it, and never downloads it: nothing in this
+repository or in the installer fetches EFIT, and `install_efit.sh` refuses to
+run until you state that you have agreed to the users agreement yourself.
+
+Before you run anything here:
+
+1. Read and agree to the EFIT license and users agreement that accompany the
+   source (`LICENSE.rst` and the users agreement in the EFIT-AI tree).
+2. Obtain authorized access to the EFIT source through the EFIT-AI channel
+   (registration with the authors at `efit-support@fusion.gat.com`), and
+   clone it yourself into a directory you control.
+3. Keep that tree private. Do not copy it into the VAFT checkout, and do not
+   commit any of its files, its build products, or the tables it generates
+   from proprietary inputs.
+
+The installer only automates what you would otherwise do by hand in a tree you
+already hold: configure, build, run EFIT's own tests, and copy the two
+executables into a prefix. It never clones, fetches, pulls, or changes the
+revision of the source, and it does not fetch EFIT on your behalf under any
+flag. Adding such a fetch would require explicit permission from the license
+holder and is deliberately not offered.
+
+### Installing EFIT
+
+```bash
+bash install/install_efit.sh --source ~/git/efit --accept-efit-users-agreement
+```
+
+**NetCDF is on, and the installer proves it rather than assuming it.** Without
+NetCDF, `write_m` is compiled out and EFIT writes no m-file — no iteration
+counts, no per-slice residuals. VAFT therefore passes `-DENABLE_NETCDF=ON`
+(upstream's own default is `off`) and points CMake at netCDF-C and
+netCDF-Fortran.
+
+Asking is not the same as getting. `io/efitIO.cmake` reads:
+
+```cmake
+option(ENABLE_NETCDF "Enable NetCDF" off)
+if(${ENABLE_NETCDF})
+  find_package (NetCDF)
+  if(${NetCDF_FOUND})
+    set(USE_NETCDF ...)
+  endif()
+endif()
+```
+
+There is no `else` on the inner `if`. A `find_package` that comes up empty is
+silent: the build finishes, `ENABLE_NETCDF:BOOL=ON` stays in `CMakeCache.txt`
+and in the install manifest, and the first symptom is a reconstruction that
+writes no m-file much later. So the installer checks the binary it just built,
+and refuses to install one that cannot write m-files unless you asked for that
+with `--without-netcdf`. `check_efit.py` reads the same signal, which is why
+its capability line says *(read from the executable)* — a build whose record
+claims NetCDF while the binary lacks it is reported as a failure, not a pass.
+
+On native Windows, with the same acceptance:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install\install_efit_windows.ps1 C:\git\efit -AcceptEfitUsersAgreement
+```
+
+Four things differ there, and the script says so rather than hiding them:
+
+| | Windows | POSIX |
+| --- | --- | --- |
+| Stack | Reserved at link time (`-Wl,--stack`, from `-StackReserveMB`) | Raised per run by the adapter with `ulimit -s` |
+| BLAS | Named again at the end of the link line | Found once; a shared object needs no repeat |
+| Upstream tests | Not run: all 102 are bash drivers CTest cannot start | `ctest` runs unless `--skip-tests` |
+| `ls` | A five-line `shim/ls.cmd`, on the EFIT child's PATH only | A real `ls` |
+| netCDF | An S3-free build, or none | Whatever `nc-config` reports |
+| Prefix | `%LOCALAPPDATA%\vaft\external\efit` | `<source>/vaft-install` |
+
+The stack is the one that matters. A native Windows image takes its reserve
+from the PE header, fixed by the linker, so nothing at run time can raise it;
+`vaft.code.efit` therefore runs the executables directly there instead of
+wrapping them in `bash -lc "ulimit -s ..."`. The prefix differs because a build
+must never land inside a checkout, which is what `Resolve-InstallPrefix`
+enforces for every external code. `EFITHOME` is explicit either way, so nothing
+downstream notices.
+
+The BLAS one is worth knowing if you build by hand: CMake places BLAS ahead of
+`liblsode` and `libr8slatec`, which call `dscal_`, `daxpy_` and `dswap_`. GNU ld
+makes a single pass and discards an archive whose members resolve nothing yet,
+so those come out undefined. The installer passes
+`-DCMAKE_Fortran_STANDARD_LIBRARIES`, which CMake appends after every target
+library. A Linux build never notices, because there BLAS is a shared object.
+
+#### Two things EFIT needs at run time on Windows
+
+**`ls`.** `set_table_dir` picks the Green-table subdirectory for a shot by
+shelling out — `call system('ls '//table_dir//' > shot_tables.txt')`
+(`efit/tables.F90`) — and `cmd.exe` has no `ls`. The failure is silent rather
+than loud: EFIT falls back to `<link_efit>/green/` itself instead of
+`<link_efit>/green/<shot range>/`, so it reads the wrong tables or none at all.
+
+The installer writes a five-line `shim/ls.cmd` that turns EFIT's forward slashes
+into the backslashes `dir /b` needs, and `vaft.code.efit` puts that directory on
+the EFIT child's `PATH` and nowhere else. It is deliberately not in `bin/`: on a
+user's `PATH` it would shadow a real `ls` for everything else they run.
+
+**An S3-free netCDF.** MSYS2's netCDF links the AWS C++ S3 SDK, whose `atexit`
+handler never returns — the same defect that hung DCON. Measured on one DIII-D
+case, all three builds computing the identical result:
+
+| netCDF | Exit | Files |
+| --- | --- | --- |
+| MSYS2's (S3-linked) | **never exits** | g + a + m |
+| none | 0, in 0.5 s | g + a |
+| S3-free | 0, in 0.5 s | g + a + m |
+
+So the installer prefers the S3-free prefix that
+`install_gpec_windows.ps1 -BuildDependencies` leaves behind, which does carry
+the netCDF v2 Fortran API EFIT calls; it refuses an S3-linked one and says why,
+building without m-file output rather than producing a binary that hangs.
+`-NetcdfHome` overrides the choice and the refusal both: passing it is you
+saying you know what that prefix is.
+
+Green-function tables are not shipped with EFIT: generate them with `efund` for
+the grid you intend to run, and generate them with the *same* build, because
+upstream writes them big-endian by default (`CMakeLists.txt` sets
+`-fconvert=big-endian` unless `ENABLE_NATIVE_ENDIAN` is on).
+
+#### One upstream defect blocks `efit` in a serial build
+
+`efit/efit.F90` declares `jtime` only inside `#if defined(USEMPI)`, but calls
+`write_m` and `write_ot` with it unconditionally. So the file cannot compile
+with MPI disabled -- which is the default, `ENABLE_PARALLEL` being `FALSE` in
+upstream's own `CMakeLists.txt`.
+
+**This is not a Windows problem.** The same configure fails on Linux and macOS;
+it surfaces here only because a Windows build cannot fall back to MPI, upstream
+having no `find_package(MPI)` and MS-MPI shipping no gfortran-usable `mpif.h`.
+
+`install_efit_windows.ps1` detects it and says so, rather than handing you a
+Fortran diagnostic. EFUND still builds and installs, so tables can be generated.
+
+VAFT cannot ship a patch: the users agreement forbids distributing modified
+sources. As a licensee you may fix your own tree -- moving the `jtime`
+declaration out of the `USEMPI` block is enough, and with that one change both
+executables build, link and run, verified on Windows 11. Please also report it
+to `efit-support@fusion.gat.com` so the fix reaches everyone.
+
+`--accept-efit-users-agreement` is a statement by you, recorded in the build
+manifest, that you have agreed to the users agreement and obtained the source
+through the authorized channel. Without it the script prints the requirement
+and exits with status 2.
+
+| Option | Effect |
+| --- | --- |
+| `--source PATH` | The EFIT source tree you obtained (or `$EFIT_SOURCE_DIR`). Required. |
+| `--prefix PATH` | Install location. Default `<source>/vaft-install`. |
+| `--build-dir PATH` | Out-of-tree CMake build directory. Default `<source>/build-vaft-<platform>`. |
+| `--allow-dirty` | Build a tree with uncommitted changes; the modified file list and `sha256(git diff)` go into the manifest so the binary's provenance stays statable. Refused otherwise. |
+| `--without-netcdf` | Build without NetCDF. EFIT then writes no m-files, so iteration counts must be scraped from the log; on by default when Homebrew `netcdf` / `netcdf-fortran` are present. |
+| `--jobs N` | Parallel build jobs. |
+| `--skip-tests` | Do not run EFIT's `ctest` suite after the build. |
+| `--check-only` | Run `install/check_efit.py` and change nothing. |
+| `--uninstall` | Remove the build directory and prefix this script created. The source tree is untouched. |
+
+The build is configured as `Release` with `TEST_EFUND=ON` so that both
+executables, `efit` and `efund`, come out of **one** configure of **one**
+revision. A Green-function table is only as reproducible as the pair that
+produced and consumed it, which is why the two are never installed separately.
+
+### What an EFIT install contains
+
+```text
+<prefix>/
+    bin/efit  bin/efund
+    logs/     the full configure, build and ctest output
+    vaft-external-install.json
+```
+
+`vaft-external-install.json` records the source path, revision, branch and
+remote, whether the tree was dirty and what the diff hashed to, the exact CMake
+arguments, compiler, NetCDF and BLAS/LAPACK providers, the platform and host,
+the `ctest` outcome, and the sha256 and size of both executables. It is what
+`--uninstall` reads and what the checker compares your checkout against, and it
+is the record an EFIT run's provenance cites.
+
+### How VAFT finds EFIT and EFUND
+
+Point one variable at the prefix:
+
+```bash
+export EFITHOME=~/git/efit/vaft-install
+```
+
+VAFT resolves **both roles** from that one root: `$EFITHOME/bin/efit` and
+`$EFITHOME/bin/efund`. If `EFITHOME` names a CMake build tree instead,
+`efit/efit` and `green/efund` under it are accepted as well. There is
+deliberately no second root variable for `efund`: two roots would allow the
+table generator and the reconstruction code to come from two different builds,
+which is exactly what a provenance record must exclude. An explicit executable
+path passed in code still wins for either role, and the legacy `EFIT` variable
+still names the reconstruction executable alone when `EFITHOME` is unset.
+
+### Verifying an EFIT install
+
+```bash
+python install/check_efit.py --source ~/git/efit --prefix ~/git/efit/vaft-install
+```
+
+One line per layer: the Fortran toolchain, the source checkout and its
+revision, the build record against the checkout, both executables, the build's
+capabilities (build type, compiler, NetCDF), that `efit` starts, an `efund`
+smoke run on EFIT's own public DIII-D support file at 33x33 with every output
+file checked for its exact expected size, and finally that VAFT's own discovery
+resolves both roles from `EFITHOME`. Pass `--build-tree` instead of `--prefix`
+to check an uninstalled CMake build.
+
+## Codes with no installer here, and why
+
+`install/` carries a build recipe for five codes: CHEASE, DCON/GPEC, EFIT/EFUND,
+NUBEAM and GACODE. `vaft.code` also talks to three others, and none of them gets
+a script here. That is a deliberate stop, not an omission, so this section says
+what VAFT actually does for each and what you would have to supply yourself.
+
+### TES
+
+**Not open source.** VAFT cannot distribute it, mirror it, or tell you how to
+obtain it; that is between you and its authors.
+
+What VAFT does with it, if you already hold a build: `vaft.code.tes` writes the
+namelist and `cinput` (`prepare_tes_inputs`), launches `$TESHOME/bin/rtes`
+(`run_tes`, `scan_tes`), and parses the result scalars and coil currents
+(`collect_tes_outputs`). So `TESHOME` is a real, used variable — it is simply
+one you point at a binary you brought. There is no `install_tes_*.sh` and no
+`check_tes.py`, and adding either would imply an obtainable source that is not
+there.
+
+### TRANSP
+
+**Not open source, and nothing here would launch it anyway.** TRANSP runs at the
+facility that hosts it; VAFT only reads what it produced.
+
+`vaft.code.transp` is read-only by construction and says so in its own module
+docstring: no `inputs.py`, no `runner.py`, and **no `$TRANSPHOME`**. You hand
+`read_transp_output` a `<runid>.CDF` file and get a lazy view over it, a time
+slice, the enclosed torque, and one conversion into VAFT's kinetic-profile
+container. Nothing is installed because nothing is executed.
+
+### TokaMaker (OpenFUSIONToolkit)
+
+Open source, but a **Python package rather than an executable under a
+`*HOME`**, so it arrives through pip and not through a script here.
+
+`vaft.code.tokamaker` imports `OpenFUSIONToolkit`, a ctypes shim over the
+compiled `liboftpy`. Install it from a release, or from a source tree you built:
+
+```bash
+pip install -e <OFT_ROOT>/src/python
+```
+
+Every import is deferred, so `vaft.code.tokamaker` imports cleanly on a machine
+without it and reports the absence when you actually call something. There is no
+`check_tokamaker.py`: `import OpenFUSIONToolkit` already answers the only
+question such a checker would ask.
+
 ## Uninstalling
 
 Removing VAFT is the exact inverse of the bootstrap, and it exists so the
@@ -409,3 +1035,12 @@ into your question.
 | macOS | Automated in CI, same install/uninstall cycle |
 | Windows native | Automated in CI, same install/uninstall cycle |
 | Windows WSL2 | Syntax and static checks in CI; the full run is verified **manually**, because GitHub-hosted runners cannot start WSL2 |
+| CHEASE, Windows native | Verified **manually** on a clean Windows 11 machine: build, VAFT discovery, a refinement of a packaged equilibrium, and its comparison metrics. Not automated -- hosted runners have no Fortran toolchain, and a full build takes tens of minutes. |
+| DCON/GPEC, Windows native | Verified **manually** on a clean Windows 11 machine with `-BuildDependencies`: build, VAFT discovery, the DCON to GPEC handoff on upstream's Solov'ev regression, and its energies. Not automated -- hosted runners have no Fortran toolchain and the dependency chain alone takes half an hour. The script-level guarantees are pinned by `test/test_install_bootstrap.py`, which runs in CI on every platform. |
+| EFIT/EFUND, Windows native | Verified **manually** on Windows 11, end to end: build, runtime-library colocation, EFUND's seven Green tables byte-exact, and a full DIII-D reconstruction of shot 186610 at 2400 ms driven through `vaft.code.efit` with no MSYS2 on `PATH` -- chi^2 2.081E+01, q95 2.956, g-file, a-file and m-file written, process exits 0. Requires one upstream defect fixed in your own tree; see below. |
+| CHEASE, Linux | Verified **manually** on Ubuntu 22.04.4 (gfortran 11.4.0) at `fb46366`: `install_chease.sh` build, install, `--check-only`, a second run for idempotency, and `--uninstall`. `check_chease.py` reports every layer green, including the refinement of the packaged `g039915.00319` -- `q_rms_rel=0.0144`, `pressure_rms_rel=0.0655`, `current_rel_diff=0.0429`. Not automated: hosted runners have no Fortran toolchain. |
+| DCON/GPEC, Linux | Verified **manually** on the same machine at `e68d7ac2`: `install_gpec.sh` build with OpenMP, install of all six executables, and the same lifecycle. `check_gpec.py` reports every layer green through the DCON to GPEC handoff (`euler.bin` 4114900 bytes), with `DCON numerical agreement` reporting plasma **14.28**, vacuum **2.355**, total **16.63**, stable. The Windows section above says that build computes "the same energies it computes on Linux"; these are those energies, written down so the claim can be re-checked rather than taken. Not automated, for the same reason. |
+| CHEASE, macOS | Verified **manually** on Apple Silicon (Homebrew gfortran 16) against a pristine `0b2a7d2`: `install_chease.sh` with no flags of its own builds a correct binary, because the makefile's default `F90FLAGS` already carries `-ffree-line-length-none`. `check_chease.py` green throughout -- `q_rms_rel=0.0144`, `pressure_rms_rel=0.0655`, `current_rel_diff=0.0429`, the same numbers as the Linux row. |
+| DCON/GPEC, macOS | Verified **manually** on the same machine at `e68d7ac2`, after teaching `install_gpec.sh` to resolve netCDF-C separately: Homebrew keeps netcdf and netcdf-fortran in separate kegs, and `nf-config` names `-lnetcdf` while giving only netcdf-fortran's library directory, so the link failed with `ld: library 'netcdf' not found`. With that fixed, all six executables build and `check_gpec.py` is green through the handoff -- plasma **14.28**, vacuum **2.355**, total **16.63**, stable. |
+| GACODE (NEO, TGLF), Linux and macOS | Verified **manually** on both, `--codes neo,tglf`: Ubuntu 22.04.4 at `b49339750` and Apple Silicon at `6357db30`. NEO's `reg18` reproduces `0.12268957E+02` to every digit on both. On macOS TGLF was compiled from an emptied `tglf/src`, not found already built; GACODE ships no TGLF regression, so for TGLF what is verified is the build and VAFT's discovery of it, not a number. See [`install/gacode/README.md`](gacode/README.md). |
+| TES, TRANSP, TokaMaker | No installer by design -- TES and TRANSP are not open source, and TokaMaker is a pip package. See [Codes with no installer here](#codes-with-no-installer-here-and-why). |

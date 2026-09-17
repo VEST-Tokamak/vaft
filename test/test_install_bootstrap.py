@@ -25,12 +25,58 @@ ROOT = Path(__file__).resolve().parents[1]
 INSTALL = ROOT / "install"
 CHECKER = INSTALL / "check_vaft_environment.py"
 
-POSIX_SCRIPTS = ("linux.sh", "macos.sh", "windows_wsl.sh", "uninstall.sh", "_common.sh")
+POSIX_SCRIPTS = (
+    "linux.sh", "macos.sh", "windows_wsl.sh", "uninstall.sh", "_common.sh",
+    "install_chease.sh", "install_efit.sh", "install_gpec.sh",
+)
 PLATFORM_SCRIPTS = ("linux.sh", "macos.sh", "windows_wsl.sh", "windows_native.ps1")
 # Removal is identical on every POSIX platform, so it needs one entry point,
 # not one per platform.
 UNINSTALL_SCRIPTS = ("uninstall.sh", "uninstall_windows_native.ps1")
-POWERSHELL_SCRIPTS = ("windows_native.ps1", "uninstall_windows_native.ps1")
+# The external Fortran codes are their own entry points, deliberately separate
+# from the VAFT bootstrap: building them takes tens of minutes and needs a
+# compiler toolchain, neither of which belongs in the path a student runs first.
+EXTERNAL_CODE_WINDOWS_SCRIPTS = (
+    "install_chease_windows.ps1",
+    "install_efit_windows.ps1",
+    "install_gpec_windows.ps1",
+)
+#: Their POSIX counterparts. Each code has one script covering Linux and macOS,
+#: because the two differ by a compiler prefix rather than by a build model --
+#: which is why these carry no platform suffix and the PowerShell ones do.
+EXTERNAL_CODE_POSIX_SCRIPTS = (
+    "install_chease.sh",
+    "install_efit.sh",
+    "install_gpec.sh",
+)
+#: Rules that hold for an external-code installer whatever it is written in.
+EXTERNAL_CODE_SCRIPTS = (
+    *EXTERNAL_CODE_WINDOWS_SCRIPTS,
+    *EXTERNAL_CODE_POSIX_SCRIPTS,
+)
+EXTERNAL_CODE_CHECKERS = (
+    "check_chease.py",
+    "check_efit.py",
+    "check_gacode.py",
+    "check_gpec.py",
+    "check_nubeam.py",
+)
+POWERSHELL_SCRIPTS = (
+    "windows_native.ps1",
+    "uninstall_windows_native.ps1",
+    "_external_code_common.ps1",
+    *EXTERNAL_CODE_WINDOWS_SCRIPTS,
+)
+
+#: Commands that would obtain or move an external checkout for the operator.
+#: Issue #226 keeps source acquisition a separate, explicit act: provenance is
+#: something the operator states, not something a script infers.
+ACQUISITIVE = (
+    re.compile(r"git\s+clone"),
+    re.compile(r"git\s+pull"),
+    re.compile(r"git\s+fetch"),
+    re.compile(r"git\s+submodule"),
+)
 
 
 def _usable_bash() -> str | None:
@@ -97,25 +143,51 @@ checker = _load_checker()
 # ---------------------------------------------------------------------------
 
 
+#: The external Fortran codes that keep a directory of their own under
+#: `install/`, because a build recipe is more than one file: it carries its
+#: own README, reference cases and validation notes. This is not the axis
+#: #225's flatness rule is about -- that one forbids splitting the *bootstrap*
+#: by platform or by role, which is what a student would have to navigate.
+EXTERNAL_CODE_DIRECTORIES = ("gacode", "nubeam")
+
+
 def test_install_directory_is_flat_and_complete():
-    """Issue #225 requires a flat install/ with one entry point per platform."""
+    """Issue #225 requires a flat install/ with one entry point per platform.
+
+    Flat means no `install/linux/`, no `install/checkers/`: the bootstrap a
+    student runs first is one directory of scripts. A per-code build recipe is
+    a different axis and keeps its own directory, listed above.
+    """
     assert INSTALL.is_dir()
     expected = (
         *PLATFORM_SCRIPTS,
         *UNINSTALL_SCRIPTS,
+        *EXTERNAL_CODE_SCRIPTS,
+        *EXTERNAL_CODE_CHECKERS,
         "_common.sh",
+        "_external_code_common.ps1",
+        "_external_code_common.py",
         "README.md",
         "check_vaft_environment.py",
     )
     for name in expected:
         assert (INSTALL / name).is_file(), f"install/{name} is missing"
+    for code in EXTERNAL_CODE_DIRECTORIES:
+        assert (INSTALL / code).is_dir(), f"install/{code}/ is missing"
+        assert (INSTALL / code / "README.md").is_file(), (
+            f"install/{code}/ must say what it builds and how"
+        )
     subdirectories = [
         child.name
         for child in INSTALL.iterdir()
-        if child.is_dir() and child.name != "__pycache__"
+        if child.is_dir()
+        and child.name != "__pycache__"
+        and child.name not in EXTERNAL_CODE_DIRECTORIES
     ]
     assert not subdirectories, (
-        f"install/ must stay flat: no platform or checker subdirectories, found {subdirectories}"
+        "install/ must stay flat: no platform or checker subdirectories, found "
+        f"{subdirectories}. A new external code's recipe goes in "
+        "EXTERNAL_CODE_DIRECTORIES."
     )
 
 
@@ -767,7 +839,7 @@ def test_no_multiline_python_payload_crosses_conda_run():
     contain newlines not implemented`, so a multi-line `python -c` payload
     silently turns into a false FAIL. Pass a file path instead.
     """
-    for name in PLATFORM_SCRIPTS:
+    for name in (*PLATFORM_SCRIPTS, *EXTERNAL_CODE_SCRIPTS):
         text = _executable_source(INSTALL / name)
         for match in re.finditer(r"-c'?,?\s*(['\"])", text):
             quote = match.group(1)
@@ -1146,3 +1218,1143 @@ def test_uninstall_reverses_exactly_what_the_bootstrap_creates():
         ("ipykernel install", "kernelspec remove"),
     ):
         assert created in text and removed in text, f"{created} has no counterpart"
+
+
+# ---------------------------------------------------------------------------
+# External Fortran codes (issue #226)
+# ---------------------------------------------------------------------------
+
+
+EXTERNAL_SOURCES = (
+    *EXTERNAL_CODE_SCRIPTS,
+    *EXTERNAL_CODE_CHECKERS,
+    "_external_code_common.ps1",
+    "_external_code_common.py",
+)
+
+
+def _load_external_checker(name):
+    module_name = name.replace(".py", "")
+    spec = importlib.util.spec_from_file_location(module_name, INSTALL / name)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_external_code_tooling_never_obtains_or_moves_a_checkout():
+    """Which revision was built is a statement the operator makes.
+
+    Issue #226 keeps source acquisition separate from building so that
+    provenance, access and revision selection stay decisions a person takes.
+    A script that fetches or switches revisions on their behalf destroys that.
+    """
+    for name in EXTERNAL_SOURCES:
+        text = _executable_source(INSTALL / name)
+        for pattern in ACQUISITIVE:
+            assert not pattern.search(text), f"install/{name} runs `{pattern.pattern}`"
+
+
+def test_external_code_installers_never_guess_where_the_source_is():
+    for name in EXTERNAL_CODE_SCRIPTS:
+        text = _executable_source(INSTALL / name)
+        for guess in ("~/git", "$HOME/git", "USERPROFILE\\git"):
+            assert guess not in text, f"install/{name} guesses a source path: {guess}"
+
+
+def test_external_code_installers_require_an_explicit_source_path():
+    for name in EXTERNAL_CODE_WINDOWS_SCRIPTS:
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        assert "[Parameter(Position = 0)] [string] $SourcePath" in text, (
+            f"install/{name} must take the source path as its first argument"
+        )
+        assert "Assert-SourceCheckout" in text, (
+            f"install/{name} must validate the path it was given"
+        )
+
+
+def test_posix_external_installers_require_an_explicit_source_path():
+    """The POSIX twin of the rule above, in this platform's spelling.
+
+    A named `--source` rather than a positional argument, and a marker check
+    against the tree it names, so a mistyped path fails on the path instead of
+    part-way through a twenty-minute build.
+    """
+    for name in EXTERNAL_CODE_POSIX_SCRIPTS:
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        assert "--source" in text, f"install/{name} must take --source"
+        assert "--source is required" in text, (
+            f"install/{name} must refuse to guess when --source is missing"
+        )
+        assert "not a" in text and "source tree (missing" in text, (
+            f"install/{name} must validate the path it was given against markers"
+        )
+
+
+def test_toolchain_installation_is_opt_in():
+    """Installing a compiler system-wide is the operator's decision.
+
+    The bootstrap already treats Git, Conda and WSL2 as things it will not
+    install for you. A Fortran toolchain is no different.
+    """
+    for name in EXTERNAL_CODE_WINDOWS_SCRIPTS:
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        assert "[switch] $InstallToolchain" in text
+
+    shared = _executable_source(INSTALL / "_external_code_common.ps1")
+    for command in ("winget install", "pacman -S"):
+        assert command in shared, f"{command} belongs in the shared helper"
+    # Reachable only through the opt-in function.
+    body = shared[shared.index("function Install-Msys2Toolchain"):]
+    assert "winget install" in body
+    assert "pacman -S" in body
+    # And a machine without it is told both ways to fix that.
+    assert "Get-ToolchainGuidance" in shared
+    assert "-InstallToolchain" in shared
+
+
+def test_external_code_installs_outside_every_checkout():
+    """Nothing may land in the VAFT checkout.
+
+    The bootstrap CI cycle ends by requiring `git status` to come back empty,
+    so an artifact inside the repository would fail a job that has nothing to
+    do with these scripts.
+    """
+    shared = (INSTALL / "_external_code_common.ps1").read_text(encoding="utf-8")
+    assert "LOCALAPPDATA" in shared
+    assert "The install prefix must be outside" in shared
+    for name in EXTERNAL_CODE_WINDOWS_SCRIPTS:
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        assert "Resolve-InstallPrefix" in text, f"install/{name} must validate its prefix"
+
+
+def test_posix_external_installers_never_install_a_toolchain():
+    """A package install on Linux needs root, which no installer here takes.
+
+    These scripts name the package in the failure instead -- "apt install
+    gfortran" as advice inside a `die`, never as something they run. So the
+    assertion is about position, not about the words: a package manager may
+    appear inside a message, but never as the command a line executes.
+    `brew list` and `brew --prefix` are queries and stay allowed.
+    """
+    invocation = re.compile(r"^\s*(sudo|apt|apt-get|pacman|dnf|yum)\b|^\s*brew\s+install\b")
+    for name in EXTERNAL_CODE_POSIX_SCRIPTS:
+        for number, line in enumerate(_executable_source(INSTALL / name).splitlines(), 1):
+            assert not invocation.match(line), (
+                f"install/{name}:{number} runs a package manager rather than "
+                f"naming the package: {line.strip()}"
+            )
+
+
+def test_the_vaft_bootstrap_never_builds_fortran():
+    """Bootstrap CI runs windows_native.ps1 three times on a hosted runner.
+
+    A Fortran build wired into that path would add tens of minutes and need a
+    toolchain the runner does not have, so the external codes stay separate
+    entry points that CI never invokes.
+    """
+    for name in ("windows_native.ps1", "_common.sh", "uninstall_windows_native.ps1"):
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        for external in EXTERNAL_CODE_SCRIPTS:
+            assert external not in text, f"install/{name} references {external}"
+
+
+def test_gpec_build_never_requires_x11():
+    """Issue #226 excludes xdraw: the Windows target is the CLI workflow."""
+    text = _executable_source(INSTALL / "install_gpec_windows.ps1")
+    assert "mkbin" in text, "build the executables target rather than everything"
+    assert "xdraw" not in text
+    assert "make all" not in text
+
+
+def test_gpec_build_sets_every_variable_the_upstream_makefile_reads():
+    """Each of these has its own opaque failure when it is left out.
+
+    An unset CC means GNU make's built-in `cc` reaches a compiler test that
+    rejects it. The argument-mismatch flag is mandatory on modern gfortran. The
+    library homes are what stop the makefile building its own dependencies from
+    submodules inside the operator's tree. And a stray MKLROOT from an
+    unrelated toolkit silently changes which math library gets linked.
+    """
+    text = _executable_source(INSTALL / "install_gpec_windows.ps1")
+    for required in (
+        "FC=gfortran",
+        "CC=gcc",
+        "OPENBLASHOME",
+        "NETCDF_FORTRAN_HOME",
+        "-fallow-argument-mismatch",
+        "RECURSFLAG=-frecursive",
+    ):
+        assert required in text, f"install_gpec_windows.ps1 does not set {required}"
+    assert "unset MKLROOT" in text
+    for leaked in ("LAPACKHOME", "NETCDFHOME"):
+        assert leaked in text, f"{leaked} should be cleared before the build"
+
+
+def test_gpec_build_refuses_to_let_make_fetch_its_own_dependencies():
+    """The submodule path would modify the operator's checkout."""
+    text = _executable_source(INSTALL / "install_gpec_windows.ps1")
+    assert "make v" in text
+    assert "Compiling supporting modules" in text
+
+
+def test_gpec_build_is_serial_and_records_why():
+    """OpenMP cannot be used, and a reader must not have to rediscover that.
+
+    gfortran expresses `!$OMP THREADPRIVATE` on a COMMON block with an
+    assembler directive the PE object format has no equivalent for, so an
+    OpenMP build of LSODE and ZVODE cannot assemble at all.
+    """
+    text = (INSTALL / "install_gpec_windows.ps1").read_text(encoding="utf-8")
+    assert "OMPFLAG=" in text
+    assert "threadprivate" in text.lower()
+
+
+def test_chease_build_pins_the_machine_and_the_compiler():
+    """CHEASE_MACHINE is not cosmetic.
+
+    Only that branch of the upstream flags file sets the double-precision
+    options, so the default machine builds a numerically different code that
+    still compiles cleanly.
+    """
+    text = (INSTALL / "install_chease_windows.ps1").read_text(encoding="utf-8")
+    assert "CHEASE_F90=gfortran" in text
+    assert "CHEASE_MACHINE=linux_nohdf5" in text
+    assert "precision" in text
+
+
+def test_chease_linux_build_pins_the_machine_and_the_compiler():
+    """The same rule, on the platform whose name that machine branch carries.
+
+    `src-f90/Makefile.define_FLAGS` matches linux_nohdf5 in one branch and that
+    branch is the only one setting -fdefault-real-8 -fdefault-double-8. The
+    default from Makefile.define_MACHINE is `none`, which compiles in single
+    precision without complaining.
+    """
+    text = (INSTALL / "install_chease.sh").read_text(encoding="utf-8")
+    assert "CHEASE_F90=gfortran" in text
+    assert "linux_nohdf5" in text
+    assert "precision" in text
+    # The goal must be exactly `chease`; `all` pulls in libxml2.
+    assert "make -j\"$JOBS\" chease" in text
+    assert "make all" not in _executable_source(INSTALL / "install_chease.sh")
+
+
+def test_gpec_linux_build_sets_every_variable_the_upstream_makefile_reads():
+    """DEFAULTS.inc resolves the toolchain from the environment, not from flags.
+
+    Anything left unset is inferred, and on a machine with more than one
+    toolchain installed the inference is what goes wrong.
+    """
+    text = _executable_source(INSTALL / "install_gpec.sh")
+    for variable in (
+        "FC=gfortran",
+        "CC=gcc",
+        "LAPACKHOME=",
+        "NETCDF_FORTRAN_HOME=",
+        "NETCDFINC=",
+        "-fallow-argument-mismatch",
+        "RECURSFLAG=-frecursive",
+    ):
+        assert variable in text, f"install/install_gpec.sh must set {variable}"
+    assert "unset MKLROOT" in text, "a stray MKLROOT silently changes the math library"
+
+
+def test_gpec_linux_build_uses_openmp_and_says_why_windows_cannot():
+    """The deliberate inverse of test_gpec_build_is_serial_and_records_why.
+
+    The Windows build disables OpenMP because LSODE and ZVODE mark a COMMON
+    block threadprivate, which gfortran cannot express in PE object format. ELF
+    has no such limit. This test exists so that nobody "harmonises" the two
+    scripts and makes the Linux build serial for a reason that is not about it.
+    """
+    text = (INSTALL / "install_gpec.sh").read_text(encoding="utf-8")
+    assert "OMPFLAG=-fopenmp" in text
+    # Matched loosely: LDFLAGS also carries the -rpath that pins netCDF, so the
+    # assertion is that OpenMP reaches the link, not that it is the only flag.
+    ldflags = [l for l in text.splitlines() if "LDFLAGS=" in l]
+    assert ldflags and any("-fopenmp" in l for l in ldflags), (
+        "OpenMP must reach the link step, not only the compile step"
+    )
+    assert "threadprivate" in text, "the header must explain why Windows differs"
+
+
+def test_gpec_linux_build_never_requires_x11():
+    """xdraw is a viewer no VAFT workflow uses; building it would need libX11."""
+    text = _executable_source(INSTALL / "install_gpec.sh")
+    assert "xdraw" not in text
+    assert "make all" not in text
+
+
+def test_gpec_linux_build_refuses_to_let_make_fetch_its_own_dependencies():
+    """A non-empty NEEDED_DEPS means upstream is about to build inside the checkout.
+
+    `make v` reports it without building anything, so the refusal costs nothing
+    and lands before the twenty minutes rather than after.
+    """
+    text = _executable_source(INSTALL / "install_gpec.sh")
+    assert "make v" in text
+    assert "NEEDED_DEPS" in text
+
+
+def test_gpec_linux_verifies_its_binaries_are_not_empty():
+    """Upstream's rules judge themselves by a `cp`.
+
+    A failed link can leave a zero-length file that make then treats as up to
+    date, so make's exit status is not the evidence -- the file size is.
+    """
+    text = _executable_source(INSTALL / "install_gpec.sh")
+    assert 'rm -f "$SOURCE/bin/$program"' in text, "clear the targets before building"
+    assert '[[ -s "$SOURCE/bin/$program" ]]' in text, "assert on size, not on make"
+
+
+def test_posix_external_installers_resolve_netcdf_by_compiler_not_by_path():
+    """`nf-config` first on PATH is not necessarily the right netCDF-Fortran.
+
+    A netCDF-Fortran built with ifort ships ifort .mod files; linking them into
+    a gfortran build fails with errors that never mention a compiler. nf-config
+    reports its own --fc, so the right library is identifiable rather than
+    guessable -- and on the VAFT reference server the wrong one is first.
+    """
+    text = _executable_source(INSTALL / "install_gpec.sh")
+    assert "--fc" in text, "pick the netCDF-Fortran by the compiler it was built with"
+    assert "gfortran*" in text or "gfortran" in text
+
+
+def test_chease_installer_explains_the_symbolic_link_placeholders():
+    """That failure happens at acquisition time, and no compiler flag fixes it."""
+    text = (INSTALL / "install_chease_windows.ps1").read_text(encoding="utf-8")
+    assert "[switch] $MaterializeSymlinks" in text
+    assert "symbolic link" in text.lower()
+
+
+def test_external_code_checkers_share_the_vaft_vocabulary():
+    """One vocabulary, imported -- not a second one that can drift from it."""
+    base = _load_checker()
+    for name in (*EXTERNAL_CODE_CHECKERS, "_external_code_common.py"):
+        source = (INSTALL / name).read_text(encoding="utf-8")
+        assert "class CheckResult" not in source, f"install/{name} redefines CheckResult"
+        for status in ("PASS", "FAIL", "SKIP", "WARN"):
+            assert f'{status} = "' not in source, f"install/{name} redefines {status}"
+    for name in EXTERNAL_CODE_CHECKERS:
+        module = _load_external_checker(name)
+        assert module.CheckResult._fields == base.CheckResult._fields
+        for status in ("PASS", "FAIL", "SKIP", "WARN"):
+            assert getattr(module, status) == getattr(base, status)
+
+
+def test_external_code_checkers_report_every_layer():
+    """Issue #226 asks each layer to answer for itself, not just the binary."""
+    expected = {
+        "check_chease.py": ("toolchain", "source", "build record", "executables", "discovery", "run"),
+        # EFIT installs two roles from one build, so both are checked; the
+        # smoke layer runs EFUND rather than the reconstruction code, because
+        # a table is what a reconstruction needs before it can run at all.
+        "check_efit.py": (
+            "toolchain", "source", "build record", "executables", "discovery",
+            "capabilities", "starts", "smoke",
+        ),
+        # GACODE has no build-record layer: it builds in place and leaves no
+        # manifest to read. It has three the others do not -- the platform tag
+        # that selects the run-time exec script, the input parser the launcher
+        # shells out to, and a deliberate WARN saying which NEO results reach an
+        # IDS and which stay native.
+        "check_gacode.py": (
+            "toolchain", "source", "executables", "platform",
+            "input parser", "discovery", "regression", "imas mapping",
+        ),
+        "check_gpec.py": ("toolchain", "source", "build record", "executables", "discovery", "handoff"),
+        # NUBEAM has no smoke run without a case, and two layers the others do
+        # not: the reaction databases it aborts without, and the fixed-width
+        # filename buffer a deep working directory overruns.
+        "check_nubeam.py": (
+            "toolchain", "source", "build record", "executables", "discovery",
+            "reaction databases", "path budget",
+        ),
+    }
+    for name, layers in expected.items():
+        module = _load_external_checker(name)
+        results = module.run_checks(source=None, prefix=None, skip_smoke=True)
+        reported = " ".join(result.name for result in results).lower()
+        for layer in layers:
+            assert layer in reported, f"{name} does not report a {layer} layer"
+
+
+def test_external_code_checkers_name_the_layer_not_the_linker(tmp_path):
+    """A page of compiler output tells the reader nothing they can act on."""
+    for name in EXTERNAL_CODE_CHECKERS:
+        module = _load_external_checker(name)
+        results = module.run_checks(source=None, prefix=str(tmp_path), skip_smoke=True)
+        for result in results:
+            if result.status == module.FAIL:
+                assert result.remediation, f"{name}: {result.name} fails with no remediation"
+            for noise in ("Traceback", "undefined reference", "collect2"):
+                assert noise not in result.detail, f"{name}: {result.name} leaks {noise}"
+
+
+def test_external_code_checkers_have_a_usable_command_line():
+    for name in EXTERNAL_CODE_CHECKERS:
+        completed = subprocess.run(
+            [sys.executable, str(INSTALL / name), "--help"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+        )
+        assert completed.returncode == 0, completed.stderr
+        assert "--source" in completed.stdout
+        assert "--prefix" in completed.stdout
+
+
+def test_readme_documents_the_external_code_path():
+    text = (INSTALL / "README.md").read_text(encoding="utf-8")
+    for fragment in (
+        "install_chease_windows.ps1",
+        "install_gpec_windows.ps1",
+        "install_chease.sh",
+        "install_gpec.sh",
+        "check_chease.py",
+        "check_gpec.py",
+        "-InstallToolchain",
+        "MSYS2",
+        # The POSIX path needs its packages named, because the scripts refuse to
+        # install them and a reader who hits that failure needs the line here.
+        "libnetcdff-dev",
+    ):
+        assert fragment in text, f"install/README.md does not mention {fragment}"
+
+
+def test_readme_routes_every_platform_for_every_external_code():
+    """The decision tree used to send Linux and macOS readers to PowerShell.
+
+    Each external code needs a POSIX branch and a Windows branch, in the tree
+    itself -- naming the POSIX script five hundred lines further down is not
+    routing.
+    """
+    text = (INSTALL / "README.md").read_text(encoding="utf-8")
+    tree = text[text.index("Need CHEASE?"):]
+    tree = tree[: tree.index("```")]
+    for script in ("install_chease.sh", "install_gpec.sh", "install_efit.sh"):
+        assert script in tree, f"the decision tree does not route to {script}"
+    assert tree.count("Linux/macOS") >= 3
+
+
+# ---------------------------------------------------------------------------
+# install/nubeam: the Windows NUBEAM recipe
+#
+# NUBEAM's entry point lives in install/nubeam/ rather than install/, beside
+# the macOS recipe it mirrors, because the two share the reference cases and
+# the validation scripts. The rules issue #226 sets for install/ apply to it
+# all the same, so they are asserted here rather than assumed.
+# ---------------------------------------------------------------------------
+
+NUBEAM_DIR = ROOT / "install" / "nubeam"
+NUBEAM_SCRIPTS = ("windows.ps1", "windows.sh")
+#: Every POSIX recipe and the remover they share.
+NUBEAM_POSIX_SCRIPTS = ("linux.sh", "macos.sh", "uninstall.sh")
+
+
+def test_nubeam_windows_recipe_is_present_beside_the_macos_one():
+    for name in (*NUBEAM_SCRIPTS, "macos.sh"):
+        assert (NUBEAM_DIR / name).is_file(), f"install/nubeam/{name} is missing"
+
+
+def test_nubeam_windows_recipe_never_obtains_or_moves_the_source():
+    """The NUBEAM tree is the operator's, and its revision is their statement.
+
+    The recipe does download the three NTCC dependency modules, which is a
+    different act: those are versionless tarballs from PPPL, gated on an
+    explicit acceptance flag, and they land in a vendor directory rather than
+    over anything the operator holds.
+    """
+    for name in NUBEAM_SCRIPTS:
+        text = _executable_source(NUBEAM_DIR / name)
+        for pattern in ACQUISITIVE:
+            assert not pattern.search(text), f"install/nubeam/{name} runs `{pattern.pattern}`"
+
+
+def test_nubeam_windows_recipe_never_guesses_where_the_source_is():
+    for name in NUBEAM_SCRIPTS:
+        text = _executable_source(NUBEAM_DIR / name)
+        for guess in ("~/git", "$HOME/git", "USERPROFILE\\git"):
+            assert guess not in text, f"install/nubeam/{name} guesses a source path: {guess}"
+
+
+def test_nubeam_windows_wrapper_requires_an_explicit_source_path():
+    text = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    assert "[Parameter(Position = 0)] [string] $SourcePath" in text
+    assert "Assert-SourceCheckout" in text
+    assert "[switch] $InstallToolchain" in text
+
+
+def test_nubeam_downloads_are_gated_on_explicit_acceptance():
+    """NTCC requires each user to accept its licence before downloading.
+
+    Both halves have to enforce it: the wrapper so the refusal is legible
+    before an hour of compilation, and the recipe so running it directly is
+    not a way around the wrapper.
+    """
+    wrapper = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    assert "[switch] $AcceptNtccTerms" in wrapper
+    assert "downloads.shtml" in wrapper
+
+    recipe = (NUBEAM_DIR / "windows.sh").read_text(encoding="utf-8")
+    assert "--accept-ntcc-terms" in recipe
+    assert "ACCEPT_NTCC_TERMS" in recipe
+    # The flag has to be checked before the first download, not after it.
+    gate = recipe.index("((ACCEPT_NTCC_TERMS))")
+    assert gate < recipe.index("download_ntcc_module()")
+
+
+def test_nubeam_generates_only_inside_the_source_tree():
+    """Everything generated stays where macos.sh puts it.
+
+    The prefix follows from the source path rather than being a separate
+    choice, so the two platforms cannot disagree about it, and -Uninstall has
+    an exact list to remove.
+    """
+    recipe = (NUBEAM_DIR / "windows.sh").read_text(encoding="utf-8")
+    assert 'PREFIX="$ROOT_DIR/local"' in recipe
+    assert "refusing path outside source tree" in recipe
+
+    wrapper = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    assert "Get-NubeamPrefix" in wrapper
+    assert "[switch] $Uninstall" in wrapper
+
+
+def test_the_vaft_bootstrap_never_builds_nubeam():
+    for name in ("windows_native.ps1", "_common.sh", "uninstall_windows_native.ps1"):
+        text = (INSTALL / name).read_text(encoding="utf-8")
+        assert "nubeam" not in text.lower(), f"install/{name} references NUBEAM"
+
+
+def test_nubeam_windows_recipe_is_valid_shell():
+    bash = _usable_bash()
+    if bash is None:
+        pytest.skip("no usable POSIX bash on this machine")
+    completed = subprocess.run(
+        [bash, "-n", str(NUBEAM_DIR / "windows.sh")],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_nubeam_readme_documents_the_windows_path():
+    text = (NUBEAM_DIR / "README.md").read_text(encoding="utf-8")
+    for fragment in ("windows.ps1", "windows.sh", "-AcceptNtccTerms"):
+        assert fragment in text, f"install/nubeam/README.md does not mention {fragment}"
+
+
+# ---------------------------------------------------------------------------
+# install/gacode: the per-platform GACODE recipes
+#
+# GACODE is the one external code that builds in place, so it has no prefix and
+# no manifest to assert against. What it does have is a platform tag that
+# selects both a build file and an exec file, and a build order the per-code
+# makefiles depend on -- and both fail as something else when they are wrong.
+# ---------------------------------------------------------------------------
+
+GACODE_DIR = ROOT / "install" / "gacode"
+GACODE_RECIPES = ("linux.sh", "macos.sh")
+
+
+def test_gacode_has_a_recipe_for_every_supported_platform():
+    for name in GACODE_RECIPES:
+        assert (GACODE_DIR / name).is_file(), f"install/gacode/{name} is missing"
+
+
+@pytest.mark.parametrize("name", GACODE_RECIPES)
+def test_gacode_recipe_is_valid_shell(name):
+    bash = _usable_bash()
+    if bash is None:
+        pytest.skip("no usable POSIX bash on this machine")
+    completed = subprocess.run(
+        [bash, "-n", str(GACODE_DIR / name)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
+@pytest.mark.parametrize("name", GACODE_RECIPES)
+def test_gacode_recipe_never_obtains_or_moves_the_source(name):
+    """The tree is the operator's, and its revision is their statement."""
+    text = _executable_source(GACODE_DIR / name)
+    for pattern in (*ACQUISITIVE, *DESTRUCTIVE):
+        assert not pattern.search(text), (
+            f"install/gacode/{name} runs `{pattern.pattern}`"
+        )
+
+
+@pytest.mark.parametrize("name", GACODE_RECIPES)
+def test_gacode_recipe_never_guesses_where_the_source_is(name):
+    text = _executable_source(GACODE_DIR / name)
+    for guess in ("~/git", "$HOME/git", "USERPROFILE\\git"):
+        assert guess not in text, f"install/gacode/{name} guesses a source path: {guess}"
+
+
+def test_gacode_linux_recipe_requires_both_halves_of_the_platform_tag():
+    """$GACODE_PLATFORM selects a build file *and* an exec file.
+
+    A tag with only the build half compiles and then fails at run time inside
+    platform/exec/exec.$GACODE_PLATFORM, which never names the variable that is
+    wrong. Checking both at build time is what turns that into a sentence.
+    """
+    text = _executable_source(GACODE_DIR / "linux.sh")
+    assert "platform/build/make.inc." in text
+    assert "platform/exec/exec." in text
+    assert "Available platforms:" in text, "list the tags when the chosen one is absent"
+
+
+def test_gacode_linux_recipe_asserts_on_the_compiled_binary_not_the_launcher():
+    """`<code>/bin/<code>` is a committed shell script, not a build product.
+
+    It exists in a fresh clone, so asserting on it would pass for a build that
+    compiled nothing. The ELF lands at `<code>/src/<code>`.
+    """
+    text = _executable_source(GACODE_DIR / "linux.sh")
+    assert '/src/$code' in text, "assert on the compiled binary"
+    assert '/bin/$code' in text, "and confirm the launcher VAFT resolves is there"
+
+
+def test_gacode_linux_recipe_installs_nothing():
+    """An apt install needs root; macos.sh may `brew install`, this may not."""
+    invocation = re.compile(r"^\s*(sudo|apt|apt-get|pacman|dnf|yum)\b")
+    for number, line in enumerate(
+        _executable_source(GACODE_DIR / "linux.sh").splitlines(), 1
+    ):
+        assert not invocation.match(line), (
+            f"install/gacode/linux.sh:{number} installs packages: {line.strip()}"
+        )
+
+
+def test_gacode_linux_recipe_builds_the_shared_libraries_first():
+    """The per-code makefiles link shared/*/*.a and f2py/*/*.a as EXTRA_LIBS."""
+    text = _executable_source(GACODE_DIR / "linux.sh")
+    shared = text.index('make -C "$GACODE_ROOT/shared"')
+    f2py = text.index('make -C "$GACODE_ROOT/f2py"')
+    per_code = text.index('make -C "$GACODE_ROOT/$code"')
+    assert shared < f2py < per_code, "build order is load-bearing, not incidental"
+
+
+def test_gacode_readme_documents_both_platforms():
+    text = (GACODE_DIR / "README.md").read_text(encoding="utf-8")
+    for fragment in ("linux.sh", "macos.sh", "TUMBLEWEED", "GACODE_PLATFORM"):
+        assert fragment in text, f"install/gacode/README.md does not mention {fragment}"
+
+
+def test_nubeam_uninstall_script_exists():
+    """The POSIX recipes name it in three places, so it has to be there.
+
+    install/nubeam/macos.sh points at `./uninstall.sh` in its usage text, in the
+    header it writes into every generated Make.local, and in the error raised
+    when it is re-run over an existing installation -- which is the moment an
+    operator most needs it to exist.
+    """
+    assert (NUBEAM_DIR / "uninstall.sh").is_file(), (
+        "install/nubeam/macos.sh tells the operator to run ./uninstall.sh"
+    )
+
+
+def test_nubeam_uninstall_is_driven_by_the_manifest():
+    """What to remove is recorded by the installer, not listed in the remover.
+
+    A hand-kept list in the uninstaller drifts from what the installer actually
+    generated; the manifest cannot, because it is written before anything is.
+    """
+    text = _executable_source(NUBEAM_DIR / "uninstall.sh")
+    assert ".nubeam-install-manifest" in text
+    assert "managed_dir" in text
+    assert "generated_config" in text
+
+
+def test_nubeam_uninstall_never_reaches_outside_the_source_tree():
+    """The installer generates only inside the tree, so nothing else is ours."""
+    text = _executable_source(NUBEAM_DIR / "uninstall.sh")
+    assert "refusing path outside source tree" in text
+    assert "is_child_of_root" in text
+
+
+def test_nubeam_uninstall_leaves_a_config_the_operator_has_changed():
+    """A generated file stops being the installer's the moment it is edited."""
+    text = _executable_source(NUBEAM_DIR / "uninstall.sh")
+    assert "Generated by (VAFT (install|external)/nubeam" in text, (
+        "recognise the marker, including the pre-move spelling"
+    )
+
+
+def test_nubeam_uninstall_never_touches_the_source_itself():
+    text = _executable_source(NUBEAM_DIR / "uninstall.sh")
+    for pattern in (*ACQUISITIVE, *DESTRUCTIVE):
+        assert not pattern.search(text), (
+            f"install/nubeam/uninstall.sh runs `{pattern.pattern}`"
+        )
+
+
+def test_nubeam_uninstall_is_valid_shell():
+    bash = _usable_bash()
+    if bash is None:
+        pytest.skip("no usable POSIX bash on this machine")
+    completed = subprocess.run(
+        [bash, "-n", str(NUBEAM_DIR / "uninstall.sh")],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
+@pytest.mark.parametrize("name", NUBEAM_POSIX_SCRIPTS)
+def test_nubeam_posix_recipe_is_valid_shell(name):
+    bash = _usable_bash()
+    if bash is None:
+        pytest.skip("no usable POSIX bash on this machine")
+    completed = subprocess.run(
+        [bash, "-n", str(NUBEAM_DIR / name)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
+@pytest.mark.parametrize("name", NUBEAM_POSIX_SCRIPTS)
+def test_nubeam_posix_recipe_never_obtains_or_moves_the_source(name):
+    text = _executable_source(NUBEAM_DIR / name)
+    for pattern in (*ACQUISITIVE, *DESTRUCTIVE):
+        assert not pattern.search(text), (
+            f"install/nubeam/{name} runs `{pattern.pattern}`"
+        )
+
+
+@pytest.mark.parametrize("name", NUBEAM_POSIX_SCRIPTS)
+def test_nubeam_posix_recipe_never_guesses_where_the_source_is(name):
+    text = _executable_source(NUBEAM_DIR / name)
+    for guess in ("~/git", "$HOME/git", "USERPROFILE\\git"):
+        assert guess not in text, f"install/nubeam/{name} guesses a source path: {guess}"
+
+
+def test_nubeam_linux_downloads_are_gated_on_explicit_acceptance():
+    """NTCC requires each user to accept its licence before downloading."""
+    text = _executable_source(NUBEAM_DIR / "linux.sh")
+    assert "ACCEPT_NTCC_TERMS" in text
+    download = text[text.index("download_ntcc_module() {"):]
+    download = download[: download.index("\n}")]
+    assert "((ACCEPT_NTCC_TERMS))" in download, "the gate must precede the fetch"
+    assert download.index("((ACCEPT_NTCC_TERMS))") < download.index("curl"), (
+        "the licence gate must come before the first download"
+    )
+
+
+def test_nubeam_linux_generates_only_inside_the_source_tree():
+    text = _executable_source(NUBEAM_DIR / "linux.sh")
+    assert 'PREFIX="$ROOT_DIR/local"' in text
+    assert "refusing path outside source tree" in text
+
+
+def test_nubeam_linux_delivers_legacy_flags_through_the_compiler():
+    """FFLAGS cannot carry them, and neither can an override.
+
+    The 2021 sources need -std=legacy. A plain `FFLAGS =` in Make.local is
+    discarded, because Make.local is read before Make.flags' MKGCC block, which
+    assigns FFLAGS itself (Make.flags:333) -- macOS never sees this, since MKGCC
+    is Linux-gated, which is why macos.sh can assign plainly.
+
+    An `override` is worse than useless: upstream's convention is that FFLAGS
+    ends with `-o`, appended per submodule, and `MFFLAGS = $(FFLAGS)`
+    (Make.flags:658) is consumed as `$(FC90) $(MFFLAGS) $@ $<`. Freezing FFLAGS
+    stops that append, and gfortran is handed an object path with no -o before
+    it -- which fails as "linker input file not found", naming neither FFLAGS
+    nor the missing flag.
+
+    So the switches ride on FC instead, which Make.local may set because MKGCC
+    only fills FC when its origin is "default".
+    """
+    text = (NUBEAM_DIR / "linux.sh").read_text(encoding="utf-8")
+    assert "override FFLAGS" not in text, (
+        "an override freezes FFLAGS and suppresses the per-submodule -o append"
+    )
+    assert "FC_WRAPPER" in text, "the legacy switches travel with the compiler"
+    assert "-std=legacy" in text
+    assert "-fallow-argument-mismatch" in text
+    # The wrapper is only reached if Make.local actually points FC at it.
+    generated = text[text.index("write_make_local() {"):]
+    generated = generated[: generated.index("\n}")]
+    assert "FC = $FC_WRAPPER" in generated
+    assert "FC90 = $FC_WRAPPER" in generated
+
+
+def test_nubeam_linux_does_not_carry_the_macos_only_workarounds():
+    """Most of macos.sh's Make.local defeats branches upstream gates on Linux.
+
+    Setting them here would shadow the values Make.flags derives correctly, so
+    their absence is deliberate rather than an omission.
+    """
+    generated = (NUBEAM_DIR / "linux.sh").read_text(encoding="utf-8")
+    generated = generated[generated.index("write_make_local() {"):]
+    generated = generated[: generated.index("\n}")]
+    for macos_only in ("-D__OSX", "MACHINE = DARWIN", "USEFC = Y", "FORTLIBS ="):
+        assert macos_only not in generated, (
+            f"install/nubeam/linux.sh writes the macOS-only setting {macos_only}"
+        )
+
+
+def test_nubeam_linux_checks_pspline_symbols_with_elf_spelling():
+    """Mach-O prefixes global symbols with an underscore; ELF does not.
+
+    Carried over unchanged, the macOS pattern matches nothing here -- so a
+    truncated libpspline.a would pass the very check that exists to catch it.
+    """
+    text = _executable_source(NUBEAM_DIR / "linux.sh")
+    assert ' T $symbol\\$' in text, "match ELF symbols, not Mach-O ones"
+    assert ' T _$symbol' not in text
+
+
+def test_nubeam_validation_runs_its_comparison_rather_than_skipping_it():
+    """The comparison is the point of the script, not an optional extra.
+
+    It used to be guarded on `[[ -x compare-plasma-state.py ]]`, and that file
+    is committed 100644 -- so on every fresh checkout, on every platform, the
+    guard was false, the profile comparison was skipped, and the run still
+    reported success. Test for the file and invoke the interpreter, so the
+    check does not depend on a mode git records but Windows checkouts drop.
+    """
+    text = _executable_source(NUBEAM_DIR / "run-local-validation.sh")
+    assert '-x "$SCRIPT_DIR/compare-plasma-state.py"' not in text, (
+        "the execute bit is not a usable guard for a committed 100644 script"
+    )
+    assert '-f "$SCRIPT_DIR/compare-plasma-state.py"' in text
+    assert "compare-plasma-state.py is missing" in text, (
+        "a validation run that cannot compare must fail, not report success"
+    )
+
+
+def test_nubeam_helper_scripts_derive_their_build_directory():
+    """The installers write build/darwin-* or build/linux-*, one per platform.
+
+    run-local-validation.sh hardcoded the macOS path, so on Linux it worked in
+    a darwin-arm64 directory that no build had ever written to.
+    """
+    for name in ("run-local-validation.sh", "run-local-vest.sh"):
+        text = _executable_source(NUBEAM_DIR / name)
+        assert "build/darwin-arm64" not in text, (
+            f"install/nubeam/{name} hardcodes the macOS build directory"
+        )
+
+
+def test_nubeam_validation_records_both_platforms():
+    text = (NUBEAM_DIR / "VALIDATION.md").read_text(encoding="utf-8")
+    for fragment in ("Linux", "noise", "pcx_reco"):
+        assert fragment in text, f"VALIDATION.md does not mention {fragment}"
+
+
+# ---------------------------------------------------------------------------
+# Three defects the Linux work surfaced, each of which made a checker or an
+# installer disagree with the code it exists to serve.
+# ---------------------------------------------------------------------------
+
+
+def test_posix_installers_pick_netcdf_by_compiler_not_by_path_order():
+    """`nf-config` first on PATH need not be the right netCDF-Fortran.
+
+    One built with ifort ships ifort .mod files; linking them into a gfortran
+    build fails with errors that never mention a compiler. nf-config reports
+    its own --fc, so the right library is identifiable rather than guessable --
+    and on the VAFT reference server the wrong one is first on PATH.
+    """
+    for name in ("install_efit.sh", "install_gpec.sh"):
+        text = _executable_source(INSTALL / name)
+        assert "--fc" in text, f"install/{name} must ask nf-config which compiler built it"
+        assert "nf-config --prefix" not in text.replace('"$candidate" --prefix', ""), (
+            f"install/{name} still takes the first nf-config on PATH"
+        )
+
+
+def test_default_prefix_answers_on_posix_too(monkeypatch):
+    """Returning None off Windows is what recommended PowerShell to Linux users.
+
+    The POSIX installers put the prefix inside the source tree, which is
+    unguessable without --source and derivable with it.
+
+    `default_prefix` chooses by whether `LOCALAPPDATA` is set, not by the
+    operating system, so this controls that variable rather than asking which
+    platform it runs on. Both branches are then checked on every runner. It
+    used to read the real environment, which on Windows took the per-user
+    branch and failed every assertion written for the other one.
+    """
+    module = _load_external_checker("_external_code_common.py")
+
+    monkeypatch.delenv("LOCALAPPDATA", raising=False)
+    assert module.default_prefix("chease", "/tmp/chease").as_posix().endswith(
+        "/chease/vaft-install"
+    )
+    # Two codes place it differently, and both say so in their own recipes.
+    assert module.default_prefix("nubeam", "/tmp/nubeam").as_posix().endswith("/nubeam/local")
+    assert module.default_prefix("gacode", "/tmp/gacode").as_posix().endswith("/gacode")
+    # Without a source there is still nothing to derive from.
+    assert module.default_prefix("chease") is None
+
+    # And the per-user branch answers from the code name alone, source or not.
+    monkeypatch.setenv("LOCALAPPDATA", str(Path("/per-user")))
+    expected = (Path("/per-user") / "vaft" / "external" / "chease").as_posix()
+    assert module.default_prefix("chease").as_posix() == expected
+    assert module.default_prefix("chease", "/tmp/chease").as_posix() == expected
+
+
+@pytest.mark.parametrize("name", EXTERNAL_CODE_CHECKERS)
+def test_checkers_never_recommend_powershell_on_posix(name):
+    """A Linux operator told to launch PowerShell has been given a dead end."""
+    if os.name == "nt":
+        pytest.skip("the PowerShell remediation is correct on Windows")
+    source = (INSTALL / name).read_text(encoding="utf-8")
+    if "powershell" not in source.lower():
+        return
+    assert 'os.name == "nt"' in source or "sys.platform" in source, (
+        f"install/{name} names a PowerShell script without asking what platform it is on"
+    )
+
+
+def test_efit_checker_resolves_the_layouts_the_runtime_resolves():
+    """$EFITHOME may point at an installed prefix or at a CMake build tree.
+
+    vaft/code/efit/toolchain.py tries both under one root. The checker tried
+    only the first, so a working build-tree $EFITHOME failed the executables
+    layer on the same run whose VAFT-discovery layer found it.
+    """
+    text = (INSTALL / "check_efit.py").read_text(encoding="utf-8")
+    body = text[text.index("def _executables("):]
+    body = body[: body.index("\ndef ")]
+    assert "BUILD_TREE_LAYOUT" in body and "INSTALLED_LAYOUT" in body, (
+        "the prefix branch must try both layouts, as toolchain.py does"
+    )
+
+
+# ---------------------------------------------------------------------------
+# What the cold review turned up in the change above.
+# ---------------------------------------------------------------------------
+
+
+def test_nubeam_manifest_records_its_own_root():
+    """Inferring the root from the entries is wrong when they share a subtree.
+
+    The longest common prefix of `<root>/local/bin` and `<root>/local/lib` is
+    `<root>/local`, one level too deep. Rebasing a relocated manifest against
+    that maps recorded paths onto *different* real paths still inside the tree,
+    where the outside-the-tree refusal cannot see them -- removing `<root>/bin`
+    because the manifest said `<old>/local/bin`.
+    """
+    installer = _executable_source(NUBEAM_DIR / "linux.sh")
+    assert "printf 'root\\t%s\\n'" in installer, "the installer must record the root"
+
+    # Raw text, not _executable_source: the comment stripper cuts at the first
+    # `#`, and the guard below is written with ${var##*/}.
+    remover = (NUBEAM_DIR / "uninstall.sh").read_text(encoding="utf-8")
+    assert '$1 == "root"' in remover, "the remover must prefer the recorded root"
+    # And when there is none, the fallback is constrained rather than trusted.
+    assert '"${common##*/}" == "${ROOT_DIR##*/}"' in remover, (
+        "a guessed root must at least name the same tree"
+    )
+
+
+def test_nubeam_linux_does_not_derive_a_library_dir_from_a_bare_find():
+    """`find` exits 0 and prints nothing when nothing matches.
+
+    `dirname "$(find ... || echo /usr/lib)"` therefore yields "." rather than
+    the fallback, and the link line silently becomes `-L.`.
+    """
+    text = _executable_source(NUBEAM_DIR / "linux.sh")
+    assert 'dirname "$(find' not in text, (
+        "a bare find cannot carry its own fallback; ask the compiler instead"
+    )
+    assert "-print-file-name=liblapack.so" in text
+
+
+@pytest.mark.parametrize("name", EXTERNAL_CODE_POSIX_SCRIPTS)
+def test_posix_external_installers_install_outside_every_checkout(name):
+    """--uninstall removes the prefix wholesale, so it must not be the checkout.
+
+    The PowerShell installers enforce this through Resolve-InstallPrefix; the
+    POSIX ones did not, and would happily install into -- and later delete --
+    a directory inside the VAFT working tree.
+    """
+    text = _executable_source(INSTALL / name)
+    assert "VAFT_ROOT=" in text, f"install/{name} must know where the checkout is"
+    assert "must be outside the VAFT checkout" in text
+    # A relative --prefix would otherwise slip past the comparison.
+    assert '[[ "$PREFIX" == /* ]] || PREFIX=' in text
+
+
+def test_efit_checker_resolves_both_layouts_through_the_same_helper():
+    """_resolve is what appends .exe on Windows.
+
+    Testing the bare POSIX name inside the layout loop would miss a Windows
+    build tree holding efit.exe -- the same checker/runtime contradiction the
+    loop was added to remove, just confined to one platform.
+    """
+    text = (INSTALL / "check_efit.py").read_text(encoding="utf-8")
+    body = text[text.index("def _executables("):]
+    body = body[: body.index("\ndef ")]
+    assert "_resolve(root / layout[role])" in body
+
+
+@pytest.mark.parametrize(
+    "name,variable",
+    [("install_chease.sh", "CHEASEHOME"), ("install_gpec.sh", "GPECHOME")],
+)
+def test_check_only_reports_what_the_install_reports(name, variable):
+    """--check-only exists to answer the same question the installer answers.
+
+    The post-install verification passes the home variable; --check-only did
+    not, so the discovery layer fell back to the ambient environment and failed
+    on an installation that was fine.
+    """
+    text = _executable_source(INSTALL / name)
+    assert f'exec env {variable}="$PREFIX"' in text
+
+
+def test_both_gacode_recipes_build_what_vaft_drives():
+    """A neo-only tree fails its own verification.
+
+    `install/check_gacode.py` requires neo and tglf, and `vaft.code.gacode`
+    resolves both, so `--codes` defaulting to `neo` alone on one platform and
+    `neo,tglf` on the other made the same command produce a tree that passed on
+    Linux and failed on macOS.
+    """
+    checker = (INSTALL / "check_gacode.py").read_text(encoding="utf-8")
+    assert 'CODES = ("neo", "tglf")' in checker
+    for name in GACODE_RECIPES:
+        text = _executable_source(GACODE_DIR / name)
+        assert 'CODES="neo,tglf"' in text, (
+            f"install/gacode/{name} must default to the set the checker requires"
+        )
+
+
+def test_windows_nubeam_link_restores_a_space_separated_ifs():
+    """`link_libraries` has to reach gfortran as separate arguments.
+
+    The script runs under IFS=$'\\n\\t', where an unquoted command substitution
+    does not split on spaces at all -- gfortran would be handed the whole
+    `-L... -l... -l...` list as one malformed option. The three other call
+    sites embed it in a quoted "VAR=..." string, where no splitting is wanted;
+    only the bare one needs the IFS restored.
+    """
+    text = (NUBEAM_DIR / "windows.sh").read_text(encoding="utf-8")
+    # The bare expansion is the plasma_state_test link; the three earlier ones
+    # sit inside quoted "VAR=..." strings, so index() would find those first.
+    bare = text.index("gfortran -o plasma_state_test.exe")
+    preceding = text[:bare]
+    assert "IFS=' '" in preceding[-600:], (
+        "the bare $(link_libraries) expansion needs a space-separated IFS set "
+        "just before it, inside the same subshell"
+    )
+    # The other call sites are inside quoted "VAR=..." strings and must not be
+    # touched; if one of them ever goes bare it needs the same treatment.
+    assert text.count("$(link_libraries)") == 4
+
+
+def test_every_shell_entry_point_is_linted():
+    """The CI glob covers the per-code recipes, not just install/*.sh.
+
+    Naming files one at a time meant a new recipe was unlinted until somebody
+    remembered to add it.
+    """
+    workflow = (ROOT / ".github" / "workflows" / "bootstrap-ci.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "shellcheck --severity=warning install/*.sh install/*/*.sh" in workflow
+
+
+@pytest.mark.parametrize("name", GACODE_RECIPES)
+def test_gacode_recipes_reject_an_empty_codes_list(name):
+    """An empty --codes builds the suite root, not a suite member.
+
+    `IFS=',' read -r -a CODE_LIST <<< ""` yields one empty element, and
+    `[[ -d "$GACODE_ROOT/" ]]` is true for it, so the loop runs
+    `make -C "$GACODE_ROOT/"` against the top-level Makefile.
+    """
+    # Raw text: _executable_source cuts at the first `#`, and the Linux guard
+    # is written `(($# >= 2))`. Same trap as the ${var##*/} assertion elsewhere.
+    text = (GACODE_DIR / name).read_text(encoding="utf-8")
+    codes = text[text.index("--codes)"):]
+    codes = codes[: codes.index(";;")]
+    assert "needs a" in codes, f"install/gacode/{name} must refuse an empty --codes"
+
+
+def test_gacode_verification_says_which_members_it_covered():
+    """`reg18` exercises NEO alone, whichever members were built.
+
+    The rule this pins has outlived the fact it was first written against.
+    The macOS entry once said TGLF had not been built there at all, because
+    it predated the `neo,tglf` default; TGLF has since been compiled from
+    scratch on macOS, so that sentence would now be false. What still has to
+    be said plainly is the narrower gap that remains: GACODE ships no TGLF
+    regression the way it ships `reg18` for NEO, so for TGLF "Verified" means
+    it builds and VAFT resolves it -- not that a number was reproduced.
+    """
+    text = (GACODE_DIR / "README.md").read_text(encoding="utf-8")
+    verified = text[text.index("## Verified"):]
+    macos = verified[verified.index("**macOS/arm64.**"):verified.index("**Linux/x86_64.**")]
+    assert "`--codes neo,tglf`" in macos, "the macOS entry must name what it built"
+    assert "exercises NEO alone" in macos, (
+        "and say plainly that the one regression covers NEO, not TGLF"
+    )
+    assert "not a number" in macos, (
+        "and that for TGLF nothing numerical was reproduced"
+    )
+
+
+def test_gpec_binaries_pin_the_netcdf_they_were_built_against():
+    """LD_LIBRARY_PATH must not be able to substitute a different netCDF.
+
+    A machine carrying a second, differently-compiled netCDF-Fortran on
+    LD_LIBRARY_PATH -- an ifort build is the ordinary case on a cluster -- links
+    correctly and then dies at run time with
+    `undefined symbol: __netcdf_MOD_nf90_put_var_*`, naming neither the library
+    nor the variable that chose it.
+
+    --disable-new-dtags is the load-bearing half: current binutils emits
+    DT_RUNPATH by default, and LD_LIBRARY_PATH takes precedence over RUNPATH,
+    so the rpath would be present and ignored. DT_RPATH is searched first.
+    """
+    text = _executable_source(INSTALL / "install_gpec.sh")
+    assert "-Wl,-rpath," in text
+    assert "--disable-new-dtags" in text, (
+        "without it the rpath is emitted as RUNPATH, which LD_LIBRARY_PATH overrides"
+    )
+    # And only on Linux: ld64 rejects --disable-new-dtags, Mach-O has no
+    # DT_RUNPATH, and this script does not refuse Darwin -- so an unguarded
+    # flag would fail the first link on a platform it claims to support.
+    assert 'PLATFORM" == linux-*' in text, (
+        "the ELF-only linker flags must be guarded by platform"
+    )
+
+
+def test_tokamaker_is_an_optional_extra_not_a_dependency():
+    """It is the one external code pip can express, and still optional.
+
+    VAFT drives TokaMaker in-process, so upstream's wheel is installable --
+    unlike the Fortran codes behind install/. That does not make it required:
+    the wheel carries compiled libraries and every other workflow runs without
+    it.
+    """
+    text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    extras = text[text.index("[project.optional-dependencies]"):]
+    extras = extras[: extras.index("\n[")]
+    assert "tokamaker = [" in extras
+    assert "openfusiontoolkit" in extras
+    # And never among the hard dependencies.
+    required = text[text.index("dependencies = ["):]
+    required = required[: required.index("]")]
+    assert "openfusiontoolkit" not in required
