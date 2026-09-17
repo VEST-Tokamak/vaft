@@ -96,7 +96,12 @@ vaft.database.open(shot, *, source="public", representation="omas", paths=None,
                    occurrence=None, imas_version=None)
 vaft.database.save(data, shot, *, target="public", representation=None,
                    occurrence=None, imas_version=None, derived_cache="auto")
+vaft.database.export(shot, source=None, *, backend, output=None, overwrite=False,
+                     occurrence=0, imas_version=None, cache="auto", transport="auto")
 ```
+
+`export()` stages a shot once and writes any of `imas-hdf5`, `imas-nc`, `omas-json`, `omas-hdf5`,
+`omas-nc` and `geqdsk` as local files; `vaft export` is its command-line front.
 
 For local files use `vaft.omas.load/save` or `vaft.imas.load/save`; use
 `vaft.database.filedb.FileDB` to resolve canonical archive paths. Remote save access is restricted and

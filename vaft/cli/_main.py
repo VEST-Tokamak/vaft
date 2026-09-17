@@ -17,6 +17,7 @@ _COMMANDS = {
     "summary": (".summary", "query and export preset database summaries"),
     "maintenance": (".maintenance", "repair already-published HSDS shots"),
     "plot": (".plot", "render a canonical plot for one or more shots"),
+    "export": (".export", "export one shot as IMAS/OMAS/GEQDSK files"),
 }
 
 

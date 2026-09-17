@@ -52,6 +52,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_coil_geometry_3d_shim.py",
     "test_compat_runtime.py",
     "test_data_code_namespace.py",
+    "test_database_export.py",
     "test_database_namespace.py",
     "test_formula_lazy_namespace.py",
     "test_import.py",

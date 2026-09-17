@@ -113,7 +113,10 @@ def load(source, *, imas_version=None):
 
 
 def save(ods, target, *, compression=None):
-    """Save an OMAS ODS as JSON or HDF5, chosen from ``target``'s suffix.
+    """Save an OMAS ODS as JSON, HDF5 or netCDF, chosen from ``target``'s suffix.
+
+    ``.nc`` is OMAS's own flat netCDF serialization (``omas.save_omas_nc``),
+    not the IMAS netCDF convention -- write that with :func:`vaft.imas.save`.
 
     ``compression`` applies to ``.h5``/``.hdf5`` targets only and names an
     h5py filter (``"gzip"``, ``"lzf"``). OMAS's own ``save_omas_h5`` is
@@ -134,10 +137,10 @@ def save(ods, target, *, compression=None):
     suffixes = target_path.suffixes
     is_hdf5 = target_path.suffix.lower() in {".h5", ".hdf5"}
     if (
-        target_path.suffix.lower() not in {".h5", ".hdf5", ".json"}
+        target_path.suffix.lower() not in {".h5", ".hdf5", ".json", ".nc"}
         and suffixes[-2:] != [".json", ".gz"]
     ):
-        raise ValueError("vaft.omas.save target must end in .json, .json.gz, .h5, or .hdf5")
+        raise ValueError("vaft.omas.save target must end in .json, .json.gz, .h5, .hdf5, or .nc")
     if compression is not None and not is_hdf5:
         raise ValueError(
             "vaft.omas.save compression applies to .h5/.hdf5 targets only; "
@@ -148,6 +151,10 @@ def save(ods, target, *, compression=None):
         from omas.omas_h5 import dict2hdf5
 
         dict2hdf5(str(target_path), ods, lists_as_dicts=True, compression=compression)
+    elif target_path.suffix.lower() == ".nc":
+        from omas import save_omas_nc
+
+        save_omas_nc(ods, str(target_path))
     elif suffixes[-2:] == [".json", ".gz"]:
         # `ODS.save` takes a path and opens it itself, so the staging file has
         # to be openable by name -- which a NamedTemporaryFile is not on
