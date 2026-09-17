@@ -192,11 +192,14 @@ python -m pip install --force-reinstall --no-deps h5pyd==0.20.0
 
 이는 레거시 호환성 옵션이며, `pip check`는 의도적으로 우회한 NumPy 요구 사항을 보고할 수 있습니다.
 
-PyPI에서 설치(더 이상 권장하지 않음):
+#### PyPI 릴리스 패키지 설치
 
 ```bash
 pip install vaft
 ```
+
+가장 최근에 공개된 릴리스를 설치합니다. `develop`의 미공개 변경 사항이 필요하면 소스에서
+설치하세요.
 
 **지원 Python 버전**: 3.10 -- 3.13
 **기본 수치 연산 스택**: NumPy 2.x (`numpy>=2.0.0,<3`)
@@ -225,6 +228,7 @@ hsconfigure
 
 ### 기본 사용법
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 
@@ -238,6 +242,7 @@ ip = ods['magnetics.ip.0.data']
 
 ### 프로파일 피팅
 
+<!-- docs-snippet: skip fragment (placeholder name geq is never defined on the page) -->
 ```python
 # 톰슨 산란 데이터를 평형의 반경 좌표(기본 rho_tor_norm)에 매핑한 뒤 프로파일 피팅
 mapped = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)

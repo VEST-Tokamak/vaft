@@ -221,3 +221,48 @@ def test_no_relative_link_is_broken():
         text = path.read_text(encoding="utf-8")
         for target in re.findall(r"\]\((?!https?://|#|mailto:)([^)#]+)", text):
             assert (ROOT / target).exists(), f"{path.name}: broken link to {target}"
+
+
+# ---------------------------------------------------------------------------
+# Installation advice must not contradict itself across surfaces
+# ---------------------------------------------------------------------------
+
+INSTALLATION_PAGE = ROOT / "docs" / "_guide" / "Installation.md"
+
+#: Phrases that steer a reader away from the PyPI package. README.md is the
+#: PyPI long description and offers `pip install vaft` as the released package,
+#: so no other surface may call that route deprecated (cold review docs F6).
+PYPI_DISCOURAGEMENT = (
+    "not the recommended",
+    "not recommended",
+    "no longer recommended",
+    "older pypi package",
+    "권장하지 않",
+)
+
+
+def test_no_surface_discourages_the_pypi_release_the_readme_offers():
+    assert "pip install vaft" in ENGLISH.read_text(encoding="utf-8")
+    for path in (ENGLISH, KOREAN, INSTALLATION_PAGE):
+        if not path.is_file():
+            continue
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for number, line in enumerate(lines, 1):
+            if "pypi" not in line.lower():
+                continue
+            window = " ".join(lines[max(0, number - 2):number + 1]).lower()
+            hit = [phrase for phrase in PYPI_DISCOURAGEMENT if phrase in window]
+            assert not hit, f"{path.name}:{number} discourages the PyPI release: {hit}"
+        assert "pip install vaft" in "\n".join(lines), f"{path.name} never names the PyPI install"
+
+
+@pytest.mark.skipif(not INSTALLATION_PAGE.is_file(), reason="this branch has no docs/ directory")
+def test_the_installation_page_names_every_optional_dependency_group():
+    """It said "`dev` is the only group" after three more were added (cold review docs F5)."""
+    tomllib = pytest.importorskip("tomllib")  # absent on Python 3.10
+
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    text = INSTALLATION_PAGE.read_text(encoding="utf-8")
+    assert "only optional-dependency group" not in text
+    missing = [name for name in project["optional-dependencies"] if f"`{name}`" not in text]
+    assert not missing, f"Installation.md does not mention the extras {missing}"
