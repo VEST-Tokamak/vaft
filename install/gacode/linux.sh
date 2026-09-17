@@ -95,11 +95,17 @@ require gfortran gfortran
 require mpifort "openmpi-bin libopenmpi-dev"
 require make make
 MISSING_LIBS=()
+# Captured once and matched from a here-string. `ldconfig -p | grep -q` under
+# pipefail reports an installed library as missing: grep exits on its first
+# match, ldconfig takes SIGPIPE on a listing larger than the pipe buffer (a
+# desktop or a login node, not a minimal container), and the pipeline's 141
+# runs the `||` branch.
+LDCONFIG_CACHE="$(ldconfig -p 2>/dev/null || true)"
 for probe in liblapack.so:liblapack-dev libblas.so:libblas-dev \
              libfftw3.so:libfftw3-dev libnetcdff.so:libnetcdff-dev; do
   library="${probe%%:*}"; package="${probe##*:}"
   # ldconfig knows the real search path, which is multiarch-dependent.
-  ldconfig -p 2>/dev/null | grep -q "^\s*${library}" || MISSING_LIBS+=("$package")
+  grep -q "^\s*${library}" <<<"$LDCONFIG_CACHE" || MISSING_LIBS+=("$package")
 done
 if ((${#MISSING_LIBS[@]})); then
   die "missing libraries. Install them yourself: apt install ${MISSING_LIBS[*]}"

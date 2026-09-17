@@ -104,7 +104,7 @@ require_child_path "$NTCC_SOURCE_DIR"
 [[ "$(uname -m)" == "arm64" ]] || die "this installer supports Apple Silicon (arm64) only"
 command -v brew >/dev/null || die "Homebrew is required: https://brew.sh"
 command -v make >/dev/null || die "GNU make is required"
-make --version 2>/dev/null | grep -q 'GNU Make' || die "Apple/BSD make is unsupported; install GNU make"
+grep -q 'GNU Make' < <(make --version 2>/dev/null) || die "Apple/BSD make is unsupported; install GNU make"
 
 ((ACCEPT_NTCC_TERMS)) || die "the build requires NTCC dependency sources. Read https://w3.pppl.gov/NTCC/NUBEAM/downloads.shtml, then rerun with --accept-ntcc-terms"
 
@@ -274,7 +274,7 @@ download_ntcc_module() {
   curl --fail --location --show-error --silent "$url" -o "$archive" || \
     die "NTCC did not provide the $module download; obtain it manually from https://w3.pppl.gov/NTCC/ and place its extracted source in $destination"
 
-  if file "$archive" | grep -qi 'HTML'; then
+  if grep -qi 'HTML' < <(file "$archive"); then
     die "NTCC returned an HTML page instead of $module source. Download it manually and extract it to $destination"
   fi
   if tar -tf "$archive" >/dev/null 2>&1; then

@@ -121,7 +121,7 @@ require_child_path "$BUILD_DIR"
 require_child_path "$NTCC_SOURCE_DIR"
 
 command -v make >/dev/null || die "GNU make is required (apt install make)"
-make --version 2>/dev/null | grep -q 'GNU Make' || die "GNU make is required"
+grep -q 'GNU Make' < <(make --version 2>/dev/null) || die "GNU make is required"
 command -v gfortran >/dev/null || die "gfortran is required (apt install gfortran)"
 command -v gcc >/dev/null || die "gcc is required (apt install gcc)"
 command -v g++ >/dev/null || die "g++ is required (apt install g++)"
@@ -180,7 +180,11 @@ if [[ -z "$LAPACK_LIB_DIR" || "$LAPACK_LIB_DIR" == "." ]]; then
   LAPACK_LIB_DIR="/usr/lib/$(uname -m)-linux-gnu"
   [[ -d "$LAPACK_LIB_DIR" ]] || LAPACK_LIB_DIR=/usr/lib
 fi
-if ldconfig -p 2>/dev/null | grep -q 'libopenblas\.so'; then
+# Captured, then matched from a here-string: under pipefail,
+# `ldconfig -p | grep -q` is false whenever grep's early exit SIGPIPEs a long
+# listing, which silently chose netlib on a machine that has OpenBLAS.
+LDCONFIG_CACHE="$(ldconfig -p 2>/dev/null || true)"
+if grep -q 'libopenblas\.so' <<<"$LDCONFIG_CACHE"; then
   BLAS_FLAGS="-lopenblas"
   LAPACK_FLAGS="-llapack -lopenblas"
   note "linking OpenBLAS"
@@ -307,7 +311,7 @@ download_ntcc_module() {
   mkdir -p "$NTCC_SOURCE_DIR" "$stage"
   curl --fail --location --show-error --silent "$url" -o "$archive" ||
     die "NTCC did not provide the $module download; obtain it manually from https://w3.pppl.gov/NTCC/ and place its extracted source in $destination"
-  if file "$archive" | grep -qi 'HTML'; then
+  if grep -qi 'HTML' < <(file "$archive"); then
     die "NTCC returned an HTML page instead of $module source. Download it manually and extract it to $destination"
   fi
   tar -xf "$archive" -C "$stage" || die "unrecognized NTCC archive for $module; extract it manually to $destination"

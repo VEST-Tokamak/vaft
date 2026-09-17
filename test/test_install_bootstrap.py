@@ -2934,3 +2934,36 @@ def test_chease_installers_and_checker_agree_on_what_a_checkout_is():
     assert declared
     names = [name.replace("\\", "/") for name in re.findall(r"'([^']+)'", declared.group(1))]
     assert names == expected
+
+
+def _pipefail_shell_scripts():
+    for path in sorted([*INSTALL.glob("*.sh"), *INSTALL.glob("*/*.sh")]):
+        if "pipefail" in path.read_text(encoding="utf-8"):
+            yield path
+
+
+def test_no_pipeline_ends_in_a_quiet_grep_under_pipefail():
+    """Cold review install F9: `ldconfig -p | grep -q` reported libraries missing.
+
+    grep -q exits on its first match; a producer with more to write takes
+    SIGPIPE, the pipeline's status is 141 and, under pipefail, a match reads as
+    no match. gacode/linux.sh then refused to install on a machine that had
+    every library, and nubeam/linux.sh silently linked netlib. The rule is
+    absolute so nobody has to judge which producers are short enough.
+    """
+    scripts = list(_pipefail_shell_scripts())
+    assert INSTALL / "gacode" / "linux.sh" in scripts
+    for path in scripts:
+        for number, line in enumerate(_executable_source(path).splitlines(), 1):
+            assert not re.search(r"\|\s*grep\s+-\w*q", line), f"{path.name}:{number}: {line.strip()}"
+
+
+@requires_bash
+def test_the_here_string_idiom_survives_a_long_listing():
+    """The replacement idiom finds its match in a listing longer than a pipe buffer."""
+    listing = "seq 1 400000"
+    fixed = subprocess.run(
+        [BASH, "-c", f"set -euo pipefail; CACHE=\"$({listing})\"; grep -q '^5$' <<<\"$CACHE\" && echo found || echo missing"],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert fixed.stdout.strip() == "found"

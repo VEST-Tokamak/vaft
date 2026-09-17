@@ -444,9 +444,12 @@ if ((WITH_NETCDF)); then
   # write_m.F90.o compiled before NetCDF was turned on references no NetCDF
   # symbol, so the linker drops the libraries even though they are on the link
   # line. Measured on a real build before it was fixed.
-  if ! { { command -v ldd >/dev/null && ldd "$BUILD_DIR/efit/efit" 2>/dev/null | grep -qi netcdf; } ||
-         { command -v otool >/dev/null && otool -L "$BUILD_DIR/efit/efit" 2>/dev/null | grep -qi netcdf; } ||
-         strings -a "$BUILD_DIR/efit/efit" 2>/dev/null | grep -qi netcdf; }; then
+  # Read through process substitution, never `producer | grep -q`: under
+  # pipefail grep's early exit SIGPIPEs the producer and a match reads as none
+  # -- `strings` over the whole binary is exactly the long producer that does it.
+  if ! { { command -v ldd >/dev/null && grep -qi netcdf < <(ldd "$BUILD_DIR/efit/efit" 2>/dev/null); } ||
+         { command -v otool >/dev/null && grep -qi netcdf < <(otool -L "$BUILD_DIR/efit/efit" 2>/dev/null); } ||
+         grep -qi netcdf < <(strings -a "$BUILD_DIR/efit/efit" 2>/dev/null); }; then
     die "the configure linked NetCDF but the built efit references none of it, so it would write no m-files. That is what a stale object file in $BUILD_DIR looks like: remove that directory and build again."
   fi
   note "NetCDF is compiled in; this build writes m-files"

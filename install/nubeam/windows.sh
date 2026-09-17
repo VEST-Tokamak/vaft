@@ -664,7 +664,7 @@ download_ntcc_module() {
   mkdir -p "$NTCC_SOURCE_DIR" "$stage"
   curl --fail --location --show-error --silent "$url" -o "$archive" ||
     die "NTCC did not provide the $module download; obtain it manually from https://w3.pppl.gov/NTCC/ and place its extracted source in $destination"
-  file "$archive" | grep -qi 'HTML' &&
+  grep -qi 'HTML' < <(file "$archive") &&
     die "NTCC returned an HTML page instead of $module source. Download it manually and extract it to $destination"
   tar -tf "$archive" >/dev/null 2>&1 ||
     die "unrecognized NTCC archive for $module; extract it manually to $destination"
