@@ -218,3 +218,29 @@ def test_a_byte_outside_utf8_does_not_lose_a_finished_run(tmp_path):
     result = run_flare("run", home=tmp_path)
     assert result.ok
     assert result.stdout.startswith("angle 30")
+
+
+# --------------------------------------------------------------------------
+# An explicit executable (cold review stability F4)
+# --------------------------------------------------------------------------
+
+
+def test_a_tilde_in_the_explicit_executable_is_expanded(flare_driver, monkeypatch):
+    """The home is expanded by ``flare_executable``; ``config.executable`` went
+    to the OS verbatim, where ``~`` means nothing."""
+    home = flare_driver.parent.parent
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    result = run_flare("run", FlareConfig(executable=f"~/bin/{flare_driver.name}"))
+    assert result.ok and "args: run" in result.stdout
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="exec format errors are a POSIX launch failure")
+def test_a_file_the_os_will_not_start_is_named_as_such(tmp_path):
+    from vaft.code._executables import ExecutableNotLaunchable
+
+    driver = tmp_path / "flare"
+    driver.write_bytes(b"\x00\x01 not a program\n")
+    driver.chmod(driver.stat().st_mode | stat.S_IEXEC)
+    with pytest.raises(ExecutableNotLaunchable, match="cannot launch"):
+        run_flare("run", FlareConfig(executable=str(driver)))
