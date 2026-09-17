@@ -3718,7 +3718,7 @@ def _ecr_layers(ods: Any, time: float, frequency: float, z_axis: np.ndarray) -> 
     from vaft.formula.startup import electron_cyclotron_resonance_radius
 
     product = _array(ods, "tf.b_field_tor_vacuum_r.data")
-    base = _array(ods, "tf.b_field_tor_vacuum_r.time")
+    base = _tf_product_time(ods, product)
     if product is None or base is None or len(product) == 0:
         raise ValueError(
             "tf.b_field_tor_vacuum_r is required for ec_frequency_Hz=; without the "
@@ -3772,10 +3772,29 @@ def _prefill_pressure(ods: Any, before: float) -> float:
         raise ValueError(f"field='lloyd_margin': {error}") from None
 
 
+#: Where the time base of ``tf.b_field_tor_vacuum_r`` is stored: its own node,
+#: or the IDS time base of a homogeneous-time ``tf``.  One order for every
+#: reader, shared with ``vaft.omas.process_wrapper._vacuum_toroidal_product``:
+#: ``breakdown`` read only the first and ``lloyd_margin`` only the second, so
+#: each failed on an input the other drew (cold review plot F6).
+TF_PRODUCT_TIME_PATHS = ("tf.b_field_tor_vacuum_r.time", "tf.time")
+
+
+def _tf_product_time(ods: Any, product: Any) -> np.ndarray | None:
+    """The time base of the TF vacuum product: the first stored one of its length."""
+    if product is None:
+        return None
+    for path in TF_PRODUCT_TIME_PATHS:
+        base = _array(ods, path)
+        if base is not None and len(base) == len(product):
+            return base
+    return None
+
+
 def _vacuum_b_toroidal(ods: Any, time: float, mesh_r: np.ndarray) -> np.ndarray:
     """``B_phi = R_0 B_0 / R`` at ``time``, from the TF vacuum field product."""
     product = _array(ods, "tf.b_field_tor_vacuum_r.data")
-    base = _array(ods, "tf.b_field_tor_vacuum_r.time")
+    base = _tf_product_time(ods, product)
     if product is None or base is None or len(product) == 0:
         raise ValueError(
             "tf.b_field_tor_vacuum_r is required for field='breakdown'; without "
