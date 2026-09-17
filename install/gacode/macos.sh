@@ -49,7 +49,11 @@ EOF
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --gacode-root) GACODE_SOURCE="${2:-}" ; shift 2 ;;
+    # Guarded: `shift 2` with one argument left fails, and under `set -e` that
+    # ended the script with status 1 and no message at all.
+    --gacode-root) [ $# -ge 2 ] && [ -n "${2:-}" ] ||
+                     { echo "error: --gacode-root needs a path" >&2; exit 2; }
+                   GACODE_SOURCE="$2"    ; shift 2 ;;
     --codes)       [ $# -ge 2 ] && [ -n "${2:-}" ] ||
                      { echo "error: --codes needs a non-empty list" >&2; exit 2; }
                    CODES="$2"            ; shift 2 ;;

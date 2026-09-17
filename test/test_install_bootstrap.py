@@ -2967,3 +2967,33 @@ def test_the_here_string_idiom_survives_a_long_listing():
         capture_output=True, text=True, timeout=60,
     )
     assert fixed.stdout.strip() == "found"
+
+
+@requires_bash
+@pytest.mark.parametrize("name", GACODE_RECIPES)
+def test_gacode_recipes_say_so_when_an_option_has_no_value(name):
+    """Cold review install F22: `--gacode-root` as the last argument.
+
+    macos.sh ran `shift 2` with one argument left; under `set -e` that is
+    status 1 and silence. Only the option loop is run here, with the platform
+    work that follows it cut off.
+    """
+    text = (GACODE_DIR / name).read_text(encoding="utf-8")
+    start = text.index("while ")
+    loop = text[start: text.index("\ndone\n", start) + 6]
+    prelude = (
+        "set -euo pipefail\nusage() { :; }\n"
+        "die() { printf '%s\\n' \"$*\" >&2; exit 1; }\n"
+        "GACODE_SOURCE=''; CODES=''; RUN_CHECK=0; PLATFORM_TAG=''\n"
+    )
+    done = subprocess.run(
+        [BASH, "-c", prelude + loop + "echo parsed\n", "x", "--gacode-root"],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert done.returncode != 0 and "parsed" not in done.stdout
+    assert "--gacode-root needs a path" in done.stderr
+    fine = subprocess.run(
+        [BASH, "-c", prelude + loop + 'echo "parsed $GACODE_SOURCE"\n', "x", "--gacode-root", "/tree"],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert fine.stdout.strip() == "parsed /tree"

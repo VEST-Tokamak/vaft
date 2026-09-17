@@ -43,7 +43,7 @@ IFS=$'\n\t'
 GACODE_SOURCE="${GACODE_SOURCE_DIR:-}"
 # Both, not just neo: install/check_gacode.py:45 requires neo and tglf, and
 # vaft/code/gacode resolves both, so a neo-only tree fails its own verification.
-# macos.sh still defaults to neo alone, which predates TGLF support (#553).
+# macos.sh defaults to the same pair.
 CODES="neo,tglf"
 PLATFORM_TAG="${GACODE_PLATFORM:-TUMBLEWEED}"
 RUN_CHECK=0
