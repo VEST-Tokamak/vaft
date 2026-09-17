@@ -21,6 +21,9 @@ alpha       : Townsend first ionisation coefficient                  [m^-1]
 A, B        : Townsend similarity coefficients   [m^-1 Pa^-1], [V m^-1 Pa^-1]
 E_BD        : Lloyd breakdown threshold field                        [V/m]
 M_BD        : breakdown margin, E_parallel / E_BD                    [-]
+f           : microwave source frequency                             [Hz]
+B_ECR       : electron-cyclotron resonant field magnitude            [T]
+R_ECR       : major radius of the resonance in a vacuum 1/R field    [m]
 
 Conventions
 -----------
@@ -49,6 +52,7 @@ References
 .. [1] B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
 .. [2] D. Mueller, Phys. Plasmas 20 (2013) 058101, Sec. II.
 .. [3] Yu. P. Raizer, *Gas Discharge Physics*, Springer (1991), Sec. 4.2.
+.. [4] T. H. Stix, *Waves in Plasmas*, AIP (1992), Sec. 1-2.
 """
 
 from __future__ import annotations
@@ -58,7 +62,7 @@ import warnings
 import numpy as np
 
 from ._exports import public_names
-from .constants import K_BOLTZMANN, MU0, PA_PER_TORR
+from .constants import K_BOLTZMANN, ME, MU0, PA_PER_TORR, QE
 
 #: Lloyd's hydrogen/deuterium coefficients, in the torr units they are
 #: published in.  These are the Townsend $A$ and $B$ for hydrogen: setting
@@ -574,6 +578,145 @@ def breakdown_margin(E_parallel, E_breakdown):
         margin = field / threshold
     return _maybe_scalar(margin, E_parallel, E_breakdown)
 
+
+
+# ------------------------------------------------------------------
+# Pre-ionisation: where a microwave source resonates with the electrons
+# ------------------------------------------------------------------
+
+def _require_harmonic(harmonic):
+    """Reject anything but a positive integer harmonic number."""
+    if (
+        isinstance(harmonic, (bool, np.bool_))
+        or not isinstance(harmonic, (int, np.integer))
+        or harmonic < 1
+    ):
+        raise ValueError(f"harmonic must be a positive integer; got {harmonic!r}")
+    return int(harmonic)
+
+
+def electron_cyclotron_resonance_field(frequency_Hz, harmonic=1):
+    r"""Field magnitude at which electrons gyrate in step with a microwave source.
+
+    $$B_{ECR} = \frac{2\pi\,m_e\,f}{h\,e}$$
+
+    the cold, non-relativistic electron-cyclotron resonance at harmonic $h$.
+    A 2.45 GHz magnetron resonates at 87.5 mT on the fundamental.
+
+    Parameters
+    ----------
+    frequency_Hz : float or np.ndarray
+        Source frequency, finite and positive [Hz].
+    harmonic : int, optional
+        Positive cyclotron harmonic number; the fundamental is ``1`` [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Resonant field magnitude [T].
+
+    Raises
+    ------
+    ValueError
+        A non-finite, zero or negative frequency; a harmonic that is not a
+        positive integer.
+
+    Physical interpretation
+    -----------------------
+    Where $|B| = B_{ECR}$ an electron sees the wave's electric field rotate
+    with it and gains energy every gyration; everywhere else the phase slips
+    and the gain averages away.  That surface is where microwave
+    pre-ionisation seeds the free electrons an avalanche starts from.
+
+    Limitations
+    -----------
+    The cold resonance only.  The relativistic mass increase and the Doppler
+    shift of an oblique launch move the absorption away from this field, and
+    whether the wave reaches the layer at all -- the cutoff density -- is a
+    separate question this expression does not ask.  Says nothing about how
+    much power is absorbed.
+
+    References
+    ----------
+    .. [1] T. H. Stix, *Waves in Plasmas*, AIP (1992), Sec. 1-2.
+
+    See Also
+    --------
+    electron_cyclotron_resonance_radius
+    """
+    frequency = _require_positive("frequency_Hz", frequency_Hz)
+    h = _require_harmonic(harmonic)
+    field = 2.0 * np.pi * ME * frequency / (h * QE)
+    return _maybe_scalar(field, frequency_Hz)
+
+
+def electron_cyclotron_resonance_radius(B_T_R_Tm, frequency_Hz, harmonic=1):
+    r"""Major radius of the electron-cyclotron resonance in a vacuum toroidal field.
+
+    $$R_{ECR} = \frac{|B_T R|}{B_{ECR}(f, h)}$$
+
+    because a vacuum toroidal field falls as $1/R$, so the product $B_T R$ is
+    a constant of the coil current and the resonance is a vertical line at one
+    major radius.
+
+    Parameters
+    ----------
+    B_T_R_Tm : float or np.ndarray
+        Vacuum toroidal field times major radius, as stored in
+        ``tf.b_field_tor_vacuum_r``; used as a magnitude [T m].
+    frequency_Hz : float or np.ndarray
+        Source frequency, finite and positive [Hz].
+    harmonic : int, optional
+        Positive cyclotron harmonic number; the fundamental is ``1`` [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Resonance major radius; ``0`` while the toroidal field is off [m].
+
+    Raises
+    ------
+    ValueError
+        A non-finite $B_T R$; a non-finite, zero or negative frequency; a
+        harmonic that is not a positive integer.
+
+    Convention
+    ----------
+    $B_T R$ is taken as a **magnitude**: the resonance depends on $|B|$, and
+    the sign of ``b_field_tor_vacuum_r`` is a COCOS and coil-polarity choice.
+    The input is the product, not $B_T$ at some radius, so no reference
+    radius enters -- VEST's $R_0 = 0.4$ m is where a plot quotes $B_T$, not
+    part of this relation.
+
+    Physical interpretation
+    -----------------------
+    As the TF current ramps, $B_T R$ grows and the resonance sweeps outward
+    from the centre stack.  Pre-ionisation happens where this line crosses
+    the vessel; compare it with the field null to see whether the seed
+    electrons are born where the avalanche can use them.
+
+    Limitations
+    -----------
+    Vacuum toroidal field only.  The poloidal field adds to $|B|$ and bends
+    the resonance near a coil; at a startup null it is a few gauss against
+    tens of millitesla and the vertical line is accurate, far from one it is
+    not.  Plasma diamagnetism is ignored, which is exact before breakdown.
+
+    References
+    ----------
+    .. [1] T. H. Stix, *Waves in Plasmas*, AIP (1992), Sec. 1-2.
+
+    See Also
+    --------
+    electron_cyclotron_resonance_field
+    """
+    product = np.asarray(B_T_R_Tm, dtype=float)
+    if not np.all(np.isfinite(product)):
+        raise ValueError(f"B_T_R_Tm must be finite; got {B_T_R_Tm!r}")
+    radius = np.abs(product) / electron_cyclotron_resonance_field(
+        np.asarray(frequency_Hz, dtype=float), harmonic
+    )
+    return _maybe_scalar(radius, B_T_R_Tm, frequency_Hz)
 
 
 # ------------------------------------------------------------------

@@ -753,3 +753,63 @@ def test_the_inductance_derivative_does_not_depend_on_the_major_radius():
         ) == d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li(
             99.0, 0.3, 1.6, 0.8, minor_radius=convention
         )
+
+
+# ------------------------------------------------------------------
+# Electron-cyclotron resonance: where a 2.45 GHz source seeds electrons
+# ------------------------------------------------------------------
+
+def test_a_245_ghz_source_resonates_at_875_millitesla():
+    from vaft.formula.constants import ME, QE
+    from vaft.formula.startup import electron_cyclotron_resonance_field
+
+    field = electron_cyclotron_resonance_field(2.45e9)
+    assert isinstance(field, float)
+    assert field == pytest.approx(2.0 * np.pi * ME * 2.45e9 / QE, rel=1e-15)
+    assert field == pytest.approx(0.0875234741, rel=1e-9)
+
+
+def test_a_higher_harmonic_resonates_at_a_proportionally_weaker_field():
+    from vaft.formula.startup import electron_cyclotron_resonance_field
+
+    fields = electron_cyclotron_resonance_field(np.array([2.45e9, 4.9e9]))
+    assert electron_cyclotron_resonance_field(2.45e9, harmonic=2) == pytest.approx(fields[0] / 2)
+    np.testing.assert_allclose(fields[1], 2 * fields[0])
+
+
+def test_the_resonance_radius_is_where_a_one_over_r_field_meets_the_resonant_field():
+    from vaft.formula.startup import (
+        electron_cyclotron_resonance_field,
+        electron_cyclotron_resonance_radius,
+    )
+
+    b_t_r = np.array([0.0, 0.035, -0.061])
+    radius = electron_cyclotron_resonance_radius(b_t_r, 2.45e9)
+    b_ecr = electron_cyclotron_resonance_field(2.45e9)
+    # the vacuum field evaluated at the returned radius is the resonant field
+    np.testing.assert_allclose(np.abs(b_t_r[1:]) / radius[1:], b_ecr)
+    assert radius[0] == 0.0
+    assert radius[2] == pytest.approx(0.061 / 0.0875234741, rel=1e-8)
+
+
+@pytest.mark.parametrize("frequency", [0.0, -1.0, np.inf, np.nan])
+def test_an_unphysical_frequency_raises(frequency):
+    from vaft.formula.startup import electron_cyclotron_resonance_field
+
+    with pytest.raises(ValueError, match="frequency_Hz"):
+        electron_cyclotron_resonance_field(frequency)
+
+
+@pytest.mark.parametrize("harmonic", [0, -1, 1.5, True, np.nan])
+def test_a_harmonic_must_be_a_positive_integer(harmonic):
+    from vaft.formula.startup import electron_cyclotron_resonance_field
+
+    with pytest.raises(ValueError, match="harmonic"):
+        electron_cyclotron_resonance_field(2.45e9, harmonic=harmonic)
+
+
+def test_a_missing_toroidal_field_is_not_silently_a_zero_radius():
+    from vaft.formula.startup import electron_cyclotron_resonance_radius
+
+    with pytest.raises(ValueError, match="B_T_R_Tm"):
+        electron_cyclotron_resonance_radius(np.array([0.05, np.nan]), 2.45e9)

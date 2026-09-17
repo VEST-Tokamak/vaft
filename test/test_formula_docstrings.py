@@ -144,6 +144,7 @@ CONVENTION_SENSITIVE = frozenset({
     "atomic_inventory_from_molecular_gas",
     "townsend_ionization_coefficient",
     "lloyd_breakdown_field",
+    "electron_cyclotron_resonance_radius",
     "breakdown_margin",
 })
 
