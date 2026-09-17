@@ -120,6 +120,15 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("centre_frequency", "float", description="MHD band centre in Hz; the magnetics' dominant mode"),
         OptionSpec("half_width", "float", description="half the filtered bandwidth in Hz"),
         OptionSpec("overlap", "float", description="fractional overlap between short-time windows"),
+        # Read by a builder, so offered by the schema: before they were listed
+        # validate_options refused them and no adapter could pass them on
+        # (cold review plot G7).
+        OptionSpec("min_wall_authority", "float",
+                   description="wall-current authority below which a vacuum residual is not drawn"),
+        OptionSpec("show_uncertainty", "bool", description="draw the stored uncertainty of a verification"),
+        OptionSpec("source", "int",
+                   description="position in core_sources.source of an NBI profile (vaft.omas / vaft.imas; "
+                               "the vaft.database adapters take source= as the database source)"),
         OptionSpec("contour_levels"), OptionSpec("detector"),
         OptionSpec("detrend"), OptionSpec("direction"), OptionSpec("dphi_deg"),
         OptionSpec("field_line_start"), OptionSpec("fit_ranges"), OptionSpec("flux_surface_levels"),
