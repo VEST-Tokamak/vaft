@@ -385,10 +385,87 @@ def test_an_unfetchable_existing_master_is_an_error_not_an_absence(monkeypatch):
         replication._fetch_remote_master("main", 39915, Path("/nonexistent/master.h5"))
 
 
-def test_a_shot_with_no_folder_yet_simply_has_no_master(monkeypatch):
-    monkeypatch.setattr(replication, "_remote_entries", lambda s, shot: ())
+def _fake_folder(monkeypatch, behaviour):
+    """Replace ``h5pyd.Folder`` with ``behaviour(path)`` -> iterable of names."""
+    import types
+
+    class Folder:
+        def __init__(self, path, mode="r"):
+            self._names = behaviour(path)
+
+        def __iter__(self):
+            return iter(self._names)
+
+    monkeypatch.setattr(
+        "vaft.database.utils.h5pyd", types.SimpleNamespace(Folder=Folder)
+    )
+
+
+@pytest.mark.parametrize("status", [404, 410])
+def test_a_shot_with_no_folder_yet_simply_has_no_master(monkeypatch, status):
+    """Only a definite not-found is an absence (cold review data F3)."""
+
+    def absent(path):
+        raise OSError(status, "Not Found")
+
+    _fake_folder(monkeypatch, absent)
 
     assert replication._fetch_remote_master("main", 39915, Path("/x/master.h5")) is None
+
+
+def test_an_unlistable_shot_folder_is_an_error_not_an_absent_master(monkeypatch):
+    """A 503 on the listing says nothing about whether a master exists."""
+
+    def busy(path):
+        raise OSError(503, "Service Unavailable")
+
+    _fake_folder(monkeypatch, busy)
+
+    with pytest.raises(OSError, match="Service Unavailable"):
+        replication._fetch_remote_master("main", 39915, Path("/x/master.h5"))
+
+
+def test_a_failed_listing_never_publishes_a_stage_only_master(staged, monkeypatch):
+    """One failed listing must cost a retry, not the shot's union master.
+
+    The shot already holds other stages. The first listing of its folder fails
+    while every request around it succeeds; the write must not go ahead without
+    the finalizer that carries the stored links.
+    """
+    listings = []
+
+    def flaky(path):
+        listings.append(path)
+        if len(listings) == 1:
+            raise OSError(503, "Service Unavailable")
+        return ["master.h5", "equilibrium.h5"]
+
+    _fake_folder(monkeypatch, flaky)
+    monkeypatch.setattr(
+        "vaft.database.utils.require_source_exists", lambda source: None
+    )
+    monkeypatch.setattr(
+        "vaft.database.transport.run_hsget",
+        lambda uri, target: Path(target).write_bytes(b"previous master"),
+    )
+    monkeypatch.setattr(replication, "merge_remote_master", lambda *a, **k: ())
+    monkeypatch.setattr(
+        replication, "_round_trip", lambda ods, **kwargs: {"passed": True}
+    )
+    finalizers = []
+    monkeypatch.setattr(
+        "vaft.database.save",
+        lambda ods, shot, *, finalize_master=None, **kw: finalizers.append(
+            finalize_master
+        ),
+    )
+
+    record = replicate_stage(
+        "diagnostics", 39915, filedb=staged, attempts=3, retry_delay=0
+    )
+
+    assert record.attempts == 2
+    assert finalizers and all(hook is not None for hook in finalizers)
 
 
 def test_derived_images_are_not_mistaken_for_stage_ids():

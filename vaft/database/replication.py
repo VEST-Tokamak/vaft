@@ -223,15 +223,30 @@ def _project(ods, ids_names: tuple[str, ...]) -> tuple[Any, tuple[str, ...]]:
     return projected, tuple(present)
 
 
+#: HSDS status codes that say "this folder does not exist", as opposed to "the
+#: folder could not be read". The same pair `require_source_exists` trusts.
+_ABSENT_STATUS = (404, 410)
+
+
 def _remote_entries(source: str, shot: int) -> tuple[str, ...]:
-    """List a shot folder, treating an absent folder as empty."""
+    """List a shot folder, treating a folder that *does not exist* as empty.
+
+    Only a definite 404/410 is an absence -- a shot's first write has no folder
+    and that is not an error. Every other failure (a timeout, a 503 from a busy
+    server) is raised as itself: the callers decide from this listing whether a
+    master exists to be merged, and reading "could not list" as "no master"
+    replaces the shot's union master with a stage-only one.
+    """
     from .utils import h5pyd
 
     try:
         return tuple(sorted(h5pyd.Folder(f"/{source}/{shot}/", mode="r")))
-    except Exception as exc:  # noqa: BLE001 - a shot's first write has no folder
-        logger.debug("No shot folder at %s/%s: %s", source, shot, exc)
-        return ()
+    except OSError as exc:
+        status = exc.args[0] if exc.args else None
+        if status in _ABSENT_STATUS:
+            logger.debug("No shot folder at %s/%s: %s", source, shot, exc)
+            return ()
+        raise
 
 
 def _remote_canonical_files(entries: Iterable[str]) -> tuple[str, ...]:
@@ -273,10 +288,10 @@ def _fetch_remote_master(source: str, shot: int, target: Path) -> Path | None:
 def _require_remote_entries(source: str, shot: int) -> tuple[str, ...]:
     """List a shot folder, letting a failure surface instead of reading as empty.
 
-    :func:`_remote_entries` deliberately conflates "no folder yet" with "could
-    not reach the folder", because a shot's first write has no folder and that
-    is not an error. Any caller that would *act* on the emptiness -- pruning
-    links, say -- needs the two told apart.
+    :func:`_remote_entries` reads a folder that does not exist (404/410) as
+    empty, because a shot's first write has no folder and that is not an error.
+    Here even that is a failure: the caller has just uploaded a payload, so the
+    folder must exist.
     """
     from .utils import h5pyd
 
@@ -299,11 +314,11 @@ def _master_finalizer(
     def finalize(local_master: Path) -> None:
         from .staging import merge_master_links
 
-        # `_remote_entries` reports an unreachable folder and an absent one the
-        # same way, by returning nothing, which is right for a first write but
-        # dangerous here: an empty listing makes `merge_master_links` drop every
-        # carried link, and this master is about to become the commit point. So
-        # the listing is taken strictly. The payload is already uploaded, so a
+        # `_remote_entries` reads an absent folder as empty, which is right for
+        # a first write but dangerous here: an empty listing makes
+        # `merge_master_links` drop every carried link, and this master is
+        # about to become the commit point. So the listing is taken strictly.
+        # The payload is already uploaded, so a
         # healthy folder cannot be empty, and a failure is retried by the caller
         # rather than committed as a pruned master.
         present = _remote_canonical_files(_require_remote_entries(source, shot))
