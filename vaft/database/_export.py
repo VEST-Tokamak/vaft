@@ -77,6 +77,7 @@ def _atomic(target: Path, *, overwrite: bool) -> Iterator[Path]:
     token = uuid.uuid4().hex[:12]
     partial = target.with_name(f".{token}.partial.{target.name}")
     previous = target.with_name(f".{token}.previous.{target.name}")
+    aside = swapped = False
     try:
         yield partial
         if not partial.exists():
@@ -85,15 +86,26 @@ def _atomic(target: Path, *, overwrite: bool) -> Iterator[Path]:
             if not overwrite:
                 raise FileExistsError(f"{target} already exists; pass overwrite=True")
             os.replace(target, previous)
+            aside = True
         try:
             os.replace(partial, target)
-        except BaseException:
-            if previous.exists() or previous.is_symlink():
-                os.replace(previous, target)
-            raise
+            swapped = True
+        except BaseException as error:
+            if aside:
+                try:
+                    os.replace(previous, target)
+                    aside = False
+                except BaseException as restore_error:
+                    raise RuntimeError(
+                        f"Could not replace {target} and could not restore it; "
+                        f"the previous artifact is kept at {previous}"
+                    ) from restore_error
+            raise error
     finally:
-        for leftover in (partial, previous):
-            _remove(leftover)
+        _remove(partial)
+        # Never delete the previous artifact while it is the only copy left.
+        if swapped or not aside:
+            _remove(previous)
 
 
 def _remove(path: Path) -> None:
@@ -101,6 +113,43 @@ def _remove(path: Path) -> None:
         shutil.rmtree(path, ignore_errors=True)
     elif path.exists() or path.is_symlink():
         path.unlink()
+
+
+def _stored_dd_version(entry: Path) -> str:
+    """The IMAS DD version every linked IDS of a staged entry was put with.
+
+    Read from each IDS's own ``ids_properties.version_put.data_dictionary``:
+    ``master.h5`` carries no version, and ``dataset_description`` -- the only
+    place the generic local detector looks -- does not exist from DD 4.1. No
+    version, or IDS put with different versions, is refused rather than
+    guessed: export converts formats, never DD versions.
+    """
+    import h5py
+
+    field = "ids_properties&version_put&data_dictionary"
+    versions: dict[str, list[str]] = {}
+    with h5py.File(entry / "master.h5", "r") as master:
+        for key in master:
+            if not isinstance(master.get(key, getlink=True), h5py.ExternalLink):
+                continue
+            group = master[key]
+            if field in group:
+                value = group[field][()]
+                value = value.decode() if isinstance(value, bytes) else str(value)
+                if value:
+                    versions.setdefault(value, []).append(key)
+    if not versions:
+        raise ValueError(
+            "Could not read the IMAS DD version from any stored IDS "
+            f"({field}); refusing to guess one for the converted backends"
+        )
+    if len(versions) > 1:
+        detail = "; ".join(f"{version}: {', '.join(sorted(keys))}" for version, keys in sorted(versions.items()))
+        raise ValueError(
+            f"Stored IDS were put with different IMAS DD versions ({detail}); "
+            "export does not convert between DD versions. Export 'imas-hdf5' for a lossless copy."
+        )
+    return next(iter(versions))
 
 
 def _stored_ids(entry: Path, version: str) -> list[str]:
@@ -151,8 +200,7 @@ def _stored_ids(entry: Path, version: str) -> list[str]:
     if problems:
         raise ValueError(
             "This shot stores " + " and ".join(problems) + ", which the converted "
-            "backends cannot carry. Export 'imas-hdf5' for a lossless copy"
-            + "."
+            "backends cannot carry. Export 'imas-hdf5' for a lossless copy."
         )
     return sorted(names)
 
@@ -187,7 +235,6 @@ def export(
     from vaft.compat import temporary_directory
 
     from . import staging
-    from ._local import _imas_version_hdf5
     from .sources import resolve
 
     names = _backends(backend)
@@ -215,20 +262,27 @@ def export(
         staging.stage_imas_shot(
             directory, shot, entry, requested_ids=None, cache=cache, transport=transport
         )
-        # Always the stored DD: export converts formats, never DD versions, and
-        # IMAS-Python refuses a cross-major read anyway.
-        version = _imas_version_hdf5(entry / "master.h5")
-        if version is None:
-            from vaft.imas import IMAS_DD_VERSION_CONVERSION
-
-            version = IMAS_DD_VERSION_CONVERSION
+        version = _stored_dd_version(entry) if semantic else None
         ids_names = _stored_ids(entry, version) if semantic else []
 
         ods = None
         if any(name in _ODS_BACKENDS for name in names):
-            from vaft.omas import load as load_ods
+            from vaft.imas.omas_imas import load_omas_imas
 
-            ods = load_ods(entry, imas_version=version)
+            # As vaft.database.load does: naming the stored IDS keeps OMAS from
+            # listing structures from its own DD table, which ends at 3.41.0
+            # and would refuse a DD4 shot.
+            ods = load_omas_imas(
+                uri="imas:hdf5?path=" + str(entry),
+                imas_version=version,
+                occurrence={},
+                consistency_check=False,
+                verbose=False,
+                available_ids=ids_names,
+            )
+            ods["dataset_description.data_entry.user"] = str(directory)
+            ods.setdefault("dataset_description.data_entry.pulse", shot)
+            ods.setdefault("dataset_description.data_entry.run", 0)
 
         for name in names:
             with _atomic(targets[name], overwrite=overwrite) as partial:

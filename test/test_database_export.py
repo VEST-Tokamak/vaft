@@ -244,6 +244,75 @@ def test_a_failed_overwrite_swap_restores_the_previous_artifact(fake_hsds, monke
     assert (previous / "keep.txt").read_text(encoding="utf-8") == "previous export"
 
 
+def _serve(monkeypatch, remote: Path) -> None:
+    def fake_hsget(uri, target):
+        shutil.copy2(remote / uri.rsplit("/", 1)[-1], target)
+        return target
+
+    monkeypatch.setattr(staging, "run_hsget", fake_hsget)
+
+
+def test_a_dd4_shot_exports_in_its_own_dd_version(fake_hsds, monkeypatch, remote_entry, tmp_path):
+    # DD 4.1 has no dataset_description, so the version must come from the IDS
+    # themselves; a 3.41.0 guess would hit IMAS-Python's cross-major refusal.
+    remote = tmp_path / "remote"
+    remote.mkdir()
+    with imas.DBEntry("imas:hdf5?path=" + str(remote_entry), "r", dd_version=DD) as source:
+        stored = [source.get(name) for name in ("equilibrium", "wall")]
+    with imas.DBEntry("imas:hdf5?path=" + str(remote), "x", dd_version="4.1.1") as entry:
+        for ids in stored:
+            entry.put(imas.convert_ids(ids, "4.1.1"), 0)
+    assert not (remote / "dataset_description.h5").exists()
+    _serve(monkeypatch, remote)
+
+    written = vaft.database.export(
+        SHOT, "public", backend=["imas-nc", "omas-json", "geqdsk"], output=tmp_path / "out", cache="off"
+    )
+    from vaft.database._local import _detect
+
+    assert _detect(written["imas-nc"]).imas_version == "4.1.1"
+    with imas.DBEntry(str(written["imas-nc"]), "r", dd_version="4.1.1") as entry:
+        assert len(entry.get("equilibrium").time_slice) == len(GFILES)
+    assert len(vaft.omas.load(written["omas-json"], imas_version="4.1.1")["equilibrium.time_slice"]) == len(GFILES)
+    assert len(list(written["geqdsk"].iterdir())) == len(GFILES)
+
+
+def test_ids_put_with_different_dd_versions_are_refused(fake_hsds, monkeypatch, remote_entry, tmp_path):
+    remote = tmp_path / "remote"
+    shutil.copytree(remote_entry, remote)
+    with h5py.File(remote / "wall.h5", "r+") as image:
+        field = "wall/ids_properties&version_put&data_dictionary"
+        del image[field]
+        image[field] = b"3.42.0"
+    _serve(monkeypatch, remote)
+
+    with pytest.raises(ValueError, match=r"different IMAS DD versions \(3.41.0: .*; 3.42.0: wall\)"):
+        vaft.database.export(SHOT, "public", backend="omas-json", output=tmp_path / "out", cache="off")
+    # The native copy converts nothing, so it does not need one version.
+    vaft.database.export(SHOT, "public", backend="imas-hdf5", output=tmp_path / "out", cache="off")
+
+
+def test_a_failed_restore_keeps_the_previous_artifact(fake_hsds, monkeypatch, tmp_path):
+    previous = tmp_path / f"imas_{SHOT}_hdf5"
+    previous.mkdir()
+    (previous / "keep.txt").write_text("previous export", encoding="utf-8")
+    real_replace = os.replace
+
+    def locked(source, destination):
+        if ".partial." in Path(source).name or ".previous." in Path(source).name:
+            raise PermissionError("[WinError 32] file in use")
+        return real_replace(source, destination)
+
+    monkeypatch.setattr(_export.os, "replace", locked)
+    with pytest.raises(RuntimeError, match="previous artifact is kept at"):
+        vaft.database.export(
+            SHOT, "public", backend="imas-hdf5", output=tmp_path, cache="off", overwrite=True
+        )
+    kept = [p for p in tmp_path.iterdir() if ".previous." in p.name]
+    assert len(kept) == 1 and (kept[0] / "keep.txt").read_text(encoding="utf-8") == "previous export"
+    assert not [p for p in tmp_path.iterdir() if ".partial." in p.name]
+
+
 def test_omas_netcdf_restores_code_parameters_like_json_and_hdf5(tmp_path):
     from omas import ODS
     from omas.omas_core import CodeParameters
