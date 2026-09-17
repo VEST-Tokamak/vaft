@@ -149,3 +149,15 @@ def test_a_missing_time_grid_is_refused_rather_than_skipping_the_check(tmp_path)
 
     with pytest.raises(StageCompositionError, match="carries no pf_passive.time"):
         compose_stage_products(diagnostics=diagnostics, eddy=gridless)
+
+
+def test_composition_never_reads_a_manifest_in_the_locale_encoding():
+    """Cold review data F17: one `read_text()` had no encoding, so a manifest
+    with a non-ASCII path or note decoded differently on a cp949/cp1252 host."""
+    import inspect
+    import re
+
+    from vaft.database import composition
+
+    source = inspect.getsource(composition)
+    assert not re.search(r"\.read_text\(\s*\)", source)
