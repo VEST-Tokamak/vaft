@@ -805,3 +805,20 @@ def test_the_duty_cycle_travels_with_the_record():
     assert payload["active_s"] < payload["duration_s"]
     assert payload["duty_cycle"] == pytest.approx(payload["active_s"] / payload["duration_s"])
     json.dumps(payload)
+
+
+def test_a_search_mask_leaves_the_prominence_finite():
+    """Samples outside the mask are -inf for the run selection; read as the
+    peak's saddle they made every masked peak's prominence infinite, and every
+    ``plasma_features`` peak is masked (cold review process F3)."""
+    rng = np.random.default_rng(0)
+    t = np.arange(0.0, 0.5, 4e-5)
+    y = np.exp(-((t - 0.3) / 0.02) ** 2) + 0.005 * rng.normal(size=t.size)
+    free = robust_peak(t, y, reference_mask=t < 0.05)
+    masked = robust_peak(
+        t, y, reference_mask=t < 0.05, search_mask=(t > 0.2) & (t < 0.4)
+    )
+    assert np.isfinite(masked.accepted.prominence)
+    assert masked.accepted.prominence == pytest.approx(free.accepted.prominence, rel=0.02)
+    assert masked.accepted.peak == free.accepted.peak
+    json.dumps(masked.as_dict(), allow_nan=False)

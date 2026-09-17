@@ -2271,7 +2271,13 @@ def robust_peak(
         # shoulders cannot rejoin a later candidate's run
         above = _bridged(remaining > float(level_fraction) * remaining[i], int(bridge_samples)) & sel
         start, stop = _run_around(above, i)
-        feats = run_features(t, remaining, 0.0, start, stop)
+        # `remaining` carries -inf outside the search mask and over refused
+        # impulses, which is right for choosing the run but makes the
+        # prominence (peak minus the lowest saddle) infinite.  The features
+        # are read from a copy where those samples sit at the baseline.
+        feats = run_features(
+            t, np.where(np.isfinite(remaining), remaining, 0.0), 0.0, start, stop
+        )
         if feats.width_s < float(min_width_s):
             if len(rejected) < MAX_REJECTED_RUNS:
                 rejected.append((float(t[i]), "impulsive", feats))
