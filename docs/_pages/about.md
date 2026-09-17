@@ -54,6 +54,7 @@ VAFT does not invent a data model. It composes three existing ones:
 
 In practice that means one call gets you a fully IMAS-structured shot:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 

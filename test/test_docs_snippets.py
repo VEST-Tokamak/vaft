@@ -9,12 +9,20 @@ the fix was never the rename alone.  ``from vaft.imas import save_omas_imas``
 and ``vaft.database.load_ids`` never worked at all.  None of it was caught,
 because nothing in the suite had ever read a fenced code block.
 
-Both checks here are static; no snippet is executed.  The first resolves every
+Every check here is static; no snippet is executed (``test_docs_snippets_run.py``
+does that).  The first resolves every
 ``vaft.*`` name a ```` ```python ```` block mentions.  The second rejects names
 the migration tables in ``vaft/plot/_migration.py`` have already renamed,
 deprecated or relocated -- which resolution alone cannot catch, because a
 deprecated alias resolves perfectly well through ``vaft.plot.__getattr__``, and
 the plain aliases in ``vaft/plot/time.py`` do not even warn.
+
+A third binds the arguments of every documented ``vaft.*`` call against the
+callee's current signature.  0.7.0 added a required ``epsilon`` to the beta
+conversions and a required ``q`` to the ballooning alpha, and four guide lines
+went on showing the old arity -- inside fragments with placeholder operands,
+which is exactly the kind of fence that can never be executed (cold review docs
+F1).
 
 What this deliberately misses, so nobody assumes more coverage than exists:
 names not rooted at the literal token ``vaft`` (``import vaft.plot as vp`` and
@@ -25,9 +33,12 @@ explaining that it was removed.
 
 from __future__ import annotations
 
+import ast
 import importlib
 import importlib.util
+import inspect
 import re
+import textwrap
 import types
 import warnings
 from functools import lru_cache
@@ -261,6 +272,81 @@ def test_every_documented_vaft_attribute_resolves(names):
     assert not problems, _report(problems)
 
 
+_ATTRIBUTE_WALK = """
+import importlib.util, json, sys, warnings
+warnings.simplefilter("ignore")
+import vaft
+missing = []
+for dotted in json.loads(sys.stdin.read()):
+    obj, walked = vaft, "vaft"
+    for part in dotted.split(".")[1:]:
+        if not hasattr(obj, "__path__"):
+            break  # past the packages: a module's or object's own attributes
+        try:
+            obj = getattr(obj, part)
+        except AttributeError:
+            try:
+                spec = importlib.util.find_spec(f"{walked}.{part}")
+            except (ImportError, ValueError):
+                spec = None
+            if spec is not None:
+                missing.append([dotted, f"{walked}.{part}"])
+            break
+        except Exception:
+            break  # an optional dependency is absent; not a documentation defect
+        walked = f"{walked}.{part}"
+print(json.dumps(missing))
+"""
+
+
+def _attribute_chains(path: Path) -> list[tuple[int, str]]:
+    """Dotted ``vaft.*`` chains used as expressions, not named by an import statement."""
+    found = []
+    tag: str | None = None
+    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        fence = FENCE.match(line)
+        if fence:
+            tag = None if tag is not None else (fence.group(1) or "")
+            continue
+        code = line.split("#", 1)[0]
+        if tag not in PYTHON_TAGS or re.match(r"^\s*(?:>>>\s*)?(?:from|import)\s", code):
+            continue
+        found += [(lineno, hit.group(0)) for hit in DOTTED.finditer(code)]
+    return found
+
+
+def test_a_submodule_used_as_an_attribute_is_one_after_a_plain_import():
+    """``vaft.omas.plasma_timing.plasma_timing(ods)`` resolved and did not run.
+
+    ``_resolve`` falls back to importing a submodule it cannot reach by
+    attribute, so a chain through a submodule that ``import vaft`` never loads
+    passes it -- and raises ``AttributeError`` for the reader (cold review docs
+    D4).  This walks the same chains by attribute access alone, in a fresh
+    interpreter, because in this one some earlier test has usually imported the
+    submodule already.
+    """
+    import json
+    import subprocess
+    import sys
+
+    chains: dict[str, list[str]] = {}
+    for page in _rendered_pages():
+        for lineno, dotted in _attribute_chains(page):
+            chains.setdefault(dotted, []).append(f"{page.relative_to(ROOT)}:{lineno}")
+    done = subprocess.run(
+        [sys.executable, "-c", _ATTRIBUTE_WALK],
+        input=json.dumps(sorted(chains)), capture_output=True, text=True, cwd=ROOT, timeout=600,
+    )
+    assert done.returncode == 0, done.stderr[-2000:]
+    problems = [
+        f"{where}: {dotted}: {submodule} is a submodule that `import vaft` does not load; "
+        f"write `from {submodule} import ...`"
+        for dotted, submodule in json.loads(done.stdout.strip().splitlines()[-1])
+        for where in chains[dotted]
+    ]
+    assert not problems, "\n" + "\n".join(problems)
+
+
 def test_no_snippet_teaches_a_superseded_plot_name(names):
     """Resolution cannot see this: a deprecated alias resolves fine (#774)."""
     problems = []
@@ -277,6 +363,139 @@ def test_no_snippet_teaches_a_superseded_plot_name(names):
             "renamed renderer."
         )
     assert not problems, _report(problems)
+
+
+def _python_fences(path: Path) -> list[tuple[int, str]]:
+    """(line of the first body line, dedented source) for each python fence."""
+    fences: list[tuple[int, str]] = []
+    tag: str | None = None
+    body: list[str] = []
+    start = 0
+    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        fence = FENCE.match(line)
+        if fence:
+            if tag is None:
+                tag, body, start = fence.group(1) or "", [], lineno + 1
+            else:
+                if tag in PYTHON_TAGS:
+                    fences.append((start, textwrap.dedent("\n".join(body)) + "\n"))
+                tag = None
+            continue
+        if tag is not None:
+            body.append(line)
+    return fences
+
+
+def _dotted(node: ast.AST) -> str | None:
+    parts: list[str] = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if not isinstance(node, ast.Name):
+        return None
+    return ".".join([node.id, *reversed(parts)])
+
+
+def _callable_for(dotted: str):
+    obj: object = importlib.import_module("vaft")
+    walked = "vaft"
+    for part in dotted.split(".")[1:]:
+        walked = f"{walked}.{part}"
+        try:
+            obj = getattr(obj, part)
+        except AttributeError:
+            try:
+                obj = importlib.import_module(walked)
+            except ImportError:
+                return None
+    return obj if callable(obj) and not inspect.isclass(obj) else None
+
+
+def _unbindable_calls(path: Path) -> list[tuple[int, str, str, str]]:
+    """(line, dotted name, TypeError text, signature) for each call that cannot bind.
+
+    From-imports carry over to the later fences of a page, as they do for a
+    reader.  Fences that are not valid Python (signature listings) are skipped,
+    and so are calls with ``*args``/``**kwargs``, whose arity is unknowable.
+    """
+    problems: list[tuple[int, str, str, str]] = []
+    alias: dict[str, str] = {}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for start, source in _python_fences(path):
+            try:
+                tree = ast.parse(source)
+            except SyntaxError:
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "vaft":
+                    for item in node.names:
+                        alias[item.asname or item.name] = f"{node.module}.{item.name}"
+                elif isinstance(node, ast.Import):
+                    for item in node.names:
+                        if item.asname and item.name.split(".")[0] == "vaft":
+                            alias[item.asname] = item.name
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                name = _dotted(node.func)
+                if not name:
+                    continue
+                head = name.split(".")[0]
+                if head in alias:
+                    name = alias[head] + name[len(head):]
+                if not name.startswith("vaft."):
+                    continue
+                if any(isinstance(a, ast.Starred) for a in node.args) or any(
+                    k.arg is None for k in node.keywords
+                ):
+                    continue
+                target = _callable_for(name)
+                if target is None:
+                    continue
+                try:
+                    signature = inspect.signature(target)
+                except (TypeError, ValueError):
+                    continue
+                try:
+                    signature.bind(*[None] * len(node.args), **{k.arg: None for k in node.keywords})
+                except TypeError as error:
+                    problems.append((start + node.lineno - 1, name, str(error), str(signature)))
+    return problems
+
+
+def test_the_binder_sees_a_missing_argument(tmp_path):
+    """The real corpus asserts an empty list, so prove the check can fail."""
+    page = tmp_path / "page.md"
+    page.write_text(
+        "```python\n"
+        "from vaft.formula import ballooning_alpha_from_p_B_R\n"
+        "```\n"
+        "prose\n"
+        "```python\n"
+        "alpha = ballooning_alpha_from_p_B_R(p, B, R)\n"
+        "beta_p = vaft.formula.beta_pol_from_beta_tor(beta_tor, q_95)\n"
+        "ok = vaft.formula.beta_pol_from_beta_tor(beta_tor, q_95, epsilon=eps)\n"
+        "```\n",
+        encoding="utf-8",
+    )
+    found = _unbindable_calls(page)
+    assert [(line, name.rsplit(".", 1)[1]) for line, name, _, _ in found] == [
+        (6, "ballooning_alpha_from_p_B_R"),
+        (7, "beta_pol_from_beta_tor"),
+    ], found
+    assert "'q'" in found[0][2] and "'epsilon'" in found[1][2]
+
+
+def test_every_documented_call_binds_to_the_current_signature():
+    """A renamed or newly required argument breaks the sample for every reader."""
+    pages = _rendered_pages() + [p for p in (ROOT / "README.md", ROOT / "README.ko.md") if p.is_file()]
+    problems = [
+        f"{page.relative_to(ROOT)}:{line}: {name}{signature}\n    {why}"
+        for page in pages
+        for line, name, why, signature in _unbindable_calls(page)
+    ]
+    assert not problems, "\n" + "\n".join(problems)
 
 
 def test_the_allowlist_has_no_stale_entries(names):

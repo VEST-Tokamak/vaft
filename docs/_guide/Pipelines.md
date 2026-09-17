@@ -163,6 +163,7 @@ explicitly with `vaft.database.compose(shot)`.
 
 Each script is a thin CLI around a handful of `vaft` calls. These are the load-bearing ones:
 
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
 ```python
 from vaft.code.efit import EFITConfig, EFITInputs, run_efit, collect_efit_outputs
 from vaft.code.chease import CHEASEConfig, find_chease_executable, prepare_chease_inputs, run_chease
@@ -281,6 +282,7 @@ Each cycle it scans for new Thomson `*.mat` files, parses the shot number (both 
 `40330_NeTe.mat` spellings are accepted), skips files whose mtime it has already recorded, copies the file
 into the shot's `diagnostics/` directory, and then:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 from vaft import database, machine_mapping, process
 
@@ -396,6 +398,7 @@ shot, by calling two helpers on `vaft.database.ods` that the module **does not d
 `load_ods` and `save_ods`. As committed they will raise `AttributeError` before doing any work. The equivalent
 supported entry points are:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 ods = vaft.database.load(shot, directory="public")   # -> ODS

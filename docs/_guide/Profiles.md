@@ -46,14 +46,16 @@ Raw TS/CES `.mat` files are turned into IDS nodes by the machine mapping layer:
 ```python
 import vaft
 from omas import ODS
+from vaft.machine_mapping.thomson_scattering import thomson_scattering
+from vaft.machine_mapping.charge_exchange import charge_exchange
 
 ods = ODS()
 
 # thomson_scattering(ods, shotnumber, data_root=None, mat_file=None)
-vaft.machine_mapping.thomson_scattering(ods, 46051, vaft.data.data_path("legacy/46051_NeTe.mat"))
+thomson_scattering(ods, 46051, vaft.data.data_path("legacy/46051_NeTe.mat"))
 
 # charge_exchange(ods, shotnumber, options="ces", data_root=None, mat_file=None)
-vaft.machine_mapping.charge_exchange(ods, 47514, data_root=vaft.data.data_path("legacy/CES_47514.mat"))
+charge_exchange(ods, 47514, data_root=vaft.data.data_path("legacy/CES_47514.mat"))
 ```
 
 `data_root` accepts either a directory or a path to a specific `*.mat` file. This populates
@@ -80,6 +82,7 @@ $$\psi_N = \frac{\psi(R,Z) - \psi_{axis}}{\psi_{boundary} - \psi_{axis}}, \qquad
 \rho_{pol,N} = \sqrt{\psi_N}, \qquad
 \rho_{tor,N} = \sqrt{\Phi(\psi)/\Phi_{boundary}},\ \Phi = \int q\,d\psi$$
 
+<!-- docs-snippet: skip needs-data (the packaged sample carries no Thomson scattering channels) -->
 ```python
 geq = vaft.data.read_geqdsk(vaft.data.data_path("efit/g040330.00320"))
 
@@ -105,6 +108,7 @@ Building an equilibrium is covered in [Equilibrium]({{ site.baseurl }}/guide/Equ
 
 ## Stage 2 — profile fitting
 
+<!-- docs-snippet: skip fragment (placeholder name mapped is never defined on the page) -->
 ```python
 n_e_fn, T_e_fn, coeffs_ne, coeffs_te, n_e_rho, T_e_rho = \
     vaft.process.profile_fitting_thomson_scattering(
@@ -129,6 +133,7 @@ them. `n_e_rho` and `T_e_rho` are those functions already sampled on a uniform g
 
 The CES counterpart mirrors it, with `ion_index` selecting the ion species:
 
+<!-- docs-snippet: skip fragment (placeholder name mapped_ces is never defined on the page) -->
 ```python
 Vtor_fn, Ti_fn, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho = \
     vaft.process.profile_fitting_charge_exchange(
@@ -173,6 +178,7 @@ re-runs an identical fit at every order.
 
 For data that is not in an IDS, use the engine itself:
 
+<!-- docs-snippet: skip fragment (placeholder name x is never defined on the page) -->
 ```python
 y_eval, y_std_eval, fit_function, coeffs = vaft.formula.fit_profile(
     x, y, y_std,
@@ -196,6 +202,7 @@ Region reductions — core versus edge, pedestal metrics — need a boundary, an
 results from different studies incomparable. `vaft.process.profile.pedestal_top` finds it from the
 profile instead, and records how:
 
+<!-- docs-snippet: skip fragment (placeholder name psi_norm is never defined on the page) -->
 ```python
 from vaft.process.profile import pedestal_top
 
@@ -231,6 +238,7 @@ it actually draws is almost flat. The test is on the curve, not the parameters.
 
 `vaft.process.core_profiles` evaluates the fit callables and stores the result as a `profiles_1d` slice:
 
+<!-- docs-snippet: skip fragment (placeholder name mapped is never defined on the page) -->
 ```python
 ods = vaft.process.core_profiles(
     ods,
@@ -274,6 +282,8 @@ When there is no Thomson data, profiles can be back-derived from the equilibrium
 $n_e$ and $T_e$ share a shape, with $P = 2 n_e T_e e$ and $g(\rho) = \sqrt{P(\rho)/P(0)}$:
 
 ```python
+ods = vaft.omas.sample_ods()      # any ODS that holds an equilibrium
+
 # Pin the on-axis temperature (eV) and let density follow
 vaft.process.core_profiles_from_eq(ods, Te0_eV=100.0, eq_time_index=0)
 
@@ -291,6 +301,7 @@ input, not a measurement.
 Each stage has a canonical plot, reached through the `vaft.omas.plot_*` adapters. They draw what the ODS
 already holds — fitting is a `vaft.process` step, not a plotting option:
 
+<!-- docs-snippet: skip needs-data (the packaged sample carries no Thomson scattering geometry) -->
 ```python
 vaft.omas.plot_thomson_scattering_geometry_poloidal(ods)            # channel positions in the poloidal plane
 vaft.omas.plot_thomson_scattering_time_electron_temperature(ods)    # per-channel Te history
@@ -312,6 +323,7 @@ equilibrium profiles accept more, including `r_major`; a core-profile plot does 
 
 For CES, map the channels onto the equilibrium and fit in `vaft.process`, then plot:
 
+<!-- docs-snippet: skip needs-data (the packaged sample carries no charge-exchange channels) -->
 ```python
 mapped = vaft.process.equilibrium_mapping_charge_exchange(ods, geq)
 fit = vaft.process.profile_fitting_charge_exchange(
@@ -328,6 +340,7 @@ vaft.omas.plot_charge_exchange_time_ion_temperature(ods)      # per-channel Ti h
 `vaft.data.kinetic_profiles` is the container the kinetic-profile file formats read into and write
 from — GPEC's `.kin` today, the Osborne pfile and MARS `PROF*.IN` to follow:
 
+<!-- docs-snippet: skip needs-file (reads a user-supplied file that the repository does not ship) -->
 ```python
 from vaft.data import read_kin, write_kin, normalize_psi
 
@@ -371,6 +384,7 @@ that does not increase. Line endings are LF, so a CRLF file does not round-trip 
 A pfile is read in two steps, because it carries more than a profile set does: per-section units, a
 derivative column, and an `N Z A of ION SPECIES` block.
 
+<!-- docs-snippet: skip needs-file (reads a user-supplied file that the repository does not ship) -->
 ```python
 from vaft.data import read_pfile, write_pfile, kinetic_profiles_from_pfile
 
@@ -422,6 +436,7 @@ silent factor of a million, but not on one kept in `extras`.
 
 MARS reads its kinetic profiles as a deck of two-column ASCII files, one quantity each.
 
+<!-- docs-snippet: skip needs-file (reads a user-supplied file that the repository does not ship) -->
 ```python
 from vaft.data import read_mars_profiles, write_mars_profiles
 
@@ -475,6 +490,7 @@ another, and so is a header row count that disagrees with the rows beneath it.
 
 To hand fitted electron profiles to an external code:
 
+<!-- docs-snippet: skip fragment (placeholder name n_e_fn is never defined on the page) -->
 ```python
 vaft.process.export_electron_profile_txt(
     n_e_fn, T_e_fn, coeffs_ne, coeffs_te,
@@ -491,15 +507,17 @@ The file is CSV with the header `psi_N, T_e [eV], n_e [m-3]`.
 import numpy as np
 import vaft
 from omas import ODS
+from vaft.machine_mapping.dataset_description import dataset_description
+from vaft.machine_mapping.thomson_scattering import thomson_scattering
 
 shot = 40330
 
 geq = vaft.data.read_geqdsk(vaft.data.data_path("efit/g040330.00320"))
 ods = geq.to_omas()
-vaft.machine_mapping.dataset_description(
+dataset_description(
     ods, source=shot, options={"source_type": "shot"},
 )
-vaft.machine_mapping.thomson_scattering(
+thomson_scattering(
     ods, 46051, vaft.data.data_path("legacy/46051_NeTe.mat"),
 )
 

@@ -52,6 +52,7 @@ need `import vaft.database`. The database package also resolves unknown attribut
 submodules in the order `ods`, `ids`, `raw`, `utils`, so helpers defined in `raw.py` or `utils.py`
 are reachable flat:
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 ```python
 import vaft
 
@@ -82,6 +83,7 @@ hsconfigure
 This writes `~/.hscfg`; `h5pyd` also recognizes a project-local `.hscfg`. Never commit that file.
 Check the connection from Python:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 
@@ -94,6 +96,7 @@ the full environment setup.
 
 ## Listing shots
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 vaft.database.exist_shot()                       # numeric shot folders in /public/, newest first
 vaft.database.exist_shot('public', shot=39915)   # True / False
@@ -103,6 +106,7 @@ vaft.database.exist_shot(data_filter='ts')       # DataFrame of processed Thomso
 
 Full signature:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 exist_shot(username=None, shot=None, data_filter=None, sort=-1)
 ```
@@ -121,6 +125,7 @@ exist_shot(username=None, shot=None, data_filter=None, sort=-1)
 `vaft.database.load` materializes data before returning it. The default representation is an
 **OMAS ODS**:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 
@@ -132,6 +137,7 @@ ip = ods['magnetics.ip.0.data']
 
 The current high-level signature is:
 
+<!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
 ```python
 load(shot, source="public", *, representation="omas", paths=None,
      occurrence=None, imas_version=None, cache="auto", transport="auto")
@@ -140,6 +146,7 @@ load(shot, source="public", *, representation="omas", paths=None,
 Set `representation="imas"` for native IDS objects. OMAS `paths` may point at an IDS root or leaf;
 native IMAS requests accept top-level IDS names only.
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 # Several shots at once -> list of ODS
 ods_list = vaft.database.load([39915, 39916, 39917], paths="magnetics")
@@ -166,16 +173,17 @@ Local artifact I/O belongs to the representation modules:
 import vaft
 
 ods = vaft.omas.sample_ods()
-vaft.omas.save(ods, "/tmp/shot.json.gz")
-restored = vaft.omas.load("/tmp/shot.json.gz")
+vaft.omas.save(ods, "shot.json.gz")
+restored = vaft.omas.load("shot.json.gz")
 
-# Native IMAS AL5/URI targets use the corresponding bridge
-vaft.imas.save(ods, "imas:hdf5?path=/tmp/imas-entry")
-restored = vaft.imas.load("imas:hdf5?path=/tmp/imas-entry")
+# A native IMAS HDF5 entry is a directory (master.h5 plus one image per IDS)
+vaft.imas.save(ods, "imas-entry")
+restored = vaft.imas.load("imas-entry")
 ```
 
 `vaft.database.filedb.FileDB` resolves canonical, OMAS-first archive locations without writing:
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 ```python
 from vaft.database.filedb import FileDB
 
@@ -195,6 +203,7 @@ A shot on HSDS is a folder (`master.h5` plus one image per IDS), so `hsget` cann
 vaft export --shot 41672 --source public --backend imas-nc omas-json geqdsk
 ```
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 vaft.database.export(41672, source="public", backend=["imas-nc", "omas-json", "geqdsk"])
 ```
@@ -218,11 +227,13 @@ Both netCDF backends need the `netCDF4` package.
 
 ## Saving to HSDS
 
+<!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
 ```python
 save(data, shot, *, target="public", representation=None, occurrence=None,
      imas_version=None, derived_cache="auto")
 ```
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 # Remote writes are admin-restricted; ordinary documentation and analysis are read-only.
 uri = vaft.database.save(ods, 39915, target="my-authorized-namespace")
@@ -236,6 +247,7 @@ from the supplied object and rejects a conflicting explicit `representation`.
 When you want an `IDSToplevel` from `imas` rather than an OMAS ODS, use the IDS pair. These live on the
 `vaft.database.ids` submodule; there is no `vaft.database.load_ids` / `save_ids` at package level.
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 eq = vaft.database.ids.load(2, "equilibrium", dd_version="3.41.0")
 
@@ -246,6 +258,7 @@ idss = vaft.database.ids.load(2, ["equilibrium", "pf_active"])
 For a whole shot as native IMAS rather than one IDS, `vaft.database.load` takes
 `representation="imas"`.
 
+<!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
 ```python
 ids.load(shot, ids_name, source=None, occurrence=0, dd_version=None, local_dir=None,
          cache="auto", transport="auto", *, directory=None)
@@ -258,6 +271,7 @@ with `imas.DBEntry("imas:hdf5?path=…", "r")` and returns `dbentry.get(ids_name
 
 Saving a native IDS goes through `ids.save`, **not** `vaft.database.save`:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 uri = vaft.database.ids.save(eq, 2, dd_version="3.41.0")
 # -> "hdf5://{username}/2/equilibrium.h5"
@@ -290,6 +304,7 @@ different function from the package-level `vaft.database.load`; never write
 Raw signals are addressed by an integer **field code** and returned as `(time, data)` NumPy arrays,
 with time in seconds.
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 ```python
 from vaft.database import raw
 
@@ -306,6 +321,7 @@ Credentials are stored in `~/.vest/database_raw_info.yaml` with the password Fer
 unattended notebook — `init_pool()` and `configuration()` will call it if the YAML is missing.
 `load_raw` initialises the pool automatically when it has not been built yet.
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 ```python
 load_raw(shot, fields=None, max_retries=3, daq_type=None, sample_opt=False)
 ```
@@ -314,6 +330,7 @@ load_raw(shot, fields=None, max_retries=3, daq_type=None, sample_opt=False)
   shape `(N, n_fields)`, column-stacked and truncated to the shortest field.
 - `load_raw` never raises — it logs and returns `None` on any failure. Always check the result.
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 ```python
 loaded = raw.load_raw(39915, [102, 101, 1])
 if loaded is None:
@@ -324,6 +341,7 @@ ip = data[:, 0]     # column order follows the requested field list
 
 ### Finding field codes and shots
 
+<!-- docs-snippet: skip fragment (placeholder name raw is never defined on the page) -->
 ```python
 raw.name(102)                             # -> (field name, remark) from the shotDataField table
 raw.vest_load_by_name(39915, "Plasma Current")   # load by human name (alias: raw.vest_loadn)
@@ -339,6 +357,7 @@ All of these need `init_pool()` first; they print an error and return `None` / `
 `vaft/data/legacy/sql_table.txt` (a JSON mapping such as `{"TF Current": 1, "Plasma Current": 102, …}`),
 also exposed as `raw.SQL_TABLE_PATH`:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import json
 from vaft.database import raw
@@ -379,6 +398,7 @@ Resolution order inside `load_raw` is: an explicit `sample_opt` string → `VAFT
 (unless offline-only) the MySQL pool. `raw.raw_offline_only()` reports the current mode, and
 `raw.sql_loading_available()` reports whether the MySQL driver imported at all.
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 ```python
 import vaft
 from vaft.database import raw
@@ -391,11 +411,13 @@ time, plasma_current = loaded
 
 Produce your own archive for a shot with:
 
+<!-- docs-snippet: skip fragment (placeholder name raw is never defined on the page) -->
 ```python
 raw.init_pool()
 raw.dump_all_raw_signals_for_shot(shot=44740, output_path="vest_raw_44740.json.gz")
 ```
 
+<!-- docs-snippet: skip fragment (placeholder name dump_all_raw_signals_for_shot is never defined on the page) -->
 ```python
 dump_all_raw_signals_for_shot(shot, output_path=None, max_retries=3,
                               daq_type=0, slow_dt_threshold=5e-6, plot_opt=False)

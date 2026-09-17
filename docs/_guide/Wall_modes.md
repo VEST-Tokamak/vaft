@@ -35,6 +35,7 @@ each segment gets its own L/R eigenbasis. The bases are block-assembled into
 matrices, so the mutual inductance between segments survives in the
 off-diagonal blocks of the reduced inductance.
 
+<!-- docs-snippet: skip fragment (placeholder name G_full is never defined on the page) -->
 ```python
 import vaft
 from vaft.omas.process_wrapper import compute_impedance_matrices_ods, compute_wall_mode_basis_ods

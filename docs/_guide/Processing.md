@@ -65,6 +65,7 @@ padding, an even `span` is decremented to the nearest odd value, and `span <= 1`
 
 For PF coil-current traces there is a dedicated single-sample spike remover:
 
+<!-- docs-snippet: skip fragment (placeholder name raw_coil_current is never defined on the page) -->
 ```python
 clean = vaft.process.vest_coil_current_noise_reduction(raw_coil_current)
 ```
@@ -114,6 +115,7 @@ This is the distinction the layer cares about:
 `np.interp` performs both and announces neither. Use `resample_to_time` instead anywhere a diagnostic
 is written onto a common time grid:
 
+<!-- docs-snippet: skip fragment (placeholder name source_time is never defined on the page) -->
 ```python
 from vaft.process import resample_to_time
 
@@ -324,6 +326,7 @@ Psi, Bz, Br = vaft.process.compute_response_matrix(
 with a different positional argument order. `calc_grid`, which builds the same physics on a regular
 grid, returns **`(br, bz, phi)`** instead:
 
+<!-- docs-snippet: skip fragment (placeholder name xvar is never defined on the page) -->
 ```python
 br, bz, phi = vaft.process.calc_grid(
     xvar, zvar,                                   # 1-D R and Z grid vectors
@@ -397,6 +400,7 @@ integrates this with an **eigenvalue decomposition** of $A = -M^{-1}R$: the stat
 $E \, \mathrm{diag}(e^{\lambda \delta t}) \, E^{-1}$ is formed once, marched on a fine sub-step grid
 (`dt_sub`, default $5 \times 10^{-5}$ s), then interpolated back onto the input time base.
 
+<!-- docs-snippet: skip fragment (placeholder name coil_plasma_currents is never defined on the page) -->
 ```python
 I_w = vaft.process.solve_eddy_currents(
     R_mat, L_mat, M_mat,
@@ -528,6 +532,7 @@ every shot ≥ 41660 use the "late" window (`6500, 9000, 5000`); everything else
 
 Per-channel entry points:
 
+<!-- docs-snippet: skip fragment (placeholder name time is never defined on the page) -->
 ```python
 from vaft.process.magnetics import vest_b_field_pol_probe_legacy, vest_flux_loop_legacy
 
@@ -547,20 +552,23 @@ config=None)`, where `channels` is a sequence of dicts with keys `field_code`, `
 `(shot, field_code) -> (time, data) | None` — returning `None` yields a zero-filled trace. VEST's own
 channel table and raw-database loader are already wired up in `vaft.machine_mapping`:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 import vaft
 from omas import ODS
+from vaft.machine_mapping.magnetics import magnetics
 
 time, flux_loops, probes = vaft.machine_mapping.vfit_md(39915)   # -> (time, list, list)
 
 ods = ODS()
-vaft.machine_mapping.magnetics(ods, shot=44740, tstart=0.26, tend=0.34, dt=4e-5)
+magnetics(ods, shot=44740, tstart=0.26, tend=0.34, dt=4e-5)
 ```
 
 ## Standalone processing chains
 
 Three self-contained multi-channel routines exist for working outside the ODS:
 
+<!-- docs-snippet: skip fragment (placeholder name time is never defined on the page) -->
 ```python
 from vaft.process.magnetics import rogowski_coil_ip, flux_loop_flux, b_field_pol_probe_field
 
@@ -585,6 +593,7 @@ Processing returns arrays, and drawing them is `vaft.plot`'s job -- `plot_flux_l
 
 ## Mirnov fluctuations and toroidal mode numbers
 
+<!-- docs-snippet: skip fragment (placeholder name data is never defined on the page) -->
 ```python
 from vaft.process.magnetics import (
     mirnov_preprocess_signal, mirnov_spectrogram,
@@ -605,6 +614,7 @@ $= 2 \lvert \mathrm{FFT} \rvert / N_{\rm win}$) that reproduces the legacy `vest
 
 Two-probe cross-spectral mode number, and multi-probe wrapped-phase fit:
 
+<!-- docs-snippet: skip fragment (placeholder name signal_a is never defined on the page) -->
 ```python
 res = toroidal_mode_analysis(signal_a, signal_b,
                              sample_rate=250_000.0,
@@ -644,6 +654,7 @@ fig, ax = vaft.omas.plot_mirnov_spatial_phase(ods, time=0.3215)
 `vaft.process.statistical_analysis` fits a log-log power-law scaling
 $\tau_E \propto \prod_k x_k^{\alpha_k}$ by ordinary least squares.
 
+<!-- docs-snippet: skip fragment (placeholder name excel_file is never defined on the page) -->
 ```python
 from vaft.process import statistical_analysis
 
@@ -670,6 +681,7 @@ metrics      = statistical_analysis.compute_metrics(results, df, target_param)
 `get_individual_correlations` take the **log-transformed** frame (`results.log_df`, or the output of
 `log_transform`). Mixing them up silently produces garbage rather than an error.
 
+<!-- docs-snippet: skip fragment (placeholder name results is never defined on the page) -->
 ```python
 log_df = results.log_df
 corr   = statistical_analysis.get_correlation_matrix(log_df, eng_params, target_param)

@@ -46,6 +46,7 @@ Every diagnostic module follows the same shape.
 
 **1. The canonical IDS entry point** — named exactly after the IDS it fills. This is what you should call.
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.machine_mapping.magnetics import magnetics
 from vaft.machine_mapping.tf import tf
@@ -59,6 +60,7 @@ that do not depend on time; `*_dynamic` writes the time-dependent signals. The c
 calls both. Reach for these when you want geometry without touching the database, or want to re-map only the
 waveforms.
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.machine_mapping.tf import vfit_tf_static, vfit_tf_dynamic
 
@@ -111,6 +113,7 @@ Source: [`vaft/machine_mapping/`](https://github.com/VEST-Tokamak/vaft/blob/main
 This is the real production recipe, condensed from
 [`generate_diagnostics_ods.py`](https://github.com/VEST-Tokamak/vaft/blob/main/workflow/automatic_pipeline_1_routine_data_processing/generate_diagnostics_ods.py).
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from omas import ODS, save_omas_json
 
@@ -169,6 +172,7 @@ timebase, not the resampled one — fluctuation analysis needs the full bandwidt
 
 Two lower-level helpers are worth knowing:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.machine_mapping.magnetics import detect_plasma_window, vfit_md, vfit_plasma_current, vest_diamagnetic_flux
 
@@ -201,6 +205,7 @@ fallback), per-line
 baseline, validity) and the `agreement` tolerances between light and current. Every rule is validated against
 `vaft.process.onset.active_window`'s signature when the policy is loaded:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.machine_mapping.utils import resolve_plasma_timing_policy
 
@@ -238,6 +243,7 @@ and the EFIT constraint script cuts its time slices from the range intersected w
 Signal conditioning (integration, drift removal, smoothing) is delegated to `vaft.process` and is tunable
 through `processing_config`, a `VestMagneticsProcessingConfig`:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.process.magnetics import VestMagneticsProcessingConfig
 from vaft.machine_mapping.magnetics import magnetics
@@ -313,6 +319,7 @@ which is written to `tf.b_field_tor_vacuum_r` (units T·m). The VEST reference r
 $B_t$ on axis is `tf.b_field_tor_vacuum_r / tf.r0`. The reconstructed coil current also lands in
 `tf.coil.0.current`.
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.machine_mapping.tf import vfit_tf_current, vfit_tf_bt_r
 
@@ -333,6 +340,7 @@ coil heights differ between the older and newer builds. Passing a `shot` to `vfi
 selects the right one; the canonical `pf_active(...)` does this for you. You can point at a different asset
 tree with `geometry_root`, and resolve a packaged asset directly:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.machine_mapping.pf_active import resolve_geometry_asset, vfit_pf
 
@@ -350,6 +358,7 @@ SXR does not come from the SQL DAQ — it comes from **digitizer CSV files** nam
 (125 MHz / 128 by default) and a trigger offset, so `daq_label` is a required argument: it selects which
 physical array the digitizer channels belong to.
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.machine_mapping.soft_x_rays import soft_x_rays, soft_x_rays_from_digitizer_csv
 
@@ -373,6 +382,7 @@ Worked example:
 Both read MATLAB exports rather than the DAQ, so they take a `shotnumber` and an optional `data_root` /
 `mat_file`. Both write **uncertainties** alongside values when the export provides errors.
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.machine_mapping.thomson_scattering import thomson_scattering
 from vaft.machine_mapping.charge_exchange import charge_exchange
@@ -391,6 +401,7 @@ load Doppler data directly. These two IDSs are the kinetic input to profile fitt
 These two are **not measured** — they are machine constants. Both are copied from a packaged reference ODS
 that ships with VAFT:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.machine_mapping.pf_passive import pf_passive
 from vaft.machine_mapping.em_coupling import em_coupling
@@ -411,6 +422,7 @@ to substitute your own reference.
 
 Stamps pulse identity. `vfit_dataset_description` is the explicit form:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.machine_mapping.dataset_description import vfit_dataset_description
 
@@ -437,6 +449,7 @@ A separate `vest.yaml` shipped inside `vaft/machine_mapping/` carries per-shot D
 field code, gain). It is keyed by shot, with a `0` block holding defaults that shot-specific blocks are
 deep-merged over — so a recalibrated channel is a small YAML override, not a code change. Query it with:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.machine_mapping.utils import raw_database_info
 
@@ -454,6 +467,7 @@ per-group uncertainties below.
 EFIT needs an error bar on every constraint. `machine_mapping` attaches them, because the *machine* is what
 determines them: an outboard Mirnov is not as trustworthy as a Rogowski coil.
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.machine_mapping.utils import (
     DEFAULT_CONSTRAINT_UNCERTAINTIES,
@@ -484,6 +498,7 @@ pickup worst, so down-weighting them is what keeps a reconstruction stable.
 Override selectively with a mapping (unknown keys raise), or wholesale with a 9-element vector in the table's
 order:
 
+<!-- docs-snippet: skip fragment (placeholder name apply_default_constraint_uncertainties is never defined on the page) -->
 ```python
 apply_default_constraint_uncertainties(ods, {"magnetics_ip": 0.02})
 apply_default_constraint_uncertainties(ods, [1e-4, 1e-4, 2e-2, 3e-2, 1e-2, 1e-1, 1e-2, 1e-1, 1e-2])
