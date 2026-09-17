@@ -401,7 +401,7 @@ supported entry points are:
 <!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
-ods = vaft.database.load(shot, directory="public")   # -> ODS
+ods = vaft.database.load(shot, source="public")   # -> ODS
 vaft.database.save(ods, shot)
 ```
 

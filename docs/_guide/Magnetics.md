@@ -70,7 +70,7 @@ import vaft
 ods = vaft.omas.sample_ods()
 
 # Or pull a shot from the VEST database
-# ods = vaft.database.load_ods(39915, directory="public")
+# ods = vaft.database.load_ods(39915, source="public")
 
 print(len(ods['magnetics.b_field_pol_probe']))   # 64
 print(len(ods['magnetics.flux_loop']))           # 11

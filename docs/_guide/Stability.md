@@ -125,7 +125,7 @@ needs no formula call:
 
 <!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
-ods = vaft.database.load_ods(39915, directory="public")
+ods = vaft.database.load_ods(39915, source="public")
 
 vaft.omas.plot_equilibrium_time_beta_n(ods)
 vaft.omas.plot_equilibrium_time_q95(ods)

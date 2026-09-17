@@ -600,7 +600,7 @@ HSDS and hands you an ODS; `vaft.database.save_ods` does the reverse.
 ```python
 import vaft
 
-ods = vaft.database.load(39915)                             # ODS, directory="public"
+ods = vaft.database.load(39915)                             # ODS from the default source, "main"
 ods = vaft.database.load_ods(39915, paths=['magnetics'])    # only one IDS
 ods = vaft.database.load_ods(39915, time=0.325)             # single time slice
 ods_list = vaft.database.load_ods([39915, 41524, 41672])    # list in, list out

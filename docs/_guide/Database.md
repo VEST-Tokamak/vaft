@@ -139,9 +139,12 @@ The current high-level signature is:
 
 <!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
 ```python
-load(shot, source="public", *, representation="omas", paths=None,
+load(shot, source=None, *, representation="omas", paths=None,
      occurrence=None, imas_version=None, cache="auto", transport="auto")
 ```
+
+`source=None` resolves to the default source, `main`; pass `source="public"` for the legacy public
+lineage the worked examples on this site read.
 
 Set `representation="imas"` for native IDS objects. OMAS `paths` may point at an IDS root or leaf;
 native IMAS requests accept top-level IDS names only.
@@ -229,17 +232,19 @@ Both netCDF backends need the `netCDF4` package.
 
 <!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
 ```python
-save(data, shot, *, target="public", representation=None, occurrence=None,
+save(data, shot, *, source=None, representation=None, occurrence=None,
      imas_version=None, derived_cache="auto")
 ```
 
 <!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 # Remote writes are admin-restricted; ordinary documentation and analysis are read-only.
-uri = vaft.database.save(ods, 39915, target="my-authorized-namespace")
+uri = vaft.database.save(ods, 39915, source="my-authorized-namespace")
 ```
 
-`target` must be a bare HSDS namespace, never an `hdf5://` URI. VAFT infers OMAS versus native IMAS
+`source` must be a bare HSDS namespace, never an `hdf5://` URI. It defaults to `None`, which resolves
+to `main`; the legacy `public` source is read-only, so `save(..., source="public")` raises
+`ReadOnlySourceError`. `target=` and `directory=` are deprecated aliases for `source=` and warn. VAFT infers OMAS versus native IMAS
 from the supplied object and rejects a conflicting explicit `representation`.
 
 ## Native IMAS IDS objects

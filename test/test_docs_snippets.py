@@ -498,6 +498,83 @@ def test_every_documented_call_binds_to_the_current_signature():
     assert not problems, "\n" + "\n".join(problems)
 
 
+# --- vaft.database: documented defaults and deprecated keywords ----------------
+
+_DATABASE_VERBS = ("load", "open", "save", "export")
+_DATABASE_CALL = re.compile(
+    r"(?:(?<![\w.])|vaft\.database\.)(load|open|save|export|load_ods|save_ods)\(([^()]*)\)", re.S
+)
+_KEYWORD = re.compile(r"(?<![\w.])([A-Za-z_]\w*)\s*=\s*(\"[^\"]*\"|'[^']*'|[^,\s()]+)")
+
+
+def _database_documentation_problems(path: Path) -> list[str]:
+    import vaft.database
+
+    problems = []
+    for start, source in _python_fences(path):
+        try:
+            ast.parse(source)
+            listing = False
+        except SyntaxError:
+            listing = True  # a signature listing: `load(shot, source=None, *, ...)`
+        for call in _DATABASE_CALL.finditer(source):
+            verb, arguments = call.group(1), call.group(2)
+            line = start + source.count("\n", 0, call.start())
+            where = f"{path.relative_to(ROOT) if path.is_relative_to(ROOT) else path.name}:{line}"
+            keywords = dict(_KEYWORD.findall(arguments))
+            for old in ("directory", "target"):
+                if old in keywords and not (listing and keywords[old] == "None"):
+                    problems.append(
+                        f"{where}: {verb}(... {old}=) is a deprecated alias that warns; write source="
+                    )
+            if not listing or verb not in _DATABASE_VERBS:
+                continue
+            parameters = inspect.signature(getattr(vaft.database, verb)).parameters
+            for name, shown in keywords.items():
+                if name not in parameters or parameters[name].default is inspect.Parameter.empty:
+                    continue
+                real = parameters[name].default
+                if shown.strip("\"'") != str(real) or (shown[0] in "\"'") != isinstance(real, str):
+                    problems.append(
+                        f"{where}: {verb}() is documented with {name}={shown}; the default is {real!r}"
+                    )
+    return problems
+
+
+def test_the_database_check_sees_a_wrong_default_and_a_deprecated_keyword(tmp_path):
+    page = tmp_path / "page.md"
+    page.write_text(
+        "```python\n"
+        'vaft.database.load(shot, source="public", *, representation="omas", paths=None)\n'
+        'save(data, shot, *, target="public", representation=None)\n'
+        "ids.load(shot, source=None, dd_version=None, *, directory=None)\n"
+        "```\n"
+        "```python\n"
+        'ods = vaft.database.load(39915, directory="public")\n'
+        'ods = vaft.database.load(39915, source="public")\n'
+        "```\n",
+        encoding="utf-8",
+    )
+    problems = _database_documentation_problems(page)
+    assert len(problems) == 4, problems
+    assert "source=\"public\"; the default is None" in problems[0]
+    assert "save(... target=) is a deprecated alias" in problems[1]
+    assert "target=\"public\"; the default is None" in problems[2]
+    assert "load(... directory=) is a deprecated alias" in problems[3]
+
+
+def test_the_database_verbs_are_documented_with_their_real_defaults():
+    """The guide printed source="public"; the default is None -> "main" (cold review docs F2, F8).
+
+    ``save(target="public")`` was worse than stale: ``public`` is read-only and
+    the call raises ``ReadOnlySourceError``.  ``directory=``/``target=`` still
+    work and warn, so neither resolution nor binding rejects them.
+    """
+    pages = _rendered_pages() + [p for p in (ROOT / "README.md", ROOT / "README.ko.md") if p.is_file()]
+    problems = [problem for page in pages for problem in _database_documentation_problems(page)]
+    assert not problems, "\n" + "\n".join(problems)
+
+
 def test_the_allowlist_has_no_stale_entries(names):
     """An allowlist that only ever grows stops meaning anything."""
     live = {

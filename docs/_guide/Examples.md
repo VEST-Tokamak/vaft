@@ -60,7 +60,7 @@ print(vaft.database.is_connect())
 shots = vaft.database.exist_shot("public")
 
 # Load one shot as an OMAS ODS
-ods = vaft.database.load(39915, directory="public")
+ods = vaft.database.load(39915, source="public")
 ```
 
 `vaft.database.load` is the canonical entry point: it returns an OMAS ODS, and it also accepts an explicit `ids_name=` keyword when you want a native IMAS IDS instead. See [Database]({{ site.baseurl }}/guide/Database/) for the full surface.
@@ -214,7 +214,7 @@ The profile notebook is the largest runnable example that stays inside pure VAFT
 ```python
 import vaft
 
-ods = vaft.database.load(40330, directory="public")
+ods = vaft.database.load(40330, source="public")
 
 vaft.omas.plot_thomson_scattering_geometry_poloidal(ods)
 vaft.omas.plot_thomson_scattering_time_electron_temperature(ods)
