@@ -361,3 +361,27 @@ def test_a_refused_choice_keeps_the_drawing_and_the_previous_value(sample):
     result.state.set("method", "hann_fft")
     assert result.state["method"] == "hann_fft" and len(canvas.axes) == before
     assert not any("not drawn" in text.get_text() for text in result.figure.texts)
+
+
+def test_a_legal_starting_value_outside_a_controls_list_is_kept_fixed(sample):
+    """cold review plot G6: selection=[0, 3] and yunit="auto" are legal
+    statically but were pushed through the control's choice list and refused
+    under interactive=True."""
+    static = vaft.omas.extract_flux_loop_time_flux(sample, selection=[0, 3])
+    chosen = vaft.omas.plot_flux_loop_time_flux(
+        sample, selection=[0, 3], interactive=True, interaction_backend="none"
+    )
+    assert "selection" not in {c.name for c in chosen.controls}
+    assert len(chosen.figure.subfigs[0].axes[0].lines) == len(static.series) == 2
+    chosen.state.set("layout", "subplots")  # the fixed selection survives a redraw
+    assert len(chosen.figure.subfigs[0].axes) == 2
+
+    auto = vaft.omas.plot_plasma_current_time(
+        sample, yunit="auto", interactive=True, interaction_backend="none"
+    )
+    assert "yunit" not in {c.name for c in auto.controls}
+    # a value the list does hold is still the control's starting value
+    listed = vaft.omas.plot_plasma_current_time(
+        sample, yunit="kA", interactive=True, interaction_backend="none"
+    )
+    assert listed.state["yunit"] == "kA"
