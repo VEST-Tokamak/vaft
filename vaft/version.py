@@ -6,7 +6,7 @@ __version__ = "0.7.0"
 # patch notes
 # ────────────────────────────────────────────────────────
 # 0.7.0
-# - development release line 2026-09-03 .. 2026-09-17 merged into main: 264
+# - development release line 2026-09-03 .. 2026-09-17 merged into main: 266
 #   pull requests; the detailed notes are on the release pull request and the
 #   GitHub release. Headlines:
 # - discharge timing is detected, not assumed: H-alpha onset, loop-voltage
@@ -52,8 +52,14 @@ __version__ = "0.7.0"
 # - process contract: every processing module documented under one docstring
 #   contract with a shared parser and catalog; kinetic-profile radial
 #   coordinate is a named choice (#417-#421, #420)
+# - `vaft export` and vaft.database.export(): a shot leaves as a portable
+#   file, refusing what the format would drop and never deleting the last
+#   copy on overwrite (#450)
 # - startup formula layer: breakdown chain through the avalanche, vacuum-field
-#   view with |E_phi|, breakdown figure and Lloyd margin (#783, #676)
+#   view with |E_phi|, breakdown figure and Lloyd margin (#783, #676); the
+#   2.45 GHz ECR field, the 6 kW ECH power mapped into ec_launchers as an
+#   optional component, startup proxies, midplane profiles and vacuum field
+#   lines on the camera view (#165, #888)
 # - platform: CHEASE, DCON/GPEC and EFIT/EFUND build and run natively on
 #   Windows (the NUBEAM Windows recipe is experimental); one recipe set under install/ builds CHEASE, GPEC, GACODE and
 #   NUBEAM on Linux and macOS; GPEC pins its netCDF; TokaMaker is an optional
@@ -61,7 +67,8 @@ __version__ = "0.7.0"
 # - CI: develop asks for development confidence (core selection), main for
 #   release confidence (full suite on Linux and Windows, tutorials); main's
 #   branch protection is code (#515, #471)
-# - tutorials: sessions 02, 03 and 04 with one QMD presentation source; the
+# - tutorials: session 02 redesigned to follow a startup from the light to
+#   the field lines (#888); sessions 03 and 04 with one QMD presentation source; the
 #   docs' code samples are checked to name real API
 # - deprecated: current_density_from_psi (#355); the legacy onset
 #   detectors and the chease-mhd-stability product are retired behind gates;
