@@ -1,15 +1,24 @@
 schema_version: 1
-reference_id: vest-41524-pipeline-full-imas-v2
+reference_id: vest-41524-pipeline-full-imas-v3
 shot: 41524
 machine: VEST
 imas_dd_version: 3.41.0
 source:
   kind: pipeline-until-efit
-  git_commit: 9c62a1f54ac547d5d8f26b12986c3e534e1b50cf
+  git_commit: c9213921f625ce358f73ac89e9a63b4cdec5fdfe
   filedb_root: /Volumes/hsyun_ssd/vaft-filedb/issue-166-41524
   raw_source: source/vest_41524_daq_raw.json.gz
   raw_sha256: 8d3f9448b0ef351b70b469f303666467bac39c157afd00eddc6617dd8abfb91b
 representations:
+  omas:
+    path: omas.json.gz
+    media_type: application/gzip
+    package: repository-only
+    compatible_adapters:
+    - omas
+    - imas
+    size: 36160882
+    sha256: 9c00c1828044980d2ff7f6dfcb8ed9163e3984ba77fbb7396cf5706ffb1ebbee
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -17,14 +26,14 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 27946188
-    sha256: b990c6d0a63f5b31407271c481b41e17f12f6022184de0fb097671e127fcea0b
+    size: 27742676
+    sha256: 5d1f03d47410d1e1f45e21b8cb01cbdcfa180079ec2103d2bb263a976a49125a
 generation:
   command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
     vaft/data/samples/41524/manifest.yaml --canonical-source vaft/data/samples/41524/source/pipeline-until-efit.json.gz
   canonical_source: source/pipeline-until-efit.json.gz
-  canonical_sha256: 600e5b0dd20fd2aefe7376103b36bf75877502658fb2997001626c06165922a9
-  materialized_leaves: 18635
+  canonical_sha256: db3b5c4e06dac4a8fdcb0e68d940b48f817d7566ceb5bfdeccd3394511a88bfc
+  materialized_leaves: 18390
   normalizations:
   - remove non-DD equilibrium.code.parameters parser cache
   - remove only scalar-default placeholders for unavailable heterogeneous Mirnov signals
@@ -64,9 +73,33 @@ generation:
       git_commit: b618ab9cfc449cbe2d8faa8bde55310d35decbbc
       passive_material_factor: 1.04
       source_sha256: 2d645cffaa6350955fb131779c6f5129c6c478ff0b480136d7686fef717fe819
-    replaced_input_asymmetry: 0.0012745563025436115
-    pf_passive_currents: solved by the frozen eddy stage against the pre-repair asset;
-      not re-solved
+    replaced_input_asymmetry: 0.0
+    pf_passive_currents: solved by the eddy stage against this asset
+  regeneration:
+    generated: '2026-09-17T03:34:38+00:00'
+    vaft_commit: c9213921f625ce358f73ac89e9a63b4cdec5fdfe
+    stages_rerun:
+    - static
+    - diagnostics
+    - eddy
+    stages_reused:
+      efit: equilibrium IDS copied verbatim from the previous canonical source; EFIT
+        was not rerun
+    previous_canonical_sha256: 600e5b0dd20fd2aefe7376103b36bf75877502658fb2997001626c06165922a9
+    eddy_stage_sha256: bdc78ca2a8d32336eb4ca80791230d227b320d6e3a29dbb336598b0a7c8b6321
+    command: static -> diagnostics -> eddy via vaft.omas.vest_upstream (settings from
+      source/pipeline-config.yaml), composed with vaft.database.composition.compose_stage_products,
+      wall/em_coupling from the static product
+    reason: 'carry magnetics.flux_loop.*.voltage, magnetics.rogowski_coil and ec_launchers
+      (#165), and the mapper changes since 2026-08-28: IMPA moved to its own stage
+      (#305), phase-reference Mirnov entries gated by shot (#857), probe toroidal
+      angle as position.phi (#725/#731), full-discharge TF/barometry/EC windows, pf_active
+      turn-count resistance, nominal pf_passive resistivity, anti-aliased filterscope
+      decimation (#425), diamagnetic plasma window, diagnostics-stage signal validity
+      (#189), passive currents re-solved on the reciprocal coupling (#373)'
+    corrections_reproduced_by_mapper:
+    - '#288 b_field_pol_probe poloidal_angle = 3*pi/2'
+    - spectrometer_uv CII_4267 / 426.7e-9
 pipeline:
   configuration: source/pipeline-config.yaml
   configuration_sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a
@@ -101,10 +134,12 @@ semantic_comparison:
   - em_coupling.*
   - equilibrium.*
   - wall.*
+  - ec_launchers.*
   exclude_paths:
   - '*.ids_properties.*'
   - dataset_description.imas_version
   - equilibrium.code.parameters*
+  - ec_launchers.time
 acceptance:
   equilibrium_times:
   - 0.328
@@ -137,12 +172,12 @@ corrections:
   to: CII_4267 / 426.7e-9
   reason: '3726 Angstrom is the well-known [O II] line, which processed_line.5 of
     the same channel already and correctly claims; the representative visible C II
-    line the filterscope observes is near 4267 Angstrom. The old pair therefore
-    named two different species at one wavelength, which a species-aware selector
-    would have resolved to the wrong ion. Applied in place rather than by rerunning
-    the pipeline, for the same reason as the #288 correction: the mapper writes both
-    leaves as constants from vaft.machine_mapping.spectrometer_uv.SIGNALS, and no
-    stage output depends on either, so the intensity series recorded from DAQ field
-    142 is untouched. SIGNALS was corrected in the same change, so a regeneration
-    reproduces these values rather than reverting them, and the stage hashes still
-    describe the run that produced the rest of the artifact.'
+    line the filterscope observes is near 4267 Angstrom. The old pair therefore named
+    two different species at one wavelength, which a species-aware selector would
+    have resolved to the wrong ion. Applied in place rather than by rerunning the
+    pipeline, for the same reason as the #288 correction: the mapper writes both leaves
+    as constants from vaft.machine_mapping.spectrometer_uv.SIGNALS, and no stage output
+    depends on either, so the intensity series recorded from DAQ field 142 is untouched.
+    SIGNALS was corrected in the same change, so a regeneration reproduces these values
+    rather than reverting them, and the stage hashes still describe the run that produced
+    the rest of the artifact.'

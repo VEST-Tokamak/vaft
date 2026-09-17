@@ -125,7 +125,7 @@ VEST 데이터 분석 플랫폼
 ### VEST 데이터베이스에서 사용할 수 있는 IMAS IDS
 
 **실험 데이터:**
-`dataset_description` · `magnetics` · `tf` · `pf_active` · `barometry` · `spectrometer_uv` · `thomson_scattering` · `charge_exchange`
+`dataset_description` · `magnetics` · `tf` · `pf_active` · `barometry` · `ec_launchers` · `spectrometer_uv` · `thomson_scattering` · `charge_exchange`
 
 **모델링 데이터:**
 `wall` · `em_coupling` · `pf_passive` · `equilibrium` (EFIT/CHEASE) · `core_profiles` · `mhd_linear` (DCON/RDCON)

@@ -75,8 +75,9 @@ def test_the_catalog_counts_the_known_public_surface():
         # #783 comment 1 added the post-avalanche equilibrium-field and
         # flux-closure kernels and the limiter-aperture geometry, comment 2
         # the generic Townsend inversion, and #676 the Ejiri mirror proxy:
-        # 5 + 7 = 12.
-        "startup": 15,
+        # 5 + 7 = 12.  #888 added the Lloyd figure of merit E_phi B_phi / B_p
+        # the tutorial's empirical thresholds are stated against: 17 + 1 = 18.
+        "startup": 18,
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 

@@ -101,6 +101,10 @@ def test_a_text_layer_is_an_annotation_not_a_legend_entry():
 
 
 def test_the_top_view_places_diagnostics_that_store_a_toroidal_position(sample):
+    # The B-tor probes are IMPA's, a stage of its own since #305.
+    from _synthetic_inputs import make_impa_composed
+
+    sample = make_impa_composed(sample)
     layers = {layer.label: layer for layer in _topview_diagnostic_layers(sample) if layer.label}
     assert set(layers) == {"B-pol probes", "B-tor probes"}
     probe = sample["magnetics.b_field_pol_probe.0.position"]

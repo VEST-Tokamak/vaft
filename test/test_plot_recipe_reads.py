@@ -59,6 +59,8 @@ OMAS_BOUND = frozenset({
     "camera_visible_image_field_line", "camera_visible_image_fluctuation",
     "camera_visible_image_mhd_power", "equilibrium_overview",
     "magnetics_overview_vacuum", "magnetics_overview_plasma_residual",
+    # issue #888: the startup views solve vessel currents on a private copy.
+    "startup_proxies_time", "vacuum_field_midplane", "camera_visible_image_vacuum_field_line",
 })
 
 #: Recorded reads that are not the plot's input, per plot, with the reason.

@@ -899,6 +899,10 @@ class CallableRecipe:
     reads: tuple[str, ...] = ()
     backend: str = OMAS_BOUND
     reason: str = ""
+    #: ``True`` for a builder that overlays every entry: it is handed the
+    #: ``(label, object)`` sequence, each object prepared as a single-entry
+    #: builder's would be, instead of the first object alone.
+    multi_entry: bool = False
 
     def __post_init__(self) -> None:
         if self.backend not in BACKENDS:
@@ -1469,6 +1473,26 @@ RECIPES: dict[str, Any] = {
         y_unit="a.u.",
         label_path="spectrometer_uv.channel.{i}.name",
         title="UV Line Intensity",
+    ),
+    # Net launched ECH power, forward minus reflected (issue #165); noisy and
+    # spiky, so the plot is usually read with smooth=.
+    "ec_launchers_time_power": LineRecipe(
+        y_path="ec_launchers.beam.{i}.power_launched.data",
+        index="channel",
+        x_paths=("ec_launchers.beam.{i}.power_launched.time", "ec_launchers.time"),
+        y_label="Launched Power",
+        y_unit="W",
+        label_path="ec_launchers.beam.{i}.name",
+        title="EC Launched Power",
+    ),
+    "rogowski_coil_time_current": LineRecipe(
+        y_path="magnetics.rogowski_coil.{i}.current.data",
+        index="channel",
+        x_paths=("magnetics.rogowski_coil.{i}.current.time", "magnetics.time"),
+        y_label="Rogowski Current",
+        y_unit="A",
+        label_path="magnetics.rogowski_coil.{i}.name",
+        title="Rogowski Coil Current",
     ),
     "barometry_time_pressure": LineRecipe(
         y_path="barometry.gauge.{i}.pressure.data",
@@ -3553,6 +3577,7 @@ def _build_vacuum_field(
     resolution: int = 65,
     units: str | None = None,
     p_Pa: float | None = None,
+    ec_frequency_Hz: float | None = None,
     **_: Any,
 ) -> Field2D:
     """One quantity of the vacuum field on the poloidal plane, at one instant.
@@ -3637,6 +3662,10 @@ def _build_vacuum_field(
     )
     scaled = values * display.scale
     bracket = f" [{display.unit}]" if display.unit else ""
+    overlays = list(_wall_layers(ods))
+    frequency = _ec_frequency_option({"ec_frequency_Hz": ec_frequency_Hz}, None)
+    if frequency is not None:
+        overlays.extend(_ecr_layers(ods, result["time"], frequency, z_axis))
     return Field2D(
         # Field2D is laid out (len(z), len(r)); the evaluator answers (R, Z).
         r=r_axis,
@@ -3648,9 +3677,49 @@ def _build_vacuum_field(
         contour_levels=_vacuum_levels(scaled.T, spec),
         secondary_levels=_vacuum_secondary_levels(field),
         extend=spec.extend,
-        overlays=tuple(_wall_layers(ods)),
+        overlays=tuple(overlays),
         title=f"{spec.label} at t = {result['time'] * 1e3:.1f} ms (vacuum)",
     )
+
+
+def _ecr_layers(ods: Any, time: float, frequency: float, z_axis: np.ndarray) -> list[GeometryLayer]:
+    """The electron-cyclotron resonance at ``time``: a vertical line at ``R_ECR``.
+
+    ``R_ECR = |R_0 B_0| / B_ECR(f)`` from ``tf.b_field_tor_vacuum_r`` at the
+    stored sample nearest ``time`` (matched by time: the TF product has its own
+    time base).  Nothing is drawn while the toroidal field is off.
+    """
+    from vaft.formula.startup import electron_cyclotron_resonance_radius
+
+    product = _array(ods, "tf.b_field_tor_vacuum_r.data")
+    base = _array(ods, "tf.b_field_tor_vacuum_r.time")
+    if product is None or base is None or len(product) == 0:
+        raise ValueError(
+            "tf.b_field_tor_vacuum_r is required for ec_frequency_Hz=; without the "
+            "toroidal field there is no electron-cyclotron resonance"
+        )
+    index = int(np.argmin(np.abs(np.asarray(base, dtype=float) - float(time))))
+    value = float(np.asarray(product, dtype=float)[index])
+    if not np.isfinite(value):
+        return []
+    radius = float(electron_cyclotron_resonance_radius(value, frequency))
+    if not radius > 0.0:
+        return []
+    low, high = float(np.min(z_axis)), float(np.max(z_axis))
+    label = f"{frequency / 1e9:g} GHz ECR (R = {radius:.3f} m)"
+    layers = [GeometryLayer(
+        r=np.array([radius, radius]), z=np.array([low, high]), kind="polyline", label=label,
+        style={"linestyle": "-.", "linewidth": 1.4, "color": "emphasis:alert"},
+    )]
+    if high > low:
+        # A map draws no legend for its overlays, so the line names itself.
+        layers.append(GeometryLayer(
+            r=[radius], z=[low + 0.5 * (high - low)], kind="text",
+            label=f"{frequency / 1e9:g} GHz ECR",
+            style={"color": "emphasis:alert", "fontsize": "x-small", "ha": "right", "rotation": 90,
+                   "xytext": (-2, 0), "textcoords": "offset points"},
+        ))
+    return layers
 
 
 def _vacuum_secondary_levels(field: str) -> tuple[float, ...] | None:
@@ -3668,24 +3737,13 @@ def _vacuum_secondary_levels(field: str) -> tuple[float, ...] | None:
 
 
 def _prefill_pressure(ods: Any, before: float) -> float:
-    """The fill pressure a breakdown saw, from the barometry, in pascal.
+    """The fill pressure a breakdown saw, in pascal: one definition, in ``vaft.omas``."""
+    from vaft.omas.process_wrapper import compute_prefill_pressure_ods
 
-    The median rather than the mean of the samples ahead of ``before``: a
-    Penning gauge spikes, and one spike moves a mean far enough to matter in a
-    logarithm.  The gauge is slow, so this is the pressure the discharge was
-    filled to and not a reading at any one instant.
-    """
-    pressure = _array(ods, "barometry.gauge.0.pressure.data")
-    stamps = _array(ods, "barometry.gauge.0.pressure.time")
-    if pressure is None or stamps is None or len(pressure) == 0:
-        raise ValueError(
-            "barometry.gauge.0.pressure is required for field='lloyd_margin'; "
-            "without a fill pressure there is no Townsend threshold"
-        )
-    pressure = np.asarray(pressure, dtype=float)
-    stamps = np.asarray(stamps, dtype=float)
-    ahead = pressure[stamps < before]
-    return float(np.median(ahead if ahead.size else pressure))
+    try:
+        return compute_prefill_pressure_ods(ods, before=before)
+    except ValueError as error:
+        raise ValueError(f"field='lloyd_margin': {error}") from None
 
 
 def _vacuum_b_toroidal(ods: Any, time: float, mesh_r: np.ndarray) -> np.ndarray:
@@ -3699,6 +3757,324 @@ def _vacuum_b_toroidal(ods: Any, time: float, mesh_r: np.ndarray) -> np.ndarray:
         )
     index = int(np.argmin(np.abs(np.asarray(base, dtype=float) - float(time))))
     return float(np.asarray(product, dtype=float)[index]) / mesh_r
+
+
+# ---------------------------------------------------------------------------
+# Startup views (issue #888): the vacuum proxies against time, and a radial
+# cut of the vacuum map along the midplane.  Both read the vaft.omas startup
+# helpers, which are themselves readings of the cached vacuum evaluators, so
+# they agree with vacuum_field by construction.
+# ---------------------------------------------------------------------------
+
+#: Where the decay-index panel is clipped: it diverges wherever B_Z crosses
+#: zero, and the donor VFIT figure reads it inside [-3, 3].
+STARTUP_DECAY_INDEX_LIMITS = (-3.0, 3.0)
+
+#: The roots a startup builder hands the vacuum evaluators on a private copy:
+#: they solve and store the vessel currents, which must not land in the
+#: caller's ODS.  ``barometry`` rides along for the Lloyd margin.
+_STARTUP_ROOTS = (*_NULL_FIELD_ROOTS, "tf", "barometry")
+
+
+def _startup_window(ods: Any) -> tuple[float, float] | None:
+    """OH-coil onset to plasma-current peak: the stretch a startup is read over.
+
+    ``None`` when either end is not found; nothing is assumed in its place.
+    """
+    from vaft.omas.discharge_timing import oh_coil_onset
+    from vaft.omas.plasma_features import ip_peak
+
+    try:
+        ohmic = oh_coil_onset(ods)
+        peak = ip_peak(ods)
+    except Exception:  # noqa: BLE001 - a missing signal means no default window
+        return None
+    if ohmic is None or not ohmic.found or not peak.found:
+        return None
+    start, stop = float(ohmic.time), float(peak.time)
+    return (start, stop) if stop > start else None
+
+
+def _breakdown_onset_or_none(ods: Any) -> float | None:
+    """The breakdown onset, or ``None`` on a shot without one."""
+    from vaft.omas import find_breakdown_onset
+
+    try:
+        onset = float(find_breakdown_onset(ods))
+    except (ValueError, KeyError, IndexError, TypeError):
+        return None
+    return onset if np.isfinite(onset) else None
+
+
+def _rz_option(options: Mapping[str, Any]) -> tuple[float, float]:
+    """``rz=``: the ``(R, Z)`` observation point in metres."""
+    rz = options.get("rz")
+    if rz is None:
+        return (0.4, 0.0)
+    try:
+        r0, z0 = (float(value) for value in rz)
+    except (TypeError, ValueError):
+        raise ValueError(f"rz must be an (R, Z) pair in metres; got {rz!r}") from None
+    if not (np.isfinite(r0) and np.isfinite(z0)) or r0 <= 0.0:
+        raise ValueError(f"rz must be a finite (R > 0, Z) pair in metres; got {rz!r}")
+    return r0, z0
+
+
+def _range_option(options: Mapping[str, Any], name: str) -> tuple[float, float] | None:
+    """A ``(start, stop)`` option, validated, or ``None``."""
+    value = options.get(name)
+    if value is None:
+        return None
+    try:
+        start, stop = (float(item) for item in value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be a (start, stop) pair; got {value!r}") from None
+    if not stop > start:
+        raise ValueError(f"{name} must have stop > start; got {value!r}")
+    return start, stop
+
+
+def _vertical_marker(x: float, y_span: tuple[float, float], label: str, style: Mapping[str, Any]) -> Series:
+    """A vertical line at ``x`` spanning ``y_span``: a marker any renderer draws."""
+    return Series(x=np.array([x, x]), y=np.array(y_span, dtype=float), label=label, style=dict(style))
+
+
+def _horizontal_marker(y: float, x_span: tuple[float, float], label: str, style: Mapping[str, Any]) -> Series:
+    """A horizontal reference line at ``y`` across ``x_span``."""
+    return Series(x=np.array(x_span, dtype=float), y=np.array([y, y]), label=label, style=dict(style))
+
+
+def _finite_span(arrays: Iterable[np.ndarray]) -> tuple[float, float] | None:
+    """The finite ``(min, max)`` over ``arrays``, widened when it is a point."""
+    values = [np.asarray(a, dtype=float) for a in arrays]
+    finite = np.concatenate([v[np.isfinite(v)] for v in values]) if values else np.array([])
+    if finite.size == 0:
+        return None
+    low, high = float(finite.min()), float(finite.max())
+    if low == high:
+        low, high = low - 1.0, high + 1.0
+    return low, high
+
+
+#: The three proxies of ``startup_proxies_time``: result key, label, canonical
+#: unit, the taxonomy quantity a dimensionless one is displayed by.
+_STARTUP_PROXY_PANELS = (
+    ("b_z", "Vertical field B_Z", "T", None),
+    ("v_loop", "Loop voltage", "V", None),
+    ("decay_index", "Decay index n", "", "decay_index"),
+)
+
+
+def _build_startup_proxies_time(entries: Sequence[tuple[str, Any]], **options: Any) -> Panels:
+    """B_Z, V_loop and the decay index at ``rz=`` against time, one trace per entry.
+
+    Each entry is evaluated on its own private copy
+    (:func:`vaft.omas.compute_startup_proxies_ods`), so several shots overlay
+    on shared axes with their breakdown onsets marked in their own colours.
+    The default window runs from the first entry's OH-coil onset to its
+    plasma-current peak.
+    """
+    from vaft.omas.process_wrapper import compute_startup_proxies_ods
+
+    rz = _rz_option(options)
+    window = _range_option(options, "time_range")
+    if window is None:
+        window = _startup_window(entries[0][1])
+    markers = bool(options.get("markers", True))
+    several = len(entries) > 1
+
+    evaluated = []
+    for position, (label, ods) in enumerate(entries):
+        onset = _breakdown_onset_or_none(ods) if markers else None
+        private = _isolated_copy(ods, _STARTUP_ROOTS)
+        proxies = compute_startup_proxies_ods(private, rz=rz)
+        evaluated.append((position, str(label), proxies, onset))
+
+    panels: list[LineSeries] = []
+    for row, (key, heading, unit, quantity) in enumerate(_STARTUP_PROXY_PANELS):
+        raw = [np.asarray(proxies[key], dtype=float) for _, _, proxies, _ in evaluated]
+        display = resolve_display(unit, subject="vacuum", quantity=quantity, data=np.concatenate(raw))
+        series: list[Series] = []
+        spans = []
+        for (position, label, proxies, _onset), values in zip(evaluated, raw):
+            time = np.asarray(proxies["time"], dtype=float)
+            keep = np.ones(time.shape, dtype=bool) if window is None else (
+                (time >= window[0]) & (time <= window[1])
+            )
+            y = values[keep] * display.scale
+            if key == "decay_index":
+                y = np.where((y >= STARTUP_DECAY_INDEX_LIMITS[0]) & (y <= STARTUP_DECAY_INDEX_LIMITS[1]), y, np.nan)
+            style = {"color": palette(position)} if several else {}
+            series.append(Series(x=time[keep], y=y, label=label, entry=label, style=style))
+            spans.append(y)
+        x_span = _finite_span([s.x for s in series])
+        y_span = (
+            STARTUP_DECAY_INDEX_LIMITS if key == "decay_index" else _finite_span(spans)
+        )
+        if key == "decay_index" and x_span is not None:
+            for level, text in zip(DECAY_INDEX_STABLE_BAND, ("stable band 0 < n < 1.5", "")):
+                series.append(_horizontal_marker(
+                    level, x_span, text, {"linestyle": ":", "lw": 0.9, "color": "emphasis:low"},
+                ))
+        if markers and y_span is not None:
+            for position, label, _proxies, onset in evaluated:
+                if onset is None or (window is not None and not window[0] <= onset <= window[1]):
+                    continue
+                text = (f"breakdown {label}" if several else "breakdown onset") if row == 0 else ""
+                series.append(_vertical_marker(
+                    onset, y_span, text,
+                    {"linestyle": "--", "lw": 1.0,
+                     "color": palette(position) if several else "emphasis:strong"},
+                ))
+        bracket = f" [{display.unit}]" if display.unit else ""
+        panels.append(LineSeries(
+            series=tuple(series),
+            x_label="Time", x_unit="s",
+            y_label=heading, y_unit=display.unit,
+            title=f"{heading}{bracket}",
+            x_limits=window,
+            y_limits=STARTUP_DECAY_INDEX_LIMITS if key == "decay_index" else None,
+            display=display,
+        ))
+    shot = _entry_shot(entries)
+    heading = f"Startup proxies at R = {rz[0]:.2f} m, Z = {rz[1]:.2f} m (vacuum)"
+    return Panels(
+        models=tuple(panels),
+        ncols=1,
+        share_x=True,
+        suptitle=options.get("title", f"{heading} #{shot}" if shot else heading),
+    )
+
+
+#: What ``vacuum_field_midplane`` may draw: result key, label, canonical unit,
+#: the taxonomy quantity a dimensionless one is displayed by, and whether it
+#: needs the (seconds-long) connection-length trace.
+VACUUM_MIDPLANE_FIELDS: dict[str, tuple[str, str, str, str | None, bool]] = {
+    "v_loop": ("v_loop", "Loop voltage V_loop", "V", None, False),
+    "b_z": ("b_z", "Vertical field B_Z", "T", None, False),
+    "breakdown": ("breakdown_figure", "Breakdown figure E_t B_t / B_p", "V/m", None, False),
+    "lloyd_margin": ("lloyd_margin", "Lloyd breakdown margin", "", "lloyd_margin", True),
+    "connection_length": ("connection_length_m", "Connection length L", "m", None, True),
+}
+
+#: The ``field=`` vocabulary of the midplane cut, in offer order.
+VACUUM_MIDPLANE_FIELD_NAMES = tuple(VACUUM_MIDPLANE_FIELDS)
+
+
+def _ec_frequency_option(options: Mapping[str, Any], default: float | None) -> float | None:
+    """``ec_frequency_Hz=``: a positive frequency, or ``None`` for no resonance."""
+    value = options.get("ec_frequency_Hz", default)
+    if value is None:
+        return None
+    frequency = float(value)
+    if not np.isfinite(frequency) or frequency <= 0.0:
+        raise ValueError(f"ec_frequency_Hz must be a positive frequency in Hz or None; got {value!r}")
+    return frequency
+
+
+def _build_vacuum_field_midplane(ods: Any, **options: Any) -> LineSeries:
+    """One vacuum startup quantity along the Z = 0 row of the vacuum map.
+
+    A reading of :func:`vaft.omas.compute_vacuum_midplane_profiles_ods` at
+    ``time=``/``time_index=`` (default: the breakdown onset, as
+    ``vacuum_field``).  The breakdown figure carries the empirical Ohmic and
+    ECH-assisted thresholds, the margin its unit line, and every field the
+    electron-cyclotron resonance radius when ``ec_frequency_Hz`` is set.
+    Points outside the limiter are blank, as on the map.
+    """
+    from vaft.formula.startup import (
+        LLOYD_FIGURE_OF_MERIT_ECH_V_PER_M,
+        LLOYD_FIGURE_OF_MERIT_OHMIC_V_PER_M,
+    )
+    from vaft.omas.process_wrapper import EC_FREQUENCY_VEST_HZ, compute_vacuum_midplane_profiles_ods
+
+    field = options.get("field") or "v_loop"
+    if field not in VACUUM_MIDPLANE_FIELDS:
+        raise ValueError(
+            f"unknown midplane field {field!r}; expected one of {', '.join(VACUUM_MIDPLANE_FIELD_NAMES)}"
+        )
+    key, heading, unit, quantity, traced = VACUUM_MIDPLANE_FIELDS[field]
+    frequency = _ec_frequency_option(options, EC_FREQUENCY_VEST_HZ)
+    instant = _vacuum_map_time(ods, options.get("time"), options.get("time_index"))
+    private = _isolated_copy(ods, _STARTUP_ROOTS)
+    kwargs: dict[str, Any] = {
+        "time": instant,
+        "resolution": int(options.get("resolution", 65)),
+        "trace_connection_length": traced,
+    }
+    if options.get("p_Pa") is not None:
+        kwargs["p_Pa"] = float(options["p_Pa"])
+    if frequency is not None:
+        kwargs["ec_frequency_Hz"] = frequency
+    if options.get("dphi_deg") is not None:
+        kwargs["dphi_deg"] = float(options["dphi_deg"])
+    if options.get("max_length_m") is not None:
+        kwargs["max_length_m"] = float(options["max_length_m"])
+    if field in ("breakdown", "lloyd_margin", "connection_length") and not _has(
+        private, "tf.b_field_tor_vacuum_r.data"
+    ):
+        raise ValueError(
+            f"tf.b_field_tor_vacuum_r is required for field={field!r}; without the "
+            "toroidal field there is no field-line pitch"
+        )
+    if field == "lloyd_margin" and options.get("p_Pa") is None and not _has(
+        private, "barometry.gauge.0.pressure.data"
+    ):
+        raise ValueError(
+            "barometry.gauge.0.pressure (or p_Pa=) is required for field='lloyd_margin'; "
+            "without a fill pressure there is no Townsend threshold"
+        )
+    profile = compute_vacuum_midplane_profiles_ods(private, **kwargs)
+
+    r = np.asarray(profile["r"], dtype=float)
+    values = np.asarray(profile[key], dtype=float)
+    display = resolve_display(unit, unit=options.get("yunit"), subject="vacuum", quantity=quantity, data=values)
+    y = values * display.scale
+    series: list[Series] = [Series(x=r, y=y, label=heading)]
+    x_span = (float(r.min()), float(r.max()))
+    references: list[float] = []
+    if field == "breakdown":
+        for level, text in (
+            (LLOYD_FIGURE_OF_MERIT_OHMIC_V_PER_M, "Ohmic threshold"),
+            (LLOYD_FIGURE_OF_MERIT_ECH_V_PER_M, "ECH-assisted threshold"),
+        ):
+            scaled = level * display.scale
+            references.append(scaled)
+            series.append(_horizontal_marker(
+                scaled, x_span, f"{text} ({level:g} V/m)",
+                {"linestyle": "--" if level == LLOYD_FIGURE_OF_MERIT_OHMIC_V_PER_M else ":",
+                 "lw": 1.0, "color": "emphasis:strong"},
+            ))
+    elif field == "lloyd_margin":
+        references.append(1.0)
+        series.append(_horizontal_marker(
+            1.0, x_span, "margin = 1", {"linestyle": "--", "lw": 1.0, "color": "emphasis:strong"},
+        ))
+    r_ecr = float(profile["r_ecr"])
+    log_y = bool(options.get("log_y", field in ("breakdown", "connection_length")))
+    if frequency is not None and np.isfinite(r_ecr) and x_span[0] <= r_ecr <= x_span[1]:
+        finite = y[np.isfinite(y) & ((y > 0) if log_y else True)]
+        span = _finite_span([finite, np.asarray(references)])
+        if span is not None:
+            series.append(_vertical_marker(
+                r_ecr, span, f"{frequency / 1e9:g} GHz ECR (R = {r_ecr:.3f} m)",
+                {"linestyle": "-.", "lw": 1.2, "color": "emphasis:alert"},
+            ))
+    bracket = f" [{display.unit}]" if display.unit else ""
+    detail = f", p = {profile['p_Pa'] * 1e3:.2f} mPa" if field == "lloyd_margin" else ""
+    title = (
+        f"{heading}{bracket} at Z = {profile['z']:.2f} m, "
+        f"t = {profile['time'] * 1e3:.1f} ms{detail} (vacuum)"
+    )
+    return LineSeries(
+        series=tuple(series),
+        x_label="R", x_unit="m",
+        y_label=heading, y_unit=display.unit,
+        title=options.get("title", title),
+        x_limits=options.get("x_limits"),
+        log_y=log_y,
+        display=display,
+    )
 
 
 def _build_core_profile_field(
@@ -4059,6 +4435,23 @@ RECIPES["vacuum_field"] = CallableRecipe(
     backend=OMAS_BOUND,
     reason='vaft.omas.process_wrapper.compute_vacuum_field_map subscripts a private copy of pf_active/pf_passive/wall/equilibrium/tf/barometry (_isolated_copy); barometry supplies the fill pressure for field="lloyd_margin"',
 )
+RECIPES["startup_proxies_time"] = CallableRecipe(
+    builder=_build_startup_proxies_time,
+    description="Vacuum B_Z, loop voltage and decay index at one point against time, "
+                "every entry overlaid, breakdown onsets marked.",
+    reads=("pf_active", "pf_passive", "wall", "equilibrium", "tf", "barometry", "dataset_description", "em_coupling.mutual_passive_active", "em_coupling.mutual_passive_passive", "em_coupling.code.parameters", "em_coupling.ids_properties.comment", *_ONSET_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_startup_proxies_ods solves and stores the vessel currents on a private copy of pf_active/pf_passive/wall/equilibrium/tf (_isolated_copy)',
+    multi_entry=True,
+)
+RECIPES["vacuum_field_midplane"] = CallableRecipe(
+    builder=_build_vacuum_field_midplane,
+    description="One vacuum startup quantity along the Z = 0 row of the vacuum map, "
+                "with its empirical thresholds and the ECR radius.",
+    reads=RECIPES["startup_proxies_time"].reads,
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_vacuum_midplane_profiles_ods subscripts a private copy of pf_active/pf_passive/wall/equilibrium/tf/barometry (_isolated_copy)',
+)
 RECIPES["electron_temperature_field"] = CallableRecipe(
     builder=lambda ods, **options: _build_core_profile_field(
         ods, **{**options, "quantity": "temperature"}
@@ -4335,7 +4728,11 @@ def _efit_overlay_layers(
 
 #: What may be drawn over a camera frame (issue #261 section 18), and the
 #: projection methods that map machine geometry into its pixels (section 20).
-CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line")
+CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line", "vacuum_field_line")
+
+#: Where a vacuum field line is seeded when ``seeds=`` names none [m]: VEST's
+#: startup reference point, the one ``startup_proxies_time`` reads.
+DEFAULT_VACUUM_FIELD_LINE_SEEDS = ((0.4, 0.0),)
 CAMERA_PROJECTIONS = ("calibrated",)
 
 
@@ -4477,6 +4874,22 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
             )
             layers.extend(_field_line_layers(result["field_line_uv"]))
             notes.append(f"field line R0={r0:.3f} m, Z0={z0:.3f} m, stop: {result['trace']['termination_reason']}")
+        if "vacuum_field_line" in overlays:
+            records = _vacuum_field_line_records(ods, options, shot=shot, time=resolved_time, projection=projection)
+            for number, record in enumerate(records):
+                uv = np.column_stack([
+                    np.where(record["in_image"], record["u"], np.nan),
+                    np.where(record["in_image"], record["v"], np.nan),
+                ])
+                layers.extend(_field_line_layers(
+                    uv, label=f"vacuum field line R={record['seed'][0]:.3f} m, Z={record['seed'][1]:.3f} m",
+                    vacuum=number,
+                ))
+            notes.append(
+                f"vacuum field lines at t={records[0]['time'] * 1e3:.1f} ms from "
+                + ", ".join(f"({r:.3f}, {z:.3f}) m" for r, z in (rec["seed"] for rec in records))
+                if records else "no vacuum field line seeds"
+            )
     title = options.get(
         "title",
         f"{channel_name} frame {idx} @ t={resolved_time:.4f}s"
@@ -4485,12 +4898,27 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
     return Image2D(values=image, value_label="Digital levels", title=title, overlays=tuple(layers))
 
 
-def _field_line_layers(field_line_uv: np.ndarray) -> list[GeometryLayer]:
-    """The traced line and its end points, in pixel space."""
+def _field_line_layers(
+    field_line_uv: np.ndarray, *, label: str = "Field line", vacuum: int | None = None
+) -> list[GeometryLayer]:
+    """The traced line and its end points, in pixel space.
+
+    ``vacuum`` is the seed number of a vacuum field line: it is drawn in its
+    own colour without end markers, and its pixels may hold ``nan`` where the
+    trace leaves the image, which breaks the line rather than joining across.
+    """
     layers: list[GeometryLayer] = []
+    if vacuum is not None:
+        colours = ("cyan", "orange", "lime", "magenta", "yellow")
+        if np.isfinite(field_line_uv).all(axis=1).sum() >= 2:
+            layers.append(GeometryLayer(
+                r=field_line_uv[:, 0], z=field_line_uv[:, 1], kind="polyline", label=label,
+                style={"color": colours[int(vacuum) % len(colours)], "linewidth": 1.2},
+            ))
+        return layers
     if field_line_uv.shape[0] >= 2:
         layers.append(GeometryLayer(
-            r=field_line_uv[:, 0], z=field_line_uv[:, 1], kind="polyline", label="Field line",
+            r=field_line_uv[:, 0], z=field_line_uv[:, 1], kind="polyline", label=label,
             style={"color": "red", "linewidth": 1.5},
         ))
     if field_line_uv.shape[0] >= 1:
@@ -4504,6 +4932,61 @@ def _field_line_layers(field_line_uv: np.ndarray) -> list[GeometryLayer]:
             style={"marker": "o", "markersize": 8, "color": "blue"},
         ))
     return layers
+
+
+def _vacuum_field_line_seeds(ods: Any, options: Mapping[str, Any], time: float) -> list[tuple[float, float]]:
+    """``seeds=``, or the default seed plus the ECR radius when ``ec_frequency_Hz=`` asks.
+
+    An explicit ``seeds=`` is used as given.  Without one the line starts at
+    :data:`DEFAULT_VACUUM_FIELD_LINE_SEEDS`; ``ec_frequency_Hz=`` adds a seed on
+    the midplane at that source's resonance radius at ``time``.
+    """
+    seeds = options.get("seeds")
+    if seeds is not None:
+        try:
+            parsed = [(float(seed[0]), float(seed[1])) for seed in seeds]
+        except (TypeError, ValueError, IndexError):
+            raise ValueError(f"seeds must be a sequence of (R, Z) pairs in metres; got {seeds!r}") from None
+        if not parsed:
+            raise ValueError("seeds= names no (R, Z) seed")
+        return parsed
+    parsed = [tuple(seed) for seed in DEFAULT_VACUUM_FIELD_LINE_SEEDS]
+    frequency = _ec_frequency_option(options, None)
+    if frequency is not None:
+        for layer in _ecr_layers(ods, time, frequency, np.array([0.0])):
+            if layer.kind == "polyline":
+                parsed.append((float(layer.r[0]), 0.0))
+    return parsed
+
+
+def _vacuum_field_line_records(ods: Any, options: Mapping[str, Any], *, shot: Any, time: float, projection: Any):
+    """Vacuum field lines at the displayed frame's time, projected into its pixels.
+
+    Traced through the coils' and vessel's vacuum field only
+    (:func:`vaft.omas.compute_camera_visible_vacuum_field_lines`), never an
+    equilibrium, on a private copy: the evaluator stores the vessel currents
+    it solves.
+    """
+    from vaft.omas.process_wrapper import compute_camera_visible_vacuum_field_lines
+
+    if not _has(ods, "tf.b_field_tor_vacuum_r.data"):
+        raise ValueError(
+            "overlay='vacuum_field_line' needs tf.b_field_tor_vacuum_r: a vacuum field "
+            "line has no pitch without the toroidal field"
+        )
+    if not _has(ods, "pf_active.time"):
+        raise ValueError(
+            "overlay='vacuum_field_line' needs pf_active currents to evaluate the vacuum field"
+        )
+    seeds = _vacuum_field_line_seeds(ods, options, time)
+    private = _isolated_copy(ods, _STARTUP_ROOTS)
+    return compute_camera_visible_vacuum_field_lines(
+        private, shot=int(shot), time=float(time), seeds=seeds, projection=projection,
+        resolution=int(options.get("resolution", 65)),
+        dphi_deg=float(options.get("dphi_deg", 1.0)),
+        max_length_m=float(options.get("max_length_m", 30.0)),
+        max_turns=None if options.get("max_turns") is None else float(options["max_turns"]),
+    )
 
 
 def _build_camera_visible_image_frame(ods: Any, **options: Any) -> Image2D:
@@ -4536,6 +5019,18 @@ def _build_camera_visible_image_field_line(ods: Any, **options: Any) -> Image2D:
     """Preset of the image API: the frame with a traced field line (plus what ``show_*`` asks)."""
     return _build_camera_visible_image(
         ods, **{**options, "overlay": _preset_overlays(options, field_line=True)}
+    )
+
+
+def _build_camera_visible_image_vacuum_field_line(ods: Any, **options: Any) -> Image2D:
+    """Preset of the image API: the frame with vacuum field lines (plus what ``show_*`` asks)."""
+    # Nothing from an equilibrium unless a show_* flag asks: before breakdown
+    # there is none, and the point of this preset is the field without one.
+    names = ["wall"] if options.get("show_wall", False) else []
+    if options.get("show_lcfs", False) or options.get("show_magnetic_axis", False):
+        names.append("equilibrium")
+    return _build_camera_visible_image(
+        ods, **{**options, "overlay": (*names, "vacuum_field_line")}
     )
 
 
@@ -4829,6 +5324,13 @@ RECIPES["camera_visible_image_field_line"] = CallableRecipe(
     backend=OMAS_BOUND,
     reason='vaft.omas.process_wrapper.compute_camera_visible_field_line_overlay subscripts the ODS',
 )
+RECIPES["camera_visible_image_vacuum_field_line"] = CallableRecipe(
+    builder=_build_camera_visible_image_vacuum_field_line,
+    description="FAST-camera frame with vacuum field lines traced from (R, Z) seeds at the frame's time.",
+    reads=(*RECIPES["camera_visible_image"].reads, *RECIPES["startup_proxies_time"].reads),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_camera_visible_vacuum_field_lines solves the vessel currents on a private copy of pf_active/pf_passive/wall/equilibrium/tf (_isolated_copy)',
+)
 RECIPES["camera_visible_animation_frames"] = CallableRecipe(
     builder=_build_camera_visible_animation_frames,
     description="Animate a sequence of FAST-camera frames on a shared color scale.",
@@ -4993,6 +5495,9 @@ _LINE_SEGMENT = re.compile(r"\.processed_line\.\d+\.")
 #: physics; ``line_index=`` is the storage-level escape hatch beneath it.
 EMISSION_OPTIONS = ("emission", "line_index")
 
+#: ``emission=`` value that draws every processed line of every channel.
+EMISSION_ALL = "all"
+
 
 def _reads_processed_line(recipe: Any) -> bool:
     """Whether a recipe draws one of a channel's processed spectral lines."""
@@ -5103,6 +5608,15 @@ def _resolve_emission(
             )
         return pairs
 
+    if isinstance(emission, str) and emission == EMISSION_ALL:
+        pairs = [
+            (index, line)
+            for index in indices
+            for line in range(len(labels_by_channel[index]))
+        ]
+        if not pairs:
+            raise ValueError(f"no channel of {container} records a processed spectral line")
+        return pairs
     if isinstance(emission, str):
         terms: list[Any] = [emission]
     elif isinstance(emission, (bool, np.bool_)) or not isinstance(emission, Iterable):
@@ -5637,6 +6151,66 @@ def _orient(traces: tuple, orientation: str) -> tuple[tuple, bool]:
     return tuple(oriented), True
 
 
+def _smooth_option(options: Mapping[str, Any], abscissa: Abscissa) -> float | None:
+    """``smooth=``: a rolling-median window in seconds, validated, or ``None``.
+
+    The window is a duration, so it only means something on a time abscissa;
+    a non-positive, non-finite or non-numeric value is refused rather than
+    silently drawing the raw trace.
+    """
+    value = options.get("smooth")
+    if value is None:
+        return None
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, float, np.integer, np.floating)):
+        raise ValueError(f"smooth= is a rolling-median window in seconds; got {value!r}")
+    window = float(value)
+    if not np.isfinite(window) or window <= 0.0:
+        raise ValueError(f"smooth= must be a finite, positive window in seconds; got {value!r}")
+    if abscissa.name != "time":
+        raise ValueError(
+            f"smooth= is a window in seconds and needs the time abscissa; got x={abscissa.name!r}"
+        )
+    return window
+
+
+def _smooth_note(window: float) -> str:
+    """How a smoothed figure says so: ``(median 0.5 ms)``."""
+    return f"(median {window * 1e3:g} ms)"
+
+
+def _rolling_median(x: Any, y: Any, window: float) -> np.ndarray:
+    """A centred, NaN-aware rolling median of ``y`` over ``window`` in ``x`` units.
+
+    The window is converted to samples from the median spacing of ``x``;
+    below two samples it is a no-op.  NaNs are ignored inside a window and
+    stay NaN in the result, so a gap in the data (a detector out of range)
+    remains a gap instead of being filled from its neighbours.
+    """
+    import pandas as pd
+
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    if y.size < 3:
+        return y.copy()
+    steps = np.diff(x)
+    steps = np.abs(steps[np.isfinite(steps) & (steps != 0.0)])
+    if steps.size == 0:
+        return y.copy()
+    samples = int(round(float(window) / float(np.median(steps))))
+    if samples < 2:
+        return y.copy()
+    samples = min(samples | 1, y.size if y.size % 2 else y.size - 1)
+    smoothed = (
+        pd.Series(y).rolling(samples, center=True, min_periods=1).median().to_numpy()
+    )
+    return np.where(np.isnan(y), np.nan, smoothed)
+
+
+def _smoothed_trace(trace: Series, window: float) -> Series:
+    """``trace`` with its values replaced by their rolling median."""
+    return dataclasses.replace(trace, y=_rolling_median(trace.x, trace.y, window))
+
+
 def _build_line_series(
     entries: Sequence[tuple[str, Any]], recipe: LineRecipe, **options: Any
 ) -> LineSeries:
@@ -5657,6 +6231,7 @@ def _build_line_series(
             "drop synthetic=."
         )
     resolved: list[str] = []
+    smooth = _smooth_option(options, abscissa)
     for entry_label, ods in entries:
         measured = _build_line_traces(
             ods,
@@ -5668,6 +6243,8 @@ def _build_line_series(
             abscissa=abscissa,
             resolved=resolved,
         )
+        if smooth is not None:
+            measured = [_smoothed_trace(trace, smooth) for trace in measured]
         traces.extend(measured)
         if synthetic:
             traces.extend(_synthetic_traces(ods, spec.name, recipe, measured, synthetic))
@@ -5702,6 +6279,8 @@ def _build_line_series(
         default_title = _decorated_title(recipe.title, y_display.unit, entries)
     if flipped:
         default_title = f"{default_title} — intuitive orientation (sign flipped)"
+    if smooth is not None:
+        default_title = f"{default_title} {_smooth_note(smooth)}"
     model = LineSeries(
         series=scaled,
         x_label=drawn.label,
@@ -6687,6 +7266,8 @@ def field_options_for(name: str) -> tuple[str, ...] | None:
         # Computed, not read from a stored 2-D array, so it is not a
         # FieldRecipe -- but it selects among quantities the same way.
         return VACUUM_FIELD_NAMES
+    if name == "vacuum_field_midplane":
+        return VACUUM_MIDPLANE_FIELD_NAMES
     recipe = RECIPES.get(name)
     return tuple(recipe.fields) if isinstance(recipe, FieldRecipe) and recipe.fields else None
 
@@ -9777,6 +10358,10 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
     if isinstance(recipe, PowerSpectrumRecipe):
         return _build_power_spectrum(entries[0][1], recipe, **options)
     if isinstance(recipe, CallableRecipe):
+        if recipe.multi_entry:
+            return recipe.builder(
+                [(label, _ods_for_callable(obj, name)) for label, obj in entries], **options
+            )
         return recipe.builder(_ods_for_callable(entries[0][1], name), **options)
     raise TypeError(f"unsupported recipe type {type(recipe).__name__} for {name!r}")
 

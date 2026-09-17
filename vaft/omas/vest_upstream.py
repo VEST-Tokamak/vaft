@@ -23,6 +23,7 @@ from vaft.process.signal_processing import SignalRepairError
 from vaft.database._local import load_ods
 from vaft.data.resources import data_path
 from vaft.machine_mapping.barometry import barometry
+from vaft.machine_mapping.ec_launchers import ec_launchers
 from vaft.machine_mapping.dataset_description import dataset_description
 from vaft.machine_mapping.em_coupling import DEFAULT_VERSIONED_COUPLING, em_coupling
 from vaft.machine_mapping.impa import (
@@ -425,6 +426,7 @@ def _validate_diagnostics_time_coordinates(
         ("tf.time", "tf"),
         ("magnetics.time", "magnetics"),
         ("barometry.gauge.0.pressure.time", "barometry"),
+        ("ec_launchers.beam.0.power_launched.time", "ec_power"),
     )
     for path, component in canonical_paths:
         if path.split(".", 1)[0] not in present_ids:
@@ -445,6 +447,11 @@ def _validate_diagnostics_time_coordinates(
         ("magnetics.ip.0.time", "magnetics.ip.0.data"),
         ("magnetics.diamagnetic_flux.0.time", "magnetics.diamagnetic_flux.0.data"),
         ("barometry.gauge.0.pressure.time", "barometry.gauge.0.pressure.data"),
+        (
+            "ec_launchers.beam.0.power_launched.time",
+            "ec_launchers.beam.0.power_launched.data",
+        ),
+        ("ec_launchers.beam.0.frequency.time", "ec_launchers.beam.0.frequency.data"),
     ):
         if time_path.split(".", 1)[0] not in present_ids:
             continue
@@ -654,9 +661,9 @@ def build_diagnostics_ods(
     the equilibrium magnetics need; left unset, that window comes from the
     configured policy document so `vest.yaml` stays the single source of truth
     for it.  Components whose physics spans the whole discharge -- TF,
-    barometry, and EC power once #165 lands -- follow their own configured
-    window instead, so the product carries more than one temporal coverage
-    (issue #244).  ``time_policies`` overrides the whole policy document.
+    barometry, and EC power (``ec_launchers``, issue #165) -- follow their own
+    configured window instead, so the product carries more than one temporal
+    coverage (issue #244).  ``time_policies`` overrides the whole policy document.
     """
     raw_path = Path(raw_source)
     static_path = Path(static_ods)
@@ -693,6 +700,8 @@ def build_diagnostics_ods(
         },
     )
     statuses: dict[str, Any] = {}
+    # Grid key -> the `statuses` key of the component that realized it.
+    grid_status_names: dict[str, str] = {}
     archived_fields = _archived_field_codes(raw_path)
 
     def policy_grid(component: str) -> np.ndarray:
@@ -712,8 +721,13 @@ def build_diagnostics_ods(
         The `ods.keys()` pre-guard this used to need is gone: `path_exists` no
         longer materializes what it probes, so asking about a path under an
         absent IDS is safe on its own (issue #118).
+
+        ``component`` names the time policy and ``ids_name`` the status entry
+        `run_component` wrote; they differ for EC power (``ec_power`` policy,
+        ``ec_launchers`` IDS).
         """
-        if statuses.get(component, {}).get("status", "unavailable") == "unavailable":
+        grid_status_names[component] = ids_name
+        if statuses.get(ids_name, {}).get("status", "unavailable") == "unavailable":
             return
         if not path_exists(ods, path):
             return
@@ -724,6 +738,7 @@ def build_diagnostics_ods(
         ids_names: tuple[str, ...],
         mapper: Callable[[ODS], None],
         component_status: str = "success",
+        optional: bool = False,
         **details: Any,
     ) -> None:
         component = ODS(consistency_check=False)
@@ -740,6 +755,10 @@ def build_diagnostics_ods(
             # escape cost 88 shots their entire diagnostics product for one
             # clipped diamagnetic-flux signal.
             statuses[name] = {"status": "unavailable", "reason": str(error), **details}
+            if optional:
+                # Hardware a shot may simply not have run (EC power before
+                # ~29500 or on a no-ECH shot): recorded, never "partial".
+                statuses[name]["optional"] = True
             return
         _copy_ids(ods, component, ids_names)
         for ids_name in ids_names:
@@ -803,6 +822,25 @@ def build_diagnostics_ods(
         ),
     )
     record_realized_grid("barometry", "barometry", "barometry.gauge.0.pressure.time")
+    # EC power (issue #165) is full-discharge for the same reason: the ECH
+    # pulse precedes breakdown and outlasts the analysis window.  The component
+    # is `ec_power` in the policy table and `ec_launchers` as an IDS.
+    ec_power_policy = policies["ec_power"]
+    run_component(
+        "ec_launchers",
+        ("ec_launchers",),
+        lambda component: ec_launchers(
+            component,
+            shot,
+            ec_power_policy.tstart,
+            ec_power_policy.tend,
+            ec_power_policy.dt,
+            raw_source=raw_path,
+        ),
+    )
+    record_realized_grid(
+        "ec_power", "ec_launchers", "ec_launchers.beam.0.power_launched.time"
+    )
     langmuir_policy = policies["langmuir_probes"]
     run_component(
         "langmuir_probes",
@@ -891,7 +929,8 @@ def build_diagnostics_ods(
     grids = {
         name: grid
         for name, grid in grids.items()
-        if statuses.get(name, {}).get("status", "unavailable") != "unavailable"
+        if statuses.get(grid_status_names.get(name, name), {}).get("status", "unavailable")
+        != "unavailable"
     }
     time_grid = _validate_diagnostics_time_coordinates(ods, grids, policies=policies)
 
@@ -914,7 +953,10 @@ def build_diagnostics_ods(
         project_validity(ods, quality_report)
         magnetics_quality = magnetics_quality_metrics(ods, quality_report)
 
-    successes = sum(value["status"] == "success" for value in statuses.values())
+    successes = sum(
+        value["status"] == "success" or bool(value.get("optional"))
+        for value in statuses.values()
+    )
     unavailable = sorted(
         name for name, value in statuses.items() if value["status"] == "unavailable"
     )

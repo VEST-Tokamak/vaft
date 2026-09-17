@@ -978,9 +978,10 @@ def decay_index_from_bz(
 
     Convention
     ----------
-    $0 < n < 1.5$ is the passively stable window: below zero the vertical field
-    does not restore a radial displacement, above 1.5 the ring is unstable to
-    vertical motion.
+    $0 < n < 1.5$ is the passively stable window of a rigid current ring:
+    below zero the ring is vertically unstable (the field lines curve the
+    wrong way to restore a vertical displacement), above 1.5 it is radially
+    unstable (the field falls off too fast to restore a radial one).
 
     Limitations
     -----------
