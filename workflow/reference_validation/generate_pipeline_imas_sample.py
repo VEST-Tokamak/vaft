@@ -82,6 +82,60 @@ def _project_signal_quality(ods, manifest: dict) -> None:
     }
 
 
+def _remap_em_coupling(ods, manifest: dict) -> None:
+    """Replace the coupling the frozen pipeline materialized with the mapper's current one.
+
+    The canonical product carries the `em_coupling` its eddy stage ran with,
+    which predates the #373 repair of the packaged asset and so violates
+    reciprocity by 1.27e-3 -- enough for the wall-mode check to refuse the
+    sample outright.  The coupling is a derivation from the static geometry,
+    not a measurement, so re-mapping it at generation is the same result the
+    static stage now writes.  The passive-loop currents are left as the frozen
+    eddy stage solved them; that mismatch is recorded here rather than hidden.
+    """
+    from vaft.machine_mapping.em_coupling import (
+        DEFAULT_VERSIONED_COUPLING,
+        em_coupling,
+        load_versioned_coupling_provenance,
+    )
+
+    shot = int(manifest["shot"])
+    replaced = None
+    if "em_coupling.mutual_passive_passive" in ods:
+        before = np.asarray(ods["em_coupling.mutual_passive_passive"], dtype=float)
+        replaced = float(np.max(np.abs(before - before.T)) / np.max(np.abs(before)))
+    if "em_coupling" in ods:
+        del ods["em_coupling"]
+    em_coupling(ods, shot=shot)
+    provenance = load_versioned_coupling_provenance() or {}
+    generation = manifest.setdefault("generation", {})
+    generation["em_coupling"] = {
+        "remapped": True,
+        "issue": "https://github.com/VEST-Tokamak/vaft/issues/373",
+        "asset": Path(DEFAULT_VERSIONED_COUPLING).name,
+        "asset_sha256": sha256_file(DEFAULT_VERSIONED_COUPLING),
+        "asset_provenance": {
+            key: provenance.get(key)
+            for key in ("generated", "git_commit", "passive_material_factor", "source_sha256")
+        },
+        "replaced_input_asymmetry": replaced,
+        # A canonical source regenerated after #373 already carries the repaired
+        # asset, so its currents were solved against it; only an older one did not.
+        "pf_passive_currents": (
+            "solved by the eddy stage against this asset"
+            if replaced is not None and replaced == 0.0
+            else "solved by the frozen eddy stage against the pre-repair asset; not re-solved"
+        ),
+    }
+    line = (
+        "re-map em_coupling through vaft.machine_mapping.em_coupling "
+        "(exactly reciprocal asset, issue 373)"
+    )
+    normalizations = generation.setdefault("normalizations", [])
+    if line not in normalizations:
+        normalizations.append(line)
+
+
 def normalized_pipeline_ods(canonical_source: Path, manifest: dict):
     """Return the pipeline ODS in the portable DD 3.41 representation."""
     version = str(manifest["imas_dd_version"])
@@ -109,7 +163,16 @@ def normalized_pipeline_ods(canonical_source: Path, manifest: dict):
         set_path(ods, "barometry.ids_properties.homogeneous_time", 1)
     if "equilibrium.time" in ods:
         set_path(ods, "equilibrium.ids_properties.homogeneous_time", 1)
+    # Opt-in per manifest (issue #478): the 41524/41672 artifacts are not
+    # regenerated with it yet, so their legacy Wb/rad psi stays undeclared and
+    # the read-time probes settle the convention.
+    if "equilibrium_psi_weber" in manifest.get("generation", {}).get("normalizations", []):
+        vaft.omas.equilibrium_psi_to_weber(
+            ods, source="generate_pipeline_imas_sample: legacy Wb/rad canonical source"
+        )
+        manifest["generation"]["equilibrium_cocos"] = vaft.omas.ods_cocos(ods)
     _project_signal_quality(ods, manifest)
+    _remap_em_coupling(ods, manifest)
     return ods
 
 
@@ -135,9 +198,16 @@ def generate(manifest_path: Path, canonical_source: Path) -> None:
     normalized = normalized_pipeline_ods(canonical_source, manifest)
     target = manifest_path.parent / manifest["representations"]["imas"]["path"]
     vaft.imas.save(normalized, target, imas_version=str(manifest["imas_dd_version"]))
-    record = manifest["representations"]["imas"]
-    record["size"] = target.stat().st_size
-    record["sha256"] = sha256_file(target)
+    # An optional OMAS representation is the same normalized ODS, so a caller
+    # asking for omas gets native OMAS JSON rather than the netCDF fallback.
+    if "omas" in manifest["representations"]:
+        vaft.omas.save(
+            normalized, manifest_path.parent / manifest["representations"]["omas"]["path"]
+        )
+    for name, record in manifest["representations"].items():
+        path = manifest_path.parent / record["path"]
+        record["size"] = path.stat().st_size
+        record["sha256"] = sha256_file(path)
     manifest["generation"]["canonical_source"] = str(
         canonical_source.relative_to(manifest_path.parent)
     )
@@ -182,6 +252,14 @@ def verify(manifest_path: Path) -> None:
         via_imas = handle.to_omas()
     _compare(normalized, via_omas, manifest, "IMAS artifact -> OMAS adapter")
     _compare(normalized, via_imas, manifest, "IMAS artifact -> IMAS adapter")
+    if "omas" in manifest["representations"]:
+        omas_artifact = root / manifest["representations"]["omas"]["path"]
+        _compare(
+            normalized,
+            vaft.omas.load(omas_artifact, imas_version=version),
+            manifest,
+            "OMAS artifact -> OMAS adapter",
+        )
 
     expected_times = np.asarray(manifest["acceptance"]["equilibrium_times"])
     np.testing.assert_allclose(via_omas["equilibrium.time"], expected_times)

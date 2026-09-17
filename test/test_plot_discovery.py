@@ -8,10 +8,6 @@ from the helper the adapters run, so the listing and rendering agree by
 construction.  Policy: ``notebooks/plotting_sample_using_vaft_plot_module.ipynb``.
 """
 
-import contextlib
-import io
-import warnings
-
 import matplotlib
 
 matplotlib.use("Agg")
@@ -26,16 +22,12 @@ from vaft.plot import discovery
 from vaft.plot.discovery import PlotCapability, PlotCatalog, match_query
 from vaft.plot.selection import radial_divider
 
-
-def _load(rel):
-    with contextlib.redirect_stderr(io.StringIO()), warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        return vaft.omas.load(str(vaft.data.data_path(rel)))
+from _sample_fixtures import packaged_ods
 
 
 @pytest.fixture(scope="module")
 def shot():
-    return _load("samples/39915/omas.json.gz")
+    return packaged_ods("samples/39915/omas.json.gz")
 
 
 @pytest.fixture(scope="module")
@@ -77,8 +69,14 @@ def test_printing_never_discards_the_structure(catalog):
 def test_the_tree_is_grouped_by_subject_view_and_quantity(catalog):
     text = str(catalog)
     flux_loop = text[text.index("\nflux_loop\n"):]
-    assert "└─ time" in flux_loop.split("\n\n")[0]
-    assert "└─ flux  plot_flux_loop_time_flux()" in flux_loop
+    # Two views under flux_loop since #486: the time history and the spatial
+    # plot at one time, the last branch closing the tree.
+    first = flux_loop.split("\n\n")[0]
+    assert "├─ time" in first and "└─ spatial" in first
+    # The regenerated sample maps the loop voltage too, so flux is no longer
+    # the last quantity under time.
+    assert "├─ flux  plot_flux_loop_time_flux()" in flux_loop
+    assert "└─ voltage  plot_flux_loop_time_voltage()" in flux_loop
     # A plot whose identity has no quantity hangs straight off its view.
     assert "└─ time  plot_plasma_current_time()" in text
     assert "spectrogram  plot_mirnov_spectrogram()" in str(vaft.omas.available_plots(query="mirnov"))
@@ -113,11 +111,19 @@ def test_queries_resolve_through_the_alias_registry(term, subject):
     assert {row.subject for row in vaft.plot.available_plots(query=term)} == {subject}
 
 
-@pytest.mark.parametrize("term", ["Rogowski coil", "line_radiation", "no such thing"])
+@pytest.mark.parametrize("term", ["line_radiation", "no such thing"])
 def test_related_but_distinct_concepts_do_not_match(term):
     assert not match_query(term)
     assert len(vaft.plot.available_plots(query=term)) == 0
     assert "(no plots match)" in str(vaft.plot.available_plots(query=term))
+
+
+def test_a_rogowski_coil_is_its_own_subject_not_plasma_current():
+    # A Rogowski coil measures plasma current (and the limiter's induced
+    # current) but is not an alias of it; since issue #888 it is a diagnostic
+    # subject of its own.
+    assert match_query("Rogowski coil").subjects == ("rogowski_coil",)
+    assert {row.subject for row in vaft.plot.available_plots(query="Rogowski coil")} == {"rogowski_coil"}
 
 
 def test_a_quantity_family_query_narrows_to_those_quantities():
@@ -149,6 +155,12 @@ def test_availability_agrees_with_render_for_every_plot(shot):
 
 
 def test_unavailable_plots_carry_a_machine_readable_reason(shot):
+    # The regenerated sample carries flux_loop voltage, so strip it to keep an
+    # unavailable-by-path plot to ask about.
+    shot = shot.copy()
+    for index in range(len(shot["magnetics.flux_loop"])):
+        if "voltage" in shot[f"magnetics.flux_loop.{index}"]:
+            del shot[f"magnetics.flux_loop.{index}.voltage"]
     everything = vaft.omas.available_plots(shot, available_only=False)
     voltage = everything.find("flux_loop_time_voltage")
     assert voltage.available is False
@@ -158,7 +170,7 @@ def test_unavailable_plots_carry_a_machine_readable_reason(shot):
 
 
 def test_multi_shot_input_reports_availability_per_entry(shot):
-    other = _load("samples/41524/imas.nc")
+    other = packaged_ods("samples/41524/imas.nc")
     odc = omas.ODC()
     odc["39915"] = shot
     odc["41524"] = other
@@ -175,6 +187,11 @@ def test_channel_counts_distinguish_total_and_usable(shot):
     record = vaft.omas.available_plots(shot, query="flux_loop").find("flux_loop_time_flux")
     channels = record.channels
     assert channels["total"] == 11 and channels["usable"] == 11 and channels["flagged"] == 0
+    from vaft.validation.imas import is_condemned_channel
+
+    assert channels["flagged"] == sum(
+        is_condemned_channel(shot, f"magnetics.flux_loop.{i}.flux") for i in range(11)
+    )
     assert channels["regions"] == {"inboard": 7, "outboard": 4}
     assert "channels: 11 / 11 usable · regions: inboard, outboard" in str(
         vaft.omas.available_plots(shot, query="flux_loop")
@@ -190,6 +207,11 @@ def test_representatives_are_what_the_presets_resolve(shot):
 
 
 def test_usable_excludes_flagged_channels(shot):
+    # The six flagged voltages were IMPA channels, which left the sample with
+    # #305; compose the IMPA product back on to keep flagged channels to count.
+    from _synthetic_inputs import make_impa_composed
+
+    shot = make_impa_composed(shot)
     record = vaft.omas.available_plots(shot, query="mirnov").find("mirnov_time_voltage")
     channels = record.channels
     assert channels["flagged"] == 6
@@ -244,9 +266,10 @@ def test_grouped_is_advertised_only_where_the_family_splits():
 
 def test_analysis_methods_list_what_exists():
     registry = vaft.omas.available_plots(query="mirnov")
-    assert registry.find("mirnov_spectrogram").analysis_methods == ("STFT",)
+    assert registry.find("mirnov_spectrogram").analysis_methods == ("stft", "hann_fft", "cwt")
     assert registry.find("mirnov_spectrum").analysis_methods == ("Welch PSD",)
-    assert "methods: STFT" in str(registry) and "wavelet" not in str(registry).lower()
+    # The methods listed are the ones that exist; the default is marked (#484).
+    assert "methods: stft (default) | hann_fft | cwt" in str(registry)
 
 
 def test_overviews_summarise_their_members():
@@ -261,20 +284,24 @@ def test_camera_overlays_belong_to_the_image_entry_point():
     # The view's own entry point declares its overlays (#261 G·5); the
     # presets beneath it advertise none.
     image = vaft.omas.available_plots(query="camera_visible").find("camera_visible_image")
-    assert image.overlays == ("wall", "equilibrium", "field_line")
+    assert image.overlays == ("wall", "equilibrium", "field_line", "vacuum_field_line")
     assert image.projection == {"methods": ("calibrated",)}
     frame = vaft.omas.available_plots(query="camera_visible").find("camera_visible_image_frame")
     assert frame.overlays == () and frame.projection == {}
 
 
 def test_capability_fields_are_filled_only_where_issue_261_defined_them(catalog):
-    # Sources and projection wait for their sub-phases; interaction is stated
-    # only by the plots that offer one (the static equilibrium slice summary).
+    # Sources and projection wait for their sub-phases; besides the per-plot
+    # ``controls`` mode an evaluated record earns (issue #480), interaction is
+    # stated only by the plots that offer one: the static equilibrium slice
+    # summary and the diagnostics overview behind its entry point (issue #482).
     for record in catalog:
         assert record.sources == {} and record.projection == {}
-        if record.name != "equilibrium_overview":
-            assert record.interaction == (), record.name
+        if record.name not in ("equilibrium_overview", "diagnostics_overview"):
+            assert set(record.interaction) <= {"controls"}, record.name
+            assert ("controls" in record.interaction) == bool(record.controls), record.name
     assert catalog.find("equilibrium_overview").interaction[0] == "static"
+    assert catalog.find("diagnostics_overview").interaction[0] == "static"
     assert "sources:" not in str(catalog) and "projection:" not in str(catalog)
 
 

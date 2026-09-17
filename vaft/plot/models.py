@@ -18,6 +18,8 @@ from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 
+from vaft.validation.validity import is_condemned, record_from_mask
+
 from .display import DisplaySpec
 
 __all__ = [
@@ -181,17 +183,23 @@ class Series(ViewModel):
 
         The IMAS scalar ``validity`` is "worst state reached": a channel that
         merely holds its last value after the diagnostics window reads ``-2``
-        there while every plotted sample before it is a measurement.  So a
-        negative scalar condemns the trace only when no per-sample validity
-        is stored, or when the stored mask leaves no usable sample; a trace
-        with usable samples is drawn with its mask instead of being labelled
-        invalid outright.
+        there while every plotted sample before it is a measurement.  So the
+        stored per-sample mask is authoritative when present and condemns the
+        trace only when it leaves no usable sample; the scalar alone condemns
+        it when no mask is stored; a trace nothing has assessed is drawn.  The
+        rule is :func:`vaft.validation.validity.is_condemned` (#424).
         """
-        if self.validity is None or self.validity >= 0:
-            return False
-        if self.valid_mask is None:
-            return True
-        return not bool(self.valid_mask.any())
+        return is_condemned(record_from_mask(self.validity, self.valid_mask))
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """This trace as an :class:`xarray.Dataset` with one ``series`` row; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import line_series_dataset
+
+        return line_series_dataset(LineSeries((self,)), **attrs)
 
 
 def _as_series_tuple(series: Iterable[Series] | Series, *, where: str) -> tuple[Series, ...]:
@@ -232,6 +240,34 @@ class LineSeries(ViewModel):
                 low, high = (float(limits[0]), float(limits[1]))
                 object.__setattr__(self, name, (low, high))
 
+    def to_xarray(self, **attrs: Any) -> Any:
+        """The traces as an :class:`xarray.Dataset` on ``(series, sample)``, NaN-padded with a ``length`` coordinate; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import line_series_dataset
+
+        return line_series_dataset(self, **attrs)
+
+
+@dataclass(frozen=True)
+class ReferenceLine(ViewModel):
+    """A vertical marker on a profile's abscissa: the magnetic axis, a limiter.
+
+    ``x`` is in the profile's coordinate; ``label`` joins the legend when set
+    (an empty label draws the line unlabelled, for the second of a pair);
+    ``style`` overrides the renderer's dotted grey default.
+    """
+
+    x: float
+    label: str = ""
+    style: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "x", float(self.x))
+        object.__setattr__(self, "style", dict(self.style))
+
 
 @dataclass(frozen=True)
 class Profile1D(ViewModel):
@@ -245,6 +281,8 @@ class Profile1D(ViewModel):
     x_limits: tuple[float, float] | None = None
     #: Resolved display policy (unit/scale/notation); see :class:`LineSeries`.
     display: "DisplaySpec | None" = None
+    #: Vertical markers in the abscissa's coordinate (issue #479).
+    reference_lines: tuple["ReferenceLine", ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -254,6 +292,23 @@ class Profile1D(ViewModel):
             object.__setattr__(
                 self, "x_limits", (float(self.x_limits[0]), float(self.x_limits[1]))
             )
+        lines = tuple(self.reference_lines)
+        for line in lines:
+            if not isinstance(line, ReferenceLine):
+                raise TypeError(
+                    f"Profile1D.reference_lines holds ReferenceLine entries; got {type(line).__name__}"
+                )
+        object.__setattr__(self, "reference_lines", lines)
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """The profiles as an :class:`xarray.Dataset` on ``(series, sample)``; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import profile_dataset
+
+        return profile_dataset(self, **attrs)
 
 
 @dataclass(frozen=True)
@@ -271,6 +326,26 @@ class Field2D(ViewModel):
     filled: bool = True
     aspect_equal: bool = True
     overlays: tuple["GeometryLayer", ...] = ()
+    #: Extra line contours drawn thin and grey beneath the main ones -- the
+    #: flux surfaces outside the plasma when the main levels span the plasma.
+    secondary_levels: Sequence[float] | None = None
+    #: Whether the value axis deserves a colorbar; a map whose levels are
+    #: themselves the message (normalised flux at fixed steps) does without.
+    colorbar: bool = True
+    #: The display policy's resolution of the value unit, when the builder
+    #: applied one; ``value_label`` already carries the unit it names.
+    display: "DisplaySpec | None" = None
+    #: What happens to values outside ``contour_levels``: ``"neither"`` leaves
+    #: them blank, ``"min"``/``"max"``/``"both"`` saturate them at the end
+    #: colours.  Levels chosen from a percentile need this -- otherwise the
+    #: points the percentile deliberately excluded come out as holes in the
+    #: map, indistinguishable from missing data.  Matplotlib needs telling;
+    #: Plotly clamps to its level range already, so the two agree either way.
+    extend: str = "neither"
+    #: Where the main contours are drawn, as a boolean ``(len(z), len(r))``
+    #: grid; ``None`` draws them everywhere.  A flux map confines its plasma
+    #: levels to the plasma, since the same psi values recur beside the coils.
+    region: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         r = as_model_array(self.r, where="Field2D.r")
@@ -286,13 +361,38 @@ class Field2D(ViewModel):
         object.__setattr__(self, "r", r)
         object.__setattr__(self, "z", z)
         object.__setattr__(self, "values", values)
+        if self.region is not None:
+            region = np.asarray(self.region, dtype=bool)
+            if region.shape != values.shape:
+                raise ValueError(
+                    f"Field2D.region must match values shape {values.shape}; got {region.shape}"
+                )
+            object.__setattr__(self, "region", region)
+        if self.secondary_levels is not None:
+            secondary = as_model_array(self.secondary_levels, where="Field2D.secondary_levels")
+            object.__setattr__(self, "secondary_levels", tuple(float(v) for v in np.sort(secondary)))
         if self.contour_levels is not None and not isinstance(self.contour_levels, int):
             object.__setattr__(
                 self,
                 "contour_levels",
                 as_model_array(self.contour_levels, where="Field2D.contour_levels"),
             )
+        if self.extend not in ("neither", "min", "max", "both"):
+            raise ValueError(
+                'Field2D.extend must be one of "neither", "min", "max", "both"; '
+                f"got {self.extend!r}"
+            )
         object.__setattr__(self, "overlays", tuple(self.overlays))
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """``values(z, r)`` with the grid as coordinates and the overlays padded on ``(overlay_layer, overlay_point)``; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import field_dataset
+
+        return field_dataset(self, **attrs)
 
 
 @dataclass(frozen=True)
@@ -300,9 +400,10 @@ class GeometryLayer(ViewModel):
     """One geometric element drawn in a machine view.
 
     ``kind`` selects how the coordinates are drawn: ``polyline`` connects the
-    points, ``polygon`` additionally closes the outline, and ``points`` draws
-    markers only.  Coordinates are named ``r``/``z`` for poloidal views and reused
-    as ``x``/``y`` for top views.
+    points, ``polygon`` additionally closes the outline, ``points`` draws
+    markers only, and ``text`` writes ``label`` at the single coordinate it
+    holds (an annotation, never a legend entry).  Coordinates are named
+    ``r``/``z`` for poloidal views and reused as ``x``/``y`` for top views.
     """
 
     r: np.ndarray
@@ -310,8 +411,18 @@ class GeometryLayer(ViewModel):
     kind: str = "polyline"
     label: str = ""
     style: Mapping[str, Any] = field(default_factory=dict)
+    #: Which input this layer came from, when several are drawn in one view.
+    #: A renderer colours a stack by entry, so every layer of one machine
+    #: shares a colour and the legend names machines rather than parts.  Empty
+    #: for a single-input view, which keeps the recipe's own styling.
+    entry: str = ""
+    #: What the layer belongs to when that matters beyond drawing it:
+    #: ``"equilibrium"`` marks the plasma's own outline and axis, which move
+    #: between shots and times and therefore never size a canvas (issue #689);
+    #: empty for the machine -- wall, coils, sensors -- which does.
+    role: str = ""
 
-    KINDS = ("polyline", "polygon", "points")
+    KINDS = ("polyline", "polygon", "points", "text")
 
     def __post_init__(self) -> None:
         if self.kind not in self.KINDS:
@@ -325,10 +436,23 @@ class GeometryLayer(ViewModel):
                 "GeometryLayer.r and GeometryLayer.z must be 1D and equal length; "
                 f"got shapes {r.shape} and {z.shape}"
             )
+        if self.kind == "text" and (r.size != 1 or not str(self.label)):
+            raise ValueError("a text GeometryLayer holds one coordinate and a non-empty label")
         object.__setattr__(self, "r", r)
         object.__setattr__(self, "z", z)
         object.__setattr__(self, "style", _frozen_style(self.style))
         object.__setattr__(self, "label", str(self.label))
+        object.__setattr__(self, "role", str(self.role))
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """This layer as a one-layer :class:`xarray.Dataset`; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import geometry_layers_dataset
+
+        return geometry_layers_dataset(GeometryLayers((self,)), **attrs)
 
 
 @dataclass(frozen=True)
@@ -340,6 +464,9 @@ class GeometryLayers(ViewModel):
     y_label: str = "Z [m]"
     title: str = ""
     aspect_equal: bool = True
+    #: Whether the labelled layers deserve a legend; a view whose parts are
+    #: named where they are drawn (annotated coils) does without.
+    legend: bool = True
 
     def __post_init__(self) -> None:
         if isinstance(self.layers, GeometryLayer):
@@ -354,6 +481,16 @@ class GeometryLayers(ViewModel):
                     f"got {type(layer).__name__}"
                 )
         object.__setattr__(self, "layers", layers)
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """``r``/``z`` padded on ``(layer, point)`` with the layers' kind, label and ``length`` as coordinates; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import geometry_layers_dataset
+
+        return geometry_layers_dataset(self, **attrs)
 
 
 @dataclass(frozen=True)
@@ -388,6 +525,16 @@ class Geometry3DLayer(ViewModel):
         object.__setattr__(self, "style", _frozen_style(self.style))
         object.__setattr__(self, "label", str(self.label))
 
+    def to_xarray(self, **attrs: Any) -> Any:
+        """This layer as a one-layer :class:`xarray.Dataset`; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import geometry_3d_layers_dataset
+
+        return geometry_3d_layers_dataset(Geometry3DLayers((self,)), **attrs)
+
 
 @dataclass(frozen=True)
 class Geometry3DLayers(ViewModel):
@@ -412,6 +559,16 @@ class Geometry3DLayers(ViewModel):
                     f"got {type(layer).__name__}"
                 )
         object.__setattr__(self, "layers", layers)
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """``x``/``y``/``z`` padded on ``(layer, point)``; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import geometry_3d_layers_dataset
+
+        return geometry_3d_layers_dataset(self, **attrs)
 
 
 @dataclass(frozen=True)
@@ -464,6 +621,16 @@ class Image2D(ViewModel):
         if self.vmax is not None:
             object.__setattr__(self, "vmax", float(self.vmax))
 
+    def to_xarray(self, **attrs: Any) -> Any:
+        """``values(row, column)`` with the overlays padded on ``(overlay_layer, overlay_point)``; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import image_dataset
+
+        return image_dataset(self, **attrs)
+
 
 @dataclass(frozen=True)
 class ImageSequence(ViewModel):
@@ -515,6 +682,16 @@ class ImageSequence(ViewModel):
         object.__setattr__(self, "vmin", float(vmin))
         object.__setattr__(self, "vmax", float(vmax))
 
+    def to_xarray(self, **attrs: Any) -> Any:
+        """``frames(time, row, column)``; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import image_sequence_dataset
+
+        return image_sequence_dataset(self, **attrs)
+
 
 @dataclass(frozen=True)
 class Spectrogram(ViewModel):
@@ -561,6 +738,16 @@ class Spectrogram(ViewModel):
             magnitude=result.magnitude,
             **overrides,
         )
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """``magnitude(frequency, time)``; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import spectrogram_dataset
+
+        return spectrogram_dataset(self, **attrs)
 
 
 @dataclass(frozen=True)
@@ -677,6 +864,16 @@ class PowerSpectrum(ViewModel):
         overrides.setdefault("y_label", f"PSD [{result.units}]" if getattr(result, "units", "") else "PSD")
         return cls(frequency=result.frequency, psd=result.psd, **overrides)
 
+    def to_xarray(self, **attrs: Any) -> Any:
+        """``psd(frequency)`` with the fits padded on ``(fit, fit_sample)``; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import power_spectrum_dataset
+
+        return power_spectrum_dataset(self, **attrs)
+
 
 @dataclass(frozen=True)
 class TextPanel(ViewModel):
@@ -694,6 +891,16 @@ class TextPanel(ViewModel):
         object.__setattr__(self, "lines", tuple(str(line) for line in self.lines))
         object.__setattr__(self, "title", str(self.title))
 
+    def to_xarray(self, **attrs: Any) -> Any:
+        """The lines as a ``line`` coordinate of an otherwise empty :class:`xarray.Dataset`; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import text_panel_dataset
+
+        return text_panel_dataset(self, **attrs)
+
 
 @dataclass(frozen=True)
 class Panels(ViewModel):
@@ -710,21 +917,26 @@ class Panels(ViewModel):
     share_y: bool = False
     suptitle: str = ""
     squeeze: bool = False
-    #: Grid slots that hold a note instead of a model, as ``(slot, text)``.  A
-    #: composite with a fixed member list keeps its shape on every input by
-    #: rendering an unavailable member as a labelled empty panel rather than
-    #: dropping it (issue #260).
-    placeholders: tuple[tuple[int, str], ...] = ()
     #: Per-model renderer defaults, one mapping per model, applied beneath the
     #: caller's own keyword arguments -- how an overview asks its members for
     #: ``validity="mask"`` without forcing that on every individual plot.
     member_styles: tuple[Mapping[str, Any], ...] | None = None
+    #: Where each grid slot sits when panels are not all the same size, as
+    #: ``(row, col, rowspan, colspan)`` per slot in slot order -- one entry per
+    #: model.  ``None`` fills the ``nrows x ncols`` grid in order.  A 2-D map that deserves the height of three stacked profiles
+    #: is expressed here rather than by drawing three copies of it.
+    spans: tuple[tuple[int, int, int, int], ...] | None = None
+    #: Draw one legend for the whole figure instead of one per panel.  Set it
+    #: when every panel carries the same series -- a grid of channels measured
+    #: and forward-modeled the same way -- where a per-axes legend is the same
+    #: three entries repeated N times, on top of the data it explains.  The
+    #: entries come from the first panel, so the panels must agree; a figure
+    #: whose panels show different quantities wants its per-panel legends.
+    share_legend: bool = False
 
     def __post_init__(self) -> None:
         _reject_data_objects(self.models, where="Panels.models")
         models = tuple(self.models)
-        placeholders = tuple((int(slot), str(text)) for slot, text in self.placeholders)
-        object.__setattr__(self, "placeholders", placeholders)
         if self.member_styles is not None:
             styles = tuple(_frozen_style(s) for s in self.member_styles)
             if len(styles) != len(models):
@@ -732,7 +944,7 @@ class Panels(ViewModel):
                     f"Panels.member_styles has {len(styles)} entries for {len(models)} models"
                 )
             object.__setattr__(self, "member_styles", styles)
-        if not models and not placeholders:
+        if not models:
             raise ValueError("Panels.models must contain at least one view model")
         for model in models:
             if not isinstance(model, ViewModel) or isinstance(model, Panels):
@@ -742,14 +954,36 @@ class Panels(ViewModel):
                 )
         object.__setattr__(self, "models", models)
         ncols = max(1, int(self.ncols))
-        occupied = len(models) + len(placeholders)
+        occupied = len(models)
         nrows = self.nrows
         nrows = -(-occupied // ncols) if nrows is None else max(1, int(nrows))
         if nrows * ncols < occupied:
             raise ValueError(
                 f"Panels grid {nrows}x{ncols} cannot hold {occupied} panels"
             )
-        if any(slot >= nrows * ncols for slot, _ in placeholders):
-            raise ValueError("Panels.placeholders names a slot outside the grid")
+        if self.spans is not None:
+            spans = tuple(tuple(int(v) for v in span) for span in self.spans)
+            if len(spans) != occupied:
+                raise ValueError(
+                    f"Panels.spans has {len(spans)} entries for {occupied} panels"
+                )
+            for row, col, rowspan, colspan in spans:
+                if len((row, col, rowspan, colspan)) != 4 or rowspan < 1 or colspan < 1 \
+                        or row < 0 or col < 0 or row + rowspan > nrows or col + colspan > ncols:
+                    raise ValueError(
+                        f"Panels.spans entry {(row, col, rowspan, colspan)} does not fit a "
+                        f"{nrows}x{ncols} grid"
+                    )
+            object.__setattr__(self, "spans", spans)
         object.__setattr__(self, "nrows", nrows)
         object.__setattr__(self, "ncols", ncols)
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """An :class:`xarray.DataTree` with one child dataset per panel, in panel order, the grid facts as root attributes; see :mod:`vaft.plot._xarray`.
+
+        ``attrs`` are added to the dataset's attributes as given
+        (``dd_paths=``, ``plot_name=``); the model itself knows no recipe.
+        """
+        from ._xarray import panels_datatree
+
+        return panels_datatree(self, **attrs)

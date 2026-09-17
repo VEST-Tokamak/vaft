@@ -16,7 +16,8 @@ import pytest
 import xarray as xr
 from omas import ODS
 
-from vaft.machine_mapping.mhd_linear import mhd_linear
+from vaft.code.gpec import DconOutput
+from vaft.machine_mapping.mhd_linear import MAX_RADIAL_POINTS, mhd_linear
 
 
 def _write_dcon_output(path, *, n: int, w_t: float, mlow: int = -8, mhigh: int = 16) -> None:
@@ -182,12 +183,17 @@ def _write_solutions_bin(path, *, blocks: list[list[list[float]]]) -> None:
             f.write(struct.pack("<i", 0))  # zero-length record ends this block
 
 
-def test_dcon_solutions_bin_recovers_true_m_labels_and_stays_out_of_mhd_linear_ids(tmp_path):
-    """`solutions.bin`'s poloidal-harmonic blocks are labeled via the run's
-    real `mlow` (read from the netCDF global attribute, never hardcoded), and
-    the recovered Fourier-space eigenfunction never reaches
-    `displacement_perpendicular` -- it is a Fourier-harmonic array, not the
-    real-space grid that field requires (see the #170 investigation)."""
+def test_dcon_solutions_bin_recovers_true_m_labels_and_reaches_the_ids(tmp_path):
+    """`solutions.bin`'s harmonic blocks are labeled by the run's real `mlow`
+    (read from the netCDF global attribute, never hardcoded) and reach the IDS
+    on a declared `(psi, m)` grid.
+
+    `displacement_perpendicular` is a closest fit, not an exact one -- the
+    values are `xi.grad(psi)`, a contravariant flux component under an
+    arbitrary eigenvector normalization, and the field documents metres -- so
+    what is asserted here is that the mismatch is *recorded*, in
+    `code.parameters`, rather than left for a reader to infer from the field
+    name."""
     _write_dcon_output(tmp_path, n=1, w_t=-0.42, mlow=-3, mhigh=-1)  # mpert=3, m in {-3,-2,-1}
     _write_solutions_bin(
         tmp_path,
@@ -208,7 +214,35 @@ def test_dcon_solutions_bin_recovers_true_m_labels_and_stays_out_of_mhd_linear_i
     assert len(modes) == 1
     assert modes[0]["n_tor"] == 1
     assert modes[0]["energy_perturbed"] == pytest.approx(-0.42)
-    assert "displacement_perpendicular" not in modes[0].get("plasma", {})
+
+    # One toroidal mode, three poloidal harmonics, one radial sample.
+    plasma = modes[0]["plasma"]
+    assert plasma["grid"]["dim2"].tolist() == [-3.0, -2.0, -1.0]
+    assert plasma["grid"]["dim1"].tolist() == pytest.approx([0.1])
+    assert plasma["displacement_perpendicular"]["real"].shape == (1, 3)
+    assert plasma["displacement_perpendicular"]["real"][0].tolist() == pytest.approx([1.5, 2.5, 3.5])
+    # A private (negative) grid_type index, because the IMAS identifier's
+    # Fourier grids name angles DCON is not using here.
+    assert plasma["grid_type"]["index"] < 0
+    assert "hamada" in plasma["grid_type"]["name"]
+
+    # b = i(m - n q) xi -- match/ideal.f:372, recomputed because match forms it
+    # internally and never writes it out.
+    expected_b = [(m - 1 * 1.0) * xi for m, xi in zip((-3.0, -2.0, -1.0), (1.5, 2.5, 3.5))]
+    assert plasma["b_field_perturbed"]["coordinate1"]["imaginary"][0].tolist() == pytest.approx(
+        expected_b
+    )
+
+    # The dominant harmonic is the largest |xi|, by true m rather than block index.
+    assert modes[0]["m_pol_dominant"] == pytest.approx(-1.0)
+
+    # Neither array is in its field's documented units, and both say so where a
+    # consumer can test it instead of parsing prose.
+    parameters = ods["mhd_linear"]["code"]["parameters"]
+    assert 'normalization="dcon_eigenvector_arbitrary"' in parameters
+    assert 'imas_documented_units="m"' in parameters
+    assert 'imas_documented_units="T"' in parameters
+    assert 'definition="i*(m - n*q)*xi.grad(psi)"' in parameters
 
     native_path = tmp_path / "dcon_native_n1.json"
     assert native_path.exists()
@@ -276,3 +310,111 @@ def test_the_energy_perturbed_units_caveat_is_machine_readable(tmp_path):
     assert element.get("units") == "1"
     assert element.get("imas_documented_units") == "J"
     assert element.get("units") != element.get("imas_documented_units")
+
+
+def test_the_eigenfunction_is_strided_into_the_ids_and_says_by_how_much(tmp_path):
+    """The IDS gets a radially strided view; the sidecar keeps full resolution.
+
+    DCON integrates on thousands of steps, and at a realistic mpert the
+    full-resolution arrays would make this one stage product larger than an
+    entire packaged sample shot -- so the IDS carries every harmonic but fewer
+    radial samples, with the stride recorded rather than silently applied.
+    Striding, not interpolating: every number in the IDS is one DCON computed.
+    """
+    n_psi = MAX_RADIAL_POINTS * 3
+    psi = np.linspace(0.01, 0.99, n_psi)
+    _write_dcon_output(tmp_path, n=1, w_t=-0.42, mlow=-1, mhigh=0)
+    _write_solutions_bin(
+        tmp_path,
+        blocks=[
+            [[p, 0.3, 1.0 + p, float(block) + p, 0.0, 0.0, 0.0] for p in psi]
+            for block in range(2)
+        ],
+    )
+    ods = ODS()
+
+    mhd_linear(ods, str(tmp_path), {"module": "dcon", "time_slice": 0})
+
+    plasma = ods["mhd_linear"]["time_slice"][0]["toroidal_mode"][0]["plasma"]
+    assert plasma["grid"]["dim1"].size <= MAX_RADIAL_POINTS
+    assert plasma["displacement_perpendicular"]["real"].shape == (plasma["grid"]["dim1"].size, 2)
+    # Strided values are exact samples of the original grid, not interpolants.
+    assert plasma["grid"]["dim1"][0] == pytest.approx(psi[0], rel=1e-6)
+    assert 'radial_stride="3"' in ods["mhd_linear"]["code"]["parameters"]
+
+    full_resolution = DconOutput.read_json(tmp_path / "dcon_native_n1.json")
+    assert full_resolution.eigenfunction.psi.shape[1] == n_psi
+
+
+def test_ragged_harmonic_blocks_keep_the_eigenfunction_out_of_the_ids(tmp_path):
+    """Blocks that do not share one psi grid have no honest `grid.dim1`.
+
+    `read_solutions_bin` pads short blocks with NaN, so a ragged file would
+    otherwise be written against whichever block happened to be first. The run
+    is still mapped -- only the subtree that cannot be described is skipped.
+    """
+    _write_dcon_output(tmp_path, n=1, w_t=-0.42, mlow=-1, mhigh=0)
+    _write_solutions_bin(
+        tmp_path,
+        blocks=[
+            [[0.1, 0.3, 1.0, 1.5, 0.0, 0.0, 0.0], [0.2, 0.3, 1.0, 1.6, 0.0, 0.0, 0.0]],
+            [[0.1, 0.3, 1.0, 2.5, 0.0, 0.0, 0.0]],  # one step short
+        ],
+    )
+    ods = ODS()
+
+    with pytest.warns(RuntimeWarning, match="do not share one psi grid"):
+        mhd_linear(ods, str(tmp_path), {"module": "dcon", "time_slice": 0})
+
+    mode_entry = ods["mhd_linear"]["time_slice"][0]["toroidal_mode"][0]
+    assert mode_entry["n_tor"] == 1
+    assert mode_entry["energy_perturbed"] == pytest.approx(-0.42)
+    assert "displacement_perpendicular" not in mode_entry.get("plasma", {})
+    assert (tmp_path / "dcon_native_n1.json").exists()
+
+
+def test_a_run_without_solutions_bin_writes_no_eigenfunction_paths(tmp_path):
+    """No `match` means no eigenfunction, which is a normal state, not a failure."""
+    _write_dcon_output(tmp_path, n=1, w_t=-0.42, mlow=-1, mhigh=0)
+    ods = ODS()
+
+    mhd_linear(ods, str(tmp_path), {"module": "dcon", "time_slice": 0})
+
+    mode_entry = ods["mhd_linear"]["time_slice"][0]["toroidal_mode"][0]
+    assert mode_entry["energy_perturbed"] == pytest.approx(-0.42)
+    assert "plasma" not in mode_entry
+    assert "m_pol_dominant" not in mode_entry
+    assert "displacement_perpendicular" not in ods["mhd_linear"]["code"]["parameters"]
+
+
+def test_the_mapped_eigenfunction_survives_a_save_load_round_trip(tmp_path):
+    """Written with `consistency_check` on, and still valid coming back.
+
+    Issue #170's acceptance criterion is that `mhd_linear` carries no subtree
+    written with validation disabled; a round trip is what makes that claim
+    testable rather than asserted.
+    """
+    _write_dcon_output(tmp_path, n=1, w_t=-0.42, mlow=-2, mhigh=0)
+    _write_solutions_bin(
+        tmp_path,
+        blocks=[
+            [[0.1, 0.3, 1.0, 1.0 + block, 0.5, 0.0, 0.0], [0.5, 0.4, 2.0, 2.0 + block, 0.5, 0.0, 0.0]]
+            for block in range(3)
+        ],
+    )
+    ods = ODS()
+    mhd_linear(ods, str(tmp_path), {"module": "dcon", "time_slice": 0})
+    assert ods.consistency_check
+
+    target = tmp_path / "mhd_linear.json"
+    ods.save(str(target))
+    restored = ODS()
+    restored.load(str(target))
+
+    original = ods["mhd_linear"]["time_slice"][0]["toroidal_mode"][0]["plasma"]
+    round_tripped = restored["mhd_linear"]["time_slice"][0]["toroidal_mode"][0]["plasma"]
+    np.testing.assert_allclose(
+        round_tripped["displacement_perpendicular"]["real"],
+        original["displacement_perpendicular"]["real"],
+    )
+    assert round_tripped["grid_type"]["index"] == original["grid_type"]["index"]

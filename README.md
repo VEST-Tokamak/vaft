@@ -7,26 +7,33 @@ English | [한국어](README.ko.md)
 [Python](https://pypi.org/project/vaft/)
 [License](LICENSE)
 
-**VAFT is a standardized, verifiable, and interoperable scientific infrastructure
-for machine-agnostic tokamak research.** Its full end-to-end implementation on the
-[VEST tokamak](https://eng.snu.ac.kr/) at Seoul National University supports
-routine experimental data processing, validation, modeling, physics analysis, and
-shared scientific use across collaborating researchers and institutions, while
-serving as the reference implementation for modern, reproducible, and data-driven
-fusion research.
+> **Integrate fusion science knowledge so it can be discovered, verified, compared, and studied.**
+
+**VAFT is a standardized, verifiable, and interoperable scientific framework for
+machine-agnostic tokamak research.** It integrates experimental data, reconstructed
+and simulated plasma states, and analysis workflows so that fusion science knowledge
+can be discovered, verified, compared, and studied.
+
+Its full end-to-end implementation on the [VEST tokamak](https://eng.snu.ac.kr/) at
+Seoul National University supports routine experimental data processing,
+validation, modeling, physics analysis, and shared scientific use across
+collaborating researchers and institutions, while serving as the reference
+implementation for modern, reproducible, and data-driven fusion research.
 
 > Hong-Sik Yun, Sunjae Lee *et al* 2025 *Plasma Phys. Control. Fusion* **67** 115021
 > ([doi:10.1088/1361-6587/ae1b6a](https://doi.org/10.1088/1361-6587/ae1b6a))
 
 ## What VAFT is
 
-Four things, which together are what "infrastructure" means here.
+Four things, which together are what "framework" means here.
 
 ### Integrated Standardized Interface
 
-Connect standardized data representations, scientific data processing,
-validation, visualization, and physics codes through one consistent interface.
-Machine-specific VEST signals, [IMAS](https://imas.iter.org/)/[OMAS](https://gafusion.github.io/omas/)
+Integrate standardized data representations, scientific data processing,
+validation, visualization, and physics codes into one consistent scientific
+workflow, rather than leaving them as separate tools behind a shared API.
+Machine-specific VEST signals,
+[IMAS](https://imas.iter.org/)/[OMAS](https://gafusion.github.io/omas/)
 representations, VAFT processing and plotting, verification and validation, and
 community physics codes — EFIT, CHEASE, GPEC, TokaMaker, VFIT — interoperate
 rather than being reimplemented here.
@@ -34,26 +41,31 @@ rather than being reimplemented here.
 ### Version-Controlled Data Pipeline
 
 Produce traceable and reproducible data products across the whole workflow, from
-machine design and data acquisition to reconstructed and simulated physics
-states. Versioning covers more than source code: machine descriptions and
-geometry, diagnostic mappings, calibration, conventions, processing logic,
-validation criteria, model configuration, and schema versions.
+machine design and data acquisition to reconstructed and simulated physics states.
+Traceability records where a result came from and reproducibility lets it be
+regenerated; together they are what make a result *verifiable* against its
+provenance, processing history, and assumptions. Versioning covers more than
+source code: machine descriptions and geometry, diagnostic mappings, calibration,
+conventions, processing logic, validation criteria, model configuration, and
+schema versions.
 
 ### IMAS-FAIR Database
 
-Preserve, access, and share validated data through both native and standardized
-representations, following the FAIR principles — Findability, Accessibility,
-Interoperability, Reusability. IMAS/OMAS, FileDB and native artifacts,
-[HSDS](https://github.com/HDFGroup/hsds)-backed storage, lazy and partial access,
-and programmatic APIs. Standardized access **complements** native scientific
-artifacts rather than replacing them.
+Preserve, discover, access, and share validated data through both native and
+standardized representations, following the FAIR principles — Findability,
+Accessibility, Interoperability, Reusability. IMAS/OMAS, FileDB and native
+artifacts, [HSDS](https://github.com/HDFGroup/hsds)-backed storage, lazy and
+partial access, and programmatic APIs are the foundation for finding which
+experimental and modelling information exists for a shot. Standardized access
+**complements** native scientific artifacts rather than replacing them.
 
 ### Machine & Research Archive
 
 A living archive of the VEST tokamak and its research ecosystem since operation
 began in 2012 — machine history, technical documentation, experimental practices,
-tutorials, example notebooks, and reproducible research knowledge, kept usable
-across generations of researchers and collaborating institutions.
+tutorials, example notebooks, and reproducible research knowledge, kept usable for
+long-term verification, comparison, and study across generations of researchers
+and collaborating institutions.
 
 ## What can I do with VAFT?
 
@@ -91,7 +103,7 @@ machine-specific experimental knowledge and analysis practice.
 
 ### What VAFT enables next
 
-VAFT extends that ecosystem into shareable, interoperable infrastructure.
+VAFT extends that ecosystem into a shareable, interoperable scientific framework.
 
 1. **Collaborative and open research** — shared access to validated data and
    reproducible workflows across institutions
@@ -140,7 +152,7 @@ VEST Data Analysis Platform
 ### Available IMAS IDSs in the VEST Database
 
 **Experimental:**
-`dataset_description` · `magnetics` · `tf` · `pf_active` · `barometry` · `spectrometer_uv` · `thomson_scattering` · `charge_exchange`
+`dataset_description` · `magnetics` · `tf` · `pf_active` · `barometry` · `ec_launchers` · `spectrometer_uv` · `thomson_scattering` · `charge_exchange`
 
 **Modelling:**
 `wall` · `em_coupling` · `pf_passive` · `equilibrium` (EFIT/CHEASE) · `core_profiles` · `mhd_linear` (DCON/RDCON)
@@ -174,6 +186,24 @@ python -m pip install -e .
 # Development tooling
 python -m pip install -e ".[dev]"
 ```
+
+#### Updating an existing installation
+
+VAFT is installed in editable mode, so updating your checkout updates VAFT. From
+the checkout, with your own edits set aside first:
+
+```bash
+git status
+git stash push -m "before VAFT update"   # only if `git status` lists modified files
+git pull --ff-only
+git stash pop                             # only if you stashed
+conda run -n vaft python -m pip install -e .
+conda run -n vaft python install/check_vaft_environment.py
+```
+
+Then restart your Jupyter kernel. [`install/README.md`](install/README.md#updating-vaft)
+walks through each step, what to do when `git pull` or `git stash pop` stops, and
+which commands never to run while recovering.
 
 #### Legacy NumPy 1 installation
 
@@ -213,11 +243,42 @@ export GPECHOME=/path/to/gpec
 export CHEASEHOME=/path/to/chease
 export EFITHOME=/path/to/efit
 export TESHOME=/path/to/tes
+export NUBEAMHOME=/path/to/nubeam
+export GACODEHOME=/path/to/gacode
+export GACODE_PLATFORM=GFORTRAN_OSX_BREW
 ```
 
-Each executable belongs under its root's `bin/` directory. See
+`GACODEHOME` is the GACODE checkout itself: the suite builds in place, so there is no
+separate prefix, and each member carries its own `bin` (`neo/bin/neo`). `GACODE_PLATFORM`
+names the tag it was built with. VAFT sets GACODE's own `GACODE_ROOT` and
+`GACODE_PLATFORM` for the subprocess from these rather than redefining them, and falls
+back to `GACODE_ROOT` when `GACODEHOME` is unset. Build it through
+[`install/gacode/`](install/gacode/) and verify with `python install/check_gacode.py`.
+
+`NUBEAMHOME` also supplies the PREACT and ADAS reaction databases NUBEAM cannot
+run without, at `share/preact` and `share/adas`. VAFT builds NUBEAM through
+[`install/nubeam/`](install/nubeam/) rather than vendoring it: NTCC requires each
+user to accept its licence before downloading the source. That path covers all
+three platforms — `linux.sh`, `macos.sh` and `windows.ps1`. The adapter runs
+NUBEAM and parses its native output, and `vaft.machine_mapping.core_sources` and
+`vaft.machine_mapping.distributions` map those results into IMAS; the Monte
+Carlo marker records stay in the native container, which is the one thing IMAS
+has no slot for.
+
+`TESHOME` is different in kind from the others: **TES is not open source**, so
+VAFT can write its inputs, launch `$TESHOME/bin/rtes` and parse its outputs, but
+cannot help you obtain it. TRANSP is not open source either and VAFT never
+launches it — `vaft.code.transp` only reads a `<runid>.CDF` some facility already
+produced, which is why no `TRANSPHOME` appears above. Neither has an installer in
+`install/`, for those reasons rather than by oversight.
+
+Each executable belongs under its root's `bin/` directory. On Windows, set
+the same roots with `[Environment]::SetEnvironmentVariable(name, value, 'User')`
+so a new terminal and a Jupyter kernel both inherit them; VAFT resolves the
+documented POSIX name to a native `.exe` beside it. See
 [Initialize external fusion codes](notebooks/initialize_external_fusion_codes.ipynb)
-for layouts, compatibility variables, FileDB configuration, and validation.
+for layouts, compatibility variables, FileDB configuration, and validation, and
+[install/README.md](install/README.md) for building the codes on any platform.
 
 
 ### Connect to the VEST Database
@@ -397,11 +458,35 @@ each other. `source` defaults to `main`, the VAFT-native pipeline's namespace.
 | `vfit-gse` | VFIT Grad-Shafranov-equilibrium fitting result. |
 | `electron-efit` | Kinetic EFIT from Thomson scattering with an assumed Ti/Te ratio. |
 | `kinetic-efit` | Kinetic EFIT for shots with Thomson scattering and CES/ion-Doppler spectroscopy. |
+| `impa` | **Sparse.** Insertable magnetic probe array; only shots whose IMPA product was intentionally produced. |
 | `public` | **Read-only** legacy source from the previous pipeline. |
+
+A sparse source holds a subset of the shot archive on purpose. A shot missing
+from `impa` means only that no IMPA product was published for it -- not that the
+shot is missing, that `main` failed, or that the array was installed and
+invalid. Sources are never unioned on read: `load` returns the one source it was
+asked for, and `vaft.database.compose(shot)` is the explicit way to analyse
+`main` and `impa` together with the origin of each channel kept visible.
 
 `python -m vaft.cli summary sources` prints the same list. The historical
 `directory=`/`target=` keywords still work and warn. To use a namespace outside
 the catalog, list it in `VAFT_HSDS_EXTRA_SOURCES`.
+
+The canonical plots are reachable from the command line too (the `vaft`
+console script is installed with the package):
+
+```bash
+vaft plot --list --shot 39915                              # what this shot can plot
+vaft plot plasma_current_time --shot 39915 --out ip.png    # render to a file
+vaft plot equilibrium_overview --shot 39915 --option time_slice=4
+```
+
+`vaft export` downloads a shot once and writes it as portable local files
+(`imas-hdf5`, `imas-nc`, `omas-json`, `omas-hdf5`, `omas-nc`, `geqdsk`):
+
+```bash
+vaft export --shot 41672 --source public --backend imas-nc omas-json geqdsk
+```
 
 ```python
 ods = vaft.database.load(39915)                       # reads main
@@ -465,10 +550,10 @@ with vaft.imas.load("./equilibrium.nc") as entry:
 ### Profile Fitting
 
 ```python
-# Map Thomson scattering data onto equilibrium flux coordinates, then fit profiles
-mapped_rho = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
+# Map Thomson scattering data onto the equilibrium's radial coordinates, then fit profiles (rho_tor_norm by default)
+mapped = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
 vaft.process.profile_fitting_thomson_scattering(
-    ods, time_ms, mapped_rho, fitting_function_te='gp', fitting_function_ne='gp'
+    ods, time_ms, mapped, fitting_function_te='gp', fitting_function_ne='gp'
 )
 ```
 

@@ -1,0 +1,300 @@
+ &mdescr
+ 
+   ! name: tokamak_id  units: character
+   ! description: Tokamak (Machine Description) ID
+ 
+   tokamak_id = "VEST"
+ 
+   ! name: geometry  units: character
+   ! description: path to file(s) vac. vessel & coil descr.
+ 
+   geometry = " "
+ 
+   ! name: num_rzlim  units: integer
+   ! description: number of points, axisymmetric (R,Z) limiter
+ 
+   num_rzlim = 51
+ 
+   ! name: rlim  units: m
+   ! description: R points in closed (R,Z) contour sequence
+
+   rlim = 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1
+          0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1
+          0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1
+          0.1 0.1 0.1 0.56 0.67 0.72 0.76 0.76 0.76 0.76 0.76 0.72
+          0.67 0.58 0.1
+
+   zlim = -0.55 -0.5 -0.45 -0.4 -0.35 -0.25 -0.2 -0.15 -0.1 -0.09 -0.08
+          -0.07 -0.06 -0.05 -0.04 -0.03 -0.02 -0.01 0. 0.01 0.02 0.03 0.04
+          0.05 0.06 0.07 0.08 0.09 0.1 0.15 0.2 0.25 0.3 0.35 0.4
+          0.45 0.5 0.55 0.57 0.57 0.49 0.45 0.42 0. -0.42 -0.45 -0.49
+          -0.57 -0.57 -0.55
+
+   ! name: R_min_box  units: m
+   ! description: R_min of bounding box
+ 
+   R_min_box =  0.05
+ 
+   ! name: R_max_box  units: m
+   ! description: R_max of bounding box
+ 
+   R_max_box =  1.5
+ 
+   ! name: Z_min_box  units: m
+   ! description: Z_min of bounding box
+ 
+   Z_min_box = -1.5
+ 
+   ! name: Z_max_box  units: m
+   ! description: Z_max of bounding box
+ 
+   Z_max_box =  1.5
+ 
+   ! name: nbi_src_name  units: character
+   ! description: number & name of neutral beams
+ 
+   nbi_src_name(1) = "B_001"
+   !nbi_src_name(2) = "B_002"
+ 
+   ! name: beam_type  units: character
+   ! description: beam type: H/D/T beams:
+ 
+   beam_type(1) = "Standard"
+   !beam_type(2) = "Standard"
+ 
+   ! name: sRtcen  units: m
+   ! description: signed tangency radiusr
+
+   sRtcen(1) = -0.22129
+   !sRtcen(2) = 0.53033
+ 
+   ! name: Lbsctan  units: m
+   ! description: distance, source to tangency point
+ 
+   Lbsctan(1) =  2.625867
+
+   !Lbsctan(2) =  13.4
+ 
+   ! name: Zbsc  units: m
+   ! description: elevation of beam source
+ 
+   Zbsc(1) = 0
+   !Zbsc(2) = -1.26
+
+ 
+   ! name: Phibsc  units: degrees
+   ! description: toroidal location of beam source
+ 
+   Phibsc(1) = 0.
+   !Phibsc(2) = 0.
+
+   ! name: Lbscap  units: m
+   ! description: distance, source to aperture
+ 
+   Lbscap(1) =  1.8
+   !Lbscap(2) =  10.
+ 
+   ! name: Zbap  units: m
+   ! description: elevation of aperture
+ 
+   Zbap(1) =  0.
+   !Zbap(2) =  0.
+ 
+   ! name: nbshape  units: character
+   ! description: shape keyword for beam source grid
+ 
+   nbshape(1) = "Rectangle"
+   !nbshape(2) = "Rectangle"
+ 
+   ! name: b_halfwidth  units: m
+   ! description: beam half-width at source
+ 
+!   b_halfwidth(1) =  0.12
+!   b_halfwidth(1) =  6.0d-2, 6.0d-2, 6.0d-2
+   b_halfwidth(1) = 6.0d-2
+   !b_halfwidth(2) = 0.18
+
+   ! name: b_halfHeight  units: m
+   ! description: beam half-height at source
+ 
+!   b_halfHeight(1) =  0.45
+!   b_halfHeight(1) =  0.225, 0.225, 0.225
+   b_halfHeight(1) = 0.21
+   !b_halfHeight(2) = 7.5d-2
+
+   ! name: b_Hfocal_length  units: m
+   ! description: horizontal focal length
+ 
+!   b_Hfocal_length(1) =  10.0
+   b_Hfocal_length(1) =  12d10
+   !b_Hfocal_length(2) =  12.4
+   ! name: b_Vfocal_length  units: m
+   ! description: vertical focal length
+ 
+!   b_Vfocal_length(1) =  10.0
+   b_Vfocal_length(1) =  12d10
+   !b_Vfocal_length(2) =  12.4
+ 
+   ! name: b_Hdivergence  units: degrees
+   ! description: horizontal divergence (D) of beam
+ 
+!   b_Hdivergence(1) =  0.5
+   b_Hdivergence(1) =  1.
+   !b_Hdivergence(2) =  1.
+!   b_Hdivergence(1) =  1.0
+!   b_Hdivergence(1) =  0.707378529605
+ 
+   ! name: b_Vdivergence  units: degrees
+   ! description: vertical divergence (D) of beam
+ 
+!   b_Vdivergence(1) =  0.5
+   b_Vdivergence(1) =  1.
+   !b_Vdivergence(2) =  1.
+!   b_Vdivergence(1) =  1.0
+!    b_Vdivergence(1) =  1.83934623391
+
+   ! name: nbap_shape  units: character
+   ! description: shape keyword for beam aperture
+ 
+!   nbap_shape(1) = "Circle"
+    nbap_shape(1) = "Rectangle"
+    !nbap_shape(2) = "Rectangle"
+
+   ! name: ap_halfwidth  units: m
+   ! description: aperture half-width
+ 
+!   ap_halfwidth(1) =  3.8d-3
+   ap_halfwidth(1) =  0.094646
+   !ap_halfwidth(2) =  0.465
+!   ap_halfwidth(1) =  0.5
+!   ap_halfwidth(1) =  0.03
+ 
+   ! name: ap_halfheight  units: m
+   ! description: aperture half-height
+ 
+   ap_halfheight(1) = 0.2317
+   !ap_halfheight(2) = 0.15
+!   ap_halfheight(1) =  0.5
+!    ap_halfheight(1) =  0.06
+
+ 
+   ! name: nbap2_shape  units: character
+   ! description: keyword for optional 2nd aperture
+ 
+   nbap2_shape(1) = "None"
+   !nbap2_shape(2) = "None"
+ 
+   ! name: Lbscap2  units: m
+   ! description: distance, source to 2nd aperture
+ 
+   Lbscap2(1) =  0.0
+   !Lbscap2(2) =  0.0
+ 
+   ! name: ap2_halfwidth  units: m
+   ! description: 2nd aperture half-width
+ 
+   ap2_halfwidth(1) =  0.0
+   !ap2_halfwidth(2) =  0.0
+ 
+   ! name: ap2_halfheight  units: m
+   ! description: aperture half-height
+ 
+   ap2_halfheight(1) =  0.0
+   !ap2_halfheight(2) =  0.0
+ 
+   ! name: Einj_min  units: keV
+   ! description: minimum injection energy
+ 
+   Einj_min(1) =  0.1
+   !Einj_min(2) =  1.0
+ 
+   ! name: Einj_max  units: keV
+   ! description: maximum injection energy
+ 
+   Einj_max(1) =  20.0
+   !Einj_max(2) =  100.0
+ 
+   ! name: n_H_einj_standard  units: integer
+   ! description: no. pts in H beam energy fractions table
+ 
+   n_H_einj_standard = 1
+ 
+   ! name: n_D_einj_standard  units: integer
+   ! description: no. pts in D beam energy fractions table
+ 
+!   n_D_einj_standard = 6
+   n_D_einj_standard = 0
+ 
+   ! name: n_T_einj_standard  units: integer
+   ! description: no. pts in T beam energy fractions table
+ 
+   n_T_einj_standard = 0
+ 
+   ! name: H_einj_standard  units: keV
+   ! description: H beam table energies
+ 
+   ! name: H_ffull_standard  units: -
+   ! description: H beam full energy fractions
+ 
+   ! name: H_fhalf_standard  units: -
+   ! description: H beam half energy fractions
+ 
+   ! name: D_einj_standard  units: keV
+   ! description: D beam table energies
+ 
+	H_einj_standard(1) = 12
+!   D_einj_standard(1) =  59.9921289062,  74.7855078125,  75.0,  75.0978984375
+!   D_einj_standard(5) =  75.22921875,  81.0070234375
+ 
+   ! name: D_ffull_standard  units: -
+   ! description: D beam full energy fractions
+ 
+    H_ffull_standard(1) =  1.00
+!   D_ffull_standard(1) =  0.472812712193,  0.538811683655,  0.539351522923
+!   D_ffull_standard(4) =  0.539592921734,  0.539911925793,  0.549354612827 
+
+   ! name: D_fhalf_standard  units: -
+   ! description: D beam half energy fractions
+ 
+    H_fhalf_standard(1) =  0.00
+!   D_fhalf_standard(1) =  0.236596703529,  0.275633305311,  0.276227205992
+!   D_fhalf_standard(4) =  0.276498585939,  0.276862889528,  0.292423397303
+ 
+   ! name: T_einj_standard  units: keV
+   ! description: T beam table energies
+ 
+   ! name: T_ffull_standard  units: -
+   ! description: T beam full energy fractions
+ 
+   ! name: T_fhalf_standard  units: -
+   ! description: T beam half energy fractions
+ 
+   ! name: icrf_src_name  units: character
+   ! description: number & name of ICRF sources
+ 
+   ! name: ant_model  units: character
+   ! description: antenna model filenames (1 per antenna source)
+ 
+   ! name: nrz_antgeo  units: integer
+   ! description: number of (R,Z) points, antenna geometries
+ 
+   ! name: max_nrz_antgeo  units: integer
+   ! description: Maximum size of variable length enumeration: NRZ_ANTGEO
+ 
+   max_nrz_antgeo = 0
+ 
+   ! name: R_antgeo  units: m
+   ! description: antenna geo: R pts
+ 
+   ! name: Z_antgeo  units: m
+   ! description: antenna geo: Z pts
+ 
+   ! name: dx_fshield  units: m
+   ! description: distance, antenna to Faraday shield
+ 
+
+   !  name : ap_vert_offset units : m
+   ! description : vertical offset of aperture
+     ap_vert_offset(1) = 0.0
+ 
+ /

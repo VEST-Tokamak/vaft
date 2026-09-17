@@ -26,6 +26,7 @@ from vaft.process.impa import (
 )
 
 from .magnetics import PROBE_LENGTH, vfit_plasma_current
+from .registry import port_phi
 from .tf import vfit_tf_current
 from .utils import _deep_merge, _normalize_shot_key, _resolve_info_file_path, load_yaml, path_exists, set_path
 
@@ -74,6 +75,14 @@ IMPA_TOROIDAL_PROBE_POLOIDAL_ANGLE = 0.0
 #: a *radial* (B_R) sensor instead.
 IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE = math.pi / 2
 
+#: The port the array is inserted through: ``11M12``, which the port-status
+#: document lists as "Triple probe + internal magnetic probe array".  The IMAS
+#: toroidal angle is derived from it rather than stored, so it cannot drift
+#: from the port table -- see issue #718.  Until then every IMPA channel was
+#: written at ``phi = 0.0``, which is not a placeholder a reader can recognise:
+#: 0.0 is 12 o'clock, a real and different place on the machine.
+IMPA_PORT = "11M12"
+
 
 def _safe_vest_load(shot: int, field: int, raw_source: raw_db.RawSource | None = None):
     return raw_db.vest_load(
@@ -90,15 +99,34 @@ def _vest_config(info_file: str | None) -> Mapping[str, Any]:
 
 
 def resolve_impa_config(shot: int, info_file: str | None = None) -> dict[str, Any]:
-    """Return the IMPA block for ``shot``, merging shot overrides over defaults."""
+    """Return the IMPA block for ``shot``, merging shot overrides over defaults.
+
+    The base lives at the top level of the machine mapping rather than under
+    ``magnetics``: IMPA is not part of the baseline magnetics description but an
+    insertable diagnostic with its own stage and HSDS source (issue #305).  A
+    shot-keyed block may still override it, which is the same merge this always
+    did, one level up.
+    """
     content = _vest_config(info_file)
     default_block = content.get("0") or content.get(0) or {}
     shot_block = content.get(_normalize_shot_key(shot), {}) or {}
-    merged = _deep_merge(default_block, shot_block)
-    impa_config = (merged.get("magnetics") or {}).get("impa")
-    if not isinstance(impa_config, Mapping):
+    # A leftover nested block would be a second source of truth that silently
+    # wins or silently loses depending on the reader, so refuse it outright.
+    for label, block in (("default", default_block), (f"shot {shot}", shot_block)):
+        if isinstance((block.get("magnetics") or {}).get("impa"), Mapping):
+            raise ValueError(
+                f"The {label} block still defines magnetics.impa; the IMPA machine "
+                "description moved to the top-level `impa` section (issue #305)."
+            )
+    merged = _deep_merge(
+        {"impa": content.get("impa") or {}},
+        {"impa": shot_block.get("impa") or {}},
+    )
+    impa_config = merged.get("impa")
+    if not isinstance(impa_config, Mapping) or not impa_config:
         raise ValueError(
-            f"No IMPA configuration for shot {shot}; expected magnetics.impa in the VEST machine mapping"
+            f"No IMPA configuration for shot {shot}; expected a top-level `impa` "
+            "section in the VEST machine mapping"
         )
     return dict(impa_config)
 
@@ -581,18 +609,20 @@ def impa(
         set_path(ods, f"{prefix}.identifier", f"{IMPA_IDENTIFIER_PREFIX}{name}")
         set_path(ods, f"{prefix}.position.r", float(result.geometry.r[offset]))
         set_path(ods, f"{prefix}.position.z", float(result.geometry.z[offset]))
-        set_path(ods, f"{prefix}.position.phi", 0.0)
+        set_path(ods, f"{prefix}.position.phi", port_phi(IMPA_PORT))
         set_path(ods, f"{prefix}.length", PROBE_LENGTH)
         set_path(
             ods,
             f"{prefix}.poloidal_angle",
             IMPA_TOROIDAL_PROBE_POLOIDAL_ANGLE if orientation == "toroidal" else IMPA_POLOIDAL_ANGLE,
         )
-        set_path(
-            ods,
-            f"{prefix}.toroidal_angle",
-            IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE if orientation == "toroidal" else 0.0,
-        )
+        if orientation == "toroidal":
+            # Only a toroidal-facing sensor has a horizontal normal to measure
+            # this angle from. A poloidal one's normal is vertical, so its
+            # horizontal projection is the zero vector and the angle does not
+            # exist -- writing 0.0 there declared a radial (B_R) sensor, which
+            # is the error this constant's own docstring warns about (#725).
+            set_path(ods, f"{prefix}.toroidal_angle", IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE)
         set_path(ods, f"{prefix}.type.index", HALL_PROBE_TYPE_INDEX)
         set_path(ods, f"{prefix}.type.name", "hall")
         set_path(ods, f"{prefix}.type.description", "VEST internal magnetic probe array (Hall probe)")
@@ -674,9 +704,8 @@ def impa(
             set_path(ods, f"{prefix}.identifier", f"{IMPA_IDENTIFIER_PREFIX}{name}")
             set_path(ods, f"{prefix}.position.r", bz_r)
             set_path(ods, f"{prefix}.position.z", float(result.geometry.z[offset]))
-            set_path(ods, f"{prefix}.position.phi", 0.0)
+            set_path(ods, f"{prefix}.position.phi", port_phi(IMPA_PORT))
             set_path(ods, f"{prefix}.length", PROBE_LENGTH)
-            set_path(ods, f"{prefix}.toroidal_angle", 0.0)
             set_path(ods, f"{prefix}.type.index", HALL_PROBE_TYPE_INDEX)
             set_path(ods, f"{prefix}.type.name", "hall")
             set_path(

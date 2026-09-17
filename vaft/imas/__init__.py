@@ -4,9 +4,9 @@ Low-level OMAS--IMAS conversion machinery intentionally stays private in
 ``omas_imas``.  The public API detects local source formats automatically.
 
 Plotting adapters (``plot_<canonical-stem>``, ``available_plots``,
-``normalize_entries``, ``IDSEntry``) live in ``.plotting`` / ``.access`` and
-are resolved lazily, so importing ``vaft.imas`` does not pull in Matplotlib
-(issue #63).
+``normalize_entries``, ``IDSEntry``) and their ``dd_<stem>``/``extract_<stem>``
+twins (umbrella #434) live in ``.plotting`` / ``.access`` and are resolved
+lazily, so importing ``vaft.imas`` does not pull in Matplotlib (issue #63).
 """
 
 from pathlib import Path
@@ -37,7 +37,7 @@ def __getattr__(name):
 
     if name in _ACCESS_NAMES:
         value = getattr(import_module(".access", __name__), name)
-    elif name in _PLOTTING_NAMES or name.startswith("plot_"):
+    elif name in _PLOTTING_NAMES or name.startswith(("plot_", "dd_", "extract_")):
         plotting = import_module(".plotting", __name__)
         if name == "plotting":
             value = plotting
@@ -70,6 +70,31 @@ def _occurrence_for(occurrence, ids_name: str) -> int:
     if isinstance(occurrence, int):
         return occurrence
     return int(occurrence.get(ids_name, occurrence.get("*", 0)))
+
+
+def _copy_entry(source_uri, target, ids_names, dd_version, *, occurrence=None):
+    """Copy native IDS from one IMAS Data Entry into a new IMAS netCDF file.
+
+    No ODS round-trip: each IDS is read and put through IMAS-Python's own
+    backends, so the netCDF follows the IMAS convention, not OMAS's.
+    """
+    import imas
+
+    target_path = Path(target)
+    with imas.DBEntry(source_uri, "r", dd_version=dd_version) as source_entry:
+        mode = "x" if not target_path.exists() else "w"
+        with imas.DBEntry(str(target_path), mode, dd_version=dd_version) as target_entry:
+            for name in ids_names:
+                try:
+                    occurrence_value = _occurrence_for(occurrence, name)
+                    target_entry.put(source_entry.get(name, occurrence_value), occurrence_value)
+                except Exception as exc:
+                    # Newer public DDs intentionally omit legacy
+                    # dataset_description; do not make a valid IDS export
+                    # fail because that image is unavailable.
+                    if name != "dataset_description":
+                        raise RuntimeError(f"Could not export IDS {name!r} to {target_path}") from exc
+    return target_path
 
 
 def save(data, target, *, imas_version=None, occurrence=None):
@@ -113,25 +138,16 @@ def save(data, target, *, imas_version=None, occurrence=None):
                 verbose=False,
                 uri="imas:hdf5?path=" + str(root),
             )
-            with imas.DBEntry("imas:hdf5?path=" + str(root), "r", dd_version=version) as source_entry:
-                mode = "x" if not target_path.exists() else "w"
-                with imas.DBEntry(str(target_path), mode, dd_version=version) as target_entry:
-                    # Image filenames encode non-zero occurrences (for example,
-                    # ``equilibrium_2.h5``), so derive native IDS names from
-                    # the ODS roots rather than parsing staging filenames.
-                    for name in sorted(data.keys()):
-                        try:
-                            occurrence_value = _occurrence_for(occurrence, name)
-                            target_entry.put(
-                                source_entry.get(name, occurrence_value),
-                                occurrence_value,
-                            )
-                        except Exception as exc:
-                            # Newer public DDs intentionally omit legacy
-                            # dataset_description; do not make a valid IDS
-                            # export fail because that image is unavailable.
-                            if name != "dataset_description":
-                                raise RuntimeError(f"Could not export IDS {name!r} to {target_path}") from exc
+            # Image filenames encode non-zero occurrences (for example,
+            # ``equilibrium_2.h5``), so derive native IDS names from the ODS
+            # roots rather than parsing staging filenames.
+            _copy_entry(
+                "imas:hdf5?path=" + str(root),
+                target_path,
+                sorted(data.keys()),
+                version,
+                occurrence=occurrence,
+            )
         return target_path
 
     target_path.mkdir(parents=True, exist_ok=True)

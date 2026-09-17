@@ -33,8 +33,6 @@ _LEGACY_REPLACEMENTS = {
     "vfit_PlasmaCurrent": None,
     "vfit_plasma_current": None,
     "vfit_pf": None,
-    "vfit_plasmaMGods_startend": None,
-    "vfit_plasma_mgods_startend": None,
     "vfit_tf_btR": None,
     "vfit_tf_bt_r": None,
     "vfit_tf_current": None,
@@ -67,6 +65,7 @@ __all__ = [
     "camera_visible_from_raw_database",
     "dataset_description_from_raw_database",
     "diamagnetic_flux_rogowski_coil_from_raw_database",
+    "ec_launchers_from_raw_database",
     "filterscope_from_raw_database",
     "find_valid_frame_interval",
     "flux_loop_from_raw_database",
@@ -85,6 +84,9 @@ __all__ = [
     "pf_active_from_raw_database",
     "pf_geometry_version_for_shot",
     "vest_processing_provenance",
+    "vest_ec_power",
+    "vest_core_profiles_policy",
+    "CoreProfilesPolicy",
     "read_doppler_profile",
     "read_doppler_single",
     "resolve_vest_diagnostic",
@@ -93,6 +95,7 @@ __all__ = [
     "vfit_soft_x_rays_dynamic",
     "soft_x_rays_from_raw_database",
     "soft_x_rays_from_digitizer_csv",
+    "narrow_image_storage",
     "save_camera_visible_ods",
     "save_soft_x_rays_ods",
     "tf_from_raw_database",
@@ -117,8 +120,8 @@ __all__ = [
     "vfit_pf_active_dynamic",
     "vfit_pf_active_for_shot",
     "vfit_pf_active_static",
-    "vfit_plasmaMGods_startend",
-    "vfit_plasma_mgods_startend",
+    "PlasmaWindowChoice",
+    "detect_plasma_window",
     "diamagnetic_saturation_report",
     "vest_diamagnetic_flux",
     "vest_diamagnetic_flux_detailed",
@@ -159,11 +162,13 @@ _EXPORT_MAP = {
     "find_valid_frame_interval": (".camera_visible", "find_valid_frame_interval"),
     "frame_time_ms": (".camera_visible", "frame_time_ms"),
     "is_near_black": (".camera_visible", "is_near_black"),
+    "narrow_image_storage": (".camera_visible", "narrow_image_storage"),
     "save_camera_visible_ods": (".camera_visible", "save_camera_visible_ods"),
     "vfit_camera_visible_dynamic": (".camera_visible", "vfit_camera_visible_dynamic"),
     "vfit_camera_visible_static": (".camera_visible", "vfit_camera_visible_static"),
     "dataset_description_from_raw_database": (".dataset_description", "dataset_description_from_raw_database"),
     "diamagnetic_flux_rogowski_coil_from_raw_database": (".magnetics", "diamagnetic_flux_rogowski_coil_from_raw_database"),
+    "ec_launchers_from_raw_database": (".ec_launchers", "ec_launchers_from_raw_database"),
     "filterscope_from_raw_database": (".spectrometer_uv", "filterscope_from_raw_database"),
     "flux_loop_from_raw_database": (".magnetics", "flux_loop_from_raw_database"),
     "get_metadata": (".utils", "get_metadata"),
@@ -179,6 +184,9 @@ _EXPORT_MAP = {
     "pf_active_from_raw_database": (".pf_active", "pf_active_from_raw_database"),
     "pf_geometry_version_for_shot": (".pf_active", "pf_geometry_version_for_shot"),
     "vest_processing_provenance": (".provenance", "vest_processing_provenance"),
+    "vest_ec_power": (".ec_launchers", "vest_ec_power"),
+    "vest_core_profiles_policy": (".core_profiles", "vest_core_profiles_policy"),
+    "CoreProfilesPolicy": (".core_profiles", "CoreProfilesPolicy"),
     "raw_database_info": (".utils", "raw_database_info"),
     "resolve_vest_diagnostic": (".utils", "resolve_vest_diagnostic"),
     "read_doppler_profile": (".charge_exchange", "read_doppler_profile"),
@@ -208,8 +216,8 @@ _EXPORT_MAP = {
     "vfit_pf_active_dynamic": (".pf_active", "vfit_pf_active_dynamic"),
     "vfit_pf_active_for_shot": (".pf_active", "vfit_pf_active_for_shot"),
     "vfit_pf_active_static": (".pf_active", "vfit_pf_active_static"),
-    "vfit_plasmaMGods_startend": (".magnetics", "vfit_plasmaMGods_startend"),
-    "vfit_plasma_mgods_startend": (".magnetics", "vfit_plasma_mgods_startend"),
+    "PlasmaWindowChoice": (".magnetics", "PlasmaWindowChoice"),
+    "detect_plasma_window": (".magnetics", "detect_plasma_window"),
     "vest_diamagnetic_flux": (".magnetics", "vest_diamagnetic_flux"),
     "vest_diamagnetic_flux_detailed": (".magnetics", "vest_diamagnetic_flux_detailed"),
     "diamagnetic_saturation_report": (".magnetics", "diamagnetic_saturation_report"),
@@ -241,6 +249,7 @@ _ENTRYPOINT_MODULES = frozenset(
         "charge_exchange",
         "coils_non_axisymmetric",
         "dataset_description",
+        "ec_launchers",
         "em_coupling",
         "equilibrium",
         "filterscope",
@@ -269,7 +278,25 @@ assert not _collisions, (
 )
 
 
+#: Names removed outright, with where their behaviour went: a caller gets the
+#: pointer, not a bare AttributeError.
+_REMOVED_EXPORTS = {
+    "vfit_plasma_mgods_startend": (
+        "removed with evidence schema 3 (#409): the plasma window is "
+        "vaft.omas.plasma_timing.plasma_timing(ods).window on an ODS, or "
+        "vaft.machine_mapping.detect_plasma_window on raw arrays"
+    ),
+    "vfit_plasmaMGods_startend": (
+        "removed with evidence schema 3 (#409): the plasma window is "
+        "vaft.omas.plasma_timing.plasma_timing(ods).window on an ODS, or "
+        "vaft.machine_mapping.detect_plasma_window on raw arrays"
+    ),
+}
+
+
 def __getattr__(name: str):
+    if name in _REMOVED_EXPORTS:
+        raise AttributeError(f"vaft.machine_mapping.{name} was {_REMOVED_EXPORTS[name]}")
     if name in _EXPORT_MAP:
         module_name, attribute = _EXPORT_MAP[name]
     elif name in _LEGACY_EXPORT_MAP:

@@ -12,7 +12,7 @@ guide:
   expected: Limits, confinement metrics, statistical summaries, tables, and comparison plots.
 related:
   notebooks: [confinement-scaling, plotting-sample]
-  api: [process, plot]
+  api: [formula, process, plot]
   data_sources: [sample-ods, hsds-public]
   outputs: [confinement-scaling, hsds-39915]
 ---
@@ -120,7 +120,12 @@ Fields and current density from the flux map:
 ```python
 B_r = vaft.formula.radial_magnetic_field_from_psi(psi, R, Z)      # B_r = -(1/R) dpsi/dZ
 B_z = vaft.formula.vertical_magnetic_field_from_psi(psi, R, Z)    # B_z = +(1/R) dpsi/dR
-j   = vaft.formula.current_density_from_psi(psi, R)               # j = -(1/(mu0 R)) dpsi/dR
+# current_density_from_psi is deprecated (#355): it returns -B_Z/mu0 [A/m],
+# not a current density.  For that quantity, note the minus sign:
+j   = -vaft.formula.vertical_magnetic_field_from_psi(psi, R, Z) / MU0   # [A/m]
+# For a real toroidal current density use the Grad-Shafranov operator:
+#   vaft.process.equilibrium.grad_shafranov_operator(psi, R, Z), or the
+#   ODS's own profiles_2d.j_tor.
 ```
 
 All of these differentiate with `np.gradient` along a single axis, so they expect **1-D slices**, not
@@ -143,7 +148,9 @@ s   = vaft.omas.compute_magnetic_shear(ods, 0)     # equilibrium.time_slice[0].p
 ```python
 V     = vaft.formula.volume_from_RZ_boundary(R_bdry, Z_bdry)              # 2 pi A_poly R_bar
 kappa = vaft.formula.elongation_from_RZ_boundary(R_bdry, Z_bdry)          # kappa = (Zmax-Zmin)/(2a)
-delta = vaft.formula.triangularity_from_RZ_boundary(R_bdry, Z_bdry, R0)   # delta = (R0 - R_sep)/a
+delta = vaft.formula.triangularity_from_RZ_boundary(R_bdry, Z_bdry, R0)   # mean of the two below
+d_u   = vaft.formula.triangularity_upper_from_RZ_boundary(R_bdry, Z_bdry, R0)  # (R0 - R at Zmax)/a
+d_l   = vaft.formula.triangularity_lower_from_RZ_boundary(R_bdry, Z_bdry, R0)  # (R0 - R at Zmin)/a
 eK    = vaft.formula.eK_from_K(kappa)                                     # eK = (k^2-1)/(k^2+1)
 eps   = vaft.formula.inverse_aspect_ratio_from_a_R(a, R)                  # epsilon = a/R
 A     = vaft.formula.aspect_ratio_from_a_R(a, R)                          # A = R/a
@@ -357,7 +364,7 @@ Everything on this page that will silently give you a wrong number if you feed i
 
 | Symbol | Trap |
 | --- | --- |
-| `radial_magnetic_field_from_psi`, `vertical_magnetic_field_from_psi`, `current_density_from_psi` | Differentiate along a single axis with `np.gradient` — pass **1-D slices**, not a 2-D $(R,Z)$ map. |
+| `radial_magnetic_field_from_psi`, `vertical_magnetic_field_from_psi` | Differentiate along a single axis with `np.gradient` — pass **1-D slices**, not a 2-D $(R,Z)$ map. |
 | `volume_from_RZ_boundary` | Shoelace area $\times\ 2\pi\bar{R}$ with $\bar{R}$ the arithmetic mean of the boundary points — an approximation, not the exact Pappus centroid. |
 | `spitzer_resistivity_from_T_e_Z_eff_ln_Lambda` | $T_e$ in **eV**, not keV; $\ln\Lambda$ defaults to 17.0. Use `coulomb_logarithm_from_n_T` for a self-consistent value. |
 | `beta_N_from_beta_a_B0_Ip` | Evaluates $\beta a B_0 / I_p$ literally with `I_p` documented in [A]; the community $\beta_N$ is quoted in %·m·T/MA. Pick a convention and stay in it. |

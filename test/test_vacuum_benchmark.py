@@ -316,13 +316,15 @@ def test_a_plasma_shot_contributes_the_stretch_before_breakdown(plasma_shot):
     assert interval.case_type == "pre_plasma"
     assert interval.end < 0.301
     evidence = interval["plasma_free_evidence"]
-    # Two independent detectors bound it and the earlier wins, so a late
-    # detection cannot leak plasma into a nominally plasma-free interval.
-    assert np.isfinite(evidence["discharge_detector_onset"])
-    assert np.isfinite(evidence["sigma_crossing_onset"])
-    assert interval.end == pytest.approx(
-        min(evidence["discharge_detector_onset"], evidence["sigma_crossing_onset"])
-    )
+    # The boundary is the plasma-free boundary of the shared timing policy;
+    # this fixture carries no filterscope, so the current's principal pulse
+    # answers, and the half-open interval ends exactly there.
+    assert evidence["plasma_timing"]["source"] == "ip_principal"
+    assert evidence["boundary_source"] == "ip_principal"
+    assert evidence["boundary"] == pytest.approx(0.300, abs=1e-3)
+    assert interval.end == evidence["boundary"]
+    assert evidence["boundary_on_pf_grid"] is True
+    assert "legacy" not in evidence          # schema 3: the retired detectors are gone
     # And essentially no plasma current is left inside the accepted interval.
     assert evidence["max_abs_ip_in_interval"] < 5.0 * evidence["ip_reference_std"]
 
@@ -468,9 +470,13 @@ def test_the_packaged_shot_reproduces_its_plasma_free_magnetic_response(packaged
     # rejected by the IDS validity before the benchmark ever sees it.
     assert summary["evaluated"] == 73, "every usable B-probe and flux loop"
     assert summary["excluded"] == 0
-    assert summary["improvement"]["median"] > 0.8
+    # The window now runs to the plasma onset of the light (0.3063 s), not to
+    # the PF-pickup crossing 14 ms earlier (#409), so it covers the strongly
+    # driven stretch the old window left out: median improvement 0.78 and
+    # median correlation 0.977 over it (0.8+ / 0.99+ over the short window).
+    assert summary["improvement"]["median"] > 0.75
     assert summary["improved_fraction"] > 0.9
-    assert summary["correlation"]["median"] > 0.99
+    assert summary["correlation"]["median"] > 0.97
 
 
 def test_the_benchmark_evaluates_far_more_than_the_routine_qa_subset(packaged_case):
@@ -504,13 +510,23 @@ def test_the_packaged_case_needs_no_plasma_and_declares_its_evidence(packaged_ca
     assert packaged_case["case_type"] == "pre_plasma"
     evidence = packaged_case["plasma_free_evidence"]
 
-    # The conservative of the two detectors bounds the interval, and the
-    # residual current left inside it is reported against the noise band the
-    # detector called it consistent with -- evidence, not a bare verdict.
-    assert evidence["sigma_crossing_onset"] < evidence["discharge_detector_onset"]
-    assert packaged_case["solver_input_window"][1] == pytest.approx(
-        evidence["sigma_crossing_onset"]
-    )
+    # The light bounds the interval (39915: 0.3063 s, the slow H-alpha line,
+    # consistent with the current), the interval ends on the pf_active grid,
+    # and the residual current left inside it is reported against the noise
+    # band the detector called it consistent with -- evidence, not a verdict.
+    from vaft.validation.vacuum_benchmark import PLASMA_FREE_EVIDENCE_SCHEMA
+
+    assert evidence["schema_version"] == PLASMA_FREE_EVIDENCE_SCHEMA
+    timing = evidence["plasma_timing"]
+    assert timing["source"] == "h_alpha_primary"
+    assert timing["agreement"] == "consistent"
+    assert timing["onset"] == pytest.approx(0.3063, abs=5e-4)
+    # The plasma-free boundary is the earliest evidence of plasma: here the
+    # current's principal pulse, one sample before the light.
+    assert evidence["boundary"] <= timing["onset"]
+    assert evidence["boundary_source"] == "ip_principal"
+    assert packaged_case["solver_input_window"][1] == pytest.approx(evidence["boundary"])
+    assert "legacy" not in evidence
     assert evidence["max_abs_ip_in_interval"] < 20.0 * evidence["ip_reference_std"]
 
 
@@ -566,24 +582,40 @@ def test_the_packaged_case_surfaces_the_channels_the_wall_model_fails_on(package
     rows = [r for r in packaged_case["metrics"]["channels"] if r["status"] == "evaluated"]
     names = {row["name"] for row in rows}
     worse = [row for row in rows if row["improvement"] < 0.0]
-    anticorrelated = [row for row in rows if row["correlation"] < -0.5]
+    scored_names = set(packaged_case["channels"]["selected"]) - set(
+        packaged_case["metrics"]["summary"]["scored"]["excluded_flagged"]
+    )
+    anticorrelated = [row for row in rows if row["name"] in scored_names and row["correlation"] < -0.5]
 
     assert "MagneticFieldProbe_H3-08_Bz" not in names
     assert 0 < len(worse) <= 5, "a handful, not a systematic failure"
-    assert not anticorrelated, "nothing opposes the model once the broken sensor is out"
+    assert not anticorrelated, "nothing in the scored set opposes the model"
     assert packaged_case["metrics"]["summary"]["improvement"]["min"] < 0.0
-    assert all(row["correlation"] > 0.7 for row in rows)
+    # Over the window to the plasma one outboard probe, C4-04, follows the PF1
+    # ramp its two neighbours on the same radius do not see: a sensor finding
+    # the benchmark reports as an array contradiction and keeps out of the
+    # scored spread, where every channel then correlates above 0.85.
+    flagged = packaged_case["channels"]["flagged"]
+    assert [entry["channel"] for entry in flagged] == ["MagneticFieldProbe_C4-04"]
+    assert flagged[0]["reason"] == "array_contradiction" and flagged[0]["fraction"] > 0.5
+    scored = packaged_case["metrics"]["summary"]["scored"]
+    assert scored["excluded_flagged"] == ["MagneticFieldProbe_C4-04"]
+    assert scored["count"] == len(rows) - 1
+    assert scored["correlation"]["min"] > 0.85
+    assert scored["improvement"]["min"] > 0.2
+    # ... while the unconditioned spread still shows it.
+    assert min(row["correlation"] for row in rows) < 0.0
 
 
 def test_the_evaluation_window_excludes_its_own_upper_bound(vacuum_shot):
     """Half-open, and it has to be.
 
     Both callers derive the upper bound from a plasma-onset time, and that time
-    is a grid sample -- `vfit_plasma_mgods_startend` returns
-    `float(time[start_index])`. An inclusive bound folds the plasma's first
-    sample into a nominally plasma-free window, and silently widens the
-    pre-plasma statistics the eddy stage has always reported over
-    `time < plasma_onset`.
+    is a grid sample -- every `vaft.process.onset` detector returns one, so
+    the shared timing's boundary is a sample of the grid it was found on. An
+    inclusive bound folds the plasma's first sample into a nominally
+    plasma-free window, and silently widens the pre-plasma statistics the
+    eddy stage has always reported over `time < plasma_onset`.
     """
     from vaft.omas.vacuum_magnetics import VacuumChannel, evaluation_mask
 
@@ -653,26 +685,31 @@ def test_a_missing_time_grid_still_reports_every_key():
 
 def test_the_packaged_shot_was_driven_through_its_validation_window(packaged_case):
     """39915's benchmark window opens after the solver-history requirement and
-    closes at plasma onset; the coils reach a third of their shot peak inside
-    it -- comfortably driven, though far from the peak, which the shot only
-    reaches once the plasma is up."""
+    closes at the plasma onset of the light; the coils reach their shot peak
+    inside it (the window to the PF-pickup crossing used to see a third)."""
     from vaft.validation.vacuum_benchmark import MIN_COIL_DRIVE_FRACTION
 
     drive = packaged_case["coil_drive"]
     assert drive["window"] == packaged_case["validation_window"]
-    assert MIN_COIL_DRIVE_FRACTION < drive["coil_drive_fraction"] < 0.5
+    assert MIN_COIL_DRIVE_FRACTION < drive["coil_drive_fraction"] <= 1.0
+    assert drive["coil_drive_fraction"] > 0.9
     assert drive["sufficiently_driven"] is True
 
 
-def test_a_shot_whose_solenoid_fires_after_breakdown_is_reported_undriven():
-    """41524 is the case the precondition exists for: its solenoid fires about
-    0.8 ms *after* the Ip detector triggers, so the nominal plasma-free window
-    carries 0.3 % of the shot's coil drive and the eddy score there is a ratio
-    of two noise numbers.  Checked on the plasma-free interval directly -- the
-    full benchmark run adds nothing to this question."""
+def test_a_shot_the_legacy_detector_cut_before_its_solenoid_is_driven_now():
+    """41524 is the shot the drive gate was written for: the legacy Ip
+    discharge detector (retired with evidence schema 3) fired on PF pickup
+    ~0.8 ms *before* the solenoid, so the nominal plasma-free window carried
+    0.3 % of the shot's coil drive.  With the interval ending at the light's
+    onset (#409) the window holds the whole PF ramp.  The undriven branch
+    itself is kept alive by the synthetic case above."""
     import vaft
     import vaft.omas
-    from vaft.validation.vacuum_benchmark import coil_drive_check, plasma_free_interval
+    from vaft.validation.vacuum_benchmark import (
+        MIN_COIL_DRIVE_FRACTION,
+        coil_drive_check,
+        plasma_free_interval,
+    )
 
     try:
         path = vaft.data.sample(41524, "imas")
@@ -680,9 +717,19 @@ def test_a_shot_whose_solenoid_fires_after_breakdown_is_reported_undriven():
         pytest.skip("sample 41524 is not available in this checkout")
     ods = vaft.omas.load(path)
     interval = plasma_free_interval(ods)
+    evidence = interval["plasma_free_evidence"]
+    assert evidence["plasma_timing"]["source"] == "h_alpha_primary"
+    assert evidence["boundary"] == pytest.approx(0.3146, abs=1e-3)
+    # The retired detector cut ~0.8 ms before the solenoid fired (293.6 ms);
+    # the interval now holds the solenoid's onset with the whole ramp after it.
+    from vaft.omas.discharge_timing import discharge_timing
+
+    solenoid = discharge_timing(ods).oh_onset
+    assert solenoid == pytest.approx(0.2936, abs=1e-3)
+    assert interval.end > solenoid + 0.015
     drive = coil_drive_check(ods, (interval.start, interval.end))
-    assert drive["coil_drive_fraction"] < 0.02
-    assert drive["sufficiently_driven"] is False
+    assert drive["coil_drive_fraction"] > MIN_COIL_DRIVE_FRACTION
+    assert drive["sufficiently_driven"] is True
 
 
 def test_the_aggregate_keeps_undriven_cases_out_of_its_spreads():
@@ -707,3 +754,140 @@ def test_the_aggregate_keeps_undriven_cases_out_of_its_spreads():
     assert aggregate["summary"]["driven_channel_rows"] == 1
     assert aggregate["summary"]["median_improvement"] == pytest.approx(0.8)
     assert aggregate["summary"]["median_wall_authority"] == pytest.approx(0.5)
+
+
+def test_a_current_the_product_marks_unusable_cannot_certify_a_vacuum_case(plasma_shot):
+    """Review finding: an invalidated current used to make a plasma shot a
+    whole-record vacuum case."""
+    from vaft.validation.vacuum_benchmark import BenchmarkError
+
+    plasma_shot["magnetics.ip.0.validity"] = -2
+    with pytest.raises(BenchmarkError, match="unusable"):
+        plasma_free_interval(plasma_shot)
+
+
+# ---------------------------------------------------------------------------
+# Array contradictions: a sensor finding kept out of the wall-model score
+# ---------------------------------------------------------------------------
+
+
+def _probe_array(measured_rows, *, r=0.796, dz=0.04, valid=None):
+    from vaft.omas.vacuum_magnetics import VacuumChannel
+
+    channels = []
+    for k, measured in enumerate(measured_rows):
+        channels.append(
+            VacuumChannel(
+                name=f"probe{k}", kind="b_field_pol_probe", family="outboard", index=k,
+                r=r, z=-0.4 + dz * k, unit="T", time=TIME,
+                measured=np.asarray(measured, dtype=float), coil=np.zeros(TIME.size),
+                coil_eddy=np.zeros(TIME.size),
+                valid=np.ones(TIME.size, dtype=bool) if valid is None or k not in valid else valid[k],
+            )
+        )
+    return channels
+
+
+def _smooth_rows(n: int = 9, seed: int = 190):
+    rng = np.random.default_rng(seed)
+    smooth = 1e-2 * np.sin(np.linspace(0.0, 2.0, TIME.size))
+    return [smooth * (1.0 + 0.05 * k) + 2e-5 * rng.standard_normal(TIME.size) for k in range(n)]
+
+
+BURST = (TIME >= 0.26) & (TIME < 0.30)  # a coil the faulty probe alone follows
+WHOLE = (TIME[0], TIME[-1])
+
+
+def test_a_probe_that_contradicts_its_array_is_flagged_and_its_neighbours_are_not():
+    from vaft.validation.vacuum_benchmark import array_contradiction_fractions, array_contradictions
+
+    rows = _smooth_rows()
+    rows[4] = rows[4] + np.where(BURST, 8e-3, 0.0)
+    channels = _probe_array(rows)
+
+    flagged = array_contradictions(channels, WHOLE)
+
+    assert [entry["channel"] for entry in flagged] == ["probe4"]
+    assert flagged[0]["fraction"] == pytest.approx(BURST.mean(), abs=0.02)
+    assert flagged[0]["from"] == pytest.approx(0.26, abs=1e-3) and flagged[0]["to"] < 0.301
+    # The neighbours' departures were dragged up by probe4; scored again without it, nothing is left.
+    rest = array_contradiction_fractions(channels, WHOLE, exclude=["probe4"])
+    assert max(rest.values()) == 0.0
+
+
+def test_a_faulty_end_probe_is_found_by_leave_one_out_not_blamed_on_its_neighbour():
+    from vaft.validation.vacuum_benchmark import array_contradictions
+
+    rows = _smooth_rows()
+    rows[0] = rows[0] + 8e-3
+    assert [e["channel"] for e in array_contradictions(_probe_array(rows), WHOLE)] == ["probe0"]
+
+
+def test_arrays_too_short_to_witness_or_attribute_are_not_scored():
+    from vaft.validation.vacuum_benchmark import MIN_ARRAY_MEMBERS, array_contradictions
+
+    rows = _smooth_rows(MIN_ARRAY_MEMBERS - 1)
+    rows[3] = rows[3] + np.where(BURST, 8e-3, 0.0)
+    assert array_contradictions(_probe_array(rows), WHOLE) == []
+    # exactly the minimum: scorable, but leave-one-out has no array left to judge
+    rows = _smooth_rows(MIN_ARRAY_MEMBERS)
+    rows[3] = rows[3] + np.where(BURST, 8e-3, 0.0)
+    assert array_contradictions(_probe_array(rows), WHOLE) == []
+
+
+def test_a_masked_stretch_neither_judges_a_probe_nor_predicts_its_neighbours():
+    """Review finding: samples the assessment masked used to feed the interpolation."""
+    from vaft.validation.vacuum_benchmark import array_contradictions
+
+    rows = _smooth_rows()
+    held = TIME < 0.30  # 40 % of the record: the probe is railed and held there
+    rows[4] = np.where(held, 5.0, rows[4])
+    valid = {4: ~held}
+    assert array_contradictions(_probe_array(rows, valid=valid), WHOLE) == []
+    # ... whereas the same held values, if the assessment had not masked them, are a contradiction
+    assert [e["channel"] for e in array_contradictions(_probe_array(rows), WHOLE)] == ["probe4"]
+
+
+def test_the_aggregate_keeps_flagged_probes_out_of_its_spreads_and_names_them(packaged_case):
+    from vaft.validation.vacuum_benchmark import aggregate_benchmark
+
+    aggregate = aggregate_benchmark([packaged_case])
+
+    assert aggregate["schema_version"] == 2
+    assert aggregate["flagged_channels"] == {"39915": ["MagneticFieldProbe_C4-04"]}
+    assert "MagneticFieldProbe_C4-04" in aggregate["by_channel"]  # listed for inspection ...
+    assert aggregate["summary"]["driven_channel_rows"] == packaged_case["metrics"]["summary"]["scored"]["count"]
+    assert aggregate["summary"]["median_improvement"] == pytest.approx(
+        packaged_case["metrics"]["summary"]["scored"]["improvement"]["median"]
+    )
+
+
+def test_the_array_contradiction_margin_holds_on_the_packaged_shot(packaged_case):
+    """The justification for the conditioning, kept under test: in the first
+    pass C4-04 sits far above the fraction (and drags its neighbours with it);
+    once it is out of its array every other probe sits far below."""
+    from vaft.omas.sample import sample_ods
+    from vaft.validation.vacuum_benchmark import (
+        ARRAY_CONTRADICTION_FRACTION,
+        array_contradiction_fractions,
+        benchmark_wall_currents,
+    )
+    from vaft.omas.vacuum_magnetics import synthetic_vacuum_magnetics
+
+    window = tuple(packaged_case["validation_window"])
+    channels = synthetic_vacuum_magnetics(
+        benchmark_wall_currents(sample_ods()), per_family=None, window=window, validity_window=window
+    )
+    first = array_contradiction_fractions(channels, window)
+    assert first["MagneticFieldProbe_C4-04"] > 5.0 * ARRAY_CONTRADICTION_FRACTION
+    rest = array_contradiction_fractions(channels, window, exclude=["MagneticFieldProbe_C4-04"])
+    assert max(rest.values()) < 0.5 * ARRAY_CONTRADICTION_FRACTION
+
+
+def test_removed_detector_names_point_at_their_replacement():
+    import vaft.machine_mapping
+
+    with pytest.raises(AttributeError, match="plasma_timing"):
+        vaft.machine_mapping.vfit_plasma_mgods_startend
+    with pytest.raises(AttributeError, match="detect_plasma_window"):
+        vaft.machine_mapping.vfit_plasmaMGods_startend

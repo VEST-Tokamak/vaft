@@ -15,6 +15,7 @@ import os
 import re
 import time
 from datetime import date, datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, List, Optional, Tuple, Union
 
@@ -42,11 +43,9 @@ except ImportError:
 else:
     MysqlError = mysql_connector.Error
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# A library module must not configure the root logger: every importer of the
+# machine mapping used to inherit an INFO-level stderr handler from here.
+# Applications that want these messages configure logging themselves.
 logger = logging.getLogger(__name__)
 
 # Constants
@@ -421,9 +420,77 @@ def _load_from_shot_waveform_3(
 # Because the span is fixed by class and n is stored in every archive entry,
 # the true cadence of a legacy two-rate archive entry is fully recoverable
 # offline; :func:`upgrade_archive_timebase` uses exactly this inference.
+#: Shot at which the *time convention* changes, for archives that carry nothing
+#: but a shot number to identify themselves.  This is **not** a table-selection
+#: boundary: `shotDataWaveform_2` is in use more than five thousand shots past
+#: it, and the two tables overlap (issue #761).  Live table selection goes
+#: through :func:`waveform_generation_for_shot`, which asks the database.
 V2_LAST_SHOT = 42190
 FAST_SPAN_S = 0.1
 SLOW_SPAN_S = 1.0
+
+#: The waveform tables, newest generation last.
+_WAVEFORM_TABLES = {2: "shotDataWaveform_2", 3: "shotDataWaveform_3"}
+
+
+def _field_count(conn: Any, table: str, shot: int) -> int:
+    """How many distinct field codes ``table`` holds for ``shot``."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            f"SELECT COUNT(DISTINCT shotDataFieldCode) FROM {table} WHERE shotCode = %s",
+            (int(shot),),
+        )
+        row = cursor.fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+    finally:
+        cursor.close()
+
+
+def _generation_from_counts(count_v2: int, count_v3: int) -> Optional[int]:
+    """Pick the generation from each table's field count for one shot.
+
+    Whichever table actually holds the shot wins.  When both do -- 19 shots
+    between 42647 and 42853 -- the fuller one wins: the other side carries a
+    two-to-four field stub, and reading it produced a product with 2 of a
+    shot's 127 fields while reporting success (issue #761).
+    """
+    if count_v2 <= 0 and count_v3 <= 0:
+        return None
+    if count_v3 > count_v2:
+        return 3
+    return 2
+
+
+#: Resolved generation per shot.  Only *answers* are stored, never the outcome
+#: of a failed read: which table holds a shot does not change while the process
+#: runs, but a query that errored has not established anything.
+_GENERATION_CACHE: dict[int, Optional[int]] = {}
+
+
+def waveform_generation_for_shot(conn: Any, shot: int) -> Optional[int]:
+    """Return which waveform table holds ``shot``, or ``None`` if neither does.
+
+    Resolved from the tables rather than from a shot-number boundary, because
+    the boundary does not match them: `_2` spans 29350-47588 and `_3` spans
+    42647-48864, so a range rule either misses 598 shots outright or silently
+    reads a stub for 19 more (issue #761).
+
+    A read error propagates.  Reporting it as "no data" would be the same
+    mistake as #446, where a busy server was recorded as a missing namespace:
+    both callers retry on :class:`MysqlError`, and a swallowed error would skip
+    that and hand back a shot that merely looks empty.
+    """
+    shot = int(shot)
+    if shot in _GENERATION_CACHE:
+        return _GENERATION_CACHE[shot]
+    counts = {
+        generation: _field_count(conn, table, shot)
+        for generation, table in _WAVEFORM_TABLES.items()
+    }
+    generation = _generation_from_counts(counts.get(2, 0), counts.get(3, 0))
+    _GENERATION_CACHE[shot] = generation
+    return generation
 
 
 def upgrade_archive_timebase(payload: dict) -> dict:
@@ -439,6 +506,25 @@ def upgrade_archive_timebase(payload: dict) -> dict:
     ``dt``, making the result byte-equivalent in meaning to a fresh dump from
     the live database.  Entries already carrying ``t0``/``dt``, or too short
     or unlabeled to infer, are left untouched, so the upgrade is idempotent.
+
+    **A label does not pin down a rate, and nothing here can (#770).** On this
+    machine ``fast`` covers 250 kHz, 500 kHz and 2 MHz -- the classifier splits
+    on 5 us, so all three land in it -- and the v2 branch below assigns the
+    nominal 250 kHz regardless.  The sample count cannot rescue it: a 250 kHz
+    channel recorded for 0.2 s and a 500 kHz channel recorded for 0.1 s both
+    hold 50000 samples, and both really occur.  A guard on implied span was
+    tried and refuses the first as if it were the second.
+
+    What makes this safe in practice is measured rather than argued: 500 kHz
+    and 2 MHz channels appear only from shot ~42647, and this branch runs only
+    at 42190 and below, so the populations do not overlap.  The v3 branch above
+    needs no assumption about rate at all -- it reads the cadence off the
+    sample count -- but it does assume a full-span record, which holds for
+    every v3-era entry measured.
+
+    The real protection is upstream: a dump written by the current code carries
+    ``t0``/``dt`` per field, so this inference never runs on it.  Across 300
+    shots and 40905 entries, exactly one lacked them.
     """
     shot = int(payload["shot"])
     report = {"upgraded": 0, "already": 0, "skipped": 0, "non_nominal": []}
@@ -512,6 +598,28 @@ def _require_consistent_cadence(
         )
 
 
+@lru_cache(maxsize=4)
+def _parse_sample_archive(json_path: str, mtime_ns: int, size: int) -> dict:
+    """One archived raw dump, parsed once.
+
+    Callers ask for a handful of field codes at a time, so a build that needs
+    every magnetics channel used to re-read and re-decode the whole file once
+    per field -- 114 full parses of a 13 MB archive for a single magnetics
+    build, 96.5 s of which ~95 s was redundant (issue #444).  The memoisation
+    one level up (`_safe_vest_load_cached`) is keyed on the field, so it never
+    collapsed those reads.
+
+    `mtime_ns` and `size` are part of the key, not decoration: an archive
+    rewritten in place is a different file and must not be served from cache.
+    The bound is small because each parsed dump is tens of megabytes.
+
+    The result is shared between callers, so treat it as read-only.
+    `_load_from_sample_file` only reads from it and builds fresh arrays.
+    """
+    with gzip.open(json_path, "rt", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
 def _load_from_sample_file(
     shot: int,
     fields: List[int],
@@ -535,8 +643,8 @@ def _load_from_sample_file(
             logger.error(f"Sample JSON file not found: {json_path}")
             return None
 
-        with gzip.open(json_path, "rt", encoding="utf-8") as f:
-            shot_json = json.load(f)
+        stat = os.stat(json_path)
+        shot_json = _parse_sample_archive(json_path, stat.st_mtime_ns, stat.st_size)
 
         file_shot = shot_json.get("shot")
         if file_shot is not None and file_shot != shot:
@@ -702,14 +810,16 @@ def load_raw(
                 conn = DB_POOL.get_connection()
                 time_arrays, data_arrays = [], []
 
+                generation = waveform_generation_for_shot(conn, shot)
+                if generation is None:
+                    logger.error("No waveform table holds shot %s.", shot)
+                    return None
+
                 for fld in fields:
-                    if 29349 < shot <= 42190:
+                    if generation == 2:
                         tvals, dvals = _load_from_shot_waveform_2(conn, shot, fld)
-                    elif shot > 42190:
-                        tvals, dvals = _load_from_shot_waveform_3(conn, shot, fld)
                     else:
-                        logger.error("Shot number out of range for these tables.")
-                        return None
+                        tvals, dvals = _load_from_shot_waveform_3(conn, shot, fld)
 
                     time_arrays.append(tvals)
                     data_arrays.append(dvals)
@@ -759,11 +869,18 @@ def vest_connection_pool(pool_size: int = 4) -> None:
 
 
 def vest_check_table(mydb: Any, shot: int) -> int:
-    """Return the waveform table generation used by a shot."""
-    del mydb
-    if 29349 < shot <= 42190:
+    """Return the waveform table generation used by a shot.
+
+    Asks the database when a connection is available; the shot-number ranges
+    are only a last resort, and they are wrong for 617 shots (issue #761).
+    """
+    if mydb is not None:
+        generation = waveform_generation_for_shot(mydb, shot)
+        if generation is not None:
+            return generation
+    if 29349 < shot <= V2_LAST_SHOT:
         return 2
-    if shot > 42190:
+    if shot > V2_LAST_SHOT:
         return 3
     return 1
 
@@ -1114,10 +1231,11 @@ def last_shot() -> int:
 def get_all_field_codes_for_shot(shot: int, max_retries: int = 3):
     """
     Returns all field codes used in the given shot.
-    Shot range:
-      - 29349 < shot <= 42190 -> shotDataWaveform_2
-      - shot > 42190         -> shotDataWaveform_3
-      - Other ranges         -> None
+
+    Which waveform table holds the shot is resolved from the tables, not from a
+    shot-number range: the ranges overlap and `shotDataWaveform_2` runs well
+    past the nominal boundary (issue #761). A shot in neither table returns an
+    empty list.
     """
     global DB_POOL
     if DB_POOL is None:
@@ -1129,25 +1247,19 @@ def get_all_field_codes_for_shot(shot: int, max_retries: int = 3):
         conn = None
         try:
             conn = DB_POOL.get_connection()
-            cursor = conn.cursor()
 
-            if 29349 < shot <= 42190:
-                # Retrieve field codes from shotDataWaveform_2
-                query = (
-                    "SELECT DISTINCT shotDataFieldCode "
-                    "FROM shotDataWaveform_2 "
-                    f"WHERE shotCode = {shot}"
-                )
-            elif shot > 42190:
-                # Retrieve field codes from shotDataWaveform_3
-                query = (
-                    "SELECT DISTINCT shotDataFieldCode "
-                    "FROM shotDataWaveform_3 "
-                    f"WHERE shotCode = {shot}"
-                )
-            else:
-                print("Shot number out of range for these tables.")
-                return None
+            generation = waveform_generation_for_shot(conn, shot)
+            if generation is None:
+                logger.info("No waveform table holds shot %s.", shot)
+                return []
+            # Opened only once there is a query to run, so the early return
+            # above cannot leave one behind on a pooled connection.
+            cursor = conn.cursor()
+            query = (
+                "SELECT DISTINCT shotDataFieldCode "
+                f"FROM {_WAVEFORM_TABLES[generation]} "
+                f"WHERE shotCode = {shot}"
+            )
 
             cursor.execute(query)
             rows = cursor.fetchall()

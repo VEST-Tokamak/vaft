@@ -1,0 +1,381 @@
+{
+ "code": "efund",
+ "efund": {
+  "argv": [
+   "129"
+  ],
+  "config": {
+   "device": "VEST",
+   "flags": {
+    "iacoil": 0,
+    "iecoil": 0,
+    "ifcoil": 1,
+    "igrid": 1,
+    "isize": 0,
+    "islpfc": 0,
+    "ivesel": 1,
+    "nsmp2": 1
+   },
+   "grid": {
+    "nh": 129,
+    "nw": 129,
+    "rleft": 0.05,
+    "rright": 1.2,
+    "zbotto": -1.5,
+    "ztop": 1.5
+   },
+   "quadrature": {
+    "mgaus1": 8,
+    "mgaus2": 10
+   },
+   "schema_version": 1
+  },
+  "config_sha256": "b98479ce0d52076be9652d5f43f4a507a37ab8858c5205dd149928a95ea25159",
+  "executable": {
+   "build_revision": "4d10ed5-dirty",
+   "build_root": "/Users/yun/git/efit",
+   "mtime": "2026-09-06T13:43:02+00:00",
+   "path": "/Users/yun/git/efit/vaft-install/bin/efund",
+   "role": "efund",
+   "sha256": "2d9ff9d7ed5bebc71ada3c40e301f05685974d78363336ced21889b0eb67dcbb",
+   "size": 109048
+  },
+  "input": {
+   "name": "mhdin.dat",
+   "sha256": "af703884aa06712aa0f8ee9689d54ef096f9fa90bb4556c3da449042851d9650"
+  },
+  "stack_size_kb": "hard"
+ },
+ "extra": {
+  "decision": "Issue #708: the table describes every PF circuit the machine has, not only the five energised in the reference era, so a discharge that energised a different subset needs no new table. nfsum 16 -> 26, nfcoil 302 -> 530, +4.1 MB.",
+  "generator": "workflow/efit_tables/regenerate_legacy_table.py",
+  "identity_excludes_mhdout": "Issue #793: mhdout.dat is EFUND's echo of its own namelist, carries at least one uninitialised Fortran value (KUBICS came back 83664424 from one run and 4890152 from the next, against an input of 4), and is read by nothing. Its hash stays under table.files; it no longer decides table.identity, so the same inputs now produce the same identity.",
+  "incheck_replaced_after_the_run": "Issue #649: the shipped mhdin.dat's &incheck block was replaced with the machine-derived acceptance envelope after this EFUND run, so efund.input.sha256 above describes what built the tables and no longer matches the file as shipped (now sha256 38eb936a5f1db9f14f36584a910419cf1ed93ac7a773b71f15bcb0c5713b61c7). EFUND never reads &incheck -- it is read in exactly one place, EFIT's read_namelist.F90 -- so the Green tables are unaffected and were not regenerated. Measured on 39915, this block alone: as shipped every plasma slice was rejected (14 of 14, all on failure #21, the virial delbp); with the derived envelope 10 of 14 are accepted and the rest fail chi-square.",
+  "installed_as": "vaft/data/efit",
+  "installed_at": "2026-09-15",
+  "legacy_mhdin_moved": "The 16-lumped-conductor namelist that used to sit here is at legacy/mhdin.dat. It is no longer loadable as a table directory -- its nfsum is 16 -- and is kept only as the independent reference test_efund_geometry.py checks the canonical geometry against.",
+  "seconds": 184.58953304204624
+ },
+ "generated_at": "2026-09-14T23:51:26+00:00",
+ "geometry_groups": [
+  {
+   "elements": 20,
+   "name": "PF1-1",
+   "r": 0.053000000000000005,
+   "turns": 80.0,
+   "z": 0.15122,
+   "z_max": 0.2956,
+   "z_min": 0.0072
+  },
+  {
+   "elements": 20,
+   "name": "PF1-2",
+   "r": 0.053000000000000005,
+   "turns": 80.0,
+   "z": 0.4552,
+   "z_max": 0.5996,
+   "z_min": 0.3108
+  },
+  {
+   "elements": 19,
+   "name": "PF1-3",
+   "r": 0.053,
+   "turns": 76.0,
+   "z": 0.7516,
+   "z_max": 0.8884,
+   "z_min": 0.6148
+  },
+  {
+   "elements": 20,
+   "name": "PF1-4",
+   "r": 0.053000000000000005,
+   "turns": 80.0,
+   "z": 1.048,
+   "z_max": 1.1924,
+   "z_min": 0.9036
+  },
+  {
+   "elements": 20,
+   "name": "PF1-5",
+   "r": 0.053000000000000005,
+   "turns": 80.0,
+   "z": -0.15122,
+   "z_max": -0.0072,
+   "z_min": -0.2956
+  },
+  {
+   "elements": 20,
+   "name": "PF1-6",
+   "r": 0.053000000000000005,
+   "turns": 80.0,
+   "z": -0.4552,
+   "z_max": -0.3108,
+   "z_min": -0.5996
+  },
+  {
+   "elements": 19,
+   "name": "PF1-7",
+   "r": 0.053,
+   "turns": 76.0,
+   "z": -0.7515999999999999,
+   "z_max": -0.6148,
+   "z_min": -0.8884
+  },
+  {
+   "elements": 20,
+   "name": "PF1-8",
+   "r": 0.053000000000000005,
+   "turns": 80.0,
+   "z": -1.048,
+   "z_max": -0.9036,
+   "z_min": -1.1924
+  },
+  {
+   "elements": 50,
+   "name": "PF2U",
+   "r": 0.10400000000000001,
+   "turns": 250.0,
+   "z": 0.98,
+   "z_max": 1.1624,
+   "z_min": 0.7976
+  },
+  {
+   "elements": 50,
+   "name": "PF2L",
+   "r": 0.10400000000000001,
+   "turns": 250.0,
+   "z": -0.98,
+   "z_max": -0.7976,
+   "z_min": -1.1624
+  },
+  {
+   "elements": 8,
+   "name": "PF3U",
+   "r": 0.29000000000000004,
+   "turns": 8.0,
+   "z": 1.2500499999999999,
+   "z_max": 1.2537,
+   "z_min": 1.2464
+  },
+  {
+   "elements": 8,
+   "name": "PF3L",
+   "r": 0.29000000000000004,
+   "turns": 8.0,
+   "z": -1.2500499999999999,
+   "z_max": -1.2464,
+   "z_min": -1.2537
+  },
+  {
+   "elements": 8,
+   "name": "PF4U",
+   "r": 0.57,
+   "turns": 8.0,
+   "z": 1.2500499999999999,
+   "z_max": 1.2537,
+   "z_min": 1.2464
+  },
+  {
+   "elements": 8,
+   "name": "PF4L",
+   "r": 0.57,
+   "turns": 8.0,
+   "z": -1.2500499999999999,
+   "z_max": -1.2464,
+   "z_min": -1.2537
+  },
+  {
+   "elements": 12,
+   "name": "PF5U",
+   "r": 0.71,
+   "turns": 12.0,
+   "z": 1.1500249999999999,
+   "z_max": 1.15365,
+   "z_min": 1.1464
+  },
+  {
+   "elements": 12,
+   "name": "PF5L",
+   "r": 0.71,
+   "turns": 12.0,
+   "z": -1.1500249999999999,
+   "z_max": -1.1464,
+   "z_min": -1.15365
+  },
+  {
+   "elements": 12,
+   "name": "PF6U",
+   "r": 0.71,
+   "turns": 12.0,
+   "z": 0.875025,
+   "z_max": 0.8786500000000002,
+   "z_min": 0.8714
+  },
+  {
+   "elements": 12,
+   "name": "PF6L",
+   "r": 0.71,
+   "turns": 12.0,
+   "z": -0.875025,
+   "z_max": -0.8714,
+   "z_min": -0.8786500000000002
+  },
+  {
+   "elements": 24,
+   "name": "PF7U",
+   "r": 0.71,
+   "turns": 24.0,
+   "z": 0.72,
+   "z_max": 0.73215,
+   "z_min": 0.70785
+  },
+  {
+   "elements": 24,
+   "name": "PF7L",
+   "r": 0.71,
+   "turns": 24.0,
+   "z": -0.72,
+   "z_max": -0.70785,
+   "z_min": -0.73215
+  },
+  {
+   "elements": 24,
+   "name": "PF8U",
+   "r": 0.71,
+   "turns": 24.0,
+   "z": 0.6799999999999999,
+   "z_max": 0.69215,
+   "z_min": 0.66785
+  },
+  {
+   "elements": 24,
+   "name": "PF8L",
+   "r": 0.71,
+   "turns": 24.0,
+   "z": -0.6799999999999999,
+   "z_max": -0.66785,
+   "z_min": -0.69215
+  },
+  {
+   "elements": 24,
+   "name": "PF9U",
+   "r": 0.9299999999999999,
+   "turns": 24.0,
+   "z": 0.5223,
+   "z_max": 0.53445,
+   "z_min": 0.51015
+  },
+  {
+   "elements": 24,
+   "name": "PF9L",
+   "r": 0.9299999999999999,
+   "turns": 24.0,
+   "z": -0.5223,
+   "z_max": -0.51015,
+   "z_min": -0.53445
+  },
+  {
+   "elements": 24,
+   "name": "PF10U",
+   "r": 0.9299999999999999,
+   "turns": 24.0,
+   "z": 0.4807,
+   "z_max": 0.49285,
+   "z_min": 0.46855
+  },
+  {
+   "elements": 24,
+   "name": "PF10L",
+   "r": 0.9299999999999999,
+   "turns": 24.0,
+   "z": -0.4807,
+   "z_max": -0.46855,
+   "z_min": -0.49285
+  }
+ ],
+ "label": "vest-pre-43017-pf1906-129129-all-circuits",
+ "machine": {
+  "counts": {
+   "magpri": 64,
+   "nacoil": 0,
+   "necoil": 0,
+   "nesum": 0,
+   "nfcoil": 530,
+   "nfsum": 26,
+   "nsilop": 11,
+   "nvesel": 950,
+   "nvsum": 950
+  },
+  "em_coupling_comment": "VEST electromagnetic coupling; machine era vest-pre-43017-pf1906; PF geometry 1906; mutual_passive_passive reciprocity exact in the packaged asset (input asymmetry 0; material factor 1.04 repaired by workflow/em_coupling/regenerate_passive_coupling.py, issue #373)",
+  "era": "vest-pre-43017-pf1906",
+  "pf_active_comment": "PF config from vest_pf_active",
+  "pf_geometry": "1906",
+  "reference_shot": 43016,
+  "static_inputs": {
+   "coupling": {
+    "name": "VEST_em_coupling_pf_versions.npz",
+    "sha256": "1c391442762fb1c9563eb5fc62fef35ee4e002c7cda8afc06968539a5e2a6f05"
+   },
+   "magnetics_calibration": {
+    "name": "MD.yaml",
+    "sha256": "1f3566749fa22a9ed9bb86f60fdc11db4eba096b22a0af02046b59a5a89a2399",
+    "source_version": "2409"
+   },
+   "magnetics_geometry": {
+    "name": "VEST_MagneticsGeometry_Full_ver_2302.yaml",
+    "sha256": "e9e016cba28aa5a5d9a4562a29c71aa5aca2534c4062323bcfab130276df6ac9",
+    "source_version": "2409"
+   },
+   "pf_geometry": {
+    "name": "VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
+    "sha256": "5d4d9e45a9fe228f10a402db0a19e0b0918a8d0f46275929080f0671ab289601"
+   },
+   "static_geometry": {
+    "name": "VEST_static_geometry.json.gz",
+    "sha256": "2d3495f7cc39b16bc05dc22db2d84cd1c7042194aedfaf84a3c4c2b876424304"
+   }
+  },
+  "wall_comment": "VEST static wall; machine era vest-pre-43017-pf1906"
+ },
+ "schema_version": 1,
+ "table": {
+  "files": {
+   "brzgfc.dat": {
+    "expected_size": 6922672,
+    "sha256": "8653091b6a6f350ce0d6b44809e71f5beea054d5a88216b5d2bc23d4d9f6c5a7",
+    "size": 6922672
+   },
+   "ec129129.ddd": {
+    "expected_size": 20636944,
+    "sha256": "a66574729cb4d4d88acc6b066a1e679a3ebafac308b4f68d8fc6b522b5dde879",
+    "size": 20636944
+   },
+   "ep129129.ddd": {
+    "expected_size": 9984616,
+    "sha256": "bd3948a785ceb6149db91cc0e56f7805037dccf78e0de755d785f918c31fdf04",
+    "size": 9984616
+   },
+   "mhdout.dat": {
+    "expected_size": null,
+    "sha256": "ca8d4103ee7e8d504e33559bce9ce56d468f0de6aa3ddd1e021f90b4e77249b6",
+    "size": 69149
+   },
+   "rfcoil.ddd": {
+    "expected_size": 15616,
+    "sha256": "d851ac43cd1bec6102bedee5ac0db8c712f60dd67e93456ea0624278d83f28d0",
+    "size": 15616
+   },
+   "rv129129.ddd": {
+    "expected_size": 134459248,
+    "sha256": "c0b050cb074aa627f762ab7fef3057d2ba6b37844b02b3c5d7444a10e44bc2ec",
+    "size": 134459248
+   }
+  },
+  "identity": "e28142c72453c49c161839ea1d9be7f9e08f0aab8f8ece1d6da70c2fd4f80772",
+  "suffix": "129129"
+ },
+ "vaft": {
+  "revision": "v0.6.2-458-g842bd5a9-dirty",
+  "version": "0.6.2"
+ }
+}

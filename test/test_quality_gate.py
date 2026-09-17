@@ -4,6 +4,11 @@ A product carries no marker saying whether its magnetics were ever assessed,
 so the gate re-runs the assessment, projects it into a copy, and the residual
 function refuses channels the gate excluded. On 39915 that is one probe --
 H3-08, 40x its family median -- and it moves the normalized residual by 11%.
+
+The packaged 39915 product was regenerated after the diagnostics stage began
+writing that verdict itself (#189), so it already carries it. The tests that
+measure what the gate adds therefore start from `_unassessed`, the same shot
+with the stage-written validity removed -- the shape every product had before.
 """
 from __future__ import annotations
 
@@ -59,6 +64,25 @@ def shot_39915() -> ODS:
     return _real_shot(39915)
 
 
+def _unassessed(ods: ODS) -> ODS:
+    """A copy without the validity the diagnostics stage wrote (#189)."""
+    private = ods.copy()
+    for family, signal in (("b_field_pol_probe", "field"), ("flux_loop", "flux")):
+        for index in range(len(private[f"magnetics.{family}"])):
+            node = private[f"magnetics.{family}.{index}"]
+            if signal not in node:
+                continue
+            for key in ("validity", "validity_timed"):
+                if key in node[signal]:
+                    del node[signal][key]
+    return private
+
+
+@pytest.fixture(scope="module")
+def unassessed_39915(shot_39915) -> ODS:
+    return _unassessed(shot_39915)
+
+
 def _rms(channels, window) -> float:
     blocks = []
     for c in channels:
@@ -71,48 +95,56 @@ def _rms(channels, window) -> float:
     return float(np.sqrt(np.mean(stacked**2)))
 
 
-def test_the_gate_excludes_h3_08_on_39915_for_the_reasons_343_detects(shot_39915):
-    interval = plasma_free_interval(shot_39915)
+def test_the_gate_excludes_h3_08_on_39915_for_the_reasons_343_detects(unassessed_39915):
+    interval = plasma_free_interval(unassessed_39915)
     window = (interval.start, interval.end)
-    gated, gate = quality_gate(shot_39915, window=window)
-    # The eight IMPA channels were already invalid in the product; the gate
-    # reports every unusable channel in the window, whichever stage decided.
-    impa = tuple(name for name in gate.excluded if name.startswith("IMPA"))
-    assert len(impa) == 8
-    assert set(gate.excluded) == set(impa) | {"MagneticFieldProbe_H3-08_Bz"}
-    assert all(gate.reasons[name] for name in impa)
+    gated, gate = quality_gate(unassessed_39915, window=window)
+    # IMPA left the diagnostics product for its own stage (#305), so H3-08 is
+    # the only unusable channel in the window: 65 probes + 11 flux loops.
+    assert not any(name.startswith("IMPA") for name in gate.excluded)
+    assert set(gate.excluded) == {"MagneticFieldProbe_H3-08_Bz"}
     reasons = set(gate.reasons["MagneticFieldProbe_H3-08_Bz"])
     assert {"implausible_magnitude", "population_outlier"} <= reasons
     assert gate.validity_source == "re-assessed here"
-    assert gate.assessed == 87
+    assert gate.assessed == 76
     # the source was not written
-    assert "validity" not in shot_39915["magnetics.b_field_pol_probe.25.field"]
+    assert "validity" not in unassessed_39915["magnetics.b_field_pol_probe.25.field"]
     assert "validity" in gated["magnetics.b_field_pol_probe.25.field"]
 
 
-def test_gating_removes_the_probe_and_materially_changes_the_residual(shot_39915):
-    """The user asked that this be reported either way: it does change it."""
+def test_the_packaged_product_already_carries_the_stage_verdict(shot_39915):
+    """The regenerated diagnostics stage condemns H3-08 itself (#189)."""
     interval = plasma_free_interval(shot_39915)
+    _, gate = quality_gate(shot_39915, window=(interval.start, interval.end))
+    assert set(gate.excluded) == {"MagneticFieldProbe_H3-08_Bz"}
+    assert "validity" in shot_39915["magnetics.b_field_pol_probe.25.field"]
+
+
+def test_gating_removes_the_probe_and_materially_changes_the_residual(unassessed_39915):
+    """The user asked that this be reported either way: it does change it."""
+    interval = plasma_free_interval(unassessed_39915)
     window = (interval.start, interval.end)
     kw = dict(per_family=None, window=window, validity_window=window)
-    ungated = synthetic_vacuum_magnetics(benchmark_wall_currents(shot_39915), **kw)
-    gated_ods, gate = quality_gate(shot_39915, window=window)
+    ungated = synthetic_vacuum_magnetics(benchmark_wall_currents(unassessed_39915), **kw)
+    gated_ods, gate = quality_gate(unassessed_39915, window=window)
     gated = synthetic_vacuum_magnetics(benchmark_wall_currents(gated_ods), **kw)
     assert len(ungated) - len(gated) == 1
     assert "MagneticFieldProbe_H3-08_Bz" not in {c.name for c in gated}
     before, after = _rms(ungated, window), _rms(gated, window)
     assert after < before
-    assert (before - after) / before > 0.05  # measured: 0.256 -> 0.228
+    # measured 0.256 -> 0.228 over the window to the PF-pickup crossing; over
+    # the window to the light's onset (#409) 0.356 -> 0.339, 4.8 %
+    assert (before - after) / before > 0.04
     stacked = plasma_free_residual(gated, window, gate=gate, normalize=True)
     assert np.isclose(float(np.sqrt(np.mean(stacked**2))), after)
 
 
-def test_the_residual_refuses_channels_the_gate_excluded(shot_39915):
-    interval = plasma_free_interval(shot_39915)
+def test_the_residual_refuses_channels_the_gate_excluded(unassessed_39915):
+    interval = plasma_free_interval(unassessed_39915)
     window = (interval.start, interval.end)
-    _, gate = quality_gate(shot_39915, window=window)
+    _, gate = quality_gate(unassessed_39915, window=window)
     ungated = synthetic_vacuum_magnetics(
-        benchmark_wall_currents(shot_39915), per_family=None, window=window, validity_window=window
+        benchmark_wall_currents(unassessed_39915), per_family=None, window=window, validity_window=window
     )
     with pytest.raises(VacuumMagneticsError, match="H3-08"):
         plasma_free_residual(ungated, window, gate=gate)

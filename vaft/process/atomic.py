@@ -1,9 +1,29 @@
-"""High-level atomic-radiation processing for OMAS data structures.
+"""Atomic-radiation processing on OMAS data structures.
 
-This module owns profile selection, time alignment, impurity-density fallback,
-and volume integration. Numerical atomic physics remains in
-``vaft.formula.atomic`` and ADF11 file access remains in
-``vaft.data.open_adas``.
+This module owns profile selection, time alignment, impurity-density
+fallback and volume integration.  Numerical atomic physics remains in
+:mod:`vaft.formula.atomic` and ADF11 file access in
+:mod:`vaft.data.open_adas`.  Which impurity species to include and what
+fraction to assume for them is machine policy, resolved by the pipeline
+(:func:`vaft.omas.formula_wrapper.compute_power_balance` from ``vest.yaml``
+on VEST) and passed in; this module holds no such number (issue #420).
+
+Notation
+--------
+n_e       : electron density                                  [m^-3]
+n_imp     : impurity density                                  [m^-3]
+T_e       : electron temperature                              [eV]
+L_Z       : line-radiation cooling coefficient of species Z   [W m^3]
+epsilon   : line emissivity, n_e n_imp L_Z                    [W/m^3]
+P_line    : radiated line power, int epsilon dV               [W]
+V         : cumulative enclosed plasma volume                 [m^3]
+rho_tor_norm : normalized toroidal-flux radius                [-]
+
+Provenance
+----------
+.. [ADAS] OPEN-ADAS ADF11 tables, read through :mod:`vaft.data.open_adas`.
+.. [FORMULA] :func:`vaft.formula.atomic.line_cooling_coefficient`, the
+   interpolation of those tables in ``(n_e, T_e)``.
 """
 
 from __future__ import annotations
@@ -20,37 +40,58 @@ from scipy.interpolate import interp1d
 from vaft.compat import trapz_compat
 from vaft.data.open_adas import ADASDataError
 from vaft.formula.atomic import line_cooling_coefficient
+from vaft.spectroscopy import ATOMIC_NUMBERS, ELEMENT_NAMES
 
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LINE_RADIATION_SPECIES = ("C", "O")
-DEFAULT_IMPURITY_FRACTIONS = {"C": 1.0e-2, "O": 1.0e-2}
+#: What each species' impurity density was taken from, per call.
+IMPURITY_SOURCES = ("profile", "configured", "inferred_from_zeff", "none")
+
 _DEFAULT_TIME_MATCH_ATOL = 1.0e-6
-_ATOMIC_NUMBERS = {
-    "H": 1, "D": 1, "T": 1, "He": 2, "Li": 3, "Be": 4, "B": 5,
-    "C": 6, "N": 7, "O": 8, "F": 9, "Ne": 10, "Al": 13,
-    "Si": 14, "S": 16, "Cl": 17, "Ar": 18, "Ca": 20, "Ti": 22,
-    "Fe": 26, "Ni": 28, "Kr": 36, "Mo": 42, "Xe": 54, "W": 74,
-}
-_ELEMENT_NAMES = {
-    "hydrogen": "H", "deuterium": "D", "tritium": "T", "helium": "He",
-    "lithium": "Li", "beryllium": "Be", "boron": "B", "carbon": "C",
-    "nitrogen": "N", "oxygen": "O", "fluorine": "F", "neon": "Ne",
-    "aluminium": "Al", "aluminum": "Al", "silicon": "Si", "sulfur": "S",
-    "sulphur": "S", "chlorine": "Cl", "argon": "Ar", "calcium": "Ca",
-    "titanium": "Ti", "iron": "Fe", "nickel": "Ni", "krypton": "Kr",
-    "molybdenum": "Mo", "xenon": "Xe", "tungsten": "W",
-}
+
+#: Shared with :mod:`vaft.spectroscopy`, which owns the element vocabulary so
+#: that ``vaft.plot`` can resolve species without importing OMAS through this
+#: module.  ``D`` and ``T`` stay distinct keys here because ADAS files are
+#: named that way; :class:`vaft.spectroscopy.Species` records them as hydrogen
+#: with a mass number instead.
+_ATOMIC_NUMBERS = ATOMIC_NUMBERS
+_ELEMENT_NAMES = ELEMENT_NAMES
 
 
 def compute_time_match_atol(time_array: ndarray, base_atol: float = _DEFAULT_TIME_MATCH_ATOL) -> float:
-    """Return an absolute matching tolerance adapted to the native time spacing.
+    """An absolute time-matching tolerance adapted to the native time spacing.
 
-    ``max(base_atol, 0.25 * min(diff(unique_finite_times)))`` in seconds, which
-    absorbs floating-point drift in a time coordinate without ever matching an
-    adjacent physical slice. Falls back to ``base_atol`` when fewer than two
-    distinct finite times are available.
+    ``max(base_atol, 0.25 * min(diff(unique_finite_times)))``, which absorbs
+    floating-point drift in a time coordinate without ever matching an
+    adjacent physical slice.
+
+    Parameters
+    ----------
+    time_array : np.ndarray
+        The time coordinate to be matched against [s].
+    base_atol : float, optional
+        Floor on the tolerance [s].
+
+    Returns
+    -------
+    float
+        The tolerance; ``base_atol`` when fewer than two distinct finite times
+        exist [s].
+
+    Raises
+    ------
+    ValueError
+        ``base_atol`` non-finite or negative.
+
+    Defaults
+    --------
+    ``base_atol = 1e-6`` s and the factor ``0.25`` are numerical conveniences:
+    a quarter of the smallest spacing can never reach the neighbouring slice.
+
+    Applicability
+    -------------
+    Machine-independent.
     """
 
     if not np.isfinite(base_atol) or base_atol < 0.0:
@@ -66,10 +107,25 @@ def compute_time_match_atol(time_array: ndarray, base_atol: float = _DEFAULT_TIM
 
 
 def find_time_match_index(time_array: ndarray, target_time: float) -> Optional[int]:
-    """Find the index of the time closest to *target_time*, both in seconds.
+    """Index of the time closest to ``target_time``, within the adaptive tolerance.
 
-    Returns ``None`` for an empty array, a non-finite target, or when no
-    candidate falls within :func:`compute_time_match_atol`.
+    Parameters
+    ----------
+    time_array : np.ndarray
+        The time coordinate [s].
+    target_time : float
+        The time to match [s].
+
+    Returns
+    -------
+    int or None
+        Index of the closest time within :func:`compute_time_match_atol`;
+        ``None`` for an empty array, a non-finite target, or no candidate within
+        tolerance [-].
+
+    Applicability
+    -------------
+    Machine-independent.
     """
 
     arr = np.asarray(time_array, dtype=float).reshape(-1)
@@ -84,9 +140,28 @@ def find_time_match_index(time_array: ndarray, target_time: float) -> Optional[i
 def normalize_atomic_symbol(label: Any) -> Optional[str]:
     """Normalize an element or ion label to a supported atomic symbol.
 
-    Full English names and charge-decorated labels are accepted, e.g.
-    ``carbon6+`` -> ``C`` and ``neon`` -> ``Ne``. Invalid labels return
-    ``None`` so callers can choose whether absence is fatal.
+    Full English names and charge-decorated labels are accepted --
+    ``carbon6+`` gives ``C``, ``neon`` gives ``Ne``.
+
+    Parameters
+    ----------
+    label : str, bytes or None
+        The label as found in an ODS ``ion.label`` or a species list [-].
+
+    Returns
+    -------
+    str or None
+        The symbol, or ``None`` for an unrecognized label so the caller decides
+        whether absence is fatal [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Only the elements in the module's table are recognized (H through W, the
+    common tokamak species); isotopes D and T map to their own symbols.
     """
 
     if label is None:
@@ -208,19 +283,45 @@ def integrate_emissivity_profile(
     volume_profile: Optional[ndarray],
     total_volume: float,
 ) -> float:
-    r"""Integrate an emissivity profile to total radiated power.
+    """Integrate an emissivity profile to a total radiated power.
 
-    When cumulative enclosed volume :math:`V(\rho)` is available and matches
-    the emissivity shape, VAFT evaluates
+    Parameters
+    ----------
+    emissivity_profile : np.ndarray
+        Local emissivity on the radial grid [W/m^3].
+    volume_profile : np.ndarray or None
+        Cumulative enclosed volume on the same grid, or ``None`` [m^3].
+    total_volume : float
+        Total plasma volume, for the fallback [m^3].
 
-    .. math:: P=\int \epsilon(\rho)\,dV
+    Returns
+    -------
+    float
+        ``P = int epsilon dV``, or the fallback, or ``0`` [W].
 
-    by trapezoidal integration in volume coordinates. Otherwise it falls back to
-    ``nanmean(emissivity) * total_volume``. No finite emissivity or no positive
-    usable volume produces zero.
+    Processing steps
+    ----------------
+    1. If ``volume_profile`` is given, matches the emissivity's shape and has at
+       least two finite points spanning a non-zero volume: trapezoidal
+       integration of ``epsilon`` against ``V``, in volume order.
+    2. Else, if ``total_volume`` is finite and positive:
+       ``nanmean(epsilon) * total_volume``.
+    3. Else ``0``.
 
-    Units: ``emissivity_profile`` in W/m^3, ``volume_profile`` (cumulative
-    enclosed volume) and ``total_volume`` in m^3, result in W.
+    Convention
+    ----------
+    ``volume_profile`` is the *cumulative enclosed* volume ``V(rho)``, so
+    ``dV`` is its difference; it is not a shell volume.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The two fallbacks are silent: a volume profile of the wrong length drops to
+    the mean-times-volume estimate, and a missing volume to zero, with no
+    warning from this function.
     """
 
     emissivity = np.asarray(emissivity_profile, dtype=float)
@@ -250,59 +351,110 @@ def compute_line_radiation_power_series(
     line_radiation_species: Optional[List[str]] = None,
     impurity_fractions: Optional[Dict[str, float]] = None,
     Z_eff: Optional[float] = None,
-) -> ndarray:
-    r"""Compute line-radiation power for matched equilibrium slices.
+    *,
+    return_assumptions: bool = False,
+):
+    """Line-radiation power for matched equilibrium slices, from the stored kinetic profiles.
 
-    For each requested species and time slice, the local emissivity is
-
-    .. math::
-
-        \epsilon_{\mathrm{line}}(\rho)
-        = n_e(\rho)n_\mathrm{imp}(\rho)
-          L_{Z,\mathrm{line}}(n_e(\rho),T_e(\rho)),
-
-    and total power is :math:`P_{\mathrm{line}}=\int\epsilon\,dV`.
-
-    Impurity density follows this precedence:
-
-    1. matching ``core_profiles.profiles_1d.ion`` density profile;
-    2. scalar ``impurity_fractions[species]``;
-    3. single-species inference from ``Z_eff``;
-    4. zero, with one warning per species.
+    For each species and time slice the local emissivity is
+    ``epsilon = n_e n_imp L_Z(n_e, T_e)`` and the power ``P = int epsilon dV``.
 
     Parameters
     ----------
     ods : ODS
-        OMAS data containing equilibrium and core-profile time slices.
+        Carries ``core_profiles.profiles_1d`` and ``equilibrium.time_slice`` [-].
     eq_indices : list of int
-        Equilibrium slice indices to process.
-    eq_times : array-like
-        Time in seconds for each equilibrium index.
-    volume_series : array-like
-        Total plasma volume in m^3 for each output slice.
+        Equilibrium slice indices to evaluate [-].
+    eq_times : array_like
+        Time of each of those slices [s].
+    volume_series : array_like
+        Total plasma volume of each slice, for the integration fallback [m^3].
     line_radiation_species : list of str, optional
-        Species to include. Defaults to carbon and oxygen.
-    impurity_fractions : dict, optional
-        Scalar ``n_imp / n_e`` values. ``None`` uses the default C/O fractions;
-        an empty dictionary disables those defaults.
+        Species to include; ``None`` for every species that has a configured
+        fraction or an ion density profile in the ODS [-].
+    impurity_fractions : dict of str to float, optional
+        ``n_imp / n_e`` per species, used when the ODS carries no profile for
+        it; ``None`` means no assumption [-].
     Z_eff : float, optional
-        Effective charge used only for the single-species fallback.
+        Effective charge, used only to infer a single species' fraction when
+        nothing else is known [-].
+    return_assumptions : bool, optional
+        Also return what each species' density was taken from [-].
 
     Returns
     -------
-    numpy.ndarray
-        Non-negative line-radiation power in W, one value per ``eq_indices``.
+    np.ndarray or tuple of (np.ndarray, dict)
+        Non-negative line-radiation power per ``eq_indices`` entry, and with
+        ``return_assumptions`` a dict of ``species``, per-species
+        ``impurity_source`` (``profile``, ``configured``, ``inferred_from_zeff``
+        or ``none``), the ``impurity_fraction`` used, and ``z_eff`` [W].
 
     Raises
     ------
     ValueError
-        If array lengths, species labels, or impurity fractions are invalid.
-    Notes
-    -----
-    Missing kinetic profiles or unmatched time slices produce zero for those
-    slices. Atomic-data lookup or parsing failures produce zero for the
-    affected species and emit a warning, preserving offline power-balance
-    behavior.
+        Mismatched ``eq_times`` / ``volume_series`` lengths, non-finite times,
+        an unrecognized species label, or a negative or non-finite fraction.
+
+    Processing steps
+    ----------------
+    1. Match each equilibrium time to a ``core_profiles`` slice
+       (:func:`find_time_match_index`); an unmatched slice radiates nothing.
+    2. Interpolate ``n_e``, ``T_e`` from the slice's ``rho_tor_norm`` onto the
+       equilibrium's ``rho_tor_norm`` (constant edge extrapolation).
+    3. For each species, take ``n_imp / n_e`` from, in order: the slice's own
+       ion density profile; ``impurity_fractions``; a single-species inference
+       from ``Z_eff``; else zero with one warning per species.
+    4. ``L_Z`` from the ADAS tables [FORMULA]_; ``epsilon = L_Z n_e n_imp``.
+    5. :func:`integrate_emissivity_profile` per species, summed; clipped at
+       zero.
+
+    Input semantics
+    ---------------
+    Stored kinetic profiles (fitted or synthetic) on their ``core_profiles``
+    grid, plus the equilibrium grid and volume.
+
+    Output semantics
+    ----------------
+    Synthetic: a modelled diagnostic-like quantity, not a measurement.
+
+    Defaults
+    --------
+    ``impurity_fractions = None`` and ``line_radiation_species = None`` mean
+    *no assumption*.  The VEST carbon and oxygen fractions that used to be
+    this function's defaults are machine-specific settings, each an assumed
+    value in ``vest.yaml`` resolved by the pipeline.  ``Z_eff = None``
+    disables the single-species inference, a numerical convenience.
+
+    Convention
+    ----------
+    The radial coordinate is ``rho_tor_norm`` throughout: the ``core_profiles``
+    grid and the equilibrium ``profiles_1d`` both carry it and are interpolated
+    against each other in it.  ``n_i`` for the impurity is ``fraction * n_e``
+    where a fraction is used; ``Z_eff`` inference assumes hydrogenic main ions,
+    ``n_imp/n_e = (Z_eff - 1)/(Z(Z - 1))``.
+
+    Assumptions
+    -----------
+    Coronal equilibrium for ``L_Z``; one impurity species at a time with no
+    mutual dilution; the ``core_profiles`` slice at the matched time describes
+    the equilibrium slice.
+
+    Applicability
+    -------------
+    Machine-independent.  Species and fractions arrive as arguments.
+
+    Limitations
+    -----------
+    Every failure mode -- no ``core_profiles``, no matching time, no ``n_e``
+    or ``T_e``, ADAS data unavailable, no fraction known -- yields zero for
+    that slice or species with a logged warning rather than an error, to keep
+    an offline power balance running; the returned assumptions are how a
+    caller can tell.  A ``core_profiles`` slice stored on ``rho_pol_norm``
+    only (no equilibrium at its time) has no ``rho_tor_norm`` and is skipped.
+
+    Provenance
+    ----------
+    .. [1] ADAS tables [ADAS]_ through the cooling-coefficient kernel [FORMULA]_.
     """
 
     eq_indices = list(eq_indices)
@@ -316,19 +468,25 @@ def compute_line_radiation_power_series(
         raise ValueError("eq_times must contain only finite values")
 
     result = np.zeros(len(eq_indices), dtype=float)
+    assumptions: Dict[str, Any] = {"species": [], "impurity_source": {}, "impurity_fraction": {}, "z_eff": Z_eff}
+
+    def _done():
+        return (result, assumptions) if return_assumptions else result
+
     if "core_profiles.profiles_1d" not in ods:
         logger.warning("core_profiles missing; line radiation set to zero.")
-        return result
+        return _done()
 
     profiles = ods["core_profiles.profiles_1d"]
     profile_times = np.asarray(
         [float(profiles[j]["time"]) if "time" in profiles[j] else float(j) for j in range(len(profiles))],
         dtype=float,
     )
+    # No fraction means no assumption: a species without a profile, a configured
+    # fraction or a Z_eff inference radiates nothing, with a warning. The VEST
+    # C/O defaults that used to live here are policy, resolved by the pipeline.
     fraction_map: Dict[str, float] = {}
-    if impurity_fractions is None:
-        fraction_map = dict(DEFAULT_IMPURITY_FRACTIONS)
-    elif impurity_fractions:
+    if impurity_fractions:
         for label, value in impurity_fractions.items():
             species = normalize_atomic_symbol(label)
             if species is None:
@@ -339,7 +497,18 @@ def compute_line_radiation_power_series(
             fraction_map[species] = fraction
 
     if line_radiation_species is None:
-        species_list = list(DEFAULT_LINE_RADIATION_SPECIES)
+        # the species anything is known about: a configured fraction, or an
+        # ion density profile in any core_profiles slice
+        species_list = list(fraction_map)
+        for j in range(len(profiles)):
+            cp = profiles[j]
+            if "ion" not in cp:
+                continue
+            for k in range(len(cp["ion"])):
+                ion = cp["ion"][k]
+                symbol = normalize_atomic_symbol(ion["label"] if "label" in ion else None)
+                if symbol is not None and symbol not in species_list and _ATOMIC_NUMBERS.get(symbol, 0) > 1:
+                    species_list.append(symbol)
     else:
         species_list = []
         for label in line_radiation_species:
@@ -348,8 +517,12 @@ def compute_line_radiation_power_series(
                 raise ValueError(f"Invalid line-radiation species: {label!r}")
             if species not in species_list:
                 species_list.append(species)
+    assumptions["species"] = list(species_list)
+    for species in species_list:
+        assumptions["impurity_source"][species] = "none"
     if not species_list:
-        return result
+        logger.warning("no line-radiation species: no impurity fraction configured and no ion profile present; line radiation set to zero.")
+        return _done()
 
     warned_zero_fraction: set[str] = set()
     unavailable_species: set[str] = set()
@@ -397,10 +570,19 @@ def compute_line_radiation_power_series(
             if species in unavailable_species:
                 continue
             fraction_profile = _impurity_fraction_profile(cp_slice, rho_cp, rho_target, ne, species)
-            if fraction_profile is None:
+            if fraction_profile is not None:
+                assumptions["impurity_source"][species] = "profile"
+            else:
                 fraction = fraction_map.get(species)
+                source = "configured" if fraction is not None else "none"
                 if fraction is None and len(species_list) == 1:
                     fraction = _infer_impurity_fraction_from_zeff(Z_eff, species)
+                    if fraction is not None:
+                        source = "inferred_from_zeff"
+                if assumptions["impurity_source"][species] != "profile":
+                    assumptions["impurity_source"][species] = source
+                if fraction is not None:
+                    assumptions["impurity_fraction"][species] = float(fraction)
                 fraction_profile = np.full_like(ne, 0.0 if fraction is None else fraction, dtype=float)
             fraction_profile = np.where(
                 np.isfinite(fraction_profile), np.clip(fraction_profile, 0.0, None), 0.0
@@ -432,12 +614,11 @@ def compute_line_radiation_power_series(
             )
             slice_power += integrate_emissivity_profile(emissivity, volume_profile, total_volume)
         result[output_index] = max(float(slice_power), 0.0)
-    return result
+    return _done()
 
 
 __all__ = [
-    "DEFAULT_IMPURITY_FRACTIONS",
-    "DEFAULT_LINE_RADIATION_SPECIES",
+    "IMPURITY_SOURCES",
     "compute_line_radiation_power_series",
     "compute_time_match_atol",
     "find_time_match_index",

@@ -14,20 +14,46 @@ module wires the two together into the suite-level ``prepare``/``run`` API.
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 from pathlib import Path
 
+from ...compat import is_executable
 from . import _runtime as rt
 from ._coil_input import (
     CoilInputSpec,
     emit_coil_dat,
     read_coil_in,
+    resolve_coil_inputs,
     stage_coil_data,
     write_coil_in,
 )
-from ._dcon_output import DconEigenfunction, DconOutput, read_dcon_output, read_solutions_bin
+from ._dcon_output import (
+    SCAN_COLUMNS,
+    DconCoordinates,
+    DconEdgeScan,
+    DconEigenfunction,
+    DconEvaluation,
+    DconEquilibrium,
+    DconOutput,
+    dcon_scan_row,
+    read_dcon_output,
+    read_dcon_scan,
+    read_solutions_bin,
+)
+from ._ascii_output import (
+    GpecAsciiOutput,
+    GpecAsciiSection,
+    GpecAsciiTable,
+    read_gpec_ascii,
+    read_gpec_response,
+    read_gpec_singcoup,
+)
+from ._profile_output import (
+    GpecProfileOutput,
+    read_gpec_profile_output,
+    read_resonant_table,
+)
 from ._gpec_output import (
     GpecControlOutput,
     GpecCylindricalOutput,
@@ -35,7 +61,15 @@ from ._gpec_output import (
     read_gpec_netcdf,
 )
 from ._matching_output import Pest3MatchingOutput, read_pest3_matching_output
-from ._solvers import SOLVERS, SolverContext, _check_nc_variable
+from ._solvers import (
+    SOLVERS,
+    Solver,
+    SolverContext,
+    _check_nc_variable,
+    free_boundary_stable,
+    missing_companion_outputs,
+    required_outputs,
+)
 from ._types import (
     DEFAULT_MODES,
     DEFAULT_MODULES,
@@ -92,6 +126,53 @@ def collect_gpec_suite_outputs(workdir: Path | str) -> dict[str, tuple[Path, ...
             if path.is_file():
                 outputs[module].append(path)
     return {key: tuple(value) for key, value in outputs.items()}
+
+
+def _completion_reason(base: str, missing_optional: tuple[str, ...]) -> str:
+    """Name absent companion output on an otherwise successful run.
+
+    The run really did succeed, so this is not a `reason` for failure -- it is
+    the record of what the cell will not have, which is otherwise invisible
+    until something downstream looks for a file that was never going to exist.
+    """
+    if not missing_optional:
+        return base
+    listed = ", ".join(missing_optional)
+    suffix = f"missing optional outputs: {listed} (the companion did not produce them)"
+    return f"{base}; {suffix}" if base else suffix
+
+
+def _equilibrium_sha256(geqdsk: Path) -> str:
+    """SHA-256 of the equilibrium a suite run consumed, or "" if unreadable.
+
+    Read once per case rather than per cell -- every module and mode of a case
+    consumes the same file -- and never fatal: a hash is provenance about a run,
+    and failing the run because provenance could not be taken would be the tail
+    wagging the dog. An empty string says "not recorded", which a verifier can
+    act on; a wrong hash would be worse than none.
+    """
+    # Imported here rather than at module scope: this is the only use, and
+    # `vaft.code` should not acquire an import-time dependency on the database
+    # layer for one hash on a cold path.
+    from ...database.replication import sha256_file
+
+    try:
+        return sha256_file(Path(geqdsk))
+    except OSError:
+        return ""
+
+
+def _is_stable(solver: Solver, run_dir: Path, mode: int) -> bool:
+    """Whether this run's own output declares the equilibrium free-boundary stable.
+
+    ``False`` covers both "unstable" and "no free-boundary energy was computed":
+    the distinction matters to physics, but not to how the cell is classified,
+    and only a positive verdict is allowed to change the status.
+    """
+    filename = solver.stability_output(mode)
+    if filename is None:
+        return False
+    return free_boundary_stable(run_dir, filename) is True
 
 
 def _prepared_record(module: str, mode: int, workdir: Path) -> GPECModuleRun:
@@ -196,6 +277,7 @@ def prepare_gpec_suite_case(
         time_ms=inputs.time_ms,
         records=tuple(records),
         outputs=outputs,
+        input_equilibrium_sha256=_equilibrium_sha256(inputs.geqdsk),
     )
 
 
@@ -220,7 +302,7 @@ def _run_module(
         if policy == "strict":
             raise FileNotFoundError(rt.unconfigured_reason())
         return GPECModuleRun(module, mode, run_dir, status="skipped", reason=rt.unconfigured_reason())
-    if not executable.is_file() or not os.access(executable, os.X_OK):
+    if not is_executable(executable):
         reason = f"missing or non-executable {program}: {executable}"
         if policy == "strict":
             raise FileNotFoundError(reason)
@@ -243,19 +325,43 @@ def _run_module(
     # because another time slice in the same code/mode cell failed.  A full
     # solver output set is immutable input for the downstream IDS builder.
     existing_outputs = tuple(path for pattern in solver.output_patterns(mode) if (path := run_dir / pattern).exists())
-    if len(existing_outputs) == len(solver.output_patterns(mode)):
+    missing_optional = missing_companion_outputs(solver, run_dir, mode)
+    # Completeness is judged on what this solver itself owes, so an installation
+    # without `match` (or `rmatch`) stops re-solving every already-finished cell
+    # on every pipeline invocation for files that can never appear.
+    #
+    # "Can never appear" is the whole justification, so it is tested rather than
+    # assumed: where the companion *is* installed, its missing output means a
+    # step that failed and can succeed on a retry, and skipping that retry would
+    # strand the cell without an eigenfunction just as permanently.
+    required = required_outputs(solver, mode)
+    companion_can_still_run = bool(missing_optional) and any(
+        (candidate := rt.optional_executable(config, name)) is not None
+        and is_executable(candidate)
+        for name in solver.companion_executables()
+    )
+    if all((run_dir / pattern).exists() for pattern in required) and not companion_can_still_run:
         if config.verify_outputs:
             ok, reason = solver.check_success(run_dir, mode)
             if not ok:
-                return GPECModuleRun(module, mode, run_dir, status="failed", reason=reason, outputs=existing_outputs)
+                return GPECModuleRun(
+                    module, mode, run_dir, status="failed", reason=reason,
+                    outputs=existing_outputs, missing_optional_outputs=missing_optional,
+                )
         return GPECModuleRun(
             module,
             mode,
             run_dir,
             returncode=0,
-            status="completed",
-            reason="reused existing solver outputs",
+            # Classified from the outputs, so reusing a cell reports what
+            # running it reported. Reading `stable` only on the run that
+            # produced it would make a stage's stable count depend on whether
+            # the pipeline happened to re-solve, which is not a property of the
+            # physics.
+            status="stable" if _is_stable(solver, run_dir, mode) else "completed",
+            reason=_completion_reason("reused existing solver outputs", missing_optional),
             outputs=existing_outputs,
+            missing_optional_outputs=missing_optional,
         )
 
     commands: list[str] = [str(executable)]
@@ -265,26 +371,64 @@ def _run_module(
         logs.append(log_path)
         status = "completed" if returncode == 0 else "failed"
         reason = ""
+        companion_failures: list[str] = []
         if returncode == 0:
+            # A companion's namelist may depend on what the solver just wrote --
+            # rmatch's per-surface eta/massden do (#716) -- so solvers get a
+            # chance to refine those inputs here, between the two programs.
+            refine = getattr(solver, "prepare_companions", None)
+            if refine is not None:
+                refine(run_dir, mode, config)
+
             for companion in solver.companion_executables():
                 companion_exec = rt.optional_executable(config, companion)
-                if companion_exec is not None and companion_exec.is_file() and os.access(companion_exec, os.X_OK):
+                if companion_exec is not None and is_executable(companion_exec):
                     companion_rc, companion_log = rt.run_subprocess(
                         companion_exec, run_dir, run_dir / f"{companion}.log", config=config
                     )
                     commands.append(str(companion_exec))
                     logs.append(companion_log)
                     if companion_rc != 0:
+                        # Named rather than merely counted: without this the
+                        # status flips with no explanation, and the reader
+                        # cannot tell which of the chained programs failed.
+                        companion_failures.append(f"{companion} exited {companion_rc}")
                         returncode = companion_rc
-                        status = "failed"
                 elif policy == "strict":
                     raise FileNotFoundError(f"{companion} executable not found: {companion_exec}")
+
+        # A companion that exists only to analyse an unstable mode has nothing
+        # to do on a stable equilibrium, so its exit code is a note about the
+        # chain rather than this cell's verdict (issue #423). The verdict comes
+        # from the solver's own output, so it cannot be reached at all unless
+        # the solver wrote one.
+        stable = status == "completed" and _is_stable(solver, run_dir, mode)
+        if companion_failures:
+            reason = "; ".join(companion_failures)
+            if stable:
+                reason += " -- not required for a stable equilibrium"
+                # The solver succeeded, so that is the code this cell reports;
+                # the companion's own is kept above in prose rather than
+                # standing in for the chain's outcome.
+                returncode = 0
+            else:
+                status = "failed"
+
+        # Last, and unconditional: whether the run produced usable output is
+        # not something a stable verdict can excuse. A truncated or absent
+        # netCDF fails here even for an equilibrium the solver called stable.
         if status == "completed" and config.verify_outputs:
             ok, check_reason = solver.check_success(run_dir, mode)
             if not ok:
                 status = "failed"
                 reason = check_reason
+
+        if status == "completed" and stable:
+            status = "stable"
         outputs = tuple(path for pattern in solver.output_patterns(mode) if (path := run_dir / pattern).exists())
+        missing_optional = missing_companion_outputs(solver, run_dir, mode)
+        if status in ("completed", "stable"):
+            reason = _completion_reason(reason, missing_optional)
         return GPECModuleRun(
             module=module,
             mode=mode,
@@ -295,6 +439,7 @@ def _run_module(
             logs=tuple(logs),
             outputs=outputs,
             commands=tuple(commands),
+            missing_optional_outputs=missing_optional,
         )
     except subprocess.TimeoutExpired as exc:
         outputs = tuple(path for pattern in solver.output_patterns(mode) if (path := run_dir / pattern).exists())
@@ -349,6 +494,25 @@ def _run_module(
             outputs=outputs,
             commands=tuple(commands),
         )
+    except rt.ExecutableNotLaunchable as error:
+        # The file resolved and passed the executability probe, and the
+        # operating system still refused to start it. In strict mode that is a
+        # configuration error like any other; otherwise it is one module's
+        # failure, named, rather than an opaque traceback out of the suite.
+        if policy == "strict":
+            raise
+        outputs = tuple(path for pattern in solver.output_patterns(mode) if (path := run_dir / pattern).exists())
+        return GPECModuleRun(
+            module=module,
+            mode=mode,
+            workdir=run_dir,
+            returncode=None,
+            status="failed",
+            reason=str(error),
+            logs=tuple(logs),
+            outputs=outputs,
+            commands=tuple(commands),
+        )
 
 
 def run_gpec_suite_case(
@@ -379,6 +543,7 @@ def run_gpec_suite_case(
         records=tuple(records),
         logs=logs,
         outputs=outputs,
+        input_equilibrium_sha256=_equilibrium_sha256(inputs.geqdsk),
     )
 
 
@@ -400,15 +565,32 @@ __all__ = [
     "write_coil_in",
     "prepare_gpec_suite_case",
     "read_coil_in",
+    "resolve_coil_inputs",
     "run_gpec_suite_case",
     "validate_dcon_result",
+    "DconCoordinates",
+    "DconEdgeScan",
     "DconEigenfunction",
+    "DconEvaluation",
+    "DconEquilibrium",
     "DconOutput",
     "GpecControlOutput",
     "GpecCylindricalOutput",
     "GpecIdealResult",
+    "SCAN_COLUMNS",
+    "dcon_scan_row",
     "read_dcon_output",
+    "read_dcon_scan",
+    "GpecAsciiOutput",
+    "GpecAsciiSection",
+    "GpecAsciiTable",
+    "GpecProfileOutput",
     "read_gpec_netcdf",
+    "read_gpec_ascii",
+    "read_gpec_profile_output",
+    "read_gpec_response",
+    "read_gpec_singcoup",
+    "read_resonant_table",
     "read_solutions_bin",
     "Pest3MatchingOutput",
     "read_pest3_matching_output",

@@ -25,8 +25,8 @@ from an ODS by ``vaft.omas.plot_plasma_current_time``.
 
 The radial coordinate is *not* part of a profile renderer's name.  One
 :func:`equilibrium_profile_q` serves every coordinate; pick one with the
-adapter's ``coordinate=`` argument (``rho_tor_norm``, ``psi_norm``, ``r_major``,
-``r_minor``).
+adapter's ``coordinate=`` argument (``rho_tor_norm``, ``psi_norm``,
+``sqrt_phi_norm``, ``r_major``, ``r_minor``; :data:`vaft.plot.display.PROFILE_COORDINATES`).
 
 The renderer contract
 ---------------------
@@ -181,6 +181,7 @@ from .models import (
     ViewModel,
 )
 from .discovery import PlotCapability, PlotCatalog
+from .display import PSI_STYLES
 from .navigation import SliceNavigator
 from .registry import PlotSpec, available_plots, canonical_names, get_spec
 from .renderers.fields import render_field_2d
@@ -191,6 +192,7 @@ from .renderers.panels import render_panels
 from .renderers.profiles import render_profile_1d
 from .renderers.spectra import render_power_spectrum
 from .renderers.spectrograms import render_spectrogram
+from .presentation import DEFAULT_FORMAT, FORMATS, THEMES, resolve_presentation
 from .style import save_figure
 
 # Canonical renderers are re-exported explicitly rather than bound in a loop, so
@@ -199,8 +201,11 @@ from .style import save_figure
 from .renderers.fields import (
     electron_density_field,
     electron_temperature_field,
+    equilibrium_field_2d,
     equilibrium_field_psi,
     equilibrium_field_psi_vacuum,
+    passive_structure_field_wall_reduction,
+    vacuum_field,
 )
 from .renderers.geometry import (
     charge_exchange_geometry_poloidal,
@@ -213,6 +218,8 @@ from .renderers.geometry import (
     magnetics_geometry_poloidal,
     pf_coil_geometry_poloidal,
     passive_structure_geometry_poloidal,
+    passive_structure_geometry_wall_mode,
+    pf_plasma_geometry_poloidal,
     soft_x_rays_geometry_lines_of_sight,
     thomson_scattering_geometry_poloidal,
     wall_geometry_poloidal,
@@ -222,7 +229,10 @@ from .renderers.images import (
     camera_visible_image,
     camera_visible_image_efit_overlay,
     camera_visible_image_field_line,
+    camera_visible_image_vacuum_field_line,
+    camera_visible_image_fluctuation,
     camera_visible_image_frame,
+    camera_visible_image_mhd_power,
 )
 from .renderers.lines import (
     barometry_time_pressure,
@@ -248,11 +258,16 @@ from .renderers.lines import (
     diamagnetic_flux_time,
     flux_loop_time_flux,
     flux_loop_time_voltage,
+    ec_launchers_time_power,
+    rogowski_coil_time_current,
+    vacuum_field_midplane,
     impa_time_field,
     impa_time_voltage,
     plasma_current_time,
     mirnov_time_voltage,
     mhd_linear_time_energy_perturbed,
+    ntms_time_delta_prime,
+    passive_structure_time_current,
     pf_coil_time_current,
     pf_coil_time_current_turns,
     soft_x_rays_time_power,
@@ -283,7 +298,9 @@ from .renderers.panels import (
     magnetics_overview,
     impa_overview,
     magnetics_overview_plasma_residual,
+    startup_proxies_time,
     magnetics_overview_vacuum,
+    mhd_linear_overview_eigenfunction,
     limiter_current_time,
     soft_x_rays_overview,
     spectrometer_uv_time_impurity,
@@ -291,8 +308,16 @@ from .renderers.panels import (
     summary_time_energy,
     summary_time_power_balance,
     summary_time_voltage_consumption,
+    passive_structure_overview_wall_time,
+    passive_structure_overview_wall_reduction,
 )
 from .renderers.profiles import (
+    b_field_probe_spatial_field,
+    flux_loop_spatial_flux,
+    mirnov_spatial_phase,
+    nbi_profile_current_drive,
+    nbi_profile_electron_heating,
+    nbi_profile_ion_heating,
     charge_exchange_profile_ion_temperature,
     charge_exchange_profile_velocity_tor,
     electron_density_profile,
@@ -305,6 +330,11 @@ from .renderers.profiles import (
     equilibrium_profile_pprime,
     equilibrium_profile_pressure,
     equilibrium_profile_q,
+    neoclassical_profile_bootstrap_current,
+    mhd_linear_profile_b_field_perturbed,
+    mhd_linear_profile_displacement,
+    mhd_linear_profile_island_width,
+    mhd_linear_profile_resonant_flux,
     impa_profile_field,
     thomson_scattering_profile_electron_density,
     thomson_scattering_profile_electron_temperature,
@@ -315,6 +345,7 @@ from .renderers.spectra import (
     soft_x_rays_spectrum,
 )
 from .renderers.spectrograms import (
+    camera_visible_spectrogram,
     interferometer_spectrogram,
     mirnov_spectrogram,
     soft_x_rays_spectrogram,
@@ -324,6 +355,9 @@ from .parameter_history import plot_parameter_history
 # Public surface that is not a canonical renderer.
 _SUPPORT_EXPORTS = (
     "Field2D",
+    "DEFAULT_FORMAT",
+    "FORMATS",
+    "PSI_STYLES",
     "Geometry3DLayer",
     "Geometry3DLayers",
     "GeometryLayer",
@@ -345,6 +379,8 @@ _SUPPORT_EXPORTS = (
     "ViewModel",
     "available_plots",
     "canonical_names",
+    "dd",
+    "extract",
     "get_spec",
     "migration_table",
     "render_field_2d",
@@ -359,9 +395,54 @@ _SUPPORT_EXPORTS = (
     "render_spectrogram",
     "save_figure",
     "plot_parameter_history",
+    "THEMES",
+    "resolve_presentation",
 )
 
 __all__ = sorted(_SUPPORT_EXPORTS + registry.canonical_names())
+
+
+def dd(name: str) -> tuple:
+    """The IMAS Data Dictionary paths canonical plot ``name`` reads, without any data.
+
+    A tuple of :class:`vaft.plot.backend.dd.DDPath`, data paths first -- the
+    same answer as ``vaft.omas.dd_<name>()`` and ``vaft.imas.dd_<name>()``
+    (umbrella #434).  See :func:`vaft.plot.backend.dd.dd_paths`.
+    """
+    from .backend.dd import dd_paths
+
+    return dd_paths(name)
+
+
+def extract(name: str, source: Any, *, label: Any = "shot", **options: Any) -> Any:
+    """The data behind canonical plot ``name`` for ``source``, as its view model, undrawn.
+
+    Dispatches on the kind of ``source``: an OMAS ``ODS``/``ODC`` (or a list
+    of them) goes to ``vaft.omas.extract_<name>``, a native IMAS
+    ``IDSToplevel``/``DBEntry``/handle (or a mapping of IDS name to toplevel)
+    to ``vaft.imas.extract_<name>``;
+    anything else is refused naming both.  ``label`` and the extraction
+    options are those of the matching ``plot_<name>``; a rendering keyword is
+    refused (umbrella #434).
+    """
+    namespace = _extract_namespace(source)
+    return getattr(import_module(namespace), f"extract_{name}")(source, label=label, **options)
+
+
+def _extract_namespace(source: Any) -> str:
+    from collections.abc import Mapping
+
+    item = source[0] if isinstance(source, (list, tuple)) and source else source
+    names = {cls.__name__ for cls in type(item).__mro__}
+    root = type(item).__module__.partition(".")[0]
+    if root == "omas" or names & {"ODS", "ODC"}:
+        return "vaft.omas"
+    if root == "imas" or names & {"IMASHandle", "HSDSIMASHandle", "IDSEntry"} or isinstance(item, Mapping):
+        return "vaft.imas"
+    raise TypeError(
+        f"vaft.plot.extract reads an OMAS ODS/ODC (vaft.omas.extract_*) or a native IMAS "
+        f"IDSToplevel/DBEntry/handle (vaft.imas.extract_*); got {type(item).__name__}"
+    )
 
 #: Legacy submodules that stay importable as ``vaft.plot.<name>``.
 _LEGACY_SUBMODULES = frozenset(LEGACY_MODULES.values()) | {"utils"}

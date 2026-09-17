@@ -78,19 +78,70 @@ def project_points(
     *,
     max_normalized_radius: float = 1.3,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Project 3D world points (cm) into 2D pixel coordinates.
+    """Project world points into camera pixels, flagging the ones the model cannot be trusted for.
 
-    Returns ``(pixel_uv, valid_mask)`` where ``pixel_uv`` is ``(N, 2)`` in
-    ``(col, row)`` pixel order. ``valid_mask`` excludes two kinds of points
-    the OpenCV Brown-Conrady distortion model cannot be trusted for: points
-    behind the camera (non-positive depth in the camera frame), and points
-    at a large angle from the optical axis (normalized image-plane radius
-    ``hypot(x/z, y/z) >= max_normalized_radius``) -- outside the angular
-    range the distortion polynomial was fit over, it can turn non-monotonic
-    and map a point to a wildly incorrect pixel location far from the actual
-    image, rather than simply extrapolating smoothly off-frame. This mirrors
-    the ``depth > 0 & hypot(xn, yn) < rmax`` guard the source notebook uses in
-    its own ``project34`` (default ``rmax=1.3``, cell 45).
+    Parameters
+    ----------
+    world_xyz_cm : array_like
+        World points as ``(N, 3)``, in the machine frame [cm].
+    rvec : array_like
+        Rotation vector of the calibrated camera pose, Rodrigues form [rad].
+    tvec : array_like
+        Translation vector of that pose [cm].
+    camera_matrix : array_like
+        Intrinsic matrix, ``3x3`` [-].
+    dist_coeffs : array_like
+        Brown-Conrady radial and tangential distortion coefficients [-].
+    max_normalized_radius : float, optional
+        Largest normalized image-plane radius still considered inside the model's
+        fitted range [-].
+
+    Returns
+    -------
+    pixel_uv : np.ndarray
+        Pixel positions as ``(N, 2)`` in column-then-row order [-].
+    valid_mask : np.ndarray
+        ``True`` where the projection can be trusted [-].
+
+    Convention
+    ----------
+    **Pixels are returned column first, then row**, which is the opposite of the
+    row-then-column order an image array is indexed with. **World points are in
+    centimetres**, matching the packaged calibration, while every other geometry
+    argument in this package is in metres; the sweep helpers here do that
+    conversion.
+
+    The pose is applied directly to the original distorted frame. Per the source
+    notebook's own finding, the recovered pose is the true physical camera
+    attitude whichever click-point convention solved for it, so no undistortion
+    step is needed and one formula serves every calibrated shot.
+
+    Defaults
+    --------
+    ``max_normalized_radius = 1.3`` is a validated-workflow default, the same
+    guard the source notebook applies in its own projection routine.
+
+    Applicability
+    -------------
+    Machine-independent. Standard OpenCV pinhole geometry; the calibration that
+    makes it a VEST camera is supplied by the caller.
+
+    Limitations
+    -----------
+    Two kinds of point are excluded rather than projected. A point behind the
+    camera has non-positive depth and no meaningful pixel. A point far off the
+    optical axis lies outside the angular range the distortion polynomial was
+    fitted over, where that polynomial can turn non-monotonic and place the point
+    at a wildly wrong pixel rather than smoothly off-frame; the mask catches that
+    case, which is why it is a validity test and not a crop.
+
+    Requires OpenCV, imported at call time.
+
+    Provenance
+    ----------
+    .. [1] The VEST FAST camera diagnostics repository's ``camera_geometry.ipynb``
+       and its ``CALIBRATION.md``; this reproduces that notebook's projection,
+       including the depth and field-of-view guard from its own routine.
     """
     import cv2
 
@@ -119,12 +170,47 @@ def project_points(
 
 
 def sweep_toroidal(r_m: np.ndarray, z_m: np.ndarray, theta_rad: np.ndarray) -> np.ndarray:
-    """Sweep poloidal ``(r_m, z_m)`` points through toroidal angles ``theta_rad``.
+    """Sweep poloidal points through toroidal angles into world points.
 
-    Returns stacked ``(X, Y, Z)`` world points in centimeters, one row per
-    ``(theta, point)`` combination -- ``X = r*cos(theta)``, ``Y = r*sin(theta)``,
-    ``Z = z``, all *100 (m -> cm). Reproduces the source notebook's
-    ``sweep_torus``.
+    Parameters
+    ----------
+    r_m : array_like
+        Major radius of each poloidal point [m].
+    z_m : array_like
+        Height of each poloidal point, same shape as *r_m* [m].
+    theta_rad : array_like
+        Toroidal angles to sweep through [rad].
+
+    Returns
+    -------
+    np.ndarray
+        World points as ``(len(theta) * len(r), 3)``, one row per angle and point
+        combination [cm].
+
+    Raises
+    ------
+    ValueError
+        The two poloidal arrays do not have the same shape.
+
+    Convention
+    ----------
+    ``X = R cos(theta)``, ``Y = R sin(theta)``, ``Z = Z``, then converted from
+    metres to centimetres because the packaged calibration is in centimetres.
+    Rows vary fastest over the poloidal points and slowest over the angles.
+
+    This is an **outer product**: every point is swept through every angle, giving
+    a surface. :func:`trajectory_world_points` pairs them element-wise instead,
+    for a single ordered path. Confusing the two produces an array of the wrong
+    length rather than an error.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] Reproduces the source notebook's torus sweep; see
+       :func:`project_points` for the repository and calibration reference.
     """
     r = np.asarray(r_m, dtype=np.float64).reshape(-1)
     z = np.asarray(z_m, dtype=np.float64).reshape(-1)
@@ -142,17 +228,74 @@ def sweep_toroidal(r_m: np.ndarray, z_m: np.ndarray, theta_rad: np.ndarray) -> n
 
 
 def toroidal_ring(r_m: float, z_m: float, theta_rad: np.ndarray) -> np.ndarray:
-    """Sweep a single ``(r_m, z_m)`` point into a toroidal ring, in centimeters."""
+    """Sweep one poloidal point into a full toroidal ring.
+
+    Parameters
+    ----------
+    r_m : float
+        Major radius of the point [m].
+    z_m : float
+        Height of the point [m].
+    theta_rad : array_like
+        Toroidal angles making up the ring [rad].
+
+    Returns
+    -------
+    np.ndarray
+        World points as ``(len(theta), 3)`` [cm].
+
+    Convention
+    ----------
+    The single-point case of :func:`sweep_toroidal`, with the same axis
+    definitions and the same conversion from metres to centimetres.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] :func:`sweep_toroidal`, which this delegates to.
+    """
     return sweep_toroidal(np.array([float(r_m)]), np.array([float(z_m)]), theta_rad)
 
 
 def trajectory_world_points(r_m: np.ndarray, z_m: np.ndarray, phi_rad: np.ndarray) -> np.ndarray:
-    """Convert a matched ``(R, Z, phi)`` trajectory to world points, in centimeters.
+    """Convert a matched trajectory of cylindrical coordinates into world points.
 
-    Unlike :func:`sweep_toroidal` (which sweeps poloidal points through every
-    toroidal angle -- an outer product), this maps one ``phi`` per ``(R, Z)``
-    element-wise, e.g. for a field-line trace where ``R``, ``Z``, ``phi`` are
-    a single ordered trajectory, not a swept surface.
+    Parameters
+    ----------
+    r_m : array_like
+        Major radius along the trajectory [m].
+    z_m : array_like
+        Height along the trajectory, same shape [m].
+    phi_rad : array_like
+        Toroidal angle at each point, same shape [rad].
+
+    Returns
+    -------
+    np.ndarray
+        World points as ``(N, 3)``, one row per trajectory point [cm].
+
+    Raises
+    ------
+    ValueError
+        The three arrays do not all have the same shape.
+
+    Convention
+    ----------
+    **Element-wise pairing**, one angle per point, for an ordered path such as a
+    traced field line. :func:`sweep_toroidal` takes the outer product instead and
+    gives a surface. Same axis definitions and the same conversion to centimetres.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] The world-frame convention of the source notebook; see
+       :func:`project_points`.
     """
     r = np.asarray(r_m, dtype=np.float64).reshape(-1)
     z = np.asarray(z_m, dtype=np.float64).reshape(-1)

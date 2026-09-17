@@ -10,10 +10,12 @@ import matplotlib.pyplot as plt
 import pytest
 import vaft
 
+from _sample_fixtures import sample_ods as _packaged_sample
+
 
 @pytest.fixture(scope="module")
 def sample_ods():
-    return vaft.omas.load(vaft.data.sample(39915, "omas"))
+    return _packaged_sample(39915)
 
 
 def test_pf_coil_time_current_renders_from_an_ods(sample_ods):

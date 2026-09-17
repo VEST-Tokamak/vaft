@@ -8,13 +8,13 @@ styling from extraction options -- is the same for every data model.
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
-from vaft.plot.models import Panels
+from vaft.plot.backends import renderer_for, resolve_render_backend
 from vaft.plot.registry import get_spec
 
+from .options import split_options, validate_options
 from .recipes import (
-    EXTRACTION_OPTIONS,
     build_model,
     diagnoses_itself,
     missing_required_path,
@@ -29,31 +29,131 @@ def render_entries(
     *,
     ax: Any = None,
     show: bool = False,
+    backend: str | None = None,
     namespace: str = "vaft.omas",
     subject: str = "ods",
+    interactive: bool = False,
+    controls: str | Sequence[str] = "auto",
+    interaction_backend: str = "auto",
     **options: Any,
-) -> tuple[Any, Any]:
+) -> Any:
     """Build the view model for ``name`` from ``entries`` and render it.
 
     ``namespace``/``subject`` only shape the refusal message, so each adapter
-    points at its own ``available_plots``.
-    """
-    from vaft.plot.renderers.panels import render_panels
+    points at its own ``available_plots``.  ``backend`` picks the drawing
+    library (:data:`vaft.plot.backends.RENDER_BACKENDS`): Matplotlib by
+    default, returning ``(Figure, Axes)``; ``"plotly"`` returns a
+    :class:`plotly.graph_objects.Figure` and takes no ``ax=``.  The model is
+    built the same way whichever draws it.
 
+    ``interactive=True`` (issue #480) draws the same plot with the controls
+    its capability record supports -- ``controls`` names a subset, or
+    ``"auto"`` for all of them -- and returns a
+    :class:`vaft.plot.renderers.interactive.Interactive` whose ``state``
+    rebuilds and redraws the plot; ``interaction_backend`` is one of
+    :data:`vaft.plot.renderers.interactive.BACKENDS`.  Every option given
+    here is the control's starting value.
+    """
+    backend = resolve_render_backend(backend)
     spec = get_spec(name)
+    validate_options(name, options)
     refuse_when_unsupported(name, entries, namespace=namespace, subject=subject)
+    if interactive:
+        return _render_interactive(
+            spec, entries, options, backend=backend, controls=controls,
+            interaction_backend=interaction_backend, show=show, ax=ax,
+        )
     model = build_model(name, entries, **options)
-    # A layout other than overlay arranges the same traces into a Panels model.
-    # The canonical renderer is typed to the single-axes model, so the panels
-    # renderer draws it instead; the return shape then follows the layout, as
-    # issue #260 requires, and no renderer needs to know about layouts.
-    renderer = spec.renderer
-    if isinstance(model, Panels) and not issubclass(spec.model, Panels):
-        renderer = render_panels
-    style = {
-        key: value for key, value in options.items() if key not in EXTRACTION_OPTIONS
-    }
+    # A layout other than overlay arranges the same traces into a Panels model;
+    # renderer_for hands such a model to the panels renderer, so the return
+    # shape follows the layout (issue #260) and no renderer knows about layouts.
+    renderer = renderer_for(spec, model, backend)
+    _, style = split_options(options)
+    if backend == "plotly":
+        if ax is not None:
+            raise TypeError(
+                "ax= is a Matplotlib axes; backend='plotly' draws a new plotly Figure "
+                "and returns it"
+            )
+        _refuse_presentation(style, "backend='plotly' does not apply them")
+        return renderer(model, show=show, **style)
     return renderer(model, ax=ax, show=show, **style)
+
+
+def _render_interactive(
+    spec: Any,
+    entries: Sequence[tuple[str, Any]],
+    options: dict[str, Any],
+    *,
+    backend: str,
+    controls: str | Sequence[str],
+    interaction_backend: str,
+    show: bool,
+    ax: Any,
+) -> Any:
+    """The controls of ``spec`` over ``entries``, from the capability record."""
+    from vaft.plot.controls import controls_for
+    from vaft.plot.navigation import ControlState
+    from vaft.plot.renderers.interactive import render_controls
+
+    from .discovery import describe_one
+
+    if ax is not None:
+        raise TypeError("interactive=True draws its own figure and takes no ax=")
+    # A theme is a control here (issue #710); the canvas is the controls
+    # figure's, so format= alone is refused.
+    _refuse_presentation(
+        options, "interactive=True draws its own controls figure", keys=("format",)
+    )
+    record = describe_one(spec.name, entries)
+    offered = controls_for(record)
+    if backend == "plotly":
+        # Plotly cannot apply a Matplotlib theme: the control is not offered
+        # rather than raising on first use, and a theme given to the call is
+        # refused as the static Plotly path refuses it.
+        _refuse_presentation(options, "backend='plotly' does not apply them", keys=("theme",))
+        offered = tuple(c for c in offered if c.name != "theme")
+    if controls != "auto":
+        wanted = [controls] if isinstance(controls, str) else list(controls)
+        unknown = [name for name in wanted if name not in {c.name for c in offered}]
+        if unknown:
+            raise ValueError(
+                f"plot_{spec.stem} offers no control named {', '.join(map(repr, unknown))}; "
+                f"offered: {', '.join(c.name for c in offered) or 'none'}"
+            )
+        offered = tuple(c for c in offered if c.name in wanted)
+    extraction, style = split_options(options)
+    names = {c.name for c in offered}
+    initial = {k: v for k, v in {**extraction, **style}.items() if k in names}
+    fixed = {k: v for k, v in extraction.items() if k not in names}
+    fixed_style = {k: v for k, v in style.items() if k not in names}
+    state = ControlState(offered, initial)
+
+    def build(chosen: dict[str, Any]) -> Any:
+        return build_model(spec.name, entries, **{**fixed, **chosen})
+
+    def draw(model: Any, **kwargs: Any) -> Any:
+        return renderer_for(spec, model, backend)(model, **{**fixed_style, **kwargs})
+
+    return render_controls(
+        build, state, draw=draw, backend=interaction_backend, render_backend=backend, show=show,
+    )
+
+
+def _refuse_presentation(
+    options: Mapping[str, Any], because: str, *, keys: tuple[str, ...] = ("format", "theme")
+) -> None:
+    """Refuse ``format=``/``theme=`` where they would otherwise be dropped.
+
+    They are Matplotlib presentation presets (issue #689) and a path that
+    cannot apply them must say so rather than draw something else.  ``keys``
+    narrows the refusal to the presets a path really cannot take.
+    """
+    named = [key for key in keys if options.get(key) not in (None, "", "none")]
+    if named:
+        what = " and ".join(f"{key}=" for key in named)
+        verb = "is a Matplotlib presentation preset" if len(named) == 1 else "are Matplotlib presentation presets"
+        raise NotImplementedError(f"{what} {verb}; {because}")
 
 
 def refuse_when_unsupported(

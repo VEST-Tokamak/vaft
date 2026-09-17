@@ -1,0 +1,115 @@
+{
+ "colours": {
+  "equilibrium_field_2d": {
+   ".overlays:color=#d62728": 549,
+   ".overlays:color=#e41a1c": 1,
+   ".overlays:color=0.4": 1,
+   ".overlays:color=k": 1
+  },
+  "equilibrium_field_psi": {
+   ".overlays:color=#d62728": 549,
+   ".overlays:color=#e41a1c": 1,
+   ".overlays:color=0.4": 1,
+   ".overlays:color=k": 1
+  },
+  "equilibrium_field_psi_vacuum": {
+   ".overlays:color=0.4": 1
+  },
+  "equilibrium_geometry_boundary": {
+   ".layers:color=#e41a1c": 1
+  },
+  "equilibrium_geometry_topview": {
+   ".layers:color=#e41a1c": 2
+  },
+  "equilibrium_overview": {
+   ".models.overlays:color=#e41a1c": 1,
+   ".models.overlays:color=0.4": 1,
+   ".models.overlays:color=k": 1
+  },
+  "equilibrium_overview_constraint_coverage": {
+   ".models.series:color=black": 3,
+   ".models.series:color=tab:orange": 2,
+   ".models.series:color=tab:red": 1
+  },
+  "equilibrium_overview_constraints": {
+   ".models.series:color=black": 3,
+   ".models.series:color=tab:orange": 1,
+   ".models.series:color=tab:red": 1,
+   ".models.series:markerfacecolor=none": 1
+  },
+  "equilibrium_overview_fit_quality": {
+   ".models.series:color=black": 3
+  },
+  "equilibrium_overview_residuals": {
+   ".models.series:color=black": 3,
+   ".models.series:color=tab:orange": 1,
+   ".models.series:color=tab:red": 1,
+   ".models.series:markerfacecolor=none": 1
+  },
+  "equilibrium_overview_verification": {
+   ".models.overlays:color=#e41a1c": 1,
+   ".models.overlays:color=0.4": 1,
+   ".models.overlays:color=k": 1,
+   ".models.series:color=black": 3,
+   ".models.series:color=red": 3
+  },
+  "machine_geometry_poloidal": {
+   ".layers:color=#377eb8": 12,
+   ".layers:color=#d62728": 549,
+   ".layers:color=#ff7f00": 66,
+   ".layers:color=0.4": 1,
+   ".layers:color=0.55": 950
+  },
+  "machine_geometry_topview": {
+   ".layers:color=#e41a1c": 2,
+   ".layers:color=#ff7f00": 1,
+   ".layers:color=0.4": 2
+  },
+  "magnetics_geometry_poloidal": {
+   ".layers:color=#377eb8": 12,
+   ".layers:color=#ff7f00": 66
+  },
+  "mirnov_spatial_phase": {
+   ".series:color=#377eb8": 2,
+   ".series:color=#e41a1c": 2
+  },
+  "passive_structure_field_wall_reduction": {
+   ".overlays:color=k": 1
+  },
+  "passive_structure_geometry_poloidal": {
+   ".layers:color=0.55": 950
+  },
+  "passive_structure_geometry_wall_mode": {
+   ".layers:color=0.75": 710
+  },
+  "passive_structure_overview_wall_time": {
+   ".models.series:color=k": 1
+  },
+  "pf_coil_geometry_poloidal": {
+   ".layers:color=C0": 159,
+   ".layers:color=C1": 102,
+   ".layers:color=C2": 18,
+   ".layers:color=C3": 18,
+   ".layers:color=C4": 26,
+   ".layers:color=C5": 26,
+   ".layers:color=C6": 50,
+   ".layers:color=C7": 50,
+   ".layers:color=C8": 50,
+   ".layers:color=C9": 50
+  },
+  "startup_proxies_time": {
+   ".models.series:color=0.35": 3,
+   ".models.series:color=0.5": 2
+  },
+  "vacuum_field": {
+   ".overlays:color=0.4": 1
+  },
+  "vacuum_field_midplane": {
+   ".series:color=tab:red": 1
+  },
+  "wall_geometry_poloidal": {
+   ".layers:color=0.4": 1
+  }
+ },
+ "shot": 39915
+}

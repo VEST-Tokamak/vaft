@@ -14,16 +14,20 @@ serves every data model.  The recipes mirror the ``required_paths`` that
 :mod:`vaft.plot.registry` publishes, so the declared data requirements and
 the actual reads cannot drift apart.
 
-The ``CallableRecipe`` builders are the one known impurity: they hand the
-object to ``vaft.omas`` / ``vaft.process`` functions written for an ODS, so a
-non-OMAS namespace converts the IDS such a plot declares before calling
-them (see ``vaft.imas``).  Those imports are function-local; nothing here
+A ``CallableRecipe`` computes its view instead of reading it.  Each one
+declares the paths its builder and helpers read (``reads``) and how it reads
+them (``backend``, issue #439): a *neutral* builder goes through the accessor
+only and is handed any data model as it is; an *OMAS-bound* one hands the
+object to ``vaft.omas`` / ``vaft.process`` functions written for an ODS --
+they write, deep-copy or subscript it -- so a non-OMAS namespace converts the
+IDS such a plot declares before calling them (see ``vaft.imas``), and
+``reason`` names the helper.  Those imports are function-local; nothing here
 imports ``omas`` or ``imas`` at module level.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import json
 import re
 import warnings
@@ -36,6 +40,8 @@ import numpy as np
 # One shared non-mutating accessor, dispatched on the object (issues #118, #63).
 from vaft.plot.backend.access import array as _array, count as _count, get as _get, has as _has
 
+from vaft.plot.intent import palette
+from vaft.plot.presentation import EQUILIBRIUM_ROLE
 from vaft.plot.models import (
     Field2D,
     Geometry3DLayer,
@@ -48,16 +54,25 @@ from vaft.plot.models import (
     Panels,
     PowerSpectrum,
     Profile1D,
+    ReferenceLine,
     ReferenceSlope,
     Series,
     Spectrogram,
     TextPanel,
 )
-from vaft.plot.display import channel_label, figure_title, resolve_display
-from vaft.plot.selection import INBOARD, OUTBOARD
+from vaft.plot.display import PSI_STYLES, channel_label, figure_title, resolve_display
+from vaft.plot.selection import ACTIVE, ALL, INBOARD, OUTBOARD, SIGNAL_PRESETS, UNCLASSIFIED, VALID
 from vaft.plot.registry import get_spec
+from vaft.spectroscopy import (
+    describe_available,
+    format_species,
+    matches,
+    parse_emission_term,
+    parse_line_label,
+)
 
 from vaft.formula.statistics import noise_band, rms
+from vaft.validation.validity import VALIDITY_VALID, is_condemned, record_from_mask
 
 __all__ = [
     "CallableRecipe",
@@ -70,6 +85,10 @@ __all__ = [
     "required_ids",
     "SpectrogramRecipe",
     "build_model",
+    "expand_template",
+    "is_lazy_ods",
+    "materialise_reads",
+    "materialises_for_builder",
     "diagnoses_itself",
     "entry_supports",
     "missing_required_path",
@@ -160,7 +179,9 @@ def _resolve_selection(
     """
     container = _container_of(template, marker)
     count = _count(ods, container)
-    if selection is None or (isinstance(selection, str) and selection == "all"):
+    if selection is None or (isinstance(selection, str) and selection in SIGNAL_PRESETS):
+        # A signal preset names every channel here; which of them carry a
+        # usable signal is decided once the traces exist (_keep_by_signal).
         return list(range(count))
     if isinstance(selection, (int, np.integer)) and not isinstance(selection, bool):
         return [int(selection)]
@@ -217,6 +238,59 @@ def _resolve_selection(
     return list(dict.fromkeys(indices))
 
 
+def _channel_passes_signal_preset(
+    ods: Any, y_path: str, index: int, values: np.ndarray, selection: Any
+) -> bool:
+    """The :func:`_keep_by_signal` rule for one channel read directly."""
+    preset = ACTIVE if selection is None else selection
+    if not isinstance(preset, str) or preset not in SIGNAL_PRESETS or preset == ALL:
+        return True
+    code, mask = _validity_of(ods, y_path, index)
+    if is_condemned(record_from_mask(code, mask)):
+        return False
+    if preset == ACTIVE:
+        finite = values[np.isfinite(values)]
+        return finite.size > 0 and bool(np.any(finite != 0.0))
+    return True
+
+
+def _keep_by_signal(traces: list, selection: Any) -> list:
+    """Apply a signal preset to built traces (``vaft.plot.selection``).
+
+    The default, ``active``, keeps channels flagged valid whose trace carries a
+    non-zero finite sample; ``valid`` keeps flagged-valid channels whatever
+    they read; ``all`` keeps everything.  An explicit selection -- indices,
+    identifiers, a region preset -- is what the caller named and is returned
+    untouched, invalid channels included, for the renderer to mark.
+    """
+    preset = ACTIVE if selection is None else selection
+    if not isinstance(preset, str) or preset not in SIGNAL_PRESETS or preset == ALL:
+        return traces
+    kept = []
+    for trace in traces:
+        if trace.is_invalid_channel:
+            continue
+        if preset == ACTIVE:
+            y = np.asarray(trace.y, dtype=float)
+            finite = y[np.isfinite(y)]
+            if finite.size == 0 or not np.any(finite != 0.0):
+                continue
+        kept.append(trace)
+    return kept
+
+
+def _channel_carries_signal(ods: Any, candidates: Sequence[str], index: int) -> bool:
+    """Whether a channel's trace has a finite non-zero sample -- what ``active`` keeps."""
+    try:
+        array = _first_array(ods, tuple(candidates), i=index)
+    except ValueError:
+        return False
+    if array is None or array.ndim != 1:
+        return False
+    finite = array[np.isfinite(array)]
+    return finite.size > 0 and bool(np.any(finite != 0.0))
+
+
 def _channel_has_data(ods: Any, candidates: Sequence[str], index: int) -> bool:
     """Whether this channel actually carries the signal being plotted.
 
@@ -255,7 +329,7 @@ def _resolve_preset(
         representative_index,
     )
 
-    if term not in PRESETS:
+    if term not in PRESETS or term in SIGNAL_PRESETS:
         return None
     r_values, z_values = _channel_positions(ods, container, count)
     split = radial_divider(r_values)
@@ -423,6 +497,9 @@ def missing_required_path(ods: Any, name: str) -> str | None:
         if any(entry_supports(ods, member) for member in recipe.members):
             return None
         return " or ".join(recipe.members)
+    reason = _unmet_data_condition(recipe, name, ods)
+    if reason is not None:
+        return reason
     if not spec.required_paths:
         if spec.ids and any(_has(ods, root) for root in spec.ids):
             return None
@@ -437,6 +514,30 @@ def missing_required_path(ods: Any, name: str) -> str | None:
             continue
         return template
     return None
+
+
+def _unmet_data_condition(recipe: Any, name: str, ods: Any) -> str | None:
+    """The reason a recipe's own predicate refuses this input, or ``None``.
+
+    A plot may need something no path expresses -- probes spread around the
+    torus, say (issue #485).  The predicate is asked before the paths so that
+    a recipe declaring no ``required_paths`` still gets one, and a failure
+    inside it is reported as a failure rather than dressed up as
+    unavailability: an unreadable input and a broken predicate are different
+    facts, and a catalog that reported the second as the first would hide it.
+    """
+    predicate = getattr(recipe, "available", None)
+    if predicate is None:
+        return None
+    try:
+        return predicate(ods) or None
+    except Exception as error:  # noqa: BLE001 - one bad predicate must not end the catalog
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "the availability check for %s failed: %s", name, error
+        )
+        return f"an availability check that failed: {type(error).__name__}: {error}"
 
 
 class _ZeroIndices(dict):
@@ -513,6 +614,23 @@ def required_ids(name: str) -> tuple[str, ...]:
 
 
 @dataclass(frozen=True)
+class Abscissa:
+    """One quantity a line plot can be drawn against (issue #481).
+
+    ``paths`` are read exactly as ``y_path`` is -- ``{i}`` substituted per
+    channel, or gathered per slice for a slice-indexed recipe -- so a sibling
+    is only ever offered where it shares the ordinate's own grid and nothing
+    is interpolated.  ``time`` and ``index`` are built from the recipe itself
+    (:func:`_abscissa_of`) and need no declaration.
+    """
+
+    name: str
+    paths: tuple[str, ...] = ()
+    label: str = ""
+    unit: str = ""
+
+
+@dataclass(frozen=True)
 class LineRecipe:
     """How to read a ``LineSeries`` from an ODS.
 
@@ -544,6 +662,16 @@ class LineRecipe:
     #: Missing or zero divides by 1.0 rather than raising or producing inf/nan.
     divide_by_path: str = ""
     title: str = ""
+    #: Display sign policy (issue #307): ``canonical`` draws the stored sign
+    #: exactly; ``intuitive`` multiplies the whole plotted object by one
+    #: ``+1``/``-1`` so its dominant response is positive, and says so in the
+    #: title when it flipped.  Set on quantities whose sign is a convention
+    #: (plasma current, diamagnetic flux, toroidal field), never on an
+    #: intrinsically positive one.
+    orientation: str = "canonical"
+    #: Sibling quantities this plot may be drawn against besides time and the
+    #: sample index (issue #481), each sampled on the ordinate's own grid.
+    abscissae: tuple[Abscissa, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -559,6 +687,48 @@ class ProfileRecipe:
     y_unit: str = ""
     label_path: str = ""
     fallback_y_paths: tuple[str, ...] = ()
+    #: Display sign policy (issue #307), as on :class:`LineRecipe`.  A profile
+    #: whose sign is a convention rather than a measurement -- everything the
+    #: COCOS of the source decides -- can be drawn with its dominant response
+    #: positive, per entry, so two machines stored in opposite conventions are
+    #: comparable in one axes.  The data is untouched and the title says so.
+    orientation: str = "canonical"
+
+
+#: Where a sensor's poloidal angle comes from (issue #486): ``geometric`` is
+#: measured about the layout's centre; ``stored`` reads the IDS
+#: ``poloidal_angle``, which on VEST is the probe's *orientation* (3*pi/2 for
+#: every +Bz probe) and so collapses to one abscissa there.
+ANGLE_SOURCES = ("geometric", "stored")
+
+#: The abscissae of a spatial plot: height, or the poloidal angle about a centre.
+SPATIAL_COORDINATES = ("z", "theta")
+
+
+@dataclass(frozen=True)
+class ChannelProfileRecipe:
+    """How to read a sensor array's values at one time against sensor position.
+
+    One point per channel of ``y_path`` (``{i}``), sampled at the stored
+    time nearest ``time=`` (:func:`resolve_time_sample`); the positions come
+    from the channel's ``position`` node.  ``coordinate="z"`` draws the
+    inboard and outboard sensors as two panels, split by the family's own
+    radial divider; ``"theta"`` draws one panel against the poloidal angle
+    about the layout centre (:func:`vaft.process.magnetics.magnetics_sensor_centre`,
+    ``centre=`` overrides it).
+    """
+
+    y_path: str
+    time_paths: tuple[str, ...]
+    coordinates: tuple[str, ...] = SPATIAL_COORDINATES
+    default_coordinate: str = "z"
+    y_label: str = ""
+    y_unit: str = ""
+    label_path: str = ""
+    fallback_y_paths: tuple[str, ...] = ()
+    orientation: str = "canonical"
+    title: str = ""
+    index: str = "channel"
 
 
 @dataclass(frozen=True)
@@ -570,6 +740,12 @@ class GeometryRecipe:
     x_label: str = "R [m]"
     y_label: str = "Z [m]"
     title: str = ""
+    #: Annotate each point of a ``points`` layer with its channel index, so a
+    #: sensor in the view can be named in ``selection=`` without a lookup.
+    annotate_indices: bool = False
+    #: ``GeometryLayer.role`` of every layer: ``"equilibrium"`` for a view of
+    #: the plasma itself, whose outline must not size a canvas (issue #689).
+    role: str = ""
 
 
 @dataclass(frozen=True)
@@ -583,6 +759,79 @@ class FieldRecipe:
     boundary_paths: tuple[str, str] = ()
     title: str = ""
     values_order: str = "zr"
+    #: The quantities this map can draw (issue #483), keys of
+    #: :data:`EQUILIBRIUM_FIELDS`; empty for a map with a single fixed value.
+    fields: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class EquilibriumField:
+    """One quantity an equilibrium 2-D map can draw (issue #483).
+
+    ``updater`` names the :mod:`vaft.omas` function that writes ``leaf`` when
+    a slice does not store it; the builder runs it on a private copy, so the
+    caller's ODS is never written.  ``styles`` is the field's own style
+    vocabulary: the flux map has three readings (:data:`PSI_STYLES`), a
+    scalar field has one.
+    """
+
+    name: str
+    leaf: str
+    label: str
+    unit: str
+    styles: tuple[str, ...] = ("filled",)
+    updater: str = ""
+    #: A 1-D flux function mapped onto the grid at display time, for a
+    #: quantity the data dictionary gives no 2-D leaf to store.
+    mapped_from: str = ""
+
+
+#: The quantities ``equilibrium_field_2d`` draws, in offer order.  ``psi`` is
+#: the only one an EFIT export stores; the rest are derived from it and from
+#: the 1-D profiles it indexes.
+EQUILIBRIUM_FIELDS: dict[str, EquilibriumField] = {
+    field.name: field
+    for field in (
+        EquilibriumField("psi", "psi", "Poloidal Flux", "Wb", PSI_STYLES),
+        EquilibriumField(
+            "j_tor", "j_tor", "Toroidal Current Density", "A/m^2",
+            updater="update_equilibrium_profiles_2d_j_tor",
+        ),
+        # The DD defines no ``profiles_2d.pressure``, so this one is mapped
+        # where it is drawn rather than written into an ODS -- on the slice's
+        # own psi grid, never an assumed uniform one.
+        EquilibriumField(
+            "pressure", "pressure", "Pressure", "Pa",
+            mapped_from="profiles_1d.pressure",
+        ),
+        EquilibriumField(
+            "b_field_r", "b_field_r", "Radial Field B_R", "T",
+            updater="update_equilibrium_profiles_2d_b_field",
+        ),
+        EquilibriumField(
+            "b_field_z", "b_field_z", "Vertical Field B_Z", "T",
+            updater="update_equilibrium_profiles_2d_b_field",
+        ),
+        EquilibriumField(
+            "b_field_tor", "b_field_tor", "Toroidal Field B_phi", "T",
+            updater="update_equilibrium_profiles_2d_b_field",
+        ),
+    )
+}
+
+EQUILIBRIUM_FIELD_NAMES = tuple(EQUILIBRIUM_FIELDS)
+
+#: What a poloidal map may draw over the field: the machine's parts, plus the
+#: boundary and axis that belong to the equilibrium itself.
+POLOIDAL_OVERLAYS = ("coils", "passive", "wall", "boundary", "axis")
+
+#: The machine context every poloidal map carries unless the caller says
+#: otherwise; an equilibrium field adds its own boundary and axis to it.
+DEFAULT_POLOIDAL_OVERLAYS = ("coils", "wall")
+
+#: What the composed machine view may draw.  It has no field of its own, so
+#: no boundary or axis; the diagnostics it places are one name.
+MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics")
 
 
 @dataclass(frozen=True)
@@ -609,16 +858,58 @@ class PowerSpectrumRecipe:
     value_label: str = "PSD"
 
 
+#: How a computed view reads its input (issue #439).  ``NEUTRAL``: every read
+#: goes through :mod:`vaft.plot.backend.access` or a ``vaft.omas`` helper that
+#: reads through :mod:`vaft.ods_access` (both dispatch on the object), so an
+#: OMAS ODS, a native IMAS entry and a lazy remote handle are all handed to the
+#: builder as they are.
+#: ``OMAS_BOUND``: the builder passes the object to a helper that writes,
+#: deep-copies or subscripts an OMAS ODS, so a convertible input is converted
+#: first (:func:`_ods_for_callable`).
+NEUTRAL = "neutral"
+OMAS_BOUND = "omas"
+BACKENDS = (NEUTRAL, OMAS_BOUND)
+
+
 @dataclass(frozen=True)
 class CallableRecipe:
     """A plot whose extraction needs real computation, not just path reads.
 
     ``builder(ods, **options)`` returns the view model.  Used for composed views
     and for models derived through :mod:`vaft.omas` processing helpers.
+
+    ``available(ods)`` answers a requirement that no path can express -- two
+    probes at *distinct* toroidal angles, say (issue #485).  It returns the
+    reason the input cannot serve the plot, or ``None`` when it can, and
+    :func:`missing_required_path` consults it after the declared paths, so
+    discovery never advertises a plot that would then raise.
+
+    ``reads`` are the IMAS-DD path templates the builder and every helper it
+    calls read (``{i}``/``{j}`` for an enumerated index, a digit for a fixed
+    one; leaves, never containers).  It is a declaration for ``dd_*`` and the
+    completeness tests, not a gate: availability stays with the registry
+    spec's ``required_paths`` and ``available``.  ``backend`` is one of
+    :data:`BACKENDS`; an OMAS-bound recipe names in ``reason`` the helper that
+    binds it, a neutral one carries no reason.
     """
 
     builder: Any
     description: str = ""
+    available: Any = None
+    reads: tuple[str, ...] = ()
+    backend: str = OMAS_BOUND
+    reason: str = ""
+    #: ``True`` for a builder that overlays every entry: it is handed the
+    #: ``(label, object)`` sequence, each object prepared as a single-entry
+    #: builder's would be, instead of the first object alone.
+    multi_entry: bool = False
+
+    def __post_init__(self) -> None:
+        if self.backend not in BACKENDS:
+            raise ValueError(f"CallableRecipe.backend must be one of {BACKENDS}; got {self.backend!r}")
+        if self.backend == NEUTRAL and self.reason:
+            raise ValueError("a neutral CallableRecipe carries no reason; reason names an OMAS-bound helper")
+        object.__setattr__(self, "reads", tuple(self.reads))
 
 
 @dataclass(frozen=True)
@@ -626,9 +917,9 @@ class PanelRecipe:
     """A composite built from other canonical plots, one per panel.
 
     ``member_defaults`` are renderer keyword arguments applied to every member
-    beneath whatever the caller passes.  ``keep_unavailable`` renders a member
-    the input cannot support as a labelled empty panel instead of dropping it,
-    so the composite keeps one shape on every shot (issue #260).
+    beneath whatever the caller passes.  A member the input cannot support is
+    omitted and the grid shrinks; the members that remain keep their declared
+    order, so what is drawn is always in a known order (issue #476).
     """
 
     members: tuple[str, ...]
@@ -636,7 +927,6 @@ class PanelRecipe:
     share_x: bool = True
     suptitle: str = ""
     member_defaults: Mapping[str, Any] = field(default_factory=dict)
-    keep_unavailable: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -646,6 +936,304 @@ class PanelRecipe:
 _MAGNETICS_TIME = ("magnetics.time",)
 _EQ_TIME = ("equilibrium.time",)
 
+# --- NBI source terms ------------------------------------------------------
+#
+# These read `core_sources`, not `nbi`: the beam's *effect* on the plasma is a
+# source term, while the `nbi` IDS describes the hardware. The NBI entry is
+# found by its identifier rather than by position, because `core_sources` holds
+# every source a run computed and nothing fixes the beam's index.
+
+#: `core_source_identifier` index for neutral beam injection.
+_NBI_SOURCE_INDEX = 2
+
+
+def _nbi_source_index(ods, **options):
+    """Position of the NBI entry in ``core_sources.source``.
+
+    ``source=`` names one explicitly; otherwise the identifier decides. Raising
+    here with the indices that *are* present beats returning an empty plot.
+    """
+    explicit = options.get("source")
+    if explicit is not None:
+        return int(explicit)
+    count = _count(ods, "core_sources.source")
+    found = []
+    for index in range(count):
+        if _get(ods, f"core_sources.source.{index}.identifier.index") == _NBI_SOURCE_INDEX:
+            return index
+        name = _get(ods, f"core_sources.source.{index}.identifier.name")
+        if name:
+            found.append(f"{index}:{name}")
+    raise ValueError(
+        "no neutral-beam entry in core_sources"
+        + (f"; this ODS holds {', '.join(found)}" if found else " (it holds no sources)")
+        + ". Map a NUBEAM result with vaft.machine_mapping.core_sources first."
+    )
+
+
+def _build_nbi_profile(ods, *, field, y_label, y_unit, heading, **options):
+    """One `core_sources` NBI profile against its own radial grid."""
+    source = _nbi_source_index(ods, **options)
+    base = f"core_sources.source.{source}.profiles_1d"
+    count = _count(ods, base)
+    if not count:
+        raise ValueError(f"core_sources.source.{source} carries no profiles_1d")
+    index = int(options.get("time_slice", 0))
+    if index >= count:
+        raise ValueError(
+            f"time_slice {index} is out of range; core_sources.source.{source} "
+            f"has {count}"
+        )
+    slice_base = f"{base}.{index}"
+    values = _array(ods, f"{slice_base}.{field}")
+    if values is None:
+        raise ValueError(
+            f"{field} is not in this ODS at {slice_base}. A hydrogen run has no "
+            "fusion channels, and a NUBEAM result maps only what it produced."
+        )
+    rho = _array(ods, f"{slice_base}.grid.rho_tor_norm")
+    if rho is None:
+        raise ValueError(f"no rho_tor_norm grid at {slice_base}.grid")
+
+    return Profile1D(
+        series=(Series(x=rho, y=values, label=heading),),
+        coordinate_label=r"$\rho_{tor,norm}$",
+        y_label=y_label,
+        y_unit=y_unit,
+        title=heading,
+    )
+
+
+def _nbi_profile_builder(**spec):
+    def builder(ods, **options):
+        return _build_nbi_profile(ods, **spec, **options)
+
+    return builder
+
+
+# ---------------------------------------------------------------------------
+# What the computed views read (issue #439): the templates their builders and
+# helpers touch, shared where several builders share a helper.
+# ---------------------------------------------------------------------------
+
+_WALL_LIMITER_READS = (
+    "wall.description_2d.0.limiter.unit.{i}.outline.r",
+    "wall.description_2d.0.limiter.unit.{i}.outline.z",
+)
+_WALL_VESSEL_READS = (
+    "wall.description_2d.0.vessel.unit.{i}.annular.outline_inner.r",
+    "wall.description_2d.0.vessel.unit.{i}.annular.outline_outer.r",
+    "wall.description_2d.0.vessel.unit.{i}.annular.centreline.r",
+    "wall.description_2d.0.vessel.unit.{i}.element.{j}.outline.r",
+)
+
+
+def _element_reads(base: str) -> tuple[str, ...]:
+    """What :func:`_element_outlines` reads under ``base`` (a coil or a loop)."""
+    return tuple(
+        f"{base}.element.{{j}}.geometry.{leaf}"
+        for leaf in ("outline.r", "outline.z", "rectangle.r", "rectangle.z", "rectangle.width", "rectangle.height")
+    )
+
+
+_PF_COIL_READS = _element_reads("pf_active.coil.{i}") + ("pf_active.coil.{i}.name",)
+_PF_PASSIVE_READS = _element_reads("pf_passive.loop.{i}")
+_CAMERA_FRAME_READS = (
+    "camera_visible.channel.{i}.detector.{j}.frame.{k}.image_raw",
+    "camera_visible.channel.{i}.detector.{j}.frame.{k}.time",
+)
+
+
+def _impa_reads(*quantities: str) -> tuple[str, ...]:
+    """What the IMPA builders read: the probe with an ``impa:`` identifier on either node."""
+    reads: list[str] = []
+    for node in ("magnetics.b_field_tor_probe", "magnetics.b_field_pol_probe"):
+        reads += [f"{node}.{{i}}.identifier", f"{node}.{{i}}.name"]
+        for quantity in quantities:
+            reads += [f"{node}.{{i}}.{quantity}.data", f"{node}.{{i}}.{quantity}.time"]
+    return (*reads, "magnetics.time")
+
+
+def _nbi_reads(field: str) -> tuple[str, ...]:
+    return (
+        "core_sources.source.{i}.identifier.index",
+        "core_sources.source.{i}.identifier.name",
+        "core_sources.source.{i}.profiles_1d.{j}.grid.rho_tor_norm",
+        f"core_sources.source.{{i}}.profiles_1d.{{j}}.{field}",
+    )
+
+
+def _geometry_reads(*names: str) -> tuple[str, ...]:
+    """The outline and label templates of the named ``GeometryRecipe`` entries."""
+    reads: list[str] = []
+    for name in names:
+        for _kind, r_template, z_template, _container, label_template, _style in RECIPES[name].layers:
+            reads += [r_template, z_template]
+            if "." in label_template:
+                reads.append(label_template)
+    return tuple(reads)
+
+
+def _topview_reads() -> tuple[str, ...]:
+    """What :func:`_topview_diagnostic_layers` reads for every diagnostic family."""
+    reads: list[str] = []
+    for container, _label, kind, _style in _TOPVIEW_DIAGNOSTICS:
+        if kind == "segments":
+            for point in ("first_point", "second_point"):
+                reads += [f"{container}.{{i}}.line_of_sight.{point}.r", f"{container}.{{i}}.line_of_sight.{point}.phi"]
+        elif container in _LISTED_POSITIONS:
+            reads += [f"{container}.{{i}}.position.{{j}}.r", f"{container}.{{i}}.position.{{j}}.phi"]
+        else:
+            reads += [f"{container}.{{i}}.position.r", f"{container}.{{i}}.position.phi"]
+    return tuple(reads)
+
+
+#: The EFIT constraint families vaft.omas.efit_quality reads, per slice.
+_EFIT_CONSTRAINT_READS = tuple(
+    f"equilibrium.time_slice.{{i}}.constraints.{family}.{leaf}"
+    for family in ("bpol_probe.{j}", "flux_loop.{j}", "pf_current.{j}")
+    for leaf in ("measured", "measured_error_upper", "reconstructed", "chi_squared", "weight", "source", "exact")
+) + tuple(
+    f"equilibrium.time_slice.{{i}}.constraints.{family}.{leaf}"
+    for family in ("ip", "diamagnetic_flux")
+    for leaf in ("measured", "measured_error_upper", "reconstructed", "chi_squared", "weight")
+) + (
+    "equilibrium.time_slice.{i}.constraints.b_field_tor_vacuum_r.measured",
+    "equilibrium.time_slice.{i}.constraints.b_field_tor_vacuum_r.measured_error_upper",
+    "equilibrium.time_slice.{i}.convergence.iterations_n",
+    "equilibrium.time_slice.{i}.convergence.grad_shafranov_deviation_value",
+    "equilibrium.time_slice.{i}.time",
+    "equilibrium.time",
+    "equilibrium.code.parameters",
+)
+
+#: The wall-mode basis and impedance helpers (vaft.omas.process_wrapper) read
+#: the conductor tables and the coupling matrices.
+_WALL_MODE_READS = (
+    *_PF_PASSIVE_READS, *_PF_COIL_READS,
+    "pf_active.coil.{i}.current.data", "pf_active.coil.{i}.current.time",
+    "pf_active.coil.{i}.identifier", "pf_active.coil.{i}.resistance",
+    "pf_active.coil.{i}.element.{j}.area", "pf_active.coil.{i}.element.{j}.turns_with_sign",
+    "pf_active.coil.{i}.element.{j}.geometry.geometry_type",
+    "pf_passive.loop.{i}.identifier", "pf_passive.loop.{i}.name",
+    "pf_passive.loop.{i}.resistance", "pf_passive.loop.{i}.resistivity",
+    "pf_passive.loop.{i}.element.{j}.area", "pf_passive.loop.{i}.element.{j}.identifier",
+    "pf_passive.loop.{i}.element.{j}.turns_with_sign",
+    "pf_passive.loop.{i}.element.{j}.geometry.geometry_type",
+    "pf_passive.code.parameters", "pf_passive.ids_properties.comment",
+    "pf_passive.ids_properties.provenance.node.{i}.path",
+    "pf_active.ids_properties.comment",
+    "em_coupling.mutual_passive_active", "em_coupling.mutual_passive_passive",
+    "em_coupling.code.parameters", "em_coupling.ids_properties.comment",
+    "wall.description_2d.0.limiter.type.index",
+    *_WALL_LIMITER_READS,
+)
+
+_MAGNETICS_SENSOR_READS = (
+    "magnetics.time",
+    "magnetics.flux_loop.{i}.flux.data", "magnetics.flux_loop.{i}.flux.time",
+    "magnetics.flux_loop.{i}.flux.validity", "magnetics.flux_loop.{i}.flux.validity_timed",
+    "magnetics.flux_loop.{i}.name",
+    "magnetics.flux_loop.{i}.position.{j}.r", "magnetics.flux_loop.{i}.position.{j}.z",
+    "magnetics.b_field_pol_probe.{i}.field.data", "magnetics.b_field_pol_probe.{i}.field.time",
+    "magnetics.b_field_pol_probe.{i}.field.validity", "magnetics.b_field_pol_probe.{i}.field.validity_timed",
+    "magnetics.b_field_pol_probe.{i}.name", "magnetics.b_field_pol_probe.{i}.poloidal_angle",
+    "magnetics.b_field_pol_probe.{i}.position.r", "magnetics.b_field_pol_probe.{i}.position.z",
+)
+
+#: The plasma-onset finders (vaft.omas.discharge_timing / find_breakdown_onset)
+#: read the current, the UV lines and the summary's time convention.
+_ONSET_READS = (
+    "magnetics.ip.{i}.data", "magnetics.ip.{i}.time",
+    "magnetics.ip.{i}.validity", "magnetics.ip.{i}.validity_timed", "magnetics.time",
+    "spectrometer_uv.time",
+    "spectrometer_uv.channel.{i}.processed_line.{j}.intensity.data",
+    "spectrometer_uv.channel.{i}.processed_line.{j}.intensity.time",
+    "spectrometer_uv.channel.{i}.processed_line.{j}.intensity.validity",
+    "spectrometer_uv.channel.{i}.processed_line.{j}.intensity.validity_timed",
+    "spectrometer_uv.channel.{i}.processed_line.{j}.label",
+    "spectrometer_uv.channel.{i}.processed_line.{j}.wavelength_central",
+    "summary.code.parameters",
+)
+
+_COIL_3D_READS = tuple(
+    f"coils_non_axisymmetric.coil.{{i}}.conductor.0.elements.{point}.{axis}"
+    for point in ("start_points", "end_points") for axis in ("r", "phi", "z")
+) + ("coils_non_axisymmetric.coil.{i}.name",)
+
+
+def _core_profile_field_reads(quantity: str) -> tuple[str, ...]:
+    return (
+        "equilibrium.time",
+        "equilibrium.time_slice.{i}.time",
+        "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1",
+        "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2",
+        "equilibrium.time_slice.{i}.profiles_2d.0.psi",
+        "equilibrium.time_slice.{i}.global_quantities.psi_axis",
+        "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+        "core_profiles.time",
+        "core_profiles.profiles_1d.{i}.time",
+        f"core_profiles.profiles_1d.{{i}}.electrons.{quantity}",
+        "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+        *_WALL_LIMITER_READS,
+    )
+
+
+def _mhd_linear_profile_reads(field: str) -> tuple[str, ...]:
+    base = "mhd_linear.time_slice.{i}.toroidal_mode.{j}"
+    return (
+        "mhd_linear.time", "mhd_linear.code.parameters",
+        f"{base}.n_tor", f"{base}.energy_perturbed", f"{base}.m_pol_dominant",
+        f"{base}.plasma.grid.dim1", f"{base}.plasma.grid.dim2",
+        f"{base}.plasma.{field}.real", f"{base}.plasma.{field}.imaginary",
+    )
+
+
+#: What the equilibrium helpers (as_equilibrium, the psi-convention probe, the
+#: derived-profile updaters) read off a slice beside the constraints.
+_EQUILIBRIUM_SLICE_READS = (
+    "equilibrium.code.parameters", "equilibrium.ids_properties.cocos",
+    "equilibrium.ids_properties.comment", "equilibrium.ids_properties.homogeneous_time",
+    "equilibrium.time", "equilibrium.time_slice.{i}.time",
+    "equilibrium.vacuum_toroidal_field.b0", "equilibrium.vacuum_toroidal_field.r0",
+    "equilibrium.time_slice.{i}.boundary.outline.r", "equilibrium.time_slice.{i}.boundary.outline.z",
+    "equilibrium.time_slice.{i}.global_quantities.ip",
+    "equilibrium.time_slice.{i}.global_quantities.b0",
+    "equilibrium.time_slice.{i}.global_quantities.major_radius",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.z",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.b_field_tor",
+    "equilibrium.time_slice.{i}.global_quantities.psi_axis",
+    "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+    "equilibrium.time_slice.{i}.global_quantities.q_axis",
+    "equilibrium.time_slice.{i}.global_quantities.q_95",
+    "equilibrium.time_slice.{i}.global_quantities.q_min.value",
+    "equilibrium.time_slice.{i}.global_quantities.q_min.rho_tor_norm",
+    "equilibrium.time_slice.{i}.profiles_1d.psi", "equilibrium.time_slice.{i}.profiles_1d.psi_norm",
+    "equilibrium.time_slice.{i}.profiles_1d.phi", "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
+    "equilibrium.time_slice.{i}.profiles_1d.q", "equilibrium.time_slice.{i}.profiles_1d.f",
+    "equilibrium.time_slice.{i}.profiles_1d.pressure",
+    "equilibrium.time_slice.{i}.profiles_1d.dpressure_dpsi", "equilibrium.time_slice.{i}.profiles_1d.f_df_dpsi",
+    "equilibrium.time_slice.{i}.profiles_1d.area", "equilibrium.time_slice.{i}.profiles_1d.volume",
+    "equilibrium.time_slice.{i}.profiles_1d.r_inboard", "equilibrium.time_slice.{i}.profiles_1d.r_outboard",
+    "equilibrium.time_slice.{i}.profiles_2d.0.grid_type.index",
+    "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1", "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2",
+    "equilibrium.time_slice.{i}.profiles_2d.0.psi", "equilibrium.time_slice.{i}.profiles_2d.0.j_tor",
+)
+
+#: What vaft.omas.efit_quality.efit_quality_metrics reads beside the constraints.
+_EFIT_QUALITY_READS = (
+    *_EFIT_CONSTRAINT_READS,
+    "equilibrium.time_slice.{i}.global_quantities.ip",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.z",
+    "equilibrium.time_slice.{i}.global_quantities.psi_axis",
+    "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+    "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1",
+    "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2",
+    "equilibrium.time_slice.{i}.profiles_2d.0.psi",
+)
+
 RECIPES: dict[str, Any] = {
     # --- magnetics -----------------------------------------------------------
     "plasma_current_time": LineRecipe(
@@ -654,6 +1242,7 @@ RECIPES: dict[str, Any] = {
         y_label="Plasma Current",
         y_unit="A",
         title="Plasma Current",
+        orientation="intuitive",
     ),
     "diamagnetic_flux_time": LineRecipe(
         y_path="magnetics.diamagnetic_flux.0.data",
@@ -661,6 +1250,7 @@ RECIPES: dict[str, Any] = {
         y_label="Diamagnetic Flux",
         y_unit="Wb",
         title="Diamagnetic Flux",
+        orientation="intuitive",
     ),
     "flux_loop_time_flux": LineRecipe(
         y_path="magnetics.flux_loop.{i}.flux.data",
@@ -687,6 +1277,22 @@ RECIPES: dict[str, Any] = {
         y_unit="V",
         label_path="magnetics.flux_loop.{i}.name",
         title="Flux Loop Voltage",
+    ),
+    "flux_loop_spatial_flux": ChannelProfileRecipe(
+        y_path="magnetics.flux_loop.{i}.flux.data",
+        time_paths=("magnetics.flux_loop.{i}.flux.time", "magnetics.flux_loop.time", "magnetics.time"),
+        y_label="Poloidal Flux",
+        y_unit="Wb",
+        label_path="magnetics.flux_loop.{i}.name",
+        title="Flux loops",
+    ),
+    "b_field_probe_spatial_field": ChannelProfileRecipe(
+        y_path="magnetics.b_field_pol_probe.{i}.field.data",
+        time_paths=("magnetics.b_field_pol_probe.{i}.field.time", "magnetics.b_field_pol_probe.time", "magnetics.time"),
+        y_label="Poloidal Field",
+        y_unit="T",
+        label_path="magnetics.b_field_pol_probe.{i}.name",
+        title="B-field probes",
     ),
     "b_field_probe_time_field": LineRecipe(
         y_path="magnetics.b_field_pol_probe.{i}.field.data",
@@ -738,6 +1344,7 @@ RECIPES: dict[str, Any] = {
         y_label="Plasma Current",
         y_unit="A",
         title="Equilibrium Plasma Current",
+        orientation="intuitive",
     ),
     "equilibrium_time_li": LineRecipe(
         y_path="equilibrium.time_slice.{i}.global_quantities.li_3",
@@ -838,6 +1445,7 @@ RECIPES: dict[str, Any] = {
         # tf.b_field_tor_vacuum_r.data is B_t * R [T*m]; divide by the reference
         # radius to recover the field itself, matching the legacy renderer.
         divide_by_path="tf.r0",
+        orientation="intuitive",
     ),
     "tf_coil_time_b_t_vacuum_r": LineRecipe(
         y_path="tf.b_field_tor_vacuum_r.data",
@@ -845,6 +1453,7 @@ RECIPES: dict[str, Any] = {
         y_label="B_t * R",
         y_unit="T m",
         title="Vacuum B_t * R",
+        orientation="intuitive",
     ),
     "tf_coil_time_current": LineRecipe(
         y_path="tf.coil.{i}.current.data",
@@ -864,6 +1473,26 @@ RECIPES: dict[str, Any] = {
         y_unit="a.u.",
         label_path="spectrometer_uv.channel.{i}.name",
         title="UV Line Intensity",
+    ),
+    # Net launched ECH power, forward minus reflected (issue #165); noisy and
+    # spiky, so the plot is usually read with smooth=.
+    "ec_launchers_time_power": LineRecipe(
+        y_path="ec_launchers.beam.{i}.power_launched.data",
+        index="channel",
+        x_paths=("ec_launchers.beam.{i}.power_launched.time", "ec_launchers.time"),
+        y_label="Launched Power",
+        y_unit="W",
+        label_path="ec_launchers.beam.{i}.name",
+        title="EC Launched Power",
+    ),
+    "rogowski_coil_time_current": LineRecipe(
+        y_path="magnetics.rogowski_coil.{i}.current.data",
+        index="channel",
+        x_paths=("magnetics.rogowski_coil.{i}.current.time", "magnetics.time"),
+        y_label="Rogowski Current",
+        y_unit="A",
+        label_path="magnetics.rogowski_coil.{i}.name",
+        title="Rogowski Coil Current",
     ),
     "barometry_time_pressure": LineRecipe(
         y_path="barometry.gauge.{i}.pressure.data",
@@ -952,6 +1581,39 @@ RECIPES: dict[str, Any] = {
         title="Volume-averaged n_e",
     ),
     # --- 1D profiles ---------------------------------------------------------
+    "nbi_profile_electron_heating": CallableRecipe(
+        builder=_nbi_profile_builder(
+            field="electrons.energy",
+            y_label="NBI electron heating",
+            y_unit="W.m^-3",
+            heading="NBI electron heating",
+        ),
+        description="Beam power density to electrons, from a mapped NUBEAM result.",
+        reads=_nbi_reads("electrons.energy"),
+        backend=NEUTRAL,
+    ),
+    "nbi_profile_ion_heating": CallableRecipe(
+        builder=_nbi_profile_builder(
+            field="total_ion_energy",
+            y_label="NBI ion heating",
+            y_unit="W.m^-3",
+            heading="NBI ion heating",
+        ),
+        description="Beam power density to ions, from a mapped NUBEAM result.",
+        reads=_nbi_reads("total_ion_energy"),
+        backend=NEUTRAL,
+    ),
+    "nbi_profile_current_drive": CallableRecipe(
+        builder=_nbi_profile_builder(
+            field="j_parallel",
+            y_label="NBI driven current density",
+            y_unit="A.m^-2",
+            heading="NBI driven current",
+        ),
+        description="Beam-driven parallel current density, from a mapped NUBEAM result.",
+        reads=_nbi_reads("j_parallel"),
+        backend=NEUTRAL,
+    ),
     "equilibrium_profile_pressure": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.pressure",
         y_label="Pressure",
@@ -960,6 +1622,12 @@ RECIPES: dict[str, Any] = {
     "equilibrium_profile_q": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.q",
         y_label="Safety Factor q",
+        # q carries the sign of the source's COCOS -- sgn(Ip)*sgn(B0) in the
+        # 11-family -- so half the machines in a cross-machine overlay store it
+        # negative.  Draw it the way it is read, per entry; f, ffprime and
+        # pprime stay canonical because their sign also carries gradient
+        # direction, and can be flipped with orientation="intuitive".
+        orientation="intuitive",
     ),
     "equilibrium_profile_j_tor": ProfileRecipe(
         y_path="equilibrium.time_slice.{i}.profiles_1d.j_tor",
@@ -1072,34 +1740,24 @@ RECIPES: dict[str, Any] = {
         # Matplotlib consume (Z, R); square EFIT grids previously concealed
         # this transpose because their shapes are identical.
         values_order="rz",
+        fields=("psi",),
+    ),
+    "equilibrium_field_2d": FieldRecipe(
+        r_path="equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1",
+        z_path="equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2",
+        # psi is what every field needs -- the others are read from it or
+        # from the profiles it indexes -- so availability is psi's.
+        value_path="equilibrium.time_slice.{i}.profiles_2d.0.psi",
+        value_label="Poloidal Flux [Wb]",
+        boundary_paths=(
+            "equilibrium.time_slice.{i}.boundary.outline.r",
+            "equilibrium.time_slice.{i}.boundary.outline.z",
+        ),
+        title="Equilibrium 2-D Field",
+        values_order="rz",
+        fields=EQUILIBRIUM_FIELD_NAMES,
     ),
     # --- geometry ------------------------------------------------------------
-    "pf_coil_geometry_poloidal": GeometryRecipe(
-        layers=(
-            (
-                "polygon",
-                "pf_active.coil.{i}.element.0.geometry.outline.r",
-                "pf_active.coil.{i}.element.0.geometry.outline.z",
-                "pf_active.coil",
-                "pf_active.coil.{i}.name",
-                {},
-            ),
-        ),
-        title="PF Coils",
-    ),
-    "passive_structure_geometry_poloidal": GeometryRecipe(
-        layers=(
-            (
-                "polygon",
-                "pf_passive.loop.{i}.element.0.geometry.outline.r",
-                "pf_passive.loop.{i}.element.0.geometry.outline.z",
-                "pf_passive.loop",
-                "pf_passive.loop.{i}.name",
-                {},
-            ),
-        ),
-        title="Passive Structure",
-    ),
     "wall_geometry_poloidal": GeometryRecipe(
         layers=(
             (
@@ -1108,7 +1766,7 @@ RECIPES: dict[str, Any] = {
                 "wall.description_2d.0.limiter.unit.{i}.outline.z",
                 "wall.description_2d.0.limiter.unit",
                 "",
-                {"color": "0.4"},
+                {"color": "feature:wall"},
             ),
         ),
         title="First Wall",
@@ -1121,7 +1779,7 @@ RECIPES: dict[str, Any] = {
                 "magnetics.flux_loop.{i}.position.0.z",
                 "magnetics.flux_loop",
                 "Flux Loops",
-                {"marker": "s", "markersize": 3, "color": "#377eb8"},
+                {"marker": "s", "markersize": 3, "color": palette(0)},
             ),
             (
                 "points",
@@ -1129,10 +1787,11 @@ RECIPES: dict[str, Any] = {
                 "magnetics.b_field_pol_probe.{i}.position.z",
                 "magnetics.b_field_pol_probe",
                 "B-field Probes",
-                {"marker": "x", "markersize": 4, "color": "#ff7f00"},
+                {"marker": "x", "markersize": 4, "color": palette(1)},
             ),
         ),
         title="Magnetic Diagnostics",
+        annotate_indices=True,
     ),
     "equilibrium_geometry_boundary": GeometryRecipe(
         layers=(
@@ -1142,10 +1801,11 @@ RECIPES: dict[str, Any] = {
                 "equilibrium.time_slice.{i}.boundary.outline.z",
                 "equilibrium.time_slice",
                 "",
-                {"color": "#e41a1c"},
+                {"color": "feature:boundary"},
             ),
         ),
         title="Plasma Boundary",
+        role=EQUILIBRIUM_ROLE,
     ),
     "thomson_scattering_geometry_poloidal": GeometryRecipe(
         layers=(
@@ -1194,6 +1854,8 @@ RECIPES: dict[str, Any] = {
     "interferometer_spectrogram": CallableRecipe(
         builder=lambda ods, **options: _build_interferometer_spectrogram(ods, **options),
         description="Time-frequency map of one interferometer channel's density fluctuation.",
+        reads=("interferometer.channel.{i}.n_e_line.data", "interferometer.channel.{i}.n_e_line.time", "interferometer.time", "interferometer.channel.{i}.name"),
+        backend=NEUTRAL,
     ),
     # --- power spectra -------------------------------------------------------
     "mirnov_spectrum": PowerSpectrumRecipe(
@@ -1249,8 +1911,18 @@ RECIPES: dict[str, Any] = {
         ),
         suptitle="Virial Equilibrium Quantities",
     ),
+    "passive_structure_time_current": CallableRecipe(
+        builder=lambda ods, **options: _build_passive_current(ods, **options),
+        description="Eddy current in the passive structure, summed over loops.",
+        reads=("pf_passive.time", "pf_passive.loop.{i}.current", "pf_passive.loop.{i}.name", "pf_passive.loop.{i}.identifier"),
+        backend=NEUTRAL,
+    ),
     "current_overview": PanelRecipe(
-        members=("plasma_current_time", "pf_coil_time_current"),
+        members=(
+            "plasma_current_time",
+            "pf_coil_time_current",
+            "passive_structure_time_current",
+        ),
         suptitle="Electromagnetic Currents",
     ),
     "core_profiles_time_volume_averaged": PanelRecipe(
@@ -1299,14 +1971,20 @@ RECIPES: dict[str, Any] = {
     "impa_time_field": CallableRecipe(
         builder=lambda ods, **options: _build_impa_lines(ods, quantity="field", **options),
         description="Compensated internal Bz from the IMPA Hall-probe array.",
+        reads=_impa_reads("field"),
+        backend=NEUTRAL,
     ),
     "impa_time_voltage": CallableRecipe(
         builder=lambda ods, **options: _build_impa_lines(ods, quantity="voltage", **options),
         description="Raw IMPA Hall-probe voltages.",
+        reads=_impa_reads("voltage"),
+        backend=NEUTRAL,
     ),
     "impa_profile_field": CallableRecipe(
         builder=lambda ods, **options: _build_impa_tf_profile(ods, **options),
         description="IMPA measured field against probe radius with the 1/R model.",
+        reads=(*_impa_reads("field", "voltage"), "magnetics.b_field_tor_probe.{i}.position.r", "magnetics.b_field_pol_probe.{i}.position.r", "tf.coil.0.current.data", "tf.time"),
+        backend=NEUTRAL,
     ),
     "impa_overview": PanelRecipe(
         members=("impa_time_voltage", "impa_time_field",
@@ -1337,7 +2015,6 @@ RECIPES: dict[str, Any] = {
         # An overview compares the trustworthy signals; flagged channels would
         # only obscure them, so they are excluded here and only here.
         member_defaults={"validity": "mask"},
-        keep_unavailable=True,
     ),
     "interferometer_overview": PanelRecipe(
         members=("interferometer_time_n_e_line", "interferometer_spectrogram"),
@@ -1364,8 +2041,6 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
     """
     from scipy.signal import butter, filtfilt
 
-    from vaft.process import mirnov_spectrogram as compute_spectrogram
-
     index = int(channel)
     signal_values = _array(ods, f"interferometer.channel.{index}.n_e_line.data")
     if signal_values is None:
@@ -1391,7 +2066,7 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
         b, a = butter(4, highpass_cutoff / nyquist, btype="highpass")
         fluctuation = filtfilt(b, a, signal_values)
 
-    window_size = options.get("window_size")
+    window_size = options.get("window_size") or options.get("nperseg")
     if window_size is None:
         target_df = float(options.get("target_df", 300.0))
         window_size = max(64, int(round(sample_rate / target_df)))
@@ -1401,17 +2076,331 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
     time_resolution = options.get("time_resolution")
     time_resolution = int(time_resolution) if time_resolution else max(1, window_size // 40)
 
-    result = compute_spectrogram(
-        time, fluctuation, sample_rate=sample_rate,
-        window_size=window_size, time_resolution=time_resolution,
+    result = _spectrogram_result(
+        time, fluctuation,
+        method=_spectrogram_method(options, "interferometer_spectrogram"),
+        sample_rate=sample_rate, options=options,
+        window_hint=window_size, resolution_hint=time_resolution,
     )
     return Spectrogram.from_result(
         result,
-        max_frequency=options.get("max_frequency"),
+        max_frequency=_display_ceiling(result, options),
         cmap=options.get("cmap", "turbo"),
         title=_channel_label(ods, "interferometer.channel.{i}.name", index, f"channel {index}"),
         value_label="Fluctuation Magnitude",
     )
+
+
+_MIRNOV_PROBES = "magnetics.b_field_pol_probe"
+
+
+def _toroidal_phase_channels(ods: Any) -> tuple[list[int], np.ndarray]:
+    """Probes that carry both a toroidal angle and a waveform, with their angles."""
+    indices: list[int] = []
+    angles: list[float] = []
+    for index in range(_count(ods, _MIRNOV_PROBES)):
+        # position.phi only: `toroidal_angle` is an orientation field in the DD
+        # and preferring it here is what hid a position being written into it
+        # (issue #725).
+        angle = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.position.phi"))
+        if angle is None:
+            continue
+        signal = _array(ods, f"{_MIRNOV_PROBES}.{index}.voltage.data")
+        if signal is None or signal.size < 2:
+            continue
+        indices.append(index)
+        angles.append(float(angle))
+    return indices, np.asarray(angles, dtype=float)
+
+
+#: Two probes count as one poloidal position within this distance, in metres.
+#: Positions come from a machine description in metres on a sub-metre machine,
+#: so this separates genuinely different mounting rows without splitting one
+#: row over a rounding difference.
+_PHASE_POSITION_TOLERANCE_M = 0.005
+
+
+def _poloidal_position_key(ods: Any, index: int) -> tuple[int, int] | None:
+    """Which poloidal mounting position a probe sits at, or ``None``.
+
+    ``None`` when the input does not say.  Those probes are kept together as
+    one group rather than dropped: an ODS that omits ``position.r``/``.z``
+    cannot be separated by poloidal position, and refusing to fit it would
+    reject synthetic and reduced inputs that are a single toroidal array by
+    construction.
+    """
+    r = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.position.r"))
+    z = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.position.z"))
+    if r is None or z is None:
+        return None
+    return (
+        int(round(r / _PHASE_POSITION_TOLERANCE_M)),
+        int(round(z / _PHASE_POSITION_TOLERANCE_M)),
+    )
+
+
+def _toroidal_phase_group(ods: Any) -> tuple[list[int], np.ndarray]:
+    """One poloidal position's probes: the set a toroidal mode fit may use.
+
+    A toroidal mode fit compares the phase of one mode at several toroidal
+    angles.  The model it minimises, ``phi = phi_0 - n * theta``, carries no
+    poloidal term, so probes at different poloidal positions bring a phase
+    difference it will absorb into ``n`` (issue #816).
+
+    Of the groups that span more than one toroidal angle, this takes the one
+    spanning the **most** angles, since that is what limits how well ``n`` can
+    be separated from its aliases; ties go to the group nearest the midplane,
+    then to the lowest probe index so the choice is deterministic.
+
+    On VEST that lands on the outboard array at ``r = 0.796``: the inboard,
+    side and outboard *equilibrium* arrays each sit at a single toroidal angle
+    and cannot support a fit at all, while the four phase-reference Mirnov
+    channels at ``z = +0.02`` span four angles and each row of the outboard
+    fluctuation array spans three.
+    """
+    indices, angles = _toroidal_phase_channels(ods)
+    groups: dict[tuple[int, int] | None, list[int]] = {}
+    for position, index in zip((_poloidal_position_key(ods, i) for i in indices), indices):
+        groups.setdefault(position, []).append(index)
+
+    def rank(item: tuple[tuple[int, int] | None, list[int]]) -> tuple[int, float, int]:
+        position, members = item
+        spanned = _distinct_toroidal_angles(
+            angles[[indices.index(index) for index in members]]
+        ).size
+        height = 0.0 if position is None else abs(position[1] * _PHASE_POSITION_TOLERANCE_M)
+        return (spanned, -height, -members[0])
+
+    if not groups:
+        return [], np.asarray([], dtype=float)
+    _, chosen = max(groups.items(), key=rank)
+    return chosen, angles[[indices.index(index) for index in chosen]]
+
+
+#: Two probes count as separated only beyond this angle, in degrees.  Stored
+#: angles come from geometry computations, so a rounding difference of a
+#: microdegree is one position recorded twice, not a baseline to fit across.
+_PHASE_ANGLE_TOLERANCE_DEG = 1.0
+
+
+def _distinct_toroidal_angles(angles: np.ndarray) -> np.ndarray:
+    """The toroidal positions an array actually occupies, in degrees."""
+    degrees = np.degrees(np.mod(np.asarray(angles, dtype=float), 2.0 * np.pi))
+    return np.unique(np.round(degrees / _PHASE_ANGLE_TOLERANCE_DEG)) * _PHASE_ANGLE_TOLERANCE_DEG
+
+
+def _toroidal_alias_period(degrees: np.ndarray) -> int | None:
+    """Mode numbers this angle set cannot tell apart, or ``None`` if it can.
+
+    Phases are read modulo 2*pi, so if every occupied angle is a multiple of
+    one spacing ``d`` degrees, ``n`` and ``n + 360/d`` predict the same phase
+    at every probe and no fit can separate them. Two positions 240 degrees
+    apart therefore fix ``n`` only to within a step of three.
+    """
+    unique = np.unique(np.round(degrees, 3))
+    if unique.size < 2:
+        return None
+    steps = np.round(np.diff(np.concatenate([unique, [360.0 + unique[0]]])) * 1e3).astype(int)
+    spacing = int(np.gcd.reduce(steps))
+    if spacing <= 0 or (360_000 % spacing):
+        return None
+    period = 360_000 // spacing
+    return period if period > 1 else None
+
+
+def _mirnov_phase_available(ods: Any) -> str | None:
+    """Why this input cannot carry a toroidal mode fit, or ``None`` (issue #485).
+
+    An array measures a mode number by comparing phases *around* the torus,
+    so the requirement is two probes at genuinely different toroidal angles
+    that both recorded something on one timebase -- facts about the data, not
+    about which paths exist, which is why they are answered here rather than
+    declared. The timebase is part of it because phases read off two
+    differently digitised waveforms are not comparable sample by sample, and
+    a fit that discovered this only while building would have been advertised
+    already.
+    """
+    indices, angles = _toroidal_phase_group(ods)
+    if len(indices) < 2 or _distinct_toroidal_angles(angles).size < 2:
+        return (
+            "two or more Mirnov probes at one poloidal position and distinct toroidal "
+            "angles, each carrying a waveform"
+        )
+    kept, _ = _shared_timebase_probes(ods, indices)
+    if len(kept) < 2 or _distinct_toroidal_angles(
+        angles[[indices.index(index) for index in kept]]
+    ).size < 2:
+        return (
+            "two or more Mirnov probes at distinct toroidal angles sharing one timebase"
+        )
+    return None
+
+
+def _shared_timebase_probes(ods: Any, indices: Sequence[int]) -> tuple[list[int], np.ndarray | None]:
+    """The probes of ``indices`` that share the first usable timebase.
+
+    One timebase per figure: a probe digitised differently is not comparable
+    phase by phase, so it is left out rather than resampled into agreement.
+    """
+    axis: np.ndarray | None = None
+    kept: list[int] = []
+    for index in indices:
+        values = _array(ods, f"{_MIRNOV_PROBES}.{index}.voltage.data")
+        times = _first_time(
+            ods, (f"{_MIRNOV_PROBES}.{index}.voltage.time", "magnetics.time"), i=index
+        )
+        if values is None or times is None or times.size != values.size:
+            continue
+        if axis is None:
+            axis = times
+        elif times.size != axis.size:
+            continue
+        kept.append(index)
+    return kept, axis
+
+
+#: One colour per fitted band, so a band and its fit are read together.
+_PHASE_BAND_COLOURS = (palette(0), palette(8), palette(3), palette(2), palette(1))
+
+
+def _build_mirnov_spatial_phase(
+    ods: Any,
+    *,
+    time: float | None = None,
+    frequencies: Any = None,
+    num_modes: int = 2,
+    candidate_n: Any = None,
+    channels: Any = None,
+    window_size: int = 500,
+    show_fit: bool = True,
+    preprocess: bool = True,
+    **_: Any,
+) -> Profile1D:
+    """Measured toroidal phase per fluctuation band, and the fitted ``n`` lines.
+
+    The phases of one band, read around the torus, fall on a line of slope
+    ``-n``; ``show_fit`` draws that line, wrapped at the +-180 degree
+    boundary the same way the measurement is.  Nothing is drawn that the
+    caller did not ask for: with ``show_fit=False`` the points stand alone
+    (the ``PowerSpectrum.fits`` rule, issue #485).
+
+    The title states how many *distinct* toroidal positions the array
+    offered, because that is what limits the answer: a wrapped phase read at
+    two positions fits every ``n`` that differs by the aliasing period, so a
+    number from two positions identifies a mode only with an assumption the
+    plot cannot make for the reader.  The packaged VEST shot has two.
+    """
+    from vaft.process.magnetics import mirnov_preprocess_signal, toroidal_phase_fit_at_time
+
+    if channels is None:
+        # One poloidal position, chosen from the geometry (issue #816).
+        indices, angles = _toroidal_phase_group(ods)
+    else:
+        # An explicit choice is honoured across poloidal positions: the caller
+        # has named the probes and may be comparing rows deliberately. It is
+        # still checked against what the input actually offers.
+        candidates, candidate_angles = _toroidal_phase_channels(ods)
+        wanted = [int(channel) for channel in np.atleast_1d(channels)]
+        unknown = [channel for channel in wanted if channel not in candidates]
+        if unknown:
+            raise ValueError(
+                f"channels {unknown} carry no toroidal angle and waveform; this input "
+                f"offers {candidates}"
+            )
+        angles = candidate_angles[[candidates.index(channel) for channel in wanted]]
+        indices = wanted
+    reason = _mirnov_phase_available(ods) if channels is None else None
+    if reason:
+        raise ValueError(f"a toroidal mode fit needs {reason}")
+
+    kept, axis = _shared_timebase_probes(ods, indices)
+    dropped = len(indices) - len(kept)
+    if axis is None or len(kept) < 2:
+        raise ValueError(
+            "a toroidal mode fit needs two probes sharing one timebase; this input has "
+            f"{len(kept)}"
+        )
+    signals = [_array(ods, f"{_MIRNOV_PROBES}.{index}.voltage.data") for index in kept]
+    angles = angles[[indices.index(index) for index in kept]]
+    sample_rate = 1.0 / float(np.median(np.diff(axis))) if axis.size > 1 else 1.0
+    _, center_time, stamp = resolve_time_sample(axis, time)
+    stacked = np.vstack([
+        mirnov_preprocess_signal(values, sample_rate=sample_rate) if preprocess else values
+        for values in signals
+    ])
+    result = toroidal_phase_fit_at_time(
+        axis, stacked, angles,
+        center_time=center_time,
+        sample_rate=sample_rate,
+        window_size=int(window_size),
+        frequencies=frequencies,
+        num_modes=int(num_modes),
+        **({"candidate_n": tuple(candidate_n)} if candidate_n is not None else {}),
+    )
+
+    degrees = np.degrees(np.mod(result.toroidal_angle, 2.0 * np.pi))
+    occupied = _distinct_toroidal_angles(result.toroidal_angle)
+    positions = int(occupied.size)
+    period = _toroidal_alias_period(occupied)
+    order = np.argsort(degrees)
+    series: list[Series] = []
+    for position, mode in enumerate(result.modes):
+        # An angle set that is a multiple of one spacing cannot separate mode
+        # numbers a period apart, so the label says so rather than presenting
+        # whichever member of the family the search happened to reach first.
+        aliased = period is not None and sum(
+            1 for candidate in np.asarray(result.candidate_n).ravel()
+            if (int(candidate) - int(mode.n)) % period == 0
+        ) > 1
+        band = f"{mode.frequency / 1e3:.1f} kHz, n={mode.n}" + (
+            f" (mod {period})" if aliased else ""
+        )
+        # A band and its own fitted line share a colour, so which line belongs
+        # to which measurement is visible without reading the legend.
+        colour = _PHASE_BAND_COLOURS[position % len(_PHASE_BAND_COLOURS)]
+        series.append(Series(
+            x=degrees[order],
+            y=np.degrees(mode.phase)[order],
+            label=band,
+            channel=band,
+            style={"marker": "o", "linestyle": "none", "color": colour},
+        ))
+        if show_fit:
+            dense = np.linspace(0.0, 360.0, 721)
+            fitted = np.degrees(
+                np.angle(np.exp(1j * (mode.intercept - mode.n * np.deg2rad(dense))))
+            )
+            x_fit, y_fit = _with_phase_jumps(dense, fitted)
+            series.append(Series(
+                x=x_fit, y=y_fit, label=band, channel=band, role="fit",
+                style={"linestyle": "--", "color": colour},
+            ))
+    return Profile1D(
+        series=tuple(series),
+        coordinate_label="Toroidal angle phi [deg]",
+        y_label="Toroidal phase",
+        y_unit="deg",
+        title=(
+            f"Toroidal mode phase at t = {center_time * 1e3:.2f} ms ({stamp}) — "
+            f"{len(kept)} probes at {positions} toroidal "
+            f"position{'' if positions == 1 else 's'}"
+            + (f", {dropped} on another timebase left out" if dropped else "")
+        ),
+        x_limits=(0.0, 360.0),
+    )
+
+
+def _with_phase_jumps(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Break a wrapped phase line at the +-180 degree jumps, with NaN gaps."""
+    x_out: list[float] = [float(x[0])]
+    y_out: list[float] = [float(y[0])]
+    for index in range(1, x.size):
+        if abs(float(y[index] - y[index - 1])) > 180.0:
+            x_out.append(np.nan)
+            y_out.append(np.nan)
+        x_out.append(float(x[index]))
+        y_out.append(float(y[index]))
+    return np.asarray(x_out), np.asarray(y_out)
 
 
 #: Identifier prefix written by :mod:`vaft.machine_mapping.impa`.  IMPA probes
@@ -1498,7 +2487,7 @@ def _build_impa_tf_profile(ods: Any, *, time: float | None = None, **_: Any) -> 
             continue
         if axis is None:
             axis = _first_time(ods, (f"{prefix}.{quantity}.time", "magnetics.time"))
-        sample = 0 if axis is None or time is None else int(np.argmin(np.abs(axis - float(time))))
+        sample = 0 if axis is None or time is None else resolve_time_sample(axis, time)[0]
         if quantity == "voltage":
             # Hall probes sit on a large zero-field offset; remove it with the
             # same first-sample convention the processing uses so the shape
@@ -1526,7 +2515,7 @@ def _build_impa_tf_profile(ods: Any, *, time: float | None = None, **_: Any) -> 
             tf_time = _first_time(ods, ("tf.time",))
             sample = 0
             if tf_time is not None and time is not None:
-                sample = int(np.argmin(np.abs(tf_time - float(time))))
+                sample = resolve_time_sample(tf_time, time)[0]
             current = float(tf_current[min(sample, tf_current.size - 1)])
             series.append(
                 Series(
@@ -1599,7 +2588,7 @@ def _build_lines_of_sight(
                     if label_channels
                     else ("Soft X-ray LOS" if not layers else "")
                 ),
-                style={"lw": 0.8} if label_channels else {"lw": 0.6, "color": "#e6ab02"},
+                style={"lw": 0.8} if label_channels else {"lw": 0.6, "color": palette(7)},
             )
         )
     if include_wall:
@@ -1616,7 +2605,7 @@ def _wall_layers(ods: Any) -> list[GeometryLayer]:
         if r is None or z is None or r.size != z.size:
             continue
         layers.append(
-            GeometryLayer(r=r, z=z, kind="polygon", style={"color": "0.4", "lw": 1.0})
+            GeometryLayer(r=r, z=z, kind="polygon", style={"color": "feature:wall", "lw": 1.0})
         )
     return layers
 
@@ -1647,23 +2636,458 @@ def _wall_radii(ods: Any) -> tuple[list[float], str]:
     return radii, "Vessel"
 
 
+def _element_outlines(ods: Any, base: str) -> list[tuple[np.ndarray, np.ndarray]]:
+    """The poloidal cross-section of every element under ``base`` (a coil or loop).
+
+    IMAS describes a conductor element either as an explicit ``outline`` or as
+    a ``rectangle`` (centre, width, height); VEST stores every PF coil turn as
+    a rectangle, so reading outlines alone finds no coil at all.  Both forms
+    are read, for every element rather than the first, and a form is accepted
+    on presence rather than on the ``geometry_type`` code so a description
+    that stores the shape but not the code still draws.
+    """
+    outlines = []
+    for index in range(_count(ods, f"{base}.element")):
+        geometry = f"{base}.element.{index}.geometry"
+        r = _array(ods, f"{geometry}.outline.r")
+        z = _array(ods, f"{geometry}.outline.z")
+        if r is not None and z is not None and r.size == z.size and r.size >= 3:
+            outlines.append((r, z))
+            continue
+        centre_r = _get(ods, f"{geometry}.rectangle.r")
+        centre_z = _get(ods, f"{geometry}.rectangle.z")
+        width = _get(ods, f"{geometry}.rectangle.width")
+        height = _get(ods, f"{geometry}.rectangle.height")
+        if None in (centre_r, centre_z, width, height):
+            continue
+        r0, z0, w, h = (float(np.asarray(v, dtype=float).ravel()[0]) for v in (centre_r, centre_z, width, height))
+        outlines.append((
+            np.array([r0 - w / 2, r0 + w / 2, r0 + w / 2, r0 - w / 2]),
+            np.array([z0 - h / 2, z0 - h / 2, z0 + h / 2, z0 + h / 2]),
+        ))
+    return outlines
+
+
+def _element_groups(
+    outlines: Sequence[tuple[np.ndarray, np.ndarray]]
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Split a coil's elements into spatially separate groups.
+
+    Elements are chained by proximity: two belong together when their centres
+    are within a few element sizes of each other.  Returns the concatenated
+    ``(r, z)`` of each group.
+    """
+    centres = np.array([[r.mean(), z.mean()] for r, z in outlines], dtype=float)
+    sizes = np.array([max(np.ptp(r), np.ptp(z)) for r, z in outlines], dtype=float)
+    reach = max(3.0 * float(np.median(sizes)) if sizes.size else 0.0, 0.05)
+    remaining = list(range(len(outlines)))
+    groups = []
+    while remaining:
+        members = [remaining.pop(0)]
+        frontier = list(members)
+        while frontier:
+            current = frontier.pop()
+            near = [i for i in remaining
+                    if np.hypot(*(centres[i] - centres[current])) <= reach]
+            for i in near:
+                remaining.remove(i)
+            members.extend(near)
+            frontier.extend(near)
+        groups.append((
+            np.concatenate([outlines[i][0] for i in members]),
+            np.concatenate([outlines[i][1] for i in members]),
+        ))
+    return groups
+
+
+def _build_pf_coil_geometry(ods: Any, *, collective: bool = False, **options: Any) -> GeometryLayers:
+    """Every PF coil's cross-section, one colour and one legend entry per coil.
+
+    A coil is drawn as all of its elements (VEST's PF1 alone has 158 turns) in
+    one colour, with its name annotated at the centroid of what it draws.
+    ``collective=True`` -- the composed machine view -- keeps one legend entry
+    for the whole ``pf_active`` set and lets the annotations name the coils.
+    """
+    layers: list[GeometryLayer] = []
+    labelled_set = False
+    for index in range(_count(ods, "pf_active.coil")):
+        outlines = _element_outlines(ods, f"pf_active.coil.{index}")
+        if not outlines:
+            continue
+        name = _channel_label(ods, "pf_active.coil.{i}.name", index, f"PF{index + 1}")
+        # A collective coil set is a feature; per-coil colours are Matplotlib's
+        # current cycle, which already follows a theme.
+        color = "feature:coil" if collective else f"C{index % 10}"
+        for position, (r, z) in enumerate(outlines):
+            if collective:
+                label = "" if labelled_set else "PF coils"
+                labelled_set = True
+            else:
+                label = name if position == 0 else ""
+            layers.append(GeometryLayer(r=r, z=z, kind="polygon", label=label,
+                                        style={"color": color, "lw": 0.8}))
+        # A coil is annotated once per group of elements it draws: VEST stores
+        # an up/down pair as one coil, and one label at the centroid of both
+        # halves would sit on the midplane naming nothing.
+        for r_group, z_group in _element_groups(outlines):
+            layers.append(GeometryLayer(
+                r=[float(r_group.max())], z=[float(z_group.mean())], kind="text", label=name,
+                style={"color": color, "fontsize": "x-small", "ha": "left",
+                       "xytext": (3, 0), "textcoords": "offset points"},
+            ))
+    if not layers:
+        raise ValueError(
+            "pf_active stores no coil element geometry (neither rectangle nor outline)"
+        )
+    # Standing alone, every coil is named beside itself: no legend needed.
+    return GeometryLayers(layers=tuple(layers), title=options.get("title", "PF Coils"), legend=collective)
+
+
+def _build_passive_structure_geometry(ods: Any, **options: Any) -> GeometryLayers:
+    """The passive conducting structure as one structure.
+
+    ``pf_passive`` breaks the structure into loops for the circuit model -- 950
+    of them on VEST, named only by the vessel segment they belong to -- so one
+    legend entry per loop would list the same eleven names ninety times over.
+    Every loop element is drawn in one colour under a single legend entry.
+    """
+    layers: list[GeometryLayer] = []
+    for index in range(_count(ods, "pf_passive.loop")):
+        for r, z in _element_outlines(ods, f"pf_passive.loop.{index}"):
+            layers.append(GeometryLayer(
+                r=r, z=z, kind="polygon",
+                label="" if layers else "Passive structure",
+                style={"color": "feature:passive", "lw": 0.5},
+            ))
+    if not layers:
+        raise ValueError(
+            "pf_passive stores no loop element geometry (neither rectangle nor outline)"
+        )
+    return GeometryLayers(layers=tuple(layers), title=options.get("title", "Passive Structure"))
+
+
+def _diverging_rgba(value: float) -> tuple[float, float, float, float]:
+    """Blue (-1) through white (0) to red (+1); no Matplotlib in the backend."""
+    v = max(-1.0, min(1.0, float(value)))
+    if v >= 0.0:
+        return (1.0, 1.0 - 0.85 * v, 1.0 - 0.85 * v, 1.0)
+    return (1.0 + 0.85 * v, 1.0 + 0.85 * v, 1.0, 1.0)
+
+
+def _wall_mode_basis(ods: Any, options: Mapping[str, Any]):
+    basis = options.get("basis")
+    if basis is None:
+        from vaft.omas.process_wrapper import compute_wall_mode_basis_ods
+
+        basis = compute_wall_mode_basis_ods(
+            ods, remap_em_coupling=bool(options.get("remap_em_coupling", False))
+        )
+    return basis
+
+
+def _build_wall_mode_shape(ods: Any, **options: Any) -> GeometryLayers:
+    """One segment-local wall eigenmode drawn on the passive structure.
+
+    ``segment`` (default: the first) and ``mode`` (default 0, the slowest of
+    that segment) pick the mode; ``basis`` accepts a precomputed
+    ``WallModeBasis`` so a survey of many modes builds it once.  Loops of the
+    chosen segment are coloured by their signed current relative to the
+    segment's largest, every other loop is grey, and the title carries the
+    mode's decay time.
+    """
+    basis = _wall_mode_basis(ods, options)
+    segment_id = options.get("segment") or basis.segments[0].id
+    segment = basis.segment(str(segment_id))
+    mode = int(options.get("mode", 0))
+    if not 0 <= mode < segment.size:
+        raise ValueError(f"segment {segment.id!r} has {segment.size} modes; mode {mode} does not exist")
+    amplitude = segment.V[:, mode]
+    amplitude = amplitude / np.max(np.abs(amplitude))
+    members = {int(i): float(a) for i, a in zip(segment.index, amplitude)}
+
+    layers: list[GeometryLayer] = []
+    labelled_other = False
+    labelled_segment = False
+    for index in range(_count(ods, "pf_passive.loop")):
+        for r, z in _element_outlines(ods, f"pf_passive.loop.{index}"):
+            if index in members:
+                layers.append(GeometryLayer(
+                    r=r, z=z, kind="polygon",
+                    label="" if labelled_segment else f"{segment.id} mode {mode}",
+                    style={"color": _diverging_rgba(members[index]), "lw": 1.2},
+                ))
+                labelled_segment = True
+            else:
+                layers.append(GeometryLayer(
+                    r=r, z=z, kind="polygon",
+                    label="" if labelled_other else "other segments",
+                    style={"color": "emphasis:faint", "lw": 0.4},
+                ))
+                labelled_other = True
+    if not layers:
+        raise ValueError("pf_passive stores no loop element geometry")
+    title = options.get(
+        "title", f"{segment.id} mode {mode}: tau = {segment.tau[mode] * 1e3:.2f} ms"
+    )
+    return GeometryLayers(layers=tuple(layers), title=title)
+
+
+def _build_pf_plasma_geometry(ods: Any, **options: Any) -> GeometryLayers:
+    """The plasma-current elements of ``pf_plasma`` coloured by their current.
+
+    Every element is drawn as its outline (rectangle or polygon), coloured by
+    its signed current relative to the largest at the chosen instant
+    (``time``; default the instant of largest total current), with the
+    limiter outline in black when the ODS carries a wall.  The title carries
+    the instant and the total current the elements sum to, so a filament
+    fit and an element fit of the same slice read the same way.
+    """
+    from vaft.omas.pf_plasma import plasma_elements
+
+    elements = plasma_elements(ods, options.get("time"))
+    outlines = _element_outlines(ods, "pf_plasma")
+    if len(outlines) != elements["current"].size:
+        raise ValueError("pf_plasma elements without a drawable geometry")
+    scale = float(np.max(np.abs(elements["current"]))) or 1.0
+    layers: list[GeometryLayer] = []
+    for (r, z), current in zip(outlines, elements["current"]):
+        layers.append(GeometryLayer(
+            r=r, z=z, kind="polygon",
+            label="" if layers else "plasma elements",
+            style={"color": _diverging_rgba(current / scale), "lw": 0.8},
+        ))
+    wall_r = _array(ods, "wall.description_2d.0.limiter.unit.0.outline.r")
+    wall_z = _array(ods, "wall.description_2d.0.limiter.unit.0.outline.z")
+    if wall_r is not None and wall_z is not None and wall_r.size == wall_z.size and wall_r.size >= 3:
+        layers.append(GeometryLayer(r=wall_r, z=wall_z, kind="polygon", label="limiter",
+                                    style={"color": "feature:limiter", "lw": 0.8}))
+    title = options.get(
+        "title",
+        f"plasma elements at t = {elements['time']:.4f} s: {elements['current'].size} elements, "
+        f"Ip = {elements['total'] / 1e3:.1f} kA",
+    )
+    return GeometryLayers(layers=tuple(layers), title=title)
+
+
+def _build_wall_mode_spectrum(ods: Any, **options: Any) -> Panels:
+    """Decay times of every segment's modes, slowest first, per segment.
+
+    The whole wall's global spectrum (the full-rank reduced system's) is
+    drawn alongside so the reader sees how the local modes relate to it.
+    """
+    from vaft.omas.process_wrapper import compute_impedance_matrices_ods
+    from vaft.process.wall_modes import global_time_constants
+
+    basis = _wall_mode_basis(ods, options)
+    max_modes = int(options.get("max_modes", 0)) or None
+    series: list[Series] = []
+    for segment in basis.segments:
+        tau = segment.tau if max_modes is None else segment.tau[:max_modes]
+        series.append(Series(
+            x=np.arange(1, tau.size + 1, dtype=float), y=tau, label=segment.id,
+            style={"marker": "o", "markersize": 3, "lw": 0.8},
+        ))
+    if options.get("whole_wall", True):
+        _r, _l, inductance = compute_impedance_matrices_ods(ods, [])
+        global_tau = global_time_constants(basis, inductance)
+        if max_modes is not None:
+            global_tau = global_tau[:max_modes]
+        series.append(Series(
+            x=np.arange(1, global_tau.size + 1, dtype=float), y=global_tau,
+            label="whole wall", style={"color": "role:reference", "lw": 1.5, "ls": "--"},
+        ))
+    panel = LineSeries(
+        series=tuple(series), x_label="mode number within segment", y_label="decay time",
+        y_unit="s", log_y=True, title=options.get("title", "Passive-wall eigenmode decay times"),
+    )
+    return Panels(models=(panel,), ncols=1, suptitle="")
+
+
+def _wall_reduction_rows(ods: Any, options: Mapping[str, Any]) -> list:
+    """The convergence rows to draw: the caller's, or a fresh study on this ODS."""
+    rows = options.get("rows")
+    if rows is not None:
+        return list(rows)
+    from vaft.validation.wall_reduction import (
+        DEFAULT_ORDERS,
+        DEFAULT_RULES,
+        observation_set,
+        order_convergence,
+        wall_system,
+    )
+
+    system = wall_system(ods, remap_em_coupling=bool(options.get("remap_em_coupling", False)))
+    observation = observation_set(ods, n_coils=system["n_coils"])
+    return order_convergence(
+        system,
+        observation=observation,
+        rules=tuple(options.get("rules", DEFAULT_RULES)),
+        orders=tuple(options.get("orders", DEFAULT_ORDERS)),
+        drives=(str(options.get("drive", "shot")),),
+    )
+
+
+_WALL_REDUCTION_METRIC_LABELS = {
+    "probe": "probe field error",
+    "flux_loop": "flux-loop error",
+    "boundary_psi": "boundary psi error",
+    "boundary_b": "boundary B error",
+    "grid_psi": "grid psi error",
+    "current_l2": "current error (L2)",
+    "current_dissipation": "current error (dissipation)",
+}
+
+
+def _build_wall_reduction_convergence(ods: Any, **options: Any) -> Panels:
+    """Reduced-wall response error against retained order, one panel per metric.
+
+    Every series is one selection rule (vaft #494); the errors are relative to
+    the full wall's own contribution, so a panel reads "how much of the wall
+    term the reduced model misses".  Rows come from
+    :func:`vaft.validation.wall_reduction.order_convergence`, passed in as
+    ``rows`` or computed here for ``drive`` (default the shot's PF programme).
+    """
+    rows = _wall_reduction_rows(ods, options)
+    drive = str(options.get("drive", "shot"))
+    metrics = tuple(options.get("metrics", ("probe", "flux_loop", "grid_psi", "current_dissipation")))
+    rules: list[str] = []
+    for row in rows:
+        if row.get("drive") == drive and row.get("rule") != "full" and row["rule"] not in rules:
+            rules.append(str(row["rule"]))
+    if not rules:
+        raise ValueError(f"no reduced-wall rows for drive {drive!r}")
+    panels: list[LineSeries] = []
+    for metric in metrics:
+        series: list[Series] = []
+        for rule in rules:
+            entries = sorted(
+                (row for row in rows if row.get("drive") == drive and row.get("rule") == rule and metric in row),
+                key=lambda row: int(row["M_total"]),
+            )
+            if not entries:
+                continue
+            series.append(Series(
+                x=np.array([float(row["M_total"]) for row in entries]),
+                y=np.array([float(row[metric]) for row in entries]),
+                label=rule, style={"marker": "o", "markersize": 3, "lw": 1.0},
+            ))
+        panels.append(LineSeries(
+            series=tuple(series), x_label="retained modes", y_label=_WALL_REDUCTION_METRIC_LABELS.get(metric, metric),
+            y_unit="1", log_y=True, title=_WALL_REDUCTION_METRIC_LABELS.get(metric, metric),
+        ))
+    return Panels(
+        models=tuple(panels), ncols=int(options.get("ncols", 2)), share_x=True,
+        suptitle=options.get("title", f"Reduced-wall convergence ({drive} drive)"),
+    )
+
+
+def _build_wall_reduction_map(ods: Any, **options: Any) -> Field2D:
+    """The wall's poloidal flux on the equilibrium region: full, reduced, or their difference.
+
+    ``which`` is ``"full"``, ``"reduced"`` or ``"difference"`` (default); the
+    reduced wall is ``selection`` (a ``keep`` tuple or an R-orthonormal
+    matrix) or else the ``rule``/``M`` pair (default ``output_weight`` at 76
+    modes); ``time`` picks the instant, default the sample of largest wall
+    dissipation under the shot's PF programme.  The title carries the relative
+    error over the region so the map and the number travel together.
+    """
+    from vaft.omas.process_wrapper import compute_point_response_matrices_ods
+    from vaft.process import wall_modes as wm
+    from vaft.process.electromagnetics import solve_eddy_currents
+    from vaft.validation.wall_reduction import _inside, wall_system
+
+    which = str(options.get("which", "difference"))
+    if which not in ("full", "reduced", "difference"):
+        raise ValueError("which must be 'full', 'reduced' or 'difference'")
+    system = wall_system(ods, remap_em_coupling=bool(options.get("remap_em_coupling", False)))
+    basis, R_mat, M_mat, L_mat = system["basis"], system["R_mat"], system["M_mat"], system["L_mat"]
+    time, drive, n_coils = system["time"], system["drive"], system["n_coils"]
+    selection = options.get("selection")
+    if selection is None:
+        rule, M = str(options.get("rule", "output_weight")), int(options.get("M", 76))
+        if rule == "moments":
+            V = wm.moment_patterns(R_mat, M_mat, L_mat, max(1, int(np.ceil(M / n_coils))))[:, :M]
+            label = f"{V.shape[1]} moment patterns"
+        else:
+            scores = wm.mode_scores(basis, R_mat, M_mat, L_mat, drive=drive, time=time)
+            keep = wm.select_by_score(basis, scores[rule], M)
+            V, label = basis.V(keep), f"{sum(k.size for k in keep)} modes ({rule})"
+    elif isinstance(selection, np.ndarray):
+        V, label = selection, f"{selection.shape[1]} patterns"
+    else:
+        V, label = basis.V(selection), f"{sum(np.asarray(k).size for k in selection)} modes"
+    I_full = solve_eddy_currents(R_mat, L_mat, M_mat, drive, time)
+    _, I_red = wm.solve_reduced_eddy(wm.combined_operators(V, R_mat, M_mat, L_mat), drive, time, V=V)
+    r = np.diag(R_mat)
+    if options.get("time") is None:
+        index = int(np.argmax(np.sum(r[None, :] * I_full**2, axis=1)))
+    else:
+        index = int(np.argmin(np.abs(time - float(options["time"]))))
+
+    outline_r = _array(ods, "wall.description_2d.0.limiter.unit.0.outline.r")
+    outline_z = _array(ods, "wall.description_2d.0.limiter.unit.0.outline.z")
+    nr, nz = tuple(options.get("grid_shape", (33, 49)))
+    r_axis = np.linspace(float(outline_r.min()), float(outline_r.max()), int(nr))
+    z_axis = np.linspace(float(outline_z.min()), float(outline_z.max()), int(nz))
+    gz, gr = np.meshgrid(z_axis, r_axis, indexing="ij")
+    (psi,) = compute_point_response_matrices_ods(ods, np.column_stack([gr.ravel(), gz.ravel()]), components=("psi",))
+    G = psi[:, n_coils:]
+    inside = _inside(gr.ravel(), gz.ravel(), outline_r, outline_z)
+    full = G @ I_full[index]
+    reduced = G @ I_red[index]
+    error = float(np.linalg.norm((reduced - full)[inside]) / max(np.linalg.norm(full[inside]), 1e-300))
+    values = {"full": full, "reduced": reduced, "difference": reduced - full}[which]
+    field = np.where(inside, values, np.nan).reshape(gz.shape)
+    overlay = GeometryLayer(r=outline_r, z=outline_z, label="limiter", style={"color": "feature:limiter", "lw": 0.8})
+    n_levels = int(options.get("contour_levels", 15))
+    if which == "difference":
+        # Grid points next to a wall loop see that loop's own singular field,
+        # which a few misrepresented loop currents dominate; the region error
+        # in the title is the honest number, so the levels follow the bulk of
+        # the map (its 98th percentile), symmetric about zero.
+        scale = float(np.nanpercentile(np.abs(field), 98)) or 1e-300
+        levels: Any = np.linspace(-scale, scale, n_levels)
+    else:
+        levels = n_levels
+    return Field2D(
+        r=r_axis, z=z_axis, values=field, value_label="wall psi [Wb]",
+        title=options.get("title", f"wall psi, {which}: {label}\nt = {time[index]:.4f} s, region error {error:.1e}"),
+        contour_levels=levels, overlays=(overlay,),
+    )
+
+
 def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
-    """Compose wall, coils, passive structure and diagnostics into one view."""
-    layers: list[GeometryLayer] = list(_wall_layers(ods))
-    for member in (
-        "pf_coil_geometry_poloidal",
-        "passive_structure_geometry_poloidal",
+    """Compose wall, coils, passive structure and diagnostics into one view.
+
+    ``overlay=`` selects the parts (:data:`MACHINE_OVERLAYS`); everything the
+    input supports is drawn when the caller names nothing (issue #483).
+    """
+    names = (
+        MACHINE_OVERLAYS if options.get("overlay") is None
+        else _overlay_option(options, MACHINE_OVERLAYS)
+    )
+    layers: list[GeometryLayer] = list(_wall_layers(ods)) if "wall" in names else []
+    # Coils and passive structure are drawn as sets: the composed view names
+    # the machine's parts, not 950 loops and 400 coil turns one by one.
+    if "passive" in names and entry_supports(ods, "passive_structure_geometry_poloidal"):
+        layers.extend(_build_passive_structure_geometry(ods).layers)
+    if "coils" in names and entry_supports(ods, "pf_coil_geometry_poloidal"):
+        layers.extend(_build_pf_coil_geometry(ods, collective=True).layers)
+    for member in () if "diagnostics" not in names else (
         "magnetics_geometry_poloidal",
         "thomson_scattering_geometry_poloidal",
         "charge_exchange_geometry_poloidal",
     ):
         if not entry_supports(ods, member):
             continue
-        layers.extend(_build_geometry(ods, RECIPES[member], **options).layers)
-    if entry_supports(ods, "soft_x_rays_geometry_lines_of_sight"):
+        layers.extend(_build_geometry(
+            ods, RECIPES[member], **{k: v for k, v in options.items() if k != "overlay"}
+        ).layers)
+    if "diagnostics" in names and entry_supports(ods, "soft_x_rays_geometry_lines_of_sight"):
         layers.extend(
             _build_lines_of_sight(
-                ods, label_channels=False, include_wall=False, **options
+                ods, label_channels=False, include_wall=False,
+                **{k: v for k, v in options.items() if k != "overlay"},
             ).layers
         )
     if not layers:
@@ -1702,7 +3126,7 @@ def _build_equilibrium_topview(
         x, y = _ring(radius)
         layers.append(
             GeometryLayer(
-                r=x, z=y, kind="polyline", label=label, style={"color": "#e41a1c"}
+                r=x, z=y, kind="polyline", label=label, style={"color": "feature:boundary"}
             )
         )
     return GeometryLayers(
@@ -1729,6 +3153,110 @@ def _pellet_positions(ods: Any, time_slice: int) -> list[tuple[float, float]]:
     return positions
 
 
+#: Diagnostics whose channels may store a toroidal position, and how each is
+#: drawn in the top view: (container, legend label, kind, style).  ``kind``
+#: is ``points`` for a channel with a position, ``segments`` for one with a
+#: line of sight (first and second point projected onto the midplane), and
+#: ``rings`` for a toroidal loop (drawn as the circle at its radius).
+#: ``(container, label, kind, style)``; the flux loop is the one family whose
+#: ``position`` is a list of points, read at index 0 (issue #439).
+_TOPVIEW_DIAGNOSTICS: tuple[tuple[str, str, str, dict], ...] = (
+    ("magnetics.flux_loop", "Flux loops", "rings",
+     {"color": palette(0), "lw": 0.6, "linestyle": ":"}),
+    ("magnetics.b_field_pol_probe", "B-pol probes", "points",
+     {"marker": "x", "markersize": 4, "color": palette(1)}),
+    ("magnetics.b_field_tor_probe", "B-tor probes", "points",
+     {"marker": "+", "markersize": 5, "color": palette(2)}),
+    ("thomson_scattering.channel", "Thomson scattering", "points",
+     {"marker": "o", "markersize": 3, "color": palette(3)}),
+    ("charge_exchange.channel", "Charge exchange", "points",
+     {"marker": "d", "markersize": 3, "color": palette(4)}),
+    ("langmuir_probes.embedded", "Langmuir probes", "points",
+     {"marker": "v", "markersize": 3, "color": palette(5)}),
+    ("barometry.gauge", "Pressure gauges", "points",
+     {"marker": "p", "markersize": 4, "color": palette(6)}),
+    ("interferometer.channel", "Interferometer", "segments",
+     {"color": palette(0), "lw": 0.8}),
+    ("soft_x_rays.channel", "Soft X-ray LOS", "segments",
+     {"color": palette(7), "lw": 0.6}),
+    ("bolometer.channel", "Bolometer LOS", "segments",
+     {"color": palette(8), "lw": 0.6}),
+    ("spectrometer_uv.channel", "UV spectrometer LOS", "segments",
+     {"color": palette(9), "lw": 0.8}),
+)
+
+
+_LISTED_POSITIONS = ("magnetics.flux_loop",)
+
+
+def _toroidal_position(ods: Any, base: str) -> tuple[float, float] | None:
+    """``(r, phi)`` stored under ``base``, the first point where the DD stores a list.
+
+    A flux loop's ``position`` is an array of structures and is read at index
+    0; every other family stores a single structure, so only the paths the
+    Data Dictionary defines are probed (issue #439).
+    """
+    prefix = f"{base}.0" if base.startswith(_LISTED_POSITIONS) and base.endswith(".position") else base
+    radius = _get(ods, f"{prefix}.r")
+    phi = _get(ods, f"{prefix}.phi")
+    if radius is None or phi is None:
+        return None
+    try:
+        return (float(np.asarray(radius, dtype=float).ravel()[0]),
+                float(np.asarray(phi, dtype=float).ravel()[0]))
+    except (IndexError, TypeError, ValueError):
+        return None
+
+
+def _topview_diagnostic_layers(ods: Any) -> list[GeometryLayer]:
+    """Diagnostic channels with a stored toroidal position, projected to (x, y).
+
+    Only what the ODS states: a channel whose position has no ``phi`` is not
+    placed at an invented angle.  Each family is one legend entry.
+    """
+    layers: list[GeometryLayer] = []
+    for container, label, kind, style in _TOPVIEW_DIAGNOSTICS:
+        count = _count(ods, container)
+        if not count:
+            continue
+        if kind == "segments":
+            first_label = True
+            for index in range(count):
+                base = f"{container}.{index}.line_of_sight"
+                first = _toroidal_position(ods, f"{base}.first_point")
+                second = _toroidal_position(ods, f"{base}.second_point")
+                if first is None or second is None:
+                    continue
+                layers.append(GeometryLayer(
+                    r=[first[0] * np.cos(first[1]), second[0] * np.cos(second[1])],
+                    z=[first[0] * np.sin(first[1]), second[0] * np.sin(second[1])],
+                    kind="polyline", label=label if first_label else "", style=style,
+                ))
+                first_label = False
+            continue
+        if kind == "rings":
+            first_label = True
+            for index in range(count):
+                position = _toroidal_position(ods, f"{container}.{index}.position")
+                if position is None:
+                    continue
+                x, y = _ring(position[0])
+                layers.append(GeometryLayer(r=x, z=y, kind="polyline",
+                                            label=label if first_label else "", style=style))
+                first_label = False
+            continue
+        xs, ys = [], []
+        for index in range(count):
+            position = _toroidal_position(ods, f"{container}.{index}.position")
+            if position is None:
+                continue
+            xs.append(position[0] * np.cos(position[1]))
+            ys.append(position[0] * np.sin(position[1]))
+        if xs:
+            layers.append(GeometryLayer(r=xs, z=ys, kind="points", label=label, style=style))
+    return layers
+
+
 def _build_machine_topview(
     ods: Any, *, time_slice: int = 0, **_: Any
 ) -> GeometryLayers:
@@ -1747,7 +3275,7 @@ def _build_machine_topview(
             layers.append(
                 GeometryLayer(
                     r=x, z=y, kind="polyline", label=label,
-                    style={"color": "0.4", "lw": 1.0},
+                    style={"color": "feature:wall", "lw": 1.0},
                 )
             )
     if _has(ods, "equilibrium"):
@@ -1784,6 +3312,7 @@ def _build_machine_topview(
                     style=style,
                 )
             )
+    layers.extend(_topview_diagnostic_layers(ods))
     for index, (radius, phi) in enumerate(_pellet_positions(ods, time_slice)):
         layers.append(
             GeometryLayer(
@@ -1791,13 +3320,14 @@ def _build_machine_topview(
                 z=[radius * np.sin(phi)],
                 kind="points",
                 label=f"Pellet {index}",
-                style={"marker": "*", "color": "#984ea3"},
+                style={"marker": "*", "color": palette(2)},
             )
         )
     if not layers:
         raise ValueError(
             "none of the top-view IDS (wall, equilibrium, lh_antennas, "
-            "ec_launchers, pellets) are present"
+            "ec_launchers, pellets, or a diagnostic storing a toroidal position) "
+            "are present"
         )
     return GeometryLayers(
         layers=tuple(layers),
@@ -1821,6 +3351,12 @@ def _isolated_copy(ods: Any, roots: Sequence[str]) -> Any:
 
     from omas import ODS
 
+    convert = getattr(ods, "as_ods_for", None)
+    if convert is not None:
+        # Another data model that converts itself (an IMAS entry): the copy
+        # is taken from its conversion of just these roots, which the entry
+        # caches, so a profile on an IMAS input derives exactly as on an ODS.
+        ods = convert(tuple(root for root in roots if _has(ods, root)))
     private = ODS(consistency_check=False)
     for root in roots:
         if _has(ods, root):
@@ -1828,30 +3364,716 @@ def _isolated_copy(ods: Any, roots: Sequence[str]) -> Any:
     return private
 
 
-def _build_vacuum_psi(ods: Any, *, time: float | None = None, **_: Any) -> Field2D:
-    """Vacuum poloidal flux from the PF coils, via the OMAS null-field helper."""
-    from vaft.omas import compute_null_ods, find_breakdown_onset
+#: What ``compute_null_ods`` reads with plain subscripts -- the roots the
+#: vacuum-psi builder copies for it.  Narrower than the plot's ``ids`` (which
+#: also declare what the onset finder needs loaded): the copy is protection
+#: against materialising reads, not a loading declaration.
+_NULL_FIELD_ROOTS = ("pf_active", "pf_passive", "wall", "equilibrium", "dataset_description")
 
-    # The null-field helper reads with plain subscripts; give it a private copy
-    # of what this plot declares so the caller's ODS is left untouched.
-    ods = _isolated_copy(ods, required_ids("equilibrium_field_psi_vacuum") + ("dataset_description",))
+
+def _vacuum_psi_time(ods: Any) -> float:
+    """The instant a vacuum-flux map is drawn at when the caller gives none.
+
+    The plasma onset when there is a plasma; on a vacuum shot (coils fired,
+    no breakdown) the ohmic-coil onset, the moment the solenoid starts to
+    drive.  Both come from the caller's ODS through the non-mutating readers.
+    """
+    from vaft.omas import find_breakdown_onset
+    from vaft.omas.discharge_timing import oh_coil_onset
+
+    try:
+        return find_breakdown_onset(ods)
+    except ValueError as no_plasma:
+        ohmic = oh_coil_onset(ods)
+        if ohmic is None or not ohmic.found:
+            raise ValueError(
+                f"no plasma onset ({no_plasma}) and no ohmic-coil onset to draw the vacuum flux at; "
+                "pass time= explicitly"
+            ) from no_plasma
+        return float(ohmic.time)
+
+
+def _build_vacuum_psi(
+    ods: Any, *, time: float | None = None, units: str | None = None, **_: Any
+) -> Field2D:
+    """Vacuum poloidal flux from the PF coils, via the OMAS null-field helper.
+
+    Stays on the polynomial-kernel path rather than the cached evaluator behind
+    ``vacuum_field``.  Measured on the packaged shot: this plot draws on the
+    equilibrium's own 129x129 grid, where the exact elliptic Green's functions
+    cost 18 s against 5.8 s and their cached response matrices would be 591 MB.
+    That trade pays for a slider and not for a single figure, which is what
+    this plot is; the two agree on psi to 0.0002% at the 95th percentile
+    either way.
+
+    The Green's functions give full weber, whatever convention the stored
+    equilibrium uses, so the map is labelled from ``"Wb"`` through the
+    display policy (mWb by default; ``units=`` chooses, per-radian included).
+    """
+    from vaft.omas import compute_null_ods
+
     if time is None:
-        time = find_breakdown_onset(ods)
+        time = _vacuum_psi_time(ods)
+    # The null-field helper reads with plain subscripts; give it a private copy
+    # of what it reads so the caller's ODS is left untouched.
+    ods = _isolated_copy(ods, _NULL_FIELD_ROOTS)
     psi, r_grid, z_grid = compute_null_ods(ods, time)
     r_axis = np.asarray(r_grid)[0, :] if np.ndim(r_grid) == 2 else np.asarray(r_grid)
     z_axis = np.asarray(z_grid)[:, 0] if np.ndim(z_grid) == 2 else np.asarray(z_grid)
     values = np.asarray(psi, dtype=float)
     if values.shape != (z_axis.size, r_axis.size):
         values = values.T
+    flux_display = resolve_display("Wb", unit=units, subject="equilibrium", data=values)
     return Field2D(
         r=r_axis,
         z=z_axis,
-        values=values,
-        value_label="Vacuum Poloidal Flux [Wb]",
+        values=values * flux_display.scale,
+        value_label=f"Vacuum Poloidal Flux [{flux_display.unit}]",
+        display=flux_display,
         filled=False,
         contour_levels=50,
         overlays=tuple(_wall_layers(ods)),
         title=f"Vacuum psi at t = {float(time) * 1e3:.1f} ms",
+    )
+
+
+@dataclass(frozen=True)
+class VacuumField:
+    """One quantity the vacuum map can draw, and how it is displayed.
+
+    ``canonical_unit`` is empty for the decay index, which reaches the display
+    policy through :data:`vaft.plot.display.DIMENSIONLESS_DISPLAY` instead.
+    ``upper`` is the percentile the default contour levels stop at.  Confined
+    to the limiter these fields are well behaved -- away from a null the map's
+    maximum sits within about 30% of its 99th percentile -- so stopping there
+    gives away little, and what falls outside saturates rather than vanishing.
+    The decay index is the exception: it diverges wherever B_Z crosses zero,
+    which happens inside the vessel, so it stops sooner.
+    """
+
+    name: str
+    label: str
+    canonical_unit: str
+    subject: str = "vacuum"
+    filled: bool = True
+    upper: float = 99.0
+    lower: float | None = None
+    levels: int = 24
+
+    @property
+    def extend(self) -> str:
+        """How the map saturates outside its levels -- see :class:`Field2D`."""
+        if not self.filled:
+            return "neither"
+        return "max" if self.lower is not None else "both"
+
+
+VACUUM_FIELDS: dict[str, VacuumField] = {
+    field.name: field
+    for field in (
+        VacuumField("psi", "Vacuum Poloidal Flux", "Wb", subject="equilibrium",
+                    filled=False, upper=100.0, levels=40),
+        VacuumField("b_poloidal", "Poloidal Field |B_p|", "T", lower=0.0),
+        # Signed and unbounded: it diverges wherever B_Z crosses zero, so the
+        # levels come from a percentile and the stable band is marked with its
+        # own contours rather than by the colour scale.
+        VacuumField("decay_index", "Field Decay Index n", "", upper=95.0),
+        VacuumField("e_toroidal", "Toroidal Electric Field |E_phi|", "V/m", lower=0.0),
+        VacuumField("breakdown", "Breakdown Figure E_t B_t / B_p", "V/m", lower=0.0),
+        # The threshold itself rather than a proxy for it, which costs a traced
+        # connection length from every grid point -- seconds, against
+        # milliseconds for the others.  Drawn with its own unit contour.
+        VacuumField("lloyd_margin", "Lloyd Breakdown Margin", "", lower=0.0),
+    )
+}
+
+#: What ``field=`` may name on the vacuum map.
+VACUUM_FIELD_NAMES = tuple(VACUUM_FIELDS)
+
+#: Where the decay index is passively stable for a rigid current ring.  Drawn
+#: as two grey dashed contours beneath the filled map.  Shading the area
+#: between them was tried and dropped: at the instants that matter the window
+#: covers nearly the whole vessel, so filling it marks nothing, and the two
+#: boundaries already say where it ends.
+DECAY_INDEX_STABLE_BAND = (0.0, 1.5)
+
+#: Where the Lloyd margin is exactly one: the drive the machine supplies equals
+#: the threshold the fill pressure and the connection length ask for.  Drawn as
+#: a single contour, because the interesting question about a margin map is
+#: which side of this line a point is on.
+LLOYD_MARGIN_THRESHOLD = (1.0,)
+
+
+def _vacuum_map_time(ods: Any, time: float | None, time_index: int | None) -> float:
+    """The instant a vacuum map is drawn at: an index, a time, or the default."""
+    if time_index is not None:
+        base = _array(ods, "pf_active.time")
+        if base is None or len(base) == 0:
+            raise ValueError("pf_active.time is required to use time_index=")
+        index = int(time_index)
+        if not -len(base) <= index < len(base):
+            raise ValueError(
+                f"time_index={time_index} is outside the {len(base)} stored PF "
+                "samples"
+            )
+        return float(np.asarray(base, dtype=float)[index])
+    if time is not None:
+        return float(time)
+    return _vacuum_psi_time(ods)
+
+
+def _limiter_interior(ods: Any, r_axis: np.ndarray, z_axis: np.ndarray) -> np.ndarray | None:
+    """Which ``(R, Z)`` grid points lie inside the limiter, or ``None``.
+
+    A vacuum map's extremes are the coils and the vessel conductors it is
+    computed from: on VEST several hundred filaments sit inside the limiter's
+    bounding box, and a grid point landing on one reads that filament's own
+    singular field.  Not one of them lies inside the limiter outline itself,
+    so the plasma-facing region is exactly the part of the map that means
+    anything -- and once it is the only part drawn, the contour levels
+    describe the field a discharge would see instead of a handful of
+    conductors.
+    """
+    from matplotlib.path import Path as _Path
+
+    layers = _wall_layers(ods)
+    if not layers:
+        return None
+    mesh_r, mesh_z = np.meshgrid(r_axis, z_axis, indexing="ij")
+    points = np.column_stack([mesh_r.ravel(), mesh_z.ravel()])
+    inside = np.zeros(points.shape[0], dtype=bool)
+    for layer in layers:
+        outline = np.column_stack([np.asarray(layer.r, dtype=float),
+                                   np.asarray(layer.z, dtype=float)])
+        if outline.shape[0] >= 3:
+            inside |= _Path(outline).contains_points(points)
+    return inside.reshape(mesh_r.shape) if inside.any() else None
+
+
+def _vacuum_levels(values: np.ndarray, field: VacuumField) -> np.ndarray | int:
+    """Contour levels spanning what the map actually holds.
+
+    ``lower=0`` pins a magnitude's scale to zero, so a null reads as a null
+    rather than as the bottom of whatever range this instant happens to have.
+    """
+    finite = values[np.isfinite(values)]
+    if finite.size == 0:
+        return field.levels
+    high = float(np.percentile(finite, field.upper))
+    low = float(field.lower) if field.lower is not None else float(
+        np.percentile(finite, 100.0 - field.upper)
+    )
+    if not high > low:
+        return field.levels
+    return np.linspace(low, high, field.levels)
+
+
+def _build_vacuum_field(
+    ods: Any,
+    *,
+    field: str = "psi",
+    time: float | None = None,
+    time_index: int | None = None,
+    resolution: int = 65,
+    units: str | None = None,
+    p_Pa: float | None = None,
+    ec_frequency_Hz: float | None = None,
+    **_: Any,
+) -> Field2D:
+    """One quantity of the vacuum field on the poloidal plane, at one instant.
+
+    Flux, poloidal field strength, the decay index and the breakdown figure of
+    merit are four readings of a single evaluation
+    (:func:`vaft.omas.process_wrapper.compute_vacuum_field_map`), so they
+    always describe the same field.  The grid's response to the coils and the
+    vessel is cached, which is what makes ``time_index=`` usable as a slider.
+    """
+    from vaft.formula.equilibrium import (
+        decay_index_from_bz,
+        poloidal_field_magnitude,
+        toroidal_electric_field,
+    )
+    from vaft.omas.process_wrapper import compute_vacuum_field_map
+
+    if field not in VACUUM_FIELDS:
+        raise ValueError(
+            f"unknown vacuum field {field!r}; expected one of "
+            f"{', '.join(VACUUM_FIELD_NAMES)}"
+        )
+    spec = VACUUM_FIELDS[field]
+    # Resolve the instant against the caller's whole ODS: the default is the
+    # breakdown onset, which is read from the magnetics the copy below drops.
+    instant = _vacuum_map_time(ods, time, time_index)
+    # The evaluator solves the vessel currents when they are absent; give it a
+    # private copy so the caller's ODS is left as it was found.
+    # `barometry` rides along for field='lloyd_margin', which reads the fill
+    # pressure the threshold is evaluated at.
+    ods = _isolated_copy(ods, (*_NULL_FIELD_ROOTS, "tf", "barometry"))
+    result = compute_vacuum_field_map(ods, time=instant, resolution=int(resolution))
+
+    r_axis, z_axis = result["r"], result["z"]
+    mesh_r = r_axis[:, None]
+    if field == "psi":
+        values = result["psi"]
+    elif field == "b_poloidal":
+        values = poloidal_field_magnitude(result["b_r"], result["b_z"])
+    elif field == "decay_index":
+        # Along R, which is axis 0 of an (R, Z) map.
+        values = decay_index_from_bz(r_axis, result["b_z"], axis=0)
+    elif field == "e_toroidal":
+        # The magnitude, as everything downstream of it takes: an avalanche runs
+        # in whichever direction the field points (issue #354).
+        values = np.abs(toroidal_electric_field(mesh_r, result["dpsi_dt"]))
+    elif field == "lloyd_margin":
+        from vaft.formula.startup import breakdown_margin, lloyd_breakdown_field
+        from vaft.omas.process_wrapper import compute_connection_length_map_ods
+
+        traced = compute_connection_length_map_ods(
+            ods, time=result["time"], resolution=int(resolution)
+        )
+        pressure = (
+            float(p_Pa) if p_Pa is not None else _prefill_pressure(ods, result["time"])
+        )
+        e_toroidal = np.abs(toroidal_electric_field(mesh_r, result["dpsi_dt"]))
+        with warnings.catch_warnings():
+            # Below A p L = 1 the threshold does not exist and the kernel says so
+            # once per call; on a map that is a region, not an incident.
+            warnings.simplefilter("ignore", RuntimeWarning)
+            threshold = lloyd_breakdown_field(pressure, traced["length_m"])
+        values = breakdown_margin(e_toroidal, threshold)
+    else:
+        e_toroidal = toroidal_electric_field(mesh_r, result["dpsi_dt"])
+        b_toroidal = _vacuum_b_toroidal(ods, result["time"], mesh_r)
+        b_poloidal = poloidal_field_magnitude(result["b_r"], result["b_z"])
+        with np.errstate(divide="ignore", invalid="ignore"):
+            values = np.abs(e_toroidal) * np.abs(b_toroidal) / b_poloidal
+        values = np.where(np.isfinite(values), values, np.nan)
+
+    interior = _limiter_interior(ods, r_axis, z_axis)
+    if interior is not None:
+        # Masked here rather than through Field2D.region, so the stable-band
+        # contours are confined too: outside the vessel the decay index is the
+        # coils' own field and its zero crossings are not a stability boundary.
+        values = np.where(interior, values, np.nan)
+
+    display = resolve_display(
+        spec.canonical_unit, unit=units, subject=spec.subject,
+        quantity=field if not spec.canonical_unit else None, data=values,
+    )
+    scaled = values * display.scale
+    bracket = f" [{display.unit}]" if display.unit else ""
+    overlays = list(_wall_layers(ods))
+    frequency = _ec_frequency_option({"ec_frequency_Hz": ec_frequency_Hz}, None)
+    if frequency is not None:
+        overlays.extend(_ecr_layers(ods, result["time"], frequency, z_axis))
+    return Field2D(
+        # Field2D is laid out (len(z), len(r)); the evaluator answers (R, Z).
+        r=r_axis,
+        z=z_axis,
+        values=scaled.T,
+        value_label=f"{spec.label}{bracket}",
+        display=display,
+        filled=spec.filled,
+        contour_levels=_vacuum_levels(scaled.T, spec),
+        secondary_levels=_vacuum_secondary_levels(field),
+        extend=spec.extend,
+        overlays=tuple(overlays),
+        title=f"{spec.label} at t = {result['time'] * 1e3:.1f} ms (vacuum)",
+    )
+
+
+def _ecr_layers(ods: Any, time: float, frequency: float, z_axis: np.ndarray) -> list[GeometryLayer]:
+    """The electron-cyclotron resonance at ``time``: a vertical line at ``R_ECR``.
+
+    ``R_ECR = |R_0 B_0| / B_ECR(f)`` from ``tf.b_field_tor_vacuum_r`` at the
+    stored sample nearest ``time`` (matched by time: the TF product has its own
+    time base).  Nothing is drawn while the toroidal field is off.
+    """
+    from vaft.formula.startup import electron_cyclotron_resonance_radius
+
+    product = _array(ods, "tf.b_field_tor_vacuum_r.data")
+    base = _array(ods, "tf.b_field_tor_vacuum_r.time")
+    if product is None or base is None or len(product) == 0:
+        raise ValueError(
+            "tf.b_field_tor_vacuum_r is required for ec_frequency_Hz=; without the "
+            "toroidal field there is no electron-cyclotron resonance"
+        )
+    index = int(np.argmin(np.abs(np.asarray(base, dtype=float) - float(time))))
+    value = float(np.asarray(product, dtype=float)[index])
+    if not np.isfinite(value):
+        return []
+    radius = float(electron_cyclotron_resonance_radius(value, frequency))
+    if not radius > 0.0:
+        return []
+    low, high = float(np.min(z_axis)), float(np.max(z_axis))
+    label = f"{frequency / 1e9:g} GHz ECR (R = {radius:.3f} m)"
+    layers = [GeometryLayer(
+        r=np.array([radius, radius]), z=np.array([low, high]), kind="polyline", label=label,
+        style={"linestyle": "-.", "linewidth": 1.4, "color": "emphasis:alert"},
+    )]
+    if high > low:
+        # A map draws no legend for its overlays, so the line names itself.
+        layers.append(GeometryLayer(
+            r=[radius], z=[low + 0.5 * (high - low)], kind="text",
+            label=f"{frequency / 1e9:g} GHz ECR",
+            style={"color": "emphasis:alert", "fontsize": "x-small", "ha": "right", "rotation": 90,
+                   "xytext": (-2, 0), "textcoords": "offset points"},
+        ))
+    return layers
+
+
+def _vacuum_secondary_levels(field: str) -> tuple[float, ...] | None:
+    """The reference contours drawn beneath a vacuum map, if it has any.
+
+    Two quantities on this map are read against a line rather than against the
+    colourbar: the decay index against the band a rigid ring is stable in, and
+    the Lloyd margin against one.
+    """
+    if field == "decay_index":
+        return DECAY_INDEX_STABLE_BAND
+    if field == "lloyd_margin":
+        return LLOYD_MARGIN_THRESHOLD
+    return None
+
+
+def _prefill_pressure(ods: Any, before: float) -> float:
+    """The fill pressure a breakdown saw, in pascal: one definition, in ``vaft.omas``."""
+    from vaft.omas.process_wrapper import compute_prefill_pressure_ods
+
+    try:
+        return compute_prefill_pressure_ods(ods, before=before)
+    except ValueError as error:
+        raise ValueError(f"field='lloyd_margin': {error}") from None
+
+
+def _vacuum_b_toroidal(ods: Any, time: float, mesh_r: np.ndarray) -> np.ndarray:
+    """``B_phi = R_0 B_0 / R`` at ``time``, from the TF vacuum field product."""
+    product = _array(ods, "tf.b_field_tor_vacuum_r.data")
+    base = _array(ods, "tf.b_field_tor_vacuum_r.time")
+    if product is None or base is None or len(product) == 0:
+        raise ValueError(
+            "tf.b_field_tor_vacuum_r is required for field='breakdown'; without "
+            "the toroidal field there is no breakdown figure of merit"
+        )
+    index = int(np.argmin(np.abs(np.asarray(base, dtype=float) - float(time))))
+    return float(np.asarray(product, dtype=float)[index]) / mesh_r
+
+
+# ---------------------------------------------------------------------------
+# Startup views (issue #888): the vacuum proxies against time, and a radial
+# cut of the vacuum map along the midplane.  Both read the vaft.omas startup
+# helpers, which are themselves readings of the cached vacuum evaluators, so
+# they agree with vacuum_field by construction.
+# ---------------------------------------------------------------------------
+
+#: Where the decay-index panel is clipped: it diverges wherever B_Z crosses
+#: zero, and the donor VFIT figure reads it inside [-3, 3].
+STARTUP_DECAY_INDEX_LIMITS = (-3.0, 3.0)
+
+#: The roots a startup builder hands the vacuum evaluators on a private copy:
+#: they solve and store the vessel currents, which must not land in the
+#: caller's ODS.  ``barometry`` rides along for the Lloyd margin.
+_STARTUP_ROOTS = (*_NULL_FIELD_ROOTS, "tf", "barometry")
+
+
+def _startup_window(ods: Any) -> tuple[float, float] | None:
+    """OH-coil onset to plasma-current peak: the stretch a startup is read over.
+
+    ``None`` when either end is not found; nothing is assumed in its place.
+    """
+    from vaft.omas.discharge_timing import oh_coil_onset
+    from vaft.omas.plasma_features import ip_peak
+
+    try:
+        ohmic = oh_coil_onset(ods)
+        peak = ip_peak(ods)
+    except Exception:  # noqa: BLE001 - a missing signal means no default window
+        return None
+    if ohmic is None or not ohmic.found or not peak.found:
+        return None
+    start, stop = float(ohmic.time), float(peak.time)
+    return (start, stop) if stop > start else None
+
+
+def _breakdown_onset_or_none(ods: Any) -> float | None:
+    """The breakdown onset, or ``None`` on a shot without one."""
+    from vaft.omas import find_breakdown_onset
+
+    try:
+        onset = float(find_breakdown_onset(ods))
+    except (ValueError, KeyError, IndexError, TypeError):
+        return None
+    return onset if np.isfinite(onset) else None
+
+
+def _rz_option(options: Mapping[str, Any]) -> tuple[float, float]:
+    """``rz=``: the ``(R, Z)`` observation point in metres."""
+    rz = options.get("rz")
+    if rz is None:
+        return (0.4, 0.0)
+    try:
+        r0, z0 = (float(value) for value in rz)
+    except (TypeError, ValueError):
+        raise ValueError(f"rz must be an (R, Z) pair in metres; got {rz!r}") from None
+    if not (np.isfinite(r0) and np.isfinite(z0)) or r0 <= 0.0:
+        raise ValueError(f"rz must be a finite (R > 0, Z) pair in metres; got {rz!r}")
+    return r0, z0
+
+
+def _range_option(options: Mapping[str, Any], name: str) -> tuple[float, float] | None:
+    """A ``(start, stop)`` option, validated, or ``None``."""
+    value = options.get(name)
+    if value is None:
+        return None
+    try:
+        start, stop = (float(item) for item in value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be a (start, stop) pair; got {value!r}") from None
+    if not stop > start:
+        raise ValueError(f"{name} must have stop > start; got {value!r}")
+    return start, stop
+
+
+def _vertical_marker(x: float, y_span: tuple[float, float], label: str, style: Mapping[str, Any]) -> Series:
+    """A vertical line at ``x`` spanning ``y_span``: a marker any renderer draws."""
+    return Series(x=np.array([x, x]), y=np.array(y_span, dtype=float), label=label, style=dict(style))
+
+
+def _horizontal_marker(y: float, x_span: tuple[float, float], label: str, style: Mapping[str, Any]) -> Series:
+    """A horizontal reference line at ``y`` across ``x_span``."""
+    return Series(x=np.array(x_span, dtype=float), y=np.array([y, y]), label=label, style=dict(style))
+
+
+def _finite_span(arrays: Iterable[np.ndarray]) -> tuple[float, float] | None:
+    """The finite ``(min, max)`` over ``arrays``, widened when it is a point."""
+    values = [np.asarray(a, dtype=float) for a in arrays]
+    finite = np.concatenate([v[np.isfinite(v)] for v in values]) if values else np.array([])
+    if finite.size == 0:
+        return None
+    low, high = float(finite.min()), float(finite.max())
+    if low == high:
+        low, high = low - 1.0, high + 1.0
+    return low, high
+
+
+#: The three proxies of ``startup_proxies_time``: result key, label, canonical
+#: unit, the taxonomy quantity a dimensionless one is displayed by.
+_STARTUP_PROXY_PANELS = (
+    ("b_z", "Vertical field B_Z", "T", None),
+    ("v_loop", "Loop voltage", "V", None),
+    ("decay_index", "Decay index n", "", "decay_index"),
+)
+
+
+def _build_startup_proxies_time(entries: Sequence[tuple[str, Any]], **options: Any) -> Panels:
+    """B_Z, V_loop and the decay index at ``rz=`` against time, one trace per entry.
+
+    Each entry is evaluated on its own private copy
+    (:func:`vaft.omas.compute_startup_proxies_ods`), so several shots overlay
+    on shared axes with their breakdown onsets marked in their own colours.
+    The default window runs from the first entry's OH-coil onset to its
+    plasma-current peak.
+    """
+    from vaft.omas.process_wrapper import compute_startup_proxies_ods
+
+    rz = _rz_option(options)
+    window = _range_option(options, "time_range")
+    if window is None:
+        window = _startup_window(entries[0][1])
+    markers = bool(options.get("markers", True))
+    several = len(entries) > 1
+
+    evaluated = []
+    for position, (label, ods) in enumerate(entries):
+        onset = _breakdown_onset_or_none(ods) if markers else None
+        private = _isolated_copy(ods, _STARTUP_ROOTS)
+        proxies = compute_startup_proxies_ods(private, rz=rz)
+        evaluated.append((position, str(label), proxies, onset))
+
+    panels: list[LineSeries] = []
+    for row, (key, heading, unit, quantity) in enumerate(_STARTUP_PROXY_PANELS):
+        raw = [np.asarray(proxies[key], dtype=float) for _, _, proxies, _ in evaluated]
+        display = resolve_display(unit, subject="vacuum", quantity=quantity, data=np.concatenate(raw))
+        series: list[Series] = []
+        spans = []
+        for (position, label, proxies, _onset), values in zip(evaluated, raw):
+            time = np.asarray(proxies["time"], dtype=float)
+            keep = np.ones(time.shape, dtype=bool) if window is None else (
+                (time >= window[0]) & (time <= window[1])
+            )
+            y = values[keep] * display.scale
+            if key == "decay_index":
+                y = np.where((y >= STARTUP_DECAY_INDEX_LIMITS[0]) & (y <= STARTUP_DECAY_INDEX_LIMITS[1]), y, np.nan)
+            style = {"color": palette(position)} if several else {}
+            series.append(Series(x=time[keep], y=y, label=label, entry=label, style=style))
+            spans.append(y)
+        x_span = _finite_span([s.x for s in series])
+        y_span = (
+            STARTUP_DECAY_INDEX_LIMITS if key == "decay_index" else _finite_span(spans)
+        )
+        if key == "decay_index" and x_span is not None:
+            for level, text in zip(DECAY_INDEX_STABLE_BAND, ("stable band 0 < n < 1.5", "")):
+                series.append(_horizontal_marker(
+                    level, x_span, text, {"linestyle": ":", "lw": 0.9, "color": "emphasis:low"},
+                ))
+        if markers and y_span is not None:
+            for position, label, _proxies, onset in evaluated:
+                if onset is None or (window is not None and not window[0] <= onset <= window[1]):
+                    continue
+                text = (f"breakdown {label}" if several else "breakdown onset") if row == 0 else ""
+                series.append(_vertical_marker(
+                    onset, y_span, text,
+                    {"linestyle": "--", "lw": 1.0,
+                     "color": palette(position) if several else "emphasis:strong"},
+                ))
+        bracket = f" [{display.unit}]" if display.unit else ""
+        panels.append(LineSeries(
+            series=tuple(series),
+            x_label="Time", x_unit="s",
+            y_label=heading, y_unit=display.unit,
+            title=f"{heading}{bracket}",
+            x_limits=window,
+            y_limits=STARTUP_DECAY_INDEX_LIMITS if key == "decay_index" else None,
+            display=display,
+        ))
+    shot = _entry_shot(entries)
+    heading = f"Startup proxies at R = {rz[0]:.2f} m, Z = {rz[1]:.2f} m (vacuum)"
+    return Panels(
+        models=tuple(panels),
+        ncols=1,
+        share_x=True,
+        suptitle=options.get("title", f"{heading} #{shot}" if shot else heading),
+    )
+
+
+#: What ``vacuum_field_midplane`` may draw: result key, label, canonical unit,
+#: the taxonomy quantity a dimensionless one is displayed by, and whether it
+#: needs the (seconds-long) connection-length trace.
+VACUUM_MIDPLANE_FIELDS: dict[str, tuple[str, str, str, str | None, bool]] = {
+    "v_loop": ("v_loop", "Loop voltage V_loop", "V", None, False),
+    "b_z": ("b_z", "Vertical field B_Z", "T", None, False),
+    "breakdown": ("breakdown_figure", "Breakdown figure E_t B_t / B_p", "V/m", None, False),
+    "lloyd_margin": ("lloyd_margin", "Lloyd breakdown margin", "", "lloyd_margin", True),
+    "connection_length": ("connection_length_m", "Connection length L", "m", None, True),
+}
+
+#: The ``field=`` vocabulary of the midplane cut, in offer order.
+VACUUM_MIDPLANE_FIELD_NAMES = tuple(VACUUM_MIDPLANE_FIELDS)
+
+
+def _ec_frequency_option(options: Mapping[str, Any], default: float | None) -> float | None:
+    """``ec_frequency_Hz=``: a positive frequency, or ``None`` for no resonance."""
+    value = options.get("ec_frequency_Hz", default)
+    if value is None:
+        return None
+    frequency = float(value)
+    if not np.isfinite(frequency) or frequency <= 0.0:
+        raise ValueError(f"ec_frequency_Hz must be a positive frequency in Hz or None; got {value!r}")
+    return frequency
+
+
+def _build_vacuum_field_midplane(ods: Any, **options: Any) -> LineSeries:
+    """One vacuum startup quantity along the Z = 0 row of the vacuum map.
+
+    A reading of :func:`vaft.omas.compute_vacuum_midplane_profiles_ods` at
+    ``time=``/``time_index=`` (default: the breakdown onset, as
+    ``vacuum_field``).  The breakdown figure carries the empirical Ohmic and
+    ECH-assisted thresholds, the margin its unit line, and every field the
+    electron-cyclotron resonance radius when ``ec_frequency_Hz`` is set.
+    Points outside the limiter are blank, as on the map.
+    """
+    from vaft.formula.startup import (
+        LLOYD_FIGURE_OF_MERIT_ECH_V_PER_M,
+        LLOYD_FIGURE_OF_MERIT_OHMIC_V_PER_M,
+    )
+    from vaft.omas.process_wrapper import EC_FREQUENCY_VEST_HZ, compute_vacuum_midplane_profiles_ods
+
+    field = options.get("field") or "v_loop"
+    if field not in VACUUM_MIDPLANE_FIELDS:
+        raise ValueError(
+            f"unknown midplane field {field!r}; expected one of {', '.join(VACUUM_MIDPLANE_FIELD_NAMES)}"
+        )
+    key, heading, unit, quantity, traced = VACUUM_MIDPLANE_FIELDS[field]
+    frequency = _ec_frequency_option(options, EC_FREQUENCY_VEST_HZ)
+    instant = _vacuum_map_time(ods, options.get("time"), options.get("time_index"))
+    private = _isolated_copy(ods, _STARTUP_ROOTS)
+    kwargs: dict[str, Any] = {
+        "time": instant,
+        "resolution": int(options.get("resolution", 65)),
+        "trace_connection_length": traced,
+    }
+    if options.get("p_Pa") is not None:
+        kwargs["p_Pa"] = float(options["p_Pa"])
+    if frequency is not None:
+        kwargs["ec_frequency_Hz"] = frequency
+    if options.get("dphi_deg") is not None:
+        kwargs["dphi_deg"] = float(options["dphi_deg"])
+    if options.get("max_length_m") is not None:
+        kwargs["max_length_m"] = float(options["max_length_m"])
+    if field in ("breakdown", "lloyd_margin", "connection_length") and not _has(
+        private, "tf.b_field_tor_vacuum_r.data"
+    ):
+        raise ValueError(
+            f"tf.b_field_tor_vacuum_r is required for field={field!r}; without the "
+            "toroidal field there is no field-line pitch"
+        )
+    if field == "lloyd_margin" and options.get("p_Pa") is None and not _has(
+        private, "barometry.gauge.0.pressure.data"
+    ):
+        raise ValueError(
+            "barometry.gauge.0.pressure (or p_Pa=) is required for field='lloyd_margin'; "
+            "without a fill pressure there is no Townsend threshold"
+        )
+    profile = compute_vacuum_midplane_profiles_ods(private, **kwargs)
+
+    r = np.asarray(profile["r"], dtype=float)
+    values = np.asarray(profile[key], dtype=float)
+    display = resolve_display(unit, unit=options.get("yunit"), subject="vacuum", quantity=quantity, data=values)
+    y = values * display.scale
+    series: list[Series] = [Series(x=r, y=y, label=heading)]
+    x_span = (float(r.min()), float(r.max()))
+    references: list[float] = []
+    if field == "breakdown":
+        for level, text in (
+            (LLOYD_FIGURE_OF_MERIT_OHMIC_V_PER_M, "Ohmic threshold"),
+            (LLOYD_FIGURE_OF_MERIT_ECH_V_PER_M, "ECH-assisted threshold"),
+        ):
+            scaled = level * display.scale
+            references.append(scaled)
+            series.append(_horizontal_marker(
+                scaled, x_span, f"{text} ({level:g} V/m)",
+                {"linestyle": "--" if level == LLOYD_FIGURE_OF_MERIT_OHMIC_V_PER_M else ":",
+                 "lw": 1.0, "color": "emphasis:strong"},
+            ))
+    elif field == "lloyd_margin":
+        references.append(1.0)
+        series.append(_horizontal_marker(
+            1.0, x_span, "margin = 1", {"linestyle": "--", "lw": 1.0, "color": "emphasis:strong"},
+        ))
+    r_ecr = float(profile["r_ecr"])
+    log_y = bool(options.get("log_y", field in ("breakdown", "connection_length")))
+    if frequency is not None and np.isfinite(r_ecr) and x_span[0] <= r_ecr <= x_span[1]:
+        finite = y[np.isfinite(y) & ((y > 0) if log_y else True)]
+        span = _finite_span([finite, np.asarray(references)])
+        if span is not None:
+            series.append(_vertical_marker(
+                r_ecr, span, f"{frequency / 1e9:g} GHz ECR (R = {r_ecr:.3f} m)",
+                {"linestyle": "-.", "lw": 1.2, "color": "emphasis:alert"},
+            ))
+    bracket = f" [{display.unit}]" if display.unit else ""
+    detail = f", p = {profile['p_Pa'] * 1e3:.2f} mPa" if field == "lloyd_margin" else ""
+    title = (
+        f"{heading}{bracket} at Z = {profile['z']:.2f} m, "
+        f"t = {profile['time'] * 1e3:.1f} ms{detail} (vacuum)"
+    )
+    return LineSeries(
+        series=tuple(series),
+        x_label="R", x_unit="m",
+        y_label=heading, y_unit=display.unit,
+        title=options.get("title", title),
+        x_limits=options.get("x_limits"),
+        log_y=log_y,
+        display=display,
     )
 
 
@@ -1985,42 +4207,266 @@ def _build_coils_non_axisymmetric_topview(ods: Any, **_: Any) -> GeometryLayers:
 RECIPES["soft_x_rays_geometry_lines_of_sight"] = CallableRecipe(
     builder=_build_lines_of_sight,
     description="One polyline per detector line of sight, over the wall outline.",
+    reads=("soft_x_rays.channel.{i}.line_of_sight.first_point.r", "soft_x_rays.channel.{i}.line_of_sight.first_point.z", "soft_x_rays.channel.{i}.line_of_sight.second_point.r", "soft_x_rays.channel.{i}.line_of_sight.second_point.z", "soft_x_rays.channel.{i}.name", *_WALL_LIMITER_READS),
+    backend=NEUTRAL,
 )
 RECIPES["coil_3d_geometry3d"] = CallableRecipe(
     builder=_build_coils_non_axisymmetric_3d,
     description="Every non-axisymmetric coil filament as a 3D machine-coordinate polyline.",
+    reads=_COIL_3D_READS,
+    backend=NEUTRAL,
 )
 RECIPES["coil_3d_geometry_topview"] = CallableRecipe(
     builder=_build_coils_non_axisymmetric_topview,
     description="Non-axisymmetric coil filaments projected into the machine top view.",
+    reads=_COIL_3D_READS,
+    backend=NEUTRAL,
+)
+RECIPES["pf_coil_geometry_poloidal"] = CallableRecipe(
+    builder=_build_pf_coil_geometry,
+    description="Every PF coil's elements (rectangle or outline), one colour per coil.",
+    reads=_PF_COIL_READS,
+    backend=NEUTRAL,
+)
+RECIPES["passive_structure_geometry_poloidal"] = CallableRecipe(
+    builder=_build_passive_structure_geometry,
+    description="The passive conducting structure drawn as one structure.",
+    reads=_PF_PASSIVE_READS,
+    backend=NEUTRAL,
+)
+RECIPES["passive_structure_geometry_wall_mode"] = CallableRecipe(
+    builder=_build_wall_mode_shape,
+    description="One segment-local wall eigenmode coloured onto the passive structure.",
+    reads=_WALL_MODE_READS,
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_wall_mode_basis_ods subscripts the ODS and may write em_coupling.code.parameters',
+)
+RECIPES["pf_plasma_geometry_poloidal"] = CallableRecipe(
+    builder=_build_pf_plasma_geometry,
+    description="The plasma-current elements of pf_plasma, coloured by current.",
+    reads=("pf_plasma.time", "pf_plasma.element.{i}.current", "pf_plasma.element.{i}.area", "pf_plasma.element.{i}.geometry.geometry_type", *_element_reads("pf_plasma"), *_WALL_LIMITER_READS),
+    backend=NEUTRAL,
+)
+
+
+def _stored_bootstrap_series(ods: Any, time_slice: Any = None) -> dict[str, Any] | None:
+    """Whatever bootstrap current the ODS already carries, as a one-series model set."""
+    index = 0 if time_slice is None else int(time_slice)
+    base = f"core_profiles.profiles_1d.{index}"
+    values = _array(ods, f"{base}.j_bootstrap")
+    grid = _array(ods, f"{base}.grid.rho_tor_norm")
+    if values is None or grid is None or values.size != grid.size:
+        return None
+    label = "stored"
+    try:
+        if "core_profiles.code.name" in ods:
+            written_by = str(ods["core_profiles.code.name"]).strip()
+            if written_by:
+                label = written_by.lower()
+    except (KeyError, ValueError, TypeError):
+        pass
+    return {
+        "rho_tor_norm": grid,
+        "series": {label: {"j_bootstrap": values, "source": "stored"}},
+        "provenance": {},
+    }
+
+
+def _neoclassical_bootstrap_available(ods: Any) -> str | None:
+    """Why this input cannot support the bootstrap comparison, or ``None``.
+
+    The pressure gradients need an electron density, which ``core_profiles`` spells
+    either ``density_thermal`` or ``density`` -- a requirement no single declared path
+    expresses, and the reason this predicate exists rather than another entry in
+    ``required_paths``. Without it a temperature-only fit is advertised as supporting
+    the plot and then raises from the provider.
+    """
+    for index in range(max(_count(ods, "core_profiles.profiles_1d"), 1)):
+        base = f"core_profiles.profiles_1d.{index}.electrons"
+        if any(_array(ods, f"{base}.{leaf}") is not None for leaf in ("density_thermal", "density")):
+            return None
+    return "core_profiles.profiles_1d.{i}.electrons.density_thermal (or density)"
+
+
+def _build_neoclassical_bootstrap(ods: Any, **options: Any) -> Profile1D:
+    """Bootstrap-current profiles from each neoclassical model, on one radial axis.
+
+    One series per model. The analytic ones are evaluated here through
+    :func:`vaft.validation.neoclassical.bootstrap_models`, which composes the ODS-level
+    provider; a solver result already written to ``core_profiles.j_bootstrap`` joins them
+    under the name of whatever wrote it, so a NEO run mapped by
+    :mod:`vaft.machine_mapping.neoclassical` appears beside the formulas it is there to
+    be compared with.
+
+    A caller who has already run the study passes ``rows=`` and nothing is recomputed,
+    the arrangement ``_build_wall_reduction_convergence`` uses -- and it is spelled
+    ``rows`` there and here for the same reason: ``models=`` already means something in
+    :func:`~vaft.validation.neoclassical.bootstrap_models`, namely which analytic
+    formulations to evaluate, and it keeps that meaning as a plot option.
+
+    NEO solves a handful of surfaces, so its profile is NaN outside them. That is carried
+    as a ``valid_mask`` rather than silently interpolated: the gap in the line is the
+    honest statement that the solver was not asked about those radii.
+    """
+    models = options.get("rows")
+    if models is None:
+        from vaft.validation.neoclassical import bootstrap_models
+
+        keys = (
+            "models", "z_eff", "impurity", "rho_range", "ion_index", "time_slice",
+            "include_stored",
+        )
+        passed = {key: options[key] for key in keys if key in options}
+        try:
+            models = bootstrap_models(ods, **passed)
+        except ValueError:
+            # The analytic models need an effective charge, and the provider
+            # refuses to invent one. A solver result already in the ODS is still
+            # worth drawing on its own, so fall back to it rather than showing
+            # nothing -- but only when the caller did not ask for it to be left
+            # out, and only when there is one; otherwise say why nothing is drawn.
+            stored = (
+                _stored_bootstrap_series(ods, passed.get("time_slice"))
+                if passed.get("include_stored", True)
+                else None
+            )
+            if stored is None:
+                raise
+            models = stored
+
+    grid = np.asarray(models["rho_tor_norm"], dtype=float)
+    order = tuple(options.get("order", ("neo", "sauter", "redl")))
+    names = [name for name in order if name in models["series"]]
+    names += [name for name in sorted(models["series"]) if name not in names]
+
+    series: list[Series] = []
+    for name in names:
+        values = np.asarray(models["series"][name]["j_bootstrap"], dtype=float)
+        finite = np.isfinite(values)
+        if not finite.any():
+            continue
+        series.append(
+            Series(
+                x=grid,
+                y=values,
+                label=name,
+                valid_mask=finite if not finite.all() else None,
+                style={"lw": 1.4} if name in ("sauter", "redl") else {"lw": 1.8},
+            )
+        )
+    if not series:
+        raise ValueError("no model produced a finite bootstrap-current profile")
+
+    time = models.get("provenance", {}).get("time")
+    return Profile1D(
+        series=tuple(series),
+        coordinate_label="rho_tor_norm",
+        y_label="Bootstrap current density",
+        y_unit="A.m^-2",
+        title=(
+            "Neoclassical bootstrap current"
+            + ("" if time is None else f" at {float(time):.4g} s")
+        ),
+    )
+
+
+RECIPES["passive_structure_overview_wall_time"] = CallableRecipe(
+    builder=_build_wall_mode_spectrum,
+    description="Decay-time spectrum of the wall's segment-wise eigenmodes.",
+    reads=_WALL_MODE_READS,
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_wall_mode_basis_ods and compute_impedance_matrices_ods subscript the ODS',
+)
+RECIPES["passive_structure_overview_wall_reduction"] = CallableRecipe(
+    builder=_build_wall_reduction_convergence,
+    description="Reduced-wall response error against retained order, per selection rule.",
+    reads=(*_WALL_MODE_READS, *_MAGNETICS_SENSOR_READS, "pf_active.time"),
+    backend=OMAS_BOUND,
+    reason='vaft.validation.wall_reduction.wall_system deep-copies the ODS',
+)
+RECIPES["passive_structure_field_wall_reduction"] = CallableRecipe(
+    builder=_build_wall_reduction_map,
+    description="The wall's poloidal flux on the equilibrium region: full, reduced or their difference.",
+    reads=(*_WALL_MODE_READS, "pf_active.time"),
+    backend=OMAS_BOUND,
+    reason='vaft.validation.wall_reduction.wall_system deep-copies the ODS and compute_point_response_matrices_ods subscripts it',
+)
+RECIPES["neoclassical_profile_bootstrap_current"] = CallableRecipe(
+    builder=_build_neoclassical_bootstrap,
+    description=(
+        "Bootstrap current density from each neoclassical model on one radial axis: "
+        "the Sauter and Redl formulas, and a solver result the ODS already carries."
+    ),
+    available=_neoclassical_bootstrap_available,
+    reads=("core_profiles.time", "core_profiles.code.name", "core_profiles.profiles_1d.{i}.grid.rho_tor_norm", "core_profiles.profiles_1d.{i}.electrons.density_thermal", "core_profiles.profiles_1d.{i}.electrons.density", "core_profiles.profiles_1d.{i}.electrons.temperature", "core_profiles.profiles_1d.{i}.ion.{j}.density_thermal", "core_profiles.profiles_1d.{i}.ion.{j}.density", "core_profiles.profiles_1d.{i}.ion.{j}.temperature", "core_profiles.profiles_1d.{i}.ion.{j}.z_ion", "core_profiles.profiles_1d.{i}.zeff", "core_profiles.profiles_1d.{i}.j_bootstrap", "core_profiles.profiles_1d.{i}.time", "core_profiles.vacuum_toroidal_field.b0", "equilibrium.time_slice.{i}.profiles_1d.trapped_fraction", "equilibrium.time_slice.{i}.profiles_1d.gm1", "equilibrium.time_slice.{i}.profiles_1d.gm2", *_EQUILIBRIUM_SLICE_READS, *_EFIT_CONSTRAINT_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.validation.neoclassical.bootstrap_models subscripts the ODS; the stored-series fallback reads core_profiles.code.name with `in`',
 )
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
     description="Wall, coils, passive structure and diagnostic positions composed.",
+    reads=(*_WALL_LIMITER_READS, *_PF_PASSIVE_READS, *_PF_COIL_READS, "pf_active.coil.{i}.element.{j}.geometry.geometry_type", "pf_passive.loop.{i}.element.{j}.geometry.geometry_type", *_geometry_reads("magnetics_geometry_poloidal", "thomson_scattering_geometry_poloidal", "charge_exchange_geometry_poloidal"), *RECIPES["soft_x_rays_geometry_lines_of_sight"].reads),
+    backend=NEUTRAL,
 )
 RECIPES["equilibrium_geometry_topview"] = CallableRecipe(
     builder=_build_equilibrium_topview,
     description="Plasma inboard/outboard extent projected into the top view.",
+    reads=("equilibrium.time_slice.{i}.boundary.outline.r",),
+    backend=NEUTRAL,
 )
 RECIPES["machine_geometry_topview"] = CallableRecipe(
     builder=_build_machine_topview,
     description="Plasma extent plus launcher and antenna positions in the top view.",
+    reads=(*_WALL_LIMITER_READS, *_WALL_VESSEL_READS, "equilibrium.time_slice.{i}.boundary.outline.r", "lh_antennas.antenna.{i}.position.r", "lh_antennas.antenna.{i}.position.phi", "ec_launchers.beam.{i}.launching_position.r", "ec_launchers.beam.{i}.launching_position.phi", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.r", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.phi", *_topview_reads()),
+    backend=NEUTRAL,
 )
 RECIPES["equilibrium_field_psi_vacuum"] = CallableRecipe(
     builder=_build_vacuum_psi,
     description="Vacuum flux map from the PF currents via vaft.omas.compute_null_ods.",
+    reads=("pf_active", "pf_passive", "wall", "equilibrium", "dataset_description", "em_coupling.mutual_passive_active", "em_coupling.mutual_passive_passive", "em_coupling.code.parameters", "em_coupling.ids_properties.comment", *_ONSET_READS),
+    backend=OMAS_BOUND,
+    reason='compute_null_ods writes eddy currents into a private copy of pf_active/pf_passive/wall/equilibrium (_isolated_copy)',
+)
+RECIPES["vacuum_field"] = CallableRecipe(
+    builder=_build_vacuum_field,
+    description="Flux, |B_p|, the decay index, |E_phi|, the breakdown figure of "
+                "merit or the Lloyd margin from one cached vacuum-field evaluation.",
+    reads=("pf_active", "pf_passive", "wall", "equilibrium", "tf", "barometry", "dataset_description", "em_coupling.mutual_passive_active", "em_coupling.mutual_passive_passive", "em_coupling.code.parameters", "em_coupling.ids_properties.comment", *_ONSET_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_vacuum_field_map subscripts a private copy of pf_active/pf_passive/wall/equilibrium/tf/barometry (_isolated_copy); barometry supplies the fill pressure for field="lloyd_margin"',
+)
+RECIPES["startup_proxies_time"] = CallableRecipe(
+    builder=_build_startup_proxies_time,
+    description="Vacuum B_Z, loop voltage and decay index at one point against time, "
+                "every entry overlaid, breakdown onsets marked.",
+    reads=("pf_active", "pf_passive", "wall", "equilibrium", "tf", "barometry", "dataset_description", "em_coupling.mutual_passive_active", "em_coupling.mutual_passive_passive", "em_coupling.code.parameters", "em_coupling.ids_properties.comment", *_ONSET_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_startup_proxies_ods solves and stores the vessel currents on a private copy of pf_active/pf_passive/wall/equilibrium/tf (_isolated_copy)',
+    multi_entry=True,
+)
+RECIPES["vacuum_field_midplane"] = CallableRecipe(
+    builder=_build_vacuum_field_midplane,
+    description="One vacuum startup quantity along the Z = 0 row of the vacuum map, "
+                "with its empirical thresholds and the ECR radius.",
+    reads=RECIPES["startup_proxies_time"].reads,
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_vacuum_midplane_profiles_ods subscripts a private copy of pf_active/pf_passive/wall/equilibrium/tf/barometry (_isolated_copy)',
 )
 RECIPES["electron_temperature_field"] = CallableRecipe(
     builder=lambda ods, **options: _build_core_profile_field(
         ods, **{**options, "quantity": "temperature"}
     ),
     description="Electron temperature mapped onto the poloidal plane.",
+    reads=_core_profile_field_reads("temperature"),
+    backend=NEUTRAL,
 )
 RECIPES["electron_density_field"] = CallableRecipe(
     builder=lambda ods, **options: _build_core_profile_field(
         ods, **{**options, "quantity": "density"}
     ),
     description="Electron density mapped onto the poloidal plane.",
+    reads=_core_profile_field_reads("density"),
+    backend=NEUTRAL,
 )
 
 
@@ -2178,6 +4624,9 @@ def _build_power_balance(ods: Any, **_: Any) -> Panels:
 RECIPES["summary_time_power_balance"] = CallableRecipe(
     builder=_build_power_balance,
     description="Power-balance terms computed by vaft.omas.compute_power_balance.",
+    reads=(*_EQUILIBRIUM_SLICE_READS, "equilibrium.time_slice.{i}.global_quantities.volume", "equilibrium.time_slice.{i}.global_quantities.energy_mhd", "equilibrium.time_slice.{i}.profiles_1d.j_tor", "core_profiles.time", "core_profiles.profiles_1d.{i}.time", "core_profiles.profiles_1d.{i}.grid.rho_tor_norm", "core_profiles.profiles_1d.{i}.electrons.temperature", "core_profiles.profiles_1d.{i}.electrons.density", "core_profiles.profiles_1d.{i}.ion.{j}.label", "core_profiles.profiles_1d.{i}.zeff", "core_profiles.profiles_1d.{i}.j_ohmic", "core_profiles.profiles_1d.{i}.conductivity_parallel", "summary.time", "summary.global_quantities.power_radiated.value", "summary.global_quantities.energy_thermal.value", *_WALL_LIMITER_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.formula_wrapper.compute_power_balance and compute_bremsstrahlung_power subscript the ODS and build a scratch ODS',
 )
 
 
@@ -2235,6 +4684,8 @@ def _efit_overlay_layers(
                 z=overlay["wall_uv"][:, 1],
                 kind="points",
                 label="Wall",
+                # Camera overlays keep literal colours: they must contrast with a
+                # photograph, not follow a theme (issue #709).
                 style={"marker": "o", "markersize": 1, "color": "yellow"},
             )
         )
@@ -2277,12 +4728,23 @@ def _efit_overlay_layers(
 
 #: What may be drawn over a camera frame (issue #261 section 18), and the
 #: projection methods that map machine geometry into its pixels (section 20).
-CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line")
+CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line", "vacuum_field_line")
+
+#: Where a vacuum field line is seeded when ``seeds=`` names none [m]: VEST's
+#: startup reference point, the one ``startup_proxies_time`` reads.
+DEFAULT_VACUUM_FIELD_LINE_SEEDS = ((0.4, 0.0),)
 CAMERA_PROJECTIONS = ("calibrated",)
 
 
-def _overlay_option(options: Mapping[str, Any]) -> tuple[str, ...]:
-    """Normalise ``overlay=``: a name, a sequence of names, or nothing."""
+def _overlay_option(
+    options: Mapping[str, Any], vocabulary: Sequence[str] = CAMERA_OVERLAYS
+) -> tuple[str, ...]:
+    """Normalise ``overlay=``: a name, a sequence of names, or nothing.
+
+    ``vocabulary`` is the plot's own overlay set -- the camera's
+    (:data:`CAMERA_OVERLAYS`) or the poloidal one
+    (:data:`POLOIDAL_OVERLAYS`, issue #483).
+    """
     overlay = options.get("overlay", ())
     if overlay is None or overlay == "" or overlay is False:
         return ()
@@ -2292,13 +4754,13 @@ def _overlay_option(options: Mapping[str, Any]) -> tuple[str, ...]:
         names = tuple(overlay)
     else:
         raise ValueError(
-            f"overlay must be a name or a sequence of names from {', '.join(CAMERA_OVERLAYS)}; "
+            f"overlay must be a name or a sequence of names from {', '.join(vocabulary)}; "
             f"got {overlay!r}"
         )
-    unknown = [name for name in names if name not in CAMERA_OVERLAYS]
+    unknown = [name for name in names if name not in vocabulary]
     if unknown:
         raise ValueError(
-            f"unknown overlay {unknown[0]!r}; overlays are {', '.join(CAMERA_OVERLAYS)}"
+            f"unknown overlay {unknown[0]!r}; overlays are {', '.join(vocabulary)}"
         )
     return tuple(dict.fromkeys(names))
 
@@ -2380,11 +4842,17 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
             )
         projection = _projection_option(options, shot)
         if "wall" in overlays or "equilibrium" in overlays:
+            sweep = options.get("theta_deg_range")
             geometry = compute_camera_visible_efit_overlay(
                 ods, int(shot), channel=channel, detector=detector, frame_index=idx,
                 flux_surface_levels=tuple(options.get("flux_surface_levels", (0.25, 0.5, 0.75, 0.95)))
                 if "equilibrium" in overlays else (),
                 projection=projection,
+                # Every layer is swept toroidally, so the sweep width decides
+                # whether nested flux surfaces read as contours or fill in as a
+                # sheet.  The default spans the camera's view; a narrow range
+                # shows the surfaces themselves.
+                **({} if sweep is None else {"theta_deg_range": tuple(sweep)}),
             )
             # An explicit show_* flag refines within the overlay it belongs to.
             layer_options = {
@@ -2406,6 +4874,22 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
             )
             layers.extend(_field_line_layers(result["field_line_uv"]))
             notes.append(f"field line R0={r0:.3f} m, Z0={z0:.3f} m, stop: {result['trace']['termination_reason']}")
+        if "vacuum_field_line" in overlays:
+            records = _vacuum_field_line_records(ods, options, shot=shot, time=resolved_time, projection=projection)
+            for number, record in enumerate(records):
+                uv = np.column_stack([
+                    np.where(record["in_image"], record["u"], np.nan),
+                    np.where(record["in_image"], record["v"], np.nan),
+                ])
+                layers.extend(_field_line_layers(
+                    uv, label=f"vacuum field line R={record['seed'][0]:.3f} m, Z={record['seed'][1]:.3f} m",
+                    vacuum=number,
+                ))
+            notes.append(
+                f"vacuum field lines at t={records[0]['time'] * 1e3:.1f} ms from "
+                + ", ".join(f"({r:.3f}, {z:.3f}) m" for r, z in (rec["seed"] for rec in records))
+                if records else "no vacuum field line seeds"
+            )
     title = options.get(
         "title",
         f"{channel_name} frame {idx} @ t={resolved_time:.4f}s"
@@ -2414,12 +4898,27 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
     return Image2D(values=image, value_label="Digital levels", title=title, overlays=tuple(layers))
 
 
-def _field_line_layers(field_line_uv: np.ndarray) -> list[GeometryLayer]:
-    """The traced line and its end points, in pixel space."""
+def _field_line_layers(
+    field_line_uv: np.ndarray, *, label: str = "Field line", vacuum: int | None = None
+) -> list[GeometryLayer]:
+    """The traced line and its end points, in pixel space.
+
+    ``vacuum`` is the seed number of a vacuum field line: it is drawn in its
+    own colour without end markers, and its pixels may hold ``nan`` where the
+    trace leaves the image, which breaks the line rather than joining across.
+    """
     layers: list[GeometryLayer] = []
+    if vacuum is not None:
+        colours = ("cyan", "orange", "lime", "magenta", "yellow")
+        if np.isfinite(field_line_uv).all(axis=1).sum() >= 2:
+            layers.append(GeometryLayer(
+                r=field_line_uv[:, 0], z=field_line_uv[:, 1], kind="polyline", label=label,
+                style={"color": colours[int(vacuum) % len(colours)], "linewidth": 1.2},
+            ))
+        return layers
     if field_line_uv.shape[0] >= 2:
         layers.append(GeometryLayer(
-            r=field_line_uv[:, 0], z=field_line_uv[:, 1], kind="polyline", label="Field line",
+            r=field_line_uv[:, 0], z=field_line_uv[:, 1], kind="polyline", label=label,
             style={"color": "red", "linewidth": 1.5},
         ))
     if field_line_uv.shape[0] >= 1:
@@ -2433,6 +4932,61 @@ def _field_line_layers(field_line_uv: np.ndarray) -> list[GeometryLayer]:
             style={"marker": "o", "markersize": 8, "color": "blue"},
         ))
     return layers
+
+
+def _vacuum_field_line_seeds(ods: Any, options: Mapping[str, Any], time: float) -> list[tuple[float, float]]:
+    """``seeds=``, or the default seed plus the ECR radius when ``ec_frequency_Hz=`` asks.
+
+    An explicit ``seeds=`` is used as given.  Without one the line starts at
+    :data:`DEFAULT_VACUUM_FIELD_LINE_SEEDS`; ``ec_frequency_Hz=`` adds a seed on
+    the midplane at that source's resonance radius at ``time``.
+    """
+    seeds = options.get("seeds")
+    if seeds is not None:
+        try:
+            parsed = [(float(seed[0]), float(seed[1])) for seed in seeds]
+        except (TypeError, ValueError, IndexError):
+            raise ValueError(f"seeds must be a sequence of (R, Z) pairs in metres; got {seeds!r}") from None
+        if not parsed:
+            raise ValueError("seeds= names no (R, Z) seed")
+        return parsed
+    parsed = [tuple(seed) for seed in DEFAULT_VACUUM_FIELD_LINE_SEEDS]
+    frequency = _ec_frequency_option(options, None)
+    if frequency is not None:
+        for layer in _ecr_layers(ods, time, frequency, np.array([0.0])):
+            if layer.kind == "polyline":
+                parsed.append((float(layer.r[0]), 0.0))
+    return parsed
+
+
+def _vacuum_field_line_records(ods: Any, options: Mapping[str, Any], *, shot: Any, time: float, projection: Any):
+    """Vacuum field lines at the displayed frame's time, projected into its pixels.
+
+    Traced through the coils' and vessel's vacuum field only
+    (:func:`vaft.omas.compute_camera_visible_vacuum_field_lines`), never an
+    equilibrium, on a private copy: the evaluator stores the vessel currents
+    it solves.
+    """
+    from vaft.omas.process_wrapper import compute_camera_visible_vacuum_field_lines
+
+    if not _has(ods, "tf.b_field_tor_vacuum_r.data"):
+        raise ValueError(
+            "overlay='vacuum_field_line' needs tf.b_field_tor_vacuum_r: a vacuum field "
+            "line has no pitch without the toroidal field"
+        )
+    if not _has(ods, "pf_active.time"):
+        raise ValueError(
+            "overlay='vacuum_field_line' needs pf_active currents to evaluate the vacuum field"
+        )
+    seeds = _vacuum_field_line_seeds(ods, options, time)
+    private = _isolated_copy(ods, _STARTUP_ROOTS)
+    return compute_camera_visible_vacuum_field_lines(
+        private, shot=int(shot), time=float(time), seeds=seeds, projection=projection,
+        resolution=int(options.get("resolution", 65)),
+        dphi_deg=float(options.get("dphi_deg", 1.0)),
+        max_length_m=float(options.get("max_length_m", 30.0)),
+        max_turns=None if options.get("max_turns") is None else float(options["max_turns"]),
+    )
 
 
 def _build_camera_visible_image_frame(ods: Any, **options: Any) -> Image2D:
@@ -2468,6 +5022,18 @@ def _build_camera_visible_image_field_line(ods: Any, **options: Any) -> Image2D:
     )
 
 
+def _build_camera_visible_image_vacuum_field_line(ods: Any, **options: Any) -> Image2D:
+    """Preset of the image API: the frame with vacuum field lines (plus what ``show_*`` asks)."""
+    # Nothing from an equilibrium unless a show_* flag asks: before breakdown
+    # there is none, and the point of this preset is the field without one.
+    names = ["wall"] if options.get("show_wall", False) else []
+    if options.get("show_lcfs", False) or options.get("show_magnetic_axis", False):
+        names.append("equilibrium")
+    return _build_camera_visible_image(
+        ods, **{**options, "overlay": (*names, "vacuum_field_line")}
+    )
+
+
 def _build_camera_visible_animation_frames(ods: Any, **options: Any) -> ImageSequence:
     channel = int(options.get("channel", 0))
     detector = int(options.get("detector", 0))
@@ -2495,25 +5061,301 @@ def _build_camera_visible_animation_frames(ods: Any, **options: Any) -> ImageSeq
     )
 
 
+# ---------------------------------------------------------------------------
+# Camera fluctuation views (issue #161)
+# ---------------------------------------------------------------------------
+
+
+def _camera_visible_frame_times(ods: Any, *, channel: int, detector: int) -> np.ndarray:
+    prefix = _camera_visible_frame_prefix(channel, detector)
+    count = _count(ods, prefix)
+    if not count:
+        raise ValueError(f"{prefix} holds no frames")
+    return np.asarray(
+        [float(_get(ods, f"{prefix}.{i}.time", np.nan)) for i in range(count)], dtype=float
+    )
+
+
+def _camera_visible_frame_window(
+    ods: Any, *, channel: int, detector: int, first: int, last: int
+) -> np.ndarray:
+    """Frames ``first..last`` inclusive, as one cube."""
+    return np.stack(
+        [
+            _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=i)
+            for i in range(first, last + 1)
+        ]
+    )
+
+
+def _camera_visible_region(options: Mapping[str, Any]):
+    region = options.get("region")
+    return None if region is None else tuple(int(v) for v in region)
+
+
+def _build_camera_visible_image_fluctuation(ods: Any, **options: Any) -> Image2D:
+    """One frame with its local temporal background removed (#161 section 1).
+
+    Only the frames the local mean needs are read, and the answer is the one
+    subtracting over the whole record would give.  That takes a span of a full
+    window either side of the target rather than half: with only half, the
+    sub-cube's own edge would shrink the window again -- for the first frame of
+    a 15-frame window, over four frames instead of eight -- and the frames at
+    the ends of a record would come out wrong.
+    """
+    from vaft.process.camera_fluctuation import (
+        BACKGROUND_FRAMES_50KFPS,
+        subtract_temporal_background,
+    )
+
+    channel = int(options.get("channel", 0))
+    detector = int(options.get("detector", 0))
+    idx, resolved_time, _shape = _resolve_camera_visible_frame(
+        ods, channel=channel, detector=detector, options=options
+    )
+    count = _count(ods, _camera_visible_frame_prefix(channel, detector))
+    window = int(options.get("background_frames", BACKGROUND_FRAMES_50KFPS))
+    first = max(0, idx - window)
+    last = min(count - 1, idx + window)
+    cube = _camera_visible_frame_window(
+        ods, channel=channel, detector=detector, first=first, last=last
+    )
+    # Not clamped to the cube: the span above already holds every frame the
+    # whole-record window would average, and clamping would substitute a
+    # narrower window whenever the record is shorter than the one asked for.
+    fluctuation = subtract_temporal_background(cube, window_frames=window)
+    channel_name = _camera_visible_channel_name(ods, channel)
+    title = options.get(
+        "title",
+        f"{channel_name} frame {idx} @ t={resolved_time:.4f}s "
+        f"-- {window}-frame background removed",
+    )
+    return Image2D(
+        values=fluctuation[idx - first],
+        value_label="Digital levels, background removed",
+        title=title,
+        cmap=options.get("cmap", "RdBu_r"),
+    )
+
+
+def _camera_visible_region_signal(ods: Any, **options: Any):
+    """``(time, signal)`` of the summed region, with its temporal background removed.
+
+    Summation and the local-mean subtraction are both linear, so summing the
+    region first and detrending the resulting series is identical to detrending
+    every pixel and then summing -- and never materialises the cube.
+    """
+    from vaft.process.camera_fluctuation import (
+        BACKGROUND_FRAMES_50KFPS,
+        subtract_temporal_background,
+        summed_region_signal,
+    )
+
+    channel = int(options.get("channel", 0))
+    detector = int(options.get("detector", 0))
+    times = _camera_visible_frame_times(ods, channel=channel, detector=detector)
+    window = options.get("time_range")
+    keep = slice(None)
+    if window is not None:
+        inside = np.nonzero((times >= float(window[0])) & (times <= float(window[1])))[0]
+        if inside.size < 2:
+            raise ValueError(
+                f"time_range {tuple(window)} holds {inside.size} camera frame(s); "
+                f"the record spans {times[0]:.4f}-{times[-1]:.4f} s"
+            )
+        keep = slice(int(inside[0]), int(inside[-1]) + 1)
+    region = _camera_visible_region(options)
+    frames = [
+        _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=i)
+        for i in range(*keep.indices(times.size))
+    ]
+    summed = summed_region_signal(np.stack(frames), region=region)
+    background = int(options.get("background_frames", BACKGROUND_FRAMES_50KFPS))
+    fluctuation = subtract_temporal_background(summed[:, None], window_frames=background)[:, 0]
+    return times[keep], fluctuation, region
+
+
+def _build_camera_visible_spectrogram(ods: Any, **options: Any) -> Spectrogram:
+    """Time-frequency map of the camera intensity summed over one region (#161 section 5).
+
+    The published comparison puts this beside the magnetic probe's own
+    spectrogram to show that the camera carries the same MHD component; the
+    region is stated by the caller because which part of the image views the
+    low-field side depends on the camera pose.
+    """
+    from vaft.process.fluctuation import compute_spectrogram
+
+    time, signal, region = _camera_visible_region_signal(ods, **options)
+    result = compute_spectrogram(
+        time,
+        signal,
+        nperseg=int(options.get("nperseg", 50)),
+        overlap=float(options.get("overlap", 0.5)),
+        window=options.get("window", "hann"),
+    )
+    channel_name = _camera_visible_channel_name(ods, int(options.get("channel", 0)))
+    where = "whole frame" if region is None else f"rows {region[0]}-{region[1]}, columns {region[2]}-{region[3]}"
+    return Spectrogram.from_result(
+        result,
+        # Through the shared rule, like every other spectrogram here: a camera
+        # analysed to 25 kHz whose content sits at 3-5 kHz otherwise renders
+        # almost empty (#765).
+        max_frequency=_display_ceiling(result, options),
+        cmap=options.get("cmap", "hot_r"),
+        title=options.get("title", f"{channel_name} summed intensity -- {where}"),
+        value_label="Intensity fluctuation",
+    )
+
+
+def _build_camera_visible_image_mhd_power(ods: Any, **options: Any) -> Image2D:
+    """Normalised MHD-band power of every pixel, at one time (#161 section 6).
+
+    ``centre_frequency`` is the band centre; the published method takes it from
+    a magnetic probe, which a camera-only product cannot supply, so when it is
+    not given the camera's own dominant component in the search range stands in
+    and the title says so.
+    """
+    from vaft.process.camera_fluctuation import (
+        BACKGROUND_FRAMES_50KFPS,
+        MHD_BAND_HALF_WIDTH_HZ,
+        REFERENCE_SEARCH_RANGE_HZ,
+        SPECTRAL_WINDOW_FRAMES_50KFPS,
+        EMISSION_NORMALISATION_FRAMES_50KFPS,
+        mhd_band_power,
+        normalize_by_local_emission,
+        pixelwise_spectrogram,
+        subtract_temporal_background,
+    )
+
+    channel = int(options.get("channel", 0))
+    detector = int(options.get("detector", 0))
+    idx, resolved_time, _shape = _resolve_camera_visible_frame(
+        ods, channel=channel, detector=detector, options=options
+    )
+    times = _camera_visible_frame_times(ods, channel=channel, detector=detector)
+    background = int(options.get("background_frames", BACKGROUND_FRAMES_50KFPS))
+    transform = int(options.get("window_frames", SPECTRAL_WINDOW_FRAMES_50KFPS))
+    if times.size < transform:
+        raise ValueError(
+            f"a {transform}-frame transform needs {transform} frames; the record holds "
+            f"{times.size}. Pass a shorter window_frames."
+        )
+    # Centred on the frame where the record allows it, and slid inwards rather
+    # than truncated at either end: a frame near the start of a long movie has a
+    # perfectly good window, it just is not centred on it.
+    span = transform // 2 + background // 2 + 1
+    first = min(max(0, idx - span), times.size - 1)
+    last = max(min(times.size - 1, idx + span), 0)
+    if last - first + 1 < transform:
+        shortfall = transform - (last - first + 1)
+        take_before = min(shortfall, first)
+        first -= take_before
+        last = min(times.size - 1, last + (shortfall - take_before))
+    cube = _camera_visible_frame_window(
+        ods, channel=channel, detector=detector, first=first, last=last
+    )
+    window_times = times[first : last + 1]
+    fluctuation = subtract_temporal_background(cube, window_frames=background)
+    spectrogram = pixelwise_spectrogram(
+        fluctuation, window_times, window_frames=transform,
+        overlap=float(options.get("overlap", 0.5)),
+    )
+    centre = options.get("centre_frequency")
+    note = ""
+    if centre is None:
+        low, high = REFERENCE_SEARCH_RANGE_HZ
+        band = (spectrogram.frequency >= low) & (spectrogram.frequency <= high)
+        if not np.any(band):
+            raise ValueError(
+                "no frequency bin falls in the reference search range; pass centre_frequency="
+            )
+        summed = spectrogram.magnitude[band].reshape(int(np.count_nonzero(band)), -1).sum(axis=1)
+        centre = float(spectrogram.frequency[band][int(np.argmax(summed))])
+        note = " (camera's own dominant component; the published method takes it from a magnetic probe)"
+    power = mhd_band_power(
+        spectrogram,
+        centre_frequency=float(centre),
+        half_width=float(options.get("half_width", MHD_BAND_HALF_WIDTH_HZ)),
+    )
+    normalised = normalize_by_local_emission(
+        power, cube, frame_time=window_times, power_time=spectrogram.time,
+        window_frames=int(options.get("normalisation_frames", EMISSION_NORMALISATION_FRAMES_50KFPS)),
+    )
+    step = int(np.argmin(np.abs(spectrogram.time - resolved_time)))
+    channel_name = _camera_visible_channel_name(ods, channel)
+    title = options.get(
+        "title",
+        f"{channel_name} @ t={spectrogram.time[step]:.4f}s -- "
+        f"{float(centre) / 1e3:.1f} kHz band power / local emission{note}",
+    )
+    return Image2D(
+        values=normalised[step],
+        value_label="Band power / local emission",
+        title=title,
+        cmap=options.get("cmap", "turbo"),
+    )
+
+
 RECIPES["camera_visible_image"] = CallableRecipe(
     builder=_build_camera_visible_image,
     description="One camera frame with optional overlays through one projection.",
+    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name", *_EQUILIBRIUM_SLICE_READS, *_WALL_LIMITER_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper._resolve_camera_frame and the overlay helpers subscript the ODS; camera_projection_for reads the packaged pose by shot',
 )
 RECIPES["camera_visible_image_frame"] = CallableRecipe(
     builder=_build_camera_visible_image_frame,
     description="One FAST-camera frame, selected by frame_index or nearest time.",
+    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name"),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper._resolve_camera_frame subscripts the ODS',
 )
 RECIPES["camera_visible_image_efit_overlay"] = CallableRecipe(
     builder=_build_camera_visible_image_efit_overlay,
     description="FAST-camera frame with the projected EFIT/wall overlay (requires shot=).",
+    reads=RECIPES["camera_visible_image"].reads,
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_camera_visible_efit_overlay subscripts the ODS',
 )
 RECIPES["camera_visible_image_field_line"] = CallableRecipe(
     builder=_build_camera_visible_image_field_line,
     description="FAST-camera frame with a projected traced field line (requires shot=, r0=, z0=).",
+    reads=RECIPES["camera_visible_image"].reads,
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_camera_visible_field_line_overlay subscripts the ODS',
+)
+RECIPES["camera_visible_image_vacuum_field_line"] = CallableRecipe(
+    builder=_build_camera_visible_image_vacuum_field_line,
+    description="FAST-camera frame with vacuum field lines traced from (R, Z) seeds at the frame's time.",
+    reads=(*RECIPES["camera_visible_image"].reads, *RECIPES["startup_proxies_time"].reads),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.process_wrapper.compute_camera_visible_vacuum_field_lines solves the vessel currents on a private copy of pf_active/pf_passive/wall/equilibrium/tf (_isolated_copy)',
 )
 RECIPES["camera_visible_animation_frames"] = CallableRecipe(
     builder=_build_camera_visible_animation_frames,
     description="Animate a sequence of FAST-camera frames on a shared color scale.",
+    reads=_CAMERA_FRAME_READS,
+    backend=NEUTRAL,
+)
+RECIPES["camera_visible_image_fluctuation"] = CallableRecipe(
+    builder=_build_camera_visible_image_fluctuation,
+    description="One FAST-camera frame with its local temporal background removed.",
+    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name"),
+    backend=OMAS_BOUND,
+    reason="vaft.omas.process_wrapper._resolve_camera_frame subscripts the ODS",
+)
+RECIPES["camera_visible_image_mhd_power"] = CallableRecipe(
+    builder=_build_camera_visible_image_mhd_power,
+    description="Per-pixel MHD-band power normalised by local emission, at one time.",
+    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name"),
+    backend=OMAS_BOUND,
+    reason="vaft.omas.process_wrapper._resolve_camera_frame subscripts the ODS",
+)
+RECIPES["camera_visible_spectrogram"] = CallableRecipe(
+    builder=_build_camera_visible_spectrogram,
+    description="Time-frequency map of the camera intensity summed over one image region.",
+    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name"),
+    backend=NEUTRAL,
 )
 
 
@@ -2607,7 +5449,7 @@ def _validity_of(ods: Any, y_path: str, index: int | None = None):
         return None, None
     code = _get(ods, f"{base}.validity".format(i=index))
     timed = _array(ods, f"{base}.validity_timed".format(i=index))
-    mask = None if timed is None else np.asarray(timed) >= 0
+    mask = None if timed is None else np.asarray(timed) >= VALIDITY_VALID
     return (None if code is None else int(code)), mask
 
 
@@ -2646,18 +5488,312 @@ def _slice_uncertainty(ods: Any, y_path: str, indices, size: int):
     return np.nan_to_num(spread, nan=0.0)
 
 
+#: The segment of a path naming which processed line of a channel is read.
+_LINE_SEGMENT = re.compile(r"\.processed_line\.\d+\.")
+
+#: The public options that pick a spectral line.  ``emission=`` names the
+#: physics; ``line_index=`` is the storage-level escape hatch beneath it.
+EMISSION_OPTIONS = ("emission", "line_index")
+
+#: ``emission=`` value that draws every processed line of every channel.
+EMISSION_ALL = "all"
+
+
+def _reads_processed_line(recipe: Any) -> bool:
+    """Whether a recipe draws one of a channel's processed spectral lines."""
+    if isinstance(recipe, PanelRecipe):
+        return any(_reads_processed_line(RECIPES.get(name)) for name in recipe.members)
+    return ".processed_line." in (getattr(recipe, "y_path", "") or "")
+
+
+def _with_line(path: str, line: int | None) -> str:
+    """``path`` rewritten to read spectral line ``line`` of its channel.
+
+    The registry stores the real default path rather than a placeholder,
+    because availability checks, uncertainty and validity reads each format
+    that path themselves and a placeholder none of them knew about would fail
+    in every one.  Substituting here keeps all of them working and makes the
+    whole mechanism a no-op unless a caller asks for a line.
+    """
+    if line is None:
+        return path
+    return _LINE_SEGMENT.sub(f".processed_line.{line}.", path, count=1)
+
+
+def _default_line(y_path: str) -> int | None:
+    """The line a recipe reads when nothing was selected."""
+    found = _LINE_SEGMENT.search(y_path)
+    return int(found.group(0).split(".")[2]) if found else None
+
+
+def _line_label_path(y_path: str, line: int) -> str:
+    """Where the label of one channel's spectral line is stored."""
+    head = y_path.split(".processed_line.")[0]
+    return f"{head}.processed_line.{line}.label"
+
+
+def _line_labels(ods: Any, y_path: str, index: int) -> list[str]:
+    """Every stored label of one channel's processed lines, in ODS order."""
+    head = y_path.split(".processed_line.")[0].format(i=index)
+    labels = []
+    for line in range(_count(ods, f"{head}.processed_line")):
+        value = _get(ods, f"{head}.processed_line.{line}.label")
+        labels.append("" if value is None else str(value))
+    return labels
+
+
+def _emission_options(options: dict) -> tuple[Any, Any]:
+    """Read ``emission=`` and ``line_index=``, which are alternatives."""
+    emission = options.pop("emission", None)
+    line_index = options.pop("line_index", None)
+    if emission is not None and line_index is not None:
+        raise TypeError(
+            "pass either emission= or line_index=, not both; emission= names "
+            "the species and line_index= the position in the stored array"
+        )
+    return emission, line_index
+
+
+def _resolve_emission(
+    ods: Any,
+    recipe: LineRecipe,
+    indices: Sequence[int],
+    emission: Any,
+    line_index: Any,
+) -> list[tuple[int, int | None]]:
+    """Pair each selected channel with the spectral lines to draw from it.
+
+    A channel can record several lines -- VEST's versatile filterscope carries
+    seven -- and one selector may legitimately match several of them, on one
+    channel or across channels: ``emission="Carbon"`` names two lines, and
+    H-alpha is measured twice at different digitizer rates.  So this resolves
+    to ``(channel, line)`` pairs rather than rewriting a single path, which
+    could only ever have meant "line n of every channel".
+
+    The contract follows :func:`_resolve_selection`: order is preserved,
+    repeats collapse to their first appearance, and anything unresolved raises
+    naming what the input actually holds.  Fuzzy matching would let a typo
+    quietly plot a different species.
+    """
+    if not _reads_processed_line(recipe):
+        return [(index, None) for index in indices]
+    if emission is None and line_index is None:
+        default = _default_line(recipe.y_path)
+        return [(index, default) for index in indices]
+
+    labels_by_channel = {index: _line_labels(ods, recipe.y_path, index) for index in indices}
+    known = [label for labels in labels_by_channel.values() for label in labels if label]
+    container = _container_of(recipe.y_path, "{i}")
+
+    if line_index is not None:
+        if isinstance(line_index, (bool, np.bool_)) or not isinstance(
+            line_index, (int, np.integer)
+        ):
+            raise TypeError(
+                f"line_index= must be an integer position; got {line_index!r}. "
+                "Use emission= to select a line by species."
+            )
+        wanted = int(line_index)
+        if wanted < 0:
+            raise ValueError(f"line_index= must be non-negative; got {wanted}")
+        pairs = [
+            (index, wanted)
+            for index in indices
+            if wanted < len(labels_by_channel[index])
+        ]
+        if not pairs:
+            raise ValueError(
+                f"no channel of {container} records a spectral line at index "
+                f"{wanted}; available {describe_available(known)}"
+            )
+        return pairs
+
+    if isinstance(emission, str) and emission == EMISSION_ALL:
+        pairs = [
+            (index, line)
+            for index in indices
+            for line in range(len(labels_by_channel[index]))
+        ]
+        if not pairs:
+            raise ValueError(f"no channel of {container} records a processed spectral line")
+        return pairs
+    if isinstance(emission, str):
+        terms: list[Any] = [emission]
+    elif isinstance(emission, (bool, np.bool_)) or not isinstance(emission, Iterable):
+        raise TypeError(
+            f"emission= must be a species or line name; got {emission!r}"
+        )
+    else:
+        terms = list(emission)
+    if not terms:
+        # An empty selection is not "everything": it would draw an empty figure
+        # and present it as the answer, which is what this resolver refuses.
+        raise ValueError(
+            f"emission= selected nothing for {container}; "
+            f"available {describe_available(known)}"
+        )
+    pairs: list[tuple[int, int]] = []
+    for text in terms:
+        if not isinstance(text, str):
+            raise TypeError(
+                f"emission= must be a species or line name; got {text!r}"
+            )
+        term = parse_emission_term(text)
+        hits: list[tuple[int, int]] = []
+        for index in indices:
+            for line, label in enumerate(labels_by_channel[index]):
+                # The stored label is always a valid selector: it is what the
+                # error messages list, so passing one back must work, and it
+                # is the only way to reach a label following no convention.
+                if label and label == text:
+                    hits.append((index, line))
+                    continue
+                identity = parse_line_label(label)
+                if identity is not None and term is not None and matches(term, identity):
+                    hits.append((index, line))
+        if not hits:
+            if term is None:
+                raise ValueError(
+                    f"unknown emission {text!r} for {container}; "
+                    f"available {describe_available(known)}"
+                )
+            raise ValueError(
+                f"no {format_species(term.species)} line is recorded in this "
+                f"input; available {describe_available(known)}"
+            )
+        pairs.extend(hits)
+    return list(dict.fromkeys(pairs))
+
+
+def _abscissa_values(
+    ods: Any,
+    abscissa: Abscissa,
+    *,
+    size: int,
+    index: int | None = None,
+    indices: Sequence[int] | None = None,
+    line: Any = None,
+) -> np.ndarray | None:
+    """One trace's abscissa, or ``None`` when this input cannot supply it.
+
+    A slice-indexed recipe gathers a per-slice sibling the same way it
+    gathers its ordinate; everything else reads the axis whole.  The result
+    is always length-checked against the ordinate: a sibling on another grid
+    is not an abscissa, it is a different measurement.
+    """
+    if abscissa.name == "index":
+        return np.arange(size, dtype=float)
+    if not abscissa.paths:
+        return None
+    paths = tuple(_with_line(path, line) for path in abscissa.paths)
+    if indices is not None and any("{i}" in path for path in paths):
+        gathered = []
+        for slice_index in indices:
+            raw = _first_time(ods, paths, i=slice_index)
+            if raw is None:
+                raw = _get(ods, paths[0].format(i=slice_index))
+            try:
+                gathered.append(float(np.asarray(raw, dtype=float).ravel()[0]))
+            except (IndexError, TypeError, ValueError):
+                gathered.append(np.nan)
+        values = np.asarray(gathered, dtype=float)
+    else:
+        values = _first_time(ods, paths, i=index) if index is not None else _first_time(ods, paths)
+    if values is None or values.ndim != 1 or values.size != size:
+        return None
+    return values
+
+
+def _build_passive_current(ods: Any, *, channels: Any = None, **_: Any) -> LineSeries:
+    """Eddy current in the passive structure, summed over loops by default.
+
+    VEST's vessel is discretised into 950 loops.  Drawing them individually is
+    unreadable and, for the startup question this answers -- how much current
+    the vessel carries against the coils -- the sum is the physical quantity.
+    Pass ``channels=`` to inspect individual loops instead.
+    """
+    time = _array(ods, "pf_passive.time")
+    if time is None:
+        raise ValueError(
+            "pf_passive.time is not available; solve the eddy currents first "
+            "with vaft.omas.compute_eddy_currents(ods, [], [])"
+        )
+    indices = _resolve_selection(ods, "pf_passive.loop.{i}.current", channels)
+    if not indices:
+        raise ValueError("no passive loop carries a current")
+
+    traces: list[Series] = []
+    if channels is None:
+        total = None
+        for index in indices:
+            current = _array(ods, f"pf_passive.loop.{index}.current")
+            if current is None or current.shape != time.shape:
+                continue
+            total = current.copy() if total is None else total + current
+        if total is None:
+            raise ValueError("no passive loop current matches the pf_passive time base")
+        # solve_eddy_currents falls back inv -> pinv -> an all-NaN array and only
+        # prints; a silent NaN panel would look like "no eddy current" rather
+        # than a failed solve.
+        if not np.isfinite(total).any():
+            raise ValueError(
+                "the eddy-current solution is entirely non-finite; the impedance "
+                "matrix was singular and solve_eddy_currents fell back to NaN"
+            )
+        traces.append(Series(x=time, y=total, label=f"Total ({len(indices)} loops)"))
+    else:
+        for index in indices:
+            current = _array(ods, f"pf_passive.loop.{index}.current")
+            if current is None or current.shape != time.shape:
+                continue
+            traces.append(
+                Series(
+                    x=time, y=current, index=index,
+                    # Loops share a wall-segment name, so the name alone gives
+                    # every selected loop the same legend entry.
+                    label=(
+                        f"{_channel_label(ods, 'pf_passive.loop.{i}.name', index, 'loop')}"
+                        f" [{index}]"
+                    ),
+                )
+            )
+    return LineSeries(
+        series=tuple(traces),
+        x_label="Time", x_unit="s",
+        y_label="Eddy Current", y_unit="A",
+        title="Passive Structure Current",
+    )
+
+
+
+
 def _build_line_traces(
     ods: Any,
     recipe: LineRecipe,
     *,
     entry_label: str,
     selection: Any = None,
+    emission: Any = None,
+    line_index: Any = None,
+    abscissa: Abscissa | None = None,
+    resolved: list[str] | None = None,
 ) -> list[Series]:
-    """Extract traces in IMAS canonical units; display scaling happens later."""
+    """Extract traces in IMAS canonical units; display scaling happens later.
+
+    Every trace comes back with ``x`` on ``abscissa`` (the recipe's own time
+    axis by default) or, when this input cannot supply it, on the sample
+    index -- which :func:`_build_line_series` then says on the axis rather
+    than labelling an index as a time (issues #276, #481).
+    """
     value_scale = recipe.scale
+    abscissa = abscissa or _abscissa_of(recipe, "time")
+
+    def note(name: str) -> None:
+        """Record what a trace's abscissa turned out to be, for the label."""
+        if resolved is not None:
+            resolved.append(name)
 
     if recipe.index in ("time_slice", "time_slice_mean"):
-        time = _first_time(ods, recipe.x_paths)
         indices = _resolve_indices(ods, recipe.y_path, None)
         values = []
         for index in indices:
@@ -2671,7 +5807,9 @@ def _build_line_traces(
         if not values:
             return []
         y = np.asarray(values, dtype=float)
-        if time is None or time.size != y.size:
+        time = _abscissa_values(ods, abscissa, size=y.size, indices=indices)
+        note(abscissa.name if time is not None else "index")
+        if time is None:
             time = np.arange(y.size, dtype=float)
         # Slice-indexed scalars carry their uncertainty per slice, so gather it
         # the same way the values themselves were gathered.
@@ -2689,11 +5827,21 @@ def _build_line_traces(
         )
         container = _container_of(recipe.y_path, "{i}")
         r_all, z_all = _channel_positions(ods, container, _count(ods, container))
+        pairs = _resolve_emission(ods, recipe, indices, emission, line_index)
+        # "Versatile Filterscope" does not say which of its seven lines a trace
+        # is, so name the line whenever the caller chose one.
+        name_the_line = emission is not None or line_index is not None
         traces = []
-        for index in indices:
+        per_trace: list[str] = []
+        for index, line in pairs:
+            y_path = _with_line(recipe.y_path, line)
+            fallback_paths = tuple(
+                _with_line(path, line) for path in recipe.fallback_y_paths
+            )
+            x_paths = tuple(_with_line(path, line) for path in recipe.x_paths)
             try:
                 y = _first_array(
-                    ods, (recipe.y_path, *recipe.fallback_y_paths), i=index
+                    ods, (y_path, *fallback_paths), i=index
                 )
             except ValueError:
                 # e.g. a channel with several real energy bands: skip it so one
@@ -2706,11 +5854,16 @@ def _build_line_traces(
             # channels in the same IDS.
             if y is None or y.ndim != 1:
                 continue
-            time = _first_time(ods, recipe.x_paths, i=index)
-            if time is None or time.ndim != 1 or time.size != y.size:
+            per_channel = (
+                dataclasses.replace(abscissa, paths=x_paths)
+                if abscissa.name == "time" else abscissa
+            )
+            time = _abscissa_values(ods, per_channel, size=y.size, index=index, line=line)
+            per_trace.append(abscissa.name if time is not None else "index")
+            if time is None:
                 time = np.arange(y.size, dtype=float)
-            code, mask = _validity_of(ods, recipe.y_path, index)
-            spread = _uncertainty_of(ods, recipe.y_path, index, y.size)
+            code, mask = _validity_of(ods, y_path, index)
+            spread = _uncertainty_of(ods, y_path, index, y.size)
             r_i = float(r_all[index]) if index < r_all.size else float("nan")
             z_i = float(z_all[index]) if index < z_all.size else float("nan")
             has_position = bool(np.isfinite(r_i) and np.isfinite(z_i))
@@ -2720,10 +5873,14 @@ def _build_line_traces(
                 channel_label(index, r_i, z_i) if has_position
                 else _channel_label(ods, recipe.label_path, index, f"#{index}")
             )
+            if name_the_line and line is not None:
+                stored = _get(ods, _line_label_path(recipe.y_path, line).format(i=index))
+                if stored:
+                    channel = f"{channel} {stored}"
             traces.append(
                 Series(
                     x=time,
-                    y=y * value_scale * _weight(ods, recipe.weight_path, index),
+                    y=y * value_scale * _weight(ods, _with_line(recipe.weight_path, line), index),
                     label=channel,
                     yerr=None if spread is None else spread * abs(value_scale),
                     validity=code,
@@ -2734,13 +5891,22 @@ def _build_line_traces(
                     index=index,
                 )
             )
-        return traces
+        # The abscissa is decided by the traces that are drawn: a channel the
+        # selection preset drops takes its own failed reading with it, rather
+        # than putting every surviving channel on a sample index.
+        kept = _keep_by_signal(traces, selection)
+        drawn = {id(trace) for trace in kept}
+        for trace, name in zip(traces, per_trace):
+            if id(trace) in drawn:
+                note(name)
+        return kept
 
     y = _array(ods, recipe.y_path)
     if y is None:
         return []
-    time = _first_time(ods, recipe.x_paths)
-    if time is None or time.size != y.size:
+    time = _abscissa_values(ods, abscissa, size=y.size)
+    note(abscissa.name if time is not None else "index")
+    if time is None:
         time = np.arange(y.size, dtype=float)
     y = y / _divisor(ods, recipe.divide_by_path)
     code, mask = _validity_of(ods, recipe.y_path)
@@ -2766,6 +5932,29 @@ SYNTHETIC_CONSTRAINTS: dict[str, tuple[str, bool]] = {
 }
 
 SYNTHETIC_MODES = ("equilibrium", "both")
+
+#: Every slice-indexed equilibrium scalar is stored on the same slice grid as
+#: the plasma current, so it can be drawn against it -- the operational space
+#: a shot is judged in -- with no interpolation anywhere (issue #481).  The
+#: current itself is left out: a quantity against itself says nothing.
+_EQUILIBRIUM_IP_ABSCISSA = (
+    Abscissa(
+        "ip",
+        ("equilibrium.time_slice.{i}.global_quantities.ip",),
+        "Plasma Current",
+        "A",
+    ),
+)
+
+for _name, _recipe in list(RECIPES.items()):
+    if (
+        isinstance(_recipe, LineRecipe)
+        and _recipe.index == "time_slice"
+        and _recipe.y_path.startswith("equilibrium.time_slice")
+        and _name != "equilibrium_time_plasma_current"
+    ):
+        RECIPES[_name] = dataclasses.replace(_recipe, abscissae=_EQUILIBRIUM_IP_ABSCISSA)
+del _name, _recipe
 
 
 def _synthetic_option(options: Mapping[str, Any], name: str) -> str | None:
@@ -2871,7 +6060,10 @@ def _synthetic_traces(
     unit as the trace it belongs to (display scaling is applied later, to
     both alike).  ``mode="both"`` adds the measured constraint value the
     solver was given, which shows where the reconstruction's input differs
-    from the waveform itself.
+    from the waveform itself -- a per-channel family only: a scalar family's
+    constraint (plasma current, diamagnetic flux) *is* the drawn waveform
+    sampled at the slices, and drawing it again as a second quantity says
+    nothing the waveform does not.
     """
     family, per_channel = SYNTHETIC_CONSTRAINTS[name]
     container = _container_of(recipe.y_path, "{i}") if per_channel else ""
@@ -2879,7 +6071,7 @@ def _synthetic_traces(
         _channel_identifiers(ods, container, _count(ods, container)) if per_channel else []
     )
     leaves = (("reconstructed", "reconstruction", "o"),)
-    if mode == "both":
+    if mode == "both" and per_channel:
         leaves += (("measured", "constraint", "x"),)
     indexed = {leaf: _constraint_index(ods, family, per_channel, leaf) for leaf, _, _ in leaves}
     extra: list[Series] = []
@@ -2913,6 +6105,112 @@ def _synthetic_traces(
     return extra
 
 
+ORIENTATIONS = ("canonical", "intuitive")
+
+
+def _orient(traces: tuple, orientation: str) -> tuple[tuple, bool]:
+    """Apply the display sign policy of issue #307 to a set of traces.
+
+    ``intuitive`` asks the processing layer for the dominant sign of the
+    measured traces (:func:`vaft.process.signal_processing.
+    infer_signal_orientation`) and multiplies every trace -- measured and
+    synthetic alike, so they stay comparable -- by that one ``+1``/``-1``.
+    Unresolved falls back to canonical.  Returns the traces and whether a
+    flip happened; nothing here touches the data object.
+    """
+    if orientation not in ORIENTATIONS:
+        raise ValueError(f"orientation must be one of {', '.join(ORIENTATIONS)}; got {orientation!r}")
+    if orientation == "canonical" or not traces:
+        return traces, False
+    from vaft.process.signal_processing import infer_signal_orientation
+
+    # One multiplier per entry: a shot is oriented by its own convention, so
+    # two shots of opposite polarity each come out positive.  Within an
+    # entry the measured trace with the strongest dominant response decides,
+    # so a weak channel cannot flip a strong one; synthetic traces follow.
+    multipliers: dict[str, int] = {}
+    for entry in dict.fromkeys(trace.entry for trace in traces):
+        verdicts = [
+            infer_signal_orientation(trace.y, mask=trace.valid_mask)
+            for trace in traces if trace.entry == entry and not trace.role
+        ]
+        resolved = [v for v in verdicts if v.resolved]
+        multipliers[entry] = max(resolved, key=lambda v: abs(v.statistic)).multiplier if resolved else 1
+    if all(m > 0 for m in multipliers.values()):
+        return traces, False
+    oriented = []
+    for trace in traces:
+        if multipliers.get(trace.entry, 1) > 0:
+            oriented.append(trace)
+            continue
+        yerr = trace.yerr
+        if yerr is not None and np.ndim(yerr) == 2:
+            # Lower and upper distances change places with the sign.
+            yerr = np.asarray(yerr)[::-1]
+        oriented.append(dataclasses.replace(trace, y=np.asarray(trace.y) * -1.0, yerr=yerr))
+    return tuple(oriented), True
+
+
+def _smooth_option(options: Mapping[str, Any], abscissa: Abscissa) -> float | None:
+    """``smooth=``: a rolling-median window in seconds, validated, or ``None``.
+
+    The window is a duration, so it only means something on a time abscissa;
+    a non-positive, non-finite or non-numeric value is refused rather than
+    silently drawing the raw trace.
+    """
+    value = options.get("smooth")
+    if value is None:
+        return None
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, float, np.integer, np.floating)):
+        raise ValueError(f"smooth= is a rolling-median window in seconds; got {value!r}")
+    window = float(value)
+    if not np.isfinite(window) or window <= 0.0:
+        raise ValueError(f"smooth= must be a finite, positive window in seconds; got {value!r}")
+    if abscissa.name != "time":
+        raise ValueError(
+            f"smooth= is a window in seconds and needs the time abscissa; got x={abscissa.name!r}"
+        )
+    return window
+
+
+def _smooth_note(window: float) -> str:
+    """How a smoothed figure says so: ``(median 0.5 ms)``."""
+    return f"(median {window * 1e3:g} ms)"
+
+
+def _rolling_median(x: Any, y: Any, window: float) -> np.ndarray:
+    """A centred, NaN-aware rolling median of ``y`` over ``window`` in ``x`` units.
+
+    The window is converted to samples from the median spacing of ``x``;
+    below two samples it is a no-op.  NaNs are ignored inside a window and
+    stay NaN in the result, so a gap in the data (a detector out of range)
+    remains a gap instead of being filled from its neighbours.
+    """
+    import pandas as pd
+
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    if y.size < 3:
+        return y.copy()
+    steps = np.diff(x)
+    steps = np.abs(steps[np.isfinite(steps) & (steps != 0.0)])
+    if steps.size == 0:
+        return y.copy()
+    samples = int(round(float(window) / float(np.median(steps))))
+    if samples < 2:
+        return y.copy()
+    samples = min(samples | 1, y.size if y.size % 2 else y.size - 1)
+    smoothed = (
+        pd.Series(y).rolling(samples, center=True, min_periods=1).median().to_numpy()
+    )
+    return np.where(np.isnan(y), np.nan, smoothed)
+
+
+def _smoothed_trace(trace: Series, window: float) -> Series:
+    """``trace`` with its values replaced by their rolling median."""
+    return dataclasses.replace(trace, y=_rolling_median(trace.x, trace.y, window))
+
+
 def _build_line_series(
     entries: Sequence[tuple[str, Any]], recipe: LineRecipe, **options: Any
 ) -> LineSeries:
@@ -2923,18 +6221,46 @@ def _build_line_series(
     panel_member = bool(options.pop("_panel_member", False))
     traces: list[Series] = []
     synthetic = _synthetic_option(options, spec.name if spec is not None else "")
+    emission, line_index = _emission_options(options)
+    requested = options.get("x") or "time"
+    abscissa = _abscissa_of(recipe, requested, spec.name if spec is not None else None)
+    if synthetic and requested != "time":
+        raise ValueError(
+            "the reconstruction overlay is a value per equilibrium slice, drawn against "
+            f"time; it cannot be placed on the {requested!r} abscissa. Pass x='time' or "
+            "drop synthetic=."
+        )
+    resolved: list[str] = []
+    smooth = _smooth_option(options, abscissa)
     for entry_label, ods in entries:
         measured = _build_line_traces(
             ods,
             recipe,
             entry_label=entry_label,
             selection=_selection_option(options),
+            emission=emission,
+            line_index=line_index,
+            abscissa=abscissa,
+            resolved=resolved,
         )
+        if smooth is not None:
+            measured = [_smoothed_trace(trace, smooth) for trace in measured]
         traces.extend(measured)
         if synthetic:
             traces.extend(_synthetic_traces(ods, spec.name, recipe, measured, synthetic))
+    # One figure carries one abscissa: a trace this input cannot place on the
+    # requested one puts every trace on the sample index, and the axis says
+    # index rather than labelling one as a time (issues #276, #481).
+    drawn = abscissa
+    if any(name != abscissa.name for name in resolved):
+        drawn = INDEX_ABSCISSA
+        traces = [
+            dataclasses.replace(trace, x=np.arange(np.asarray(trace.y).size, dtype=float))
+            for trace in traces
+        ]
     x_display = _resolve_axis_display(
-        recipe.x_unit or "s", unit=options.get("xunit"), subject=subject,
+        drawn.unit or ("s" if drawn.name == "time" else ""),
+        unit=options.get("xunit"), subject=subject,
         series_values=[trace.x for trace in traces],
     )
     y_display = _resolve_axis_display(
@@ -2946,13 +6272,18 @@ def _build_line_series(
         _apply_display(trace, x_scale=x_display.scale, y_scale=y_display.scale)
         for trace in traces
     )
+    scaled, flipped = _orient(scaled, options.get("orientation", recipe.orientation))
     if panel_member:
         default_title = recipe.title
     else:
         default_title = _decorated_title(recipe.title, y_display.unit, entries)
+    if flipped:
+        default_title = f"{default_title} — intuitive orientation (sign flipped)"
+    if smooth is not None:
+        default_title = f"{default_title} {_smooth_note(smooth)}"
     model = LineSeries(
         series=scaled,
-        x_label=recipe.x_label,
+        x_label=drawn.label,
         x_unit=x_display.unit,
         y_label=recipe.y_label,
         y_unit=y_display.unit,
@@ -2970,26 +6301,117 @@ def _build_line_series(
                     suptitle=options.get("title", _decorated_title(recipe.title, y_display.unit, entries)))
 
 
-_COORDINATE_LABELS = {
-    "index": "Profile sample index",
-    "rho_tor_norm": r"Normalized Toroidal Flux $\rho_N$",
-    "psi_norm": r"Normalized Poloidal Flux $\psi_N$",
-    "r_major": "Major Radius R [m]",
-    "r_minor": "Minor Radius r [m]",
-}
+from vaft.plot.display import COORDINATE_LABELS as _COORDINATE_LABELS  # noqa: E402
+from vaft.plot.display import PROFILE_COORDINATES  # noqa: E402
 
+#: Stored leaves the equilibrium coordinates are read from when a recipe
+#: declares no ``coordinate_paths``.  The radial coordinates are assembled
+#: from ``r_inboard``/``r_outboard`` (see :func:`_radial_arrays`) and
+#: ``sqrt_phi_norm`` from ``phi``, so they have no single leaf here.
 _EQUILIBRIUM_COORDINATES = {
     "rho_tor_norm": "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
     "psi_norm": "equilibrium.time_slice.{i}.profiles_1d.psi_norm",
-    "r_major": "equilibrium.time_slice.{i}.profiles_1d.r_outboard",
-    "r_minor": "equilibrium.time_slice.{i}.profiles_1d.r_minor",
 }
+
+#: The coordinates built from the midplane crossings of each flux surface.
+_RADIAL_COORDINATES = ("r_major", "r_minor")
+_FLUX_COORDINATES = ("rho_tor_norm", "psi_norm", "sqrt_phi_norm")
 
 
 #: Equilibrium abscissae, weakest last. When entries in one figure resolve to
 #: different coordinates they all fall back to the weakest any of them supports,
 #: because a figure has one x axis and it has to describe every curve on it.
-_COORDINATE_FALLBACK_ORDER = ("rho_tor_norm", "psi_norm", "index")
+_COORDINATE_FALLBACK_ORDER = (
+    "rho_tor_norm", "sqrt_phi_norm", "r_major", "r_minor", "psi_norm", "index"
+)
+
+
+def _coordinate_options(recipe: ProfileRecipe) -> tuple[str, ...]:
+    """The coordinates ``recipe`` can be drawn against (issue #479).
+
+    A recipe that declares its own ``coordinate_paths`` (a diagnostic
+    profile) offers exactly those; an equilibrium profile offers
+    :data:`vaft.plot.display.PROFILE_COORDINATES`.
+    """
+    if recipe.coordinate_paths:
+        return tuple(recipe.coordinate_paths)
+    return PROFILE_COORDINATES
+
+
+#: The sample index is an abscissa every line plot can offer: it needs no
+#: stored axis, and it is what the builder already falls back to when the
+#: recipe's own time axis is missing.
+INDEX_ABSCISSA = Abscissa("index", label="Sample index")
+
+#: Every abscissa name any recipe declares, for the option schema's static
+#: vocabulary; :func:`abscissa_options_for` narrows it to one plot.
+ABSCISSA_NAMES = ("time", "index", "ip")
+
+
+def abscissa_options(recipe: LineRecipe) -> tuple[str, ...]:
+    """The abscissae ``recipe`` offers: time, its declared siblings, the index."""
+    return ("time", *(entry.name for entry in recipe.abscissae), "index")
+
+
+def abscissa_options_for(name: str) -> tuple[str, ...] | None:
+    """The ``x=`` vocabulary of plot ``name``, or ``None`` if it takes none."""
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, LineRecipe):
+        return abscissa_options(recipe)
+    if isinstance(recipe, PanelRecipe):
+        options: list[str] = []
+        for member in recipe.members:
+            for option in abscissa_options_for(member) or ():
+                if option not in options:
+                    options.append(option)
+        return tuple(options) or None
+    return None
+
+
+def _abscissa_of(recipe: LineRecipe, name: str, plot_name: str | None = None) -> Abscissa:
+    """The declaration behind ``x=name``, or a ``ValueError`` naming the options."""
+    if name == "time":
+        return Abscissa("time", recipe.x_paths, recipe.x_label, recipe.x_unit)
+    if name == "index":
+        return INDEX_ABSCISSA
+    for entry in recipe.abscissae:
+        if entry.name == name:
+            return entry
+    options = abscissa_options(recipe)
+    raise ValueError(
+        f"{plot_name or recipe.title} takes x= one of {', '.join(options)}; got {name!r}"
+    )
+
+
+def coordinate_options_for(name: str) -> tuple[str, ...] | None:
+    """The ``coordinate=`` vocabulary of plot ``name``, or ``None`` if it takes none.
+
+    A 1-D profile offers :func:`_coordinate_options`; a spatial plot its own
+    ``coordinates`` (issue #486); the option validator asks here so the
+    schema's global vocabulary never refuses a name a recipe accepts.
+    """
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, ProfileRecipe):
+        return _coordinate_options(recipe)
+    if isinstance(recipe, ChannelProfileRecipe):
+        return tuple(recipe.coordinates)
+    if isinstance(recipe, PanelRecipe):
+        options: list[str] = []
+        for member in recipe.members:
+            for option in coordinate_options_for(member) or ():
+                if option not in options:
+                    options.append(option)
+        return tuple(options) or None
+    return None
+
+
+def _check_coordinate(recipe: ProfileRecipe, coordinate: str, plot_name: str | None) -> None:
+    options = _coordinate_options(recipe)
+    if coordinate not in options:
+        name = plot_name or recipe.y_label or recipe.y_path
+        raise ValueError(
+            f"{name} takes coordinate= one of {', '.join(options)}; got {coordinate!r}"
+        )
 
 
 def _common_coordinate(resolved: list[str], requested: str) -> str:
@@ -3005,30 +6427,64 @@ def _common_coordinate(resolved: list[str], requested: str) -> str:
     return "index"
 
 
-def _recoordinate(
-    trace: Series, was: str, wanted: str, ods: Any, recipe: ProfileRecipe, time_slice: int
-) -> Series:
-    """Redraw one trace against ``wanted``, or against an index if it cannot."""
-    if was == wanted:
-        return trace
-    size = np.asarray(trace.y).size
-    if wanted != "index":
-        values, resolved = _equilibrium_coordinate_values(
-            ods, recipe, wanted, time_slice, size
-        )
-        if values is not None and resolved == wanted:
-            return dataclasses.replace(trace, x=values)
-    return dataclasses.replace(trace, x=np.arange(size, dtype=float))
-
-
 def _profile_coordinate(recipe: ProfileRecipe, name: str) -> str | None:
     if recipe.coordinate_paths:
         return recipe.coordinate_paths.get(name)
     return _EQUILIBRIUM_COORDINATES.get(name)
 
 
+def _radial_coordinates_for(ods: Any, index: int, cache: dict | None = None) -> Any:
+    """A private copy of the equilibrium with slice ``index``'s midplane radii.
+
+    ``vaft.omas.update_equilibrium_profiles_1d_radial_coordinates`` writes
+    ``profiles_1d.r_inboard``/``r_outboard`` from the 2-D flux map; it runs
+    on an isolated copy so the caller's ODS is left as it was, and ``None``
+    comes back for a slice it cannot serve (no boundary outline, no map).
+    ``cache`` -- one per build call -- keeps a figure with several entries
+    from copying the same equilibrium more than once.
+    """
+    key = (id(ods), int(index))
+    if cache is not None and key in cache:
+        return cache[key]
+    try:
+        from vaft.omas import update_equilibrium_profiles_1d_radial_coordinates
+
+        private = _isolated_copy(ods, ("equilibrium",))
+        update_equilibrium_profiles_1d_radial_coordinates(private, time_slice=index)
+        base = f"equilibrium.time_slice.{index}.profiles_1d"
+        if _array(private, f"{base}.r_inboard") is None or _array(private, f"{base}.r_outboard") is None:
+            private = None
+    except Exception:  # noqa: BLE001 - an underivable slice falls back, it does not fail
+        private = None
+    if cache is not None:
+        cache[key] = private
+    return private
+
+
+def _radial_arrays(
+    ods: Any, time_slice: int, size: int, cache: dict | None = None
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """``(r_inboard, r_outboard)`` of one slice, stored else derived privately."""
+    base = f"equilibrium.time_slice.{time_slice}.profiles_1d"
+    for source in (ods, None):
+        if source is None:
+            source = _radial_coordinates_for(ods, time_slice, cache)
+            if source is None:
+                return None
+        inboard = _array(source, f"{base}.r_inboard")
+        outboard = _array(source, f"{base}.r_outboard")
+        if (
+            inboard is not None and outboard is not None
+            and inboard.size == size and outboard.size == size
+            and np.all(np.isfinite(inboard)) and np.all(np.isfinite(outboard))
+        ):
+            return inboard, outboard
+    return None
+
+
 def _equilibrium_coordinate_values(
-    ods: Any, recipe: ProfileRecipe, coordinate: str, time_slice: int, size: int
+    ods: Any, recipe: ProfileRecipe, coordinate: str, time_slice: int, size: int,
+    cache: dict | None = None,
 ) -> tuple[Any, str]:
     """The abscissa for one equilibrium profile, and the coordinate it really is.
 
@@ -3063,6 +6519,38 @@ def _equilibrium_coordinate_values(
         # supply it whether or not the DD leaf itself was written.
         return psi_norm, coordinate
 
+    if coordinate == "sqrt_phi_norm":
+        # The stored toroidal flux when there is one; else integrated from q.
+        # Either way sqrt(|phi|/|phi_edge|), which is rho_tor_norm's own
+        # definition -- the name says where the number came from.
+        phi = _array(ods, f"{base}.phi")
+        if phi is not None and (phi.size != size or not np.all(np.isfinite(phi)) or not _monotone_flux(phi)):
+            # A stored phi that reverses sign or turns back is no coordinate;
+            # the derived one is held to the same rule (vaft.data._derived).
+            phi = None
+        if phi is None:
+            if psi is not None:
+                from vaft.data._derived import rho_tor_profile
+
+                q = _array(ods, f"{base}.q")
+                derived = rho_tor_profile(q, psi) if q is not None else None
+                if derived is not None and derived.phi.size == size:
+                    phi = np.asarray(derived.phi, dtype=float)
+        if phi is not None and phi[-1] != 0:
+            return np.sqrt(np.abs(phi) / np.abs(phi[-1])), coordinate
+        if psi_norm is not None:
+            return psi_norm, "psi_norm"
+        return None, coordinate
+
+    if coordinate == "r_minor":
+        radial = _radial_arrays(ods, time_slice, size, cache)
+        if radial is not None:
+            inboard, outboard = radial
+            return (outboard - inboard) / 2.0, coordinate
+        if psi_norm is not None:
+            return psi_norm, "psi_norm"
+        return None, coordinate
+
     if coordinate == "rho_tor_norm":
         from vaft.data._derived import is_rho_pol_proxy, rho_tor_profile
 
@@ -3083,29 +6571,359 @@ def _equilibrium_coordinate_values(
     return values, coordinate
 
 
+def _monotone_flux(phi: np.ndarray) -> bool:
+    """Whether ``phi`` runs one way from the axis without crossing zero."""
+    if phi.size < 2 or phi[-1] == 0:
+        return False
+    fraction = phi / phi[-1]
+    return bool(np.all(fraction >= -1e-12) and np.all(np.diff(fraction) >= -1e-10))
+
+
+def _mirror(values: Any) -> Any:
+    """``values`` reflected through its first sample, for an inboard->outboard axis."""
+    if values is None:
+        return None
+    array = np.asarray(values)
+    return np.concatenate([array[..., ::-1], array], axis=-1)
+
+
+def _equilibrium_trace(
+    ods: Any,
+    entry_label: str,
+    recipe: ProfileRecipe,
+    coordinate: str,
+    time_slice: int,
+    cache: dict | None = None,
+) -> tuple[Series | None, str]:
+    """One slice-indexed profile as a trace, and the coordinate it really is.
+
+    ``r_major`` is the one coordinate with two samples per flux surface: the
+    inboard crossings run from the edge to the axis and the outboard ones
+    back out, so the profile is mirrored through the axis (2n points).  A
+    coordinate the slice cannot supply degrades the way issue #276 fixed:
+    the axis is relabelled with what was drawn, never with what was asked.
+    """
+    y = _array(ods, recipe.y_path.format(i=time_slice))
+    for fallback in recipe.fallback_y_paths:
+        if y is None:
+            y = _array(ods, fallback.format(i=time_slice))
+    if y is None:
+        return None, coordinate
+    code, mask = _validity_of(ods, recipe.y_path, time_slice)
+    spread = _uncertainty_of(ods, recipe.y_path, time_slice, y.size)
+    if recipe.coordinate_paths:
+        coordinate_path = _profile_coordinate(recipe, coordinate)
+        x = _array(ods, coordinate_path.format(i=time_slice)) if coordinate_path else None
+        if x is not None and x.size != y.size:
+            x = None
+        resolved = coordinate
+    elif coordinate == "r_major":
+        radial = _radial_arrays(ods, time_slice, y.size, cache)
+        if radial is not None:
+            inboard, outboard = radial
+            x = np.concatenate([inboard[::-1], outboard])
+            y, spread, mask = _mirror(y), _mirror(spread), _mirror(mask)
+            resolved = coordinate
+        else:
+            x, resolved = _equilibrium_coordinate_values(ods, recipe, "psi_norm", time_slice, y.size, cache)
+    else:
+        x, resolved = _equilibrium_coordinate_values(ods, recipe, coordinate, time_slice, y.size, cache)
+    if x is None:
+        # A sample index is not a coordinate; label it as one, do not
+        # pass it off as the coordinate that was asked for.
+        x = np.arange(y.size, dtype=float)
+        resolved = "index"
+    return (
+        Series(x=x, y=y, label=entry_label, yerr=spread, validity=code, valid_mask=mask, entry=entry_label),
+        resolved,
+    )
+
+
+def _rebuild_against(
+    trace_entries: Sequence[tuple[str, Any]],
+    traces: Sequence[Series],
+    resolved: Sequence[str],
+    recipe: ProfileRecipe,
+    wanted: str,
+    time_slice: int,
+    cache: dict | None,
+) -> list[Series] | None:
+    """Every trace against ``wanted``, or ``None`` when one entry cannot supply it."""
+    rebuilt: list[Series] = []
+    for (entry_label, ods), trace, was in zip(trace_entries, traces, resolved):
+        if was == wanted:
+            rebuilt.append(trace)
+            continue
+        redrawn, got = _equilibrium_trace(ods, entry_label, recipe, wanted, time_slice, cache)
+        if redrawn is None or got != wanted:
+            return None
+        rebuilt.append(redrawn)
+    return rebuilt
+
+
+def _wall_midplane_radii(ods: Any, z0: float | None) -> tuple[list[float], str]:
+    """The wall's crossings of the horizontal line ``Z = z0``, with its label.
+
+    An ``r_major`` axis is the midplane radius, so the limiter marks belong
+    where the limiter outline crosses the axis height, not at the outline's
+    extreme radii (the same on a circular limiter, different on a shaped
+    one).  A description without a crossing at that height, or a vessel
+    description, falls back to the extremes :func:`_wall_radii` reports.
+    """
+    radii, surface = _wall_radii(ods)
+    if z0 is None or not np.isfinite(z0) or surface != "Limiter":
+        return radii, surface
+    crossings: list[float] = []
+    for layer in _wall_layers(ods):
+        r = np.asarray(layer.r, dtype=float).ravel()
+        z = np.asarray(layer.z, dtype=float).ravel()
+        if r.size < 2:
+            continue
+        for a, b in zip(range(r.size), list(range(1, r.size)) + [0]):
+            za, zb = z[a] - z0, z[b] - z0
+            if za == zb:
+                continue
+            if (za <= 0.0 < zb) or (zb <= 0.0 < za):
+                crossings.append(float(r[a] + (r[b] - r[a]) * (-za) / (zb - za)))
+    return (crossings, surface) if len(crossings) >= 2 else (radii, surface)
+
+
+def _profile_reference_lines(ods: Any, time_slice: int, coordinate: str, traces: Sequence[Series]) -> tuple[ReferenceLine, ...]:
+    """The markers a geometric abscissa deserves: the axis and the limiter.
+
+    ``r_major``: the magnetic axis and the wall's two crossings of the axis
+    height (one legend entry; the surface is the limiter or the vessel as
+    ``_wall_radii`` says), read from the first entry: one axis, one wall per
+    figure.  ``r_minor``: the last closed flux surface, the widest edge over
+    the entries drawn.  Flux coordinates carry none.
+    """
+    lines: list[ReferenceLine] = []
+    if coordinate == "r_major":
+        base = f"equilibrium.time_slice.{time_slice}.global_quantities.magnetic_axis"
+        axis_r = _finite_scalar(_get(ods, f"{base}.r"))
+        axis_z = _finite_scalar(_get(ods, f"{base}.z"))
+        if axis_r is not None:
+            lines.append(ReferenceLine(axis_r, "Magnetic axis", {"color": "feature:axis", "linestyle": "--"}))
+        radii, surface = _wall_midplane_radii(ods, axis_z)
+        if radii:
+            lines.append(ReferenceLine(min(radii), surface))
+            lines.append(ReferenceLine(max(radii), ""))
+    elif coordinate == "r_minor" and traces:
+        edge = max(float(np.asarray(trace.x)[-1]) for trace in traces if np.asarray(trace.x).size)
+        lines.append(ReferenceLine(edge, "LCFS", {"color": "feature:boundary"}))
+    return tuple(lines)
+
+
+def _default_x_limits(ods: Any, coordinate: str, traces: Sequence[Series]) -> tuple[float, float] | None:
+    if coordinate in _FLUX_COORDINATES:
+        return (0.0, 1.0)
+    if coordinate == "r_major":
+        axis_z = _finite_scalar(_get(ods, "equilibrium.time_slice.0.global_quantities.magnetic_axis.z"))
+        radii, _ = _wall_midplane_radii(ods, axis_z)
+        return (min(radii) - 0.02, max(radii) + 0.02) if radii else None
+    if coordinate == "r_minor" and traces:
+        edge = max(float(np.asarray(trace.x)[-1]) for trace in traces if np.asarray(trace.x).size)
+        return (0.0, 1.05 * edge) if edge > 0 else None
+    return None
+
+
+def _build_channel_profile(
+    entries: Sequence[tuple[str, Any]], recipe: ChannelProfileRecipe, **options: Any
+) -> Any:
+    """A sensor array's values at one time against position (issue #486)."""
+    from vaft.plot.selection import classify_regions, radial_divider
+
+    plot_name = options.pop("_plot_name", None)
+    spec = get_spec(plot_name) if plot_name else None
+    subject = spec.subject if spec is not None else None
+    panel_member = bool(options.pop("_panel_member", False))
+    if "layout" in options:
+        raise ValueError(f"{plot_name or recipe.title} takes no layout=; coordinate='z' already splits the array")
+    coordinate = options.get("coordinate") or recipe.default_coordinate
+    if coordinate not in recipe.coordinates:
+        raise ValueError(
+            f"{plot_name or recipe.title} takes coordinate= one of {', '.join(recipe.coordinates)}; got {coordinate!r}"
+        )
+    angle = options.get("angle") or ANGLE_SOURCES[0]
+    if angle not in ANGLE_SOURCES:
+        raise ValueError(f"angle must be one of {', '.join(ANGLE_SOURCES)}; got {angle!r}")
+    centre = options.get("centre")
+    if coordinate != "theta" and (options.get("angle") is not None or centre is not None):
+        raise ValueError(
+            f"angle= and centre= describe the poloidal angle; pass coordinate='theta' with them "
+            f"(got coordinate={coordinate!r})"
+        )
+    if centre is not None:
+        try:
+            centre = (float(centre[0]), float(centre[1]))
+            if len(centre) != 2 or len(tuple(options["centre"])) != 2:
+                raise ValueError
+        except (TypeError, ValueError, IndexError):
+            raise ValueError(f"centre= is (r0, z0) in metres; got {options['centre']!r}") from None
+        if not all(np.isfinite(centre)):
+            raise ValueError(f"centre= needs finite metres; got {options['centre']!r}")
+    selection = _selection_option(options)
+    container = _container_of(recipe.y_path, "{i}")
+    candidates = (recipe.y_path,) + tuple(recipe.fallback_y_paths)
+
+    points: list[dict[str, Any]] = []   # one per entry
+    stamps: list[str] = []
+    for entry_label, ods in entries:
+        time_value: float | None = None
+        if options.get("time") is not None:
+            time_value = float(options["time"])
+        elif options.get("time_slice") is not None:
+            if not _count(ods, "equilibrium.time_slice"):
+                raise ValueError(f"{plot_name or recipe.title} takes time= (seconds); time_slice= needs a stored equilibrium")
+            time_value = resolve_time_slice(ods, time_slice=int(options["time_slice"]))[1]
+        total = _count(ods, container)
+        indices = _resolve_selection(ods, recipe.y_path, selection, fallbacks=recipe.fallback_y_paths)
+        r_all, z_all = _channel_positions(ods, container, total)
+        split = radial_divider(r_all)
+        regions = classify_regions(r_all, split=split) if split else [UNCLASSIFIED] * total
+        entry_points = []
+        stamp = None
+        for index in indices:
+            y = _first_array(ods, candidates, i=index)
+            if y is None or y.size == 0:
+                continue
+            axis = _first_time(ods, recipe.time_paths, i=index)
+            if axis is None or axis.size != y.size:
+                continue
+            if not _channel_passes_signal_preset(ods, recipe.y_path, index, y, selection):
+                continue
+            sample, stored, reason = resolve_time_sample(axis, time_value)
+            if stamp is None:
+                stamp = f"t = {stored * 1e3:.2f} ms ({reason})"
+            code, mask = _validity_of(ods, recipe.y_path, index)
+            valid = True
+            if mask is not None and np.asarray(mask).size == y.size:
+                valid = bool(np.asarray(mask, dtype=bool)[sample])
+            elif code is not None and int(np.asarray(code).ravel()[0]) != 0:
+                valid = False
+            entry_points.append({
+                "r": float(r_all[index]), "z": float(z_all[index]), "y": float(y[sample]),
+                "valid": valid, "region": regions[index], "channel": index,
+                "angle_stored": _get(ods, f"{container}.{index}.poloidal_angle"),
+            })
+        points.append({"label": entry_label, "points": entry_points, "r": r_all, "z": z_all})
+        stamps.append(stamp or "no sample")
+
+    y_display = _resolve_axis_display(
+        recipe.y_unit, unit=options.get("yunit"), subject=subject,
+        quantity=spec.quantity if spec is not None else None,
+        series_values=[np.asarray([pt["y"] for pt in entry["points"]]) for entry in points],
+    )
+    # One stamp when every shot resolved to the same time; otherwise each
+    # shot's own, so a title never understates a second shot's sample.
+    distinct = list(dict.fromkeys(stamps))
+    if len(distinct) <= 1:
+        stamp_text = distinct[0] if distinct else ""
+    else:
+        stamp_text = "; ".join(f"{entry['label']}: {stamp}" for entry, stamp in zip(points, stamps))
+    heading = recipe.title or recipe.y_label
+    if panel_member:
+        title = heading
+    else:
+        title = f"{_decorated_title(heading, y_display.unit, entries)} at {stamp_text}"
+
+    def series_for(entry: dict, keep) -> Series | None:
+        chosen = [pt for pt in entry["points"] if keep(pt)]
+        if not chosen:
+            return None
+        if coordinate == "z":
+            x = np.asarray([pt["z"] for pt in chosen], dtype=float)
+        elif angle == "stored":
+            stored = [pt["angle_stored"] for pt in chosen]
+            if any(value is None for value in stored):
+                raise ValueError(
+                    f"angle='stored' needs a poloidal_angle on every selected channel of {container}; "
+                    "this input stores none"
+                )
+            x = np.degrees(np.mod(np.asarray(stored, dtype=float), 2.0 * np.pi))
+        else:
+            from vaft.process.magnetics import magnetics_sensor_centre, magnetics_sensor_poloidal_angle
+
+            origin = tuple(centre) if centre is not None else magnetics_sensor_centre(entry["r"], entry["z"])
+            x = np.degrees(magnetics_sensor_poloidal_angle(
+                [pt["r"] for pt in chosen], [pt["z"] for pt in chosen], origin
+            ))
+        order = np.argsort(x, kind="stable")
+        y = np.asarray([pt["y"] for pt in chosen], dtype=float)[order] * y_display.scale
+        valid = np.asarray([pt["valid"] for pt in chosen], dtype=bool)[order]
+        return Series(
+            x=x[order], y=y, label=entry["label"], entry=entry["label"],
+            valid_mask=None if valid.all() else valid,
+            style={"marker": "o", "linestyle": "-"},
+        )
+
+    def profile(series: Sequence[Series], panel_title: str, origin_text: str = "") -> Profile1D:
+        if coordinate == "z":
+            label = "Z [m]"
+        else:
+            label = (f"Poloidal angle θ [deg]{origin_text}" if angle == "geometric" else "Stored poloidal angle [deg]")
+        return Profile1D(
+            series=tuple(s for s in series if s is not None),
+            coordinate_label=label,
+            y_label=recipe.y_label,
+            y_unit=y_display.unit,
+            title=panel_title,
+            x_limits=(0.0, 360.0) if coordinate == "theta" else None,
+            display=y_display,
+        )
+
+    if coordinate == "theta":
+        origin_text = ""
+        if angle == "geometric" and points:
+            from vaft.process.magnetics import magnetics_sensor_centre
+
+            r0, z0 = tuple(centre) if centre is not None else magnetics_sensor_centre(points[0]["r"], points[0]["z"])
+            origin_text = f" about (R, Z) = ({r0:.3f}, {z0:.3f}) m"
+        return profile([series_for(entry, lambda pt: True) for entry in points], title, origin_text)
+
+    panels: list[Profile1D] = []
+    for region, panel_title in ((INBOARD, "inboard"), (OUTBOARD, "outboard"), (UNCLASSIFIED, "unclassified")):
+        series = [series_for(entry, lambda pt, region=region: pt["region"] == region) for entry in points]
+        if any(s is not None for s in series):
+            panels.append(profile(series, panel_title))
+    if not panels:
+        raise ValueError(f"{plot_name or recipe.title}: no channel of {container} carries a sample to draw")
+    return Panels(models=tuple(panels), ncols=len(panels), share_x=False, suptitle=title)
+
+
 def _build_profile_1d(
     entries: Sequence[tuple[str, Any]], recipe: ProfileRecipe, **options: Any
 ) -> Profile1D:
-    spec = get_spec(options.pop("_plot_name")) if "_plot_name" in options else None
+    plot_name = options.pop("_plot_name", None)
+    spec = get_spec(plot_name) if plot_name else None
     subject = spec.subject if spec is not None else None
     # Inside a composite the suptitle carries subject/unit/shot, so a member
     # keeps the short recipe title that identifies it within the figure.
     panel_member = bool(options.pop("_panel_member", False))
     coordinate = options.get("coordinate") or recipe.default_coordinate
+    _check_coordinate(recipe, coordinate, plot_name)
     time_slice = options.get("time_slice", 0)
+    cache: dict = {}
     traces: list[Series] = []
+    trace_entries: list[tuple[str, Any]] = []
     resolved_per_entry: list[str] = []
     for entry_label, ods in entries:
         if recipe.index == "channel":
-            indices = _resolve_selection(ods, recipe.y_path, _selection_option(options))
+            selection = _selection_option(options)
+            indices = _resolve_selection(ods, recipe.y_path, selection)
             x_values, y_values = [], []
+            coordinate_path = _profile_coordinate(recipe, coordinate)
             for index in indices:
-                x = _get(ods, _profile_coordinate(recipe, coordinate).format(i=index))
+                x = _get(ods, coordinate_path.format(i=index)) if coordinate_path else None
                 y = _get(ods, recipe.y_path.format(i=index))
                 if x is None or y is None:
                     continue
-                x_values.append(float(np.asarray(x, dtype=float).ravel()[0]))
                 y_flat = np.asarray(y, dtype=float).ravel()
+                # A channel is one point of the profile; the signal presets
+                # apply to it as they do to a trace (vaft.plot.selection).
+                if not _channel_passes_signal_preset(ods, recipe.y_path, index, y_flat, selection):
+                    continue
+                x_values.append(float(np.asarray(x, dtype=float).ravel()[0]))
                 position = min(time_slice, y_flat.size - 1) if y_flat.size else 0
                 y_values.append(float(y_flat[position]) if y_flat.size else np.nan)
             if x_values:
@@ -3119,54 +6937,36 @@ def _build_profile_1d(
                         style={"marker": "o", "linestyle": "-"},
                     )
                 )
+                trace_entries.append((entry_label, ods))
+                resolved_per_entry.append(coordinate)
             continue
 
-        y = _array(ods, recipe.y_path.format(i=time_slice))
-        for fallback in recipe.fallback_y_paths:
-            if y is None:
-                y = _array(ods, fallback.format(i=time_slice))
-        if y is None:
+        trace, resolved = _equilibrium_trace(ods, entry_label, recipe, coordinate, time_slice, cache)
+        if trace is None:
             continue
-        if recipe.coordinate_paths:
-            coordinate_path = _profile_coordinate(recipe, coordinate)
-            x = (
-                _array(ods, coordinate_path.format(i=time_slice))
-                if coordinate_path
-                else None
-            )
-            if x is not None and x.size != y.size:
-                x = None
-            resolved = coordinate
-        else:
-            x, resolved = _equilibrium_coordinate_values(
-                ods, recipe, coordinate, time_slice, y.size
-            )
-        if x is None:
-            # A sample index is not a coordinate; label it as one, do not
-            # pass it off as the coordinate that was asked for.
-            x = np.arange(y.size, dtype=float)
-            resolved = "index"
+        traces.append(trace)
+        trace_entries.append((entry_label, ods))
         resolved_per_entry.append(resolved)
-        code, mask = _validity_of(ods, recipe.y_path, time_slice)
-        spread = _uncertainty_of(ods, recipe.y_path, time_slice, y.size)
-        traces.append(
-            Series(x=x, y=y, label=entry_label, yerr=spread,
-                   validity=code, valid_mask=mask, entry=entry_label)
-        )
 
     # One figure carries one abscissa. Entries can resolve to different
     # coordinates -- one slice derives rho_tor_norm, another only has psi_norm --
     # and labelling from whichever came last would put a curve on an axis that
     # does not describe it, with the label flipping on input order alone. They
-    # fall back together instead, to the weakest coordinate any entry supports.
+    # fall back together instead, to the weakest coordinate any entry supports,
+    # each entry rebuilt against it (a mirrored r_major trace cannot be patched).
     drawn_coordinate = _common_coordinate(resolved_per_entry, coordinate)
-    if len(set(resolved_per_entry)) > 1:
-        traces = [
-            _recoordinate(trace, was, drawn_coordinate, ods, recipe, time_slice)
-            for trace, was, (_entry_label, ods) in zip(
-                traces, resolved_per_entry, entries
-            )
-        ]
+    if len(set(resolved_per_entry)) > 1 and recipe.index != "channel":
+        # Every entry is rebuilt against the common coordinate; if any entry
+        # cannot supply it either, all of them go to a sample index together
+        # -- never one entry on a coordinate under another's label.
+        rebuilt = _rebuild_against(trace_entries, traces, resolved_per_entry, recipe, drawn_coordinate, time_slice, cache)
+        if rebuilt is None:
+            drawn_coordinate = "index"
+            rebuilt = [
+                dataclasses.replace(trace, x=np.arange(np.asarray(trace.y).size, dtype=float))
+                for trace in traces
+            ]
+        traces = rebuilt
 
     y_display = _resolve_axis_display(
         recipe.y_unit, unit=options.get("yunit"), subject=subject,
@@ -3177,17 +6977,83 @@ def _build_profile_1d(
         _apply_display(trace, x_scale=1.0, y_scale=y_display.scale)
         for trace in traces
     )
+    scaled, flipped = _orient(scaled, options.get("orientation", recipe.orientation))
     if panel_member:
         default_title = recipe.y_label
     else:
         default_title = _decorated_title(recipe.y_label, y_display.unit, entries)
+    if flipped:
+        default_title = f"{default_title} — intuitive orientation (sign flipped)"
+    first_ods = trace_entries[0][1] if trace_entries else (entries[0][1] if entries else None)
+    reference_lines: tuple[ReferenceLine, ...] = ()
+    x_limits = options.get("x_limits")
+    if first_ods is not None and recipe.index != "channel":
+        reference_lines = _profile_reference_lines(first_ods, time_slice, drawn_coordinate, scaled)
+        if x_limits is None:
+            x_limits = _default_x_limits(first_ods, drawn_coordinate, scaled)
     return Profile1D(
         series=scaled,
         coordinate_label=_COORDINATE_LABELS.get(drawn_coordinate, drawn_coordinate),
         y_label=recipe.y_label,
         y_unit=y_display.unit,
         title=options.get("title", default_title),
+        x_limits=x_limits,
         display=y_display,
+        reference_lines=reference_lines,
+    )
+
+
+def _build_geometry_entries(
+    entries: Sequence[tuple[str, Any]], recipe: GeometryRecipe, **options: Any
+) -> GeometryLayers:
+    """One geometry view built from every entry, not just the first.
+
+    A single entry is drawn exactly as the recipe describes it -- same colours,
+    same labels, no legend where there was none.  With several, each entry's
+    layers are tagged with its label so the renderer can colour the stack by
+    entry, and the recipe's own colours are dropped: keeping them would draw
+    two machines in one colour, which is the bug this exists to fix.  Layer
+    labels are prefixed with the entry so a composed view still says which
+    part of which machine it is naming.
+    """
+    if len(entries) == 1:
+        return _build_geometry(entries[0][1], recipe, **options)
+
+    layers: list[GeometryLayer] = []
+    title = recipe.title
+    # The colour key has to separate the inputs even when they carry the same
+    # label -- one shot read from two sources is a real comparison -- while the
+    # legend keeps the label it was given.
+    seen: dict[str, int] = {}
+    for entry_label, ods in entries:
+        text = str(entry_label)
+        drawn = seen.get(text, 0)
+        seen[text] = drawn + 1
+        key = text if not drawn else f"{text}#{drawn}"
+        built = _build_geometry(ods, recipe, **options)
+        title = built.title
+        labelled = False
+        for layer in built.layers:
+            style = {key: value for key, value in layer.style.items() if key != "color"}
+            if layer.kind == "text":
+                # An annotation is not a legend key; it keeps its own text.
+                layers.append(dataclasses.replace(layer, style=style, entry=key))
+                continue
+            label = f"{entry_label} {layer.label}".strip() if layer.label else str(entry_label)
+            if layer.label or not labelled:
+                labelled = True
+            else:
+                # One legend key per entry for a single-layer recipe; a
+                # multi-layer recipe names its parts and keeps them all.
+                label = ""
+            layers.append(
+                dataclasses.replace(layer, style=style, label=label, entry=key)
+            )
+    return GeometryLayers(
+        layers=tuple(layers),
+        x_label=recipe.x_label,
+        y_label=recipe.y_label,
+        title=options.get("title", title),
     )
 
 
@@ -3200,7 +7066,7 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
         else:
             indices = list(range(_count(ods, container)))
         if kind == "points":
-            r_values, z_values = [], []
+            r_values, z_values, placed = [], [], []
             for index in indices:
                 r = _get(ods, r_template.format(i=index))
                 z = _get(ods, z_template.format(i=index))
@@ -3208,9 +7074,11 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                     continue
                 r_values.append(float(np.asarray(r, dtype=float).ravel()[0]))
                 z_values.append(float(np.asarray(z, dtype=float).ravel()[0]))
+                placed.append(index)
             if r_values:
                 layers.append(
                     GeometryLayer(
+                        role=recipe.role,
                         r=r_values,
                         z=z_values,
                         kind="points",
@@ -3218,6 +7086,16 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                         style=style,
                     )
                 )
+                if recipe.annotate_indices:
+                    # The same channels the points loop placed, in the same order.
+                    color = style.get("color", "0.3")
+                    for index, r_value, z_value in zip(placed, r_values, z_values):
+                        layers.append(GeometryLayer(
+                            role=recipe.role,
+                            r=[r_value], z=[z_value], kind="text", label=str(index),
+                            style={"color": color, "fontsize": 5, "ha": "left", "va": "bottom",
+                                   "xytext": (2, 1), "textcoords": "offset points"},
+                        ))
             continue
         for index in indices:
             r = _array(ods, r_template.format(i=index))
@@ -3226,6 +7104,7 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
                 continue
             layers.append(
                 GeometryLayer(
+                    role=recipe.role,
                     r=r,
                     z=z,
                     kind=kind,
@@ -3243,41 +7122,392 @@ def _build_geometry(ods: Any, recipe: GeometryRecipe, **options: Any) -> Geometr
     )
 
 
+
+#: Normalised-flux steps of the ``surfaces`` style: nine internal surfaces.
+_PSI_SURFACE_STEPS = np.linspace(0.1, 0.9, 9)
+
+
+def _psi_axis_boundary(ods: Any, time_slice: int) -> tuple[float, float] | None:
+    """``(psi_axis, psi_boundary)`` of a slice, as stored, else from profiles_1d."""
+    base = f"equilibrium.time_slice.{time_slice}"
+    axis = _finite_scalar(_get(ods, f"{base}.global_quantities.psi_axis"))
+    boundary = _finite_scalar(_get(ods, f"{base}.global_quantities.psi_boundary"))
+    if axis is None or boundary is None:
+        psi = _array(ods, f"{base}.profiles_1d.psi")
+        if psi is None or psi.size < 2:
+            return None
+        axis, boundary = float(psi[0]), float(psi[-1])
+    if axis == boundary:
+        return None
+    return axis, boundary
+
+
+def _inside_polygon(r: np.ndarray, z: np.ndarray, outline_r: np.ndarray, outline_z: np.ndarray) -> np.ndarray:
+    """Boolean ``(len(z), len(r))`` grid of points inside a closed outline (ray casting)."""
+    rr, zz = np.meshgrid(np.asarray(r, dtype=float), np.asarray(z, dtype=float))
+    inside = np.zeros(rr.shape, dtype=bool)
+    xs, ys = np.asarray(outline_r, dtype=float), np.asarray(outline_z, dtype=float)
+    n = xs.size
+    for i in range(n):
+        x0, y0, x1, y1 = xs[i], ys[i], xs[(i + 1) % n], ys[(i + 1) % n]
+        if y0 == y1:
+            continue
+        crosses = (zz > min(y0, y1)) & (zz <= max(y0, y1))
+        x_at = x0 + (zz - y0) * (x1 - x0) / (y1 - y0)
+        inside ^= crosses & (rr < x_at)
+    return inside
+
+
+def _flux_display(
+    ods: Any,
+    time_slice: int,
+    unit: str | None = None,
+    *,
+    convention: str | None = None,
+    data: Any = None,
+):
+    """The display resolution of this equilibrium's poloidal flux (issue #478).
+
+    ``convention`` is the stored family (``"Wb"`` or ``"Wb/rad"``) when the
+    caller already resolved it; otherwise the backend probe settles it from
+    a declared COCOS index or the data.  ``data`` lets ``unit="auto"`` pick
+    by magnitude.  The map, the vacuum map and the slice summary's psi rows
+    all pass through here, so they cannot disagree.
+    """
+    from .convention import psi_convention
+
+    stored = convention or psi_convention(ods, time_slice)
+    return resolve_display(stored, unit=unit, subject="equilibrium", data=data)
+
+
+def _style_psi_field(
+    ods: Any,
+    field: Field2D,
+    time_slice: int,
+    style: str,
+    *,
+    requested: bool = True,
+    unit: str | None = None,
+    convention: str | None = None,
+    **options: Any,
+) -> Field2D:
+    """Apply a :data:`PSI_STYLES` entry to a raw psi :class:`Field2D`.
+
+    Whatever the style, psi is shown in the display unit the equilibrium's
+    stored convention resolves to (mWb for a DD weber file, mWb/rad for a
+    legacy per-radian one, or ``unit`` when the caller names one) so the map
+    and the slice's stated psi_axis/psi_boundary read alike.  A slice that
+    stores no usable axis-to-boundary span (a degenerate reconstruction)
+    cannot show surfaces: the default degrades to the filled map, a style
+    the caller asked for by name raises.
+    """
+    if style not in PSI_STYLES:
+        raise ValueError(f"style must be one of {', '.join(PSI_STYLES)}; got {style!r}")
+    flux_display = _flux_display(ods, time_slice, unit, convention=convention, data=field.values)
+    field = dataclasses.replace(
+        field,
+        values=np.asarray(field.values, dtype=float) * flux_display.scale,
+        value_label=f"Poloidal Flux [{flux_display.unit}]",
+        display=flux_display,
+    )
+    # The axis marker and the boundary are overlays now, assembled by
+    # _build_field_2d from ``overlay=`` (issue #483).
+    overlays = list(field.overlays)
+    if style == "filled":
+        return dataclasses.replace(field, overlays=tuple(overlays))
+    span = _psi_axis_boundary(ods, time_slice)
+    if span is None:
+        if not requested:
+            return dataclasses.replace(field, overlays=tuple(overlays))
+        raise ValueError(
+            f"style={style!r} needs psi_axis and psi_boundary (or profiles_1d.psi) "
+            f"for slice {time_slice}; only style='filled' can draw this slice"
+        )
+    psi_axis, psi_boundary = (v * flux_display.scale for v in span)
+    values = np.asarray(field.values, dtype=float)
+    # The plasma's own psi values recur beside the coils, so the plasma levels
+    # are confined to the stored boundary when there is one.
+    boundary = next((o for o in overlays if o.label == "Boundary"), None)
+    region = _inside_polygon(field.r, field.z, boundary.r, boundary.z) if boundary is not None else None
+    if style == "normalized":
+        normalized = (values - psi_axis) / (psi_boundary - psi_axis)
+        return dataclasses.replace(
+            field,
+            values=normalized,
+            value_label=r"Normalized Poloidal Flux $\psi_N$",
+            contour_levels=options.get("contour_levels", np.linspace(0.0, 1.0, 11)),
+            filled=True,
+            overlays=tuple(overlays),
+            region=region,
+        )
+    # surfaces: levels at fixed psi_N steps inside, continued outside in grey.
+    step = psi_boundary - psi_axis
+    internal = psi_axis + step * _PSI_SURFACE_STEPS
+    finite = values[np.isfinite(values)]
+    outer_limit = float(finite.max() if step > 0 else finite.min()) if finite.size else psi_boundary
+    outside = psi_boundary + step * np.arange(1.0, 40.0) * (_PSI_SURFACE_STEPS[1] - _PSI_SURFACE_STEPS[0]) * 5
+    outside = outside[(outside <= outer_limit) if step > 0 else (outside >= outer_limit)]
+    if boundary is None:
+        # No stored outline: the boundary is the psi_boundary contour itself.
+        internal = np.append(internal, psi_boundary)
+    return dataclasses.replace(
+        field,
+        contour_levels=options.get("contour_levels", np.sort(internal)),
+        secondary_levels=outside if outside.size else None,
+        filled=False,
+        overlays=tuple(overlays),
+        region=region,
+    )
+
+
+def field_options_for(name: str) -> tuple[str, ...] | None:
+    """The ``field=`` vocabulary of plot ``name``, or ``None`` if it takes none."""
+    if name == "vacuum_field":
+        # Computed, not read from a stored 2-D array, so it is not a
+        # FieldRecipe -- but it selects among quantities the same way.
+        return VACUUM_FIELD_NAMES
+    if name == "vacuum_field_midplane":
+        return VACUUM_MIDPLANE_FIELD_NAMES
+    recipe = RECIPES.get(name)
+    return tuple(recipe.fields) if isinstance(recipe, FieldRecipe) and recipe.fields else None
+
+
+def member_options_for(name: str) -> tuple[str, ...] | None:
+    """The ``members=`` vocabulary of composite ``name``: its declared panels.
+
+    Only a :class:`PanelRecipe` takes ``members=`` (issue #482); a composite
+    built by code draws what it draws, and a leaf plot has no panels to pick.
+    """
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, PanelRecipe):
+        return tuple(recipe.members)
+    return None
+
+
+def overlay_options_for(name: str) -> tuple[str, ...] | None:
+    """The ``overlay=`` vocabulary of plot ``name``."""
+    if name == "machine_geometry_poloidal":
+        return MACHINE_OVERLAYS
+    if isinstance(RECIPES.get(name), FieldRecipe):
+        return POLOIDAL_OVERLAYS
+    if name == "camera_visible_image":
+        # The view's own entry point declares them; the presets beneath it do
+        # not (issue #261 G.5).
+        return CAMERA_OVERLAYS
+    return None
+
+
+def overlay_defaults_for(name: str) -> tuple[str, ...]:
+    """What plot ``name`` draws over itself when the caller names nothing."""
+    if name == "machine_geometry_poloidal":
+        return MACHINE_OVERLAYS
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, FieldRecipe):
+        return DEFAULT_POLOIDAL_OVERLAYS + (("boundary", "axis") if recipe.boundary_paths else ())
+    return ()
+
+
+def _equilibrium_field(recipe: FieldRecipe, options: dict, plot_name: str | None) -> EquilibriumField | None:
+    """The field a 2-D map is asked for, validated against the plot's own set."""
+    if not recipe.fields:
+        if options.get("field") is not None:
+            raise ValueError(f"{plot_name or recipe.title} draws one fixed quantity and takes no field=")
+        return None
+    requested = options.get("field") or recipe.fields[0]
+    if requested not in recipe.fields:
+        raise ValueError(
+            f"{plot_name or recipe.title} takes field= one of {', '.join(recipe.fields)}; "
+            f"got {requested!r}"
+        )
+    return EQUILIBRIUM_FIELDS[requested]
+
+
+def _mapped_field_values(ods: Any, recipe: FieldRecipe, spec: EquilibriumField, index: int):
+    """A 1-D flux function on the 2-D grid, mapped through the slice's own psi.
+
+    The abscissa is the stored ``profiles_1d.psi``, normalised with the
+    slice's own axis and boundary -- never the uniform grid the legacy 2-D
+    view assumed -- and the map stops at the last closed surface, where the
+    profile itself stops.
+    """
+    base = f"equilibrium.time_slice.{index}"
+    psi_2d = _array(ods, recipe.value_path.format(i=index))
+    psi_1d = _array(ods, f"{base}.profiles_1d.psi")
+    profile = _array(ods, f"{base}.{spec.mapped_from}")
+    if psi_2d is None or psi_1d is None or profile is None or psi_1d.size != profile.size:
+        return None
+    axis = _finite_scalar(_get(ods, f"{base}.global_quantities.psi_axis"))
+    edge = _finite_scalar(_get(ods, f"{base}.global_quantities.psi_boundary"))
+    axis = float(psi_1d[0]) if axis is None else axis
+    edge = float(psi_1d[-1]) if edge is None else edge
+    if axis == edge:
+        return None
+    psi_norm_2d = (psi_2d - axis) / (edge - axis)
+    psi_norm_1d = (psi_1d - axis) / (edge - axis)
+    order = np.argsort(psi_norm_1d)
+    mapped = np.interp(psi_norm_2d, psi_norm_1d[order], profile[order])
+    return np.where(psi_norm_2d <= 1.0, mapped, np.nan)
+
+
+def _derived_2d_for(ods: Any, index: int, field: EquilibriumField) -> Any:
+    """The ODS to read ``field`` from: the caller's, or a private derived copy.
+
+    A slice that stores the leaf is read as it is.  Otherwise the field's
+    own updater runs on an isolated copy (the ``_derived_profiles_for``
+    pattern), so a plot never writes the caller's ODS; ``None`` comes back
+    when the slice cannot support the derivation, and the builder says so.
+    """
+    leaf = f"equilibrium.time_slice.{index}.profiles_2d.0.{field.leaf}"
+    if _array(ods, leaf) is not None:
+        return ods
+    if not field.updater:
+        return None
+    try:
+        import vaft.omas as vaft_omas
+
+        private = _isolated_copy(ods, ("equilibrium",))
+        getattr(vaft_omas, field.updater)(private, time_slice=index)
+    except Exception:  # noqa: BLE001 - an underivable slice is reported, not raised
+        return None
+    return private if _array(private, leaf) is not None else None
+
+
+def _poloidal_overlays(
+    ods: Any, names: Sequence[str], *, time_slice: int, boundary_paths: Sequence[str] = ()
+) -> list[GeometryLayer]:
+    """The requested machine and equilibrium layers, in drawing order."""
+    layers: list[GeometryLayer] = []
+    if "wall" in names:
+        layers.extend(_wall_layers(ods))
+    if "passive" in names and entry_supports(ods, "passive_structure_geometry_poloidal"):
+        layers.extend(_build_passive_structure_geometry(ods).layers)
+    if "coils" in names and entry_supports(ods, "pf_coil_geometry_poloidal"):
+        layers.extend(_build_pf_coil_geometry(ods, collective=True).layers)
+    if "boundary" in names and boundary_paths:
+        boundary_r = _array(ods, boundary_paths[0].format(i=time_slice))
+        boundary_z = _array(ods, boundary_paths[1].format(i=time_slice))
+        if boundary_r is not None and boundary_z is not None:
+            layers.append(GeometryLayer(
+                r=boundary_r, z=boundary_z, kind="polygon", label="Boundary",
+                style={"color": "feature:boundary"}, role=EQUILIBRIUM_ROLE,
+            ))
+    if "axis" in names:
+        base = f"equilibrium.time_slice.{time_slice}.global_quantities.magnetic_axis"
+        axis_r = _finite_scalar(_get(ods, f"{base}.r"))
+        axis_z = _finite_scalar(_get(ods, f"{base}.z"))
+        if axis_r is not None and axis_z is not None:
+            layers.append(GeometryLayer(
+                r=np.array([axis_r]), z=np.array([axis_z]), kind="points", label="Magnetic axis",
+                style={"marker": "+", "color": "feature:axis", "markersize": 10, "markeredgewidth": 1.5},
+                role=EQUILIBRIUM_ROLE,
+            ))
+    return layers
+
+
+def _style_scalar_field(field: Field2D, spec: EquilibriumField, unit: str | None) -> Field2D:
+    """Scale and label a non-flux 2-D field through the display policy."""
+    display = resolve_display(spec.unit, unit=unit, subject="equilibrium", data=field.values)
+    return dataclasses.replace(
+        field,
+        values=np.asarray(field.values, dtype=float) * display.scale,
+        value_label=f"{spec.label} [{display.unit}]",
+        display=display,
+        filled=True,
+    )
+
+
 def _build_field_2d(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
     time_slice = options.get("time_slice", 0)
-    r = _array(ods, recipe.r_path.format(i=time_slice))
-    z = _array(ods, recipe.z_path.format(i=time_slice))
-    values = _array(ods, recipe.value_path.format(i=time_slice))
+    plot_name = options.get("_plot_name")
+    if "yunit" in options:
+        raise ValueError(
+            f"{recipe.title or recipe.value_path!r} is a 2-D map with no y-axis unit; "
+            "use units= to choose the value unit"
+        )
+    spec = _equilibrium_field(recipe, options, plot_name)
+    # ``style`` belongs to the flux map: every other field is one filled map,
+    # so a style asked of it is not an error, it simply does not apply.  That
+    # keeps the interactive control usable, where the style control's value
+    # travels with every field change (issue #483).
+    style = options.get("style") if spec is None or spec.name in ("psi",) else None
+    source = ods
+    values = None
+    value_path = recipe.value_path
+    if spec is not None and spec.mapped_from:
+        values = _mapped_field_values(ods, recipe, spec, time_slice)
+        if values is None:
+            raise ValueError(
+                f"field={spec.name!r} needs {spec.mapped_from} and the slice's psi range; "
+                f"slice {time_slice} of this input has neither"
+            )
+    elif spec is not None and spec.name != "psi":
+        source = _derived_2d_for(ods, time_slice, spec)
+        if source is None:
+            raise ValueError(
+                f"field={spec.name!r} is neither stored nor derivable for slice {time_slice} "
+                f"of this input ({spec.updater or 'no derivation exists'})"
+            )
+        value_path = f"equilibrium.time_slice.{{i}}.profiles_2d.0.{spec.leaf}"
+
+    r = _array(source, recipe.r_path.format(i=time_slice))
+    z = _array(source, recipe.z_path.format(i=time_slice))
+    if values is None:
+        values = _array(source, value_path.format(i=time_slice))
     if r is None or z is None or values is None:
         raise ValueError(
-            f"{recipe.value_path.format(i=time_slice)} and its (R, Z) grid are required"
+            f"{value_path.format(i=time_slice)} and its (R, Z) grid are required"
         )
     if recipe.values_order == "rz":
         values = values.T
     elif values.shape != (z.size, r.size):
         values = values.T
-    overlays = list(_wall_layers(ods))
-    if recipe.boundary_paths:
-        boundary_r = _array(ods, recipe.boundary_paths[0].format(i=time_slice))
-        boundary_z = _array(ods, recipe.boundary_paths[1].format(i=time_slice))
-        if boundary_r is not None and boundary_z is not None:
-            overlays.append(
-                GeometryLayer(
-                    r=boundary_r,
-                    z=boundary_z,
-                    kind="polygon",
-                    label="Boundary",
-                    style={"color": "#e41a1c"},
-                )
-            )
-    return Field2D(
+
+    # Overlays: the machine context the caller asked for, plus the boundary and
+    # axis that belong to an equilibrium field itself.  A style that confines
+    # its levels to the plasma needs the boundary whatever was asked for, since
+    # that outline *is* the region (issue #483).
+    owns_equilibrium = bool(recipe.boundary_paths)
+    if options.get("overlay") is None:
+        names = DEFAULT_POLOIDAL_OVERLAYS + (("boundary", "axis") if owns_equilibrium else ())
+    else:
+        names = _overlay_option(options, POLOIDAL_OVERLAYS)
+    if spec is not None and spec.name == "psi" and (style or PSI_STYLES[0]) != "filled":
+        names = tuple(dict.fromkeys(names + ("boundary",)))
+    overlays = _poloidal_overlays(
+        ods, names, time_slice=time_slice, boundary_paths=recipe.boundary_paths
+    )
+
+    field = Field2D(
         r=r,
         z=z,
         values=values,
         value_label=recipe.value_label,
         contour_levels=options.get("contour_levels"),
         overlays=tuple(overlays),
-        title=options.get("title", recipe.title),
+        title=options.get("title", recipe.title if spec is None else spec.label),
+    )
+    if spec is None:
+        if options.get("units") is not None:
+            raise ValueError(f"{recipe.title or recipe.value_path!r} takes no units= option")
+        return field
+    if spec.name != "psi":
+        return _style_scalar_field(field, spec, options.get("units"))
+    # ``_convention`` is the overview's internal hand-off (the family it
+    # resolved once for the map and the text panel); a leading underscore
+    # keeps it off the public keyword surface (review of #538).
+    extra = {
+        k: v for k, v in options.items()
+        if k not in ("time_slice", "style", "units", "field", "overlay", "_convention", "_plot_name")
+    }
+    return _style_psi_field(
+        ods,
+        field,
+        time_slice,
+        style or PSI_STYLES[0],
+        requested=style is not None,
+        unit=options.get("units"),
+        convention=options.get("_convention"),
+        **extra,
     )
 
 
@@ -3299,11 +7529,177 @@ def _first_channel_with_signal(
     return 0
 
 
+#: How a spectrogram's time-frequency map is computed (issue #484).
+#: ``stft`` is scipy's short-time Fourier transform and the default;
+#: ``hann_fft`` is VAFT's hand-rolled Hann-window FFT, kept because the VEST
+#: Mirnov analyses were written against it; ``cwt`` is a continuous-wavelet
+#: scalogram through the optional ``fcwt`` package.
+SPECTROGRAM_METHODS = ("stft", "hann_fft", "cwt")
+
+#: The options each method reads, beyond the ones every method takes
+#: (``sample_rate``, ``time_range``, ``frequency_range``).
+SPECTROGRAM_PARAMETERS: dict[str, tuple[str, ...]] = {
+    "stft": ("nperseg", "noverlap", "window", "detrend"),
+    "hann_fft": ("window_size", "time_resolution"),
+    "cwt": ("frequency_range", "n_frequencies"),
+}
+
+#: The window both Fourier methods use when the caller names none.  The same
+#: number of samples either way, so switching method changes the algorithm
+#: and not, silently, the resolution as well.
+_SPECTROGRAM_WINDOW = 500
+
+
+def _spectrogram_method(options: dict, plot_name: str | None = None) -> str:
+    method = options.get("method") or SPECTROGRAM_METHODS[0]
+    if method not in SPECTROGRAM_METHODS:
+        raise ValueError(
+            f"{plot_name or 'a spectrogram'} takes method= one of "
+            f"{', '.join(SPECTROGRAM_METHODS)}; got {method!r}"
+        )
+    return method
+
+
+#: How bright a frequency row must be, relative to the brightest pixel of the
+#: whole map, to count as something the reader can actually see. A `hot_r` or
+#: `turbo` map renders anything well below this as background, so rows under it
+#: contribute nothing but empty axis.
+_SPECTROGRAM_VISIBLE_FRACTION = 0.01
+
+
+def _default_display_band(result: Any) -> float | None:
+    """Return a display ceiling for a spectrogram, or None to show everything.
+
+    A spectrogram is analysed to Nyquist, which for a diagnostic sampled far
+    above its physics band means the content occupies the bottom few percent of
+    the axis and the default render reads as an empty map. VEST soft X-ray
+    digitizers sample near 1 MHz while the plasma content sits below ~30 kHz
+    (#765).
+
+    The ceiling comes from the map itself rather than from a machine constant,
+    so nothing VEST-specific is baked into a general renderer: it sits one bin
+    above the highest frequency whose brightest pixel still reaches
+    :data:`_SPECTROGRAM_VISIBLE_FRACTION` of the map's peak. Above that the
+    colormap draws background, so nothing is hidden that was visible.
+
+    A broadband channel keeps its whole axis, because its top rows are as
+    bright as its bottom ones. :func:`_display_ceiling` is what decides whether
+    to ask at all; this function only answers.
+
+    The brightness of a row is its maximum over time, not its mean: a burst
+    confined to a few milliseconds is exactly what these maps are read for, and
+    averaging it against a quiet shot would hide it.
+    """
+    frequency = np.asarray(result.frequency, dtype=float)
+    magnitude = np.abs(np.asarray(result.magnitude, dtype=float))
+    if frequency.size < 2 or magnitude.ndim != 2 or magnitude.shape[0] != frequency.size:
+        return None
+    magnitude = np.where(np.isfinite(magnitude), magnitude, 0.0)
+    peak = float(magnitude.max())
+    if peak <= 0.0:
+        return None
+    visible = np.nonzero(magnitude.max(axis=1) >= _SPECTROGRAM_VISIBLE_FRACTION * peak)[0]
+    if visible.size == 0:
+        return None
+    highest = int(visible[-1])
+    if highest >= frequency.size - 1:
+        return None  # the content really does fill the band; show all of it
+    # One bin of headroom, so the cut does not sit exactly on the last content.
+    return float(frequency[highest + 1])
+
+
+def _display_ceiling(result: Any, options: dict) -> float | None:
+    """The ``max_frequency`` a built spectrogram carries.
+
+    Anything the caller said decides: ``max_frequency`` is used as given, and a
+    named ``frequency_range`` is already the analysis band, so cropping inside
+    it would hide part of what was asked for and put empty axis below its lower
+    edge. Only when neither is present does the map choose its own band.
+    """
+    if "max_frequency" in options:
+        return options["max_frequency"]
+    if options.get("frequency_range") is not None:
+        return None
+    return _default_display_band(result)
+
+
+def _spectrogram_result(
+    time: np.ndarray,
+    values: np.ndarray,
+    *,
+    method: str,
+    sample_rate: float,
+    options: dict,
+    window_hint: int | None = None,
+    resolution_hint: int | None = None,
+) -> Any:
+    """The time-frequency map of one signal by the chosen method (issue #484).
+
+    Every method returns an object with ``time``/``frequency``/``magnitude``,
+    which :meth:`vaft.plot.models.Spectrogram.from_result` consumes, so the
+    view model does not know which transform produced it.
+    """
+    band = options.get("frequency_range")
+    if method == "stft":
+        from vaft.process.fluctuation import compute_spectrogram
+
+        nperseg = int(options.get("nperseg") or window_hint or _SPECTROGRAM_WINDOW)
+        nperseg = max(2, min(nperseg, int(values.size)))
+        noverlap = options.get("noverlap")
+        overlap = 0.5 if noverlap is None else float(noverlap) / nperseg
+        result = compute_spectrogram(
+            time, values, sample_rate=sample_rate, nperseg=nperseg,
+            overlap=min(max(overlap, 0.0), 0.99),
+            window=options.get("window", "hann"),
+            detrend=options.get("detrend", "constant"),
+        )
+    elif method == "hann_fft":
+        from vaft.process import mirnov_spectrogram
+
+        window_size = int(options.get("window_size") or window_hint or _SPECTROGRAM_WINDOW)
+        window_size -= window_size % 2
+        result = mirnov_spectrogram(
+            time, values, sample_rate=sample_rate,
+            window_size=window_size,
+            time_resolution=int(options.get("time_resolution") or resolution_hint or 1),
+        )
+    else:
+        from vaft.process.soft_x_rays import sxr_cwt_spectrogram
+
+        if band is None:
+            raise ValueError(
+                "method='cwt' analyses a named band: pass frequency_range=(f0, f1) in Hz"
+            )
+        low, high = float(band[0]), float(band[1])
+        if not 0.0 < low < high:
+            raise ValueError(f"frequency_range must be 0 < f0 < f1 in Hz; got {band!r}")
+        frequency, magnitude = sxr_cwt_spectrogram(
+            values, sample_rate, low, high, int(options.get("n_frequencies", 200))
+        )
+        return _SpectrogramResult(time=time, frequency=frequency, magnitude=magnitude)
+    if band is None:
+        return result
+    # A named band is the analysis band: the map holds that band and no more,
+    # so the colour scale describes what is drawn (the wavelet path can only
+    # work this way, and the Fourier ones agree with it).
+    keep = (result.frequency >= float(band[0])) & (result.frequency <= float(band[1]))
+    return _SpectrogramResult(
+        time=result.time, frequency=result.frequency[keep], magnitude=result.magnitude[keep, :]
+    )
+
+
+@dataclasses.dataclass(frozen=True)
+class _SpectrogramResult:
+    """The three arrays every spectrogram method returns."""
+
+    time: np.ndarray
+    frequency: np.ndarray
+    magnitude: np.ndarray
+
+
 def _build_spectrogram(
     ods: Any, recipe: SpectrogramRecipe, **options: Any
 ) -> Spectrogram:
-    from vaft.process import mirnov_spectrogram as compute_spectrogram
-
     requested = options.get("channel")
     if requested is None:
         # Availability accepts any channel that carries the signal, so the
@@ -3330,16 +7726,13 @@ def _build_spectrogram(
         steps = np.diff(time)
         positive = steps[steps > 0]
         sample_rate = 1.0 / float(np.median(positive)) if positive.size else 1.0
-    result = compute_spectrogram(
-        time,
-        signal,
-        sample_rate=float(sample_rate),
-        window_size=int(options.get("window_size", 500)),
-        time_resolution=int(options.get("time_resolution", 1)),
+    method = _spectrogram_method(options, options.get("_plot_name"))
+    result = _spectrogram_result(
+        time, signal, method=method, sample_rate=float(sample_rate), options=options
     )
     return Spectrogram.from_result(
         result,
-        max_frequency=options.get("max_frequency"),
+        max_frequency=_display_ceiling(result, options),
         cmap=options.get("cmap", "hot_r"),
         title=_channel_label(ods, recipe.label_path, index, f"channel {index}"),
         value_label=recipe.value_label,
@@ -3429,17 +7822,21 @@ def _build_panels(
     # A composite nested inside another composite is still a composite, so drop
     # any inherited flag before re-adding it for this level's members.
     options.pop("_panel_member", None)
-    # A member default is either an extraction option (it shapes the member's
-    # model: selection, synthetic, ...) or a renderer style (validity, ...).
-    # The former goes beneath the caller's options into build_model; the
-    # latter beneath the caller's style into the renderer (issue #260).
-    member_options = {k: v for k, v in recipe.member_defaults.items() if k in EXTRACTION_OPTIONS}
-    member_style = {k: v for k, v in recipe.member_defaults.items() if k not in EXTRACTION_OPTIONS}
-    members, placeholders = [], []
-    for slot, name in enumerate(recipe.members):
+    # ``members=`` picks panels by name (issue #482).  It keeps the declared
+    # order rather than the caller's, so a composite's shape does not depend
+    # on how a selection was spelled, and it never resurrects a panel the
+    # input cannot support: a chosen member without data is left out the way
+    # every unavailable member is (issue #476), with the reason in the error
+    # if nothing is left.  An empty choice means the default -- every
+    # available member -- because a control that has been toggled all the
+    # way off should show the overview again, not an empty figure.
+    chosen = _member_choice(recipe, options.pop("members", None))
+    member_options, member_style = split_options(recipe.member_defaults)
+    members = []
+    for name in recipe.members:
+        if chosen is not None and name not in chosen:
+            continue
         if not any(entry_supports(ods, name) for _, ods in entries):
-            if recipe.keep_unavailable:
-                placeholders.append((slot, f"{name}\nnot available in this input"))
             continue
         merged = {**member_options, **options}
         # An overlay applies to the members that can carry it: a composite
@@ -3447,11 +7844,16 @@ def _build_panels(
         # panels and leaves the PF-current panel alone (issue #261 section 9).
         if merged.get("synthetic") and name not in SYNTHETIC_CONSTRAINTS:
             merged.pop("synthetic")
+        # Likewise for a spectral-line selector: it applies to the members that
+        # read one and leaves the plasma-current panel beside them alone.
+        if not _reads_processed_line(RECIPES.get(name)):
+            for option in EMISSION_OPTIONS:
+                merged.pop(option, None)
         members.append(build_model(name, entries, _panel_member=True, **merged))
     if not members:
         raise ValueError(
             "none of the panels "
-            + ", ".join(recipe.members)
+            + ", ".join(chosen if chosen is not None else recipe.members)
             + " have data in this input"
         )
     if "title" in options:
@@ -3463,73 +7865,35 @@ def _build_panels(
             suptitle = f"{suptitle} #{shot}"
     return Panels(
         models=tuple(members),
-        ncols=recipe.ncols,
+        # The declared column count, never wider than what is drawn.
+        ncols=max(1, min(recipe.ncols, len(members))),
         share_x=recipe.share_x,
         suptitle=suptitle,
-        placeholders=tuple(placeholders),
         member_styles=tuple(dict(member_style) for _ in members),
     )
 
 
+def _member_choice(recipe: PanelRecipe, requested: Any) -> tuple[str, ...] | None:
+    """The members a ``members=`` request names, validated, or ``None`` for all."""
+    if requested is None:
+        return None
+    names = (requested,) if isinstance(requested, str) else tuple(requested)
+    if not names:
+        return None
+    unknown = [name for name in names if name not in recipe.members]
+    if unknown:
+        raise ValueError(
+            f"members {unknown} are not panels of this overview; its members are "
+            + ", ".join(recipe.members)
+        )
+    return tuple(dict.fromkeys(str(name) for name in names))
+
+
 #: Keyword arguments that shape the *model* -- what is extracted -- as opposed
-#: to the renderer keyword arguments that shape how it is drawn.  The adapter
-#: strips these before calling a renderer; a composite routes its members'
-#: defaults by the same split.
-EXTRACTION_OPTIONS = frozenset(
-    {
-        "channel",
-        "channels",
-        "contour_levels",
-        "coordinate",
-        "detector",
-        "detrend",
-        "direction",
-        "dphi_deg",
-        "field_line_start",
-        "fit_ranges",
-        "flux_surface_levels",
-        "frame_index",
-        "frame_indices",
-        "intrinsics_path",
-        "layout",
-        "log_y",
-        "marker_frequencies",
-        "max_frequency",
-        "max_length_m",
-        "ncols",
-        "noverlap",
-        "nperseg",
-        "overlay",
-        "per_family",
-        "phi0",
-        "pose_path",
-        "projection",
-        "quantity",
-        "r0",
-        "reference_slopes",
-        "sample_rate",
-        "selection",
-        "series_label",
-        "shot",
-        "show_lcfs",
-        "show_magnetic_axis",
-        "show_wall",
-        "sigma",
-        "synthetic",
-        "time",
-        "time_range",
-        "time_resolution",
-        "time_slice",
-        "title",
-        "use_wall_boundary",
-        "window",
-        "window_size",
-        "x_limits",
-        "xunit",
-        "yunit",
-        "z0",
-    }
-)
+#: to the renderer keyword arguments that shape how it is drawn.  The names
+#: come from the validated schema in :mod:`vaft.plot.backend.options`; this
+#: alias keeps the historical import working.
+from .options import EXTRACTION_OPTIONS, split_options  # noqa: E402
 
 LAYOUTS = ("overlay", "subplots", "grouped")
 
@@ -3704,6 +8068,8 @@ def _build_limiter_shunt_currents(ods: Any, **options: Any) -> Panels:
 RECIPES["limiter_current_time"] = CallableRecipe(
     builder=_build_limiter_shunt_currents,
     description="VEST limiter currents derived from shunt voltage / resistance.",
+    reads=("magnetics.shunt.{i}.name", "magnetics.shunt.{i}.resistance", "magnetics.shunt.{i}.voltage.data", "magnetics.shunt.{i}.voltage.time", "magnetics.time"),
+    backend=NEUTRAL,
 )
 
 
@@ -3822,13 +8188,13 @@ def _verification_constraint_panel(
                 y=measured_array,
                 yerr=measured_yerr,
                 label="Measured",
-                style={"color": "black", "marker": "o", "linestyle": "none"},
+                style={"color": "role:measured", "marker": "o", "linestyle": "none"},
             ),
             Series(
                 x=x,
                 y=reconstructed_array,
                 label="Reconstructed",
-                style={"color": "red", "marker": "o", "linestyle": "none"},
+                style={"color": "role:reconstructed", "marker": "o", "linestyle": "none"},
             ),
         ),
         x_label="Constraint index",
@@ -3859,6 +8225,9 @@ def _build_equilibrium_verification(ods: Any, **options: Any) -> Panels:
         field_recipe,
         time_slice=time_slice,
         contour_levels=options.get("contour_levels", np.linspace(0.0, 1.0, 16)),
+        # A verification panel shows the fit against the vessel, not the
+        # machine's coils (issue #483).
+        overlay=("wall", "boundary", "axis"),
     )
     root = f"equilibrium.time_slice.{time_slice}"
     psi_axis = float(_get(ods, f"{root}.global_quantities.psi_axis", np.nan))
@@ -4032,6 +8401,34 @@ def resolve_time_slice(
     return index, time_value, reason
 
 
+def resolve_time_sample(times: Any, time: float | None) -> tuple[int, float, str]:
+    """``(index, stored time, reason)`` of the sample a ``time=`` resolves to.
+
+    The signal counterpart of :func:`resolve_time_slice`: ``time`` snaps to
+    the nearest stored sample and the returned time is that sample's own;
+    ``None`` takes the middle sample.  A time outside the stored range warns
+    and takes the nearest end.
+    """
+    axis = np.asarray(times, dtype=float).ravel()
+    if axis.size == 0 or not np.all(np.isfinite(axis)):
+        raise ValueError("a time axis with finite samples is needed to resolve time=")
+    if time is None:
+        index = int(axis.size // 2)
+        return index, float(axis[index]), "middle sample"
+    value = float(time)
+    if not np.isfinite(value):
+        raise ValueError(f"time must be a finite number of seconds; got {time!r}")
+    index = int(np.argmin(np.abs(axis - value)))
+    if not axis.min() <= value <= axis.max():
+        warnings.warn(
+            f"time={value:g} s lies outside the stored samples ({axis.min():g}-{axis.max():g} s); "
+            f"drawing the nearest, sample {index}. Times are in seconds.",
+            UserWarning,
+            stacklevel=3,
+        )
+    return index, float(axis[index]), f"nearest sample to t = {value * 1e3:.2f} ms"
+
+
 #: Global quantities a slice summary states, in order: label, IMAS leaf,
 #: canonical unit ("" for dimensionless), display subject.
 _SLICE_GLOBAL_QUANTITIES: tuple[tuple[str, str, str], ...] = (
@@ -4041,32 +8438,55 @@ _SLICE_GLOBAL_QUANTITIES: tuple[tuple[str, str, str], ...] = (
     ("li_3", "li_3", ""),
     ("q_axis", "q_axis", ""),
     ("q_95", "q_95", ""),
-    ("psi_axis", "psi_axis", "Wb"),
-    ("psi_boundary", "psi_boundary", "Wb"),
+    # "psi": the stored flux convention, resolved once per slice (issue #478).
+    ("psi_axis", "psi_axis", "psi"),
+    ("psi_boundary", "psi_boundary", "psi"),
     ("R_axis", "magnetic_axis.r", "m"),
     ("Z_axis", "magnetic_axis.z", "m"),
     ("B_tor at axis", "magnetic_axis.b_field_tor", "T"),
     ("volume", "volume", "m^3"),
+    ("area", "area", "m^2"),
+    ("W_mhd", "energy_mhd", "J"),
 )
 
 
-def _slice_global_lines(ods: Any, index: int) -> list[str]:
-    """Formatted global-quantity lines for one slice, per the display policy."""
+def _global_scalar(ods: Any, index: int, leaf: str) -> float:
+    """One slice's stored global quantity as a float, ``nan`` when absent."""
+    raw = _get(ods, f"equilibrium.time_slice.{index}.global_quantities.{leaf}")
+    try:
+        return float(np.asarray(raw, dtype=float).ravel()[0]) if raw is not None else np.nan
+    except (IndexError, TypeError, ValueError):
+        return np.nan
+
+
+def _slice_global_lines(
+    ods: Any, index: int, derived: Any = None, *, flux_display: Any = None
+) -> list[str]:
+    """Formatted global-quantity lines for one slice, per the display policy.
+
+    A quantity the slice stores is read from ``ods``; one it does not store is
+    read from ``derived`` -- the private copy on which
+    ``vaft.omas.update_equilibrium_derived_profiles`` has run (issue #475) --
+    and shown like any other value.  "not stored" is left for what is neither
+    stored nor derivable.
+    """
     from vaft.plot.display import resolve_display
 
     lines = []
     width = max(len(label) for label, _, _ in _SLICE_GLOBAL_QUANTITIES)
     for label, leaf, unit in _SLICE_GLOBAL_QUANTITIES:
-        raw = _get(ods, f"equilibrium.time_slice.{index}.global_quantities.{leaf}")
-        try:
-            value = float(np.asarray(raw, dtype=float).ravel()[0]) if raw is not None else np.nan
-        except (IndexError, TypeError, ValueError):
-            value = np.nan
+        value = _global_scalar(ods, index, leaf)
+        if not np.isfinite(value) and derived is not None:
+            value = _global_scalar(derived, index, leaf)
         if not np.isfinite(value):
             lines.append(f"{label:<{width}}  not stored")
             continue
         shown_unit = unit
-        if unit:
+        if unit == "psi":
+            if flux_display is None:
+                flux_display = _flux_display(ods, index)
+            value, shown_unit = value * flux_display.scale, flux_display.unit
+        elif unit:
             try:
                 display = resolve_display(unit, subject="equilibrium")
                 value, shown_unit = value * display.scale, display.unit
@@ -4093,38 +8513,55 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
     reason = options.get("_slice_reason") or reason
     total = _count(ods, "equilibrium.time_slice")
     entries = [("", ods)]
-    field = _build_field_2d(ods, RECIPES["equilibrium_field_psi"], time_slice=index)
-    # One figure, one convention: psi in the display unit the text panel uses
-    # (mWb under the display policy), and the magnetic axis marked on the map.
-    from vaft.plot.display import resolve_display
+    # The map is drawn in the requested psi style (flux surfaces by default),
+    # in the display unit the text panel uses, with the axis marked.
+    # The stored flux convention is resolved once and handed to both the map
+    # and the text panel, so the two cannot disagree (issue #478).
+    from .convention import psi_convention
 
-    flux_display = resolve_display("Wb", subject="equilibrium")
-    overlays = list(field.overlays)
-    axis_r = _finite_scalar(_get(ods, f"equilibrium.time_slice.{index}.global_quantities.magnetic_axis.r"))
-    axis_z = _finite_scalar(_get(ods, f"equilibrium.time_slice.{index}.global_quantities.magnetic_axis.z"))
-    if axis_r is not None and axis_z is not None:
-        overlays.append(
-            GeometryLayer(
-                r=np.array([axis_r]), z=np.array([axis_z]), kind="points", label="Magnetic axis",
-                style={"marker": "+", "color": "k", "markersize": 10},
+    convention = psi_convention(ods, index)
+    units = options.get("units")
+    field = _build_field_2d(
+        ods, RECIPES["equilibrium_field_psi"], time_slice=index,
+        units=units, _convention=convention,
+        # A slice summary draws the plasma and the vessel it sits in, not the
+        # machine: the coils belong to the standalone map, where there is room
+        # for them (issue #483).
+        overlay=("wall", "boundary", "axis"),
+        **({"style": options["style"]} if options.get("style") else {}),
+    )
+    field = dataclasses.replace(field, title="Poloidal flux")
+    flux_display = field.display
+    # Column 2: the profiles that describe the plasma -- pressure, safety
+    # factor, flux-surface-averaged toroidal current density.  Column 3: what
+    # the solver actually fitted -- the two Grad-Shafranov source terms p' and
+    # FF' whose combination is that current density -- and the slice's global
+    # quantities.  An EFIT g-file stores no j_tor; it is derived for this
+    # slice on a private copy (the caller's ODS is never written), and the
+    # panel says so.  A profile that is neither stored nor derivable is
+    # omitted and its column re-stacks to fill the height (issue #476).
+    derived, derived_entries = _derived_profiles_for(ods, index)
+    columns: list[list[Any]] = []
+    for column in _OVERVIEW_COLUMNS:
+        panels: list[Any] = []
+        for member in column:
+            if member is _GLOBAL_QUANTITIES:
+                # The text panel reads the derived copy too; the representative-
+                # slice choice above read the caller's ODS, so a derived volume
+                # never changes which slice was picked or the title's reason.
+                panels.append(TextPanel(
+                    lines=tuple(_slice_global_lines(ods, index, derived, flux_display=flux_display)),
+                    title="Global quantities",
+                ))
+                continue
+            profile = _overview_profile(
+                member, ods, entries, derived, derived_entries, index, options.get("coordinate")
             )
-        )
-    field = dataclasses.replace(
-        field,
-        title="Poloidal flux",
-        values=np.asarray(field.values) * flux_display.scale,
-        value_label=f"Poloidal Flux [{flux_display.unit}]",
-        overlays=tuple(overlays),
-    )
-    pressure = _build_profile_1d(
-        entries, RECIPES["equilibrium_profile_pressure"],
-        _plot_name="equilibrium_profile_pressure", _panel_member=True, time_slice=index,
-    )
-    q = _build_profile_1d(
-        entries, RECIPES["equilibrium_profile_q"],
-        _plot_name="equilibrium_profile_q", _panel_member=True, time_slice=index,
-    )
-    globals_panel = TextPanel(lines=tuple(_slice_global_lines(ods, index)), title="Global quantities")
+            if profile is not None:
+                panels.append(profile)
+        columns.append(panels)
+    nrows, ncols, spans = _overview_spans([len(panels) for panels in columns])
+    models = [field, *(panel for panels in columns for panel in panels)]
     pulse = _get(ods, "dataset_description.data_entry.pulse", "")
     shot = f" #{pulse}" if pulse not in (None, "") else ""
     time_text = f"t = {time_value * 1e3:.2f} ms" if np.isfinite(time_value) else "time not stored"
@@ -4133,18 +8570,113 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
         f"Equilibrium slice{shot} — {time_text} (slice {index + 1} of {total}, {reason})",
     )
     return Panels(
-        models=(field, pressure, q, globals_panel), ncols=2, share_x=False, suptitle=suptitle
+        models=tuple(models), nrows=nrows, ncols=ncols, share_x=False, suptitle=suptitle, spans=spans,
     )
 
+
+def _overview_profile(
+    member: str, ods: Any, entries, derived: Any, derived_entries, index: int, coordinate: str | None = None
+):
+    """One 1-D member of the slice overview, stored first, else derived, else ``None``."""
+    source, source_entries = (ods, entries)
+    if not entry_supports(ods, member) and derived is not None and entry_supports(derived, member):
+        source, source_entries = (derived, derived_entries)
+    if not entry_supports(source, member):
+        return None
+    try:
+        profile = _build_profile_1d(
+            source_entries, RECIPES[member], _plot_name=member, _panel_member=True, time_slice=index,
+            **({"coordinate": coordinate} if coordinate else {}),
+        )
+    except ValueError:
+        return None
+    if not profile.series:
+        return None
+    if source is derived:
+        profile = dataclasses.replace(profile, title=f"{profile.title} (derived)")
+    return profile
+
+
+def _overview_spans(column_counts: Sequence[int]) -> tuple[int, int, tuple[tuple[int, int, int, int], ...]]:
+    """``(nrows, ncols, spans)`` of a slice overview whose columns hold ``column_counts`` panels.
+
+    The flux map takes the full height of the first column; every other
+    column stacks its panels to the same height, so a column with two panels
+    shows them half-height each rather than leaving a blank cell.  The grid
+    rows are the least common multiple of the counts; a column with nothing
+    to show is dropped.
+    """
+    import math
+
+    counts = [int(count) for count in column_counts if count]
+    nrows = math.lcm(*counts) if counts else 1
+    spans: list[tuple[int, int, int, int]] = [(0, 0, nrows, 1)]
+    column = 1
+    for count in counts:
+        rowspan = nrows // count
+        spans.extend((k * rowspan, column, rowspan, 1) for k in range(count))
+        column += 1
+    return nrows, column, tuple(spans)
+
+
+def _derived_profiles_for(ods: Any, index: int) -> tuple[Any, list]:
+    """A private copy of the equilibrium with the derivable profiles of one slice.
+
+    ``vaft.omas.update_equilibrium_derived_profiles`` fills what an EFIT
+    export omits (j_tor, volume, the gm* averages) from what it stores.  It
+    runs on an isolated copy so the caller's object comes back as it was;
+    ``(None, [])`` when nothing could be derived.
+    """
+    try:
+        from vaft.omas import update_equilibrium_derived_profiles
+
+        private = _isolated_copy(ods, ("equilibrium", "wall"))
+        update_equilibrium_derived_profiles(private, time_slice=index)
+    except Exception:  # noqa: BLE001 - a failed derivation leaves a placeholder, not an error
+        return None, []
+    try:
+        # The midplane radii have their own writer (one leaf, one writer);
+        # a slice without a boundary outline simply goes without them.
+        from vaft.omas import update_equilibrium_profiles_1d_radial_coordinates
+
+        update_equilibrium_profiles_1d_radial_coordinates(private, time_slice=index)
+    except Exception:  # noqa: BLE001
+        pass
+    return private, [("", private)]
+
+
+#: The text panel's place in the overview columns.
+_GLOBAL_QUANTITIES = "global_quantities"
+
+#: The columns of the slice overview after the flux map, top to bottom: the
+#: plasma profiles, then the fitted source terms with the global quantities.
+_OVERVIEW_COLUMNS: tuple[tuple[str, ...], ...] = (
+    ("equilibrium_profile_pressure", "equilibrium_profile_q", "equilibrium_profile_j_tor"),
+    ("equilibrium_profile_pprime", "equilibrium_profile_ffprime", _GLOBAL_QUANTITIES),
+)
+
+
+RECIPES["mirnov_spatial_phase"] = CallableRecipe(
+    builder=_build_mirnov_spatial_phase,
+    description="Measured toroidal phase per fluctuation band at one time, with the fitted n lines.",
+    available=_mirnov_phase_available,
+    reads=("magnetics.b_field_pol_probe.{i}.position.phi", "magnetics.b_field_pol_probe.{i}.position.r", "magnetics.b_field_pol_probe.{i}.position.z", "magnetics.b_field_pol_probe.{i}.voltage.data", "magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
+    backend=NEUTRAL,
+)
 
 RECIPES["equilibrium_overview"] = CallableRecipe(
     builder=_build_equilibrium_slice_overview,
     description="One equilibrium slice from one figure: psi, profiles, global quantities.",
+    reads=("equilibrium", "wall", "tf.r0", "equilibrium.code.output_flag", "equilibrium.ids_properties.cocos", *_EFIT_CONSTRAINT_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.update_equilibrium_derived_profiles writes derived profiles into a private copy of equilibrium/wall (_isolated_copy)',
 )
 
 RECIPES["equilibrium_overview_verification"] = CallableRecipe(
     builder=_build_equilibrium_verification,
     description="EFIT measured/reconstructed constraints and poloidal-flux map.",
+    reads=(*_EFIT_CONSTRAINT_READS, "equilibrium.ids_properties.cocos", "equilibrium.time_slice.{i}.boundary.outline.r", "equilibrium.time_slice.{i}.boundary.outline.z", "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r", "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.z", "equilibrium.time_slice.{i}.global_quantities.psi_axis", "equilibrium.time_slice.{i}.global_quantities.psi_boundary", "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1", "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2", "equilibrium.time_slice.{i}.profiles_2d.0.psi", *_WALL_LIMITER_READS),
+    backend=NEUTRAL,
 )
 
 
@@ -4155,9 +8687,9 @@ RECIPES["equilibrium_overview_verification"] = CallableRecipe(
 #: Marker style per channel state, shared by the submitted and residual views so
 #: a dead channel looks the same in both.
 _STATE_STYLE = {
-    "enabled": {"color": "black", "marker": "o", "linestyle": "none"},
-    "disabled": {"color": "tab:orange", "marker": "x", "linestyle": "none"},
-    "missing": {"color": "tab:red", "marker": "s", "linestyle": "none",
+    "enabled": {"color": "state:enabled", "marker": "o", "linestyle": "none"},
+    "disabled": {"color": "state:disabled", "marker": "x", "linestyle": "none"},
+    "missing": {"color": "state:missing", "marker": "s", "linestyle": "none",
                 "markerfacecolor": "none"},
 }
 
@@ -4447,7 +8979,7 @@ def _build_equilibrium_fit_quality(ods: Any, **options: Any) -> Panels:
                         x=times,
                         y=np.ones_like(times),
                         label="χ²/ν = 1",
-                        style={"linestyle": "--", "color": "0.5", "lw": 1.0},
+                        style={"linestyle": "--", "color": "emphasis:low", "lw": 1.0},
                     ),
                 ),
                 x_label="time",
@@ -4532,7 +9064,7 @@ def _build_equilibrium_fit_quality(ods: Any, **options: Any) -> Panels:
                         x=span,
                         y=np.full(2, sign * level),
                         label=f"±{level:g}σ" if sign > 0 else "",
-                        style={"linestyle": style, "color": "0.6", "lw": 0.9},
+                        style={"linestyle": style, "color": "emphasis:lower", "lw": 0.9},
                     )
                 )
         bias = entry.get("z_bias", float("nan"))
@@ -4596,7 +9128,7 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
                     ),
                     style={
                         "linestyle": ":" if inert else "--",
-                        "color": "0.75" if inert else "0.5",
+                        "color": "emphasis:faint" if inert else "emphasis:low",
                         "lw": 1.0,
                     },
                 )
@@ -4607,7 +9139,7 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
             series.append(
                 Series(x=times, y=acceptance,
                        label=f"acceptance threshold ({name}, {source})",
-                       style={"linestyle": "-.", "color": "tab:red", "lw": 1.0})
+                       style={"linestyle": "-.", "color": "emphasis:alert", "lw": 1.0})
             )
         # For iconvr=2 the statistic with content is how the solve terminated,
         # not the ratio against a tolerance the solver never consults.
@@ -4644,7 +9176,7 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
         if np.isfinite(caps).any():
             series.append(
                 Series(x=times, y=caps, label="cap",
-                       style={"linestyle": "--", "color": "0.5", "lw": 1.0})
+                       style={"linestyle": "--", "color": "emphasis:low", "lw": 1.0})
             )
         hit = sum(1 for block in blocks if block["iterations"]["hit_cap"])
         panels.append(
@@ -4781,24 +9313,34 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
 RECIPES["equilibrium_overview_fit_quality"] = CallableRecipe(
     builder=_build_equilibrium_fit_quality,
     description="Reduced chi-square, per-family chi-square share and normalized residuals.",
+    reads=_EFIT_QUALITY_READS,
+    backend=NEUTRAL,
 )
 RECIPES["equilibrium_overview_convergence"] = CallableRecipe(
     builder=_build_equilibrium_convergence,
     description="Grad-Shafranov error against tolerance, iterations, and self-consistency.",
+    reads=_EFIT_QUALITY_READS,
+    backend=NEUTRAL,
 )
 
 
 RECIPES["equilibrium_overview_constraints"] = CallableRecipe(
     builder=_build_equilibrium_constraints,
     description="Magnetic constraints submitted to EFIT, by family and channel state.",
+    reads=_EFIT_CONSTRAINT_READS,
+    backend=NEUTRAL,
 )
 RECIPES["equilibrium_overview_constraint_coverage"] = CallableRecipe(
     builder=_build_equilibrium_constraint_coverage,
     description="Enabled, disabled and missing constraint channels across slices.",
+    reads=_EFIT_CONSTRAINT_READS,
+    backend=NEUTRAL,
 )
 RECIPES["equilibrium_overview_residuals"] = CallableRecipe(
     builder=_build_equilibrium_residuals,
     description="Measured-minus-reconstructed residuals by family, beside convergence.",
+    reads=_EFIT_CONSTRAINT_READS,
+    backend=NEUTRAL,
 )
 
 
@@ -4861,9 +9403,500 @@ def _build_mhd_linear_energy_perturbed(ods: Any, **options: Any) -> LineSeries:
     )
 
 
+def _build_ntms_delta_prime(ods: Any, **options: Any) -> LineSeries:
+    """Classical tearing index against time, one trace per rational surface.
+
+    An `ntms.mode` entry is a rational *surface* -- an ``(m_pol, n_tor)`` pair
+    the solver located in the equilibrium -- not a requested toroidal mode. So
+    the traces are pivoted by the pair: several surfaces share one ``n_tor``,
+    and collapsing them would average together physically distinct tearing
+    layers.
+
+    How many surfaces exist is itself a result, so the set can differ between
+    time slices. A surface is drawn at the times it was found and simply absent
+    at the others, rather than padded with a value the solver never produced.
+    """
+    count = _count(ods, "ntms.time_slice")
+    if count == 0:
+        raise ValueError("ODS carries no ntms time slices")
+    times = _array(ods, "ntms.time")
+    if times is None or times.size < count:
+        times = np.arange(count, dtype=float)
+    times = np.asarray(times[:count], dtype=float)
+
+    by_surface: dict[tuple[int, int], dict[int, float]] = {}
+    for index in range(count):
+        root = f"ntms.time_slice.{index}.mode"
+        for position in range(_count(ods, root)):
+            base = f"{root}.{position}"
+            n_tor = _get(ods, f"{base}.n_tor")
+            m_pol = _get(ods, f"{base}.m_pol")
+            if n_tor is None or m_pol is None:
+                continue
+            # Selected by name, not by position: `deltaw` is an array of
+            # contributions and a future one must not be read as the classical
+            # index just because it was appended first.
+            value = None
+            for slot in range(_count(ods, f"{base}.deltaw")):
+                if _get(ods, f"{base}.deltaw.{slot}.name") == "classical":
+                    value = _get(ods, f"{base}.deltaw.{slot}.value")
+                    break
+            if value is None:
+                continue
+            scalar = _scalar(value)
+            if not np.isfinite(scalar):
+                continue
+            by_surface.setdefault((int(n_tor), int(m_pol)), {})[index] = scalar
+    if not by_surface:
+        raise ValueError(
+            "ODS carries no classical tearing index; only RDCON and STRIDE write "
+            "ntms deltaw, and none was mapped for this shot"
+        )
+
+    series = []
+    for n_tor, m_pol in sorted(by_surface):
+        samples = by_surface[(n_tor, m_pol)]
+        indexes = sorted(samples)
+        series.append(
+            Series(
+                x=times[indexes],
+                y=np.asarray([samples[index] for index in indexes], dtype=float),
+                label=f"m/n = {m_pol}/{n_tor}",
+                style={"marker": "."},
+            )
+        )
+    pulse = _get(ods, "dataset_description.data_entry.pulse", "")
+    return LineSeries(
+        series=tuple(series),
+        x_label="time",
+        x_unit="s",
+        y_label="tearing index $\\Delta'$",
+        title=f"Classical tearing stability — shot {pulse} (positive is unstable)",
+    )
+
+
+RECIPES["ntms_time_delta_prime"] = CallableRecipe(
+    builder=_build_ntms_delta_prime,
+    description="Classical tearing index against time, per rational surface.",
+    reads=("ntms.time", "ntms.time_slice.{i}.mode.{j}.n_tor", "ntms.time_slice.{i}.mode.{j}.m_pol", "ntms.time_slice.{i}.mode.{j}.deltaw.{k}.name", "ntms.time_slice.{i}.mode.{j}.deltaw.{k}.value"),
+    backend=NEUTRAL,
+)
+
+
 RECIPES["mhd_linear_time_energy_perturbed"] = CallableRecipe(
     builder=_build_mhd_linear_energy_perturbed,
     description="DCON perturbed potential energy against time, per toroidal mode.",
+    reads=("mhd_linear.time", "mhd_linear.time_slice.{i}.toroidal_mode.{j}.n_tor", "mhd_linear.time_slice.{i}.toroidal_mode.{j}.energy_perturbed"),
+    backend=NEUTRAL,
+)
+
+
+def _mhd_linear_eigenfunction_cell(ods: Any, **options: Any) -> dict[str, Any]:
+    """Locate the ``(time_slice, toroidal_mode)`` cell whose eigenfunction to draw.
+
+    A profile is one radial curve set, but a shot carries one eigenfunction per
+    time slice and toroidal mode.  The default picks the *least stable* cell --
+    the most negative ``energy_perturbed`` -- because that is the case a reader
+    opens this figure to look at; ``time_slice`` and ``n_tor`` name one
+    explicitly.  Cells with no perturbed energy sort last rather than being
+    dropped, so a run that mapped an eigenfunction but no eigenvalue is still
+    drawable.
+    """
+    count = _count(ods, "mhd_linear.time_slice")
+    if count == 0:
+        raise ValueError("mhd_linear ODS carries no time slices")
+    requested_time = options.get("time_slice")
+    requested_n_tor = options.get("n_tor")
+
+    candidates: list[tuple[float, int, int, str, int]] = []
+    for index in range(count):
+        if requested_time is not None and index != int(requested_time):
+            continue
+        root = f"mhd_linear.time_slice.{index}.toroidal_mode"
+        for position in range(_count(ods, root)):
+            base = f"{root}.{position}"
+            n_tor = _get(ods, f"{base}.n_tor")
+            if n_tor is None:
+                continue
+            if requested_n_tor is not None and int(n_tor) != int(requested_n_tor):
+                continue
+            grid = _array(ods, f"{base}.plasma.grid.dim1")
+            harmonics = _array(ods, f"{base}.plasma.grid.dim2")
+            if grid is None or harmonics is None or grid.size == 0 or harmonics.size == 0:
+                continue
+            energy = _get(ods, f"{base}.energy_perturbed")
+            rank = _scalar(energy) if energy is not None else float("nan")
+            if not np.isfinite(rank):
+                rank = float("inf")
+            candidates.append((rank, index, int(n_tor), base, position))
+    if not candidates:
+        raise ValueError(
+            "mhd_linear ODS carries no eigenfunction: only DCON runs that also ran "
+            "the companion `match` produce solutions.bin, and none was mapped here"
+        )
+
+    rank, time_index, n_tor, base, _position = min(candidates, key=lambda item: item[:3])
+    return {
+        "base": base,
+        "time_slice": time_index,
+        "n_tor": n_tor,
+        "energy_perturbed": None if not np.isfinite(rank) else rank,
+        "psi_n": np.asarray(_array(ods, f"{base}.plasma.grid.dim1"), dtype=float),
+        "m": np.asarray(_array(ods, f"{base}.plasma.grid.dim2"), dtype=float),
+        "m_pol_dominant": _get(ods, f"{base}.m_pol_dominant"),
+    }
+
+
+def _code_parameter_values(node: Any, name: str) -> list[Any]:
+    """Every value stored under ``name`` anywhere in a decoded code-parameters tree.
+
+    Attribute keys carry a leading ``@`` once OMAS has decoded the XML, and the
+    nesting depth depends on how many fragments the document holds, so this
+    walks rather than indexes a fixed path.
+    """
+    found: list[Any] = []
+    if isinstance(node, Mapping):
+        for key, value in node.items():
+            if str(key).lstrip("@") == name:
+                found.append(value)
+            else:
+                found.extend(_code_parameter_values(value, name))
+    elif isinstance(node, (list, tuple)):
+        for item in node:
+            found.extend(_code_parameter_values(item, name))
+    return found
+
+
+def _mhd_linear_radial_stride(ods: Any) -> int | None:
+    """The radial stride the mapper recorded, when every cell agrees on one.
+
+    What reaches the IDS is a strided view of `solutions.bin`, so a reader who
+    is not told that will mistake the drawn resolution for DCON's own.
+
+    Read shape-agnostically because `code.parameters` is not always the string
+    the mapper wrote: loading through IMAS decodes it into a `CodeParameters`
+    tree (`load_omas_imas` is wrapped in omas's `codeparams_xml_load`), where no
+    amount of regex over the repr will find the attribute. Whether that decode
+    happens depends on the document -- omas raises internally on the repeated
+    `<solver>` elements a multi-module shot produces and leaves the string
+    alone -- so a reader that only handles one shape works by accident on some
+    shots and silently drops the annotation on others.
+    """
+    parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
+    if isinstance(parameters, str):
+        values: list[Any] = re.findall(r'radial_stride="(\d+)"', parameters)
+    else:
+        values = _code_parameter_values(parameters, "radial_stride")
+    strides = {int(value) for value in values}
+    return strides.pop() if len(strides) == 1 else None
+
+
+def _build_mhd_linear_eigenfunction_profile(
+    ods: Any, *, field: str, y_label: str, description: str, **options: Any
+) -> Profile1D:
+    """One trace per poloidal harmonic of a mapped eigenfunction quantity.
+
+    Amplitudes are normalized to the peak across the drawn harmonics, and the
+    axis label says so: DCON's eigenvector normalization is arbitrary
+    (`match/ideal.f:318-325`), so an absolute axis would put a number on the
+    figure that means nothing, while the shape and the relative harmonic
+    content -- which the normalization cannot change -- are the physics.
+    """
+    cell = _mhd_linear_eigenfunction_cell(ods, **options)
+    base = cell["base"]
+    real = _array(ods, f"{base}.plasma.{field}.real")
+    imaginary = _array(ods, f"{base}.plasma.{field}.imaginary")
+    if real is None or imaginary is None:
+        raise ValueError(
+            f"mhd_linear ODS carries a grid but no {field} for "
+            f"time slice {cell['time_slice']}, n={cell['n_tor']}"
+        )
+    amplitude = np.hypot(np.asarray(real, dtype=float), np.asarray(imaginary, dtype=float))
+    psi_n, harmonics = cell["psi_n"], cell["m"]
+    if amplitude.shape != (psi_n.size, harmonics.size):
+        raise ValueError(
+            f"{field} has shape {amplitude.shape}, but the declared (psi, m) grid is "
+            f"{(psi_n.size, harmonics.size)}"
+        )
+
+    peaks = np.nanmax(np.where(np.isfinite(amplitude), amplitude, -np.inf), axis=0)
+    if not np.isfinite(peaks).any() or float(np.nanmax(peaks)) <= 0.0:
+        raise ValueError(f"mhd_linear ODS carries no finite {field} amplitude to plot")
+    normalization = float(np.nanmax(peaks))
+
+    order = [index for index in np.argsort(peaks)[::-1] if np.isfinite(peaks[index])]
+    limit = int(options.get("max_harmonics", 12) or len(order))
+    drawn = sorted(order[:limit], key=lambda index: harmonics[index])
+    omitted = len(order) - len(drawn)
+
+    series = tuple(
+        Series(
+            x=psi_n,
+            y=amplitude[:, index] / normalization,
+            label=f"m={int(harmonics[index])}",
+        )
+        for index in drawn
+    )
+
+    dominant = cell["m_pol_dominant"]
+    title = f"{description} — n={cell['n_tor']}"
+    if cell["energy_perturbed"] is not None:
+        title += rf", $\delta W$={cell['energy_perturbed']:.3g}"
+    if dominant is not None:
+        title += f", dominant m={int(_scalar(dominant))}"
+    notes = []
+    if omitted > 0:
+        notes.append(f"{omitted} weaker harmonics omitted")
+    stride = _mhd_linear_radial_stride(ods)
+    if stride is not None and stride > 1:
+        notes.append(f"every {stride}th radial sample")
+    if notes:
+        title += f" ({'; '.join(notes)})"
+
+    return Profile1D(
+        series=series,
+        coordinate_label=r"$\psi_N$",
+        y_label=y_label,
+        title=title,
+    )
+
+
+def _build_mhd_linear_profile_displacement(ods: Any, **options: Any) -> Profile1D:
+    return _build_mhd_linear_eigenfunction_profile(
+        ods,
+        field="displacement_perpendicular",
+        y_label=r"$|\xi\cdot\nabla\psi|$ / peak",
+        description="Displacement eigenfunction",
+        **options,
+    )
+
+
+def _build_mhd_linear_profile_b_field_perturbed(ods: Any, **options: Any) -> Profile1D:
+    return _build_mhd_linear_eigenfunction_profile(
+        ods,
+        field="b_field_perturbed.coordinate1",
+        y_label=r"$|b_\psi|$ / peak",
+        description="Normal perturbed field",
+        **options,
+    )
+
+
+#: Attributes the mapper writes on each ``<surface>`` of a GPEC run's
+#: ``code.parameters``. Ordered as the derivation consumes them.
+_SURFACE_FIELDS = ("psi_n", "q", "dq_dpsi_n", "area", "geometric_factor")
+
+
+def _gpec_rational_surfaces(ods: Any, n_tor: int) -> tuple[float, list[dict[str, float]]]:
+    """``chi1`` and the per-surface geometry one GPEC mode recorded.
+
+    Read shape-agnostically for the reason ``_mhd_linear_radial_stride``
+    documents: ``code.parameters`` reaches a reader either as the string the
+    mapper wrote or as a tree OMAS decoded, and which one depends on the
+    document rather than on anything the caller controls. The string path
+    takes the ``<solver>`` whose ``n_tor`` matches, because a multi-mode run
+    holds one block per mode and their surfaces differ.
+    """
+    parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
+    if isinstance(parameters, str):
+        blocks = re.findall(
+            r'<solver\b[^>]*\bn_tor="(\d+)"[^>]*>(.*?)</solver>', parameters, re.S
+        )
+        body = next((b for mode, b in blocks if int(mode) == int(n_tor)), None)
+        if body is None:
+            return float("nan"), []
+        chi1 = re.search(r'<rational_surfaces\b[^>]*\bchi1="([^"]+)"', body)
+        surfaces = [
+            {name: float(value) for name, value in re.findall(r'(\w+)="([^"]+)"', row)}
+            for row in re.findall(r"<surface\b([^/]*)/>", body)
+        ]
+        return (float(chi1.group(1)) if chi1 else float("nan")), surfaces
+
+    # Decoded tree. `codeparams2dict` turns each element into a mapping whose
+    # attribute keys carry a leading '@' and whose repeated children collapse
+    # into a list -- and it only gets that far for documents it can decode at
+    # all: a run with more than one rational surface, or more than one mode,
+    # makes it raise internally and leave the string above. Both shapes are
+    # real, so both are handled.
+    def _children(node: Any, tag: str) -> list[Any]:
+        if not isinstance(node, Mapping) or tag not in node:
+            return []
+        value = node[tag]
+        return list(value) if isinstance(value, (list, tuple)) else [value]
+
+    for solver in _children(parameters, "solver"):
+        if int(_scalar(solver.get("@n_tor", -1))) != int(n_tor):
+            continue
+        for block in _children(solver, "rational_surfaces"):
+            surfaces = [
+                {name: float(_scalar(row[f"@{name}"])) for name in _SURFACE_FIELDS}
+                for row in _children(block, "surface")
+                if all(f"@{name}" in row for name in _SURFACE_FIELDS)
+            ]
+            chi1 = block.get("@chi1")
+            return (float(_scalar(chi1)) if chi1 is not None else float("nan")), surfaces
+    return float("nan"), []
+
+
+def _gpec_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
+    """Derive one GPEC mode's resonant table from the mapped spectral field.
+
+    The derivation runs **once**, here, and every renderer built on it reads
+    the result: each surface costs a pair of one-sided cubic fits, and a
+    figure should not pay for them again per trace.
+
+    What the IDS carries is the perturbed flux on a ``(psi_n, m)`` grid plus
+    the equilibrium geometry; :func:`vaft.process.perturbation.resonant_delta`
+    turns the jump across each rational surface into the resonance parameter,
+    and the closed forms in :mod:`vaft.formula.stability` take it from there.
+    Reproduces GPEC's own ``w_isl`` to about a per cent on the DIII-D
+    reference.
+    """
+    from vaft.formula.stability import (
+        island_width_from_resonant_flux,
+        resonant_flux_from_delta,
+    )
+    from vaft.process.perturbation import resonant_delta
+
+    cell = _mhd_linear_eigenfunction_cell(ods, **options)
+    n_tor = int(cell["n_tor"])
+    chi1, surfaces = _gpec_rational_surfaces(ods, n_tor)
+    if not surfaces:
+        raise ValueError(
+            f"mhd_linear ODS carries no rational-surface geometry for n={n_tor}. "
+            "Only an ideal-GPEC mapping writes it, and only when the run's chi1 "
+            "was available; a DCON-only product has none"
+        )
+    if not np.isfinite(chi1) or chi1 == 0.0:
+        raise ValueError(
+            f"the recorded chi1 for n={n_tor} is {chi1!r}; the jump is scaled by "
+            "it, so the table cannot be derived"
+        )
+    base = cell["base"]
+    real = _array(ods, f"{base}.plasma.b_field_perturbed.coordinate1.real")
+    imaginary = _array(ods, f"{base}.plasma.b_field_perturbed.coordinate1.imaginary")
+    if real is None or imaginary is None:
+        raise ValueError(f"mhd_linear ODS carries a grid but no perturbed flux for n={n_tor}")
+    field = np.asarray(real, dtype=float) + 1j * np.asarray(imaginary, dtype=float)
+    psi_n, harmonics = cell["psi_n"], cell["m"]
+    if field.shape != (psi_n.size, harmonics.size):
+        raise ValueError(
+            f"the perturbed flux has shape {field.shape}, but the declared (psi, m) "
+            f"grid is {(psi_n.size, harmonics.size)}"
+        )
+
+    rows: list[dict[str, Any]] = []
+    for surface in surfaces:
+        m_pol = int(round(n_tor * surface["q"]))
+        column = int(np.argmin(np.abs(harmonics - m_pol)))
+        if int(harmonics[column]) != m_pol:
+            # The resonant harmonic is outside the mapped band, so this
+            # surface has no column to take a jump in.
+            continue
+        jump = resonant_delta(
+            psi_n, field[:, column],
+            psi_rational=surface["psi_n"], area=surface["area"],
+            dq_dpsi_norm=surface["dq_dpsi_n"], chi1=chi1,
+            m_pol=m_pol, n_tor=n_tor,
+        )
+        flux = resonant_flux_from_delta(jump.delta, surface["geometric_factor"], n_tor)
+        rows.append({
+            "psi_n": surface["psi_n"],
+            "q": surface["q"],
+            "m_pol": m_pol,
+            "delta": jump.delta,
+            "Phi_res": complex(flux),
+            "w_isl": float(island_width_from_resonant_flux(
+                flux, surface["area"], surface["q"], surface["dq_dpsi_n"], m_pol, chi1,
+            )),
+        })
+    if not rows:
+        raise ValueError(
+            f"none of the {len(surfaces)} rational surfaces recorded for n={n_tor} "
+            "resonates at a harmonic the mapped band covers"
+        )
+    return {"cell": cell, "n_tor": n_tor, "chi1": chi1, "rows": rows}
+
+
+def _build_gpec_resonant_profile(
+    ods: Any, *, key: str, y_label: str, description: str, **options: Any
+) -> Profile1D:
+    """One marker per rational surface, against normalized poloidal flux."""
+    table = _gpec_resonant_table(ods, **options)
+    rows = table["rows"]
+    psi = np.asarray([row["psi_n"] for row in rows], dtype=float)
+    raw = [row[key] for row in rows]
+    y = np.asarray([abs(value) for value in raw], dtype=float)
+    series = (
+        Series(
+            x=psi, y=y,
+            label=", ".join(f"m={row['m_pol']}" for row in rows[:4])
+            + (" ..." if len(rows) > 4 else ""),
+        ),
+    )
+    return Profile1D(
+        series=series,
+        coordinate_label=r"$\psi_N$",
+        y_label=y_label,
+        title=(
+            f"{description} — n={table['n_tor']}, {len(rows)} rational surfaces"
+            " (derived from the mapped flux, not read from the IDS)"
+        ),
+    )
+
+
+def _build_mhd_linear_profile_resonant_flux(ods: Any, **options: Any) -> Profile1D:
+    return _build_gpec_resonant_profile(
+        ods, key="Phi_res", y_label=r"$|\Phi_{res}|$ [T]",
+        description="Pitch-resonant flux", **options,
+    )
+
+
+def _build_mhd_linear_profile_island_width(ods: Any, **options: Any) -> Profile1D:
+    return _build_gpec_resonant_profile(
+        ods, key="w_isl", y_label=r"$w_{isl}$ [$\psi_N$]",
+        description="Saturated island width", **options,
+    )
+
+
+RECIPES["mhd_linear_profile_resonant_flux"] = CallableRecipe(
+    builder=_build_mhd_linear_profile_resonant_flux,
+    description="Pitch-resonant flux per rational surface, derived from the mapped "
+                "spectral field.",
+    reads=_mhd_linear_profile_reads("b_field_perturbed.coordinate1"),
+    backend=NEUTRAL,
+)
+
+RECIPES["mhd_linear_profile_island_width"] = CallableRecipe(
+    builder=_build_mhd_linear_profile_island_width,
+    description="Saturated island width per rational surface, derived from the mapped "
+                "spectral field.",
+    reads=_mhd_linear_profile_reads("b_field_perturbed.coordinate1"),
+    backend=NEUTRAL,
+)
+
+
+RECIPES["mhd_linear_profile_displacement"] = CallableRecipe(
+    builder=_build_mhd_linear_profile_displacement,
+    description="DCON displacement eigenfunction per poloidal harmonic against psi_n.",
+    reads=_mhd_linear_profile_reads("displacement_perpendicular"),
+    backend=NEUTRAL,
+)
+
+RECIPES["mhd_linear_profile_b_field_perturbed"] = CallableRecipe(
+    builder=_build_mhd_linear_profile_b_field_perturbed,
+    description="DCON normal perturbed field per poloidal harmonic against psi_n.",
+    reads=_mhd_linear_profile_reads("b_field_perturbed.coordinate1"),
+    backend=NEUTRAL,
+)
+
+RECIPES["mhd_linear_overview_eigenfunction"] = PanelRecipe(
+    members=(
+        "mhd_linear_profile_displacement",
+        "mhd_linear_profile_b_field_perturbed",
+    ),
+    ncols=2,
+    share_x=True,
+    suptitle="DCON eigenfunction",
 )
 
 
@@ -4873,7 +9906,8 @@ RECIPES["mhd_linear_time_energy_perturbed"] = CallableRecipe(
 
 def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
     from vaft.omas.vacuum_magnetics import (
-        plasma_onset_time,
+        plasma_free_boundary,
+        plasma_window,
         synthetic_vacuum_magnetics,
         DEFAULT_MIN_WALL_AUTHORITY,
         vacuum_magnetics_metrics,
@@ -4884,7 +9918,8 @@ def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
         per_family=int(options.get("per_family", 2)),
         channels=options.get("channels"),
     )
-    onset = plasma_onset_time(ods)
+    timing = plasma_window(ods)
+    onset, _boundary_source = plasma_free_boundary(timing)
     ip_time = _array(ods, "magnetics.ip.0.time")
     ip_data = _array(ods, "magnetics.ip.0.data")
     metrics = vacuum_magnetics_metrics(
@@ -4899,6 +9934,7 @@ def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
         min_wall_authority=float(
             options.get("min_wall_authority", DEFAULT_MIN_WALL_AUTHORITY)
         ),
+        timing=timing,
     )
     return channels, metrics
 
@@ -4916,12 +9952,30 @@ def _vacuum_suptitle(ods: Any, metrics: Mapping[str, Any], headline: str) -> str
     )
 
 
+def _channel_position(channel: Any) -> str:
+    """Where a magnetic channel sits, short enough to head a narrow panel.
+
+    The instrument prefix is the same on every channel of a family and the
+    family name repeats the word "flux loop" the channel name already carries,
+    so a panel title that keeps both spends its width saying nothing and
+    collides with its neighbour's.  What a reader needs from it is which side
+    of the machine the channel is on.
+    """
+    name = str(channel.name)
+    for prefix in ("MagneticFieldProbe_", "Flux Loop - "):
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+            break
+    family = str(channel.family).replace("_flux_loop", "").replace("_", " ")
+    return f"{name} · {family}" if family else name
+
+
 def _build_magnetics_vacuum(ods: Any, **options: Any) -> Panels:
     channels, metrics = _vacuum_channels(ods, options)
-    rows = {(row["kind"], row["index"]): row for row in metrics["channels"]}
+    # The per-channel improvement used to head each panel; the summary in the
+    # suptitle carries the distribution, and the panel titles carry position.
     panels = []
     for channel in channels:
-        row = rows[(channel.kind, channel.index)]
         panels.append(
             LineSeries(
                 series=(
@@ -4935,16 +9989,14 @@ def _build_magnetics_vacuum(ods: Any, **options: Any) -> Panels:
                 x_label="time",
                 x_unit="s",
                 y_label=channel.unit,
-                title=(
-                    f"{channel.name} [{channel.family}]\n"
-                    f"pre-plasma improvement {row['improvement']:.2f}"
-                ),
+                title=_channel_position(channel),
             )
         )
     return Panels(
         models=tuple(panels),
         ncols=3,
         share_x=True,
+        share_legend=True,
         suptitle=_vacuum_suptitle(ods, metrics, "Synthetic vacuum magnetics"),
     )
 
@@ -4979,7 +10031,7 @@ def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
         ip_series = [Series(x=ip_time, y=ip_data * 1e-3, label="Ip", style={"lw": 1.8})]
         marker = _onset_marker(
             ip_time, ip_data * 1e-3, current_onset, "Ip onset",
-            {"linestyle": "--", "color": "0.35", "lw": 1.0},
+            {"linestyle": "--", "color": "emphasis:strong", "lw": 1.0},
         )
         if marker is not None:
             ip_series.append(marker)
@@ -5006,13 +10058,13 @@ def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
                 x=channel.time,
                 y=np.full(channel.time.size, baseline + band),
                 label=f"±{sigma:g}σ pre-plasma",
-                style={"lw": 0.9, "linestyle": ":", "color": "0.5"},
+                style={"lw": 0.9, "linestyle": ":", "color": "emphasis:low"},
             ),
             Series(
                 x=channel.time,
                 y=np.full(channel.time.size, baseline - band),
                 label="",
-                style={"lw": 0.9, "linestyle": ":", "color": "0.5"},
+                style={"lw": 0.9, "linestyle": ":", "color": "emphasis:low"},
             ),
         ]
         for onset, name, color in (
@@ -5031,7 +10083,7 @@ def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
             LineSeries(
                 series=tuple(series),
                 x_label="time", x_unit="s", y_label=channel.unit,
-                title=f"{channel.name} [{channel.family}]\n{timing}",
+                title=f"{_channel_position(channel)}\n{timing}",
             )
         )
 
@@ -5039,6 +10091,7 @@ def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
         models=tuple(panels),
         ncols=3,
         share_x=True,
+        share_legend=True,
         suptitle=_vacuum_suptitle(ods, metrics, "Plasma residual after coil+eddy"),
     )
 
@@ -5046,10 +10099,16 @@ def _build_magnetics_plasma_residual(ods: Any, **options: Any) -> Panels:
 RECIPES["magnetics_overview_vacuum"] = CallableRecipe(
     builder=_build_magnetics_vacuum,
     description="Measured, coil-only and coil+eddy synthetic magnetics per channel.",
+    reads=("pf_active", "pf_passive", "em_coupling", "magnetics", "wall", "tf", *_ONSET_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.vacuum_magnetics.synthetic_vacuum_magnetics deep-copies the ODS',
 )
 RECIPES["magnetics_overview_plasma_residual"] = CallableRecipe(
     builder=_build_magnetics_plasma_residual,
     description="Plasma residual left by the coil+eddy synthetic vacuum response.",
+    reads=("pf_active", "pf_passive", "em_coupling", "magnetics", "wall", "tf", *_ONSET_READS),
+    backend=OMAS_BOUND,
+    reason='vaft.omas.vacuum_magnetics.synthetic_vacuum_magnetics deep-copies the ODS',
 )
 
 
@@ -5245,10 +10304,14 @@ def _build_chease_profile_validity(ods: Any, **options: Any) -> Panels:
 RECIPES["chease_overview_refinement_summary"] = CallableRecipe(
     builder=_build_chease_refinement_summary,
     description="Profile and boundary RMS change from refinement, slice by slice.",
+    reads=("equilibrium.code.parameters", "equilibrium.code.library.{i}.name", "equilibrium.time", "equilibrium.time_slice.{i}.time"),
+    backend=NEUTRAL,
 )
 RECIPES["chease_overview_profile_validity"] = CallableRecipe(
     builder=_build_chease_profile_validity,
     description="q0/q95, q-monotonicity and pressure positivity of the refined equilibrium.",
+    reads=("equilibrium.code.library.{i}.name", "equilibrium.time", "equilibrium.time_slice.{i}.time", "equilibrium.time_slice.{i}.global_quantities.q_axis", "equilibrium.time_slice.{i}.global_quantities.q_95", "equilibrium.time_slice.{i}.profiles_1d.q", "equilibrium.time_slice.{i}.profiles_1d.pressure"),
+    backend=NEUTRAL,
 )
 
 
@@ -5256,8 +10319,9 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
     """Build the view model for canonical plot ``name`` from ``entries``.
 
     ``entries`` is the ``(label, ods)`` sequence produced by
-    :func:`normalize_entries`.  Single-ODS families (2D fields, geometry,
-    spectrograms) use the first entry and ignore the rest.
+    :func:`normalize_entries`.  Line, profile and geometry families draw every
+    entry; the single-ODS families (2D fields, spectrograms, power spectra)
+    use the first entry and ignore the rest.
     """
     try:
         recipe = RECIPES[name]
@@ -5269,14 +10333,24 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
     if not entries:
         raise ValueError("no entries were supplied")
 
+    requested = [option for option in EMISSION_OPTIONS if options.get(option) is not None]
+    if requested and not _reads_processed_line(recipe):
+        raise ValueError(
+            f"{', '.join(requested)} selects a spectral line and {name!r} does "
+            "not read one; it is accepted by plots whose path names "
+            "processed_line"
+        )
+
     if isinstance(recipe, LineRecipe):
         return _build_line_series(entries, recipe, _plot_name=name, **options)
     if isinstance(recipe, ProfileRecipe):
         return _build_profile_1d(entries, recipe, _plot_name=name, **options)
+    if isinstance(recipe, ChannelProfileRecipe):
+        return _build_channel_profile(entries, recipe, _plot_name=name, **options)
     if isinstance(recipe, PanelRecipe):
         return _build_panels(entries, recipe, **options)
     if isinstance(recipe, GeometryRecipe):
-        return _build_geometry(entries[0][1], recipe, **options)
+        return _build_geometry_entries(entries, recipe, **options)
     if isinstance(recipe, FieldRecipe):
         return _build_field_2d(entries[0][1], recipe, **options)
     if isinstance(recipe, SpectrogramRecipe):
@@ -5284,6 +10358,10 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
     if isinstance(recipe, PowerSpectrumRecipe):
         return _build_power_spectrum(entries[0][1], recipe, **options)
     if isinstance(recipe, CallableRecipe):
+        if recipe.multi_entry:
+            return recipe.builder(
+                [(label, _ods_for_callable(obj, name)) for label, obj in entries], **options
+            )
         return recipe.builder(_ods_for_callable(entries[0][1], name), **options)
     raise TypeError(f"unsupported recipe type {type(recipe).__name__} for {name!r}")
 
@@ -5291,18 +10369,195 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
 def _ods_for_callable(obj: Any, name: str) -> Any:
     """The object a code-backed builder receives.
 
-    Those builders call functions written for an OMAS ODS.  An entry of
-    another data model that can convert itself (``as_ods_for``, as
-    ``vaft.imas.IDSEntry`` does) is asked for an ODS holding only the IDS the
-    plot declares, plus the data entry that names the shot; anything else is
-    handed over as it is.  Path-driven recipes never come this way.
+    A neutral builder (``CallableRecipe.backend == NEUTRAL``) reads through
+    the accessor and takes the object as it is.  An OMAS-bound builder calls
+    functions written for an OMAS ODS: an entry of another data model that can
+    convert itself (``as_ods_for``, as ``vaft.imas.IDSEntry`` does) is asked
+    for an ODS holding only the IDS the plot declares, plus the data entry
+    that names the shot.  An input that cannot supply that -- a lazily loaded
+    IMAS handle, or a lazy OMAS store whose unfetched leaves a deep copy would
+    miss -- is read through the accessor instead: exactly the paths the recipe
+    declares in ``reads`` are materialised into a private ODS
+    (:func:`materialise_reads`).  A plain ODS is handed over as it is.
+    Path-driven recipes never come this way.
     """
-    convert = getattr(obj, "as_ods_for", None)
-    if convert is None:
+    recipe = RECIPES[name]
+    if recipe.backend == NEUTRAL:
         return obj
-    return convert(required_ids(name) + ("dataset_description",))
+    if converts_for_builder(obj, name):
+        return obj.as_ods_for(required_ids(name) + ("dataset_description",))
+    if materialises_for_builder(obj, name):
+        return materialise_reads(obj, name)
+    return obj
+
+
+def _can_convert(obj: Any, name: str) -> bool:
+    """Whether ``obj`` converts itself whole for plot ``name`` (an eager IMAS entry)."""
+    if not hasattr(obj, "as_ods_for"):
+        return False
+    can = getattr(obj, "can_convert", None)
+    return True if can is None else bool(can(required_ids(name)))
+
+
+def is_lazy_ods(obj: Any) -> bool:
+    """Whether ``obj`` is a lazy OMAS store (``vaft.database.lazy_ods.HSDSODS``).
+
+    Matched by name so this module never imports the database package: such
+    an ODS fetches a leaf on first read, so a deep copy of an unfetched root
+    is empty and a builder that copies has to be handed its reads instead.
+    """
+    return type(obj).__name__ == "HSDSODS" and getattr(obj, "store", None) is not None
+
+
+_TEMPLATE_INDEX = re.compile(r"\.(\{[a-z]\}|:)(?=\.|$)")
+
+
+def expand_template(obj: Any, template: str) -> list[str]:
+    """The concrete paths ``template`` names in ``obj``, one per enumerated index.
+
+    ``pf_active.coil.{i}.current.data`` becomes one path per coil the object
+    holds (``_count`` of the container), nested placeholders left to right; a
+    container the object lacks contributes nothing.
+    """
+    match = _TEMPLATE_INDEX.search(template)
+    if match is None:
+        return [template]
+    head, tail = template[: match.start()], template[match.end():]
+    paths: list[str] = []
+    for index in range(_count(obj, head)):
+        paths.extend(expand_template(obj, f"{head}.{index}{tail}"))
+    return paths
+
+
+def materialise_reads(obj: Any, name: str) -> Any:
+    """A private ODS holding what OMAS-bound plot ``name`` declares in ``reads``.
+
+    Every leaf template is expanded over the object's own indices and read
+    through the accessor, so a lazy remote store fetches exactly the leaves
+    the builder will touch and a native IMAS entry is read without conversion.
+    A bare IDS root in ``reads`` (the builder deep-copies the whole IDS) is
+    copied whole: from the entry's own conversion of that one IDS, from a
+    lazy OMAS store by walking its index, or from a plain ODS.  A lazily
+    loaded IMAS handle cannot supply a whole IDS and is refused by name.
+    """
+    from omas import ODS
+
+    recipe = RECIPES[name]
+    private = ODS(consistency_check=False)
+    templates = (*recipe.reads, "dataset_description.data_entry.pulse")
+    # Roots first: a whole IDS the input cannot supply is refused before any
+    # leaf is read.
+    for template in [t for t in templates if "." not in t] + [t for t in templates if "." in t]:
+        if "." not in template:
+            _copy_root(obj, template, private, name)
+        else:
+            _materialise_template(obj, template, private)
+    _decode_code_parameters(private)
+    return private
+
+
+def _decode_code_parameters(private: Any) -> None:
+    """Turn the ``code.parameters`` XML text a data model stores into the tree helpers read.
+
+    Conversion and eager loading decode it on the way in; the accessor hands
+    the stored text back, and a helper reading ``code.parameters.cocos``
+    through it would see nothing.
+    """
+    from omas.omas_core import CodeParameters
+
+    for path in list(private.flat()):
+        if not path.endswith(".code.parameters") or not isinstance(private[path], str):
+            continue
+        text = private[path]
+        if not text.lstrip().startswith("<"):
+            continue  # not XML: a JSON stage blob stays what it is
+        decoded = CodeParameters()
+        decoded.from_string(text)
+        private[path] = decoded
+
+
+def _materialise_template(obj: Any, template: str, private: Any) -> None:
+    """Read one template's leaves into ``private``, keeping the arrays of structures whole.
+
+    Every element of an enumerated container is created in ``private`` even
+    when it holds none of this template's leaves, so a helper that indexes
+    the array (``ods["magnetics.b_field_pol_probe"][k]``) finds the same
+    elements, at the same indices, as in the input.
+    """
+    from omas import ODS
+
+    match = _TEMPLATE_INDEX.search(template)
+    if match is None:
+        value = _get(obj, template)
+        if value is not None:
+            private[template] = value
+        return
+    head, tail = template[: match.start()], template[match.end():]
+    for index in range(_count(obj, head)):
+        element = f"{head}.{index}"
+        if not _has(private, element):
+            private[element] = ODS(consistency_check=False)
+        _materialise_template(obj, f"{element}{tail}", private)
+
+
+def _copy_root(obj: Any, root: str, private: Any, name: str) -> None:
+    import copy
+
+    convert = getattr(obj, "as_ods_for", None)
+    if convert is not None:
+        can = getattr(obj, "can_convert", None)
+        if can is not None and not can((root,)):
+            raise NotImplementedError(
+                f"plot {name!r} deep-copies the whole {root!r} IDS, which this lazily loaded "
+                f"IMAS handle cannot supply; load the shot eagerly (lazy=False) for it"
+            )
+        source = convert((root,))
+        if _has(source, root):
+            private[root] = copy.deepcopy(source[root])
+        return
+    store = getattr(obj, "store", None)
+    if is_lazy_ods(obj) and root in {str(key) for key in store.keys("")}:
+        # Walk the store's index: a leaf is what the store can fetch, the
+        # rest are structures and arrays of structures to descend.  Each leaf
+        # is read through the ODS, so a value the caller wrote over the store
+        # (issue #329) is what travels.
+        def walk(location: str) -> None:
+            for child in store.keys(location):
+                below = f"{location}.{child}"
+                if store.__contains__(below):
+                    private[below] = _get(obj, below)
+                else:
+                    walk(below)
+
+        walk(root)
+        return
+    if _has(obj, root):
+        private[root] = copy.deepcopy(obj[root])
 
 
 def converts_for_builder(obj: Any, name: str) -> bool:
-    """Whether plot ``name`` would convert ``obj`` before building (for discovery)."""
-    return isinstance(RECIPES.get(name), CallableRecipe) and hasattr(obj, "as_ods_for")
+    """Whether plot ``name`` would convert ``obj`` whole before building (for discovery)."""
+    recipe = RECIPES.get(name)
+    return (
+        isinstance(recipe, CallableRecipe)
+        and recipe.backend == OMAS_BOUND
+        and _can_convert(obj, name)
+    )
+
+
+def materialises_for_builder(obj: Any, name: str) -> bool:
+    """Whether plot ``name`` would read ``obj``'s declared paths into a private ODS.
+
+    A lazy OMAS store, or an IMAS entry that cannot convert itself whole (a
+    lazily loaded remote handle).
+    """
+    recipe = RECIPES.get(name)
+    if not isinstance(recipe, CallableRecipe) or recipe.backend != OMAS_BOUND:
+        return False
+    return is_lazy_ods(obj) or (hasattr(obj, "as_ods_for") and not _can_convert(obj, name))
+
+
+def conversion_reason(name: str) -> str:
+    """Why plot ``name`` converts a non-OMAS input, or ``""`` when it never does."""
+    recipe = RECIPES.get(name)
+    return recipe.reason if isinstance(recipe, CallableRecipe) else ""

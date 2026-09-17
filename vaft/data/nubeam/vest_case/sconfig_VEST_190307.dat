@@ -1,0 +1,91 @@
+ &sconfig
+ 
+   ! name: shot_number  units: integer
+   ! description: integer shot number
+ 
+   shot_number = 1111
+ 
+   ! name: S  units: species_list
+   ! description: thermal species list
+ 
+   iAMU_S(1) = 1, 12
+   iZatom_S(1) = 1, 6
+   iZion_S(1) = 1, 6
+ 
+   ! name: nbion  units: character
+   ! description: name of species injected by each beam.
+ 
+   nbion(1) = "H"
+   nbion(2) = "H"
+   nbion(3) = "H"
+ 
+   ! name: SFUS  units: species_list
+   ! description: fusion product ion species
+ 
+   ! name: RFMIN  units: species_list
+   ! description: ICRF minority species
+ 
+   ! name: freq_ic  units: Hz
+   ! description: frequency on each ICRF source
+ 
+   ! name: num_nphi  units: integer
+   ! description: number of non-zero n_phi values
+ 
+   ! name: max_num_nphi  units: integer
+   ! description: Maximum size of variable length enumeration: NUM_NPHI
+ 
+   max_num_nphi = 0
+ 
+   ! name: nphi  units: integer
+   ! description: n_phi wave spectrum from antenna
+ 
+   ! name: wt_nphi  units: -
+   ! description: vacuum spectrum n_phi weight
+ 
+   ! name: kccw_Bphi  units: integer
+   ! description: B_phi orientation: +1 means CCW viewed from above
+ 
+   kccw_Bphi = +1
+ 
+   ! name: kccw_Jphi  units: integer
+   ! description: J_phi orientation: +1 means CCW viewed from above
+ 
+   kccw_Jphi = -1
+ 
+   ! name: gs_name  units: character
+   ! description: number & name of edge neutral gas sources
+ 
+   gs_name(1) = "H0rcy"
+!   gs_name(2) = "D0gf"
+ 
+   ! name: gas_atom  units: character
+   ! description: name of species introduced by each gas source
+ 
+   gas_atom(1) = "H"
+   gas_atom(2) = "H"
+   gas_atom(3) = "H"
+ 
+   ! name: freq_ec  units: Hz
+   ! description: frequency of EC source
+ 
+   !freq_ec(1) =  1.1d11,  1.1d11,  1.1d11,  1.1d11
+ 
+   ! name: EC_theta_aim  units: degrees
+   ! description: poloidal aiming angle
+ 
+   !EC_theta_aim(1) =  118.978,  119.528,  117.032,  117.339
+ 
+   ! name: EC_phi_aim  units: degrees
+   ! description: toroidal aiming angle
+ 
+   !EC_phi_aim(1) =  197.609,  195.115,  201.905,  201.097
+ 
+   ! name: EC_Omode_Fraction  units: -
+   ! description: O-mode fraction of EC source
+ 
+   !EC_Omode_Fraction(1) =  0.0,  0.0,  0.0,  0.0
+ 
+   ! name: freq_lh  units: Hz
+   ! description: frequency on each LHRF source
+
+ /

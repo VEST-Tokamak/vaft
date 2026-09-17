@@ -48,7 +48,12 @@ python workflow/vacuum_benchmark/run_vacuum_benchmark.py --output benchmark.json
 ```
 
 Eligible cases are dedicated vacuum shots and plasma shots with a validated
-plasma-free interval; `plasma_free_interval` decides which, from the signals.
+plasma-free interval; `plasma_free_interval` decides which, from the plasma onset of the
+shared timing policy (H-alpha by label, else the plasma-current principal pulse; issue #409),
+snapped to the `pf_active` grid, and records the choice under `plasma_free_evidence` (schema 4: the boundary,
+its source and the timing summary, which now says what fraction of the window the detector was actually above
+threshold — a fifth of the corpus's light windows are envelopes with gaps ([#752](https://github.com/VEST-Tokamak/vaft/issues/752));
+the `legacy` block that schema 2 carried for the retired Ip detectors went in schema 3).
 An **eddy-free flat-top is not wanted** — the transient chain from coil
 excitation through wall current to magnetic response is the validation target.
 
@@ -69,6 +74,15 @@ era. Which axis a poor result concentrates on is the diagnosis:
 | a similar rise or decay mismatch everywhere | passive-wall resistance / passive-passive coupling |
 | quality changes across geometry revisions | static-model provenance |
 | one shot among consistent neighbours | acquisition / baseline / timing |
+
+Each case also lists `channels.flagged`: B-probes that contradict their own array over the
+plasma-free window (a lone probe reading a field its two nearest neighbours on the same
+radius do not see, for more than `ARRAY_CONTRADICTION_FRACTION` of the samples it can be
+scored on). They are evaluated and reported like every other channel but kept out of
+`metrics.summary.scored`, whose `excluded_flagged` names them (`null` there means no
+review ran), and out of the aggregate's summary spreads, which name them under
+`flagged_channels`: a sensor finding, not a wall-model one. On the packaged 39915 that is
+C4-04, which follows the PF1 ramp its neighbours do not see.
 
 There are deliberately **no acceptance thresholds**. #190 is explicit that broad
 scientific bounds must wait until the VEST benchmark distribution has been

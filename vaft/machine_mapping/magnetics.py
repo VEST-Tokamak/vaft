@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import os
 import re
@@ -24,13 +25,23 @@ from vaft.process.magnetics import (
 )
 from vaft.process.signal_processing import (
     SignalRepairError,
-    detect_active_window,
     detect_clipped_samples,
     repair_clipped_interval,
     smooth,
 )
 
+from vaft.formula.statistics import median_absolute_deviation
+
+from .conventions import (
+    VEST_PORT_CLOCK_DEGREES,
+    clock_angle_to_toroidal_angle,
+    port_toroidal_angle,
+)
 from .utils import (
+    AGREEMENT_CONSISTENT,
+    onset_agreement,
+    CroppedRecord,
+    PlasmaTimingPolicy,
     VestConfigurationError,
     _resolve_info_file_path,
     calibrate_vest_signal,
@@ -38,11 +49,15 @@ from .utils import (
     load_yaml,
     path_count,
     path_exists,
+    crop_to_span,
     resolve_data_root,
+    resolve_plasma_timing_policy,
     resolve_shot_revisions,
     resolve_vest_diagnostic,
     set_path,
 )
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_TSTART = 0.26
 DEFAULT_TEND = 0.36
@@ -77,6 +92,24 @@ PROBE_LENGTH = 0.01
 #: into the IDS, which told any DD-conformant reader that the probes measure
 #: ``-Bz``.  The stored angle and the projection must move together.
 POLOIDAL_ANGLE = 3 * math.pi / 2
+#: ``toroidal_angle`` is deliberately **not** written for these probes.
+#:
+#: The DD defines it as the angle of the sensor normal's *horizontal
+#: projection* from grad(R), "modulo pi with values within (-pi/2, pi/2]".  A
+#: VEST Mirnov is a Bz coil, which :data:`POLOIDAL_ANGLE` already states by
+#: putting the normal vertical -- and a vertical vector has **no** horizontal
+#: projection, so there is no angle to write.  ``poloidal_angle`` alone fully
+#: specifies the orientation.
+#:
+#: Until issue #725 this field carried the probe's toroidal *position*: 0.0 for
+#: the equilibrium probes and the position angle for the reference and
+#: fluctuation arrays.  Both are wrong, and not only by convention.  0.0 says
+#: the normal is parallel to grad(R), which declares a *radial* (B_R) sensor,
+#: and the position angles fall outside the range the DD allows at all.  It
+#: also reached the analysis: `vaft.plot` prefers this field over
+#: ``position.phi`` when deciding where a probe sits, so the toroidal
+#: mode-number fit was reading 0 for all 64 equilibrium probes while they
+#: physically sit at three distinct angles.
 MIRNOV_TYPE_INDEX = 2
 # Poloidal-probe and flux-loop families, by position. These are the boundaries
 # the EFIT k-file writer submits constraints by (vaft.code.efit.kfile), kept
@@ -87,44 +120,33 @@ OUTBOARD_PROBE_MIN_R = 0.795
 SIDE_PROBE_MIN_ABS_Z = 0.8
 INBOARD_FLUX_LOOP_MAX_R = 0.15
 OUTBOARD_FLUX_LOOP_MIN_R = 0.5
-TOROIDAL_MIRNOV_REFERENCE_CHANNELS = (
-    {
-        "field_code": 207,
-        "name": "OutMirnov_130_Bz",
-        "r": 0.796,
-        "z": 0.02,
-        "phi": 0.0,
-        "toroidal_angle": 0.0,
-        "gain": 9.0e-4,
-    },
-    {
-        "field_code": 241,
-        "name": "OutMirnov_530_Bz",
-        "r": 0.796,
-        "z": 0.02,
-        "phi": 2 * math.pi / 3,
-        "toroidal_angle": 2 * math.pi / 3,
-        "gain": -9.0e-4,
-    },
-    {
-        "field_code": 209,
-        "name": "OutMirnov_730_Bz",
-        "r": 0.796,
-        "z": 0.02,
-        "phi": math.pi,
-        "toroidal_angle": math.pi,
-        "gain": 9.0e-4,
-    },
-    {
-        "field_code": 171,
-        "name": "MagneticFieldProbe_C2-05_Bz",
-        "r": 0.796,
-        "z": 0.02,
-        "phi": 4 * math.pi / 3,
-        "toroidal_angle": 4 * math.pi / 3,
-        "gain": 0.004529,
-    },
-)
+#: Where each magnetic-probe family sits toroidally, as a VEST clock position.
+#:
+#: Read off the VEST magnetic diagnostic layout figure, whose top view places
+#: the four toroidal probes at 45.6 / 164.8 / 225.0 / 283.8 deg of clock angle
+#: -- 1:30, 5:30, 7:30 and 9:30, matching all four channel names below and
+#: confirming the clock convention.  Its toroidal/poloidal panel then gives the
+#: three poloidal families at clock angles 30, 120 and 165 deg.
+#:
+#: The 4 o'clock of the side family independently matches the port-status
+#: document's ``4ML10 : Magnetic probe 1``.
+#:
+#: These are **clock positions, not IMAS phi** -- see
+#: :func:`vaft.machine_mapping.conventions.port_toroidal_angle` for the
+#: negation between the two, and issue #718 for why the distinction matters.
+EQUILIBRIUM_PROBE_CLOCK = {
+    "inboard": 1.0,
+    "side": 4.0,
+    "outboard": 5.5,
+}
+
+#: Flux loops have no toroidal angle: they are continuous loops encircling the
+#: machine axis, which is why the layout figure draws them as lines spanning
+#: the whole 0-360 deg toroidal axis while every probe family is a point.  The
+#: DD agrees -- ``flux_loop.position`` is a contour, not a single point -- so a
+#: scalar ``phi`` is not merely unknown for a flux loop, it does not exist.
+#: Nothing here writes one.
+FLUX_LOOP_IS_AXISYMMETRIC = True
 
 # Database identifiers, rather than older UI labels, define the physical
 # limiter segment. The 0.1 ohm-equivalent resistance stores the Pearson Model
@@ -181,6 +203,34 @@ def _load_equilibrium_magnetics_channels() -> list[dict[str, Any]]:
         return yaml.safe_load(handle)["channels"]
 
 
+def equilibrium_probe_count(source: Any) -> int:
+    """How many B-pol probes EFIT's geometry represents.
+
+    ``min(present, defined)``. The magnetics IDS also carries trailing
+    toroidal-Mirnov phase-reference channels: useful diagnostics, absent from
+    EFIT's ``dprobe.dat``/``mhdin.dat`` geometry, and not constraints. This is
+    also the offset the flux-loop indices are counted from, so the k-file
+    writer, the channel-decision layer and the EFUND projection must all take
+    it from one place -- they each had their own copy, and they did not agree
+    in the degenerate case.
+
+    Accepts either a whole ODS or a ``magnetics`` sub-tree, because its callers
+    hold one or the other.
+    """
+    defined = sum(
+        1
+        for entry in vest_equilibrium_magnetics_channel_definitions()
+        if entry.get("kind") == "b_field_pol_probe"
+    )
+    for path in ("magnetics.b_field_pol_probe", "b_field_pol_probe"):
+        if path in source:
+            present = len(source[path])
+            break
+    else:
+        present = 0
+    return min(present, defined) if defined else present
+
+
 def vest_equilibrium_magnetics_channel_definitions() -> tuple[dict[str, Any], ...]:
     """Return ordered VEST equilibrium-magnetics channel metadata for provenance/preflight."""
     return tuple(dict(channel) for channel in _load_equilibrium_magnetics_channels())
@@ -194,6 +244,29 @@ _FLUCTUATION_IDENTIFIER = re.compile(
     r"^OutMirnov_(?P<angle>45|135|225)_(?P<sub_array>L[12])-(?P<position>0[1-5])$"
 )
 _FLUCTUATION_ARRAY_DEFAULTS = ("role", "preserve_native_voltage")
+
+
+@lru_cache(maxsize=1)
+def _toroidal_mirnov_reference_config() -> dict[str, Any]:
+    """The ``toroidal_mirnov_reference`` block of ``vest.yaml``.
+
+    Shot-independent: the one shot-dependent value is
+    ``last_operational_shot``, and that is a gate the caller applies rather
+    than a per-channel field -- the same split
+    :func:`_fluctuation_mirnov_config` documents for its own boundary.
+    """
+    config = resolve_vest_diagnostic(0, "toroidal_mirnov_reference")
+    # The same guard :func:`_fluctuation_mirnov_config` documents: a revision
+    # without an explicit ``from_shot`` is unbounded below, so it would match
+    # shot 0 and quietly redefine the inventory that the module-level constants
+    # are built from at import.
+    for revision in config.get("revisions", ()) or ():
+        if "from_shot" not in revision:
+            raise VestConfigurationError(
+                "toroidal_mirnov_reference: a revision must state from_shot, or it "
+                "also matches shot 0 and changes what the inventory means"
+            )
+    return config
 
 
 @lru_cache(maxsize=8)
@@ -425,6 +498,150 @@ def fluctuation_mirnov_gain_by_identifier() -> dict[str, float]:
 #: duplicated here, so the configuration stays the single source of truth.
 FLUCTUATION_MIRNOV_FIRST_SHOT = int(_fluctuation_mirnov_config()["first_operational_shot"])
 OUTBOARD_MIRNOV_MAJOR_RADIUS = float(_fluctuation_mirnov_config()["geometry"]["major_radius"])
+
+#: The phase-reference outboard Mirnov channels, derived from ``vest.yaml``.
+#:
+#: Their names encode their positions: ``OutMirnov_130`` is at 1:30.  Until
+#: issue #718 they carried hardcoded ``phi`` of 0, 2pi/3, pi and 4pi/3 -- a
+#: *relative* frame anchored on the first channel, a uniform -45 deg from the
+#: clock angles the names themselves state, and clockwise-positive besides.
+#: The clock position is the source datum now and ``phi`` is derived.
+#:
+#: This is the **inventory**, un-gated.  These probes stop existing after
+#: :data:`TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT`; use
+#: :func:`toroidal_mirnov_reference_channels` to get the set a given shot
+#: actually has.  Field 171 is disputed -- see the ``toroidal_mirnov_reference``
+#: block in ``vest.yaml`` and issue #825.
+TOROIDAL_MIRNOV_REFERENCE_CHANNELS = tuple(
+    {
+        "field_code": int(channel["field"]),
+        "name": str(channel["identifier"]),
+        "r": float(_toroidal_mirnov_reference_config()["geometry"]["major_radius"]),
+        "z": float(_toroidal_mirnov_reference_config()["geometry"]["z"]),
+        "clock": float(channel["clock"]),
+        "gain": float(channel["gain"]),
+        **({"disputed": str(channel["disputed"])} if "disputed" in channel else {}),
+    }
+    for channel in _toroidal_mirnov_reference_config()["channels"]
+)
+
+#: The last shot each phase-reference channel's archive carries it, by field
+#: code.  A field absent from this map is never dropped.
+#:
+#: Per channel, not per array, because the evidence is per channel: the
+#: magnetics log bounds 207 at 35520 and the archives for 44740 and 45531 carry
+#: none of 207/209/241 -- but they *do* carry 171, which the same logs class as
+#: outboard equilibrium probe ``Bz C2 05``.  Bounding 171 with the others would
+#: drop a channel whose data exists, and would settle issue #825 by side effect.
+TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT: dict[int, int] = {
+    int(channel["field"]): int(channel["last_operational_shot"])
+    for channel in _toroidal_mirnov_reference_config()["channels"]
+    if "last_operational_shot" in channel
+}
+
+
+#: Only the toroidal arrays are gated by shot, and only because their history
+#: is recorded.  The 64 equilibrium probes and the 11 flux loops are mapped for
+#: every shot, which is not a claim that every one of them existed throughout.
+#:
+#: No source states when they did.  `MD.yaml` and the geometry file carry no
+#: shot field; ``vest.yaml`` carries shot ``revisions`` for *processing* eras
+#: (baseline windows, FL10 compensation) but none for channel existence; and
+#: the VEST magnetics logs give per-channel DAQ wiring and positions without
+#: dates, their only shot note being the one behind
+#: :data:`TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT`.
+#:
+#: So a channel that did not record is published as an empty entry with
+#: ``validity = -2`` -- "no datum here" -- rather than omitted.  That is the
+#: honest statement when the alternative is a boundary nobody wrote down:
+#: inventing one would silently drop real channels, and issue #843 is what
+#: acting on an unverified probe table costs.
+EQUILIBRIUM_PROBE_SHOT_HISTORY_IS_UNRECORDED = True
+
+
+def toroidal_array_for_shot(shot: int) -> dict[str, Any]:
+    """Which toroidal Mirnov array ``shot`` has, and what it can resolve.
+
+    VEST has had two, and a gap between them.  Up to shot 35520 the
+    phase-reference channels -- three at clock 1:30, 5:30 and 7:30, plus the
+    disputed 9:30 entry issue #825 is about; from shot 44156 the 30-channel
+    outboard fluctuation array at clock 45, 135 and 225 degrees.  Between those
+    boundaries nothing recorded at more than one toroidal position, so no
+    toroidal mode number can be measured at all -- a fact about the machine
+    rather than about the analysis, which is why this is answerable without
+    opening a shot.
+
+    ``shot`` must be a real shot number.  Unlike the inventory accessors, 0 is
+    not a sentinel here: there is no "the machine in general" answer to which
+    array a discharge had.
+
+    Returns ``name``, the ``clock`` positions, the distinct IMAS ``angles_deg``
+    and the ``alias_step`` those angles impose -- ``n`` is resolved only modulo
+    that step.  ``name`` is ``None`` when the shot has no array.
+    """
+    import numpy as _np
+
+    from .conventions import port_toroidal_angle
+
+    shot = int(shot)
+    if shot <= 0:
+        raise ValueError(
+            f"shot must be a real shot number, not {shot}: which toroidal array a "
+            "discharge had is a per-shot fact with no un-gated reading"
+        )
+    # A set spanning one toroidal position resolves nothing, so it does not
+    # count as "the array this shot has": past 35520 only the disputed field 171
+    # survives the reference gate, and a modern shot's array is the fluctuation
+    # one regardless.
+    reference = toroidal_mirnov_reference_channels(shot)
+    if len({float(c["clock"]) for c in reference}) > 1:
+        name = "phase_reference"
+        clocks = [float(c["clock"]) for c in reference]
+    elif shot >= FLUCTUATION_MIRNOV_FIRST_SHOT:
+        name = "fluctuation"
+        clocks = sorted(
+            {float(c["toroidal_angle_deg"]) / VEST_PORT_CLOCK_DEGREES
+             for c in _load_fluctuation_mirnov_channels(shot)}
+        )
+    else:
+        return {"name": None, "clocks": (), "angles_deg": (), "alias_step": None}
+
+    angles = sorted({round(float(_np.rad2deg(port_toroidal_angle(c))), 6) for c in clocks})
+    # The modulus is 360/gcd(spacings), not 360/min(spacing): a set spaced
+    # 0/100/200 aliases modulo 18, not modulo 4.  They coincide only when the
+    # array is uniform, which both VEST arrays happen to be.
+    spacing = _np.diff(_np.asarray(angles + [angles[0] + 360.0]))
+    if len(angles) > 1:
+        scaled = _np.rint(spacing * 1000.0).astype(int)
+        step = int(round(360.0 / (_np.gcd.reduce(scaled) / 1000.0)))
+    else:
+        step = None
+    return {
+        "name": name,
+        "clocks": tuple(sorted(clocks)),
+        "angles_deg": tuple(angles),
+        "alias_step": step,
+    }
+
+
+def toroidal_mirnov_reference_channels(shot: int = 0) -> tuple[dict[str, Any], ...]:
+    """The phase-reference channels ``shot`` actually has.
+
+    Each channel is dropped past its own ``last_operational_shot``; a channel
+    without one is never dropped.  ``shot=0`` means the inventory, un-gated,
+    matching :func:`_fluctuation_mirnov_config`'s reading of the same argument.
+
+    Copies are returned so a caller cannot corrupt the table.
+    """
+    if not shot:
+        return tuple(dict(channel) for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS)
+    return tuple(
+        dict(channel)
+        for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS
+        if int(shot) <= TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT.get(
+            int(channel["field_code"]), int(shot)
+        )
+    )
 
 
 class UnsupportedMagneticsGeometryError(NotImplementedError):
@@ -839,64 +1056,6 @@ def vfit_plasma_current(
     return time, signal.lfilter(taps, 1, plasma_current)
 
 
-def vfit_plasma_mgods_startend(ods: object) -> tuple[float, float]:
-    """Estimate discharge start/end directly from `magnetics.ip.0.*`."""
-    try:
-        magnetics = ods["magnetics"]
-        if isinstance(magnetics, dict) and "ip" in magnetics:
-            time = np.asarray(magnetics["ip"][0]["time"], dtype=float)
-            ip = np.asarray(magnetics["ip"][0]["data"], dtype=float)
-        else:
-            time = np.asarray(magnetics["ip.0.time"], dtype=float)
-            ip = np.asarray(magnetics["ip.0.data"], dtype=float)
-    except Exception:
-        return -1.0, -1.0
-
-    if time.size < 2 or ip.size < 2:
-        return -1.0, -1.0
-
-    filtered_ip = smooth(ip, 10)
-    span = max(1, min(20, filtered_ip.size // 20 if filtered_ip.size >= 20 else filtered_ip.size))
-
-    if time[0] < 0.3:
-        start_ref_index = int(np.argmin(np.abs(time - 0.3)))
-        baseline_slice = np.abs(filtered_ip[: max(start_ref_index, 1)])
-    else:
-        baseline_slice = np.abs(filtered_ip[: max(filtered_ip.size // 10, 1)])
-    baseline_mean = float(np.mean(baseline_slice)) if baseline_slice.size > 0 else 0.0
-
-    start_index = None
-    for idx in range(0, filtered_ip.size - span + 1):
-        if np.mean(np.abs(filtered_ip[idx : idx + span])) > max(10.0 * baseline_mean, 1e-9):
-            start_index = idx
-            break
-    if start_index is None:
-        start_index = 0
-
-    while start_index > 0 and abs(filtered_ip[start_index]) > baseline_mean:
-        start_index -= 1
-
-    if time[-1] > 0.33:
-        end_ref_index = int(np.argmin(np.abs(time - 0.33)))
-        tail_slice = np.abs(filtered_ip[end_ref_index:])
-    else:
-        tail_slice = np.abs(filtered_ip[-max(filtered_ip.size // 10, 1) :])
-    tail_mean = float(np.mean(tail_slice)) if tail_slice.size > 0 else 0.0
-
-    end_index = None
-    for idx in range(filtered_ip.size, start_index + span, -1):
-        if np.mean(np.abs(filtered_ip[idx - span : idx])) > max(15.0 * tail_mean, 1e-9):
-            end_index = idx - 1
-            break
-    if end_index is None:
-        end_index = filtered_ip.size - 1
-
-    while end_index < filtered_ip.size - 1 and abs(filtered_ip[end_index]) > tail_mean:
-        end_index += 1
-
-    return float(time[start_index]), float(time[end_index])
-
-
 def _diamagnetic_config(shot: int) -> dict[str, Any]:
     """Resolve the shot-era diamagnetic-Rogowski configuration from `vest.yaml`."""
     return resolve_vest_diagnostic(shot, "diamagnetic_flux")
@@ -1119,6 +1278,11 @@ def vest_diamagnetic_flux_detailed(
     integrated = integrate.cumulative_trapezoid(raw_values, temp_time, initial=0.0) * rogo_gain
     start_index = int(np.argmin(np.abs(temp_time - plasma_start)))
     end_index = int(np.argmin(np.abs(temp_time - plasma_end)))
+    # A window past the record is anchored at the record's end: said in the
+    # report and the method_name rather than left to look like the light's offset.
+    report["window_clipped_to_record"] = bool(
+        float(plasma_start) < float(temp_time[0]) or float(plasma_end) > float(temp_time[-1])
+    )
     if end_index <= start_index:
         empty = np.zeros(temp_time.size, dtype=float)
         if with_stages:
@@ -1204,6 +1368,7 @@ def equilibrium_magnetics_processing_config(shot: int) -> VestMagneticsProcessin
     window = _equilibrium_magnetics_window_for_shot(shot)
     flux_window = window.get("flux_baseline_window")
     flux_samples = window.get("flux_baseline_samples")
+    allow_zero_fallback = window.get("allow_zero_fallback", False)
     return VestMagneticsProcessingConfig(
         window_override=(
             int(window["index_start"]),
@@ -1215,6 +1380,7 @@ def equilibrium_magnetics_processing_config(shot: int) -> VestMagneticsProcessin
         ),
         flux_baseline_samples=None if flux_samples is None else int(flux_samples),
         daq_mode=str(window["daq_mode"]),
+        allow_zero_fallback=bool(allow_zero_fallback),
     )
 
 
@@ -1225,6 +1391,7 @@ def vfit_equilibrium_magnetics_detailed(
     *,
     raw_source: raw_db.RawSource | None = None,
     allow_missing_channels: bool = False,
+    allow_zero_fallback: bool | None = None,
 ) -> VestEquilibriumMagneticsResult:
     """Process magnetics channels, keeping native flux-loop terminal voltages.
 
@@ -1245,6 +1412,7 @@ def vfit_equilibrium_magnetics_detailed(
         indices=indices,
         config=config,
         allow_missing=allow_missing_channels,
+        allow_zero_fallback=allow_zero_fallback,
     )
 
 
@@ -1255,6 +1423,7 @@ def vfit_equilibrium_magnetics(
     *,
     raw_source: raw_db.RawSource | None = None,
     allow_missing_channels: bool = False,
+    allow_zero_fallback: bool | None = None,
 ) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
     """Process magnetic probe and flux-loop data using VAFT process helpers.
 
@@ -1268,6 +1437,7 @@ def vfit_equilibrium_magnetics(
         processing_config,
         raw_source=raw_source,
         allow_missing_channels=allow_missing_channels,
+        allow_zero_fallback=allow_zero_fallback,
     )
     return result.time, result.flux_loops, result.probes
 
@@ -1308,7 +1478,36 @@ def _populate_flux_loop_static(ods: object) -> None:
         flux_loop_index += 1
 
 
-def _populate_probe_static(ods: object) -> None:
+def _equilibrium_probe_phi(r: float, z: float, name: str) -> float | None:
+    """The IMAS toroidal angle of an equilibrium poloidal probe, or ``None``.
+
+    The three families the layout figure distinguishes -- inboard, side and
+    outboard -- are the same three the EFIT k-file writer already submits
+    constraints by, so the existing ``INBOARD_PROBE_MAX_R`` /
+    ``SIDE_PROBE_MIN_ABS_Z`` / ``OUTBOARD_PROBE_MIN_R`` boundaries classify a
+    probe and :data:`EQUILIBRIUM_PROBE_CLOCK` places it.
+
+    A probe matching no family gets **no** ``phi`` at all.  Writing 0.0 there,
+    as this did before issue #718, states a toroidal position the machine
+    description does not have -- and 0.0 is a real place (12 o'clock), so a
+    reader cannot tell the placeholder from a measurement.
+    """
+    if abs(z) > SIDE_PROBE_MIN_ABS_Z:
+        family = "side"
+    elif r < INBOARD_PROBE_MAX_R:
+        family = "inboard"
+    elif r > OUTBOARD_PROBE_MIN_R:
+        family = "outboard"
+    else:
+        logger.warning(
+            "b_field_pol_probe %s at (r=%.4f, z=%.4f) matches no known toroidal "
+            "family; leaving position.phi unwritten", name, r, z,
+        )
+        return None
+    return port_toroidal_angle(EQUILIBRIUM_PROBE_CLOCK[family])
+
+
+def _populate_probe_static(ods: object, shot: int = 0) -> None:
     names = _load_names_by_code()
     probe_index = 0
     for channel in _load_static_channels():
@@ -1318,25 +1517,28 @@ def _populate_probe_static(ods: object) -> None:
         name = names[field_code]
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.name", name)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", name)
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", float(channel["r"]))
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", float(channel["z"]))
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", 0.0)
+        r = float(channel["r"])
+        z = float(channel["z"])
+        phi = _equilibrium_probe_phi(r, z, name)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", r)
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", z)
+        if phi is not None:
+            set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle", 0.0)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
         probe_index += 1
 
-    for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
+    for channel in toroidal_mirnov_reference_channels(shot):
         name = str(channel["name"])
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.name", name)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", f"{name}:phase_reference")
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", float(channel["r"]))
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", float(channel["z"]))
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", float(channel["phi"]))
+        phi = port_toroidal_angle(float(channel["clock"]))
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
-        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle", float(channel["toroidal_angle"]))
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
         probe_index += 1
 
@@ -1356,18 +1558,14 @@ def _populate_fluctuation_mirnov_static(ods: object, shot: int = 0) -> None:
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", identifier)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", OUTBOARD_MIRNOV_MAJOR_RADIUS)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", float(channel["z"]))
-        set_path(
-            ods,
-            f"magnetics.b_field_pol_probe.{probe_index}.position.phi",
-            math.radians(float(channel["toroidal_angle_deg"])),
-        )
+        # ``toroidal_angle_deg`` is the VEST *clock* angle the identifier
+        # carries (``OutMirnov_45_L1-01`` is at 45 deg of clock angle, i.e.
+        # 1:30).  It is clockwise-positive, so it is negated on the way into
+        # the IDS rather than written through as if it were phi -- issue #718.
+        phi = clock_angle_to_toroidal_angle(float(channel["toroidal_angle_deg"]))
+        set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.poloidal_angle", POLOIDAL_ANGLE)
-        set_path(
-            ods,
-            f"magnetics.b_field_pol_probe.{probe_index}.toroidal_angle",
-            math.radians(float(channel["toroidal_angle_deg"])),
-        )
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.type.index", MIRNOV_TYPE_INDEX)
         probe_index += 1
 
@@ -1406,11 +1604,18 @@ def _populate_limiter_shunt_static(ods: object) -> None:
         set_path(ods, f"{base_path}.resistance", LIMITER_SHUNT_RESISTANCE)
 
 
-def vfit_magnetics_static(ods: object) -> None:
-    """Populate static magnetics metadata from YAML geometry assets."""
+def vfit_magnetics_static(ods: object, shot: int = 0) -> None:
+    """Populate static magnetics metadata from YAML geometry assets.
+
+    ``shot`` gates the hardware that did not exist for the whole campaign: the
+    phase-reference Mirnov channels stop after
+    :data:`TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT`.  ``shot=0`` means the
+    inventory, un-gated, which is what a caller describing the machine rather
+    than a discharge wants.
+    """
     _set_magnetics_properties(ods)
     _populate_flux_loop_static(ods)
-    _populate_probe_static(ods)
+    _populate_probe_static(ods, shot)
     _populate_limiter_shunt_static(ods)
 
 
@@ -1437,7 +1642,7 @@ def vfit_mirnov_raw_dynamic(
         _set_voltage_signal(ods, f"magnetics.b_field_pol_probe.{probe_index}", time, data, validity)
         probe_index += 1
 
-    for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
+    for channel in toroidal_mirnov_reference_channels(shot):
         time, data, validity = _raw_time_data_with_validity(shot, int(channel["field_code"]), raw_source)
         if validity == 0:
             time, data = _crop_native_window(time, data, tstart=tstart, tend=tend)
@@ -1798,52 +2003,195 @@ def _map_ip(ods: object, target_time: np.ndarray, ip_time: np.ndarray, ip: np.nd
     set_path(ods, "magnetics.ip.0.method_name", _IP_METHOD_NAME)
 
 
-def _plasma_window(
-    ods: object,
+#: Sources a diamagnetic plasma window can come from, in hierarchy order.
+PLASMA_WINDOW_H_ALPHA_RAW = "h_alpha_raw"
+PLASMA_WINDOW_IP = "ip"
+PLASMA_WINDOW_ANALYSIS_RANGE = "analysis_range"
+PLASMA_WINDOW_FALLBACK_FLAG = "analysis_range_fallback"
+#: The slow-DAQ H-alpha filterscope, ``spectrometer_uv.SIGNALS[0]``; the raw
+#: record is negative-going (the spectrometer mapper stores its negation).
+HALPHA_RAW_FIELD = 101
+
+
+@dataclass(frozen=True)
+class PlasmaWindowChoice:
+    """The plasma window a raw-side consumer uses, and where it came from.
+
+    A found window lies inside the shared ``plasma_analysis`` range (a plasma
+    current record that does not cover it is flagged ``ip_record_short``);
+    the range fallback lies inside the current record.  ``source`` names the
+    record that produced them (the raw H-alpha field, the plasma current, or
+    the range itself when neither showed a plasma, in which case ``flags``
+    carries ``analysis_range_fallback``); when both records show a plasma the
+    flags also carry their agreement (``ip_before_halpha``,
+    ``halpha_leads_ip_large``) in the same vocabulary as
+    ``vaft.omas.plasma_timing``.  ``evidence`` keeps both detector records so
+    a consumer can say why.
+    """
+
+    start: float
+    end: float
+    source: str
+    flags: tuple[str, ...] = ()
+    evidence: Mapping[str, Any] = dataclass_field(default_factory=dict)
+
+    @property
+    def fallback(self) -> bool:
+        return PLASMA_WINDOW_FALLBACK_FLAG in self.flags
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "start": self.start,
+            "end": self.end,
+            "source": self.source,
+            "flags": list(self.flags),
+            "evidence": dict(self.evidence),
+        }
+
+
+def _raw_halpha_unusable(record: CroppedRecord, limits: Mapping[str, float]) -> str | None:
+    """The first usability floor a raw H-alpha record fails, or ``None``.
+
+    The raw-side counterpart of the ODS-side channel checks: the same
+    ``usability`` block of the policy, applied to the cropped raw record --
+    finite samples, a digitizer not at its rail on the search stretch, a
+    baseline whose noise is alive (a quantized baseline cannot carry a
+    noise-relative threshold).  Label and validity are ODS-side notions.
+    """
+    y = record.y
+    if y.size < int(limits["min_samples"]):
+        return "present"
+    finite = np.isfinite(y)
+    if float(finite.mean()) < float(limits["min_finite_fraction"]):
+        return "finite"
+    rail = float(limits["rail_fraction"]) * float(limits["rail_level"])
+    lit = record.search & finite
+    if lit.any() and float(np.mean(np.abs(y[lit]) >= rail)) >= float(limits["max_railed_fraction"]):
+        return "not_railed"
+    if record.baseline_mask is not None:
+        baseline = y[record.baseline_mask & finite]
+    else:
+        baseline = y[(np.arange(y.size) < max(2, y.size // 5)) & finite]
+    if baseline.size < 2 or baseline.min() == baseline.max():
+        return "baseline_live"
+    if float(median_absolute_deviation(baseline)) < float(limits["min_baseline_mad"]):
+        return "baseline_live"
+    return None
+
+
+def detect_plasma_window(
     shot: int,
-    target_time: np.ndarray,
     ip_time: np.ndarray,
     ip: np.ndarray,
     raw_source: raw_db.RawSource | None = None,
-) -> tuple[float, float]:
-    halpha = _safe_vest_load(shot, 101, raw_source)
+    *,
+    policy: PlasmaTimingPolicy | None = None,
+) -> PlasmaWindowChoice:
+    """The plasma window for raw-side consumers, from the shared timing policy.
+
+    The hierarchy mirrors ``vaft.omas.plasma_timing`` on the raw records this
+    layer already reads: the slow H-alpha field (negated, checked against the
+    policy's usability floors, then the ``h_alpha`` rule), else the plasma
+    current with the ``ip`` rule, else the ``plasma_analysis`` range clipped
+    to the current record and flagged ``analysis_range_fallback``.  Whatever
+    is found is intersected with the range.  This module does not import
+    ``vaft.omas``; the rules, the range and the crop come from
+    :mod:`vaft.machine_mapping.utils`.
+    """
+    if policy is None:
+        policy = resolve_plasma_timing_policy()
+    ip_t = np.asarray(ip_time, dtype=float).reshape(-1)
+    ip_y = np.asarray(ip, dtype=float).reshape(-1)
+    if ip_t.size == 0 or ip_t.size != ip_y.size:
+        raise ValueError(f"plasma current: {ip_y.size} samples against {ip_t.size} time instants")
+    tstart = max(float(policy.window.tstart), float(ip_t[0]))
+    tend = min(float(policy.window.tend), float(ip_t[-1]))
+    if tend <= tstart:
+        raise ValueError(
+            f"the plasma current record {ip_t[0]:.4f}-{ip_t[-1]:.4f} s does not overlap the "
+            f"{policy.window.name} range {policy.window.tstart}-{policy.window.tend} s"
+        )
+    span = dict(baseline_start=policy.baseline_start, tstart=policy.window.tstart, tend=policy.window.tend)
+    evidence: dict[str, Any] = {
+        "window": policy.window.as_dict(),
+        "baseline_start": policy.baseline_start,
+        "h_alpha_field": HALPHA_RAW_FIELD,
+    }
+
+    def choose(window, source: str, crop_flags: tuple[str, ...]) -> PlasmaWindowChoice:
+        # A found window is intersected with the policy range, not with the
+        # current record: a light window past a short current record is a real
+        # window the current simply does not cover, said with ip_record_short.
+        start = max(float(window.start), float(policy.window.tstart))
+        end = min(float(window.end), float(policy.window.tend))
+        flags = list(dict.fromkeys((*crop_flags, *window.flags)))
+        if float(ip_t[0]) > start or float(ip_t[-1]) < end:
+            flags.append("ip_record_short")
+        return PlasmaWindowChoice(start, end, source, tuple(flags), evidence)
+
+    # The current is always examined: it is the fallback and the cross-check.
+    ip_record = crop_to_span(ip_t, ip_y, **span)
+    ip_window = ip_record.detect(policy.ip)
+    evidence["ip"] = ip_window.as_dict()
+
+    halpha = _safe_vest_load(shot, HALPHA_RAW_FIELD, raw_source)
     if halpha is not None and len(halpha[1]) > 1:
-        h_time = np.asarray(halpha[0], dtype=float)
-        h_data = smooth(np.asarray(halpha[1], dtype=float), 10)
-        index_a = int(np.argmin(np.abs(h_time - 0.3)))
-        index_b = int(np.argmin(np.abs(h_time - 0.36)))
-        window = h_data[index_a:index_b] if index_b > index_a else h_data
-        minimum = float(np.min(window)) if window.size > 0 else -1.0
-        if minimum != 0.0:
-            normalized = h_data / minimum
-            tstart2, tend2 = detect_active_window(
-                h_time[index_a:index_b], normalized[index_a:index_b]
-            )
+        # The raw record is negative-going; the spectrometer mapper stores its negation.
+        record = crop_to_span(halpha[0], -np.asarray(halpha[1], dtype=float), **span)
+        reason = _raw_halpha_unusable(record, policy.usability)
+        if reason is None:
+            window = record.detect(policy.h_alpha)
+            evidence["h_alpha"] = window.as_dict()
+            if window.found:
+                flags = record.flags
+                if ip_window.found:
+                    agreement = onset_agreement(float(ip_window.start - window.start), policy.agreement)
+                    evidence["agreement"] = agreement
+                    if agreement != AGREEMENT_CONSISTENT:
+                        flags = (*flags, agreement)
+                return choose(window, PLASMA_WINDOW_H_ALPHA_RAW, flags)
         else:
-            tstart2, tend2 = vfit_plasma_mgods_startend(ods)
-    else:
-        tstart2, tend2 = vfit_plasma_mgods_startend(ods)
+            evidence["h_alpha_unusable"] = reason
 
-    if tstart2 < 0 or tend2 <= tstart2:
-        temporary: dict[str, Any] = {}
-        _map_ip(temporary, target_time, ip_time, ip)
-        tstart2, tend2 = vfit_plasma_mgods_startend(temporary)
-    return tstart2, tend2
+    if ip_window.found:
+        return choose(ip_window, PLASMA_WINDOW_IP, ip_record.flags)
+    record = ip_record
+
+    flags = tuple(dict.fromkeys((*record.flags, PLASMA_WINDOW_FALLBACK_FLAG)))
+    return PlasmaWindowChoice(tstart, tend, PLASMA_WINDOW_ANALYSIS_RANGE, flags, evidence)
 
 
-def _diamagnetic_method_name(report: Mapping[str, Any]) -> str:
-    """One-line provenance string for `magnetics.diamagnetic_flux[0].method_name`."""
+def _diamagnetic_method_name(
+    report: Mapping[str, Any], window: PlasmaWindowChoice | None = None
+) -> str:
+    """One-line provenance string for `magnetics.diamagnetic_flux[0].method_name`.
+
+    The saturation outcome first, then -- when the window is given -- which
+    plasma window the reconstruction was anchored to and where it came from,
+    so a window that fell back to the analysis range is visible in the product.
+    """
     base = (
         "Rogowski triple-integration of VEST raw field "
         f"{report['field']}"
     )
     if not report["n_saturated"]:
-        return f"{base}; no acquisition-limit saturation detected"
-    return (
-        f"{base}; {report['n_saturated']}/{report['n_samples']} samples "
-        f"reconstructed at the acquisition limit in {report['n_intervals']} intervals, "
-        f"{report['n_saturated_in_window']} inside the plasma window"
-    )
+        text = f"{base}; no acquisition-limit saturation detected"
+    else:
+        text = (
+            f"{base}; {report['n_saturated']}/{report['n_samples']} samples "
+            f"reconstructed at the acquisition limit in {report['n_intervals']} intervals, "
+            f"{report['n_saturated_in_window']} inside the plasma window"
+        )
+    if window is not None:
+        text += f"; plasma window {window.start:.4f}-{window.end:.4f} s from {window.source}"
+        noted = [f for f in window.flags if f in ("ip_record_short", "ip_before_halpha", "halpha_leads_ip_large")]
+        if noted:
+            text += f" ({', '.join(noted)})"
+        if window.fallback:
+            text += "; analysis-range fallback"
+    if report.get("window_clipped_to_record"):
+        text += "; window clipped to the Rogowski record"
+    return text
 
 
 def _map_diamagnetic_flux(
@@ -1854,10 +2202,10 @@ def _map_diamagnetic_flux(
     ip: np.ndarray,
     raw_source: raw_db.RawSource | None = None,
 ) -> None:
-    tstart2, tend2 = _plasma_window(ods, shot, target_time, ip_time, ip, raw_source)
+    window = detect_plasma_window(shot, ip_time, ip, raw_source)
 
     time_dia, dia_flux, report = vest_diamagnetic_flux_detailed(
-        shot, tstart2, tend2, raw_source=raw_source
+        shot, window.start, window.end, raw_source=raw_source
     )
     set_path(ods, "magnetics.diamagnetic_flux.0.data", _interpolate_signal(target_time, time_dia, dia_flux))
     set_path(ods, "magnetics.diamagnetic_flux.0.time", target_time)
@@ -1865,7 +2213,7 @@ def _map_diamagnetic_flux(
     # saturation outcome is recorded in the one string field it does offer.
     # `magnetics.rogowski_coil[:].current.validity` is the structured home and
     # belongs to issue #215; it can call `diamagnetic_saturation_report`.
-    set_path(ods, "magnetics.diamagnetic_flux.0.method_name", _diamagnetic_method_name(report))
+    set_path(ods, "magnetics.diamagnetic_flux.0.method_name", _diamagnetic_method_name(report, window))
 
 
 def vfit_magnetics_dynamic(
@@ -1920,7 +2268,10 @@ def vfit_magnetics_for_shot(
     """Populate canonical static and dynamic magnetics nodes for one shot."""
     # Create the full ordered channel structures first so a missing early
     # channel can remain empty without shifting or invalidating later channels.
-    vfit_magnetics_static(ods)
+    # The shot is passed because it selects which hardware existed, not which
+    # of it recorded: a channel the machine had but that stayed silent is an
+    # empty entry, while one it did not have yet is no entry at all.
+    vfit_magnetics_static(ods, shot)
     vfit_magnetics_dynamic(
         ods,
         shot,
@@ -1984,7 +2335,7 @@ def b_field_pol_probe_from_raw_database(
     """Map calibrated and raw poloidal-field probe signals and metadata."""
     context = _prepare_magnetics_context(shot, tstart, tend, dt, processing_config, raw_source)
     _set_magnetics_properties(ods)
-    _populate_probe_static(ods)
+    _populate_probe_static(ods, shot)
     _map_probes(ods, shot, context, raw_source)
 
 
@@ -2084,16 +2435,18 @@ __all__ = [
     "vfit_equilibrium_magnetics_detailed",
     "vfit_magnetics_dynamic",
     "vfit_magnetics_for_shot",
+    "toroidal_array_for_shot",
+    "toroidal_mirnov_reference_channels",
     "vfit_magnetics_static",
     "vfit_limiter_shunts_dynamic",
     "vfit_mirnov_raw_dynamic",
-    "vfit_plasma_mgods_startend",
+    "PlasmaWindowChoice",
+    "detect_plasma_window",
 ]
 
 
 VEST_DiamagneticFlux = vest_diamagnetic_flux
 vfit_PlasmaCurrent = vfit_plasma_current
-vfit_plasmaMGods_startend = vfit_plasma_mgods_startend
 # Pre-rename names: kept as plain aliases so a direct
 # `from vaft.machine_mapping.magnetics import ...` still works. The
 # deprecation warning for the package-level path lives in

@@ -46,28 +46,15 @@ SOURCE = resolve_source(
     os.environ.get("VAFT_HSDS_SOURCE") or DEFAULT_SOURCE, writable=True
 )
 
-_TOTAL_PRESSURE_LEAVES = (
-    "pressure_thermal", "pressure", "pressure_ion_total",
-    "pressure_ion_total_thermal", "pressure_parallel", "pressure_perpendicular",
+# The rule this enforces belongs to the profile layer, not to a polling daemon:
+# the core_profiles stage builder has to apply exactly the same one, and two
+# copies of "which pressure leaves are a sum over species" would eventually
+# disagree. Re-exported here so `update_core_profile.py` keeps importing it
+# from where it always has.
+from vaft.process.profile import (  # noqa: E402
+    TOTAL_PRESSURE_LEAVES as _TOTAL_PRESSURE_LEAVES,
+    strip_electron_only_pressure,
 )
-
-
-def strip_electron_only_pressure(ods):
-    """Delete slice-total pressure from any core_profiles slice with no ion temperature.
-
-    A Thomson-only slice has no ion measurement, so it must not carry a total
-    (kinetic) pressure computed with a phantom Ti=Te.
-    """
-    if "core_profiles" not in ods:
-        return
-    for i in range(len(ods["core_profiles.profiles_1d"])):
-        b = f"core_profiles.profiles_1d.{i}"
-        if f"{b}.ion.0.temperature" in ods:  # a real kinetic slice keeps its pressure
-            continue
-        for leaf in _TOTAL_PRESSURE_LEAVES:
-            key = f"{b}.{leaf}"
-            if key in ods:
-                del ods[key]
 
 
 def extract_shotnumber_of_thomson_scattering(fname: str):
@@ -300,6 +287,58 @@ CHECK_INTERVAL = 10  # seconds
 _unparsed_reported = set()
 
 
+def select_thomson_sources(directory):
+    """Return ``{shot: filename}``, one authoritative file per shot.
+
+    Selection uses ``vaft.machine_mapping.thomson_scattering.thomson_source_rank``
+    -- the same rule the library resolver applies -- so a direct
+    ``thomson_scattering(ods, shot)`` call and this updater can never disagree
+    about which file is authoritative for a shot.
+
+    Previously this loop processed *every* matching file and keyed the registry
+    on the bare shot number, so for a shot with both ``_v9`` and ``_v9_rev``
+    the winner was whichever ``os.listdir`` happened to yield last. That made
+    the published product depend on filesystem iteration order, and shots
+    40323-40331 differ by up to 58% in ``T_e`` between those two files.
+
+    The listing is sorted before ranking, so the result does not depend on
+    directory order. Anything skipped is reported once per name -- both a file
+    with no parsable shot number and one whose layout the ranking rule does not
+    recognise. Neither is dropped quietly: this loop previously processed every
+    file it could name a shot for, so a silent skip would be a regression in
+    coverage rather than a tightening.
+    """
+    from vaft.machine_mapping.thomson_scattering import thomson_source_rank
+
+    best = {}
+    for fname in sorted(os.listdir(directory)):
+        if not fname.endswith(".mat"):
+            continue
+        shotnumber = extract_shotnumber_of_thomson_scattering(fname)
+        if shotnumber is None:
+            if fname not in _unparsed_reported:
+                _unparsed_reported.add(fname)
+                print(f"[WARNING] no shot number in filename, skipped: {fname}")
+            continue
+        rank = thomson_source_rank(fname, shotnumber)
+        if rank is None:
+            # A shot number was parsed out but the name is not a Thomson layout
+            # the ranking rule knows. Say so once: dropping it silently is how
+            # whole campaigns went missing before, and this loop used to
+            # process every file it could name a shot for.
+            if fname not in _unparsed_reported:
+                _unparsed_reported.add(fname)
+                print(
+                    f"[WARNING] unrecognised Thomson layout for shot {shotnumber}, "
+                    f"skipped: {fname}"
+                )
+            continue
+        previous = best.get(shotnumber)
+        if previous is None or rank > previous[0]:
+            best[shotnumber] = (rank, fname)
+    return {shot: fname for shot, (_, fname) in sorted(best.items())}
+
+
 def main():
     processed_shots = load_processed_shots()
 
@@ -308,24 +347,8 @@ def main():
             print("[POLLING] Scanning for new diagnostic .mat files...")
 
             try:
-                for fname in os.listdir(WATCH_DIAG):
-                    if not fname.endswith(".mat"):
-                        continue
-
+                for shotnumber, fname in select_thomson_sources(WATCH_DIAG).items():
                     full_path = os.path.join(WATCH_DIAG, fname)
-
-                    try:
-                        shotnumber = extract_shotnumber_of_thomson_scattering(fname)
-                        if shotnumber is None:
-                            # Log it: an unrecognised layout previously dropped whole
-                            # campaigns without a trace (see the NeTe_<shot> case).
-                            if fname not in _unparsed_reported:
-                                _unparsed_reported.add(fname)
-                                print(f"[WARNING] no shot number in filename, skipped: {fname}")
-                            continue
-                    except Exception as exc:  # noqa: BLE001
-                        print(f"[WARNING] could not parse filename {fname}: {exc}")
-                        continue
                     mtime = datetime.fromtimestamp(os.path.getmtime(full_path)).isoformat()
                     prev_info = processed_shots.get(shotnumber)
 

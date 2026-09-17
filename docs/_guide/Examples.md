@@ -79,28 +79,30 @@ The packaged samples are the fastest way to get a realistic ODS without touching
 import vaft
 
 ods = vaft.omas.sample_ods()   # one shot
-odc = vaft.omas.sample_odc()   # a collection of three shots
 
 list(ods.keys())
 print(ods["equilibrium.time"])
 print(list(ods["equilibrium.time_slice.0"].keys()))
 ```
 
-To reach a packaged file by name rather than through the sample helpers, use the resource accessor — it resolves paths inside the installed package:
+To reach another registered shot, or the same shot in a different representation, ask the sample registry:
 
 ```python
-from vaft.data.resources import data_path
+import vaft
 
-sample_path = data_path("omas/39915.json")
+vaft.data.available_samples()                          # (39915, 41524, 41672)
+sample_path = vaft.data.sample(39915)                  # packaged OMAS artifact
+imas_path = vaft.data.sample(39915, representation="imas")
 ```
 
 For the IMAS round trip:
 
 ```python
-from vaft.imas import save_omas_imas, load_omas_imas
+import tempfile
 
-save_omas_imas(ods, user="test_user", machine="VEST", pulse=39915, run=0)
-ods_back = load_omas_imas(user="test_user", machine="VEST", pulse=39915, run=0)
+entry_dir = tempfile.mkdtemp(prefix="vest_imas_")
+vaft.imas.save(ods, entry_dir)
+ods_back = vaft.omas.load(entry_dir)
 ```
 
 Related reading: [Data structures]({{ site.baseurl }}/guide/Data_structures/) and [Machine mapping]({{ site.baseurl }}/guide/Machine_mapping/).
@@ -119,14 +121,14 @@ Related reading: [Data structures]({{ site.baseurl }}/guide/Data_structures/) an
 The soft X-ray notebook is a good template for "raw file to ODS to plot" in one pass:
 
 ```python
+import vaft
 from vaft.machine_mapping.soft_x_rays import soft_x_rays_from_digitizer_csv
-from vaft.plot import plot_soft_x_ray_los, plot_soft_x_ray_signal, plot_soft_x_ray_spectrogram
 
 ods = soft_x_rays_from_digitizer_csv(shot, daq_label, digitizer_file=plasma_file)
 
-plot_soft_x_ray_los(ods, arrays=["lowermid", "bottom"])
-plot_soft_x_ray_signal(ods)
-plot_soft_x_ray_spectrogram(ods)
+vaft.omas.plot_soft_x_rays_geometry_lines_of_sight(ods, selection=["lowermid", "bottom"])
+vaft.omas.plot_soft_x_rays_time_power(ods)
+vaft.omas.plot_soft_x_rays_spectrogram(ods)
 ```
 
 See [Magnetics]({{ site.baseurl }}/guide/Magnetics/) and [Processing]({{ site.baseurl }}/guide/Processing/).
@@ -149,9 +151,12 @@ See [Magnetics]({{ site.baseurl }}/guide/Magnetics/) and [Processing]({{ site.ba
 | [`eddy_current_calculation_and_startup_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/eddy_current_calculation_and_startup_analysis.ipynb) | *(design shell)* Planned PF-passive eddy-current ODE solve and tokamak startup / null analysis. |
 | [`magnetic_equilibrium_reconstruction_with_efit.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/magnetic_equilibrium_reconstruction_with_efit.ipynb) | *(design shell)* Planned EFIT reconstruction from magnetics, eddy currents, and PF coil information. |
 | [`mhd_equilibrium_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/mhd_equilibrium_analysis.ipynb) | *(design shell)* Planned equilibrium loading, representative quantities, and coordinate transformations. |
-| [`linear_ideal_stability_analysis_with_dcon.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/linear_ideal_stability_analysis_with_dcon.ipynb) | *(design shell)* Planned ideal MHD stability (delta-W) with DCON from the GPEC package. |
-| [`linear_resistive_stability_analysis_with_rdcon.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/linear_resistive_stability_analysis_with_rdcon.ipynb) | *(design shell)* Planned resistive stability (Delta-prime) with RDCON. |
+| [`linear_ideal_stability_analysis_with_dcon.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/linear_ideal_stability_analysis_with_dcon.ipynb) | Ideal MHD stability (delta-W by toroidal mode) with DCON, run on the packaged VEST equilibrium and mapped into `mhd_linear`. Needs `$GPECHOME`. |
+| [`linear_resistive_stability_analysis_with_rdcon.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/linear_resistive_stability_analysis_with_rdcon.ipynb) | Resistive stability with RDCON: the classical tearing index per rational surface, mapped into `ntms.deltaw`. Needs `$GPECHOME`. |
 | [`perturbed_equilibrium_and_3d_response_with_gpec.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb) | *(design shell)* Planned perturbed equilibrium and non-axisymmetric 3D response with GPEC. |
+| [`vest_nbi_analysis_with_nubeam.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/vest_nbi_analysis_with_nubeam.ipynb) | Neutral-beam deposition, heating, current drive and loss accounting for VEST with NUBEAM. Runs the repository's stored case into a temporary directory; needs `$NUBEAMHOME`. |
+| [`neoclassical_transport_with_neo.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/neoclassical_transport_with_neo.ipynb) | Neoclassical transport and bootstrap current for VEST with NEO (GACODE). Converts the packaged 48224 kinetic state to `input.gacode`, runs NEO into a temporary directory, maps the result into IMAS, and compares it with the Sauter and Redl analytic models; needs `$GACODEHOME` and `$GACODE_PLATFORM`, and without them each section reports what it would show and the analytic comparison still runs. |
+| [`turbulent_transport_with_tglf.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/turbulent_transport_with_tglf.ipynb) | Turbulent transport for VEST with TGLF (GACODE) and the TGLF-NN surrogate. Builds the local TGLF input at five surfaces from the packaged 48224 kinetic state, runs TGLF, and audits every public TGLF-NN family against the same input -- none is in domain, because VEST's ion-to-electron temperature ratio is an order of magnitude below every training set. Needs `$GACODEHOME` and `$GACODE_PLATFORM` for the native run and `$TURBULENTTRANSPORTHOME` for the models; the audit needs neither GACODE nor `onnxruntime`, and without any of them the temperature-ratio finding still runs. |
 
 CHEASE is the most complete code-coupling example in the repository. The `prepare_*` / `run_*` / `collect_*` triple is the pattern every code wrapper in `vaft.code` follows:
 
@@ -206,9 +211,9 @@ import vaft
 
 ods = vaft.database.load(40330, directory="public")
 
-vaft.plot.plot_thomson_radial_position(ods)
-vaft.plot.plot_thomson_time_series(ods)
-vaft.plot.plot_electron_profile_with_thomson(ods)
+vaft.omas.plot_thomson_scattering_geometry_poloidal(ods)
+vaft.omas.plot_thomson_scattering_time_electron_temperature(ods)
+vaft.omas.plot_electron_temperature_profile(ods)
 ```
 
 See [Profiles]({{ site.baseurl }}/guide/Profiles/) and [Formula]({{ site.baseurl }}/guide/Formula/).
@@ -222,34 +227,41 @@ See [Profiles]({{ site.baseurl }}/guide/Profiles/) and [Formula]({{ site.baseurl
 | [`verification_and_validation.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/verification_and_validation.ipynb) | Cross-check volume-averaged parameters across shots and export a V&V spreadsheet. |
 | [`multiple_tokamak_comparison.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/multiple_tokamak_comparison.ipynb) | *(design shell)* Planned cross-device comparison of geometry, equilibrium, and diagnostic signals. |
 
-The plot module names functions as `{ids}_{coordinate}_{quantity}` — for example `time_magnetics_ip`. Any plot function accepts a single ODS, an ODC, or a list of ODS objects, which is what makes shot overlays trivial:
+Canonical plots are named `vaft.omas.plot_{subject}_{view}[_{quantity}]` — the subject is the physical
+thing, not the IDS that stores it, so the plasma current is `plot_plasma_current_time`. Any adapter accepts a
+single ODS, an ODC, or a list of ODS objects, which is what makes shot overlays trivial:
 
 ```python
 import vaft
+from omas import ODC
 
 ods = vaft.omas.sample_ods()
-odc = vaft.omas.sample_odc()
 
-vaft.plot.time_magnetics_ip(ods)
-vaft.plot.time_magnetics_ip(odc)          # overlays every shot in the collection
+odc = ODC()
+for key, shot in enumerate(vaft.data.available_samples()):
+    odc[key] = vaft.omas.load(vaft.data.sample(shot))
+
+vaft.omas.plot_plasma_current_time(ods)
+vaft.omas.plot_plasma_current_time(odc)   # overlays every shot in the collection
 
 # Re-zero the time axis on breakdown, then replot
 vaft.omas.change_time_convention(ods, convention="breakdown")
-vaft.plot.time_magnetics_ip(ods)
+vaft.omas.plot_plasma_current_time(ods)
 ```
 
 ![Magnetics example]({{ site.baseurl }}/assets/images/magnetics/plasma_current.png)
 
-Composite figures are single calls:
+Composite figures are single calls — here the vacuum flux map drawn over the machine geometry:
 
 ```python
 import vaft
 
 ods = vaft.omas.sample_ods()
-vaft.plot.overlay_all_with_vacuum_psi_contour(ods)
+vaft.omas.plot_equilibrium_field_psi_vacuum(ods, overlay=("coils", "wall"))
 ```
 
-See [Plotting]({{ site.baseurl }}/guide/Plotting/) for the full catalogue.
+`vaft.omas.available_plots()` prints the full catalogue, and `available_plots(ods)` narrows it to what one
+input can actually draw.
 
 ## Operations and monitoring
 
@@ -274,17 +286,18 @@ core_profile_shots = [40330]
 df = pd.DataFrame({"Shot Number": core_profile_shots, "Status": ["core_profile"]})
 ```
 
-**2. `vaft.omas.load_omas_json()` does not exist, and the packaged data moved.** Sample JSON files are no longer flat under `vaft/data/`; they live under `vaft/data/omas/`. Notebooks that still build a path like `os.path.join(os.path.dirname(vaft.__file__), "data", "39915.json")` — including `vest_daily_monitoring.ipynb` and parts of `read_and_convert_data_structure.ipynb` — will fail. Use the sample helpers or the resource accessor instead:
+**2. The packaged data moved.** Sample files are no longer flat under `vaft/data/`, and the interim
+`vaft/data/omas/` layout is gone too: each registered shot now lives in `vaft/data/samples/{shot}/` behind
+`vaft.data.sample()`. Notebooks that still build a path like
+`os.path.join(os.path.dirname(vaft.__file__), "data", "39915.json")` will fail. Use the sample helpers or the
+registry instead:
 
 ```python
 import vaft
-from vaft.data.resources import data_path
 
-ods = vaft.omas.sample_ods()            # preferred
-sample_path = data_path("omas/39915.json")   # or resolve the file explicitly
+ods = vaft.omas.sample_ods()          # preferred
+sample_path = vaft.data.sample(39915) # or resolve the artifact explicitly
 ```
-
-Note that `load_omas_json` *does* exist in the upstream `omas` package (`from omas import load_omas_json`); only the `vaft.omas` alias was removed.
 
 ## Recommended order
 

@@ -8,465 +8,38 @@
         loops:
           - r: 0.45   # Major radius
             z: 0.0    # Vertical position
-            phi: 0.0  # Toroidal angle
             area: 0.01
+            # No phi: a flux loop encircles the machine axis, so it has no
+            # scalar toroidal angle (issue #718).
       channels:
         - name: "FL1"
           gain: 1.0
           offset: 0.0
           calibration_factor: 1.0
 
-    b_field_pol_probe:
-      channels:
-        0:
-          label: Bz H-1 01
-          r: 0.089
-          z: 0.54
-          gain: -0.00524
-          field: 179
-          daq_type: 1
-        1:
-          label: Bz H-1 02
-          r: 0.089
-          z: 0.5
-          gain: 0.00524
-          field: 180
-          daq_type: 1
-        2:
-          label: Bz H-1 03
-          r: 0.089
-          z: 0.46
-          gain: -0.0051
-          field: 181
-          daq_type: 1
-        3:
-          label: Bz H-1 04
-          r: 0.089
-          z: 0.42
-          gain: 0.0051
-          field: 182
-          daq_type: 1
-        4:
-          label: Bz H-1 05
-          r: 0.089
-          z: 0.38
-          gain: 0.0051
-          field: 183
-          daq_type: 1
-        5:
-          label: Bz H-1 06
-          r: 0.089
-          z: 0.34
-          gain: -0.0051
-          field: 184
-          daq_type: 1
-        6:
-          label: Bz H-1 07
-          r: 0.089
-          z: 0.3
-          gain: -0.0051
-          field: 185
-          daq_type: 1
-        7:
-          label: Bz H-1 08
-          r: 0.089
-          z: 0.26
-          gain: -0.0051
-          field: 186
-          daq_type: 1
-        8:
-          label: Bz H-1 09
-          r: 0.089
-          z: 0.22
-          gain: 0.0051
-          field: 187
-          daq_type: 1
-        9:
-          label: Bz H-2 01
-          r: 0.089
-          z: 0.16
-          gain: -0.00524
-          field: 188
-          daq_type: 1
-        10:
-          label: Bz H-2 02
-          r: 0.089
-          z: 0.12
-          gain: -0.00524
-          field: 189
-          daq_type: 1
-        11:
-          label: Bz H-2 03
-          r: 0.089
-          z: 0.08
-          gain: 0.0051
-          field: 190
-          daq_type: 1
-        12:
-          label: Bz H-2 04
-          r: 0.089
-          z: 0.04
-          gain: -0.0051
-          field: 191
-          daq_type: 1
-        13:
-          label: Bz H-2 05
-          r: 0.089
-          z: 0
-          gain: -0.0051
-          field: 192
-          daq_type: 1
-        14:
-          label: Bz H-2 06
-          r: 0.089
-          z: -0.04
-          gain: 0.0051
-          field: 193
-          daq_type: 1
-        15:
-          label: Bz H-2 07
-          r: 0.089
-          z: -0.08
-          gain: -0.0051
-          field: 194
-          daq_type: 1
-        16:
-          label: Bz H-2 08
-          r: 0.089
-          z: -0.12
-          gain: -0.0051
-          field: 195
-          daq_type: 1
-        17:
-          label: Bz H-2 09
-          r: 0.089
-          z: -0.16
-          gain: -0.0051
-          field: 196
-          daq_type: 1
-        18:
-          label: Bz H-3 01
-          r: 0.089
-          z: -0.22
-          gain: 0.0051
-          field: 197
-          daq_type: 1
-        19:
-          label: Bz H-3 02
-          r: 0.089
-          z: -0.26
-          gain: -0.00524
-          field: 198
-          daq_type: 1
-        20:
-          label: Bz H-3 03
-          r: 0.089
-          z: -0.3
-          gain: -0.0051
-          field: 199
-          daq_type: 1
-        21:
-          label: Bz H-3 04
-          r: 0.089
-          z: -0.34
-          gain: -0.0051
-          field: 200
-          daq_type: 1
-        22:
-          label: Bz H-3 05
-          r: 0.089
-          z: -0.38
-          gain: -0.0051
-          field: 201
-          daq_type: 1
-        23:
-          label: Bz H-3 06
-          r: 0.089
-          z: -0.42
-          gain: 0.0051
-          field: 202
-          daq_type: 1
-        24:
-          label: Bz H-3 07
-          r: 0.089
-          z: -0.46
-          gain: 0.0051
-          field: 203
-          daq_type: 1
-        25:
-          label: Bz H-3 08
-          r: 0.089
-          z: -0.5
-          gain: 0.00524
-          field: 204
-          daq_type: 1
-        26:
-          label: Bz H-3 09
-          r: 0.089
-          z: -0.54
-          gain: 0.0051
-          field: 205
-          daq_type: 1
-        27:
-          label: Bz C1 01
-          r: 0.796
-          z: 0.22
-          gain: -0.005007511
-          field: 87
-          daq_type: 1
-        28:
-          label: Bz C1 02
-          r: 0.796
-          z: 0.26
-          gain: -0.004547522
-          field: 88
-          daq_type: 1
-        29:
-          label: Bz C1 03
-          r: 0.796
-          z: 0.3
-          gain: 0.00450045
-          field: 89
-          daq_type: 1
-        30:
-          label: Bz C1 04
-          r: 0.796
-          z: 0.34
-          gain: -0.004524887
-          field: 90
-          daq_type: 1
-        31:
-          label: Bz C1 05
-          r: 0.796
-          z: 0.38
-          gain: -0.004438526
-          field: 91
-          daq_type: 1
-        32:
-          label: Bz C1 06
-          r: 0.796
-          z: 0.42
-          gain: -0.00452284
-          field: 92
-          daq_type: 1
-        33:
-          label: Bz C2 01
-          r: 0.796
-          z: 0.18
-          gain: 0.004545455
-          field: 93
-          daq_type: 1
-        34:
-          label: Bz C2 03
-          r: 0.796
-          z: 0.1
-          gain: 0.004595588
-          field: 169
-          daq_type: 1
-        35:
-          label: Bz C2 04
-          r: 0.796
-          z: 0.06
-          gain: 0.004539265
-          field: 170
-          daq_type: 1
-        36:
-          label: Bz C2 05
-          r: 0.796
-          z: 0.02
-          gain: -0.004528986
-          field: 171
-          daq_type: 1
-        37:
-          label: Bz C3 01
-          r: 0.796
-          z: -0.02
-          gain: -0.00447828
-          field: 172
-          daq_type: 1
-        38:
-          label: Bz C3 02
-          r: 0.796
-          z: -0.06
-          gain: -0.004679457
-          field: 173
-          daq_type: 1
-        39:
-          label: Bz C3 03
-          r: 0.796
-          z: -0.1
-          gain: 0.00462963
-          field: 174
-          daq_type: 1
-        40:
-          label: Bz C3 04
-          r: 0.796
-          z: -0.14
-          gain: -0.00462963
-          field: 175
-          daq_type: 1
-        41:
-          label: Bz C3 05
-          r: 0.796
-          z: -0.18
-          gain: -0.00450045
-          field: 176
-          daq_type: 1
-        42:
-          label: Bz C4 01
-          r: 0.796
-          z: -0.22
-          gain: -0.004424779
-          field: 177
-          daq_type: 1
-        43:
-          label: Bz C4 02
-          r: 0.796
-          z: -0.26
-          gain: -0.004962779
-          field: 178
-          daq_type: 1
-        44:
-          label: Bz C4 03
-          r: 0.796
-          z: -0.3
-          gain: -0.004782401
-          field: 223
-          daq_type: 1
-        45:
-          label: Bz C4 04
-          r: 0.796
-          z: -0.34
-          gain: 0.004814636
-          field: 224
-          daq_type: 1
-        46:
-          label: Bz C4 05
-          r: 0.796
-          z: -0.38
-          gain: -0.004520796
-          field: 225
-          daq_type: 1
-        47:
-          label: Bz C4 06
-          r: 0.796
-          z: -0.42
-          gain: -0.00452284
-          field: 226
-          daq_type: 1
-        48:
-          label: Bz U1-01
-          r: 0.1377
-          z: 0.8328
-          gain: 0.002200186
-          field: 81
-          daq_type: 1
-        49:
-          label: Bz U1-02
-          r: 0.1377
-          z: 0.8728
-          gain: -0.001800815
-          field: 80
-          daq_type: 1
-        50:
-          label: Bz U1-03
-          r: 0.1377
-          z: 0.9128
-          gain: 0.002034091
-          field: 79
-          daq_type: 1
-        51:
-          label: Bz U1-04
-          r: 0.1377
-          z: 0.9528
-          gain: 0.002026749
-          field: 78
-          daq_type: 1
-        52:
-          label: Bz U1-05
-          r: 0.1377
-          z: 0.9928
-          gain: 0.001973928
-          field: 77
-          daq_type: 1
-        53:
-          label: Bz U1-06
-          r: 0.1377
-          z: 1.0328
-          gain: -0.002194922
-          field: 76
-          daq_type: 1
-        54:
-          label: Bz U1-07
-          r: 0.1377
-          z: 1.0728
-          gain: 0.002022318
-          field: 75
-          daq_type: 1
-        55:
-          label: Bz U1-08
-          r: 0.1377
-          z: 1.1128
-          gain: -0.00227653
-          field: 74
-          daq_type: 1
-        56:
-          label: Bz L1-01
-          r: 0.1377
-          z: -0.8328
-          gain: -0.002000964
-          field: 66
-          daq_type: 1
-        57:
-          label: Bz L1-02
-          r: 0.1377
-          z: -0.8728
-          gain: 0.00229523
-          field: 67
-          daq_type: 1
-        58:
-          label: Bz L1-03
-          r: 0.1377
-          z: -0.9128
-          gain: -0.002299347
-          field: 68
-          daq_type: 1
-        59:
-          label: Bz L1-04
-          r: 0.1377
-          z: -0.9528
-          gain: 0.002237959
-          field: 69
-          daq_type: 1
-        60:
-          label: Bz L1-05
-          r: 0.1377
-          z: -0.9928
-          gain: 0.001956307
-          field: 70
-          daq_type: 1
-        61:
-          label: Bz L1-06
-          r: 0.1377
-          z: -1.0328
-          gain: 0.00204412
-          field: 71
-          daq_type: 1
-        62:
-          label: Bz L1-07
-          r: 0.1377
-          z: -1.0728
-          gain: 0.002093101
-          field: 72
-          daq_type: 1
-        63:
-          label: Bz L1-08
-          r: 0.1377
-          z: -1.1128
-          gain: 0.001943771
-          field: 73
-          daq_type: 1
-      
+    # Poloidal probe geometry and calibration are NOT here.
+    #
+    # They live in two files under `vaft/data/geometry/`, and those are what
+    # the mapper reads:
+    #
+    #   MD.yaml                                 field_code + calibration
+    #   VEST_MagneticsGeometry_Full_ver_2302.yaml   field_code + r, z
+    #
+    # The two are joined by list position -- ODS probe `i` takes its signal and
+    # gain from entry `i` of the first and its position from entry `i` of the
+    # second -- and `test/test_magnetics_geometry_join.py` asserts they name the
+    # same probe at every index.
+    #
+    # A 64-entry `b_field_pol_probe.channels` block used to sit here carrying a
+    # third description: same probes, same values, but ordered differently, so
+    # it disagreed with the live pair at 11 of 64 positions. Nothing read it --
+    # `raw_database_info` is the only function that could, and it has no callers
+    # anywhere. It was removed in issue #843, which it caused: it looks
+    # authoritative, so comparing it against the live geometry reads as the live
+    # geometry being wrong. The plasma-free vacuum benchmark then rejected the
+    # "correction" that comparison suggested, three probes out of five getting
+    # worse, which is what established that the live pairing is the right one.
+
     # The legacy `rogowski_coil` block was removed in issue #214.
     #
     # It was read by nothing -- its only consumers were the
@@ -485,172 +58,6 @@
     #
     # The canonical sources are `plasma_current` below (channels, calibration,
     # shot eras) and `magnetics.rogowski_coil` in the ODS (the sensors).
-
-    # Internal Magnetic Probe Array: eight midplane Hall probes, plus a
-    # co-located Bz sensor per position.  Sign convention: I_TF = raw_field_1
-    # * -3e4 (see `tf` below) together with a Hall gain of -2/15 T/V -- the
-    # "Data gain" on the array's own DAQ wiring datasheet, the authoritative
-    # hardware configuration.  daq_channel is that datasheet's DAQ device/line
-    # (Dev8 for Hall, Dev15 for Bz), recorded for provenance only.
-    impa:
-      label: "Internal Magnetic Probe Array"
-      channels:
-        0:
-          label: "IMPA 01"
-          field: 114
-          daq_type: 0
-          daq_channel: "Dev8/0"
-        1:
-          label: "IMPA 02"
-          field: 115
-          daq_type: 0
-          daq_channel: "Dev8/1"
-        2:
-          label: "IMPA 03"
-          field: 116
-          daq_type: 0
-          daq_channel: "Dev8/2"
-        3:
-          label: "IMPA 04"
-          field: 117
-          daq_type: 0
-          daq_channel: "Dev8/3"
-        4:
-          label: "IMPA 05"
-          field: 118
-          daq_type: 0
-          daq_channel: "Dev8/4"
-        5:
-          label: "IMPA 06"
-          field: 119
-          daq_type: 0
-          daq_channel: "Dev8/5"
-        6:
-          label: "IMPA 07"
-          field: 120
-          daq_type: 0
-          daq_channel: "Dev8/6"
-        7:
-          label: "IMPA 08"
-          field: 121
-          daq_type: 0
-          daq_channel: "Dev8/7"
-      # Vertical-field sensors, one per position (Yang et al., Rev. Sci.
-      # Instrum. 85, 11D809 (2014)).  These carry the physics measurement; the
-      # Hall channels above establish where they are and how they are aligned.
-      # Per the wiring datasheet they are NOT co-located with their same-index
-      # Hall sensor -- see geometry.bz_radial_offset below.
-      bz_channels:
-        0: {label: "IMPA Bz 01", field: 122, daq_type: 0, daq_channel: "Dev15/0"}
-        1: {label: "IMPA Bz 02", field: 123, daq_type: 0, daq_channel: "Dev15/1"}
-        2: {label: "IMPA Bz 03", field: 124, daq_type: 0, daq_channel: "Dev15/2"}
-        3: {label: "IMPA Bz 04", field: 125, daq_type: 0, daq_channel: "Dev15/3"}
-        4: {label: "IMPA Bz 05", field: 126, daq_type: 0, daq_channel: "Dev15/4"}
-        5: {label: "IMPA Bz 06", field: 127, daq_type: 0, daq_channel: "Dev15/5"}
-        6: {label: "IMPA Bz 07", field: 128, daq_type: 0, daq_channel: "Dev15/6"}
-        7: {label: "IMPA Bz 08", field: 129, daq_type: 0, daq_channel: "Dev15/7"}
-
-      # Radial-field sensors 130-137 are retired -- the wiring datasheet
-      # assigns them no DAQ channel at all, confirming they were never
-      # connected, not merely quiet.  The 2014 design used B_R only to confirm
-      # the probe sat at the midplane, where B_R ~ 0.  Deliberately not mapped.
-      br_channels_retired: [130, 131, 132, 133, 134, 135, 136, 137]
-
-      crosstalk:
-        # A slight probe misalignment lets the toroidal field bleed into the
-        # vertical-field sensor.  During a TF-only interval the true Bz is
-        # negligible, so whatever the Bz sensor reads there is crosstalk, and
-        # its ratio to the measured toroidal field gives the incident angle.
-        max_angle_deg: 30.0
-        min_r_squared: 0.8
-
-      geometry:
-        z: 0.0
-        radial_pitch: 0.05
-        # Fit the effective radial pitch as well as R0: a probe inserted at an
-        # angle to the midplane projects its rigid 5 cm spacing onto a shorter
-        # radial step, so the ratio recovers the incident angle.
-        fit_pitch: true
-        # Per the wiring datasheet, the Bz and (retired) Br sensors are not
-        # co-located with their same-index Hall sensor: within one probe
-        # housing, Hall_i sits at R0+0.05*i, Bz_i at R0+0.01+0.05*i, and
-        # Br_i at R0+0.02+0.05*i.  These offsets are fixed hardware, not
-        # fitted.
-        bz_radial_offset: 0.01
-        br_radial_offset: 0.02
-        r0_initial: 0.4
-        # Upper bound covers the outboard vessel: the verified 2022-04-23
-        # alignment shots put the outermost wired channel at ~0.80 m, just
-        # outside the outboard magnetic probes at 0.796 m.
-        r_bounds: [0.1, 0.9]
-        # The array is insertable and its radial position is set per shot, so
-        # geometry is normally self-calibrated from the shot's own clean-TF
-        # window.  Set explicit radii only for a shot era where the array was
-        # surveyed or left fixed; they then take precedence.
-        r: null
-      calibration:
-        type: linear
-        # -2/15 T/V, from the DAQ wiring datasheet ("Data gain" column,
-        # -0.13333) -- the authoritative hardware configuration, not inferred
-        # from either legacy MATLAB script.  Channel-to-DAQ mapping: Hall1-8 =
-        # fields 114-121 on Dev8/0-7; Bz1-8 = fields 122-129 on Dev15/0-7;
-        # Br1-8 = fields 130-137, no DAQ channel assigned (retired).  Every
-        # Hall-type sensor (Hall and Bz) runs off the same 12 V supply.
-        gain: -0.13333333333333333
-        # The datasheet leaves the Bz "Data gain" column blank -- Bz sensors
-        # are wired to a separate DAQ card (Dev15) and their raw-voltage-to-
-        # tesla factor is not established.  Do not assume it equals the Hall
-        # gain; leave unset until confirmed, so field values stay in their
-        # native volts rather than fabricating a Tesla scale from an unverified
-        # assumption.
-        bz_gain: null
-        shot_era_overrides:
-          # 2022-04-23 IMPA alignment block (35376-35385).  Verified on
-          # 35376-35379 and 35385: with this sign the rigid 5 cm array fits
-          # the TF 1/R profile to ~1% with R0 ~ 0.48-0.50 m.
-          - min_shot: 35370
-            max_shot: 35390
-            gain: -0.13333333333333333
-            # Field 121 is not wired in this campaign; the array runs seven
-            # channels at the same rigid 5 cm pitch.
-            channels: [114, 115, 116, 117, 118, 119, 120]
-            bz_channels: [122, 123, 124, 125, 126, 127, 128]
-      processing:
-        sample_rate: 25000
-        signal_lowpass_hz: 250      # physics waveform (VEST_IMPAProcessing.m)
-        position_lowpass_hz: 2500   # legacy position fit (vest_impa_position.m)
-        baseline: first_sample
-        baseline_samples: 2500
-      tf_compensation:
-        tf_field: 1
-        tf_turns: 24
-        # The 2022-04-23 alignment shots show alpha ~ 1: the probes face the
-        # toroidal field and measure it directly.  The legacy +/-10 deg model
-        # assumed a near-vertical probe with a small TF pickup, which the data
-        # does not support; the bounds are kept for the legacy comparison.
-        orientation: toroidal
-        alpha_tolerance: 0.15
-        tilt_bounds_deg: [-10, 10]
-      calibration_window:
-        # Tuned against shots 39204 and 44740; a TF-only interval must carry a
-        # strong TF drive while the plasma and PF circuits are quiet.
-        # A TF-only interval needs a strong TF drive *for that shot*: VEST runs
-        # legitimate low-TF shots (39923 peaks at 1.3 kA, 39204 at 12.7 kA), so
-        # the threshold is a fraction of the shot's own peak above an absolute
-        # floor rather than a fixed ampere count tuned on one shot.
-        tf_current_min: 500.0
-        tf_current_min_fraction: 0.5
-        ip_max: 3000.0
-        pf_current_max: 500.0
-        min_duration: 0.005
-        tf_dynamic_range_min: 0.02
-        smoothing_samples: 25       # 1 ms: Ip/PF quiet must be sustained
-      quality:
-        # Set from the verified 2022-04-23 alignment shots, whose rigid-array
-        # fits land at 0.07-0.14; shots with a disturbed or absent array sit
-        # far above this.
-        max_normalized_rmse: 0.15
-        pitch_tolerance: 0.015
 
   # Canonical raw-field-first diagnostic definitions.  Existing keys above
   # remain for compatibility with legacy mapping readers.
@@ -858,6 +265,53 @@
           factor: 133.3223684211
           output_unit: Pa
 
+    # 6 kW 2.45 GHz ECH (port 5ML10) forward/reflected power detectors, issue
+    # #165. Same legacy log-detector transfer function as the VFIT donor
+    # (VESTDB_PostProcessAfterShot.m): P[W] = 1000 * 10**((V - 1.01745) / -0.2763).
+    # Recorded from shot ~29500 onward; absent fields make the component
+    # unavailable.
+    #
+    # valid_input_range [V]: the exponent explodes on negative-going pickup
+    # spikes (24 kW, 99 kW, even 1e17 kW seen from a 6 kW source), so detector
+    # voltages outside it are masked to NaN before calibration.
+    #   - lower bound 0.5 V: rated 6 kW <-> 0.802 V and ten times rated (60 kW)
+    #     <-> 0.526 V, so V < 0.5 V would mean > ~75 kW, physically implausible;
+    #   - upper bound 2.5 V: the EC-off baseline rails at ~2.13 V (~0.09 W), so
+    #     anything above 2.5 V (< 5 mW) is noise, not a power reading.
+    # In-range pickup spikes (e.g. ~0.72 V, ~12 kW) are NOT removed by this
+    # mask; smoothing is a presentation concern, not a mapping one.
+    ech_6kw_forward:
+      source:
+        field: 27
+        raw_unit: V
+        daq_type: slow
+      calibration:
+        type: logarithmic_power
+        scale: 1000.0
+        input_offset: 1.01745
+        slope: -0.2763
+        exponent_offset: 0.0
+        base: 10.0
+        output_unit: W
+      processing:
+        valid_input_range: [0.5, 2.5]
+
+    ech_6kw_reflected:
+      source:
+        field: 28
+        raw_unit: V
+        daq_type: slow
+      calibration:
+        type: logarithmic_power
+        scale: 1000.0
+        input_offset: 1.01745
+        slope: -0.2763
+        exponent_offset: 0.0
+        base: 10.0
+        output_unit: W
+      processing:
+        valid_input_range: [0.5, 2.5]
+
     tf:
       source:
         field: 1
@@ -927,6 +381,36 @@
           cutoff_frequency: 2500.0
           taps: 251
           smoothing_window: 10
+        # Which acquisition channel each PF circuit's current comes from,
+        # keyed by the same 0-based coil index as `coil_gains`. This used to
+        # live in the binary `Coil_info.mat`, which listed five circuits and
+        # so made "which coils exist" a property of a checked-in .mat file
+        # rather than of the machine: a discharge that energised PF2 was
+        # zero-filled with no way to say otherwise (#708).
+        #
+        # A circuit listed here is *acquirable*, not necessarily acquired: the
+        # channel is read per shot and a shot whose channel holds no waveform
+        # gets a zero, which is a statement about that discharge. A circuit
+        # absent from this map has no known channel at all.
+        #
+        # PF3, PF4, PF7 and PF8 are deliberately absent. The donor
+        # (`VEST_PFwaveform.m`) lists codes for them, but gives PF3/PF4 the
+        # same code as PF5, and no gain for any of the four -- so reading them
+        # would yield either another coil's waveform or an uncalibrated one.
+        # An absent entry is the honest answer until a calibration exists.
+        coil_field_codes:
+          0: 59   # PF1
+          4: 5    # PF5
+          5: 62   # PF6
+          8: 65   # PF9  -- one channel drives both, see efit_coilset.ties
+          9: 65   # PF10
+        # Circuits whose channel may legitimately hold no waveform: an empty
+        # channel means this discharge did not energise the coil, not that
+        # acquisition failed. Everything else in `coil_field_codes` is
+        # REQUIRED -- a missing waveform there raises rather than becoming a
+        # zero, which is the #44 zero-fill guard and must not be relaxed by
+        # adding a circuit that is only sometimes used.
+        optional_coils: [1]   # PF2
         coil_gains:
           0: 1.0e4
           1: 1.0e3
@@ -949,6 +433,11 @@
         # signal, so the policy is scoped to the negative-gain eras.
         saturation_repair: null
       revisions:
+        # PF9 had its own channel before the 19284 rewiring; afterwards it
+        # shares PF10's, which is what makes their currents bit-identical.
+        - to_shot: 19283
+          processing:
+            coil_field_codes: {8: 64}
         - from_shot: 19287
           to_shot: 20258
           processing:
@@ -970,19 +459,37 @@
             saturation_repair:
               5: {value: -5000.0, tolerance: 10.0}
         - from_shot: 38401
-          to_shot: 45964
+          to_shot: 38451
           processing:
             coil_gains: {0: -5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
             saturation_repair:
               5: {value: -5000.0, tolerance: 10.0}
+        # Same gains; the boundary is PF2's, not theirs. See the note below.
+        - from_shot: 38452
+          to_shot: 45964
+          processing:
+            coil_field_codes: {1: 4}
+            coil_gains: {0: -5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
+            saturation_repair:
+              5: {value: -5000.0, tolerance: 10.0}
+        # PF2 enters here and not earlier. The donor gives it field 4 for
+        # every shot from 19284, but this file records field 4 as the
+        # *diamagnetic loop* for 37505-38451, and the two cannot both be
+        # right. Declaring PF2 only from 38452 -- where the loop moved to 257
+        # and the conflict ends -- refuses to read a channel that provably
+        # belonged to another diagnostic. Verified on 46742: field 4 carries
+        # 25000 samples there and is empty on 39915, so the channel is real
+        # and per-shot.
         - from_shot: 45965
           to_shot: 48371
           processing:
+            coil_field_codes: {1: 4}
             coil_gains: {0: -1.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
             saturation_repair:
               5: {value: -5000.0, tolerance: 10.0}
         - from_shot: 48372
           processing:
+            coil_field_codes: {1: 4}
             coil_gains: {0: -1.0e4, 4: -5.0e3, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
             saturation_repair:
               5: {value: -5000.0, tolerance: 10.0}
@@ -1062,6 +569,47 @@
               flux_baseline_window: null
               flux_baseline_samples: 1750
               daq_mode: native_daq
+
+    # Kinetic-profile construction policy (issue #420): the VEST decisions a
+    # pipeline hands to the machine-independent vaft.process.profile and
+    # vaft.process.atomic routines. Those routines hold no VEST number; this
+    # block is the only place these values live. Every value carries a
+    # `status` -- assumed | measured | inferred -- so a stored profile can say
+    # whether the number that shaped it was known or guessed.
+    core_profiles:
+      # Radial coordinate the kinetic profiles are fitted in. rho_tor_norm is
+      # the IMAS convention; psi_norm is what every fit used before #420.
+      coordinate: rho_tor_norm
+      # Statistical Ti/Te coefficient for Thomson-only slices (no
+      # IDS/charge_exchange). Fitted on the 9 kinetic slices that carry both
+      # diagnostics, then applied to shots that do not: `inferred`.
+      ti_te_ratio:
+        value: 0.17
+        sigma: 0.08                       # slice-to-slice std of the fitted-profile coefficient
+        status: inferred
+        shots: [48224, 48226, 48233]
+        time_window_ms: [299, 301]
+        estimator: >-
+          pressure-matching coefficient a = sum(ne^2 Te Ti) / sum(ne^2 Te^2) on
+          psi_N <= 1, per slice, on the FITTED 129-point core_profiles curves
+          (the profiles the spline pressure encoding consumes); the alpha that
+          preserves the kinetic pressure when Ti is replaced by a*Te
+        slice_statistics: {mean: 0.190, median: 0.155}
+        cross_check: >-
+          0.170 +/- 0.010 from an independent raw-point pairing (measured
+          Thomson Te against the weighted charge-exchange Ti fit,
+          effective-variance through-origin regression:
+          vaft.process.profile.fit_ti_te_ratio); 0.163-0.171 across mapping
+          gfile, fit degree and pairing direction
+        known_trend: the early 299 ms slices sit high (~0.28) against the 300/301 ms cluster (~0.14)
+        derivation_script: ids_test/fit_ti_te_ratio.py   # cited by the original derivation; not in the repository
+      # Impurity content for line-radiation estimates when the ODS carries no
+      # ion density profile. Assumed, not measured; no derivation recorded.
+      impurities:
+        species: [C, O]
+        fractions:
+          C: {value: 1.0e-2, status: assumed}
+          O: {value: 1.0e-2, status: assumed}
 
     # Triple Langmuir probes (issue #152). Deliberately no unconditional
     # default block below `revisions:` -- a shot that matches no era has no
@@ -1191,6 +739,45 @@
           vd3: 89.8
           tip_length_mm: 2.0
           tip_radius_mm: 0.15
+
+    # VEST toroidal phase-reference Mirnov channels. Three outboard probes on
+    # the vessel wall between ports, at clock 1:30, 5:30 and 7:30, whose names
+    # carry those positions. They are the only toroidal array VEST had before
+    # the fluctuation array below was installed.
+    #
+    # last_operational_shot is what bounds them. The 2023-04 magnetics log
+    # (2304_Magnetics_VEST.xlsx, History sheet) records "207 - exists until
+    # 35520", and three archived shots above that boundary corroborate it:
+    # 39915 maps all three with zero samples, and the raw dumps for 44740 and
+    # 45531 contain no field 207, 209 or 241 at all. Like the fluctuation
+    # array's first_operational_shot, this is a gate the caller applies, not a
+    # per-channel field.
+    #
+    # Field 171 is DISPUTED and is left in place pending issue #825. The same
+    # machine logs classify it as `Bz C2 05` / group `OutBz` -- an outboard
+    # *equilibrium* probe at z = +0.02, filling that array's uniform 0.04 m
+    # ladder -- so it is very likely not a toroidal reference at all, and VAFT
+    # currently publishes it twice at two different toroidal angles. Its clock
+    # position here was inferred in issue #718 from a layout figure and is the
+    # inference #825 disputes; resolving it needs the VEST channel list.
+    toroidal_mirnov_reference:
+      source: {raw_unit: V, daq_type: slow}
+      role: phase_reference
+      geometry: {major_radius: 0.796, z: 0.02}
+      channels:
+        - {field: 207, identifier: OutMirnov_130_Bz, clock: 1.5, gain: 9.0e-4,
+           last_operational_shot: 35520}
+        - {field: 241, identifier: OutMirnov_530_Bz, clock: 5.5, gain: -9.0e-4,
+           last_operational_shot: 35520}
+        - {field: 209, identifier: OutMirnov_730_Bz, clock: 7.5, gain: 9.0e-4,
+           last_operational_shot: 35520}
+        # No bound: field 171 is still in the archives for 44740 and 45531, and
+        # it would be -- the logs class it as outboard equilibrium probe
+        # `Bz C2 05`, which records for every shot. The 35520 evidence covers
+        # 207/209/241 only, so applying it here would drop a channel whose data
+        # exists and would decide #825 by side effect.
+        - {field: 171, identifier: MagneticFieldProbe_C2-05_Bz, clock: 9.5, gain: 0.004529,
+           disputed: "issue #825: the magnetics logs class field 171 as outboard equilibrium probe Bz C2 05"}
 
     # VEST outboard Mirnov fluctuation array (issue #155). 30 raw-voltage
     # channels at three toroidal locations (45/135/225 deg), two vertical
@@ -1369,8 +956,8 @@
             label: "H-beta_4861"
             wavelength_central: 486.1E-9
           2:
-            label: "H-gamma_4341"
-            wavelength_central: 434.1E-9
+            label: "H-gamma_4340"
+            wavelength_central: 434.0E-9
           3:
             label: "OI_7770"
             wavelength_central: 777.0E-9
@@ -1402,7 +989,10 @@
     horizontal_94ghz:
       physical_channels: [5, 6, 7, 8, 9]
       z_m: [0.000, -0.075, -0.150, -0.225, -0.300]
-      phi_rad: 5.240
+      # Was `phi_rad: 5.240` (300.2 deg) -- the VEST *clock* angle of 10MR
+      # written straight into an IMAS field. The port is the datum now and phi
+      # is derived, so the two cannot disagree again (issue #718).
+      port: 10MR
       launch_r_m: 0.8
       mirror_r_m: 0.1
       path_length_m: 1.4
@@ -1412,7 +1002,9 @@
       filename_pattern: "{shot}_{tokens}_LID.mat"
     vertical_282ghz:
       r_m: 0.4
-      phi_rad: 3.665
+      # Was `phi_rad: 3.665` (210.0 deg), the clock angle of the 7 o'clock
+      # ports this system looks through -- see issue #718.
+      port: 7T6
       z_bottom_m: -1.2
       z_top_m: 1.2
       path_length_m: 2.4
@@ -1426,6 +1018,70 @@
   # must fail clearly rather than reuse a neighboring era. The documented
   # gaps (mid: 42138-42144, 42641) are intentionally left unlisted so they
   # fall through to that failure.
+  # Neutral beam injection, bootstrapped from the validated VEST NUBEAM case
+  # (issue #490 section 5). NUBEAM-DERIVED, NOT AS-BUILT: every value here was
+  # read from mdescr_VEST_190307.dat, the machine description that case runs
+  # with. It is the best available source until the NBI hardware package is
+  # received and reconciled -- that reconciliation is issue #265, and until it
+  # happens the registry keeps this mapping at `partial`.
+  #
+  # Values are stored exactly as NUBEAM states them, in NUBEAM's own units and
+  # sign convention, so the provenance survives; vaft.machine_mapping.nbi does
+  # the conversion into IMAS and every conversion has a test.
+  nbi:
+    provenance: mdescr_VEST_190307.dat
+    units: {length: m, angle: degree}
+    unit:
+      - name: B_001
+        beam_type: Standard
+        species: {label: H, a: 1, z_n: 1}
+        source:
+          # NUBEAM signs the tangency radius; IMAS wants a magnitude plus a
+          # separate direction, so both are recorded rather than one derived
+          # from the other by a sign rule verified on a single case.
+          tangency_radius_signed: -0.22129
+          # -1 = clockwise seen from above, IMAS's own convention. Established
+          # from the run rather than assumed: all 200 deposition markers land
+          # at negative toroidal angle relative to the source at phi=0, the
+          # marker pitch is +0.58 with 198 of 200 co-going, and published VEST
+          # material describes the beam as co-injected into a clockwise plasma
+          # current.
+          direction: -1
+          elevation: 0.0
+          # The source fires through 2MR. NUBEAM's mdescr put the source at its
+          # own phi = 0 -- a frame origin, not a VEST location -- and issue #718
+          # replaces it with the port. The two facts agree: #265 records the
+          # beam running from 2 o'clock toward 7 o'clock, i.e. toward increasing
+          # clock number, which is clockwise, which is the negative toroidal
+          # direction -- the `direction: -1` above, derived independently from
+          # 200 NUBEAM deposition markers. The geometry closes it too: 2 to 7
+          # o'clock is 150 deg, and a 0.22 m tangency radius at this port radius
+          # sweeps 2*arccos(0.22/0.8) = 147.8 deg, matching 150 and not the 210
+          # the opposite sense would need.
+          port: 2MR
+          distance_to_tangency: 2.625867
+          distance_to_aperture: 1.8
+        grid:
+          shape: Rectangle
+          # Half-widths, as NUBEAM states them. IMAS width_horizontal is the
+          # full width of the enclosing rectangle, so the mapping doubles them.
+          half_width: 0.06
+          half_height: 0.21
+          horizontal_divergence: 1.0
+          vertical_divergence: 1.0
+          # 1.2e11 m is NUBEAM's spelling of "unfocused"; the mapping leaves
+          # the IMAS focus fields absent rather than writing a fictitious
+          # hundred-million-kilometre focal length.
+          horizontal_focal_length: 120000000000.0
+          vertical_focal_length: 120000000000.0
+        aperture:
+          shape: Rectangle
+          half_width: 0.094646
+          half_height: 0.2317
+        # Energy and power are NOT here. They are per-case modelling inputs
+        # that enter through the `profiles` file, not machine description, and
+        # writing them as static machine metadata is exactly the conflation
+        # issue #490 section 5 warns against.
   langmuir_probes:
     mid:
       source:
@@ -1595,6 +1251,182 @@
 # Like `diagnostic_registry`, this top-level namespace is deliberately outside
 # the `0:` / shot-override runtime configuration: it is pipeline policy, not
 # per-shot hardware history.
+# --------------------------------------------------------------------------- #
+# Internal Magnetic Probe Array (IMPA)
+# --------------------------------------------------------------------------- #
+# Top-level, not nested under `magnetics`, because IMPA is not part of the
+# baseline magnetics description: it is an insertable, campaign-dependent
+# diagnostic with its own pipeline stage and its own HSDS source (issue
+# #305).  Shot-era variation lives in `calibration.shot_era_overrides`
+# below; a shot-keyed block may still override this section, and
+# `resolve_impa_config` merges it the same way it always did.
+# Internal Magnetic Probe Array: eight midplane Hall probes, plus a
+# co-located Bz sensor per position.  Sign convention: I_TF = raw_field_1
+# * -3e4 (see `tf` below) together with a Hall gain of -2/15 T/V -- the
+# "Data gain" on the array's own DAQ wiring datasheet, the authoritative
+# hardware configuration.  daq_channel is that datasheet's DAQ device/line
+# (Dev8 for Hall, Dev15 for Bz), recorded for provenance only.
+impa:
+  label: "Internal Magnetic Probe Array"
+  channels:
+    0:
+      label: "IMPA 01"
+      field: 114
+      daq_type: 0
+      daq_channel: "Dev8/0"
+    1:
+      label: "IMPA 02"
+      field: 115
+      daq_type: 0
+      daq_channel: "Dev8/1"
+    2:
+      label: "IMPA 03"
+      field: 116
+      daq_type: 0
+      daq_channel: "Dev8/2"
+    3:
+      label: "IMPA 04"
+      field: 117
+      daq_type: 0
+      daq_channel: "Dev8/3"
+    4:
+      label: "IMPA 05"
+      field: 118
+      daq_type: 0
+      daq_channel: "Dev8/4"
+    5:
+      label: "IMPA 06"
+      field: 119
+      daq_type: 0
+      daq_channel: "Dev8/5"
+    6:
+      label: "IMPA 07"
+      field: 120
+      daq_type: 0
+      daq_channel: "Dev8/6"
+    7:
+      label: "IMPA 08"
+      field: 121
+      daq_type: 0
+      daq_channel: "Dev8/7"
+  # Vertical-field sensors, one per position (Yang et al., Rev. Sci.
+  # Instrum. 85, 11D809 (2014)).  These carry the physics measurement; the
+  # Hall channels above establish where they are and how they are aligned.
+  # Per the wiring datasheet they are NOT co-located with their same-index
+  # Hall sensor -- see geometry.bz_radial_offset below.
+  bz_channels:
+    0: {label: "IMPA Bz 01", field: 122, daq_type: 0, daq_channel: "Dev15/0"}
+    1: {label: "IMPA Bz 02", field: 123, daq_type: 0, daq_channel: "Dev15/1"}
+    2: {label: "IMPA Bz 03", field: 124, daq_type: 0, daq_channel: "Dev15/2"}
+    3: {label: "IMPA Bz 04", field: 125, daq_type: 0, daq_channel: "Dev15/3"}
+    4: {label: "IMPA Bz 05", field: 126, daq_type: 0, daq_channel: "Dev15/4"}
+    5: {label: "IMPA Bz 06", field: 127, daq_type: 0, daq_channel: "Dev15/5"}
+    6: {label: "IMPA Bz 07", field: 128, daq_type: 0, daq_channel: "Dev15/6"}
+    7: {label: "IMPA Bz 08", field: 129, daq_type: 0, daq_channel: "Dev15/7"}
+
+  # Radial-field sensors 130-137 are retired -- the wiring datasheet
+  # assigns them no DAQ channel at all, confirming they were never
+  # connected, not merely quiet.  The 2014 design used B_R only to confirm
+  # the probe sat at the midplane, where B_R ~ 0.  Deliberately not mapped.
+  br_channels_retired: [130, 131, 132, 133, 134, 135, 136, 137]
+
+  crosstalk:
+    # A slight probe misalignment lets the toroidal field bleed into the
+    # vertical-field sensor.  During a TF-only interval the true Bz is
+    # negligible, so whatever the Bz sensor reads there is crosstalk, and
+    # its ratio to the measured toroidal field gives the incident angle.
+    max_angle_deg: 30.0
+    min_r_squared: 0.8
+
+  geometry:
+    z: 0.0
+    radial_pitch: 0.05
+    # Fit the effective radial pitch as well as R0: a probe inserted at an
+    # angle to the midplane projects its rigid 5 cm spacing onto a shorter
+    # radial step, so the ratio recovers the incident angle.
+    fit_pitch: true
+    # Per the wiring datasheet, the Bz and (retired) Br sensors are not
+    # co-located with their same-index Hall sensor: within one probe
+    # housing, Hall_i sits at R0+0.05*i, Bz_i at R0+0.01+0.05*i, and
+    # Br_i at R0+0.02+0.05*i.  These offsets are fixed hardware, not
+    # fitted.
+    bz_radial_offset: 0.01
+    br_radial_offset: 0.02
+    r0_initial: 0.4
+    # Upper bound covers the outboard vessel: the verified 2022-04-23
+    # alignment shots put the outermost wired channel at ~0.80 m, just
+    # outside the outboard magnetic probes at 0.796 m.
+    r_bounds: [0.1, 0.9]
+    # The array is insertable and its radial position is set per shot, so
+    # geometry is normally self-calibrated from the shot's own clean-TF
+    # window.  Set explicit radii only for a shot era where the array was
+    # surveyed or left fixed; they then take precedence.
+    r: null
+  calibration:
+    type: linear
+    # -2/15 T/V, from the DAQ wiring datasheet ("Data gain" column,
+    # -0.13333) -- the authoritative hardware configuration, not inferred
+    # from either legacy MATLAB script.  Channel-to-DAQ mapping: Hall1-8 =
+    # fields 114-121 on Dev8/0-7; Bz1-8 = fields 122-129 on Dev15/0-7;
+    # Br1-8 = fields 130-137, no DAQ channel assigned (retired).  Every
+    # Hall-type sensor (Hall and Bz) runs off the same 12 V supply.
+    gain: -0.13333333333333333
+    # The datasheet leaves the Bz "Data gain" column blank -- Bz sensors
+    # are wired to a separate DAQ card (Dev15) and their raw-voltage-to-
+    # tesla factor is not established.  Do not assume it equals the Hall
+    # gain; leave unset until confirmed, so field values stay in their
+    # native volts rather than fabricating a Tesla scale from an unverified
+    # assumption.
+    bz_gain: null
+    shot_era_overrides:
+      # 2022-04-23 IMPA alignment block (35376-35385).  Verified on
+      # 35376-35379 and 35385: with this sign the rigid 5 cm array fits
+      # the TF 1/R profile to ~1% with R0 ~ 0.48-0.50 m.
+      - min_shot: 35370
+        max_shot: 35390
+        gain: -0.13333333333333333
+        # Field 121 is not wired in this campaign; the array runs seven
+        # channels at the same rigid 5 cm pitch.
+        channels: [114, 115, 116, 117, 118, 119, 120]
+        bz_channels: [122, 123, 124, 125, 126, 127, 128]
+  processing:
+    sample_rate: 25000
+    signal_lowpass_hz: 250      # physics waveform (VEST_IMPAProcessing.m)
+    position_lowpass_hz: 2500   # legacy position fit (vest_impa_position.m)
+    baseline: first_sample
+    baseline_samples: 2500
+  tf_compensation:
+    tf_field: 1
+    tf_turns: 24
+    # The 2022-04-23 alignment shots show alpha ~ 1: the probes face the
+    # toroidal field and measure it directly.  The legacy +/-10 deg model
+    # assumed a near-vertical probe with a small TF pickup, which the data
+    # does not support; the bounds are kept for the legacy comparison.
+    orientation: toroidal
+    alpha_tolerance: 0.15
+    tilt_bounds_deg: [-10, 10]
+  calibration_window:
+    # Tuned against shots 39204 and 44740; a TF-only interval must carry a
+    # strong TF drive while the plasma and PF circuits are quiet.
+    # A TF-only interval needs a strong TF drive *for that shot*: VEST runs
+    # legitimate low-TF shots (39923 peaks at 1.3 kA, 39204 at 12.7 kA), so
+    # the threshold is a fraction of the shot's own peak above an absolute
+    # floor rather than a fixed ampere count tuned on one shot.
+    tf_current_min: 500.0
+    tf_current_min_fraction: 0.5
+    ip_max: 3000.0
+    pf_current_max: 500.0
+    min_duration: 0.005
+    tf_dynamic_range_min: 0.02
+    smoothing_samples: 25       # 1 ms: Ip/PF quiet must be sustained
+  quality:
+    # Set from the verified 2022-04-23 alignment shots, whose rigid-array
+    # fits land at 0.07-0.14; shots with a disturbed or absent array sit
+    # far above this.
+    max_normalized_rmse: 0.15
+    pitch_tolerance: 0.015
+
+
 diagnostics_time_policies:
   default: analysis
   windows:
@@ -1608,6 +1440,14 @@ diagnostics_time_policies:
       tstart: 0.0
       tend: 1.0
       dt: 4.0e-5
+    # Shared plasma-analysis range (issue #409): the EFIT constraint times and
+    # the diamagnetic-flux plasma window both search inside it, and the stretch
+    # before it on the analysis grid is the baseline. No component
+    # maps onto it, and the stage's --tstart/--tend never retune it.
+    plasma_analysis:
+      tstart: 0.28
+      tend: 0.36
+      dt: 4.0e-5
   components:
     pf_active: analysis
     magnetics: analysis
@@ -1616,10 +1456,479 @@ diagnostics_time_policies:
     langmuir_probes: analysis
     tf: full_discharge
     barometry: full_discharge
-    # Reserved for the EC power mapping (issue #165), which has no mapper yet.
-    # Registering it here means EC power inherits the full-discharge policy
-    # from the start rather than the short analysis window.
+    # EC power (issue #165): the `ec_launchers` IDS built by
+    # vaft.machine_mapping.ec_launchers. The ECH pulse starts before breakdown
+    # and outlasts the analysis window, so it follows the full-discharge policy.
     ec_power: full_discharge
+
+# Plasma-timing policy (issue #409): where the plasma window is searched for
+# EFIT coilset policy (issue #708): what EFIT is told VEST's PF circuits are.
+# Which of the ten circuits its Green table describes, how each is split into
+# current groups, and which groups are wired in series.
+#
+# Resolved by `vaft.machine_mapping.efit_coilset.vest_efit_coilset_policy` and
+# handed to the EFUND projection and the k-file writer. Splitting a circuit is
+# EFIT's bookkeeping, not a different machine: every group of a circuit carries
+# that circuit's current, which is what `ties` says in the k-file's &INWANT
+# matrix. VEST energises ten circuits; sixteen groups is how EFIT counts them.
+#
+# --------------------------------------------------------------------------
+# Which operating regime a reconstructed slice belongs to (issue #76).
+#
+# A reconstruction outcome only means something against the state the plasma
+# was in. Resolved by
+# `vaft.machine_mapping.equilibrium_regime.vest_equilibrium_regime_policy`
+# and applied by `vaft.validation.classify_equilibrium_regime`.
+#
+# Pipeline policy, outside the `0:` / shot overrides: a cohort definition that
+# changed between discharges could not group them.
+equilibrium_regime:
+
+  phase:
+    # `level`: flat where |Ip| >= flat_fraction_of_peak * peak|Ip|, and
+    # ramp_up / ramp_down by which side of the peak the slice falls on.
+    # `slope` is the other rule two studies were written against and is kept
+    # so an A/B can ask for it by name; it is not the default.
+    rule: level
+    flat_fraction_of_peak: 0.9
+    slope_fraction_of_peak_rate: 0.15
+    # Below this there is no plasma to classify. The same number as EFIT's
+    # CUTIP (`EFITInitializationConfig.current_threshold`), because a slice
+    # EFIT declares vacuum is not a slice with a phase.
+    vacuum_current_amperes: 15000.0
+    status: measured
+    provenance: >-
+      Measured over 39915, 41524 and 41672 (300 slices on the 1 ms
+      reconstruction grid). The level and slope rules agree on 295 of 300;
+      every disagreement is at the ramp/flat boundary, where an arbitrary
+      threshold has to choose. The choice was therefore made on what sets the
+      threshold's scale. The slope rule scales by that shot's max|dIp/dt|,
+      which is dominated by the termination and measured 2.73, 9.38 and
+      2.34 MA/s -- a 3.4x spread that says how violent the disruption was,
+      not how flat the flat top is. The level rule scales by peak |Ip|, a
+      property of the plasma being classified.
+      An absolute MA/s threshold and a peak-normalised rate were both tried,
+      on the expectation that a fixed scale would transfer across shots
+      better for cohort work. Both measured WORSE: median |Ip|/peak inside
+      the flat cohort spread 0.12 and 0.10 across the three shots against
+      0.02 for either shot-normalised rule, and the absolute rule's cohort
+      size swung from 4 to 24 slices. Flatness is intrinsically relative.
+      Known cost: the peak is needed, so this rule is not causal and cannot
+      label a discharge while it is running. It is post-hoc only.
+
+  topology:
+    # EFIT's `limloc`, mapped rather than interpreted. An unlisted value is
+    # `unknown`, which is deliberately NOT the same answer as `limited`:
+    # issue #76 requires unknown and ambiguous states to stay distinct from
+    # negative classifications.
+    limloc:
+      IN:   inboard_limited
+      OUT:  outboard_limited
+      TOP:  top_limited
+      BOT:  bottom_limited
+      SNT:  single_null_top
+      SNB:  single_null_bottom
+      DN:   double_null
+      VAC:  vacuum
+      LIM:  limited
+      MAG:  magnetic_axis_only
+    status: inferred
+    provenance: >-
+      The names EFIT writes in write_a.f90's limloc field. VEST's reference
+      reconstructions come back IN (inboard limited) and VAC; the diverted
+      values are listed because EFIT can write them, not because VEST has
+      been observed to produce one -- shot 46742 was checked and its eight
+      converged slices are all IN. Nothing here claims VEST diverts.
+
+# Like `diagnostics_time_policies` and `plasma_timing` this is pipeline policy,
+# outside the `0:` / shot overrides.
+efit_coilset:
+
+  # Every circuit the machine has, energised or not. A circuit with no current
+  # becomes a group carrying zero, weighted out of the fit and pinned there --
+  # which costs 0.39 MiB of Green table per group and means a discharge that
+  # energised a different subset needs no new table. Sizing the table to the
+  # energised set instead would make a 170 MB cached artifact a function of the
+  # shot, which is why it is not done.
+  #
+  # This list and the table's `nfsum` must agree; changing one means
+  # regenerating the other.
+  groups:
+    PF1:
+      split: axial
+      edges: [0.0, 0.3, 0.6, 0.9, 1.2]   # |z| boundaries, mirrored below z=0
+      status: inferred
+      provenance: >-
+        The legacy mhdin.dat described the solenoid as eight axial conductors
+        and these are its boundaries. Turn-conserving: the eight segments hold
+        632 turns in total, PF1's full winding.
+    PF2:
+      split: midplane
+      status: inferred
+      provenance: "as PF5; unenergised in every reference discharge."
+    PF3:
+      split: midplane
+      status: inferred
+      provenance: "as PF5; unenergised in every reference discharge."
+    PF4:
+      split: midplane
+      status: inferred
+      provenance: "as PF5; unenergised in every reference discharge."
+    PF5:
+      split: midplane
+      status: inferred
+      provenance: "Legacy convention: a non-solenoid circuit is split at z = 0."
+    PF6:
+      split: midplane
+      status: inferred
+      provenance: "as PF5"
+    PF7:
+      split: midplane
+      status: inferred
+      provenance: "as PF5; unenergised in every reference discharge."
+    PF8:
+      split: midplane
+      status: inferred
+      provenance: "as PF5; unenergised in every reference discharge."
+    PF9:
+      split: midplane
+      status: inferred
+      provenance: "as PF5"
+    PF10:
+      split: midplane
+      status: inferred
+      provenance: "as PF5"
+
+  # Which circuits an experiment energised. `declared` is the answer for a
+  # product with no PF record; when there is one, the measured currents decide
+  # and a disagreement is reported with both answers rather than resolved
+  # quietly. Detection runs over the reconstruction window, not the whole
+  # record: a circuit ramped down before the first constraint time contributes
+  # nothing to the fit.
+  energisation:
+    declared: [PF1, PF5, PF6, PF9, PF10]
+    threshold_amperes: 100.0
+    status: measured
+    provenance: >-
+      Issue #695: peak |I| is exactly 0.0 A for PF2, PF3, PF4, PF7 and PF8 in
+      shots 39915, 41524 and 41672, and 6.7e2 to 1.9e4 A for the other five.
+      Exactly zero, not merely small: those circuits have no acquisition
+      channel, so the mapping writes a literal zero array. The absence of a
+      channel is evidence about the machine, not missing data. The 100 A
+      threshold sits two orders below the smallest energised peak and two
+      above integrator drift; no circuit in any reference shot falls between.
+
+  # Floor on the k-file's BITFC entry, in amperes. A circuit at exactly 0.0 A
+  # would otherwise take a zero error bar from the relative uncertainty, which
+  # is either a division by zero or an infinitely stiff constraint by
+  # accident. The floor makes the pin at zero deliberate and says how stiff.
+  coil_current_error_floor_amperes:
+    value: 1.0e-6
+    status: assumed
+    provenance: >-
+      The smallest error bar any energised circuit produces across the
+      reference set is 2.7e-5 A, so a 1 uA floor sits twenty-seven times below
+      it and cannot bind on a real measurement -- it only replaces an exact
+      zero.
+
+  # Circuits driven by one current. Each entry is one equality row of the
+  # k-file's &INWANT matrix, on top of the rows tying a circuit's own groups
+  # together.
+  ties:
+    - groups: [PF9L, PF10U]
+      status: measured
+      provenance: >-
+        Issue #695: PF9 and PF10 currents are bit-identical -- the same
+        samples, not equal within noise -- over the whole record in shots
+        39915, 41524 and 41672. The legacy &INWANT matrix asserted the same
+        equality in its twelfth column, where it was written down without
+        being said.
+
+# and the VEST-tuned rules the generic detectors in `vaft.process.onset` run
+# with. `vaft.omas.plasma_timing` composes them into the plasma window with its
+# provenance; the raw-field diamagnetic mapper reads the same rules. Like
+# `diagnostics_time_policies` this is pipeline policy, outside the `0:` / shot
+# overrides. Rules are keyed by the signal they were tuned on: an impurity line
+# (C III, O series) has its own temporal morphology and gets its own `lines`
+# entry rather than the H-alpha values. The sibling blocks `discharge_timing`
+# (actuator onsets) and `plasma_features` (representative peaks) are separate
+# concepts and sit beside this one, not inside it.
+plasma_timing:
+  window: plasma_analysis        # a diagnostics_time_policies window
+  baseline_lead_s: 0.02          # baseline = [tstart - lead, tstart)
+  # H-alpha_6563 envelope rule (keyword arguments of active_window): median-5,
+  # threshold max(2 % peak, 5 sigma), persistence 0.5 ms, width >= 1 ms,
+  # prominence >= 10 sigma, integral >= 1 % -- 0/51 early-light and 1/51
+  # non-plasma false onsets on the hand-reviewed first pass of the raw-database
+  # corpus; the full scan is workflow/plasma_onset/scan_corpus.py and its
+  # table test/data/onset_corpus.json (shots 39900-41700; the summary holds
+  # the counts, a retune means a re-scan).
+  h_alpha:
+    # The unit is the one main discharge, not every burst of light (#842).
+    # Without this the rule returned the envelope of every accepted segment,
+    # so a record with an earlier flash opened its window at the flash: on the
+    # shots where the plasma current names which burst was the discharge, the
+    # first segment was the right one only 11 times in 35.  The current rule
+    # has always asked the principal-pulse question; now both sources ask it.
+    principal_only: true
+    prefilter_samples: 5
+    fraction: 0.02
+    sigma: 5.0
+    hold_s: 5.0e-4
+    min_width_s: 1.0e-3
+    min_prominence_sigma: 10.0
+    min_integral_fraction: 0.01
+    gap_s: 1.0e-3
+    post_quiet_s: 2.0e-3
+  # Per-line rules keyed by the processed_line label, e.g. "CIII_1909": {...}.
+  lines: {}
+  # Plasma-current principal-pulse rule: zero-phase low-pass 2 kHz, pickup
+  # floor 3x, offset at 10 % of peak with the collapse fallback -- 84/84
+  # windows on the hand-reviewed first pass, offsets within [-2.2, 0] ms of
+  # the light; the full scan's per-shot deltas and agreement are in the table.
+  ip:
+    principal_only: true
+    pickup_floor: 3.0
+    cutoff_hz: 2000.0
+    fraction: 0.02
+    sigma: 5.0
+    hold_s: 5.0e-4
+    min_width_s: 1.0e-3
+    end_fraction: 0.10
+    collapse_fallback: true
+  # H-alpha channel usability checks.
+  usability:
+    min_samples: 250
+    min_finite_fraction: 0.99
+    rail_level: 5.0              # the fast filterscope digitizer rails here (41524)
+    rail_fraction: 0.98
+    max_railed_fraction: 0.01
+    min_baseline_mad: 2.0e-4     # a.u.; rejects the quantized 2026-08 records
+    min_valid_fraction: 0.9
+  # Cross-check tolerances between the optical and the current window.
+  agreement:
+    onset_tolerance_s: 1.0e-3    # Ip earlier than this -> ip_before_halpha
+    lag_tolerance_s: 1.0e-2      # Ip later than this  -> halpha_leads_ip_large
+    offset_tolerance_s: 3.0e-3   # |offset delta| above -> offset_disagreement
+
+# Discharge-timing policy (issue #409): actuator and drive events, independent
+# of the plasma hierarchy above -- measured onsets, never a trigger unless a
+# command timestamp exists (none is mapped today). `vaft.omas.discharge_timing`
+# composes them: per-coil onsets, the ohmic (solenoid) onset that anchors the
+# loop-voltage excursion, and the loop-voltage zero crossing that is the
+# 'vloop' time convention.
+discharge_timing:
+  window: plasma_analysis        # searched inside; same window as plasma_timing
+  baseline_lead_s: 0.02          # baseline = [tstart - lead, tstart)
+  ohmic_coil: PF1                # pf_active.coil.{i}.name (identifier as fallback) of the solenoid drive
+  loop_voltage:
+    selection: inboard_midplane  # inboard_flux_loop family (probe_family), nearest |z| with a finite record
+    prefer_measured_voltage: true  # flux_loop.{i}.voltage.data when stored, else -d(flux)/dt
+  # Per-coil onset rule on |I - baseline| (keyword arguments of active_window):
+  # the principal pulse of the coil current with a 3x pickup floor. An idle coil
+  # is flat and yields no onset (reference_flat); a bipolar coil is judged on
+  # its magnitude.
+  coil:
+    principal_only: true
+    pickup_floor: 3.0
+    fraction: 0.02
+    sigma: 5.0
+    hold_s: 5.0e-4
+  # Loop-voltage event rule (keyword arguments of zero_crossing_after_excursion):
+  # the sustained |V| run starting within 0.5 ms of the ohmic onset is the
+  # solenoid excursion; the event is the first sign change of V after its
+  # extremum. |V| dipping under 10 % of the extremum and climbing back above
+  # 2 x 10 % before crossing is approached_without_crossing. Packaged products
+  # (-dflux/dt on Flux Loop #10): 39915 extremum -5.4 V at 293.1 ms, crossing
+  # 302.2 ms; 41524/41672 extremum -6.5 V at 294.2 ms, approach 0.1-0.2 V at
+  # 307.0 ms, second dip, crossing 311.5 / 311.1 ms.
+  vloop:
+    fraction: 0.05
+    sigma: 5.0
+    hold_s: 5.0e-4
+    anchor_tolerance_s: 5.0e-4
+    approach_fraction: 0.10
+    approach_hysteresis: 2.0
+
+# Plasma-features policy (issue #409): representative peaks of the plasma
+# phase, measured only inside the plasma window `vaft.omas.plasma_timing`
+# found -- never over the analysis range (no window: nothing is computed, and
+# the record says why). Every rule block is keyword arguments of
+# `vaft.process.onset.robust_peak`, keyed by the signal it was tuned on; the
+# span, the baseline and the H-alpha usability floors are the plasma_timing
+# block's. `ip_ramp_end` is optional and may be added later, never required.
+plasma_features:
+  window: plasma_timing          # the only value: the timing's window, with its provenance
+  # Plasma-current peak: median-5, zero-phase 2 kHz, the run at half height
+  # must last 2 ms (a coil-firing impulse never does).
+  ip:
+    prefilter_samples: 5
+    cutoff_hz: 2000.0
+    sigma: 5.0
+    level_fraction: 0.5
+    min_width_s: 2.0e-3
+  # H-alpha_6563 peak on the line that answered for the plasma (slow line,
+  # validated fast line as fallback). 39915's raw maximum is a one-sample
+  # spike on the window's last sample; the median-5 peak is a third of it.
+  h_alpha:
+    prefilter_samples: 5
+    sigma: 5.0
+    level_fraction: 0.5
+    min_width_s: 1.0e-3
+  # Impurity lines by processed_line label, each with its own rule (never the
+  # H-alpha values). A configured label absent from a product is `absent`.
+  lines:
+    OI_7770:
+      prefilter_samples: 5
+      sigma: 5.0
+      level_fraction: 0.5
+      min_width_s: 1.0e-3
+    CIII_1909:
+      prefilter_samples: 5
+      sigma: 5.0
+      level_fraction: 0.5
+      min_width_s: 1.0e-3
+  # Diamagnetic flux: the signed sample at the largest |deviation| (VEST's
+  # stored flux is negative-going; a paramagnetic shot would come back
+  # positive). Value and time only -- no window of its own.
+  diamagnetic:
+    polarity: absolute
+    prefilter_samples: 5
+    level_fraction: 0.5
+    min_width_s: 2.0e-3
+
+# Canonical VEST port table. Like `diagnostic_registry` below, this top-level
+# namespace is machine description and is intentionally not part of the `0:` /
+# shot-override runtime configuration.
+#
+# `clock` is the VEST hardware coordinate and is CLOCKWISE-POSITIVE: it is not
+# IMAS phi, which runs the other way. No toroidal angle is stored here -- it is
+# derived by vaft.machine_mapping.conventions.port_toroidal_angle, so the two
+# can never drift apart. See that module for the evidence behind the negation.
+#
+# Port name grammar (port-status document, slide 1):
+#   <clock><location1><location2><size>   e.g. 12MM10 = 12 o'clock, main
+#                                              chamber, middle tier, 10 inch
+#   location1: M(main) U(upper) L(lower) T(top) B(bottom)
+#   location2: M(middle) U(upper) L(lower)  -- main chamber only
+#   size     : 4, 4.5, 6, 10, 12 inch, or R (rectangular)
+#
+# `use: Available` and `use: No port` are recorded rather than omitted: an empty
+# port is a fact about the machine, and dropping it loses the distinction
+# between "nothing is installed" and "we did not look".
+port_map:
+  reference:
+    documents:
+      - file: 20230112_PresentPortStatus_ForUpdate_rev7.pptx
+        author: 정원익
+        date: 2023-01-11
+        defines: port clock positions and per-port assignments
+        clock_zero: 12 o'clock (large main door)
+        clock_sense: clockwise-positive, 30 degrees per hour
+      - source: "Yang thesis, Tearing Modes during Tokamak Plasma Current Ramp Up, Fig. 2.4"
+        defines: VEST physical +B_phi is counter-clockwise in a labelled top view
+      - source: VEST magnetic diagnostic layout figure (top view and toroidal/poloidal plane)
+        defines: toroidal placement of the four magnetic probe families
+    note: >-
+      clock is a clockwise-positive hardware coordinate, NOT IMAS phi; convert
+      with vaft.machine_mapping.conventions.port_toroidal_angle
+  ports:
+    # -- Main chamber, middle/upper/lower tiers ---------------------------
+    - {name: 1MU10,  clock: 1,  chamber: main, tier: upper,  size_inch: 10, use: Cryo pump port}
+    - {name: 1MM10,  clock: 1,  chamber: main, tier: middle, size_inch: 10, use: Thomson scattering laser dump}
+    - {name: 1ML10,  clock: 1,  chamber: main, tier: lower,  size_inch: 10, use: Available,
+       note: using this port requires removing all poloidal field coils}
+    - {name: 2MR,    clock: 2,  chamber: main, size: rectangular, use: NBI port}
+    - {name: 3MU,    clock: 3,  chamber: main, tier: upper,  use: No port}
+    - {name: 3MM12,  clock: 3,  chamber: main, tier: middle, size_inch: 12, use: LHW antenna port 2}
+    - {name: 3MR,    clock: 3,  chamber: main, size: rectangular, use: No port}
+    - {name: 4MU10,  clock: 4,  chamber: main, tier: upper,  size_inch: 10, use: ECH 3.0 kW 7.9 GHz}
+    - {name: 4MM10,  clock: 4,  chamber: main, tier: middle, size_inch: 10, use: LHW antenna port 1}
+    - {name: 4ML10,  clock: 4,  chamber: main, tier: lower,  size_inch: 10, use: Magnetic probe 1}
+    - {name: 5MU10,  clock: 5,  chamber: main, tier: upper,  size_inch: 10, use: Limiter and SEE detector feed-through}
+    - {name: 5MM10,  clock: 5,  chamber: main, tier: middle, size_inch: 10, use: Carbon limiter}
+    - {name: 5ML10,  clock: 5,  chamber: main, tier: lower,  size_inch: 10, use: ECH 6 kW 2.45 GHz}
+    - {name: 6MR,    clock: 6,  chamber: main, size: rectangular, use: Entrance,
+       note: fast camera, H-alpha / O I filterscope and hard X-ray detector view through this port}
+    - {name: 7M12,   clock: 7,  chamber: main, size_inch: 12, use: Turbo pump port}
+    - {name: 8MU10,  clock: 8,  chamber: main, tier: upper,  size_inch: 10, use: RGA}
+    - {name: 8MM10,  clock: 8,  chamber: main, tier: middle, size_inch: 10, use: Thomson scattering laser port}
+    - {name: 8ML10,  clock: 8,  chamber: main, tier: lower,  size_inch: 10, use: Available,
+       note: using this port requires removing all poloidal field coils}
+    - {name: 9MU10,  clock: 9,  chamber: main, tier: upper,  size_inch: 10, use: MD feed-through}
+    - {name: 9MM10,  clock: 9,  chamber: main, tier: middle, size_inch: 10, use: Thomson scattering viewing port}
+    - {name: 9ML10,  clock: 9,  chamber: main, tier: lower,  size_inch: 10, use: Thomson scattering shutter port}
+    - {name: 10MR,   clock: 10, chamber: main, size: rectangular, use: Interferometry / ion Doppler spectroscopy}
+    - {name: 11M12,  clock: 11, chamber: main, size_inch: 12, use: Triple probe and internal magnetic probe array}
+    - {name: 12MU10, clock: 12, chamber: main, tier: upper,  size_inch: 10, use: MD feed-through}
+    - {name: 12MM10, clock: 12, chamber: main, tier: middle, size_inch: 10, use: Soft X-ray}
+    - {name: 12ML10, clock: 12, chamber: main, tier: lower,  size_inch: 10, use: Magnetic probe 2}
+    # -- Top chamber -----------------------------------------------------
+    - {name: 1T6,    clock: 1,  chamber: top, size_inch: 6, use: Soft X-ray}
+    - {name: 2T,     clock: 2,  chamber: top, use: NBI duct and halogen lamp}
+    - {name: 3T6,    clock: 3,  chamber: top, size_inch: 6, use: Gas feed (LFS)}
+    - {name: 4T6,    clock: 4,  chamber: top, size_inch: 6, use: Gas feed (HFS)}
+    - {name: 5T6,    clock: 5,  chamber: top, size_inch: 6, use: View port}
+    - {name: 6T,     clock: 6,  chamber: top, use: No port}
+    - {name: 7T6,    clock: 7,  chamber: top, size_inch: 6, use: 280 GHz interferometer}
+    - {name: 8T6,    clock: 8,  chamber: top, size_inch: 6, use: Boron oven}
+    - {name: 9T6,    clock: 9,  chamber: top, size_inch: 6, use: Available}
+    - {name: 10T,    clock: 10, chamber: top, use: No port}
+    - {name: 11T6,   clock: 11, chamber: top, size_inch: 6, use: Available}
+    - {name: 12T6,   clock: 12, chamber: top, size_inch: 6, use: Soft X-ray}
+    # -- Upper chamber ---------------------------------------------------
+    - {name: 1U6,    clock: 1,  chamber: upper, size_inch: 6, use: Available}
+    - {name: 1U4,    clock: 1,  chamber: upper, size_inch: 4, use: Available}
+    - {name: 2U,     clock: 2,  chamber: upper, use: NBI duct and halogen lamp}
+    - {name: 3UR,    clock: 3,  chamber: upper, size: rectangular, use: Window}
+    - {name: 4U6,    clock: 4,  chamber: upper, size_inch: 6, use: Available}
+    - {name: 4U4,    clock: 4,  chamber: upper, size_inch: 4, use: Available}
+    - {name: 5U6,    clock: 5,  chamber: upper, size_inch: 6, use: Available}
+    - {name: 5U4,    clock: 5,  chamber: upper, size_inch: 4, use: Available}
+    - {name: 6U,     clock: 6,  chamber: upper, use: No port}
+    - {name: 7U6,    clock: 7,  chamber: upper, size_inch: 6, use: Available}
+    - {name: 7U4,    clock: 7,  chamber: upper, size_inch: 4, use: Available}
+    - {name: 8U6,    clock: 8,  chamber: upper, size_inch: 6, use: GDC electrode}
+    - {name: 8U4,    clock: 8,  chamber: upper, size_inch: 4, use: Available}
+    - {name: 9UR,    clock: 9,  chamber: upper, size: rectangular, use: Available}
+    - {name: 10U,    clock: 10, chamber: upper, use: No port}
+    - {name: 11U6,   clock: 11, chamber: upper, size_inch: 6, use: PIG}
+    - {name: 11U4,   clock: 11, chamber: upper, size_inch: 4, use: Available}
+    - {name: 12U6,   clock: 12, chamber: upper, size_inch: 6, use: Available}
+    - {name: 12U4,   clock: 12, chamber: upper, size_inch: 4, use: Available}
+    # -- Lower chamber ---------------------------------------------------
+    - {name: 1L6,    clock: 1,  chamber: lower, size_inch: 6, use: MD feed-through}
+    - {name: 1L4,    clock: 1,  chamber: lower, size_inch: 4, use: Available}
+    - {name: 2L,     clock: 2,  chamber: lower, use: NBI duct and halogen lamp}
+    - {name: 3LR,    clock: 3,  chamber: lower, size: rectangular, use: Available}
+    - {name: 4L6,    clock: 4,  chamber: lower, size_inch: 6, use: Available}
+    - {name: 4L4,    clock: 4,  chamber: lower, size_inch: 4, use: Available}
+    - {name: 5L6,    clock: 5,  chamber: lower, size_inch: 6, use: Available}
+    - {name: 5L4,    clock: 5,  chamber: lower, size_inch: 4, use: Helicity injector}
+    - {name: 6L,     clock: 6,  chamber: lower, use: No port}
+    - {name: 7L6,    clock: 7,  chamber: lower, size_inch: 6, use: Available}
+    - {name: 7L4,    clock: 7,  chamber: lower, size_inch: 4, use: Available}
+    - {name: 8L6,    clock: 8,  chamber: lower, size_inch: 6, use: Feed-through}
+    - {name: 8L4,    clock: 8,  chamber: lower, size_inch: 4, use: Available}
+    - {name: 9LR,    clock: 9,  chamber: lower, size: rectangular, use: Available}
+    - {name: 10L,    clock: 10, chamber: lower, use: No port}
+    - {name: 11L6,   clock: 11, chamber: lower, size_inch: 6, use: Roughing / venting valve}
+    - {name: 11L4,   clock: 11, chamber: lower, size_inch: 4, use: Helicity injector}
+    - {name: 12L6,   clock: 12, chamber: lower, size_inch: 6, use: GDC}
+    - {name: 12L4,   clock: 12, chamber: lower, size_inch: 4, use: Available}
+    # -- Bottom chamber --------------------------------------------------
+    - {name: 1B6,    clock: 1,  chamber: bottom, size_inch: 6, use: Available}
+    - {name: 2B,     clock: 2,  chamber: bottom, use: NBI duct and halogen lamp}
+    - {name: 3B6,    clock: 3,  chamber: bottom, size_inch: 6, use: Charge exchange spectroscopy}
+    - {name: 4B6,    clock: 4,  chamber: bottom, size_inch: 6, use: Available}
+    - {name: 5B6,    clock: 5,  chamber: bottom, size_inch: 6, use: Available}
+    - {name: 6B,     clock: 6,  chamber: bottom, use: No port}
+    - {name: 7B6,    clock: 7,  chamber: bottom, size_inch: 6, use: 280 GHz interferometer}
+    - {name: 8B6,    clock: 8,  chamber: bottom, size_inch: 6, use: Available}
+    - {name: 9B6,    clock: 9,  chamber: bottom, size_inch: 6, use: Charge exchange spectroscopy}
+    - {name: 10B,    clock: 10, chamber: bottom, use: No port}
+    - {name: 11B6,   clock: 11, chamber: bottom, size_inch: 6, use: Boron oven}
+    - {name: 12B6,   clock: 12, chamber: bottom, size_inch: 6, use: Available}
 
 # Canonical ownership and availability registry. This top-level namespace is
 # intentionally not part of the `0:` / shot-override runtime configuration.
@@ -1710,7 +2019,10 @@ diagnostic_registry:
     source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
     availability: If-requested
     lifecycle: in_maintenance
-    mapping_status: not_implemented
+    # 6 kW 2.45 GHz line only (fields 27/28, issue #165); launching position,
+    # mode and steering remain unmapped (issue #266).
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.ec_launchers, entrypoint: ec_launchers}
     quantities: {static: [frequency, launching_position, mode], measured: [forward_power, reversed_power], derived: []}
   nbi:
     name: Neutral beam injection
@@ -1719,10 +2031,10 @@ diagnostic_registry:
     ids: nbi
     ids_path: nbi
     responsible: [{name: 정윤호}]
-    source: {type: unknown}
+    source: {type: model, note: "NUBEAM mdescr_VEST_190307.dat - not as-built, see #265"}
     availability: If-requested
     lifecycle: in_maintenance
-    mapping_status: not_implemented
+    mapping_status: partial
     quantities: {static: [aperture, beam_line, source_position, species], measured: [beam_voltage, beam_current, suppression_voltage, particle_fraction, power], derived: []}
   helicity_injection:
     name: Helicity injection
@@ -1818,7 +2130,12 @@ diagnostic_registry:
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
-    ids_path: magnetics.b_field_pol_probe
+    # The array is published by its own `impa` stage into the `impa` HSDS
+    # source, not appended to the baseline magnetics product (issue #305), so
+    # the path is the one inside that product -- Hall channels on the toroidal
+    # node, vertical-field sensors on the poloidal one.
+    ids_path: magnetics.b_field_tor_probe
+    publication: {stage: impa, source: impa}
     responsible: [{name: 남건우}]
     source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
     availability: If-requested
@@ -1833,6 +2150,26 @@ diagnostic_registry:
     ids: camera_visible
     ids_path: camera_visible
     responsible: [{name: Joint}]
+    # Export directories carry an acquisition suffix on the directory and on
+    # every file inside it (`27134_50kHz/`, `36976-N001/`). The suffix is
+    # stripped when data is consolidated into `legacy/camera_visible/{shot}/`
+    # and preserved in that shot's provenance.json, so the pattern below is
+    # what the mapping sees in the archive, not what the camera wrote.
+    # Acquisitions at >= 50 kfps are held in a sibling
+    # `legacy/camera_visible_fluctuation/` tree, reserved for issue #161 and
+    # excluded from routine ingest. That split is policy, not data model, and
+    # it is one entry rather than two on purpose -- the same reasoning as
+    # magnetics.b_field_pol_probe covering both the equilibrium probe set and
+    # the outboard fluctuation array. All 52 high-rate acquisitions were
+    # inspected: identical 150-line GX-8 headers, the same uint8 BMPs under
+    # the same filename grammar, contiguous frames, and a timebase that
+    # `frame_time_ms` reproduces exactly (0.02 ms at 50 kfps, 40 ms over 2001
+    # frames). Original frame indices survive the reindex because each frame's
+    # time is computed from its pre-selection index. So this mapping reads
+    # both trees unchanged; only the source path and the ingest policy differ,
+    # and inventing a second IDS path for a directory name would be noise.
+    # Frames named `{shot}_{time}_ms.bmp` are `bmp_arranger` output, not raw,
+    # and this mapping cannot read them.
     source: {type: file, formats: [bmp, text], patterns: ["{shot}/{shot}_{frame:08d}.bmp", "{shot}/{shot}_bmp.txt"]}
     availability: If-requested
     lifecycle: available
@@ -1951,7 +2288,11 @@ diagnostic_registry:
     ids: hard_x_rays
     ids_path: hard_x_rays
     responsible: [{name: 임수빈}]
-    source: {type: unknown}
+    # Written by the same acquisition program as soft_x_rays, with an extra
+    # `hxr_{variant}` segment: `raw` is the digitizer trace, `Eflux` the
+    # energy-flux product derived from it. Archived under
+    # `unmapped/hard_x_rays/{shot}/` pending a mapping.
+    source: {type: file, formats: [csv], patterns: ["digitizer_hxr_{variant}_{daq_label}_{shot}.csv"]}
     availability: If-requested
     lifecycle: in_maintenance
     mapping_status: not_implemented
@@ -1963,7 +2304,11 @@ diagnostic_registry:
     ids: soft_x_rays
     ids_path: soft_x_rays
     responsible: [{name: 임수빈}, {name: 이명원}]
-    source: {type: file, formats: [csv], patterns: ["digitizer_{daq_label}_{shot}.csv"]}
+    # Resolved flat (`legacy/`, `soft_x_rays/`, `raw/`) or per-shot
+    # (`{shot}/digitizer_..._{shot}.csv`), the latter being how a consolidated
+    # archive is laid out. Most shots carry only digitizer 17592; a shot with
+    # both yields twice the channels.
+    source: {type: file, formats: [csv], patterns: ["digitizer_{daq_label}_{shot}.csv", "{shot}/digitizer_{daq_label}_{shot}.csv"]}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented

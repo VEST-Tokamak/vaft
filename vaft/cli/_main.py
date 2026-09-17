@@ -15,6 +15,9 @@ _COMMANDS = {
     "compare-ods": (".compare_ods", "compare two local ODS products"),
     "vest-upstream": (".vest_upstream", "run VEST upstream OMAS stages"),
     "summary": (".summary", "query and export preset database summaries"),
+    "maintenance": (".maintenance", "repair already-published HSDS shots"),
+    "plot": (".plot", "render a canonical plot for one or more shots"),
+    "export": (".export", "export one shot as IMAS/OMAS/GEQDSK files"),
 }
 
 

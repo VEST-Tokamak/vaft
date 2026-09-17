@@ -1,17 +1,30 @@
 #!/usr/bin/env python3
-"""Generate EFIT constraints OMAS ODS from eddy-current diagnostics ODS."""
+"""Generate EFIT constraints OMAS ODS from the diagnostics and eddy products.
+
+The constraint builder needs `magnetics`, `pf_active` and `tf` from the
+diagnostics stage and `pf_passive` from the eddy stage.  Each stage stores only
+what it owns, so the two are unioned here through
+`vaft.database.composition.compose_stage_products`, which also refuses a pairing
+whose time grids say the products came from different runs.
+"""
 
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import shutil
 from pathlib import Path
+from typing import NamedTuple, Sequence
 
 import numpy as np
-from omas import load_omas_json
 
 from vaft.code.efit import correct_flux_loop, generate_constraints_ods as build_constraints
+from vaft.database.composition import compose_stage_products
+from vaft.machine_mapping.utils import PlasmaTimingPolicy, resolve_plasma_timing_policy
+from vaft.omas.plasma_timing import plasma_timing
+from vaft.omas.vest_upstream import machine_era_for_shot
+from vaft.validation.imas import resolve_signal_time
 
 
 LOGGER = logging.getLogger("vaft.generate_constraints_ods")
@@ -37,143 +50,307 @@ def _table_dir(text: str) -> str:
     return text if text.endswith("/") else text + "/"
 
 
-def _detect_broken_bpol_probes(ods) -> list[int]:
-    """One-based indexes of Bpol probes the shared quality layer condemns outright.
+def _assessment_present(ods) -> bool:
+    """Whether the diagnostics stage projected a validity verdict into the magnetics."""
+    from vaft.validation.efit_channels import EFIT_KINDS, EFIT_QUANTITY
+    from vaft.validation.imas import read_validity_record
 
-    The fallback for products that carry no projected assessment (see
-    :func:`_condemned_by_diagnostics_stage`).  It used to be a detector of its
-    own -- a 99th-percentile amplitude against a 12-MAD band inside three
-    hard-coded index banks -- which flagged the same probe as
-    :mod:`vaft.validation.magnetics` by a different rule, so a product
-    assessed before and after regeneration could disagree about one channel.
-    It now runs the same detectors the diagnostics stage projects (physical
-    ceiling, geometric-family population vote), on the fly, and returns the
-    probes they reject for the whole record.
+    for kind in EFIT_KINDS:
+        count = len(ods[f"magnetics.{kind}"]) if f"magnetics.{kind}" in ods else 0
+        for index in range(count):
+            if read_validity_record(ods, f"magnetics.{kind}.{index}.{EFIT_QUANTITY[kind]}").assessed:
+                return True
+    return False
+
+
+def _decisions_for(ods, times, *, require_assessment: bool):
+    """The per-channel, per-slice decisions the constraint builder consumes (#296).
+
+    Formed by the acceptance policy from the validity the diagnostics stage
+    projected (#189) and nothing else: the routine manual exclusion list is
+    gone (#295), so a channel is a constraint unless the assessment says it
+    is not.  No detector runs here: a
+    product that carries no assessment is refused when ``require_assessment``
+    (the routine setting), otherwise every channel is usable by default
+    (#424) and the log says so.  Sensor health is decided once, at the
+    diagnostics stage; a product that predates it is re-run through that
+    stage, not patched here.
     """
-    from vaft.validation.magnetics import validate_magnetics_signals
-    from vaft.validation.model import ValidationStatus
+    from vaft.validation.efit_channels import decide_efit_channels, efit_probe_count
 
-    report = validate_magnetics_signals(ods, kinds=("b_field_pol_probe",))
-    return sorted(
-        quality.index + 1
-        for quality in report
-        if quality.status is not ValidationStatus.NOT_AVAILABLE
-        and quality.valid_fraction == 0.0
+    if not _assessment_present(ods):
+        message = (
+            "the magnetics carry no diagnostics-stage assessment (validity/validity_timed); "
+            "re-run the diagnostics stage on this product"
+        )
+        if require_assessment:
+            raise ValueError(message + " -- or pass --detect-broken false to proceed with every channel usable")
+        LOGGER.warning("%s; proceeding with every channel usable by default (#424)", message)
+    nbprobe = efit_probe_count(ods)
+    return decide_efit_channels(ods, times, nbprobe=nbprobe)
+
+
+def _recovery_for(option: int, ods, count: int):
+    """The compatibility recovery backend selected by ``--gaussian-fit-option``."""
+    if int(option) <= 0:
+        return None
+    from functools import partial
+
+    from vaft.code.efit.recovery import gaussian_probe_recovery, probe_families
+
+    return partial(
+        gaussian_probe_recovery,
+        mode=int(option),
+        families=probe_families(ods["magnetics"], count=count),
+        uncertainty="legacy",
     )
 
 
-def _condemned_by_diagnostics_stage(ods) -> list[int] | None:
-    """One-based legacy indexes the diagnostics stage condemned, or ``None``
-    when the magnetics carry no assessment at all.
+def _log_decisions(decisions) -> None:
+    from vaft.validation.channel_decision import STATE_NAMES
 
-    Since #189/#343 the diagnostics stage assesses every channel and projects
-    the verdict into the native validity nodes; ``vaft.code.efit.kfile`` folds
-    those channels into the legacy ``broken`` list on its own, flux loops at
-    ``index + nbprobe``. The list here comes from kfile's own rule so the log
-    names exactly what the writer will exclude. When an assessment is present
-    the amplitude detector below is redundant and must not vote -- two
-    detectors disagreeing on one channel is worse than one. It stays only as a
-    fallback for products that predate the assessment.
+    LOGGER.info("channel decisions (channel-slices per state): %s", json.dumps(decisions.summary()))
+    for (kind, index), decision in sorted(decisions.entries.items()):
+        if decision.all_usable:
+            continue
+        states = {STATE_NAMES[code] for code in decision.state.tolist()}
+        LOGGER.info(
+            "  %s[%d] %s: %s at %d/%d slices (%s)",
+            kind, index, decision.name, "/".join(sorted(states)),
+            int((decision.state != 0).sum()), decision.n_slices, "; ".join(decision.reasons),
+        )
+
+
+ANALYSIS_RANGE_FALLBACK = "analysis_range_fallback"
+
+
+class ConstraintWindow(NamedTuple):
+    """The EFIT constraint window and where it came from.
+
+    A named tuple rather than a dataclass: the tests load this script by path
+    without registering it in ``sys.modules``, which a dataclass with
+    postponed annotations cannot survive.
     """
-    from vaft.code.efit.kfile import _condemned_channels
-    from vaft.validation.imas import read_validity
 
-    assessed = False
-    for kind, quantity in (("b_field_pol_probe", "field"), ("flux_loop", "flux")):
-        count = len(ods[f"magnetics.{kind}"]) if f"magnetics.{kind}" in ods else 0
-        if any(
-            read_validity(ods, f"magnetics.{kind}.{index}.{quantity}") is not None
-            for index in range(count)
-        ):
-            assessed = True
-            break
-    if not assessed:
-        return None
-    nbprobe = len(ods["magnetics.b_field_pol_probe"]) if "magnetics.b_field_pol_probe" in ods else 0
-    # kfile works zero-based and converts the script's one-based list itself.
-    return sorted(index + 1 for index in _condemned_channels(ods, nbprobe))
+    start: float
+    end: float
+    source: str
+    flags: tuple[str, ...]
+    agreement: str | None
+    fallback_reason: str | None
+    record: dict
+
+    @property
+    def fallback(self) -> bool:
+        return ANALYSIS_RANGE_FALLBACK in self.flags
 
 
-def _resolve_broken(ods, explicit: list[int], *, detect: bool) -> list[int]:
-    """The ``broken`` list handed to the constraint writer.
+def _constraint_window(ods, *, policy: PlasmaTimingPolicy | None = None) -> ConstraintWindow:
+    """The shared ``plasma_analysis`` range intersected with the detected plasma window.
 
-    Explicit indexes always apply. With ``detect``, projected validity wins
-    when present (kfile folds it in regardless; it is listed here so the log
-    says what will be excluded); otherwise the amplitude detector runs.
+    The range comes from the timing policy in ``vest.yaml`` (issue #409); the
+    window from ``vaft.omas.plasma_timing`` -- the slow H-alpha line, then the
+    fast one, then the plasma current.  When no source shows a plasma the
+    whole range is used and the choice is flagged ``analysis_range_fallback``
+    with the reason, so a vacuum shot's slices are visibly not plasma slices.
     """
-    broken = set(explicit)
-    if detect:
-        condemned = _condemned_by_diagnostics_stage(ods)
-        if condemned is not None:
-            LOGGER.info(
-                "magnetics carry a diagnostics-stage assessment; kfile folds its "
-                "condemned channels %s (one-based, flux loops offset by the probe "
-                "count) into broken -- amplitude detector not run",
-                condemned,
-            )
-        else:
-            detected = _detect_broken_bpol_probes(ods)
-            LOGGER.warning(
-                "magnetics carry no diagnostics-stage assessment (product predates "
-                "#189); falling back to the 12-MAD amplitude detector: %s",
-                detected,
-            )
-            broken |= set(detected)
-    return sorted(broken)
-
-
-def _select_times(ods, timeset: str, tstep: float, tstart: float | None, tend: float | None) -> np.ndarray:
-    ip_time = np.asarray(ods["magnetics.ip.0.time"], dtype=float)
-    ip_data = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
-    if ip_time.size == 0:
+    policy = policy or resolve_plasma_timing_policy()
+    ip_time = resolve_signal_time(ods, "magnetics.ip.0")  # the node's own time, else magnetics.time
+    if ip_time is None or ip_time.size == 0:
         raise ValueError("magnetics.ip.0.time is empty")
+    base_start = max(float(policy.window.tstart), float(ip_time[0]))
+    base_end = min(float(policy.window.tend), float(ip_time[-1]))
+    if base_end <= base_start:
+        raise ValueError(
+            f"the plasma current record {ip_time[0]:.4f}-{ip_time[-1]:.4f} s does not overlap the "
+            f"{policy.window.name} range {policy.window.tstart}-{policy.window.tend} s"
+        )
 
+    # A product without a usable plasma current cannot be constrained at all;
+    # plasma_timing's PlasmaTimingError is the right message and propagates.
+    timing = plasma_timing(ods, policy=policy)
+    if timing.found:
+        return ConstraintWindow(
+            max(base_start, float(timing.onset)),
+            min(base_end, float(timing.offset)),
+            str(timing.source),
+            tuple(timing.flags),
+            timing.agreement,
+            timing.fallback_reason,
+            timing.record(),
+        )
+    return ConstraintWindow(
+        base_start, base_end, "analysis_range",
+        tuple(timing.flags) + (ANALYSIS_RANGE_FALLBACK,),
+        timing.agreement, timing.fallback_reason, timing.record(),
+    )
+
+
+def _select_times(
+    ods,
+    timeset: str,
+    tstep: float,
+    tstart: float | None,
+    tend: float | None,
+    *,
+    policy: PlasmaTimingPolicy | None = None,
+) -> tuple[np.ndarray, ConstraintWindow | None]:
+    """The EFIT constraint instants, and the window they were cut from (``None`` in manual mode).
+
+    Auto mode takes :func:`_constraint_window`, clamps it to ``--tstart``/``--tend``
+    when given, snaps both ends to the ``tstep`` grid and includes the end;
+    manual mode is exactly ``np.arange(tstart, tend, tstep)``.
+    """
     if timeset == "manual":
         if tstart is None or tend is None:
             raise ValueError("manual timeset requires --tstart and --tend")
-        return np.arange(tstart, tend, tstep, dtype=float)
+        return np.arange(tstart, tend, tstep, dtype=float), None
 
-    base_start = max(0.28, float(ip_time[0]))
-    base_end = min(0.38, float(ip_time[-1]))
-    base_index = (ip_time >= base_start) & (ip_time <= base_end)
-    valid_index = base_index & (ip_data > 20e3)
-    selected = ip_time[valid_index] if np.any(valid_index) else ip_time[base_index]
-    if selected.size == 0:
-        selected = ip_time
-
-    start = float(selected[0]) if tstart is None else max(float(selected[0]), tstart)
-    end = float(selected[-1]) if tend is None else min(float(selected[-1]), tend)
+    window = _constraint_window(ods, policy=policy)
+    start = window.start if tstart is None else max(window.start, tstart)
+    end = window.end if tend is None else min(window.end, tend)
     if timeset == "auto":
         start = round(start / tstep) * tstep
         end = round(end / tstep) * tstep
     if end <= start:
-        return np.array([start], dtype=float)
-    return np.arange(start, end + 0.5 * tstep, tstep, dtype=float)
+        return np.array([start], dtype=float), window
+    return np.arange(start, end + 0.5 * tstep, tstep, dtype=float), window
+
+
+def _drop_vacuum_times(
+    ods, times: np.ndarray, *, average_window: float
+) -> tuple[np.ndarray, list[tuple[float, float]]]:
+    """Remove the instants EFIT would answer with a vacuum solution (#76).
+
+    The constraint window comes from the plasma timing -- H-alpha and the Ip
+    pulse -- which says when there *was* a discharge, not when there was
+    enough current to reconstruct. Slices below EFIT's `CUTIP` were therefore
+    still being submitted, and EFIT answered them the way it is supposed to:
+    `ivacum = 1`, and an a-file whose `limloc` is `VAC`.
+
+    That is not a failure, but it is not an equilibrium either, and counting
+    it as one inflates every yield figure. Measured over the reference set,
+    11 of 89 selected slices are below the cut -- and three of 39915's
+    seventeen produced g-files were vacuum, so its plasma yield is 14 of 23
+    rather than 17 of 26.
+
+    The current is box-averaged with `box_average`, the same function and the
+    same half-window the constraint builder uses, so a slice is judged on the
+    number EFIT will actually be given as `PLASMA` rather than on an
+    instantaneous value that can differ at the boundary.
+    """
+    from vaft.code.efit.legacy import box_average
+    from vaft.machine_mapping.equilibrium_regime import vest_equilibrium_regime_policy
+
+    threshold = float(vest_equilibrium_regime_policy().vacuum_current_amperes)
+    if threshold <= 0.0:
+        return times, []
+
+    try:
+        clock = np.asarray(ods["magnetics.ip.0.time"], dtype=float)
+        data = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
+    except Exception:
+        LOGGER.warning(
+            "no magnetics.ip.0 to judge the vacuum cut by; every selected time is kept"
+        )
+        return times, []
+
+    keep, dropped = [], []
+    for value in times:
+        try:
+            current = box_average(clock, data, float(value), float(average_window), what="ip")
+        except Exception:
+            keep.append(float(value))
+            continue
+        if abs(float(current)) < threshold:
+            dropped.append((float(value), float(current)))
+        else:
+            keep.append(float(value))
+
+    if not keep:
+        raise ValueError(
+            f"every one of the {times.size} selected instants carries less than "
+            f"{threshold} A of plasma current, so EFIT would return a vacuum solution "
+            "for all of them. The plasma timing found a discharge the current does not "
+            "support; check the window before reconstructing."
+        )
+    return np.asarray(keep, dtype=float), dropped
+
+
+def _window_comment(
+    window: ConstraintWindow | None,
+    times: np.ndarray,
+    vacuum: Sequence[tuple[float, float]] = (),
+) -> str:
+    """The one-line provenance written to ``equilibrium.ids_properties.comment``.
+
+    The vacuum cut is named here because it changes the denominator of every
+    yield figure computed from the product: without it a reader cannot tell
+    whether a missing instant was dropped before EFIT or failed inside it.
+    """
+    span = f"EFIT constraint times {float(times[0]):.4f}-{float(times[-1]):.4f} s"
+    if window is None:
+        text = f"{span}: manual"
+    else:
+        text = f"{span}: plasma window from {window.source}"
+        if window.agreement:
+            text += f", agreement {window.agreement}"
+        if window.fallback:
+            text += f"; analysis-range fallback: {window.fallback_reason}"
+    if vacuum:
+        text += (
+            f"; {len(vacuum)} instant(s) below CUTIP dropped before EFIT "
+            f"({', '.join(f'{t:.4f}s' for t, _ in vacuum)})"
+        )
+    return text
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--shot", required=True, type=int, help="VEST shot number.")
-    parser.add_argument("--eddy-ods", "--input", required=True, type=Path, help="Input eddy ODS JSON.")
+    parser.add_argument("--eddy-ods", "--input", required=True, type=Path, help="Input eddy ODS (pf_passive).")
+    parser.add_argument(
+        "--diagnostics-ods",
+        required=True,
+        type=Path,
+        help="The diagnostics ODS the eddy product was computed from.",
+    )
+    parser.add_argument(
+        "--eddy-manifest",
+        default=None,
+        type=Path,
+        help="The eddy stage manifest, for the input-provenance check.",
+    )
     parser.add_argument("--output", required=True, type=Path, help="Output constraints ODS JSON.")
     parser.add_argument("--efit-table-dir", default="", help="EFIT table/input directory written into kfiles.")
     parser.add_argument("--timeset", default="auto", choices=["auto", "manual"], help="EFIT constraint time selection mode.")
     parser.add_argument("--tstep", default=0.001, type=float, help="EFIT time step in seconds.")
+    parser.add_argument(
+        "--average-window",
+        default=0.0005,
+        type=float,
+        help="Half-width in seconds of the box average each constraint is taken over (issue #433/#468).",
+    )
     parser.add_argument("--tstart", default=None, type=float, help="Manual lower time bound.")
     parser.add_argument("--tend", default=None, type=float, help="Manual upper time bound.")
     parser.add_argument("--uncertainty", default=",".join(str(v) for v in DEFAULT_UNCERTAINTY))
     parser.add_argument("--weighting", default=",".join(str(v) for v in DEFAULT_WEIGHTING))
-    parser.add_argument("--broken", default="", help="Comma-separated one-based broken diagnostic indices.")
     parser.add_argument(
         "--detect-broken",
         default="false",
         help=(
-            "Exclude probes the diagnostics stage condemned (projected validity); "
-            "for products without an assessment, fall back to the 12-MAD amplitude detector."
+            "Require the diagnostics-stage assessment: refuse a product whose magnetics carry no "
+            "projected validity. With false, such a product runs with every channel usable (#424). "
+            "The assessment itself is never run here (issue #296)."
         ),
     )
     parser.add_argument("--fl-correct-option", default=0, type=int, help="Reserved for future flux-loop correction.")
-    parser.add_argument("--gaussian-fit-option", default=1, type=int, help="Gaussian fit option forwarded to EFIT constraints.")
+    parser.add_argument(
+        "--gaussian-fit-option",
+        default=1,
+        type=int,
+        help="Recovery backend: 0 none, 1 Gaussian family fit for rejected probes, 2 for every probe.",
+    )
     parser.add_argument("--npprime", default=2, type=int, help="EFIT KPPCUR value.")
     parser.add_argument("--nffprime", default=2, type=int, help="EFIT KFFCUR value.")
     args = parser.parse_args()
@@ -183,13 +360,47 @@ def main() -> int:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
     )
-    ods = load_omas_json(str(args.eddy_ods), consistency_check=False)
-    broken = _resolve_broken(ods, _csv_ints(args.broken), detect=_bool(args.detect_broken))
-    times = _select_times(ods, args.timeset, args.tstep, args.tstart, args.tend)
+    ods, composition = compose_stage_products(
+        diagnostics=args.diagnostics_ods,
+        eddy=args.eddy_ods,
+        eddy_manifest=args.eddy_manifest,
+    )
+    LOGGER.info("composed inputs: %s", json.dumps(composition, default=str))
+    times, window = _select_times(ods, args.timeset, args.tstep, args.tstart, args.tend)
     if times.size == 0:
         raise ValueError("No EFIT constraint times selected")
+    times, vacuum = _drop_vacuum_times(ods, times, average_window=args.average_window)
+    if vacuum:
+        LOGGER.info(
+            "vacuum cut: dropped %d of %d instants below CUTIP (%s)",
+            len(vacuum),
+            len(vacuum) + times.size,
+            ", ".join(f"{t:.3f}s at {c / 1e3:.1f} kA" for t, c in vacuum),
+        )
     ods["equilibrium.time"] = times
-    fl_correct_coeff = correct_flux_loop(ods) if args.fl_correct_option else None
+    ods["equilibrium.ids_properties.comment"] = _window_comment(window, times, vacuum)
+    if window is not None:
+        LOGGER.info("plasma timing: %s", json.dumps(window.record, default=str))
+        if window.fallback:
+            LOGGER.warning(
+                "No plasma window found; EFIT constraint times cover the whole analysis range "
+                "%.4f-%.4f s (%s)", window.start, window.end, window.fallback_reason,
+            )
+    fl_correct_coeff = None
+    if args.fl_correct_option:
+        if window is None or window.fallback:
+            # The correction fits the pre-plasma stretch; without a detected
+            # plasma there is no such stretch to fit, so it is skipped -- said
+            # here rather than raised from inside the fit.
+            LOGGER.warning("flux-loop correction skipped: no plasma window to fit before")
+        else:
+            fl_correct_coeff = correct_flux_loop(ods, window=(window.start, window.end))
+
+    decisions = _decisions_for(ods, times, require_assessment=_bool(args.detect_broken))
+    _log_decisions(decisions)
+    from vaft.validation.efit_channels import efit_probe_count
+
+    recovery = _recovery_for(args.gaussian_fit_option, ods, efit_probe_count(ods))
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     LOGGER.info("Generating constraints for shot %s at %d time slices", args.shot, len(times))
@@ -201,11 +412,16 @@ def main() -> int:
         times,
         _csv_floats(args.uncertainty),
         _csv_floats(args.weighting),
-        broken=broken,
-        fit=args.gaussian_fit_option,
         fl_correct_coeff=fl_correct_coeff,
         FFCUR=args.nffprime,
         PPCUR=args.npprime,
+        decisions=decisions,
+        recovery=recovery,
+        average_window=args.average_window,
+        # Which era this shot belongs to is a VEST fact, resolved here and
+        # handed in; the writer only compares it with what the table claims
+        # for itself (#805).
+        expected_table_era=machine_era_for_shot(args.shot).name,
     )
 
     produced = args.output.parent / f"{args.shot}_constraints.json"

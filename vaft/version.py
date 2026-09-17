@@ -1,10 +1,91 @@
 # Version information
-__version__ = "0.6.2"
+__version__ = "0.7.0"
 
 
 # ────────────────────────────────────────────────────────
 # patch notes
 # ────────────────────────────────────────────────────────
+# 0.7.0
+# - development release line 2026-09-03 .. 2026-09-17 merged into main: 266
+#   pull requests; the detailed notes are on the release pull request and the
+#   GitHub release. Headlines:
+# - discharge timing is detected, not assumed: H-alpha onset, loop-voltage
+#   zero crossing, one main discharge window shared by every consumer
+#   (EFIT constraint times, eddy window, plasma features, shot class); the
+#   legacy onset detectors are retired and the evidence corpus ships as data
+#   (#409, #842)
+# - plotting: every plot has plot_*/dd_*/extract_* on one DD path grammar,
+#   computed views declare what they read and most run natively on IMAS and
+#   lazy HSDS handles, backend="plotly", interactive=True controls, `vaft plot`
+#   from the shell, screen-sized figures by default, theme/colour semantics,
+#   overview panels chosen live (#63, #434, #439, #480-#484, #689, #709-#712)
+# - equilibrium: the packaged shot stores psi in DD weber and declares its
+#   COCOS, psi maps take units=, five validated radial coordinates on the
+#   profiles, q from the 2-D map, GS residual and virial closures as a
+#   framework, triangularity at the vertical extrema (#478, #479, #365)
+# - EFIT: Green-table provenance with build/generate/compare/A-B and the
+#   regenerated table, one channel decision per slice formed upstream, the
+#   VEST-quality reference set and VEST envelope for accepting a fit,
+#   profile-model and constraint-identifiability studies, k-file A/B harness,
+#   readable EFIT logs and per-regime failure records (#171, #194, #296,
+#   #579, #588, #649, #695, #708, #76)
+# - stability: DCON summary/profile/edge-scan parsers, energy eigenmodes and
+#   eigenfunctions mapped to IMAS, GPEC profile, singcoup and spectral-field
+#   readers, resonant response and island overlap, each stability product in
+#   its own mhd_linear, segment-wise wall eigenmode basis with a
+#   response-ranked reduced order (#473, #494)
+# - new code adapters: NUBEAM (beam, fast-ion distributions, native Windows),
+#   TRANSP readers, GACODE NEO/TGLF/TGLF-NN with Sauter/Redl comparison and
+#   input.gacode confirmed COCOS 2, FLARE interoperability core, MARS
+#   PROF*.IN, Osborne p-files (#550, #553, #741-#744); the GACODE input
+#   writer carries a sqrt(psi_N) proxy on the core_profiles grid through
+#   psi_N, takes SIGN_IT from the signed q, and writes the ZEFF its species
+#   list realises
+# - diagnostics: toroidal angles derived from the VEST port clock and the
+#   measured mode-number sign convention, zero-phase SXR filtering, IMPA
+#   defaults reconciled with vest.yaml (Hall gain -2/15 T/V), soft X-ray and
+#   camera data consolidated with a publication contract, FAST-camera
+#   fluctuation analysis phase 1 (#161, #624, #625, #626, #638, #718)
+# - database: every OMAS stage product gzipped and holding only the IDS its
+#   stage owns, a shot's master written last and merged before it lands,
+#   HSDS source hierarchy, constant-cost source probes (#813, #787)
+# - process contract: every processing module documented under one docstring
+#   contract with a shared parser and catalog; kinetic-profile radial
+#   coordinate is a named choice (#417-#421, #420)
+# - `vaft export` and vaft.database.export(): a shot leaves as a portable
+#   file, refusing what the format would drop and never deleting the last
+#   copy on overwrite (#450)
+# - startup formula layer: breakdown chain through the avalanche, vacuum-field
+#   view with |E_phi|, breakdown figure and Lloyd margin (#783, #676); the
+#   2.45 GHz ECR field, the 6 kW ECH power mapped into ec_launchers as an
+#   optional component, startup proxies, midplane profiles and vacuum field
+#   lines on the camera view (#165, #888)
+# - platform: CHEASE, DCON/GPEC and EFIT/EFUND build and run natively on
+#   Windows (the NUBEAM Windows recipe is experimental); one recipe set under install/ builds CHEASE, GPEC, GACODE and
+#   NUBEAM on Linux and macOS; GPEC pins its netCDF; TokaMaker is an optional
+#   extra (#226 closed out)
+# - CI: develop asks for development confidence (core selection), main for
+#   release confidence (full suite on Linux and Windows, tutorials); main's
+#   branch protection is code (#515, #471)
+# - tutorials: session 02 redesigned to follow a startup from the light to
+#   the field lines (#888); sessions 03 and 04 with one QMD presentation source; the
+#   docs' code samples are checked to name real API
+# - deprecated: current_density_from_psi (#355); the legacy onset
+#   detectors and the chease-mhd-stability product are retired behind gates;
+#   the old figure sizes remain as format="legacy"
+# - records three samples too short for filtfilt are refused (#893)
+# - known limitations: TGLF-NN has no VEST-trained model and refuses
+#   out-of-domain input; os.access(X_OK) still says nothing on Windows
+# - known issues, carried to 0.7.1 (#920, from the release's cold review):
+#   EFIT outputs at sub-millisecond times are read back with the wrong time;
+#   FWTFC=0 leaves an unenergised coil free rather than pinned; plots accept
+#   time= but most draw slice 0 (use time_slice=); GPEC resonant plots pair
+#   slices by n only; the external-code uninstallers remove the whole
+#   --prefix, so never point them at a directory you did not create for
+#   them; the database retirement, IMPA-strip and relocate tools are not yet
+#   safe against partial failures; tutorial session 04 and the plotting sample
+#   notebook still describe the 39915 sample as it was before its regeneration
+#   (probe angles, source-flagged channels)
 # 0.6.2
 # - Windows portability hotfix. install/README.md calls native Windows a
 #   first-class path, but the Linux-only CI had never exercised it: a full

@@ -178,3 +178,65 @@ def test_camera_visible_image_plots_are_discoverable():
     assert "camera_visible_image_efit_overlay" in all_names
     assert "camera_visible_image_field_line" in all_names
     assert "camera_visible_animation_frames" in all_names
+
+
+# --- a frame slider instead of an animation --------------------------------
+#
+# An embedded GIF is megabytes of `image/gif`, which a tutorial notebook cannot
+# carry; a slider over the frames already in the ODS redraws one of them at a
+# time.  The interactive layer drew `Image2D` all along -- what was missing is
+# that nothing published the frames as a steppable axis.
+
+
+def test_a_camera_plot_offers_a_frame_slider_over_its_stored_frames():
+    ods = _build_ods(n_frames=5)
+    result = vomas.plot_camera_visible_image(ods, interactive=True, interaction_backend="none")
+    slider = next(c for c in result.controls if c.name == "frame_index")
+    assert slider.kind == "range"
+    assert slider.options == (0, 4, 1)
+    assert "Camera frame" in slider.label
+    plt.close(result.figure)
+
+
+def test_moving_the_frame_slider_redraws_the_frame_it_names():
+    ods = _build_ods(n_frames=5)
+    result = vomas.plot_camera_visible_image(ods, interactive=True, interaction_backend="none")
+    assert result.state["frame_index"] == 0
+    first = result.axes.get_images()[0].get_array().copy()
+    result.state.set("frame_index", 3)
+    later = result.axes.get_images()[0].get_array()
+    assert not np.array_equal(first, later)
+    assert np.all(np.asarray(later) == 30)  # _build_ods fills frame i with i * 10
+    plt.close(result.figure)
+
+
+def test_the_presets_share_the_slider():
+    """`_frame` is a preset of the general plot, so it steps the same axis."""
+    ods = _build_ods(n_frames=3)
+    result = vomas.plot_camera_visible_image_frame(ods, interactive=True, interaction_backend="none")
+    assert any(c.name == "frame_index" for c in result.controls)
+    plt.close(result.figure)
+
+
+def test_a_single_stored_frame_has_nothing_to_step_through():
+    ods = _build_ods(n_frames=1)
+    result = vomas.plot_camera_visible_image(ods, interactive=True, interaction_backend="none")
+    assert not any(c.name == "frame_index" for c in result.controls)
+    plt.close(result.figure)
+
+
+def test_the_slider_label_spans_the_frames_in_milliseconds():
+    ods = _build_ods(n_frames=5)  # 280.0 .. 281.6 ms
+    result = vomas.plot_camera_visible_image(ods, interactive=True, interaction_backend="none")
+    slider = next(c for c in result.controls if c.name == "frame_index")
+    assert "(280-282 ms)" in slider.label
+    plt.close(result.figure)
+
+
+def test_the_vacuum_map_keeps_its_own_time_slider():
+    """Generalising the control to any dense index must not rename the one the
+    vacuum map already had."""
+    from vaft.plot.controls import _DENSE_INDEX_LABELS
+
+    assert _DENSE_INDEX_LABELS["time_index"] == "Time sample"
+    assert _DENSE_INDEX_LABELS["frame_index"] == "Camera frame"

@@ -18,14 +18,14 @@ from vaft.process.atomic import (
     _interp_profile_to_target,
     _sanitize_rho_grid,
 )
-from vaft.formula import magnetic_shear, ballooning_alpha_from_p_B_R
+from vaft.formula import magnetic_shear
 from vaft.formula.equilibrium import (
     loss_power_from_p_heat_dWdt_p_rad,
     heating_power_from_p_ohm_p_aux,
     ohmic_heating_power_from_I_p_V_res,
     loop_voltage_from_total_flux,
     inductive_voltage_from_dW_magdt_I_p,
-    bremsstrahlung_power_density_from_Z_eff_n_e_T_e,
+    bremsstrahlung_power_density_from_n_e_T_e_Z_eff,
     bremsstrahlung_power_density_from_T_e_p_Z_eff,
     stored_energy_from_p_V,
     confinement_time_from_engineering_parameters,
@@ -601,7 +601,7 @@ def compute_voltage_consumption(
         t[k] = float(ts['time']) if 'time' in ts else float(i)
         # loop_voltage_from_total_flux multiplies by 2*pi, i.e. it expects
         # psi in Wb/rad; convert from the ODS storage convention (issue #236).
-        _psi_factor = ods_psi_to_wb_per_radian_factor(ts)
+        _psi_factor = ods_psi_to_wb_per_radian_factor(ods, i)
         psi_boundary[k] = (
             float(ts['global_quantities.psi_boundary']) - float(ts['global_quantities.psi_axis'])
         ) * _psi_factor
@@ -815,7 +815,7 @@ def compute_bremsstrahlung_power(
     valid_mask_e = ~np.isnan(T_e_RZ_safe) & ~np.isnan(n_e_RZ_safe)
     
     S_B_electron_RZ = np.zeros_like(T_e_RZ)
-    S_B_electron_RZ[valid_mask_e] = bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
+    S_B_electron_RZ[valid_mask_e] = bremsstrahlung_power_density_from_n_e_T_e_Z_eff(
         n_e_RZ_safe[valid_mask_e],
         T_e_RZ_safe[valid_mask_e],
         Z_eff=Z_eff
@@ -1020,7 +1020,14 @@ def compute_power_balance(
     - Uses impurity density profiles from ODS if present, else impurity_fractions,
       else (single-species case only) Z_eff-based scalar estimate, else zero.
     - Priority per species: ODS ion profile > impurity_fractions > Z_eff (single species) > 0.
-    - Default species/fractions: C and O with n_imp/n_e = 0.01 each.
+    - With ``impurity_fractions=None`` the VEST policy is resolved for the ODS's
+      shot from ``vest.yaml`` (``diagnostics.core_profiles.impurities``; C and
+      O at n_imp/n_e = 0.01, status ``assumed``) through
+      :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`;
+      an ODS with no shot number gets no assumption and zero line radiation
+      with a warning. ``line_radiation_species=None`` follows the same policy.
+    - The returned dict carries ``assumptions``: which fractions were used,
+      their status, where each species' density came from, and ``Z_eff``.
     - Atomic-data download or parsing failures set the affected species'
       contribution to zero and emit a warning, preserving offline operation.
     - Total radiation used in balance is:
@@ -1155,8 +1162,34 @@ def compute_power_balance(
             dWdt[finite_idx] = dWdt_finite
 
     line_rad_requested = bool(include_line_radiation)
+    assumptions: Dict[str, Any] = {
+        "z_eff": {"value": Z_eff, "source": "argument"},
+        "impurity_fractions": {},
+        "impurity_status": {},
+        "impurity_source": {},
+        "species": [],
+        "policy": None,
+    }
     if line_rad_requested:
-        P_rad_line = compute_line_radiation_power_series(
+        if impurity_fractions is None:
+            # No fractions given: the machine policy supplies them, and the
+            # species list with them. An explicit {} means "no assumption" and
+            # leaves species to whatever the ODS carries ion profiles for.
+            from vaft.machine_mapping.core_profiles import policy_for_ods
+
+            policy = policy_for_ods(ods)
+            assumptions["policy"] = f"{policy.source}; {policy.revision_text}"
+            impurity_fractions = dict(policy.impurity_fractions)
+            assumptions["impurity_status"] = dict(policy.impurity_status)
+            if line_radiation_species is None:
+                line_radiation_species = list(policy.impurity_species)
+        else:
+            from vaft.process.atomic import normalize_atomic_symbol
+
+            for label in impurity_fractions:
+                symbol = normalize_atomic_symbol(label) or str(label)
+                assumptions["impurity_status"].setdefault(symbol, "argument")
+        P_rad_line, line_assumptions = compute_line_radiation_power_series(
             ods=ods,
             eq_indices=idxs,
             eq_times=t,
@@ -1164,7 +1197,11 @@ def compute_power_balance(
             line_radiation_species=line_radiation_species,
             impurity_fractions=impurity_fractions,
             Z_eff=Z_eff,
+            return_assumptions=True,
         )
+        assumptions["species"] = line_assumptions["species"]
+        assumptions["impurity_source"] = line_assumptions["impurity_source"]
+        assumptions["impurity_fractions"] = line_assumptions["impurity_fraction"]
     else:
         P_rad_line = np.zeros_like(P_ohm_diss)
 
@@ -1219,6 +1256,7 @@ def compute_power_balance(
         'P_loss_total': P_loss_total[common_mask],
         'dWdt': dWdt[common_mask],
         'P_loss': P_loss[common_mask],
+        'assumptions': assumptions,
     }
 
 def compute_confiment_time_paramters(

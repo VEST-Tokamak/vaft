@@ -20,6 +20,11 @@ from nbclient import NotebookClient
 import pytest
 
 
+# Executes notebooks end to end: release-confidence, not per-PR feedback.
+# Deselected on the develop gate by `-m "not slow"` and run in full on the main
+# gate. Nothing here is skipped -- it moves, it does not disappear.
+pytestmark = pytest.mark.slow
+
 ROOT = Path(__file__).resolve().parents[1]
 TUTORIAL = ROOT / "tutorial"
 NOTEBOOK = TUTORIAL / "01_getting_started_with_vaft.ipynb"
@@ -203,8 +208,12 @@ DOCUMENTED_DD_VERSION = "3.41.0"
 
 def test_plotting_cells_use_the_one_documented_pattern(book):
     """vaft.omas.plot_<something>(ods) then plt.show(), and nothing else."""
+    # One call, one show.  The only arguments the tutorial demonstrates are the
+    # selectors it teaches: which channels, and which spectral line.
     pattern = re.compile(
-        r"^vaft\.omas\.plot_[a-z0-9_]+\(ods(?:, channels=\[[0-9, ]+\])?\)\nplt\.show\(\)$"
+        r"^vaft\.omas\.plot_[a-z0-9_]+\("
+        r"ods(?:, channels=\[[0-9, ]+\])?(?:, emission=\"[A-Za-z_]+\")?"
+        r"\)\nplt\.show\(\)$"
     )
     plotting = [
         cell

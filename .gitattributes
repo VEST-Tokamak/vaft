@@ -9,7 +9,16 @@ vaft/data/efit/*.ddd filter=lfs diff=lfs merge=lfs -text
 test/data/vest_reference/** text=auto eol=lf
 docs/assets/notebook-outputs/** text=auto eol=lf
 vaft/data/samples/** text=auto eol=lf
+# The EFIT table's text inputs are pinned by efund_table_manifest.json, and
+# mhdin.dat's hash is quoted in its #649 note; a CRLF checkout hashed to
+# 1eb93104... on Windows CI against the LF 38eb936a... it records. `.dat`
+# only, so the LFS `*.ddd` rules above are not overridden by `text=auto`.
+vaft/data/efit/**/*.dat text=auto eol=lf
 vaft/data/wheel_samples/** text=auto eol=lf
 
 # POSIX shell scripts must keep LF even in a Windows checkout.
 *.sh text eol=lf
+
+# GACODE fixed-format text fixtures are compared field-by-field against a
+# real NEO run, so a CRLF checkout must not change them.
+test/data/gacode/** text=auto eol=lf

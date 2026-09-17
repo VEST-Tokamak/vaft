@@ -49,6 +49,19 @@ fail:
 :func:`set_path`
     The write primitive.  Vivification is correct here and lives only here.
 
+Other data models
+-----------------
+The readers dispatch on the object.  An OMAS ``ODS`` and a plain mapping are
+read here; another data model registers how it answers the same dotted paths
+with :func:`register_accessor` (``vaft.imas`` does so for its ``IDSEntry``, the
+native IMAS walk), and :func:`path_value`, :func:`path_exists`,
+:func:`path_count` and :func:`get_path` route to it.  So a helper written
+against this module -- the EFIT quality tables in ``vaft.omas.efit_quality``,
+say -- reads an IMAS entry as it reads an ODS, and a computed view built on
+such helpers runs natively (issue #439).  A raw native IMAS object is refused
+by name rather than read as empty: the path grammar looks alike, but an
+``IDSToplevel`` does not answer it.
+
 States kept distinct
 --------------------
 Absence is one state among several, and collapsing them would trade one silent
@@ -62,13 +75,17 @@ making a statement, not absent ones.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable, Protocol
 
 __all__ = [
+    "ODS_ACCESSOR",
+    "PathAccessor",
+    "accessor_for",
     "get_path",
     "path_count",
     "path_exists",
     "path_value",
+    "register_accessor",
     "set_path",
 ]
 
@@ -171,14 +188,6 @@ def _resolve(source: Any, path: str) -> Any:
     change cannot quietly reintroduce the very side effect this module exists to
     prevent.
     """
-    if type(source).__module__.partition(".")[0] == "imas":
-        # A native IMAS node does not answer dotted paths; it would raise
-        # ValueError, which the absence net below would swallow, and every
-        # read would come back "absent" while the data sits there.
-        raise TypeError(
-            f"vaft.ods_access reads OMAS ODS/mapping paths; a native IMAS "
-            f"{type(source).__name__} is read by vaft.imas (plot it with vaft.imas.plot_*)"
-        )
     if isinstance(source, dict):
         try:
             return _get_nested_mapping_value(source, path)
@@ -210,6 +219,13 @@ def path_exists(source: Any, path: str) -> bool:
     that reported every path as present, and crashed input generation with
     ``float * ODS``.
     """
+    accessor = accessor_for(source)
+    if accessor is not ODS_ACCESSOR:
+        return accessor.has(source, path)
+    return _ods_exists(source, path)
+
+
+def _ods_exists(source: Any, path: str) -> bool:
     return _resolve(source, path) is not _MISSING
 
 
@@ -228,6 +244,13 @@ def path_value(source: Any, path: str, default: Any = None) -> Any:
     should pass a sentinel rather than rely on ``None``, which a populated node
     can legitimately hold.
     """
+    accessor = accessor_for(source)
+    if accessor is not ODS_ACCESSOR:
+        return accessor.get(source, path, default)
+    return _ods_value(source, path, default)
+
+
+def _ods_value(source: Any, path: str, default: Any = None) -> Any:
     value = _resolve(source, path)
     return default if value is _MISSING else value
 
@@ -242,7 +265,14 @@ def path_count(source: Any, path: str) -> int:
     entries at all, scalars and strings alike, since a caller asking "how many
     entries" of one is asking about something that has none.
     """
-    value = path_value(source, path)
+    accessor = accessor_for(source)
+    if accessor is not ODS_ACCESSOR:
+        return accessor.count(source, path)
+    return _ods_count(source, path)
+
+
+def _ods_count(source: Any, path: str) -> int:
+    value = _ods_value(source, path)
     # A string is sized but is not a container of entries: counting one would
     # return its character count, which reads as a plausible number and is not
     # the question the caller asked.
@@ -252,6 +282,70 @@ def path_count(source: Any, path: str) -> int:
         return len(value)
     except TypeError:
         return 0
+
+
+# ---------------------------------------------------------------------------
+# Dispatch on the data model
+# ---------------------------------------------------------------------------
+
+class PathAccessor(Protocol):
+    """How one data model answers IMAS-DD dotted paths, without mutation."""
+
+    def get(self, obj: Any, path: str, default: Any = None) -> Any: ...
+
+    def count(self, obj: Any, path: str) -> int: ...
+
+    def has(self, obj: Any, path: str) -> bool: ...
+
+
+class _ODSAccessor:
+    """OMAS ``ODS``/``ODC``/mapping access: this module's own resolver.
+
+    Bound to the non-dispatching readers, so wrapping :func:`accessor_for`
+    (the test suite's read recorder does) cannot recurse.
+    """
+
+    def get(self, obj: Any, path: str, default: Any = None) -> Any:
+        return _ods_value(obj, path, default)
+
+    def count(self, obj: Any, path: str) -> int:
+        return _ods_count(obj, path)
+
+    def has(self, obj: Any, path: str) -> bool:
+        return _ods_exists(obj, path)
+
+
+#: The default accessor, for an OMAS ODS or a plain mapping.
+ODS_ACCESSOR: PathAccessor = _ODSAccessor()
+
+_REGISTERED: list[tuple[Callable[[Any], bool], PathAccessor]] = []
+
+
+def register_accessor(predicate: Callable[[Any], bool], accessor: PathAccessor) -> None:
+    """Route objects for which ``predicate`` holds to ``accessor``.
+
+    Registered accessors are consulted in registration order before the
+    default OMAS accessor; registering the same pair twice is a no-op.
+    """
+    if (predicate, accessor) not in _REGISTERED:
+        _REGISTERED.append((predicate, accessor))
+
+
+def accessor_for(obj: Any) -> PathAccessor:
+    """The accessor that reads ``obj``; a raw native IMAS object is refused."""
+    for predicate, accessor in _REGISTERED:
+        if predicate(obj):
+            return accessor
+    if type(obj).__module__.partition(".")[0] == "imas":
+        # A native IMAS node does not answer dotted paths; it would raise
+        # ValueError, which the absence net in _resolve would swallow, and
+        # every read would come back "absent" while the data sits there.
+        raise TypeError(
+            f"a native IMAS {type(obj).__name__} is read by vaft.imas, not through "
+            "the OMAS accessor: plot it with vaft.imas.plot_* (or wrap it in "
+            "vaft.imas.IDSEntry)"
+        )
+    return ODS_ACCESSOR
 
 
 # ---------------------------------------------------------------------------
@@ -269,7 +363,7 @@ def get_path(source: Any, path: str) -> Any:
 
     Use :func:`path_value` where absence is a legitimate outcome.
     """
-    value = _resolve(source, path)
+    value = path_value(source, path, _MISSING)
     if value is _MISSING:
         raise KeyError(path)
     return value

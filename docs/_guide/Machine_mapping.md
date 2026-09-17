@@ -170,11 +170,12 @@ timebase, not the resampled one — fluctuation analysis needs the full bandwidt
 Two lower-level helpers are worth knowing:
 
 ```python
-from vaft.machine_mapping.magnetics import vfit_md, vfit_plasma_current, vest_diamagnetic_flux
+from vaft.machine_mapping.magnetics import detect_plasma_window, vfit_md, vfit_plasma_current, vest_diamagnetic_flux
 
 time, flux_loops, probes = vfit_md(39915)          # -> (ndarray, list[ndarray], list[ndarray])
 time, ip = vfit_plasma_current(39915)              # -> (ndarray, ndarray), amps
-time, dia = vest_diamagnetic_flux(39915, 0.30, 0.34)  # needs the plasma start/end window
+window = detect_plasma_window(39915, time, ip)     # the plasma window, with its source
+time, dia = vest_diamagnetic_flux(39915, window.start, window.end)
 ```
 
 **Plasma current is not just the Rogowski trace.** The bare Rogowski signal picks up the vacuum-vessel and
@@ -185,6 +186,54 @@ which is exactly the kind of machine trivia this module exists to hide. If a his
 inverted, that switch is the first thing to check.
 
 ![Mapped plasma current]({{ site.baseurl }}/assets/images/magnetics/plasma_current.png)
+
+### Plasma timing policy
+
+Where the plasma is in a discharge is decided once, in the `plasma_timing` block of `vest.yaml`, and read by
+every consumer (issue #409). Its `window` names a `diagnostics_time_policies` window — `plasma_analysis`,
+0.28–0.36 s, which no diagnostic maps onto and the stage's `tstart`/`tend` never retune — and `baseline_lead_s`
+the stretch before it, `[tstart − lead, tstart)`, whose samples are the **baseline** the detectors measure
+their noise on. The block then carries the detector recipes, keyed by the signal they were tuned on: `h_alpha`
+(median filter, threshold `max(2 % peak, 5 σ)`, 0.5 ms persistence, width, prominence and integral floors,
+**principal pulse**), `ip` (zero-phase low-pass, principal pulse, pickup floor, 10 % end threshold, collapse
+fallback), per-line
+`lines` for impurity lines with their own morphology, the H-alpha `usability` floors (rail level, quantized
+baseline, validity) and the `agreement` tolerances between light and current. Every rule is validated against
+`vaft.process.onset.active_window`'s signature when the policy is loaded:
+
+```python
+from vaft.machine_mapping.utils import resolve_plasma_timing_policy
+
+policy = resolve_plasma_timing_policy()
+policy.window.tstart, policy.window.tend, policy.baseline_start   # 0.28, 0.36, 0.26
+policy.h_alpha, policy.ip                                          # keyword arguments of active_window
+```
+
+Both detector rules are **principal-pulse** rules: each keeps only the segment holding its own maximum, so a
+window is one run and the two sources answer the same question — *where is the one main discharge*. The light
+rule was an envelope rule until [#842](https://github.com/VEST-Tokamak/vaft/issues/842), which meant a record
+of scattered flashes reported a window spanning all of them and opened it at the first, and a record whose
+brightest feature is a refused spike now yields no light window rather than one built from lesser bursts.
+
+The rules were tuned on a scan of the raw database, and that scan is reproducible:
+`workflow/plasma_onset/scan_corpus.py --shots 39900-41700` runs the raw-side detector over every shot in the
+range and writes `test/data/onset_corpus.json` (one row per shot: the verdict, both detectors' windows, why a
+shot could not be judged), which `test/test_onset_corpus.py` holds to the current policy and to the packaged
+products; `--npz-dir` also writes the per-shot records `review_onset.py` draws from. A retuned rule means a
+re-scan, not an edit of the quoted numbers.
+
+Two readers consume it. `vaft.omas.plasma_timing.plasma_timing(ods)` works on a mapped product: it finds the
+H-alpha line **by label**, checks it is usable, takes the slow line as authoritative for onset and offset, the
+validated fast line as first fallback and the plasma-current principal pulse as final fallback and cross-check,
+and returns a `PlasmaTiming` with the window, its `source`, the `agreement` (`consistent`, `ip_before_halpha`,
+`halpha_leads_ip_large`, `halpha_only`, `ip_only`, `none`), the usability of every candidate and a
+`fallback_reason` — a missing filterscope is a normal state, and no plasma is `found = False`, never the range.
+`vaft.machine_mapping.magnetics.detect_plasma_window(shot, ip_time, ip)` applies the same rules to the raw
+records this layer already reads (the slow H-alpha field, negated, then the current) and returns a
+`PlasmaWindowChoice` whose `source` is `h_alpha_raw`, `ip` or `analysis_range`; the last is the whole range,
+flagged `analysis_range_fallback`. The diamagnetic-flux mapping anchors its reconstruction to that window and
+records it in `magnetics.diamagnetic_flux[0].method_name` (`…; plasma window 0.3065-0.3308 s from h_alpha_raw`),
+and the EFIT constraint script cuts its time slices from the range intersected with the ODS-side window.
 
 Signal conditioning (integration, drift removal, smoothing) is delegated to `vaft.process` and is tunable
 through `processing_config`, a `VestMagneticsProcessingConfig`:
@@ -199,6 +248,59 @@ magnetics(ods, 39915, 0.26, 0.36, 4e-5,
 
 See [Signal processing]({{ site.baseurl }}/guide/Processing/) for what those knobs do, and
 [Magnetics]({{ site.baseurl }}/guide/Magnetics/) for plotting the result.
+
+### Discharge timing policy
+
+The actuator events are a separate concept from the plasma window and sit in their own `discharge_timing`
+block of `vest.yaml`, read by `vaft.omas.discharge_timing.discharge_timing(ods)` (issue #409). It shares the
+`plasma_analysis` window and `baseline_lead_s` with the plasma policy, names the `ohmic_coil` (`PF1`) whose
+onset anchors the loop-voltage excursion, selects the loop (`loop_voltage.selection: inboard_midplane` —
+the `inboard_flux_loop` family member nearest the midplane, Flux Loop #10 on VEST — with a stored
+`voltage.data` preferred to $-d\Phi/dt$), and carries two rules: `coil` (keyword arguments of
+`vaft.process.onset.active_window`, run on `|I - baseline|` so an idle coil yields no onset) and `vloop`
+(keyword arguments of `vaft.process.onset.zero_crossing_after_excursion`: the sustained `|V|` run starting
+within `anchor_tolerance_s` of the ohmic onset is the solenoid excursion, the event is the first sign change
+after its extremum, and a decay that comes within `approach_fraction` of zero and climbs back above
+`approach_hysteresis` times that level before crossing is flagged `approached_without_crossing`). These are measured onsets, never triggers; EC power and gas
+injection have no mapped actuator signal and are reported as `not_present`. The events never enter the
+plasma hierarchy as fallbacks.
+
+```python
+from vaft.omas.discharge_timing import discharge_timing
+
+events = discharge_timing(ods)
+events.oh_onset, events.vloop.zero_crossing, events.vloop.flags
+{coil.name: coil.time for coil in events.pf_onsets}      # None for a coil that did not fire
+```
+
+### Plasma features policy
+
+The representative peaks of the plasma phase are a third concept beside the timing and the actuator events,
+configured in the `plasma_features` block of `vest.yaml` and read by `vaft.omas.plasma_features.plasma_features(ods)`
+(issue #409). Its `window` is `plasma_timing` — the only value: every peak is measured strictly inside the
+window the timing found, and when the timing found no plasma nothing is measured (`computed = False` with the
+timing's `fallback_reason`; the analysis range is never reinterpreted as a window). The rule blocks `ip`,
+`h_alpha`, each `lines[label]` and `diamagnetic` are keyword arguments of `vaft.process.onset.robust_peak`,
+keyed by the signal they were tuned on — an impurity line never borrows the H-alpha values, and `lines` may
+not carry the H-alpha label. The H-alpha peak is measured on the line that answered for the plasma (the slow
+line, the validated fast line as fallback); lines are found by their stored `processed_line` label, and a
+configured label the product lacks is `absent` while an unconfigured one simply does not appear. Every
+optical feature notes what the mapper did to its channel (`resampled`, `native_rate_hz`, `time_shift_s` for
+the fast filterscope) and whether the channel's digitizer clipped inside the window (`railed`, judged on the
+raw maximum against `spectrometer_uv.CHANNEL_RAIL_LEVEL`; `None` for a channel with no documented rail). The
+diamagnetic value is the signed sample at the largest |deviation| (`polarity: absolute`): VEST's stored flux
+is negative-going, so a paramagnetic shot would come back positive. `ip_ramp_end` is reserved and never
+required.
+
+```python
+from vaft.omas.plasma_features import plasma_features
+
+features = plasma_features(ods)
+features.computed, features.window
+features.ip.value, features.ip.time                 # A, s -- the representative peak, not the loudest sample
+features.h_alpha.value, features.h_alpha.flags       # 39915: the raw maximum is a spike on the window edge
+features.lines["CIII_1909"].value, features.diamagnetic.value
+```
 
 ## tf
 

@@ -73,6 +73,30 @@ EQUILIBRIUM_GLOBAL_COLUMNS = (
     "virial_li_lao",
     "virial_beta_bongard",
     "virial_li_bongard",
+    # #546: the three pairwise closures, the identity residuals evaluated on
+    # the equilibrium's own volume integrals, and the conditioning that says
+    # whether the RT-dependent ones mean anything. Report-only: no threshold
+    # here gates anything.
+    "virial_beta_pair_12",
+    "virial_li_pair_12",
+    "virial_beta_pair_13",
+    "virial_li_pair_13",
+    "virial_beta_pair_23",
+    "virial_li_pair_23",
+    "virial_beta_full_123",
+    "virial_li_full_123",
+    "virial_mui_full_123",
+    "virial_beta_volume",
+    "virial_li_volume",
+    "virial_mui_measured",
+    "virial_residual_e1",
+    "virial_residual_e2",
+    "virial_residual_e3",
+    "virial_residual_rms",
+    "virial_omitted_residual_pair_12",
+    "virial_omitted_residual_pair_13",
+    "virial_omitted_residual_pair_23",
+    "virial_rt_denominator_ratio",
 )
 
 # These paths cover both directly exported values and inputs consumed by the
@@ -119,6 +143,30 @@ CORE_PROFILES_PATHS = (
     "core_profiles",
     "magnetics",
     "tf",
+)
+
+#: The neoclassical product's queryable face (#550 phase 8). Deliberately small:
+#: what a campaign question asks of a bootstrap-current profile is how much current
+#: there is, where it sits, and over how much of the radius the solver was asked --
+#: and the last of those is what stops a partial run reading as a small current.
+NEOCLASSICAL_COLUMNS = (
+    "shot",
+    "cp_index",
+    "time_s",
+    "i_bootstrap_kA",
+    "j_bootstrap_peak_A_m2",
+    "rho_at_peak",
+    "rho_solved_min",
+    "rho_solved_max",
+    "points_solved",
+    "b0_T",
+    "has_core_transport",
+)
+
+NEOCLASSICAL_PATHS = (
+    "core_profiles",
+    "core_transport",
+    "equilibrium",
 )
 
 VOLUME_AVERAGED_COLUMNS = (
@@ -181,9 +229,16 @@ EFIT_KINETIC_FAMILIES = (
 SHOT_OVERVIEW_COLUMNS = (
     "shot",
     "plasma_onset_time_s",
+    "plasma_onset_source",
     "pulse_duration_s",
+    # The window is the envelope of the detector's segments, so its extent is
+    # not how long the plasma was there.  Reported beside the duration rather
+    # than folded into it: changing what `pulse_duration_s` means would move a
+    # published column under its readers (#752).
+    "pulse_duty_cycle",
     "max_ip_kA",
     "mean_b_t_T",
+    "shot_class",
 )
 
 
@@ -251,6 +306,49 @@ def _virial_values(outputs: dict, index: int) -> dict[str, float]:
         "virial_li_lao": get("li_vir_lao", "li_vir"),
         "virial_beta_bongard": get("beta_p_vir_bongard"),
         "virial_li_bongard": get("li_vir_bongard"),
+        **_virial_structured_values(values),
+    }
+
+
+def _virial_structured_values(values: dict) -> dict[str, float]:
+    """Flatten the #546 closure structure into the sheet's flat columns.
+
+    The wrapper returns nested blocks; a spreadsheet row is flat. Missing
+    blocks yield NaN rather than a KeyError, so a row computed by an older
+    wrapper still populates the columns it can.
+    """
+
+    def block(name: str, key: str) -> float:
+        entry = values.get(name)
+        if not isinstance(entry, dict):
+            return np.nan
+        return _as_float(entry.get(key, np.nan))
+
+    conditioning = values.get("conditioning")
+    rt_ratio = np.nan
+    if isinstance(conditioning, dict):
+        rt_ratio = _as_float(conditioning.get("rt_denominator_ratio", np.nan))
+    return {
+        "virial_beta_pair_12": block("pair_12", "beta_p"),
+        "virial_li_pair_12": block("pair_12", "li"),
+        "virial_beta_pair_13": block("pair_13", "beta_p"),
+        "virial_li_pair_13": block("pair_13", "li"),
+        "virial_beta_pair_23": block("pair_23", "beta_p"),
+        "virial_li_pair_23": block("pair_23", "li"),
+        "virial_beta_full_123": block("full_123", "beta_p"),
+        "virial_li_full_123": block("full_123", "li"),
+        "virial_mui_full_123": block("full_123", "mu_i"),
+        "virial_beta_volume": block("volume", "beta_p"),
+        "virial_li_volume": block("volume", "li"),
+        "virial_mui_measured": block("mu_i_sources", "measured"),
+        "virial_residual_e1": block("identity", "e1_normalized"),
+        "virial_residual_e2": block("identity", "e2_normalized"),
+        "virial_residual_e3": block("identity", "e3_normalized"),
+        "virial_residual_rms": block("identity", "rms"),
+        "virial_omitted_residual_pair_12": block("pair_12", "residual_normalized"),
+        "virial_omitted_residual_pair_13": block("pair_13", "residual_normalized"),
+        "virial_omitted_residual_pair_23": block("pair_23", "residual_normalized"),
+        "virial_rt_denominator_ratio": rt_ratio,
     }
 
 
@@ -466,7 +564,7 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
             # Column is labeled Wb: convert from the storage convention
             # (Wb for DD-conformant files, Wb/rad for legacy ones; issue #236).
             "psi_axis_Wb": _as_float(_safe_get(eq_slice, "global_quantities.psi_axis"))
-            * ods_psi_to_wb_per_radian_factor(eq_slice) * TWO_PI,
+            * ods_psi_to_wb_per_radian_factor(ods, index) * TWO_PI,
             "q_axis": _as_float(_safe_get(eq_slice, "global_quantities.q_axis")),
             "q_95": _as_float(_safe_get(eq_slice, "global_quantities.q_95")),
             "q_min": _extract_q_min(eq_slice),
@@ -513,6 +611,117 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
         row["virial_li"] = row["virial_li_lao"]
         rows.append(row)
     return rows
+
+
+def extract_neoclassical(ods, shot: int) -> list[dict]:
+    """Summarize a mapped neoclassical result, one row per core_profiles slice.
+
+    Reads the canonical product -- `core_profiles.j_bootstrap` as the NEO mapping
+    wrote it -- and never a native `out.neo.*` file: #550 phase 8 is explicit that
+    the standardized product is the long-term query contract, and a summary that
+    parsed solver output would be a second, divergent one.
+
+    The profile is NaN outside the surfaces NEO solved. That is carried into the
+    row as `points_solved` and the solved span rather than being filled or averaged
+    over, so a seven-surface run and a full-profile one cannot be compared as if
+    they were the same measurement.
+    """
+    if "core_profiles.profiles_1d" not in ods or not len(
+        ods["core_profiles.profiles_1d"]
+    ):
+        return []
+
+    rows: list[dict] = []
+    field = _safe_get(ods, "core_profiles.vacuum_toroidal_field.b0", None)
+    times = _safe_get(ods, "core_profiles.time", None)
+    has_transport = bool(
+        "core_transport.model" in ods and len(ods["core_transport.model"])
+    )
+
+    for cp_index in range(len(ods["core_profiles.profiles_1d"])):
+        cp_slice = ods["core_profiles.profiles_1d"][cp_index]
+        if "j_bootstrap" not in cp_slice or "grid.rho_tor_norm" not in cp_slice:
+            continue
+        current = np.asarray(_safe_get(cp_slice, "j_bootstrap"), dtype=float)
+        rho = np.asarray(_safe_get(cp_slice, "grid.rho_tor_norm"), dtype=float)
+        if current.size != rho.size or current.size == 0:
+            continue
+        solved = np.isfinite(current)
+        if not solved.any():
+            continue
+
+        b0 = np.nan
+        if field is not None:
+            values = np.asarray(field, dtype=float).reshape(-1)
+            # One stored value genuinely applies to every slice; anything shorter
+            # than the slice list does not, and clamping to its last entry is how
+            # slice 0's field came to answer for every slice in PR #696.
+            if values.size == 1:
+                b0 = float(values[0])
+            elif cp_index < values.size:
+                b0 = float(values[cp_index])
+
+        time_s = np.nan
+        if times is not None:
+            stamps = np.asarray(times, dtype=float).reshape(-1)
+            if cp_index < stamps.size:
+                time_s = float(stamps[cp_index])
+
+        peak = int(np.nanargmax(np.abs(np.where(solved, current, np.nan))))
+        rows.append(
+            {
+                "shot": int(shot),
+                "cp_index": int(cp_index),
+                "time_s": time_s,
+                "i_bootstrap_kA": _bootstrap_current_kA(ods, cp_index, current, rho, solved),
+                "j_bootstrap_peak_A_m2": float(current[peak]),
+                "rho_at_peak": float(rho[peak]),
+                "rho_solved_min": float(np.min(rho[solved])),
+                "rho_solved_max": float(np.max(rho[solved])),
+                "points_solved": int(np.count_nonzero(solved)),
+                "b0_T": b0,
+                "has_core_transport": has_transport,
+            }
+        )
+    return rows
+
+
+def _bootstrap_current_kA(ods, cp_index: int, current, rho, solved) -> float:
+    """Integrate j_bootstrap over the cross-section, in kA, where an area exists.
+
+    The equilibrium's own `area(rho)` is the weight; without one there is no
+    honest integral and the column is NaN rather than a number computed from an
+    assumed geometry.
+    """
+    from vaft.omas.general import find_matching_time_indices
+
+    area = None
+    if "equilibrium.time_slice" in ods and len(ods["equilibrium.time_slice"]):
+        # By time, never by position. This product carries one core_profiles slice
+        # while a shot's equilibrium carries dozens, so `min(cp_index, last)` would
+        # integrate over the cross-section of whatever instant happened to sit at
+        # that index -- a factor of several when the plasma is still growing.
+        try:
+            _, index, _ = find_matching_time_indices(ods, time_slice=cp_index)
+        except Exception:
+            return float("nan")
+        prefix = f"equilibrium.time_slice.{index}.profiles_1d"
+        grid = _safe_get(ods, f"{prefix}.rho_tor_norm", None)
+        values = _safe_get(ods, f"{prefix}.area", None)
+        if grid is not None and values is not None:
+            grid = np.asarray(grid, dtype=float)
+            values = np.asarray(values, dtype=float)
+            if grid.size == values.size and grid.size > 1:
+                # anti-alias: spatial -- the equilibrium's area onto NEO's radii.
+                area = np.interp(np.asarray(rho, dtype=float), grid, values)
+    if area is None:
+        return float("nan")
+    usable = np.asarray(solved, dtype=bool)
+    if int(np.count_nonzero(usable)) < 2:
+        return float("nan")
+    return float(
+        np.trapezoid(np.asarray(current)[usable], area[usable]) / 1e3
+    )
 
 
 def extract_core_profiles(ods, shot: int) -> list[dict]:
@@ -682,7 +891,108 @@ def extract_volume_averaged(ods, shot: int) -> list[dict]:
     return rows
 
 
-def _equilibrium_lineage(ods, eq_index: int) -> str:
+def _efit_collection(ods) -> dict:
+    """The EFIT collection payload, parsed out of the one string that replicates.
+
+    ``equilibrium.code.parameters`` is a `STR_0D`, so this is where the EFIT
+    stage puts the provenance that has to survive an entry (#380).  Everything
+    else it writes under that field is a local parser cache that is left behind
+    on purpose (#642), which is why the lineage below reads the string rather
+    than the cache it used to read.
+    """
+    raw = _safe_get(ods, "equilibrium.code.parameters", None)
+    if not isinstance(raw, str):
+        return {}
+    try:
+        return dict(json.loads(raw).get("efit_collection") or {})
+    except (TypeError, ValueError, AttributeError):
+        return {}  # CHEASE writes its own payload here, and XML is not ours
+
+
+def _slice_artifacts(collection: dict, eq_time) -> dict:
+    """The artifact hashes of the slice at ``eq_time``, from the payload.
+
+    A slice status carries the time it was reconstructed at and the paths of
+    the files that run produced; ``artifact_hashes`` is keyed by those same
+    paths.  Matching on time rather than on position is what makes this safe:
+    a rejected slice is in ``slice_statuses`` and not in ``equilibrium``, so
+    the two are not index-aligned.
+    """
+    if eq_time is None or not np.isfinite(_as_float(eq_time)):
+        return {}
+    hashes = collection.get("artifact_hashes") or {}
+    best, best_delta = None, None
+    for status in collection.get("slice_statuses") or []:
+        if not isinstance(status, dict):
+            continue
+        delta = abs(_as_float(status.get("time")) - _as_float(eq_time))
+        if not np.isfinite(delta):
+            continue
+        if best_delta is None or delta < best_delta:
+            best, best_delta = status, delta
+    if best is None or best_delta > _SLICE_TIME_TOLERANCE_S:
+        return {}
+    outputs = (best.get("provenance") or {}).get("outputs") or {}
+    found = {}
+    for kind in ("gfile", "mfile"):
+        path = outputs.get(kind)
+        if not path:
+            # The run recorded that it produced no such file -- an optional
+            # m-file, a slice that never converged.  That is an answer, not a
+            # gap, and saying "not replicated" would send a reader after a
+            # file nobody wrote.
+            found[f"{kind}_sha256"] = _NOT_PRODUCED
+        elif path in hashes:
+            found[f"{kind}_sha256"] = hashes[path]
+    return found
+
+
+#: How far a payload slice time may sit from an equilibrium slice time and
+#: still be the same reconstruction.  The two come from the same run, so this
+#: is a float-comparison margin, not a search window.
+_SLICE_TIME_TOLERANCE_S = 1.0e-6
+
+#: Recorded in place of a lineage field a replica cannot carry.  A field that
+#: cannot be filled is named rather than dropped: an absent key reads the same
+#: as an artifact nobody hashed, which is how three of these went missing from
+#: every summary for a year (#728).
+_UNAVAILABLE = "not replicated"
+
+#: Recorded when the payload says that run produced no such artifact.  The
+#: distinction from :data:`_UNAVAILABLE` is the whole point of this field
+#: existing: one is a gap in what travelled, the other is a fact about the run.
+_NOT_PRODUCED = "not produced"
+
+
+def _slice_time(ods, eq_index: int):
+    """The time of one equilibrium slice, or ``None`` when it is not recorded.
+
+    :func:`_extract_time` falls back to the slice's own index, which is right
+    for a column of times and wrong here: an index used as a time would match
+    whatever status happens to sit near that many seconds.
+    """
+    eq_slice = _safe_get(ods, f"equilibrium.time_slice.{eq_index}", None)
+    if eq_slice is not None:
+        try:
+            if "time" in eq_slice:
+                return _as_float(eq_slice["time"])
+        except Exception:
+            pass
+    if "equilibrium.time" in ods:
+        times = np.asarray(ods["equilibrium.time"], dtype=float)
+        if eq_index < len(times):
+            return float(times[eq_index])
+    return None
+
+
+def _equilibrium_lineage(ods, eq_index: int, collection: dict | None = None) -> str:
+    """The lineage blob for one equilibrium slice.
+
+    ``collection`` is the parsed EFIT payload.  The caller loops over slices and
+    the payload is one string per shot carrying a hash per artifact, so it is
+    parsed once there and passed in; parsed here it would be a six-figure-byte
+    parse per slice.
+    """
     values = {}
     for name, path in (
         ("machine", "dataset_description.data_entry.machine"),
@@ -691,19 +1001,6 @@ def _equilibrium_lineage(ods, eq_index: int) -> str:
         ("comment", "equilibrium.ids_properties.comment"),
         ("code_name", "equilibrium.code.name"),
         ("code_version", "equilibrium.code.version"),
-        (
-            "mapping_source_revision",
-            "equilibrium.code.parameters.time_slice."
-            f"{eq_index}.meqdsk.mapping_source_revision",
-        ),
-        (
-            "gfile_sha256",
-            f"equilibrium.code.parameters.time_slice.{eq_index}.artifacts.gfile.sha256",
-        ),
-        (
-            "mfile_sha256",
-            f"equilibrium.code.parameters.time_slice.{eq_index}.artifacts.mfile.sha256",
-        ),
     ):
         value = _safe_get(ods, path, None)
         if value is not None:
@@ -714,6 +1011,17 @@ def _equilibrium_lineage(ods, eq_index: int) -> str:
             except (TypeError, ValueError):
                 value = str(value)
             values[name] = value
+
+    collection = _efit_collection(ods) if collection is None else collection
+    revision = collection.get("mapping_source_revision")
+    if revision is not None:
+        values["mapping_source_revision"] = str(revision)
+    artifacts = _slice_artifacts(collection, _slice_time(ods, eq_index))
+    for name in ("gfile_sha256", "mfile_sha256"):
+        if name in artifacts:
+            values[name] = artifacts[name]
+        elif collection:
+            values[name] = _UNAVAILABLE
     return json.dumps(values, sort_keys=True, separators=(",", ":"))
 
 
@@ -774,10 +1082,11 @@ def _extract_efit_reliability_families(
     if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
         return []
     equilibrium_times = _safe_get(ods, "equilibrium.time", [])
+    collection = _efit_collection(ods)
     rows: list[dict] = []
     for eq_index in range(len(ods["equilibrium.time_slice"])):
         equilibrium_slice = ods["equilibrium.time_slice"][eq_index]
-        lineage = _equilibrium_lineage(ods, eq_index)
+        lineage = _equilibrium_lineage(ods, eq_index, collection)
         time_s = _extract_time(equilibrium_slice, equilibrium_times, eq_index)
         ip_kA = _as_float(_safe_get(equilibrium_slice, "global_quantities.ip")) / 1e3
         aggregate_chi_squared = _as_float(
@@ -897,21 +1206,48 @@ def extract_efit_reliability(ods, shot: int) -> list[dict]:
     return extract_efit_magnetic_reliability(ods, shot)
 
 
-def extract_shot_overview(ods, shot: int) -> list[dict]:
-    """Extract one operational overview row from canonical diagnostic signals."""
-    from scipy.signal import medfilt
+def _plasma_timing(ods):
+    """The shared plasma timing (lazy: ``vaft.database`` does not import ``vaft.omas`` at load)."""
+    from vaft.omas.plasma_timing import plasma_timing
 
-    uv_time = np.asarray(ods["spectrometer_uv.time"], dtype=float)
-    uv_intensity = np.asarray(
-        ods["spectrometer_uv.channel.0.processed_line.0.intensity.data"],
-        dtype=float,
-    )
-    onset, offset = vaft.process.signal_on_offset(uv_time, uv_intensity, threshold=0.05)
-    ip = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
-    if not ip.size:
-        raise ValueError("magnetics.ip.0.data is empty")
-    kernel = min(15, ip.size if ip.size % 2 else ip.size - 1)
-    filtered_ip = medfilt(ip, kernel_size=kernel) if kernel >= 3 else ip
+    return plasma_timing(ods)
+
+
+def _ip_peak(ods, timing):
+    """The plasma-current feature inside the window ``timing`` found (lazy, as above)."""
+    from vaft.omas.plasma_features import ip_peak
+
+    return ip_peak(ods, timing=timing)
+
+
+def _shot_class(ods, timing):
+    """The shot class decided from ``timing`` and the gas response (lazy, as above)."""
+    from vaft.omas.shot_class import shot_class
+
+    return shot_class(ods, timing=timing)
+
+
+def extract_shot_overview(ods, shot: int) -> list[dict]:
+    """Extract one operational overview row from canonical diagnostic signals.
+
+    The plasma window comes from ``vaft.omas.plasma_timing`` (H-alpha by
+    label, the current as fallback) and its source is a column; the peak
+    current is the representative peak inside that window
+    (``vaft.omas.plasma_features``) and the shot class the verdict of
+    ``vaft.omas.shot_class``.  A shot with no window keeps its row -- onset,
+    duration, peak current and mean field are NaN, ``plasma_onset_source``
+    is ``none`` and ``shot_class`` says why -- rather than vanishing from
+    the table; the analysis range is never reported as a window.  A
+    ``BD failure`` row may carry a window: the light saw one while a usable
+    current showed no pulse, so the optical window and its duration are
+    reported and the peak current is NaN.
+    """
+    timing = _plasma_timing(ods)
+    found = bool(timing.found)
+    onset, offset = (float(timing.onset), float(timing.offset)) if found else (float("nan"),) * 2
+    ip = _ip_peak(ods, timing)
+    max_ip = float(ip.value) if ip.found else float("nan")
+    shot_class = str(_shot_class(ods, timing).label)
     tf_time = np.asarray(ods["tf.time"], dtype=float)
     field = np.asarray(ods["tf.b_field_tor_vacuum_r.data"], dtype=float)
     tf_r0 = _as_float(ods["tf.r0"])
@@ -919,15 +1255,18 @@ def extract_shot_overview(ods, shot: int) -> list[dict]:
         raise ValueError("invalid tf time, field, or reference radius")
     field_at_reference = field / tf_r0
     in_pulse = (tf_time >= onset) & (tf_time <= offset)
-    if not np.any(in_pulse):
+    if found and not np.any(in_pulse):
         raise ValueError("no toroidal-field samples fall inside the plasma pulse")
     return [
         {
             "shot": int(shot),
-            "plasma_onset_time_s": float(onset),
-            "pulse_duration_s": float(offset - onset),
-            "max_ip_kA": float(np.nanmax(filtered_ip)) / 1e3,
-            "mean_b_t_T": float(np.nanmean(field_at_reference[in_pulse])),
+            "plasma_onset_time_s": onset,
+            "plasma_onset_source": str(timing.source) if found else "none",
+            "pulse_duration_s": offset - onset,
+            "pulse_duty_cycle": timing.duty_cycle if found else float("nan"),
+            "max_ip_kA": max_ip / 1e3,
+            "mean_b_t_T": float(np.nanmean(field_at_reference[in_pulse])) if found else float("nan"),
+            "shot_class": shot_class,
         }
     ]
 
@@ -999,9 +1338,17 @@ PRESETS = {
         ),
         extractor=extract_efit_magnetic_reliability,
     ),
+    "neoclassical": SummaryPreset(
+        columns=NEOCLASSICAL_COLUMNS,
+        paths=NEOCLASSICAL_PATHS,
+        key_columns=("shot", "cp_index"),
+        replace_groups=("shot",),
+        sort_columns=("shot", "time_s", "cp_index"),
+        extractor=extract_neoclassical,
+    ),
     "shot_overview": SummaryPreset(
         columns=SHOT_OVERVIEW_COLUMNS,
-        paths=("spectrometer_uv", "magnetics", "tf"),
+        paths=("spectrometer_uv", "magnetics", "tf", "barometry", "dataset_description"),
         key_columns=("shot",),
         replace_groups=("shot",),
         sort_columns=("shot",),

@@ -7,6 +7,7 @@ from .process_wrapper import *
 from .formula_wrapper import *
 from .update import *
 from .sample import *
+from .startup_summary import NULL_FIELD_THRESHOLD_T, startup_summary
 
 #: Plotting adapters live in ``.plotting`` and are resolved lazily so that
 #: importing ``vaft.omas`` does not pull in Matplotlib.
@@ -43,7 +44,7 @@ _PLOTTING_EXPORTS: frozenset | None = None
 def _is_plotting_export(name: str) -> bool:
     global _PLOTTING_EXPORTS
     if name != "plotting" and not (
-        name.startswith("plot_")
+        name.startswith(("plot_", "dd_", "extract_"))
         or name in {
             "available_plots",
             "disable_overlay_methods",
@@ -112,8 +113,21 @@ def load(source, *, imas_version=None):
     return ods
 
 
-def save(ods, target):
-    """Save an OMAS ODS as JSON or HDF5, chosen from ``target``'s suffix."""
+def save(ods, target, *, compression=None):
+    """Save an OMAS ODS as JSON, HDF5 or netCDF, chosen from ``target``'s suffix.
+
+    ``.nc`` is OMAS's own flat netCDF serialization (``omas.save_omas_nc``),
+    not the IMAS netCDF convention -- write that with :func:`vaft.imas.save`.
+
+    ``compression`` applies to ``.h5``/``.hdf5`` targets only and names an
+    h5py filter (``"gzip"``, ``"lzf"``). OMAS's own ``save_omas_h5`` is
+    ``dict2hdf5(filename, ods, lists_as_dicts=True)`` with no way to pass a
+    filter through, so a compressed target calls ``dict2hdf5`` directly with
+    the same arguments plus ``compression``. The dataset contents are
+    identical either way -- HDF5 compression is lossless and transparent to
+    readers, so a compressed product loads through the ordinary loader with
+    no flag on the reading side.
+    """
     import gzip
     from pathlib import Path
     import shutil
@@ -122,13 +136,27 @@ def save(ods, target):
 
     target_path = Path(target).expanduser()
     suffixes = target_path.suffixes
+    is_hdf5 = target_path.suffix.lower() in {".h5", ".hdf5"}
     if (
-        target_path.suffix.lower() not in {".h5", ".hdf5", ".json"}
+        target_path.suffix.lower() not in {".h5", ".hdf5", ".json", ".nc"}
         and suffixes[-2:] != [".json", ".gz"]
     ):
-        raise ValueError("vaft.omas.save target must end in .json, .json.gz, .h5, or .hdf5")
+        raise ValueError("vaft.omas.save target must end in .json, .json.gz, .h5, .hdf5, or .nc")
+    if compression is not None and not is_hdf5:
+        raise ValueError(
+            "vaft.omas.save compression applies to .h5/.hdf5 targets only; "
+            f"got {target_path.name!r}. JSON.GZ is already gzip-compressed."
+        )
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    if suffixes[-2:] == [".json", ".gz"]:
+    if compression is not None:
+        from omas.omas_h5 import dict2hdf5
+
+        dict2hdf5(str(target_path), ods, lists_as_dicts=True, compression=compression)
+    elif target_path.suffix.lower() == ".nc":
+        from omas import save_omas_nc
+
+        save_omas_nc(ods, str(target_path))
+    elif suffixes[-2:] == [".json", ".gz"]:
         # `ODS.save` takes a path and opens it itself, so the staging file has
         # to be openable by name -- which a NamedTemporaryFile is not on
         # Windows. See vaft.compat.reopenable_temporary_file.

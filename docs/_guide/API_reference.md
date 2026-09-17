@@ -29,10 +29,9 @@ vaft.__version__          # '0.5.0' on the inspected develop baseline
 
 Importing `vaft` is cheap. The top-level package exposes its subpackages **lazily** (`__getattr__`),
 so `import vaft` does not drag in `omas`, `imas` or `matplotlib` until you actually touch
-`vaft.omas`, `vaft.imas` or `vaft.plot`. Two compatibility shims are applied at import time —
-`vaft.apply_runtime_compat_patches()` and `vaft.apply_omfit_compat_patches()` — which restore
-NumPy/SciPy APIs that recent releases removed (`trapz`, `cumtrapz`, `interp2d`) so that OMFIT-derived
-code keeps working. You never need to call them yourself.
+`vaft.omas`, `vaft.imas` or `vaft.plot`. A compatibility shim is applied at import time —
+`vaft.apply_runtime_compat_patches()` — which restores NumPy/SciPy APIs that recent releases removed
+(`trapz`, `cumtrapz`, `interp2d`) so that OMFIT-derived code keeps working. You never need to call them yourself.
 
 # Package map
 
@@ -45,7 +44,7 @@ flowchart TD
     OMASL --> PROC["vaft.process<br/>signal and EM math"]
     OMASL --> FORM["vaft.formula<br/>closed-form physics"]
     ODS --> PLOT["vaft.plot<br/>figures"]
-    ODS --> CODE["vaft.code<br/>EFIT / CHEASE / GPEC / TES"]
+    ODS --> CODE["vaft.code<br/>EFIT / CHEASE / GPEC / TES / NUBEAM"]
     CODE --> ODS
     ODS --> DATA["vaft.data<br/>GEQDSK I/O"]
     ODS --> IMASP["vaft.imas<br/>OMAS to IMAS Access Layer"]
@@ -59,7 +58,7 @@ flowchart TD
 | `vaft.formula` | Pure physics functions: equilibrium, stability, Green's functions, constants | [Formula reference]({{ site.baseurl }}/reference/formula/) |
 | `vaft.machine_mapping` | Raw VEST DAQ to IMAS IDS mapping, plus uncertainty defaults | this page |
 | `vaft.plot` | Matplotlib figures straight from an ODS/ODC | this page |
-| `vaft.code` | Adapters for external codes (EFIT, CHEASE, GPEC, TES) | this page |
+| `vaft.code` | Adapters for external codes (EFIT, CHEASE, GPEC, TES, NUBEAM, TRANSP) | this page |
 | `vaft.data` | GEQDSK read/write and packaged sample files | this page |
 | `vaft.imas` | OMAS to IMAS Access Layer bridge | [Data structures]({{ site.baseurl }}/guide/Data_structures/) |
 
@@ -97,7 +96,12 @@ vaft.database.open(shot, *, source="public", representation="omas", paths=None,
                    occurrence=None, imas_version=None)
 vaft.database.save(data, shot, *, target="public", representation=None,
                    occurrence=None, imas_version=None, derived_cache="auto")
+vaft.database.export(shot, source=None, *, backend, output=None, overwrite=False,
+                     occurrence=0, cache="auto", transport="auto")
 ```
+
+`export()` stages a shot once and writes any of `imas-hdf5`, `imas-nc`, `omas-json`, `omas-hdf5`,
+`omas-nc` and `geqdsk` as local files; `vaft export` is its command-line front.
 
 For local files use `vaft.omas.load/save` or `vaft.imas.load/save`; use
 `vaft.database.filedb.FileDB` to resolve canonical archive paths. Remote save access is restricted and
@@ -146,30 +150,42 @@ This is the layer you actually call to do physics on a shot. Everything here tak
 
 ```python
 ods = vaft.omas.sample_ods()    # packaged shot 39915
-odc = vaft.omas.sample_odc()    # 39915, 41524, 41672
 geq = vaft.omas.sample_gfile()  # packaged g-file as a GEQDSK object
+
+vaft.data.available_samples()   # (39915, 41524, 41672)
+vaft.data.sample(41524)         # path to one registered sample
 ```
 
 ## Shot introspection — `general`
 
 ```python
 vaft.omas.find_shotnumber(ods)
-vaft.omas.find_shotclass(ods, plot_opt=0)
+vaft.omas.find_shotclass(ods)             # lenient classify_shot: None when the ODS cannot be classified
 vaft.omas.find_chamber_boundary(ods)
-vaft.omas.find_breakdown_onset(ods)
-vaft.omas.find_vloop_onset(ods)
-vaft.omas.find_ip_onset(ods)
-vaft.omas.find_pf_active_onset(ods)
-vaft.omas.find_pulse_duration(ods)
-vaft.omas.find_max_ip(ods)
-vaft.omas.find_bt(ods)
+vaft.omas.find_breakdown_onset(ods)       # plasma onset from vaft.omas.plasma_timing
+vaft.omas.find_vloop_onset(ods)           # loop-voltage zero crossing from vaft.omas.discharge_timing
+vaft.omas.find_ip_onset(ods)              # plasma-current principal-pulse start
+vaft.omas.find_pf_active_onset(ods)       # one entry per coil; nan for a coil that did not fire
+vaft.omas.find_pulse_duration(ods)        # plasma offset - onset
+vaft.omas.find_max_ip(ods)                # representative peak Ip inside the plasma window (vaft.omas.plasma_features)
+vaft.omas.find_bt(ods)                    # mean toroidal field over the plasma window
 vaft.omas.find_major_radius(ods)
-vaft.omas.classify_shot(ods, pressure_threshold=0.01, halpha_threshold=0.01)
+vaft.omas.classify_shot(ods, pressure_threshold=0.01)   # 'Plasma' | 'BD failure' | 'Vacuum' from the shared timing
 vaft.omas.print_info(ods, key_name=None)
 vaft.omas.find_matching_time_indices(ods, time_slice=None, atol=1e-6)
 ```
 
-Time-base bookkeeping (DAQ time versus breakdown-referenced time) and container plumbing:
+The finders answer from the shared timings with provenance, which are available directly:
+
+```python
+vaft.omas.plasma_timing.plasma_timing(ods, policy=None)          # PlasmaTiming: window, source, agreement, flags
+vaft.omas.discharge_timing.discharge_timing(ods, policy=None)    # DischargeTiming: coil onsets, ohmic onset, vloop event
+vaft.omas.plasma_features.plasma_features(ods, timing=None)      # PlasmaFeatures: peaks of Ip, H-alpha, lines, diamagnetic flux
+vaft.omas.shot_class.shot_class(ods, timing=None)                # ShotClass: the label and the check that decided it
+```
+
+Time-base bookkeeping (DAQ time versus event-referenced time) and container plumbing. The convention
+change logs its shift (logger `vaft.omas.general`) rather than printing it:
 
 ```python
 vaft.omas.shift_time(one_ods, time_shift)
@@ -296,9 +312,8 @@ vaft.machine_mapping.mhd_linear(ods, source)    # source = a linear-MHD output f
 vaft.machine_mapping.summary(ods, source, options)
 ```
 
-Two names in this namespace are reserved but not wired up yet:
-`vaft.machine_mapping.equilibrium` and `vaft.machine_mapping.pf_plasma` raise
-`NotImplementedError`. Equilibria enter the ODS through `vaft.code` (EFIT/CHEASE) instead.
+There is no `equilibrium` or `pf_plasma` mapper in this namespace: equilibria enter the ODS through
+`vaft.code` (EFIT/CHEASE) instead.
 
 Kinetic and imaging diagnostics take a shot number plus an optional data root:
 
@@ -343,36 +358,39 @@ with `vaft.machine_mapping.raw_database_info(file, shot, key)` and
 
 # `vaft.plot`
 
-Every plotting function takes an ODS or an ODC (a multi-shot container) — pass an ODC and the shots
-are overlaid. The common keywords are `label` (`'shot'`, `'pulse'`, `'run'`, `'key'`, or an explicit
-list), `xunit` (`'s'` or `'ms'`), `yunit`, and `xlim` (`'plasma'`, `'coil'`, `'none'`, or
-`[t0, t1]`).
+`vaft.plot` owns the renderers, which take typed view models. From an ODS you reach them through the
+`vaft.omas.plot_*` adapters, named `plot_{subject}_{view}[_{quantity}]`. Every adapter takes an ODS, an
+ODC (a multi-shot container) or a list of ODSs — pass several and the shots are overlaid — and returns
+`(Figure, Axes)`. The common keywords are `selection` (a preset, an index or a list of indices), `label`
+(`'shot'`, `'pulse'`, `'run'`, `'key'`, or an explicit list), `layout`, `xunit` (`'s'` or `'ms'`),
+`yunit`, and `x_limits` (`(t0, t1)`). `vaft.omas.available_plots(ods, detail=True)` lists what a given
+input can draw and which options each plot takes.
 
 ```python
 import vaft
 
 ods = vaft.omas.sample_ods()
 
-vaft.plot.time_magnetics_ip(ods, yunit="kA")
-vaft.plot.time_pf_active_current(ods, indices="used", yunit="kA")
-vaft.plot.time_magnetics_flux_loop_flux(ods, indices="all")
-vaft.plot.time_magnetics_b_field_pol_probe_field(ods)
-vaft.plot.time_tf_b_field_tor(ods)
-vaft.plot.time_barometry_pressure(ods)
-vaft.plot.time_spectrometer_uv_intensity(ods)
+vaft.omas.plot_plasma_current_time(ods, yunit="kA")
+vaft.omas.plot_pf_coil_time_current(ods, selection="active", yunit="kA")
+vaft.omas.plot_flux_loop_time_flux(ods, selection="all")
+vaft.omas.plot_b_field_probe_time_field(ods)
+vaft.omas.plot_tf_coil_time_b_t(ods)
+vaft.omas.plot_barometry_time_pressure(ods)
+vaft.omas.plot_spectrometer_uv_time_intensity(ods, emission='CIII')
 ```
 
 | Group | Functions |
 | --- | --- |
-| Time traces | `time_magnetics_ip`, `time_magnetics_diamagnetic_flux`, `time_magnetics_flux_loop_flux`, `time_magnetics_flux_loop_voltage`, `time_magnetics_b_field_pol_probe_field`, `time_pf_active_current`, `time_pf_active_current_turns`, `time_tf_coil_current`, `time_tf_b_field_tor`, `time_tf_b_field_tor_vacuum_r`, `time_barometry_pressure`, `time_spectrometer_uv_intensity`, `time_impurity_effect`, `time_electromagnetics_current` |
-| Equilibrium scalars vs. time | `time_equilibrium_plasma_current`, `time_equilibrium_li`, `time_equilibrium_beta_pol`, `time_equilibrium_beta_tor`, `time_equilibrium_beta_n`, `time_equilibrium_w_mhd`, `time_equilibrium_w_mag`, `time_equilibrium_w_tot`, `time_equilibrium_q0`, `time_equilibrium_q95`, `time_equilibrium_qa`, `time_equilibrium_major_radius` |
-| Energy and power | `time_energy`, `time_beta`, `time_power_balance`, `time_voltage_consumption`, `time_virial_equilibrium_quantities` |
-| Profiles (1-D) | `equilibrium_1d_radial`, `plot_onedim_profile`, `plot_onedim_profile_interactive` |
-| Geometry and 2-D | `twodim_geometry_all`, `overlay_all`, `pf_passive_overlay`, `vacuum_psi_contour`, `overlay_all_with_vacuum_psi_contour`, `equilibrium_2d_profiles` |
-| Kinetic diagnostics | `thomson_scattering_radial`, `thomson_scattering_time`, `thomson_scattering_radial_profiles`, `charge_exchange_radial`, `charge_exchange_time`, `charge_exchange_rho_profiles`, `plot_electron_psi_profile`, `plot_electron_2d_profile` |
-| Fluctuations | `mirnov_signal`, `mirnov_spectrogram`, `toroidal_mode_spectrum`, `toroidal_phase_mode_fit` |
-| Soft X-rays | `plot_soft_x_ray_los`, `plot_soft_x_ray_signal`, `plot_soft_x_ray_spectrogram`, `plot_soft_x_ray_pattern`, `plot_soft_x_ray_overview` |
-| Overviews | `analysis_diagnostics`, `analysis_electromagnetics`, `time_equilibrium_analysis` |
+| Time traces | `plasma_current_time`, `diamagnetic_flux_time`, `flux_loop_time_flux`, `flux_loop_time_voltage`, `b_field_probe_time_field`, `pf_coil_time_current`, `pf_coil_time_current_turns`, `tf_coil_time_current`, `tf_coil_time_b_t`, `tf_coil_time_b_t_vacuum_r`, `barometry_time_pressure`, `spectrometer_uv_time_intensity`, `spectrometer_uv_time_impurity`, `current_overview` |
+| Equilibrium scalars vs. time | `equilibrium_time_plasma_current`, `equilibrium_time_li`, `equilibrium_time_beta_p`, `equilibrium_time_beta_t`, `equilibrium_time_beta_n`, `equilibrium_time_w_mhd`, `equilibrium_time_w_mag`, `equilibrium_time_w_tot`, `equilibrium_time_q0`, `equilibrium_time_q95`, `equilibrium_time_qa`, `equilibrium_time_major_radius` |
+| Energy and power | `summary_time_energy`, `equilibrium_time_beta`, `summary_time_power_balance`, `summary_time_voltage_consumption`, `equilibrium_time_virial` |
+| Profiles (1-D) | `equilibrium_profile_pressure` |
+| Geometry and 2-D | `machine_geometry_poloidal`, `passive_structure_geometry_poloidal`, `equilibrium_field_psi_vacuum`, `equilibrium_field_2d` |
+| Kinetic diagnostics | `thomson_scattering_profile_electron_temperature`, `thomson_scattering_time_electron_temperature`, `charge_exchange_profile_ion_temperature`, `charge_exchange_time_ion_temperature`, `electron_temperature_profile`, `electron_temperature_field` |
+| Fluctuations | `mirnov_time_voltage`, `mirnov_spectrogram`, `mirnov_spatial_phase` |
+| Soft X-rays | `soft_x_rays_geometry_lines_of_sight`, `soft_x_rays_time_power`, `soft_x_rays_spectrogram`, `soft_x_rays_overview` |
+| Overviews | `magnetics_overview`, `current_overview`, `equilibrium_overview_histories` |
 | Multi-shot history | `plot_scaling_fit`, `plot_correlation_heatmap`, `plot_regression_summary`, `plot_tauE_exp_vs_scaling_loglog`, `plot_H_factor_distribution`, `plot_H_factor_vs_greenwald_fraction`, `confinement_time_exp_vs_scaling` |
 
 The [Magnetics]({{ site.baseurl }}/guide/Magnetics/) page shows several of these traces rendered from
@@ -387,8 +405,8 @@ executable, run options), an `*Inputs` object produced by `prepare_*`, a `run_*`
 code, and a `collect_*` / `*Result` pair that reads the outputs back.
 
 When a configuration does not supply an executable explicitly, adapters follow the documented
-installation roots: `EFITHOME`, `CHEASEHOME`, `GPECHOME`, and `TESHOME`. Missing binaries are a
-readiness state, not a failure of deterministic input preparation.
+installation roots: `EFITHOME`, `CHEASEHOME`, `GPECHOME`, `TESHOME`, and `NUBEAMHOME`. Missing
+binaries are a readiness state, not a failure of deterministic input preparation.
 
 ```python
 from vaft.code import EFITConfig, prepare_efit_inputs, run_efit, collect_efit_outputs
@@ -401,11 +419,64 @@ outputs = collect_efit_outputs(workdir, cfg)
 
 | Code | Entry points |
 | --- | --- |
-| EFIT (equilibrium reconstruction) | `EFITConfig`, `EFITInputs`, `EFITResult`, `prepare_efit_inputs`, `run_efit`, `collect_efit_outputs`, `generate_kfile`, `generate_constraints_ods`, `gfile_to_omas` |
+| EFIT (equilibrium reconstruction) | `EFITConfig`, `EFITInputs`, `EFITResult`, `prepare_efit_inputs`, `run_efit`, `collect_efit_outputs`, `generate_kfile`, `generate_constraints_ods`, `apply_channel_decisions`, `gaussian_probe_recovery`, `probe_families`, `gfile_to_omas` |
 | CHEASE (fixed-boundary refinement) | `CHEASEConfig`, `CHEASEInputs`, `CHEASEResult`, `find_chease_executable`, `prepare_chease_inputs`, `run_chease`, `refine_equilibrium` |
 | GPEC (perturbed equilibrium, 3-D response) | `GPECSuiteConfig`, `GPECCaseInputs`, `GPECModuleRun`, `GPECSuiteResult`, `prepare_gpec_suite_case`, `run_gpec_suite_case`, `run_gpec`, `collect_gpec_suite_outputs`, `format_gfile_header_for_gpec` |
 | TES (forward equilibrium) | `TESConfig`, `TESInputs`, `TESResult`, `prepare_tes_inputs`, `run_tes`, `collect_tes_outputs`, `scan_tes`, `parse_result_scalars`, `parse_result_coils` |
+| NUBEAM (neutral-beam Monte Carlo) | `NUBEAMConfig`, `NUBEAMInputs`, `NUBEAMResult`, `find_nubeam_executable`, `prepare_nubeam_inputs`, `run_nubeam`, `run_nubeam_case`, `collect_nubeam_outputs` |
+| TRANSP (transport, **read-only**) | `TranspOutput`, `TranspSlice`, `TranspVariable`, `TRANSPResult`, `read_transp_output`, `collect_transp_outputs`, `enclosed_torque`, `input_torque_density`, `zone_volume` |
 | Base classes | `CodeConfig`, `CodeInputs`, `CodeResult`, `CodeRunner` |
+
+`run_nubeam_case(input_dir, gfile=..., workdir=...)` is the NUBEAM equivalent: it stages a case,
+builds its Plasma State, and runs INIT then STEP. Results come back as a native container, and
+`vaft.machine_mapping.core_sources.core_sources_from_nubeam` maps the heating, current-drive and
+torque channels into `core_sources` as an NBI source term. Heating and torque are per-zone
+integrals that map directly; the driven current is not -- NUBEAM reports it as a *toroidal*
+current and IMAS asks for `<J.B>/B0`, so it goes through
+`vaft.process.equilibrium.parallel_current_from_toroidal`, which needs equilibrium geometry and
+assumes the driven current is field-aligned. On a spherical tokamak the two differ by about a
+factor of 1.5, so the distinction is not academic.
+
+`vaft.machine_mapping.distributions.distributions_from_nubeam` maps the other half: the fast-ion
+population itself, one `distributions.distribution` entry per beam species. `global_quantities`
+there is the exact part of the whole NUBEAM mapping -- summing a per-zone integral needs no
+division -- and it is also where NUBEAM's *toroidal* driven current survives unmodified, as
+`current_tor`, with none of the field-aligned assumption `core_sources` requires. It is
+`current_tor` and not `current_fast_tor` because `curbeam` is shielded, which is exactly the
+distinction IMAS draws between those two fields; the unshielded fast-ion current NUBEAM does not
+publish is left absent. The fast-ion pressures are derived: NUBEAM reports `eperp_beami` and
+`epll_beami` as mean energies per particle in keV, so `pressure_fast_parallel` is `2 n <E_par>`
+and `pressure_fast` the scalar `(p_par + 2 p_perp)/3`.
+
+When a run resolves more than one beam species, the profiles NUBEAM already summed over species --
+the collisional powers and torques, and the driven current -- are skipped rather than repeated
+into each entry, which would double-count for a consumer that adds the entries up. A multi-species
+`distributions` IDS therefore carries the per-species population but no driven current; those
+channels remain available through `core_sources`, which is not species-resolved and so does not
+face the same ambiguity.
+
+`vaft.machine_mapping.nbi` populates the static beam geometry. What has no IMAS home yet --
+deposition markers, lost fast ions, the step log's power budget -- stays in the native container
+and is drawn by `vaft.plot.nubeam`, which is why those particular views are not in the plot
+catalog while `nbi_profile_*` are.
+
+TRANSP is the one adapter with no `*Config`, no `prepare_*` and no `run_*`: VAFT reads a TRANSP run,
+it does not launch one, so there is no `TRANSPHOME`. `read_transp_output` opens a `<runid>.CDF`
+lazily — a production file holds roughly 1900 variables — and `.slice(time_s)` returns one time,
+reporting which sample it took.
+
+This layer keeps TRANSP's own names, grids and units and converts nothing: `NE` is still per cubic
+centimetre when it reaches you. Two things it *does* enforce, because the file makes them easy to
+get wrong. A variable's grid comes from its dimension name and never its length — `X` (zone centres)
+and `XB` (zone outer boundaries) have the *same length* in a real run, so `state.on_x("PLFLX")`
+raises rather than quietly handing back a boundary quantity as a centre one. And `TQTOTNB` is
+refused by name: it is an empty placeholder — a zero-valued scalar with no radial or time axis,
+declared torque-density units notwithstanding — and the total input torque is `TQIN`.
+
+`enclosed_torque(state)` is the one place the two grids interact: `TQIN` is a density in
+`N m / cm^3` and `DVOL` a volume in `cm^3`, both zone-centre, so the product is already newton
+metres and the cumulative sum lands on the zone *boundaries*. Pairing them once here is deliberate —
+converting one to SI and not the other is a factor of a million.
 
 `refine_equilibrium(source, config=None)` is the one-shot CHEASE convenience: g-file or ODS in,
 refined equilibrium out. `scan_tes(ods, base_config, values, param="ip0_kA")` sweeps a single TES
@@ -432,9 +503,11 @@ root = data_path()                          # the packaged vaft/data directory
 
 # `vaft.imas`
 
-The OMAS to IMAS Access Layer bridge: `load_omas_imas`, `save_omas_imas`, `imas_open`,
-`imas_open_uri`, `imas_get`, `imas_set`, plus `IMAS_DD_VERSION_CONVERSION` (the Data Dictionary
-version used for conversion, overridable through the environment variable of the same name).
+Local IMAS artifacts: `vaft.imas.save` writes an ODS, a native IDS or an `IMASHandle` to an IMAS HDF5
+directory or `.nc` file, and `vaft.imas.load` opens one as a native `DBEntry` context manager.
+`IMAS_DD_VERSION_CONVERSION` is the Data Dictionary version used for conversion, overridable through the
+environment variable of the same name. The OMAS-derived Access Layer bridge underneath — `load_omas_imas`,
+`save_omas_imas`, `imas_open`, `imas_open_uri`, `imas_get`, `imas_set` — lives in `vaft.imas.omas_imas`.
 `vaft.database` uses this under the hood; call it directly only when you need to talk to an Access
 Layer entry that is not a VEST shot. See
 [Data structures]({{ site.baseurl }}/guide/Data_structures/) for worked examples.
@@ -450,7 +523,7 @@ Each subpackage has at least one notebook that exercises it end to end:
 | `vaft.data`, `vaft.imas` | [`imas_omas_data_conversion.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/imas_omas_data_conversion.ipynb), [`read_and_convert_data_structure.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/read_and_convert_data_structure.ipynb) |
 | `vaft.machine_mapping`, `vaft.process.magnetics` | [`magnetic_diagnostics_processing.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/magnetic_diagnostics_processing.ipynb) |
 | `vaft.process.electromagnetics` | [`electromagnetic_response_modeling_with_efund.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/electromagnetic_response_modeling_with_efund.ipynb), [`eddy_current_calculation_and_startup_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/eddy_current_calculation_and_startup_analysis.ipynb) |
-| `vaft.code` | [`magnetic_equilibrium_reconstruction_with_efit.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/magnetic_equilibrium_reconstruction_with_efit.ipynb), [`equilibrium_refinement_using_chease.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/equilibrium_refinement_using_chease.ipynb), [`perturbed_equilibrium_and_3d_response_with_gpec.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb), [`forward_equilibrium_using_TES.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/forward_equilibrium_using_TES.ipynb) |
+| `vaft.code` | [`magnetic_equilibrium_reconstruction_with_efit.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/magnetic_equilibrium_reconstruction_with_efit.ipynb), [`equilibrium_refinement_using_chease.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/equilibrium_refinement_using_chease.ipynb), [`perturbed_equilibrium_and_3d_response_with_gpec.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/perturbed_equilibrium_and_3d_response_with_gpec.ipynb), [`forward_equilibrium_using_TES.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/forward_equilibrium_using_TES.ipynb), [`vest_nbi_analysis_with_nubeam.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/vest_nbi_analysis_with_nubeam.ipynb) |
 | `vaft.formula`, `vaft.process.statistical_analysis` | [`confinement_time_scaling.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/confinement_time_scaling.ipynb), [`tokamak_power_balance.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/tokamak_power_balance.ipynb) |
 | `vaft.plot` | [`plotting_sample_using_vaft_plot_module.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/plotting_sample_using_vaft_plot_module.ipynb) |
 

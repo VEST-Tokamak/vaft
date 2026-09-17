@@ -220,3 +220,43 @@ def test_project_points_reproduces_notebook_self_consistency_for_34764():
     # Notebook's own reported reprojection error for this shot's calibration solve.
     assert errors.mean() == pytest.approx(2.928, abs=0.05)
     assert errors.max() == pytest.approx(6.255, abs=0.05)
+
+
+def test_the_camera_ports_are_machine_geometry_not_a_notebook_formula():
+    """VEST's port corners come from the machine mapping (#64).
+
+    Sixteen markers -- eight per port, four corners then the edge midpoints --
+    in the centimeter world frame `project_points` expects, with the two ports
+    120 degrees apart.
+    """
+    import numpy as np
+
+    from vaft.machine_mapping.camera_visible import (
+        PORT_CHORD_WIDTH_M,
+        PORT_HEIGHT_M,
+        PORT_MAJOR_RADIUS_M,
+        PORT_SEPARATION_RAD,
+        vest_port_corner_points,
+    )
+
+    points = vest_port_corner_points()
+    assert points.shape == (16, 3)
+
+    radius_cm = np.hypot(points[:, 0], points[:, 1])
+    assert np.allclose(radius_cm, PORT_MAJOR_RADIUS_M * 100.0)
+
+    heights = np.unique(np.round(points[:, 2], 6))
+    assert len(heights) == 3  # top, bottom, and the mid-height markers
+    assert np.isclose(heights.max() - heights.min(), PORT_HEIGHT_M * 100.0)
+
+    # The two ports are separated by the declared angle.
+    angles = np.arctan2(points[:, 1], points[:, 0])
+    assert np.isclose(angles[8] - angles[0], PORT_SEPARATION_RAD)
+
+    # The aperture spans the declared chord, not an angle picked by hand.
+    first_port = points[:8]
+    chord_cm = np.hypot(
+        first_port[:, 0].max() - first_port[:, 0].min(),
+        first_port[:, 1].max() - first_port[:, 1].min(),
+    )
+    assert np.isclose(chord_cm, PORT_CHORD_WIDTH_M * 100.0, rtol=1e-6)

@@ -18,11 +18,13 @@ from matplotlib.figure import Figure
 
 from ..models import LineSeries
 from ..registry import renderer
+from ..presentation import presented
 from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axes, trace_labels
 
 _DEFAULT_FIGSIZE = (6.0, 2.5)
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_line_series(
     model: LineSeries,
     *,
@@ -33,6 +35,8 @@ def render_line_series(
     grid: bool = True,
     uncertainty: str = "auto",
     validity: str = "show",
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`LineSeries` into one axes.
@@ -275,6 +279,31 @@ def mirnov_time_voltage(
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Raw or preprocessed Mirnov coil voltage traces."""
+    return render_line_series(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="pf_passive",
+    subject="passive_structure",
+    view="time",
+    quantity="current",
+    model=LineSeries,
+    description="Eddy current induced in the passive structure, summed over loops.",
+    ids=("pf_passive",),
+    required_paths=(
+        "pf_passive.time",
+        "pf_passive.loop.{i}.current",
+    ),
+    optional_paths=("pf_passive.loop.{i}.name",),
+)
+def passive_structure_time_current(
+    model: LineSeries,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """Eddy current in the passive structure."""
     return render_line_series(model, ax=ax, show=show, **style)
 
 
@@ -755,6 +784,86 @@ def spectrometer_uv_time_intensity(
 
 
 @renderer(
+    domain="ec_launchers",
+    subject="ec_launchers",
+    view="time",
+    quantity="power",
+    model=LineSeries,
+    description="Net launched electron-cyclotron power (forward minus reflected) per beam; "
+                "noisy, so smooth= is a rolling median in seconds.",
+    ids=("ec_launchers",),
+    required_paths=("ec_launchers.beam.{i}.power_launched.data",),
+    optional_paths=(
+        "ec_launchers.beam.{i}.power_launched.time",
+        "ec_launchers.beam.{i}.name",
+    ),
+)
+def ec_launchers_time_power(
+    model: LineSeries,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """Net launched electron-cyclotron power per beam."""
+    return render_line_series(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="magnetics",
+    subject="rogowski_coil",
+    view="time",
+    quantity="current",
+    model=LineSeries,
+    description="Current measured by each Rogowski coil.",
+    ids=("magnetics",),
+    required_paths=("magnetics.rogowski_coil.{i}.current.data",),
+    optional_paths=(
+        "magnetics.rogowski_coil.{i}.current.time",
+        "magnetics.rogowski_coil.{i}.name",
+    ),
+)
+def rogowski_coil_time_current(
+    model: LineSeries,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """Current measured by each Rogowski coil."""
+    return render_line_series(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="pf_active",
+    subject="vacuum",
+    view="field",
+    quantity="midplane",
+    model=LineSeries,
+    description="One vacuum startup quantity along the Z = 0 row of the vacuum map -- loop "
+                "voltage, B_Z, the breakdown figure with its Ohmic and ECH-assisted thresholds, "
+                "the Lloyd margin or the connection length -- with the ECR radius, chosen with field=.",
+    ids=("pf_active", "pf_passive", "wall", "tf", "equilibrium", "magnetics",
+         "spectrometer_uv", "barometry"),
+    required_paths=("pf_active.time", "pf_active.coil.{i}.current.data"),
+    optional_paths=(
+        "tf.b_field_tor_vacuum_r.data",
+        "wall.description_2d.{i}.limiter.unit.{j}.outline.r",
+        "barometry.gauge.{i}.pressure.data",
+    ),
+)
+def vacuum_field_midplane(
+    model: LineSeries,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """One vacuum startup quantity along the midplane, at one instant."""
+    return render_line_series(model, ax=ax, show=show, **style)
+
+
+@renderer(
     domain="barometry",
     subject="barometry",
     view="time",
@@ -1008,13 +1117,17 @@ __all__ = [
     "interferometer_time_n_e_line",
     "b_field_probe_time_field",
     "diamagnetic_flux_time",
+    "ec_launchers_time_power",
     "flux_loop_time_flux",
     "flux_loop_time_voltage",
     "impa_time_field",
     "impa_time_voltage",
     "plasma_current_time",
+    "rogowski_coil_time_current",
+    "vacuum_field_midplane",
     "mhd_linear_time_energy_perturbed",
     "mirnov_time_voltage",
+    "ntms_time_delta_prime",
     "pf_coil_time_current",
     "pf_coil_time_current_turns",
     "soft_x_rays_time_power",
@@ -1025,6 +1138,32 @@ __all__ = [
     "thomson_scattering_time_electron_density",
     "thomson_scattering_time_electron_temperature",
 ]
+
+
+@renderer(
+    domain="mhd_linear",
+    subject="ntms",
+    view="time",
+    quantity="delta_prime",
+    model=LineSeries,
+    description=(
+        "Classical tearing index Delta-prime against time, one trace per "
+        "rational surface; a positive value is a tearing-unstable surface. "
+        "This is RDCON's and STRIDE's physical result, which has no slot under "
+        "`toroidal_mode` and lives in `ntms`."
+    ),
+    ids=("ntms",),
+    required_paths=(
+        "ntms.time_slice.{i}.mode.{j}.n_tor",
+        "ntms.time_slice.{i}.mode.{j}.m_pol",
+        "ntms.time_slice.{i}.mode.{j}.deltaw.{k}.value",
+    ),
+)
+def ntms_time_delta_prime(
+    model: LineSeries, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, Any]:
+    """Classical tearing index per rational surface, against time."""
+    return render_line_series(model, ax=ax, show=show, **style)
 
 
 @renderer(

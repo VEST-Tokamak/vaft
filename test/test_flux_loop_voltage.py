@@ -19,6 +19,7 @@ from vaft.machine_mapping.magnetics import (
 )
 from vaft.omas import save as save_ods
 from vaft.process.magnetics import (
+    DegenerateBaselineWindowError,
     vest_flux_loop_flux_from_voltage,
     vest_flux_loop_legacy,
     vest_flux_loop_voltage,
@@ -163,8 +164,17 @@ def test_flux_processing_is_unchanged_by_the_voltage_split(mapped):
 
 
 def test_legacy_flux_is_the_documented_voltage_composition():
-    """`vest_flux_loop_legacy` == integrate(calibrate(raw)), formula unchanged."""
-    time = np.linspace(0.0, 0.1, 2_000)
+    """`vest_flux_loop_legacy` == integrate(calibrate(raw)), formula unchanged.
+
+    On a record long enough to reach the configured baseline windows, so the
+    composition is checked over the path a real shot takes.  It used to run on
+    2000 samples, which the default windows (3499:5000 and 11999:15000) miss
+    entirely; the baseline was then silently zero and this asserted a shape the
+    shipped code never produces.  Issue #639 turned that silence into
+    `DegenerateBaselineWindowError`, and the zero-baseline formula now has its
+    own test below, which opts into it explicitly.
+    """
+    time = np.arange(SAMPLES) * DT
     raw = np.sin(2 * np.pi * 50.0 * time)
     calibration = -0.0909
 
@@ -175,11 +185,50 @@ def test_legacy_flux_is_the_documented_voltage_composition():
     np.testing.assert_array_equal(
         composed, vest_flux_loop_legacy(time, raw, calibration, flux_loop_number=1)
     )
-    # Too short for the configured baseline windows, so the baseline is zero
-    # and the raw integration formula is exposed directly.
+    # A baseline was fitted and subtracted, which is what distinguishes this
+    # from the degenerate-window case: the bare integral is not the answer.
+    integral = -cumtrapz_compat(raw / calibration, x=time, initial=0) / (2 * np.pi)
+    assert not np.allclose(composed, integral)
+    # ... and it is a straight line, the only thing subtraction may remove.
+    residual = integral - composed
+    np.testing.assert_allclose(
+        residual, np.polyval(np.polyfit(time, residual, 1), time), atol=1e-12
+    )
+
+
+def test_a_zero_baseline_exposes_the_raw_integration_formula():
+    """With the baseline opted out of, the composition is the bare integral.
+
+    The shape the previous version of the test above got by accident, from a
+    record too short for its own baseline window.  `allow_zero_fallback=True`
+    is how the shipped code offers it now (issue #639), and it warns rather
+    than passing silently.
+    """
+    time = np.linspace(0.0, 0.1, 2_000)
+    raw = np.sin(2 * np.pi * 50.0 * time)
+    calibration = -0.0909
+
+    with pytest.warns(UserWarning, match="Degenerate baseline window"):
+        composed = vest_flux_loop_legacy(
+            time, raw, calibration, flux_loop_number=1, allow_zero_fallback=True
+        )
     np.testing.assert_allclose(
         composed, -cumtrapz_compat(raw / calibration, x=time, initial=0) / (2 * np.pi)
     )
+
+
+def test_a_record_too_short_for_its_baseline_window_refuses():
+    """The failure this file's own fixture used to hide (issue #639).
+
+    `test_equilibrium_magnetics_processing` covers the error's shape; what is
+    pinned here is that the legacy flux-loop entry point reaches it, so no
+    future short fixture can quietly reintroduce a zero baseline.
+    """
+    time = np.linspace(0.0, 0.1, 2_000)
+    raw = np.sin(2 * np.pi * 50.0 * time)
+
+    with pytest.raises(DegenerateBaselineWindowError, match="flux_loop_1"):
+        vest_flux_loop_legacy(time, raw, -0.0909, flux_loop_number=1)
 
 
 def test_missing_channel_keeps_indexing_and_marks_voltage_invalid(mapped):

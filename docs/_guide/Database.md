@@ -111,8 +111,8 @@ exist_shot(username=None, shot=None, data_filter=None, sort=-1)
 - `sort` is `1` (ascending), `-1` (descending, the default) or `0` (unsorted).
 - `data_filter='ts'` (also `'thomson_scattering'`) ignores `username`/`shot` and returns a
   `pandas.DataFrame` with columns `Index, Shot Number, Last Processed, Status`, read from the
-  processed-shots file `hdf5://public_omas/processed_shots.h5` (exposed as
-  `vaft.database.utils.PROCESSED_H5_PATH`). It returns `None` when nothing has been processed.
+  processed-shots registry `processed_shots.h5` of the named source (its URI is
+  `vaft.database.utils.processed_registry_uri(source)`). It returns `None` when nothing has been processed.
 - Shot folders come back as **strings**, not ints. A connection failure prints `Connection error`
   and returns `[]` / `False`.
 
@@ -186,6 +186,36 @@ path = db.path("omas", shot=39915)
 Set `VAFT_FILEDB_DIR` when the configuration uses that environment reference. The audit helpers are
 read-only and propose legacy-to-canonical mappings without moving data.
 
+## Exporting a shot as local files
+
+A shot on HSDS is a folder (`master.h5` plus one image per IDS), so `hsget` cannot fetch it whole.
+`vaft export` stages the shot once and writes every requested format from that one copy:
+
+```bash
+vaft export --shot 41672 --source public --backend imas-nc omas-json geqdsk
+```
+
+```python
+vaft.database.export(41672, source="public", backend=["imas-nc", "omas-json", "geqdsk"])
+```
+
+| backend | written as | format |
+| --- | --- | --- |
+| `imas-hdf5` | `imas_<shot>_hdf5/` | native IMAS HDF5 Data Entry, copied as stored |
+| `imas-nc` | `imas_<shot>.nc` | IMAS netCDF convention (IMAS-Python) |
+| `omas-json` | `omas_<shot>.json` | OMAS JSON |
+| `omas-hdf5` | `omas_<shot>.h5` | OMAS single-file HDF5, not an IMAS Data Entry |
+| `omas-nc` | `omas_<shot>.nc` | OMAS flat netCDF, not the IMAS convention |
+| `geqdsk` | `geqdsk_<shot>/` | one g-file per equilibrium time slice |
+
+Artifacts go directly under `--output` (default: the current directory). Existing ones are refused
+unless `--overwrite` is given, and a backend that fails leaves nothing behind. The converted backends
+read occurrence 0 and refuse a shot that stores other occurrences; `imas-hdf5` keeps them all.
+Export reads the DD version the IDS were stored with (the newest one when stages wrote different
+minor versions) and never converts across a major version: a shot mixing DD 3 and DD 4 IDS is
+refused, and `geqdsk` needs a DD 3 shot, because DD 4 flips the psi sign convention (COCOS 17).
+Both netCDF backends need the `netCDF4` package.
+
 ## Saving to HSDS
 
 ```python
@@ -203,40 +233,43 @@ from the supplied object and rejects a conflicting explicit `representation`.
 
 ## Native IMAS IDS objects
 
-When you want an `IDSToplevel` from `imas` rather than an OMAS ODS, use the IDS pair. Native loading
-requires the **keyword** `ids_name=` — that is what distinguishes it from a directory argument:
+When you want an `IDSToplevel` from `imas` rather than an OMAS ODS, use the IDS pair. These live on the
+`vaft.database.ids` submodule; there is no `vaft.database.load_ids` / `save_ids` at package level.
 
 ```python
-# Both forms are equivalent
-eq = vaft.database.load(shot=2, ids_name="equilibrium", dd_version="3.41.0")
-eq = vaft.database.load_ids(2, "equilibrium", dd_version="3.41.0")
+eq = vaft.database.ids.load(2, "equilibrium", dd_version="3.41.0")
 
 # A list of IDS names returns a dict {name: ids}
-idss = vaft.database.load_ids(2, ["equilibrium", "pf_active"])
+idss = vaft.database.ids.load(2, ["equilibrium", "pf_active"])
 ```
 
+For a whole shot as native IMAS rather than one IDS, `vaft.database.load` takes
+`representation="imas"`.
+
 ```python
-ids.load(shot, ids_name, directory="public", occurrence=0, dd_version=None, local_dir=None)
-ids.save(ids, shot, env="server", path=None, dd_version=None)
+ids.load(shot, ids_name, source=None, occurrence=0, dd_version=None, local_dir=None,
+         cache="auto", transport="auto", *, directory=None)
+ids.save(ids, shot, source=None, dd_version=None, *, directory=None, derived_cache="auto")
 ```
 
 `ids.load` downloads `master.h5` **and** every `.h5` it externally links — IMAS-Core refuses to open a
 data entry with a missing link, even when you ask for a single IDS — then opens the staging directory
 with `imas.DBEntry("imas:hdf5?path=…", "r")` and returns `dbentry.get(ids_name, occurrence)`.
 
-Saving a native IDS goes through `save_ids`, **not** `save`:
+Saving a native IDS goes through `ids.save`, **not** `vaft.database.save`:
 
 ```python
-uri = vaft.database.save_ids(eq, 2, env="server", dd_version="3.41.0")
+uri = vaft.database.ids.save(eq, 2, dd_version="3.41.0")
 # -> "hdf5://{username}/2/equilibrium.h5"
 ```
 
 - `vaft.database.save` / `save_ods` handle **ODS only** and have no `dd_version` parameter; passing one
-  raises `TypeError`. Use `save_ids` (or `vaft.database.ids.save`) for IDS objects.
-- `ids.save` has **no `directory` argument**. The target folder is the logged-in HSDS username
-  (remapped to `public` when that username is `admin`), and both `{ids_name}.h5` and the regenerated
-  `master.h5` are uploaded. The IDS file name comes from the IDS metadata name.
-- `env="local"` writes to `~/public/imasdb/VEST/3/{shot}/1` by default.
+  raises `TypeError`. Use `vaft.database.ids.save` for IDS objects.
+- `ids.save` publishes into a named HSDS `source`, defaulting to `main`; the read-only legacy `public`
+  source is refused. `directory` is a deprecated alias for `source`. Both `{ids_name}.h5` and the
+  regenerated `master.h5` are uploaded, and the IDS file name comes from the IDS metadata name.
+- A native IDS carries no `dataset_description`, so unlike `save_ods` this path records no source
+  provenance inside the payload.
 
 ### Which `load` is which
 
@@ -244,7 +277,8 @@ uri = vaft.database.save_ids(eq, 2, env="server", dd_version="3.41.0")
 | --- | --- |
 | `vaft.database.load(39915)` | OMAS `ODS` |
 | `vaft.database.load(39915, "public_omas")` | OMAS `ODS` from the `public_omas` folder |
-| `vaft.database.load(2, ids_name="equilibrium")` | native IMAS IDS |
+| `vaft.database.load(2, representation="imas")` | the shot as native IMAS |
+| `vaft.database.ids.load(2, "equilibrium")` | one native IMAS IDS |
 | `vaft.database.raw.load(39915, 102)` | `(time, data)` from the **raw SQL** database |
 
 `vaft.database.raw.load` is a legacy alias for `raw.vest_load` living inside `raw.py`. It is a

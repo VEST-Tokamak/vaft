@@ -52,7 +52,10 @@ Update
 In the terminal, in the folder where you cloned the repository:
 
 ```bash
-git pull
+git status
+git stash push -m "before VAFT update"   # only if `git status` lists modified files
+git pull --ff-only
+git stash pop                             # only if you stashed
 python -m pip install -e .
 ```
 

@@ -1,4 +1,4 @@
-# VAFT presentations (pilot)
+# VAFT presentations
 
 One Quarto source per lecture, rendered to two backends:
 
@@ -8,10 +8,11 @@ One Quarto source per lecture, rendered to two backends:
    └── PDF  → Beamer      archival and printable
 ```
 
-This is the **pilot slice** of [issue #322](https://github.com/VEST-Tokamak/vaft/issues/322),
-not yet a repository-wide convention. Session 01's slides are authored here;
-sessions 02–06 remain hand-written Beamer in the parent directory until the
-pilot has been reviewed.
+This is the course's convention, adopted from the pilot that
+[issue #322](https://github.com/VEST-Tokamak/vaft/issues/322) proposed. Every
+session's deck is authored here; the hand-written Beamer sources that used to
+sit in the parent directory are gone, and with them the duplicated preamble each
+one carried and the committed PDFs that had to be kept in step with it.
 
 ## Which output do I use?
 
@@ -24,39 +25,38 @@ pilot has been reviewed.
 ## Building
 
 ```bash
-make -C tutorial presentations            # all three outputs
+make -C tutorial presentations            # every deck, all three outputs
 make -C tutorial presentations-html       # Reveal.js only
-make -C tutorial presentations-pdf        # archival Beamer PDF only
-make -C tutorial presentations-presenter  # Beamer PDF with notes shown
+make -C tutorial presentations-pdf        # archival Beamer PDFs only
+make -C tutorial presentations-presenter  # Beamer PDFs with notes shown
 ```
 
 Requires [Quarto](https://quarto.org), a LaTeX installation for the PDF targets,
 and `rsvg-convert` (from `librsvg`) so the Beamer output can embed SVG figures --
 LaTeX cannot include an SVG directly. Most developer machines already have it;
-CI installs `librsvg2-bin` explicitly. `make -C tutorial slides` still builds the five Beamer decks and is
-unaffected.
+CI installs `librsvg2-bin` explicitly.
 
 > **Target order matters.** Quarto's `--output` *renames* the render rather than
 > adding a second file, so the presenter build must run before the archival one.
 > The `presentations` target already sequences them correctly; if you invoke the
-> targets by hand, run `presentations-pdf` last.
+> targets by hand, run `presentations-pdf` last. Each target also renders the
+> decks one at a time: two Beamer renders at once would collide on the same
+> intermediate `.tex`.
 
 ## Nothing here is committed
 
 The rendered `.html`, `.pdf`, `_files/` and Quarto's `.quarto/`/`_freeze/` cache
-are all git-ignored. This differs from the Beamer decks in the parent directory,
-which do commit their PDFs.
+are all git-ignored.
 
 The reason is the Reveal.js output: it is a directory of JS, CSS and fonts
 regenerated on every render, and committing it would put exactly the kind of
 generated weight into git that the tutorial tree's rules exist to prevent. CI
-renders both backends on every pull request and uploads them as the
-`presentation-pilot` artifact, which is also how a reviewer compares the two
-forms side by side.
+renders every deck on every pull request and uploads them as the
+`tutorial-presentations` artifact, which is how a reviewer sees them.
 
-If the pilot is adopted, whether to commit the PDF is worth revisiting — the
-paired-source-plus-verified-rebuild machinery the Beamer decks use would apply
-unchanged.
+Because nothing is committed, the render *is* the check: a source that no longer
+builds is the only failure mode there is. The paired-source-plus-verified-rebuild
+machinery the Beamer decks needed went away with them.
 
 ## Speaker notes reach both backends
 
@@ -98,7 +98,7 @@ presentations/
 │   ├── vaft.scss                    Reveal.js theme
 │   └── show-notes.tex               presenter build only
 ├── assets/bibliography/vaft.bib
-└── 01_getting_started_with_vaft.qmd
+└── NN_<session>.qmd                 one per session, 01 through 06
 ```
 
 ### External links live at the end
@@ -147,9 +147,9 @@ needed is that package plus the apt line.
 > next line, and a two-column slide silently becomes a stacked one that
 > overflows the bottom of the slide.
 
-`_extensions/vaft/vaftslides/` is the architectural point. The six hand-written
-decks each carry a duplicated 13-line preamble, and `verify_tutorial.py` forbids
-factoring it out with `\input{}`. Here one definition of VAFT's slide identity —
+`_extensions/vaft/vaftslides/` is the architectural point. The decks this
+replaced each carried a duplicated 13-line preamble, which could not be factored
+out: a Beamer deck had to stand alone. Here one definition of VAFT's slide identity —
 `vaftblue` `RGB(25,76,127)`, type sizes, frame numbering, section slides —
 serves every deck and both outputs. Keep `vaft-beamer.tex` and `vaft.scss` in
 step: they are the same design expressed twice, and drift between them shows up

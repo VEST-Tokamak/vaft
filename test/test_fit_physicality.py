@@ -15,6 +15,7 @@ from omas import ODS
 
 from vaft.process.profile import (
     NE_DYNAMIC_RANGE_MAX,
+    PHYSICAL_EDGE_MAX,
     PHYSICAL_PSIN_MAX,
     TE_POSITIVE_PSIN_MAX,
     _fit_profile_until_physical,
@@ -114,7 +115,7 @@ def test_narrow_coverage_fit_is_physical():
     """The real 299 ms slice: guarded fit must stay positive with sane ne."""
     ods = _ts_ods(PSIN_299, TE_299, NE_299)
     ne_fn, te_fn, *_ = profile_fitting_thomson_scattering(
-        ods, 299.0, PSIN_299, Te_order=3, Ne_order=3,
+        ods, 299.0, PSIN_299, Te_order=3, Ne_order=3, coordinate="psi_norm",
         fitting_function_te="polynomial", fitting_function_ne="free_exponential",
     )
     grid = np.linspace(0.0, 1.0, 129)
@@ -131,7 +132,7 @@ def test_unguarded_fit_reproduces_the_pathology():
     """enforce_physical=False keeps the legacy behaviour (the bug we fixed)."""
     ods = _ts_ods(PSIN_299, TE_299, NE_299)
     ne_fn, te_fn, *_ = profile_fitting_thomson_scattering(
-        ods, 299.0, PSIN_299, Te_order=3, Ne_order=3,
+        ods, 299.0, PSIN_299, Te_order=3, Ne_order=3, coordinate="psi_norm",
         fitting_function_te="polynomial", fitting_function_ne="free_exponential",
         enforce_physical=False,
     )
@@ -149,11 +150,11 @@ def test_well_covered_fit_is_left_alone():
     ne = np.array([1.08e19, 8.27e18, 9.82e18, 7.76e18, 4.37e18, 2.0e18, 8.0e17])
     ods = _ts_ods(psin, te, ne, t_s=0.300)
     guarded = profile_fitting_thomson_scattering(
-        ods, 300.0, psin, Te_order=3, Ne_order=3,
+        ods, 300.0, psin, Te_order=3, Ne_order=3, coordinate="psi_norm",
         fitting_function_te="polynomial", fitting_function_ne="free_exponential",
     )
     legacy = profile_fitting_thomson_scattering(
-        ods, 300.0, psin, Te_order=3, Ne_order=3,
+        ods, 300.0, psin, Te_order=3, Ne_order=3, coordinate="psi_norm",
         fitting_function_te="polynomial", fitting_function_ne="free_exponential",
         enforce_physical=False,
     )
@@ -176,11 +177,11 @@ def test_edge_zero_basis_is_not_rejected():
     ods = _ts_ods(psin, te, ne, t_s=0.302)
 
     guarded = profile_fitting_thomson_scattering(
-        ods, 302.0, psin, Te_order=2, Ne_order=2,
+        ods, 302.0, psin, Te_order=2, Ne_order=2, coordinate="psi_norm",
         fitting_function_te="polynomial", fitting_function_ne="exponential",
     )
     legacy = profile_fitting_thomson_scattering(
-        ods, 302.0, psin, Te_order=2, Ne_order=2,
+        ods, 302.0, psin, Te_order=2, Ne_order=2, coordinate="psi_norm",
         fitting_function_te="polynomial", fitting_function_ne="exponential",
         enforce_physical=False,
     )
@@ -216,7 +217,7 @@ def test_ion_fit_does_not_extrapolate_below_measured_span():
     ods = _cx_ods(psin, ti)
 
     vtor_fn, ti_fn, _, _, vtor_rho, ti_rho = profile_fitting_charge_exchange(
-        ods, 298.0, psin, fitting_function_ti="polynomial"
+        ods, 298.0, psin, fitting_function_ti="polynomial", coordinate="psi_norm"
     )
     grid = np.linspace(0.0, 1.0, 129)
     fitted = ti_fn(grid)
@@ -240,7 +241,12 @@ def test_ion_fit_legacy_extrapolation_still_available():
     ods = _cx_ods(psin, ti)
     _, ti_fn, *_ = profile_fitting_charge_exchange(
         ods, 298.0, psin, fitting_function_ti="polynomial",
-        clamp_to_measured_span=False,
+        clamp_to_measured_span=False, coordinate="psi_norm",
     )
     # unclamped, the polynomial is free to run away towards the axis
     assert ti_fn(np.array([0.0]))[0] != pytest.approx(ti_fn(np.array([psin.min()]))[0])
+
+
+def test_the_edge_cut_keeps_its_old_names():
+    """PHYSICAL_PSIN_MAX was named for the coordinate the fits used to be in."""
+    assert PHYSICAL_PSIN_MAX == TE_POSITIVE_PSIN_MAX == PHYSICAL_EDGE_MAX == 0.98

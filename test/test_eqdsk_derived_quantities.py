@@ -265,5 +265,5 @@ def test_kinetic_grid_lookup_skips_the_flux_surface_trace(monkeypatch):
     grid = _grid_from_geq(read_geqdsk(data_path("efit/g039915.00319")))
 
     assert grid is not None
-    rho, psi, psi_n = grid
+    rho, psi, psi_n = grid[:3]
     assert rho.size == psi.size and psi_n[0] == 0.0 and psi_n[-1] == pytest.approx(1.0)

@@ -49,6 +49,14 @@ split by how categorical their evidence is:
 
 * spikes, offset jumps, baseline drift, elevated baseline noise.
 
+Not a verdict here at all: whether a probe contradicts its own array.
+:func:`array_contradiction_scores` scores a probe against the interpolation
+of its nearest neighbours, but vacuum fields are smooth over a few
+centimetres only while no plasma is present, and the products do not record
+the probes' toroidal positions, so the review belongs to a consumer that
+knows its plasma-free window (the vacuum-model benchmark conditions its
+scored spread on it).
+
 The soft set is where a threshold could misfire on real physics -- plasma
 breakdown *is* a fast step in these signals -- so a misfire costs a note in the
 manifest rather than a channel EFIT never sees.  ``1`` follows the convention
@@ -89,7 +97,10 @@ from vaft.validation.imas import (
     resolve_signal_time,
     validity_mask,
     write_validity,
+    resolve_signal_waveform,
+    signal_label,
 )
+from vaft.validation.validity import ValidityRecord, is_usable, usable_mask
 from vaft.validation.model import ValidationStatus
 
 __all__ = [
@@ -99,6 +110,7 @@ __all__ = [
     "QUANTITY_BY_KIND",
     "channel_node",
     "implausible_magnitude",
+    "array_contradiction_scores",
     "population_peak_outliers",
     "population_peak_ratios",
     "magnetics_quality_metrics",
@@ -190,6 +202,7 @@ class MagneticsQualityConfig:
     #: stays there.  Within-shot and relative, so it follows the shot's own
     #: amplitude and never needs a tesla or a weber.  ``None`` disables it.
     population_peak_factor: float | None = 4.0
+
 
 
 @dataclass(frozen=True)
@@ -715,28 +728,12 @@ def _compose(
 
 
 def _channel_name(source: Any, kind: str, index: int) -> str:
-    for key in ("name", "identifier"):
-        value = lookup(source, f"magnetics.{kind}.{index}.{key}")
-        if isinstance(value, str) and value:
-            return value
-    return f"{kind}[{index}]"
+    return signal_label(source, f"magnetics.{kind}.{index}", f"{kind}[{index}]")
 
 
 def _waveform(source: Any, node: str) -> tuple[np.ndarray, np.ndarray] | None:
     """A channel's ``(time, data)`` when both are present and consistent."""
-    raw = lookup(source, f"{node}.data")
-    if raw is None:
-        return None
-    try:
-        values = np.asarray(raw, dtype=float).reshape(-1)
-    except (TypeError, ValueError):
-        return None
-    if values.size < 2:
-        return None
-    time = resolve_signal_time(source, node)
-    if time is None or time.size != values.size:
-        return None
-    return time, values
+    return resolve_signal_waveform(source, node)
 
 
 def _scalar_validity(codes: np.ndarray) -> int:
@@ -760,7 +757,7 @@ def _status(codes: np.ndarray, events: Sequence[QualityEvent]) -> ValidationStat
     discarded -- ``validity_timed`` and ``valid_fraction`` carry how much, and
     what to do about it is the consumer's policy, not this layer's (#253 §7).
     """
-    if (codes < VALIDITY_VALID).any():
+    if not usable_mask(ValidityRecord(None, codes, None)).all():
         return ValidationStatus.FAIL
     if events:
         return ValidationStatus.WARN
@@ -798,6 +795,72 @@ def _position(source: Any, kind: str, index: int) -> tuple[float, float] | None:
         return float(r), float(z)
     except (TypeError, ValueError):
         return None
+
+
+def array_contradiction_scores(
+    heights: Sequence[float],
+    waveforms: np.ndarray,
+    *,
+    floor: float = 0.0,
+    min_witnesses: int = 3,
+) -> np.ndarray:
+    """Robust-z of each probe's departure from its two nearest neighbours, per sample.
+
+    ``heights`` are the probes' positions along the array (``z``), ``waveforms``
+    one row per probe on a shared time grid.  Each probe is predicted by the
+    linear interpolation of its nearest neighbour below and above (the two
+    nearest on one side at an end of the array), and the departure is scored
+    against the robust spread of the departures of the probes that are *not*
+    its neighbours at the same instant, floored at ``floor`` so a quiet
+    instant cannot make texture significant.  A faulty probe drags its
+    neighbours' departures up with it -- an end probe's, by extrapolation,
+    to the same size as its own -- so a score says a probe *or one of its
+    neighbours* is wrong; which one is a leave-one-out question for the
+    caller.  A probe with fewer than ``min_witnesses`` independent probes to
+    set its scale is ``nan`` rather than judged against the floor alone (an
+    absolute test the sigma was never meant to be), as are rows without two
+    distinct neighbours and samples where any of the three is non-finite.
+    """
+    heights = np.asarray(heights, dtype=float).reshape(-1)
+    Y = np.asarray(waveforms, dtype=float)
+    n = heights.size
+    residual = np.full_like(Y, np.nan)
+    used: dict[int, tuple[int, int]] = {}
+    for k in range(n):
+        others = [j for j in range(n) if abs(heights[j] - heights[k]) > 1e-3]
+        below = [j for j in others if heights[j] < heights[k]]
+        above = [j for j in others if heights[j] > heights[k]]
+        if below and above:
+            a, b = max(below, key=lambda j: heights[j]), min(above, key=lambda j: heights[j])
+        elif len(above) >= 2:
+            a, b = sorted(above, key=lambda j: heights[j])[:2]
+        elif len(below) >= 2:
+            a, b = sorted(below, key=lambda j: -heights[j])[:2]
+        else:
+            continue
+        used[k] = (a, b)
+        w = (heights[k] - heights[a]) / (heights[b] - heights[a])
+        residual[k] = Y[k] - ((1.0 - w) * Y[a] + w * Y[b])
+    # The spread a probe is judged against comes from the probes that are not
+    # its neighbours: a contradicting probe drags its two neighbours' departures
+    # up with it, and in a short array they would otherwise set the scale it
+    # is measured with.
+    scores = np.full_like(Y, np.nan)
+    scorable = [k for k in range(n) if np.isfinite(residual[k]).any()]
+    with np.errstate(invalid="ignore"):
+        for k in scorable:
+            # A witness is a probe whose departure does not involve this one:
+            # neither predicted from it nor one of the probes predicting it.
+            witnesses = [j for j in scorable if j != k and k not in used[j] and j not in used[k]]
+            if len(witnesses) < int(min_witnesses):
+                continue
+            pool = residual[witnesses]
+            centre = np.nanmedian(pool, axis=0)
+            spread = 1.4826 * np.nanmedian(np.abs(pool - centre), axis=0)
+            scale = np.maximum(np.where(np.isfinite(spread), spread, 0.0), float(floor))
+            scale = np.where(scale > 0.0, scale, np.nan)
+            scores[k] = np.abs(residual[k] - centre) / scale
+    return scores
 
 
 def _population_review(
@@ -864,7 +927,7 @@ def _whole_record_reason(found: _Detections) -> str:
             f"{found.metrics['amplitude_over_family_median']:.1f}x the "
             f"{found.metrics.get('family', 'family')} median"
         )
-    if found.seed < VALIDITY_VALID:
+    if not is_usable(ValidityRecord(found.seed, None, None)):
         parts.append("seeded from an invalid raw voltage")
     return "; ".join(parts)
 

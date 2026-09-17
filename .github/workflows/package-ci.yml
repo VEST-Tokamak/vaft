@@ -8,11 +8,25 @@ on:
 
 # A second push to a PR should supersede the first run rather than race it:
 # this workflow bills ~25 minutes, and every other workflow here already does
-# this. Pushes to develop/main still run to completion, so the history of what
-# passed on an integration branch stays intact.
+# this. Pushes to develop/main must still run to completion, so the history of
+# what passed on an integration branch stays intact.
+#
+# That second half was the intent before and was not what happened. With
+# `group` keyed on `github.ref`, every push to develop shared one group, and
+# `cancel-in-progress: ${{ github.event_name == 'pull_request' }}` did not
+# hold them: the run for the merge of #594 was created 03:43:01Z and cancelled
+# 03:43:33Z, two seconds after the next push. 15 of the 20 develop push runs
+# before it concluded `cancelled` and none concluded `success`, so the full
+# suite -- the only gate that runs `slow` tests and the Windows leg -- had
+# effectively stopped reporting on the integration branch.
+#
+# The membership is what decides it, not a flag. A pull request groups by its
+# number, so its next push supersedes this run; a push groups by its own SHA,
+# a group of one that nothing later can join and therefore nothing can cancel.
+# No expression has to evaluate to the right kind of false.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -42,10 +56,84 @@ jobs:
           /tmp/vaft-wheel-test/bin/pip install --no-deps dist/*.whl
           cd /tmp
           /tmp/vaft-wheel-test/bin/python -c "import vaft; print(vaft.__version__)"
+          # The console script and its plot command must parse their help
+          # in a bare install: nothing heavy is imported before the arguments.
+          /tmp/vaft-wheel-test/bin/vaft --help
+          /tmp/vaft-wheel-test/bin/vaft plot --help
+
+  # The two gates this workflow implements, stated once here (#515):
+  #
+  #   develop  development confidence -- is this change safe to integrate?
+  #            required: `package` and `core-test`
+  #   main     release confidence     -- is this state scientifically validated
+  #            and supported on every platform VAFT declares?
+  #            required: `package`, `test` and `tutorial`
+  #
+  # Full cross-platform validation is essential for VAFT, but it does not have
+  # to be paid on every intermediate feature PR. Before this split a PR into
+  # develop waited ~34 minutes to re-prove Windows support that nothing in the
+  # change had touched.
+  core-test:
+    name: core-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install vaft with dev dependencies
+        run: python -m pip install -e ".[dev]"
+
+      # A separate step, before the suite, because it is the cheapest possible
+      # signal and its failure mode is unambiguous: a name that does not exist
+      # cannot be a flake, an environment difference, or a tolerance. F821 was
+      # silently disabled for `vaft/formula/` by a star import for long enough
+      # that a public function raised NameError on every call (#753); running it
+      # here means the next star import fails a gate rather than waiting for
+      # someone to call the function it blinded.
+      - name: Check for undefined names
+        run: python -m ruff check --select F821 --output-format concise vaft/formula/
+
+      - name: Run the development-confidence selection
+        # This job is NOT a Linux platform-support claim. Linux is simply the
+        # canonical environment the development-confidence suite runs in; the
+        # platform claim is made by `test-matrix` on the main gate.
+        #
+        # `core` is a curated selection -- import and namespace contracts,
+        # public API and layer boundaries, registries and taxonomies,
+        # serialization smoke, packaging policy -- declared in one place, in
+        # test/core_selection.py, and applied by test/conftest.py. It is chosen
+        # from measured per-module durations rather than from filenames, and
+        # test/test_core_selection.py holds it to what it declares.
+        #
+        # `not perf` for the same reason the Windows leg drops it: a `perf`
+        # test asserts a wall-clock ratio, and this job's whole purpose is to
+        # be quick, so it is the last place a timing budget should be trusted.
+        # They are release-confidence measurements and run on the main gate.
+        #
+        # Serial for the same reason test-matrix is: see the note there.
+        #
+        # --durations keeps the gate's own cost visible in its log: this job
+        # has a budget, and the way a fast gate stops being fast is one test at
+        # a time with nobody watching.
+        run: python -m pytest -q -m "core and not perf" --durations=25
 
   test-matrix:
     name: test (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
+    # The full suite is release qualification, so it runs for the main gate and
+    # for the integration branches themselves -- but not for a PR into develop,
+    # which is gated by `core-test` instead. Keeping it on the push to develop
+    # costs no merge latency and is what stops a platform regression from
+    # waiting until develop -> main to be found: it surfaces within one merge,
+    # non-blocking, on the branch that caused it.
+    #
+    # `workflow_dispatch` falls through to true, so a full run is always one
+    # click away.
+    if: github.event_name != 'pull_request' || github.base_ref == 'main'
     strategy:
       # A platform-specific failure should report on its own rather than hide
       # behind whichever leg happened to fail first.
@@ -62,6 +150,16 @@ jobs:
             label: Windows
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The packaged EFIT Green tables (`vaft/data/efit/*.ddd`, ~164 MB)
+          # are Git LFS objects. `actions/checkout` leaves LFS pointers by
+          # default, so `rfcoil.ddd` arrived as a 130-byte text file and
+          # test_efund_adapter / test_efit_tables_workflow failed with "not a
+          # sequential unformatted file with 4-byte record markers" -- a real
+          # failure with a misleading message, since the tables in the
+          # repository are fine. This is the only job that reads them: the
+          # `core` selection does not include either module.
+          lfs: true
 
       - uses: actions/setup-python@v7
         with:
@@ -72,34 +170,94 @@ jobs:
         run: python -m pip install -e ".[dev]"
 
       - name: Run test suite
-        # --dist loadfile keeps a file's tests on one worker. Several modules
-        # warm an expensive module-level cache in their first test; splitting
-        # them across workers would make each worker pay that cost again.
-        run: python -m pytest -q -n auto --dist loadfile -m "not perf"
-
-      - name: Run performance budgets
-        # `perf` tests assert wall-clock ratios, which are only meaningful on an
-        # uncontended machine: with four xdist workers on a four-core runner,
-        # test_substantially_faster_than_legacy measured 4.59x against its 5x
-        # budget and failed. Five tests, ~6 s serially -- cheap to keep honest.
+        # Deliberately serial. VAFT is a scientific validation suite, so the
+        # required check runs in one process with one deterministic execution
+        # environment. xdist was measured here (see #413) and rejected: it cut
+        # the job from 19m55s to 15m51s, but xdist's loadfile scheduler assigns
+        # files to workers dynamically by completion timing, so a test's view of
+        # the process-local lru_caches in vaft/machine_mapping varies run to
+        # run. A 20% wall-clock saving does not pay for non-reproducible fixture
+        # state in the check that gates every merge.
         #
-        # Linux only. The budgets are calibrated against this runner class, and
-        # a ratio measured on a different OS is a different measurement, not a
-        # stricter one: the same test scored 3.13x on Windows under load and
-        # passed in isolation. Gating a required check on that would make it
-        # intermittently red without telling anyone anything about VAFT.
-        if: matrix.os == 'ubuntu-latest'
-        run: python -m pytest -q -m perf
+        # pytest-xdist stays in [dev] for local iteration; it is not the
+        # canonical mode. See #413 for what a future optimization must show.
+        #
+        # Running serially is also what makes the `perf` budgets meaningful:
+        # they assert wall-clock ratios, and it was four xdist workers on a
+        # four-core runner that used to push them under budget. They no longer
+        # need a job of their own.
+        #
+        # The selection is built here rather than in a `${{ }}` expression
+        # because it now has two independent axes, and one shell script that
+        # names each reason is easier to audit than a nested ternary.
+        shell: bash
+        # Passed as environment data, never interpolated into the script.
+        # `${{ }}` is substituted before bash parses the line, so a ref name
+        # carrying a shell metacharacter would be executed rather than
+        # compared -- the standard Actions script-injection shape. These
+        # particular refs are not attacker-controlled, but the safe form costs
+        # nothing.
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          CURRENT_REF: ${{ github.ref }}
+          RUNNER_PLATFORM: ${{ runner.os }}
+        run: |
+          selection=()
 
-  # `test` is a required status check (.github/rulesets/develop.json), and a
-  # matrix renames its contexts to "test (Linux)" / "test (Windows)". This job
-  # keeps the required name pointing at a single verdict that is green only
-  # when every leg is, so adding a platform never silently drops the gate.
+          # main is the release gate and runs everything. Everything else
+          # reaching this job -- the push to develop, a manual dispatch --
+          # deselects `slow`: notebook-execution checks, which are
+          # release-confidence rather than integration feedback. Nothing is
+          # skipped anywhere; `slow` tests move to the main gate, they do not
+          # stop running.
+          #
+          # Both halves of the condition are needed. `base_ref` is set only on
+          # pull requests, so a push to main -- which is how a release lands --
+          # would otherwise run the reduced develop selection.
+          if [ "$BASE_REF" != "main" ] && [ "$CURRENT_REF" != "refs/heads/main" ]; then
+            selection+=("not slow")
+          fi
+
+          # `perf` budgets are calibrated against the Linux runner class, and a
+          # ratio measured on another OS is a different measurement rather than
+          # a stricter one: test_substantially_faster_than_legacy scored 3.13x
+          # against its 5x budget on Windows under load, and passed in
+          # isolation. Gating a required check on that would make it
+          # intermittently red without saying anything about VAFT.
+          if [ "$RUNNER_PLATFORM" != "Linux" ]; then
+            selection+=("not perf")
+          fi
+
+          expression=""
+          for term in "${selection[@]}"; do
+            if [ -z "$expression" ]; then
+              expression="$term"
+            else
+              expression="$expression and $term"
+            fi
+          done
+
+          if [ -z "$expression" ]; then
+            echo "running the whole suite"
+            python -m pytest -q
+          else
+            echo "running with -m \"$expression\""
+            python -m pytest -q -m "$expression"
+          fi
+
+  # `test` is the required status check on main (.github/rulesets/main.json),
+  # and a matrix renames its contexts to "test (Linux)" / "test (Windows)".
+  # This job keeps the required name pointing at a single verdict that is green
+  # only when every leg is, so adding a platform never silently drops the gate.
+  #
+  # It carries the same condition as test-matrix, not `always()` alone: on a PR
+  # into develop the matrix is skipped, and `always()` by itself would run this
+  # job, read `skipped`, and report red on every develop PR.
   test:
     name: test
     runs-on: ubuntu-latest
     needs: test-matrix
-    if: always()
+    if: always() && (github.event_name != 'pull_request' || github.base_ref == 'main')
     steps:
       - name: Every test leg must have passed
         run: |
@@ -110,9 +268,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          # The freshness check diffs the change against its base.
-          fetch-depth: 0
 
       - uses: actions/setup-python@v7
         with:
@@ -124,44 +279,16 @@ jobs:
           # front matter in test/verify_tutorial.py.
           python -m pip install nbformat pyyaml
           sudo apt-get update
-          sudo apt-get install -y latexmk texlive-latex-recommended texlive-pictures
 
       - name: Verify committed tutorial source and artifacts
         run: python test/verify_tutorial.py
 
-      - name: Verify every changed deck input ships a rebuilt PDF
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          python test/verify_tutorial_freshness.py pairing --base "$BASE_SHA" --head HEAD
-
-      - name: Snapshot the committed decks before rebuilding
-        run: |
-          mkdir -p "${RUNNER_TEMP}/committed-decks"
-          cp tutorial/[0-9][0-9]_*.pdf "${RUNNER_TEMP}/committed-decks/"
-
-      - name: Rebuild tutorial slide decks independently
-        run: make -B -C tutorial slides
-
-      # The runner builds on a different TeX Live release than the one that
-      # produced the committed PDFs, and pdfTeX stamps its own version into
-      # every file, so the rebuild is compared on page structure rather than
-      # byte-for-byte.
-      - name: Verify the rebuild reproduces the committed decks
-        run: |
-          python test/verify_tutorial.py
-          python test/verify_tutorial_freshness.py compare \
-            --committed "${RUNNER_TEMP}/committed-decks" \
-            --rebuilt tutorial
-
-      # --- Quarto presentation pilot (issue #322) --------------------------
-      # Session 01's slides are a .qmd rendered to both backends. Nothing is
-      # committed, so CI is what proves the source still builds, and the
-      # artifacts are how a reviewer compares the two forms side by side.
-      # Pinned: under the end-state rule this job is the only producer of the
-      # decks, so an upstream Quarto release must not be able to break the build
-      # with no local signal.
+      # --- Quarto presentations (issue #322) -------------------------------
+      # Every session's slides are one .qmd rendered to both backends. Nothing
+      # is committed, so this job is the only producer of the decks and the only
+      # proof that the sources still build. Quarto is pinned for that reason: an
+      # upstream release must not be able to break the build with no local
+      # signal.
       - name: Install Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         with:
@@ -174,13 +301,13 @@ jobs:
       - name: Install the TeX packages and SVG converter Quarto's Beamer output needs
         run: sudo apt-get install -y texlive-latex-extra texlive-fonts-recommended librsvg2-bin
 
-      - name: Render the presentation pilot to both backends
+      - name: Render every deck to both backends
         run: make -C tutorial presentations
 
       - name: Upload the rendered decks for review
         uses: actions/upload-artifact@v4
         with:
-          name: presentation-pilot
+          name: tutorial-presentations
           if-no-files-found: error
           path: |
             tutorial/presentations/*.html

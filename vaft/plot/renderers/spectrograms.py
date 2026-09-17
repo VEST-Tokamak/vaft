@@ -9,9 +9,11 @@ from matplotlib.figure import Figure
 
 from ..models import Spectrogram
 from ..registry import renderer
+from ..presentation import presented
 from ..style import finalize, resolve_axes
 
 __all__ = [
+    "camera_visible_spectrogram",
     "interferometer_spectrogram",
     "mirnov_spectrogram",
     "render_spectrogram",
@@ -21,6 +23,7 @@ __all__ = [
 _DEFAULT_FIGSIZE = (8.0, 4.0)
 
 
+@presented(default_figsize=_DEFAULT_FIGSIZE)
 def render_spectrogram(
     model: Spectrogram,
     *,
@@ -28,6 +31,8 @@ def render_spectrogram(
     show: bool = False,
     figsize: tuple[float, float] | None = None,
     colorbar: bool = True,
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Spectrogram` as a time-frequency mesh."""
@@ -51,6 +56,30 @@ def render_spectrogram(
     if model.max_frequency is not None:
         axes.set_ylim(0.0, model.max_frequency)
     return finalize(figure, axes, show=show, tight_layout=ax is None)
+
+
+@renderer(
+    domain="camera_visible",
+    subject="camera_visible",
+    view="spectrogram",
+    quantity="",
+    model=Spectrogram,
+    description=(
+        "Time-frequency map of the FAST-camera intensity summed over one image "
+        "region, the camera side of the published camera/magnetics comparison "
+        "(issue #161)."
+    ),
+    ids=("camera_visible",),
+    required_paths=(
+        "camera_visible.channel.{i}.detector.{j}.frame.{k}.image_raw",
+        "camera_visible.channel.{i}.detector.{j}.frame.{k}.time",
+    ),
+)
+def camera_visible_spectrogram(
+    model: Spectrogram, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Time-frequency map of the summed FAST-camera intensity."""
+    return render_spectrogram(model, ax=ax, show=show, **style)
 
 
 @renderer(

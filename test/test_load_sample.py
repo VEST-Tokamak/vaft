@@ -42,22 +42,25 @@ def test_sample_registry_errors_are_actionable():
 
 
 @pytest.mark.parametrize("shot", [41524, 41672])
-def test_imas_only_samples_use_adapter_compatible_fallback(shot):
-    omas_adapter_path = vaft.data.sample(shot, representation="omas")
-    imas_adapter_path = vaft.data.sample(shot, representation="imas")
+def test_pipeline_samples_carry_repository_only_omas_and_imas(shot):
+    omas_path = vaft.data.sample(shot, representation="omas")
+    imas_path = vaft.data.sample(shot, representation="imas")
 
-    assert omas_adapter_path == imas_adapter_path
-    assert omas_adapter_path.name == "imas.nc"
-    assert (
-        vaft.data.sample_manifest(shot)["representations"]["imas"]["package"]
-        == "repository-only"
-    )
+    assert omas_path.name == "omas.json.gz"
+    assert imas_path.name == "imas.nc"
+    manifest = vaft.data.sample_manifest(shot)
+    for representation in ("omas", "imas"):
+        assert manifest["representations"][representation]["package"] == "repository-only"
+    assert verify_sample_artifacts(omas_path.parent, manifest) == {
+        "omas": manifest["representations"]["omas"]["sha256"],
+        "imas": manifest["representations"]["imas"]["sha256"],
+    }
 
 
 @pytest.mark.parametrize("shot", [41524, 41672])
 def test_full_imas_samples_round_trip_through_both_adapters(shot):
     manifest = vaft.data.sample_manifest(shot)
-    path = vaft.data.sample(shot, representation="omas")
+    path = vaft.data.sample(shot, representation="imas")
     version = manifest["imas_dd_version"]
 
     via_omas = vaft.omas.load(path, imas_version=version)
@@ -65,13 +68,14 @@ def test_full_imas_samples_round_trip_through_both_adapters(shot):
         assert handle.info.format == "imas_netcdf"
         assert handle.info.converted is False
         via_imas = handle.to_omas()
+    native_omas = vaft.omas.sample_ods(shot)
 
-    result = compare_ods(
-        semantic_sample_view(via_omas, manifest),
-        semantic_sample_view(via_imas, manifest),
-        scope="union",
-    )
-    assert result.passed
+    reference = semantic_sample_view(native_omas, manifest)
+    for candidate in (via_omas, via_imas):
+        result = compare_ods(
+            reference, semantic_sample_view(candidate, manifest), scope="union"
+        )
+        assert result.passed
     np.testing.assert_allclose(
         via_omas["equilibrium.time"], manifest["acceptance"]["equilibrium_times"]
     )
@@ -121,11 +125,19 @@ def test_legacy_sample_ods_wrapper_uses_registry_and_sample_odc_is_removed():
     assert not hasattr(vaft.omas, "sample_odc")
 
 
+@pytest.mark.parametrize("shot", [41524, 41672])
+def test_sample_ods_loads_every_registered_shot_as_omas(shot):
+    ods = vaft.omas.sample_ods(shot)
+    assert ods["dataset_description.data_entry.pulse"] == shot
+    assert "equilibrium" in ods and "ec_launchers" in ods
+    assert len(ods["magnetics.rogowski_coil"]) == 2
+
+
 def test_reference_probe_metadata_describes_positive_bz():
     ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
-    assert len(ods["magnetics.b_field_pol_probe"]) == 76
+    assert len(ods["magnetics.b_field_pol_probe"]) == 65
     assert len(ods["magnetics.flux_loop"]) == 11
-    for index in range(76):
+    for index in range(65):
         angle = ods[f"magnetics.b_field_pol_probe.{index}.poloidal_angle"]
         # The DD's poloidal_angle is clockwise from +R, so the sensitive axis is
         # (cos, -sin).  This assertion used (cos, +sin), which is why a stored
@@ -225,7 +237,7 @@ def test_paired_sample_exercises_complete_adapter_matrix():
     assert len(omas_native["equilibrium.time"]) == manifest["pipeline"]["efit"][
         "successful_time_slices"
     ]
-    assert len(omas_native["magnetics.b_field_pol_probe"]) == 76
+    assert len(omas_native["magnetics.b_field_pol_probe"]) == 65
     assert len(omas_native["magnetics.flux_loop"]) == 11
     assert omas_native["magnetics.ids_properties.homogeneous_time"] == 0
     for family, signal in (
@@ -270,14 +282,14 @@ def test_wheel_build_uses_the_three_slice_39915_variant(tmp_path):
     verify_sample_artifacts(sample_root, manifest)
     wheel_ods = vaft.omas.load(sample_root / "omas.json.gz")
     np.testing.assert_allclose(wheel_ods["equilibrium.time"], [0.316, 0.317, 0.318])
-    assert len(wheel_ods["magnetics.b_field_pol_probe"]) == 76
+    assert len(wheel_ods["magnetics.b_field_pol_probe"]) == 65
     assert len(wheel_ods["magnetics.flux_loop"]) == 11
     with vaft.imas.load(sample_root / "imas.nc") as handle:
         wheel_native = handle.to_omas()
     np.testing.assert_allclose(
         wheel_native["equilibrium.time"], [0.316, 0.317, 0.318]
     )
-    assert len(wheel_native["magnetics.b_field_pol_probe"]) == 76
+    assert len(wheel_native["magnetics.b_field_pol_probe"]) == 65
     assert len(wheel_native["magnetics.flux_loop"]) == 11
     # The wheel variant is substituted into every build, so a probe convention
     # fixed only in vaft/data/samples would ship inverted (issue #288). Both

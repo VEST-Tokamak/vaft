@@ -45,9 +45,15 @@ DEFINITIONAL = frozenset({
     "eK_from_K",
     "peaking_factor",
     "calculate_distance",
+    "poloidal_field_magnitude",
     "trapz_integral",
     "greens_integral_2d",
     "greens_integral_3d",
+    # virial bookkeeping: the identities are cited where they are stated, in
+    # virial_identity_residuals; these three only rearrange or scale them
+    "virial_closure_denominators",
+    "virial_normalized_residual",
+    "virial_residual_rms",
     # utils: numerical helpers, not physics
     "gradient",
     "normalize_profile",
@@ -100,6 +106,8 @@ CONVENTION_SENSITIVE = frozenset({
     "normalized_larmor_radius_from_M_T_a_Bt",
     "rho_star_from_M_T_B_R_epsilon",
     # virial closures
+    "virial_alpha_approx_from_kappa",
+    "virial_alpha_from_R_Bz_Bp_dl",
     "virial_S1_approx",
     "virial_S2_approx_from_D0_a_R0",
     "virial_S3_approx_from_eK_d",
@@ -115,6 +123,30 @@ CONVENTION_SENSITIVE = frozenset({
     "interpolate_adf11",
     "fractional_abundances",
     "line_cooling_coefficient",
+    # Neoclassical: the Coulomb-logarithm and collisionality conventions
+    # differ from the three already in the package (issue #353), and the
+    # bootstrap current carries the Wb-per-radian and COCOS sign choice.
+    "coulomb_logarithm_electron_sauter",
+    "coulomb_logarithm_ion_sauter",
+    "electron_collisionality_sauter",
+    "ion_collisionality_sauter",
+    "trapped_particle_fraction",
+    "sauter_spitzer_conductivity",
+    "sauter_neoclassical_conductivity",
+    "redl_neoclassical_conductivity",
+    "sauter_bootstrap_coefficients",
+    "redl_bootstrap_coefficients",
+    "sauter_bootstrap_current",
+    "redl_bootstrap_current",
+    # startup (#783): pascal-vs-torr, kelvin-vs-eV, molecular-vs-atomic, and a
+    # field magnitude where the flux kernels disagree on sign (#354).
+    "neutral_density_from_pressure",
+    "atomic_inventory_from_molecular_gas",
+    "townsend_ionization_coefficient",
+    "lloyd_breakdown_field",
+    "electron_cyclotron_resonance_radius",
+    "breakdown_margin",
+    "lloyd_figure_of_merit",
 })
 
 #: Fitted coefficients or scalings: the source dataset must be named.
@@ -130,6 +162,18 @@ EMPIRICAL = frozenset({
     "current_drive_efficiency",
     "bootstrap_current_fraction",
     "alpha_heating_power_from_n_D_n_T_T_keV_V",
+    # Neoclassical: every one of these is a rational fit to numerical
+    # drift-kinetic solutions (Sauter 1999/2002, Redl 2021), and the
+    # trapped fraction and Spitzer charge factor are fits too.
+    "trapped_particle_fraction",
+    "sauter_spitzer_conductivity",
+    "sauter_neoclassical_conductivity",
+    "redl_neoclassical_conductivity",
+    "sauter_bootstrap_coefficients",
+    "redl_bootstrap_coefficients",
+    "sauter_bootstrap_current",
+    "redl_bootstrap_current",
+    "lloyd_breakdown_field",
 })
 
 SPECS = catalog.list_formulas()

@@ -28,25 +28,22 @@ DIAGNOSTIC_GROUPS = frozenset(
 )
 
 
+def _unit_objective_scales() -> dict[str, float]:
+    """Return an explicit unit scale for every EFIT constraint family."""
+    return {name: 1.0 for name in sorted(DIAGNOSTIC_GROUPS)}
+
+
+def _unit_uncertainty_scales() -> dict[str, float]:
+    """Return an explicit unit uncertainty scale for every constraint family."""
+    return {name: 1.0 for name in sorted(DIAGNOSTIC_GROUPS)}
+
+
 def _require_finite(name: str, value: float, *, positive: bool = False) -> None:
     if not math.isfinite(float(value)):
         raise ValueError(f"{name} must be finite")
     if positive and float(value) <= 0:
         raise ValueError(f"{name} must be greater than zero")
 
-
-def _legacy_coil_constraint_matrix() -> tuple[tuple[float, ...], ...]:
-    """Return the routine 16-coil by 12-constraint matrix."""
-    matrix = [[0.0 for _ in range(12)] for _ in range(16)]
-    for column in range(7):
-        matrix[0][column] = 1.0
-        matrix[column + 1][column] = -1.0
-    for column, upper in enumerate((8, 10, 12, 14), start=7):
-        matrix[upper][column] = 1.0
-        matrix[upper + 1][column] = -1.0
-    matrix[13][11] = 1.0
-    matrix[14][11] = -1.0
-    return tuple(tuple(row) for row in matrix)
 
 
 @dataclass(frozen=True)
@@ -59,6 +56,11 @@ class EFITProfileConfig:
     kfffnc: int = 0
     pcurbd: int = 1
     fcurbd: int = 1
+    #: Enable EFIT's proportional-shape constraint between the fitted
+    #: pressure and FF-prime coefficients.  The executable canonicalizes any
+    #: non-zero input to one, so this is deliberately a binary switch rather
+    #: than a continuous weight (issue #579).
+    fwtbp: int = 0
 
     def __post_init__(self) -> None:
         for name in ("kppcur", "kffcur"):
@@ -71,7 +73,7 @@ class EFITProfileConfig:
             if isinstance(value, bool) or not isinstance(value, Integral) or value < 0:
                 raise ValueError(f"{name} must be a non-negative integer")
             object.__setattr__(self, name, int(value))
-        for name in ("pcurbd", "fcurbd"):
+        for name in ("pcurbd", "fcurbd", "fwtbp"):
             value = getattr(self, name)
             if (
                 isinstance(value, bool)
@@ -80,19 +82,85 @@ class EFITProfileConfig:
             ):
                 raise ValueError(f"{name} must be 0 or 1")
             object.__setattr__(self, name, int(value))
+        # response_matrix.F90 builds one proportionality row for each FF'
+        # coefficient from 2..KFFCUR and indexes the matching P' coefficient.
+        # A shorter P' basis would therefore address a different parameter,
+        # while KFFCUR=1 would add no row at all.
+        if self.fwtbp and self.kffcur < 2:
+            raise ValueError("fwtbp requires kffcur >= 2")
+        if self.fwtbp and self.kppcur < self.kffcur:
+            raise ValueError("fwtbp requires kppcur >= kffcur")
 
 
 @dataclass(frozen=True)
 class EFITInitializationConfig:
-    """Ellipse and low-current initialization controls."""
+    """Ellipse and low-current initialization controls.
+
+    ``rzero`` is **not only** the seed ellipse's centre.  The writer sends it
+    to three namelist quantities: ``RELIP`` (where the initial ellipse sits),
+    ``RZERO`` (EFIT's reference major radius) and ``RCENTR``, which also sets
+    ``BTOR = (B_t R)_measured / RCENTR``.  Moving it therefore moves the seed,
+    the normalisation and the vacuum toroidal field together, and no study can
+    attribute a change to the seed alone (issue #588 requires exactly that
+    attribution).
+
+    ``ellipse_rzero`` separates them: it drives ``RELIP`` alone and leaves
+    ``RZERO``, ``RCENTR`` and ``BTOR`` at ``rzero``.  Setting it to ``None``
+    restores the old coupling, meaning "follow ``rzero``".
+
+    It defaults to 0.32 m rather than to the 0.4 m reference radius.  0.4 m is
+    where the *vessel* is centred; 0.32 m is roughly where the plasma is, and
+    the reconstructions say so themselves -- over the #588 reference set their
+    current centroid has a median of 31.8 cm and their boundary centre
+    33.5 cm.  Seeding an ellipse at the vessel centre asks the solver to walk
+    the axis inboard on every slice before it can begin converging.
+
+    The sweep supports the region, not the digits.  Over 77 plasma slices from
+    three discharges, seeds at 0.30-0.36 m all produce more equilibria than
+    0.4 m; 0.32 m produces the most (39 against 31) and loses the fewest that
+    0.4 m reconstructs (2).  But the run is deterministic and the response is
+    not smooth -- 0.34 m falls back to 33 while 0.36 m recovers to 34 -- and
+    below 0.30 m the gain disappears entirely.  So what is established is a
+    band roughly 0.30-0.36 m wide with its best measured point at 0.32 m,
+    where the physical argument independently points.  Read no more precision
+    into the second digit than 77 slices can carry.
+    """
 
     rzero: float = 0.4
     zzero: float = 0.0
     minor_radius: float = 0.3
     elongation: float = 1.6
-    current_threshold: float = 5_000.0
+    #: ``CUTIP``. Below this plasma current EFIT stops trying to reconstruct
+    #: and returns the vacuum solution instead (``data_input.F90:2454`` sets
+    #: ``ivacum = 1``, ``ierchk = 0``, ``iconvr = 3``). It is therefore a
+    #: statement about when there is a plasma worth fitting, not a numerical
+    #: tolerance.
+    #:
+    #: 15 kA, raised from 5 kA in #708. Over the reference set the twelve
+    #: lowest-current slices run 0.3 to 14.9 kA and the next one up is
+    #: 17.5 kA, so the cut has 2.6 kA of margin either side; three discharges
+    #: cannot fix the digit more tightly than that. What it buys is the
+    #: leading slice of each discharge's collapse block -- 7.1, 12.3 and
+    #: 9.9 kA -- which EFIT was being asked to reconstruct and failed on,
+    #: reported as vacuum instead of as a collapse.
+    current_threshold: float = 15_000.0
+    #: EFIT initialization policy. ``None`` preserves the executable default
+    #: (2); studies set it explicitly so independent-slice and continuation
+    #: experiments cannot be confused (#196, #579).
+    icinit: int | None = None
+    #: ``RELIP`` alone, in metres. ``None`` restores the coupling to
+    #: :attr:`rzero`. See the class docstring for where 0.32 comes from.
+    ellipse_rzero: float | None = 0.32
+
+    @property
+    def seed_rzero(self) -> float:
+        """Where the initial ellipse is centred, whatever drives the rest."""
+        return float(self.rzero if self.ellipse_rzero is None else self.ellipse_rzero)
 
     def __post_init__(self) -> None:
+        if self.ellipse_rzero is not None:
+            _require_finite("ellipse_rzero", self.ellipse_rzero, positive=True)
+            object.__setattr__(self, "ellipse_rzero", float(self.ellipse_rzero))
         _require_finite("rzero", self.rzero, positive=True)
         _require_finite("zzero", self.zzero)
         _require_finite("minor_radius", self.minor_radius, positive=True)
@@ -100,16 +168,47 @@ class EFITInitializationConfig:
         _require_finite("current_threshold", self.current_threshold)
         if self.current_threshold < 0:
             raise ValueError("current_threshold must be non-negative")
+        if self.icinit is not None:
+            if (
+                isinstance(self.icinit, bool)
+                or not isinstance(self.icinit, Integral)
+                or self.icinit not in {1, 2, -2, -3, -4, -12}
+            ):
+                raise ValueError("icinit must be one of 1, 2, -2, -3, -4, -12, or None")
+            object.__setattr__(self, "icinit", int(self.icinit))
 
 
 @dataclass(frozen=True)
 class EFITNumericsConfig:
-    """Convergence, relaxation, and iteration controls."""
+    """Convergence, relaxation, and iteration controls.
+
+    The four settings VEST actually stops on were, until issue #171, not
+    expressible here at all: ``ERRMIN``, ``SAICON``, ``ICONVR`` and ``NXITER``
+    were left to EFIT's own defaults, one of them behind a commented-out line
+    in the writer.  That is why a VEST fit terminates on the chi-square
+    criterion after eleven iterations while the ``ERROR`` written beside it
+    asks for 1e-5 and is never reached.
+
+    They are ``None`` by default and a ``None`` writes no key, so the emitted
+    k-file is byte-identical to before and EFIT's default still applies.  A
+    study sets them explicitly; nothing infers them.
+    """
 
     relaxation: float = 1.0
     error_tolerance: float = 1.0e-5
     measurement_error_floor: float = 5.0e-4
     max_iterations: int = 100
+    #: ``ERRMIN``: the relative-error floor the fit must reach. EFIT's default
+    #: is 1e-2, two orders looser than the ``ERROR`` VEST writes.
+    error_minimum: float | None = None
+    #: ``SAICON``: the chi-square the fit is allowed to stop at. EFIT's
+    #: default is 80, which VEST's flat-top passes on the way down.
+    chi_squared_target: float | None = None
+    #: ``ICONVR``: which criterion terminates the outer loop. VEST runs 2
+    #: (chi-square) by not writing the key at all.
+    convergence_mode: int | None = None
+    #: ``NXITER``: the inner equilibrium iteration count per outer step.
+    inner_iterations: int | None = None
 
     def __post_init__(self) -> None:
         _require_finite("relaxation", self.relaxation, positive=True)
@@ -124,6 +223,137 @@ class EFITNumericsConfig:
         ):
             raise ValueError("max_iterations must be a positive integer")
         object.__setattr__(self, "max_iterations", int(self.max_iterations))
+        for name in ("error_minimum", "chi_squared_target"):
+            value = getattr(self, name)
+            if value is not None:
+                _require_finite(name, value, positive=True)
+                object.__setattr__(self, name, float(value))
+        for name in ("convergence_mode", "inner_iterations"):
+            value = getattr(self, name)
+            if value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer or None")
+            object.__setattr__(self, name, int(value))
+
+    def termination_keys(self) -> dict[str, Any]:
+        """The ``&IN1`` keys this configuration adds, in namelist spelling.
+
+        Empty when every optional setting is ``None``, which is the routine
+        case and the reason the k-file is unchanged by this addition.
+        """
+        keys: dict[str, Any] = {}
+        if self.error_minimum is not None:
+            keys["ERRMIN"] = self.error_minimum
+        if self.chi_squared_target is not None:
+            keys["SAICON"] = self.chi_squared_target
+        if self.convergence_mode is not None:
+            keys["ICONVR"] = self.convergence_mode
+        if self.inner_iterations is not None:
+            keys["NXITER"] = self.inner_iterations
+        return keys
+
+
+#: A tolerance so large the criterion it guards can never fire.  EFIT tests
+#: ``value >= tolerance``, so this disables the check without disabling the
+#: computation: the quantity is still evaluated and still written to the
+#: a-file, and only the automatic rejection stops.
+IGNORE_CRITERION = 1.0e6
+
+
+@dataclass(frozen=True)
+class EFITAcceptanceEnvelope:
+    """The ``&incheck`` bounds EFIT accepts a reconstruction within.
+
+    EFIT reads these from ``mhdin.dat`` in the table directory
+    (``read_namelist.F90``) and ``chkerr`` tests every solution against them,
+    raising the numbered failures that decide ``jflag``.  Its built-in
+    defaults are DIII-D's -- ``aminor_min = 30 cm``, ``rcntr_min = 90 cm`` --
+    and a machine that does not reach them has its equilibria rejected for
+    being small rather than for being wrong.
+
+    Lengths are **centimetres**, which is EFIT's convention here and not the
+    metres used everywhere else in this package.  The geometric bounds are
+    meant to be derived from the machine
+    (:func:`vaft.machine_mapping.efund_geometry.vest_acceptance_envelope`),
+    never fitted to a shot: a bound tuned until one discharge passes tests
+    nothing.
+    """
+
+    #: Minor radius [cm]: at most half the limiter's radial extent, at least
+    #: a few grid cells so an unresolved boundary is not accepted.
+    aminor_min: float = 25.0
+    aminor_max: float = 75.0
+    #: Boundary centre [cm], inside the limiter by at least ``aminor_min``.
+    rcntr_min: float = 30.0
+    rcntr_max: float = 160.0
+    zcntr_min: float = -165.0
+    zcntr_max: float = 165.0
+    #: Current centroid [cm], same reasoning as the boundary centre.
+    rcurrt_min: float = 30.0
+    rcurrt_max: float = 160.0
+    zcurrt_min: float = -165.0
+    zcurrt_max: float = 165.0
+    #: Physical admissibility, not geometry: left at EFIT's values unless
+    #: there is a physics argument to move them.
+    elong_min: float = 0.8
+    elong_max: float = 4.0
+    li_min: float = 0.05
+    li_max: float = 1.5
+    betap_max: float = 6.0
+    betat_max: float = 25.0
+    qstar_min: float = 1.0
+    qstar_max: float = 200.0
+    qout_min: float = 1.0
+    qout_max: float = 200.0
+    sepin_check: float = -90.0
+    gapin_min: float = -0.2
+    gapout_min: float = -0.2
+    gaptop_min: float = -0.2
+    #: Measured-vs-reconstructed plasma current, left at EFIT's value.
+    plasma_diff: float = 0.08
+    #: The virial (Lao) consistency tolerances, failures #20 and #21.  At
+    #: VEST's aspect ratio these are ill-conditioned and cannot decide the
+    #: question they are asked (issue #649): ``sbpp`` is a difference of two
+    #: nearly equal terms, negative on some slices, and ``sbli`` divides by
+    #: ``alpha - 1``.  :data:`IGNORE_CRITERION` disables the rejection while
+    #: leaving every quantity computed and written to the a-file.
+    dbpli_diff: float = 0.05
+    delbp_diff: float = 0.08
+
+    def __post_init__(self) -> None:
+        for name in fields(self):
+            _require_finite(name.name, getattr(self, name.name))
+            object.__setattr__(self, name.name, float(getattr(self, name.name)))
+        for low, high in (
+            ("aminor_min", "aminor_max"),
+            ("rcntr_min", "rcntr_max"),
+            ("zcntr_min", "zcntr_max"),
+            ("rcurrt_min", "rcurrt_max"),
+            ("zcurrt_min", "zcurrt_max"),
+            ("elong_min", "elong_max"),
+            ("li_min", "li_max"),
+            ("qstar_min", "qstar_max"),
+            ("qout_min", "qout_max"),
+        ):
+            if getattr(self, low) >= getattr(self, high):
+                raise ValueError(f"{low} must be below {high}")
+        if self.aminor_min <= 0:
+            raise ValueError("aminor_min must be positive: a plasma has a size")
+
+    def to_namelist(self) -> dict[str, float]:
+        """The ``&incheck`` keys, in the spelling EFIT reads."""
+        return {name.name: float(getattr(self, name.name)) for name in fields(self)}
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"schema_version": 1, **self.to_namelist()}
+
+    @property
+    def sha256(self) -> str:
+        payload = json.dumps(
+            self.to_dict(), sort_keys=True, separators=(",", ":"), allow_nan=False
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -131,11 +361,42 @@ class EFITConstraintConfig:
     """Diagnostic, diamagnetic-flux, coil, and passive-structure controls.
 
     ``group_weights`` overrides non-zero ODS channel weights for the named
-    group.  A zero channel weight remains zero so a rejected channel cannot be
-    accidentally re-enabled by a scan.
+    group.  ``objective_scales`` then multiplies the submitted ``FWT*`` value
+    without changing the measurement or its uncertainty.  A zero channel
+    weight remains zero so a rejected channel cannot be accidentally
+    re-enabled by either control.
+
+    ``uncertainty_scales`` is the other half of that pair: it *divides* the
+    submitted uncertainty (``SIGDLC``, ``BITMPI``, ``PSIBIT``, ``BITIP``,
+    ``BITFC``) for the named group, leaving the measurement and ``FWT*``
+    alone.  The two are not interchangeable, because EFIT processes a
+    statistical row as ``FWT/sigma`` (``data_input.F90:2782`` with ``nsq=1``
+    at ``:109``): the row weight VEST actually submits for the diamagnetic
+    flux is ``FWTDLC/sigdia = 1e-4`` under :attr:`uncertainty_mode`
+    ``"legacy_weight"``, while the stored measurement error implies ``2.3e4``.
+    Closing eight decades through ``objective_scales`` alone would write an
+    ``FWT*`` far outside anything EFIT was exercised with and would perturb
+    the branches that test ``fwtdlc`` directly (``response_matrix.F90:2840``,
+    ``chkerr.f90:61``).  Scaling the sigma moves the row weight and nothing
+    else, and it is the same quantity a production uncertainty decision would
+    set (#386).
+
+    :attr:`legacy_weight_scale` cannot serve this purpose: it is shared by
+    every family's legacy uncertainty, so moving it moves them all.
     """
 
     group_weights: Mapping[str, float] = field(default_factory=dict)
+    objective_scales: Mapping[str, float] = field(
+        default_factory=_unit_objective_scales
+    )
+    #: Per-family divisor on the submitted uncertainty.  1.0 everywhere is
+    #: today's behaviour; a value above one narrows that family's sigma and so
+    #: raises its processed row weight.  Applies in both
+    #: :attr:`uncertainty_mode` settings, so a weight ladder stays continuous
+    #: across the mode boundary.
+    uncertainty_scales: Mapping[str, float] = field(
+        default_factory=_unit_uncertainty_scales
+    )
     uncertainty_mode: str = "legacy_weight"
     legacy_vbit: float = 10.0
     legacy_weight_scale: float = 10_000.0
@@ -151,23 +412,44 @@ class EFITConstraintConfig:
     diamagnetic_flux_input_units: str = "Wb"
     wall_current_mode: str = "measured"
     passive_structure_mode: str = "fixed_currents"
-    coil_constraint_matrix: tuple[tuple[float, ...], ...] = field(
-        default_factory=_legacy_coil_constraint_matrix
-    )
-    coil_constraint_targets: tuple[float, ...] = (0.0,) * 12
+    #: Whether the ``&INWANT`` equalities are submitted at all. A study that
+    #: wants to know what they contribute turns them off; the routine path
+    #: leaves them on.
+    use_coil_relation_constraints: bool = True
+    #: The ``&INWANT`` coil-constraint matrix, one row per current group and
+    #: one column per equality. ``None`` means "derive it from the coilset the
+    #: writer is given": splitting a circuit into groups does not split its
+    #: current, and circuits wired in series carry one, so the equalities
+    #: follow from the machine description rather than from a table written
+    #: out by index. It was such a table -- sixteen rows by twelve columns,
+    #: its last two lines the PF9/PF10 tie with no explanation attached.
+    coil_constraint_matrix: tuple[tuple[float, ...], ...] | None = None
+    #: One target per column; ``None`` derives zeros, since every constraint
+    #: the coilset produces is an equality.
+    coil_constraint_targets: tuple[float, ...] | None = None
     nccoil: int = 0
 
     def __post_init__(self) -> None:
         if not isinstance(self.use_diamagnetic_flux, bool):
             raise ValueError("use_diamagnetic_flux must be boolean")
-        unknown = set(self.group_weights) - DIAGNOSTIC_GROUPS
-        if unknown:
-            names = ", ".join(sorted(unknown))
-            raise ValueError(f"unknown EFIT diagnostic group(s): {names}")
-        for name, value in self.group_weights.items():
-            _require_finite(f"group_weights[{name!r}]", value)
-            if value < 0:
-                raise ValueError(f"group_weights[{name!r}] must be non-negative")
+        if not isinstance(self.use_coil_relation_constraints, bool):
+            raise ValueError("use_coil_relation_constraints must be boolean")
+        for field_name, values in (
+            ("group_weights", self.group_weights),
+            ("objective_scales", self.objective_scales),
+            ("uncertainty_scales", self.uncertainty_scales),
+        ):
+            unknown = set(values) - DIAGNOSTIC_GROUPS
+            if unknown:
+                names = ", ".join(sorted(unknown))
+                raise ValueError(f"unknown EFIT diagnostic group(s): {names}")
+            for name, value in values.items():
+                # An uncertainty scale divides, so zero is not "disabled" here
+                # the way it is for a weight -- it is a division by zero.
+                positive = field_name == "uncertainty_scales"
+                _require_finite(f"{field_name}[{name!r}]", value, positive=positive)
+                if not positive and value < 0:
+                    raise ValueError(f"{field_name}[{name!r}] must be non-negative")
         if self.uncertainty_mode not in {"legacy_weight", "standard_deviation"}:
             raise ValueError(
                 "uncertainty_mode must be 'legacy_weight' or 'standard_deviation'"
@@ -191,24 +473,29 @@ class EFITConstraintConfig:
                 "passive_structure_mode must be 'fixed_currents', "
                 "'fit_currents', or 'disabled'"
             )
-        rows = tuple(
-            tuple(float(value) for value in row) for row in self.coil_constraint_matrix
-        )
-        if not rows or not rows[0]:
-            raise ValueError("coil_constraint_matrix must not be empty")
-        columns = len(rows[0])
-        if any(len(row) != columns for row in rows):
-            raise ValueError("coil_constraint_matrix must be rectangular")
-        if any(not math.isfinite(value) for row in rows for value in row):
-            raise ValueError("coil_constraint_matrix values must be finite")
-        if len(self.coil_constraint_targets) != columns:
-            raise ValueError(
-                "coil_constraint_targets length must equal the matrix column count"
+        if self.coil_constraint_matrix is not None:
+            rows = tuple(
+                tuple(float(value) for value in row) for row in self.coil_constraint_matrix
             )
-        if any(
-            not math.isfinite(float(value)) for value in self.coil_constraint_targets
-        ):
-            raise ValueError("coil_constraint_targets values must be finite")
+            if not rows or not rows[0]:
+                raise ValueError("coil_constraint_matrix must not be empty")
+            columns = len(rows[0])
+            if any(len(row) != columns for row in rows):
+                raise ValueError("coil_constraint_matrix must be rectangular")
+            if any(not math.isfinite(value) for row in rows for value in row):
+                raise ValueError("coil_constraint_matrix values must be finite")
+            targets = self.coil_constraint_targets
+            if targets is not None:
+                if len(targets) != columns:
+                    raise ValueError(
+                        "coil_constraint_targets length must equal the matrix column count"
+                    )
+                if any(not math.isfinite(float(value)) for value in targets):
+                    raise ValueError("coil_constraint_targets values must be finite")
+        elif self.coil_constraint_targets is not None:
+            raise ValueError(
+                "coil_constraint_targets needs a coil_constraint_matrix to be targets of"
+            )
         if (
             isinstance(self.nccoil, bool)
             or not isinstance(self.nccoil, Integral)
@@ -219,12 +506,24 @@ class EFITConstraintConfig:
         object.__setattr__(
             self, "group_weights", MappingProxyType(dict(self.group_weights))
         )
-        object.__setattr__(self, "coil_constraint_matrix", rows)
-        object.__setattr__(
-            self,
-            "coil_constraint_targets",
-            tuple(float(value) for value in self.coil_constraint_targets),
+        resolved_scales = _unit_objective_scales()
+        resolved_scales.update(self.objective_scales)
+        object.__setattr__(self, "objective_scales", MappingProxyType(resolved_scales))
+        resolved_sigmas = _unit_uncertainty_scales()
+        resolved_sigmas.update(
+            {name: float(value) for name, value in self.uncertainty_scales.items()}
         )
+        object.__setattr__(
+            self, "uncertainty_scales", MappingProxyType(resolved_sigmas)
+        )
+        if self.coil_constraint_matrix is not None:
+            object.__setattr__(self, "coil_constraint_matrix", rows)
+            if self.coil_constraint_targets is not None:
+                object.__setattr__(
+                    self,
+                    "coil_constraint_targets",
+                    tuple(float(value) for value in self.coil_constraint_targets),
+                )
 
 
 @dataclass(frozen=True)
@@ -246,11 +545,13 @@ class EFITScientificConfig:
     def from_dict(cls, payload: Mapping[str, Any]) -> "EFITScientificConfig":
         """Rebuild a validated configuration from :meth:`to_dict` output."""
         constraints = dict(payload.get("constraints", {}))
-        if "coil_constraint_matrix" in constraints:
+        # `None` survives the round trip: it means "derive from the coilset",
+        # which is a choice worth preserving rather than materialising.
+        if constraints.get("coil_constraint_matrix") is not None:
             constraints["coil_constraint_matrix"] = tuple(
                 tuple(row) for row in constraints["coil_constraint_matrix"]
             )
-        if "coil_constraint_targets" in constraints:
+        if constraints.get("coil_constraint_targets") is not None:
             constraints["coil_constraint_targets"] = tuple(
                 constraints["coil_constraint_targets"]
             )
@@ -333,6 +634,8 @@ def efit_parameter_grid(
 
 __all__ = [
     "DIAGNOSTIC_GROUPS",
+    "EFITAcceptanceEnvelope",
+    "IGNORE_CRITERION",
     "EFITConstraintConfig",
     "EFITInitializationConfig",
     "EFITNumericsConfig",

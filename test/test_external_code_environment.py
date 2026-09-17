@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import pytest
 
-from vaft.code import chease, efit, gpec
+from vaft.code import chease, efit, gacode, gpec, nubeam
 from vaft.code.tes import runner as tes_runner
 from vaft.code.tes.config import TESConfig
+
+from external_code_stubs import write_launchable_stub, write_unlaunchable_file
 
 
 _EXTERNAL_ENVIRONMENT = (
@@ -22,6 +23,20 @@ _EXTERNAL_ENVIRONMENT = (
     "EFIT",
     "TESHOME",
     "RTES",
+    "NUBEAMHOME",
+    # GACODE keeps its own root and platform variables; VAFT sets both from
+    # $GACODEHOME rather than redefining them, and accepts GACODE_ROOT as a
+    # compatibility fallback.
+    "GACODEHOME",
+    "GACODE_ROOT",
+    "GACODE_PLATFORM",
+    # The TGLF surrogate resolves model *artifacts*, not an executable, so it has
+    # no entry in the layout tests below -- but it is an external-code root by the
+    # same $XHOME convention and the autouse fixture must clear it, or a
+    # developer's TurbulentTransport.jl checkout leaks into every test that
+    # asserts nothing is configured.
+    "TURBULENTTRANSPORTHOME",
+    "TURBULENTTRANSPORT_ROOT",
     # TokaMaker (Open FUSION Toolkit) is imported in-process rather than run
     # as a $XHOME/bin binary; these steer library discovery and sys.path.
     "OFT_ROOTPATH",
@@ -37,11 +52,7 @@ def clear_external_code_environment(monkeypatch):
 
 
 def _executable(root: Path, relative_path: str) -> Path:
-    path = root / relative_path
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("#!/bin/sh\n", encoding="utf-8")
-    path.chmod(0o755)
-    return path
+    return write_launchable_stub(root / relative_path)
 
 
 def test_canonical_home_layouts_resolve_expected_executables(monkeypatch, tmp_path):
@@ -49,15 +60,23 @@ def test_canonical_home_layouts_resolve_expected_executables(monkeypatch, tmp_pa
     chease_executable = _executable(tmp_path / "chease", "bin/chease")
     efit_executable = _executable(tmp_path / "efit", "bin/efit")
     tes_executable = _executable(tmp_path / "tes", "bin/rtes")
+    nubeam_executable = _executable(tmp_path / "nubeam", "bin/nubeam_comp_exec")
+    # GACODE is the one suite whose members each carry their own bin, so the
+    # documented layout is <home>/neo/bin/neo rather than <home>/bin/neo.
+    gacode_executable = _executable(tmp_path / "gacode", "neo/bin/neo")
     monkeypatch.setenv("GPECHOME", str(tmp_path / "gpec"))
     monkeypatch.setenv("CHEASEHOME", str(tmp_path / "chease"))
     monkeypatch.setenv("EFITHOME", str(tmp_path / "efit"))
     monkeypatch.setenv("TESHOME", str(tmp_path / "tes"))
+    monkeypatch.setenv("NUBEAMHOME", str(tmp_path / "nubeam"))
+    monkeypatch.setenv("GACODEHOME", str(tmp_path / "gacode"))
 
     assert gpec._executable(gpec.GPECSuiteConfig(), "dcon") == gpec_executable
     assert chease.find_chease_executable() == chease_executable
     assert efit.find_efit_executable() == efit_executable
     assert tes_runner._resolve_executable(TESConfig()) == str(tes_executable)
+    assert nubeam.find_nubeam_executable() == nubeam_executable
+    assert gacode.find_gacode_executable(gacode.GACODEConfig(), "neo") == gacode_executable
 
 
 def test_invalid_home_is_not_masked_by_legacy_executable(monkeypatch, tmp_path):
@@ -89,6 +108,12 @@ def test_invalid_home_is_not_masked_by_legacy_executable(monkeypatch, tmp_path):
             "bin/rtes",
             lambda: tes_runner._resolve_executable(TESConfig()),
         ),
+        ("NUBEAMHOME", "bin/nubeam_comp_exec", nubeam.find_nubeam_executable),
+        (
+            "GACODEHOME",
+            "neo/bin/neo",
+            lambda: gacode.find_gacode_executable(gacode.GACODEConfig(), "neo"),
+        ),
     ],
 )
 def test_each_adapter_reports_missing_home_executable(
@@ -106,12 +131,11 @@ def test_each_adapter_reports_missing_home_executable(
     assert "Compile or install" in message
 
 
-@pytest.mark.skipif(os.name == "nt", reason="Windows does not expose POSIX execute bits")
 def test_non_executable_home_binary_has_actionable_error(monkeypatch, tmp_path):
-    binary = tmp_path / "chease/bin/chease"
-    binary.parent.mkdir(parents=True)
-    binary.write_text("not executable", encoding="utf-8")
-    binary.chmod(0o644)
+    # Runs on Windows too. The file has no launchable suffix and no PE
+    # header, which is what `is_executable` reads there -- so the platform
+    # that used to be exempt from this assertion is now covered by it.
+    binary = write_unlaunchable_file(tmp_path / "chease/bin/chease")
     monkeypatch.setenv("CHEASEHOME", str(tmp_path / "chease"))
 
     with pytest.raises(PermissionError) as error:

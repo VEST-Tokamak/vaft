@@ -8,7 +8,9 @@ themselves.
 
 from __future__ import annotations
 
-from typing import Any
+from dataclasses import replace
+
+from typing import Any, Sequence
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -25,9 +27,13 @@ from ..models import (
     TextPanel,
 )
 from ..registry import renderer
+from ..presentation import presented
 from ..style import finalize, resolve_axes
 
 __all__ = [
+    "startup_proxies_time",
+    "passive_structure_overview_wall_reduction",
+    "passive_structure_overview_wall_time",
     "chease_overview_profile_validity",
     "chease_overview_refinement_summary",
     "core_profiles_time_volume_averaged",
@@ -49,6 +55,7 @@ __all__ = [
     "magnetics_overview",
     "magnetics_overview_plasma_residual",
     "magnetics_overview_vacuum",
+    "mhd_linear_overview_eigenfunction",
     "render_panels",
     "soft_x_rays_overview",
     "spectrometer_uv_time_impurity",
@@ -103,21 +110,34 @@ def _draw_text_panel(
     """Place a :class:`TextPanel`'s lines in an axes with no frame."""
     axis = ax if ax is not None else plt.subplots()[1]
     axis.set_axis_off()
+    # Clipped to its own cell: a text block that overran it would inflate
+    # the figure's tight bounding box and shrink every other axes to make
+    # room (issue #711); a cut last line is the lesser harm, and the grid
+    # policy asks for the height the lines need in the first place.
     axis.text(
         0.02, 0.98, "\n".join(model.lines), transform=axis.transAxes,
         ha="left", va="top", family="monospace", fontsize="small", linespacing=1.4,
+        clip_on=True,
     )
     if model.title:
         axis.set_title(model.title)
     return axis.figure, axis
 
 
+#: Height reserved under a panel grid for its one shared legend [inch].
+_LEGEND_STRIP_INCHES = 0.45
+
+
+@presented(default_figsize=None)
 def render_panels(
     model: Panels,
     *,
     ax: Any = None,
     show: bool = False,
     figsize: tuple[float, float] | None = None,
+    row_heights: Sequence[float] | None = None,
+    format: str | None = None,
+    theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, np.ndarray]:
     """Draw each model in a :class:`Panels` grid into its own axes.
@@ -125,13 +145,16 @@ def render_panels(
     A caller-supplied ``ax=`` is the grid: exactly one axes per panel, filled
     in order.  Those axes are the caller's to configure, so ``model.share_x``
     and the tight layout apply only to a figure this renderer creates itself.
+    ``row_heights`` are relative heights for the grid's rows -- one per row
+    -- which a presentation format supplies from what the members asked
+    (issue #711); ``None`` divides the canvas equally, as always.
     """
     if not isinstance(model, Panels):
         raise TypeError(
             f"expected a vaft.plot.models.Panels; got {type(model).__name__}. "
             "Adapters such as vaft.omas.plot_* build the model from data objects."
         )
-    occupied = len(model.models) + len(model.placeholders)
+    occupied = len(model.models)
     if ax is not None:
         # Caller-supplied axes are authoritative and *are* the grid: exactly one
         # axes per panel, filled in order, whatever grid this model would have
@@ -152,12 +175,38 @@ def render_panels(
                 )
         figure = flat[0].figure
         grid = supplied if supplied.ndim == 2 else supplied.reshape(-1, 1)
+    elif model.spans is not None:
+        # Unequal panels: one axes per span on a gridspec.  The result is the
+        # slot-ordered axes, one dimension, since no rectangular grid exists.
+        if figsize is None:
+            figsize = (
+                _DEFAULT_PANEL_WIDTH * model.ncols,
+                _DEFAULT_PANEL_HEIGHT * visual_rows(model),
+            )
+        figure = resolve_axes(None, figsize=figsize)[0]
+        for axis in list(figure.axes):
+            axis.remove()
+        gridspec = figure.add_gridspec(model.nrows, model.ncols, height_ratios=_row_ratios(row_heights, model.nrows))
+        # A field map's colorbar gets a cell of its own beside the map, the
+        # arrangement the slice navigator uses: a colorbar taken out of an
+        # equal-aspect axes shrinks the map instead, and the taller the row
+        # the smaller the map came out (issue #711).
+        field_slot = next(
+            (i for i, m in enumerate(model.models) if isinstance(m, Field2D) and m.colorbar), None,
+        )
+        flat, colorbar_axes = slice_grid_axes(figure, gridspec, model, top=0, colorbar_slot=field_slot)
+        if colorbar_axes is not None:
+            styles = [dict(s) for s in (model.member_styles or ({},) * len(model.models))]
+            styles[field_slot]["colorbar_ax"] = colorbar_axes
+            model = replace(model, member_styles=tuple(styles))
+        grid = flat
     else:
         if figsize is None:
             figsize = (
                 _DEFAULT_PANEL_WIDTH * model.ncols,
                 _DEFAULT_PANEL_HEIGHT * model.nrows,
             )
+        ratios = _row_ratios(row_heights, model.nrows)
         figure, axes = resolve_axes(
             None,
             nrows=model.nrows,
@@ -166,30 +215,131 @@ def render_panels(
             sharex=model.share_x,
             sharey=model.share_y,
             squeeze=False,
+            gridspec_kw={"height_ratios": ratios} if ratios is not None else None,
         )
         grid = np.asarray(axes, dtype=object).reshape(model.nrows, model.ncols)
         flat = grid.ravel()
-    placeholders = dict(model.placeholders)
-    slots = [slot for slot in range(flat.size) if slot not in placeholders]
+    # A shared legend is drawn once for the figure below, so the panels must
+    # not each draw their own.  A caller-supplied `ax` is a grid this renderer
+    # does not own, so it keeps whatever legends its panels would have drawn.
+    spare_cells = len(flat) - len(model.models)
+    shared_legend = model.share_legend and ax is None and spare_cells > 0
+    panel_style = {**style, "legend": False} if shared_legend else style
     for index, panel_model in enumerate(model.models):
-        axis = flat[slots[index]]
+        axis = flat[index]
         member_style = dict(model.member_styles[index]) if model.member_styles else {}
         draw = _panel_drawer(panel_model)
-        draw(panel_model, ax=axis, show=False, **{**member_style, **style})
+        draw(panel_model, ax=axis, show=False, **{**member_style, **panel_style})
         _mark_if_invalid(axis, panel_model, {**member_style, **style})
-    for slot, text in placeholders.items():
-        axis = flat[slot]
-        axis.set_axis_off()
-        axis.text(0.5, 0.5, text, transform=axis.transAxes, ha="center", va="center", color="0.4")
-    for slot in slots[len(model.models) :]:
-        flat[slot].set_visible(False)
+    for axis in flat[len(model.models):]:
+        # A grid cell past the last member (five members in a 3 x 2 grid).
+        axis.set_visible(False)
 
+    if ax is None and model.spans is None and model.share_x and model.nrows > 1:
+        # Panels sharing a time base share its label: only the lowest drawn
+        # panel of each column keeps the x label and tick labels.
+        for column in range(model.ncols):
+            column_axes = [grid[row, column] for row in range(model.nrows) if grid[row, column].get_visible()]
+            for axis in column_axes[:-1]:
+                axis.tick_params(labelbottom=False)
+                axis.set_xlabel("")
+            if column_axes:
+                # A shared-x grid labels ticks on its structural last row only;
+                # a column that ends earlier needs them switched on by hand.
+                column_axes[-1].tick_params(labelbottom=True)
     if model.suptitle:
         figure.suptitle(model.suptitle)
     # A figure the caller owns keeps the caller's layout: tight_layout is
     # applied only to a figure this renderer created (issue #260 section 8;
     # a figure that redraws its panels must not be re-laid-out each time).
-    return finalize(figure, grid, show=show, tight_layout=ax is None)
+    # `show` is held back until the suptitle has been placed.
+    figure, grid = finalize(figure, grid, show=False, tight_layout=ax is None)
+    if shared_legend:
+        # One legend for the grid, in a cell the grid was wasting.  It cannot
+        # be a `figure.legend` placed in figure coordinates: the presentation
+        # wrapper lays the figure out again after this renderer returns, and
+        # `tight_layout` neither knows about figure legends nor leaves the
+        # space one was given.  A legend belonging to an *axes* is inside that
+        # axes' tight bbox, so the relayout accounts for it and nothing lands
+        # on top of anything.  A grid with no spare cell keeps its per-panel
+        # legends, which is the behaviour every figure had before.
+        # Every distinct label across the grid, first occurrence wins.  Taking
+        # them from one panel would miss a series the others carry: a residual
+        # grid leads with a plasma-current panel, and a channel that never
+        # crossed its threshold contributes no onset marker.
+        handles: list[Any] = []
+        labels: list[str] = []
+        for axis in flat[: len(model.models)]:
+            for handle, label in zip(*axis.get_legend_handles_labels()):
+                if label not in labels:
+                    handles.append(handle)
+                    labels.append(label)
+        spare = [axis for axis in flat[len(model.models):]]
+        if handles and spare:
+            host = spare[0]
+            host.set_visible(True)
+            host.set_axis_off()
+            host.legend(handles, labels, loc="center", frameon=False)
+    if model.suptitle and ax is None:
+        # tight_layout reserves no room for a suptitle, so on a tall grid the
+        # default position lands it on the first row's own titles. Re-place it
+        # once the layout is settled, just above the topmost axes, which works
+        # whatever shape the grid ended up with.
+        top = max(axis.get_position().y1 for axis in flat if axis.get_visible())
+        figure.suptitle(model.suptitle, y=min(1.0, top + 0.985 * (1.0 - top)), va="bottom")
+    if show:
+        plt.show()
+    return figure, grid
+
+
+def visual_rows(model: Panels) -> int:
+    """How many panels stack in the tallest column: the height a figure needs.
+
+    A spans grid may count more rows than any column shows (rows are the
+    least common multiple of the column counts), so figure height follows
+    the deepest stack rather than the grid's row count.
+    """
+    if model.spans is None:
+        return model.nrows
+    columns: dict[int, int] = {}
+    for _, col, _, colspan in model.spans:
+        for c in range(col, col + colspan):
+            columns[c] = columns.get(c, 0) + 1
+    return max(columns.values()) if columns else 1
+
+
+def _row_ratios(row_heights: Sequence[float] | None, nrows: int) -> list[float] | None:
+    """``row_heights`` as gridspec ratios, or ``None`` when they do not fit the grid."""
+    if row_heights is None:
+        return None
+    ratios = [float(h) for h in row_heights]
+    if len(ratios) != nrows or any(h <= 0 for h in ratios):
+        return None
+    return ratios
+
+
+def slice_grid_axes(figure: Any, grid: Any, model: Panels, *, top: int = 0, colorbar_slot: int | None = None):
+    """Axes for ``model``'s slots on ``grid`` (a gridspec), rows offset by ``top``.
+
+    Shared by the panel renderer and the slice-navigation figure, so an
+    overview drawn on its own and inside the navigator have the same shape.
+    Returns ``(axes, colorbar_axes)``; ``colorbar_slot`` reserves a narrow
+    cell beside that slot's panel for a colorbar the caller redraws into.
+    """
+    spans = model.spans or tuple(
+        (slot // model.ncols, slot % model.ncols, 1, 1) for slot in range(len(model.models))
+    )
+    axes = []
+    colorbar_axes = None
+    for slot, (r, c, rs, cs) in enumerate(spans):
+        cell = grid[top + r:top + r + rs, c:c + cs]
+        if slot == colorbar_slot:
+            sub = cell.subgridspec(1, 2, width_ratios=[1.0, 0.05], wspace=0.06)
+            axes.append(figure.add_subplot(sub[0, 0]))
+            colorbar_axes = figure.add_subplot(sub[0, 1])
+        else:
+            axes.append(figure.add_subplot(cell))
+    return np.array(axes, dtype=object), colorbar_axes
 
 
 def _panel_renderer(
@@ -214,6 +364,52 @@ def _panel_renderer(
         required_paths=required_paths,
         optional_paths=optional_paths,
     )
+
+
+@_panel_renderer(
+    domain="machine",
+    subject="passive_structure",
+    view="overview",
+    quantity="wall_time",
+    description=(
+        "Decay-time spectrum of the passive wall's segment-wise eigenmodes: "
+        "one series per conductor segment, slowest mode first, with the "
+        "whole wall's global spectrum for reference (vaft #473)."
+    ),
+    ids=("pf_active", "pf_passive", "em_coupling"),
+    required_paths=("pf_passive.loop.{i}.resistance",
+                    "pf_active.coil.{i}.element.{j}.geometry.geometry_type"),
+    optional_paths=("em_coupling.mutual_passive_passive",),
+)
+def passive_structure_overview_wall_time(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Wall-mode decay times per segment."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="machine",
+    subject="passive_structure",
+    view="overview",
+    quantity="wall_reduction",
+    description=(
+        "Reduced-wall response error against retained order, one panel per "
+        "metric and one series per selection rule: how much of the wall's own "
+        "contribution a truncated basis misses (vaft #494, vfit #10)."
+    ),
+    ids=("pf_active", "pf_passive", "em_coupling", "magnetics", "wall"),
+    required_paths=("pf_passive.loop.{i}.resistance",
+                    "pf_active.coil.{i}.element.{j}.geometry.geometry_type",
+                    "pf_active.coil.{i}.current.data",
+                    "wall.description_2d.{i}.limiter.unit.{j}.outline.r"),
+    optional_paths=("em_coupling.mutual_passive_passive",),
+)
+def passive_structure_overview_wall_reduction(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Reduced-wall convergence per metric and selection rule."""
+    return render_panels(model, ax=ax, show=show, **style)
 
 
 @_panel_renderer(
@@ -399,10 +595,10 @@ def spectrometer_uv_time_impurity(
     view="overview",
     quantity="",
     description=(
-        "Time histories of every diagnostic subject, one panel each, in a fixed "
-        "grid: a diagnostic absent from the input is a labelled empty panel, so "
-        "the figure has the same shape on every shot. Channels the source "
-        "flagged invalid are excluded by default."
+        "Time histories of every diagnostic subject, one panel each; a "
+        "diagnostic absent from the input is left out and the grid shrinks "
+        "(issue #476), and members= picks the panels by name (issue #482). "
+        "Channels the source flagged invalid are excluded by default."
     ),
     ids=("magnetics", "interferometer", "thomson_scattering", "charge_exchange",
          "spectrometer_uv", "barometry", "soft_x_rays"),
@@ -481,6 +677,27 @@ _VACUUM_OPTIONAL = (
     "magnetics.b_field_pol_probe.{i}.field.data",
     "magnetics.flux_loop.{i}.flux.data",
 )
+
+
+@_panel_renderer(
+    domain="pf_active",
+    subject="startup_proxies",
+    view="time",
+    quantity="",
+    description=(
+        "Vacuum B_Z, loop voltage and decay index at one (R, Z) point against time "
+        "(rz=), from the OH-coil onset to the plasma-current peak, every entry overlaid "
+        "with its breakdown onset marked (issue #888)."
+    ),
+    ids=("pf_active", "pf_passive", "wall", "tf", "equilibrium", "magnetics", "spectrometer_uv"),
+    required_paths=("pf_active.time", "pf_active.coil.{i}.current.data"),
+    optional_paths=("pf_passive.loop.{i}.element.{j}.geometry.outline.r",),
+)
+def startup_proxies_time(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Vacuum startup proxies at one point against time, shots overlaid."""
+    return render_panels(model, ax=ax, show=show, **style)
 
 
 @_panel_renderer(
@@ -565,6 +782,20 @@ def equilibrium_overview_profiles(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Pressure, current density and safety factor in one figure."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="mhd_linear", subject="mhd_linear", view="overview", quantity="eigenfunction",
+    description="The DCON eigenfunction of the least-stable mapped mode: displacement "
+                "and normal perturbed field per poloidal harmonic.",
+    ids=("mhd_linear",),
+    required_paths=("mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim1",),
+)
+def mhd_linear_overview_eigenfunction(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Displacement and normal perturbed field of the least-stable mode."""
     return render_panels(model, ax=ax, show=show, **style)
 
 
@@ -726,7 +957,9 @@ def equilibrium_overview_verification(
         model,
         ax=ax,
         show=show,
-        figsize=style.pop("figsize", (13.0, 10.0)),
+        # The format sizes it like any composite; only the legacy spelling
+        # keeps the 13 x 10 canvas this figure had before (issue #712).
+        figsize=style.pop("figsize", (13.0, 10.0) if style.get("format") == "legacy" else None),
         **style,
     )
 
