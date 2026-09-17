@@ -161,6 +161,25 @@ python -m pip install -e .
 python -m pip install -e ".[dev]"
 ```
 
+#### 설치된 VAFT를 최신 버전으로 업데이트
+
+VAFT는 editable 모드로 설치되므로 체크아웃을 업데이트하면 VAFT도 함께 바뀝니다.
+체크아웃 폴더에서, 직접 고친 내용을 먼저 따로 보관한 뒤 받습니다.
+
+```bash
+git status
+git stash push -m "before VAFT update"   # git status에 modified 파일이 있을 때만
+git pull --ff-only
+git stash pop                             # stash한 경우에만
+conda run -n vaft python -m pip install -e .
+conda run -n vaft python install/check_vaft_environment.py
+```
+
+마지막으로 Jupyter 커널을 재시작하세요. 노트북을 실행만 해도 출력이 파일에 저장되어
+modified로 표시됩니다. 단계별 설명과 `git pull`이나 `git stash pop`이 멈췄을 때의
+대처, 복구 중 절대 실행하면 안 되는 명령은
+[`install/README.md`](install/README.md#updating-vaft)에 있습니다.
+
 #### 레거시 NumPy 1 설치
 
 NumPy 1을 요구하는 외부 패키지가 있을 때에만 사용하세요. `h5pyd==0.20.0`이 NumPy 2를 요구한다고 선언하는 이슈가 있으므로, NumPy를 교체한 뒤 `h5pyd`는 `--no-deps`로 설치합니다.
