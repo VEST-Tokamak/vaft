@@ -83,7 +83,9 @@ __version__ = "0.7.0"
 #   slices by n only; the external-code uninstallers remove the whole
 #   --prefix, so never point them at a directory you did not create for
 #   them; the database retirement, IMPA-strip and relocate tools are not yet
-#   safe against partial failures
+#   safe against partial failures; tutorial session 04 and the plotting sample
+#   notebook still describe the 39915 sample as it was before its regeneration
+#   (probe angles, source-flagged channels)
 # 0.6.2
 # - Windows portability hotfix. install/README.md calls native Windows a
 #   first-class path, but the Linux-only CI had never exercised it: a full
