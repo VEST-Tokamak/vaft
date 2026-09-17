@@ -125,6 +125,7 @@ import numpy as np
 from scipy import ndimage, optimize, signal
 
 from vaft.formula.statistics import rms
+from vaft.process.signal_processing import _filtfilt_min_length
 
 __all__ = [
     "IMPA_CHANNEL_COUNT",
@@ -385,7 +386,8 @@ def impa_lowpass(values: np.ndarray, cutoff_hz: float, sample_rate: float) -> np
     """
     values = np.asarray(values, dtype=float)
     taps = signal.firwin(_FIR_TAPS, cutoff_hz, pass_zero="lowpass", fs=sample_rate)
-    if values.shape[-1] > 3 * (taps.size - 1):
+    # The shared length rule; this check used to stop three samples short (#893).
+    if values.shape[-1] >= _filtfilt_min_length(taps.size):
         return signal.filtfilt(taps, 1, values, axis=-1)
     return signal.lfilter(taps, 1, values, axis=-1)
 

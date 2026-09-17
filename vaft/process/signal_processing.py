@@ -1076,8 +1076,18 @@ def _anti_alias_numtaps(source_rate: float, cutoff_hz: float, stopband_hz: float
 
 
 def _filtfilt_min_length(numtaps: int) -> int:
-    """Shortest record ``scipy.signal.filtfilt`` accepts for an FIR of this length."""
-    return 3 * (int(numtaps) - 1) + 1
+    """Shortest record ``scipy.signal.filtfilt`` accepts for an FIR of this length.
+
+    ``filtfilt`` pads by ``3 * max(len(a), len(b))`` samples -- ``3 * numtaps``
+    for an FIR, whose ``a`` is ``1`` -- and requires the record to be *longer*
+    than that padding. This once returned ``3 * (numtaps - 1) + 1``, three
+    samples short: a 331-tap filter admitted finite runs of 991, 992 and 993
+    samples, which ``filtfilt`` then rejected with ``ValueError`` and took the
+    whole diagnostics stage of shots 38525, 39137, 39241 and 39620 down with it
+    (#893). Every caller that decides between ``filtfilt`` and a fallback asks
+    this, so the rule is stated once.
+    """
+    return 3 * int(numtaps) + 1
 
 
 def _finite_runs(mask: np.ndarray) -> list[tuple[int, int]]:
@@ -1172,10 +1182,13 @@ def anti_alias_filter(
 
     Limitations
     -----------
-    ``filtfilt`` needs ``3 * (numtaps - 1) + 1`` samples; a record or finite
-    run shorter than that is returned unfiltered, with a warning, rather than
-    padded.  The filter assumes evenly spaced samples; on an irregular grid the
-    design rate is a fiction, which :func:`resample_to_time` refuses for you.
+    ``filtfilt`` needs ``3 * numtaps + 1`` samples; a record or finite run
+    shorter than that is returned unfiltered rather than padded, and nothing is
+    interpolated or invented in its place. One warning per call summarizes how
+    many runs and samples were left unfiltered, so a caller can tell a single
+    stray sample from most of the record.  The filter assumes evenly spaced
+    samples; on an irregular grid the design rate is a fiction, which
+    :func:`resample_to_time` refuses for you.
 
     Provenance
     ----------
@@ -1229,21 +1242,25 @@ def anti_alias_filter(
     out = moved.copy()
     flat = out.reshape(-1, length)
     flat_finite = finite.reshape(-1, length)
-    warned = False
+    # One summary rather than a warning for the first short run: that run is
+    # the one correctly left alone, so naming it pointed the reader of #893 at
+    # a one-sample run while a 992-sample run was the one that failed.
+    unfiltered: list[int] = []
     for row, row_finite in zip(flat, flat_finite):
         for start, stop in _finite_runs(row_finite):
             if stop - start < minimum:
-                if not warned:
-                    warnings.warn(
-                        f"a finite run of {stop - start} samples is shorter than the "
-                        f"{minimum} required to anti-alias filter with {taps_count} taps; "
-                        "leaving it unfiltered",
-                        RuntimeWarning,
-                        stacklevel=3,
-                    )
-                    warned = True
+                unfiltered.append(stop - start)
                 continue
             row[start:stop] = scipy_signal.filtfilt(taps, 1.0, row[start:stop])
+    if unfiltered:
+        warnings.warn(
+            f"{len(unfiltered)} finite run(s) totalling {sum(unfiltered)} samples "
+            f"(lengths {min(unfiltered)}-{max(unfiltered)}) are shorter than the "
+            f"{minimum} required to anti-alias filter with {taps_count} taps; "
+            "leaving them unfiltered",
+            RuntimeWarning,
+            stacklevel=3,
+        )
     return np.moveaxis(flat.reshape(moved.shape), -1, axis)
 
 
