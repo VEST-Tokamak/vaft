@@ -179,14 +179,20 @@ try:
 except ReadOnlySourceError:
     print("ok: public refuses writes")
 
+# A stage that is one solve's result goes to one source per stability product,
+# so it has no destination until the product is named.
+PER_PRODUCT = {"mhd_linear": ("dcon-peeling", "dcon-kink", "rdcon", "stride")}
+
 for stage in s.replicable_stages():
-    dest = s.source_for_stage(stage)
-    s.resolve(dest, writable=True)
-    print(f"ok: {stage:12s} -> {dest}")
+    for product in PER_PRODUCT.get(stage, (None,)):
+        dest = s.source_for_stage(stage, product=product)
+        s.resolve(dest, writable=True)
+        print(f"ok: {stage:12s} -> {dest}")
 PY
 ```
 
-Expect `read-only: ['public']` and one `ok:` line per stage.
+Expect `read-only: ['public', 'chease-mhd-stability', 'magnetic-efit']` and one
+`ok:` line per stage, four for `mhd_linear` (one per stability product).
 
 ```bash
 # user= cannot falsify the destination -- must raise before connecting
