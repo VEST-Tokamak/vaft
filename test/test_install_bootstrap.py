@@ -2997,3 +2997,28 @@ def test_gacode_recipes_say_so_when_an_option_has_no_value(name):
         capture_output=True, text=True, timeout=60,
     )
     assert fine.stdout.strip() == "parsed /tree"
+
+
+@pytest.mark.parametrize("name", EXTERNAL_CODE_CHECKERS)
+def test_external_code_checkers_never_use_the_locale_encoding(name):
+    """Cold review install F23: check_efit.py decoded and wrote with the locale.
+
+    On a cp949 Windows, output decoded with errors="replace" carries U+FFFD,
+    which cp949 cannot encode, so writing run_green.out raised
+    UnicodeEncodeError and the checker crashed instead of reporting.
+    """
+    import ast
+
+    tree = ast.parse((INSTALL / name).read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        function = node.func
+        called = function.attr if isinstance(function, ast.Attribute) else getattr(function, "id", "")
+        keywords = {keyword.arg for keyword in node.keywords}
+        text_mode = called in {"read_text", "write_text"} or (
+            called in {"run", "check_output", "Popen"}
+            and any(k.arg == "text" and getattr(k.value, "value", False) for k in node.keywords)
+        )
+        if text_mode:
+            assert "encoding" in keywords, f"install/{name}:{node.lineno}: {called}() without encoding="
