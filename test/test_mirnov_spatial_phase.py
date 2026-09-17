@@ -264,6 +264,43 @@ def test_the_title_says_when_probes_were_dropped_for_their_timebase(phase_ods):
     assert "1 on another timebase left out" in title
 
 
+def test_an_offset_clock_of_equal_length_is_another_timebase():
+    """cold review plot G10: "same timebase" was judged by the sample count, so
+    two probes triggered 25 us late were kept and the offset -- 90 degrees at
+    10 kHz -- was fitted as toroidal phase: a true n=1 came back as n=-4."""
+    from omas import ODS
+
+    from vaft.plot.backend.recipes import RECIPES, _shared_timebase_probes
+
+    rate, frequency, count = 250e3, 10e3, 5000
+    angles = np.radians([0.0, 75.0, 160.0, 250.0, 310.0])
+
+    def make(offsets):
+        ods = ODS(consistency_check=False)
+        for index, (angle, offset) in enumerate(zip(angles, offsets)):
+            time = 0.3 + np.arange(count) / rate + offset  # this digitiser's own clock
+            base = f"magnetics.b_field_pol_probe.{index}"
+            ods[f"{base}.position.r"] = 0.796
+            ods[f"{base}.position.z"] = 0.02
+            ods[f"{base}.position.phi"] = float(angle)
+            ods[f"{base}.toroidal_angle"] = float(angle)
+            ods[f"{base}.voltage.time"] = time
+            ods[f"{base}.voltage.data"] = np.cos(2 * np.pi * frequency * time - angle)  # n = 1
+            ods[f"{base}.name"] = f"MP{index}"
+        return ods
+
+    late = make([0.0, 0.0, 0.0, 25e-6, 25e-6])
+    kept, _ = _shared_timebase_probes(late, range(5))
+    assert kept == [0, 1, 2]
+    build = RECIPES["mirnov_spatial_phase"].builder
+    options = {"frequencies": [frequency], "candidate_n": range(-4, 5), "preprocess": False}
+    model = build(late, **options)
+    assert "n=1" in model.series[0].label and "2 on another timebase left out" in model.title
+    # a jitter well inside half a sample is still one clock
+    jitter = make([0.0, 1e-9, -1e-9, 0.0, 1e-9])
+    assert _shared_timebase_probes(jitter, range(5))[0] == [0, 1, 2, 3, 4]
+
+
 def test_probes_a_hair_apart_are_one_position():
     """Stored angles carry rounding noise; a microdegree is not a baseline."""
     from vaft.plot.backend.recipes import _distinct_toroidal_angles

@@ -2268,7 +2268,14 @@ def _shared_timebase_probes(ods: Any, indices: Sequence[int]) -> tuple[list[int]
             continue
         if axis is None:
             axis = times
-        elif times.size != axis.size:
+            steps = np.diff(axis)
+            steps = steps[np.isfinite(steps) & (steps > 0.0)]
+            # Half a sample: beyond it the two records are different instants.
+            slack = 0.5 * float(np.median(steps)) if steps.size else 0.0
+        elif times.size != axis.size or not np.allclose(times, axis, rtol=0.0, atol=slack):
+            # The TIMES are compared, not the record length: two digitisers
+            # with equal length and a trigger offset are not one timebase, and
+            # the offset would be fitted as toroidal phase (cold review plot G10).
             continue
         kept.append(index)
     return kept, axis
