@@ -173,9 +173,18 @@ def test_the_full_solve_mu_i_is_independent_of_the_supplied_one():
 
 
 def test_the_deprecated_name_still_returns_the_same_numbers():
-    assert virial_bp_li_lihat_from_S123(S1, S2, S3, ALPHA, RT) == (
-        virial_full_123_from_S_alpha_rt(S1, S2, S3, ALPHA, RT)
-    )
+    with pytest.warns(DeprecationWarning, match="virial_full_123_from_S_alpha_rt"):
+        old = virial_bp_li_lihat_from_S123(S1, S2, S3, ALPHA, RT)
+    assert old == virial_full_123_from_S_alpha_rt(S1, S2, S3, ALPHA, RT)
+
+
+def test_the_deprecated_name_says_so_and_is_nan_at_the_singular_closure():
+    """It was silent, and its notes still described ``linalg.solve`` (cold review formula F5)."""
+    with pytest.warns(DeprecationWarning):
+        singular = virial_bp_li_lihat_from_S123(S1, S2, S3, 1.0, RT)
+    assert all(np.isnan(value) for value in singular)
+    notes = virial_bp_li_lihat_from_S123.__doc__
+    assert "Direct solve" not in notes and "``nan``" in notes
 
 
 # --- sensitivity ------------------------------------------------------------

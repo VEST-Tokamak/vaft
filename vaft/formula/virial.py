@@ -1535,7 +1535,8 @@ def virial_bp_li_lihat_from_S123(S1: float,
     Use :func:`virial_full_123_from_S_alpha_rt`, which this delegates to. The
     third return is renamed there from $\hat l_i$ to $\mu_i$: it is the
     diamagnetic parameter the pairwise closures take as an input, and the hat
-    notation read as a second internal inductance.
+    notation read as a second internal inductance.  Emits a
+    ``DeprecationWarning``.
 
     $$3\beta_p + l_i - \hat l_i = S_1 + S_2, \qquad
       \beta_p + l_i + \hat l_i = \frac{R_T}{R_0}S_2, \qquad
@@ -1565,10 +1566,13 @@ def virial_bp_li_lihat_from_S123(S1: float,
 
     Numerical notes
     ---------------
-    Direct solve of the 3x3 linear system with ``numpy.linalg.solve``. The
-    determinant is $4(\alpha-1)$, so the system is singular at $\alpha = 1$ --
-    the same limit that makes the historical Lao $l_i$ blow up, because
-    $E_1$ and $E_2$ fix $\beta_p - \mu_i$ and only $E_3$ separates $l_i$ from it.
+    Closed-form solve, delegated to :func:`virial_full_123_from_S_alpha_rt`.
+    The determinant is $4(\alpha-1)$, so the system is singular at
+    $\alpha = 1$ -- the same limit that makes the historical Lao $l_i$ blow up,
+    because $E_1$ and $E_2$ fix $\beta_p - \mu_i$ and only $E_3$ separates $l_i$
+    from it.  There all three returns are ``nan``, the framework's contract for
+    a singular closure; until 0.7.0 this name used ``numpy.linalg.solve`` and
+    raised ``LinAlgError`` instead.
 
     References
     ----------
@@ -1576,6 +1580,13 @@ def virial_bp_li_lihat_from_S123(S1: float,
            relations for elongated plasmas in tokamaks", Eqs. (1)-(3).
     .. [2] V. D. Shafranov, Plasma Phys. 13 (1971) 757.
     """
+    warnings.warn(
+        "`virial_bp_li_lihat_from_S123` is deprecated; use "
+        "`virial_full_123_from_S_alpha_rt` (same numbers, third return named mu_i). "
+        "It returns (nan, nan, nan) at alpha = 1 rather than raising LinAlgError.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return virial_full_123_from_S_alpha_rt(S1, S2, S3, a_param, RT_over_R0)
 def virial_D0_boundary_from_bp_li_eK(beta_p: float,
                                     li_int: float,
