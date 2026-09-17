@@ -2681,3 +2681,43 @@ def test_efit_installer_fails_on_a_failed_ctest_and_skip_tests_is_explicit(tmp_p
         )
         done = subprocess.run([BASH, "-c", preamble + tail], capture_output=True, text=True, timeout=60)
         assert done.returncode == 0 and "unverified" in done.stdout
+
+
+@requires_bash
+def test_efit_build_directory_is_absolute_before_it_is_recorded_or_removed(tmp_path):
+    """Cold review install F10: `--build-dir build` was recorded verbatim.
+
+    --uninstall then ran `rm -rf build` relative to wherever it was started.
+    """
+    text = (INSTALL / "install_efit.sh").read_text(encoding="utf-8")
+    absolutise = text.index('BUILD_DIR="$(vaft_external_canonical_path "$BUILD_DIR")"')
+    for later in ('if ((UNINSTALL)); then', 'rm -rf "$BUILD_DIR"', 'VAFT_MANIFEST_BUILD_DIR='):
+        assert absolutise < text.index(later)
+    assert 'vaft_external_is_inside "$BUILD_DIR" "$VAFT_ROOT"' in text
+
+    # The uninstall side: a recorded directory is removed only when it proves
+    # to be a CMake tree configured from this source, by absolute path.
+    start = text.index("efit_build_dir_is_ours() {")
+    function = text[start: text.index("\n}\n", start) + 3]
+    source = tmp_path / "efit"
+    ours = tmp_path / "build-ours"
+    other = tmp_path / "build"
+    for directory in (source, ours, other):
+        directory.mkdir()
+    (ours / "CMakeCache.txt").write_text(
+        f"CMAKE_HOME_DIRECTORY:INTERNAL={source}\n", encoding="utf-8"
+    )
+    (other / "CMakeCache.txt").write_text(
+        "CMAKE_HOME_DIRECTORY:INTERNAL=/somewhere/else\n", encoding="utf-8"
+    )
+
+    def judged(directory):
+        script = function + 'efit_build_dir_is_ours "$1" "$2"'
+        return subprocess.run(
+            [BASH, "-c", script, "x", str(directory), str(source)], cwd=tmp_path, timeout=60
+        ).returncode
+
+    assert judged(ours) == 0
+    assert judged(other) == 1, "somebody else's CMake tree"
+    assert judged("build-ours") == 1, "a relative path from a 0.7.0 manifest"
+    assert judged(tmp_path / "missing") == 1

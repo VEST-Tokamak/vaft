@@ -124,6 +124,14 @@ VAFT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 if vaft_external_is_inside "$PREFIX" "$VAFT_ROOT"; then
   die "the install prefix must be outside the VAFT checkout: $PREFIX is inside $VAFT_ROOT"
 fi
+# The build directory is recorded in the manifest and removed recursively, here
+# on a NetCDF change and again by --uninstall, so it gets the prefix's
+# treatment. Left relative it named one directory when cmake ran and whatever
+# `build` happened to exist in the working directory of the later --uninstall.
+BUILD_DIR="$(vaft_external_canonical_path "$BUILD_DIR")" || die "cannot resolve the build directory (a '..' below a directory that does not exist?): $BUILD_DIR"
+if vaft_external_is_inside "$BUILD_DIR" "$VAFT_ROOT"; then
+  die "the build directory must be outside the VAFT checkout: $BUILD_DIR is inside $VAFT_ROOT"
+fi
 
 PYTHON="${VAFT_PYTHON:-}"
 if [[ -z "$PYTHON" ]]; then
