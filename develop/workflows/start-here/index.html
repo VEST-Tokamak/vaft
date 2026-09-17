@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>85736a3</code>. What is described
+  <code>4b867c3</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -286,6 +286,24 @@ recommended installation route.</p>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> pip <span class="nb">install</span> <span class="nt">-e</span> <span class="s2">".[dev]"</span>
 </code></pre></div></div>
+
+<h3 id="updating-an-existing-installation">Updating an existing installation</h3>
+
+<p>Because the installation is editable, updating the checkout updates VAFT. Run these from the checkout,
+setting your own edits aside first. Running a notebook counts as editing it, because its outputs are
+saved into the file:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git status
+git stash push <span class="nt">-m</span> <span class="s2">"before VAFT update"</span>   <span class="c"># only if `git status` lists modified files</span>
+git pull <span class="nt">--ff-only</span>
+git stash pop                             <span class="c"># only if you stashed</span>
+python <span class="nt">-m</span> pip <span class="nb">install</span> <span class="nt">-e</span> <span class="nb">.</span>
+</code></pre></div></div>
+
+<p>Restart any running Jupyter kernel afterwards; a kernel that was already running keeps the old VAFT in
+memory. The <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/install/README.md#updating-vaft">update procedure in install/README.md</a>
+covers each step, what to do when <code class="language-plaintext highlighter-rouge">git pull</code> or <code class="language-plaintext highlighter-rouge">git stash pop</code> stops, and which commands must never be
+used to recover.</p>
 
 <h2 id="2-produce-the-first-offline-result">2. Produce the first offline result</h2>
 
@@ -605,7 +623,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#1-install-vaft-from-source" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">1. Install VAFT from source</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#development-tooling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Development tooling</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#2-produce-the-first-offline-result" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2. Produce the first offline result</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-configure-read-only-public-hsds-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3. Configure read-only public HSDS access</a></li><li class="page-toc-item page-toc-level-2"><a href="#4-optional-external-fusion-codes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">4. Optional external fusion codes</a></li><li class="page-toc-item page-toc-level-2"><a href="#expected-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Expected outputs</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#1-install-vaft-from-source" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">1. Install VAFT from source</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#development-tooling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Development tooling</a></li><li class="page-toc-item page-toc-level-3"><a href="#updating-an-existing-installation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Updating an existing installation</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#2-produce-the-first-offline-result" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2. Produce the first offline result</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-configure-read-only-public-hsds-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3. Configure read-only public HSDS access</a></li><li class="page-toc-item page-toc-level-2"><a href="#4-optional-external-fusion-codes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">4. Optional external fusion codes</a></li><li class="page-toc-item page-toc-level-2"><a href="#expected-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Expected outputs</a></li></ul>
     </nav>
 </aside>
 
@@ -723,7 +741,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-16 09:54:54 +0000"
+        "time": "2026-09-17 03:16:29 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
