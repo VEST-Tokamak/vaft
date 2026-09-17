@@ -126,3 +126,40 @@ def test_the_kinetic_base_kfile_is_chosen_by_decoded_time_not_by_float_of_the_su
     kfiles = [Path("k039915.00300"), Path("k039915.00306_320"), Path("k039915.00312")]
     assert _select_kfile(kfiles, 306.3) == Path("k039915.00306_320")
     assert _select_kfile([Path("k039915.00306_320")] + kfiles[:1], 301.0) == Path("k039915.00300")
+
+
+def test_below_cut_slices_are_counted_against_the_configured_cut_on_the_magnitude(tmp_path, monkeypatch):
+    """cold review efit-workflows F6: the count used a signed ``Ip < 50000``
+    while the k-file carried ``CUTIP = 15000`` on ``abs(Ip)``, so a 30 kA slice
+    EFIT attempted and failed on was excused, and a negative-Ip discharge would
+    have had every slice excused."""
+    import types
+
+    rows = [{"constraint_ip": 30.0e3}, {"constraint_ip": -80.0e3}, {"constraint_ip": -5.0e3}, {"constraint_ip": None}]
+    assert STUDY.count_below_current_cut(rows, 15.0e3) == 1
+
+    times = np.array([0.310, 0.311])
+    currents = {310000: 30.0e3, 311000: -80.0e3}
+    product = {"equilibrium.time": times}
+    for index, value in enumerate(currents.values()):
+        product[f"equilibrium.time_slice.{index}.constraints.ip.measured"] = value
+    monkeypatch.setattr(STUDY, "generate_constraints_ods", lambda *args, **kwargs: None)
+    kfiles = [Path("k039915.00310"), Path("k039915.00311")]
+    monkeypatch.setattr(STUDY, "prepare_efit_inputs", lambda ods, config: types.SimpleNamespace(kfiles=kfiles))
+    monkeypatch.setattr(
+        STUDY,
+        "run_efit",
+        lambda inputs, config: types.SimpleNamespace(stdout="", returncode=0, status="completed", afiles=[], mfiles=[]),
+    )
+    import omas
+
+    monkeypatch.setattr(omas, "load_omas_json", lambda *args, **kwargs: product)
+    scientific = STUDY.EFITScientificConfig()
+    case = STUDY.run_case(
+        {}, shot=39915, times=times, window_s=5.0e-4, workdir=tmp_path / "case", efit="/nowhere/efit",
+        tables="/nowhere/", scientific=scientific, uncertainty=(), weighting=(),
+    )
+    assert case["current_cut"] == scientific.initialization.current_threshold == 15.0e3
+    assert [row["constraint_ip"] for row in case["slices"]] == [30.0e3, -80.0e3]
+    assert case["below_current_cut"] == 0
+    assert "below 15 kA" in STUDY.markdown({"cases": {"only": case}})

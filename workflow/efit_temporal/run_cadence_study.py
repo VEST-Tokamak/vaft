@@ -174,6 +174,15 @@ def per_slice_metrics(workdir: Path, shot: int) -> list[dict[str, Any]]:
     return [rows[key] for key in sorted(rows)]
 
 
+def count_below_current_cut(slices: list[dict[str, Any]], current_cut: float) -> int:
+    """Slices EFIT treats as vacuum: ``abs(Ip)`` under the ``CUTIP`` the k-file carries."""
+    return sum(
+        1
+        for row in slices
+        if row.get("constraint_ip") is not None and abs(float(row["constraint_ip"])) < current_cut
+    )
+
+
 def run_case(
     source, *, shot: int, times: np.ndarray, window_s: float, workdir: Path,
     efit: str, tables: str, scientific: EFITScientificConfig, uncertainty, weighting,
@@ -228,6 +237,7 @@ def run_case(
         row.update(by_key.get(key, {}))
         slices.append(row)
     converged = [row for row in slices if row.get("jflag") == 1]
+    current_cut = float(config.scientific_config().initialization.current_threshold)
     iterations = [block["iterations_n"] for block in progress if block["iterations_n"]]
     chisq = [row["chisq"] for row in converged if np.isfinite(row.get("chisq", np.nan))]
     return {
@@ -243,7 +253,11 @@ def run_case(
         "bound_errors": bound_errors,
         "converged": len(converged),
         "failed": int(times.size) - len(converged),
-        "below_current_cut": sum(1 for row in slices if row.get("constraint_ip") is not None and row["constraint_ip"] < 50000.0),
+        # The cut of the configuration this run was written with, on |Ip| as
+        # EFIT applies it -- not a literal: the k-file's CUTIP is what decides
+        # whether a slice was attempted.
+        "current_cut": current_cut,
+        "below_current_cut": count_below_current_cut(slices, current_cut),
         "iterations": {
             "median": float(np.median(iterations)) if iterations else None,
             "max": int(max(iterations)) if iterations else None,
@@ -260,8 +274,10 @@ def run_case(
 
 
 def markdown(payload: dict[str, Any]) -> str:
+    cuts = sorted({case["current_cut"] for case in payload["cases"].values() if case.get("current_cut") is not None})
+    below = f"below {cuts[0] / 1.0e3:g} kA" if len(cuts) == 1 else "below CUTIP"
     lines = [
-        "| case | cadence [ms] | window [ms] | slices | below 50 kA | converged | bound errors | median iter | max iter | median chi2 | EFIT s/slice |",
+        f"| case | cadence [ms] | window [ms] | slices | {below} | converged | bound errors | median iter | max iter | median chi2 | EFIT s/slice |",
         "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for name, case in payload["cases"].items():
