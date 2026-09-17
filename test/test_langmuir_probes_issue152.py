@@ -521,3 +521,52 @@ def test_a_solve_finite_over_a_filter_boundary_run_completes(run_length):
     assert te_out.size > 0
     stretch = te_out[np.isfinite(te_out)]
     np.testing.assert_allclose(stretch, 5.0)
+
+
+# --- the measured-position table must ship, and its absence must be audible ----
+# (cold review docs F7)
+
+
+def test_a_missing_position_table_warns_and_leaves_the_ods_alone(tmp_path, caplog):
+    ods = {}
+    with caplog.at_level(logging.INFO, logger=lp.logger.name):
+        lp.apply_langmuir_probe_measured_positions(ods, 45000, csv_path=tmp_path / "absent.csv")
+    assert ods == {}
+    records = [r for r in caplog.records if "not found" in r.getMessage()]
+    assert records and records[0].levelno == logging.WARNING, (
+        "an INFO record is invisible at the default level, so a wheel without the table "
+        "silently mapped a different ODS than a checkout"
+    )
+
+
+def test_the_default_position_table_is_shipped_by_every_packaging_rule():
+    """pyproject package-data, MANIFEST.in and verify_dist must all name it, or none ships it."""
+    import fnmatch
+    from pathlib import Path
+
+    import verify_dist
+
+    tomllib = pytest.importorskip("tomllib")  # absent on Python 3.10
+    root = Path(__file__).resolve().parents[1]
+    package = root / "vaft"
+    assert lp.DEFAULT_POSITION_CSV.is_file()
+    relative = lp.DEFAULT_POSITION_CSV.resolve().relative_to(package.resolve()).as_posix()
+
+    config = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    globs = config["tool"]["setuptools"]["package-data"]["vaft"]
+    assert any(fnmatch.fnmatch(relative, pattern) for pattern in globs), (
+        f"no [tool.setuptools.package-data] glob matches {relative}; the wheel would omit it"
+    )
+
+    includes = [
+        line.split(None, 1)[1].strip()
+        for line in (root / "MANIFEST.in").read_text(encoding="utf-8").splitlines()
+        if line.startswith("include ")
+    ]
+    assert any(fnmatch.fnmatch(f"vaft/{relative}", pattern) for pattern in includes), (
+        f"MANIFEST.in prunes vaft/data and never re-includes {relative}; the sdist would omit it"
+    )
+
+    assert f"vaft/{relative}" in verify_dist.REQUIRED_FILES, (
+        "test/verify_dist.py would not notice a distribution that lacks the table"
+    )
