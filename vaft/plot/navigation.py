@@ -16,7 +16,7 @@ presented as a reconstruction (§13, §16).
 
 from __future__ import annotations
 
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 
@@ -180,6 +180,17 @@ class ControlState:
         if changed and notify:
             self._notify()
         return changed
+
+    def restore(self, values: Mapping[str, Any]) -> None:
+        """Put back values that were current before, without notifying.
+
+        For the redraw that could not build what a change asked for: the
+        values were valid when they were read, so they are not validated
+        again, and nothing is redrawn because nothing on screen changed.
+        """
+        for name, value in values.items():
+            if name in self._by_name:
+                self._values[name] = value
 
     def update(self, **values: Any) -> bool:
         """Set several controls; observers run once if anything changed."""

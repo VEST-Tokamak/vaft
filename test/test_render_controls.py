@@ -342,3 +342,22 @@ def test_a_core_profiles_profile_offers_its_own_slices_not_the_equilibriums():
     assert peaks() == pytest.approx([1000.0 * stored[control.default] + 1.0])
     result.state.set("time_slice", 2)
     assert peaks() == pytest.approx([317.0])
+
+
+def test_a_refused_choice_keeps_the_drawing_and_the_previous_value(sample):
+    """cold review plot G5: the canvas was cleared before the model was built,
+    so method="cwt" (refused without frequency_range=) left an empty figure
+    with the state stuck on "cwt"."""
+    result = vaft.omas.plot_mirnov_spectrogram(sample, interactive=True, interaction_backend="none")
+    canvas = result.figure.subfigs[0]
+    before = len(canvas.axes)
+    assert before and result.state["method"] == "stft"
+    with pytest.raises(ValueError, match="frequency_range"):
+        result.state.set("method", "cwt")
+    assert len(canvas.axes) == before
+    assert result.state["method"] == "stft" and result.state.as_options().get("method") != "cwt"
+    assert any("not drawn" in text.get_text() for text in result.figure.texts)
+    # the next accepted choice draws, and the note goes
+    result.state.set("method", "hann_fft")
+    assert result.state["method"] == "hann_fft" and len(canvas.axes) == before
+    assert not any("not drawn" in text.get_text() for text in result.figure.texts)
