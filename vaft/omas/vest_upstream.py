@@ -738,6 +738,7 @@ def build_diagnostics_ods(
         ids_names: tuple[str, ...],
         mapper: Callable[[ODS], None],
         component_status: str = "success",
+        optional: bool = False,
         **details: Any,
     ) -> None:
         component = ODS(consistency_check=False)
@@ -754,6 +755,10 @@ def build_diagnostics_ods(
             # escape cost 88 shots their entire diagnostics product for one
             # clipped diamagnetic-flux signal.
             statuses[name] = {"status": "unavailable", "reason": str(error), **details}
+            if optional:
+                # Hardware a shot may simply not have run (EC power before
+                # ~29500 or on a no-ECH shot): recorded, never "partial".
+                statuses[name]["optional"] = True
             return
         _copy_ids(ods, component, ids_names)
         for ids_name in ids_names:
@@ -948,7 +953,10 @@ def build_diagnostics_ods(
         project_validity(ods, quality_report)
         magnetics_quality = magnetics_quality_metrics(ods, quality_report)
 
-    successes = sum(value["status"] == "success" for value in statuses.values())
+    successes = sum(
+        value["status"] == "success" or bool(value.get("optional"))
+        for value in statuses.values()
+    )
     unavailable = sorted(
         name for name, value in statuses.items() if value["status"] == "unavailable"
     )

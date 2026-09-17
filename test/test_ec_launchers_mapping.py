@@ -214,3 +214,20 @@ def test_diagnostics_stage_maps_ec_launchers_on_the_ec_power_policy(tmp_path):
     assert np.nanmax(mapped) == pytest.approx(1000.0, rel=1e-3)
     assert abs(mapped[0]) < 1.0
 
+
+
+def test_a_spike_is_masked_before_resampling_not_smeared_into_power(monkeypatch):
+    """A -5 V spike interpolated or filtered onto a coarser grid lands in the
+    valid 0.5-2.5 V range on its neighbours and calibrates to kilowatts that
+    were never there; masking the native samples first keeps it a gap."""
+    samples = 2000
+    forward = np.full(samples, 2.13)  # EC off: ~0.1 W
+    forward[1000] = -5.0
+    reflected = np.full(samples, 2.13)
+    monkeypatch.setattr(ec_module, "_safe_vest_load", _synthetic_loader(forward, reflected))
+
+    coarse = np.arange(0, samples - 1, 7, dtype=float) * SLOW_DT + 0.5 * SLOW_DT
+    power = vest_ec_power(39915, time=coarse)
+
+    assert np.nanmax(power["forward"]) < 10.0
+    assert np.isfinite(power["forward"]).mean() > 0.9

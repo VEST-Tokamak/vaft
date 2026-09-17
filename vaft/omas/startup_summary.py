@@ -78,7 +78,10 @@ def _ec_power(ods: Any, instant: float) -> float | None:
     stamps = np.asarray(stamps, dtype=float).ravel()
     window = power[np.abs(stamps - instant) <= _EC_POWER_HALF_WINDOW_S]
     if window.size == 0 or not np.isfinite(window).any():
-        return float("nan")
+        raise ValueError(
+            "ec_launchers.beam.0.power_launched has no valid sample within "
+            f"{_EC_POWER_HALF_WINDOW_S * 1e3:g} ms of breakdown"
+        )
     return float(np.nanmedian(window))
 
 

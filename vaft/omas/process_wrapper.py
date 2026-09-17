@@ -1322,7 +1322,11 @@ def compute_prefill_pressure_ods(ods: ODS, *, before: float, window_s: float = P
     when none fall there). The window matters: the gauge is stored over the
     whole discharge, and a median over everything before breakdown is
     dominated by the base vacuum before the gas puff -- on shot 39915 that is
-    0.28 mPa against a 2.9 mPa fill. The median and not
+    0.28 mPa against a 2.9 mPa fill. A gauge with no sample inside the window
+    gives its last reading ahead of ``before``. The window can still miss the
+    fill on a shot whose puff comes late -- 41524 and 41672 read near base
+    vacuum here -- so compare the value against the gauge trace before trusting
+    a Lloyd threshold built on it. The median and not
     the mean: a Penning gauge spikes, and one spike moves a mean far enough to
     matter inside the logarithm of a Lloyd threshold. This is the definition
     the ``lloyd_margin`` vacuum-field plot uses; it is public here so every
@@ -1353,9 +1357,18 @@ def compute_prefill_pressure_ods(ods: ODS, *, before: float, window_s: float = P
     stamps = np.asarray(stamps, dtype=float)
     if not window_s > 0:
         raise ValueError(f"window_s must be positive; got {window_s!r}")
-    ahead = pressure[(stamps < float(before)) & (stamps >= float(before) - float(window_s))]
-    ahead = ahead[np.isfinite(ahead)]
-    return float(np.median(ahead if ahead.size else pressure))
+    finite = np.isfinite(pressure)
+    ahead = pressure[finite & (stamps < float(before)) & (stamps >= float(before) - float(window_s))]
+    if ahead.size:
+        return float(np.median(ahead))
+    # A gauge slower than the window: the last reading ahead of the instant.
+    # Never the whole record -- ahead of the puff that is base vacuum.
+    earlier = np.flatnonzero(finite & (stamps < float(before)))
+    if earlier.size == 0:
+        raise ValueError(
+            f"barometry.gauge.0.pressure has no finite sample before t = {float(before):.6g} s"
+        )
+    return float(pressure[earlier[-1]])
 
 
 def _limiter_outline(ods: ODS) -> Tuple[Optional[ndarray], Optional[ndarray]]:
@@ -1449,6 +1462,11 @@ def compute_startup_proxies_ods(
     if not dr > 0.0 or not r0 - dr > 0.0:
         raise ValueError(f"need dr > 0 and R - dr > 0; got R={r0}, dr={dr}")
 
+    # Checked, not read: indexing an absent IDS on an OMAS ODS creates it in
+    # the caller's structure.
+    for ids_name in ("pf_active", "pf_passive"):
+        if ids_name not in ods:
+            raise ValueError(f"{ids_name} is required for the startup proxies; the ODS has none")
     sources = _vacuum_sources(ods)
     if mode != "pf_active" and "time" not in ods["pf_passive"]:
         _solve_or_recall_eddy_currents(ods, sources)

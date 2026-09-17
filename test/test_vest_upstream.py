@@ -207,6 +207,8 @@ def test_unavailable_diagnostic_does_not_corrupt_valid_sibling(tmp_path):
     ec_status = diagnostics_manifest["channel_status"]["ec_launchers"]
     assert ec_status["status"] == "unavailable"
     assert "field 27" in ec_status["reason"]
+    # EC is hardware a shot may not have run: absent, it never makes the stage partial.
+    assert ec_status["optional"] is True
     assert "ec_launchers" not in ods
     assert "ec_power" not in diagnostics_manifest["time_grid"]["components"]
 
