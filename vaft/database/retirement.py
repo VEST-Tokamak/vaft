@@ -75,7 +75,9 @@ class ShotRetirement:
 
         Both halves have to be accounted for. A refinement that was never
         copied, or stability results with no regenerated replacement, is data
-        that exists only in the source about to be removed.
+        that exists only in the source about to be removed. ``unreadable`` is in
+        neither set: a read that failed says nothing about what the source
+        holds, so it blocks exactly as unmigrated data does.
         """
         return self.refinement in {"copied", "already-present", "absent"} and (
             self.stability in {"superseded", "absent"}
@@ -92,16 +94,27 @@ class RetirementReport:
     source: str
     applied: bool
     shots: tuple[ShotRetirement, ...]
+    #: Shots the source lists that the plan was not asked about.
+    unexamined: tuple[int, ...] = ()
+    #: Why the source's shots could not be listed, when they could not.
+    enumeration_error: str | None = None
 
     @property
     def deletable(self) -> bool:
-        """True only when every shot is accounted for.
+        """True only when every shot the source holds is accounted for.
 
         An empty report is **not** deletable. "No shots were examined" and
         "every shot is safe" are different findings, and a deletion gate that
-        cannot tell them apart would green-light an unchecked source.
+        cannot tell them apart would green-light an unchecked source. The same
+        goes for a partial shot list: `hsdel` removes the whole namespace, so a
+        shot nobody asked about is lost along with the ones that were checked.
         """
-        return bool(self.shots) and all(shot.deletable for shot in self.shots)
+        return (
+            bool(self.shots)
+            and not self.unexamined
+            and self.enumeration_error is None
+            and all(shot.deletable for shot in self.shots)
+        )
 
     @property
     def blocking(self) -> tuple[ShotRetirement, ...]:
@@ -117,13 +130,21 @@ class RetirementReport:
                 "shots": len(self.shots),
                 "deletable": sum(shot.deletable for shot in self.shots),
                 "blocking": len(self.blocking),
+                "unexamined": len(self.unexamined),
             },
+            "unexamined": list(self.unexamined),
+            "enumeration_error": self.enumeration_error,
             "shots": [shot.to_dict() for shot in self.shots],
         }
 
 
 def _has_ids(shot: int, source: str, ids: Iterable[str]) -> bool:
-    """Whether `source` holds any of `ids` for `shot`."""
+    """Whether a *destination* `source` holds any of `ids` for `shot`.
+
+    Absence and unreadability are both "no" here, and that is safe only on the
+    destination side, where "no" blocks the deletion. The retiring source is
+    probed with :func:`_source_holds`, where "no" would permit it.
+    """
     from . import load as load_source
 
     try:
@@ -131,6 +152,50 @@ def _has_ids(shot: int, source: str, ids: Iterable[str]) -> bool:
     except Exception:  # noqa: BLE001 - absence and unreadability are both "no"
         return False
     return any(name in ods and len(ods[name]) for name in ids)
+
+
+def _is_ids_file(filename: str, ids: str) -> bool:
+    """Whether a shot-folder entry is an image of `ids` (any occurrence)."""
+    stem = filename[: -len(".h5")] if filename.endswith(".h5") else ""
+    return stem == ids or (
+        stem.startswith(f"{ids}_") and stem[len(ids) + 1 :].isdigit()
+    )
+
+
+def _source_holds(shot: int, source: str, ids: Iterable[str]) -> bool:
+    """Whether the *retiring* `source` holds any of `ids`; raises if unknowable.
+
+    ``False`` here makes a shot deletable, so it is returned only for a
+    definite absence: the shot folder does not exist (404/410), it lists no
+    file for these IDS, or a successful read came back without them. Every
+    other failure -- a timeout, a 503, a read that raises -- propagates, and
+    the caller scores the shot ``unreadable``.
+    """
+    from . import load as load_source
+    from .replication import _remote_canonical_files, _remote_entries
+
+    ids = tuple(ids)
+    files = _remote_canonical_files(_remote_entries(source, shot))
+    if not any(_is_ids_file(name, ids_name) for name in files for ids_name in ids):
+        return False
+    ods = load_source(shot, source=source, paths=list(ids))
+    return any(name in ods and len(ods[name]) for name in ids)
+
+
+def _source_shots(source: str) -> tuple[int, ...]:
+    """Every shot the source lists. Raises when the source cannot be listed."""
+    from .utils import h5pyd
+
+    names = (str(name).strip("/") for name in h5pyd.Folder(f"/{source}/", mode="r"))
+    return tuple(sorted(int(name) for name in names if name.isdigit()))
+
+
+def _probe_source(shot: int, source: str, ids: Iterable[str]) -> tuple[bool | None, str]:
+    """``(held, reason)``; ``held`` is ``None`` when the read failed."""
+    try:
+        return _source_holds(shot, source, ids), ""
+    except Exception as error:  # noqa: BLE001 - scored, never read as absence
+        return None, f"{type(error).__name__}: {error}"
 
 
 def _stability_regenerated(shot: int, products: Iterable[str]) -> bool:
@@ -158,16 +223,27 @@ def plan_retirement(
     Reads only. For every shot it answers two questions: has the refinement
     reached ``main/chease``, and has the stability stage been re-run into the
     per-product sources.
+
+    A source read that fails is scored ``unreadable`` and blocks; only a
+    definite not-found is ``absent``. The source is also listed, and any shot it
+    holds that ``shots`` does not name is reported as ``unexamined`` and blocks:
+    the deletion this plan gates removes the whole namespace, not the listed
+    shots.
     """
     name = _sources.resolve(source)
     products = tuple(products)
     rows: list[ShotRetirement] = []
     for shot in shots:
         shot = int(shot)
-        has_refinement = _has_ids(shot, name, REFINEMENT_IDS)
-        has_stability = _has_ids(shot, name, STABILITY_IDS)
+        has_refinement, refinement_error = _probe_source(shot, name, REFINEMENT_IDS)
+        has_stability, stability_error = _probe_source(shot, name, STABILITY_IDS)
 
-        if not has_refinement:
+        if has_refinement is None:
+            refinement, refinement_detail = (
+                "unreadable",
+                f"the old source's equilibrium could not be read ({refinement_error})",
+            )
+        elif not has_refinement:
             refinement, refinement_detail = "absent", "no equilibrium in the old source"
         elif _has_ids(shot, REFINEMENT_DESTINATION, REFINEMENT_IDS):
             refinement, refinement_detail = (
@@ -180,7 +256,12 @@ def plan_retirement(
                 f"equilibrium has not been copied to {REFINEMENT_DESTINATION}",
             )
 
-        if not has_stability:
+        if has_stability is None:
+            stability, stability_detail = (
+                "unreadable",
+                f"the old source's stability result could not be read ({stability_error})",
+            )
+        elif not has_stability:
             stability, stability_detail = "absent", "no stability result in the old source"
         elif _stability_regenerated(shot, products):
             stability, stability_detail = (
@@ -203,7 +284,20 @@ def plan_retirement(
                 detail=f"{refinement_detail}; {stability_detail}",
             )
         )
-    return RetirementReport(source=name, applied=False, shots=tuple(rows))
+    examined = {row.shot for row in rows}
+    try:
+        unexamined = tuple(s for s in _source_shots(name) if s not in examined)
+        enumeration_error = None
+    except Exception as error:  # noqa: BLE001 - recorded; it blocks the deletion
+        unexamined = ()
+        enumeration_error = f"{type(error).__name__}: {error}"
+    return RetirementReport(
+        source=name,
+        applied=False,
+        shots=tuple(rows),
+        unexamined=unexamined,
+        enumeration_error=enumeration_error,
+    )
 
 
 def copy_refinement(shot: int, *, source: str = RETIRING_SOURCE, apply: bool = False) -> dict[str, Any]:
@@ -275,11 +369,23 @@ def delete_retired_source(
         "blocking": [shot.to_dict() for shot in report.blocking],
     }
     if not report.deletable:
-        reason = (
-            "no shots were examined"
-            if not report.shots
-            else f"{len(report.blocking)} shot(s) still hold data only this source has"
-        )
+        if not report.shots:
+            reason = "no shots were examined"
+        elif report.enumeration_error is not None:
+            reason = (
+                "the source's shots could not be listed "
+                f"({report.enumeration_error}), so the plan may be partial"
+            )
+        elif report.unexamined:
+            reason = (
+                f"the source holds {len(report.unexamined)} shot(s) the plan never "
+                f"examined (e.g. {report.unexamined[0]})"
+            )
+        else:
+            reason = (
+                f"{len(report.blocking)} shot(s) still hold data only this source "
+                "has, or could not be read"
+            )
         raise RetirementError(
             f"Refusing to delete {report.source!r}: {reason}. "
             "Copy each refinement forward and re-run the stability stage into "
