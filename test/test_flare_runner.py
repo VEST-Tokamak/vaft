@@ -85,7 +85,9 @@ def test_a_build_tree_is_refused_rather_than_run(tmp_path):
     `cmake --install` produces the `bin/flare` this resolves. Pointing
     $FLAREHOME at a build tree must not silently find something else."""
     (tmp_path / "flare").write_text("#!/usr/bin/env bash\nexit 0\n")  # no bin/, no +x
-    with pytest.raises(FileNotFoundError, match="bin/flare"):
+    # Either separator: the message names the resolved path, which is
+    # `bin\flare` on Windows and `bin/flare` everywhere else.
+    with pytest.raises(FileNotFoundError, match=r"bin[\\/]flare"):
         flare_executable(tmp_path)
 
 

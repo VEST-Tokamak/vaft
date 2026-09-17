@@ -199,19 +199,24 @@ def equilibrium_field_psi_vacuum(
     domain="pf_active", quantity="",
     subject="vacuum",
     description="The vacuum field of the coils and vessel at one instant: the "
-                "flux, the poloidal field strength, the decay index, or the "
-                "breakdown figure of merit, chosen with field=.",
+                "flux, the poloidal field strength, the decay index, |E_phi|, "
+                "the breakdown figure of merit, or the Lloyd margin, chosen "
+                "with field=.",
     # spectrometer_uv earns its place: with no time= the map is drawn at the
     # breakdown onset, and that timing reads H-alpha alongside the plasma
     # current.  An adapter that loads only the declared IDSs would otherwise
     # resolve a different instant than one that hands over the whole entry.
+    # barometry for the same reason, by a different route: field="lloyd_margin"
+    # reads the fill pressure, and discovery offers it only when a gauge is
+    # present, so an adapter loading only these IDSs would never offer it.
     ids=("pf_active", "pf_passive", "wall", "tf", "equilibrium", "magnetics",
-         "spectrometer_uv"),
+         "spectrometer_uv", "barometry"),
     required_paths=("pf_active.time", "pf_active.coil.{i}.current.data"),
     optional_paths=(
         "pf_passive.loop.{i}.element.{j}.geometry.outline.r",
         "tf.b_field_tor_vacuum_r.data",
         "wall.description_2d.{i}.limiter.unit.{j}.outline.r",
+        "barometry.gauge.{i}.pressure.data",
     ),
 )
 def vacuum_field(
