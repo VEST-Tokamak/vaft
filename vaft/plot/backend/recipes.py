@@ -4092,6 +4092,56 @@ def _build_vacuum_field_midplane(ods: Any, **options: Any) -> LineSeries:
     )
 
 
+def _core_profile_slice_at(ods: Any, time_slice: int) -> int:
+    """The ``core_profiles.profiles_1d`` index stored at equilibrium slice ``time_slice``'s time.
+
+    Matched by time: the two IDS keep their own time bases (a handful of
+    Thomson fits beside tens of reconstructions), so equal indices are not
+    equal instants.  The nearest profile is refused when it lies further away
+    than half the coarser of the two slice spacings, i.e. when it belongs to
+    another equilibrium slice or to none.  Only where ``core_profiles``
+    stores no time at all is the index used, and that is said.
+    """
+    count = _count(ods, "core_profiles.profiles_1d")
+    if not count:
+        raise ValueError("core_profiles.profiles_1d is required to map a core profile")
+    profile_times = slice_times(ods, "core_profiles.profiles_1d")
+    equilibrium_times = slice_times(ods, "equilibrium.time_slice")
+    instant = equilibrium_times[time_slice] if 0 <= time_slice < equilibrium_times.size else np.nan
+    stored = np.flatnonzero(np.isfinite(profile_times))
+    if stored.size == 0 or not np.isfinite(instant):
+        if time_slice >= count:
+            raise ValueError(
+                f"core_profiles.profiles_1d stores no time and has no element {time_slice}; "
+                "the profile of this equilibrium slice cannot be identified"
+            )
+        warnings.warn(
+            "core_profiles.profiles_1d or the equilibrium slice stores no time; pairing "
+            f"profiles_1d[{time_slice}] with equilibrium.time_slice[{time_slice}] by index",
+            UserWarning,
+            stacklevel=3,
+        )
+        return int(time_slice)
+    nearest = int(stored[int(np.argmin(np.abs(profile_times[stored] - instant)))])
+    spacings = [
+        float(np.median(steps))
+        for steps in (
+            np.diff(np.sort(times[np.isfinite(times)]))
+            for times in (profile_times, equilibrium_times)
+        )
+        if steps.size and np.median(steps) > 0.0
+    ]
+    distance = abs(float(profile_times[nearest]) - float(instant))
+    if spacings and distance > 0.5 * max(spacings):
+        raise ValueError(
+            f"no core_profiles slice is stored at equilibrium slice {time_slice} "
+            f"(t = {instant:g} s): the nearest, profiles_1d[{nearest}], is at "
+            f"t = {profile_times[nearest]:g} s, more than half a slice spacing "
+            f"({0.5 * max(spacings):g} s) away"
+        )
+    return nearest
+
+
 def _build_core_profile_field(
     ods: Any, *, quantity: str, time_slice: int = 0, **_: Any
 ) -> Field2D:
@@ -4110,13 +4160,17 @@ def _build_core_profile_field(
     psi_boundary = _get(
         ods, f"equilibrium.time_slice.{time_slice}.global_quantities.psi_boundary"
     )
+    # time_slice= names the EQUILIBRIUM slice; the profile mapped onto it is
+    # the core_profiles slice stored at that instant, never the one that
+    # happens to share its index (cold review plot F5).
+    profile_slice = _core_profile_slice_at(ods, int(time_slice))
     profile = _array(
-        ods, f"core_profiles.profiles_1d.{time_slice}.electrons.{quantity}"
+        ods, f"core_profiles.profiles_1d.{profile_slice}.electrons.{quantity}"
     )
-    rho = _array(ods, f"core_profiles.profiles_1d.{time_slice}.grid.rho_tor_norm")
+    rho = _array(ods, f"core_profiles.profiles_1d.{profile_slice}.grid.rho_tor_norm")
     if profile is None or rho is None:
         raise ValueError(
-            f"core_profiles.profiles_1d.{time_slice}.electrons.{quantity} and its "
+            f"core_profiles.profiles_1d.{profile_slice}.electrons.{quantity} and its "
             "rho_tor_norm grid are required"
         )
     if psi_axis is None or psi_boundary is None:
@@ -4125,8 +4179,17 @@ def _build_core_profile_field(
     if span == 0.0:
         raise ValueError("equilibrium psi_axis and psi_boundary are equal")
     psi_norm = (psi_2d - float(psi_axis)) / span
-    if psi_norm.shape != (grid_z.size, grid_r.size):
+    # The DD stores psi as (dim1, dim2) = (R, Z) and the model is (Z, R).  The
+    # stored order is tested first so that a square grid -- every VEST grid --
+    # is transposed too; "shape != (nz, nr)" never fires on one.
+    if psi_norm.shape == (grid_r.size, grid_z.size):
         psi_norm = psi_norm.T
+    elif psi_norm.shape != (grid_z.size, grid_r.size):
+        raise ValueError(
+            f"equilibrium.time_slice.{time_slice}.profiles_2d.0.psi has shape "
+            f"{psi_norm.shape}, which is neither (dim1, dim2) = "
+            f"{(grid_r.size, grid_z.size)} nor its transpose"
+        )
     rho_2d = np.sqrt(np.clip(psi_norm, 0.0, 1.0))
     values = np.interp(rho_2d.ravel(), rho, profile).reshape(rho_2d.shape)
     values = np.where(psi_norm <= 1.0, values, np.nan)
