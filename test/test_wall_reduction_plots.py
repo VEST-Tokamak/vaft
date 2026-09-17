@@ -60,6 +60,18 @@ def test_the_flux_map_is_masked_to_the_limiter_and_names_its_error(packaged):
         RECIPES["passive_structure_field_wall_reduction"].builder(ods, which="other")
 
 
+def test_the_difference_map_saturates_beyond_its_percentile_levels(packaged):
+    """cold review plot G9: levels from the 98th percentile leave points outside
+    them; contourf draws those as holes unless the map extends both ways."""
+    ods, rows = packaged
+    build = RECIPES["passive_structure_field_wall_reduction"].builder
+    diff = build(ods, which="difference", rule="moments", M=10, grid_shape=(17, 25))
+    levels = np.asarray(diff.contour_levels, dtype=float)
+    assert np.nanmax(np.abs(diff.values)) > levels.max()  # the case extend= exists for
+    assert diff.extend == "both"
+    assert build(ods, which="full", rule="moments", M=10, grid_shape=(17, 25)).extend == "neither"
+
+
 def test_the_difference_map_is_smaller_than_the_full_map(packaged):
     ods, rows = packaged
     build = RECIPES["passive_structure_field_wall_reduction"].builder

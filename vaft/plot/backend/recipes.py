@@ -3068,6 +3068,10 @@ def _build_wall_reduction_map(ods: Any, **options: Any) -> Field2D:
         r=r_axis, z=z_axis, values=field, value_label="wall psi [Wb]",
         title=options.get("title", f"wall psi, {which}: {label}\nt = {time[index]:.4f} s, region error {error:.1e}"),
         contour_levels=levels, overlays=(overlay,),
+        # Percentile levels leave 2 % of the map outside them by construction;
+        # without extend= contourf draws those points as holes, the same white
+        # as the mask outside the limiter (cold review plot G9).
+        extend="both" if which == "difference" else "neither",
     )
 
 
