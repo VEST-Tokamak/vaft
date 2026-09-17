@@ -385,8 +385,9 @@ def export(shot, source=None, *, backend, output=None, overwrite=False, occurren
     The shot is staged once however many backends are requested. ``imas-hdf5``
     is a copy of that staged entry, with no ODS round-trip; the converted
     backends read occurrence 0 only and refuse a shot that stores others.
-    Every backend is read in the IMAS DD version the shot is stored in; export
-    never converts between DD versions.
+    IDS are read in the DD version they were stored with (the newest, when
+    stages wrote different minor versions); a mix of major versions is refused,
+    and ``geqdsk`` requires DD 3 (DD 4 is COCOS 17).
 
     Returns ``{backend: path}`` in the order requested.
     """

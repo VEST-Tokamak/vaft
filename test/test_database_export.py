@@ -265,8 +265,13 @@ def test_a_dd4_shot_exports_in_its_own_dd_version(fake_hsds, monkeypatch, remote
     assert not (remote / "dataset_description.h5").exists()
     _serve(monkeypatch, remote)
 
+    out = tmp_path / "out"
+    # GEQDSK assumes DD3's COCOS 11: a DD4 shot would come out with psi flipped.
+    with pytest.raises(ValueError, match="GEQDSK export needs a DD 3 shot"):
+        vaft.database.export(SHOT, "public", backend=["omas-json", "geqdsk"], output=out, cache="off")
+    assert not out.exists() or not any(out.iterdir())
     written = vaft.database.export(
-        SHOT, "public", backend=["imas-nc", "omas-json", "geqdsk"], output=tmp_path / "out", cache="off"
+        SHOT, "public", backend=["imas-nc", "omas-json"], output=out, cache="off"
     )
     from vaft.database._local import _detect
 
@@ -274,22 +279,36 @@ def test_a_dd4_shot_exports_in_its_own_dd_version(fake_hsds, monkeypatch, remote
     with imas.DBEntry(str(written["imas-nc"]), "r", dd_version="4.1.1") as entry:
         assert len(entry.get("equilibrium").time_slice) == len(GFILES)
     assert len(vaft.omas.load(written["omas-json"], imas_version="4.1.1")["equilibrium.time_slice"]) == len(GFILES)
-    assert len(list(written["geqdsk"].iterdir())) == len(GFILES)
 
 
-def test_ids_put_with_different_dd_versions_are_refused(fake_hsds, monkeypatch, remote_entry, tmp_path):
-    remote = tmp_path / "remote"
-    shutil.copytree(remote_entry, remote)
-    with h5py.File(remote / "wall.h5", "r+") as image:
-        field = "wall/ids_properties&version_put&data_dictionary"
-        del image[field]
-        image[field] = b"3.42.0"
-    _serve(monkeypatch, remote)
+def _relabel(image: Path, ids: str, version: bytes) -> None:
+    with h5py.File(image, "r+") as handle:
+        field = f"{ids}/ids_properties&version_put&data_dictionary"
+        del handle[field]
+        handle[field] = version
 
-    with pytest.raises(ValueError, match=r"different IMAS DD versions \(3.41.0: .*; 3.42.0: wall\)"):
-        vaft.database.export(SHOT, "public", backend="omas-json", output=tmp_path / "out", cache="off")
+
+def test_a_minor_dd_mix_reads_in_the_newest_and_a_major_mix_is_refused(
+    fake_hsds, monkeypatch, remote_entry, tmp_path
+):
+    # ``main`` unions IDS written by different stages: minor versions may differ.
+    minor = tmp_path / "minor"
+    shutil.copytree(remote_entry, minor)
+    _relabel(minor / "wall.h5", "wall", b"3.40.0")
+    assert _export._stored_dd_version(minor) == DD
+    _serve(monkeypatch, minor)
+    written = vaft.database.export(SHOT, "public", backend="imas-nc", output=tmp_path / "a", cache="off")
+    with imas.DBEntry(str(written["imas-nc"]), "r", dd_version=DD) as entry:
+        assert len(entry.get("wall").description_2d) > 0
+
+    major = tmp_path / "major"
+    shutil.copytree(remote_entry, major)
+    _relabel(major / "wall.h5", "wall", b"4.1.1")
+    _serve(monkeypatch, major)
+    with pytest.raises(ValueError, match=r"different major IMAS DD versions \(3.41.0: .*; 4.1.1: wall\)"):
+        vaft.database.export(SHOT, "public", backend="omas-json", output=tmp_path / "b", cache="off")
     # The native copy converts nothing, so it does not need one version.
-    vaft.database.export(SHOT, "public", backend="imas-hdf5", output=tmp_path / "out", cache="off")
+    vaft.database.export(SHOT, "public", backend="imas-hdf5", output=tmp_path / "b", cache="off")
 
 
 def test_a_failed_restore_keeps_the_previous_artifact(fake_hsds, monkeypatch, tmp_path):

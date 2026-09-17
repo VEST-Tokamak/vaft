@@ -211,8 +211,10 @@ vaft.database.export(41672, source="public", backend=["imas-nc", "omas-json", "g
 Artifacts go directly under `--output` (default: the current directory). Existing ones are refused
 unless `--overwrite` is given, and a backend that fails leaves nothing behind. The converted backends
 read occurrence 0 and refuse a shot that stores other occurrences; `imas-hdf5` keeps them all.
-Every backend keeps the IMAS DD version the shot is stored in. Both netCDF backends need the
-`netCDF4` package.
+Export reads the DD version the IDS were stored with (the newest one when stages wrote different
+minor versions) and never converts across a major version: a shot mixing DD 3 and DD 4 IDS is
+refused, and `geqdsk` needs a DD 3 shot, because DD 4 flips the psi sign convention (COCOS 17).
+Both netCDF backends need the `netCDF4` package.
 
 ## Saving to HSDS
 

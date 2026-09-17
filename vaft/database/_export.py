@@ -115,14 +115,20 @@ def _remove(path: Path) -> None:
         path.unlink()
 
 
+def _version_key(version: str) -> tuple:
+    return tuple(int(part) if part.isdigit() else -1 for part in version.split("."))
+
+
 def _stored_dd_version(entry: Path) -> str:
-    """The IMAS DD version every linked IDS of a staged entry was put with.
+    """The IMAS DD version to read a staged entry's IDS with.
 
     Read from each IDS's own ``ids_properties.version_put.data_dictionary``:
     ``master.h5`` carries no version, and ``dataset_description`` -- the only
-    place the generic local detector looks -- does not exist from DD 4.1. No
-    version, or IDS put with different versions, is refused rather than
-    guessed: export converts formats, never DD versions.
+    place the generic local detector looks -- does not exist from DD 4.1.
+    ``main`` is a union of IDS written by different stages, so minor versions
+    may differ; IMAS-Python reads those across a minor step, and the newest is
+    used. No version, or IDS from different major versions, is refused:
+    export never converts across a major DD version (COCOS changes there).
     """
     import h5py
 
@@ -143,13 +149,14 @@ def _stored_dd_version(entry: Path) -> str:
             "Could not read the IMAS DD version from any stored IDS "
             f"({field}); refusing to guess one for the converted backends"
         )
-    if len(versions) > 1:
+    majors = {version.split(".", 1)[0] for version in versions}
+    if len(majors) > 1:
         detail = "; ".join(f"{version}: {', '.join(sorted(keys))}" for version, keys in sorted(versions.items()))
         raise ValueError(
-            f"Stored IDS were put with different IMAS DD versions ({detail}); "
-            "export does not convert between DD versions. Export 'imas-hdf5' for a lossless copy."
+            f"Stored IDS were put with different major IMAS DD versions ({detail}); "
+            "export does not convert across a major DD version. Export 'imas-hdf5' for a lossless copy."
         )
-    return next(iter(versions))
+    return max(versions, key=_version_key)
 
 
 def _stored_ids(entry: Path, version: str) -> list[str]:
@@ -263,6 +270,13 @@ def export(
             directory, shot, entry, requested_ids=None, cache=cache, transport=transport
         )
         version = _stored_dd_version(entry) if semantic else None
+        if "geqdsk" in names and version.split(".", 1)[0] != "3":
+            # from_omas assumes DD3's COCOS 11; DD4 stores COCOS 17, so psi
+            # would be written with the opposite sign.
+            raise ValueError(
+                f"GEQDSK export needs a DD 3 shot; this one is stored in IMAS DD {version} "
+                "(COCOS 17), which would flip psi. Export the other backends instead."
+            )
         ids_names = _stored_ids(entry, version) if semantic else []
 
         ods = None
