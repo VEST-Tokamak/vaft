@@ -368,6 +368,75 @@ def merge_remote_master(source: str, shot: int, previous_master: Path | None) ->
     return added
 
 
+def _link_template(master) -> tuple[str, str] | None:
+    """Return the ``(filename prefix, path prefix)`` this master's links use.
+
+    Read off a link the master already carries rather than assumed, so a
+    rebuilt link has exactly the shape the IMAS writer chose for its siblings
+    (``./magnetics.h5`` -> ``magnetics`` today).
+    """
+    import h5py
+
+    for name in master:
+        link = master.get(name, getlink=True)
+        if not isinstance(link, h5py.ExternalLink):
+            continue
+        filename, target = f"{name}.h5", str(link.path)
+        if link.filename.endswith(filename) and target.endswith(name):
+            return (
+                link.filename[: -len(filename)],
+                target[: -len(name)],
+            )
+    return None
+
+
+def unlinked_remote_files(
+    source: str, shot: int, *, repair: bool = False
+) -> tuple[str, ...]:
+    """Report, and optionally relink, IDS files the shot's master does not name.
+
+    A master left stage-only -- by a client older than the merge-before-upload
+    ordering, or by a write interrupted between its master upload and its merge
+    -- hides every other stage's IDS although their files are still in the
+    folder. No previous master survives to carry the links from, so they are
+    rebuilt from the folder listing, in the shape of a link the master still
+    holds. Returns the files that were (or, without ``repair``, would be)
+    relinked; empty when the master is whole or the shot has none.
+    """
+    import h5py
+
+    from .staging import external_h5_links
+    from .transport import run_hsload, verify_uploaded_image
+
+    with tempfile.TemporaryDirectory(prefix="vaft-master-repair-") as workdir:
+        current = _fetch_remote_master(source, shot, Path(workdir) / "master.h5")
+        if current is None:
+            return ()
+        present = _remote_canonical_files(_require_remote_entries(source, shot))
+        linked = set(external_h5_links(current))
+        missing = tuple(name for name in present if name not in linked)
+        if not missing or not repair:
+            return missing
+        with h5py.File(current, "r+") as master:
+            template = _link_template(master)
+            if template is None:
+                raise ReplicationError(
+                    f"hdf5://{source}/{shot}/master.h5 does not link {', '.join(missing)} "
+                    "and carries no link to copy the shape of; it cannot be "
+                    "rebuilt from the folder listing."
+                )
+            file_prefix, path_prefix = template
+            for filename in missing:
+                stem = filename[: -len(".h5")]
+                master[stem] = h5py.ExternalLink(
+                    f"{file_prefix}{filename}", f"{path_prefix}{stem}"
+                )
+        remote_uri = f"hdf5://{source}/{shot}/master.h5"
+        run_hsload(current, remote_uri)
+        verify_uploaded_image(current, remote_uri)
+    return missing
+
+
 #: Leaves the IMAS Access Layer stamps into an IDS as it writes it. They record
 #: which library performed the write -- ``access_layer`` is the imas_core
 #: version, ``access_layer_language`` the binding -- so they exist in a replica
