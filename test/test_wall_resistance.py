@@ -206,11 +206,27 @@ def test_the_asset_names_its_calibration_vintage(static_ods):
 
 
 def test_an_older_product_with_the_inherited_resistivity_still_uses_the_constants():
-    """The packaged samples carry the field with the pre-#388 vector; without
-    the marker the nominal resistance must ignore it, or the identity breaks."""
+    """Products from before #388 carry the field with an inherited vector and no
+    marker; without the marker the nominal resistance must ignore it, or the
+    identity breaks.
+
+    The packaged samples were such products until they were regenerated on the
+    #388 asset, so the older shape is rebuilt here from the current one: the
+    marker removed and the resistivity replaced by a vector that is not the
+    material value (a constant 8x, the ratio the pre-#388 samples carried).
+    """
     from vaft.machine_mapping.wall_resistance import RESISTIVITY_MARKER, _declares_nominal_resistivity
 
-    ods = _real_shot(39915)
+    current = _real_shot(39915)
+    assert _declares_nominal_resistivity(current)
+    assert identify_calibration(current)["key"] == "2303"
+
+    ods = copy.deepcopy(current)
+    ods["pf_passive.code.parameters"] = str(ods["pf_passive.code.parameters"]).replace(
+        RESISTIVITY_MARKER, ""
+    )
+    for i in range(len(ods["pf_passive.loop"])):
+        ods[f"pf_passive.loop.{i}.resistivity"] = 8.0 * float(ods[f"pf_passive.loop.{i}.resistivity"])
     assert not _declares_nominal_resistivity(ods)
     assert RESISTIVITY_MARKER in str(load_static_ods(DEFAULT_REFERENCE_ODS)["pf_passive.code.parameters"])
     assert identify_calibration(ods)["key"] == "2303"

@@ -1,5 +1,5 @@
 schema_version: 1
-reference_id: vest-39915-until-efit-v1
+reference_id: vest-39915-until-efit-v2
 shot: 39915
 machine: VEST
 imas_dd_version: 3.41.0
@@ -16,12 +16,12 @@ pipeline:
   - rdcon
   - stride
   - gpec
-  vaft_commit: 9c62a1f54ac547d5d8f26b12986c3e534e1b50cf
+  vaft_commit: c9213921f625ce358f73ac89e9a63b4cdec5fdfe
   config: source/pipeline-config.yaml
   config_sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a
   raw_source: source/vest_39915_daq_raw.json.gz
   raw_sha256: ac94261a218fbd9f4a84f94fc6d0ccf5dcde99ef4df2b6a8b12f5def616bf07e
-  eddy_stage_sha256: 845a2a9e28d6b7c2d6a5e4d2eba885d80e029b7803bfd3a3172f432aa3f2c038
+  eddy_stage_sha256: 4fcd7fa3f565372e9f617334b5d7a8c46c11c4dd2bde102779c30486525eb639
   efit_stage_sha256: 6aa488fc1e42114e474c341c4992b81762997a6200e5b54afa202d49f064ba1b
   diagnostics_manifest: source/diagnostics-manifest.json
   diagnostics_manifest_sha256: 71edb3996e6184438eabaef2bc7057352e17e44426802629c52a73bd1cff3d7f
@@ -49,8 +49,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 11047928
-    sha256: 5e49ed0abb129e9d51398496567b5be8362ecea02b8cf981f6d21c67b1fba1b3
+    size: 11099886
+    sha256: 257452d5e7cc94d7682b7a069d60180e3a94bc5580e41cb90ca13384159d24e5
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -58,18 +58,18 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 11922608
-    sha256: 73126eee8c473b64005a03bb3d0b81b03951c6ea0f8c7aafc7275a9f129bcf2b
+    size: 11518332
+    sha256: d403f3c88e1e8fc4a19b9173e1862cc749119b7ad51a37b2d52ad7758566d171
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
   canonical_source: source/pipeline-until-efit.json.gz
-  canonical_sha256: ba20eeef791ce7a212497053e527db620ffd88652a7794b8184e816e8d7143b0
+  canonical_sha256: d8d7638da6f78baf2be94a4653fb97139a37b98f2792292f9e81abb611f86149
   canonical_policy: repository-only
   normalizations:
   - equilibrium_psi_weber
   equilibrium_time_slices: 0
-  materialized_leaves: 19578
+  materialized_leaves: 19338
   metadata_corrections:
   - issue: https://github.com/VEST-Tokamak/vaft/issues/169
     path: magnetics.b_field_pol_probe.*.poloidal_angle
@@ -90,6 +90,7 @@ generation:
   - pf_active.time
   - pf_active.coil.*
   - magnetics.*
+  - ec_launchers.*
   - spectrometer_uv.ids_properties.*
   - spectrometer_uv.time
   - spectrometer_uv.channel.*
@@ -120,6 +121,31 @@ generation:
     condemned:
     - b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz
   equilibrium_cocos: 11
+  regeneration:
+    generated: '2026-09-17T03:34:38+00:00'
+    vaft_commit: c9213921f625ce358f73ac89e9a63b4cdec5fdfe
+    stages_rerun:
+    - static
+    - diagnostics
+    - eddy
+    stages_reused:
+      efit: equilibrium IDS copied verbatim from the previous canonical source; EFIT
+        was not rerun
+    previous_canonical_sha256: ba20eeef791ce7a212497053e527db620ffd88652a7794b8184e816e8d7143b0
+    eddy_stage_sha256: 4fcd7fa3f565372e9f617334b5d7a8c46c11c4dd2bde102779c30486525eb639
+    command: static -> diagnostics -> eddy via vaft.omas.vest_upstream (settings from
+      source/pipeline-config.yaml), composed with vaft.database.composition.compose_stage_products,
+      wall/em_coupling from the static product
+    reason: 'carry magnetics.flux_loop.*.voltage, magnetics.rogowski_coil and ec_launchers
+      (#165), and the mapper changes since 2026-08-28: IMPA moved to its own stage
+      (#305), phase-reference Mirnov entries gated by shot (#857), probe toroidal
+      angle as position.phi (#725/#731), full-discharge TF/barometry/EC windows, pf_active
+      turn-count resistance, nominal pf_passive resistivity, anti-aliased filterscope
+      decimation (#425), diamagnetic plasma window, diagnostics-stage signal validity
+      (#189), passive currents re-solved on the reciprocal coupling (#373)'
+    corrections_reproduced_by_mapper:
+    - '#288 b_field_pol_probe poloidal_angle = 3*pi/2'
+    - spectrometer_uv CII_4267 / 426.7e-9
 semantic_comparison:
   paths:
   - wall.*
@@ -130,13 +156,15 @@ semantic_comparison:
   - spectrometer_uv.*
   - pf_passive.*
   - equilibrium.*
+  - ec_launchers.*
   exclude_paths:
   - '*.ids_properties.version_put*'
   - '*.ids_properties.occurrence'
   - '*.ids_properties.homogeneous_time'
+  - ec_launchers.time
 acceptance:
   magnetics:
-    b_field_pol_probe_count: 76
+    b_field_pol_probe_count: 65
     flux_loop_count: 11
   pf_active:
     coil_count: 10
@@ -164,6 +192,7 @@ acceptance:
   - spectrometer_uv
   - pf_passive
   - equilibrium
+  - ec_launchers
 packaging_policy:
   compact_pair: wheel-and-sdist
   repository_equilibrium_time_slices: all
@@ -191,12 +220,12 @@ corrections:
   to: CII_4267 / 426.7e-9
   reason: '3726 Angstrom is the well-known [O II] line, which processed_line.5 of
     the same channel already and correctly claims; the representative visible C II
-    line the filterscope observes is near 4267 Angstrom. The old pair therefore
-    named two different species at one wavelength, which a species-aware selector
-    would have resolved to the wrong ion. Applied in place rather than by rerunning
-    the pipeline, for the same reason as the #288 correction: the mapper writes both
-    leaves as constants from vaft.machine_mapping.spectrometer_uv.SIGNALS, and no
-    stage output depends on either, so the intensity series recorded from DAQ field
-    142 is untouched. SIGNALS was corrected in the same change, so a regeneration
-    reproduces these values rather than reverting them, and the stage hashes still
-    describe the run that produced the rest of the artifact.'
+    line the filterscope observes is near 4267 Angstrom. The old pair therefore named
+    two different species at one wavelength, which a species-aware selector would
+    have resolved to the wrong ion. Applied in place rather than by rerunning the
+    pipeline, for the same reason as the #288 correction: the mapper writes both leaves
+    as constants from vaft.machine_mapping.spectrometer_uv.SIGNALS, and no stage output
+    depends on either, so the intensity series recorded from DAQ field 142 is untouched.
+    SIGNALS was corrected in the same change, so a regeneration reproduces these values
+    rather than reverting them, and the stage hashes still describe the run that produced
+    the rest of the artifact.'

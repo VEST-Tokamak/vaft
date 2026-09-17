@@ -88,7 +88,42 @@ def make_eddy_solved(sample: ODS) -> ODS:
 
 
 # ---------------------------------------------------------------------------
-# impa_time_field / soft_x_rays_geometry_lines_of_sight / chease_overview_profile_validity
+# impa_* -- IMPA left the diagnostics product for its own stage (#305), so the
+# regenerated 39915 sample no longer carries it.  Build the IMPA product from
+# the packaged raw dump and append its channels the way
+# vaft.database.composition.compose does: after the base probes, by IMPA identity.
+# ---------------------------------------------------------------------------
+_IMPA_COMPOSED: dict[int, ODS] = {}
+
+
+def make_impa_composed(sample: ODS) -> ODS:
+    shot = int(sample["dataset_description.data_entry.pulse"])
+    if shot not in _IMPA_COMPOSED:
+        import contextlib
+        import io
+        import warnings
+
+        from vaft.data import resources
+        from vaft.database.composition import impa_channels
+        from vaft.omas.vest_upstream import build_impa_ods
+
+        raw = resources.data_path(f"samples/{shot}/source/vest_{shot}_daq_raw.json.gz")
+        with contextlib.redirect_stdout(io.StringIO()), warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            impa, _ = build_impa_ods(shot=shot, raw_source=raw, tstart=0.26, tend=0.36, dt=4e-5)
+        composed = copy.deepcopy(sample)
+        for node in ("magnetics.b_field_pol_probe", "magnetics.b_field_tor_probe"):
+            if node not in impa:
+                continue
+            for source_index in impa_channels(impa, node):
+                index = len(composed[node]) if node in composed else 0
+                composed[f"{node}.{index}"] = copy.deepcopy(impa[f"{node}.{source_index}"])
+        _IMPA_COMPOSED[shot] = composed
+    return copy.deepcopy(_IMPA_COMPOSED[shot])
+
+
+# ---------------------------------------------------------------------------
+# soft_x_rays_geometry_lines_of_sight / chease_overview_profile_validity
 # already build from the raw packaged sample (verified); identity factory.
 # (test_layout_contract.py, test_plot_machine_overview.py, test_chease_validation_plots.py)
 # ---------------------------------------------------------------------------
@@ -353,7 +388,9 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
     "nbi_profile_current_drive": make_nbi,
     "interferometer_spectrogram": make_interferometer,
     "passive_structure_time_current": make_eddy_solved,
-    "impa_time_field": make_identity,
+    "impa_time_field": make_impa_composed,
+    "impa_time_voltage": make_impa_composed,
+    "impa_profile_field": make_impa_composed,
     "soft_x_rays_geometry_lines_of_sight": make_identity,
     "coil_3d_geometry3d": make_coils_3d,
     "coil_3d_geometry_topview": make_coils_3d,

@@ -184,9 +184,14 @@ def test_wheel_sample_carries_the_same_conventions_as_the_checkout_sample():
     }
     assert poloidal == {round(float(POLOIDAL_ANGLE), 9)}
 
+    # IMPA, the only b_field_tor_probe family, is its own stage since #305, so
+    # the regenerated sample may carry none; any it does carry must face
+    # toroidally.
     toroidal = {
         round(float(probe["toroidal_angle"]), 9)
         for probe in magnetics.get("b_field_tor_probe", [])
         if "toroidal_angle" in probe
     }
-    assert toroidal == {round(float(IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE), 9)}
+    assert toroidal <= {round(float(IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE), 9)}
+    # and no poloidal probe carries a toroidal_angle at all (#725)
+    assert not any("toroidal_angle" in probe for probe in magnetics["b_field_pol_probe"])

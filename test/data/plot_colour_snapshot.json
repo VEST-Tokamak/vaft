@@ -56,19 +56,18 @@
   "machine_geometry_poloidal": {
    ".layers:color=#377eb8": 12,
    ".layers:color=#d62728": 549,
-   ".layers:color=#ff7f00": 77,
+   ".layers:color=#ff7f00": 66,
    ".layers:color=0.4": 1,
    ".layers:color=0.55": 950
   },
   "machine_geometry_topview": {
-   ".layers:color=#984ea3": 1,
    ".layers:color=#e41a1c": 2,
    ".layers:color=#ff7f00": 1,
    ".layers:color=0.4": 2
   },
   "magnetics_geometry_poloidal": {
    ".layers:color=#377eb8": 12,
-   ".layers:color=#ff7f00": 77
+   ".layers:color=#ff7f00": 66
   },
   "mirnov_spatial_phase": {
    ".series:color=#377eb8": 2,
