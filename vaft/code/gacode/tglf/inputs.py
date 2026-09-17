@@ -514,15 +514,24 @@ def prepare_tglf_input(
     )
 
 
-    effective_charge = (
-        2.0 if profile.z_eff is None
-        else _at(grid, np.asarray(profile.z_eff, dtype=float), target)
-    )
     if profile.z_eff is None:
+        # No column: the charge the species list written beside it realises,
+        # sum(n_i Z_i^2)/n_e at this surface. Any other number -- 2.0 was written
+        # here once, mislabelled as TGLF's default, which is 1.0
+        # (tglf/src/tglf_modules.f90:138) -- makes input.tglf contradict itself, and
+        # ZEFF scales the electron-ion collisions of a collisional plasma.
+        effective_charge = float(
+            np.sum(np.asarray(fractions[1:], dtype=float) * charge**2)
+        )
         provenance["zeff"] = {
-            "kind": "policy_assumption",
-            "reason": "the profile carries no z_eff column; TGLF's own default is used",
+            "kind": "derived",
+            "reason": (
+                "the profile carries no z_eff column; sum(n_i Z_i^2)/n_e of the "
+                "species list written beside it"
+            ),
         }
+    else:
+        effective_charge = _at(grid, np.asarray(profile.z_eff, dtype=float), target)
 
     # beta_star sums every species' pressure-gradient drive, with a-normalised
     # gradients -- the one place the normalised form is the one that enters.

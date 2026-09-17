@@ -336,3 +336,36 @@ def test_the_configuration_refuses_settings_tglf_cannot_take():
         TGLFConfig(geometry_flag=3)
     with pytest.raises(ValueError, match="species"):
         TGLFConfig(n_species=9)
+
+
+@requires_sample
+def test_without_a_z_eff_column_zeff_is_what_the_species_list_realises():
+    """Cold review transport F3: 2.0 was written, labelled as TGLF's default (it is 1.0)."""
+    from omas import load_omas_json
+
+    from vaft.code.gacode.inputs import prepare_gacode_profile
+
+    ods = load_omas_json(str(SAMPLE), consistency_check=False)
+    bare = prepare_gacode_profile(ods, rho_max=0.95)
+    assert bare.z_eff is None and bare.name == ("H+",)
+
+    local = prepare_tglf_input(bare, 0.5)
+    parameters = tglf_parameters(local)
+    realised = sum(
+        parameters[f"AS_{i}"] * parameters[f"ZS_{i}"] ** 2
+        for i in range(2, local.n_species + 1)
+    )
+    assert parameters["ZEFF"] == pytest.approx(realised)
+    assert parameters["ZEFF"] == pytest.approx(1.0, rel=1e-6)
+    assert local.provenance["zeff"]["kind"] == "derived"
+    assert "default" not in local.provenance["zeff"]["reason"]
+
+
+@requires_sample
+def test_a_two_species_list_without_a_column_gives_its_own_zeff(profile):
+    import dataclasses
+
+    local = prepare_tglf_input(dataclasses.replace(profile, z_eff=None), 0.5)
+    # The fixture's list was built to realise Z_eff = 2 with carbon.
+    assert local.zeff == pytest.approx(2.0, rel=1e-6)
+    assert local.provenance["zeff"]["kind"] == "derived"
