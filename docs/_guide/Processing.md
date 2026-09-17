@@ -24,18 +24,16 @@ signals out of an ODS, calls into `vaft.process`, and writes the results back.
 
 > Rule of thumb: **`vaft.process` is the math, `vaft.omas.compute_*` is the API you usually call.**
 
-| Module | Concern |
-| --- | --- |
-| `vaft.process.signal_processing` | Smoothing, baseline definition/removal, filtering, on/off-set detection, liveness test |
-| `vaft.process.numerical` | Time derivative on a non-uniform grid |
-| `vaft.process.electromagnetics` | Green's-function response matrices, R/L/M coupling matrices, eddy-current RL solve, vacuum-field reconstruction |
-| `vaft.process.magnetics` | Legacy VEST EFIT magnetics chain, Mirnov preprocessing/spectrogram, toroidal mode numbers, Rogowski → $I_p$ |
-| `vaft.process.equilibrium` | $\psi \leftrightarrow R \leftrightarrow \rho$ mapping, volume averages, diamagnetism, Shafranov/virial integrals |
-| `vaft.process.profile` | Diagnostic→equilibrium mapping and profile fitting (writes `core_profiles` into ODS) |
-| `vaft.process.statistical_analysis` | Log-log confinement-time scaling regression |
+Every public function in `vaft.process` is documented under one contract -- inputs and outputs
+with units, processing steps, defaults and where they came from, machine scope, limitations and
+provenance -- and the [process reference]({{ site.baseurl }}/reference/process/) is generated from
+those docstrings.  This page is the *workflow*: how the pieces are used together for
+electromagnetic modelling.  For what any one function does, its parameters and its provenance,
+use the reference, or `vaft.process.describe("<name>")` at a prompt.
 
-`vaft/process/__init__.py` is a star-import chain, so every public symbol below is reachable both as
-`vaft.process.<name>` and as `vaft.process.<module>.<name>`. All of these work:
+Submodules are imported on demand, so every public symbol is reachable both as
+`vaft.process.<name>` and as `vaft.process.<module>.<name>`, and importing one submodule costs
+only that submodule.  All of these work:
 
 ```python
 import vaft                                    # lazy: vaft.process is imported on first attribute access
@@ -212,15 +210,26 @@ alive         = vaft.process.is_signal_active(ip)          # -> bool
 
 `signal_on_offset` applies a Savitzky–Golay smooth (polyorder 3) and returns the contiguous
 above-threshold window **containing the global maximum**; `vfit_signal_start_end` does the same without
-the smoothing stage. `is_signal_active` is a scale-invariant "is this channel alive?" test
-(`var_ratio_thresh=1e-2`, `change_ratio_thresh=1e-2`) that returns `False` for arrays shorter than 2.
+the smoothing stage. `is_signal_active` is a scale-free "is this channel alive?" test: the variance and
+the mean |Δx| are each divided by the trace's mean absolute level (the first is the squared coefficient
+of variation) and compared with `var_ratio_thresh=1e-2` and `change_ratio_thresh=1e-2`; a trace is
+inactive only when both fall below threshold, and arrays shorter than 2 are never active.
 
-These are what the ODS-level event finders are built on — `vaft.omas.find_breakdown_onset`,
-`find_ip_onset`, `find_pf_active_onset` and `find_pulse_duration` all call `signal_on_offset`
-internally:
+`signal_on_offset` is the generic pulse-window helper (the plot layer's coil limits use it). The
+ODS-level event finders — `vaft.omas.find_breakdown_onset`, `find_ip_onset`, `find_pulse_duration`,
+`find_vloop_onset`, `find_pf_active_onset` — are built on the onset primitives of `vaft.process.onset`
+instead (`active_window`, `principal_pulse_onset`, `zero_crossing_after_excursion`), composed with the
+VEST source hierarchy and rules by `vaft.omas.plasma_timing` and `vaft.omas.discharge_timing`. Each
+detector's parameters, its ordered processing steps and the rule each default stands for are on the
+[onset reference page]({{ site.baseurl }}/reference/process/onset/); the numbers a VEST pipeline
+actually runs with are policy in `vest.yaml`, not defaults. The same
+module's `robust_peak` is the representative-peak primitive behind `find_max_ip` and
+`vaft.omas.plasma_features`: the largest *sustained* excursion inside a search stretch, a candidate whose
+run at half height is narrower than `min_width_s` being refused as a spike; its `PeakRecord` carries the
+smoothed value, the grid-sample time, the raw maximum and the runs it refused:
 
 ```python
-t_bd  = vaft.omas.find_breakdown_onset(ods)     # from the spectrometer_uv line intensity
+t_bd  = vaft.omas.find_breakdown_onset(ods)     # plasma onset: H-alpha by label, current as fallback
 t_dur = vaft.omas.find_pulse_duration(ods)
 ```
 
@@ -483,8 +492,8 @@ Two ready-made figures follow exactly this path — a bare contour, and a contou
 geometry:
 
 ```python
-vaft.plot.vacuum_psi_contour(ods)                    # defaults to the breakdown onset time
-vaft.plot.overlay_all_with_vacuum_psi_contour(ods)   # + coils, vessel, limiter, Thomson
+vaft.omas.plot_equilibrium_field_psi_vacuum(ods)                       # defaults to the breakdown onset time
+vaft.omas.plot_equilibrium_field_psi_vacuum(ods, overlay=("coils", "wall"))   # over the machine geometry
 ```
 
 Both mask $\psi$ to the chamber interior using `vaft.omas.find_chamber_boundary(ods)`.
@@ -567,8 +576,10 @@ raw, filt, integrated, field, baselines = b_field_pol_probe_field(
 
 `rogowski_coil_ip` subtracts a flux-loop reference from the Rogowski signal and **auto-flips the sign**
 when $\lvert \min I_p \rvert > \lvert \max I_p \rvert$. Note the asymmetric returns:
-`b_field_pol_probe_field` gives **five** arrays, `flux_loop_flux` gives **three**. Both accept
-`plot_opt=True`, which builds an `ipywidgets` slider and so only does anything inside Jupyter.
+`b_field_pol_probe_field` gives **five** arrays, `flux_loop_flux` gives **three**. Both once accepted
+`plot_opt=True`, which built an `ipywidgets` slider; that argument has been removed (issue #485).
+Processing returns arrays, and drawing them is `vaft.plot`'s job -- `plot_flux_loop_time_flux` and
+`plot_b_field_probe_time_field` draw the same signals, with `interactive=True` for the controls.
 
 ![Plasma current]({{ site.baseurl }}/assets/images/magnetics/plasma_current.png)
 
@@ -611,19 +622,19 @@ best = fit.modes[0]                                              # sorted by amp
 print(best.frequency, best.n, best.rms_error)
 ```
 
-$n$ is recovered as $\arg \mathrm{CSD}(a,b) / \Delta\phi$, peak-picked on $\lvert \mathrm{CSD} \rvert$
-and filtered by a coherence threshold. The plot module wraps all of this against an ODS — this is the
-path the fluctuation notebook takes on shot 44740:
+In the two-probe analysis $n$ is recovered as $-\arg \mathrm{CSD}(a,b) / \Delta\phi$, peak-picked on
+$\lvert \mathrm{CSD} \rvert$ and filtered by a coherence threshold. The canonical plots draw the signal,
+its spectrogram and the multi-probe wrapped-phase fit straight from an ODS. There is no canonical plot of
+the two-probe cross-spectrum: call `toroidal_mode_analysis` directly, as above, when you want $n$ versus
+frequency.
 
 ```python
-import vaft.plot as vplot
+import vaft
 
-vplot.mirnov_signal(ods, channels=[14, 37], time_range=(0.304, 0.330), preprocess=False)
-vplot.mirnov_spectrogram(ods, channel=14, time_range=(0.304, 0.330), max_frequency=80e3)
-vplot.toroidal_mode_spectrum(ods, channel_pair=(14, 37), time_range=(0.304, 0.330))
+vaft.omas.plot_mirnov_time_voltage(ods, selection=[14, 37], time_range=(0.304, 0.330), preprocess=False)
+vaft.omas.plot_mirnov_spectrogram(ods, selection=[14], time_range=(0.304, 0.330))
 
-fig, ax, phase_fit = vplot.toroidal_phase_mode_fit(
-    ods, center_time=0.3215, channels=[64, 65, 66, 67], return_result=True)
+fig, ax = vaft.omas.plot_mirnov_spatial_phase(ods, time=0.3215)
 ```
 
 ---

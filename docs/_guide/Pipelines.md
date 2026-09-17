@@ -34,7 +34,13 @@ production counterpart of the interactive notebooks: the same `vaft` library cal
 | `automatic_pipeline_3_data_summary` | partial Snakefile (2 rules) + manual scripts | Mines the file database into cross-shot `.xlsx` history sheets and plots |
 | `running_linear_stability` | Snakemake DAG (1 rule, fanned out) | Runs DCON / RDCON / STRIDE per (shot, time, n-mode) on refined equilibria |
 
-All four share one on-disk convention, rooted at `base_dir` (`/srv/vest.filedb/public` in every shipped config):
+All four share one on-disk root, `base_dir` (`/srv/vest.filedb/public` in every shipped config), and
+pipeline 1 writes under it in one of two layouts selected by the `layout:` config key.
+
+`layout: shot_first` (the default) is the legacy server hierarchy, kept so this pipeline stays
+directly diffable against the reference output. Its product names are plain `.json` and stay that
+way: the tree is a read-only record of what the legacy pipeline wrote, so it does not follow the
+canonical layout's container (`OMAS_PRODUCT_SUFFIX`, `.json.gz` since #813).
 
 ```text
 {base_dir}/{shot}/
@@ -46,6 +52,27 @@ All four share one on-disk convention, rooted at `base_dir` (`/srv/vest.filedb/p
 ├── linear_stability/     {time}/{dcon,rdcon,stride}/nn={n}/
 └── logs/
 ```
+
+`layout: filedb` is the canonical grammar (#77), resolved through
+`vaft.database.filedb.FileDB` so no path is reconstructed by hand:
+
+```text
+{base_dir}/
+├── raw/{shot}/
+├── omas/static/{machine_version}/
+├── omas/{stage}/{shot}/                          diagnostics, eddy, impa, ...
+├── omas/{stage}/{family}/{shot}/                 efit, chease, mhd_linear, gpec_ideal
+├── efit/{family}/{shot}/
+├── chease/{family}/{shot}/
+└── gpec/{family}/{refinement}/{product}/{shot}/n={n}/
+```
+
+with an artifact class (`input`, `output`, `log`, `plot`, `config`, `work`, `metadata`) as the leaf.
+`{family}` is the reconstruction lineage a product descends from — `magnetic`, `electron` or
+`kinetic`; `{refinement}` is the equilibrium actually handed to the solver (`chease`, or `none`); and
+`{product}` is the stability calculation that ran: `dcon-peeling`, `dcon-kink`, `rdcon`, `stride` or
+`ideal-gpec`. DCON's two edge treatments are separate products rather than two views of one run,
+because a run yields one of them and can never yield both.
 
 ---
 
@@ -78,6 +105,7 @@ flowchart TD
     A["generate_raw_db_dump<br/>vest_SHOT_daq_raw.json.gz"] --> B["generate_diagnostics_ods<br/>SHOT_diagnostics.json"]
     B --> C["generate_eddy_ods<br/>SHOT_eddy.json"]
     C --> D["generate_constraints_ods<br/>SHOT_constraints.json"]
+    B --> D
     D --> E["generate_kfile<br/>efit/kfile/kfiles_generated.txt"]
     E --> F["run_efit_reconstruction<br/>gfiles_generated.txt + efit_status.txt"]
     F --> G["generate_efit_ods<br/>SHOT_efit.json"]
@@ -85,6 +113,14 @@ flowchart TD
     H --> I["generate_chease_ods<br/>SHOT_chease.json"]
     H --> J["run_gpec_suite<br/>gpec_suite_runs.json + gpec_suite_status.txt"]
 ```
+
+`generate_constraints_ods` takes **two** products, not one. Each stage stores only the IDS it owns,
+so the constraint builder reads `magnetics`, `pf_active` and `tf` from the diagnostics product and
+`pf_passive` from the eddy product, unioning them through
+`vaft.database.composition.compose_stage_products`. That composer also refuses a pairing whose time
+grids show the two came from different runs — the EFIT constraint builder interpolates each slice
+onto `pf_passive.time`, so a mismatched pairing produces wall currents for the wrong instants
+rather than an error.
 
 Stages do **not** hand individual g-/k-files to each other as Snakemake outputs. Each stage writes a
 **manifest** — a text file with one absolute path per line — and the next stage reads it. `run_gpec_suite`
@@ -100,8 +136,10 @@ partial: refined_gfiles=8; failed=2
 |---|---|---|
 | `generate_raw_db_dump` | `generate_raw_db_dump.py` | `vaft.database.init_pool`, `vaft.database.dump_all_raw_signals_for_shot` |
 | `generate_diagnostics_ods` | `generate_diagnostics_ods.py` | `vaft.machine_mapping.dataset_description`, `pf_active`, `spectrometer_uv`, `barometry`, `tf`, `magnetics` |
+| `select_impa_shots` (checkpoint) | `select_impa_shots.py` | `vaft.machine_mapping.impa.impa_expected_fields` |
+| `generate_impa_ods` | `generate_impa_ods.py` | `vaft.omas.vest_upstream.build_impa_ods` → `vaft.machine_mapping.impa.impa` |
 | `generate_eddy_ods` | `generate_eddy_ods.py` | `vaft.machine_mapping.pf_passive`, `em_coupling`, `vaft.omas.process_wrapper.compute_eddy_currents` |
-| `generate_constraints_ods` | `generate_constraints_ods.py` | `vaft.code.efit.correct_flux_loop`, `vaft.code.efit.generate_constraints_ods` |
+| `generate_constraints_ods` | `generate_constraints_ods.py` | `vaft.omas.plasma_timing.plasma_timing`, `vaft.code.efit.correct_flux_loop`, `vaft.code.efit.generate_constraints_ods` |
 | `generate_kfile` | `generate_kfile.py` | `vaft.code.efit.generate_kfile` |
 | `run_efit_reconstruction` | `run_efit_reconstruction.py` | `vaft.code.efit.run_efit` with `EFITInputs` / `EFITConfig` |
 | `generate_efit_ods` | `generate_efit_ods.py` | `vaft.code.efit.collect_efit_outputs` |
@@ -110,6 +148,16 @@ partial: refined_gfiles=8; failed=2
 | `run_gpec_suite` | `run_gpec_suite.py` | `vaft.code.gpec.run_gpec_suite_case` with `GPECCaseInputs` / `GPECSuiteConfig` |
 
 Note the one rule whose name differs from its script: rule `run_chease` runs `run_chease_refinement.py`.
+
+`generate_impa_ods` is the one optional branch. IMPA is an insertable,
+campaign-dependent diagnostic, so it is off by default (`impa.enable: false`),
+it is never an input to a baseline stage, and it records a failure in its own
+manifest instead of raising one -- a broken IMPA branch cannot change the exit
+state of a run whose baseline stages succeeded. Its product is published into
+the sparse `impa` HSDS source rather than into `main`, and a shot missing from
+that source means only that no IMPA product was published for it (issue #305).
+Analysis that wants the array alongside the baseline composes the two
+explicitly with `vaft.database.compose(shot)`.
 
 ### The library calls, verbatim
 
@@ -127,7 +175,8 @@ result = run_efit(EFITInputs(workdir=workdir, kfiles=kfiles),
                              args=("129",), timeout=600))
 result = collect_efit_outputs(workdir, EFITConfig(workdir=workdir, shot=shot))
 
-# CHEASE: resolve the binary (falls back to $PATH), prepare, run
+# CHEASE: resolve the binary ($CHEASEHOME/bin/chease, then $CHEASE,
+# then $CHEASE_EXEC_DIR -- there is no $PATH fallback), prepare, run
 config = CHEASEConfig(executable=exe, timeout=600, target_psin=0.993, nideal=6, nw=513)
 result = run_chease(prepare_chease_inputs(gfile, config), config)
 
@@ -162,14 +211,34 @@ dump with no SQL server in reach. Magnetics processing parameters travel as a
   developer's home directory, while `base_dir` points at the Linux data server. Repoint them before running.
 * **Dead keys.** `cores`, `raw.offline_only` and `gpec.coil.source` appear in `config.yaml` but are never read
   by the `Snakefile`.
-* **`constraints.detect_broken` is accepted and then ignored** — the script logs a warning and uses only the
-  explicit `constraints.broken` list of 1-based channel indices.
+* **Channel selection is a decision the constraint stage consumes, not one it makes** (issue #296).
+  `vaft.validation.efit_channels.decide_efit_channels` reads the validity the diagnostics stage projected
+  and emits a per-channel, per-slice decision — usable, suspect, rejected, missing or recovered —
+  that `generate_constraints_ods` only translates into weights. There is no manual channel list any more
+  (issue #295 retired `constraints.broken`; its evidence is in `workflow/efit_channel_selection/README.md`),
+  so a channel is a constraint unless the assessment says otherwise. `constraints.detect_broken: true` now means
+  *require* that assessment: a product without projected validity is refused and must be re-run through the
+  diagnostics stage (with `false` every channel is usable by default). No detector runs in this stage.
+  `gaussian_fit_option` selects the compatibility recovery backend (`1` refits rejected probes from their
+  family's Gaussian profile, `2` every probe); a recovered value never re-enables a channel the quality
+  layer rejected. The decisions are recorded in the product under
+  `equilibrium.code.parameters.channel_decisions`.
+
+Each constraint is the box average of the diagnostic samples inside `[t_i − w, t_i + w]` — every
+sample once, equal weights, no interpolation grid of its own (issue #433) — with `w =
+constraints.average_window` (0.5 ms by default). The window and the reconstruction cadence `tstep` are
+two separate controls; qualifying them together is issue #468.
 
 Constraint time selection is worth spelling out, because `timeset: auto` is the default and it is not
-obvious. The base window is $[\max(0.28,\ t_0),\ \min(0.38,\ t_{-1})]$ seconds; within it the script keeps
-only samples where $I_p > 20\ \mathrm{kA}$, falling back to the full window and then to all times if that
-selection is empty. Start and end are snapped to the `tstep` grid. With `timeset: manual` you get exactly
-`np.arange(tstart, tend, tstep)` and both bounds become mandatory.
+obvious. The script takes the shared plasma-analysis range — `diagnostics_time_policies.windows.plasma_analysis`
+in `vest.yaml`, 0.28–0.36 s — and intersects it with the plasma window `vaft.omas.plasma_timing` detects on
+the product: the slow H-alpha line found by label, else the validated fast line, else the plasma-current
+principal pulse (see [Plasma timing policy]({{ site.baseurl }}/guide/Machine_mapping/#plasma-timing-policy)).
+When no source shows a plasma the whole range is used and the run is flagged `analysis_range_fallback`,
+with the reason, in the stage log and in `equilibrium.ids_properties.comment`, which always names the
+window and its source. Start and end are clamped to `tstart`/`tend` when given and snapped to the `tstep`
+grid, and the end instant is included. With `timeset: manual` you get exactly `np.arange(tstart, tend, tstep)`
+and both bounds become mandatory.
 
 ### Failure semantics — a green run does not mean everything ran
 
@@ -220,11 +289,11 @@ machine_mapping.thomson_scattering(ods, shotnumber, filepath)
 database.save(ods, shotnumber)
 
 # and, when a refined equilibrium exists for that shot, per time slice:
-mapped_rho = process.equilibrium_mapping_thomson_scattering(ods, geq)
+mapped = process.equilibrium_mapping_thomson_scattering(ods, geq)   # psi_norm, rho_pol_norm, rho_tor_norm
 n_e_fn, T_e_fn, *_ = process.profile_fitting_thomson_scattering(
-    ods, time_ms, mapped_rho, Te_order=2, Ne_order=2,
+    ods, time_ms, mapped, Te_order=2, Ne_order=2,                    # fitted in rho_tor_norm by default
     fitting_function_te='polynomial', fitting_function_ne='exponential')
-ods = process.core_profiles(ods, time_ms, mapped_rho, n_e_fn, T_e_fn)
+ods = process.core_profiles(ods, time_ms, mapped, n_e_fn, T_e_fn)
 ```
 
 The equilibrium it maps against is the CHEASE-refined g-file at

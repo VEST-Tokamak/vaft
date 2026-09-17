@@ -7,11 +7,16 @@
 [Python](https://pypi.org/project/vaft/)
 [License](LICENSE)
 
+> **핵융합 과학 지식을 통합해, 찾고 검증하고 비교하고 연구할 수 있게 합니다.**
+
 **VAFT는 장치 독립적(machine-agnostic) 토카막 연구를 위한 표준화되고, 검증
-가능하며, 상호운용 가능한 과학 인프라입니다.** 서울대학교
-[VEST 토카막](https://eng.snu.ac.kr/)에서의 전체 구현은 일상적인 실험 데이터
-처리, 검증, 모델링, 물리 분석, 그리고 연구자와 기관 간의 공동 활용을 지원하며,
-현대적이고 재현 가능한 데이터 기반 핵융합 연구의 참조 구현(reference
+가능하며, 상호운용 가능한 과학 프레임워크입니다.** 실험 데이터, 재구성·시뮬레이션된
+플라즈마 상태, 분석 워크플로를 하나로 통합해, 핵융합 과학 지식을 찾고(discover)
+검증하고(verify) 비교하고(compare) 연구할(study) 수 있게 합니다.
+
+서울대학교 [VEST 토카막](https://eng.snu.ac.kr/)에서의 전체 구현은 일상적인 실험
+데이터 처리, 검증, 모델링, 물리 분석, 그리고 연구자와 기관 간의 공동 활용을
+지원하며, 현대적이고 재현 가능한 데이터 기반 핵융합 연구의 참조 구현(reference
 implementation) 역할을 합니다.
 
 > Hong-Sik Yun, Sunjae Lee *et al* 2025 *Plasma Phys. Control. Fusion* **67** 115021
@@ -19,36 +24,39 @@ implementation) 역할을 합니다.
 
 ## VAFT란 무엇인가
 
-여기서 "인프라"가 뜻하는 네 가지입니다.
+여기서 "프레임워크"가 뜻하는 네 가지입니다.
 
 ### 통합 표준 인터페이스 (Integrated Standardized Interface)
 
-표준화된 데이터 표현, 과학적 데이터 처리, 검증, 시각화, 물리 코드를 하나의
-일관된 인터페이스로 연결합니다. VEST 고유 신호,
-[IMAS](https://imas.iter.org/)/[OMAS](https://gafusion.github.io/omas/) 표현,
+표준화된 데이터 표현, 과학적 데이터 처리, 검증, 시각화, 물리 코드를 공통 API
+뒤의 개별 도구로 두지 않고 하나의 일관된 과학 워크플로로 통합합니다. VEST 고유
+신호, [IMAS](https://imas.iter.org/)/[OMAS](https://gafusion.github.io/omas/) 표현,
 VAFT 처리 및 플로팅, 검증(V&V), 그리고 EFIT, CHEASE, GPEC, TokaMaker, VFIT 등
 커뮤니티 물리 코드가 재구현이 아니라 **상호운용**됩니다.
 
 ### 버전 관리되는 데이터 파이프라인 (Version-Controlled Data Pipeline)
 
 장치 설계와 실험 데이터 취득에서 재구성·시뮬레이션된 물리 상태까지, 전체
-워크플로에 걸쳐 추적 가능하고 재현 가능한 데이터 산출물을 만듭니다. 버전 관리
-대상은 소스 코드에 그치지 않고 장치 기술과 형상, 진단 매핑, 교정, 관례, 처리
-로직, 검증 기준, 모델 설정, 스키마 버전을 포함합니다.
+워크플로에 걸쳐 추적 가능하고 재현 가능한 데이터 산출물을 만듭니다. 추적
+가능성은 결과가 어디서 왔는지를 기록하고, 재현 가능성은 그 결과를 다시 만들 수
+있게 합니다. 이 둘이 함께 있어야 결과를 provenance, 처리 이력, 가정에 비추어
+*검증*할 수 있습니다. 버전 관리 대상은 소스 코드에 그치지 않고 장치 기술과 형상,
+진단 매핑, 교정, 관례, 처리 로직, 검증 기준, 모델 설정, 스키마 버전을 포함합니다.
 
 ### IMAS-FAIR 데이터베이스 (IMAS-FAIR Database)
 
-검증된 데이터를 고유 형식과 표준 형식 양쪽으로 보존·접근·공유하며, FAIR 원칙
+검증된 데이터를 고유 형식과 표준 형식 양쪽으로 보존·탐색·접근·공유하며, FAIR 원칙
 (Findability, Accessibility, Interoperability, Reusability)을 따릅니다.
 IMAS/OMAS, FileDB와 고유 산출물, [HSDS](https://github.com/HDFGroup/hsds) 기반
-저장소, 지연·부분 로딩, 프로그래밍 API를 포함합니다. 표준화된 접근은 고유
-과학 산출물을 **대체하는 것이 아니라 보완**합니다.
+저장소, 지연·부분 로딩, 프로그래밍 API는 한 샷에 어떤 실험·모델링 정보가 있는지
+찾는 기반입니다. 표준화된 접근은 고유 과학 산출물을 **대체하는 것이 아니라
+보완**합니다.
 
 ### 장치 및 연구 아카이브 (Machine & Research Archive)
 
 2012년 운전 개시 이후 VEST 토카막과 그 연구 생태계의 살아 있는 아카이브입니다.
 장치 이력, 기술 문서, 실험 관행, 튜토리얼, 예제 노트북, 재현 가능한 연구 지식을
-연구자 세대와 협력 기관에 걸쳐 계속 사용할 수 있도록 보존합니다.
+장기적인 검증·비교·연구에 쓸 수 있도록 연구자 세대와 협력 기관에 걸쳐 보존합니다.
 
 ## VAFT로 무엇을 할 수 있나요?
 
@@ -212,10 +220,10 @@ ip = ods['magnetics.ip.0.data']
 ### 프로파일 피팅
 
 ```python
-# 톰슨 산란 데이터를 평형 자속 좌표에 매핑한 뒤 프로파일 피팅
-mapped_rho = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
+# 톰슨 산란 데이터를 평형의 반경 좌표(기본 rho_tor_norm)에 매핑한 뒤 프로파일 피팅
+mapped = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
 vaft.process.profile_fitting_thomson_scattering(
-    ods, time_ms, mapped_rho, fitting_function_te='gp', fitting_function_ne='gp'
+    ods, time_ms, mapped, fitting_function_te='gp', fitting_function_ne='gp'
 )
 ```
 

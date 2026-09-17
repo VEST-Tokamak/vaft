@@ -1,0 +1,92 @@
+---
+title: "Process reference: statistical_analysis"
+author: VEST team
+date: 2026-09-03 10:03
+category: guide
+layout: post
+permalink: /reference/process/statistical_analysis/
+guide:
+  architecture: Generated per-function reference for vaft.process.statistical_analysis, read from the standardized docstrings (issue 252).
+  prerequisites: None.
+  expected: Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.
+related:
+  api: [process]
+---
+
+{% assign category = site.data.process_catalog.categories | where: "name", "statistical_analysis" | first %}
+{% assign entries = site.data.process_catalog.functions | where: "category", "statistical_analysis" %}
+
+This page is generated from the docstrings of
+[`vaft/process/statistical_analysis.py`](https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/statistical_analysis.py):
+{{ entries.size }} public functions.  The category overview and notation come from the module
+docstring; every entry below is what `vaft.process.describe("statistical_analysis.<name>")` prints.
+Back to the [process reference index]({{ site.baseurl }}/reference/process/).
+
+## Overview
+
+{{ category.overview }}
+
+{% if category.notation.size > 0 %}<table class="formula-table">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  {% for row in category.notation %}<tr><td>{{ row.symbol | escape }}</td><td>{{ row.description | escape }}</td><td>{{ row.unit | escape }}</td></tr>
+  {% endfor %}</tbody>
+</table>
+
+{% endif %}{% if category.conventions != "" %}{{ category.conventions }}
+
+{% endif %}## Functions
+
+<ul class="formula-index">
+{% for f in entries %}  <li><a href="#{{ f.name }}"><code>{{ f.name }}</code></a> &mdash; {{ f.summary | markdownify | remove: "<p>" | remove: "</p>" }}</li>
+{% endfor %}</ul>
+
+{% for f in entries %}
+### `{{ f.name }}` {#{{ f.name }}}
+
+<p class="formula-signature"><code>{{ f.name }}{{ f.signature }}</code>{% if f.aliases.size > 0 %} &mdash; aliases {% for alias in f.aliases %}<code>{{ alias }}</code>{% unless forloop.last %}, {% endunless %}{% endfor %}{% endif %}</p>
+
+{% if f.machine_scope or f.convention_sensitive or f.deprecated %}<p>{% if f.machine_scope == "independent" %}<strong>Machine-independent.</strong> {% elsif f.machine_scope == "vest" %}<strong>VEST-specific.</strong> {% endif %}{% if f.convention_sensitive %}<strong>Convention-sensitive.</strong> {% endif %}{% if f.deprecated %}<strong>Deprecated.</strong> {% endif %}</p>
+
+{% endif %}{{ f.summary }}
+
+{% if f.description != "" %}{{ f.description }}
+
+{% endif %}{% if f.parameters.size > 0 %}<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  {% for p in f.parameters %}<tr><td><code>{{ p.name }}</code></td><td>{{ p.type }}</td><td>{{ p.unit }}</td><td>{{ p.description | markdownify }}</td></tr>
+  {% endfor %}</tbody>
+</table>
+
+{% endif %}{% if f.returns.size > 0 %}<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  {% for r in f.returns %}<tr><td>{% if r.name %}<code>{{ r.name }}</code>{% endif %}</td><td>{{ r.type }}</td><td>{{ r.unit }}</td><td>{{ r.description | markdownify }}</td></tr>
+  {% endfor %}</tbody>
+</table>
+
+{% endif %}{% for s in f.sections %}<p><strong>{{ s.title }}.</strong></p>
+
+{{ s.text }}
+
+{% endfor %}{% if f.provenance.size > 0 %}<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+{% for ref in f.provenance %}  <li>{{ ref.text | markdownify | remove: "<p>" | remove: "</p>" }}</li>
+{% endfor %}</ol>
+
+{% endif %}{% endfor %}
+
+## Refreshing this snapshot
+
+From a checkout of the `develop` branch, run:
+
+```bash
+python -m vaft.process.catalog --output docs/_data/process_catalog.yml
+```
+
+The snapshot records the SHA-256 of every `vaft/process/*.py` source file; documentation
+validation compares them when `VAFT_REGISTRY_SOURCE` points to the corresponding source checkout.
+The same text is available offline as `vaft.process.describe("<name>")`,
+`vaft.process.search("<text>")` and `vaft.process.list_processes(category="<category>")`.

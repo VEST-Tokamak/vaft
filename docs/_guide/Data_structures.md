@@ -36,8 +36,8 @@ between the two.
 ```mermaid
 flowchart LR
     RAW[VEST raw DAQ / SQL] -->|vaft.machine_mapping| ODS
-    ODS[omas.ODS in memory] -->|vaft.imas.save_omas_imas| H5[IMAS HDF5 images: master.h5 + equilibrium.h5 + ...]
-    H5 -->|vaft.imas.load_omas_imas| ODS
+    ODS[omas.ODS in memory] -->|vaft.imas.save| H5[IMAS HDF5 images: master.h5 + equilibrium.h5 + ...]
+    H5 -->|vaft.omas.load| ODS
     H5 -->|imas.DBEntry.get| IDS[IDSToplevel: native IMAS-Python]
     H5 -->|hsload / hsget| HSDS[(VEST HSDS server)]
     ODS -->|save_omas_json / save_omas_nc| FILES[.json / .nc]
@@ -61,7 +61,8 @@ A VEST shot is a *set* of IDSs. Which ones exist depends on whether the quantity
 
 **Modelling**
 
-`wall` · `em_coupling` · `pf_passive` · `equilibrium` (EFIT/CHEASE) · `core_profiles` ·
+`wall` · `em_coupling` · `pf_passive` · `pf_plasma` (a reconstruction's plasma current as
+elements; see `vaft.omas.pf_plasma`) · `equilibrium` (EFIT/CHEASE) · `core_profiles` ·
 `mhd_linear` (DCON/RDCON)
 
 Not every shot carries every IDS. Check before you index:
@@ -109,7 +110,8 @@ ods['equilibrium.time_slice.0.global_quantities.ip']
 ```
 
 `ODS.paths()` returns every filled leaf as a list of path components. It is the workhorse for programmatic
-traversal, and it is what `vaft.omas.shift_time` and `vaft.imas.save_omas_imas` iterate over internally:
+traversal, and it is what `vaft.omas.shift_time` and the low-level `vaft.imas.omas_imas.save_omas_imas` iterate over
+internally:
 
 ```python
 for path in ods.paths():
@@ -181,19 +183,23 @@ vaft.omas.print_info(ods)                 # metadata header, then one line per I
 vaft.omas.print_info(ods, 'magnetics')    # channel counts inside one IDS
 ```
 
-`vaft.omas.classify_shot(ods)` is *intended* to label a shot `'Plasma'`, `'BD failure'` or `'Vacuum'` from the
-barometry, H-alpha and Ip signals.
+`vaft.omas.classify_shot(ods)` labels a shot `'Plasma'`, `'BD failure'` or `'Vacuum'`, decided from the
+shared plasma timing and the gas response, in this order: a plasma-current pulse found by
+`vaft.omas.plasma_timing` → `'Plasma'`; a current that could not be judged at all (`ip_unusable`, a condemned
+channel) with a window the light saw → `'Plasma'` too, flagged; otherwise a barometry pressure response
+(`is_signal_active` over the finite samples of the whole record, the puff precedes the analysis window) or an
+optical window → `'BD failure'` (the shot was attempted: a puff, or a flash without current); otherwise
+`'Vacuum'`. `vaft.omas.shot_class.shot_class(ods)` returns the record behind the string:
+the label, `decided_by` (`ip_pulse`, `pressure_response`, `optical_window`, `none`), the three checks, the
+timing summary and flags such as `barometry_absent` (a product without barometry is judged on the light
+alone). A product without `magnetics.ip` cannot be classified either way and raises `PlasmaTimingError`;
+on the packaged samples every shot is `'Plasma'` by its current pulse. `halpha_threshold` is no longer read.
 
-> **Do not rely on it as it stands.** On `main` it calls `vaft.process.is_signal_active(data, threshold=...)`,
-> but that function's signature is `is_signal_active(data, var_ratio_thresh=1e-2, change_ratio_thresh=1e-2,
-> verbose=False)` — there is no `threshold` argument. The resulting `TypeError` is swallowed by a bare
-> `except`, so the call prints
-> `Error in find_shotclass: is_signal_active() got an unexpected keyword argument 'threshold'`
-> and returns `'Vacuum'` for **every** shot. It also needs a `barometry` IDS, which the packaged sample
-> (shot 39915) does not carry.
-
-The underlying primitive does work, and it is scale-invariant — it compares a variance ratio and a mean-|Δx|
-ratio against relative thresholds, so it needs no knowledge of the signal's units:
+The underlying primitive is scale-free: it compares the trace's variance and its mean |Δx|, both
+divided by the trace's mean absolute level, against relative thresholds, so it needs no knowledge
+of the signal's units. A trace held at any non-zero level with noise far below that level is
+inactive; the converse caveat is that a zero-mean noise trace has no level to be small against
+and reads active at any amplitude, so apply a known noise floor before asking (issue #463).
 
 ```python
 import vaft
@@ -202,8 +208,8 @@ ods = vaft.omas.sample_ods()
 
 halpha = ods['spectrometer_uv.channel.0.processed_line.0.intensity.data']
 vaft.process.is_signal_active(halpha, verbose=True)   # -> True  (H-alpha fired: breakdown occurred)
-# Variance ratio: 1.000e+00 (thresh=1.000e-02)
-# Mean |Δx| ratio: 1.976e-01 (thresh=1.000e-02)
+# Variance ratio: 2.918e+00 (thresh=1.000e-02)
+# Mean |Δx| ratio: 2.276e-01 (thresh=1.000e-02)
 ```
 
 Compose your own classifier on top of it, guarding each IDS before you index it:
@@ -253,24 +259,30 @@ VAFT ships real VEST shots inside the package, so the snippets on this page run 
 with the caveat that the packaged shots do not carry *every* IDS. Shot 39915 holds:
 
 ```python
-['coils_non_axisymmetric', 'dataset_description', 'em_coupling', 'equilibrium',
- 'magnetics', 'pf_active', 'pf_passive', 'spectrometer_uv', 'tf', 'wall']
+['barometry', 'dataset_description', 'equilibrium', 'magnetics',
+ 'pf_active', 'pf_passive', 'spectrometer_uv', 'tf', 'wall']
 ```
 
-There is no `barometry`, `thomson_scattering` or `core_profiles` in it, so anything keyed on those IDSs needs a
+There is no `thomson_scattering` or `core_profiles` in it, so anything keyed on those IDSs needs a
 shot pulled from the database.
 
 ```python
 import vaft
 
 ods = vaft.omas.sample_ods()    # ODS  — shot 39915
-odc = vaft.omas.sample_odc()    # ODC  — shots 39915, 41524, 41672 under keys '0', '1', '2'
 gf  = vaft.omas.sample_gfile()  # GEQDSK — packaged EFIT g-file for shot 39915
 ```
 
-An **ODC** (OMAS Data Collection) is a dict of ODSs — the natural container for a multi-shot study:
+An **ODC** (OMAS Data Collection) is a dict of ODSs — the natural container for a multi-shot study.
+There is no packaged ODC helper; build one from the registered reference samples:
 
 ```python
+from omas import ODC
+
+odc = ODC()
+for key, shot in enumerate(vaft.data.available_samples()):   # (39915, 41524, 41672)
+    odc[key] = vaft.omas.load(vaft.data.sample(shot))
+
 for key, one_ods in odc.items():
     print(key, vaft.omas.find_shotnumber(one_ods), len(one_ods['magnetics.time']))
 ```
@@ -278,27 +290,26 @@ for key, one_ods in odc.items():
 `vaft.omas.odc_or_ods_check(x)` normalises either input to an ODC (a bare ODS is wrapped under key `'0'`).
 That is how the multi-shot helpers accept both types.
 
-Packaged files are reached through `vaft.data.resources.data_path()`. Paths are **category-prefixed**; flat
-calls such as `data_path("39915.json")` are intentionally unsupported.
+Reference shots are reached through `vaft.data.sample()`, which resolves the registered artifact for the
+adapter you ask for. Other packaged fixtures are reached through `vaft.data.resources.data_path()`, whose
+paths are **category-prefixed**; flat calls such as `data_path("39915.json")` are intentionally unsupported.
 
 | Call | Content |
 |---|---|
-| `data_path("omas/39915.json")` | ODS sample (also `omas/41524.json`, `omas/41672.json`) |
-| `data_path("omas/thomson_scattering.json")` | Thomson-scattering contract-test payload |
-| `data_path("imas/vest_imas_3.40.1.nc")` | IMAS NetCDF sample container |
+| `vaft.data.sample(39915)` | ODS sample (also `41524` and `41672` — see `vaft.data.available_samples()`) |
+| `vaft.data.sample(39915, representation="imas")` | the same shot as an IMAS NetCDF container |
 | `data_path("efit/g039915.00319")` | GEQDSK sample |
 | `data_path("legacy/shot_44740.json.gz")` | gzipped raw-DAQ dump used by the offline loader |
 
-Loading a JSON ODS explicitly — this is what `sample_ods()` does under the hood:
+Loading a packaged shot explicitly — this is what `sample_ods()` does under the hood:
 
 ```python
-from omas import ODS
-from vaft.data.resources import data_path
+from vaft.database._local import load_ods
 
-ods = ODS().load(str(data_path("omas/39915.json")), consistency_check=False)
+ods, _ = load_ods(vaft.data.sample(39915, representation="omas"), imas_version="3.41.0")
 ```
 
-`consistency_check=False` is deliberate: the packaged files predate the current DD and would otherwise be
+Pinning `imas_version` is deliberate: the packaged files predate the current DD and would otherwise be
 rejected on load.
 
 ---
@@ -322,15 +333,19 @@ print(IMAS_DD_VERSION_CONVERSION)   # '3.41.0'
 
 Override it with the `IMAS_DD_VERSION_CONVERSION` environment variable if you must, but 3.41.0 is the version
 OMAS is validated against and the version the VEST HSDS images are written with. Note that
-`dataset_description` was **removed** in newer DD releases — `vaft.imas.IMAS_REMOVED_IDS` records that — so
+`dataset_description` was **removed** in newer DD releases — `vaft.imas.omas_imas.IMAS_REMOVED_IDS` records that — so
 round-trip checks use `equilibrium` (or `summary`), never `dataset_description`.
 
 ## Write an ODS to an AL5 HDF5 entry
 
+`vaft.imas.save` is the public writer. Hand it an ODS — or a native `IDSToplevel`, or an `IMASHandle` — and a
+destination path. A directory is written as an AL5 HDF5 image set (`master.h5` plus one file per IDS); a path
+ending in `.nc` goes through IMAS-Python's netCDF backend.
+
 ```python
 import tempfile
 from omas import ODS
-from vaft.imas import save_omas_imas, load_omas_imas
+import vaft
 
 ods = ODS()
 ods['equilibrium.ids_properties.homogeneous_time'] = 2
@@ -338,54 +353,139 @@ ods['equilibrium.ids_properties.comment'] = 'testing'
 ods['equilibrium.time'] = [0.01]
 
 entry_dir = tempfile.mkdtemp(prefix='imas_step1_')
-uri = 'imas:hdf5?path=' + entry_dir
-
-paths_written = save_omas_imas(ods, uri=uri, new=True, verbose=True)
-print('Paths written:', paths_written[:5])
+vaft.imas.save(ods, entry_dir)
 ```
 
-`save_omas_imas` returns the list of paths it actually wrote — each a list of components, e.g.
-`['equilibrium', 'time']`. Keep it; you need it on the way back.
+`save` returns the path it wrote.
 
 Key arguments:
 
 | Argument | Effect |
 |---|---|
-| `uri` | AL5 URI. When set, `user` / `machine` / `pulse` / `run` / `backend` are **not** used to open the entry. |
-| `new` | `True` → mode `'x'` (create, fail if it exists); `False` → mode `'a'` (append). Point `new=True` at a fresh directory, otherwise IMAS-Core complains that `master.h5` already exists. |
-| `occurrence` | dict giving the occurrence index per IDS. |
-| `imas_version` | DD version to save against. When `None`, it defaults to **the ODS's own** `ods.imas_version` — *not* to `IMAS_DD_VERSION_CONVERSION`. The constant only steps in as a fallback: the value handed to `imas_open_uri` / `imas_open` is `imas_version or IMAS_DD_VERSION_CONVERSION`, so the pin applies solely when the ODS carries no version of its own. (`load_omas_imas` is the other way round — there `imas_version=None` *does* resolve to `IMAS_DD_VERSION_CONVERSION`.) |
+| `target` | Destination path. A directory becomes an AL5 HDF5 image set; a `.nc` suffix selects the netCDF backend. |
+| `occurrence` | Occurrence index — one value for every IDS, or a dict giving it per IDS. |
+| `imas_version` | DD version to write against. When `None` it falls back to `vaft.imas.IMAS_DD_VERSION_CONVERSION`. |
 
-If you need the write pinned to the conversion DD, pass it explicitly rather than relying on the default:
-
-```python
-from vaft.imas import save_omas_imas, IMAS_DD_VERSION_CONVERSION
-
-paths = save_omas_imas(ods, uri=uri, new=True,
-                       imas_version=IMAS_DD_VERSION_CONVERSION)
-```
-
-Without `uri`, the legacy coordinates still work, and they default to what the ODS already knows
-(`dataset_description.data_entry.user` / `.machine` / `.pulse` / `.run`):
-
-```python
-save_omas_imas(ods, user='test_user', machine='VEST', pulse=39915, run=0,
-               new=True, backend='HDF5')
-```
+Point `save` at a fresh directory. Writing into one that already holds a `master.h5` replaces that entry
+rather than appending to it.
 
 ## Read it back
 
 ```python
-ods_loaded = load_omas_imas(uri=uri, paths=paths_written, verbose=True)
+ods_loaded = vaft.omas.load(entry_dir)
 print(ods_loaded['equilibrium.time'])     # [0.01]
 ```
 
-Passing `paths=` is not merely an optimisation. With `paths=None`, `load_omas_imas` asks the entry for *every*
-IDS in the DD, so IDSs that were never written (`amns_data`, …) get probed and skipped one at a time.
-Restricting to the paths you wrote keeps the load fast and the log readable.
+`vaft.omas.load` detects the artifact kind and returns an ODS. To reach the native IMAS objects instead, with
+no OMAS in between, `vaft.imas.load` opens the same entry as a context manager around an AL5 `DBEntry`:
 
-`load_omas_imas` also accepts `time=<seconds>` for a single-slice `getSlice`, `skip_uncertainties=True` to
-drop the `*_error_upper` companions, and `consistency_check=False` for non-compliant legacy entries.
+```python
+with vaft.imas.load(entry_dir) as dbentry:
+    equilibrium = dbentry.get('equilibrium', 0)
+```
+
+The OMAS-derived low-level functions underneath — `save_omas_imas`, `load_omas_imas`, `imas_open_uri`,
+`imas_open`, `imas_get`, `imas_set` — still exist under `vaft.imas.omas_imas`, and they still take `uri=`,
+`new=`, `paths=`, `time=` and `consistency_check=`. They are deliberately not re-exported from `vaft.imas`:
+prefer `save` / `load` unless you need to build the URI yourself or restrict a read to specific paths.
+
+Restricting a read *is* worth knowing about. With `paths=None`, `load_omas_imas` asks the entry for *every*
+IDS in the DD, so IDSs that were never written (`amns_data`, …) get probed and skipped one at a time.
+Passing the paths you wrote keeps the load fast and the log readable.
+
+## What survives on `code.parameters`
+
+`code.parameters` is a `STR_0D` in the Data Dictionary — one string per IDS, XML by IMAS habit — and
+VAFT puts real provenance in it: EFIT's collection status, CHEASE's comparison metrics, the DCON
+solver fragments, the coupling basis identity, the time-convention memo. What arrives at the other
+end depends on the shape you wrote, and the shapes are not equivalent.
+
+The low-level `vaft.imas.omas_imas.save_omas_imas` returns the paths it actually wrote, and that list is the
+only machine-readable
+evidence a caller gets. A discarded `code.parameters` is simply absent from it: no exception, no
+return code, one `WARNING: … is not part of IMAS` line on stderr that a pipeline log buries. This is
+how [#380](https://github.com/VEST-Tokamak/vaft/issues/380) lost 4096 paths of EFIT provenance
+between the local product and its HSDS replica without anything reporting a failure.
+
+What can be written is decided at the write, by `vaft.imas.code_parameters.as_entry_payload`: the
+leaves an entry can carry are kept, anything it cannot is left on the local product, and a
+`parameters_cache_omitted` leaf names what stayed behind. So an EFIT product's declared COCOS index
+travels and its per-slice parser cache does not, from the same field, and a reader of the entry is
+told which — where before, a nested block took every leaf beside it down in silence
+([#642](https://github.com/VEST-Tokamak/vaft/issues/642)).
+
+The cache stays behind because it cannot be carried, not merely because it is large: the XML encoder
+has no array representation, so an array put through the envelope returns as the repr of its
+elements joined by spaces. Present, named and useless is worse than absent and declared.
+
+`vaft.omas.load` still promotes a *flat, leaf-only* block back to a `CodeParameters` on the way out
+of a stage product ([#478](https://github.com/VEST-Tokamak/vaft/issues/478)); that now decides what a
+local reader sees rather than whether the block survives.
+
+| You write | Reaches an entry | Comes back as |
+|---|---|---|
+| a JSON string | the same string | the same string, byte for byte |
+| an XML string, one fragment | the same string | a parsed `CodeParameters` tree |
+| an XML string, several fragments | the same string | the same string |
+| a flat leaf-only block | an XML string | a `CodeParameters` tree |
+| a nested block | a note naming what stayed local | that note |
+| a nested block **and a flat leaf beside it** | the leaf, plus that note | both |
+
+`test/test_code_parameters_contract.py` measures every row through the real Access Layer, so the
+table stays true rather than being a claim about a version of OMAS somebody once used.
+
+Two consequences are worth stating on their own.
+
+**The round trip is not symmetric, and which form you get depends on the document.** The loader
+parses anything XML-shaped, so a one-fragment envelope comes back as a tree — where attribute keys
+carry an `@` prefix and no regular expression over the string will find them. Two fragments do not:
+OMAS's decoder cannot represent repeated sibling elements, raises internally, and leaves the string
+alone. A single-module `mhd_linear` shot therefore returns a tree and a multi-module one returns the
+string, from the same field of the same IDS. A consumer must accept both forms whatever it knows
+about the producer; `vaft.plot.backend.recipes._mhd_linear_radial_stride` and
+`vaft.plot.backend.convention` both do, and say why.
+
+**Values inside the envelope are reinterpreted.** `CodeParameters.from_string` runs every text node
+through `ast.literal_eval`, so the EFIT case label `"039915.00316"` returns as the float
+`39915.00316`, and a whitespace-separated numeric string returns as an array. Arbitrary keys *and
+arbitrary values* therefore belong inside a payload the XML loader cannot parse — which in this
+repository means JSON.
+
+The last two rows used to read "**nothing**": promotion was all-or-nothing on the block, so an EFIT
+product lost the COCOS index it declares on the way to a replica — the leaf was not nested, it was
+merely standing next to something that is
+([#642](https://github.com/VEST-Tokamak/vaft/issues/642)). Replicas written before that fix carry no
+`equilibrium.code.parameters` at all and need re-replicating for their declaration to appear.
+
+### Writing it
+
+Three patterns are sanctioned, each with a stage that shows it:
+
+* **A JSON string** — `generate_efit_ods.py`, `generate_chease_ods.py`. Use `sort_keys=True`, so two
+  runs over equal inputs are byte-identical and replication does not re-send an unchanged product.
+* **XML fragments inside one `<parameters>` envelope** — `vaft.machine_mapping.mhd_linear`,
+  `core_sources`, `coils_non_axisymmetric`, `gpec_ideal`. Each solver appends its fragment by
+  splicing on the trailing `</parameters>`, so **no fragment's text may contain that literal**: one
+  unescaped copy closes the document early and everything appended afterwards lands outside the root
+  element, where a parser refuses it.
+* **`key=value` lines** — `em_coupling`, for a short flat record read by eye as often as by code.
+
+A nested sub-path is not forbidden — EFIT's parser cache is genuinely useful and genuinely local —
+but it must be a decision somebody wrote down. `test/test_code_parameters_writers.py` scans `vaft/`,
+`workflow/` and `test/` and fails on a nested path whose file is not in its allow-list, with the
+role it plays and the reason that data may stop at the FileDB.
+
+### Budgeting a large payload
+
+Stage products are gzipped (`vaft.database.filedb.OMAS_PRODUCT_SUFFIX` is `.json.gz` since #813),
+and nothing anywhere guards their size. **Do not budget against the file on disk.** A
+`code.parameters` payload is quote-heavy XML-escaped text, which is exactly what gzip is best at, so
+a payload that inflates several-fold on escaping can leave the product barely larger — the file size
+stops tracking the cost entirely. The budget is **raw bytes of the finished field string**, measured
+after XML escaping, because that is what the Access Layer serializes and what HSDS stores: neither
+sees the local container. For scale, the packaged whole-shot sample
+`vaft/data/samples/39915/omas.json.gz` is about 10 MB gzipped and carries no `mhd_linear` at all —
+now directly comparable to a stage product, which is stored the same way.
 
 ## Converting a real VEST shot
 
@@ -395,7 +495,6 @@ The full flow, from
 ```python
 import tempfile
 import vaft
-from vaft.imas import save_omas_imas, load_omas_imas
 
 ods_from_legacy = vaft.omas.sample_ods()          # shot 39915
 
@@ -405,12 +504,11 @@ for drop_ids in ['em_coupling', 'magnetics']:
         del ods_from_legacy[drop_ids]
 
 entry_dir = tempfile.mkdtemp(prefix='imas_step3_')
-uri = 'imas:hdf5?path=' + entry_dir
 
-paths = save_omas_imas(ods_from_legacy, uri=uri, new=True, verbose=True)
-ods_round_trip = load_omas_imas(uri=uri, paths=paths, verbose=True)
+vaft.imas.save(ods_from_legacy, entry_dir)
+ods_round_trip = vaft.omas.load(entry_dir)
 
-print('Saved IDSs:', sorted(set(p[0] for p in paths)))
+print('Saved IDSs:', sorted(ods_from_legacy.keys()))
 print('Loaded IDSs:', list(ods_round_trip.keys()))
 ```
 
@@ -438,7 +536,7 @@ IMAS, open it with the Access Layer directly:
 import imas
 from vaft.imas import IMAS_DD_VERSION_CONVERSION
 
-with imas.DBEntry(uri, 'r', dd_version=IMAS_DD_VERSION_CONVERSION) as dbentry:
+with imas.DBEntry('imas:hdf5?path=' + entry_dir, 'r', dd_version=IMAS_DD_VERSION_CONVERSION) as dbentry:
     eq = dbentry.get('equilibrium', 0)          # -> IDSToplevel
     print(eq.ids_properties.homogeneous_time)
     print(len(eq.time), eq.time[0])
@@ -478,7 +576,7 @@ with imas.DBEntry("/tmp/vest_39915.nc", "w") as dbentry:
     dbentry.put(equilibrium)
 ```
 
-The packaged `data_path("imas/vest_imas_3.40.1.nc")` is exactly such a container.
+The packaged `vaft.data.sample(39915, representation="imas")` artifact is exactly such a container.
 
 If you are staying inside OMAS, its own NetCDF backend serialises a whole ODS (all IDSs at once):
 
@@ -510,16 +608,16 @@ If the IMAS images are already on disk — for instance the `entry_dir` you just
 ods = vaft.database.load_ods(39915, path=entry_dir)   # directory must contain master.h5
 ```
 
-For native IDS objects instead of an ODS, `ids_name` must be passed **by keyword**: the second positional
-argument of `vaft.database.load` is `directory`, not an IDS name.
+For native IDS objects instead of an ODS, go through the IDS pair. `vaft.database.load` returns an ODS and
+has no `ids_name` argument; its second positional argument is `source`.
 
 ```python
-equilibrium = vaft.database.load(shot=2, ids_name="equilibrium", dd_version="3.41.0")
-# equivalently: vaft.database.load_ids(2, "equilibrium", dd_version="3.41.0")
+equilibrium = vaft.database.ids.load(2, "equilibrium", dd_version="3.41.0")
+# or, for a whole shot as native IMAS: vaft.database.load(2, representation="imas")
 ```
 
 Symmetrically, `vaft.database.save` / `save_ods` take an **ODS only**; a native `IDSToplevel` must go through
-`vaft.database.save_ids`. Writing to the shared server is admin-restricted, but `env="local"` writes the IMAS
+`vaft.database.ids.save`. Writing to the shared server is admin-restricted, but `env="local"` writes the IMAS
 images to disk and returns the local directory:
 
 ```python
@@ -537,42 +635,64 @@ VEST diagnostics are digitised on a DAQ clock whose $t=0$ is the trigger, not an
 shots on that clock is meaningless: breakdown happens tens of milliseconds later, and *when* it happens varies
 from shot to shot. VAFT therefore lets you re-reference an entire ODS to a physical event.
 
-Four conventions are defined.
+Four conventions are defined. Every origin is a *measured* event on the DAQ clock, found by the shared
+timing modules with provenance (issue #409):
 
-| `convention` | $t=0$ at |
-|---|---|
-| `'daq'` | the DAQ trigger (as stored) |
-| `'vloop'` | loop-voltage onset — the time of maximum `magnetics.flux_loop.0.flux.data` |
-| `'ip'` | plasma-current onset (`magnetics.ip.0.data` crosses threshold) |
-| `'breakdown'` | H-alpha onset (`spectrometer_uv.channel.0.processed_line.0.intensity.data`) |
+| `convention` | $t=0$ at | found by |
+|---|---|---|
+| `'daq'` | the DAQ trigger (as stored) | — |
+| `'vloop'` | the first sign change of the inboard-midplane loop voltage after the extremum of the solenoid-driven excursion (a stored `flux_loop.{i}.voltage.data`, else $-d\Phi/dt$; 39915: 0.3022 s) | `vaft.omas.discharge_timing` |
+| `'ip'` | the start of the plasma-current principal pulse | `vaft.omas.plasma_timing` |
+| `'breakdown'` | the plasma onset — H-alpha by label, the current as fallback | `vaft.omas.plasma_timing` |
 
 ```python
+import logging
+
+from omas import ODC
+
 import vaft
 
-odc = vaft.omas.sample_odc()                                  # 39915, 41524, 41672
+logging.basicConfig(level=logging.INFO)          # the shift is logged, not printed
+odc = ODC()
+odc['0'] = vaft.omas.sample_ods()                # packaged 39915
 vaft.omas.change_time_convention(odc, convention='breakdown')
-# [0] shift -0.3069 s  (daq → breakdown)
-# [1] shift -0.31484 s  (daq → breakdown)
-# [2] shift -0.31476 s  (daq → breakdown)
+# INFO:vaft.omas.general:[0] shift -0.30632 s  (daq -> breakdown)
 ```
 
-The shifts differ from shot to shot — breakdown lands at a different point on the DAQ clock every time — which
-is exactly why the raw clock is useless for comparing shots.
+The shift differs from shot to shot (39915 breaks down at 0.3063 s, 41524 at 0.3146 s, 41672 at 0.3122 s on
+the DAQ clock) — which is exactly why the raw clock is useless for comparing shots.
 
 `change_time_convention(odc_or_ods, convention='vloop')` accepts an ODS or an ODC (a bare ODS is wrapped
-internally, and an ODC is returned). On the first call it records the reference times under
-`summary.code.parameters`:
+internally, and an ODC is returned). On the first call it derives the origins on the product's DAQ clock and
+records them under `summary.code.parameters` — a flat, leaf-only block, which is the shape that survives
+replication ([What survives on `code.parameters`](#what-survives-on-codeparameters)) — with their sources:
 
 ```python
 params = odc['0']['summary.code.parameters']
-params['time_convention']    # 'breakdown'
-params['vloop_onset']        # seconds, on the ORIGINAL daq clock
+params['time_convention']         # 'breakdown'
+params['vloop_onset']             # seconds, on the ORIGINAL daq clock (absent when the event was not found)
 params['ip_onset']
 params['breakdown_onset']
+params['onset_method']            # 'plasma_timing/discharge_timing'
+params['breakdown_onset_source']  # 'h_alpha_primary', 'h_alpha_fast', 'ip_principal'
+params['vloop_onset_source']      # 'magnetics.flux_loop.5 dflux_dt zero crossing after the ohmic excursion'
+params['vloop_onset_reason']      # present instead of the origin when the event was not found
+params['onset_flags']             # ';'-joined, e.g. 'vloop:approached_without_crossing'
 ```
 
+The finders and every consumer of the plasma window (the default time window of a time plot, the
+vacuum-flux plot, the shot overview) work on the product's own clock: the analysis span is stated in DAQ seconds and displaced by the
+recorded origin, so a product already shifted to `'breakdown'` reports its plasma onset at 0 s. A product
+that declares a convention without recording its origin cannot be placed and raises.
+
 Because the onsets are stored, conversions are **composable and reversible**: call it again with a different
-convention and the shift is computed from the recorded originals, not re-derived from already-shifted data.
+convention and the shift is computed from the recorded originals, never re-derived from already-shifted data.
+An origin that was not found is simply absent, its `*_onset_reason` says why, and asking for its convention
+raises `ValueError` with that reason. Nothing is written when no origin at all can be derived (a shifted
+product whose memo was lost): the call raises and the product is left as it was. A product carrying the memo of the earlier finders (no `onset_method`) is
+re-derived when it is still on the `daq` clock and flagged `legacy_memo_rederived`; one already shifted with
+those origins keeps them — they are what makes its shift reversible — with `onset_method = 'legacy'` and the
+flag `legacy_origins_retained`.
 
 ```python
 vaft.omas.change_time_convention(odc, convention='ip')     # breakdown → ip
@@ -585,16 +705,35 @@ or `offset`, and it never touches anything under `summary.code.parameters`. That
 looser rule corrupts data by shifting fields such as `magnetics.ip.0.data` whose *path* merely contains a
 time-like word.
 
-Individual onsets are available directly:
+Individual onsets are available directly; they are meaningful on a product in the `daq` convention, which is
+why the conversion derives them once:
 
 ```python
 vaft.omas.find_vloop_onset(ods)
 vaft.omas.find_ip_onset(ods)
 vaft.omas.find_breakdown_onset(ods)
-vaft.omas.find_pulse_duration(ods)     # H-alpha offset - onset
-vaft.omas.find_max_ip(ods)             # median-filtered peak Ip
-vaft.omas.find_bt(ods)                 # mean toroidal field during the plasma phase
+vaft.omas.find_pulse_duration(ods)     # plasma offset - onset, gaps included
+vaft.omas.find_pf_active_onset(ods)    # one entry per coil, nan for a coil that did not fire
+vaft.omas.find_max_ip(ods)             # representative peak Ip inside the plasma window
+vaft.omas.find_bt(ods)                 # mean toroidal field over the plasma window
 ```
+
+**The unit is the one main discharge.** Both detectors keep only the segment holding their own
+maximum (`principal_only` in the `plasma_timing` policy), so a window is one run and its extent is a
+duration. Before [#842](https://github.com/VEST-Tokamak/vaft/issues/842) the light rule returned the
+*envelope* of every accepted segment, so a record of scattered flashes reported one long window that
+was mostly gap — and opened it at the first flash, which the plasma current said was the discharge in
+only 11 of 35 shots. A record whose brightest feature is a spike the segment tests refused now yields
+no light window at all rather than a window built from lesser bursts.
+
+`plasma_timing(ods).duty_cycle` is how much of a window is above threshold; the shot overview carries
+it as `pulse_duty_cycle` beside `pulse_duration_s`, and the onset corpus keeps it per detector. It is
+1 everywhere in the corpus today, which is the point: it is the check that the unit has not slipped
+back ([#752](https://github.com/VEST-Tokamak/vaft/issues/752)).
+
+The records behind them carry the evidence: `vaft.omas.plasma_timing.plasma_timing(ods)` (the window, its
+source, the light/current agreement) and `vaft.omas.discharge_timing.discharge_timing(ods)` (every coil's
+onset, the ohmic onset, the loop-voltage excursion and its crossing, and the actuators that are not mapped).
 
 **Fix the time convention before you compare shots or overlay traces.** Mixing an ODS on the `daq` clock with
 one on the `breakdown` clock in the same figure is the easiest way to produce a wrong result that still looks
@@ -650,16 +789,19 @@ for drop_ids in ['em_coupling', 'magnetics']:
 
 | Symbol | Purpose |
 |---|---|
-| `vaft.imas.save_omas_imas(ods, uri=..., new=...)` | ODS → IMAS entry (AL5 URI, or legacy user/machine/pulse/run); returns the written paths |
-| `vaft.imas.load_omas_imas(uri=..., paths=..., time=...)` | IMAS entry → ODS |
-| `vaft.imas.imas_open_uri(uri, mode='r', dd_version=...)` | Open an AL5 `DBEntry` by URI, wrapped for OMAS |
-| `vaft.imas.imas_open(user, machine, pulse, run, backend=..., new=...)` | Open by legacy data-entry coordinates (AL4 or AL5) |
-| `vaft.imas.imas_get(ids, path)` / `vaft.imas.imas_set(ids, path, value)` | Leaf-level read / write on an open IDS |
+| `vaft.imas.save(data, target, imas_version=..., occurrence=...)` | ODS, native IDS or `IMASHandle` → local IMAS HDF5 directory or `.nc` file |
+| `vaft.imas.load(source, imas_version=...)` | Local IMAS artifact → native `DBEntry` context manager |
+| `vaft.omas.load(source)` | Local IMAS or OMAS artifact → ODS |
+| `vaft.imas.omas_imas.save_omas_imas(ods, uri=..., new=...)` | Low-level ODS → IMAS entry by AL5 URI; returns the written paths |
+| `vaft.imas.omas_imas.load_omas_imas(uri=..., paths=..., time=...)` | Low-level IMAS entry → ODS |
+| `vaft.imas.omas_imas.imas_open_uri` / `imas_open` / `imas_get` / `imas_set` | Low-level Access Layer handles and leaf access |
 | `vaft.imas.IMAS_DD_VERSION_CONVERSION` | DD version used for conversion (`'3.41.0'`) |
-| `vaft.imas.IMAS_REMOVED_IDS` | IDSs dropped by newer DD releases (`dataset_description`) |
-| `vaft.omas.sample_ods()` / `sample_odc()` / `sample_gfile()` | Packaged VEST samples |
+| `vaft.imas.omas_imas.IMAS_REMOVED_IDS` | IDSs dropped by newer DD releases (`dataset_description`) |
+| `vaft.omas.sample_ods()` / `sample_gfile()` | Packaged VEST shot 39915 |
+| `vaft.data.available_samples()` / `vaft.data.sample(shot, representation=...)` | Registered reference samples |
 | `vaft.omas.find_shotnumber(ods)` / `print_info(ods)` | Shot metadata |
-| `vaft.omas.classify_shot(ods)` | Shot class — **broken on `main`**: returns `'Vacuum'` unconditionally (see above) |
+| `vaft.omas.classify_shot(ods)` / `vaft.omas.shot_class.shot_class(ods)` | Shot class from the shared plasma timing (Ip pulse → Plasma; gas response or light → BD failure; else Vacuum), with the deciding check |
+| `vaft.omas.plasma_features.plasma_features(ods)` | Representative peaks (Ip, H-alpha, configured lines, diamagnetic flux) inside the plasma window, with provenance |
 | `vaft.process.is_signal_active(data, var_ratio_thresh=..., change_ratio_thresh=...)` | Scale-invariant "is this channel live?" test |
 | `vaft.omas.change_time_convention(odc_or_ods, convention=...)` / `shift_time(ods, dt)` | Time-convention handling |
 | `vaft.omas.find_matching_time_indices(ods, time_slice=...)` | Align `core_profiles` and `equilibrium` slices |
@@ -667,7 +809,8 @@ for drop_ids in ['em_coupling', 'magnetics']:
 | `vaft.omas.combine_ods(ods_list)` | Merge ODSs — **only merges `ods_list[0]`**; use `ODS.update()` in a loop |
 | `vaft.data.resources.data_path(name)` | Absolute path to a packaged data file |
 | `vaft.machine_mapping.vfit_dataset_description(ods, shot, run, ...)` | Populate `dataset_description` |
-| `vaft.database.load_ods` / `save_ods` / `load_ids` / `save_ids` | HSDS I/O |
+| `vaft.database.load_ods` / `save_ods` | HSDS I/O for an ODS |
+| `vaft.database.ids.load` / `vaft.database.ids.save` | HSDS I/O for a native IDS |
 
 Source:
 [`vaft/imas/omas_imas.py`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/imas/omas_imas.py) ·
