@@ -9847,23 +9847,55 @@ def _build_mhd_linear_profile_b_field_perturbed(ods: Any, **options: Any) -> Pro
 _SURFACE_FIELDS = ("psi_n", "q", "dq_dpsi_n", "area", "geometric_factor")
 
 
-def _gpec_rational_surfaces(ods: Any, n_tor: int) -> tuple[float, list[dict[str, float]]]:
-    """``chi1`` and the per-surface geometry one GPEC mode recorded.
+def _gpec_rational_surfaces(
+    ods: Any, n_tor: int, time_slice: int | None = None
+) -> tuple[float, list[dict[str, float]]]:
+    """chi1 and the per-surface geometry one GPEC (time slice, mode) recorded.
 
-    Read shape-agnostically for the reason ``_mhd_linear_radial_stride``
-    documents: ``code.parameters`` reaches a reader either as the string the
+    Read shape-agnostically for the reason _mhd_linear_radial_stride
+    documents: code.parameters reaches a reader either as the string the
     mapper wrote or as a tree OMAS decoded, and which one depends on the
     document rather than on anything the caller controls. The string path
-    takes the ``<solver>`` whose ``n_tor`` matches, because a multi-mode run
-    holds one block per mode and their surfaces differ.
+    takes the <solver> whose n_tor AND time_slice match: a
+    multi-mode run holds one block per mode, a multi-time product one per
+    slice, and their surfaces differ. Only a block that carries
+    <rational_surfaces> is a candidate, so a DCON fragment for the same
+    n does not shadow the GPEC one. A document written before the mapper
+    recorded time_slice on the block is served while it is unambiguous
+    (one such block for n) and refused otherwise, rather than paired by
+    document order.
     """
     parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
     if isinstance(parameters, str):
-        blocks = re.findall(
-            r'<solver\b[^>]*\bn_tor="(\d+)"[^>]*>(.*?)</solver>', parameters, re.S
-        )
-        body = next((b for mode, b in blocks if int(mode) == int(n_tor)), None)
-        if body is None:
+        tagged: list[str] = []
+        untagged: list[str] = []
+        for attributes, body in re.findall(r"<solver\b([^>]*)>(.*?)</solver>", parameters, re.S):
+            named = dict(re.findall(r'(\w+)="([^"]*)"', attributes))
+            if "<rational_surfaces" not in body:
+                continue
+            try:
+                if int(named.get("n_tor", "")) != int(n_tor):
+                    continue
+            except ValueError:
+                continue
+            if "time_slice" not in named:
+                untagged.append(body)
+            elif time_slice is None or int(named["time_slice"]) == int(time_slice):
+                tagged.append(body)
+        if tagged:
+            # A slice mapped again appends a second block and overwrites the
+            # field it describes, so the last one is the one that matches.
+            body = tagged[-1]
+        elif len(untagged) == 1:
+            body = untagged[0]
+        elif untagged:
+            raise ValueError(
+                f"mhd_linear.code.parameters holds {len(untagged)} GPEC blocks for n={n_tor} "
+                "with no time_slice attribute, so the rational surfaces of "
+                f"time_slice={time_slice} cannot be told apart; map the run again "
+                "(the mapper now records the slice on each block)"
+            )
+        else:
             return float("nan"), []
         chi1 = re.search(r'<rational_surfaces\b[^>]*\bchi1="([^"]+)"', body)
         surfaces = [
@@ -9887,6 +9919,9 @@ def _gpec_rational_surfaces(ods: Any, n_tor: int) -> tuple[float, list[dict[str,
     for solver in _children(parameters, "solver"):
         if int(_scalar(solver.get("@n_tor", -1))) != int(n_tor):
             continue
+        if time_slice is not None and "@time_slice" in solver:
+            if int(_scalar(solver["@time_slice"])) != int(time_slice):
+                continue
         for block in _children(solver, "rational_surfaces"):
             surfaces = [
                 {name: float(_scalar(row[f"@{name}"])) for name in _SURFACE_FIELDS}
@@ -9920,7 +9955,7 @@ def _gpec_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
 
     cell = _mhd_linear_eigenfunction_cell(ods, **options)
     n_tor = int(cell["n_tor"])
-    chi1, surfaces = _gpec_rational_surfaces(ods, n_tor)
+    chi1, surfaces = _gpec_rational_surfaces(ods, n_tor, int(cell["time_slice"]))
     if not surfaces:
         raise ValueError(
             f"mhd_linear ODS carries no rational-surface geometry for n={n_tor}. "
