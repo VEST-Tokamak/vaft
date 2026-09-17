@@ -6,7 +6,7 @@ __version__ = "0.7.0"
 # patch notes
 # ────────────────────────────────────────────────────────
 # 0.7.0
-# - development release line 2026-09-03 .. 2026-09-16 merged into main: 261
+# - development release line 2026-09-03 .. 2026-09-17 merged into main: 264
 #   pull requests; the detailed notes are on the release pull request and the
 #   GitHub release. Headlines:
 # - discharge timing is detected, not assumed: H-alpha onset, loop-voltage
@@ -37,7 +37,10 @@ __version__ = "0.7.0"
 # - new code adapters: NUBEAM (beam, fast-ion distributions, native Windows),
 #   TRANSP readers, GACODE NEO/TGLF/TGLF-NN with Sauter/Redl comparison and
 #   input.gacode confirmed COCOS 2, FLARE interoperability core, MARS
-#   PROF*.IN, Osborne p-files (#550, #553, #741-#744)
+#   PROF*.IN, Osborne p-files (#550, #553, #741-#744); the GACODE input
+#   writer carries a sqrt(psi_N) proxy on the core_profiles grid through
+#   psi_N, takes SIGN_IT from the signed q, and writes the ZEFF its species
+#   list realises
 # - diagnostics: toroidal angles derived from the VEST port clock and the
 #   measured mode-number sign convention, zero-phase SXR filtering, IMPA
 #   defaults reconciled with vest.yaml (Hall gain -2/15 T/V), soft X-ray and
@@ -51,20 +54,29 @@ __version__ = "0.7.0"
 #   coordinate is a named choice (#417-#421, #420)
 # - startup formula layer: breakdown chain through the avalanche, vacuum-field
 #   view with |E_phi|, breakdown figure and Lloyd margin (#783, #676)
-# - platform: CHEASE, DCON/GPEC, EFIT/EFUND, NUBEAM build and run natively on
-#   Windows; one recipe set under install/ builds CHEASE, GPEC, GACODE and
+# - platform: CHEASE, DCON/GPEC and EFIT/EFUND build and run natively on
+#   Windows (the NUBEAM Windows recipe is experimental); one recipe set under install/ builds CHEASE, GPEC, GACODE and
 #   NUBEAM on Linux and macOS; GPEC pins its netCDF; TokaMaker is an optional
 #   extra (#226 closed out)
 # - CI: develop asks for development confidence (core selection), main for
 #   release confidence (full suite on Linux and Windows, tutorials); main's
 #   branch protection is code (#515, #471)
 # - tutorials: sessions 02, 03 and 04 with one QMD presentation source; the
-#   docs' code samples are executed
-# - deprecated: current_density_from_psi (sign fixed, #355); the legacy onset
+#   docs' code samples are checked to name real API
+# - deprecated: current_density_from_psi (#355); the legacy onset
 #   detectors and the chease-mhd-stability product are retired behind gates;
 #   the old figure sizes remain as format="legacy"
+# - records three samples too short for filtfilt are refused (#893)
 # - known limitations: TGLF-NN has no VEST-trained model and refuses
 #   out-of-domain input; os.access(X_OK) still says nothing on Windows
+# - known issues, carried to 0.7.1 (#920, from the release's cold review):
+#   EFIT outputs at sub-millisecond times are read back with the wrong time;
+#   FWTFC=0 leaves an unenergised coil free rather than pinned; plots accept
+#   time= but most draw slice 0 (use time_slice=); GPEC resonant plots pair
+#   slices by n only; the external-code uninstallers remove the whole
+#   --prefix, so never point them at a directory you did not create for
+#   them; the database retirement, IMPA-strip and relocate tools are not yet
+#   safe against partial failures
 # 0.6.2
 # - Windows portability hotfix. install/README.md calls native Windows a
 #   first-class path, but the Linux-only CI had never exercised it: a full
