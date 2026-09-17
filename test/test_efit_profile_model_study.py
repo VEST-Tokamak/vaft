@@ -740,3 +740,47 @@ def test_a_cached_model_result_is_reused_only_for_the_run_that_produced_it(study
     assert reruns(shot=41672)[0]
     cache.write_text("{truncated", encoding="utf-8")
     assert reruns(shot=41672)[0]
+
+
+def test_the_per_shot_checkpoint_can_be_written_into_a_directory_that_does_not_exist_yet(
+    study, tmp_path, monkeypatch
+):
+    """cold review efit-workflows F8: the checkpoint inside the shot loop wrote
+    ``--table`` before the only ``mkdir``, which came after the loop, so a whole
+    discharge's model matrix ran and then ``FileNotFoundError``."""
+    import types
+
+    import numpy as np
+
+    import vaft.code.efit.toolchain as toolchain
+
+    monkeypatch.setattr(toolchain, "resolve_toolchain", lambda: {"efit": "/nowhere/efit"})
+    monkeypatch.setattr(toolchain, "toolchain_identities", lambda resolved: {})
+    window = types.SimpleNamespace(start=0.300, end=0.301)
+    seed = types.SimpleNamespace(
+        prepare_shot=lambda shot, product, **kwargs: ({}, np.array([0.300, 0.301]), window, None)
+    )
+    monkeypatch.setattr(study, "_module", lambda path, name: seed)
+    monkeypatch.setattr(study, "_phase_map", lambda constraints, times, cut: ({}, 0.0))
+    monkeypatch.setattr(study, "run_model", lambda constraints, **kwargs: {"slices": [], "seconds": 0.0})
+    monkeypatch.setattr(
+        study, "summarize_run", lambda run: {"produced": 0, "requested": 2, "outcomes": {}, "seconds": 0.0}
+    )
+    monkeypatch.setattr(study, "summarize_ensemble", lambda models: {})
+    monkeypatch.setattr(study, "markdown", lambda payload: "report")
+
+    table = tmp_path / "new" / "tables" / "study.json"
+    report = tmp_path / "new" / "reports" / "study.md"
+    code = study.main(
+        [
+            "--output", str(tmp_path / "out"),
+            "--shots", "39915",
+            "--models", study.BASELINE_MODEL,
+            "--packaged-envelope",
+            "--table", str(table),
+            "--markdown", str(report),
+        ]
+    )
+    assert code == 0
+    assert "39915" in json.loads(table.read_text(encoding="utf-8"))["shots"]
+    assert report.read_text(encoding="utf-8") == "report"

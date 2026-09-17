@@ -1629,6 +1629,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     output = args.output.expanduser()
     output.mkdir(parents=True, exist_ok=True)
+    # Both destinations exist before the first discharge runs: the per-shot
+    # checkpoint writes the table long before the end of the scan.
+    target = args.table or output / "profile_model_study.json"
+    report_path = args.markdown or output / "profile_model_study.md"
+    for destination in (target, report_path):
+        destination.parent.mkdir(parents=True, exist_ok=True)
     source_tables = Path(args.tables).expanduser() if args.tables else Path(data_path("efit")).resolve()
     if args.packaged_envelope:
         tables, table_record = source_tables, {"source": str(source_tables), "policy": "packaged envelope"}
@@ -1739,14 +1745,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         # caches already make each individual run resumable.
         if not args.keep_arrays:
             drop_sampled_arrays(payload)
-        target = args.table or output / "profile_model_study.json"
         target.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
 
-    target = args.table or output / "profile_model_study.json"
-    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     report = markdown(payload)
-    report_path = args.markdown or output / "profile_model_study.md"
     report_path.write_text(report, encoding="utf-8")
     print(report)
     return 0
