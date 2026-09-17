@@ -46,7 +46,9 @@ def test_repair_reproduces_the_first_group_side_exactly():
     assert report["material_factor"] == pytest.approx(1.04, abs=1e-12)
     assert report["output_asymmetry"] == 0.0
     assert report["input_asymmetry"] > 0.0
-    assert report["cross_entries_changed"] == 2 * A.size * B.size
+    # cold review efit-workflows F18: counted, not computed -- the report said
+    # twice the number of entries the repair assigns.
+    assert report["cross_entries_changed"] == int(np.count_nonzero(repaired != defective)) == A.size * B.size
 
 
 def test_repair_refuses_a_cross_ratio_that_is_not_one_constant():
