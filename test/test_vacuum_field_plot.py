@@ -1,8 +1,8 @@
 """The interactive vacuum-field map: what it draws and what it offers to change.
 
-Four quantities -- flux, |B_p|, the decay index, the breakdown figure of merit
--- from one cached evaluation, over the PF time base rather than a handful of
-stored equilibrium slices.
+Six quantities -- flux, |B_p|, the decay index, |E_phi|, the breakdown figure
+of merit and the Lloyd margin -- from one cached evaluation, over the PF time
+base rather than a handful of stored equilibrium slices.
 """
 
 import numpy as np
@@ -80,13 +80,21 @@ def test_the_map_is_confined_to_the_limiter(ods):
 
 
 def test_the_units_are_the_ones_a_start_up_is_read_in(ods):
-    """Gauss for the poloidal field, V/m for the breakdown figure, nothing at
-    all for the decay index -- three vocabularies, one per quantity."""
+    """Gauss for the poloidal field, V/m for the electric field and the
+    breakdown figure, nothing at all for the two ratios -- one vocabulary per
+    quantity."""
     units = {
         field: recipes._build_vacuum_field(ods, field=field, resolution=COARSE).display.unit
         for field in recipes.VACUUM_FIELD_NAMES
     }
-    assert units == {"psi": "mWb", "b_poloidal": "G", "decay_index": "", "breakdown": "V/m"}
+    assert units == {
+        "psi": "mWb",
+        "b_poloidal": "G",
+        "decay_index": "",
+        "e_toroidal": "V/m",
+        "breakdown": "V/m",
+        "lloyd_margin": "",
+    }
 
 
 def test_out_of_range_values_saturate_rather_than_vanish(ods):
@@ -166,8 +174,11 @@ def test_the_breakdown_figure_is_withheld_without_a_toroidal_field(ods):
     """A control that would raise when used is worse than one that is absent."""
     stripped = recipes._isolated_copy(ods, ("pf_active", "pf_passive", "wall", "equilibrium"))
     record = describe_one("vacuum_field", [("no tf", stripped)])
+    # The Lloyd margin needs the toroidal field too (its connection length is
+    # traced along it), so it is withheld with the breakdown figure.
     assert "breakdown" not in record.fields["options"]
-    assert set(record.fields["options"]) == {"psi", "b_poloidal", "decay_index"}
+    assert "lloyd_margin" not in record.fields["options"]
+    assert set(record.fields["options"]) == {"psi", "b_poloidal", "decay_index", "e_toroidal"}
     with pytest.raises(ValueError, match="tf.b_field_tor_vacuum_r"):
         recipes._build_vacuum_field(stripped, field="breakdown", resolution=COARSE)
 
