@@ -2906,3 +2906,31 @@ def test_nubeam_macos_derives_the_gcc_major_from_the_selected_gfortran(tmp_path)
     refused = select()
     assert refused.returncode == 1
     assert "g++-16" in refused.stderr and "brew reinstall gcc" in refused.stderr
+
+
+def test_chease_installers_and_checker_agree_on_what_a_checkout_is():
+    """Cold review install F6: the Windows installer required a generated file.
+
+    `chease_prog_effxml.f90` is not tracked -- src-f90/Makefile deletes it at
+    parse time and the build rewrites it -- so a fresh clone was rejected on
+    Windows while the POSIX installer and the checker accepted it.
+    """
+    spec = importlib.util.spec_from_file_location("check_chease_markers", INSTALL / "check_chease.py")
+    assert spec is not None and spec.loader is not None
+    sys.path.insert(0, str(INSTALL))
+    try:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(INSTALL))
+    expected = list(module.SOURCE_MARKERS)
+
+    posix = _executable_source(INSTALL / "install_chease.sh")
+    listed = re.search(r"for marker in ([^;]+); do", posix)
+    assert listed and listed.group(1).split() == expected
+
+    windows = _executable_source(INSTALL / "install_chease_windows.ps1")
+    declared = re.search(r"-ExpectedFiles @\(([^)]*)\)", windows)
+    assert declared
+    names = [name.replace("\\", "/") for name in re.findall(r"'([^']+)'", declared.group(1))]
+    assert names == expected

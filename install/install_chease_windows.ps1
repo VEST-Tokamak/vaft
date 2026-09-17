@@ -163,8 +163,12 @@ See install\README.md.
 # Source, toolchain, prefix
 # ---------------------------------------------------------------------------
 
+# chease_prog.f90, not chease_prog_effxml.f90: the latter is generated. The
+# Makefile deletes it at parse time and the build writes it again, so a fresh
+# clone does not have it and only a tree that was built before passed. Same
+# markers as install_chease.sh and check_chease.py.
 $source = Assert-SourceCheckout -SourcePath $SourcePath -Project 'CHEASE' `
-    -ExpectedFiles @('src-f90\Makefile', 'src-f90\Makefile.define_FLAGS', 'src-f90\chease_prog_effxml.f90')
+    -ExpectedFiles @('src-f90\Makefile', 'src-f90\Makefile.define_FLAGS', 'src-f90\chease_prog.f90')
 $revision = Get-SourceRevision -SourcePath $source
 Write-RevisionResult -Project 'CHEASE' -Revision $revision
 
