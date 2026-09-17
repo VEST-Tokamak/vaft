@@ -837,6 +837,7 @@ def build_diagnostics_ods(
             ec_power_policy.dt,
             raw_source=raw_path,
         ),
+        optional=True,
     )
     record_realized_grid(
         "ec_power", "ec_launchers", "ec_launchers.beam.0.power_launched.time"
