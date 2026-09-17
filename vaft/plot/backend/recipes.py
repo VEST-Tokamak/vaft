@@ -4053,11 +4053,11 @@ RECIPES["equilibrium_field_psi_vacuum"] = CallableRecipe(
 )
 RECIPES["vacuum_field"] = CallableRecipe(
     builder=_build_vacuum_field,
-    description="Flux, |B_p|, the decay index or the breakdown figure of merit "
-                "from one cached vacuum-field evaluation.",
-    reads=("pf_active", "pf_passive", "wall", "equilibrium", "tf", "dataset_description", "em_coupling.mutual_passive_active", "em_coupling.mutual_passive_passive", "em_coupling.code.parameters", "em_coupling.ids_properties.comment", *_ONSET_READS),
+    description="Flux, |B_p|, the decay index, |E_phi|, the breakdown figure of "
+                "merit or the Lloyd margin from one cached vacuum-field evaluation.",
+    reads=("pf_active", "pf_passive", "wall", "equilibrium", "tf", "barometry", "dataset_description", "em_coupling.mutual_passive_active", "em_coupling.mutual_passive_passive", "em_coupling.code.parameters", "em_coupling.ids_properties.comment", *_ONSET_READS),
     backend=OMAS_BOUND,
-    reason='vaft.omas.process_wrapper.compute_vacuum_field_map subscripts a private copy of pf_active/pf_passive/wall/equilibrium/tf (_isolated_copy)',
+    reason='vaft.omas.process_wrapper.compute_vacuum_field_map subscripts a private copy of pf_active/pf_passive/wall/equilibrium/tf/barometry (_isolated_copy); barometry supplies the fill pressure for field="lloyd_margin"',
 )
 RECIPES["electron_temperature_field"] = CallableRecipe(
     builder=lambda ods, **options: _build_core_profile_field(
