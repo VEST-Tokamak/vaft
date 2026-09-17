@@ -28,7 +28,7 @@ from vaft.process.impa import (
 from .magnetics import PROBE_LENGTH, vfit_plasma_current
 from .registry import port_phi
 from .tf import vfit_tf_current
-from .utils import _deep_merge, _normalize_shot_key, _resolve_info_file_path, load_yaml, path_exists, set_path
+from .utils import _deep_merge, _shot_block, _resolve_info_file_path, load_yaml, path_exists, set_path
 
 __all__ = [
     "HALL_PROBE_TYPE_INDEX",
@@ -109,7 +109,7 @@ def resolve_impa_config(shot: int, info_file: str | None = None) -> dict[str, An
     """
     content = _vest_config(info_file)
     default_block = content.get("0") or content.get(0) or {}
-    shot_block = content.get(_normalize_shot_key(shot), {}) or {}
+    shot_block = _shot_block(content, shot) or {}
     # A leftover nested block would be a second source of truth that silently
     # wins or silently loses depending on the reader, so refuse it outright.
     for label, block in (("default", default_block), (f"shot {shot}", shot_block)):
