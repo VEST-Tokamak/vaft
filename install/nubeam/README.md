@@ -51,8 +51,8 @@ the `windows.ps1` wrapper has not been run end to end in the form shipped here
 with `-CheckOnly`. `windows.sh` can also be run directly from a UCRT64 shell.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File external\nubeam\windows.ps1 C:\git\NUBEAM -AcceptNtccTerms
-powershell -ExecutionPolicy Bypass -File external\nubeam\windows.ps1 C:\git\NUBEAM -CheckOnly
+powershell -ExecutionPolicy Bypass -File install\nubeam\windows.ps1 C:\git\NUBEAM -AcceptNtccTerms
+powershell -ExecutionPolicy Bypass -File install\nubeam\windows.ps1 C:\git\NUBEAM -CheckOnly
 ```
 
 `-AcceptNtccTerms` is what authorises the download of PSPLINE, PREACT and

@@ -2853,3 +2853,19 @@ def test_nubeam_windows_recipe_says_it_is_experimental():
     assert "EXPERIMENTAL" in (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
     readme = (NUBEAM_DIR / "README.md").read_text(encoding="utf-8")
     assert "Experimental and unverified" in readme
+
+
+def test_nubeam_windows_commands_name_a_path_that_exists():
+    """Cold review install F13: nine references to external\\nubeam, which is gone.
+
+    The recipes moved to install/nubeam; the README, Get-Help, the script's own
+    guidance and its NEXT block still sent the operator to the old path.
+    """
+    for path in (NUBEAM_DIR / "README.md", NUBEAM_DIR / "windows.ps1"):
+        text = path.read_text(encoding="utf-8")
+        assert "external\\nubeam" not in text, path.name
+        for script in re.findall(r"-File ([\w\\]+\.ps1)", text):
+            assert (ROOT / Path(*script.split("\\"))).is_file(), f"{path.name}: {script}"
+    wrapper = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    # The harness needs --nubeam-root and refuses any platform but Darwin/Linux.
+    assert "run-local-validation.sh --case" not in wrapper

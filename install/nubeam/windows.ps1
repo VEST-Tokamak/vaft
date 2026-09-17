@@ -16,10 +16,10 @@
     and sets NUBEAMHOME so that VAFT, JupyterLab and a plain terminal all find
     the result.
 
-    The build recipe itself lives in external\nubeam\windows.sh and runs inside
+    The build recipe itself lives in install\nubeam\windows.sh and runs inside
     MSYS2. This script owns the Windows side: finding MSYS2, reporting which
     revision you built, colocating the runtime DLLs, and wiring the
-    environment. external\nubeam\macos.sh is the same recipe for Apple Silicon.
+    environment. install\nubeam\macos.sh is the same recipe for Apple Silicon.
 
     You obtain NUBEAM yourself and pass its path. This script never clones,
     fetches, pulls, or changes the revision of your source tree. What it does
@@ -95,10 +95,10 @@
     NTCC sources you placed under vendor\ntcc\ yourself are left alone.
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File external\nubeam\windows.ps1 C:\git\NUBEAM -AcceptNtccTerms
+    powershell -ExecutionPolicy Bypass -File install\nubeam\windows.ps1 C:\git\NUBEAM -AcceptNtccTerms
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File external\nubeam\windows.ps1 C:\git\NUBEAM -CheckOnly
+    powershell -ExecutionPolicy Bypass -File install\nubeam\windows.ps1 C:\git\NUBEAM -CheckOnly
 #>
 [CmdletBinding()]
 param(
@@ -166,7 +166,7 @@ if ($Uninstall) {
 -Uninstall needs the NUBEAM source tree, because everything this script
 generates lives inside it.
 
-    powershell -ExecutionPolicy Bypass -File external\nubeam\windows.ps1 C:\git\NUBEAM -Uninstall
+    powershell -ExecutionPolicy Bypass -File install\nubeam\windows.ps1 C:\git\NUBEAM -Uninstall
 '@
     }
     # Nothing is removed from a directory that is not a NUBEAM tree, or from a
@@ -274,7 +274,7 @@ if (-not $SourcePath) {
     Stop-WithGuidance @'
 The path to your NUBEAM source tree is required.
 
-    powershell -ExecutionPolicy Bypass -File external\nubeam\windows.ps1 C:\git\NUBEAM -AcceptNtccTerms
+    powershell -ExecutionPolicy Bypass -File install\nubeam\windows.ps1 C:\git\NUBEAM -AcceptNtccTerms
 
 VAFT does not vendor NUBEAM: NTCC requires each user to accept its licence
 before downloading it. Obtain the source from
@@ -406,7 +406,7 @@ else {
 }
 
 Write-ExternalSummary -Title $Title -NextSteps @(
-    "Verify the installation:  powershell -File external\nubeam\windows.ps1 $source -CheckOnly",
-    'Reproduce the reference cases:  bash install/nubeam/run-local-validation.sh --case d3d',
-    'NUBEAM results are returned as a native container; nothing maps them into IMAS yet (issue #490).'
+    "Verify the installation:  powershell -ExecutionPolicy Bypass -File install\nubeam\windows.ps1 $source -CheckOnly",
+    'The reference-case harness (install/nubeam/run-local-validation.sh) supports Linux and macOS only.',
+    'NUBEAM profiles map to the core_sources and distributions IDS; birth and lost-particle markers stay in the native container (issue #490).'
 )
