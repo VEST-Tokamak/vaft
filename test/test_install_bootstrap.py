@@ -2721,3 +2721,50 @@ def test_efit_build_directory_is_absolute_before_it_is_recorded_or_removed(tmp_p
     assert judged(other) == 1, "somebody else's CMake tree"
     assert judged("build-ours") == 1, "a relative path from a 0.7.0 manifest"
     assert judged(tmp_path / "missing") == 1
+
+
+def _nubeam_windows_uninstall_block() -> str:
+    wrapper = _executable_source(NUBEAM_DIR / "windows.ps1")
+    block = wrapper[wrapper.index("if ($Uninstall) {"):]
+    return block[: block.index("exit 0")]
+
+
+def test_nubeam_windows_uninstall_checks_the_tree_and_the_manifest_first():
+    """Cold review install F4 (read, not run: there is no pwsh here).
+
+    `windows.ps1 <any path> -Uninstall` removed local\\, build\\windows-x86_64\\
+    and vendor\\ntcc\\ under whatever path it was given: the source-tree
+    assertion ran only on the build path, and no manifest was consulted.
+    """
+    block = _nubeam_windows_uninstall_block()
+    first_removal = block.index("Remove-Item")
+    assert block.index("Assert-SourceCheckout") < first_removal
+    refusal = block.index("Nothing was removed")
+    assert block.index("$ManifestName") < refusal < first_removal
+    # The environment variable is not touched either before ownership is known.
+    assert refusal < block.index("Remove-ExternalCodeEnvironment")
+
+
+def test_nubeam_windows_uninstall_spares_hand_placed_ntcc_sources():
+    """vendor\\ntcc is operator-populated whenever the PPPL download fails.
+
+    The recipe uses such a tree as-is, so only modules it recorded downloading
+    may be removed -- and the directory itself only once it is empty.
+    """
+    wrapper = _executable_source(NUBEAM_DIR / "windows.ps1")
+    generated = re.search(r"\$GeneratedPaths = @\(([^)]*)\)", wrapper)
+    assert generated and "ntcc" not in generated.group(1)
+    block = _nubeam_windows_uninstall_block()
+    assert "'managed_dir'" in block and "/vendor/ntcc/" in block
+    assert "Remove-Item -LiteralPath $target -Force\n" in block  # parents: non-recursive
+    parents = block[block.index("foreach ($relative in @('vendor\\ntcc'"):]
+    assert "-Recurse" not in parents[: parents.index("foreach ($makeLocal")]
+
+    recipe = (NUBEAM_DIR / "windows.sh").read_text(encoding="utf-8")
+    assert ': > "$MANIFEST"' not in recipe, "an empty manifest records nothing to remove"
+    assert "printf 'root\\t%s\\n' \"$ROOT_DIR\"" in recipe
+    function = recipe[recipe.index("download_ntcc_module() {"):]
+    function = function[: function.index("\n}\n")]
+    already_there = function.index('[[ -d "$destination" ]] && return 0')
+    recorded = function.index("printf 'managed_dir\\t%s\\n' \"$destination\" >> \"$MANIFEST\"")
+    assert already_there < recorded < function.index('cp -R "$candidate"')

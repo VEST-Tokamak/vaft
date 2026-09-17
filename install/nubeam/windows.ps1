@@ -19,7 +19,7 @@
     fetches, pulls, or changes the revision of your source tree. What it does
     generate -- the install prefix, the object tree, the downloaded dependency
     sources and the generated share\Make.local files -- all lives inside that
-    tree, and -Uninstall removes exactly those.
+    tree, and -Uninstall removes those it has a record of generating.
 
     Four things about a native Windows build differ from the Linux one, and
     all four are reported rather than hidden:
@@ -82,9 +82,11 @@
 
 .PARAMETER Uninstall
     Remove what this script generated inside your source tree -- local\,
-    build\windows-x86_64\, vendor\ntcc\, the generated share\Make.local files
-    and the manifest -- and, when it still points there, the NUBEAMHOME user
-    variable. Nothing else in your source tree is touched.
+    build\windows-x86_64\, the NTCC modules under vendor\ntcc\ that the
+    recipe recorded downloading, the generated share\Make.local files and the
+    manifest -- and, when it still points there, the NUBEAMHOME user variable.
+    It refuses a directory that is not a NUBEAM tree or has no manifest, and
+    NTCC sources you placed under vendor\ntcc\ yourself are left alone.
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File external\nubeam\windows.ps1 C:\git\NUBEAM -AcceptNtccTerms
@@ -119,9 +121,12 @@ $Title = 'NUBEAM (Windows native)'
 # What a NUBEAM case drives, in the order it uses them.
 $Executables = @('nubeam_comp_exec')
 
-# The generated names, relative to the source tree. -Uninstall removes exactly
-# these, which is also the list macos.sh's uninstall.sh removes.
-$GeneratedPaths = @('local', 'build\windows-x86_64', 'vendor\ntcc', '.nubeam-install-manifest')
+# The directories windows.sh creates unconditionally, relative to the source
+# tree. It refuses to start when either exists without its manifest, so with a
+# manifest present both are its own. vendor\ntcc is NOT in this list: see
+# -Uninstall.
+$GeneratedPaths = @('local', 'build\windows-x86_64')
+$ManifestName = '.nubeam-install-manifest'
 
 $prefixToken = Get-Msys2PackagePrefix -MinGWEnvironment $MinGWEnvironment
 $Packages = @(
@@ -157,12 +162,47 @@ generates lives inside it.
     powershell -ExecutionPolicy Bypass -File external\nubeam\windows.ps1 C:\git\NUBEAM -Uninstall
 '@
     }
-    $source = (Resolve-Path -LiteralPath $SourcePath).Path
+    # Nothing is removed from a directory that is not a NUBEAM tree, or from a
+    # NUBEAM tree the recipe never installed into. windows.sh refuses to start
+    # when local\ or build\windows-x86_64\ exist without its manifest, so the
+    # manifest is what makes those two directories this script's to remove.
+    $source = Assert-SourceCheckout -SourcePath $SourcePath -Project 'NUBEAM' `
+        -ExpectedFiles @('Makefile', 'nubeam_comp_exec')
+    $manifestPath = Join-Path $source $ManifestName
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        Stop-WithGuidance @"
+$source has no $ManifestName, so there is no record that this script installed
+anything there. Nothing was removed.
+"@
+    }
+
+    # vendor\ntcc is where an operator places the licence-gated NTCC sources by
+    # hand when the download fails, and the recipe uses such a tree as-is. Only
+    # the modules the recipe recorded downloading are removed, never the
+    # directory as such.
+    $recordedRoot = $null
+    $managed = @()
+    foreach ($line in @(Get-Content -LiteralPath $manifestPath)) {
+        $parts = @(([string] $line) -split "`t", 2)
+        if ($parts.Count -ne 2) { continue }
+        if ($parts[0] -eq 'root') { $recordedRoot = $parts[1].TrimEnd('/') }
+        if ($parts[0] -eq 'managed_dir') { $managed += $parts[1] }
+    }
+    $targets = @($GeneratedPaths)
+    if ($recordedRoot) {
+        $ntccRoot = $recordedRoot + '/vendor/ntcc/'
+        foreach ($entry in $managed) {
+            if (-not $entry.StartsWith($ntccRoot)) { continue }
+            $module = $entry.Substring($ntccRoot.Length)
+            if ($module -match '^[A-Za-z0-9_-]+$') { $targets += "vendor\ntcc\$module" }
+        }
+    }
+
     $prefix = Get-NubeamPrefix -Source $source
     if (Test-Path -LiteralPath $prefix) {
         Remove-ExternalCodeEnvironment -Name $HomeVariable -ExpectedValue (Resolve-Path -LiteralPath $prefix).Path
     }
-    foreach ($relative in $GeneratedPaths) {
+    foreach ($relative in $targets) {
         $target = Join-Path $source $relative
         if (Test-Path -LiteralPath $target) {
             Remove-Item -LiteralPath $target -Recurse -Force
@@ -170,6 +210,17 @@ generates lives inside it.
         }
         else {
             Write-Result -Status SKIP -Name $relative -Detail 'not present'
+        }
+    }
+    # Parents go only when nothing is left in them.
+    foreach ($relative in @('vendor\ntcc', 'vendor', 'build')) {
+        $target = Join-Path $source $relative
+        if (-not (Test-Path -LiteralPath $target -PathType Container)) { continue }
+        if (@(Get-ChildItem -LiteralPath $target -Force).Count -eq 0) {
+            Remove-Item -LiteralPath $target -Force
+        }
+        else {
+            Write-Result -Status SKIP -Name $relative -Detail 'left: it holds files this script has no record of placing'
         }
     }
     # Only the Make.local files this script generated; a hand-written one is
@@ -180,6 +231,7 @@ generates lives inside it.
             Write-Result -Status PASS -Name 'Generated Make.local' -Detail $makeLocal.FullName
         }
     }
+    Remove-Item -LiteralPath $manifestPath -Force
     Write-ExternalSummary -Title $Title
     Write-Host ''
     Write-Host 'Your NUBEAM source tree is otherwise untouched.'
